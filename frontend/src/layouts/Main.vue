@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
-import { inject, onBeforeMount, ref } from "vue";
+import { inject, onBeforeMount } from "vue";
 import EditUserDialog from "@/components/Settings/Administration/Users/Dialog/EditUser.vue";
 import AddRomsToCollectionDialog from "@/components/common/Collection/Dialog/AddRoms.vue";
 import RemoveRomsFromCollectionDialog from "@/components/common/Collection/Dialog/RemoveRoms.vue";
@@ -67,27 +67,27 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-  <notification />
-  <main-app-bar />
+  <Notification />
+  <MainAppBar />
   <router-view />
 
-  <match-rom-dialog />
-  <edit-rom-dialog />
-  <search-cover-dialog />
-  <add-roms-to-collection-dialog />
-  <remove-roms-from-collection-dialog />
-  <delete-rom-dialog />
-  <edit-user-dialog />
-  <note-dialog />
-  <show-q-r-code-dialog />
+  <MatchRomDialog />
+  <EditRomDialog />
+  <SearchCoverDialog />
+  <AddRomsToCollectionDialog />
+  <RemoveRomsFromCollectionDialog />
+  <DeleteRomDialog />
+  <EditUserDialog />
+  <NoteDialog />
+  <ShowQRCodeDialog />
 
-  <new-version-dialog />
-  <upload-progress />
+  <NewVersionDialog />
+  <UploadProgress />
 
-  <upload-saves-dialog />
-  <delete-saves-dialog />
-  <upload-states-dialog />
-  <delete-states-dialog />
-  <select-save-dialog />
-  <select-state-dialog />
+  <UploadSavesDialog />
+  <DeleteSavesDialog />
+  <UploadStatesDialog />
+  <DeleteStatesDialog />
+  <SelectSaveDialog />
+  <SelectStateDialog />
 </template>

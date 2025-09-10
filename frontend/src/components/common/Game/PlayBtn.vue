@@ -39,8 +39,8 @@ async function goToPlayer(rom: SimpleRom) {
       name: ROUTES.EMULATORJS,
       params: { rom: rom.id },
     });
-    // Force full reload to retrieve COEP/COOP headers from nginx, needed to enable multi-threading
-    // in EmulatorJS.
+    // Force full reload to retrieve COEP/COOP headers from nginx
+    // Required to enable multi-threading in EmulatorJS.
     router.go(0);
   } else if (
     isRuffleEmulationSupported(rom.platform_slug, heartbeat.value, config.value)

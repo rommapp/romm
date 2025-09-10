@@ -204,7 +204,7 @@ async def delete_platform(
     request: Request,
     id: Annotated[int, PathVar(description="Platform id.", ge=1)],
 ) -> None:
-    """Delete a platform."""
+    """Delete a platform by ID."""
 
     platform = db_platform_handler.get_platform(id)
     if not platform:

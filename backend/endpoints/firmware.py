@@ -1,4 +1,6 @@
-from fastapi import File, HTTPException, Request, UploadFile, status
+from typing import Annotated
+
+from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
@@ -216,46 +218,46 @@ def get_firmware_content(
 @protected_route(router.post, "/delete", [Scope.FIRMWARE_WRITE])
 async def delete_firmware(
     request: Request,
+    firmware: Annotated[
+        list[int],
+        Body(
+            description="List of firmware ids to delete from database.",
+            embed=True,
+        ),
+    ],
+    delete_from_fs: Annotated[
+        list[int],
+        Body(
+            description="List of firmware ids to delete from filesystem.",
+            default_factory=list,
+            embed=True,
+        ),
+    ],
 ) -> BulkOperationResponse:
-    """Delete firmware endpoint
-
-    Args:
-        request (Request): Fastapi Request object.
-            {
-                "firmware": List of firmware IDs to delete
-            }
-        delete_from_fs (bool, optional): Flag to delete rom from filesystem. Defaults to False.
-
-    Returns:
-        BulkOperationResponse: Bulk operation response with details
-    """
-
-    data: dict = await request.json()
-    firmware_ids: list = data["firmware"]
-    delete_from_fs: list = data["delete_from_fs"]
+    """Delete firmware."""
 
     successful_items = 0
     failed_items = 0
     errors = []
 
-    for id in firmware_ids:
-        firmware = db_firmware_handler.get_firmware(id)
-        if not firmware:
+    for id in firmware:
+        fw = db_firmware_handler.get_firmware(id)
+        if not fw:
             failed_items += 1
             errors.append(f"Firmware with ID {id} not found")
             continue
 
         try:
-            log.info(f"Deleting {hl(firmware.file_name)} from database")
+            log.info(f"Deleting {hl(fw.file_name)} from database")
             db_firmware_handler.delete_firmware(id)
 
             if id in delete_from_fs:
-                log.info(f"Deleting {hl(firmware.file_name)} from filesystem")
+                log.info(f"Deleting {hl(fw.file_name)} from filesystem")
                 try:
-                    file_path = f"{firmware.file_path}/{firmware.file_name}"
+                    file_path = f"{fw.file_path}/{fw.file_name}"
                     await fs_firmware_handler.remove_file(file_path=file_path)
                 except FileNotFoundError:
-                    error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform.slug)}"
+                    error = f"Firmware file {hl(fw.file_name)} not found for platform {hl(fw.platform.slug)}"
                     log.error(error)
                     errors.append(error)
                     failed_items += 1

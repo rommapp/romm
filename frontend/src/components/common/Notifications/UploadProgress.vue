@@ -33,6 +33,7 @@ watch(files, (newList) => {
     <v-list class="bg-toplayer pa-0">
       <v-list-item
         v-for="file in files"
+        :key="file.filename"
         class="py-2 px-4 bg-toplayer"
         :disabled="file.finished && !file.failed"
       >

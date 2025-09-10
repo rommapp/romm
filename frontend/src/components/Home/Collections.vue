@@ -43,16 +43,17 @@ watch(documentY, () => {
 });
 </script>
 <template>
-  <r-section icon="mdi-bookmark-box-multiple" :title="props.title">
+  <RSection icon="mdi-bookmark-box-multiple" :title="props.title">
     <template #toolbar-append>
       <v-btn
         aria-label="Toggle collections grid view"
         icon
         rounded="0"
         @click="toggleGridCollections"
-        ><v-icon>{{
-          gridCollections ? "mdi-view-comfy" : "mdi-view-column"
-        }}</v-icon>
+      >
+        <v-icon>
+          {{ gridCollections ? "mdi-view-comfy" : "mdi-view-column" }}
+        </v-icon>
       </v-btn>
     </template>
     <template #content>
@@ -75,18 +76,18 @@ watch(documentY, () => {
               isHovering && hoveringCollectionId === collection.id ? 1100 : 1,
           }"
         >
-          <collection-card
+          <CollectionCard
+            :key="collection.id"
             show-rom-count
             transform-scale
-            :key="collection.id"
             :collection="collection"
             with-link
             title-on-hover
-            :enable3DTilt="enable3DEffect"
+            :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
           />
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

@@ -23,13 +23,13 @@ function setFavourites() {
     :color="filterFavourites ? 'primary' : ''"
     @click="setFavourites"
   >
-    <v-icon :color="filterFavourites ? 'primary' : ''">mdi-star</v-icon
+    <v-icon :color="filterFavourites ? 'primary' : ''"> mdi-star </v-icon
     ><span
       class="ml-2"
       :class="{
         'text-primary': filterFavourites,
       }"
       >{{ t("platform.show-favourites") }}</span
-    ></v-btn
-  >
+    >
+  </v-btn>
 </template>

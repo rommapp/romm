@@ -6,7 +6,7 @@ const heartbeatStore = storeHeartbeat();
 </script>
 
 <template>
-  <notification />
+  <Notification />
   <v-container id="container" class="fill-height justify-center">
     <router-view />
   </v-container>
