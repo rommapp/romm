@@ -361,52 +361,42 @@ const navigationFunctions = {
   },
 };
 
-let verticalScrollPromise: Promise<void> | null = null;
 let isVerticalScrolling = false;
 
 function scrollToCurrentRow() {
   isVerticalScrolling = true;
 
-  // clear background art when switching sections
-  clearSelectedBackgroundArt();
+  const behavior: ScrollBehavior = "smooth";
+  switch (navigationMode.value) {
+    case "systems":
+      scrollContainerRef.value?.scrollTo({ top: 0, behavior });
+      break;
+    case "recent":
+      recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
+      break;
+    case "collections":
+      collectionsSectionRef.value?.scrollIntoView({
+        behavior,
+        block: "start",
+      });
+      break;
+    case "smartCollections":
+      smartCollectionsSectionRef.value?.scrollIntoView({
+        behavior,
+        block: "start",
+      });
+      break;
+    case "virtualCollections":
+      virtualCollectionsSectionRef.value?.scrollIntoView({
+        behavior,
+        block: "start",
+      });
+      break;
+  }
 
-  // promise resolves when the scroll animation finishes
-  verticalScrollPromise = new Promise((resolve) => {
-    const behavior: ScrollBehavior = "smooth";
-    switch (navigationMode.value) {
-      case "systems":
-        scrollContainerRef.value?.scrollTo({ top: 0, behavior });
-        break;
-      case "recent":
-        recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
-        break;
-      case "collections":
-        collectionsSectionRef.value?.scrollIntoView({
-          behavior,
-          block: "start",
-        });
-        break;
-      case "smartCollections":
-        smartCollectionsSectionRef.value?.scrollIntoView({
-          behavior,
-          block: "start",
-        });
-        break;
-      case "virtualCollections":
-        virtualCollectionsSectionRef.value?.scrollIntoView({
-          behavior,
-          block: "start",
-        });
-        break;
-    }
-
-    // resolve after animation
-    setTimeout(() => {
-      isVerticalScrolling = false;
-      verticalScrollPromise = null;
-      resolve();
-    }, 400); // match smooth scroll duration
-  });
+  setTimeout(() => {
+    isVerticalScrolling = false;
+  }, 400);
 }
 
 function centerInCarousel(
@@ -433,13 +423,15 @@ function exitConsoleMode() {
   if (document.fullscreenElement) {
     document.exitFullscreen?.();
   }
-  router.push({ name: "home" });
+  router.push({ name: ROUTES.HOME });
 }
 
 function toggleFullscreen() {
-  document.fullscreenElement
-    ? document.exitFullscreen?.()
-    : document.documentElement.requestFullscreen?.();
+  if (document.fullscreenElement) {
+    document.exitFullscreen?.();
+  } else {
+    document.documentElement.requestFullscreen?.();
+  }
 }
 
 // Navigation handlers

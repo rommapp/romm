@@ -23,6 +23,8 @@ const galleryView = storeGalleryView();
         class="mr-0"
         :icon="views[galleryView.currentView]['icon']"
         aria-label="Change view"
-        @click="galleryView.next" /></template
-  ></v-tooltip>
+        @click="galleryView.next"
+      />
+    </template>
+  </v-tooltip>
 </template>

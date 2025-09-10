@@ -102,6 +102,9 @@ ARCADE_SS_IDS: Final = [
     269,
 ]
 
+# Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
+SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
+
 
 class SSPlatform(TypedDict):
     slug: str
@@ -279,6 +282,14 @@ class SSHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return bool(SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD)
 
+    @staticmethod
+    def extract_ss_id_from_filename(fs_name: str) -> int | None:
+        """Extract ScreenScraper ID from filename tag like (ss-12345)."""
+        match = SS_TAG_REGEX.search(fs_name)
+        if match:
+            return int(match.group(1))
+        return None
+
     async def _search_rom(
         self, search_term: str, platform_ss_id: int, split_game_name: bool = False
     ) -> SSGame | None:
@@ -331,6 +342,21 @@ class SSHandler(MetadataHandler):
 
         if not platform_ss_id:
             return SSRom(ss_id=None)
+
+        # Check for ScreenScraper ID tag in filename first
+        ss_id_from_tag = self.extract_ss_id_from_filename(file_name)
+        if ss_id_from_tag:
+            log.debug(f"Found ScreenScraper ID tag in filename: {ss_id_from_tag}")
+            rom_by_id = await self.get_rom_by_id(ss_id_from_tag)
+            if rom_by_id["ss_id"]:
+                log.debug(
+                    f"Successfully matched ROM by ScreenScraper ID tag: {file_name} -> {ss_id_from_tag}"
+                )
+                return rom_by_id
+            else:
+                log.warning(
+                    f"ScreenScraper ID {ss_id_from_tag} from filename tag not found in ScreenScraper"
+                )
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
         fallback_rom = SSRom(ss_id=None)

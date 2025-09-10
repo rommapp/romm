@@ -12,6 +12,6 @@ const { mainBarCollapsed } = storeToRefs(navigationStore);
 
 <template>
   <router-link :to="{ name: ROUTES.HOME }" class="cursor-pointer">
-    <r-isotipo :size="smAndDown ? 35 : 40" :avatar="mainBarCollapsed" />
+    <RIsotipo :size="smAndDown ? 35 : 40" :avatar="mainBarCollapsed" />
   </router-link>
 </template>

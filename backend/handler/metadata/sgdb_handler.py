@@ -34,6 +34,38 @@ class SGDBBaseHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return bool(STEAMGRIDDB_API_KEY)
 
+    async def get_rom_by_id(self, sgdb_id: int) -> SGDBRom:
+        """Get ROM details by SteamGridDB ID."""
+        if not self.is_enabled():
+            return SGDBRom(sgdb_id=None)
+
+        try:
+            game = await self.sgdb_service.get_game_by_id(sgdb_id)
+            if not game:
+                return SGDBRom(sgdb_id=None)
+
+            # Get covers for the game
+            game_details = await self._get_game_covers(
+                game_id=game["id"],
+                game_name=game["name"],
+                types=(SGDBType.STATIC,),
+                is_nsfw=False,
+                is_humor=False,
+                is_epilepsy=False,
+            )
+
+            first_resource = next(
+                (res for res in game_details["resources"] if res["url"]), None
+            )
+
+            result = SGDBRom(sgdb_id=game["id"])
+            if first_resource:
+                result["url_cover"] = first_resource["url"]
+            return result
+        except Exception as e:
+            log.warning(f"Failed to fetch ROM by SteamGridDB ID {sgdb_id}: {e}")
+            return SGDBRom(sgdb_id=None)
+
     async def get_details(self, search_term: str) -> list[SGDBResult]:
         if not self.is_enabled():
             return []

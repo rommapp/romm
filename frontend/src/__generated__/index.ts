@@ -61,6 +61,7 @@ export type { SaveSchema } from './models/SaveSchema';
 export type { ScreenshotSchema } from './models/ScreenshotSchema';
 export type { SearchCoverSchema } from './models/SearchCoverSchema';
 export type { SearchRomSchema } from './models/SearchRomSchema';
+export type { SGDBResource } from './models/SGDBResource';
 export type { SiblingRomSchema } from './models/SiblingRomSchema';
 export type { SimpleRomSchema } from './models/SimpleRomSchema';
 export type { SmartCollectionSchema } from './models/SmartCollectionSchema';

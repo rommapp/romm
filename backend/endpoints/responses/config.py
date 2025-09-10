@@ -13,5 +13,6 @@ class ConfigResponse(TypedDict):
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
     EJS_DEBUG: bool
+    EJS_CACHE_LIMIT: int | None
     EJS_SETTINGS: dict[str, dict[str, str]]
     EJS_CONTROLS: dict[str, EjsControls]

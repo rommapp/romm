@@ -13,6 +13,7 @@ export type ConfigResponse = {
     PLATFORMS_BINDING: Record<string, string>;
     PLATFORMS_VERSIONS: Record<string, string>;
     EJS_DEBUG: boolean;
+    EJS_CACHE_LIMIT: (number | null);
     EJS_SETTINGS: Record<string, Record<string, string>>;
     EJS_CONTROLS: Record<string, EjsControls>;
 };

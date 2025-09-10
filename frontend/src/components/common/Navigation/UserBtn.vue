@@ -13,14 +13,14 @@ const { smAndDown } = useDisplay();
 </script>
 <template>
   <v-avatar
-    @keydown.enter="navigationStore.switchActiveSettingsDrawer"
-    @click="navigationStore.switchActiveSettingsDrawer"
     class="pointer"
     :size="smAndDown ? 35 : 40"
     :class="{
       active: navigationStore.activeSettingsDrawer,
       rounded: !mainBarCollapsed,
     }"
+    @keydown.enter="navigationStore.switchActiveSettingsDrawer"
+    @click="navigationStore.switchActiveSettingsDrawer"
   >
     <v-img
       :src="
