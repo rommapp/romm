@@ -542,7 +542,7 @@ async def get_rom_content(
             filename=f.file_name_for_download(rom, hidden_folder),
         )
 
-    content_lines = [await create_zip_content(f, "/library-zip") for f in files]
+    content_lines = [await create_zip_content(f, "/library") for f in files]
 
     if not rom.has_m3u_file():
         m3u_encoded_content = "\n".join(
