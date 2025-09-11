@@ -70,7 +70,6 @@
     "vite-plugin-mkcert": "^1.17.8",
     "vite-plugin-pwa": "^0.21.1",
     "vite-plugin-vuetify": "^2.0.4",
-    "vitest": "^3.2.4",
     "vue-tsc": "^2.2.8"
   },
   "engines": {
