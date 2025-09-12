@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
 import { getRoleIcon } from "@/utils";
-import { inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
-import { useDisplay } from "vuetify";
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showCreateUserDialog", () => {
@@ -54,11 +54,11 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-account"
     :width="lgAndUp ? '60vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-form v-model="validForm">
@@ -103,7 +103,9 @@ function closeDialog() {
             >
               <template #selection="{ item }">
                 <v-list-item class="pa-0">
-                  <v-icon class="mr-2">{{ getRoleIcon(item.title) }}</v-icon>
+                  <v-icon class="mr-2">
+                    {{ getRoleIcon(item.title) }}
+                  </v-icon>
                   {{ item.title }}
                 </v-list-item>
               </template>
@@ -137,5 +139,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

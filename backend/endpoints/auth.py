@@ -1,6 +1,10 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Final
 
+from fastapi import Body, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
+from fastapi.security.http import HTTPBasic
+
 from config import OIDC_ENABLED, OIDC_REDIRECT_URI
 from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
@@ -11,9 +15,6 @@ from exceptions.auth_exceptions import (
     OIDCNotConfiguredException,
     UserDisabledException,
 )
-from fastapi import Body, Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse
-from fastapi.security.http import HTTPBasic
 from handler.auth import auth_handler, oauth_handler, oidc_handler
 from handler.database import db_user_handler
 from logger.formatter import CYAN

@@ -5,11 +5,12 @@ from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
 import pydash
+from unidecode import unidecode as uc
+
 from adapters.services.screenscraper import ScreenScraperService
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from logger.logger import log
-from unidecode import unidecode as uc
 
 from .base_handler import (
     PS2_OPL_REGEX,
@@ -21,8 +22,6 @@ from .base_handler import (
 )
 from .base_handler import UniversalPlatformSlug as UPS
 
-# Used to display the Screenscraper API status in the frontend
-SS_API_ENABLED: Final = bool(SCREENSCRAPER_USER) and bool(SCREENSCRAPER_PASSWORD)
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 
@@ -102,6 +101,9 @@ ARCADE_SS_IDS: Final = [
     158,
     269,
 ]
+
+# Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
+SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
 
 
 class SSPlatform(TypedDict):
@@ -276,6 +278,18 @@ class SSHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ss_service = ScreenScraperService()
 
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return bool(SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD)
+
+    @staticmethod
+    def extract_ss_id_from_filename(fs_name: str) -> int | None:
+        """Extract ScreenScraper ID from filename tag like (ss-12345)."""
+        match = SS_TAG_REGEX.search(fs_name)
+        if match:
+            return int(match.group(1))
+        return None
+
     async def _search_rom(
         self, search_term: str, platform_ss_id: int, split_game_name: bool = False
     ) -> SSGame | None:
@@ -323,11 +337,26 @@ class SSHandler(MetadataHandler):
     async def get_rom(self, file_name: str, platform_ss_id: int) -> SSRom:
         from handler.filesystem import fs_rom_handler
 
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return SSRom(ss_id=None)
 
         if not platform_ss_id:
             return SSRom(ss_id=None)
+
+        # Check for ScreenScraper ID tag in filename first
+        ss_id_from_tag = self.extract_ss_id_from_filename(file_name)
+        if ss_id_from_tag:
+            log.debug(f"Found ScreenScraper ID tag in filename: {ss_id_from_tag}")
+            rom_by_id = await self.get_rom_by_id(ss_id_from_tag)
+            if rom_by_id["ss_id"]:
+                log.debug(
+                    f"Successfully matched ROM by ScreenScraper ID tag: {file_name} -> {ss_id_from_tag}"
+                )
+                return rom_by_id
+            else:
+                log.warning(
+                    f"ScreenScraper ID {ss_id_from_tag} from filename tag not found in ScreenScraper"
+                )
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
         fallback_rom = SSRom(ss_id=None)
@@ -411,7 +440,7 @@ class SSHandler(MetadataHandler):
         return build_ss_rom(res)
 
     async def get_rom_by_id(self, ss_id: int) -> SSRom:
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return SSRom(ss_id=None)
 
         res = await self.ss_service.get_game_info(game_id=ss_id)
@@ -421,7 +450,7 @@ class SSHandler(MetadataHandler):
         return build_ss_rom(res)
 
     async def get_matched_rom_by_id(self, ss_id: int) -> SSRom | None:
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return None
 
         rom = await self.get_rom_by_id(ss_id)
@@ -430,7 +459,7 @@ class SSHandler(MetadataHandler):
     async def get_matched_roms_by_name(
         self, search_term: str, platform_ss_id: int | None
     ) -> list[SSRom]:
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return []
 
         if not platform_ss_id:

@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from models.platform import DEFAULT_COVER_ASPECT_RATIO
 from pydantic import Field, computed_field, field_validator
+
+from models.platform import DEFAULT_COVER_ASPECT_RATIO
 
 from .base import BaseModel
 from .firmware import FirmwareSchema

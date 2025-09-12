@@ -1,6 +1,7 @@
-import type { HeartbeatResponse } from "@/__generated__";
 import { defineStore } from "pinia";
+import type { HeartbeatResponse } from "@/__generated__";
 import i18n from "@/locales";
+import api from "@/services/api";
 
 export type Heartbeat = HeartbeatResponse;
 export type MetadataOption = {
@@ -44,6 +45,16 @@ const defaultHeartbeat: Heartbeat = {
     ENABLED: false,
     PROVIDER: "",
   },
+  TASKS: {
+    ENABLE_SCHEDULED_RESCAN: false,
+    SCHEDULED_RESCAN_CRON: "",
+    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: false,
+    SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: "",
+    ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA: false,
+    SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON: "",
+    ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP: false,
+    SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON: "",
+  },
 };
 
 export default defineStore("heartbeat", {
@@ -52,8 +63,15 @@ export default defineStore("heartbeat", {
   }),
 
   actions: {
-    set(data: HeartbeatResponse) {
-      this.value = { ...this.value, ...data };
+    async fetchHeartbeat(): Promise<Heartbeat> {
+      try {
+        const response = await api.get("/heartbeat");
+        this.value = { ...this.value, ...response.data };
+        return this.value;
+      } catch (error) {
+        console.error("Error fetching heartbeat: ", error);
+        return this.value;
+      }
     },
 
     getAllMetadataOptions(): MetadataOption[] {

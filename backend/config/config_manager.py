@@ -1,9 +1,12 @@
 import json
 import sys
-from typing import Final
+from typing import Final, NotRequired, TypedDict
 
 import pydash
 import yaml
+from sqlalchemy import URL
+from yaml.loader import SafeLoader
+
 from config import (
     DB_HOST,
     DB_NAME,
@@ -22,12 +25,25 @@ from exceptions.config_exceptions import (
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from sqlalchemy import URL
-from yaml.loader import SafeLoader
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
+
+
+class EjsControlsButton(TypedDict):
+    value: NotRequired[str]  # Keyboard key
+    value2: NotRequired[str]  # Controller button
+
+
+class EjsControls(TypedDict):
+    _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
+    _1: dict[int, EjsControlsButton]
+    _2: dict[int, EjsControlsButton]
+    _3: dict[int, EjsControlsButton]
+
+
+EjsOption = dict[str, str]  # option_name -> option_value
 
 
 class Config:
@@ -42,6 +58,10 @@ class Config:
     ROMS_FOLDER_NAME: str
     FIRMWARE_FOLDER_NAME: str
     HIGH_PRIO_STRUCTURE_PATH: str
+    EJS_DEBUG: bool
+    EJS_CACHE_LIMIT: int | None
+    EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
+    EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -149,7 +169,29 @@ class ConfigManager:
             FIRMWARE_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.firmware_folder", "bios"
             ),
+            EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
+            EJS_CACHE_LIMIT=pydash.get(
+                self._raw_config, "emulatorjs.cache_limit", None
+            ),
+            EJS_SETTINGS=pydash.get(self._raw_config, "emulatorjs.settings", {}),
+            EJS_CONTROLS=self._get_ejs_controls(),
         )
+
+    def _get_ejs_controls(self) -> dict[str, EjsControls]:
+        """Get EJS controls with default player entries for each core"""
+        raw_controls = pydash.get(self._raw_config, "emulatorjs.controls", {})
+        controls = {}
+
+        for core, core_controls in raw_controls.items():
+            # Create EjsControls object with default empty player dictionaries
+            controls[core] = EjsControls(
+                _0=core_controls.get(0, {}),
+                _1=core_controls.get(1, {}),
+                _2=core_controls.get(2, {}),
+                _3=core_controls.get(3, {}),
+            )
+
+        return controls
 
     def _validate_config(self):
         """Validates the config.yml file"""
@@ -230,6 +272,54 @@ class ConfigManager:
                 "Invalid config.yml: filesystem.firmware_folder cannot be an empty string"
             )
             sys.exit(3)
+
+        if not isinstance(self.config.EJS_DEBUG, bool):
+            log.critical("Invalid config.yml: emulatorjs.debug must be a boolean")
+            sys.exit(3)
+
+        if self.config.EJS_CACHE_LIMIT is not None and not isinstance(
+            self.config.EJS_CACHE_LIMIT, int
+        ):
+            log.critical(
+                "Invalid config.yml: emulatorjs.cache_limit must be an integer"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.EJS_SETTINGS, dict):
+            log.critical("Invalid config.yml: emulatorjs.settings must be a dictionary")
+            sys.exit(3)
+        else:
+            for core, options in self.config.EJS_SETTINGS.items():
+                if not isinstance(options, dict):
+                    log.critical(
+                        f"Invalid config.yml: emulatorjs.settings.{core} must be a dictionary"
+                    )
+                    sys.exit(3)
+
+        if not isinstance(self.config.EJS_CONTROLS, dict):
+            log.critical("Invalid config.yml: emulatorjs.controls must be a dictionary")
+            sys.exit(3)
+        else:
+            for core, controls in self.config.EJS_CONTROLS.items():
+                if not isinstance(controls, dict):
+                    log.critical(
+                        f"Invalid config.yml: emulatorjs.controls.{core} must be a dictionary"
+                    )
+                    sys.exit(3)
+
+                for player, buttons in controls.items():
+                    if not isinstance(buttons, dict):
+                        log.critical(
+                            f"Invalid config.yml: emulatorjs.controls.{core}.{player} must be a dictionary"
+                        )
+                        sys.exit(3)
+
+                    for button, value in buttons.items():
+                        if not isinstance(value, dict):
+                            log.critical(
+                                f"Invalid config.yml: emulatorjs.controls.{core}.{player}.{button} must be a dictionary"
+                            )
+                            sys.exit(3)
 
     def get_config(self) -> Config:
         with open(self.config_file) as config_file:

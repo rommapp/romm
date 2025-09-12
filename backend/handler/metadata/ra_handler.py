@@ -1,10 +1,12 @@
 import json
 import os
+import re
 import time
 from datetime import datetime
-from typing import Final, NotRequired, TypedDict
+from typing import NotRequired, TypedDict
 
 import pydash
+
 from adapters.services.retroachievements import RetroAchievementsService
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
@@ -15,13 +17,14 @@ from config import (
     RETROACHIEVEMENTS_API_KEY,
 )
 from handler.filesystem import fs_resource_handler
+from logger.logger import log
 from models.rom import Rom
 
 from .base_handler import BaseRom, MetadataHandler
 from .base_handler import UniversalPlatformSlug as UPS
 
-# Used to display the Retroachievements API status in the frontend
-RA_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY)
+# Regex to detect RetroAchievements ID tags in filenames like (ra-12345)
+RA_TAG_REGEX = re.compile(r"\(ra-(\d+)\)", re.IGNORECASE)
 
 
 class RAGamesPlatform(TypedDict):
@@ -125,6 +128,18 @@ class RAHandler(MetadataHandler):
         self.ra_service = RetroAchievementsService()
         self.HASHES_FILE_NAME = "ra_hashes.json"
 
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return bool(RETROACHIEVEMENTS_API_KEY)
+
+    @staticmethod
+    def extract_ra_id_from_filename(fs_name: str) -> int | None:
+        """Extract RetroAchievements ID from filename tag like (ra-12345)."""
+        match = RA_TAG_REGEX.search(fs_name)
+        if match:
+            return int(match.group(1))
+        return None
+
     def _get_hashes_file_path(self, platform_id: int) -> str:
         platform_resources_path = fs_resource_handler.get_platform_resources_path(
             platform_id
@@ -199,7 +214,25 @@ class RAHandler(MetadataHandler):
         )
 
     async def get_rom(self, rom: Rom, ra_hash: str) -> RAGameRom:
-        if not rom.platform.ra_id or not ra_hash:
+        if not rom.platform.ra_id:
+            return RAGameRom(ra_id=None)
+
+        # Check for RetroAchievements ID tag in filename first
+        ra_id_from_tag = self.extract_ra_id_from_filename(rom.fs_name)
+        if ra_id_from_tag:
+            log.debug(f"Found RetroAchievements ID tag in filename: {ra_id_from_tag}")
+            rom_by_id = await self.get_rom_by_id(rom=rom, ra_id=ra_id_from_tag)
+            if rom_by_id["ra_id"]:
+                log.debug(
+                    f"Successfully matched ROM by RetroAchievements ID tag: {rom.fs_name} -> {ra_id_from_tag}"
+                )
+                return rom_by_id
+            else:
+                log.warning(
+                    f"RetroAchievements ID {ra_id_from_tag} from filename tag not found in RetroAchievements"
+                )
+
+        if not ra_hash:
             return RAGameRom(ra_id=None)
 
         ra_game_list_item = await self._search_rom(rom, ra_hash)
@@ -220,7 +253,6 @@ class RAHandler(MetadataHandler):
                     if rom_details.get("ImageTitle")
                     else ""
                 ),
-                url_manual=rom_details.get("GuideURL") or "",
                 url_screenshots=pydash.compact(
                     [
                         (
@@ -249,7 +281,6 @@ class RAHandler(MetadataHandler):
                     if rom_details.get("ImageTitle")
                     else ""
                 ),
-                url_manual=rom_details.get("GuideURL") or "",
                 url_screenshots=pydash.compact(
                     [
                         (

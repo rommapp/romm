@@ -1,14 +1,14 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
+import { useDisplay } from "vuetify";
 import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import FirmwareBtn from "@/components/Gallery/AppBar/Platform/FirmwareBtn.vue";
 import FirmwareDrawer from "@/components/Gallery/AppBar/Platform/FirmwareDrawer.vue";
 import PlatformInfoDrawer from "@/components/Gallery/AppBar/Platform/PlatformInfoDrawer.vue";
-import storeRoms from "@/stores/roms";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import storeNavigation from "@/stores/navigation";
-import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
+import storeRoms from "@/stores/roms";
 
 const { xs } = useDisplay();
 const romsStore = storeRoms();
@@ -18,9 +18,9 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 </script>
 
 <template>
-  <base-gallery-app-bar :show-playables-filter="false" :show-search-bar="!xs">
+  <BaseGalleryAppBar :show-playables-filter="false" :show-search-bar="!xs">
     <template #prepend>
-      <missing-from-f-s-icon
+      <MissingFromFSIcon
         v-if="currentPlatform && currentPlatform.missing_from_fs"
         text="Missing platform from filesystem"
         class="mx-2"
@@ -34,7 +34,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
         :color="activePlatformInfoDrawer ? 'primary' : ''"
         @click="navigationStore.switchActivePlatformInfoDrawer"
       >
-        <platform-icon
+        <PlatformIcon
           :slug="currentPlatform.slug"
           :name="currentPlatform.name"
           :fs-slug="currentPlatform.fs_slug"
@@ -48,12 +48,12 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
           style="bottom: 4px; right: 4px"
         />
       </v-btn>
-      <firmware-btn />
+      <FirmwareBtn />
     </template>
-  </base-gallery-app-bar>
+  </BaseGalleryAppBar>
 
-  <firmware-drawer />
-  <platform-info-drawer />
+  <FirmwareDrawer />
+  <PlatformInfoDrawer />
 </template>
 
 <style scoped>

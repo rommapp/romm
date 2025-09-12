@@ -55,6 +55,8 @@
   "show-stats-desc": "ホームに統計の概要を表示",
   "show-actionbar": "アクションバーを表示",
   "show-actionbar-desc": "ゲームカードに常にアクションバーを表示",
+  "show-game-titles": "ゲームタイトルを表示",
+  "show-game-titles-desc": "ゲームカードに常にゲームタイトルを表示",
   "show-virtual-collections": "自動生成されたコレクションを表示",
   "show-virtual-collections-desc": "ホームに自動生成されたコレクションを表示",
   "theme": "テーマ",

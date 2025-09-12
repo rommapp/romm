@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { onMounted, ref, useSlots } from "vue";
+import { useTheme } from "vuetify";
 import EmptyFirmware from "@/components/common/EmptyStates/EmptyFirmware.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
 import RIsotipo from "@/components/common/RIsotipo.vue";
-import { onMounted, ref, useSlots } from "vue";
-import { useTheme } from "vuetify";
 
 withDefaults(
   defineProps<{
@@ -54,8 +54,6 @@ onMounted(() => {
 
 <template>
   <v-dialog
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
     :model-value="modelValue"
     :width="width"
     scroll-strategy="block"
@@ -63,19 +61,21 @@ onMounted(() => {
     persistent
     z-index="9999"
     :scrim="theme.name.value == 'dark' ? 'black' : 'white'"
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
   >
     <v-card :min-height="height" :max-height="height">
       <v-toolbar density="compact" class="bg-toplayer">
         <v-icon v-if="icon" :icon="icon" class="ml-5" />
-        <r-isotipo :size="30" class="mx-4" v-if="showRommIcon" />
-        <slot name="header"></slot>
+        <RIsotipo v-if="showRommIcon" :size="30" class="mx-4" />
+        <slot name="header" />
         <template #append>
           <v-btn
-            @click="closeDialog"
             size="small"
             variant="text"
             class="rounded"
             icon="mdi-close"
+            @click="closeDialog"
           />
         </template>
       </v-toolbar>
@@ -83,17 +83,17 @@ onMounted(() => {
       <v-divider />
 
       <v-toolbar v-if="hasToolbarSlot" density="compact" class="bg-toplayer">
-        <slot name="toolbar"></slot>
+        <slot name="toolbar" />
       </v-toolbar>
       <v-divider />
 
-      <v-card-text v-if="hasPrependSlot" class="pa-1">
-        <slot name="prepend"></slot>
+      <v-card-text v-if="hasPrependSlot" class="pa-0">
+        <slot name="prepend" />
       </v-card-text>
 
       <v-card-text
         id="r-dialog-content"
-        class="pa-1 d-flex flex-column"
+        class="pa-0 d-flex flex-column"
         :class="{ scroll: scrollContent }"
       >
         <v-row
@@ -114,25 +114,22 @@ onMounted(() => {
           class="justify-center align-center flex-grow-1 my-4"
           no-gutters
         >
-          <empty-game v-if="emptyStateType == 'game'" />
-          <empty-platform v-else-if="emptyStateType == 'platform'" />
-          <empty-firmware v-else-if="emptyStateType == 'firmware'" />
-          <slot v-else name="empty-state"></slot>
+          <EmptyGame v-if="emptyStateType == 'game'" />
+          <EmptyPlatform v-else-if="emptyStateType == 'platform'" />
+          <EmptyFirmware v-else-if="emptyStateType == 'firmware'" />
+          <slot v-else name="empty-state" />
         </v-row>
 
-        <slot
-          v-if="!loadingCondition && !emptyStateCondition"
-          name="content"
-        ></slot>
+        <slot v-if="!loadingCondition && !emptyStateCondition" name="content" />
       </v-card-text>
-      <v-card-text v-if="hasAppendSlot" class="pa-1">
-        <slot name="append"></slot>
+      <v-card-text v-if="hasAppendSlot" class="pa-0">
+        <slot name="append" />
       </v-card-text>
 
       <template v-if="hasFooterSlot">
         <v-divider />
         <v-toolbar class="bg-toplayer" density="compact">
-          <slot name="footer"></slot>
+          <slot name="footer" />
         </v-toolbar>
       </template>
     </v-card>

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -6,10 +10,6 @@ import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
 import { defaultAvatarPath, getRoleIcon } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const user = ref<UserItem | null>(null);
@@ -57,7 +57,7 @@ function editUser() {
       });
       usersStore.update(data);
       if (data.id == auth.user?.id) {
-        auth.setUser(data);
+        auth.setCurrentUser(data);
       }
     })
     .catch(({ response, message }) => {
@@ -81,12 +81,12 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-if="user"
-    @close="closeDialog"
     v-model="show"
     icon="mdi-pencil-box"
     :width="lgAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row class="pl-2" no-gutters>
@@ -134,7 +134,9 @@ function closeDialog() {
             >
               <template #selection="{ item }">
                 <v-list-item class="pa-0">
-                  <v-icon class="mr-2">{{ getRoleIcon(item.title) }}</v-icon>
+                  <v-icon class="mr-2">
+                    {{ getRoleIcon(item.title) }}
+                  </v-icon>
                   {{ item.title }}
                 </v-list-item>
               </template>
@@ -204,5 +206,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

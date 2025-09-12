@@ -2,18 +2,13 @@ import functools
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-from config import ROMM_DB_DRIVER
-from decorators.database import begin_session
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from models.assets import Save, Screenshot, State
-from models.platform import Platform
-from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import (
     Integer,
     Row,
     String,
     Text,
     and_,
+    case,
     cast,
     delete,
     false,
@@ -26,6 +21,15 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.orm import Query, Session, joinedload, noload, selectinload
+from sqlalchemy.sql.elements import KeyedColumnElement
+
+from config import ROMM_DB_DRIVER
+from decorators.database import begin_session
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from models.assets import Save, Screenshot, State
+from models.platform import Platform
+from models.rom import Rom, RomFile, RomMetadata, RomUser
+from utils.database import json_array_contains_value
 
 from .base_handler import DBBaseHandler
 
@@ -78,6 +82,23 @@ EJS_SUPPORTED_PLATFORMS = [
 ]
 
 STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+"
+
+
+def _create_metadata_id_case(
+    prefix: str, id_column: KeyedColumnElement, platform_id_column: KeyedColumnElement
+):
+    return case(
+        (
+            id_column.isnot(None),
+            func.concat(
+                f"{prefix}-",
+                platform_id_column,
+                "-",
+                id_column,
+            ),
+        ),
+        else_=None,
+    )
 
 
 def with_details(func):
@@ -287,75 +308,30 @@ class DBRomsHandler(DBBaseHandler):
                 or_(*(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check))
             )
 
-    def filter_by_genre(self, query: Query, selected_genre: str):
-        if ROMM_DB_DRIVER == "postgresql":
-            return query.filter(
-                text("genres @> (:genre)::jsonb").bindparams(
-                    genre=f'["{selected_genre}"]'
-                )
-            )
-        else:
-            return query.filter(
-                text("JSON_OVERLAPS(genres, JSON_ARRAY(:genre))").bindparams(
-                    genre=selected_genre
-                )
-            )
+    def filter_by_genre(self, query: Query, session: Session, value: str) -> Query:
+        return query.filter(
+            json_array_contains_value(RomMetadata.genres, value, session=session)
+        )
 
-    def filter_by_franchise(self, query: Query, selected_franchise: str):
-        if ROMM_DB_DRIVER == "postgresql":
-            return query.filter(
-                text("franchises @> (:franchise)::jsonb").bindparams(
-                    franchise=f'["{selected_franchise}"]'
-                )
-            )
-        else:
-            return query.filter(
-                text("JSON_OVERLAPS(franchises, JSON_ARRAY(:franchise))").bindparams(
-                    franchise=selected_franchise
-                )
-            )
+    def filter_by_franchise(self, query: Query, session: Session, value: str) -> Query:
+        return query.filter(
+            json_array_contains_value(RomMetadata.franchises, value, session=session)
+        )
 
-    def filter_by_collection(self, query: Query, selected_collection: str):
-        if ROMM_DB_DRIVER == "postgresql":
-            return query.filter(
-                text("collections @> (:collection)::jsonb").bindparams(
-                    collection=f'["{selected_collection}"]'
-                )
-            )
-        else:
-            return query.filter(
-                text("JSON_OVERLAPS(collections, JSON_ARRAY(:collection))").bindparams(
-                    collection=selected_collection
-                )
-            )
+    def filter_by_collection(self, query: Query, session: Session, value: str) -> Query:
+        return query.filter(
+            json_array_contains_value(RomMetadata.collections, value, session=session)
+        )
 
-    def filter_by_company(self, query: Query, selected_company: str):
-        if ROMM_DB_DRIVER == "postgresql":
-            return query.filter(
-                text("companies @> (:company)::jsonb").bindparams(
-                    company=f'["{selected_company}"]'
-                )
-            )
-        else:
-            return query.filter(
-                text("JSON_OVERLAPS(companies, JSON_ARRAY(:company))").bindparams(
-                    company=selected_company
-                )
-            )
+    def filter_by_company(self, query: Query, session: Session, value: str) -> Query:
+        return query.filter(
+            json_array_contains_value(RomMetadata.companies, value, session=session)
+        )
 
-    def filter_by_age_rating(self, query: Query, selected_age_rating: str):
-        if ROMM_DB_DRIVER == "postgresql":
-            return query.filter(
-                text("age_ratings @> (:age_rating)::jsonb").bindparams(
-                    age_rating=f'["{selected_age_rating}"]'
-                )
-            )
-        else:
-            return query.filter(
-                text("JSON_OVERLAPS(age_ratings, JSON_ARRAY(:age_rating))").bindparams(
-                    age_rating=selected_age_rating
-                )
-            )
+    def filter_by_age_rating(self, query: Query, session: Session, value: str) -> Query:
+        return query.filter(
+            json_array_contains_value(RomMetadata.age_ratings, value, session=session)
+        )
 
     def filter_by_status(self, query: Query, selected_status: str):
         status_filter = RomUser.status == selected_status
@@ -371,33 +347,15 @@ class DBRomsHandler(DBBaseHandler):
 
         return query.filter(status_filter, RomUser.hidden.is_(False))
 
-    def filter_by_region(self, query: Query, selected_region: str):
-        if ROMM_DB_DRIVER == "postgresql":
-            return query.filter(
-                text("regions @> (:region)::jsonb").bindparams(
-                    region=f'["{selected_region}"]'
-                )
-            )
-        else:
-            return query.filter(
-                text("JSON_OVERLAPS(regions, JSON_ARRAY(:region))").bindparams(
-                    region=selected_region
-                )
-            )
+    def filter_by_region(self, query: Query, session: Session, value: str) -> Query:
+        return query.filter(
+            json_array_contains_value(Rom.regions, value, session=session)
+        )
 
-    def filter_by_language(self, query: Query, selected_language: str):
-        if ROMM_DB_DRIVER == "postgresql":
-            return query.filter(
-                text("languages @> (:language)::jsonb").bindparams(
-                    language=f'["{selected_language}"]'
-                )
-            )
-        else:
-            return query.filter(
-                text("JSON_OVERLAPS(languages, JSON_ARRAY(:language))").bindparams(
-                    language=selected_language
-                )
-            )
+    def filter_by_language(self, query: Query, session: Session, value: str) -> Query:
+        return query.filter(
+            json_array_contains_value(Rom.languages, value, session=session)
+        )
 
     @begin_session
     def filter_roms(
@@ -508,59 +466,46 @@ class DBRomsHandler(DBBaseHandler):
                     func.row_number()
                     .over(
                         partition_by=func.coalesce(
-                            func.concat(
-                                "igdb-",
-                                base_subquery.c.platform_id,
-                                "-",
+                            _create_metadata_id_case(
+                                "igdb",
                                 base_subquery.c.igdb_id,
-                            ),
-                            func.concat(
-                                "ss-",
                                 base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.ss_id,
                             ),
-                            func.concat(
-                                "moby-",
-                                base_subquery.c.platform_id,
-                                "-",
+                            _create_metadata_id_case(
+                                "ss", base_subquery.c.ss_id, base_subquery.c.platform_id
+                            ),
+                            _create_metadata_id_case(
+                                "moby",
                                 base_subquery.c.moby_id,
-                            ),
-                            func.concat(
-                                "ra-",
                                 base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.ra_id,
                             ),
-                            func.concat(
-                                "hasheous-",
-                                base_subquery.c.platform_id,
-                                "-",
+                            _create_metadata_id_case(
+                                "ra", base_subquery.c.ra_id, base_subquery.c.platform_id
+                            ),
+                            _create_metadata_id_case(
+                                "hasheous",
                                 base_subquery.c.hasheous_id,
-                            ),
-                            func.concat(
-                                "launchbox-",
                                 base_subquery.c.platform_id,
-                                "-",
+                            ),
+                            _create_metadata_id_case(
+                                "launchbox",
                                 base_subquery.c.launchbox_id,
-                            ),
-                            func.concat(
-                                "tgdb-",
                                 base_subquery.c.platform_id,
-                                "-",
+                            ),
+                            _create_metadata_id_case(
+                                "tgdb",
                                 base_subquery.c.tgdb_id,
-                            ),
-                            func.concat(
-                                "flashpoint-",
                                 base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.flashpoint_id,
                             ),
-                            func.concat(
+                            _create_metadata_id_case(
                                 "romm-",
                                 base_subquery.c.platform_id,
-                                "-",
                                 base_subquery.c.id,
+                            ),
+                            _create_metadata_id_case(
+                                "flashpoint",
+                                base_subquery.c.flashpoint_id,
+                                base_subquery.c.platform_id,
                             ),
                         ),
                         order_by=[
@@ -592,25 +537,29 @@ class DBRomsHandler(DBBaseHandler):
             query = query.outerjoin(RomMetadata)
 
         if selected_genre:
-            query = self.filter_by_genre(query, selected_genre)
-
+            query = self.filter_by_genre(query, session=session, value=selected_genre)
         if selected_franchise:
-            query = self.filter_by_franchise(query, selected_franchise)
-
+            query = self.filter_by_franchise(
+                query, session=session, value=selected_franchise
+            )
         if selected_collection:
-            query = self.filter_by_collection(query, selected_collection)
-
+            query = self.filter_by_collection(
+                query, session=session, value=selected_collection
+            )
         if selected_company:
-            query = self.filter_by_company(query, selected_company)
-
+            query = self.filter_by_company(
+                query, session=session, value=selected_company
+            )
         if selected_age_rating:
-            query = self.filter_by_age_rating(query, selected_age_rating)
-
+            query = self.filter_by_age_rating(
+                query, session=session, value=selected_age_rating
+            )
         if selected_region:
-            query = self.filter_by_region(query, selected_region)
-
+            query = self.filter_by_region(query, session=session, value=selected_region)
         if selected_language:
-            query = self.filter_by_language(query, selected_language)
+            query = self.filter_by_language(
+                query, session=session, value=selected_language
+            )
 
         # The RomUser table is already joined if user_id is set
         if selected_status and user_id:

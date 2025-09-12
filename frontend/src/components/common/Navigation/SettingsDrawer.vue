@@ -1,18 +1,19 @@
 <script setup lang="ts">
+import { useActiveElement } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import { getActivePinia, storeToRefs, type StateTree } from "pinia";
+import { computed, inject, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 import AboutDialog from "@/components/Settings/AboutDialog.vue";
+import { ROUTES } from "@/plugins/router";
+import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
-import { refetchCSRFToken } from "@/services/api/index";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath, getRoleIcon } from "@/utils";
-import { ROUTES } from "@/plugins/router";
-import type { Emitter } from "mitt";
-import { storeToRefs, getActivePinia, type StateTree } from "pinia";
-import { inject, ref, watch, computed } from "vue";
-import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const navigationStore = storeNavigation();
@@ -23,6 +24,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const { activeSettingsDrawer } = storeToRefs(navigationStore);
 const { smAndDown, mdAndUp } = useDisplay();
 const tabIndex = computed(() => (activeSettingsDrawer.value ? 0 : -1));
+const activeElement = useActiveElement();
 
 async function logout() {
   identityApi.logout().then(async () => {
@@ -46,28 +48,26 @@ async function logout() {
   });
 }
 
-// Ref to store the element that triggered the drawer
-const triggerElement = ref<HTMLElement | null>(null);
-// Watch for changes in the navigation drawer state
+const triggerElement = ref<HTMLElement | null | undefined>(undefined);
 watch(activeSettingsDrawer, (isOpen) => {
   if (isOpen) {
     // Store the currently focused element before opening the drawer
-    triggerElement.value = document.activeElement as HTMLElement;
+    triggerElement.value = activeElement.value;
   }
 });
 
 function onClose() {
   activeSettingsDrawer.value = false;
-  // Focus the element that triggered the drawer
+  // Refocus the trigger element for keyboard navigation
   triggerElement.value?.focus();
 }
 </script>
 <template>
   <v-navigation-drawer
+    v-model="activeSettingsDrawer"
     mobile
     :location="smAndDown ? 'top' : 'left'"
     width="450"
-    v-model="activeSettingsDrawer"
     :class="{
       'my-2': mdAndUp || (smAndDown && activeSettingsDrawer),
       'ml-2': (mdAndUp && activeSettingsDrawer) || smAndDown,
@@ -88,13 +88,14 @@ function onClose() {
           "
           cover
           class="rounded"
-        >
-        </v-img>
+        />
       </v-list-img>
       <v-list-item :title="user?.username" class="mb-1 text-shadow text-white">
         <template v-if="user?.role" #subtitle>
           <span class="mr-1">{{ user.role }}</span>
-          <v-icon size="x-small">{{ getRoleIcon(user.role) }}</v-icon>
+          <v-icon size="x-small">
+            {{ getRoleIcon(user.role) }}
+          </v-icon>
         </template>
       </v-list-item>
     </v-list>
@@ -107,8 +108,9 @@ function onClose() {
         append-icon="mdi-account"
         aria-label="Profile"
         role="listitem"
-        >{{ t("common.profile") }}</v-list-item
       >
+        {{ t("common.profile") }}
+      </v-list-item>
       <v-list-item
         :tabindex="tabIndex"
         class="mt-1"
@@ -117,8 +119,9 @@ function onClose() {
         append-icon="mdi-palette"
         aria-label="User Interface"
         role="listitem"
-        >{{ t("common.user-interface") }}</v-list-item
       >
+        {{ t("common.user-interface") }}
+      </v-list-item>
       <v-list-item
         v-if="scopes.includes('platforms.write')"
         :tabindex="tabIndex"
@@ -128,7 +131,8 @@ function onClose() {
         aria-label="Library management"
         role="listitem"
         :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
-        >{{ t("common.library-management") }}
+      >
+        {{ t("common.library-management") }}
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"
@@ -139,7 +143,8 @@ function onClose() {
         append-icon="mdi-security"
         aria-label="Administration"
         role="listitem"
-        >{{ t("common.administration") }}
+      >
+        {{ t("common.administration") }}
       </v-list-item>
       <v-list-item
         v-if="auth.user?.role === 'admin'"
@@ -150,32 +155,35 @@ function onClose() {
         append-icon="mdi-server"
         aria-label="Server Stats"
         role="listitem"
-        >{{ t("common.server-stats") }}
+      >
+        {{ t("common.server-stats") }}
       </v-list-item>
       <v-list-item
         v-if="auth.user?.role === 'admin'"
         :tabindex="tabIndex"
         class="mt-1"
         rounded
-        @click="emitter?.emit('showAboutDialog', null)"
         append-icon="mdi-help-circle-outline"
         aria-label="About"
         role="listitem"
-        >{{ t("common.about") }}
+        @click="emitter?.emit('showAboutDialog', null)"
+      >
+        {{ t("common.about") }}
       </v-list-item>
     </v-list>
     <template v-if="scopes.includes('me.write')" #append>
       <v-btn
-        @click="logout"
         :tabindex="tabIndex"
         append-icon="mdi-location-exit"
         block
         aria-label="Logout"
         class="bg-toplayer text-romm-red"
-        >{{ t("common.logout") }}</v-btn
+        @click="logout"
       >
+        {{ t("common.logout") }}
+      </v-btn>
     </template>
   </v-navigation-drawer>
 
-  <about-dialog />
+  <AboutDialog />
 </template>

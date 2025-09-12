@@ -3,14 +3,15 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING
 
+from sqlalchemy import BigInteger, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from models.base import (
     FILE_EXTENSION_MAX_LENGTH,
     FILE_NAME_MAX_LENGTH,
     FILE_PATH_MAX_LENGTH,
     BaseModel,
 )
-from sqlalchemy import BigInteger, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from models.rom import Rom

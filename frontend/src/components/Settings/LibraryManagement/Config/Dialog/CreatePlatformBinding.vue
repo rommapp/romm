@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
 import platformApi from "@/services/api/platform";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
@@ -81,10 +81,10 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     :width="mdAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row class="align-center" no-gutters>
@@ -99,8 +99,8 @@ function closeDialog() {
       <v-row class="py-2 px-4 align-center" no-gutters>
         <v-col cols="6">
           <v-select
-            :items="heartbeat.value.FILESYSTEM.FS_PLATFORMS"
             v-model="fsSlugToCreate"
+            :items="heartbeat.value.FILESYSTEM.FS_PLATFORMS"
             :label="t('settings.folder-name')"
             variant="outlined"
             required
@@ -132,7 +132,7 @@ function closeDialog() {
                 :title="item.raw.name ?? ''"
               >
                 <template #prepend>
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :size="35"
                     :slug="item.raw.slug"
@@ -145,9 +145,9 @@ function closeDialog() {
             <template #selection="{ item }">
               <v-list-item class="px-0" :title="item.raw.name ?? ''">
                 <template #prepend>
-                  <platform-icon
-                    :size="35"
+                  <PlatformIcon
                     :key="item.raw.slug"
+                    :size="35"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
                     :fs-slug="item.raw.fs_slug"
@@ -180,5 +180,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

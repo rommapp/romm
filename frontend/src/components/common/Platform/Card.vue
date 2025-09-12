@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from "vue";
-import type { Platform } from "@/stores/platforms";
-import { ROUTES } from "@/plugins/router";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import VanillaTilt from "vanilla-tilt";
+import { onMounted, onBeforeUnmount, useTemplateRef } from "vue";
 import { useDisplay } from "vuetify";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import { ROUTES } from "@/plugins/router";
+import type { Platform } from "@/stores/platforms";
 
 const props = withDefaults(
   defineProps<{ platform: Platform; enable3DTilt?: boolean }>(),
@@ -20,11 +20,11 @@ interface TiltHTMLElement extends HTMLElement {
 }
 const emit = defineEmits(["hover"]);
 
-const tiltCard = ref<TiltHTMLElement | null>(null);
+const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 
 onMounted(() => {
-  if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
-    VanillaTilt.init(tiltCard.value, {
+  if (tiltCardRef.value && !smAndDown.value && props.enable3DTilt) {
+    VanillaTilt.init(tiltCardRef.value, {
       max: 20,
       speed: 400,
       scale: 1.1,
@@ -35,17 +35,17 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (tiltCard.value?.vanillaTilt && props.enable3DTilt) {
-    tiltCard.value.vanillaTilt.destroy();
+  if (tiltCardRef.value?.vanillaTilt && props.enable3DTilt) {
+    tiltCardRef.value.vanillaTilt.destroy();
   }
 });
 </script>
 
 <template>
-  <v-hover v-slot="{ isHovering, props }">
-    <div data-tilt ref="tiltCard">
+  <v-hover v-slot="{ isHovering, props: cardProps }">
+    <div ref="tilt-card-ref" data-tilt>
       <v-card
-        v-bind="props"
+        v-bind="cardProps"
         class="bg-toplayer"
         :class="{ 'on-hover': isHovering, 'transform-scale': !enable3DTilt }"
         :elevation="isHovering ? 20 : 3"
@@ -64,7 +64,7 @@ onBeforeUnmount(() => {
       >
         <v-card-text>
           <v-row class="pa-1 justify-center align-center bg-background">
-            <missing-from-f-s-icon
+            <MissingFromFSIcon
               v-if="platform.missing_from_fs"
               text="Missing platform from filesystem"
               :size="15"
@@ -77,7 +77,7 @@ onBeforeUnmount(() => {
             </div>
           </v-row>
           <v-row class="pa-1 justify-center">
-            <platform-icon
+            <PlatformIcon
               :key="platform.slug"
               :slug="platform.slug"
               :name="platform.name"

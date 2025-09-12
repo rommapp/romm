@@ -2,24 +2,34 @@ from config import (
     DISABLE_EMULATOR_JS,
     DISABLE_RUFFLE_RS,
     DISABLE_USERPASS_LOGIN,
-    FLASHPOINT_API_ENABLED,
-    HASHEOUS_API_ENABLED,
-    LAUNCHBOX_API_ENABLED,
+    ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+    ENABLE_SCHEDULED_RESCAN,
+    ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
+    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     OIDC_ENABLED,
     OIDC_PROVIDER,
-    PLAYMATCH_API_ENABLED,
-    TGDB_API_ENABLED,
+    SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
+    SCHEDULED_RESCAN_CRON,
+    SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
+    SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
     UPLOAD_TIMEOUT,
     YOUTUBE_BASE_URL,
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
-from handler.metadata.igdb_handler import IGDB_API_ENABLED
-from handler.metadata.moby_handler import MOBY_API_ENABLED
-from handler.metadata.ra_handler import RA_API_ENABLED
-from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
-from handler.metadata.ss_handler import SS_API_ENABLED
+from handler.metadata import (
+    meta_hasheous_handler,
+    meta_igdb_handler,
+    meta_launchbox_handler,
+    meta_moby_handler,
+    meta_playmatch_handler,
+    meta_ra_handler,
+    meta_sgdb_handler,
+    meta_ss_handler,
+    meta_tgdb_handler,
+    meta_flashpoint_handler,
+)
 from utils import get_version
 from utils.router import APIRouter
 
@@ -42,23 +52,26 @@ async def heartbeat() -> HeartbeatResponse:
             "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0,
         },
         "METADATA_SOURCES": {
-            "ANY_SOURCE_ENABLED": IGDB_API_ENABLED
-            or SS_API_ENABLED
-            or MOBY_API_ENABLED
-            or RA_API_ENABLED
-            or LAUNCHBOX_API_ENABLED
-            or HASHEOUS_API_ENABLED
-            or TGDB_API_ENABLED,
-            "IGDB_API_ENABLED": IGDB_API_ENABLED,
-            "SS_API_ENABLED": SS_API_ENABLED,
-            "MOBY_API_ENABLED": MOBY_API_ENABLED,
-            "STEAMGRIDDB_API_ENABLED": STEAMGRIDDB_API_ENABLED,
-            "RA_API_ENABLED": RA_API_ENABLED,
-            "LAUNCHBOX_API_ENABLED": LAUNCHBOX_API_ENABLED,
-            "HASHEOUS_API_ENABLED": HASHEOUS_API_ENABLED,
-            "PLAYMATCH_API_ENABLED": PLAYMATCH_API_ENABLED,
-            "TGDB_API_ENABLED": TGDB_API_ENABLED,
-            "FLASHPOINT_API_ENABLED": FLASHPOINT_API_ENABLED,
+            "ANY_SOURCE_ENABLED": (
+                meta_igdb_handler.is_enabled()
+                or meta_ss_handler.is_enabled()
+                or meta_moby_handler.is_enabled()
+                or meta_ra_handler.is_enabled()
+                or meta_launchbox_handler.is_enabled()
+                or meta_hasheous_handler.is_enabled()
+                or meta_tgdb_handler.is_enabled()
+                or meta_flashpoint_handler.is_enabled()
+            ),
+            "IGDB_API_ENABLED": meta_igdb_handler.is_enabled(),
+            "SS_API_ENABLED": meta_ss_handler.is_enabled(),
+            "MOBY_API_ENABLED": meta_moby_handler.is_enabled(),
+            "STEAMGRIDDB_API_ENABLED": meta_sgdb_handler.is_enabled(),
+            "RA_API_ENABLED": meta_ra_handler.is_enabled(),
+            "LAUNCHBOX_API_ENABLED": meta_launchbox_handler.is_enabled(),
+            "HASHEOUS_API_ENABLED": meta_hasheous_handler.is_enabled(),
+            "PLAYMATCH_API_ENABLED": meta_playmatch_handler.is_enabled(),
+            "TGDB_API_ENABLED": meta_tgdb_handler.is_enabled(),
+            "FLASHPOINT_API_ENABLED": meta_flashpoint_handler.is_enabled(),
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
@@ -75,5 +88,15 @@ async def heartbeat() -> HeartbeatResponse:
         "OIDC": {
             "ENABLED": OIDC_ENABLED,
             "PROVIDER": OIDC_PROVIDER,
+        },
+        "TASKS": {
+            "ENABLE_SCHEDULED_RESCAN": ENABLE_SCHEDULED_RESCAN,
+            "SCHEDULED_RESCAN_CRON": SCHEDULED_RESCAN_CRON,
+            "ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB": ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+            "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+            "ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA": ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
+            "SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON": SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
+            "ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP": ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+            "SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON": SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
         },
     }

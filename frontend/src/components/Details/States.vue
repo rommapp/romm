@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import EmptySates from "@/components/common/EmptyStates/EmptyStates.vue";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
 import type { StateSchema } from "@/__generated__";
+import EmptySates from "@/components/common/EmptyStates/EmptyStates.vue";
+import storeAuth from "@/stores/auth";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import storeAuth from "@/stores/auth";
-import { storeToRefs } from "pinia";
 import { getEmptyCoverImage } from "@/utils/covers";
-import { useI18n } from "vue-i18n";
 
-const { t } = useI18n();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 const props = defineProps<{ rom: DetailedRom }>();
@@ -96,13 +94,13 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
           }"
           :disabled="!selectedStates.length"
           :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
+          size="small"
           @click="
             emitter?.emit('showDeleteStatesDialog', {
               rom: props.rom,
               states: selectedStates,
             })
           "
-          size="small"
         >
           <v-icon>mdi-delete</v-icon>
         </v-btn>
@@ -110,10 +108,16 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
     </v-col>
   </v-row>
   <v-row v-if="rom.user_states.length > 0" class="ma-2" no-gutters>
-    <v-col cols="6" sm="4" class="pa-1" v-for="state in rom.user_states">
-      <v-hover v-slot="{ isHovering, props }">
+    <v-col
+      v-for="state in rom.user_states"
+      :key="state.id"
+      cols="6"
+      sm="4"
+      class="pa-1"
+    >
+      <v-hover v-slot="{ isHovering, props: stateProps }">
         <v-card
-          v-bind="props"
+          v-bind="stateProps"
           class="bg-toplayer transform-scale"
           :class="{
             'on-hover': isHovering,
@@ -158,16 +162,16 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
                           })
                         "
                       >
-                        <v-icon class="text-romm-red">mdi-delete</v-icon>
+                        <v-icon class="text-romm-red"> mdi-delete </v-icon>
                       </v-btn>
                     </v-btn-group>
                   </v-slide-x-transition>
                 </v-img>
               </v-col>
             </v-row>
-            <v-row class="py-2 text-caption" no-gutters>{{
-              state.file_name
-            }}</v-row>
+            <v-row class="py-2 text-caption" no-gutters>
+              {{ state.file_name }}
+            </v-row>
             <v-row class="ga-1" no-gutters>
               <v-col v-if="state.emulator" cols="12">
                 <v-chip size="x-small" color="orange" label>
@@ -190,5 +194,5 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
       </v-hover>
     </v-col>
   </v-row>
-  <empty-sates v-else />
+  <EmptySates v-else />
 </template>

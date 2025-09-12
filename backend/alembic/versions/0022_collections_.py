@@ -12,8 +12,9 @@ import shutil
 
 import sqlalchemy as sa
 from alembic import op
-from config import RESOURCES_BASE_PATH
 from sqlalchemy import inspect
+
+from config import RESOURCES_BASE_PATH
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.

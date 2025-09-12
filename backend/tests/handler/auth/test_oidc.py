@@ -3,8 +3,9 @@ from unittest.mock import MagicMock
 import pytest
 from authlib.integrations.starlette_client.apps import StarletteOAuth2App
 from fastapi import HTTPException
-from handler.auth.base_handler import OpenIDHandler
 from joserfc.jwt import Token
+
+from handler.auth.base_handler import OpenIDHandler
 
 # Mock constants
 OIDC_SERVER_APPLICATION_URL = "http://mock-oidc-server"

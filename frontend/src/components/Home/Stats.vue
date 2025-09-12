@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import api from "@/services/api/index";
-import { formatBytes } from "@/utils";
 import { onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import api from "@/services/api";
+import { formatBytes } from "@/utils";
 
 const { t } = useI18n();
 const stats = ref({

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import RSection from "@/components/common/RSection.vue";
-import CreateExclusionDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreateExclusion.vue";
-import ExcludedCard from "@/components/Settings/LibraryManagement/Config/ExcludedCard.vue";
-import storeAuth from "@/stores/auth";
-import storeConfig from "@/stores/config";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
+import CreateExclusionDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreateExclusion.vue";
+import ExcludedCard from "@/components/Settings/LibraryManagement/Config/ExcludedCard.vue";
+import RSection from "@/components/common/RSection.vue";
+import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
 
 const { t } = useI18n();
 const configStore = storeConfig();
@@ -51,7 +51,7 @@ const exclusions = [
 const editable = ref(false);
 </script>
 <template>
-  <r-section icon="mdi-cancel" :title="t('settings.excluded')">
+  <RSection icon="mdi-cancel" :title="t('settings.excluded')">
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
@@ -64,8 +64,9 @@ const editable = ref(false);
       />
     </template>
     <template #content>
-      <excluded-card
+      <ExcludedCard
         v-for="exclusion in exclusions"
+        :key="exclusion.type"
         class="mb-1"
         :set="exclusion.set"
         :type="exclusion.type"
@@ -73,7 +74,7 @@ const editable = ref(false);
         :icon="exclusion.icon"
         :editable="editable && authStore.scopes.includes('platforms.write')"
       />
-      <create-exclusion-dialog />
+      <CreateExclusionDialog />
     </template>
-  </r-section>
+  </RSection>
 </template>

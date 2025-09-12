@@ -3,11 +3,12 @@ from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
 import pydash
+from unidecode import unidecode as uc
+
 from adapters.services.mobygames import MobyGamesService
 from adapters.services.mobygames_types import MobyGame
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
-from unidecode import unidecode as uc
 
 from .base_handler import (
     PS2_OPL_REGEX,
@@ -19,14 +20,14 @@ from .base_handler import (
 )
 from .base_handler import UniversalPlatformSlug as UPS
 
-# Used to display the Mobygames API status in the frontend
-MOBY_API_ENABLED: Final = bool(MOBYGAMES_API_KEY)
-
 PS1_MOBY_ID: Final = 6
 PS2_MOBY_ID: Final = 7
 PSP_MOBY_ID: Final = 46
 SWITCH_MOBY_ID: Final = 203
 ARCADE_MOBY_IDS: Final = [143, 36]
+
+# Regex to detect MobyGames ID tags in filenames like (moby-12345)
+MOBYGAMES_TAG_REGEX = re.compile(r"\(moby-(\d+)\)", re.IGNORECASE)
 
 
 class MobyGamesPlatform(TypedDict):
@@ -76,6 +77,18 @@ class MobyGamesHandler(MetadataHandler):
     def __init__(self) -> None:
         self.moby_service = MobyGamesService()
         self.min_similarity_score = 0.6
+
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return bool(MOBYGAMES_API_KEY)
+
+    @staticmethod
+    def extract_mobygames_id_from_filename(fs_name: str) -> int | None:
+        """Extract MobyGames ID from filename tag like (moby-12345)."""
+        match = MOBYGAMES_TAG_REGEX.search(fs_name)
+        if match:
+            return int(match.group(1))
+        return None
 
     async def _search_rom(
         self, search_term: str, platform_moby_id: int, split_game_name: bool = False
@@ -128,11 +141,26 @@ class MobyGamesHandler(MetadataHandler):
     async def get_rom(self, fs_name: str, platform_moby_id: int) -> MobyGamesRom:
         from handler.filesystem import fs_rom_handler
 
-        if not MOBY_API_ENABLED:
+        if not self.is_enabled():
             return MobyGamesRom(moby_id=None)
 
         if not platform_moby_id:
             return MobyGamesRom(moby_id=None)
+
+        # Check for MobyGames ID tag in filename first
+        mobygames_id_from_tag = self.extract_mobygames_id_from_filename(fs_name)
+        if mobygames_id_from_tag:
+            log.debug(f"Found MobyGames ID tag in filename: {mobygames_id_from_tag}")
+            rom_by_id = await self.get_rom_by_id(mobygames_id_from_tag)
+            if rom_by_id["moby_id"]:
+                log.debug(
+                    f"Successfully matched ROM by MobyGames ID tag: {fs_name} -> {mobygames_id_from_tag}"
+                )
+                return rom_by_id
+            else:
+                log.warning(
+                    f"MobyGames ID {mobygames_id_from_tag} from filename tag not found in MobyGames"
+                )
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = MobyGamesRom(moby_id=None)
@@ -222,7 +250,7 @@ class MobyGamesHandler(MetadataHandler):
         return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
     async def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
-        if not MOBY_API_ENABLED:
+        if not self.is_enabled():
             return MobyGamesRom(moby_id=None)
 
         roms = await self.moby_service.list_games(game_id=moby_id)
@@ -242,7 +270,7 @@ class MobyGamesHandler(MetadataHandler):
         return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
     async def get_matched_rom_by_id(self, moby_id: int) -> MobyGamesRom | None:
-        if not MOBY_API_ENABLED:
+        if not self.is_enabled():
             return None
 
         rom = await self.get_rom_by_id(moby_id)
@@ -251,7 +279,7 @@ class MobyGamesHandler(MetadataHandler):
     async def get_matched_roms_by_name(
         self, search_term: str, platform_moby_id: int | None
     ) -> list[MobyGamesRom]:
-        if not MOBY_API_ENABLED:
+        if not self.is_enabled():
             return []
 
         if not platform_moby_id:

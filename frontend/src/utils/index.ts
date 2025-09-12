@@ -1,11 +1,12 @@
 import cronstrue from "cronstrue";
-import type { SimpleRom } from "@/stores/roms";
-import type { Heartbeat } from "@/stores/heartbeat";
-import type { RomFileSchema, RomUserStatus } from "@/__generated__";
+import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
-import { storeToRefs } from "pinia";
+import type { RomFileSchema, RomUserStatus } from "@/__generated__";
+import type { Config } from "@/stores/config";
+import type { Heartbeat } from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
+import type { SimpleRom } from "@/stores/roms";
 
 /**
  * Views configuration object.
@@ -148,7 +149,7 @@ export function formatBytes(bytes: number, decimals = 2) {
   const dm = Math.max(0, decimals);
   const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
 /**
@@ -273,27 +274,69 @@ export function regionToEmoji(region: string) {
  */
 export function languageToEmoji(language: string) {
   switch (language.toLowerCase()) {
+    case "af":
+    case "afrikaans":
+      return "🇿🇦";
     case "ar":
     case "arabic":
       return "🇦🇪";
+    case "be":
+    case "belarusian":
+      return "🇧🇾";
+    case "bg":
+    case "bulgarian":
+      return "🇧🇬";
+    case "ca":
+    case "catalan":
+      return "🇦🇩";
+    case "cs":
+    case "czech":
+      return "🇨🇿";
     case "da":
     case "danish":
       return "🇩🇰";
     case "de":
     case "german":
       return "🇩🇪";
+    case "el":
+    case "greek":
+      return "🇬🇷";
     case "en":
     case "english":
       return "🇬🇧";
     case "es":
     case "spanish":
       return "🇪🇸";
+    case "et":
+    case "estonian":
+      return "🇪🇪";
     case "fi":
     case "finnish":
       return "🇫🇮";
     case "fr":
     case "french":
       return "🇫🇷";
+    case "he":
+    case "hebrew":
+      return "🇮🇱";
+    case "hi":
+    case "hindi":
+      return "🇮🇳";
+    case "hr":
+    case "croatian":
+      return "🇭🇷";
+    case "hu":
+    case "hungarian":
+      return "🇭🇺";
+    case "hy":
+    case "armenian":
+      return "🇦🇲";
+    case "id":
+    case "indonesian":
+      return "🇮🇩";
+    case "is":
+    case "icelandic":
+      return "🇮🇸";
     case "it":
     case "italian":
       return "🇮🇹";
@@ -303,6 +346,18 @@ export function languageToEmoji(language: string) {
     case "ko":
     case "korean":
       return "🇰🇷";
+    case "la":
+    case "latin":
+      return "🇻🇦";
+    case "lt":
+    case "lithuanian":
+      return "🇱🇹";
+    case "lv":
+    case "latvian":
+      return "🇱🇻";
+    case "mk":
+    case "macedonian":
+      return "🇲🇰";
     case "nl":
     case "dutch":
       return "🇳🇱";
@@ -315,12 +370,39 @@ export function languageToEmoji(language: string) {
     case "pt":
     case "portuguese":
       return "🇵🇹";
+    case "ro":
+    case "romanian":
+      return "🇷🇴";
     case "ru":
     case "russian":
       return "🇷🇺";
+    case "sk":
+    case "slovak":
+      return "🇸🇰";
+    case "sl":
+    case "slovenian":
+      return "🇸🇮";
+    case "sq":
+    case "albanian":
+      return "🇦🇱";
+    case "sr":
+    case "serbian":
+      return "🇷🇸";
     case "sv":
     case "swedish":
       return "🇸🇪";
+    case "th":
+    case "thai":
+      return "🇹🇭";
+    case "tr":
+    case "turkish":
+      return "🇹🇷";
+    case "uk":
+    case "ukrainian":
+      return "🇺🇦";
+    case "vi":
+    case "vietnamese":
+      return "🇻🇳";
     case "zh":
     case "chinese":
       return "🇨🇳";
@@ -335,7 +417,7 @@ export function languageToEmoji(language: string) {
 /**
  * Map of supported EJS cores for each platform.
  */
-const _EJS_CORES_MAP = {
+const _EJS_CORES_MAP: Record<string, string[]> = {
   "3do": ["opera"],
   acpc: ["cap32", "crocods"],
   amiga: ["puae"],
@@ -429,12 +511,7 @@ export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
  * @returns An array of supported cores.
  */
 export function getSupportedEJSCores(platformSlug: string): string[] {
-  const cores =
-    _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
-  const threadsSupported = isEJSThreadsSupported();
-  return cores.filter(
-    (core) => !areThreadsRequiredForEJSCore(core) || threadsSupported,
-  );
+  return _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
 }
 
 /**
@@ -456,29 +533,20 @@ const gl =
  *
  * @param platformSlug The platform slug.
  * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
  * @returns True if supported, false otherwise.
  */
 export function isEJSEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
+  config?: Config,
 ) {
-  return (
-    !heartbeat.EMULATION.DISABLE_EMULATOR_JS &&
-    getSupportedEJSCores(platformSlug).length > 0 &&
-    gl instanceof WebGLRenderingContext
-  );
-}
+  if (heartbeat.EMULATION.DISABLE_EMULATOR_JS) return false;
 
-/**
- * Check if EJS threads are supported.
- *
- * EmulatorJS threads are supported if SharedArrayBuffer is available.
- * Reference: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer
- *
- * @returns True if supported, false otherwise.
- */
-export function isEJSThreadsSupported(): boolean {
-  return typeof SharedArrayBuffer !== "undefined";
+  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  return (
+    getSupportedEJSCores(slug).length > 0 && gl instanceof WebGLRenderingContext
+  );
 }
 
 // This is a workaround to set the control scheme for Sega systems using the same cores
@@ -521,16 +589,18 @@ export function getControlSchemeForPlatform(
  *
  * @param platformSlug The platform slug.
  * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
  * @returns True if supported, false otherwise.
  */
 export function isRuffleEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
+  config?: Config,
 ) {
-  return (
-    ["flash", "browser"].includes(platformSlug.toLowerCase()) &&
-    !heartbeat.EMULATION.DISABLE_RUFFLE_RS
-  );
+  if (heartbeat.EMULATION.DISABLE_RUFFLE_RS) return false;
+
+  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  return ["flash", "browser"].includes(slug.toLowerCase());
 }
 
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";

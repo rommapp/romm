@@ -1,35 +1,25 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeRoms from "@/stores/roms";
 import { views } from "@/utils";
-import { storeToRefs } from "pinia";
-import { isNull } from "lodash";
-import { useI18n } from "vue-i18n";
-import { ref } from "vue";
 
 const { t } = useI18n();
 const romsStore = storeRoms();
 const { recentRoms } = storeToRefs(romsStore);
-const storedGridRecentRoms = localStorage.getItem("settings.gridRecentRoms");
-const gridRecentRoms = ref(
-  isNull(storedGridRecentRoms) ? false : storedGridRecentRoms === "true",
-);
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const gridRecentRoms = useLocalStorage("settings.gridRecentRoms", false);
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 const isHovering = ref(false);
-const hoveringRomId = ref();
+const hoveringRomId = ref<number>();
 const openedMenu = ref(false);
-const openedMenuRomId = ref();
+const openedMenuRomId = ref<number>();
 
 function toggleGridRecentRoms() {
   gridRecentRoms.value = !gridRecentRoms.value;
-  localStorage.setItem(
-    "settings.gridRecentRoms",
-    gridRecentRoms.value.toString(),
-  );
 }
 
 function onHover(emitData: { isHovering: boolean; id: number }) {
@@ -44,20 +34,21 @@ function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
 
 function onClosedMenu() {
   openedMenu.value = false;
-  openedMenuRomId.value = null;
+  openedMenuRomId.value = undefined;
 }
 </script>
 <template>
-  <r-section icon="mdi-shimmer" :title="t('home.recently-added')">
+  <RSection icon="mdi-shimmer" :title="t('home.recently-added')">
     <template #toolbar-append>
       <v-btn
         aria-label="Toggle recently games added grid view"
         icon
         rounded="0"
         @click="toggleGridRecentRoms"
-        ><v-icon>{{
-          gridRecentRoms ? "mdi-view-comfy" : "mdi-view-column"
-        }}</v-icon>
+      >
+        <v-icon>
+          {{ gridRecentRoms ? "mdi-view-comfy" : "mdi-view-column" }}
+        </v-icon>
       </v-btn>
     </template>
     <template #content>
@@ -83,16 +74,16 @@ function onClosedMenu() {
                 : 1,
           }"
         >
-          <game-card
+          <GameCard
             :key="rom.updated_at"
             :rom="rom"
-            titleOnHover
-            pointerOnHover
-            withLink
-            transformScale
-            showChips
-            showActionBar
-            :enable3DTilt="enable3DEffect"
+            title-on-hover
+            pointer-on-hover
+            with-link
+            transform-scale
+            show-chips
+            show-action-bar
+            :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
             @openedmenu="onOpenedMenu"
             @closedmenu="onClosedMenu"
@@ -100,5 +91,5 @@ function onClosedMenu() {
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

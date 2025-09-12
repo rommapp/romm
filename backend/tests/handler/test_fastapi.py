@@ -1,4 +1,5 @@
 import pytest
+
 from handler.scan_handler import MetadataSource, ScanType, scan_platform, scan_rom
 from models.platform import Platform
 from models.rom import Rom, RomFile

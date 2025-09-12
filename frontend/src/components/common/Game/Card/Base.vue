@@ -1,28 +1,39 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import VanillaTilt from "vanilla-tilt";
+import {
+  computed,
+  ref,
+  onMounted,
+  onBeforeUnmount,
+  inject,
+  useTemplateRef,
+} from "vue";
+import { useDisplay } from "vuetify";
 import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import Flags from "@/components/common/Game/Card/Flags.vue";
-import Sources from "@/components/common/Game/Card/Sources.vue";
-import storePlatforms from "@/stores/platforms";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
+import Sources from "@/components/common/Game/Card/Sources.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import { ROUTES } from "@/plugins/router";
 import storeCollections from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
-import { ROUTES } from "@/plugins/router";
+import storeHeartbeat from "@/stores/heartbeat";
+import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
-import { computed, ref, onMounted, onBeforeUnmount, inject } from "vue";
-import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
-import { isNull } from "lodash";
-import { useDisplay } from "vuetify";
-import VanillaTilt from "vanilla-tilt";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
+import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
+
+const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
+    coverSrc?: string;
     aspectRatio?: string | number;
     width?: string | number;
     height?: string | number;
@@ -39,6 +50,7 @@ const props = withDefaults(
     enable3DTilt?: boolean;
   }>(),
   {
+    coverSrc: undefined,
     aspectRatio: undefined,
     width: undefined,
     height: undefined,
@@ -91,6 +103,8 @@ const handleCloseMenu = () => {
 
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
+const heartbeatStore = storeHeartbeat();
+
 const computedAspectRatio = computed(() => {
   const ratio =
     props.aspectRatio ||
@@ -105,15 +119,9 @@ const fallbackCoverImage = computed(() =>
 );
 const activeMenu = ref(false);
 
-const showActionBarAlways = isNull(
-  localStorage.getItem("settings.showActionBar"),
-)
-  ? false
-  : localStorage.getItem("settings.showActionBar") === "true";
-
-const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
-  ? true
-  : localStorage.getItem("settings.showSiblings") === "true";
+const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
+const showGameTitleAlways = useLocalStorage("settings.showGameTitle", false);
+const showSiblings = useLocalStorage("settings.showSiblings", true);
 
 const hasNotes = computed(() => {
   if (!romsStore.isSimpleRom(props.rom)) return false;
@@ -130,18 +138,34 @@ interface TiltHTMLElement extends HTMLElement {
   };
 }
 
-const tiltCard = ref<TiltHTMLElement | null>(null);
+const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 
-const largeCover = computed(() =>
-  romsStore.isSimpleRom(props.rom)
-    ? props.rom.path_cover_large
-    : props.rom.igdb_url_cover ||
+const isWebpEnabled = computed(
+  () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+);
+
+const largeCover = computed(() => {
+  if (props.coverSrc) return props.coverSrc;
+  if (!romsStore.isSimpleRom(props.rom))
+    return (
+      props.rom.igdb_url_cover ||
       props.rom.moby_url_cover ||
-      props.rom.ss_url_cover,
-);
-const smallCover = computed(() =>
-  romsStore.isSimpleRom(props.rom) ? props.rom.path_cover_small : "",
-);
+      props.rom.ss_url_cover
+    );
+  const pathCoverLarge = isWebpEnabled.value
+    ? props.rom.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
+    : props.rom.path_cover_large;
+  return pathCoverLarge || "";
+});
+
+const smallCover = computed(() => {
+  if (props.coverSrc) return props.coverSrc;
+  if (!romsStore.isSimpleRom(props.rom)) return "";
+  const pathCoverSmall = isWebpEnabled.value
+    ? props.rom.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
+    : props.rom.path_cover_small;
+  return pathCoverSmall || "";
+});
 
 const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
   event.preventDefault();
@@ -151,8 +175,8 @@ const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
 };
 
 onMounted(() => {
-  if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
-    VanillaTilt.init(tiltCard.value, {
+  if (tiltCardRef.value && !smAndDown.value && props.enable3DTilt) {
+    VanillaTilt.init(tiltCardRef.value, {
       max: 20,
       speed: 400,
       scale: 1.1,
@@ -163,25 +187,25 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (tiltCard.value?.vanillaTilt && props.enable3DTilt) {
-    tiltCard.value.vanillaTilt.destroy();
+  if (tiltCardRef.value?.vanillaTilt && props.enable3DTilt) {
+    tiltCardRef.value.vanillaTilt.destroy();
   }
 });
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering: isOuterHovering, props: hoverProps }">
-    <div data-tilt ref="tiltCard">
+    <div ref="tilt-card-ref" data-tilt>
       <v-card
         :style="{
           ...(disableViewTransition
             ? {}
             : { viewTransitionName: `card-${rom.id}` }),
         }"
-        :minWidth="width"
-        :maxWidth="width"
-        :minHeight="height"
-        :maxHeight="height"
+        :min-width="width"
+        :max-width="width"
+        :min-height="height"
+        :max-height="height"
         v-bind="{
           ...hoverProps,
           ...(withLink && rom.id
@@ -210,24 +234,25 @@ onBeforeUnmount(() => {
         "
       >
         <v-card-text class="pa-0">
-          <v-hover v-slot="{ isHovering, props }" open-delay="800">
+          <v-hover v-slot="{ isHovering, props: imgProps }" open-delay="800">
             <v-img
-              @click="handleClick"
-              @touchstart="handleTouchStart"
-              @touchend="handleTouchEnd"
-              v-bind="props"
+              v-bind="imgProps"
+              :key="romsStore.isSimpleRom(rom) ? rom.id : rom.name"
               cover
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
-              :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
               :src="largeCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
+              @click="handleClick"
+              @touchstart="handleTouchStart"
+              @touchend="handleTouchEnd"
             >
-              <template v-bind="props" v-if="titleOnHover">
+              <template v-if="titleOnHover">
                 <v-expand-transition>
                   <div
                     v-if="
                       isHovering ||
+                      showGameTitleAlways ||
                       (romsStore.isSimpleRom(rom) && !rom.path_cover_large) ||
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&
@@ -257,8 +282,8 @@ onBeforeUnmount(() => {
               </template>
               <v-row no-gutters class="text-white px-1">
                 <v-col>
-                  <sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
-                  <flags
+                  <Sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
+                  <Flags
                     v-if="romsStore.isSimpleRom(rom) && showChips"
                     :rom="rom"
                   />
@@ -270,10 +295,10 @@ onBeforeUnmount(() => {
                   no-gutters
                 >
                   <v-col cols="auto" class="px-0">
-                    <platform-icon
+                    <PlatformIcon
                       v-if="showPlatformIcon"
-                      :size="25"
                       :key="rom.platform_slug"
+                      :size="25"
                       :slug="rom.platform_slug"
                       :name="rom.platform_name"
                       :fs-slug="rom.platform_fs_slug"
@@ -281,12 +306,12 @@ onBeforeUnmount(() => {
                     />
                   </v-col>
                   <v-col class="px-1 d-flex justify-end">
-                    <missing-from-f-s-icon
+                    <MissingFromFSIcon
                       v-if="rom.missing_from_fs"
                       :text="`Missing from filesystem: ${rom.fs_path}/${rom.fs_name}`"
                       class="mr-1 mb-1 px-1"
                       chip
-                      chipDensity="compact"
+                      chip-density="compact"
                     />
                     <v-chip
                       v-if="rom.hasheous_id"
@@ -325,10 +350,10 @@ onBeforeUnmount(() => {
                   </v-col>
                 </v-row>
                 <div class="position-absolute append-inner-right">
-                  <slot name="append-inner-right"> </slot>
+                  <slot name="append-inner-right" />
                 </div>
                 <v-expand-transition>
-                  <action-bar
+                  <ActionBar
                     v-if="
                       romsStore.isSimpleRom(rom) &&
                       showActionBar &&
@@ -337,20 +362,13 @@ onBeforeUnmount(() => {
                       !smAndDown
                     "
                     class="translucent"
+                    :rom="rom"
+                    :size-action-bar="sizeActionBar"
                     @menu-open="handleOpenMenu"
                     @menu-close="handleCloseMenu"
-                    :rom="rom"
-                    :sizeActionBar="sizeActionBar"
                   />
                 </v-expand-transition>
               </div>
-              <template #error>
-                <v-img
-                  cover
-                  :src="fallbackCoverImage"
-                  :aspect-ratio="computedAspectRatio"
-                ></v-img>
-              </template>
               <template #placeholder>
                 <v-img
                   cover
@@ -359,25 +377,33 @@ onBeforeUnmount(() => {
                   :aspect-ratio="computedAspectRatio"
                 >
                   <template #placeholder>
-                    <skeleton
-                      :platformId="rom.platform_id"
-                      :aspectRatio="computedAspectRatio"
+                    <Skeleton
+                      :platform-id="rom.platform_id"
+                      :aspect-ratio="computedAspectRatio"
                       type="image"
                     />
                   </template>
                 </v-img>
               </template>
+              <template #error>
+                <v-img
+                  cover
+                  eager
+                  :src="fallbackCoverImage"
+                  :aspect-ratio="computedAspectRatio"
+                />
+              </template>
             </v-img>
           </v-hover>
         </v-card-text>
-        <action-bar
+        <ActionBar
           v-if="
             (smAndDown || showActionBarAlways) &&
             showActionBar &&
             romsStore.isSimpleRom(rom)
           "
           :rom="rom"
-          :sizeActionBar="sizeActionBar"
+          :size-action-bar="sizeActionBar"
         />
       </v-card>
     </div>

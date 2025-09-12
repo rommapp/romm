@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+
 from endpoints.sockets.scan import ScanStats, _should_scan_rom
 from handler.scan_handler import ScanType
 from models.rom import Rom

@@ -1,22 +1,23 @@
 <script setup lang="ts">
+import { useScroll } from "@vueuse/core";
+import { debounce } from "lodash";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { ref, onMounted, inject, onUnmounted, computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import FabOverlay from "@/components/Gallery/FabOverlay.vue";
+import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import Excluded from "@/components/Settings/LibraryManagement/Config/Excluded.vue";
 import PlatformBinding from "@/components/Settings/LibraryManagement/Config/PlatformBinding.vue";
 import PlatformVersions from "@/components/Settings/LibraryManagement/Config/PlatformVersions.vue";
-import GameTable from "@/components/common/Game/Table.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import GameTable from "@/components/common/Game/VirtualTable.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
-import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import storeRoms, { MAX_FETCH_LIMIT } from "@/stores/roms";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import type { Emitter } from "mitt";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
+import storeRoms, { MAX_FETCH_LIMIT } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { storeToRefs } from "pinia";
-import { ref, onMounted, inject, onBeforeUnmount, computed } from "vue";
-import { useI18n } from "vue-i18n";
-import { debounce, throttle } from "lodash";
 
 const { t } = useI18n();
 const tab = ref<"config" | "missing">("config");
@@ -146,29 +147,29 @@ function resetMissingRoms() {
   galleryFilterStore.resetFilters();
 }
 
-const onScroll = throttle(() => {
+const { y: documentY } = useScroll(document.body, { throttle: 500 });
+
+watch(documentY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = window.scrollY === 0;
+    scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
     }
   }, 100);
-}, 500);
+});
 
 onMounted(() => {
   resetMissingRoms();
   fetchRoms();
-  window.addEventListener("scroll", onScroll);
 });
 
-onBeforeUnmount(() => {
+onUnmounted(() => {
   resetMissingRoms();
-  window.removeEventListener("scroll", onScroll);
 });
 </script>
 
@@ -181,30 +182,31 @@ onBeforeUnmount(() => {
         slider-color="secondary"
         selected-class="bg-toplayer"
       >
-        <v-tab prepend-icon="mdi-cog" class="rounded" value="config"
-          >Config</v-tab
-        >
+        <v-tab prepend-icon="mdi-cog" class="rounded" value="config">
+          Config
+        </v-tab>
         <v-tab
           prepend-icon="mdi-folder-question"
           class="rounded"
           value="missing"
-          >Missing games</v-tab
         >
+          Missing games
+        </v-tab>
       </v-tabs>
     </v-col>
     <v-col>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="config">
-          <platform-binding class="mt-2" />
-          <platform-versions class="mt-4" />
-          <excluded class="mt-4" />
+          <PlatformBinding class="mt-2" />
+          <PlatformVersions class="mt-4" />
+          <Excluded class="mt-4" />
         </v-tabs-window-item>
         <v-tabs-window-item value="missing">
           <v-row class="mt-2 mr-2 align-center" no-gutters>
             <v-col>
               <v-select
-                class="mx-2"
                 v-model="selectedPlatform"
+                class="mx-2"
                 hide-details
                 prepend-inner-icon="mdi-controller"
                 clearable
@@ -222,7 +224,7 @@ onBeforeUnmount(() => {
                     :subtitle="item.raw.fs_slug"
                   >
                     <template #prepend>
-                      <platform-icon
+                      <PlatformIcon
                         :key="item.raw.slug"
                         :size="35"
                         :slug="item.raw.slug"
@@ -231,12 +233,12 @@ onBeforeUnmount(() => {
                       />
                     </template>
                     <template #append>
-                      <missing-from-f-s-icon
+                      <MissingFromFSIcon
                         v-if="item.raw.missing_from_fs"
                         text="Missing platform from filesystem"
                         chip
                         chip-label
-                        chipDensity="compact"
+                        chip-density="compact"
                         class="ml-2"
                       />
                       <v-chip class="ml-2" size="x-small" label>
@@ -246,7 +248,7 @@ onBeforeUnmount(() => {
                   </v-list-item>
                 </template>
                 <template #chip="{ item }">
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
@@ -265,13 +267,14 @@ onBeforeUnmount(() => {
                 class="text-romm-red bg-toplayer"
                 variant="flat"
                 @click="cleanupAll"
-                >Clean up all</v-btn
               >
+                Clean up all
+              </v-btn>
             </v-col>
           </v-row>
-          <game-table class="mx-2 mt-2" show-platform-icon />
-          <load-more-btn :fetchRoms="fetchRoms" />
-          <fab-overlay />
+          <GameTable class="mx-2 mt-2" show-platform-icon />
+          <LoadMoreBtn :fetch-roms="fetchRoms" />
+          <FabOverlay />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>

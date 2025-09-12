@@ -9,6 +9,7 @@ Create Date: 2025-05-20 22:39:16.993191
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
+
 from utils.database import CustomJSON
 
 revision = "0043_launchbox_id"

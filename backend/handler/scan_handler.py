@@ -571,6 +571,16 @@ async def scan_rom(
     if igdb_handler_rom.get("igdb_id"):
         rom_attrs.update({**igdb_handler_rom})
 
+    # Screenshots are a special case
+    rom_attrs["url_screenshots"] = (
+        igdb_handler_rom.get("url_screenshots", [])
+        or ss_handler_rom.get("url_screenshots", [])
+        or moby_handler_rom.get("url_screenshots", [])
+        or ra_handler_rom.get("url_screenshots", [])
+        or hasheous_handler_rom.get("url_screenshots", [])
+        or launchbox_handler_rom.get("url_screenshots", [])
+    )
+
     # Stop IDs from getting overridden by empty values
     rom_attrs.update(
         {

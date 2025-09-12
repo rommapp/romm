@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from anyio import open_file
+
 from config.config_manager import LIBRARY_BASE_PATH, Config
 from exceptions.fs_exceptions import FirmwareNotFoundException
 from handler.filesystem.firmware_handler import FSFirmwareHandler

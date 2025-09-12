@@ -1,10 +1,11 @@
 import pytest
-from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
 from fastapi import status
 from fastapi.exceptions import HTTPException
 from fastapi.testclient import TestClient
-from handler.auth.constants import EDIT_SCOPES
 from main import app
+
+from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
+from handler.auth.constants import EDIT_SCOPES
 
 
 @pytest.fixture

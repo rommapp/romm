@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.13"
 resolution-markers = [
     "platform_python_implementation != 'PyPy'",
@@ -822,14 +822,14 @@ wheels = [
 
 [[package]]
 name = "joserfc"
-version = "1.2.2"
+version = "1.3.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/00/f2/69000edacf874ea26f331398d28b0d9f58e40f2cb24851666359abf161fb/joserfc-1.2.2.tar.gz", hash = "sha256:0d2a84feecef96168635fd9bf288363fc75b4afef3d99691f77833c8e025d200", size = 192865, upload-time = "2025-07-14T02:57:48.661Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9e/ca/416df9a71e2eacca95a55f9a4978cd771742c0eccf14e07e088315554c6f/joserfc-1.3.2.tar.gz", hash = "sha256:147bbba5b0b7c29fa270921dc1f17d83b48ccf0fecf51295b8de1ff1b682ca53", size = 196379, upload-time = "2025-09-04T06:51:11.349Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/11/7a/95ba6c5b478dee3528007e480706b39fcf782a270949855868c07a645203/joserfc-1.2.2-py3-none-any.whl", hash = "sha256:630cc36b2f11f749980401b0cd7305fab5735ee11d830d919bc207305d011358", size = 73275, upload-time = "2025-07-14T02:57:47.538Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/2a/f4915889af9b77d8ea96797640e77ca1995037eaa456be2cdc80ef4a7507/joserfc-1.3.2-py3-none-any.whl", hash = "sha256:81a1d14a0da6d0278f963cb6d6ee43b4640552341b6e984d1535083eba535723", size = 74499, upload-time = "2025-09-04T06:51:09.863Z" },
 ]
 
 [[package]]
@@ -1958,19 +1958,19 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = "~=3.12" },
-    { name = "alembic", specifier = "==1.13.1" },
+    { name = "alembic", specifier = "~=1.13" },
     { name = "anyio", specifier = "~=4.4" },
     { name = "authlib", specifier = "~=1.3" },
     { name = "colorama", specifier = "~=0.4" },
-    { name = "defusedxml", specifier = "~=0.7.1" },
+    { name = "defusedxml", specifier = "~=0.7" },
     { name = "fakeredis", marker = "extra == 'test'", specifier = "~=2.21" },
     { name = "fastapi", extras = ["standard-no-fastapi-cloud-cli"], specifier = "~=0.116" },
     { name = "fastapi-pagination", extras = ["sqlalchemy"], specifier = "~=0.12" },
-    { name = "gunicorn", specifier = "==23.0.0" },
+    { name = "gunicorn", specifier = "~=23.0" },
     { name = "httpx", specifier = "~=0.27" },
     { name = "ipdb", marker = "extra == 'dev'", specifier = "~=0.13" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = "~=6.29" },
-    { name = "joserfc", specifier = "~=1.2" },
+    { name = "joserfc", specifier = "~=1.3" },
     { name = "memray", marker = "extra == 'dev'", specifier = "~=1.15" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "~=1.13" },
     { name = "opentelemetry-distro", specifier = "~=0.56" },
@@ -1991,10 +1991,10 @@ requires-dist = [
     { name = "pytest-env", marker = "extra == 'test'", specifier = "~=1.1" },
     { name = "pytest-mock", marker = "extra == 'test'", specifier = "~=3.12" },
     { name = "pytest-recording", marker = "extra == 'test'", specifier = "~=0.13" },
-    { name = "python-dotenv", specifier = "==1.0.1" },
+    { name = "python-dotenv", specifier = "~=1.0" },
     { name = "python-magic", specifier = "~=0.4" },
-    { name = "python-socketio", specifier = "==5.11.1" },
-    { name = "pyyaml", specifier = "==6.0.1" },
+    { name = "python-socketio", specifier = "~=5.11" },
+    { name = "pyyaml", specifier = "~=6.0" },
     { name = "redis", specifier = "~=6.2" },
     { name = "rq", specifier = "~=2.1" },
     { name = "rq-scheduler", git = "https://github.com/adamantike/rq-scheduler.git?rev=feat%2Fscript-options-username-ssl" },
@@ -2002,12 +2002,12 @@ requires-dist = [
     { name = "sqlalchemy", extras = ["mariadb-connector", "mysql-connector", "postgresql-psycopg"], specifier = "~=2.0" },
     { name = "starlette-csrf", specifier = "~=3.0" },
     { name = "streaming-form-data", specifier = "~=1.19" },
-    { name = "strsimpy", specifier = ">=0.2.1" },
+    { name = "strsimpy", specifier = "~=0.2" },
     { name = "types-colorama", specifier = "~=0.4" },
     { name = "types-passlib", specifier = "~=1.7" },
     { name = "types-pyyaml", specifier = "~=6.0" },
     { name = "types-redis", specifier = "~=4.6" },
-    { name = "unidecode", specifier = "==1.3.8" },
+    { name = "unidecode", specifier = "~=1.3" },
     { name = "user-agents", specifier = "~=2.2" },
     { name = "uvicorn", specifier = "~=0.35" },
     { name = "uvicorn-worker", specifier = "~=0.3" },

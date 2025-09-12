@@ -1,99 +1,51 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import InterfaceOption from "@/components/Settings/UserInterface/InterfaceOption.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeCollections from "@/stores/collections";
-import { computed, ref } from "vue";
-import { useDisplay } from "vuetify";
-import { isNull } from "lodash";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
 
-// Initialize refs from localStorage
-
 // Home
-const storedShowStats = localStorage.getItem("settings.showStats");
-const showStatsRef = ref(
-  isNull(storedShowStats) ? true : storedShowStats === "true",
-);
-const storedShowRecentRoms = localStorage.getItem("settings.showRecentRoms");
-const showRecentRomsRef = ref(
-  isNull(storedShowRecentRoms) ? true : storedShowRecentRoms === "true",
-);
-
-const storedShowContinuePlaying = localStorage.getItem(
+const showStatsRef = useLocalStorage("settings.showStats", true);
+const showRecentRomsRef = useLocalStorage("settings.showRecentRoms", true);
+const showContinuePlayingRef = useLocalStorage(
   "settings.showContinuePlaying",
+  true,
 );
-const showContinuePlayingRef = ref(
-  isNull(storedShowContinuePlaying)
-    ? true
-    : storedShowContinuePlaying === "true",
-);
-const storedShowPlatforms = localStorage.getItem("settings.showPlatforms");
-const showPlatformsRef = ref(
-  isNull(storedShowPlatforms) ? true : storedShowPlatforms === "true",
-);
-const storedShowCollections = localStorage.getItem("settings.showCollections");
-const showCollectionsRef = ref(
-  isNull(storedShowCollections) ? true : storedShowCollections === "true",
-);
+const showPlatformsRef = useLocalStorage("settings.showPlatforms", true);
+const showCollectionsRef = useLocalStorage("settings.showCollections", true);
 
 // Virtual collections
-const storedShowVirtualCollections = localStorage.getItem(
+const showVirtualCollectionsRef = useLocalStorage(
   "settings.showVirtualCollections",
+  true,
 );
-const showVirtualCollectionsRef = ref(
-  isNull(storedShowVirtualCollections)
-    ? true
-    : storedShowVirtualCollections === "true",
-);
-const storedVirtualCollectionType = localStorage.getItem(
+const virtualCollectionTypeRef = useLocalStorage(
   "settings.virtualCollectionType",
-);
-const virtualCollectionTypeRef = ref(
-  isNull(storedVirtualCollectionType)
-    ? "collection"
-    : storedVirtualCollectionType,
+  "collection",
 );
 
 // Platforms drawer
-const storedPlatformsGroupBy = localStorage.getItem(
+const platformsGroupByRef = useLocalStorage<string | null>(
   "settings.platformsGroupBy",
-);
-const platformsGroupByRef = ref(
-  isNull(storedPlatformsGroupBy) || storedPlatformsGroupBy === "null"
-    ? null
-    : storedPlatformsGroupBy,
+  null,
 );
 
 // Gallery
-const storedGroupRoms = localStorage.getItem("settings.groupRoms");
-const groupRomsRef = ref(
-  isNull(storedGroupRoms) ? true : storedGroupRoms === "true",
-);
-const storedSiblings = localStorage.getItem("settings.showSiblings");
-const siblingsRef = ref(
-  isNull(storedSiblings) ? true : storedSiblings === "true",
-);
-const storedRegions = localStorage.getItem("settings.showRegions");
-const regionsRef = ref(isNull(storedRegions) ? true : storedRegions === "true");
-const storedLanguages = localStorage.getItem("settings.showLanguages");
-const languagesRef = ref(
-  isNull(storedLanguages) ? true : storedLanguages === "true",
-);
-const storedStatus = localStorage.getItem("settings.showStatus");
-const statusRef = ref(isNull(storedStatus) ? true : storedStatus === "true");
-
-const storedActionBar = localStorage.getItem("settings.showActionBar");
-const actionBarRef = ref(
-  isNull(storedActionBar) ? false : storedActionBar === "true",
-);
-const stored3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffectRef = ref(
-  isNull(stored3DEffect) ? false : stored3DEffect === "true",
-);
+const groupRomsRef = useLocalStorage("settings.groupRoms", true);
+const siblingsRef = useLocalStorage("settings.showSiblings", true);
+const regionsRef = useLocalStorage("settings.showRegions", true);
+const languagesRef = useLocalStorage("settings.showLanguages", true);
+const statusRef = useLocalStorage("settings.showStatus", true);
+const actionBarRef = useLocalStorage("settings.showActionBar", false);
+const gameTitleRef = useLocalStorage("settings.showGameTitle", false);
+const enable3DEffectRef = useLocalStorage("settings.enable3DEffect", false);
 
 const homeOptions = computed(() => [
   {
@@ -207,104 +159,100 @@ const galleryOptions = computed(() => [
     model: enable3DEffectRef,
     modelTrigger: toggle3DEffect,
   },
+  {
+    title: t("settings.show-game-titles"),
+    description: t("settings.show-game-titles-desc"),
+    iconEnabled: "mdi-subtitles",
+    iconDisabled: "mdi-subtitles-outline",
+    model: gameTitleRef,
+    modelTrigger: toggleShowGameTitles,
+  },
 ]);
 
 const setPlatformDrawerGroupBy = (value: string) => {
   platformsGroupByRef.value = value;
-  localStorage.setItem("settings.platformsGroupBy", value);
 };
 const toggleShowContinuePlaying = (value: boolean) => {
   showContinuePlayingRef.value = value;
-  localStorage.setItem("settings.showContinuePlaying", value.toString());
 };
 const toggleShowPlatforms = (value: boolean) => {
   showPlatformsRef.value = value;
-  localStorage.setItem("settings.showPlatforms", value.toString());
 };
 const toggleShowCollections = (value: boolean) => {
   showCollectionsRef.value = value;
-  localStorage.setItem("settings.showCollections", value.toString());
 };
 const toggleShowVirtualCollections = (value: boolean) => {
   showVirtualCollectionsRef.value = value;
-  localStorage.setItem("settings.showVirtualCollections", value.toString());
 };
 const setVirtualCollectionType = async (value: string) => {
   virtualCollectionTypeRef.value = value;
-  localStorage.setItem("settings.virtualCollectionType", value);
   collectionsStore.fetchVirtualCollections(value);
 };
 
 const toggleShowStats = (value: boolean) => {
   showStatsRef.value = value;
-  localStorage.setItem("settings.showStats", value.toString());
 };
 
 const toggleShowRecentRoms = (value: boolean) => {
   showRecentRomsRef.value = value;
-  localStorage.setItem("settings.showRecentRoms", value.toString());
 };
 
 const toggleGroupRoms = (value: boolean) => {
   groupRomsRef.value = value;
-  localStorage.setItem("settings.groupRoms", value.toString());
 };
 
 const toggleSiblings = (value: boolean) => {
   siblingsRef.value = value;
-  localStorage.setItem("settings.showSiblings", value.toString());
 };
 
 const toggleRegions = (value: boolean) => {
   regionsRef.value = value;
-  localStorage.setItem("settings.showRegions", value.toString());
 };
 
 const toggleLanguages = (value: boolean) => {
   languagesRef.value = value;
-  localStorage.setItem("settings.showLanguages", value.toString());
 };
 
 const toggleStatus = (value: boolean) => {
   statusRef.value = value;
-  localStorage.setItem("settings.showStatus", value.toString());
 };
 
 const toggleActionBar = (value: boolean) => {
   actionBarRef.value = value;
-  localStorage.setItem("settings.showActionBar", value.toString());
 };
 const toggle3DEffect = (value: boolean) => {
   enable3DEffectRef.value = value;
-  localStorage.setItem("settings.enable3DEffect", value.toString());
+};
+const toggleShowGameTitles = (value: boolean) => {
+  gameTitleRef.value = value;
 };
 </script>
 <template>
-  <r-section
+  <RSection
     icon="mdi-palette-swatch-outline"
     :title="t('settings.interface')"
     class="ma-2"
   >
     <template #content>
-      <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2 mt-1">{{
-        t("settings.home")
-      }}</v-chip>
+      <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2 mt-1">
+        {{ t("settings.home") }}
+      </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row class="py-1" no-gutters>
         <v-col
-          cols="12"
-          md="6"
           v-for="option in homeOptions"
           :key="option.title"
+          cols="12"
+          md="6"
         >
-          <interface-option
+          <InterfaceOption
+            v-model="option.model.value"
             class="ma-1"
             :title="option.title"
             :description="option.description"
             :icon="
               option.model.value ? option.iconEnabled : option.iconDisabled
             "
-            v-model="option.model.value"
             @update:model-value="option.modelTrigger"
           />
         </v-col>
@@ -314,14 +262,15 @@ const toggle3DEffect = (value: boolean) => {
         variant="text"
         prepend-icon="mdi-controller"
         class="ml-2 mt-4"
-        >{{ t("settings.platforms-drawer") }}</v-chip
       >
+        {{ t("settings.platforms-drawer") }}
+      </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row class="align-center py-1" no-gutters>
         <v-col
-          cols="12"
           v-for="option in platformsDrawerOptions"
           :key="option.title"
+          cols="12"
         >
           <v-select
             v-model="platformsGroupByRef"
@@ -344,17 +293,19 @@ const toggle3DEffect = (value: boolean) => {
         variant="text"
         prepend-icon="mdi-view-grid"
         class="ml-2 mt-4"
-        >{{ t("settings.gallery") }}</v-chip
       >
+        {{ t("settings.gallery") }}
+      </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row class="py-1" no-gutters>
         <v-col
-          cols="12"
-          md="6"
           v-for="option in galleryOptions"
           :key="option.title"
+          cols="12"
+          md="6"
         >
-          <interface-option
+          <InterfaceOption
+            v-model="option.model.value"
             class="ma-1"
             :disabled="option.disabled"
             :title="option.title"
@@ -362,7 +313,6 @@ const toggle3DEffect = (value: boolean) => {
             :icon="
               option.model.value ? option.iconEnabled : option.iconDisabled
             "
-            v-model="option.model.value"
             @update:model-value="option.modelTrigger"
           />
         </v-col>
@@ -372,12 +322,14 @@ const toggle3DEffect = (value: boolean) => {
         variant="text"
         prepend-icon="mdi-view-grid"
         class="ml-2 mt-4"
-        >{{ t("common.virtual-collections") }}</v-chip
       >
+        {{ t("common.virtual-collections") }}
+      </v-chip>
       <v-divider class="border-opacity-25 mx-2 mb-2" />
       <v-row class="py-1 align-center" no-gutters>
         <v-col cols="12" md="6">
-          <interface-option
+          <InterfaceOption
+            v-model="showVirtualCollectionsRef"
             class="mx-2"
             :title="t('settings.show-virtual-collections')"
             :description="t('settings.show-virtual-collections-desc')"
@@ -386,7 +338,6 @@ const toggle3DEffect = (value: boolean) => {
                 ? 'mdi-bookmark-box-multiple'
                 : 'mdi-bookmark-box-multiple'
             "
-            v-model="showVirtualCollectionsRef"
             @update:model-value="toggleShowVirtualCollections"
           />
         </v-col>
@@ -412,5 +363,5 @@ const toggle3DEffect = (value: boolean) => {
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

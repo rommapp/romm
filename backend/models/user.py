@@ -4,6 +4,10 @@ import enum
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import TIMESTAMP, Enum, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from starlette.authentication import SimpleUser
+
 from config import KIOSK_MODE
 from handler.auth.constants import (
     EDIT_SCOPES,
@@ -13,9 +17,6 @@ from handler.auth.constants import (
     Scope,
 )
 from models.base import BaseModel
-from sqlalchemy import TIMESTAMP, Enum, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from starlette.authentication import SimpleUser
 from utils.database import CustomJSON
 
 if TYPE_CHECKING:

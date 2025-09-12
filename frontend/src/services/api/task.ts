@@ -1,17 +1,12 @@
-import api from "@/services/api";
 import {
   type TaskExecutionResponse,
   type TaskStatusResponse,
+  type TaskInfo,
 } from "@/__generated__";
-
-export const taskApi = api;
+import api from "@/services/api";
 
 async function getTasks(): Promise<{
-  data: {
-    scheduled: TaskExecutionResponse[];
-    manual: TaskExecutionResponse[];
-    watcher: TaskExecutionResponse[];
-  };
+  data: Record<string, TaskInfo[]>;
 }> {
   return api.get("/tasks");
 }

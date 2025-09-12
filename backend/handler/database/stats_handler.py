@@ -1,8 +1,9 @@
+from sqlalchemy import distinct, func, select
+from sqlalchemy.orm import Session
+
 from decorators.database import begin_session
 from models.assets import Save, Screenshot, State
 from models.rom import Rom, RomFile
-from sqlalchemy import distinct, func, select
-from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler
 

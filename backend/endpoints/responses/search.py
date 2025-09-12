@@ -1,3 +1,5 @@
+from handler.metadata.sgdb_handler import SGDBResource
+
 from .base import BaseModel
 
 
@@ -23,4 +25,4 @@ class SearchRomSchema(BaseModel):
 
 class SearchCoverSchema(BaseModel):
     name: str
-    resources: list
+    resources: list[SGDBResource]

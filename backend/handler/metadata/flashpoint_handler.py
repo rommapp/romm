@@ -97,6 +97,10 @@ class FlashpointHandler(MetadataHandler):
         self.search_url = f"{self.base_url}/search"
         self.min_similarity_score: Final = 0.75
 
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return FLASHPOINT_API_ENABLED
+
     async def _request(self, url: str, query: dict) -> dict:
         """
         Sends a request to Flashpoint API.

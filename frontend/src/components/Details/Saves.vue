@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
 import type { SaveSchema } from "@/__generated__";
+import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
 import storeAuth from "@/stores/auth";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
 
-const { t } = useI18n();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 const props = defineProps<{ rom: DetailedRom }>();
@@ -94,13 +92,13 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
           }"
           :disabled="!selectedSaves.length"
           :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
+          size="small"
           @click="
             emitter?.emit('showDeleteSavesDialog', {
               rom: props.rom,
               saves: selectedSaves,
             })
           "
-          size="small"
         >
           <v-icon>mdi-delete</v-icon>
         </v-btn>
@@ -108,17 +106,23 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
     </v-col>
   </v-row>
   <v-row v-if="rom.user_saves.length > 0" class="ma-2" no-gutters>
-    <v-col cols="6" sm="4" class="pa-1" v-for="save in rom.user_saves">
-      <v-hover v-slot="{ isHovering, props }">
+    <v-col
+      v-for="save in rom.user_saves"
+      :key="save.id"
+      cols="6"
+      sm="4"
+      class="pa-1"
+    >
+      <v-hover v-slot="{ isHovering, props: saveProps }">
         <v-card
-          v-bind="props"
+          v-bind="saveProps"
           class="bg-toplayer transform-scale"
           :class="{
             'on-hover': isHovering,
             'border-selected': selectedSaves.some((s) => s.id === save.id),
           }"
           :elevation="isHovering ? 20 : 3"
-          @click="(e) => onCardClick(save, e)"
+          @click="(e: MouseEvent) => onCardClick(save, e)"
         >
           <v-card-text class="pa-2">
             <v-row no-gutters>
@@ -156,16 +160,16 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
                           })
                         "
                       >
-                        <v-icon class="text-romm-red">mdi-delete</v-icon>
+                        <v-icon class="text-romm-red"> mdi-delete </v-icon>
                       </v-btn>
                     </v-btn-group>
                   </v-slide-x-transition>
                 </v-img>
               </v-col>
             </v-row>
-            <v-row class="py-2 text-caption" no-gutters>{{
-              save.file_name
-            }}</v-row>
+            <v-row class="py-2 text-caption" no-gutters>
+              {{ save.file_name }}
+            </v-row>
             <v-row class="ga-1" no-gutters>
               <v-col v-if="save.emulator" cols="12">
                 <v-chip size="x-small" color="orange" label>
@@ -188,5 +192,5 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
       </v-hover>
     </v-col>
   </v-row>
-  <empty-saves v-else />
+  <EmptySaves v-else />
 </template>
