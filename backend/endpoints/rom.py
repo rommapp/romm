@@ -8,22 +8,6 @@ from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
 from anyio import Path, open_file
-from config import (
-    DEV_MODE,
-    DISABLE_DOWNLOAD_ENDPOINT_AUTH,
-    LIBRARY_BASE_PATH,
-    str_to_bool,
-)
-from decorators.auth import protected_route
-from endpoints.responses import BulkOperationResponse
-from endpoints.responses.rom import (
-    DetailedRomSchema,
-    RomFileSchema,
-    RomUserSchema,
-    SimpleRomSchema,
-)
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import (
     Body,
     File,
@@ -40,6 +24,28 @@ from fastapi import (
 from fastapi.responses import Response
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
+from pydantic import BaseModel
+from starlette.requests import ClientDisconnect
+from starlette.responses import FileResponse
+from streaming_form_data import StreamingFormDataParser
+from streaming_form_data.targets import FileTarget, NullTarget
+
+from config import (
+    DEV_MODE,
+    DISABLE_DOWNLOAD_ENDPOINT_AUTH,
+    LIBRARY_BASE_PATH,
+    str_to_bool,
+)
+from decorators.auth import protected_route
+from endpoints.responses import BulkOperationResponse
+from endpoints.responses.rom import (
+    DetailedRomSchema,
+    RomFileSchema,
+    RomUserSchema,
+    SimpleRomSchema,
+)
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
@@ -56,11 +62,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFile
-from pydantic import BaseModel
-from starlette.requests import ClientDisconnect
-from starlette.responses import FileResponse
-from streaming_form_data import StreamingFormDataParser
-from streaming_form_data.targets import FileTarget, NullTarget
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
@@ -542,7 +543,7 @@ async def get_rom_content(
             filename=f.file_name_for_download(rom, hidden_folder),
         )
 
-    content_lines = [await create_zip_content(f, "/library-zip") for f in files]
+    content_lines = [await create_zip_content(f, "/library") for f in files]
 
     if not rom.has_m3u_file():
         m3u_encoded_content = "\n".join(
@@ -636,6 +637,29 @@ async def update_rom(
     }
 
     if (
+        cleaned_data.get("flashpoint_id", "")
+        and cleaned_data.get("flashpoint_id", "") != rom.flashpoint_id
+    ):
+        flashpoint_rom = await meta_flashpoint_handler.get_rom_by_id(
+            cleaned_data["flashpoint_id"]
+        )
+        cleaned_data.update(flashpoint_rom)
+
+    if (
+        cleaned_data.get("launchbox_id", "")
+        and int(cleaned_data.get("launchbox_id", "")) != rom.launchbox_id
+    ):
+        launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
+            cleaned_data["launchbox_id"]
+        )
+        cleaned_data.update(launchbox_rom)
+        path_screenshots = await fs_resource_handler.get_rom_screenshots(
+            rom=rom,
+            url_screenshots=cleaned_data.get("url_screenshots", []),
+        )
+        cleaned_data.update({"path_screenshots": path_screenshots})
+
+    if (
         cleaned_data.get("moby_id", "")
         and int(cleaned_data.get("moby_id", "")) != rom.moby_id
     ):
@@ -673,29 +697,6 @@ async def update_rom(
         )
         cleaned_data.update({"path_screenshots": path_screenshots})
 
-    if (
-        cleaned_data.get("launchbox_id", "")
-        and int(cleaned_data.get("launchbox_id", "")) != rom.launchbox_id
-    ):
-        igdb_rom = await meta_launchbox_handler.get_rom_by_id(
-            cleaned_data["launchbox_id"]
-        )
-        cleaned_data.update(igdb_rom)
-        path_screenshots = await fs_resource_handler.get_rom_screenshots(
-            rom=rom,
-            url_screenshots=cleaned_data.get("url_screenshots", []),
-        )
-        cleaned_data.update({"path_screenshots": path_screenshots})
-
-    if (
-        cleaned_data.get("flashpoint_id", "")
-        and cleaned_data.get("flashpoint_id", "") != rom.flashpoint_id
-    ):
-        flashpoint_rom = await meta_flashpoint_handler.get_rom_by_id(
-            cleaned_data["flashpoint_id"]
-        )
-        cleaned_data.update(flashpoint_rom)
-
     cleaned_data.update(
         {
             "name": data.get("name", rom.name),
@@ -704,6 +705,7 @@ async def update_rom(
     )
 
     new_fs_name = str(data.get("fs_name") or rom.fs_name)
+    new_fs_name = sanitize_filename(new_fs_name)
     cleaned_data.update(
         {
             "fs_name": new_fs_name,
@@ -777,7 +779,6 @@ async def update_rom(
     should_update_fs = new_fs_name != rom.fs_name
     if should_update_fs:
         try:
-            new_fs_name = sanitize_filename(new_fs_name)
             await fs_rom_handler.rename_fs_rom(
                 old_name=rom.fs_name,
                 new_name=new_fs_name,
@@ -884,13 +885,17 @@ async def delete_roms(
     request: Request,
     roms: Annotated[
         list[int],
-        Body(description="List of rom ids to delete from database."),
+        Body(
+            description="List of rom ids to delete from database.",
+            embed=True,
+        ),
     ],
     delete_from_fs: Annotated[
         list[int],
         Body(
             description="List of rom ids to delete from filesystem.",
             default_factory=list,
+            embed=True,
         ),
     ],
 ) -> BulkOperationResponse:

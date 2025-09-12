@@ -1,5 +1,9 @@
 import json
 from io import BytesIO
+from typing import Annotated
+
+from fastapi import Path as PathVar
+from fastapi import Request, UploadFile, status
 
 from config import str_to_bool
 from decorators.auth import protected_route
@@ -13,7 +17,6 @@ from exceptions.endpoint_exceptions import (
     CollectionNotFoundInDatabaseException,
     CollectionPermissionError,
 )
-from fastapi import Request, UploadFile
 from handler.auth.constants import Scope
 from handler.database import db_collection_handler
 from handler.filesystem import fs_resource_handler
@@ -387,22 +390,18 @@ async def update_smart_collection(
     return SmartCollectionSchema.model_validate(smart_collection)
 
 
-@protected_route(router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])
-async def delete_collection(request: Request, id: int) -> None:
-    """Delete collections endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        {
-            "collections": List of rom's ids to delete
-        }
-
-    Raises:
-        HTTPException: Collection not found
-    """
-
+@protected_route(
+    router.delete,
+    "/{id}",
+    [Scope.COLLECTIONS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def delete_collection(
+    request: Request,
+    id: Annotated[int, PathVar(description="Collection internal id.", ge=1)],
+) -> None:
+    """Delete a collection by ID."""
     collection = db_collection_handler.get_collection(id)
-
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
@@ -417,17 +416,18 @@ async def delete_collection(request: Request, id: int) -> None:
         )
 
 
-@protected_route(router.delete, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
-async def delete_smart_collection(request: Request, id: int) -> None:
-    """Delete smart collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Smart collection id
-    """
-
+@protected_route(
+    router.delete,
+    "/smart/{id}",
+    [Scope.COLLECTIONS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def delete_smart_collection(
+    request: Request,
+    id: Annotated[int, PathVar(description="Smart collection internal id.", ge=1)],
+) -> None:
+    """Delete a smart collection by ID."""
     smart_collection = db_collection_handler.get_smart_collection(id)
-
     if not smart_collection:
         raise CollectionNotFoundInDatabaseException(id)
 

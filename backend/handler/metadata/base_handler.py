@@ -1,3 +1,4 @@
+import abc
 import enum
 import json
 import re
@@ -6,9 +7,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Final, NotRequired, TypedDict
 
+from strsimpy.jaro_winkler import JaroWinkler
+
 from handler.redis_handler import async_cache
 from logger.logger import log
-from strsimpy.jaro_winkler import JaroWinkler
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
@@ -79,9 +81,14 @@ def _normalize_search_term(
     return name.strip()
 
 
-class MetadataHandler:
+class MetadataHandler(abc.ABC):
     SEARCH_TERM_SPLIT_PATTERN = re.compile(r"[\:\-\/]")
     SEARCH_TERM_NORMALIZER = re.compile(r"\s*[:-]\s*")
+
+    @classmethod
+    @abc.abstractmethod
+    def is_enabled(cls) -> bool:
+        """Return whether this metadata handler is enabled."""
 
     def normalize_cover_url(self, url: str) -> str:
         return url if not url else f"https:{url.replace('https:', '')}"

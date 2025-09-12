@@ -1,7 +1,6 @@
 import time
 from collections import namedtuple
 
-from config import SESSION_MAX_AGE_SECONDS
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
@@ -9,6 +8,8 @@ from starlette.datastructures import MutableHeaders, Secret
 from starlette.requests import HTTPConnection, Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from starlette_csrf.middleware import CSRFMiddleware
+
+from config import SESSION_MAX_AGE_SECONDS
 
 
 class CustomCSRFMiddleware(CSRFMiddleware):

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import type { SimpleRom } from "@/stores/roms";
-import { useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useTheme } from "vuetify";
+import type { SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -25,7 +25,7 @@ emitter?.on("showNoteDialog", (romToShow) => {
   <v-dialog v-model="show" max-width="600">
     <v-card>
       <v-card-title class="d-flex align-center">
-        <v-icon class="mr-2">mdi-notebook</v-icon>
+        <v-icon class="mr-2"> mdi-notebook </v-icon>
         {{ t("rom.my-notes") }} - {{ rom?.name }}
         <v-spacer />
         <v-btn icon @click="show = false">
@@ -35,6 +35,9 @@ emitter?.on("showNoteDialog", (romToShow) => {
       <v-card-text class="pa-4">
         <MdPreview
           v-if="rom?.rom_user?.note_raw_markdown"
+          no-highlight
+          no-katex
+          no-mermaid
           :model-value="rom?.rom_user?.note_raw_markdown"
           :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
           language="en-US"

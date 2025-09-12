@@ -1,6 +1,6 @@
-import api from "@/services/api/index";
-import type { DetailedRom } from "@/stores/roms";
 import type { SaveSchema } from "@/__generated__";
+import api from "@/services/api";
+import type { DetailedRom } from "@/stores/roms";
 
 export const saveApi = api;
 

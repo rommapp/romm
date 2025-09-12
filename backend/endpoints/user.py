@@ -1,11 +1,12 @@
 from typing import Annotated, Any, cast
 
-from decorators.auth import protected_route
-from endpoints.forms.identity import UserForm
-from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
+
+from decorators.auth import protected_route
+from endpoints.forms.identity import UserForm
+from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
@@ -335,13 +336,20 @@ async def update_user(
     return UserSchema.model_validate(db_user)
 
 
-@protected_route(router.delete, "/{id}", [Scope.USERS_WRITE])
-async def delete_user(request: Request, id: int) -> None:
-    """Delete user endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        user_id (int): User internal id
+@protected_route(
+    router.delete,
+    "/{id}",
+    [Scope.USERS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_404_NOT_FOUND: {},
+    },
+)
+async def delete_user(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> None:
+    """Delete a user by ID.
 
     Raises:
         HTTPException: User is not found in database

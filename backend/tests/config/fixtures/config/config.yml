@@ -29,3 +29,18 @@ system:
 filesystem:
   roms_folder: "ROMS"
   firmware_folder: "BIOS"
+
+emulatorjs:
+  debug: true
+  cache_limit: 1000
+  settings:
+    parallel_n64:
+      vsync: disable
+    snes9x:
+      snes9x_region: ntsc
+  controls:
+    snes9x:
+      0:
+        0:
+          value: x
+          value2: BUTTON_2

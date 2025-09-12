@@ -1,3 +1,5 @@
+from fastapi import HTTPException, Request, status
+
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.config import ConfigResponse
@@ -5,7 +7,6 @@ from exceptions.config_exceptions import (
     ConfigNotReadableException,
     ConfigNotWritableException,
 )
-from fastapi import HTTPException, Request, status
 from handler.auth.constants import Scope
 from logger.logger import log
 from utils.router import APIRouter
@@ -35,6 +36,10 @@ def get_config() -> ConfigResponse:
             EXCLUDED_MULTI_PARTS_FILES=cfg.EXCLUDED_MULTI_PARTS_FILES,
             PLATFORMS_BINDING=cfg.PLATFORMS_BINDING,
             PLATFORMS_VERSIONS=cfg.PLATFORMS_VERSIONS,
+            EJS_DEBUG=cfg.EJS_DEBUG,
+            EJS_CACHE_LIMIT=cfg.EJS_CACHE_LIMIT,
+            EJS_CONTROLS=cfg.EJS_CONTROLS,
+            EJS_SETTINGS=cfg.EJS_SETTINGS,
         )
     except ConfigNotReadableException as exc:
         log.critical(exc.message)

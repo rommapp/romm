@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import storeAuth from "@/stores/auth";
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
 import { useI18n } from "vue-i18n";
+import storeAuth from "@/stores/auth";
+import type { Events } from "@/types/emitter";
 
 withDefaults(
   defineProps<{

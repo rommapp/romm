@@ -3,12 +3,13 @@ from base64 import b64encode
 import pytest
 from fastapi import status
 from fastapi.exceptions import HTTPException
+from starlette.requests import HTTPConnection
+
 from handler.auth import auth_handler, oauth_handler
 from handler.auth.constants import EDIT_SCOPES
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.database import db_user_handler
 from models.user import User
-from starlette.requests import HTTPConnection
 
 
 def test_verify_password():

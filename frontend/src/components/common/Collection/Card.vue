@@ -1,36 +1,48 @@
 <script setup lang="ts">
+import VanillaTilt from "vanilla-tilt";
+import {
+  computed,
+  ref,
+  watchEffect,
+  onMounted,
+  onBeforeUnmount,
+  useTemplateRef,
+} from "vue";
+import { useDisplay } from "vuetify";
+import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
+import { ROUTES } from "@/plugins/router";
 import type { CollectionType } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
-import { ROUTES } from "@/plugins/router";
-import { computed, ref, watchEffect, onMounted, onBeforeUnmount } from "vue";
-import { useDisplay } from "vuetify";
-import VanillaTilt from "vanilla-tilt";
+import storeHeartbeat from "@/stores/heartbeat";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
+
+const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 
 const props = withDefaults(
   defineProps<{
     collection: CollectionType;
+    coverSrc?: string;
     transformScale?: boolean;
     showTitle?: boolean;
     titleOnHover?: boolean;
     showRomCount?: boolean;
     withLink?: boolean;
     enable3DTilt?: boolean;
-    src?: string;
   }>(),
   {
+    coverSrc: undefined,
     transformScale: false,
     showTitle: true,
     titleOnHover: false,
     showRomCount: false,
     withLink: false,
     enable3DTilt: false,
-    src: "",
   },
 );
 
 const { smAndDown } = useDisplay();
 const galleryViewStore = storeGalleryView();
+const heartbeatStore = storeHeartbeat();
 
 const memoizedCovers = ref({
   large: ["", ""],
@@ -44,43 +56,44 @@ const collectionCoverImage = computed(() =>
 );
 
 watchEffect(() => {
-  if (props.src) {
+  if (props.coverSrc) {
     memoizedCovers.value = {
-      large: [props.src, props.src],
-      small: [props.src, props.src],
+      large: [props.coverSrc, props.coverSrc],
+      small: [props.coverSrc, props.coverSrc],
     };
     return;
   }
 
   // Check if it's a regular collection with covers or a smart collection with covers
   const isRegularOrSmartWithCovers =
-    (!("is_virtual" in props.collection) || !props.collection.is_virtual) &&
+    !props.collection.is_virtual &&
     props.collection.path_cover_large &&
     props.collection.path_cover_small;
 
+  const isWebpEnabled =
+    heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP;
+  const pathCoverLarge = isWebpEnabled
+    ? props.collection.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
+    : props.collection.path_cover_large;
+  const pathCoverSmall = isWebpEnabled
+    ? props.collection.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
+    : props.collection.path_cover_small;
+
   if (isRegularOrSmartWithCovers) {
     memoizedCovers.value = {
-      large: [
-        props.collection.path_cover_large || "",
-        props.collection.path_cover_large || "",
-      ],
-      small: [
-        props.collection.path_cover_small || "",
-        props.collection.path_cover_small || "",
-      ],
+      large: [pathCoverLarge || "", pathCoverLarge || ""],
+      small: [pathCoverSmall || "", pathCoverSmall || ""],
     };
     return;
   }
 
   // Handle virtual collections which have plural covers arrays
-  const largeCoverUrls =
-    "path_covers_large" in props.collection
-      ? props.collection.path_covers_large || []
-      : [];
-  const smallCoverUrls =
-    "path_covers_small" in props.collection
-      ? props.collection.path_covers_small || []
-      : [];
+  const largeCoverUrls = props.collection.path_covers_large.map((url) =>
+    isWebpEnabled ? url.replace(EXTENSION_REGEX, ".webp") : url,
+  );
+  const smallCoverUrls = props.collection.path_covers_small.map((url) =>
+    isWebpEnabled ? url.replace(EXTENSION_REGEX, ".webp") : url,
+  );
 
   if (largeCoverUrls.length < 2) {
     memoizedCovers.value = {
@@ -99,8 +112,8 @@ watchEffect(() => {
   };
 });
 
-const firstCover = computed(() => memoizedCovers.value.large[0]);
-const secondCover = computed(() => memoizedCovers.value.large[1]);
+const firstLargeCover = computed(() => memoizedCovers.value.large[0]);
+const secondLargeCover = computed(() => memoizedCovers.value.large[1]);
 const firstSmallCover = computed(() => memoizedCovers.value.small[0]);
 const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 
@@ -112,7 +125,7 @@ interface TiltHTMLElement extends HTMLElement {
 }
 const emit = defineEmits(["hover"]);
 
-const tiltCard = ref<TiltHTMLElement | null>(null);
+const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 
 // Determine the correct route for this collection type
 const collectionRoute = computed(() => {
@@ -142,8 +155,8 @@ const collectionRoute = computed(() => {
 });
 
 onMounted(() => {
-  if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
-    VanillaTilt.init(tiltCard.value, {
+  if (tiltCardRef.value && !smAndDown.value && props.enable3DTilt) {
+    VanillaTilt.init(tiltCardRef.value, {
       max: 20,
       speed: 400,
       scale: 1.1,
@@ -154,15 +167,15 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (tiltCard.value?.vanillaTilt && props.enable3DTilt) {
-    tiltCard.value.vanillaTilt.destroy();
+  if (tiltCardRef.value?.vanillaTilt && props.enable3DTilt) {
+    tiltCardRef.value.vanillaTilt.destroy();
   }
 });
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
-    <div data-tilt ref="tiltCard">
+    <div ref="tilt-card-ref" data-tilt>
       <v-card
         v-bind="{
           ...hoverProps,
@@ -201,34 +214,109 @@ onBeforeUnmount(() => {
         >
           <template
             v-if="
-              ('is_virtual' in collection && collection.is_virtual) ||
-              !collection.path_cover_large
+              collection.is_virtual ||
+              !collection.path_cover_large ||
+              !collection.path_cover_small
             "
           >
             <div class="split-image first-image">
               <v-img
                 cover
-                :src="firstCover"
+                :src="firstLargeCover"
                 :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-              />
+              >
+                <template #placeholder>
+                  <v-img
+                    :src="firstSmallCover"
+                    :aspect-ratio="
+                      galleryViewStore.defaultAspectRatioCollection
+                    "
+                  >
+                    <template #placeholder>
+                      <Skeleton
+                        :aspect-ratio="
+                          galleryViewStore.defaultAspectRatioCollection
+                        "
+                        type="image"
+                      />
+                    </template>
+                  </v-img>
+                </template>
+                <template #error>
+                  <v-img
+                    :src="collectionCoverImage"
+                    :aspect-ratio="
+                      galleryViewStore.defaultAspectRatioCollection
+                    "
+                  />
+                </template>
+              </v-img>
             </div>
             <div class="split-image second-image">
               <v-img
                 cover
-                :src="secondCover"
+                :src="secondLargeCover"
                 :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-              />
+              >
+                <template #placeholder>
+                  <v-img
+                    :src="secondSmallCover"
+                    :aspect-ratio="
+                      galleryViewStore.defaultAspectRatioCollection
+                    "
+                  >
+                    <template #placeholder>
+                      <Skeleton
+                        :aspect-ratio="
+                          galleryViewStore.defaultAspectRatioCollection
+                        "
+                        type="image"
+                      />
+                    </template>
+                  </v-img>
+                </template>
+                <template #error>
+                  <v-img
+                    :src="collectionCoverImage"
+                    :aspect-ratio="
+                      galleryViewStore.defaultAspectRatioCollection
+                    "
+                  />
+                </template>
+              </v-img>
             </div>
           </template>
           <template v-else>
             <v-img
               cover
-              :src="src || collection.path_cover_large"
+              :src="firstLargeCover"
               :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-            />
+            >
+              <template #placeholder>
+                <v-img
+                  :src="firstSmallCover"
+                  :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+                >
+                  <template #placeholder>
+                    <Skeleton
+                      :aspect-ratio="
+                        galleryViewStore.defaultAspectRatioCollection
+                      "
+                      type="image"
+                    />
+                  </template>
+                </v-img>
+              </template>
+              <template #error>
+                <v-img
+                  :src="collectionCoverImage"
+                  :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+                />
+              </template>
+            </v-img>
           </template>
           <div class="position-absolute append-inner">
-            <slot name="append-inner"></slot>
+            <slot name="append-inner" />
           </div>
         </div>
         <v-chip

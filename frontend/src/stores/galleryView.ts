@@ -1,7 +1,10 @@
+import { useLocalStorage } from "@vueuse/core";
 import { defineStore } from "pinia";
 
+const currentViewStorage = useLocalStorage("ui.currentView", 0);
+
 const defaultGalleryState = {
-  currentView: JSON.parse(localStorage.getItem("currentView") ?? "0") as number,
+  currentView: currentViewStorage.value,
   defaultAspectRatioCover: 2 / 3,
   defaultAspectRatioCollection: 2 / 3,
   defaultAspectRatioScreenshot: 16 / 9,
@@ -16,7 +19,7 @@ export default defineStore("galleryView", {
   actions: {
     setView(view: number) {
       this.currentView = view;
-      localStorage.setItem("currentView", this.currentView.toString());
+      currentViewStorage.value = view;
     },
     switchActiveFirmwareDrawer() {
       this.activeFirmwareDrawer = !this.activeFirmwareDrawer;

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import FavBtn from "@/components/common/Game/FavBtn.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import { ROUTES } from "@/plugins/router";
-import type { DetailedRom } from "@/stores/roms";
-import storePlatforms from "@/stores/platforms";
 import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
 import { computed } from "vue";
+import { useDisplay } from "vuetify";
+import FavBtn from "@/components/common/Game/FavBtn.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import { ROUTES } from "@/plugins/router";
+import storePlatforms from "@/stores/platforms";
+import type { DetailedRom } from "@/stores/roms";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { smAndDown } = useDisplay();
@@ -65,7 +65,7 @@ const hashMatches = computed(() => {
       <v-col>
         <p class="text-h5 font-weight-bold pl-0 position-relative">
           <span>{{ rom.name }}</span>
-          <fav-btn class="ml-2" :rom="rom" />
+          <FavBtn class="ml-2" :rom="rom" />
         </p>
       </v-col>
     </v-row>
@@ -79,7 +79,7 @@ const hashMatches = computed(() => {
         <v-chip
           :to="{ name: ROUTES.PLATFORM, params: { platform: rom.platform_id } }"
         >
-          <missing-from-f-s-icon
+          <MissingFromFSIcon
             v-if="
               filteredPlatforms.find((p) => p.id === rom.platform_id)
                 ?.missing_from_fs
@@ -87,7 +87,7 @@ const hashMatches = computed(() => {
             class="mr-2"
             text="Missing platform from filesystem"
           />
-          <platform-icon
+          <PlatformIcon
             :key="rom.platform_slug"
             :slug="rom.platform_slug"
             :name="rom.platform_name"
@@ -132,7 +132,7 @@ const hashMatches = computed(() => {
           target="_blank"
           class="mr-1"
         >
-          <v-chip class="pl-0 mt-1" size="small" @click.stop title="IGDB ID">
+          <v-chip class="pl-0 mt-1" size="small" title="IGDB ID" @click.stop>
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/igdb.png" />
             </v-avatar>
@@ -152,8 +152,8 @@ const hashMatches = computed(() => {
           <v-chip
             class="pl-0 mt-1"
             size="small"
-            @click.stop
             title="MobyGames ID"
+            @click.stop
           >
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/moby.png" />
@@ -183,8 +183,8 @@ const hashMatches = computed(() => {
           <v-chip
             class="pl-0 mt-1"
             size="small"
-            @click.stop
             title="ScreenScraper ID"
+            @click.stop
           >
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/ss.png" style="margin-left: -2px" />
@@ -209,8 +209,8 @@ const hashMatches = computed(() => {
           <v-chip
             class="pl-0 mt-1"
             size="small"
-            @click.stop
             title="LaunchBox ID"
+            @click.stop
           >
             <v-avatar
               class="mr-2"
@@ -240,8 +240,8 @@ const hashMatches = computed(() => {
           <v-chip
             class="pl-0 mt-1"
             size="small"
-            @click.stop
             title="RetroAchievements ID"
+            @click.stop
           >
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/ra.png" style="margin-left: -2px" />
@@ -259,8 +259,8 @@ const hashMatches = computed(() => {
           <v-chip
             class="pl-0 mt-1"
             size="small"
-            @click.stop
             title="Hasheous ID"
+            @click.stop
           >
             <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
               <v-img src="/assets/scrappers/hasheous.png" />

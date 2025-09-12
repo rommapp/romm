@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { identity } from "lodash";
 import { computed } from "vue";
 import { type SimpleRom } from "@/stores/roms";
 import {
@@ -7,18 +9,11 @@ import {
   getEmojiForStatus,
   getTextForStatus,
 } from "@/utils";
-import { identity, isNull } from "lodash";
 
 const props = defineProps<{ rom: SimpleRom }>();
-const showRegions = isNull(localStorage.getItem("settings.showRegions"))
-  ? true
-  : localStorage.getItem("settings.showRegions") === "true";
-const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
-  ? true
-  : localStorage.getItem("settings.showLanguages") === "true";
-const showStatus = isNull(localStorage.getItem("settings.showStatus"))
-  ? true
-  : localStorage.getItem("settings.showStatus") === "true";
+const showRegions = useLocalStorage("settings.showRegions", true);
+const showLanguages = useLocalStorage("settings.showLanguages", true);
+const showStatus = useLocalStorage("settings.showStatus", true);
 
 const playingStatus = computed(() => {
   const { now_playing, backlogged, status } = props.rom?.rom_user ?? {};
@@ -36,7 +31,7 @@ const playingStatus = computed(() => {
     :class="{ 'emoji-collection': rom.regions.length > 3 }"
     density="compact"
   >
-    <span class="emoji" v-for="region in rom.regions.slice(0, 3)">
+    <span v-for="region in rom.regions.slice(0, 3)" :key="region" class="emoji">
       {{ regionToEmoji(region) }}
     </span>
   </v-chip>
@@ -47,7 +42,11 @@ const playingStatus = computed(() => {
     :class="{ 'emoji-collection': rom.languages.length > 3 }"
     density="compact"
   >
-    <span class="emoji" v-for="language in rom.languages.slice(0, 3)">
+    <span
+      v-for="language in rom.languages.slice(0, 3)"
+      :key="language"
+      class="emoji"
+    >
       {{ languageToEmoji(language) }}
     </span>
   </v-chip>

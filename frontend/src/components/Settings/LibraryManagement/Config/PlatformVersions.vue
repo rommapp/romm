@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import AddBtn from "@/components/Settings/LibraryManagement/Config/AddBtn.vue";
 import CreatePlatformVersionDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreatePlatformVersion.vue";
 import DeletePlatformVersionDialog from "@/components/Settings/LibraryManagement/Config/Dialog/DeletePlatformVersion.vue";
@@ -7,10 +11,6 @@ import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -21,7 +21,7 @@ const editable = ref(false);
 </script>
 
 <template>
-  <r-section
+  <RSection
     icon="mdi-gamepad-variant"
     :title="t('settings.platforms-versions')"
   >
@@ -65,7 +65,7 @@ const editable = ref(false);
           lg="2"
           :title="slug"
         >
-          <platform-bind-card
+          <PlatformBindCard
             :editable="authStore.scopes.includes('platforms.write') && editable"
             :slug="slug"
             :fs-slug="fsSlug"
@@ -85,7 +85,7 @@ const editable = ref(false);
           />
         </v-col>
         <v-col cols="6" sm="4" md="3" lg="2" class="px-1 pt-2">
-          <add-btn
+          <AddBtn
             :enabled="editable"
             @click="
               emitter?.emit('showCreatePlatformVersionDialog', {
@@ -96,8 +96,8 @@ const editable = ref(false);
           />
         </v-col>
       </v-row>
-      <create-platform-version-dialog />
-      <delete-platform-version-dialog />
+      <CreatePlatformVersionDialog />
+      <DeletePlatformVersionDialog />
     </template>
-  </r-section>
+  </RSection>
 </template>

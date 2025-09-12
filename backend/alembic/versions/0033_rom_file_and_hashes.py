@@ -8,11 +8,12 @@ Create Date: 2024-12-19 23:16:11.053536
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import ENUM
+
 from config import IS_PYTEST_RUN, SCAN_TIMEOUT
 from endpoints.sockets.scan import scan_platforms
 from handler.redis_handler import high_prio_queue
 from handler.scan_handler import ScanType
-from sqlalchemy.dialects.postgresql import ENUM
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.

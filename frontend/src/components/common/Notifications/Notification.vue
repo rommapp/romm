@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import storeNotifications from "@/stores/notifications";
-import type { Events, SnackbarStatus } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import storeNotifications from "@/stores/notifications";
+import type { Events, SnackbarStatus } from "@/types/emitter";
 
 const show = ref(false);
 const { xs } = useDisplay();
@@ -26,13 +26,13 @@ function closeDialog() {
 
 <template>
   <v-snackbar
-    transition="scroll-y-transition"
     v-model="show"
+    transition="scroll-y-transition"
     :timeout="snackbarStatus.timeout || 3000"
-    @timeout="closeDialog"
     absolute
     :location="xs ? 'top' : 'top right'"
     color="primary-darken"
+    @timeout="closeDialog"
   >
     <template #text>
       <v-row class="d-flex align-start flex-row flex-nowrap px-2">

@@ -2,6 +2,7 @@ import itertools
 
 import pytest
 from fastapi import Request
+
 from utils.router import APIRouter
 
 

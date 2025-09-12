@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
+import { useDisplay } from "vuetify";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import { defaultAvatarPath } from "@/utils";
-import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
 
 const auth = storeAuth();
 const navigationStore = storeNavigation();
@@ -13,14 +13,14 @@ const { smAndDown } = useDisplay();
 </script>
 <template>
   <v-avatar
-    @keydown.enter="navigationStore.switchActiveSettingsDrawer"
-    @click="navigationStore.switchActiveSettingsDrawer"
     class="pointer"
     :size="smAndDown ? 35 : 40"
     :class="{
       active: navigationStore.activeSettingsDrawer,
       rounded: !mainBarCollapsed,
     }"
+    @keydown.enter="navigationStore.switchActiveSettingsDrawer"
+    @click="navigationStore.switchActiveSettingsDrawer"
   >
     <v-img
       :src="

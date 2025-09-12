@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { CollectionType } from "@/stores/collections";
+import { computed } from "vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import { ROUTES } from "@/plugins/router";
-import { computed } from "vue";
+import type { CollectionType } from "@/stores/collections";
 
 const props = withDefaults(
   defineProps<{
@@ -66,7 +66,7 @@ const collectionRoute = computed(() => {
     class="my-1 py-2"
   >
     <template #prepend>
-      <r-avatar :size="45" :collection="collection" />
+      <RAvatar :size="45" :collection="collection" />
     </template>
     <v-row v-if="withTitle" no-gutters>
       <v-col>

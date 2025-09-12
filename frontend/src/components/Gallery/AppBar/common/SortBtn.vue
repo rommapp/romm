@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { ref, inject } from "vue";
+import type { Events } from "@/types/emitter";
 
 const emitter = inject<Emitter<Events>>("emitter");
 const isShowSortBar = ref(false);
@@ -27,6 +27,8 @@ function showSortBar() {
         icon="mdi-sort"
         v-bind="props"
         :color="isShowSortBar ? 'primary' : ''"
-        @click="showSortBar" /></template
-  ></v-tooltip>
+        @click="showSortBar"
+      />
+    </template>
+  </v-tooltip>
 </template>

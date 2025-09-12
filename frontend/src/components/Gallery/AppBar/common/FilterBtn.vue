@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import storeGalleryFilter from "@/stores/galleryFilter";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
+import storeGalleryFilter from "@/stores/galleryFilter";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
@@ -31,6 +31,8 @@ const { activeFilterDrawer } = storeToRefs(galleryFilterStore);
               : ''
         "
         aria-label="Filter"
-        @click="galleryFilterStore.switchActiveFilterDrawer" /></template
-  ></v-tooltip>
+        @click="galleryFilterStore.switchActiveFilterDrawer"
+      />
+    </template>
+  </v-tooltip>
 </template>

@@ -55,6 +55,8 @@
   "show-stats-desc": "Zeige Statistiken auf der Startseite an",
   "show-actionbar": "Aktionsleiste anzeigen",
   "show-actionbar-desc": "Aktionsleiste immer auf der Spielkarte anzeigen",
+  "show-game-titles": "Spieltitel anzeigen",
+  "show-game-titles-desc": "Spieltitel immer auf Spielkarten anzeigen",
   "show-virtual-collections": "Zeige automatisch generierte Sammlungen",
   "show-virtual-collections-desc": "Wird auf der Startseite und in der Sammlungs-Seitenleiste angezeigt.",
   "theme": "Erscheinungsbild",

@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
+from typing import Annotated
+
+from fastapi import Body, HTTPException, Request, UploadFile, status
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from fastapi import HTTPException, Request, UploadFile, status
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
@@ -226,17 +228,32 @@ async def update_state(request: Request, id: int) -> StateSchema:
     return StateSchema.model_validate(db_state)
 
 
-@protected_route(router.post, "/delete", [Scope.ASSETS_WRITE])
-async def delete_states(request: Request) -> list[int]:
-    data: dict = await request.json()
-    state_ids: list = data["states"]
-
-    if not state_ids:
+@protected_route(
+    router.post,
+    "/delete",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_404_NOT_FOUND: {},
+    },
+)
+async def delete_states(
+    request: Request,
+    states: Annotated[
+        list[int],
+        Body(
+            description="List of states ids to delete from database.",
+            embed=True,
+        ),
+    ],
+) -> list[int]:
+    """Delete states."""
+    if not states:
         error = "No states were provided"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
-    for state_id in state_ids:
+    for state_id in states:
         state = db_state_handler.get_state(user_id=request.user.id, id=state_id)
         if not state:
             error = f"State with ID {state_id} not found"
@@ -265,4 +282,4 @@ async def delete_states(request: Request) -> list[int]:
                 error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(state.rom.platform_slug)}]"
                 log.error(error)
 
-    return state_ids
+    return states

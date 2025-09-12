@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import RSection from "@/components/common/RSection.vue";
-import storeAuth from "@/stores/auth";
-import { inject, ref } from "vue";
 import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-import userApi from "@/services/api/user";
+import { inject, ref } from "vue";
 import { watch } from "vue";
 import { useI18n } from "vue-i18n";
+import RSection from "@/components/common/RSection.vue";
+import userApi from "@/services/api/user";
+import storeAuth from "@/stores/auth";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const valid = ref(false);
@@ -39,7 +39,8 @@ async function refreshRetroAchievements(incremental = false) {
         timeout: 5000,
       });
     })
-    .catch(() => {
+    .catch((error) => {
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: `Unable to sync your RetroAchievements profile.`,
         icon: "mdi-close-circle",
@@ -69,7 +70,8 @@ async function submitRACredentials() {
       // Refresh the RetroAchievements data
       refreshRetroAchievements();
     })
-    .catch(() => {
+    .catch((error) => {
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: `Unable to update your RetroAchievements settings.`,
         icon: "mdi-close-circle",
@@ -88,7 +90,7 @@ watch(
 </script>
 
 <template>
-  <r-section icon="mdi-trophy" title="RetroAchievements">
+  <RSection icon="mdi-trophy" title="RetroAchievements">
     <template #content>
       <v-form v-model="valid" @submit.prevent="submitRACredentials">
         <v-text-field
@@ -107,8 +109,9 @@ watch(
           :variant="syncing ? 'plain' : 'flat'"
           type="submit"
           class="ml-4 text-romm-green bg-toplayer"
-          >{{ t("common.apply") }}</v-btn
         >
+          {{ t("common.apply") }}
+        </v-btn>
         <v-btn
           prepend-icon="mdi-sync"
           :disabled="syncing"
@@ -128,5 +131,5 @@ watch(
         </v-btn>
       </v-form>
     </template>
-  </r-section>
+  </RSection>
 </template>

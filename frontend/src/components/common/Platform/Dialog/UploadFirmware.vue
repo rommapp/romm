@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, nextTick, ref } from "vue";
+import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import firmwareApi from "@/services/api/firmware";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, nextTick, ref } from "vue";
-import { useDisplay } from "vuetify";
 
 const { xs, mdAndUp } = useDisplay();
 const show = ref(false);
@@ -85,13 +85,13 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-memory"
     empty-state-type="firmware"
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="align-center" no-gutters>
@@ -114,20 +114,20 @@ function closeDialog() {
         >
           <template #item.name="{ item }">
             <v-list-item class="px-0">
-              <v-row no-gutters
-                ><v-col>{{ item.name }}</v-col></v-row
-              >
+              <v-row no-gutters>
+                <v-col>{{ item.name }}</v-col>
+              </v-row>
               <v-row v-if="xs" no-gutters>
                 <v-col>
-                  <v-chip class="ml-2" size="x-small" label>{{
-                    formatBytes(item.size)
-                  }}</v-chip>
+                  <v-chip class="ml-2" size="x-small" label>
+                    {{ formatBytes(item.size) }}
+                  </v-chip>
                 </v-col>
               </v-row>
               <template #append>
-                <v-chip v-if="!xs" class="ml-2" size="x-small" label>{{
-                  formatBytes(item.size)
-                }}</v-chip>
+                <v-chip v-if="!xs" class="ml-2" size="x-small" label>
+                  {{ formatBytes(item.size) }}
+                </v-chip>
               </template>
             </v-list-item>
           </template>
@@ -159,5 +159,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

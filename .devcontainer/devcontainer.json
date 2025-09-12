@@ -1,13 +1,13 @@
 {
   "name": "ROMM Development",
-  "dockerComposeFile": "docker-compose.yml",
+  "dockerComposeFile": ["../docker-compose.yml"],
   "service": "romm-dev",
   "workspaceFolder": "/app",
   "shutdownAction": "stopCompose",
-  "forwardPorts": [5000, 3000, 3306, 6379],
+  "forwardPorts": [8443, 3000, 3306, 5000, 6379],
   "portsAttributes": {
-    "5000": {
-      "label": "Backend API",
+    "8443": {
+      "label": "HTTPS Dev Server",
       "onAutoForward": "notify"
     },
     "3000": {
@@ -17,6 +17,10 @@
     "3306": {
       "label": "MariaDB",
       "onAutoForward": "silent"
+    },
+    "5000": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
     },
     "6379": {
       "label": "Valkey/Redis",
@@ -29,7 +33,6 @@
         "ms-python.python",
         "ms-python.pylint",
         "ms-python.black-formatter",
-        "bradlc.vscode-tailwindcss",
         "vue.volar",
         "ms-vscode.vscode-typescript-next"
       ],

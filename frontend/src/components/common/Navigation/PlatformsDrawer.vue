@@ -1,36 +1,28 @@
 <script setup lang="ts">
-import type { Platform } from "@/stores/platforms";
+import { useActiveElement, useLocalStorage } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import { ref, watch, computed } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import PlatformListItem from "@/components/common/Platform/ListItem.vue";
 import storeNavigation from "@/stores/navigation";
+import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
-import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
-import { ref, watch, computed } from "vue";
+
+type GroupByType = "family_name" | "generation" | "category" | null;
 
 const { t } = useI18n();
 const { mdAndUp, smAndDown } = useDisplay();
-
+const activeElement = useActiveElement();
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const { filteredPlatforms, filterText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
-
-const ALLOWED_GROUP_BY = ["family_name", "generation", "category"] as const;
-type GroupByType = (typeof ALLOWED_GROUP_BY)[number] | null;
-
-const textFieldRef = ref();
-const triggerElement = ref<HTMLElement | null>(null);
 const openPanels = ref<number[]>([]);
-
-const initializeGroupBy = (): GroupByType => {
-  const stored = localStorage.getItem("settings.platformsGroupBy");
-  return stored && ALLOWED_GROUP_BY.includes(stored as any)
-    ? (stored as GroupByType)
-    : null;
-};
-
-const groupBy = ref<GroupByType>(initializeGroupBy());
+const groupBy = useLocalStorage<GroupByType | null>(
+  "settings.platformsGroupBy",
+  null,
+);
 
 const tabIndex = computed(() => (activePlatformsDrawer.value ? 0 : -1));
 
@@ -86,9 +78,11 @@ watch(
   { immediate: true },
 );
 
+const triggerElement = ref<HTMLElement | null | undefined>(undefined);
 watch(activePlatformsDrawer, (isOpen) => {
   if (isOpen) {
-    triggerElement.value = document.activeElement as HTMLElement;
+    // Store the currently focused element before opening the drawer
+    triggerElement.value = activeElement.value;
   }
 });
 
@@ -98,6 +92,7 @@ const clear = () => {
 
 const onClose = () => {
   activePlatformsDrawer.value = false;
+  // Refocus the trigger element for keyboard navigation
   triggerElement.value?.focus();
 };
 </script>
@@ -122,7 +117,6 @@ const onClose = () => {
   >
     <template #prepend>
       <v-text-field
-        ref="textFieldRef"
         v-model="filterText"
         :label="t('platform.search-platform')"
         :tabindex="tabIndex"
@@ -157,7 +151,7 @@ const onClose = () => {
         </v-expansion-panel-title>
         <v-expansion-panel-text>
           <v-list tabindex="-1" lines="two" class="py-1 px-0">
-            <platform-list-item
+            <PlatformListItem
               v-for="platform in platforms"
               :key="platform.slug"
               :platform="platform"
@@ -173,7 +167,7 @@ const onClose = () => {
 
     <!-- Flat list view -->
     <v-list v-else tabindex="-1" lines="two" class="py-1 px-0">
-      <platform-list-item
+      <PlatformListItem
         v-for="platform in filteredPlatforms"
         :key="platform.slug"
         :platform="platform"

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
+import storeRoms from "@/stores/roms";
 
 defineProps<{
   fetchRoms: () => void;
@@ -21,10 +21,10 @@ const { fetchingRoms, fetchTotalRoms, fetchLimit, fetchOffset } =
     <v-col cols="6" md="4" lg="2" class="text-center">
       <template v-if="fetchTotalRoms > fetchOffset">
         <v-btn
-          @click="fetchRoms"
           :loading="fetchingRoms"
           :disabled="fetchingRoms"
           variant="flat"
+          @click="fetchRoms"
         >
           <template #loader>
             <v-progress-circular

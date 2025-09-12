@@ -1,29 +1,27 @@
 <script setup lang="ts">
+import { useLocalStorage, useScroll } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onMounted, onUnmounted, ref, watch } from "vue";
 import GalleryAppBarSearch from "@/components/Gallery/AppBar/Search/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import EmptySearch from "@/components/common/EmptyStates/EmptySearch.vue";
-import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
-import GameCard from "@/components/common/Game/Card/Base.vue";
-import Skeleton from "@/components/Gallery/Skeleton.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
-import GameTable from "@/components/common/Game/Table.vue";
+import Skeleton from "@/components/Gallery/Skeleton.vue";
+import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
+import EmptySearch from "@/components/common/EmptyStates/EmptySearch.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
+import GameTable from "@/components/common/Game/VirtualTable.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
-import { views } from "@/utils";
-import { isNull, throttle } from "lodash";
-import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import { views } from "@/utils";
 
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const romsStore = storeRoms();
-const router = useRouter();
 const {
   filteredRoms,
   selectedRoms,
@@ -33,13 +31,10 @@ const {
 } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const isHovering = ref(false);
-const hoveringRomId = ref();
+const hoveringRomId = ref<number>();
 const openedMenu = ref(false);
-const openedMenuRomId = ref();
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const openedMenuRomId = ref<number>();
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 let timeout: ReturnType<typeof setTimeout>;
 
 function onHover(emitData: { isHovering: boolean; id: number }) {
@@ -54,7 +49,7 @@ function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
 
 function onClosedMenu() {
   openedMenu.value = false;
-  openedMenuRomId.value = null;
+  openedMenuRomId.value = undefined;
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -119,35 +114,35 @@ function fetchRoms() {
     });
 }
 
-const onScroll = throttle(() => {
+const { y: documentY } = useScroll(document.body, { throttle: 500 });
+
+watch(documentY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = window.scrollY === 0;
+    scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
     }
   }, 100);
-}, 500);
+});
 
 onMounted(async () => {
   scrolledToTop.value = true;
-  window.addEventListener("scroll", onScroll);
 });
 
-onBeforeUnmount(() => {
-  window.removeEventListener("scroll", onScroll);
+onUnmounted(() => {
   searchTerm.value = "";
 });
 </script>
 
 <template>
-  <gallery-app-bar-search />
+  <GalleryAppBarSearch />
   <template v-if="fetchingRoms && filteredRoms.length === 0">
-    <skeleton />
+    <Skeleton />
   </template>
   <template v-else>
     <template v-if="filteredRoms.length > 0">
@@ -169,20 +164,20 @@ onBeforeUnmount(() => {
                 : 1,
           }"
         >
-          <game-card
-            :key="rom.updated_at"
+          <GameCard
+            :key="rom.id"
             :rom="rom"
-            titleOnHover
-            pointerOnHover
-            withLink
-            transformScale
-            showActionBar
-            showChips
-            :withBorderPrimary="
+            title-on-hover
+            pointer-on-hover
+            with-link
+            transform-scale
+            show-action-bar
+            show-chips
+            :with-border-primary="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
-            :enable3DTilt="enable3DEffect"
-            :sizeActionBar="currentView"
+            :enable3-d-tilt="enable3DEffect"
+            :size-action-bar="currentView"
             @click="onGameClick"
             @touchstart="onGameTouchStart"
             @touchend="onGameTouchEnd"
@@ -194,18 +189,18 @@ onBeforeUnmount(() => {
       </v-row>
 
       <!-- Gallery list view -->
-      <v-row class="mr-13" v-else="currentView == 2" no-gutters>
+      <v-row v-else class="mr-13" no-gutters>
         <v-col class="my-4">
-          <game-table show-platform-icon class="mx-2" />
+          <GameTable show-platform-icon class="mx-2" />
         </v-col>
       </v-row>
 
-      <load-more-btn :fetchRoms="fetchRoms" />
-      <fab-overlay />
+      <LoadMoreBtn :fetch-roms="fetchRoms" />
+      <FabOverlay />
     </template>
     <template v-else>
-      <empty-game v-if="!fetchingRoms && initialSearch" />
-      <empty-search v-else-if="!initialSearch" />
+      <EmptyGame v-if="!fetchingRoms && initialSearch" />
+      <EmptySearch v-else-if="!initialSearch" />
     </template>
   </template>
 </template>

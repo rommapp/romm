@@ -1,26 +1,28 @@
 import json
 import zipfile
 from io import BytesIO
-from typing import Any, Final
+from typing import Any
+
+from defusedxml import ElementTree as ET
 
 from config import (
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
-    LAUNCHBOX_API_ENABLED,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
 )
-from defusedxml import ElementTree as ET
+from handler.metadata import meta_launchbox_handler
+from handler.metadata.launchbox_handler import (
+    LAUNCHBOX_FILES_KEY,
+    LAUNCHBOX_MAME_KEY,
+    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
+    LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_IMAGE_KEY,
+    LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_PLATFORMS_KEY,
+)
 from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask
 from utils.context import initialize_context
-
-LAUNCHBOX_PLATFORMS_KEY: Final = "romm:launchbox_platforms"
-LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final = "romm:launchbox_metadata_database_id"
-LAUNCHBOX_METADATA_NAME_KEY: Final = "romm:launchbox_metadata_name"
-LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final = "romm:launchbox_metadata_alternate_name"
-LAUNCHBOX_METADATA_IMAGE_KEY: Final = "romm:launchbox_metadata_image"
-LAUNCHBOX_MAME_KEY: Final = "romm:launchbox_mame"
-LAUNCHBOX_FILES_KEY: Final = "romm:launchbox_files"
 
 
 class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
@@ -37,7 +39,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
     @initialize_context()
     async def run(self, force: bool = False) -> None:
-        if not LAUNCHBOX_API_ENABLED:
+        if not meta_launchbox_handler.is_enabled():
             log.warning("Launchbox API is not enabled, skipping metadata update")
             return None
 

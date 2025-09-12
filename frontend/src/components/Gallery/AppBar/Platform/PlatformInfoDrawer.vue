@@ -1,6 +1,12 @@
 <script setup lang="ts">
+import { identity } from "lodash";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { computed, inject, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import RSection from "@/components/common/RSection.vue";
 import platformApi from "@/services/api/platform";
 import socket from "@/services/socket";
@@ -13,12 +19,6 @@ import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { computed, inject, ref, watch } from "vue";
-import { useI18n } from "vue-i18n";
-import { useDisplay } from "vuetify";
-import { identity } from "lodash";
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -60,7 +60,7 @@ const tabIndex = computed(() => (activePlatformInfoDrawer.value ? 0 : -1));
 const PLATFORM_INFO_FIELDS: {
   key: keyof Platform;
   label: string;
-  format: (value: any) => string;
+  format: (value: unknown) => string;
 }[] = [
   { key: "name", label: t("common.name"), format: identity },
   { key: "slug", label: t("common.slug"), format: identity },
@@ -71,7 +71,7 @@ const PLATFORM_INFO_FIELDS: {
   {
     key: "fs_size_bytes",
     label: t("common.size-on-disk"),
-    format: (fs: number) => formatBytes(fs, 2),
+    format: (fs: unknown) => formatBytes(fs as number, 2),
   },
 ];
 
@@ -142,7 +142,7 @@ async function setAspectRatio() {
           aspect_ratio: selectedOption.name,
         },
       })
-      .then(({ data }) => {
+      .then(() => {
         emitter?.emit("snackbarShow", {
           msg: "Platform updated successfully",
           icon: "mdi-check-bold",
@@ -185,11 +185,11 @@ watch(
 <template>
   <v-navigation-drawer
     v-if="currentPlatform"
+    v-model="activePlatformInfoDrawer"
     mobile
     floating
     width="500"
     location="left"
-    v-model="activePlatformInfoDrawer"
     :class="{
       'ml-2': activePlatformInfoDrawer,
       'drawer-mobile': smAndDown && activePlatformInfoDrawer,
@@ -205,9 +205,9 @@ watch(
                 v-if="!isEditable"
                 :loading="updating"
                 class="bg-toplayer"
-                @click="showEditable"
                 size="small"
                 :tabindex="tabIndex"
+                @click="showEditable"
               >
                 <template #loader>
                   <v-progress-circular
@@ -217,27 +217,29 @@ watch(
                     indeterminate
                   />
                 </template>
-                <v-icon>mdi-pencil</v-icon></v-btn
-              >
+                <v-icon>mdi-pencil</v-icon>
+              </v-btn>
               <template v-else>
                 <v-btn
-                  @click="closeEditable"
                   size="small"
                   class="bg-toplayer"
                   :tabindex="tabIndex"
-                  ><v-icon color="romm-red">mdi-close</v-icon></v-btn
+                  @click="closeEditable"
                 >
+                  <v-icon color="romm-red"> mdi-close </v-icon>
+                </v-btn>
                 <v-btn
-                  @click="updatePlatform"
                   size="small"
                   class="bg-toplayer ml-1"
                   :tabindex="tabIndex"
-                  ><v-icon color="romm-green">mdi-check</v-icon></v-btn
+                  @click="updatePlatform"
                 >
+                  <v-icon color="romm-green"> mdi-check </v-icon>
+                </v-btn>
               </template>
             </template>
           </div>
-          <platform-icon
+          <PlatformIcon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
             :fs-slug="currentPlatform.fs_slug"
@@ -246,22 +248,22 @@ watch(
           />
         </div>
         <div
-          class="text-center mt-2"
           v-if="auth.scopes.includes('platforms.write')"
+          class="text-center mt-2"
         >
           <div v-if="!isEditable" class="text-h5 font-weight-bold pl-0">
             <span>{{ currentPlatform.display_name }}</span>
           </div>
           <div v-else>
             <v-text-field
+              v-model="updatedPlatform.display_name"
               variant="outlined"
               class="text-white"
               hide-details
               density="compact"
-              v-model="updatedPlatform.display_name"
               :readonly="!isEditable"
-              @keyup.enter="updatePlatform"
               :tabindex="tabIndex"
+              @keyup.enter="updatePlatform"
             />
           </div>
           <div class="mt-6">
@@ -270,23 +272,23 @@ watch(
               :tabindex="tabIndex"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
-              <v-icon class="text-romm-green mr-2"
-                >mdi-cloud-upload-outline</v-icon
-              >
+              <v-icon class="text-romm-green mr-2">
+                mdi-cloud-upload-outline
+              </v-icon>
               {{ t("platform.upload-roms") }}
             </v-btn>
             <v-btn
               :disabled="scanning"
               rounded="4"
               :loading="scanning"
-              @click="scan"
               :tabindex="tabIndex"
               class="ml-2 my-1 bg-toplayer"
+              @click="scan"
             >
               <template #prepend>
-                <v-icon :color="scanning ? '' : 'primary'"
-                  >mdi-magnify-scan</v-icon
-                >
+                <v-icon :color="scanning ? '' : 'primary'">
+                  mdi-magnify-scan
+                </v-icon>
               </template>
               {{ t("scan.scan") }}
               <template #loader>
@@ -402,8 +404,8 @@ watch(
               <v-chip
                 class="pl-0 mt-1"
                 size="small"
-                @click.stop
                 title="Hasheous ID"
+                @click.stop
               >
                 <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
                   <v-img src="/assets/scrappers/hasheous.png" />
@@ -418,7 +420,9 @@ watch(
             <template v-for="field in PLATFORM_INFO_FIELDS" :key="field.key">
               <div>
                 <v-chip size="small" class="px-0" label>
-                  <v-chip :tabindex="tabIndex" label>{{ field.label }}</v-chip>
+                  <v-chip :tabindex="tabIndex" label>
+                    {{ field.label }}
+                  </v-chip>
                   <span class="px-2">{{
                     field.format(currentPlatform[field.key]) || "N/A"
                   }}</span>
@@ -429,13 +433,13 @@ watch(
         </v-card>
       </v-col>
     </v-row>
-    <r-section
+    <RSection
       v-if="auth.scopes.includes('platforms.write')"
       icon="mdi-cog"
       :title="t('platform.settings')"
       elevation="0"
-      titleDivider
-      bgColor="bg-toplayer"
+      title-divider
+      bg-color="bg-toplayer"
       class="mx-2"
     >
       <template #content>
@@ -445,12 +449,13 @@ watch(
           class="ml-2 mt-2"
           prepend-icon="mdi-aspect-ratio"
           :tabindex="tabIndex"
-          >{{ t("platform.cover-style") }}</v-chip
         >
+          {{ t("platform.cover-style") }}
+        </v-chip>
         <v-divider class="border-opacity-25 mx-2" />
         <v-item-group
-          :tabindex="tabIndex"
           v-model="selectedAspectRatio"
+          :tabindex="tabIndex"
           mandatory
           @update:model-value="setAspectRatio"
         >
@@ -459,9 +464,10 @@ watch(
             class="text-center justify-center align-center pa-2"
           >
             <v-col
+              v-for="aspectRatio in aspectRatioOptions"
+              :key="aspectRatio.name"
               cols="6"
               class="pa-2"
-              v-for="aspectRatio in aspectRatioOptions"
             >
               <v-item v-slot="{ isSelected, toggle }">
                 <v-card
@@ -493,15 +499,15 @@ watch(
           </v-row>
         </v-item-group>
       </template>
-    </r-section>
-    <r-section
+    </RSection>
+    <RSection
       v-if="auth.scopes.includes('platforms.write')"
       icon="mdi-alert"
       icon-color="red"
       :title="t('platform.danger-zone')"
       elevation="0"
-      titleDivider
-      bgColor="bg-toplayer"
+      title-divider
+      bg-color="bg-toplayer"
       class="mt-2 mx-2"
     >
       <template #content>
@@ -512,15 +518,15 @@ watch(
             variant="flat"
             @click="emitter?.emit('showDeletePlatformDialog', currentPlatform)"
           >
-            <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
+            <v-icon class="text-romm-red mr-2"> mdi-delete </v-icon>
             {{ t("platform.delete-platform") }}
           </v-btn>
         </div>
       </template>
-    </r-section>
+    </RSection>
   </v-navigation-drawer>
 
-  <delete-platform-dialog />
+  <DeletePlatformDialog />
 </template>
 <style scoped>
 .append-top-right {

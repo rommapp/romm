@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
 import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
-const platformBindingFSSlugToDelete = ref();
-const platformBindingSlugToDelete = ref();
+const platformBindingFSSlugToDelete = ref("");
+const platformBindingSlugToDelete = ref("");
 emitter?.on("showDeletePlatformBindingDialog", ({ fsSlug, slug }) => {
   platformBindingFSSlugToDelete.value = fsSlug;
   platformBindingSlugToDelete.value = slug;
@@ -42,18 +42,18 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-delete"
     :width="lgAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="justify-center pa-2 align-center" no-gutters>
         <span class="mr-1">Deleting platform binding</span>
-        <platform-icon
-          class="mx-2"
+        <PlatformIcon
           :key="platformBindingSlugToDelete"
+          class="mx-2"
           :slug="platformBindingSlugToDelete"
           :fs-slug="platformBindingFSSlugToDelete"
         />
@@ -77,5 +77,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

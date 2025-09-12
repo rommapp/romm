@@ -1,9 +1,10 @@
 import asyncio
 
+from fastapi import HTTPException, Request, status
+
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
 from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
-from fastapi import HTTPException, Request, status
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.metadata import (
@@ -13,14 +14,11 @@ from handler.metadata import (
     meta_sgdb_handler,
     meta_ss_handler,
 )
-from handler.metadata.flashpoint_handler import (
-    FLASHPOINT_API_ENABLED,
-    FlashpointRom,
-)
-from handler.metadata.igdb_handler import IGDB_API_ENABLED, IGDBRom
-from handler.metadata.moby_handler import MOBY_API_ENABLED, MobyGamesRom
-from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED, SGDBRom
-from handler.metadata.ss_handler import SS_API_ENABLED, SSRom
+from handler.metadata.igdb_handler import IGDBRom
+from handler.metadata.moby_handler import MobyGamesRom
+from handler.metadata.sgdb_handler import SGDBRom
+from handler.metadata.ss_handler import SSRom
+from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.scan_handler import get_main_platform_igdb_id
 from logger.formatter import BLUE, CYAN
 from logger.formatter import highlight as hl
@@ -56,10 +54,10 @@ async def search_rom(
     """
 
     if (
-        not IGDB_API_ENABLED
-        and not SS_API_ENABLED
-        and not MOBY_API_ENABLED
-        and not FLASHPOINT_API_ENABLED
+        not meta_igdb_handler.is_enabled()
+        and not meta_ss_handler.is_enabled()
+        and not meta_moby_handler.is_enabled()
+        and not meta_flashpoint_handler.is_enabled()
     ):
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(
@@ -216,7 +214,7 @@ async def search_cover(
     search_term: str = "",
 ) -> list[SearchCoverSchema]:
 
-    if not STEAMGRIDDB_API_ENABLED:
+    if not meta_sgdb_handler.is_enabled():
         log.error("Search error: No SteamGridDB enabled")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

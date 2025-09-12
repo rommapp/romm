@@ -2,12 +2,12 @@
 # To learn more about the format of this file, see https://docs.trunk.io/reference/trunk-yaml
 version: 0.1
 cli:
-  version: 1.24.0
+  version: 1.25.0
 # Trunk provides extensibility via plugins. (https://docs.trunk.io/plugins)
 plugins:
   sources:
     - id: trunk
-      ref: v1.7.1
+      ref: v1.7.2
       uri: https://github.com/trunk-io/plugins
 # Many linters and tools depend on runtimes - configure them here. (https://docs.trunk.io/runtimes)
 runtimes:
@@ -20,26 +20,28 @@ lint:
   disabled:
     - pyright
   enabled:
-    - hadolint@2.12.1-beta
+    - dotenv-linter@3.3.0
+    - hadolint@2.13.1
     - markdownlint@0.45.0
-    - eslint@9.31.0
+    - eslint@9.34.0
     - actionlint@1.7.7
     - bandit@1.8.6
     - black@25.1.0
-    - checkov@3.2.451
+    - checkov@3.2.469
     - git-diff-check
     - isort@6.0.1
-    - mypy@1.17.0
-    - osv-scanner@2.0.3
-    - oxipng@9.1.5
-    - prettier@3.6.2
-    - ruff@0.12.4
-    - shellcheck@0.10.0
+    - mypy@1.17.1
+    - osv-scanner@2.2.2
+    - prettier@3.6.2:
+        packages:
+          - "@trivago/prettier-plugin-sort-imports@5.2.2"
+          - "@vue/compiler-sfc@3.5.21"
+    - ruff@0.12.11
+    - shellcheck@0.11.0
     - shfmt@3.6.0
-    - svgo@4.0.0
-    - taplo@0.9.3
-    - trivy@0.64.1
-    - trufflehog@3.90.1
+    - taplo@0.10.0
+    - trivy@0.66.0
+    - trufflehog@3.90.5
     - yamllint@1.37.1
   ignore:
     - linters: [ALL]

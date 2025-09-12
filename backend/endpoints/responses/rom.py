@@ -4,18 +4,19 @@ import re
 from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
-from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from fastapi import Request
-from handler.metadata.flashpoint_handler import FlashpointMetadata
+from pydantic import computed_field, field_validator
+
+from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from handler.metadata.hasheous_handler import HasheousMetadata
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.launchbox_handler import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
+from handler.metadata.flashpoint_handler import FlashpointMetadata
 from models.collection import Collection
 from models.rom import Rom, RomFileCategory, RomUserStatus
-from pydantic import computed_field, field_validator
 
 from .base import BaseModel
 

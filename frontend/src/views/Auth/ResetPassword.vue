@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import identityApi from "@/services/api/identity";
-import { refetchCSRFToken } from "@/services/api/index";
-import type { Events } from "@/types/emitter";
-import userApi from "@/services/api/user";
 import type { Emitter } from "mitt";
-import storeAuth from "@/stores/auth";
 import { inject, ref } from "vue";
-import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { useRouter, useRoute } from "vue-router";
+import { refetchCSRFToken } from "@/services/api";
+import identityApi from "@/services/api/identity";
+import storeAuth from "@/stores/auth";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
-const auth = storeAuth();
+const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const route = useRoute();
 const router = useRouter();
@@ -26,8 +25,7 @@ async function resetPassword() {
     .then(async () => {
       await refetchCSRFToken();
       try {
-        const { data: userData } = await userApi.fetchCurrentUser();
-        auth.setUser(userData);
+        await authStore.fetchCurrentUser();
       } catch (error) {
         console.error("Error setting a new password: ", error);
       }
@@ -64,8 +62,8 @@ async function resetPassword() {
             :type="visibleNewPassword ? 'text' : 'password'"
             required
             :append-inner-icon="visibleNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
-            @click:append-inner="visibleNewPassword = !visibleNewPassword"
             variant="underlined"
+            @click:append-inner="visibleNewPassword = !visibleNewPassword"
           />
           <v-text-field
             v-model="confirmPassword"
@@ -75,14 +73,14 @@ async function resetPassword() {
             :append-inner-icon="
               visibleConfirmNewPassword ? 'mdi-eye-off' : 'mdi-eye'
             "
+            variant="underlined"
             @click:append-inner="
               visibleConfirmNewPassword = !visibleConfirmNewPassword
             "
-            variant="underlined"
           />
           <span
-            class="text-red text-caption"
             v-if="newPassword !== confirmPassword && newPassword.length > 0"
+            class="text-red text-caption"
             >Passwords do not match</span
           >
           <v-btn
