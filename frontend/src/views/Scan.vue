@@ -445,6 +445,16 @@ async function stopScan() {
                           <v-img src="/assets/scrappers/hasheous.png" />
                         </v-avatar>
                       </v-chip>
+                      <v-chip
+                        v-if="rom.flashpoint_id"
+                        class="pa-1 mr-1 bg-surface"
+                        size="small"
+                        title="Flashpoint match"
+                      >
+                        <v-avatar size="18" rounded>
+                          <v-img src="/assets/scrappers/flashpoint.png" />
+                        </v-avatar>
+                      </v-chip>
                     </template>
                   </RomListItem>
                   <v-list-item

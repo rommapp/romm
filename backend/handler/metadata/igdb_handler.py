@@ -17,7 +17,7 @@ from handler.redis_handler import async_cache
 from logger.logger import log
 from utils.context import ctx_httpx_client
 
-from .base_hander import (
+from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
@@ -25,7 +25,7 @@ from .base_hander import (
     BaseRom,
     MetadataHandler,
 )
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import UniversalPlatformSlug as UPS
 
 PS1_IGDB_ID: Final = 7
 PS2_IGDB_ID: Final = 8
@@ -1386,7 +1386,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "family_slug": "",
         "generation": -1,
         "id": 82,
-        "name": "Web browser",
+        "name": "Browser (Flash/HTML5)",
         "slug": "browser",
         "url": "https://www.igdb.com/platforms/browser",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmx.jpg",
@@ -5004,7 +5004,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     },
     "web-browser": {
         "id": 86,
-        "name": "Web browser",
+        "name": "Browser (Flash/HTML5)",
         "platform_slug": UPS.BROWSER,
         "slug": "web-browser",
         "url": "https://www.igdb.com/platforms/browser/version/web-browser",

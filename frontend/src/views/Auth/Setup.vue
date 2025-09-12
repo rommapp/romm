@@ -36,12 +36,6 @@ const metadataOptions = computed(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
   },
   {
-    name: "SteamgridDB",
-    value: "sgdb",
-    logo_path: "/assets/scrappers/sgdb.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
-  },
-  {
     name: "RetroAchievements",
     value: "ra",
     logo_path: "/assets/scrappers/ra.png",
@@ -52,6 +46,24 @@ const metadataOptions = computed(() => [
     value: "hasheous",
     logo_path: "/assets/scrappers/hasheous.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED,
+  },
+  {
+    name: "Launchbox",
+    value: "launchbox",
+    logo_path: "/assets/scrappers/launchbox.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
+  },
+  {
+    name: "Flashpoint Project",
+    value: "flashpoint",
+    logo_path: "/assets/scrappers/flashpoint.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED,
+  },
+  {
+    name: "SteamgridDB",
+    value: "sgdb",
+    logo_path: "/assets/scrappers/sgdb.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
   },
 ]);
 const defaultAdminUser = ref({

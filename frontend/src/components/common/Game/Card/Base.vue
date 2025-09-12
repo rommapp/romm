@@ -113,7 +113,7 @@ const computedAspectRatio = computed(() => {
   return parseFloat(ratio.toString());
 });
 const fallbackCoverImage = computed(() =>
-  props.rom.igdb_id || props.rom.moby_id || props.rom.ss_id
+  props.rom.is_identified
     ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
     : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
 );

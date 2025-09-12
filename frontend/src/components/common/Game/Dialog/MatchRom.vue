@@ -19,7 +19,7 @@ import { getMissingCoverImage } from "@/utils/covers";
 
 type MatchedSource = {
   url_cover: string | undefined;
-  name: "IGDB" | "Mobygames" | "Screenscraper" | "SteamGridDB";
+  name: "IGDB" | "Mobygames" | "Screenscraper" | "Flashpoint" | "SteamGridDB";
   logo_path: string;
 };
 
@@ -47,6 +47,7 @@ const heartbeat = storeHeartbeat();
 const isIGDBFiltered = ref(true);
 const isMobyFiltered = ref(true);
 const isSSFiltered = ref(true);
+const isFlashpointFiltered = ref(true);
 const computedAspectRatio = computed(() => {
   const ratio =
     platfotmsStore.getAspectRatio(rom.value?.platform_id ?? -1) ||
@@ -60,10 +61,9 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
 
   // Use name as search term, only when it's matched
   // Otherwise use the filename without tags and extensions
-  searchText.value =
-    romToSearch.igdb_id || romToSearch.moby_id || romToSearch.ss_id
-      ? (romToSearch.name ?? "")
-      : romToSearch.fs_name_no_tags;
+  searchText.value = romToSearch.is_identified
+    ? (romToSearch.name ?? "")
+    : romToSearch.fs_name_no_tags;
 });
 const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
@@ -82,12 +82,18 @@ function toggleSourceFilter(source: MatchedSource["name"]) {
     heartbeat.value.METADATA_SOURCES.SS_API_ENABLED
   ) {
     isSSFiltered.value = !isSSFiltered.value;
+  } else if (
+    source == "Flashpoint" &&
+    heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED
+  ) {
+    isFlashpointFiltered.value = !isFlashpointFiltered.value;
   }
   filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
     if (
       (rom.igdb_id && isIGDBFiltered.value) ||
       (rom.moby_id && isMobyFiltered.value) ||
-      (rom.ss_id && isSSFiltered.value)
+      (rom.ss_id && isSSFiltered.value) ||
+      (rom.flashpoint_id && isFlashpointFiltered.value)
     ) {
       return true;
     }
@@ -117,7 +123,8 @@ async function searchRom() {
           if (
             (rom.igdb_id && isIGDBFiltered.value) ||
             (rom.moby_id && isMobyFiltered.value) ||
-            (rom.ss_id && isSSFiltered.value)
+            (rom.ss_id && isSSFiltered.value) ||
+            (rom.flashpoint_id && isFlashpointFiltered.value)
           ) {
             return true;
           }
@@ -173,6 +180,13 @@ function showSources(matchedRom: SearchRomSchema) {
       url_cover: matchedRom.sgdb_url_cover,
       name: "SteamGridDB",
       logo_path: "/assets/scrappers/sgdb.png",
+    });
+  }
+  if (matchedRom.flashpoint_url_cover) {
+    sources.value.push({
+      url_cover: matchedRom.flashpoint_url_cover,
+      name: "Flashpoint",
+      logo_path: "/assets/scrappers/flashpoint.png",
     });
   }
   if (sources.value.length == 1) {
@@ -232,6 +246,7 @@ async function updateRom(
       selectedRom.igdb_url_cover ||
       selectedRom.ss_url_cover ||
       selectedRom.moby_url_cover ||
+      selectedRom.flashpoint_url_cover ||
       null,
   };
 
@@ -381,6 +396,35 @@ onBeforeUnmount(() => {
             @click="toggleSourceFilter('Screenscraper')"
           >
             <v-img src="/assets/scrappers/ss.png" />
+          </v-avatar>
+        </template>
+      </v-tooltip>
+      <v-tooltip
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        :text="
+          heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED
+            ? 'Filter Flashpoint matches'
+            : 'Flashpoint source is not enabled'
+        "
+        open-delay="500"
+        ><template #activator="{ props }">
+          <v-avatar
+            @click="toggleSourceFilter('Flashpoint')"
+            v-bind="props"
+            class="ml-3 cursor-pointer opacity-40"
+            :class="{
+              'opacity-100':
+                isFlashpointFiltered &&
+                heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED,
+            }"
+            size="30"
+            rounded="1"
+          >
+            <v-img src="/assets/scrappers/flashpoint.png" />
           </v-avatar>
         </template>
       </v-tooltip>

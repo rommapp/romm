@@ -9,8 +9,8 @@ from config import LAUNCHBOX_API_ENABLED, str_to_bool
 from handler.redis_handler import async_cache
 from logger.logger import log
 
-from .base_hander import BaseRom, MetadataHandler
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import BaseRom, MetadataHandler
+from .base_handler import UniversalPlatformSlug as UPS
 
 LAUNCHBOX_PLATFORMS_KEY: Final[str] = "romm:launchbox_platforms"
 LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final[str] = "romm:launchbox_metadata_database_id"

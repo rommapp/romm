@@ -4,6 +4,7 @@ from config import (
 )
 from endpoints.sockets.scan import scan_platforms
 from handler.metadata import (
+    meta_flashpoint_handler,
     meta_hasheous_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
@@ -11,6 +12,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_tgdb_handler,
 )
 from handler.scan_handler import MetadataSource, ScanType
 from logger.logger import log
@@ -42,6 +44,8 @@ class ScanLibraryTask(PeriodicTask):
             MetadataSource.LB: meta_launchbox_handler.is_enabled(),
             MetadataSource.HASHEOUS: meta_hasheous_handler.is_enabled(),
             MetadataSource.SGDB: meta_sgdb_handler.is_enabled(),
+            MetadataSource.FLASHPOINT: meta_flashpoint_handler.is_enabled(),
+            MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
         }
 
         metadata_sources = [source for source, flag in source_mapping.items() if flag]

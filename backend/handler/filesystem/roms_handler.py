@@ -20,7 +20,7 @@ from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomsNotFoundException,
 )
-from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from utils.archive_7zip import process_file_7z
