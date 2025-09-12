@@ -4,6 +4,7 @@ from config import (
 )
 from endpoints.sockets.scan import scan_platforms
 from handler.metadata import (
+    meta_flashpoint_handler,
     meta_hasheous_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
@@ -12,7 +13,6 @@ from handler.metadata import (
     meta_sgdb_handler,
     meta_ss_handler,
     meta_tgdb_handler,
-    meta_flashpoint_handler,
 )
 from handler.scan_handler import MetadataSource, ScanType
 from logger.logger import log

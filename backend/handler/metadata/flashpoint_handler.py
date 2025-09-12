@@ -5,8 +5,9 @@ from typing import Final, NotRequired, TypedDict
 import httpx
 import pydash
 import yarl
-from config import FLASHPOINT_API_ENABLED
 from fastapi import HTTPException, status
+
+from config import FLASHPOINT_API_ENABLED
 from logger.logger import log
 from utils.context import ctx_httpx_client
 

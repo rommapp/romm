@@ -19,6 +19,7 @@ from endpoints.responses.heartbeat import HeartbeatResponse
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata import (
+    meta_flashpoint_handler,
     meta_hasheous_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
@@ -28,7 +29,6 @@ from handler.metadata import (
     meta_sgdb_handler,
     meta_ss_handler,
     meta_tgdb_handler,
-    meta_flashpoint_handler,
 )
 from utils import get_version
 from utils.router import APIRouter

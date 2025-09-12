@@ -14,11 +14,11 @@ from handler.metadata import (
     meta_sgdb_handler,
     meta_ss_handler,
 )
+from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSRom
-from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.scan_handler import get_main_platform_igdb_id
 from logger.formatter import BLUE, CYAN
 from logger.formatter import highlight as hl
