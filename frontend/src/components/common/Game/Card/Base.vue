@@ -26,9 +26,11 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
-
-const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
+import {
+  getMissingCoverImage,
+  getUnmatchedCoverImage,
+  EXTENSION_REGEX,
+} from "@/utils/covers";
 
 const props = withDefaults(
   defineProps<{

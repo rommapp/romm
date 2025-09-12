@@ -14,9 +14,11 @@ import { ROUTES } from "@/plugins/router";
 import type { CollectionType } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
-import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
-
-const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
+import {
+  getCollectionCoverImage,
+  getFavoriteCoverImage,
+  EXTENSION_REGEX,
+} from "@/utils/covers";
 
 const props = withDefaults(
   defineProps<{
