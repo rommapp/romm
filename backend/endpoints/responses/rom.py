@@ -8,13 +8,13 @@ from fastapi import Request
 from pydantic import computed_field, field_validator
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
+from handler.metadata.flashpoint_handler import FlashpointMetadata
 from handler.metadata.hasheous_handler import HasheousMetadata
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.launchbox_handler import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
-from handler.metadata.flashpoint_handler import FlashpointMetadata
 from models.collection import Collection
 from models.rom import Rom, RomFileCategory, RomUserStatus
 
