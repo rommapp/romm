@@ -7,7 +7,7 @@ import yarl
 from fastapi import HTTPException, status
 
 from config import PLAYMATCH_API_ENABLED
-from handler.metadata.base_hander import MetadataHandler
+from handler.metadata.base_handler import MetadataHandler
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version

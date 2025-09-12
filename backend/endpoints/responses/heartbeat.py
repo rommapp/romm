@@ -17,6 +17,7 @@ class MetadataSourcesDict(TypedDict):
     PLAYMATCH_API_ENABLED: bool
     HASHEOUS_API_ENABLED: bool
     TGDB_API_ENABLED: bool
+    FLASHPOINT_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):

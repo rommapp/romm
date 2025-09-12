@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from handler.metadata.base_hander import (
+from handler.metadata.base_handler import (
     LEADING_ARTICLE_PATTERN,
     MAME_XML_KEY,
     MULTIPLE_SPACE_PATTERN,
@@ -130,7 +130,7 @@ class TestMetadataHandlerMethods:
 
     def test_normalize_search_term_delegates(self, handler: MetadataHandler):
         """Test that normalize_search_term delegates to the cached function."""
-        with patch("handler.metadata.base_hander._normalize_search_term") as mock_func:
+        with patch("handler.metadata.base_handler._normalize_search_term") as mock_func:
             mock_func.return_value = "normalized"
 
             result = handler.normalize_search_term("Test Game", True, False)
@@ -278,7 +278,7 @@ class TestMetadataHandlerMethods:
         ) as mock_exists, patch.object(
             async_cache, "hget", new_callable=AsyncMock
         ) as mock_hget, patch(
-            "handler.metadata.base_hander.update_switch_titledb_task"
+            "handler.metadata.base_handler.update_switch_titledb_task"
         ) as mock_task:
 
             # First call returns False (cache missing), second returns True (after fetch)
@@ -301,9 +301,9 @@ class TestMetadataHandlerMethods:
         with patch.object(
             async_cache, "exists", new_callable=AsyncMock
         ) as mock_exists, patch(
-            "handler.metadata.base_hander.update_switch_titledb_task"
+            "handler.metadata.base_handler.update_switch_titledb_task"
         ) as mock_task, patch(
-            "handler.metadata.base_hander.log"
+            "handler.metadata.base_handler.log"
         ) as mock_log:
 
             mock_exists.return_value = False  # Cache always missing

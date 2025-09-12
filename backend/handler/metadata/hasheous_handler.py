@@ -12,8 +12,8 @@ from models.rom import RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
 
-from .base_hander import BaseRom, MetadataHandler
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import BaseRom, MetadataHandler
+from .base_handler import UniversalPlatformSlug as UPS
 from .igdb_handler import (
     IGDB_AGE_RATINGS,
     IGDBMetadata,

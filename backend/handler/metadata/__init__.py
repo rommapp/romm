@@ -1,3 +1,4 @@
+from .flashpoint_handler import FlashpointHandler
 from .hasheous_handler import HasheousHandler
 from .igdb_handler import IGDBHandler
 from .launchbox_handler import LaunchboxHandler
@@ -17,3 +18,4 @@ meta_playmatch_handler = PlaymatchHandler()
 meta_launchbox_handler = LaunchboxHandler()
 meta_hasheous_handler = HasheousHandler()
 meta_tgdb_handler = TGDBHandler()
+meta_flashpoint_handler = FlashpointHandler()

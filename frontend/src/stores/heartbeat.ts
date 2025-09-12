@@ -27,6 +27,7 @@ const defaultHeartbeat: Heartbeat = {
     PLAYMATCH_API_ENABLED: false,
     HASHEOUS_API_ENABLED: false,
     TGDB_API_ENABLED: false,
+    FLASHPOINT_API_ENABLED: false,
   },
   FILESYSTEM: {
     FS_PLATFORMS: [],
@@ -123,6 +124,14 @@ export default defineStore("heartbeat", {
           logo_path: "/assets/scrappers/launchbox.png",
           disabled: !this.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED
             ? i18n.global.t("scan.disabled-by-admin")
+            : "",
+        },
+        {
+          name: "Flashpoint Project",
+          value: "flashpoint",
+          logo_path: "/assets/scrappers/flashpoint.png",
+          disabled: !this.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED
+            ? i18n.global.t("scan.api-key-missing")
             : "",
         },
         {

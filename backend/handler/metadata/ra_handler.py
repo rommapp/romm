@@ -20,8 +20,8 @@ from handler.filesystem import fs_resource_handler
 from logger.logger import log
 from models.rom import Rom
 
-from .base_hander import BaseRom, MetadataHandler
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import BaseRom, MetadataHandler
+from .base_handler import UniversalPlatformSlug as UPS
 
 # Regex to detect RetroAchievements ID tags in filenames like (ra-12345)
 RA_TAG_REGEX = re.compile(r"\(ra-(\d+)\)", re.IGNORECASE)
