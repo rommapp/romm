@@ -405,7 +405,7 @@ async def _identify_platform(
     else:
         log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
-    for fs_roms_batch in batched(fs_roms, 200, strict=False):
+    for fs_roms_batch in batched(fs_roms, 100, strict=False):
         rom_by_filename_map = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
