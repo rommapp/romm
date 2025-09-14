@@ -7,7 +7,7 @@ const { t } = useI18n();
 <template>
   <v-empty-state :title="t('emptyStates.search-for-games')">
     <template #media>
-      <v-icon size="70">mdi-magnify</v-icon>
+      <v-icon size="70"> mdi-magnify </v-icon>
     </template>
   </v-empty-state>
 </template>

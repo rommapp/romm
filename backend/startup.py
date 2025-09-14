@@ -13,7 +13,7 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     SENTRY_DSN,
 )
-from handler.metadata.base_hander import (
+from handler.metadata.base_handler import (
     MAME_XML_KEY,
     METADATA_FIXTURES_DIR,
     PS1_SERIAL_INDEX_KEY,

@@ -14,9 +14,11 @@ import { ROUTES } from "@/plugins/router";
 import type { CollectionType } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
-import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
-
-const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
+import {
+  getCollectionCoverImage,
+  getFavoriteCoverImage,
+  EXTENSION_REGEX,
+} from "@/utils/covers";
 
 const props = withDefaults(
   defineProps<{
@@ -175,7 +177,7 @@ onBeforeUnmount(() => {
 
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
-    <div data-tilt ref="tilt-card-ref">
+    <div ref="tilt-card-ref" data-tilt>
       <v-card
         v-bind="{
           ...hoverProps,
@@ -233,8 +235,8 @@ onBeforeUnmount(() => {
                     "
                   >
                     <template #placeholder>
-                      <skeleton
-                        :aspectRatio="
+                      <Skeleton
+                        :aspect-ratio="
                           galleryViewStore.defaultAspectRatioCollection
                         "
                         type="image"
@@ -266,8 +268,8 @@ onBeforeUnmount(() => {
                     "
                   >
                     <template #placeholder>
-                      <skeleton
-                        :aspectRatio="
+                      <Skeleton
+                        :aspect-ratio="
                           galleryViewStore.defaultAspectRatioCollection
                         "
                         type="image"
@@ -298,8 +300,8 @@ onBeforeUnmount(() => {
                   :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
                 >
                   <template #placeholder>
-                    <skeleton
-                      :aspectRatio="
+                    <Skeleton
+                      :aspect-ratio="
                         galleryViewStore.defaultAspectRatioCollection
                       "
                       type="image"
@@ -316,7 +318,7 @@ onBeforeUnmount(() => {
             </v-img>
           </template>
           <div class="position-absolute append-inner">
-            <slot name="append-inner"></slot>
+            <slot name="append-inner" />
           </div>
         </div>
         <v-chip

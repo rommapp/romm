@@ -123,9 +123,9 @@ async function goToRandomGame() {
     color="text-white"
     :disabled="romsStore.filteredRoms.length === 0"
     rounded="0"
-    @click="goToRandomGame"
     :title="t('common.random')"
     class="bg-surface ma-0"
+    @click="goToRandomGame"
   >
     <v-icon>mdi-shuffle-variant</v-icon>
   </v-btn>

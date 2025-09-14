@@ -96,8 +96,15 @@ HASHEOUS_API_ENABLED: Final[bool] = str_to_bool(
 # THEGAMESDB
 TGDB_API_ENABLED: Final[bool] = str_to_bool(os.environ.get("TGDB_API_ENABLED", "false"))
 
+# FLASHPOINT
+FLASHPOINT_API_ENABLED: Final = str_to_bool(
+    os.environ.get("FLASHPOINT_API_ENABLED", "false")
+)
+
 # AUTH
-ROMM_AUTH_SECRET_KEY: Final = os.environ.get("ROMM_AUTH_SECRET_KEY")
+ROMM_AUTH_SECRET_KEY: Final[str] = os.environ.get("ROMM_AUTH_SECRET_KEY", "")
+if not ROMM_AUTH_SECRET_KEY:
+    raise ValueError("ROMM_AUTH_SECRET_KEY environment variable is not set!")
 
 SESSION_MAX_AGE_SECONDS: Final = int(
     os.environ.get("SESSION_MAX_AGE_SECONDS", 14 * 24 * 60 * 60)

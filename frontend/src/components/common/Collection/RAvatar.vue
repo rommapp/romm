@@ -3,9 +3,11 @@ import { computed, ref, watchEffect } from "vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { type CollectionType } from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
-import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
-
-const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
+import {
+  getCollectionCoverImage,
+  getFavoriteCoverImage,
+  EXTENSION_REGEX,
+} from "@/utils/covers";
 
 const props = withDefaults(
   defineProps<{
@@ -70,7 +72,7 @@ const secondCover = computed(() => memoizedCovers.value[1]);
         <div class="split-image first-image">
           <v-img cover :src="firstCover" :aspect-ratio="1 / 1">
             <template #placeholder>
-              <skeleton :aspect-ratio="1 / 1" type="image" />
+              <Skeleton :aspect-ratio="1 / 1" type="image" />
             </template>
             <template #error>
               <v-img cover :src="collectionCoverImage" :aspect-ratio="1 / 1" />
@@ -80,7 +82,7 @@ const secondCover = computed(() => memoizedCovers.value[1]);
         <div class="split-image second-image">
           <v-img cover :src="secondCover" :aspect-ratio="1 / 1">
             <template #placeholder>
-              <skeleton :aspect-ratio="1 / 1" type="image" />
+              <Skeleton :aspect-ratio="1 / 1" type="image" />
             </template>
             <template #error>
               <v-img cover :src="collectionCoverImage" :aspect-ratio="1 / 1" />
@@ -92,7 +94,7 @@ const secondCover = computed(() => memoizedCovers.value[1]);
         <div class="split-image first-image">
           <v-img cover :src="firstCover" :aspect-ratio="1 / 1">
             <template #placeholder>
-              <skeleton :aspect-ratio="1 / 1" type="image" />
+              <Skeleton :aspect-ratio="1 / 1" type="image" />
             </template>
             <template #error>
               <v-img cover :src="collectionCoverImage" :aspect-ratio="1 / 1" />

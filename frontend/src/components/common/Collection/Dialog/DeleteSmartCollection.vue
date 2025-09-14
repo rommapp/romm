@@ -28,7 +28,7 @@ async function deleteSmartCollection() {
 
   await collectionApi
     .deleteSmartCollection(smartCollection.value.id)
-    .then((response) => {
+    .then(() => {
       emitter?.emit("snackbarShow", {
         msg: "Smart collection deleted",
         icon: "mdi-check-bold",
@@ -62,19 +62,19 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-if="smartCollection"
-    @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
     scroll-content
     :width="lgAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>
         <span>{{ t("collection.removing-smart-collection-1") }}</span>
         <v-chip class="pl-0 ml-1" label>
-          <r-avatar-collection
+          <RAvatarCollection
             :collection="smartCollection"
             :size="35"
             class="mr-2"
@@ -101,5 +101,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

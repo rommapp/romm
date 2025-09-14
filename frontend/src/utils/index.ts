@@ -149,7 +149,7 @@ export function formatBytes(bytes: number, decimals = 2) {
   const dm = Math.max(0, decimals);
   const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
 /**
@@ -274,27 +274,69 @@ export function regionToEmoji(region: string) {
  */
 export function languageToEmoji(language: string) {
   switch (language.toLowerCase()) {
+    case "af":
+    case "afrikaans":
+      return "🇿🇦";
     case "ar":
     case "arabic":
       return "🇦🇪";
+    case "be":
+    case "belarusian":
+      return "🇧🇾";
+    case "bg":
+    case "bulgarian":
+      return "🇧🇬";
+    case "ca":
+    case "catalan":
+      return "🇦🇩";
+    case "cs":
+    case "czech":
+      return "🇨🇿";
     case "da":
     case "danish":
       return "🇩🇰";
     case "de":
     case "german":
       return "🇩🇪";
+    case "el":
+    case "greek":
+      return "🇬🇷";
     case "en":
     case "english":
       return "🇬🇧";
     case "es":
     case "spanish":
       return "🇪🇸";
+    case "et":
+    case "estonian":
+      return "🇪🇪";
     case "fi":
     case "finnish":
       return "🇫🇮";
     case "fr":
     case "french":
       return "🇫🇷";
+    case "he":
+    case "hebrew":
+      return "🇮🇱";
+    case "hi":
+    case "hindi":
+      return "🇮🇳";
+    case "hr":
+    case "croatian":
+      return "🇭🇷";
+    case "hu":
+    case "hungarian":
+      return "🇭🇺";
+    case "hy":
+    case "armenian":
+      return "🇦🇲";
+    case "id":
+    case "indonesian":
+      return "🇮🇩";
+    case "is":
+    case "icelandic":
+      return "🇮🇸";
     case "it":
     case "italian":
       return "🇮🇹";
@@ -304,6 +346,18 @@ export function languageToEmoji(language: string) {
     case "ko":
     case "korean":
       return "🇰🇷";
+    case "la":
+    case "latin":
+      return "🇻🇦";
+    case "lt":
+    case "lithuanian":
+      return "🇱🇹";
+    case "lv":
+    case "latvian":
+      return "🇱🇻";
+    case "mk":
+    case "macedonian":
+      return "🇲🇰";
     case "nl":
     case "dutch":
       return "🇳🇱";
@@ -316,12 +370,39 @@ export function languageToEmoji(language: string) {
     case "pt":
     case "portuguese":
       return "🇵🇹";
+    case "ro":
+    case "romanian":
+      return "🇷🇴";
     case "ru":
     case "russian":
       return "🇷🇺";
+    case "sk":
+    case "slovak":
+      return "🇸🇰";
+    case "sl":
+    case "slovenian":
+      return "🇸🇮";
+    case "sq":
+    case "albanian":
+      return "🇦🇱";
+    case "sr":
+    case "serbian":
+      return "🇷🇸";
     case "sv":
     case "swedish":
       return "🇸🇪";
+    case "th":
+    case "thai":
+      return "🇹🇭";
+    case "tr":
+    case "turkish":
+      return "🇹🇷";
+    case "uk":
+    case "ukrainian":
+      return "🇺🇦";
+    case "vi":
+    case "vietnamese":
+      return "🇻🇳";
     case "zh":
     case "chinese":
       return "🇨🇳";

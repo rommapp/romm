@@ -1,3 +1,5 @@
+export const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
+
 function hashString(str: string) {
   let h = 0;
   for (let i = 0; i < str.length; i++) {

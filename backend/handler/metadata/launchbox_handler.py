@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime
 from typing import Final, NotRequired, TypedDict
 
@@ -8,8 +9,8 @@ from config import LAUNCHBOX_API_ENABLED, str_to_bool
 from handler.redis_handler import async_cache
 from logger.logger import log
 
-from .base_hander import BaseRom, MetadataHandler
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import BaseRom, MetadataHandler
+from .base_handler import UniversalPlatformSlug as UPS
 
 LAUNCHBOX_PLATFORMS_KEY: Final[str] = "romm:launchbox_platforms"
 LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final[str] = "romm:launchbox_metadata_database_id"
@@ -20,6 +21,9 @@ LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final[str] = (
 LAUNCHBOX_METADATA_IMAGE_KEY: Final[str] = "romm:launchbox_metadata_image"
 LAUNCHBOX_MAME_KEY: Final[str] = "romm:launchbox_mame"
 LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
+
+# Regex to detect LaunchBox ID tags in filenames like (launchbox-12345)
+LAUNCHBOX_TAG_REGEX = re.compile(r"\(launchbox-(\d+)\)", re.IGNORECASE)
 
 
 class LaunchboxPlatform(TypedDict):
@@ -122,6 +126,14 @@ class LaunchboxHandler(MetadataHandler):
     @classmethod
     def is_enabled(cls) -> bool:
         return LAUNCHBOX_API_ENABLED
+
+    @staticmethod
+    def extract_launchbox_id_from_filename(fs_name: str) -> int | None:
+        """Extract LaunchBox ID from filename tag like (launchbox-12345)."""
+        match = LAUNCHBOX_TAG_REGEX.search(fs_name)
+        if match:
+            return int(match.group(1))
+        return None
 
     async def _get_rom_from_metadata(
         self, file_name: str, platform_slug: str
@@ -231,6 +243,21 @@ class LaunchboxHandler(MetadataHandler):
         if not self.is_enabled():
             return fallback_rom
 
+        # Check for LaunchBox ID tag in filename first
+        launchbox_id_from_tag = self.extract_launchbox_id_from_filename(fs_name)
+        if launchbox_id_from_tag:
+            log.debug(f"Found LaunchBox ID tag in filename: {launchbox_id_from_tag}")
+            rom_by_id = await self.get_rom_by_id(launchbox_id_from_tag)
+            if rom_by_id["launchbox_id"]:
+                log.debug(
+                    f"Successfully matched ROM by LaunchBox ID tag: {fs_name} -> {launchbox_id_from_tag}"
+                )
+                return rom_by_id
+            else:
+                log.warning(
+                    f"LaunchBox ID {launchbox_id_from_tag} from filename tag not found in LaunchBox"
+                )
+
         # We replace " - " with ": " to match Launchbox's naming convention
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
             " - ", ": "
@@ -277,6 +304,8 @@ class LaunchboxHandler(MetadataHandler):
         if not metadata_database_index_entry:
             return LaunchboxRom(launchbox_id=None)
 
+        # Parse the JSON string from cache
+        metadata_database_index_entry = json.loads(metadata_database_index_entry)
         game_images = await self._get_game_images(
             metadata_database_index_entry["DatabaseID"]
         )

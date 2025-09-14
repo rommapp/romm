@@ -6,6 +6,55 @@ import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
 
+// Vuetify components to preoptimize for faster dev startup
+const VUETIFY_COMPONENTS = [
+  "vuetify/components/transitions",
+  "vuetify/components/VAlert",
+  "vuetify/components/VAppBar",
+  "vuetify/components/VAutocomplete",
+  "vuetify/components/VAvatar",
+  "vuetify/components/VBottomNavigation",
+  "vuetify/components/VBtn",
+  "vuetify/components/VBtnGroup",
+  "vuetify/components/VBtnToggle",
+  "vuetify/components/VCard",
+  "vuetify/components/VCarousel",
+  "vuetify/components/VCheckbox",
+  "vuetify/components/VChip",
+  "vuetify/components/VDataTable",
+  "vuetify/components/VDialog",
+  "vuetify/components/VDivider",
+  "vuetify/components/VEmptyState",
+  "vuetify/components/VExpansionPanel",
+  "vuetify/components/VFileInput",
+  "vuetify/components/VForm",
+  "vuetify/components/VGrid",
+  "vuetify/components/VHover",
+  "vuetify/components/VIcon",
+  "vuetify/components/VImg",
+  "vuetify/components/VItemGroup",
+  "vuetify/components/VLabel",
+  "vuetify/components/VList",
+  "vuetify/components/VMenu",
+  "vuetify/components/VNavigationDrawer",
+  "vuetify/components/VProgressCircular",
+  "vuetify/components/VProgressLinear",
+  "vuetify/components/VRating",
+  "vuetify/components/VSelect",
+  "vuetify/components/VSheet",
+  "vuetify/components/VSkeletonLoader",
+  "vuetify/components/VSlider",
+  "vuetify/components/VSnackbar",
+  "vuetify/components/VSpeedDial",
+  "vuetify/components/VSwitch",
+  "vuetify/components/VTabs",
+  "vuetify/components/VTextarea",
+  "vuetify/components/VTextField",
+  "vuetify/components/VToolbar",
+  "vuetify/components/VTooltip",
+  "vuetify/components/VWindow",
+];
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load ENV variables from the parent directory and the current directory.
@@ -18,6 +67,9 @@ export default defineConfig(({ mode }) => {
   const backendPort = env.DEV_PORT ?? "5000";
 
   return {
+    optimizeDeps: {
+      include: VUETIFY_COMPONENTS,
+    },
     build: {
       target: "esnext",
     },
