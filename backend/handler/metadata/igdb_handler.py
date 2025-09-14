@@ -122,7 +122,9 @@ def build_related_game(
     )
 
 
-def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMetadata:
+async def extract_metadata_from_igdb_rom(
+    self: "IGDBHandler", rom: Game
+) -> IGDBMetadata:
     age_ratings = rom.get("age_ratings", [])
     alternative_names = rom.get("alternative_names", [])
     collections = rom.get("collections", [])
@@ -140,11 +142,9 @@ def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMeta
     remasters = rom.get("remasters", [])
     similar_games = rom.get("similar_games", [])
     videos = rom.get("videos", [])
-    time_to_beat = rom.get("time_to_beat", None)
 
     # Narrow types for expandable fields we requested IGDB to be expanded.
     assert mark_expanded(franchise)
-    assert mark_expanded(time_to_beat)
     assert mark_list_expanded(age_ratings)
     assert mark_list_expanded(alternative_names)
     assert mark_list_expanded(collections)
@@ -166,7 +166,6 @@ def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMeta
     time_to_beat = await self.igdb_service.list_game_time_to_beats(
         where=f"game={rom.get('id')}",
         fields=["hastily", "normally", "completely", "count", "checksum"],
-        limit=1,
     )
 
     return IGDBMetadata(
@@ -473,6 +472,8 @@ class IGDBHandler(MetadataHandler):
         rom_screenshots = rom.get("screenshots", [])
         assert mark_list_expanded(rom_screenshots)
 
+        igdb_metadata = await extract_metadata_from_igdb_rom(self, rom)
+
         return IGDBRom(
             igdb_id=rom["id"],
             slug=rom.get("slug", ""),
@@ -485,7 +486,7 @@ class IGDBHandler(MetadataHandler):
                 self.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
                 for s in rom_screenshots
             ],
-            igdb_metadata=extract_metadata_from_igdb_rom(self, rom),
+            igdb_metadata=igdb_metadata,
         )
 
     async def get_rom_by_id(self, igdb_id: int) -> IGDBRom:
@@ -504,6 +505,8 @@ class IGDBHandler(MetadataHandler):
         rom_screenshots = rom.get("screenshots", [])
         assert mark_list_expanded(rom_screenshots)
 
+        igdb_metadata = await extract_metadata_from_igdb_rom(self, rom)
+
         return IGDBRom(
             igdb_id=rom["id"],
             slug=rom.get("slug", ""),
@@ -516,7 +519,7 @@ class IGDBHandler(MetadataHandler):
                 self.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
                 for s in rom_screenshots
             ],
-            igdb_metadata=extract_metadata_from_igdb_rom(self, rom),
+            igdb_metadata=igdb_metadata,
         )
 
     async def get_matched_rom_by_id(self, igdb_id: int) -> IGDBRom | None:
@@ -598,7 +601,9 @@ class IGDBHandler(MetadataHandler):
                             )
                             for s in rom.get("screenshots", [])
                         ],
-                        "igdb_metadata": extract_metadata_from_igdb_rom(self, rom),
+                        "igdb_metadata": await extract_metadata_from_igdb_rom(
+                            self, rom
+                        ),
                     }.items()
                     if v
                 }

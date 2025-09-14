@@ -214,9 +214,11 @@ class IGDBService:
         Reference: https://api-docs.igdb.com/#game-time-to-beat
         """
         url = self.url.joinpath("game_time_to_beats")
-        return await self._request(
+        response = await self._request(
             str(url),
             fields=fields,
             where=where,
             limit=limit,
         )
+
+        return response[0]
