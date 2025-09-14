@@ -18,6 +18,7 @@ class MetadataSourcesDict(TypedDict):
     HASHEOUS_API_ENABLED: bool
     TGDB_API_ENABLED: bool
     FLASHPOINT_API_ENABLED: bool
+    HLTB_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):
