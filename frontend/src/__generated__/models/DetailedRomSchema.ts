@@ -5,6 +5,7 @@
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomFlashpointMetadata } from './RomFlashpointMetadata';
 import type { RomHasheousMetadata } from './RomHasheousMetadata';
+import type { RomHLTBMetadata } from './RomHLTBMetadata';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
@@ -29,6 +30,7 @@ export type DetailedRomSchema = {
     hasheous_id: (number | null);
     tgdb_id: (number | null);
     flashpoint_id: (string | null);
+    hltb_id: (number | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -53,6 +55,7 @@ export type DetailedRomSchema = {
     launchbox_metadata: (RomLaunchboxMetadata | null);
     hasheous_metadata: (RomHasheousMetadata | null);
     flashpoint_metadata: (RomFlashpointMetadata | null);
+    hltb_metadata: (RomHLTBMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
