@@ -9,19 +9,19 @@ const { t } = useI18n();
 const howLongToBeat = computed((): RomHLTBMetadata | null => {
   return props.rom.hltb_metadata || null;
 });
-const hurriedly = computed(() => {
+const mainStory = computed(() => {
   if (!howLongToBeat.value?.main_story) return null;
   return Intl.NumberFormat("en-US", {
     maximumSignificantDigits: 3,
   }).format(howLongToBeat.value?.main_story / 36.5);
 });
-const normally = computed(() => {
+const mainPlusExtra = computed(() => {
   if (!howLongToBeat.value?.main_plus_extra) return null;
   return Intl.NumberFormat("en-US", {
     maximumSignificantDigits: 3,
   }).format(howLongToBeat.value?.main_plus_extra / 36.5);
 });
-const completely = computed(() => {
+const completionist = computed(() => {
   if (!howLongToBeat.value?.completionist) return null;
   return Intl.NumberFormat("en-US", {
     maximumSignificantDigits: 3,
@@ -39,45 +39,49 @@ const allStyles = computed(() => {
   <div v-if="howLongToBeat">
     <v-row class="mb-4">
       <v-col cols="12">
-        <h3 class="text-h6 mb-4">{{ t("rom.time-to-beat") }}</h3>
+        <h3 class="text-h6 mb-4">{{ t("rom.how-long-to-beat") }}</h3>
       </v-col>
     </v-row>
 
     <v-row>
-      <v-col v-if="hurriedly" cols="12" sm="3">
+      <v-col v-if="mainStory" cols="12" sm="6" lg="3">
         <v-card>
           <v-card-text class="text-center pa-4">
             <div class="text-subtitle-1 font-weight-medium mb-2">
-              {{ t("rom.hastily") }}
+              {{ t("rom.main-story") }}
             </div>
-            <div class="text-h5 font-weight-bold">{{ hurriedly }} Hours</div>
+            <div class="text-h5 font-weight-bold">{{ mainStory }} Hours</div>
           </v-card-text>
         </v-card>
       </v-col>
 
-      <v-col v-if="normally" cols="12" sm="3">
+      <v-col v-if="mainPlusExtra" cols="12" sm="6" lg="3">
         <v-card>
           <v-card-text class="text-center pa-4">
             <div class="text-subtitle-1 font-weight-medium mb-2">
-              {{ t("rom.normally") }}
+              {{ t("rom.main-plus-extra") }}
             </div>
-            <div class="text-h5 font-weight-bold">{{ normally }} Hours</div>
+            <div class="text-h5 font-weight-bold">
+              {{ mainPlusExtra }} Hours
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
 
-      <v-col v-if="completely" cols="12" sm="3">
+      <v-col v-if="completionist" cols="12" sm="6" lg="3">
         <v-card>
           <v-card-text class="text-center pa-4">
             <div class="text-subtitle-1 font-weight-medium mb-2">
-              {{ t("rom.completely") }}
+              {{ t("rom.completionist") }}
             </div>
-            <div class="text-h5 font-weight-bold">{{ completely }} Hours</div>
+            <div class="text-h5 font-weight-bold">
+              {{ completionist }} Hours
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
 
-      <v-col v-if="allStyles" cols="12" sm="3">
+      <v-col v-if="allStyles" cols="12" sm="6" lg="3">
         <v-card>
           <v-card-text class="text-center pa-4">
             <div class="text-subtitle-1 font-weight-medium mb-2">

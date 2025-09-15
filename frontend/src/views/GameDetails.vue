@@ -157,7 +157,7 @@ watch(
               {{ t("rom.personal") }}
             </v-tab>
             <v-tab value="timetobeat">
-              {{ t("rom.time-to-beat") }}
+              {{ t("rom.how-long-to-beat") }}
             </v-tab>
             <v-tab
               v-if="
