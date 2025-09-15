@@ -13,6 +13,7 @@ import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
+import TimeToBeat from "@/components/Details/TimeToBeat.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
@@ -34,6 +35,7 @@ const tab = ref<
   | "manual"
   | "gamedata"
   | "personal"
+  | "timetobeat"
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
@@ -154,6 +156,9 @@ watch(
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
+            <v-tab value="timetobeat">
+              {{ t("rom.time-to-beat") }}
+            </v-tab>
             <v-tab
               v-if="
                 mdAndDown &&
@@ -194,6 +199,9 @@ watch(
               </v-window-item>
               <v-window-item value="personal">
                 <Personal :rom="currentRom" />
+              </v-window-item>
+              <v-window-item value="timetobeat">
+                <TimeToBeat :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="

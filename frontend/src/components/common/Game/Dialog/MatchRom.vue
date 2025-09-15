@@ -257,8 +257,10 @@ async function updateRom(
           )
         : rom.value.fs_name,
     igdb_id: selectedRom.igdb_id || null,
-    moby_id: selectedRom.moby_id || null,
     ss_id: selectedRom.ss_id || null,
+    moby_id: selectedRom.moby_id || null,
+    flashpoint_id: selectedRom.flashpoint_id || null,
+    hltb_id: selectedRom.hltb_id || null,
     name: selectedRom.name || null,
     slug: selectedRom.slug || null,
     summary: selectedRom.summary || null,
