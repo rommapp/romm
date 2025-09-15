@@ -9,11 +9,11 @@ import ActionBar from "@/components/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import GameData from "@/components/Details/GameData.vue";
+import HowLongToBeat from "@/components/Details/HowLongToBeat.vue";
 import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
-import TimeToBeat from "@/components/Details/TimeToBeat.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
@@ -201,7 +201,7 @@ watch(
                 <Personal :rom="currentRom" />
               </v-window-item>
               <v-window-item value="timetobeat">
-                <TimeToBeat :rom="currentRom" />
+                <HowLongToBeat :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="
