@@ -156,7 +156,7 @@ watch(
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
-            <v-tab value="timetobeat">
+            <v-tab v-if="currentRom.hltb_metadata" value="timetobeat">
               {{ t("rom.how-long-to-beat") }}
             </v-tab>
             <v-tab
@@ -200,7 +200,7 @@ watch(
               <v-window-item value="personal">
                 <Personal :rom="currentRom" />
               </v-window-item>
-              <v-window-item value="timetobeat">
+              <v-window-item v-if="currentRom.hltb_metadata" value="timetobeat">
                 <HowLongToBeat :rom="currentRom" />
               </v-window-item>
               <v-window-item

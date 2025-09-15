@@ -15,6 +15,7 @@ from handler.filesystem import fs_platform_handler
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_hasheous_handler,
+    meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
@@ -96,6 +97,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
         hasheous_platform = meta_hasheous_handler.get_platform(slug)
         tgdb_platform = meta_tgdb_handler.get_platform(slug)
         flashpoint_platform = meta_flashpoint_handler.get_platform(slug)
+        hltb_platform = meta_hltb_handler.get_platform(slug)
 
         platform_attrs = {
             "id": -1,
@@ -113,6 +115,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
 
         platform_attrs.update(
             {
+                **hltb_platform,
                 **flashpoint_platform,
                 **hasheous_platform,
                 **tgdb_platform,
@@ -138,6 +141,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
                 or hasheous_platform.get("name")
                 or tgdb_platform.get("name")
                 or flashpoint_platform.get("name")
+                or hltb_platform.get("name")
                 or slug.replace("-", " ").title(),
                 "url_logo": igdb_platform.get("url_logo")
                 or tgdb_platform.get("url_logo")

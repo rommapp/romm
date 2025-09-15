@@ -329,12 +329,12 @@ class LaunchboxHandler(MetadataHandler):
         return await self.get_rom_by_id(database_id)
 
 
-class SlugToLaunchboxPlatformName(TypedDict):
+class SlugToLaunchboxId(TypedDict):
     id: int
     name: str
 
 
-LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxPlatformName] = {
+LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.VECTOR_06C: {"id": 199, "name": "Vector-06C"},
     UPS._3DO: {"id": 1, "name": "3DO Interactive Multiplayer"},
     UPS.N3DS: {"id": 24, "name": "Nintendo 3DS"},

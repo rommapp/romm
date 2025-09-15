@@ -318,6 +318,7 @@ class Rom(BaseModel):
             and not self.launchbox_id
             and not self.hasheous_id
             and not self.flashpoint_id
+            and not self.hltb_id
         )
 
     @property

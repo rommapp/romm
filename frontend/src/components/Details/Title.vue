@@ -294,6 +294,11 @@ const hashMatches = computed(() => {
               <v-img src="/assets/scrappers/hltb.png" />
             </v-avatar>
             <span>{{ rom.hltb_id }}</span>
+            <template v-if="rom.hltb_metadata?.review_score">
+              <v-divider class="mx-2 border-opacity-25" vertical />
+              <span>{{ rom.hltb_metadata.review_score.toFixed(1) }}</span>
+              <v-icon class="ml-1">mdi-star</v-icon>
+            </template>
           </v-chip>
         </a>
         <a
