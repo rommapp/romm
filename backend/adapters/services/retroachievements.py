@@ -18,6 +18,7 @@ from adapters.services.retroachievements_types import (
 )
 from config import RETROACHIEVEMENTS_API_KEY
 from logger.logger import log
+from utils import get_version
 from utils.context import ctx_aiohttp_session
 
 
@@ -54,6 +55,7 @@ class RetroAchievementsService:
         try:
             res = await aiohttp_session.get(
                 url,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )
@@ -90,6 +92,7 @@ class RetroAchievementsService:
             )
             res = await aiohttp_session.get(
                 url,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )
