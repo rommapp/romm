@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from config import HLTB_API_ENABLED
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
+from utils import get_version
 from utils.context import ctx_httpx_client
 
 from .base_handler import BaseRom, MetadataHandler
@@ -171,7 +172,7 @@ class HowLongToBeatHandler(MetadataHandler):
     def __init__(self) -> None:
         self.base_url = "https://howlongtobeat.com"
         self.search_url = f"{self.base_url}/api/seek/28b235595e8e894c"
-        self.min_similarity_score: Final = 0.75
+        self.min_similarity_score: Final = 0.85
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -190,13 +191,15 @@ class HowLongToBeatHandler(MetadataHandler):
 
         headers = {
             "Content-Type": "application/json",
-            "Referer": "https://howlongtobeat.com/",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Referer": "https://howlongtobeat.com",
+            "User-Agent": f"RomM/{get_version()}",
+            "Accept-Encoding": "gzip, deflate",
         }
 
         log.debug(
-            "HowLongToBeat API request: URL=%s, Payload=%s, Timeout=%s",
+            "HowLongToBeat API request: URL=%s, Headers=%s, Payload=%s, Timeout=%s",
             url,
+            headers,
             payload,
             60,
         )
@@ -219,13 +222,18 @@ class HowLongToBeatHandler(MetadataHandler):
             log.error("Error decoding JSON response from HowLongToBeat API: %s", exc)
             return {}
 
-    async def search_games(self, search_term: str) -> list[HLTBGame]:
+    async def search_games(
+        self, search_term: str, platform_slug: str
+    ) -> list[HLTBGame]:
         """
         Search for games in HowLongToBeat database.
 
         :param search_term: The search term to look for.
         :return: A list of HLTBGame objects.
         """
+
+        platform_name = self.get_platform(platform_slug).get("name", "")
+
         try:
             payload = {
                 "searchType": "games",
@@ -235,7 +243,7 @@ class HowLongToBeatHandler(MetadataHandler):
                 "searchOptions": {
                     "games": {
                         "userId": 0,
-                        "name": "",
+                        "platform": platform_name,
                         "sortCategory": "popular",
                         "rangeCategory": "main",
                         "rangeTime": {"min": None, "max": None},
@@ -245,15 +253,15 @@ class HowLongToBeatHandler(MetadataHandler):
                             "genre": "",
                             "difficulty": "",
                         },
+                        "rangeYear": {"min": "", "max": ""},
+                        "modifier": "",
                     },
-                    "rangeYear": {"min": "", "max": ""},
-                    "modifier": "",
+                    "users": {"sortCategory": "postcount"},
+                    "lists": {"sortCategory": "follows"},
+                    "filter": "",
+                    "sort": 0,
+                    "randomizer": 0,
                 },
-                "users": {"sortCategory": "postcount"},
-                "lists": {"sortCategory": "follows"},
-                "filter": "",
-                "sort": 0,
-                "randomizer": 0,
                 "useCache": True,
             }
 
@@ -340,7 +348,7 @@ class HowLongToBeatHandler(MetadataHandler):
         search_term = self.normalize_search_term(search_term, remove_punctuation=False)
 
         # Search for games
-        games = await self.search_games(search_term)
+        games = await self.search_games(search_term, platform_slug)
 
         if not games:
             log.debug(f"Could not find '{search_term}' on HowLongToBeat")
@@ -382,7 +390,9 @@ class HowLongToBeatHandler(MetadataHandler):
         log.debug(f"No good match found for '{search_term}' on HowLongToBeat")
         return HLTBRom(hltb_id=None)
 
-    async def get_matched_roms_by_name(self, fs_name: str) -> list[HLTBRom]:
+    async def get_matched_roms_by_name(
+        self, fs_name: str, platform_slug: str
+    ) -> list[HLTBRom]:
         """
         Get ROM information by name from HowLongToBeat.
         """
@@ -394,7 +404,7 @@ class HowLongToBeatHandler(MetadataHandler):
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         search_term = self.normalize_search_term(search_term, remove_punctuation=False)
 
-        games = await self.search_games(search_term)
+        games = await self.search_games(search_term, platform_slug)
 
         roms = []
         for game in games:
