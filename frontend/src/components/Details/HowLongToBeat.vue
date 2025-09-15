@@ -9,29 +9,27 @@ const { t } = useI18n();
 const howLongToBeat = computed((): RomHLTBMetadata | null => {
   return props.rom.hltb_metadata || null;
 });
+
+const intlHours = Intl.NumberFormat("en-US", {
+  maximumSignificantDigits: 3,
+});
+const intlCount = Intl.NumberFormat("en-US");
+
 const mainStory = computed(() => {
   if (!howLongToBeat.value?.main_story) return null;
-  return Intl.NumberFormat("en-US", {
-    maximumSignificantDigits: 3,
-  }).format(howLongToBeat.value?.main_story / 36.5);
+  return intlHours.format(howLongToBeat.value?.main_story / 36.5);
 });
 const mainPlusExtra = computed(() => {
   if (!howLongToBeat.value?.main_plus_extra) return null;
-  return Intl.NumberFormat("en-US", {
-    maximumSignificantDigits: 3,
-  }).format(howLongToBeat.value?.main_plus_extra / 36.5);
+  return intlHours.format(howLongToBeat.value?.main_plus_extra / 36.5);
 });
 const completionist = computed(() => {
   if (!howLongToBeat.value?.completionist) return null;
-  return Intl.NumberFormat("en-US", {
-    maximumSignificantDigits: 3,
-  }).format(howLongToBeat.value?.completionist / 36.5);
+  return intlHours.format(howLongToBeat.value?.completionist / 36.5);
 });
 const allStyles = computed(() => {
   if (!howLongToBeat.value?.all_styles) return null;
-  return Intl.NumberFormat("en-US", {
-    maximumSignificantDigits: 3,
-  }).format(howLongToBeat.value?.all_styles / 36.5);
+  return intlHours.format(howLongToBeat.value?.all_styles / 36.5);
 });
 </script>
 
@@ -51,6 +49,12 @@ const allStyles = computed(() => {
               {{ t("rom.main-story") }}
             </div>
             <div class="text-h5 font-weight-bold">{{ mainStory }} Hours</div>
+            <div
+              v-if="howLongToBeat.main_story_count"
+              class="text-caption text-medium-emphasis mt-1"
+            >
+              {{ intlCount.format(howLongToBeat.main_story_count) }} players
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -63,6 +67,13 @@ const allStyles = computed(() => {
             </div>
             <div class="text-h5 font-weight-bold">
               {{ mainPlusExtra }} Hours
+            </div>
+            <div
+              v-if="howLongToBeat.main_plus_extra_count"
+              class="text-caption text-medium-emphasis mt-1"
+            >
+              {{ intlCount.format(howLongToBeat.main_plus_extra_count) }}
+              players
             </div>
           </v-card-text>
         </v-card>
@@ -77,6 +88,12 @@ const allStyles = computed(() => {
             <div class="text-h5 font-weight-bold">
               {{ completionist }} Hours
             </div>
+            <div
+              v-if="howLongToBeat.completionist_count"
+              class="text-caption text-medium-emphasis mt-1"
+            >
+              {{ intlCount.format(howLongToBeat.completionist_count) }} players
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -88,6 +105,12 @@ const allStyles = computed(() => {
               {{ t("rom.all-styles") }}
             </div>
             <div class="text-h5 font-weight-bold">{{ allStyles }} Hours</div>
+            <div
+              v-if="howLongToBeat.all_styles_count"
+              class="text-caption text-medium-emphasis mt-1"
+            >
+              {{ intlCount.format(howLongToBeat.all_styles_count) }} players
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
