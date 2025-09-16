@@ -23,7 +23,7 @@ class SupportedPlatform(TypedDict):
     launchbox_id: int | None
     hasheous_id: int | None
     ra_id: int | None
-    flashpoint_slug: str | None
+    flashpoint_id: int | None
     hltb_slug: str | None
 
 
@@ -59,8 +59,8 @@ if __name__ == "__main__":
             "launchbox_id": launchbox_platform["launchbox_id"],
             "hasheous_id": hasheous_platform["hasheous_id"],
             "ra_id": ra_platform["ra_id"],
-            "flashpoint_slug": flashpoint_platform.get("slug", None),
-            "hltb_slug": hltb_platform.get("slug", None),
+            "flashpoint_id": flashpoint_platform["flashpoint_id"],
+            "hltb_slug": hltb_platform.get("hltb_slug", None),
         }
 
     # Sort platforms by name field
@@ -108,8 +108,8 @@ if __name__ == "__main__":
                 else ""
             ),
             (
-                f'<a href="https://flashpoint-project.org/platforms/{platform["flashpoint_slug"]}" target="_blank" rel="noopener noreferrer"><img alt="flashpoint logo" src="../../resources/metadata_providers/flashpoint.png" height="24px" width="24px"></a>'
-                if platform["flashpoint_slug"]
+                f'<a href="https://flashpoint-project.org/platforms/{platform["flashpoint_id"]}" target="_blank" rel="noopener noreferrer"><img alt="flashpoint logo" src="../../resources/metadata_providers/flashpoint.png" height="24px" width="24px"></a>'
+                if platform["flashpoint_id"]
                 else ""
             ),
             (
