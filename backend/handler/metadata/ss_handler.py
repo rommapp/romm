@@ -12,7 +12,7 @@ from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from logger.logger import log
 
-from .base_hander import (
+from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
@@ -20,7 +20,7 @@ from .base_hander import (
     BaseRom,
     MetadataHandler,
 )
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import UniversalPlatformSlug as UPS
 
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()

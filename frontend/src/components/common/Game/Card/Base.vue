@@ -26,9 +26,11 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
-
-const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
+import {
+  getMissingCoverImage,
+  getUnmatchedCoverImage,
+  EXTENSION_REGEX,
+} from "@/utils/covers";
 
 const props = withDefaults(
   defineProps<{
@@ -113,7 +115,7 @@ const computedAspectRatio = computed(() => {
   return parseFloat(ratio.toString());
 });
 const fallbackCoverImage = computed(() =>
-  props.rom.igdb_id || props.rom.moby_id || props.rom.ss_id
+  props.rom.is_identified
     ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
     : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
 );

@@ -20,9 +20,14 @@ import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import stateApi from "@/services/api/state";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import { getSupportedEJSCores } from "@/utils";
-import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
+import {
+  getMissingCoverImage,
+  getUnmatchedCoverImage,
+  EXTENSION_REGEX,
+} from "@/utils/covers";
 
 type FocusZone =
   | "play"
@@ -35,6 +40,7 @@ type FocusZone =
 type PlayerState = "loading" | "unsupported" | "error" | "ready";
 
 const romsStore = storeRoms();
+const heartbeatStore = storeHeartbeat();
 const route = useRoute();
 const router = useRouter();
 
@@ -77,6 +83,24 @@ const fallbackCoverImage = computed(() =>
     ? getMissingCoverImage(rom.value?.name || rom.value?.slug || "")
     : getUnmatchedCoverImage(rom.value?.name || rom.value?.slug || ""),
 );
+
+const isWebpEnabled = computed(
+  () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+);
+
+const largeCover = computed(() => {
+  const pathCoverLarge = isWebpEnabled.value
+    ? rom.value?.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
+    : rom.value?.path_cover_large;
+  return pathCoverLarge || "";
+});
+
+const smallCover = computed(() => {
+  const pathCoverSmall = isWebpEnabled.value
+    ? rom.value?.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
+    : rom.value?.path_cover_small;
+  return pathCoverSmall || "";
+});
 
 function openDescription() {
   showDescription.value = true;
@@ -500,8 +524,8 @@ onUnmounted(() => {
         <!-- Backdrop -->
         <div class="absolute inset-0 z-0 overflow-hidden">
           <img
-            :src="rom.path_cover_large || fallbackCoverImage"
-            :lazy-src="rom.path_cover_small || fallbackCoverImage"
+            :src="largeCover || fallbackCoverImage"
+            :lazy-src="smallCover || fallbackCoverImage"
             :alt="`${rom.name} background`"
             class="w-full h-full object-cover blur-xl brightness-75 saturate-[1.25] contrast-110 scale-110"
           />
@@ -519,8 +543,8 @@ onUnmounted(() => {
               <!-- Poster -->
               <div class="shrink-0 self-center md:self-end">
                 <v-img
-                  :src="rom.path_cover_large || fallbackCoverImage"
-                  :lazy-src="rom.path_cover_small || fallbackCoverImage"
+                  :src="largeCover || fallbackCoverImage"
+                  :lazy-src="smallCover || fallbackCoverImage"
                   :alt="`${rom.name} cover`"
                   class="w-[220px] md:w-[260px] h-auto rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8),_0_0_0_1px_rgba(255,255,255,0.1)]"
                 />

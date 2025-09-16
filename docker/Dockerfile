@@ -115,7 +115,7 @@ ARG NGINX_VERSION
 # The specified commit SHA is the latest commit on the `master` branch at the time of writing.
 # It includes a fix to correctly calculate CRC-32 checksums when using upstream subrequests.
 # TODO: Move to a tagged release of `mod_zip`, once a version newer than 1.3.0 is released.
-ARG NGINX_MOD_ZIP_SHA=8e65b82c82c7890f67a6107271c127e9881b6313
+ARG NGINX_MOD_ZIP_SHA=a9f9afa441117831cc712a832c98408b3f0416f6
 
 # Clone both nginx and `ngx_http_zip_module` repositories, needed to compile the module from source.
 # This is needed to be able to dinamically load it as a module in the final image. `nginx` Docker

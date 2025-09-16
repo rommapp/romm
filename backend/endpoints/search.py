@@ -8,11 +8,13 @@ from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.metadata import (
+    meta_flashpoint_handler,
     meta_igdb_handler,
     meta_moby_handler,
     meta_sgdb_handler,
     meta_ss_handler,
 )
+from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
@@ -55,6 +57,7 @@ async def search_rom(
         not meta_igdb_handler.is_enabled()
         and not meta_ss_handler.is_enabled()
         and not meta_moby_handler.is_enabled()
+        and not meta_flashpoint_handler.is_enabled()
     ):
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(
@@ -83,6 +86,7 @@ async def search_rom(
     igdb_matched_roms: list[IGDBRom] = []
     moby_matched_roms: list[MobyGamesRom] = []
     ss_matched_roms: list[SSRom] = []
+    flashpoint_matched_roms: list[FlashpointRom] = []
 
     if search_by.lower() == "id":
         try:
@@ -106,6 +110,7 @@ async def search_rom(
             igdb_matched_roms,
             moby_matched_roms,
             ss_matched_roms,
+            flashpoint_matched_roms,
         ) = await asyncio.gather(
             meta_igdb_handler.get_matched_roms_by_name(
                 search_term, get_main_platform_igdb_id(rom.platform)
@@ -114,6 +119,7 @@ async def search_rom(
                 search_term, rom.platform.moby_id
             ),
             meta_ss_handler.get_matched_roms_by_name(search_term, rom.platform.ss_id),
+            meta_flashpoint_handler.get_matched_roms_by_name(rom.fs_name),
         )
 
     merged_dict: dict[str, dict] = {}
@@ -126,6 +132,8 @@ async def search_rom(
             )
             merged_dict[igdb_name] = {
                 **igdb_rom,
+                "is_identified": True,
+                "is_unidentified": False,
                 "platform_id": rom.platform_id,
                 "igdb_url_cover": igdb_rom.pop("url_cover", ""),
                 **merged_dict.get(igdb_name, {}),
@@ -139,6 +147,8 @@ async def search_rom(
             )
             merged_dict[moby_name] = {
                 **moby_rom,
+                "is_identified": True,
+                "is_unidentified": False,
                 "platform_id": rom.platform_id,
                 "moby_url_cover": moby_rom.pop("url_cover", ""),
                 **merged_dict.get(moby_name, {}),
@@ -152,9 +162,26 @@ async def search_rom(
             )
             merged_dict[ss_name] = {
                 **ss_rom,
+                "is_identified": True,
+                "is_unidentified": False,
                 "platform_id": rom.platform_id,
                 "ss_url_cover": ss_rom.pop("url_cover", ""),
                 **merged_dict.get(ss_name, {}),
+            }
+
+    for flashpoint_rom in flashpoint_matched_roms:
+        if flashpoint_rom["flashpoint_id"]:
+            flashpoint_name = meta_flashpoint_handler.normalize_search_term(
+                flashpoint_rom.get("name", ""),
+                remove_articles=False,
+            )
+            merged_dict[flashpoint_name] = {
+                **flashpoint_rom,
+                "is_identified": True,
+                "is_unidentified": False,
+                "platform_id": rom.platform_id,
+                "flashpoint_url_cover": flashpoint_rom.pop("url_cover", ""),
+                **merged_dict.get(flashpoint_name, {}),
             }
 
     async def get_sgdb_rom(name: str) -> tuple[str, SGDBRom]:

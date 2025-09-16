@@ -12,6 +12,7 @@ from fastapi import HTTPException, status
 from adapters.services.screenscraper_types import SSGame
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from logger.logger import log
+from utils import get_version
 from utils.context import ctx_aiohttp_session
 
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
@@ -58,6 +59,7 @@ class ScreenScraperService:
         try:
             res = await aiohttp_session.get(
                 url,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )
@@ -101,6 +103,7 @@ class ScreenScraperService:
             )
             res = await aiohttp_session.get(
                 url,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )

@@ -9,6 +9,7 @@ import ActionBar from "@/components/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import GameData from "@/components/Details/GameData.vue";
+import HowLongToBeat from "@/components/Details/HowLongToBeat.vue";
 import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
@@ -34,6 +35,7 @@ const tab = ref<
   | "manual"
   | "gamedata"
   | "personal"
+  | "timetobeat"
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
@@ -154,6 +156,9 @@ watch(
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
+            <v-tab v-if="currentRom.hltb_metadata" value="timetobeat">
+              {{ t("rom.how-long-to-beat") }}
+            </v-tab>
             <v-tab
               v-if="
                 mdAndDown &&
@@ -194,6 +199,9 @@ watch(
               </v-window-item>
               <v-window-item value="personal">
                 <Personal :rom="currentRom" />
+              </v-window-item>
+              <v-window-item v-if="currentRom.hltb_metadata" value="timetobeat">
+                <HowLongToBeat :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="

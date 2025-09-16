@@ -19,7 +19,7 @@ from endpoints.responses.feeds import (
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata import meta_igdb_handler
-from handler.metadata.base_hander import SWITCH_PRODUCT_ID_REGEX, SWITCH_TITLEDB_REGEX
+from handler.metadata.base_handler import SWITCH_PRODUCT_ID_REGEX, SWITCH_TITLEDB_REGEX
 from models.rom import Rom
 from utils.router import APIRouter
 

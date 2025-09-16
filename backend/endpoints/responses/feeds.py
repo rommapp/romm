@@ -1,6 +1,6 @@
 from typing import NotRequired, TypedDict
 
-from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 
 WEBRCADE_SUPPORTED_PLATFORM_SLUGS = frozenset(
     (
