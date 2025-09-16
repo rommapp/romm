@@ -19,7 +19,13 @@ import { getMissingCoverImage } from "@/utils/covers";
 
 type MatchedSource = {
   url_cover: string | undefined;
-  name: "IGDB" | "Mobygames" | "Screenscraper" | "Flashpoint" | "SteamGridDB";
+  name:
+    | "IGDB"
+    | "Mobygames"
+    | "Screenscraper"
+    | "Flashpoint"
+    | "HowLongToBeat"
+    | "SteamGridDB";
   logo_path: string;
 };
 
@@ -48,6 +54,7 @@ const isIGDBFiltered = ref(true);
 const isMobyFiltered = ref(true);
 const isSSFiltered = ref(true);
 const isFlashpointFiltered = ref(true);
+const isHLTBFiltered = ref(true);
 const computedAspectRatio = computed(() => {
   const ratio =
     platfotmsStore.getAspectRatio(rom.value?.platform_id ?? -1) ||
@@ -87,13 +94,19 @@ function toggleSourceFilter(source: MatchedSource["name"]) {
     heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED
   ) {
     isFlashpointFiltered.value = !isFlashpointFiltered.value;
+  } else if (
+    source == "HowLongToBeat" &&
+    heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED
+  ) {
+    isHLTBFiltered.value = !isHLTBFiltered.value;
   }
   filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
     if (
       (rom.igdb_id && isIGDBFiltered.value) ||
       (rom.moby_id && isMobyFiltered.value) ||
       (rom.ss_id && isSSFiltered.value) ||
-      (rom.flashpoint_id && isFlashpointFiltered.value)
+      (rom.flashpoint_id && isFlashpointFiltered.value) ||
+      (rom.hltb_id && isHLTBFiltered.value)
     ) {
       return true;
     }
@@ -124,7 +137,8 @@ async function searchRom() {
             (rom.igdb_id && isIGDBFiltered.value) ||
             (rom.moby_id && isMobyFiltered.value) ||
             (rom.ss_id && isSSFiltered.value) ||
-            (rom.flashpoint_id && isFlashpointFiltered.value)
+            (rom.flashpoint_id && isFlashpointFiltered.value) ||
+            (rom.hltb_id && isHLTBFiltered.value)
           ) {
             return true;
           }
@@ -189,6 +203,13 @@ function showSources(matchedRom: SearchRomSchema) {
       logo_path: "/assets/scrappers/flashpoint.png",
     });
   }
+  if (matchedRom.hltb_url_cover) {
+    sources.value.push({
+      url_cover: matchedRom.hltb_url_cover,
+      name: "HowLongToBeat",
+      logo_path: "/assets/scrappers/hltb.png",
+    });
+  }
   if (sources.value.length == 1) {
     selectedCover.value = sources.value[0];
   }
@@ -236,8 +257,10 @@ async function updateRom(
           )
         : rom.value.fs_name,
     igdb_id: selectedRom.igdb_id || null,
-    moby_id: selectedRom.moby_id || null,
     ss_id: selectedRom.ss_id || null,
+    moby_id: selectedRom.moby_id || null,
+    flashpoint_id: selectedRom.flashpoint_id || null,
+    hltb_id: selectedRom.hltb_id || null,
     name: selectedRom.name || null,
     slug: selectedRom.slug || null,
     summary: selectedRom.summary || null,
@@ -247,6 +270,7 @@ async function updateRom(
       selectedRom.ss_url_cover ||
       selectedRom.moby_url_cover ||
       selectedRom.flashpoint_url_cover ||
+      selectedRom.hltb_url_cover ||
       null,
   };
 
@@ -425,6 +449,35 @@ onBeforeUnmount(() => {
             rounded="1"
           >
             <v-img src="/assets/scrappers/flashpoint.png" />
+          </v-avatar>
+        </template>
+      </v-tooltip>
+      <v-tooltip
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        :text="
+          heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED
+            ? 'Filter HowLongToBeat matches'
+            : 'HowLongToBeat source is not enabled'
+        "
+        open-delay="500"
+        ><template #activator="{ props }">
+          <v-avatar
+            @click="toggleSourceFilter('HowLongToBeat')"
+            v-bind="props"
+            class="ml-3 cursor-pointer opacity-40"
+            :class="{
+              'opacity-100':
+                isHLTBFiltered &&
+                heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED,
+            }"
+            size="30"
+            rounded="1"
+          >
+            <v-img src="/assets/scrappers/hltb.png" />
           </v-avatar>
         </template>
       </v-tooltip>

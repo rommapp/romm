@@ -255,6 +255,7 @@ async function updateRom({
     formData.append("launchbox_id", rom.launchbox_id.toString());
   if (rom.flashpoint_id)
     formData.append("flashpoint_id", rom.flashpoint_id.toString());
+  if (rom.hltb_id) formData.append("hltb_id", rom.hltb_id.toString());
   formData.append("name", rom.name || "");
   formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");

@@ -9,6 +9,7 @@ from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_hasheous_handler,
+    meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
@@ -20,6 +21,7 @@ from handler.metadata import (
 )
 from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST, FlashpointRom
 from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST, HasheousRom
+from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST, HLTBRom
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST, IGDBRom
 from handler.metadata.launchbox_handler import LAUNCHBOX_PLATFORM_LIST, LaunchboxRom
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST, MobyGamesRom
@@ -61,6 +63,7 @@ class MetadataSource(enum.StrEnum):
     TGDB = "tgdb"  # TheGamesDB
     SGDB = "sgdb"  # SteamGridDB
     FLASHPOINT = "flashpoint"  # Flashpoint Project
+    HLTB = "hltb"  # HowLongToBeat
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -132,6 +135,7 @@ async def scan_platform(
     hasheous_platform = meta_hasheous_handler.get_platform(platform_attrs["slug"])
     tgdb_platform = meta_tgdb_handler.get_platform(platform_attrs["slug"])
     flashpoint_platform = meta_flashpoint_handler.get_platform(platform_attrs["slug"])
+    hltb_platform = meta_hltb_handler.get_platform(platform_attrs["slug"])
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
@@ -158,6 +162,7 @@ async def scan_platform(
             or hasheous_platform.get("name")
             or tgdb_platform.get("name")
             or flashpoint_platform.get("name")
+            or hltb_platform.get("name")
             or platform_attrs["slug"].replace("-", " ").title(),
             "url_logo": igdb_platform.get("url_logo")
             or tgdb_platform.get("url_logo")
@@ -173,6 +178,8 @@ async def scan_platform(
         or platform_attrs["launchbox_id"]
         or hasheous_platform["hasheous_id"]
         or tgdb_platform["tgdb_id"]
+        or flashpoint_platform["slug"]
+        or hltb_platform["slug"]
     ):
         log.info(
             f"Folder {hl(platform_attrs['slug'])}[{hl(fs_slug, color=LIGHTYELLOW)}] identified as {hl(platform_attrs['name'], color=BLUE)} {emoji.EMOJI_VIDEO_GAME}",
@@ -414,6 +421,21 @@ async def scan_rom(
 
         return FlashpointRom(flashpoint_id=None)
 
+    async def fetch_hltb_rom() -> HLTBRom:
+        if (
+            MetadataSource.HLTB in metadata_sources
+            and platform.slug in HLTB_PLATFORM_LIST
+            and (
+                newly_added
+                or scan_type == ScanType.COMPLETE
+                or (scan_type == ScanType.PARTIAL and not rom.hltb_id)
+                or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
+            )
+        ):
+            return await meta_hltb_handler.get_rom(rom_attrs["fs_name"], platform.slug)
+
+        return HLTBRom(hltb_id=None)
+
     async def fetch_moby_rom() -> MobyGamesRom:
         if (
             MetadataSource.MOBY in metadata_sources
@@ -545,6 +567,7 @@ async def scan_rom(
         launchbox_handler_rom,
         hasheous_handler_rom,
         flashpoint_handler_rom,
+        hltb_handler_rom,
     ) = await asyncio.gather(
         fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
         fetch_moby_rom(),
@@ -553,6 +576,7 @@ async def scan_rom(
         fetch_launchbox_rom(platform.slug),
         fetch_hasheous_rom(hasheous_hash_match),
         fetch_flashpoint_rom(),
+        fetch_hltb_rom(),
     )
 
     # Only update fields if match is found
@@ -570,6 +594,8 @@ async def scan_rom(
         rom_attrs.update({**ss_handler_rom})
     if igdb_handler_rom.get("igdb_id"):
         rom_attrs.update({**igdb_handler_rom})
+    if hltb_handler_rom.get("hltb_id"):
+        rom_attrs.update({**hltb_handler_rom})
 
     # Screenshots are a special case
     rom_attrs["url_screenshots"] = (
@@ -608,6 +634,9 @@ async def scan_rom(
             "flashpoint_id": flashpoint_handler_rom.get("flashpoint_id")
             or rom_attrs.get("flashpoint_id")
             or None,
+            "hltb_id": hltb_handler_rom.get("hltb_id")
+            or rom_attrs.get("hltb_id")
+            or None,
         }
     )
 
@@ -634,6 +663,7 @@ async def scan_rom(
         and not launchbox_handler_rom.get("launchbox_id")
         and not hasheous_handler_rom.get("hasheous_id")
         and not flashpoint_handler_rom.get("flashpoint_id")
+        and not hltb_handler_rom.get("hltb_id")
     ):
         log.warning(
             f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",

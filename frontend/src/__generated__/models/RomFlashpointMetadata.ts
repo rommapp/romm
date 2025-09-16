@@ -3,17 +3,14 @@
 /* tslint:disable */
 /* eslint-disable */
 export type RomFlashpointMetadata = {
-    series?: string;
-    developer?: string;
-    publisher?: string;
+    franchises?: Array<string>;
+    companies?: Array<string>;
     source?: string;
-    tags?: Array<string>;
-    dateAdded?: string;
-    dateModified?: string;
-    playMode?: string;
+    genres?: Array<string>;
+    first_release_date?: string;
+    game_modes?: Array<string>;
     status?: string;
     version?: string;
-    releaseDate?: string;
     language?: string;
     notes?: string;
 };

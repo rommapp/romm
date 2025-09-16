@@ -283,6 +283,25 @@ const hashMatches = computed(() => {
           </v-chip>
         </a>
         <a
+          v-if="rom.hltb_id"
+          style="text-decoration: none; color: inherit"
+          :href="`https://howlongtobeat.com/game/${rom.hltb_id}`"
+          target="_blank"
+          class="mr-1"
+        >
+          <v-chip class="pl-0 mt-1" size="small" title="HowLongToBeat ID">
+            <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
+              <v-img src="/assets/scrappers/hltb.png" />
+            </v-avatar>
+            <span>{{ rom.hltb_id }}</span>
+            <template v-if="rom.hltb_metadata?.review_score">
+              <v-divider class="mx-2 border-opacity-25" vertical />
+              <span>{{ rom.hltb_metadata.review_score.toFixed(1) }}</span>
+              <v-icon class="ml-1">mdi-star</v-icon>
+            </template>
+          </v-chip>
+        </a>
+        <a
           v-if="rom.sgdb_id"
           style="text-decoration: none; color: inherit"
           :href="`https://www.steamgriddb.com/game/${rom.sgdb_id}`"

@@ -250,6 +250,16 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
             </v-avatar>
           </v-chip>
           <v-chip
+            v-if="item.hltb_id"
+            class="mr-1 pa-0 item-chip"
+            size="x-small"
+            title="HowLongToBeat match"
+          >
+            <v-avatar size="20" rounded>
+              <v-img src="/assets/scrappers/hltb.png" />
+            </v-avatar>
+          </v-chip>
+          <v-chip
             v-if="item.siblings.length > 0 && showSiblings"
             class="translucent text-white mr-1 px-1 item-chip"
             size="x-small"
