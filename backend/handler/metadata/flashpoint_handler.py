@@ -9,6 +9,7 @@ from fastapi import HTTPException, status
 
 from config import FLASHPOINT_API_ENABLED
 from logger.logger import log
+from utils import get_version
 from utils.context import ctx_httpx_client
 
 from .base_handler import MetadataHandler
@@ -17,6 +18,7 @@ from .base_handler import UniversalPlatformSlug as UPS
 
 class FlashpointPlatform(TypedDict):
     slug: str
+    flashpoint_id: int | None
     name: NotRequired[str]
 
 
@@ -127,8 +129,12 @@ class FlashpointHandler(MetadataHandler):
             60,
         )
 
+        headers = {"user-agent": f"RomM/{get_version()}"}
+
         try:
-            res = await httpx_client.get(str(url_with_query), timeout=60)
+            res = await httpx_client.get(
+                str(url_with_query), headers=headers, timeout=60
+            )
             res.raise_for_status()
             return res.json()
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
@@ -201,12 +207,13 @@ class FlashpointHandler(MetadataHandler):
         Get Flashpoint platform information.
         """
         if slug not in FLASHPOINT_PLATFORM_LIST:
-            return FlashpointPlatform(slug=slug)
+            return FlashpointPlatform(slug=slug, flashpoint_id=None)
 
         platform = FLASHPOINT_PLATFORM_LIST[UPS(slug)]
         return FlashpointPlatform(
             slug=slug,
             name=platform["name"],
+            flashpoint_id=platform["id"],
         )
 
     async def get_rom(self, fs_name: str, platform_slug: str) -> FlashpointRom:

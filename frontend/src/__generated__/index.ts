@@ -9,7 +9,10 @@ export type { Body_add_firmware_api_firmware_post } from './models/Body_add_firm
 export type { Body_add_platform_api_platforms_post } from './models/Body_add_platform_api_platforms_post';
 export type { Body_add_user_api_users_post } from './models/Body_add_user_api_users_post';
 export type { Body_create_user_from_invite_api_users_register_post } from './models/Body_create_user_from_invite_api_users_register_post';
+export type { Body_delete_firmware_api_firmware_delete_post } from './models/Body_delete_firmware_api_firmware_delete_post';
 export type { Body_delete_roms_api_roms_delete_post } from './models/Body_delete_roms_api_roms_delete_post';
+export type { Body_delete_saves_api_saves_delete_post } from './models/Body_delete_saves_api_saves_delete_post';
+export type { Body_delete_states_api_states_delete_post } from './models/Body_delete_states_api_states_delete_post';
 export type { Body_refresh_retro_achievements_api_users__id__ra_refresh_post } from './models/Body_refresh_retro_achievements_api_users__id__ra_refresh_post';
 export type { Body_request_password_reset_api_forgot_password_post } from './models/Body_request_password_reset_api_forgot_password_post';
 export type { Body_reset_password_api_reset_password_post } from './models/Body_reset_password_api_reset_password_post';
@@ -50,6 +53,7 @@ export type { RomFileCategory } from './models/RomFileCategory';
 export type { RomFileSchema } from './models/RomFileSchema';
 export type { RomFlashpointMetadata } from './models/RomFlashpointMetadata';
 export type { RomHasheousMetadata } from './models/RomHasheousMetadata';
+export type { RomHLTBMetadata } from './models/RomHLTBMetadata';
 export type { RomIGDBMetadata } from './models/RomIGDBMetadata';
 export type { RomLaunchboxMetadata } from './models/RomLaunchboxMetadata';
 export type { RomMetadataSchema } from './models/RomMetadataSchema';

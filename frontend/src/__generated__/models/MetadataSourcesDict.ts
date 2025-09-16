@@ -14,5 +14,6 @@ export type MetadataSourcesDict = {
     HASHEOUS_API_ENABLED: boolean;
     TGDB_API_ENABLED: boolean;
     FLASHPOINT_API_ENABLED: boolean;
+    HLTB_API_ENABLED: boolean;
 };
 

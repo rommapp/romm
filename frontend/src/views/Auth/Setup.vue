@@ -60,6 +60,12 @@ const metadataOptions = computed(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED,
   },
   {
+    name: "HowLongToBeat",
+    value: "hltb",
+    logo_path: "/assets/scrappers/hltb.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.HLTB_API_ENABLED,
+  },
+  {
     name: "SteamgridDB",
     value: "sgdb",
     logo_path: "/assets/scrappers/sgdb.png",

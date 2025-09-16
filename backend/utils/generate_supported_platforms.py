@@ -4,6 +4,7 @@ from typing import TypedDict
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_hasheous_handler,
+    meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
@@ -22,7 +23,8 @@ class SupportedPlatform(TypedDict):
     launchbox_id: int | None
     hasheous_id: int | None
     ra_id: int | None
-    flashpoint_slug: str | None
+    flashpoint_id: int | None
+    hltb_slug: str | None
 
 
 if __name__ == "__main__":
@@ -38,6 +40,7 @@ if __name__ == "__main__":
         hasheous_platform = meta_hasheous_handler.get_platform(slug_lower)
         ra_platform = meta_ra_handler.get_platform(slug_lower)
         flashpoint_platform = meta_flashpoint_handler.get_platform(slug_lower)
+        hltb_platform = meta_hltb_handler.get_platform(slug_lower)
 
         supported_platforms[slug_lower] = {
             "name": igdb_platform.get("name", None)
@@ -47,6 +50,7 @@ if __name__ == "__main__":
             or hasheous_platform.get("name", None)
             or ra_platform.get("name", None)
             or flashpoint_platform.get("name", None)
+            or hltb_platform.get("name", None)
             or slug_lower.replace("-", " ").title(),
             "folder": slug_lower,
             "igdb_slug": igdb_platform.get("igdb_slug", None),
@@ -55,7 +59,8 @@ if __name__ == "__main__":
             "launchbox_id": launchbox_platform["launchbox_id"],
             "hasheous_id": hasheous_platform["hasheous_id"],
             "ra_id": ra_platform["ra_id"],
-            "flashpoint_slug": flashpoint_platform.get("slug", None),
+            "flashpoint_id": flashpoint_platform["flashpoint_id"],
+            "hltb_slug": hltb_platform.get("hltb_slug", None),
         }
 
     # Sort platforms by name field
@@ -103,8 +108,13 @@ if __name__ == "__main__":
                 else ""
             ),
             (
-                f'<a href="https://flashpoint-project.org/platforms/{platform["flashpoint_slug"]}" target="_blank" rel="noopener noreferrer"><img alt="flashpoint logo" src="../../resources/metadata_providers/flashpoint.png" height="24px" width="24px"></a>'
-                if platform["flashpoint_slug"]
+                f'<a href="https://flashpoint-project.org/platforms/{platform["flashpoint_id"]}" target="_blank" rel="noopener noreferrer"><img alt="flashpoint logo" src="../../resources/metadata_providers/flashpoint.png" height="24px" width="24px"></a>'
+                if platform["flashpoint_id"]
+                else ""
+            ),
+            (
+                '<img alt="howlongtobeat logo" src="../../resources/metadata_providers/hltb.png" height="24px" width="24px">'
+                if platform["hltb_slug"]
                 else ""
             ),
             " |",

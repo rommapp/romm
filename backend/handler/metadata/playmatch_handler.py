@@ -78,9 +78,7 @@ class PlaymatchHandler(MetadataHandler):
             60,
         )
 
-        headers = {
-            "user-agent": "RomM/" + get_version() + " (https://github.com/rommapp/romm)"
-        }
+        headers = {"user-agent": f"RomM/{get_version()}"}
 
         try:
             res = await httpx_client.get(

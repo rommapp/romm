@@ -75,6 +75,11 @@ const dataSources = computed(() => {
       condition: props.rom.flashpoint_id,
       url: `https://flashpointproject.github.io/flashpoint-database/search/#${props.rom.flashpoint_id}`,
     },
+    {
+      name: "HowLongToBeat",
+      condition: props.rom.hltb_id,
+      url: `https://howlongtobeat.com/game/${props.rom.hltb_id}`,
+    },
   ].filter((source) => source.condition);
 });
 
