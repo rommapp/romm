@@ -140,8 +140,6 @@ async def scan_platform(
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
         {
-            **hltb_platform,
-            **flashpoint_platform,
             **hasheous_platform,
             **tgdb_platform,
             **launchbox_platform,
