@@ -139,6 +139,8 @@ class Rom(BaseModel):
     launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     hasheous_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -149,6 +151,8 @@ class Rom(BaseModel):
         Index("idx_roms_launchbox_id", "launchbox_id"),
         Index("idx_roms_hasheous_id", "hasheous_id"),
         Index("idx_roms_tgdb_id", "tgdb_id"),
+        Index("idx_roms_flashpoint_id", "flashpoint_id"),
+        Index("idx_roms_hltb_id", "hltb_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
@@ -177,6 +181,12 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     hasheous_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    flashpoint_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    hltb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
 
@@ -307,6 +317,8 @@ class Rom(BaseModel):
             and not self.ra_id
             and not self.launchbox_id
             and not self.hasheous_id
+            and not self.flashpoint_id
+            and not self.hltb_id
         )
 
     @property

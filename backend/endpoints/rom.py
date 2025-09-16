@@ -52,6 +52,7 @@ from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import (
+    meta_flashpoint_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
@@ -542,7 +543,7 @@ async def get_rom_content(
             filename=f.file_name_for_download(rom, hidden_folder),
         )
 
-    content_lines = [await create_zip_content(f, "/library-zip") for f in files]
+    content_lines = [await create_zip_content(f, "/library") for f in files]
 
     if not rom.has_m3u_file():
         m3u_encoded_content = "\n".join(
@@ -632,7 +633,17 @@ async def update_rom(
         "moby_id": data.get("moby_id", rom.moby_id),
         "ss_id": data.get("ss_id", rom.ss_id),
         "launchbox_id": data.get("launchbox_id", rom.launchbox_id),
+        "flashpoint_id": data.get("flashpoint_id", rom.flashpoint_id),
     }
+
+    if (
+        cleaned_data.get("flashpoint_id", "")
+        and cleaned_data.get("flashpoint_id", "") != rom.flashpoint_id
+    ):
+        flashpoint_rom = await meta_flashpoint_handler.get_rom_by_id(
+            cleaned_data["flashpoint_id"]
+        )
+        cleaned_data.update(flashpoint_rom)
 
     if (
         cleaned_data.get("launchbox_id", "")

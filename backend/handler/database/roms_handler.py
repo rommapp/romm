@@ -25,7 +25,7 @@ from sqlalchemy.sql.elements import KeyedColumnElement
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
-from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser
@@ -228,6 +228,8 @@ class DBRomsHandler(DBBaseHandler):
             Rom.ra_id.isnot(None),
             Rom.launchbox_id.isnot(None),
             Rom.hasheous_id.isnot(None),
+            Rom.tgdb_id.isnot(None),
+            Rom.flashpoint_id.isnot(None),
         )
         if not value:
             predicate = not_(predicate)
@@ -452,6 +454,7 @@ class DBRomsHandler(DBBaseHandler):
                     base_subquery.c.hasheous_id,
                     base_subquery.c.launchbox_id,
                     base_subquery.c.tgdb_id,
+                    base_subquery.c.flashpoint_id,
                 )
                 .outerjoin(
                     RomUser,
@@ -498,6 +501,11 @@ class DBRomsHandler(DBBaseHandler):
                                 "romm-",
                                 base_subquery.c.platform_id,
                                 base_subquery.c.id,
+                            ),
+                            _create_metadata_id_case(
+                                "flashpoint",
+                                base_subquery.c.flashpoint_id,
+                                base_subquery.c.platform_id,
                             ),
                         ),
                         order_by=[

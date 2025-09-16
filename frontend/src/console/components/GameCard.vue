@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, useTemplateRef, watch } from "vue";
+import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import {
   recentElementRegistry,
   gamesListElementRegistry,
 } from "@/console/composables/useElementRegistry";
 import storeCollections from "@/stores/collections";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
+import {
+  EXTENSION_REGEX,
+  getMissingCoverImage,
+  getUnmatchedCoverImage,
+} from "@/utils/covers";
 
 const props = defineProps<{
   rom: SimpleRom;
@@ -16,13 +23,32 @@ const props = defineProps<{
   registry?: "recent" | "gamesList";
 }>();
 
-const coverSrc = computed(
-  () =>
-    props.rom.path_cover_large ||
-    props.rom.path_cover_small ||
-    props.rom.url_cover ||
-    "",
+const heartbeatStore = storeHeartbeat();
+
+const isWebpEnabled = computed(
+  () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
+
+const largeCover = computed(() => {
+  const pathCoverLarge = isWebpEnabled.value
+    ? props.rom.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
+    : props.rom.path_cover_large;
+  return pathCoverLarge || "";
+});
+
+const smallCover = computed(() => {
+  const pathCoverSmall = isWebpEnabled.value
+    ? props.rom.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
+    : props.rom.path_cover_small;
+  return pathCoverSmall || "";
+});
+
+const fallbackCoverImage = computed(() =>
+  props.rom.is_identified
+    ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
+    : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
+);
+
 const emit = defineEmits([
   "click",
   "mouseenter",
@@ -43,8 +69,8 @@ const isFavorited = computed(() => {
 watch(
   () => props.selected,
   (isSelected) => {
-    if (isSelected && coverSrc.value) {
-      emit("select", coverSrc.value);
+    if (isSelected && largeCover.value) {
+      emit("select", largeCover.value);
     } else if (isSelected) {
       emit("deselect");
     }
@@ -75,23 +101,26 @@ onMounted(() => {
     @click="emit('click')"
     @focus="emit('focus')"
   >
-    <div
-      class="w-full h-[350px] relative overflow-hidden rounded"
-      :style="{ background: 'var(--console-game-card-bg)' }"
-    >
-      <img
-        v-if="coverSrc"
+    <div class="w-full h-[350px] relative overflow-hidden rounded">
+      <v-img
+        cover
         class="w-full h-full object-cover"
-        :src="coverSrc"
+        :src="largeCover || fallbackCoverImage"
         :alt="rom.name || 'Game'"
         @load="emit('loaded')"
         @error="emit('loaded')"
-      />
-      <div
-        v-else
-        class="w-full h-full"
-        :style="{ background: 'var(--console-game-card-bg)' }"
-      />
+      >
+        <template #placeholder>
+          <v-img cover eager :src="smallCover || fallbackCoverImage">
+            <template #placeholder>
+              <Skeleton :platform-id="rom.platform_id" type="image" />
+            </template>
+          </v-img>
+        </template>
+        <template #error>
+          <v-img cover eager :src="fallbackCoverImage" />
+        </template>
+      </v-img>
       <!-- Selected highlight radial glow -->
       <div
         class="absolute inset-0 opacity-0 pointer-events-none"
@@ -116,7 +145,7 @@ onMounted(() => {
       </div>
 
       <div
-        v-if="!coverSrc"
+        v-if="!largeCover && !smallCover"
         class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-b from-transparent to-black/75 text-[var(--console-game-card-text)] text-sm leading-tight z-10"
       >
         <div class="font-medium truncate">

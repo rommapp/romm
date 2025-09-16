@@ -19,7 +19,9 @@ from endpoints.responses.heartbeat import HeartbeatResponse
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata import (
+    meta_flashpoint_handler,
     meta_hasheous_handler,
+    meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
@@ -59,6 +61,8 @@ async def heartbeat() -> HeartbeatResponse:
                 or meta_launchbox_handler.is_enabled()
                 or meta_hasheous_handler.is_enabled()
                 or meta_tgdb_handler.is_enabled()
+                or meta_flashpoint_handler.is_enabled()
+                or meta_hltb_handler.is_enabled()
             ),
             "IGDB_API_ENABLED": meta_igdb_handler.is_enabled(),
             "SS_API_ENABLED": meta_ss_handler.is_enabled(),
@@ -69,6 +73,8 @@ async def heartbeat() -> HeartbeatResponse:
             "HASHEOUS_API_ENABLED": meta_hasheous_handler.is_enabled(),
             "PLAYMATCH_API_ENABLED": meta_playmatch_handler.is_enabled(),
             "TGDB_API_ENABLED": meta_tgdb_handler.is_enabled(),
+            "FLASHPOINT_API_ENABLED": meta_flashpoint_handler.is_enabled(),
+            "HLTB_API_ENABLED": meta_hltb_handler.is_enabled(),
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": await fs_platform_handler.get_platforms(),

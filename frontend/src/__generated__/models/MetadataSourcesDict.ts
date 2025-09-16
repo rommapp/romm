@@ -13,5 +13,7 @@ export type MetadataSourcesDict = {
     PLAYMATCH_API_ENABLED: boolean;
     HASHEOUS_API_ENABLED: boolean;
     TGDB_API_ENABLED: boolean;
+    FLASHPOINT_API_ENABLED: boolean;
+    HLTB_API_ENABLED: boolean;
 };
 

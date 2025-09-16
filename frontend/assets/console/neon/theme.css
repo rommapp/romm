@@ -75,7 +75,6 @@
   --console-system-card-text: var(--console-text-secondary);
 
   /* Game Cards */
-  --console-game-card-bg: linear-gradient(180deg, #212121 0%, #303030 100%);
   --console-game-card-text: var(--console-text-secondary);
   --console-game-card-focus-border: var(--console-accent-secondary);
   --console-game-card-star: var(--console-accent-secondary);
