@@ -115,33 +115,28 @@ def extract_hltb_metadata(game: HLTBGame) -> HLTBMetadata:
 
     # Convert times from centiseconds to seconds (HLTB stores times in centiseconds)
     if game.get("comp_main") and game["comp_main"] > 0:
-        metadata["main_story"] = game["comp_main"] // 100
+        metadata["main_story"] = game["comp_main"]
 
     if game.get("comp_main_count") and game["comp_main_count"] > 0:
         metadata["main_story_count"] = game["comp_main_count"]
 
     if game.get("comp_plus") and game["comp_plus"] > 0:
-        metadata["main_plus_extra"] = game["comp_plus"] // 100
+        metadata["main_plus_extra"] = game["comp_plus"]
 
     if game.get("comp_plus_count") and game["comp_plus_count"] > 0:
         metadata["main_plus_extra_count"] = game["comp_plus_count"]
 
     if game.get("comp_100") and game["comp_100"] > 0:
-        metadata["completionist"] = game["comp_100"] // 100
+        metadata["completionist"] = game["comp_100"]
 
     if game.get("comp_100_count") and game["comp_100_count"] > 0:
         metadata["completionist_count"] = game["comp_100_count"]
 
     if game.get("comp_all") and game["comp_all"] > 0:
-        metadata["all_styles"] = game["comp_all"] // 100
+        metadata["all_styles"] = game["comp_all"]
 
     if game.get("comp_all_count") and game["comp_all_count"] > 0:
         metadata["all_styles_count"] = game["comp_all_count"]
-
-    # Extract platforms
-    # if game.get("profile_platform"):
-    #     platforms = [p.strip() for p in game["profile_platform"].split(",")]
-    #     metadata["platforms"] = platforms
 
     # Extract release year
     if game.get("release_world") and game["release_world"] > 0:
@@ -585,7 +580,6 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
     UPS.PSVR: {"name": "PlayStation VR", "count": 52},
     UPS.PSVITA: {"name": "PlayStation Vita", "count": 1289},
     UPS.PLAYDATE: {"name": "Playdate", "count": 128},
-    UPS.PS2: {"name": "Playstation 2", "count": 1},
     UPS.PLUG_AND_PLAY: {"name": "Plug & Play", "count": 18},
     UPS.SG1000: {"name": "SG-1000", "count": 75},
     UPS.SEGA32: {"name": "Sega 32X", "count": 42},
@@ -610,8 +604,8 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
     UPS.XBOX: {"name": "Xbox", "count": 876},
     UPS.XBOX360: {"name": "Xbox 360", "count": 2123},
     UPS.XBOXONE: {"name": "Xbox One", "count": 5326},
-    UPS.XBOXONE: {"name": "Xbox Series X/S", "count": 2865},
-    UPS.ZX81: {"name": "ZX Spectrum", "count": 646},
-    UPS.ZEEBO: {"name": "ZX81", "count": 41},
+    UPS.SERIES_X_S: {"name": "Xbox Series X/S", "count": 2865},
+    UPS.ZXS: {"name": "ZX Spectrum", "count": 646},
+    UPS.ZX81: {"name": "ZX81", "count": 41},
     UPS.ZEEBO: {"name": "Zeebo", "count": 9},
 }
