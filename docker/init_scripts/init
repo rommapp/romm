@@ -142,10 +142,17 @@ start_bin_valkey-server() {
 			valkey-server /usr/local/etc/valkey/valkey.conf >/dev/null 2>&1 &
 		fi
 	else
+		# Configure Valkey with memory-safe settings
+		local valkey_args=(
+			--dir /redis-data
+			--maxmemory "${REDIS_MAXMEMORY:-0}"
+			--maxmemory-policy allkeys-lru
+		)
+
 		if [[ ${LOGLEVEL} == "debug" ]]; then
-			valkey-server --dir /redis-data &
+			valkey-server "${valkey_args[@]}" &
 		else
-			valkey-server --dir /redis-data >/dev/null 2>&1 &
+			valkey-server "${valkey_args[@]}" >/dev/null 2>&1 &
 		fi
 	fi
 
@@ -286,13 +293,6 @@ if [[ -z ${ROMM_AUTH_SECRET_KEY} ]]; then
 	export ROMM_AUTH_SECRET_KEY
 fi
 
-# Start Valkey server if REDIS_HOST is not set (which would mean user is using an external Redis/Valkey)
-if [[ -z ${REDIS_HOST} ]]; then
-	watchdog_process_pid valkey-server
-else
-	info_log "REDIS_HOST is set, not starting internal valkey-server"
-fi
-
 # Run needed database migrations once at startup
 info_log "Running database migrations"
 if alembic upgrade head; then
@@ -306,6 +306,13 @@ run_startup
 
 # main loop
 while ! ((exited)); do
+	# Start Valkey server if REDIS_HOST is not set (which would mean user is using an external Redis/Valkey)
+	if [[ -z ${REDIS_HOST} ]]; then
+		watchdog_process_pid valkey-server
+	else
+		info_log "REDIS_HOST is set, not starting internal valkey-server"
+	fi
+
 	watchdog_process_pid gunicorn
 
 	# only start the scheduler if enabled
