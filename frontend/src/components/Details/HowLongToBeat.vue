@@ -17,19 +17,28 @@ const intlCount = Intl.NumberFormat("en-US");
 
 const mainStory = computed(() => {
   if (!howLongToBeat.value?.main_story) return null;
-  return intlHours.format(howLongToBeat.value?.main_story / 36.5);
+  // Round to nearest 0.5 hours and divide by 36 centiseconds
+  return intlHours.format(
+    Math.round((howLongToBeat.value?.main_story / 3600) * 2) / 2,
+  );
 });
 const mainPlusExtra = computed(() => {
   if (!howLongToBeat.value?.main_plus_extra) return null;
-  return intlHours.format(howLongToBeat.value?.main_plus_extra / 36.5);
+  return intlHours.format(
+    Math.round((howLongToBeat.value?.main_plus_extra / 3600) * 2) / 2,
+  );
 });
 const completionist = computed(() => {
   if (!howLongToBeat.value?.completionist) return null;
-  return intlHours.format(howLongToBeat.value?.completionist / 36.5);
+  return intlHours.format(
+    Math.round((howLongToBeat.value?.completionist / 3600) * 2) / 2,
+  );
 });
 const allStyles = computed(() => {
   if (!howLongToBeat.value?.all_styles) return null;
-  return intlHours.format(howLongToBeat.value?.all_styles / 36.5);
+  return intlHours.format(
+    Math.round((howLongToBeat.value?.all_styles / 3600) * 2) / 2,
+  );
 });
 </script>
 
