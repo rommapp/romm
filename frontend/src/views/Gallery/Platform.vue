@@ -255,7 +255,7 @@ onBeforeRouteUpdate(async (to, from) => {
               zIndex:
                 (isHovering && hoveringRomId === rom.id) ||
                 (openedMenu && openedMenuRomId === rom.id)
-                  ? 1100
+                  ? 1000
                   : 1,
             }"
           >

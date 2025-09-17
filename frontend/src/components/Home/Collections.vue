@@ -73,7 +73,7 @@ watch(documentY, () => {
           :xl="views[0]['size-xl']"
           :style="{
             zIndex:
-              isHovering && hoveringCollectionId === collection.id ? 1100 : 1,
+              isHovering && hoveringCollectionId === collection.id ? 1000 : 1,
           }"
         >
           <CollectionCard
