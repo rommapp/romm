@@ -803,7 +803,7 @@ onUnmounted(() => {
         scroll-strategy="block"
         no-click-animation
         persistent
-        z-index="1000"
+        z-index="9999"
         scrim="black"
         class="lightbox-dialog"
       >
@@ -843,7 +843,7 @@ onUnmounted(() => {
         scroll-strategy="block"
         no-click-animation
         persistent
-        z-index="1000"
+        z-index="9999"
         scrim="black"
         class="lightbox-dialog"
       >
