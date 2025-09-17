@@ -159,7 +159,7 @@ onMounted(() => {
         >
           {{
             rom.metadatum.first_release_date
-              ? new Date(rom.metadatum.first_release_date * 1000).getFullYear()
+              ? new Date(rom.metadatum.first_release_date).getFullYear()
               : ""
           }}
           <template
