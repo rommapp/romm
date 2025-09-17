@@ -55,7 +55,7 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
           :style="{
-            zIndex: isHovering && hoveringPlatformId === platform.id ? 1100 : 1,
+            zIndex: isHovering && hoveringPlatformId === platform.id ? 1000 : 1,
           }"
         >
           <PlatformCard
