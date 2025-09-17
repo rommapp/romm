@@ -74,19 +74,16 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             )
 
                                         elem.clear()
-                                log.info("Executing pipeline for Platforms.xml")
                                 await pipe.execute()
 
                     elif file == "Metadata.xml":
                         with z.open(file, "r") as f:
-                            ctx = ET.iterparse(f, events=("end",))
-
-                            current_game_image_db_id = None
-                            current_game_images: list[dict[str, Any]] = []
-                            batch_count = 0
-                            batch_size = 1000
-
                             async with async_cache.pipeline() as pipe:
+                                ctx = ET.iterparse(f, events=("end",))
+
+                                current_game_image_db_id = None
+                                current_game_images: list[dict[str, Any]] = []
+
                                 for _, elem in ctx:
                                     if elem.tag == "Game":
                                         id_elem = elem.find("DatabaseID")
@@ -124,7 +121,6 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                                 },
                                             )
                                         elem.clear()
-                                        batch_count += 1
 
                                     elif elem.tag == "GameAlternateName":
                                         alternate_name_elem = elem.find("AlternateName")
@@ -145,7 +141,6 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             )
 
                                         elem.clear()
-                                        batch_count += 1
 
                                     elif elem.tag == "GameImage":
                                         id_elem = elem.find("DatabaseID")
@@ -175,15 +170,6 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                                 }
                                             )
                                         elem.clear()
-                                        batch_count += 1
-
-                                    # Execute pipeline periodically to prevent memory buildup
-                                    if batch_count >= batch_size:
-                                        log.debug("Executing pipeline for Metadata.xml")
-                                        await pipe.execute()
-                                        batch_count = 0
-                                        # Create new pipeline for next batch
-                                        pipe = async_cache.pipeline()
 
                                 # Store the last game's images
                                 if current_game_image_db_id is not None:
@@ -195,18 +181,13 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             )
                                         },
                                     )
-                                # Execute final batch
-                                if batch_count > 0:
-                                    log.debug("Executing final batch for Metadata.xml")
-                                    await pipe.execute()
+                                await pipe.execute()
 
                     elif file == "Mame.xml":
                         with z.open(file, "r") as f:
-                            ctx = ET.iterparse(f, events=("end",))
-                            batch_count = 0
-                            batch_size = 1000
-
                             async with async_cache.pipeline() as pipe:
+                                ctx = ET.iterparse(f, events=("end",))
+
                                 for _, elem in ctx:
                                     if elem.tag == "MameFile":
                                         filename_elem = elem.find("FileName")
@@ -227,27 +208,13 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             )
 
                                         elem.clear()
-                                        batch_count += 1
-
-                                        # Execute pipeline periodically to prevent memory buildup
-                                        if batch_count >= batch_size:
-                                            log.debug("Executing pipeline for Mame.xml")
-                                            await pipe.execute()
-                                            batch_count = 0
-                                            pipe = async_cache.pipeline()
-
-                                # Execute final batch
-                                if batch_count > 0:
-                                    log.debug("Executing final batch for Mame.xml")
-                                    await pipe.execute()
+                                await pipe.execute()
 
                     elif file == "Files.xml":
                         with z.open(file, "r") as f:
-                            ctx = ET.iterparse(f, events=("end",))
-                            batch_count = 0
-                            batch_size = 1000
-
                             async with async_cache.pipeline() as pipe:
+                                ctx = ET.iterparse(f, events=("end",))
+
                                 for _, elem in ctx:
                                     if elem.tag == "File":
                                         filename_elem = elem.find("FileName")
@@ -268,21 +235,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             )
 
                                         elem.clear()
-                                        batch_count += 1
-
-                                        # Execute pipeline periodically to prevent memory buildup
-                                        if batch_count >= batch_size:
-                                            log.debug(
-                                                "Executing pipeline for Files.xml"
-                                            )
-                                            await pipe.execute()
-                                            batch_count = 0
-                                            pipe = async_cache.pipeline()
-
-                                # Execute final batch
-                                if batch_count > 0:
-                                    log.debug("Executing final batch for Files.xml")
-                                    await pipe.execute()
+                                await pipe.execute()
 
         except zipfile.BadZipFile:
             log.error("Bad zip file in launchbox metadata update")
