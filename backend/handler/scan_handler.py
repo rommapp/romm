@@ -580,22 +580,22 @@ async def scan_rom(
     )
 
     # Only update fields if match is found
+    if hltb_handler_rom.get("hltb_id"):
+        rom_attrs.update({**hltb_handler_rom})
     if flashpoint_handler_rom.get("flashpoint_id"):
         rom_attrs.update({**flashpoint_handler_rom})
+    if ra_handler_rom.get("ra_id"):
+        rom_attrs.update({**ra_handler_rom})
     if launchbox_handler_rom.get("launchbox_id"):
         rom_attrs.update({**launchbox_handler_rom})
     if hasheous_handler_rom.get("hasheous_id"):
         rom_attrs.update({**hasheous_handler_rom})
-    if ra_handler_rom.get("ra_id"):
-        rom_attrs.update({**ra_handler_rom})
     if moby_handler_rom.get("moby_id"):
         rom_attrs.update({**moby_handler_rom})
     if ss_handler_rom.get("ss_id"):
         rom_attrs.update({**ss_handler_rom})
     if igdb_handler_rom.get("igdb_id"):
         rom_attrs.update({**igdb_handler_rom})
-    if hltb_handler_rom.get("hltb_id"):
-        rom_attrs.update({**hltb_handler_rom})
 
     # Screenshots are a special case
     rom_attrs["url_screenshots"] = (
