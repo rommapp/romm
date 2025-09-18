@@ -281,6 +281,10 @@ class FlashpointHandler(MetadataHandler):
     ) -> list[FlashpointRom]:
         """
         Get ROM information by name from Flashpoint.
+
+        Args:
+            fs_name (str): The filesystem name of the ROM.
+            platform_slug (str): The platform slug.
         """
         from handler.filesystem import fs_rom_handler
 
