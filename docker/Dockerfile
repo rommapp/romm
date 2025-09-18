@@ -33,7 +33,7 @@ FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} A
 WORKDIR /front
 
 COPY ./frontend/package*.json ./
-RUN npm ci --only=production --ignore-scripts --no-audit --no-fund
+RUN npm ci --ignore-scripts --no-audit --no-fund
 
 COPY ./frontend ./
 RUN npm run build
@@ -76,6 +76,7 @@ RUN uv sync --locked --no-cache --all-extras
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rahasher-build
 RUN apk add --no-cache \
     g++ \
+    git \
     linux-headers \
     make \
     zlib-dev
