@@ -19,7 +19,7 @@ ARG PYTHON_VERSION=3.13
 ARG PYTHON_ALPINE_SHA256=9ba6d8cbebf0fb6546ae71f2a1c14f6ffd2fdab83af7fa5669734ef30ad48844
 ARG NODE_VERSION=20.19
 ARG NODE_ALPINE_SHA256=eabac870db94f7342d6c33560d6613f188bbcf4bbe1f4eb47d5e2a08e1a37722
-ARG NGINX_VERSION=1.29.0
+ARG NGINX_VERSION=1.29.1
 ARG NGINX_SHA256=94f1c83ea210e0568f87884517b4fe9a39c74b7677e0ad3de72700cfa3da7268
 ARG UV_VERSION=0.7.19
 ARG UV_SHA256=9ce16aa2fe33496c439996865dc121371bb33fd5fb37500007d48e2078686b0d
@@ -78,26 +78,20 @@ RUN apk add --no-cache \
     g++ \
     linux-headers \
     make \
-    wget \
     zlib-dev
 
 ARG RALIBRETRO_VERSION=1.8.1
-ARG RALIBRETRO_SHA256=5e97ef4ed01414566befe0b58690b7461fbd04f7120b5c6194f87372c6fa98ed
 
 # TODO: Remove `sed` command adding "ctime", when RAHasher can be compiled without it.
 # TODO: Remove `sed` command adding "unistd.h", when RAHasher can be compiled without it.
 #       Related pull request: https://github.com/madler/zlib/pull/1022
-RUN wget "https://github.com/RetroAchievements/RALibretro/archive/refs/tags/${RALIBRETRO_VERSION}.zip" && \
-    echo "${RALIBRETRO_SHA256}  ${RALIBRETRO_VERSION}.zip" | sha256sum -c - && \
-    unzip -q "${RALIBRETRO_VERSION}.zip" && \
-    mv "RALibretro-${RALIBRETRO_VERSION}" RALibretro && \
-    rm "${RALIBRETRO_VERSION}.zip" && \
+RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
     cd ./RALibretro && \
     sed -i '22a #include <ctime>' ./src/Util.h && \
     sed -i '6a #include <unistd.h>' \
-        ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
-        ./src/libchdr/deps/zlib-1.3.1/gzread.c \
-        ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
+      ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
+      ./src/libchdr/deps/zlib-1.3.1/gzread.c \
+      ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 
