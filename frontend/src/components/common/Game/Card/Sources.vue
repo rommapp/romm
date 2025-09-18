@@ -14,7 +14,13 @@ defineProps<{ rom: SearchRomSchema }>();
       open-delay="500"
     >
       <template #activator="{ props }">
-        <v-avatar v-if="rom.igdb_id" v-bind="props" size="30" rounded="1">
+        <v-avatar
+          v-if="rom.igdb_id"
+          class="mr-1 mb-1"
+          v-bind="props"
+          size="28"
+          rounded="1"
+        >
           <v-img src="/assets/scrappers/igdb.png" />
         </v-avatar>
       </template>
@@ -30,8 +36,8 @@ defineProps<{ rom: SearchRomSchema }>();
         <v-avatar
           v-if="rom.moby_id"
           v-bind="props"
-          class="ml-1"
-          size="30"
+          class="mr-1 mb-1"
+          size="28"
           rounded="1"
         >
           <v-img src="/assets/scrappers/moby.png" />
@@ -49,11 +55,30 @@ defineProps<{ rom: SearchRomSchema }>();
         <v-avatar
           v-if="rom.ss_id"
           v-bind="props"
-          class="ml-1"
-          size="30"
+          class="mr-1 mb-1"
+          size="28"
           rounded="1"
         >
           <v-img src="/assets/scrappers/ss.png" />
+        </v-avatar>
+      </template>
+    </v-tooltip>
+    <v-tooltip
+      location="top"
+      class="tooltip"
+      transition="fade-transition"
+      text="Launchbox matched"
+      open-delay="500"
+    >
+      <template #activator="{ props }">
+        <v-avatar
+          v-bind="props"
+          v-if="rom.launchbox_id"
+          class="mr-1 mb-1"
+          size="28"
+          rounded="1"
+        >
+          <v-img src="/assets/scrappers/launchbox.png" />
         </v-avatar>
       </template>
     </v-tooltip>
@@ -65,7 +90,13 @@ defineProps<{ rom: SearchRomSchema }>();
       open-delay="500"
     >
       <template #activator="{ props }">
-        <v-avatar v-bind="props" v-if="rom.flashpoint_id" size="30" rounded="1">
+        <v-avatar
+          v-bind="props"
+          v-if="rom.flashpoint_id"
+          class="mr-1 mb-1"
+          size="28"
+          rounded="1"
+        >
           <v-img src="/assets/scrappers/flashpoint.png" />
         </v-avatar>
       </template>
@@ -78,7 +109,13 @@ defineProps<{ rom: SearchRomSchema }>();
       open-delay="500"
     >
       <template #activator="{ props }">
-        <v-avatar v-bind="props" v-if="rom.hltb_id" size="30" rounded="1">
+        <v-avatar
+          v-bind="props"
+          v-if="rom.hltb_id"
+          class="mr-1 mb-1"
+          size="28"
+          rounded="1"
+        >
           <v-img src="/assets/scrappers/hltb.png" />
         </v-avatar>
       </template>
