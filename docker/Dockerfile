@@ -201,7 +201,7 @@ COPY ./docker/gunicorn/logging.conf /etc/gunicorn/logging.conf
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
     mkdir /romm /redis-data && \
     chown romm:romm /romm /redis-data && \
-    chmod 750 /romm /redis-data && \
+    chmod 755 /romm /redis-data && \
     chmod -R a+w /etc/nginx/conf.d
 
 
@@ -218,9 +218,6 @@ ENV PATH="/src/.venv/bin:${PATH}"
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/backend
-
-# Use non-root user by default
-USER romm
 
 # Declare the supported volumes
 VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/redis-data"]
