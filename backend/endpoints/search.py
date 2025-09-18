@@ -124,7 +124,7 @@ async def search_rom(
             ),
             meta_ss_handler.get_matched_roms_by_name(search_term, rom.platform.ss_id),
             meta_flashpoint_handler.get_matched_roms_by_name(
-                rom.fs_name, rom.platform.slug
+                search_term, rom.platform.slug
             ),
             meta_launchbox_handler.get_matched_roms_by_name(
                 search_term, rom.platform.slug
