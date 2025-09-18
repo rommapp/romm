@@ -10,12 +10,14 @@ from handler.database import db_rom_handler
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
+    meta_launchbox_handler,
     meta_moby_handler,
     meta_sgdb_handler,
     meta_ss_handler,
 )
 from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
+from handler.metadata.launchbox_handler import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSRom
@@ -87,6 +89,7 @@ async def search_rom(
     moby_matched_roms: list[MobyGamesRom] = []
     ss_matched_roms: list[SSRom] = []
     flashpoint_matched_roms: list[FlashpointRom] = []
+    launchbox_matched_roms: list[LaunchboxRom] = []
 
     if search_by.lower() == "id":
         try:
@@ -111,6 +114,7 @@ async def search_rom(
             moby_matched_roms,
             ss_matched_roms,
             flashpoint_matched_roms,
+            launchbox_matched_roms,
         ) = await asyncio.gather(
             meta_igdb_handler.get_matched_roms_by_name(
                 search_term, get_main_platform_igdb_id(rom.platform)
@@ -119,7 +123,12 @@ async def search_rom(
                 search_term, rom.platform.moby_id
             ),
             meta_ss_handler.get_matched_roms_by_name(search_term, rom.platform.ss_id),
-            meta_flashpoint_handler.get_matched_roms_by_name(rom.fs_name),
+            meta_flashpoint_handler.get_matched_roms_by_name(
+                search_term, rom.platform.slug
+            ),
+            meta_launchbox_handler.get_matched_roms_by_name(
+                search_term, rom.platform.slug
+            ),
         )
 
     merged_dict: dict[str, dict] = {}
@@ -182,6 +191,21 @@ async def search_rom(
                 "platform_id": rom.platform_id,
                 "flashpoint_url_cover": flashpoint_rom.pop("url_cover", ""),
                 **merged_dict.get(flashpoint_name, {}),
+            }
+
+    for launchbox_rom in launchbox_matched_roms:
+        if launchbox_rom["launchbox_id"]:
+            launchbox_name = meta_launchbox_handler.normalize_search_term(
+                launchbox_rom.get("name", ""),
+                remove_articles=False,
+            )
+            merged_dict[launchbox_name] = {
+                **launchbox_rom,
+                "is_identified": True,
+                "is_unidentified": False,
+                "platform_id": rom.platform_id,
+                "launchbox_url_cover": launchbox_rom.pop("url_cover", ""),
+                **merged_dict.get(launchbox_name, {}),
             }
 
     async def get_sgdb_rom(name: str) -> tuple[str, SGDBRom]:

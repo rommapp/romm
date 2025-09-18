@@ -9,6 +9,7 @@ export type SearchRomSchema = {
     ss_id?: (number | null);
     sgdb_id?: (number | null);
     flashpoint_id?: (string | null);
+    launchbox_id?: (number | null);
     hltb_id?: (number | null);
     platform_id: number;
     name: string;
@@ -19,6 +20,7 @@ export type SearchRomSchema = {
     ss_url_cover?: string;
     sgdb_url_cover?: string;
     flashpoint_url_cover?: string;
+    launchbox_url_cover?: string;
     hltb_url_cover?: string;
     is_unidentified: boolean;
     is_identified: boolean;

@@ -328,6 +328,15 @@ class LaunchboxHandler(MetadataHandler):
 
         return await self.get_rom_by_id(database_id)
 
+    async def get_matched_roms_by_name(
+        self, search_term: str, platform_slug: str
+    ) -> list[LaunchboxRom]:
+        if not self.is_enabled():
+            return []
+
+        rom = await self.get_rom(search_term, platform_slug)
+        return [rom] if rom else []
+
 
 class SlugToLaunchboxId(TypedDict):
     id: int

@@ -226,7 +226,7 @@ class FlashpointHandler(MetadataHandler):
         """
         from handler.filesystem import fs_rom_handler
 
-        if not FLASHPOINT_API_ENABLED:
+        if not self.is_enabled():
             return FlashpointRom(flashpoint_id=None)
 
         if platform_slug not in FLASHPOINT_PLATFORM_LIST:
@@ -276,13 +276,22 @@ class FlashpointHandler(MetadataHandler):
         log.debug(f"No good match found for '{search_term}' on Flashpoint")
         return FlashpointRom(flashpoint_id=None)
 
-    async def get_matched_roms_by_name(self, fs_name: str) -> list[FlashpointRom]:
+    async def get_matched_roms_by_name(
+        self, fs_name: str, platform_slug: str
+    ) -> list[FlashpointRom]:
         """
         Get ROM information by name from Flashpoint.
+
+        Args:
+            fs_name (str): The filesystem name of the ROM.
+            platform_slug (str): The platform slug.
         """
         from handler.filesystem import fs_rom_handler
 
-        if not FLASHPOINT_API_ENABLED:
+        if not self.is_enabled():
+            return []
+
+        if platform_slug not in FLASHPOINT_PLATFORM_LIST:
             return []
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)

@@ -18,30 +18,32 @@ runtimes:
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
   disabled:
+    - svgo
+    - oxipng
     - pyright
   enabled:
     - dotenv-linter@3.3.0
     - hadolint@2.13.1
     - markdownlint@0.45.0
-    - eslint@9.34.0
+    - eslint@9.35.0
     - actionlint@1.7.7
     - bandit@1.8.6
     - black@25.1.0
-    - checkov@3.2.469
+    - checkov@3.2.471
     - git-diff-check
     - isort@6.0.1
-    - mypy@1.17.1
+    - mypy@1.18.1
     - osv-scanner@2.2.2
     - prettier@3.6.2:
         packages:
           - "@trivago/prettier-plugin-sort-imports@5.2.2"
           - "@vue/compiler-sfc@3.5.21"
-    - ruff@0.12.11
+    - ruff@0.13.0
     - shellcheck@0.11.0
     - shfmt@3.6.0
     - taplo@0.10.0
     - trivy@0.66.0
-    - trufflehog@3.90.5
+    - trufflehog@3.90.6
     - yamllint@1.37.1
   ignore:
     - linters: [ALL]
