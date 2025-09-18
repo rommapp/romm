@@ -233,31 +233,7 @@ onBeforeUnmount(async () => {
 
 <template>
   <v-row v-if="rom" class="align-center justify-center scroll h-100" no-gutters>
-    <v-col
-      v-if="gameRunning"
-      id="game-wrapper"
-      cols="12"
-      md="8"
-      xl="10"
-      class="bg-background pr-2"
-      rounded
-    >
-      <Player
-        :rom="rom"
-        :state="selectedState"
-        :save="selectedSave"
-        :bios="selectedFirmware"
-        :core="selectedCore"
-        :disc="selectedDisc"
-      />
-    </v-col>
-
-    <v-col
-      cols="12"
-      sm="10"
-      :md="!gameRunning ? 8 : 4"
-      :xl="!gameRunning ? 6 : 2"
-    >
+    <v-col v-if="!gameRunning" cols="12" sm="10" md="8" xl="6">
       <!-- Header -->
       <v-row no-gutters>
         <v-col>
@@ -277,7 +253,7 @@ onBeforeUnmount(async () => {
         </v-col>
       </v-row>
 
-      <v-row v-if="!gameRunning" no-gutters>
+      <v-row no-gutters>
         <v-col>
           <!-- disc selector -->
           <v-select
@@ -341,7 +317,7 @@ onBeforeUnmount(async () => {
               <v-col
                 v-show="!openSaveSelector || !smAndDown"
                 :class="{
-                  'mt-2': gameRunning || smAndDown,
+                  'mt-2': smAndDown,
                   'pr-1': !smAndDown,
                 }"
                 :cols="smAndDown ? 12 : 6"
@@ -435,7 +411,7 @@ onBeforeUnmount(async () => {
               <v-col
                 v-show="!openStateSelector || !smAndDown"
                 :class="{
-                  'mt-2': gameRunning || smAndDown,
+                  'mt-2': smAndDown,
                   'pl-1': !smAndDown,
                 }"
                 :cols="smAndDown ? 12 : 6"
@@ -673,86 +649,82 @@ onBeforeUnmount(async () => {
       </v-row>
 
       <!-- Action buttons -->
-      <template v-if="!gameRunning">
-        <v-row class="align-center mt-4" no-gutters>
-          <v-col :class="{ 'pr-1': !smAndDown }">
-            <v-btn
-              block
-              variant="flat"
-              :append-icon="
-                fullScreenOnPlay ? 'mdi-fullscreen' : 'mdi-fullscreen-exit'
-              "
-              :color="fullScreenOnPlay ? 'primary' : ''"
-              @click="onFullScreenChange"
-            >
-              <v-icon class="mr-2">
-                {{
-                  fullScreenOnPlay
-                    ? "mdi-checkbox-outline"
-                    : "mdi-checkbox-blank-outline"
-                }} </v-icon
-              >{{ t("play.full-screen") }}
-            </v-btn>
-          </v-col>
-          <v-col
-            :cols="smAndDown ? 12 : 8"
-            :class="smAndDown ? 'mt-2' : 'pl-1'"
+      <v-row class="align-center mt-4" no-gutters>
+        <v-col :class="{ 'pr-1': !smAndDown }">
+          <v-btn
+            block
+            variant="flat"
+            :append-icon="
+              fullScreenOnPlay ? 'mdi-fullscreen' : 'mdi-fullscreen-exit'
+            "
+            :color="fullScreenOnPlay ? 'primary' : ''"
+            @click="onFullScreenChange"
           >
-            <v-btn
-              block
-              variant="flat"
-              class="text-primary"
-              prepend-icon="mdi-play"
-              @click="onPlay"
-            >
-              {{ t("play.play") }}
-            </v-btn>
-          </v-col>
-        </v-row>
-        <v-row class="align-center my-4" no-gutters>
-          <v-col
-            :class="{ 'mt-2': gameRunning || smAndDown, 'pr-1': !smAndDown }"
-            :cols="smAndDown ? 12 : 6"
+            <v-icon class="mr-2">
+              {{
+                fullScreenOnPlay
+                  ? "mdi-checkbox-outline"
+                  : "mdi-checkbox-blank-outline"
+              }} </v-icon
+            >{{ t("play.full-screen") }}
+          </v-btn>
+        </v-col>
+        <v-col :cols="smAndDown ? 12 : 8" :class="smAndDown ? 'mt-2' : 'pl-1'">
+          <v-btn
+            block
+            variant="flat"
+            class="text-primary"
+            prepend-icon="mdi-play"
+            @click="onPlay"
           >
-            <v-btn
-              block
-              variant="flat"
-              prepend-icon="mdi-arrow-left"
-              append-icon="mdi-details"
-              @click="
-                $router.push({
-                  name: ROUTES.ROM,
-                  params: { rom: rom?.id },
-                })
-              "
-            >
-              {{ t("play.back-to-game-details") }}
-            </v-btn>
-          </v-col>
-          <v-col
-            :class="{ 'mt-2': gameRunning || smAndDown, 'pl-1': !smAndDown }"
-            :cols="smAndDown ? 12 : 6"
+            {{ t("play.play") }}
+          </v-btn>
+        </v-col>
+      </v-row>
+      <v-row class="align-center my-4" no-gutters>
+        <v-col
+          :class="{ 'mt-2': smAndDown, 'pr-1': !smAndDown }"
+          :cols="smAndDown ? 12 : 6"
+        >
+          <v-btn
+            block
+            variant="flat"
+            prepend-icon="mdi-arrow-left"
+            append-icon="mdi-details"
+            @click="
+              $router.push({
+                name: ROUTES.ROM,
+                params: { rom: rom?.id },
+              })
+            "
           >
-            <v-btn
-              block
-              variant="flat"
-              prepend-icon="mdi-arrow-left"
-              append-icon="mdi-apps"
-              @click="
-                $router.push({
-                  name: ROUTES.PLATFORM,
-                  params: { platform: rom?.platform_id },
-                })
-              "
-            >
-              {{ t("play.back-to-gallery") }}
-            </v-btn>
-          </v-col>
-        </v-row>
-      </template>
-      <v-row v-else class="align-center my-4" no-gutters>
+            {{ t("play.back-to-game-details") }}
+          </v-btn>
+        </v-col>
+        <v-col
+          :class="{ 'mt-2': smAndDown, 'pl-1': !smAndDown }"
+          :cols="smAndDown ? 12 : 6"
+        >
+          <v-btn
+            block
+            variant="flat"
+            prepend-icon="mdi-arrow-left"
+            append-icon="mdi-apps"
+            @click="
+              $router.push({
+                name: ROUTES.PLATFORM,
+                params: { platform: rom?.platform_id },
+              })
+            "
+          >
+            {{ t("play.back-to-gallery") }}
+          </v-btn>
+        </v-col>
+      </v-row>
+
+      <v-row class="align-center my-4" no-gutters>
         <v-btn
-          :class="{ 'mt-2': gameRunning || smAndDown, 'pr-1': !smAndDown }"
+          :class="{ 'mt-2': smAndDown, 'pr-1': !smAndDown }"
           block
           variant="flat"
           prepend-icon="mdi-exit-to-app"
@@ -761,7 +733,7 @@ onBeforeUnmount(async () => {
           {{ t("play.quit") }}
         </v-btn>
         <v-btn
-          :class="{ 'mt-2': gameRunning || smAndDown, 'pl-1': !smAndDown }"
+          :class="{ 'mt-2': smAndDown, 'pl-1': !smAndDown }"
           block
           variant="flat"
           prepend-icon="mdi-content-save-move"
@@ -770,8 +742,46 @@ onBeforeUnmount(async () => {
           {{ t("play.save-and-quit") }}
         </v-btn>
       </v-row>
-      <CacheDialog v-if="!gameRunning" />
+
+      <CacheDialog />
     </v-col>
+
+    <template v-else>
+      <v-col id="game-wrapper" cols="12" class="bg-background pr-2" rounded>
+        <Player
+          :rom="rom"
+          :state="selectedState"
+          :save="selectedSave"
+          :bios="selectedFirmware"
+          :core="selectedCore"
+          :disc="selectedDisc"
+        />
+      </v-col>
+      <!-- <v-col>
+      <v-row class="align-center my-4" no-gutters>
+        <v-btn
+          class="mt-2"
+          :class="{ 'pr-1': !smAndDown }"
+          block
+          variant="flat"
+          prepend-icon="mdi-exit-to-app"
+          @click="onlyQuit"
+        >
+          {{ t("play.quit") }}
+        </v-btn>
+        <v-btn
+          class="mt-2"
+          :class="{ 'pl-1': !smAndDown }"
+          block
+          variant="flat"
+          prepend-icon="mdi-content-save-move"
+          @click="saveAndQuit"
+        >
+          {{ t("play.save-and-quit") }}
+        </v-btn>
+      </v-row>
+    </v-col> -->
+    </template>
   </v-row>
 </template>
 
