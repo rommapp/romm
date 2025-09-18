@@ -15,14 +15,17 @@
 # ARGUMENT DECLARATIONS
 ARG ALPINE_VERSION=3.22
 ARG ALPINE_HASH=4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
-
 ARG PYTHON_VERSION=3.13
 ARG PYTHON_ALPINE_HASH=9ba6d8cbebf0fb6546ae71f2a1c14f6ffd2fdab83af7fa5669734ef30ad48844
-
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_HASH} AS python-alias
-
 ARG NODE_VERSION=20.19
 ARG NODE_ALPINE_HASH=eabac870db94f7342d6c33560d6613f188bbcf4bbe1f4eb47d5e2a08e1a37722
+ARG NGINX_VERSION=1.29.1
+ARG NGINX_HASH=94f1c83ea210e0568f87884517b4fe9a39c74b7677e0ad3de72700cfa3da7268
+ARG UV_VERSION=0.7.19
+ARG UV_HASH=9ce16aa2fe33496c439996865dc121371bb33fd5fb37500007d48e2078686b0d
+
+
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_HASH} AS python-alias
 
 
 # FROTNEND BUILD
@@ -34,6 +37,10 @@ RUN npm ci --only=production --ignore-scripts --no-audit --no-fund
 
 COPY ./frontend ./
 RUN npm run build
+
+
+# https://github.com/astral-sh/uv/pkgs/container/uv/452595714
+FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${UV_HASH} AS uv-stage
 
 
 # BACKEND PYTHON BUILD
@@ -49,12 +56,7 @@ RUN apk add --no-cache \
     mariadb-connector-c-dev \
     musl-dev
 
-
-ARG UV_VERSION=0.7.19
-ARG UV_HASH=9ce16aa2fe33496c439996865dc121371bb33fd5fb37500007d48e2078686b0d
-
-# https://github.com/astral-sh/uv/pkgs/container/uv/452595714
-COPY --from=ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${UV_HASH} /uv /uvx /bin/
+COPY --from=uv-stage /uv /uvx /bin/
 
 WORKDIR /src
 
@@ -137,8 +139,6 @@ RUN apk add --no-cache \
     wget \
     zlib-dev
 
-ARG NGINX_VERSION=1.29.1
-ARG NGINX_HASH=94f1c83ea210e0568f87884517b4fe9a39c74b7677e0ad3de72700cfa3da7268
 # The specified commit SHA is the latest commit on the `master` branch at the time of writing.
 # It includes a fix to correctly calculate CRC-32 checksums when using upstream subrequests.
 # TODO: Move to a tagged release of `mod_zip`, once a version newer than 1.3.0 is released.
@@ -179,6 +179,7 @@ RUN apk add --no-cache \
 # Python version, which could not be the same as the one used in the backend build stage.
 # TODO: Replace with a bundled installation of Python using `uv`, when it is supported.
 #       Related issue: https://github.com/astral-sh/uv/issues/7865
+ARG PYTHON_VERSION
 COPY --from=python-alias /usr/lib/* /usr/lib/
 COPY --from=python-alias /usr/local/bin/* /usr/local/bin/
 COPY --from=python-alias /usr/local/include/python${PYTHON_VERSION} /usr/local/include/python${PYTHON_VERSION}
