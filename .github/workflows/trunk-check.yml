@@ -17,6 +17,6 @@ jobs:
       contents: read # For repo checkout
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.3.0
       - name: Trunk Check
-        uses: trunk-io/trunk-action@v1
+        uses: trunk-io/trunk-action@v1.2.4
