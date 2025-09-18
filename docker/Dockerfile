@@ -11,26 +11,32 @@
 #   - dev-slim: Slim image with development dependencies
 #   - dev-full: Full image with emulator stage and development dependencies
 
-# Versions:
+
+# ARGUMENT DECLARATIONS
 ARG ALPINE_VERSION=3.22
-ARG NGINX_VERSION=1.29.0
-ARG NODE_VERSION=20.19
+ARG ALPINE_HASH=4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
+
 ARG PYTHON_VERSION=3.13
+ARG PYTHON_ALPINE_HASH=9ba6d8cbebf0fb6546ae71f2a1c14f6ffd2fdab83af7fa5669734ef30ad48844
 
-# Alias stages:
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS python-alias
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_HASH} AS python-alias
+
+ARG NODE_VERSION=20.19
+ARG NODE_ALPINE_HASH=eabac870db94f7342d6c33560d6613f188bbcf4bbe1f4eb47d5e2a08e1a37722
 
 
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS frontend-build
+# FROTNEND BUILD
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_HASH} AS frontend-build
 WORKDIR /front
 
 COPY ./frontend/package*.json ./
-RUN npm ci
+RUN npm ci --only=production --ignore-scripts --no-audit --no-fund
 
 COPY ./frontend ./
 RUN npm run build
 
 
+# BACKEND PYTHON BUILD
 FROM python-alias AS backend-build
 
 # git is needed to install streaming-form-data fork
@@ -43,13 +49,17 @@ RUN apk add --no-cache \
     mariadb-connector-c-dev \
     musl-dev
 
-COPY --from=ghcr.io/astral-sh/uv:0.7.19 /uv /uvx /bin/
+
+ARG UV_VERSION=0.7.19
+ARG UV_HASH=9ce16aa2fe33496c439996865dc121371bb33fd5fb37500007d48e2078686b0d
+
+# https://github.com/astral-sh/uv/pkgs/container/uv/452595714
+COPY --from=ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${UV_HASH} /uv /uvx /bin/
 
 WORKDIR /src
 
 COPY ./pyproject.toml ./uv.lock /src/
 RUN uv sync --locked --no-cache
-
 
 FROM backend-build AS backend-dev-build
 
@@ -60,48 +70,63 @@ RUN apk add --no-cache \
 RUN uv sync --locked --no-cache --all-extras
 
 
-FROM alpine:${ALPINE_VERSION} AS rahasher-build
-
+# CUSTOM RAHASHER FOR RETROACHIEVEMENTS
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_HASH} AS rahasher-build
 RUN apk add --no-cache \
     g++ \
-    git \
     linux-headers \
     make \
+    wget \
     zlib-dev
 
 ARG RALIBRETRO_VERSION=1.8.1
+ARG RALIBRETRO_HASH=5e97ef4ed01414566befe0b58690b7461fbd04f7120b5c6194f87372c6fa98ed
 
 # TODO: Remove `sed` command adding "ctime", when RAHasher can be compiled without it.
 # TODO: Remove `sed` command adding "unistd.h", when RAHasher can be compiled without it.
 #       Related pull request: https://github.com/madler/zlib/pull/1022
-RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
+RUN wget "https://github.com/RetroAchievements/RALibretro/archive/refs/tags/${RALIBRETRO_VERSION}.zip" && \
+    echo "${RALIBRETRO_HASH}  ${RALIBRETRO_VERSION}.zip" | sha256sum -c - && \
+    unzip -q "${RALIBRETRO_VERSION}.zip" && \
+    mv "RALibretro-${RALIBRETRO_VERSION}" RALibretro && \
+    rm "${RALIBRETRO_VERSION}.zip" && \
     cd ./RALibretro && \
     sed -i '22a #include <ctime>' ./src/Util.h && \
     sed -i '6a #include <unistd.h>' \
-      ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
-      ./src/libchdr/deps/zlib-1.3.1/gzread.c \
-      ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
+        ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
+        ./src/libchdr/deps/zlib-1.3.1/gzread.c \
+        ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 
-FROM alpine:${ALPINE_VERSION} AS emulator-stage
+# FETCH EMULATORJS AND RUFFLE
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_HASH} AS emulator-stage
 
 RUN apk add --no-cache \
     7zip \
-    wget
+    wget \
+    ca-certificates
 
 ARG EMULATORJS_VERSION=4.2.3
+ARG EMULATORJS_HASH=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b
+
 RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
+    echo "${EMULATORJS_HASH}  ${EMULATORJS_VERSION}.7z" | sha256sum -c - && \
     7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
-    rm -rf "${EMULATORJS_VERSION}.7z";
+    rm -f "${EMULATORJS_VERSION}.7z"
 
 ARG RUFFLE_VERSION=nightly-2025-08-14
 ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
-RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
-    unzip -o "${RUFFLE_FILE}" -d /ruffle && \
-    rm -f "${RUFFLE_FILE}";
+ARG RUFFLE_HASH=178870c5e7dd825a8df35920dfc5328d83e53f3c4d5d95f70b1ea9cd13494151
 
-FROM alpine:${ALPINE_VERSION} AS nginx-build
+RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
+    echo "${RUFFLE_HASH}  ${RUFFLE_FILE}" | sha256sum -c - && \
+    unzip -o "${RUFFLE_FILE}" -d /ruffle && \
+    rm -f "${RUFFLE_FILE}"
+
+
+# BUILD NGINX MODULE WITH MOD_ZIP
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_HASH} AS nginx-build
 
 RUN apk add --no-cache \
     gcc \
@@ -109,32 +134,38 @@ RUN apk add --no-cache \
     libc-dev \
     make \
     pcre-dev \
+    wget \
     zlib-dev
 
-ARG NGINX_VERSION
+ARG NGINX_VERSION=1.29.1
+ARG NGINX_HASH=94f1c83ea210e0568f87884517b4fe9a39c74b7677e0ad3de72700cfa3da7268
 # The specified commit SHA is the latest commit on the `master` branch at the time of writing.
 # It includes a fix to correctly calculate CRC-32 checksums when using upstream subrequests.
 # TODO: Move to a tagged release of `mod_zip`, once a version newer than 1.3.0 is released.
-ARG NGINX_MOD_ZIP_SHA=a9f9afa441117831cc712a832c98408b3f0416f6
+ARG NGINX_MOD_ZIP_HASH=a9f9afa441117831cc712a832c98408b3f0416f6
+ARG NGINX_RELEASE_HASH=87726e2e3b021ee9f7f0f709c49308ce275c5e44d2625841f3d9f948385494c5
 
-# Clone both nginx and `ngx_http_zip_module` repositories, needed to compile the module from source.
+# Clone `ngx_http_zip_module` repository and download nginx source, needed to compile the module from source.
 # This is needed to be able to dinamically load it as a module in the final image. `nginx` Docker
 # images do not have a simple way to include third-party modules.
 RUN git clone https://github.com/evanmiller/mod_zip.git && \
     cd ./mod_zip && \
-    git checkout "${NGINX_MOD_ZIP_SHA}" && \
+    git checkout "${NGINX_MOD_ZIP_HASH}" && \
     cd ../ && \
-    git clone --branch "release-${NGINX_VERSION}" --depth 1 https://github.com/nginx/nginx.git && \
-    cd ./nginx && \
+    wget "https://github.com/nginx/nginx/releases/download/release-${NGINX_VERSION}/nginx-${NGINX_VERSION}.zip" && \
+    echo "${NGINX_RELEASE_HASH}  nginx-${NGINX_VERSION}.zip" | sha256sum -c - && \
+    unzip -q "nginx-${NGINX_VERSION}.zip" && \
+    rm "nginx-${NGINX_VERSION}.zip" && \
+    cd "./nginx-${NGINX_VERSION}" && \
     ./auto/configure --with-compat --add-dynamic-module=../mod_zip/ && \
     make -f ./objs/Makefile modules && \
     chmod 644 ./objs/ngx_http_zip_module.so
 
 
-FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION} AS production-stage
+# PRODUCTION STAGE
+FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}-slim@sha256:${NGINX_HASH} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
-# Install required packages and dependencies
 RUN apk add --no-cache \
     bash \
     libmagic \
@@ -148,7 +179,6 @@ RUN apk add --no-cache \
 # Python version, which could not be the same as the one used in the backend build stage.
 # TODO: Replace with a bundled installation of Python using `uv`, when it is supported.
 #       Related issue: https://github.com/astral-sh/uv/issues/7865
-ARG PYTHON_VERSION
 COPY --from=python-alias /usr/lib/* /usr/lib/
 COPY --from=python-alias /usr/local/bin/* /usr/local/bin/
 COPY --from=python-alias /usr/local/include/python${PYTHON_VERSION} /usr/local/include/python${PYTHON_VERSION}
@@ -175,13 +205,15 @@ COPY ./docker/gunicorn/logging.conf /etc/gunicorn/logging.conf
 # User permissions
 # - Create default user `romm` (1000) and group `romm` (1000).
 # - Create base directories and make default user/group the owner.
-# - Make nginx configuration files writable by everyone, for `envsubst` to work
-#     when a custom UID/GID is used.
+# - Make nginx configuration files writable by everyone for `envsubst` to work
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
-    mkdir /romm /redis-data && chown romm:romm /romm /redis-data && \
+    mkdir /romm /redis-data && \
+    chown romm:romm /romm /redis-data && \
+    chmod 750 /romm /redis-data && \
     chmod -R a+w /etc/nginx/conf.d
 
 
+# SLIM IMAGE
 FROM scratch AS slim-image
 
 COPY --from=production-stage / /
@@ -190,10 +222,18 @@ COPY --from=backend-build /src/.venv /src/.venv
 
 ENV PATH="/src/.venv/bin:${PATH}"
 
+# Security: Set security-focused environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/backend
+
+# Use non-root user by default
+USER romm
+
 # Declare the supported volumes
 VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/redis-data"]
 
-# Expose ports and start
+# Expose non-privileged ports
 EXPOSE 8080 6379/tcp
 WORKDIR /romm
 
@@ -201,6 +241,7 @@ ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/init"]
 
 
+# FULL IMAGE
 FROM slim-image AS full-image
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
