@@ -14,22 +14,22 @@
 
 # ARGUMENT DECLARATIONS
 ARG ALPINE_VERSION=3.22
-ARG ALPINE_HASH=4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
+ARG ALPINE_SHA256=4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
 ARG PYTHON_VERSION=3.13
-ARG PYTHON_ALPINE_HASH=9ba6d8cbebf0fb6546ae71f2a1c14f6ffd2fdab83af7fa5669734ef30ad48844
+ARG PYTHON_ALPINE_SHA256=9ba6d8cbebf0fb6546ae71f2a1c14f6ffd2fdab83af7fa5669734ef30ad48844
 ARG NODE_VERSION=20.19
-ARG NODE_ALPINE_HASH=eabac870db94f7342d6c33560d6613f188bbcf4bbe1f4eb47d5e2a08e1a37722
+ARG NODE_ALPINE_SHA256=eabac870db94f7342d6c33560d6613f188bbcf4bbe1f4eb47d5e2a08e1a37722
 ARG NGINX_VERSION=1.29.1
-ARG NGINX_HASH=94f1c83ea210e0568f87884517b4fe9a39c74b7677e0ad3de72700cfa3da7268
+ARG NGINX_SHA256=94f1c83ea210e0568f87884517b4fe9a39c74b7677e0ad3de72700cfa3da7268
 ARG UV_VERSION=0.7.19
-ARG UV_HASH=9ce16aa2fe33496c439996865dc121371bb33fd5fb37500007d48e2078686b0d
+ARG UV_SHA256=9ce16aa2fe33496c439996865dc121371bb33fd5fb37500007d48e2078686b0d
 
 
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_HASH} AS python-alias
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
 
 
 # FROTNEND BUILD
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_HASH} AS frontend-build
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS frontend-build
 WORKDIR /front
 
 COPY ./frontend/package*.json ./
@@ -40,7 +40,7 @@ RUN npm run build
 
 
 # https://github.com/astral-sh/uv/pkgs/container/uv/452595714
-FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${UV_HASH} AS uv-stage
+FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${UV_SHA256} AS uv-stage
 
 
 # BACKEND PYTHON BUILD
@@ -56,7 +56,7 @@ RUN apk add --no-cache \
     mariadb-connector-c-dev \
     musl-dev
 
-COPY --from=uv-stage /uv /uvx /bin/
+COPY --from=uv-stage /usr/local/bin/uv /usr/local/bin/uvx /bin/
 
 WORKDIR /src
 
@@ -73,7 +73,7 @@ RUN uv sync --locked --no-cache --all-extras
 
 
 # CUSTOM RAHASHER FOR RETROACHIEVEMENTS
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_HASH} AS rahasher-build
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rahasher-build
 RUN apk add --no-cache \
     g++ \
     linux-headers \
@@ -82,13 +82,13 @@ RUN apk add --no-cache \
     zlib-dev
 
 ARG RALIBRETRO_VERSION=1.8.1
-ARG RALIBRETRO_HASH=5e97ef4ed01414566befe0b58690b7461fbd04f7120b5c6194f87372c6fa98ed
+ARG RALIBRETRO_SHA256=5e97ef4ed01414566befe0b58690b7461fbd04f7120b5c6194f87372c6fa98ed
 
 # TODO: Remove `sed` command adding "ctime", when RAHasher can be compiled without it.
 # TODO: Remove `sed` command adding "unistd.h", when RAHasher can be compiled without it.
 #       Related pull request: https://github.com/madler/zlib/pull/1022
 RUN wget "https://github.com/RetroAchievements/RALibretro/archive/refs/tags/${RALIBRETRO_VERSION}.zip" && \
-    echo "${RALIBRETRO_HASH}  ${RALIBRETRO_VERSION}.zip" | sha256sum -c - && \
+    echo "${RALIBRETRO_SHA256}  ${RALIBRETRO_VERSION}.zip" | sha256sum -c - && \
     unzip -q "${RALIBRETRO_VERSION}.zip" && \
     mv "RALibretro-${RALIBRETRO_VERSION}" RALibretro && \
     rm "${RALIBRETRO_VERSION}.zip" && \
@@ -102,7 +102,7 @@ RUN wget "https://github.com/RetroAchievements/RALibretro/archive/refs/tags/${RA
 
 
 # FETCH EMULATORJS AND RUFFLE
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_HASH} AS emulator-stage
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
 
 RUN apk add --no-cache \
     7zip \
@@ -110,25 +110,25 @@ RUN apk add --no-cache \
     ca-certificates
 
 ARG EMULATORJS_VERSION=4.2.3
-ARG EMULATORJS_HASH=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b
+ARG EMULATORJS_SHA256=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b
 
 RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
-    echo "${EMULATORJS_HASH}  ${EMULATORJS_VERSION}.7z" | sha256sum -c - && \
+    echo "${EMULATORJS_SHA256}  ${EMULATORJS_VERSION}.7z" | sha256sum -c - && \
     7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
     rm -f "${EMULATORJS_VERSION}.7z"
 
 ARG RUFFLE_VERSION=nightly-2025-08-14
 ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
-ARG RUFFLE_HASH=178870c5e7dd825a8df35920dfc5328d83e53f3c4d5d95f70b1ea9cd13494151
+ARG RUFFLE_SHA256=178870c5e7dd825a8df35920dfc5328d83e53f3c4d5d95f70b1ea9cd13494151
 
 RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
-    echo "${RUFFLE_HASH}  ${RUFFLE_FILE}" | sha256sum -c - && \
+    echo "${RUFFLE_SHA256}  ${RUFFLE_FILE}" | sha256sum -c - && \
     unzip -o "${RUFFLE_FILE}" -d /ruffle && \
     rm -f "${RUFFLE_FILE}"
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_HASH} AS nginx-build
+FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS nginx-build
 
 RUN apk add --no-cache \
     gcc \
@@ -142,18 +142,18 @@ RUN apk add --no-cache \
 # The specified commit SHA is the latest commit on the `master` branch at the time of writing.
 # It includes a fix to correctly calculate CRC-32 checksums when using upstream subrequests.
 # TODO: Move to a tagged release of `mod_zip`, once a version newer than 1.3.0 is released.
-ARG NGINX_MOD_ZIP_HASH=a9f9afa441117831cc712a832c98408b3f0416f6
-ARG NGINX_RELEASE_HASH=87726e2e3b021ee9f7f0f709c49308ce275c5e44d2625841f3d9f948385494c5
+ARG NGINX_MOD_ZIP_SHA256=a9f9afa441117831cc712a832c98408b3f0416f6
+ARG NGINX_RELEASE_SHA256=87726e2e3b021ee9f7f0f709c49308ce275c5e44d2625841f3d9f948385494c5
 
 # Clone `ngx_http_zip_module` repository and download nginx source, needed to compile the module from source.
 # This is needed to be able to dinamically load it as a module in the final image. `nginx` Docker
 # images do not have a simple way to include third-party modules.
 RUN git clone https://github.com/evanmiller/mod_zip.git && \
     cd ./mod_zip && \
-    git checkout "${NGINX_MOD_ZIP_HASH}" && \
+    git checkout "${NGINX_MOD_ZIP_SHA256}" && \
     cd ../ && \
     wget "https://github.com/nginx/nginx/releases/download/release-${NGINX_VERSION}/nginx-${NGINX_VERSION}.zip" && \
-    echo "${NGINX_RELEASE_HASH}  nginx-${NGINX_VERSION}.zip" | sha256sum -c - && \
+    echo "${NGINX_RELEASE_SHA256}  nginx-${NGINX_VERSION}.zip" | sha256sum -c - && \
     unzip -q "nginx-${NGINX_VERSION}.zip" && \
     rm "nginx-${NGINX_VERSION}.zip" && \
     cd "./nginx-${NGINX_VERSION}" && \
@@ -163,7 +163,7 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
 
 
 # PRODUCTION STAGE
-FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}-slim@sha256:${NGINX_HASH} AS production-stage
+FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}-slim@sha256:${NGINX_SHA256} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
 RUN apk add --no-cache \
