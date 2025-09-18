@@ -19,7 +19,7 @@ ARG PYTHON_VERSION=3.13
 ARG PYTHON_ALPINE_SHA256=9ba6d8cbebf0fb6546ae71f2a1c14f6ffd2fdab83af7fa5669734ef30ad48844
 ARG NODE_VERSION=20.19
 ARG NODE_ALPINE_SHA256=eabac870db94f7342d6c33560d6613f188bbcf4bbe1f4eb47d5e2a08e1a37722
-ARG NGINX_VERSION=1.29.1
+ARG NGINX_VERSION=1.29.0
 ARG NGINX_SHA256=94f1c83ea210e0568f87884517b4fe9a39c74b7677e0ad3de72700cfa3da7268
 ARG UV_VERSION=0.7.19
 ARG UV_SHA256=9ce16aa2fe33496c439996865dc121371bb33fd5fb37500007d48e2078686b0d
@@ -136,27 +136,23 @@ RUN apk add --no-cache \
     libc-dev \
     make \
     pcre-dev \
-    wget \
     zlib-dev
 
+ARG NGINX_VERSION
 # The specified commit SHA is the latest commit on the `master` branch at the time of writing.
 # It includes a fix to correctly calculate CRC-32 checksums when using upstream subrequests.
 # TODO: Move to a tagged release of `mod_zip`, once a version newer than 1.3.0 is released.
-ARG NGINX_MOD_ZIP_SHA256=a9f9afa441117831cc712a832c98408b3f0416f6
-ARG NGINX_RELEASE_SHA256=87726e2e3b021ee9f7f0f709c49308ce275c5e44d2625841f3d9f948385494c5
+ARG NGINX_MOD_ZIP_COMMIT=a9f9afa441117831cc712a832c98408b3f0416f6
 
-# Clone `ngx_http_zip_module` repository and download nginx source, needed to compile the module from source.
+# Clone both `nginx` and `ngx_http_zip_module` repositories, needed to compile the module from source.
 # This is needed to be able to dinamically load it as a module in the final image. `nginx` Docker
 # images do not have a simple way to include third-party modules.
 RUN git clone https://github.com/evanmiller/mod_zip.git && \
     cd ./mod_zip && \
-    git checkout "${NGINX_MOD_ZIP_SHA256}" && \
+    git checkout "${NGINX_MOD_ZIP_COMMIT}" && \
     cd ../ && \
-    wget "https://github.com/nginx/nginx/releases/download/release-${NGINX_VERSION}/nginx-${NGINX_VERSION}.zip" && \
-    echo "${NGINX_RELEASE_SHA256}  nginx-${NGINX_VERSION}.zip" | sha256sum -c - && \
-    unzip -q "nginx-${NGINX_VERSION}.zip" && \
-    rm "nginx-${NGINX_VERSION}.zip" && \
-    cd "./nginx-${NGINX_VERSION}" && \
+    git clone --branch "release-${NGINX_VERSION}" --depth 1 https://github.com/nginx/nginx.git && \
+    cd ./nginx && \
     ./auto/configure --with-compat --add-dynamic-module=../mod_zip/ && \
     make -f ./objs/Makefile modules && \
     chmod 644 ./objs/ngx_http_zip_module.so
