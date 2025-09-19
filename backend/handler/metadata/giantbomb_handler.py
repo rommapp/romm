@@ -58,22 +58,22 @@ class SlugToGiantBombPlatform(TypedDict):
 
 
 GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
-    UPS.PS6: {
-        "id": 212,
-        "slug": "next-generation-playstation",
-        "title": "Next Generation PlayStation",
-        "description": "The sixth PlayStation console developed by Sony.",
-        "url": "https://www.giantbomb.com/next-generation-playstation/3045-212/",
-        "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3791677-logo.png",
-    },
-    UPS.XBOX5: {
-        "id": 211,
-        "slug": "next-generation-xbox",
-        "title": "Next Generation Xbox",
-        "description": "The fifth Xbox console was first mentioned by Xbox President, Sarah Bond, in February 2024.",
-        "url": "https://www.giantbomb.com/next-generation-xbox/3045-211/",
-        "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3600344-9619474977-2048p.png",
-    },
+    # UPS.PS6: {
+    #     "id": 212,
+    #     "slug": "next-generation-playstation",
+    #     "title": "Next Generation PlayStation",
+    #     "description": "The sixth PlayStation console developed by Sony.",
+    #     "url": "https://www.giantbomb.com/next-generation-playstation/3045-212/",
+    #     "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3791677-logo.png",
+    # },
+    # UPS.XBOX5: {
+    #     "id": 211,
+    #     "slug": "next-generation-xbox",
+    #     "title": "Next Generation Xbox",
+    #     "description": "The fifth Xbox console was first mentioned by Xbox President, Sarah Bond, in February 2024.",
+    #     "url": "https://www.giantbomb.com/next-generation-xbox/3045-211/",
+    #     "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3600344-9619474977-2048p.png",
+    # },
     UPS.SWITCH_2: {
         "id": 210,
         "slug": "nintendo-switch-2",
@@ -138,7 +138,7 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/google-stadia/3045-175/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/4647/3184321-images.jpg",
     },
-    UPS.QUEST: {
+    UPS.META_QUEST_2: {
         "id": 177,
         "slug": "meta-quest",
         "title": "Meta Quest",
@@ -154,7 +154,7 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/magic-leap-one/3045-173/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/26/3059027-product-family-shot_3x.jpeg",
     },
-    UPS.STREAM: {
+    UPS.STREAMING: {
         "id": 194,
         "slug": "stream",
         "title": "Stream",
@@ -178,10 +178,10 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/fuze-tomahawk-f1/3045-164/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/26/2850182-screen%20shot%202016-05-10%20at%2010.48.20%20am.png",
     },
-    UPS.APPLE_TV: {
+    UPS.TVOS: {
         "id": 159,
         "slug": "apple-tv",
-        "title": "Apple TV",
+        "title": "Apple tvOS",
         "description": "The fourth-generation Apple TV adds an App Store, opening up the availability of third-party apps and games to a wider degree. The remote also has motion capabilities, opening it up as a game device.",
         "url": "https://www.giantbomb.com/apple-tv/3045-159/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/4647/3276566-0122928757-0-599.jpg",
@@ -203,12 +203,12 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/8/82063/2676248-photo_3ds_01_wmcs1e.jpg",
     },
     UPS.MONON_COLOR: {
-        "id": 117,
+        "id": 204,
         "slug": "monon-color",
         "title": "Monon Color",
         "description": "The Monon Color is a portable game console produced by Nintendo. It was released in Japan in 1980.",
-        "url": "https://www.giantbomb.com/monon-color/3045-117/",
-        "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/5150/1686079-3dshw11911.jpg",
+        "url": "https://www.giantbomb.com/monon-color/3045-204/",
+        "url_logo": "https://www.giantbomb.com/a/uploads/scale_small/0/1992/3341671-4c3443fd23473ce64296b645f6507ade.jpeg",
     },
     UPS.AMAZON_FIRE_TV: {
         "id": 158,
@@ -258,22 +258,22 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/playstation-vita/3045-129/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/2122519-vita.png",
     },
-    UPS.PSN_VITA: {
-        "id": 143,
-        "slug": "playstation-network-vita",
-        "title": "PlayStation Network (Vita)",
-        "description": "The PlayStation Network is Sony's digital storefront for delivering games, add-ons, and other content. This specific platform page focuses on the PlayStation Vita version of said storefront.",
-        "url": "https://www.giantbomb.com/playstation-network-vita/3045-143/",
-        "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/2124933-psnpsv1.png",
-    },
-    UPS.NINTENDO_3DS_ESHOP: {
-        "id": 138,
-        "slug": "nintendo-3ds-eshop",
-        "title": "Nintendo 3DS eShop",
-        "description": "The products that make up the various segments of Nintendo's 3DS eShop include new releases, updated version of old games, and emulated versions of old games.",
-        "url": "https://www.giantbomb.com/nintendo-3ds-eshop/3045-138/",
-        "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3383078-9903589581-3DS-e.jpg",
-    },
+    # UPS.PSN_VITA: {
+    #     "id": 143,
+    #     "slug": "playstation-network-vita",
+    #     "title": "PlayStation Network (Vita)",
+    #     "description": "The PlayStation Network is Sony's digital storefront for delivering games, add-ons, and other content. This specific platform page focuses on the PlayStation Vita version of said storefront.",
+    #     "url": "https://www.giantbomb.com/playstation-network-vita/3045-143/",
+    #     "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/2124933-psnpsv1.png",
+    # },
+    # UPS.NINTENDO_3DS_ESHOP: {
+    #     "id": 138,
+    #     "slug": "nintendo-3ds-eshop",
+    #     "title": "Nintendo 3DS eShop",
+    #     "description": "The products that make up the various segments of Nintendo's 3DS eShop include new releases, updated version of old games, and emulated versions of old games.",
+    #     "url": "https://www.giantbomb.com/nintendo-3ds-eshop/3045-138/",
+    #     "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3383078-9903589581-3DS-e.jpg",
+    # },
     UPS.N3DS: {
         "id": 117,
         "slug": "nintendo-3ds",
@@ -314,22 +314,22 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/zeebo/3045-122/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/8/86078/1391294-zeebo.jpg",
     },
-    UPS.NINTENDO_DSI_WARE: {
-        "id": 106,
-        "slug": "dsiware",
-        "title": "DSiWare",
-        "description": "DSiWare is Nintendo's name for its downloadable games appearing on the new Nintendo DSi system.",
-        "url": "https://www.giantbomb.com/dsiware/3045-106/",
-        "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/26/847036-dsiware.jpg",
-    },
-    UPS.PLAYSTATION_NETWORK_PSP: {
-        "id": 116,
-        "slug": "playstation-network-psp",
-        "title": "PlayStation Network (PSP)",
-        "description": "This platform is specifically for PSP releases that are made available as digital downloads via the PlayStation Store. The Store includes PSP games (some exclusive to PSN), PSP Minis, PSone Classics, trailers, movies, TV shows, and digital comics.",
-        "url": "https://www.giantbomb.com/playstation-network-psp/3045-116/",
-        "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/2122556-psnpsp.png",
-    },
+    # UPS.NINTENDO_DSI_WARE: {
+    #     "id": 106,
+    #     "slug": "dsiware",
+    #     "title": "DSiWare",
+    #     "description": "DSiWare is Nintendo's name for its downloadable games appearing on the new Nintendo DSi system.",
+    #     "url": "https://www.giantbomb.com/dsiware/3045-106/",
+    #     "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/26/847036-dsiware.jpg",
+    # },
+    # UPS.PLAYSTATION_NETWORK_PSP: {
+    #     "id": 116,
+    #     "slug": "playstation-network-psp",
+    #     "title": "PlayStation Network (PSP)",
+    #     "description": "This platform is specifically for PSP releases that are made available as digital downloads via the PlayStation Store. The Store includes PSP games (some exclusive to PSN), PSP Minis, PSone Classics, trailers, movies, TV shows, and digital comics.",
+    #     "url": "https://www.giantbomb.com/playstation-network-psp/3045-116/",
+    #     "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/2122556-psnpsp.png",
+    # },
     UPS.ANDROID: {
         "id": 123,
         "slug": "android",
@@ -354,14 +354,14 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/iphone/3045-96/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3383085-5925865434-Apple.jpg",
     },
-    UPS.WII_SHOP: {
-        "id": 87,
-        "slug": "wii-shop",
-        "title": "Wii Shop",
-        "description": "The Wii Shop Channel was Nintendo's way of digitally distributing games. It includes WiiWare for newly developed games, as well as the Virtual Console for classic titles from various consoles and arcade systems.",
-        "url": "https://www.giantbomb.com/wii-shop/3045-87/",
-        "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/4647/2954586-1461028228-maxre.jpg",
-    },
+    # UPS.WII_SHOP: {
+    #     "id": 87,
+    #     "slug": "wii-shop",
+    #     "title": "Wii Shop",
+    #     "description": "The Wii Shop Channel was Nintendo's way of digitally distributing games. It includes WiiWare for newly developed games, as well as the Virtual Console for classic titles from various consoles and arcade systems.",
+    #     "url": "https://www.giantbomb.com/wii-shop/3045-87/",
+    #     "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/4647/2954586-1461028228-maxre.jpg",
+    # },
     UPS.WII: {
         "id": 36,
         "slug": "wii",
@@ -378,14 +378,14 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/playstation-3/3045-35/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/1426360-logo.jpg",
     },
-    UPS.PSN_PS3: {
-        "id": 88,
-        "slug": "playstation-network-ps3",
-        "title": "PlayStation Network (PS3)",
-        "description": "The PlayStation Network is the online service by Sony Computer Entertainment, providing downloads of games, trailers, themes and much more. The service is free, but also offers a paid version for various benefits.",
-        "url": "https://www.giantbomb.com/playstation-network-ps3/3045-88/",
-        "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/2122559-psnps3.png",
-    },
+    # UPS.PSN_PS3: {
+    #     "id": 88,
+    #     "slug": "playstation-network-ps3",
+    #     "title": "PlayStation Network (PS3)",
+    #     "description": "The PlayStation Network is the online service by Sony Computer Entertainment, providing downloads of games, trailers, themes and much more. The service is free, but also offers a paid version for various benefits.",
+    #     "url": "https://www.giantbomb.com/playstation-network-ps3/3045-88/",
+    #     "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/2122559-psnps3.png",
+    # },
     UPS.HYPERSCAN: {
         "id": 104,
         "slug": "hyperscan",
@@ -394,14 +394,14 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/hyperscan/3045-104/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/2681/841197-hyperscan.jpg",
     },
-    UPS.XBOX_360_GAMES_STORE: {
-        "id": 86,
-        "slug": "xbox-360-games-store",
-        "title": "Xbox 360 Games Store",
-        "description": "Xbox Live Games Store was an online store for the Xbox 360 and Xbox One which allows users to purchase games digitally. The service was shut down on July 29th, 2024.",
-        "url": "https://www.giantbomb.com/xbox-360-games-store/3045-86/",
-        "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/2564457-8881913767-XboxL.png",
-    },
+    # UPS.XBOX_360_GAMES_STORE: {
+    #     "id": 86,
+    #     "slug": "xbox-360-games-store",
+    #     "title": "Xbox 360 Games Store",
+    #     "description": "Xbox Live Games Store was an online store for the Xbox 360 and Xbox One which allows users to purchase games digitally. The service was shut down on July 29th, 2024.",
+    #     "url": "https://www.giantbomb.com/xbox-360-games-store/3045-86/",
+    #     "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/2564457-8881913767-XboxL.png",
+    # },
     UPS.XBOX360: {
         "id": 20,
         "slug": "xbox-360",
@@ -450,7 +450,7 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/advanced-pico-beena/3045-174/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/26/3061845-8449526446-Advan.jpg",
     },
-    UPS.TIMETOP_GAMEKING_III: {
+    UPS.GAMEKINGIII: {
         "id": 189,
         "slug": "timetop-gameking-iii",
         "title": "Timetop GameKing III",
@@ -474,7 +474,7 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/nintendo-ds/3045-52/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/2122822-ds.png",
     },
-    UPS.TIMETOP_GAMEKING: {
+    UPS.GAMEKING: {
         "id": 188,
         "slug": "timetop-gameking",
         "title": "Timetop GameKing",
@@ -826,7 +826,7 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/3do/3045-26/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/1/12419/254585-3do_fz1.jpg",
     },
-    UPS.MEMOREX_MD_2500_VIS: {
+    UPS.TANDY_VIS: {
         "id": 153,
         "slug": "memorex-md-2500-vis",
         "title": "Memorex MD 2500 VIS",
@@ -962,7 +962,7 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/fm-towns/3045-108/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/4527/1109993-fmtowns.jpg",
     },
-    UPS.VIEW_MASTER_INTERACTIVE_VISION: {
+    UPS.VIEW_MASTER: {
         "id": 163,
         "slug": "viewmaster-interactive-vision",
         "title": "View-Master Interactive Vision",
@@ -1082,7 +1082,7 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/commodore-128/3045-58/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/4647/2954661-4388797273-C5YEu.jpg",
     },
-    UPS.RDI_HALCYON: {
+    UPS.HALCYON: {
         "id": 107,
         "slug": "rdi-halcyon",
         "title": "RDI Halcyon",
@@ -1154,7 +1154,7 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/coleco-adam/3045-207/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3376494-8410875235-adam-.jpg",
     },
-    UPS.GAKKEN_COMPACT_VISION_TV_BOY: {
+    UPS.TVBOY: {
         "id": 196,
         "slug": "gakken-compact-vision-tv-boy",
         "title": "Gakken Compact Vision TV Boy",
@@ -1186,7 +1186,7 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/nintendo-entertainment-system/3045-21/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/9/99864/2419866-nes_console_set.png",
     },
-    UPS.BANDAI_RX_78: {
+    UPS.RX_78: {
         "id": 201,
         "slug": "bandai-rx-78",
         "title": "Bandai RX-78",
@@ -1218,7 +1218,7 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/casio-pv-2000/3045-187/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3195587-casio_pv2000_1.jpg",
     },
-    UPS.MITSUBISHI_MULTI_8: {
+    UPS.MULTI_8: {
         "id": 205,
         "slug": "mitsubishi-multi-8",
         "title": "Mitsubishi Multi 8",
@@ -1410,7 +1410,7 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/ti-994a/3045-48/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/1427020-logo.jpg",
     },
-    UPS.ENTEX_SELECT_A_GAME: {
+    UPS.SELECT_A_GAME: {
         "id": 184,
         "slug": "entex-select-a-game",
         "title": "Entex Select-A-Game",
@@ -1490,11 +1490,11 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/apf-mp-1000/3045-190/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3195621-c9bef87c3a182a89d06bdde5a5dfc081.jpg",
     },
-    UPS.ABC80: {
+    UPS.ABC_80: {
         "id": 170,
         "slug": "luxor-abc80",
-        "title": "Luxor ABC80",
-        "description": "The Advanced BASIC Computer line was created in 1978 with the release of the ABC80, a joint venture between Luxor AB, DIAB and Scandia Metric.",
+        "title": "Luxor ABC 80",
+        "description": "The Advanced BASIC Computer line was created in 1978 with the release of the ABC 80, a joint venture between Luxor AB, DIAB and Scandia Metric.",
         "url": "https://www.giantbomb.com/luxor-abc80/3045-170/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/26/2975830-1340529857-Luxor.jpg",
     },
@@ -1610,12 +1610,12 @@ GIANTBOMB_PLATFORM_LIST: dict[UPS, SlugToGiantBombPlatform] = {
         "url": "https://www.giantbomb.com/intellivision-amico/3045-181/",
         "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/26/3161447-dims.jpeg",
     },
-    UPS._3DO_M2: {
-        "id": 203,
-        "slug": "m2",
-        "title": "M2",
-        "description": "The M2 was a console developed by The 3DO Company. It was originally intended to be an add-on to the 3DO console, but later transitioned into a full-on successor before Panasonic (Matsushita) canceled the project in 1997. The hardware was later implemented in other appliances.",
-        "url": "https://www.giantbomb.com/m2/3045-203/",
-        "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3306128-91e5b27a651edbf791d7830c2eb725d2.jpg",
-    },
+    # UPS._3DO_M2: {
+    #     "id": 203,
+    #     "slug": "m2",
+    #     "title": "M2",
+    #     "description": "The M2 was a console developed by The 3DO Company. It was originally intended to be an add-on to the 3DO console, but later transitioned into a full-on successor before Panasonic (Matsushita) canceled the project in 1997. The hardware was later implemented in other appliances.",
+    #     "url": "https://www.giantbomb.com/m2/3045-203/",
+    #     "url_logo": "https://www.giantbomb.com/a/uploads/square_small/0/1992/3306128-91e5b27a651edbf791d7830c2eb725d2.jpg",
+    # },
 }
