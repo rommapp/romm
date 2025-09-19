@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { EjsControls } from './EjsControls';
 export type ConfigResponse = {
+    CONFIG_FILE_MOUNTED: boolean;
     EXCLUDED_PLATFORMS: Array<string>;
     EXCLUDED_SINGLE_EXT: Array<string>;
     EXCLUDED_SINGLE_FILES: Array<string>;

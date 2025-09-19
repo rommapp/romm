@@ -13,6 +13,7 @@ import PlatformVersions from "@/components/Settings/LibraryManagement/Config/Pla
 import GameTable from "@/components/common/Game/VirtualTable.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import storeConfig from "@/stores/config";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
@@ -21,6 +22,8 @@ import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const tab = ref<"config" | "missing">("config");
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
 const romsStore = storeRoms();
 const { allRoms, fetchingRoms, fetchTotalRoms, filteredRoms } =
   storeToRefs(romsStore);
@@ -195,6 +198,18 @@ onUnmounted(() => {
       </v-tabs>
     </v-col>
     <v-col>
+      <v-alert
+        v-if="!config.CONFIG_FILE_MOUNTED"
+        type="error"
+        variant="tonal"
+        class="my-2"
+      >
+        <template #title> Configuration file not mounted </template>
+        <template #text>
+          The config.yml file is not mounted or writable. Any changes made to
+          the configuration will not persist after the application restarts.
+        </template>
+      </v-alert>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="config">
           <PlatformBinding class="mt-2" />
