@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from typing import Final, NotRequired, TypedDict
 
@@ -18,10 +19,7 @@ from config import (
     ROMM_BASE_PATH,
     ROMM_DB_DRIVER,
 )
-from exceptions.config_exceptions import (
-    ConfigNotReadableException,
-    ConfigNotWritableException,
-)
+from exceptions.config_exceptions import ConfigNotWritableException
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -47,6 +45,7 @@ EjsOption = dict[str, str]  # option_name -> option_value
 
 
 class Config:
+    CONFIG_FILE_MOUNTED: bool
     EXCLUDED_PLATFORMS: list[str]
     EXCLUDED_SINGLE_EXT: list[str]
     EXCLUDED_SINGLE_FILES: list[str]
@@ -69,13 +68,16 @@ class Config:
 
 
 class ConfigManager:
-    """Parse and load the user configuration from the config.yml file
+    """
+    Parse and load the user configuration from the config.yml file.
+    If config.yml is not found, uses default configuration values.
 
-    Raises:
-        FileNotFoundError: Raises an error if the config.yml is not found
+    The config file will be created automatically when configuration is updated.
     """
 
     _self = None
+    _raw_config: dict = {}
+    _config_file_mounted: bool = False
 
     def __new__(cls, *args, **kwargs):
         if cls._self is None:
@@ -88,14 +90,27 @@ class ConfigManager:
         self.config_file = config_file
 
         try:
-            self.get_config()
-        except ConfigNotReadableException as e:
-            log.critical(e.message)
-            sys.exit(5)
+            with open(self.config_file, "r+") as cf:
+                self._config_file_mounted = True
+                self._raw_config = yaml.load(cf, Loader=SafeLoader) or {}
+        except FileNotFoundError:
+            self._config_file_mounted = False
+            log.critical(
+                "Config file not found! Any changes made to the configuration will not persist after the application restarts."
+            )
+        except PermissionError:
+            self._config_file_mounted = False
+            log.critical(
+                "Config file not writable! Any changes made to the configuration will not persist after the application restarts."
+            )
+        finally:
+            # Set the config to default values
+            self._parse_config()
+            self._validate_config()
 
     @staticmethod
     def get_db_engine() -> URL:
-        """Builds the database connection string depending on the defined database in the config.yml file
+        """Builds the database connection string using environment variables
 
         Returns:
             str: database connection string
@@ -139,6 +154,7 @@ class ConfigManager:
         """Parses each entry in the config.yml"""
 
         self.config = Config(
+            CONFIG_FILE_MOUNTED=self._config_file_mounted,
             EXCLUDED_PLATFORMS=pydash.get(self._raw_config, "exclude.platforms", []),
             EXCLUDED_SINGLE_EXT=[
                 e.lower()
@@ -192,6 +208,22 @@ class ConfigManager:
             )
 
         return controls
+
+    def _format_ejs_controls_for_yaml(
+        self,
+    ) -> dict[str, dict[int, dict[int, EjsControlsButton]]]:
+        """Format EJS controls back to YAML structure for saving"""
+        yaml_controls = {}
+
+        for core, controls in self.config.EJS_CONTROLS.items():
+            yaml_controls[core] = {
+                0: controls["_0"],
+                1: controls["_1"],
+                2: controls["_2"],
+                3: controls["_3"],
+            }
+
+        return yaml_controls
 
     def _validate_config(self):
         """Validates the config.yml file"""
@@ -322,15 +354,23 @@ class ConfigManager:
                             sys.exit(3)
 
     def get_config(self) -> Config:
-        with open(self.config_file) as config_file:
-            self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
+        try:
+            with open(self.config_file, "r+") as config_file:
+                self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
+        except (FileNotFoundError, PermissionError):
+            log.debug("Config file not found or not writable")
+            pass
 
         self._parse_config()
         self._validate_config()
 
         return self.config
 
-    def update_config_file(self) -> None:
+    def _update_config_file(self) -> None:
+        if not self._config_file_mounted:
+            log.warning("Config file not mounted, skipping config file update")
+            raise ConfigNotWritableException
+
         self._raw_config = {
             "exclude": {
                 "platforms": self.config.EXCLUDED_PLATFORMS,
@@ -356,15 +396,22 @@ class ConfigManager:
                 "platforms": self.config.PLATFORMS_BINDING,
                 "versions": self.config.PLATFORMS_VERSIONS,
             },
+            "emulatorjs": {
+                "debug": self.config.EJS_DEBUG,
+                "cache_limit": self.config.EJS_CACHE_LIMIT,
+                "settings": self.config.EJS_SETTINGS,
+                "controls": self._format_ejs_controls_for_yaml(),
+            },
         }
 
         try:
-            with open(self.config_file, "w") as config_file:
+            # Ensure the config directory exists
+            os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
+
+            with open(self.config_file, "w+") as config_file:
                 yaml.dump(self._raw_config, config_file)
-        except FileNotFoundError:
-            self._raw_config = {}
         except PermissionError as exc:
-            self._raw_config = {}
+            log.critical("Config file not writable, skipping config file update")
             raise ConfigNotWritableException from exc
 
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
@@ -375,7 +422,7 @@ class ConfigManager:
 
         platform_bindings[fs_slug] = slug
         self.config.PLATFORMS_BINDING = platform_bindings
-        self.update_config_file()
+        self._update_config_file()
 
     def remove_platform_binding(self, fs_slug: str) -> None:
         platform_bindings = self.config.PLATFORMS_BINDING
@@ -386,7 +433,7 @@ class ConfigManager:
             pass
 
         self.config.PLATFORMS_BINDING = platform_bindings
-        self.update_config_file()
+        self._update_config_file()
 
     def add_platform_version(self, fs_slug: str, slug: str) -> None:
         platform_versions = self.config.PLATFORMS_VERSIONS
@@ -396,7 +443,7 @@ class ConfigManager:
 
         platform_versions[fs_slug] = slug
         self.config.PLATFORMS_VERSIONS = platform_versions
-        self.update_config_file()
+        self._update_config_file()
 
     def remove_platform_version(self, fs_slug: str) -> None:
         platform_versions = self.config.PLATFORMS_VERSIONS
@@ -407,7 +454,7 @@ class ConfigManager:
             pass
 
         self.config.PLATFORMS_VERSIONS = platform_versions
-        self.update_config_file()
+        self._update_config_file()
 
     def add_exclusion(self, exclusion_type: str, exclusion_value: str):
         config_item = self.config.__getattribute__(exclusion_type)
@@ -419,7 +466,7 @@ class ConfigManager:
 
         config_item.append(exclusion_value)
         self.config.__setattr__(exclusion_type, config_item)
-        self.update_config_file()
+        self._update_config_file()
 
     def remove_exclusion(self, exclusion_type: str, exclusion_value: str):
         config_item = self.config.__getattribute__(exclusion_type)
@@ -430,7 +477,7 @@ class ConfigManager:
             pass
 
         self.config.__setattr__(exclusion_type, config_item)
-        self.update_config_file()
+        self._update_config_file()
 
 
 config_manager = ConfigManager()
