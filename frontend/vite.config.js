@@ -65,6 +65,8 @@ export default defineConfig(({ mode }) => {
   };
 
   const backendPort = env.DEV_PORT ?? "5000";
+  // const devMode = env.DEV_MODE === "true";
+  const httpsMode = env.DEV_HTTPS === "true";
 
   return {
     optimizeDeps: {
@@ -98,7 +100,7 @@ export default defineConfig(({ mode }) => {
           type: "module",
         },
       }),
-      env.DEV_HTTPS &&
+      httpsMode &&
         mkcert({
           savePath: "/app/.vite-plugin-mkcert",
           hosts: ["localhost", "127.0.0.1", "romm.dev"],
@@ -132,9 +134,9 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/openapi.json/, "/openapi.json"),
         },
       },
-      port: env.DEV_HTTPS ? 8443 : 3000,
+      port: httpsMode ? 8443 : 3000,
       allowedHosts: ["localhost", "127.0.0.1", "romm.dev"],
-      ...(env.DEV_HTTPS
+      ...(httpsMode
         ? {
             https: {
               cert: "/app/.vite-plugin-mkcert/dev.pem",
