@@ -12,6 +12,7 @@ type ExclusionTypes =
   | "EXCLUDED_MULTI_PARTS_FILES";
 
 const defaultConfig = {
+  CONFIG_FILE_MOUNTED: false,
   EXCLUDED_PLATFORMS: [],
   EXCLUDED_SINGLE_EXT: [],
   EXCLUDED_SINGLE_FILES: [],
