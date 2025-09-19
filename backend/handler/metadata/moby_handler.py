@@ -1075,7 +1075,7 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "SEGA Pico",
         "slug": "sega-pico",
     },
-    UPS.SEGA32: {"id": 21, "name": "SEGA 32X", "slug": "sega-32x"},
+    UPS.SEGA32X: {"id": 21, "name": "SEGA 32X", "slug": "sega-32x"},
     UPS.SEGACD: {"id": 20, "name": "SEGA CD", "slug": "sega-cd"},
     UPS.SERIES_X_S: {
         "id": 289,

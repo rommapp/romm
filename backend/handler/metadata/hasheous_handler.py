@@ -14,6 +14,7 @@ from utils.context import ctx_httpx_client
 
 from .base_handler import BaseRom, MetadataHandler
 from .base_handler import UniversalPlatformSlug as UPS
+from .giantbomb_handler import GiantBombMetadata
 from .igdb_handler import (
     IGDB_AGE_RATINGS,
     IGDBMetadata,
@@ -40,6 +41,7 @@ class HasheousPlatform(TypedDict):
     igdb_id: NotRequired[int | None]
     tgdb_id: NotRequired[int | None]
     ra_id: NotRequired[int | None]
+    giantbomb_id: NotRequired[int | None]
 
 
 class HasheousRom(BaseRom):
@@ -50,6 +52,8 @@ class HasheousRom(BaseRom):
     ra_id: NotRequired[int | None]
     ra_metadata: NotRequired[RAMetadata]
     tgdb_id: NotRequired[int | None]
+    giantbomb_id: NotRequired[int | None]
+    giantbomb_metadata: NotRequired[GiantBombMetadata]
     hasheous_metadata: NotRequired[HasheousMetadata]
 
 
@@ -393,6 +397,7 @@ class SlugToHasheousId(TypedDict):
     igdb_slug: str | None
     tgdb_id: int | None
     ra_id: int | None
+    giantbomb_id: int | None
 
 
 HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
@@ -1204,7 +1209,7 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "ra_id": 68,
         "tgdb_id": None,
     },
-    UPS.SEGA32: {
+    UPS.SEGA32X: {
         "id": 80,
         "igdb_id": 30,
         "igdb_slug": "sega32",
