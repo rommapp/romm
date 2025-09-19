@@ -91,14 +91,19 @@ class ConfigManager:
 
         try:
             with open(self.config_file, "r+") as cf:
-                self._raw_config = yaml.load(cf, Loader=SafeLoader) or {}
                 self._config_file_mounted = True
-        except (FileNotFoundError, PermissionError):
-            log.critical(
-                "Config file not found or not writable, any changes made to the configuration will not persist after the application restarts."
-            )
+                self._raw_config = yaml.load(cf, Loader=SafeLoader) or {}
+        except FileNotFoundError:
             self._config_file_mounted = False
-
+            log.critical(
+                "Config file not found! Any changes made to the configuration will not persist after the application restarts."
+            )
+        except PermissionError:
+            self._config_file_mounted = False
+            log.critical(
+                "Config file not writable! Any changes made to the configuration will not persist after the application restarts."
+            )
+        finally:
             # Set the config to default values
             self._parse_config()
             self._validate_config()
