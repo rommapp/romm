@@ -31,6 +31,7 @@ export const ROUTES = {
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
+  METADATA_SOURCES: "metadata-sources",
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   NOT_FOUND: "404",
@@ -207,6 +208,14 @@ const routes = [
           title: i18n.global.t("common.library-management"),
         },
         component: () => import("@/views/Settings/LibraryManagement.vue"),
+      },
+      {
+        path: "metadata-sources",
+        name: ROUTES.METADATA_SOURCES,
+        meta: {
+          title: i18n.global.t("common.metadata-sources"),
+        },
+        component: () => import("@/views/Settings/MetadataSources.vue"),
       },
       {
         path: "administration",
