@@ -9,6 +9,7 @@ class SystemDict(TypedDict):
 class MetadataSourcesDict(TypedDict):
     ANY_SOURCE_ENABLED: bool
     IGDB_API_ENABLED: bool
+    IGDB_API_HEARTBEAT: bool
     MOBY_API_ENABLED: bool
     SS_API_ENABLED: bool
     STEAMGRIDDB_API_ENABLED: bool
@@ -18,6 +19,7 @@ class MetadataSourcesDict(TypedDict):
     HASHEOUS_API_ENABLED: bool
     TGDB_API_ENABLED: bool
     FLASHPOINT_API_ENABLED: bool
+    FLASHPOINT_API_HEARTBEAT: bool
     HLTB_API_ENABLED: bool
 
 

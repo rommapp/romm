@@ -1,3 +1,5 @@
+import asyncio
+
 from config import (
     DISABLE_EMULATOR_JS,
     DISABLE_RUFFLE_RS,
@@ -47,6 +49,13 @@ async def heartbeat() -> HeartbeatResponse:
         HeartbeatReturn: TypedDict structure with all the defined values in the HeartbeatReturn class.
     """
 
+    # Run async operations in parallel
+    igdb_heartbeat, flashpoint_heartbeat, fs_platforms = await asyncio.gather(
+        meta_igdb_handler.heartbeat(),
+        meta_flashpoint_handler.heartbeat(),
+        fs_platform_handler.get_platforms(),
+    )
+
     return {
         "SYSTEM": {
             "VERSION": get_version(),
@@ -65,6 +74,7 @@ async def heartbeat() -> HeartbeatResponse:
                 or meta_hltb_handler.is_enabled()
             ),
             "IGDB_API_ENABLED": meta_igdb_handler.is_enabled(),
+            "IGDB_API_HEARTBEAT": igdb_heartbeat,
             "SS_API_ENABLED": meta_ss_handler.is_enabled(),
             "MOBY_API_ENABLED": meta_moby_handler.is_enabled(),
             "STEAMGRIDDB_API_ENABLED": meta_sgdb_handler.is_enabled(),
@@ -74,10 +84,11 @@ async def heartbeat() -> HeartbeatResponse:
             "PLAYMATCH_API_ENABLED": meta_playmatch_handler.is_enabled(),
             "TGDB_API_ENABLED": meta_tgdb_handler.is_enabled(),
             "FLASHPOINT_API_ENABLED": meta_flashpoint_handler.is_enabled(),
+            "FLASHPOINT_API_HEARTBEAT": flashpoint_heartbeat,
             "HLTB_API_ENABLED": meta_hltb_handler.is_enabled(),
         },
         "FILESYSTEM": {
-            "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
+            "FS_PLATFORMS": fs_platforms,
         },
         "EMULATION": {
             "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
