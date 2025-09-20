@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { isUndefined } from "lodash";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import RSection from "@/components/common/RSection.vue";
 import storeHeartbeat from "@/stores/heartbeat";
 
 const { t } = useI18n();
@@ -104,95 +104,80 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-row no-gutters class="pa-2">
-    <v-col cols="12">
-      <v-card class="pa-4">
-        <v-card-title class="text-h5 mb-4">
-          <v-icon class="mr-2">mdi-database-cog</v-icon>
-          {{ t("scan.metadata-sources") }}
-        </v-card-title>
-
-        <v-card-text>
-          <p class="text-body-1 mb-4">
-            {{ t("settings.metadata-sources-description") }}
-          </p>
-
-          <v-list class="bg-transparent">
-            <v-list-item
-              v-for="source in metadataOptions"
-              :key="source.value"
-              class="text-white text-shadow mb-2"
-              :title="source.name"
-              :subtitle="
-                source.disabled
-                  ? t('settings.api-key-missing-or-invalid')
-                  : t('settings.api-key-valid')
-              "
-            >
-              <template #prepend>
-                <v-avatar size="40" rounded="1">
-                  <v-img :src="source.logo_path" />
-                </v-avatar>
-              </template>
-              <template #append>
-                <div class="d-flex align-center gap-2">
-                  <!-- Heartbeat status indicator -->
-                  <v-chip
-                    v-if="!source.disabled"
-                    :color="
-                      source.heartbeat === true
-                        ? 'success'
+  <RSection
+    icon="mdi-database-cog"
+    :title="t('scan.metadata-sources')"
+    class="ma-2"
+  >
+    <template #content>
+      <v-row no-gutters class="mt-2 cols-12">
+        <v-col
+          v-for="source in metadataOptions"
+          :key="source.value"
+          cols="12"
+          sm="6"
+          md="4"
+          lg="3"
+          xl="2"
+          class="pa-2"
+        >
+          <v-card class="pa-4 h-100 bg-toplayer" variant="elevated">
+            <div class="d-flex align-center mb-3">
+              <v-avatar size="48" rounded="1" class="mr-3">
+                <v-img :src="source.logo_path" />
+              </v-avatar>
+              <div class="flex-grow-1">
+                <h3 class="text-h6 text-white">{{ source.name }}</h3>
+                <p class="text-caption text-grey-lighten-1 mb-0">
+                  {{
+                    source.disabled
+                      ? "API key missing!"
+                      : source.heartbeat === true
+                        ? "API key set and valid"
                         : source.heartbeat === false
-                          ? 'error'
-                          : 'warning'
-                    "
-                    :variant="source.heartbeat === undefined ? 'tonal' : 'flat'"
-                    size="small"
-                  >
-                    <v-icon
-                      :icon="
-                        source.heartbeat === true
-                          ? 'mdi-heart-pulse'
-                          : source.heartbeat === false
-                            ? 'mdi-heart-broken'
-                            : 'mdi-loading'
-                      "
-                      class="mr-1"
-                      size="small"
-                      :class="{ 'mdi-spin': source.heartbeat === undefined }"
-                    />
-                    {{
-                      source.heartbeat
-                        ? t("common.connected")
-                        : isUndefined(source.heartbeat)
-                          ? t("common.checking")
-                          : t("common.disconnected")
-                    }}
-                  </v-chip>
+                          ? "API key invalid!"
+                          : "API key set, connection in progress..."
+                  }}
+                </p>
+              </div>
+            </div>
 
-                  <!-- Enabled/Disabled status -->
-                  <v-chip
-                    :color="source.disabled ? 'error' : 'success'"
-                    :variant="source.disabled ? 'tonal' : 'flat'"
-                    size="small"
-                  >
-                    <v-icon
-                      :icon="source.disabled ? 'mdi-close' : 'mdi-check'"
-                      class="mr-1"
-                      size="small"
-                    />
-                    {{
-                      source.disabled
-                        ? t("common.disabled")
-                        : t("common.enabled")
-                    }}
-                  </v-chip>
-                </div>
-              </template>
-            </v-list-item>
-          </v-list>
-        </v-card-text>
-      </v-card>
-    </v-col>
-  </v-row>
+            <v-row no-gutters class="flex justify-center">
+              <v-avatar
+                :color="source.disabled ? 'error' : 'success'"
+                size="large"
+                :title="`${source.disabled ? 'API key missing or source disabled' : 'API key set'}`"
+              >
+                <v-icon>
+                  {{ source.disabled ? "mdi-key-alert" : "mdi-key" }}
+                </v-icon>
+              </v-avatar>
+              <v-avatar
+                :color="
+                  source.heartbeat === true
+                    ? 'success'
+                    : source.heartbeat === false
+                      ? 'error'
+                      : 'warning'
+                "
+                size="large"
+                :title="`${source.heartbeat === true ? 'Connection successful' : source.heartbeat === false ? 'Connection failed' : 'Connection in progress...'}`"
+                class="ml-4"
+              >
+                <v-icon>
+                  {{
+                    source.heartbeat === true
+                      ? "mdi-web-check"
+                      : source.heartbeat === false
+                        ? "mdi-web-remove"
+                        : "mdi-web-refresh"
+                  }}
+                </v-icon>
+              </v-avatar>
+            </v-row>
+          </v-card>
+        </v-col>
+      </v-row>
+    </template>
+  </RSection>
 </template>
