@@ -133,19 +133,16 @@ class RAHandler(MetadataHandler):
         return bool(RETROACHIEVEMENTS_API_KEY)
 
     async def heartbeat(self) -> bool:
-        return True
+        if not self.is_enabled():
+            return False
 
-    #     if not self.is_enabled():
-    #         return False
+        try:
+            response = await self.ra_service.get_achievement_of_the_week()
+        except Exception as e:
+            log.error("Error checking RetroAchievements API: %s", e)
+            return False
 
-    #     # make a request to the RetroAchievements API to check if the API is working
-    #     try:
-    #         response = await self.ra_service.get_console_ids()
-    #     except Exception as e:
-    #         log.error("Error checking RetroAchievements API: %s", e)
-    #         return False
-
-    #     return bool(response)
+        return bool(response)
 
     @staticmethod
     def extract_ra_id_from_filename(fs_name: str) -> int | None:
