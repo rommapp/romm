@@ -88,14 +88,12 @@ const metadataOptions = computed(() => [
 
 // Fetch heartbeat status for all metadata sources in parallel
 async function fetchAllHeartbeats() {
-  Promise.all(
-    metadataOptions.value
-      .filter((source) => !source.disabled)
-      .map(async (source) => {
-        const result = await heartbeat.fetchMetadataHeartbeat(source.value);
-        heartbeatStatus.value[source.value] = result;
-      }),
-  );
+  metadataOptions.value
+    .filter((source) => !source.disabled)
+    .map(async (source) => {
+      const result = await heartbeat.fetchMetadataHeartbeat(source.value);
+      heartbeatStatus.value[source.value] = result;
+    });
 }
 
 onMounted(() => {
@@ -136,7 +134,7 @@ onMounted(() => {
                         ? "API key set and valid"
                         : source.heartbeat === false
                           ? "API key invalid!"
-                          : "API key set, connection in progress..."
+                          : "Connection in progress..."
                   }}
                 </p>
               </div>
@@ -158,7 +156,9 @@ onMounted(() => {
                     ? 'success'
                     : source.heartbeat === false
                       ? 'error'
-                      : 'warning'
+                      : source.disabled
+                        ? 'surface'
+                        : 'warning'
                 "
                 size="large"
                 :title="`${source.heartbeat === true ? 'Connection successful' : source.heartbeat === false ? 'Connection failed' : 'Connection in progress...'}`"
@@ -170,7 +170,9 @@ onMounted(() => {
                       ? "mdi-web-check"
                       : source.heartbeat === false
                         ? "mdi-web-remove"
-                        : "mdi-web-refresh"
+                        : source.disabled
+                          ? "mdi-web-off"
+                          : "mdi-web-refresh"
                   }}
                 </v-icon>
               </v-avatar>
