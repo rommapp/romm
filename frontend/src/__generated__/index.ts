@@ -52,6 +52,7 @@ export type { Role } from './models/Role';
 export type { RomFileCategory } from './models/RomFileCategory';
 export type { RomFileSchema } from './models/RomFileSchema';
 export type { RomFlashpointMetadata } from './models/RomFlashpointMetadata';
+export type { RomGiantBombMetadata } from './models/RomGiantBombMetadata';
 export type { RomHasheousMetadata } from './models/RomHasheousMetadata';
 export type { RomHLTBMetadata } from './models/RomHLTBMetadata';
 export type { RomIGDBMetadata } from './models/RomIGDBMetadata';

@@ -345,7 +345,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
         "summary": "The Atari Jaguar is a video game console that was released by Atari Corporation in 1993. It was the last to be marketed under the Atari brand until the release of the Atari Flashback in 2004. It was designed to surpass the Mega Drive/Genesis, Super Nintendo Entertainment System, and the Panasonic 3DO in processing power. Although launched one year earlier, it was eventually in competition with the Sega Saturn, the Sony PlayStation, and other consoles that made up the fifth generation of video game consoles. The console was first released in New York City and San Francisco on November 23, 1993, and the rest of the country in early 1994.  Although it was promoted as the first 64-bit gaming system, the Jaguar proved to be a commercial failure and prompted Atari to leave the home video game console market. Despite its commercial failure, the Jaguar has a dedicated fan base that produces homebrew games for it.",
         "url_logo": "https://cdn.thegamesdb.net/images/original/platform/boxart/28-2.jpg",
     },
-    UPS.ATARI_JAGUAR_CD: {
+    UPS.JAGUAR_CD: {
         "id": 29,
         "name": "Atari Jaguar CD",
         "manufacturer": "Atari",
@@ -1665,7 +1665,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
         "summary": "The SAM Coupé (pronounced /sæm ku:peɪ/ from its original British English branding) is an 8-bit British home computer that was first released in late 1989. It is commonly considered a clone of the Sinclair ZX Spectrum computer, since it features a compatible screen mode and emulated compatibility, and it was marketed as a logical upgrade from the Spectrum. It was originally manufactured by Miles Gordon Technology (MGT), based in Swansea in the United Kingdom.",
         "url_logo": None,
     },
-    UPS.SEGA32: {
+    UPS.SEGA32X: {
         "id": 33,
         "name": "Sega 32X",
         "manufacturer": "Sega",

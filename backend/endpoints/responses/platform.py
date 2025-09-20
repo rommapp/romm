@@ -25,6 +25,8 @@ class PlatformSchema(BaseModel):
     ra_id: int | None = None
     hasheous_id: int | None = None
     tgdb_id: int | None = None
+    giantbomb_id: int | None = None
+    giantbomb_slug: str | None = None
     category: str | None = None
     generation: int | None = None
     family_name: str | None = None

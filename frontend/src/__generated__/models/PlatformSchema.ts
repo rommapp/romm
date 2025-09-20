@@ -20,6 +20,8 @@ export type PlatformSchema = {
     ra_id?: (number | null);
     hasheous_id?: (number | null);
     tgdb_id?: (number | null);
+    giantbomb_id?: (number | null);
+    giantbomb_slug?: (string | null);
     category?: (string | null);
     generation?: (number | null);
     family_name?: (string | null);

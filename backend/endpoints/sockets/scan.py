@@ -354,6 +354,15 @@ async def _identify_platform(
         # Keep the existing ids if they exist on the platform
         scanned_platform.igdb_id = scanned_platform.igdb_id or platform.igdb_id
         scanned_platform.moby_id = scanned_platform.moby_id or platform.moby_id
+        scanned_platform.ss_id = scanned_platform.ss_id or platform.ss_id
+        scanned_platform.ra_id = scanned_platform.ra_id or platform.ra_id
+        scanned_platform.hasheous_id = (
+            scanned_platform.hasheous_id or platform.hasheous_id
+        )
+        scanned_platform.tgdb_id = scanned_platform.tgdb_id or platform.tgdb_id
+        scanned_platform.giantbomb_id = (
+            scanned_platform.giantbomb_id or platform.giantbomb_id
+        )
         scanned_platform.launchbox_id = (
             scanned_platform.launchbox_id or platform.launchbox_id
         )

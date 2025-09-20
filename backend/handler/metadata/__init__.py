@@ -1,4 +1,5 @@
 from .flashpoint_handler import FlashpointHandler
+from .giantbomb_handler import GiantBombHandler
 from .hasheous_handler import HasheousHandler
 from .hltb_handler import HowLongToBeatHandler
 from .igdb_handler import IGDBHandler
@@ -21,3 +22,4 @@ meta_hasheous_handler = HasheousHandler()
 meta_tgdb_handler = TGDBHandler()
 meta_flashpoint_handler = FlashpointHandler()
 meta_hltb_handler = HowLongToBeatHandler()
+meta_giantbomb_handler = GiantBombHandler()

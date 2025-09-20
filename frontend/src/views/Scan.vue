@@ -465,6 +465,16 @@ async function stopScan() {
                           <v-img src="/assets/scrappers/hltb.png" />
                         </v-avatar>
                       </v-chip>
+                      <v-chip
+                        v-if="rom.giantbomb_id"
+                        class="pa-1 mr-1 bg-surface"
+                        size="small"
+                        title="Giant Bomb match"
+                      >
+                        <v-avatar size="18" rounded>
+                          <v-img src="/assets/scrappers/giantbomb.png" />
+                        </v-avatar>
+                      </v-chip>
                     </template>
                   </RomListItem>
                   <v-list-item

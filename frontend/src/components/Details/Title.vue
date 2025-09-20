@@ -302,6 +302,20 @@ const hashMatches = computed(() => {
           </v-chip>
         </a>
         <a
+          v-if="rom.giantbomb_id"
+          style="text-decoration: none; color: inherit"
+          :href="rom.giantbomb_metadata?.site_url"
+          target="_blank"
+          class="mr-1"
+        >
+          <v-chip class="pl-0 mt-1" size="small" title="Giant Bomb ID">
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/giantbomb.png" />
+            </v-avatar>
+            <span>{{ rom.giantbomb_id }}</span>
+          </v-chip>
+        </a>
+        <a
           v-if="rom.sgdb_id"
           style="text-decoration: none; color: inherit"
           :href="`https://www.steamgriddb.com/game/${rom.sgdb_id}`"

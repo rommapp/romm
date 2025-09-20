@@ -1193,7 +1193,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/astrocade",
         "url_logo": "",
     },
-    UPS.ATARI_JAGUAR_CD: {
+    UPS.JAGUAR_CD: {
         "category": "Console",
         "family_name": "Atari",
         "family_slug": "atari",
@@ -2766,7 +2766,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/sega-pico",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgo.jpg",
     },
-    UPS.SEGA32: {
+    UPS.SEGA32X: {
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -2810,7 +2810,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/sg1000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmn.jpg",
     },
-    UPS.SHARP_MZ_2200: {
+    UPS.SHARP_MZ_80B20002500: {
         "category": "Computer",
         "family_name": "Sharp",
         "family_slug": "sharp",
@@ -4621,7 +4621,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-neptune": {
         "id": 703,
         "name": "Sega Neptune",
-        "platform_slug": UPS.SEGA32,
+        "platform_slug": UPS.SEGA32X,
         "slug": "sega-neptune",
         "url": "https://www.igdb.com/platforms/sega32/version/sega-neptune",
         "url_logo": "",
