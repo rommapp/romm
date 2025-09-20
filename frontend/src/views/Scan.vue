@@ -122,7 +122,7 @@ async function stopScan() {
     <div>
       <v-row class="align-center pt-4 px-4" no-gutters>
         <!-- Platform selector -->
-        <v-col cols="12" md="3" lg="4" class="px-1">
+        <v-col cols="12" md="5" lg="6" class="px-1">
           <v-select
             v-model="platformsToScan"
             :items="platforms.filteredPlatforms"
@@ -189,7 +189,7 @@ async function stopScan() {
         <v-col
           cols="12"
           md="5"
-          lg="6"
+          lg="4"
           class="px-1"
           :class="{ 'mt-3': smAndDown }"
         >
@@ -222,12 +222,9 @@ async function stopScan() {
               </v-list-item>
             </template>
             <template #chip="{ item }">
-              <v-chip>
-                <v-avatar class="mr-2" size="15" rounded="1">
-                  <v-img :src="item.raw.logo_path" />
-                </v-avatar>
-                {{ item.raw.name }}
-              </v-chip>
+              <v-avatar class="mx-1" size="24" rounded="1">
+                <v-img :src="item.raw.logo_path" />
+              </v-avatar>
             </template>
           </v-select>
         </v-col>
