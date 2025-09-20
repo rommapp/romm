@@ -129,6 +129,21 @@ class HasheousHandler(MetadataHandler):
         """Return whether this metadata handler is enabled."""
         return HASHEOUS_API_ENABLED
 
+    async def heartbeat(self) -> bool:
+        return True
+
+    #     if not self.is_enabled():
+    #         return False
+
+    #     # make a request to the Hasheous API to check if the API is working
+    #     try:
+    #         response = await self._request(self.platform_endpoint, "GET")
+    #     except Exception as e:
+    #         log.error("Error checking Hasheous API: %s", e)
+    #         return False
+
+    #     return bool(response)
+
     async def _request(
         self,
         url: str,

@@ -178,6 +178,23 @@ class HowLongToBeatHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return HLTB_API_ENABLED
 
+    async def heartbeat(self) -> bool:
+        return True
+
+    #     if not self.is_enabled():
+    #         return False
+
+    #     # make a request to the HLTB API to check if the API is working
+    #     try:
+    #         async with ctx_httpx_client() as client:
+    #             response = await client.get(self.search_url, params={"q": "test"})
+    #             response.raise_for_status()
+    #     except Exception as e:
+    #         log.error("Error checking HLTB API: %s", e)
+    #         return False
+
+    #     return True
+
     @staticmethod
     def extract_hltb_id_from_filename(fs_name: str) -> int | None:
         """Extract HLTB ID from filename tag like (hltb-12345)."""

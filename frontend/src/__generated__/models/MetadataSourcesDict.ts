@@ -5,7 +5,6 @@
 export type MetadataSourcesDict = {
     ANY_SOURCE_ENABLED: boolean;
     IGDB_API_ENABLED: boolean;
-    IGDB_API_HEARTBEAT: boolean;
     MOBY_API_ENABLED: boolean;
     SS_API_ENABLED: boolean;
     STEAMGRIDDB_API_ENABLED: boolean;
@@ -15,7 +14,6 @@ export type MetadataSourcesDict = {
     HASHEOUS_API_ENABLED: boolean;
     TGDB_API_ENABLED: boolean;
     FLASHPOINT_API_ENABLED: boolean;
-    FLASHPOINT_API_HEARTBEAT: boolean;
     HLTB_API_ENABLED: boolean;
 };
 

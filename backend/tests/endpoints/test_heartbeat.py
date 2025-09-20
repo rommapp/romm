@@ -27,7 +27,6 @@ def test_heartbeat(client):
     metadata = heartbeat["METADATA_SOURCES"]
     assert isinstance(metadata["ANY_SOURCE_ENABLED"], bool)
     assert isinstance(metadata["IGDB_API_ENABLED"], bool)
-    assert isinstance(metadata["IGDB_API_HEARTBEAT"], bool)
     assert isinstance(metadata["MOBY_API_ENABLED"], bool)
     assert isinstance(metadata["SS_API_ENABLED"], bool)
     assert isinstance(metadata["STEAMGRIDDB_API_ENABLED"], bool)
@@ -37,7 +36,6 @@ def test_heartbeat(client):
     assert isinstance(metadata["HASHEOUS_API_ENABLED"], bool)
     assert isinstance(metadata["TGDB_API_ENABLED"], bool)
     assert isinstance(metadata["FLASHPOINT_API_ENABLED"], bool)
-    assert isinstance(metadata["FLASHPOINT_API_HEARTBEAT"], bool)
 
     assert "FILESYSTEM" in heartbeat
     filesystem = heartbeat["FILESYSTEM"]
