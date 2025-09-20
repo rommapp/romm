@@ -313,7 +313,6 @@ class IGDBHandler(MetadataHandler):
         if not self.is_enabled():
             return False
 
-        # make a request to the IGDB API to check if the API is working
         try:
             roms = await self.igdb_service.list_games(
                 fields=["id"],

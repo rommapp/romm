@@ -35,19 +35,16 @@ class SGDBBaseHandler(MetadataHandler):
         return bool(STEAMGRIDDB_API_KEY)
 
     async def heartbeat(self) -> bool:
-        return True
+        if not self.is_enabled():
+            return False
 
-    #     if not self.is_enabled():
-    #         return False
+        try:
+            response = await self.sgdb_service.get_game_by_id(1)
+        except Exception as e:
+            log.error("Error checking SteamGridDB API: %s", e)
+            return False
 
-    #     # make a request to the SteamGridDB API to check if the API is working
-    #     try:
-    #         response = await self.sgdb_service.get_platforms()
-    #     except Exception as e:
-    #         log.error("Error checking SteamGridDB API: %s", e)
-    #         return False
-
-    #     return bool(response)
+        return bool(response)
 
     async def get_rom_by_id(self, sgdb_id: int) -> SGDBRom:
         """Get ROM details by SteamGridDB ID."""

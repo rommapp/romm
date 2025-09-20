@@ -113,6 +113,7 @@ class HasheousHandler(MetadataHandler):
             if DEV_MODE
             else "https://hasheous.org/api/v1"
         )
+        self.healthcheck_endpoint = f"{self.BASE_URL}/HealthCheck"
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
         self.proxy_igdb_game_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Game"
@@ -130,19 +131,18 @@ class HasheousHandler(MetadataHandler):
         return HASHEOUS_API_ENABLED
 
     async def heartbeat(self) -> bool:
-        return True
+        if not self.is_enabled():
+            return False
 
-    #     if not self.is_enabled():
-    #         return False
+        httpx_client = ctx_httpx_client.get()
+        try:
+            response = await httpx_client.get(self.healthcheck_endpoint)
+            response.raise_for_status()
+        except Exception as e:
+            log.error("Error checking Hasheous API: %s", e)
+            return False
 
-    #     # make a request to the Hasheous API to check if the API is working
-    #     try:
-    #         response = await self._request(self.platform_endpoint, "GET")
-    #     except Exception as e:
-    #         log.error("Error checking Hasheous API: %s", e)
-    #         return False
-
-    #     return bool(response)
+        return bool(response)
 
     async def _request(
         self,
@@ -185,7 +185,6 @@ class HasheousHandler(MetadataHandler):
 
             # Make the request
             res = await httpx_client.request(method, **request_kwargs)
-
             res.raise_for_status()
             return res.json()
         except httpx.HTTPStatusError as exc:

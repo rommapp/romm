@@ -186,7 +186,7 @@ class SteamGridDBService:
 
         Reference: https://www.steamgriddb.com/api/v2#tag/GAMES/operation/getGameById
         """
-        url = self.url.joinpath("games", str(game_id))
+        url = self.url.joinpath("games/id", str(game_id))
         response = await self._request(str(url))
         if not response or "data" not in response:
             return None

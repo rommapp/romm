@@ -152,7 +152,6 @@ class FlashpointHandler(MetadataHandler):
         if not self.is_enabled():
             return False
 
-        # make a request to the Flashpoint API to check if the API is working
         try:
             response = await self._request(self.platforms_url, {})
         except Exception as e:
