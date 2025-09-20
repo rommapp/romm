@@ -119,11 +119,11 @@ async def heartbeat() -> HeartbeatResponse:
     }
 
 
-@router.get("/heartbeat/metadata")
-async def metadata_heartbeat(metadata_source: str) -> bool:
+@router.get("/heartbeat/metadata/{source}")
+async def metadata_heartbeat(source: str) -> bool:
     """Endpoint to return the heartbeat of the metadata sources"""
     try:
-        metadata_source = MetadataSource(metadata_source)
+        metadata_source = MetadataSource(source)
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid metadata source") from e
 
