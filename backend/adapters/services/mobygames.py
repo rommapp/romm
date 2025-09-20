@@ -106,6 +106,19 @@ class MobyGamesService:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 
+    async def list_groups(self, limit: int | None = None) -> list[dict]:
+        """Retrieve a list of groups.
+
+        Reference: https://www.mobygames.com/info/api/#groups
+        """
+        params: dict[str, list[str]] = {}
+        if limit is not None:
+            params["limit"] = [str(limit)]
+
+        url = self.url.joinpath("groups").with_query(**params)
+        response = await self._request(str(url))
+        return response.get("groups", [])
+
     @overload
     async def list_games(
         self,

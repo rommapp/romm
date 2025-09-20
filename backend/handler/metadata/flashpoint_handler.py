@@ -153,7 +153,12 @@ class FlashpointHandler(MetadataHandler):
             return False
 
         # make a request to the Flashpoint API to check if the API is working
-        response = await self._request(self.platforms_url, {})
+        try:
+            response = await self._request(self.platforms_url, {})
+        except Exception as e:
+            log.error("Error checking Flashpoint API: %s", e)
+            return False
+
         return bool(response)
 
     async def search_games(self, search_term: str) -> list[FlashpointGame]:

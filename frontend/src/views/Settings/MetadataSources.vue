@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, inject } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import storeHeartbeat from "@/stores/heartbeat";
-import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const heartbeat = storeHeartbeat();
@@ -14,7 +13,6 @@ const metadataOptions = computed(() => [
     value: "igdb",
     logo_path: "/assets/scrappers/igdb.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
-    heartbeat: heartbeat.value.METADATA_SOURCES?.IGDB_API_HEARTBEAT,
   },
   {
     name: "MobyGames",
@@ -51,7 +49,6 @@ const metadataOptions = computed(() => [
     value: "flashpoint",
     logo_path: "/assets/scrappers/flashpoint.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED,
-    heartbeat: heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_HEARTBEAT,
   },
   {
     name: "HowLongToBeat",
@@ -107,12 +104,6 @@ const metadataOptions = computed(() => [
                 >
                   <v-icon
                     :icon="source.disabled ? 'mdi-close' : 'mdi-check'"
-                    class="mr-1"
-                    size="small"
-                  />
-                  <v-icon
-                    v-if="source.heartbeat"
-                    icon="mdi-check"
                     class="mr-1"
                     size="small"
                   />

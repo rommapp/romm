@@ -53,6 +53,21 @@ class PlaymatchHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return PLAYMATCH_API_ENABLED
 
+    async def heartbeat(self) -> bool:
+        return True
+
+    #     if not self.is_enabled():
+    #         return False
+
+    #     # make a request to the Playmatch API to check if the API is working
+    #     try:
+    #         response = await self._request(self.identify_url, {"hashes": ["test"]})
+    #     except Exception as e:
+    #         log.error("Error checking Playmatch API: %s", e)
+    #         return False
+
+    #     return bool(response)
+
     async def _request(self, url: str, query: dict) -> dict:
         """
         Sends a Request to Playmatch API.

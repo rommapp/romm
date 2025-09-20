@@ -19,7 +19,6 @@ const defaultHeartbeat: Heartbeat = {
   METADATA_SOURCES: {
     ANY_SOURCE_ENABLED: false,
     IGDB_API_ENABLED: false,
-    IGDB_API_HEARTBEAT: false,
     SS_API_ENABLED: false,
     MOBY_API_ENABLED: false,
     RA_API_ENABLED: false,
@@ -29,7 +28,6 @@ const defaultHeartbeat: Heartbeat = {
     HASHEOUS_API_ENABLED: false,
     TGDB_API_ENABLED: false,
     FLASHPOINT_API_ENABLED: false,
-    FLASHPOINT_API_HEARTBEAT: false,
     HLTB_API_ENABLED: false,
   },
   FILESYSTEM: {

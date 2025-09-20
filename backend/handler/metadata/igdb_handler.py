@@ -314,10 +314,14 @@ class IGDBHandler(MetadataHandler):
             return False
 
         # make a request to the IGDB API to check if the API is working
-        roms = await self.igdb_service.list_games(
-            fields=["id"],
-            limit=1,
-        )
+        try:
+            roms = await self.igdb_service.list_games(
+                fields=["id"],
+                limit=1,
+            )
+        except Exception as e:
+            log.error("Error checking IGDB API: %s", e)
+            return False
 
         return bool(roms)
 
