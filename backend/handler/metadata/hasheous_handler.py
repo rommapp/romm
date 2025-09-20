@@ -183,7 +183,6 @@ class HasheousHandler(MetadataHandler):
             if method == "POST":
                 request_kwargs["json"] = data
 
-            # Make the request
             res = await httpx_client.request(method, **request_kwargs)
             res.raise_for_status()
             return res.json()
