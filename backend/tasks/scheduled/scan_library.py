@@ -5,6 +5,7 @@ from config import (
 from endpoints.sockets.scan import scan_platforms
 from handler.metadata import (
     meta_flashpoint_handler,
+    meta_giantbomb_handler,
     meta_hasheous_handler,
     meta_hltb_handler,
     meta_igdb_handler,
@@ -48,6 +49,7 @@ class ScanLibraryTask(PeriodicTask):
             MetadataSource.FLASHPOINT: meta_flashpoint_handler.is_enabled(),
             MetadataSource.HLTB: meta_hltb_handler.is_enabled(),
             MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
+            MetadataSource.GIANTBOMB: meta_giantbomb_handler.is_enabled(),
         }
 
         metadata_sources = [source for source, flag in source_mapping.items() if flag]

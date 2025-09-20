@@ -1,39 +1,65 @@
 from typing import NotRequired, TypedDict
 
-from .base_handler import BaseRom, MetadataHandler
+from config import HASHEOUS_API_ENABLED
+
+from .base_handler import MetadataHandler
 from .base_handler import UniversalPlatformSlug as UPS
 
 
-class GiantBombMetadata(TypedDict):
-    """Giant Bomb metadata structure for ROMs."""
-
-    first_release_date: NotRequired[int | None]
-    genres: NotRequired[list[str]]
-    companies: NotRequired[list[str]]
-    platforms: NotRequired[list[str]]
-    description: NotRequired[str]
-    rating: NotRequired[float | None]
-    user_rating: NotRequired[float | None]
-    site_detail_url: NotRequired[str]
-    image_url: NotRequired[str]
-    deck: NotRequired[str]  # Short description
-    aliases: NotRequired[list[str]]
-    concepts: NotRequired[list[str]]
-    characters: NotRequired[list[str]]
-    developers: NotRequired[list[str]]
-    publishers: NotRequired[list[str]]
-    franchises: NotRequired[list[str]]
-    locations: NotRequired[list[str]]
-    objects: NotRequired[list[str]]
-    people: NotRequired[list[str]]
-    themes: NotRequired[list[str]]
-
-
-class GiantBombRom(BaseRom):
-    """ROM with Giant Bomb metadata."""
-
+class GiantBombPlatform(TypedDict):
+    slug: str
     giantbomb_id: int | None
-    giantbomb_metadata: NotRequired[GiantBombMetadata]
+    giantbomb_slug: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    url: NotRequired[str]
+    url_logo: NotRequired[str]
+
+
+#     {
+#       "deck": "A top-down isometric helicopter shoot 'em up originally for the Sega Genesis, which was later ported to a variety of platforms. It is best known for its open-ended mission design and was followed by several sequels.",
+#       "description": "<h2>Overview</h2><p>Desert Strike: Return to the Gulf is an isometric helicopter shoot 'em up from Electronic Arts. The player is a fighter pilot who must take down mission-critical targets across a number of maps. The player is free to pursue these missions in any order, and must also keep an eye on the fuel, damage, and ammo gauges.</p><p>Desert Strike is the first of the prolific <a href=\"/strike-series/3025-143/\" data-ref-id=\"3025-143\">Strike</a> series, and was followed with <a href=\"/jungle-strike/3030-2180/\" data-ref-id=\"3030-2180\">Jungle Strike</a> and <a href=\"/urban-strike/3030-9336/\" data-ref-id=\"3030-9336\">Urban Strike</a> on the Genesis. Two more games, <a href=\"/soviet-strike/3030-2422/\" data-ref-id=\"3030-2422\">Soviet Strike</a> and <a href=\"/nuclear-strike/3030-11731/\" data-ref-id=\"3030-11731\">Nuclear Strike</a>, were released later for 32-bit systems.</p><h2>Story</h2><p>A year after the Gulf War, General Ibn Kilbaba takes over a small <a href=\"/unnamed-middle-eastern-location/3035-179/\" data-ref-id=\"3035-179\">Arab emirate</a> and plans to start World War III. Using an <a href=\"/ah-64-apache/3055-2463/\" data-ref-id=\"3055-2463\">AH-64 Apache</a>, the player must open the way for ground troops and finally take on the \"Madman\" himself.</p><h2>Gameplay</h2><p>The game is played from an isometric perspective in open levels that allow free movement in all directions by scrolling the screen with the movement of the helicopter. Each level consists of many varying objectives that range anywhere from destroying enemy bases and vehicles to capturing enemy troops or rescuing friendly ones. While bases and vehicles are simply destroyed, both friendly and enemy troops must be taken back to base for extraction. The AH-64 Apache has limited cargo space, so multiple trips to and from the base may be necessary. These objectives aren't always linear, and can often be tackled in whatever order the player chooses. This combination of free movement and non-linear structure separated Desert Strike from many of the other contemporary shooters.</p><p>There are three weapons of varying strength and usefulness available to the AH-64 Apache: machine guns, hydra missiles, and hellfire missiles, which increase in strength respectively. Each of these weapons has a limited number of ammo which can only be replenished by picking up ammo crates on the mission or by resupplying back at the base. Similarly, the AH-64 Apache only has a limited amount of fuel that will drain slowly over the course of each level. If the fuel runs out, the helicopter crashes and the player loses a life. Refueling works exactly the same as restocking ammo.</p><p>Lives are lost when either the AH-64 Apache takes too much damage and is destroyed, or when it runs out of fuel. After three lives have been lost, the game is over. Due to the nature of the game's freedom, each level requires a certain amount of planning and strategy in order to complete all of the objectives while still having enough fuel, ammo, and health to survive.</p><h2>Ports</h2><p>Due to its popularity on the <a href=\"/sega-genesis/3055-4659/\" data-ref-id=\"3055-4659\">Sega Genesis</a> in 1992, the game was then ported to the <a href=\"/amiga/3045-1/\" data-ref-id=\"3045-1\">Amiga</a>, <a href=\"/sega-master-system/3045-8/\" data-ref-id=\"3045-8\">Master System</a>, and <a href=\"/snes/3045-9/\" data-ref-id=\"3045-9\">SNES</a> in the same year. Two years later in 1994, it was released on the <a href=\"/pc/3045-94/\" data-ref-id=\"3045-94\">PC</a>. It was also ported to most handheld systems such as the <a href=\"/lynx/3045-7/\" data-ref-id=\"3045-7\">Lynx</a> in 1993, <a href=\"/game-gear/3045-5/\" data-ref-id=\"3045-5\">Game Gear</a> in 1994, <a href=\"/game-boy/3045-3/\" data-ref-id=\"3045-3\">Game Boy</a> in 1995, <a href=\"/game-boy-advance/3045-4/\" data-ref-id=\"3045-4\">Game Boy Advance</a> in 2002, and finally the <a href=\"/psp/3045-18/\" data-ref-id=\"3045-18\">PSP</a> in 2006 as part of <a href=\"/ea-replay/3030-10965/\" data-ref-id=\"3030-10965\">EA Replay</a>.</p>",
+#       "expected_release_year": "1992",
+#       "guid": "3030-1",
+#       "id": 1,
+#       "image": {
+#         "icon_url": "/api/v1/MetadataProxy/GiantBomb/a/uploads/square_avatar/9/93770/2370498-genesis_desertstrike_2__1_.jpg",
+#         "medium_url": "/api/v1/MetadataProxy/GiantBomb/a/uploads/scale_medium/9/93770/2370498-genesis_desertstrike_2__1_.jpg",
+#         "screen_url": "/api/v1/MetadataProxy/GiantBomb/a/uploads/screen_medium/9/93770/2370498-genesis_desertstrike_2__1_.jpg",
+#         "screen_large_url": "/api/v1/MetadataProxy/GiantBomb/a/uploads/screen_kubrick/9/93770/2370498-genesis_desertstrike_2__1_.jpg",
+#         "small_url": "/api/v1/MetadataProxy/GiantBomb/a/uploads/scale_small/9/93770/2370498-genesis_desertstrike_2__1_.jpg",
+#         "super_url": "/api/v1/MetadataProxy/GiantBomb/a/uploads/scale_large/9/93770/2370498-genesis_desertstrike_2__1_.jpg",
+#         "thumb_url": "/api/v1/MetadataProxy/GiantBomb/a/uploads/scale_avatar/9/93770/2370498-genesis_desertstrike_2__1_.jpg",
+#         "tiny_url": "/api/v1/MetadataProxy/GiantBomb/a/uploads/square_mini/9/93770/2370498-genesis_desertstrike_2__1_.jpg",
+#         "original_url": "/api/v1/MetadataProxy/GiantBomb/a/uploads/original/9/93770/2370498-genesis_desertstrike_2__1_.jpg"
+#       },
+#       "name": "Desert Strike: Return to the Gulf",
+#       "number_of_user_reviews": "0",
+#       "original_game_rating": [
+#         {
+#           "api_detail_url": "https://www.giantbomb.com/api/game_rating/3065-9/",
+#           "id": 9,
+#           "name": "ESRB: K-A"
+#         },
+#         {
+#           "api_detail_url": "https://www.giantbomb.com/api/game_rating/3065-6/",
+#           "id": 6,
+#           "name": "ESRB: E"
+#         }
+#       ],
+#       "site_detail_url": "https://www.giantbomb.com/desert-strike-return-to-the-gulf/3030-1/"
+#     }
+
+
+class GiantBombMetadata(TypedDict):
+    guid: str
+    alternative_names: list[str]
+    deck: str
+    description: str
+    first_release_date: str
+    image: dict
+    age_ratings: list[str]
+    site_url: str
 
 
 class GiantBombHandler(MetadataHandler):
@@ -45,7 +71,23 @@ class GiantBombHandler(MetadataHandler):
     @classmethod
     def is_enabled(cls) -> bool:
         """Return whether this metadata handler is enabled."""
-        return False  # Disabled by default
+        return HASHEOUS_API_ENABLED
+
+    def get_platform(self, slug: str) -> GiantBombPlatform:
+        if slug not in GIANTBOMB_PLATFORM_LIST:
+            return GiantBombPlatform(giantbomb_id=None, slug=slug)
+
+        platform = GIANTBOMB_PLATFORM_LIST[UPS(slug)]
+
+        return GiantBombPlatform(
+            slug=slug,
+            giantbomb_id=platform["id"],
+            giantbomb_slug=platform["slug"],
+            name=platform["title"],
+            description=platform["description"],
+            url=platform["url"],
+            url_logo=platform["url_logo"],
+        )
 
 
 class SlugToGiantBombPlatform(TypedDict):

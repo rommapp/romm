@@ -110,6 +110,22 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
     )
 
 
+def extract_metadata_from_giantbomb_rom(rom: dict) -> GiantBombMetadata:
+    print(rom)
+    return GiantBombMetadata(
+        {
+            "guid": rom.get("guid", ""),
+            "alternative_names": pydash.map_(rom.get("aliases", {}), "name"),
+            "deck": rom.get("deck", ""),
+            "description": rom.get("description", ""),
+            "first_release_date": rom.get("first_release_date", ""),
+            "image": rom.get("image", {}),
+            "age_ratings": pydash.map_(rom.get("original_game_rating", {}), "name"),
+            "site_url": rom.get("site_detail_url", ""),
+        }
+    )
+
+
 class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = (
@@ -122,6 +138,9 @@ class HasheousHandler(MetadataHandler):
         self.proxy_igdb_game_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Game"
         self.proxy_igdb_cover_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Cover"
         self.proxy_ra_game_endpoint = f"{self.BASE_URL}/MetadataProxy/RA/Game"
+        self.proxy_giantbomb_game_endpoint = (
+            f"{self.BASE_URL}/MetadataProxy/GiantBomb/game"
+        )
         self.app_api_key = (
             "UUvh9ef_CddMM4xXO1iqxl9FqEt764v33LU-UiGFc0P34odXjMP9M6MTeE4JZRxZ"
             if DEV_MODE
@@ -216,6 +235,7 @@ class HasheousHandler(MetadataHandler):
             igdb_id=platform["igdb_id"],
             tgdb_id=platform["tgdb_id"],
             ra_id=platform["ra_id"],
+            giantbomb_id=platform["giantbomb_id"],
         )
 
     async def lookup_rom(self, platform_slug: str, files: list[RomFile]) -> HasheousRom:
@@ -364,6 +384,35 @@ class HasheousHandler(MetadataHandler):
                 ]
                 or hasheous_rom.get("url_screenshots", []),
                 "igdb_metadata": extract_metadata_from_igdb_rom(igdb_game),
+            }
+        )
+
+    async def get_giantbomb_game(self, hasheous_rom: HasheousRom) -> HasheousRom:
+        if not self.is_enabled():
+            return hasheous_rom
+
+        giantbomb_id = hasheous_rom.get("giantbomb_id", None)
+
+        if giantbomb_id is None:
+            log.info("No Giant Bomb ID provided for Hasheous Giant Bomb game lookup.")
+            return hasheous_rom
+
+        giantbomb_game = await self._request(
+            f"{self.proxy_giantbomb_game_endpoint}/{giantbomb_id}",
+            params={"field_list": "*", "format": "json"},
+            method="GET",
+        )
+
+        if not giantbomb_game:
+            log.debug(f"No Hasheous game found for Giant Bomb ID {giantbomb_id}.")
+            return hasheous_rom
+
+        return HasheousRom(
+            {
+                **hasheous_rom,
+                "giantbomb_metadata": extract_metadata_from_giantbomb_rom(
+                    giantbomb_game
+                ),
             }
         )
 

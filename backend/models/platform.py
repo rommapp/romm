@@ -28,6 +28,7 @@ class Platform(BaseModel):
     launchbox_id: Mapped[int | None]
     hasheous_id: Mapped[int | None]
     tgdb_id: Mapped[int | None]
+    giantbomb_id: Mapped[int | None]
     slug: Mapped[str] = mapped_column(String(length=100))
     fs_slug: Mapped[str] = mapped_column(String(length=100))
     name: Mapped[str] = mapped_column(String(length=400))
@@ -77,6 +78,8 @@ class Platform(BaseModel):
             and not self.launchbox_id
             and not self.ra_id
             and not self.hasheous_id
+            and not self.tgdb_id
+            and not self.giantbomb_id
         )
 
     @property
@@ -98,6 +101,14 @@ class Platform(BaseModel):
         moby_platform = meta_moby_handler.get_platform(self.slug)
 
         return moby_platform.get("moby_slug", None)
+
+    @cached_property
+    def giantbomb_slug(self) -> str | None:
+        from handler.metadata import meta_giantbomb_handler
+
+        giantbomb_platform = meta_giantbomb_handler.get_platform(self.slug)
+
+        return giantbomb_platform.get("slug", None)
 
     def __repr__(self) -> str:
         return self.name

@@ -8,6 +8,7 @@ from handler.filesystem import fs_asset_handler, fs_firmware_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_flashpoint_handler,
+    meta_giantbomb_handler,
     meta_hasheous_handler,
     meta_hltb_handler,
     meta_igdb_handler,
@@ -64,6 +65,7 @@ class MetadataSource(enum.StrEnum):
     SGDB = "sgdb"  # SteamGridDB
     FLASHPOINT = "flashpoint"  # Flashpoint Project
     HLTB = "hltb"  # HowLongToBeat
+    GIANTBOMB = "giantbomb"  # Giant Bomb
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -136,6 +138,7 @@ async def scan_platform(
     tgdb_platform = meta_tgdb_handler.get_platform(platform_attrs["slug"])
     flashpoint_platform = meta_flashpoint_handler.get_platform(platform_attrs["slug"])
     hltb_platform = meta_hltb_handler.get_platform(platform_attrs["slug"])
+    giantbomb_platform = meta_giantbomb_handler.get_platform(platform_attrs["slug"])
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
@@ -154,6 +157,9 @@ async def scan_platform(
             "tgdb_id": moby_platform.get("tgdb_id")
             or hasheous_platform.get("tgdb_id")
             or None,
+            "giantbomb_id": giantbomb_platform.get("giantbomb_id")
+            or hasheous_platform.get("giantbomb_id")
+            or None,
             "name": igdb_platform.get("name")
             or ss_platform.get("name")
             or moby_platform.get("name")
@@ -163,9 +169,11 @@ async def scan_platform(
             or tgdb_platform.get("name")
             or flashpoint_platform.get("name")
             or hltb_platform.get("name")
+            or giantbomb_platform.get("name")
             or platform_attrs["slug"].replace("-", " ").title(),
             "url_logo": igdb_platform.get("url_logo")
             or tgdb_platform.get("url_logo")
+            or giantbomb_platform.get("url_logo")
             or "",
         }
     )
@@ -180,6 +188,7 @@ async def scan_platform(
         or tgdb_platform["tgdb_id"]
         or flashpoint_platform["slug"]
         or hltb_platform["slug"]
+        or giantbomb_platform["giantbomb_id"]
     ):
         log.info(
             f"Folder {hl(platform_attrs['slug'])}[{hl(fs_slug, color=LIGHTYELLOW)}] identified as {hl(platform_attrs['name'], color=BLUE)} {emoji.EMOJI_VIDEO_GAME}",
@@ -543,9 +552,11 @@ async def scan_rom(
             (
                 igdb_game,
                 ra_game,
+                giantbomb_game,
             ) = await asyncio.gather(
                 meta_hasheous_handler.get_igdb_game(hasheous_rom),
                 meta_hasheous_handler.get_ra_game(hasheous_rom),
+                meta_hasheous_handler.get_giantbomb_game(hasheous_rom),
             )
 
             return HasheousRom(
@@ -553,10 +564,13 @@ async def scan_rom(
                     **hasheous_rom,
                     **ra_game,
                     **igdb_game,
+                    **giantbomb_game,
                 }
             )
 
-        return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+        return HasheousRom(
+            hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None, giantbomb_id=None
+        )
 
     # Run metadata fetches concurrently
     (
@@ -636,6 +650,9 @@ async def scan_rom(
             or None,
             "hltb_id": hltb_handler_rom.get("hltb_id")
             or rom_attrs.get("hltb_id")
+            or None,
+            "giantbomb_id": hasheous_handler_rom.get("giantbomb_id")
+            or rom_attrs.get("giantbomb_id")
             or None,
         }
     )

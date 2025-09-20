@@ -66,6 +66,12 @@ const metadataOptions = computed(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.HLTB_API_ENABLED,
   },
   {
+    name: "Giant Bomb",
+    value: "giantbomb",
+    logo_path: "/assets/scrappers/giantbomb.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.GIANTBOMB_API_ENABLED,
+  },
+  {
     name: "SteamgridDB",
     value: "sgdb",
     logo_path: "/assets/scrappers/sgdb.png",

@@ -9,6 +9,7 @@ from pydantic import computed_field, field_validator
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from handler.metadata.flashpoint_handler import FlashpointMetadata
+from handler.metadata.giantbomb_handler import GiantBombMetadata
 from handler.metadata.hasheous_handler import HasheousMetadata
 from handler.metadata.hltb_handler import HLTBMetadata
 from handler.metadata.igdb_handler import IGDBMetadata
@@ -61,6 +62,11 @@ RomFlashpointMetadata = TypedDict(  # type: ignore[misc]
 RomHLTBMetadata = TypedDict(  # type: ignore[misc]
     "RomHLTBMetadata",
     {k: NotRequired[v] for k, v in get_type_hints(HLTBMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomGiantBombMetadata = TypedDict(  # type: ignore[misc]
+    "RomGiantBombMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(GiantBombMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 
@@ -203,6 +209,7 @@ class RomSchema(BaseModel):
     tgdb_id: int | None
     flashpoint_id: str | None
     hltb_id: int | None
+    giantbomb_id: int | None
 
     platform_id: int
     platform_slug: str
@@ -233,6 +240,7 @@ class RomSchema(BaseModel):
     hasheous_metadata: RomHasheousMetadata | None
     flashpoint_metadata: RomFlashpointMetadata | None
     hltb_metadata: RomHLTBMetadata | None
+    giantbomb_metadata: RomGiantBombMetadata | None
 
     path_cover_small: str | None
     path_cover_large: str | None
