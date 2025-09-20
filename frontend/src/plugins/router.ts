@@ -213,7 +213,7 @@ const routes = [
         path: "metadata-sources",
         name: ROUTES.METADATA_SOURCES,
         meta: {
-          title: i18n.global.t("common.metadata-sources"),
+          title: i18n.global.t("scan.metadata-sources"),
         },
         component: () => import("@/views/Settings/MetadataSources.vue"),
       },
