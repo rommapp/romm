@@ -212,7 +212,7 @@ class ConfigManager:
             ),
             SCAN_ARTWORK_PRIORITY=pydash.get(
                 self._raw_config,
-                "scan.artwork.priority",
+                "scan.priority.artwork",
                 [
                     "igdb",
                     "moby",
@@ -227,12 +227,12 @@ class ConfigManager:
             ),
             SCAN_REGION_PRIORITY=pydash.get(
                 self._raw_config,
-                "scan.region.priority",
+                "scan.priority.region",
                 ["us", "wor", "ss", "eu", "jp"],
             ),
             SCAN_LANGUAGE_PRIORITY=pydash.get(
                 self._raw_config,
-                "scan.language.priority",
+                "scan.priority.language",
                 ["en", "fr"],
             ),
         )
@@ -463,17 +463,11 @@ class ConfigManager:
                 "controls": self._format_ejs_controls_for_yaml(),
             },
             "scan": {
-                "metadata": {
-                    "priority": self.config.SCAN_METADATA_PRIORITY,
-                },
-                "artwork": {
-                    "priority": self.config.SCAN_ARTWORK_PRIORITY,
-                },
-                "region": {
-                    "priority": self.config.SCAN_REGION_PRIORITY,
-                },
-                "language": {
-                    "priority": self.config.SCAN_LANGUAGE_PRIORITY,
+                "priority": {
+                    "metadata": self.config.SCAN_METADATA_PRIORITY,
+                    "artwork": self.config.SCAN_ARTWORK_PRIORITY,
+                    "region": self.config.SCAN_REGION_PRIORITY,
+                    "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
             },
         }
