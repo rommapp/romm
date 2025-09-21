@@ -596,7 +596,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.PS5: {"id": 284, "name": "Playstation 5"},
     UPS.POKEMON_MINI: {"id": 211, "name": "Pokémon mini"},
     UPS.SAM_COUPE: {"id": 213, "name": "MGT SAM Coupé"},
-    UPS.SEGA32: {"id": 19, "name": "Megadrive 32X"},
+    UPS.SEGA32X: {"id": 19, "name": "Megadrive 32X"},
     UPS.SEGACD: {"id": 20, "name": "Mega-CD"},
     UPS.SMS: {"id": 2, "name": "Master System"},
     UPS.SEGA_PICO: {"id": 250, "name": "Sega Pico"},

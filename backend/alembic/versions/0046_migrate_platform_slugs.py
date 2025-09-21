@@ -207,7 +207,7 @@ OLD_SLUGS_TO_NEW_MAP = {
     "playstation-4": UPS.PS4,
     "playstation-5": UPS.PS5,
     "ps-vita": UPS.PSVITA,
-    "sega-32x": UPS.SEGA32,
+    "sega-32x": UPS.SEGA32X,
     "sega-cd": UPS.SEGACD,
     "sega-cd-32x": UPS.SEGACD32,
     "sega-master-system": UPS.SMS,

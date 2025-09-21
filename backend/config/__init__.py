@@ -104,6 +104,11 @@ FLASHPOINT_API_ENABLED: Final = str_to_bool(
 # HOWLONGTOBEAT
 HLTB_API_ENABLED: Final = str_to_bool(os.environ.get("HLTB_API_ENABLED", "false"))
 
+# GIANTBOMB
+GIANTBOMB_API_ENABLED: Final = str_to_bool(
+    os.environ.get("GIANTBOMB_API_ENABLED", "false")
+)
+
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final[str] = os.environ.get("ROMM_AUTH_SECRET_KEY", "")
 if not ROMM_AUTH_SECRET_KEY:

@@ -561,7 +561,7 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
         "count": 259,
     },
     UPS.JAGUAR: {"name": "Atari Jaguar", "slug": "atari-jaguar", "count": 64},
-    UPS.ATARI_JAGUAR_CD: {
+    UPS.JAGUAR_CD: {
         "name": "Atari Jaguar CD",
         "slug": "atari-jaguar-cd",
         "count": 14,
@@ -646,7 +646,7 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
     UPS.PLAYDATE: {"name": "Playdate", "slug": "playdate", "count": 128},
     UPS.PLUG_AND_PLAY: {"name": "Plug & Play", "slug": "plug-and-play", "count": 18},
     UPS.SG1000: {"name": "SG-1000", "slug": "sg-1000", "count": 75},
-    UPS.SEGA32: {"name": "Sega 32X", "slug": "sega-32x", "count": 42},
+    UPS.SEGA32X: {"name": "Sega 32X", "slug": "sega-32x", "count": 42},
     UPS.SEGACD: {"name": "Sega CD", "slug": "sega-cd", "count": 209},
     UPS.GAMEGEAR: {"name": "Sega Game Gear", "slug": "sega-game-gear", "count": 329},
     UPS.SMS: {"name": "Sega Master System", "slug": "sega-master-system", "count": 324},
