@@ -89,15 +89,15 @@ const coverImageSource = computed(() => {
   try {
     const hostname = new URL(props.rom.url_cover).hostname;
 
-    if (hostname.includes("igdb.com")) return "IGDB";
-    if (hostname.includes("screenscraper.fr")) return "ScreenScraper";
-    if (hostname.includes("mobygames.com")) return "MobyGames";
-    if (hostname.includes("retroachievements.org")) return "RetroAchievements";
-    if (hostname.includes("launchbox-app.com")) return "LaunchBox";
-    if (hostname.includes("steamgriddb.com")) return "SteamGridDB";
-    if (hostname.includes("hasheous.org")) return "Hasheous";
-    if (hostname.includes("infinity.unstable.life")) return "Flashpoint";
-    if (hostname.includes("howlongtobeat.com")) return "HowLongToBeat";
+    if (hostname === "images.igdb.com") return "IGDB";
+    if (hostname === "screenscraper.fr") return "ScreenScraper";
+    if (hostname === "cdn.mobygames.com") return "MobyGames";
+    if (hostname === "retroachievements.org") return "RetroAchievements";
+    if (hostname === "images.launchbox-app.com") return "LaunchBox";
+    if (hostname === "cdn2.steamgriddb.com") return "SteamGridDB";
+    if (hostname === "hasheous.org") return "Hasheous";
+    if (hostname === "infinity.unstable.life") return "Flashpoint";
+    if (hostname === "howlongtobeat.com") return "HowLongToBeat";
 
     return null;
   } catch {
