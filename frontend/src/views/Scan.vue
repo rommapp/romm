@@ -29,7 +29,9 @@ const expansionPanels = useTemplateRef<HTMLDivElement>("expansion-panels-ref");
 
 useAutoScroll(scanLog, expansionPanels);
 
-const metadataOptions = computed(() => heartbeat.getAllMetadataOptions());
+const metadataOptions = computed(() =>
+  heartbeat.getMetadataOptionsByPriority(),
+);
 const storedMetadataSources = useLocalStorage(
   LOCAL_STORAGE_METADATA_SOURCES_KEY,
   [] as string[],
