@@ -19,5 +19,7 @@ export type ConfigResponse = {
     EJS_CONTROLS: Record<string, EjsControls>;
     SCAN_METADATA_PRIORITY: Array<string>;
     SCAN_ARTWORK_PRIORITY: Array<string>;
+    SCAN_REGION_PRIORITY: Array<string>;
+    SCAN_LANGUAGE_PRIORITY: Array<string>;
 };
 

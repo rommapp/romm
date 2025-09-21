@@ -63,6 +63,8 @@ class Config:
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
     SCAN_METADATA_PRIORITY: list[str]
     SCAN_ARTWORK_PRIORITY: list[str]
+    SCAN_REGION_PRIORITY: list[str]
+    SCAN_LANGUAGE_PRIORITY: list[str]
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -222,6 +224,16 @@ class ConfigManager:
                     "flashpoint",
                     "hltb",
                 ],
+            ),
+            SCAN_REGION_PRIORITY=pydash.get(
+                self._raw_config,
+                "scan.region.priority",
+                ["us", "wor", "ss", "eu", "jp"],
+            ),
+            SCAN_LANGUAGE_PRIORITY=pydash.get(
+                self._raw_config,
+                "scan.language.priority",
+                ["en", "fr"],
             ),
         )
 
@@ -393,6 +405,14 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.artwork.priority must be a list")
             sys.exit(3)
 
+        if not isinstance(self.config.SCAN_REGION_PRIORITY, list):
+            log.critical("Invalid config.yml: scan.region.priority must be a list")
+            sys.exit(3)
+
+        if not isinstance(self.config.SCAN_LANGUAGE_PRIORITY, list):
+            log.critical("Invalid config.yml: scan.language.priority must be a list")
+            sys.exit(3)
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r+") as config_file:
@@ -448,6 +468,12 @@ class ConfigManager:
                 },
                 "artwork": {
                     "priority": self.config.SCAN_ARTWORK_PRIORITY,
+                },
+                "region": {
+                    "priority": self.config.SCAN_REGION_PRIORITY,
+                },
+                "language": {
+                    "priority": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
             },
         }
