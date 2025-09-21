@@ -89,12 +89,13 @@ const coverImageSource = computed(() => {
   try {
     const hostname = new URL(props.rom.url_cover).hostname;
 
-    if (hostname == "images.igdb.com") return "IGDB";
-    if (hostname == "screenscraper.fr") return "ScreenScraper";
-    if (hostname == "cdn.mobygames.com") return "MobyGames";
-    if (hostname == "images.launchbox-app.com") return "LaunchBox";
-    if (hostname == "media.retroachievements.org") return "RetroAchievements";
-    if (hostname == "cdn2.steamgriddb.com") return "SteamGridDB";
+    if (hostname.includes("images.igdb.com")) return "IGDB";
+    if (hostname.includes("screenscraper.fr")) return "ScreenScraper";
+    if (hostname.includes("cdn.mobygames.com")) return "MobyGames";
+    if (hostname.includes("images.launchbox-app.com")) return "LaunchBox";
+    if (hostname.includes("media.retroachievements.org"))
+      return "RetroAchievements";
+    if (hostname.includes("cdn2.steamgriddb.com")) return "SteamGridDB";
 
     return null;
   } catch {
@@ -332,7 +333,7 @@ function onFilterClick(filter: FilterType, value: string) {
             >.
           </div>
           <div v-if="rom.url_cover && coverImageSource" class="text-grey mt-1">
-            Cover image provided by
+            Cover art provided by
             <a :href="rom.url_cover" target="_blank" style="color: inherit">
               {{ coverImageSource }}</a
             >.
