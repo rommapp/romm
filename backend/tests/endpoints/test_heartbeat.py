@@ -58,7 +58,7 @@ def test_heartbeat(client):
 
 
 def test_heartbeat_metadata(client):
-    response = client.get("/api/heartbeat/metadata/flashpoint")
+    response = client.get("/api/heartbeat/metadata/lb")
     assert response.status_code == status.HTTP_200_OK
 
     heartbeat = response.json()
