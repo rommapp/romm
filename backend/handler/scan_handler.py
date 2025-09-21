@@ -84,6 +84,46 @@ def get_main_platform_igdb_id(platform: Platform):
     return main_platform_igdb_id
 
 
+def get_priority_ordered_metadata_sources(
+    metadata_sources: list[MetadataSource], priority_type: str = "metadata"
+) -> list[MetadataSource]:
+    """Get metadata sources ordered by priority from config
+
+    Args:
+        metadata_sources: List of available metadata sources
+        priority_type: Type of priority to use ("metadata" or "artwork")
+
+    Returns:
+        List of metadata sources ordered by priority
+    """
+    cnfg = cm.get_config()
+
+    if priority_type == "metadata":
+        priority_order = cnfg.SCAN_METADATA_PRIORITY
+    else:
+        priority_order = cnfg.SCAN_ARTWORK_PRIORITY
+
+    print(f"priority_order: {priority_order}")
+
+    # Filter priority order to only include sources that are available
+    ordered_sources = [
+        MetadataSource(source)
+        for source in priority_order
+        if source in metadata_sources
+    ]
+    print(f"ordered_sources: {ordered_sources}")
+
+    # Add any remaining sources that weren't in the priority list
+    remaining_sources = [
+        MetadataSource(source)
+        for source in metadata_sources
+        if source not in ordered_sources
+    ]
+    print(f"remaining_sources: {remaining_sources}")
+
+    return ordered_sources + remaining_sources
+
+
 async def scan_platform(
     fs_slug: str,
     fs_platforms: list[str],
@@ -579,64 +619,62 @@ async def scan_rom(
         fetch_hltb_rom(),
     )
 
-    # Only update fields if match is found
-    if hltb_handler_rom.get("hltb_id"):
-        rom_attrs.update({**hltb_handler_rom})
-    if flashpoint_handler_rom.get("flashpoint_id"):
-        rom_attrs.update({**flashpoint_handler_rom})
-    if ra_handler_rom.get("ra_id"):
-        rom_attrs.update({**ra_handler_rom})
-    if launchbox_handler_rom.get("launchbox_id"):
-        rom_attrs.update({**launchbox_handler_rom})
-    if hasheous_handler_rom.get("hasheous_id"):
-        rom_attrs.update({**hasheous_handler_rom})
-    if moby_handler_rom.get("moby_id"):
-        rom_attrs.update({**moby_handler_rom})
-    if ss_handler_rom.get("ss_id"):
-        rom_attrs.update({**ss_handler_rom})
-    if igdb_handler_rom.get("igdb_id"):
-        rom_attrs.update({**igdb_handler_rom})
+    metadata_handlers = {
+        MetadataSource.IGDB: igdb_handler_rom,
+        MetadataSource.MOBY: moby_handler_rom,
+        MetadataSource.SS: ss_handler_rom,
+        MetadataSource.RA: ra_handler_rom,
+        MetadataSource.LB: launchbox_handler_rom,
+        MetadataSource.HASHEOUS: hasheous_handler_rom,
+        MetadataSource.FLASHPOINT: flashpoint_handler_rom,
+        MetadataSource.HLTB: hltb_handler_rom,
+    }
 
-    # Screenshots are a special case
-    rom_attrs["url_screenshots"] = (
-        igdb_handler_rom.get("url_screenshots", [])
-        or ss_handler_rom.get("url_screenshots", [])
-        or moby_handler_rom.get("url_screenshots", [])
-        or ra_handler_rom.get("url_screenshots", [])
-        or hasheous_handler_rom.get("url_screenshots", [])
-        or launchbox_handler_rom.get("url_screenshots", [])
+    # Get metadata sources and apply in priority order
+    available_sources = [
+        name for name, handler in metadata_handlers.items() if handler.get(f"{name}_id")
+    ]
+    print(f"available_sources: {available_sources}")
+    priority_ordered = get_priority_ordered_metadata_sources(
+        available_sources, "metadata"
     )
+    print(f"priority_ordered: {priority_ordered}")
+    for source_name in reversed(priority_ordered):
+        print(f"applying: {source_name}")
+        rom_attrs.update({**metadata_handlers[source_name]})
+
+    # Get artwork sources and apply in reverse priority order (highest priority last)
+    priority_ordered_artwork = get_priority_ordered_metadata_sources(
+        available_sources, "artwork"
+    )
+    for source_name in reversed(priority_ordered_artwork):
+        handler_data = metadata_handlers[source_name]
+        if handler_data.get("url_cover"):
+            rom_attrs["url_cover"] = handler_data.get("url_cover")
+        if handler_data.get("url_screenshots"):
+            rom_attrs["url_screenshots"] = handler_data.get("url_screenshots")
+        if handler_data.get("url_manual"):
+            rom_attrs["url_manual"] = handler_data.get("url_manual")
 
     # Stop IDs from getting overridden by empty values
     rom_attrs.update(
         {
             "igdb_id": igdb_handler_rom.get("igdb_id")
             or hasheous_handler_rom.get("igdb_id")
-            or rom_attrs.get("igdb_id")
-            or None,
-            "ss_id": ss_handler_rom.get("ss_id") or rom_attrs.get("ss_id") or None,
-            "moby_id": moby_handler_rom.get("moby_id")
-            or rom_attrs.get("moby_id")
-            or None,
+            or rom_attrs.get("igdb_id"),
+            "ss_id": ss_handler_rom.get("ss_id") or rom_attrs.get("ss_id"),
+            "moby_id": moby_handler_rom.get("moby_id") or rom_attrs.get("moby_id"),
             "ra_id": ra_handler_rom.get("ra_id")
             or hasheous_handler_rom.get("ra_id")
-            or rom_attrs.get("ra_id")
-            or None,
+            or rom_attrs.get("ra_id"),
             "launchbox_id": launchbox_handler_rom.get("launchbox_id")
-            or rom_attrs.get("launchbox_id")
-            or None,
+            or rom_attrs.get("launchbox_id"),
             "hasheous_id": hasheous_handler_rom.get("hasheous_id")
-            or rom_attrs.get("hasheous_id")
-            or None,
-            "tgdb_id": hasheous_handler_rom.get("tgdb_id")
-            or rom_attrs.get("tgdb_id")
-            or None,
+            or rom_attrs.get("hasheous_id"),
+            "tgdb_id": hasheous_handler_rom.get("tgdb_id") or rom_attrs.get("tgdb_id"),
             "flashpoint_id": flashpoint_handler_rom.get("flashpoint_id")
-            or rom_attrs.get("flashpoint_id")
-            or None,
-            "hltb_id": hltb_handler_rom.get("hltb_id")
-            or rom_attrs.get("hltb_id")
-            or None,
+            or rom_attrs.get("flashpoint_id"),
+            "hltb_id": hltb_handler_rom.get("hltb_id") or rom_attrs.get("hltb_id"),
         }
     )
 
