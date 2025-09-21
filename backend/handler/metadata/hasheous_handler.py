@@ -146,7 +146,7 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
 
 
 def extract_metadata_from_giantbomb_rom(rom: dict) -> GiantBombMetadata:
-    print(rom)
+    print(f"GIANTBOMB ROM: {rom}")
     return GiantBombMetadata(
         {
             "guid": rom.get("guid", ""),
@@ -184,7 +184,6 @@ class HasheousHandler(MetadataHandler):
 
     @classmethod
     def is_enabled(cls) -> bool:
-        """Return whether this metadata handler is enabled."""
         return HASHEOUS_API_ENABLED
 
     async def _request(
@@ -445,6 +444,8 @@ class HasheousHandler(MetadataHandler):
         if not giantbomb_game:
             log.debug(f"No Hasheous game found for GiantBomb GUID 3030-{giantbomb_id}.")
             return hasheous_rom
+
+        log.info(f"GiantBomb game: {giantbomb_game}")
 
         return HasheousRom(
             {

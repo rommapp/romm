@@ -35,7 +35,6 @@ class GiantBombHandler(MetadataHandler):
 
     @classmethod
     def is_enabled(cls) -> bool:
-        """Return whether this metadata handler is enabled."""
         return GIANTBOMB_API_ENABLED
 
     def get_platform(self, slug: str) -> GiantBombPlatform:
