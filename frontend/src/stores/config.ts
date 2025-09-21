@@ -25,6 +25,8 @@ const defaultConfig = {
   EJS_CACHE_LIMIT: null,
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
+  SCAN_METADATA_PRIORITY: [],
+  SCAN_ARTWORK_PRIORITY: [],
 } as ConfigResponse;
 
 export default defineStore("config", {
