@@ -127,6 +127,9 @@ class LaunchboxHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return LAUNCHBOX_API_ENABLED
 
+    async def heartbeat(self) -> bool:
+        return self.is_enabled()
+
     @staticmethod
     def extract_launchbox_id_from_filename(fs_name: str) -> int | None:
         """Extract LaunchBox ID from filename tag like (launchbox-12345)."""

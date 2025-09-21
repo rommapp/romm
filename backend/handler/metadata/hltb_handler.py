@@ -171,12 +171,27 @@ class HowLongToBeatHandler(MetadataHandler):
 
     def __init__(self) -> None:
         self.base_url = "https://howlongtobeat.com"
+        self.user_endpoint = f"{self.base_url}/api/user"
         self.search_url = f"{self.base_url}/api/seek/28b235595e8e894c"
         self.min_similarity_score: Final = 0.85
 
     @classmethod
     def is_enabled(cls) -> bool:
         return HLTB_API_ENABLED
+
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        httpx_client = ctx_httpx_client.get()
+        try:
+            response = await httpx_client.get(self.user_endpoint)
+            response.raise_for_status()
+        except Exception as e:
+            log.error("Error checking HLTB API: %s", e)
+            return False
+
+        return True
 
     @staticmethod
     def extract_hltb_id_from_filename(fs_name: str) -> int | None:
