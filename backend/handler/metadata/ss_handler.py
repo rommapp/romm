@@ -177,14 +177,18 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if res_name:
             break
 
-    res_summary = next(
-        (
-            synopsis["text"]
-            for synopsis in game.get("synopsis", [])
-            if synopsis.get("langue") == "en"
-        ),
-        "",
-    )
+    res_summary = ""
+    for lang in get_preferred_languages():
+        res_summary = next(
+            (
+                synopsis["text"]
+                for synopsis in game.get("synopsis", [])
+                if synopsis.get("langue") == lang
+            ),
+            "",
+        )
+        if res_summary:
+            break
 
     url_cover = ""
     for region in get_preferred_regions():
