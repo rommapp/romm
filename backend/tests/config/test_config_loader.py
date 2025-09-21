@@ -33,6 +33,10 @@ def test_config_loader():
             "_3": {},
         },
     }
+    assert loader.config.SCAN_METADATA_PRIORITY == ["ss", "lb"]
+    assert loader.config.SCAN_ARTWORK_PRIORITY == ["igdb", "ss"]
+    assert loader.config.SCAN_REGION_PRIORITY == ["jp", "eu", "wor"]
+    assert loader.config.SCAN_LANGUAGE_PRIORITY == ["jp", "es"]
 
 
 def test_empty_config_loader():

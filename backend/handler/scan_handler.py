@@ -103,15 +103,12 @@ def get_priority_ordered_metadata_sources(
     else:
         priority_order = cnfg.SCAN_ARTWORK_PRIORITY
 
-    print(f"priority_order: {priority_order}")
-
     # Filter priority order to only include sources that are available
     ordered_sources = [
         MetadataSource(source)
         for source in priority_order
         if source in metadata_sources
     ]
-    print(f"ordered_sources: {ordered_sources}")
 
     # Add any remaining sources that weren't in the priority list
     remaining_sources = [
@@ -119,7 +116,6 @@ def get_priority_ordered_metadata_sources(
         for source in metadata_sources
         if source not in ordered_sources
     ]
-    print(f"remaining_sources: {remaining_sources}")
 
     return ordered_sources + remaining_sources
 
@@ -634,13 +630,10 @@ async def scan_rom(
     available_sources = [
         name for name, handler in metadata_handlers.items() if handler.get(f"{name}_id")
     ]
-    print(f"available_sources: {available_sources}")
     priority_ordered = get_priority_ordered_metadata_sources(
         available_sources, "metadata"
     )
-    print(f"priority_ordered: {priority_ordered}")
     for source_name in reversed(priority_ordered):
-        print(f"applying: {source_name}")
         rom_attrs.update({**metadata_handlers[source_name]})
 
     # Get artwork sources and apply in reverse priority order (highest priority last)
