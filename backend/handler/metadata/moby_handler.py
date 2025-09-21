@@ -82,6 +82,18 @@ class MobyGamesHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return bool(MOBYGAMES_API_KEY)
 
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            response = await self.moby_service.list_groups(limit=1)
+        except Exception as e:
+            log.error("Error checking MobyGames API: %s", e)
+            return False
+
+        return bool(response)
+
     @staticmethod
     def extract_mobygames_id_from_filename(fs_name: str) -> int | None:
         """Extract MobyGames ID from filename tag like (moby-12345)."""

@@ -97,6 +97,7 @@ class FlashpointHandler(MetadataHandler):
 
     def __init__(self) -> None:
         self.base_url = "https://db-api.unstable.life"
+        self.platforms_url = f"{self.base_url}/platforms"
         self.search_url = f"{self.base_url}/search"
         self.min_similarity_score: Final = 0.75
 
@@ -120,21 +121,19 @@ class FlashpointHandler(MetadataHandler):
             for key, value in query.items()
             if value is not None and value != ""  # drop None and ""
         }
-
-        url_with_query = yarl.URL(url).update_query(**filtered_query)
+        if filtered_query:
+            url = str(yarl.URL(url).update_query(**filtered_query))
 
         log.debug(
             "Flashpoint API request: URL=%s, Timeout=%s",
-            url_with_query,
+            url,
             60,
         )
 
         headers = {"user-agent": f"RomM/{get_version()}"}
 
         try:
-            res = await httpx_client.get(
-                str(url_with_query), headers=headers, timeout=60
-            )
+            res = await httpx_client.get(url, headers=headers, timeout=60)
             res.raise_for_status()
             return res.json()
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
@@ -148,6 +147,18 @@ class FlashpointHandler(MetadataHandler):
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from Flashpoint API: %s", exc)
             return {}
+
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            response = await self._request(self.platforms_url, {})
+        except Exception as e:
+            log.error("Error checking Flashpoint API: %s", e)
+            return False
+
+        return bool(response)
 
     async def search_games(self, search_term: str) -> list[FlashpointGame]:
         """
