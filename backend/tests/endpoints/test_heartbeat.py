@@ -55,3 +55,16 @@ def test_heartbeat(client):
     oidc = heartbeat["OIDC"]
     assert isinstance(oidc["ENABLED"], bool)
     assert isinstance(oidc["PROVIDER"], str)
+
+
+def test_heartbeat_metadata(client):
+    response = client.get("/api/heartbeat/metadata/lb")
+    assert response.status_code == status.HTTP_200_OK
+
+    heartbeat = response.json()
+    assert heartbeat
+
+
+def test_heartbeat_metadata_unknown_source(client):
+    response = client.get("/api/heartbeat/metadata/unknown")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST

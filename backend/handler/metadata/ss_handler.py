@@ -282,6 +282,18 @@ class SSHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return bool(SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD)
 
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            response = await self.ss_service.get_infra_info()
+        except Exception as e:
+            log.error("Error checking ScreenScraper API: %s", e)
+            return False
+
+        return bool(response.get("response", {}))
+
     @staticmethod
     def extract_ss_id_from_filename(fs_name: str) -> int | None:
         """Extract ScreenScraper ID from filename tag like (ss-12345)."""

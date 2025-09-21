@@ -309,6 +309,21 @@ class IGDBHandler(MetadataHandler):
 
         return None
 
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            roms = await self.igdb_service.list_games(
+                fields=["id"],
+                limit=1,
+            )
+        except Exception as e:
+            log.error("Error checking IGDB API: %s", e)
+            return False
+
+        return bool(roms)
+
     def get_platform(self, slug: str) -> IGDBPlatform:
         if slug in IGDB_PLATFORM_LIST:
             platform = IGDB_PLATFORM_LIST[UPS(slug)]

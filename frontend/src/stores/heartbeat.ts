@@ -75,6 +75,16 @@ export default defineStore("heartbeat", {
       }
     },
 
+    async fetchMetadataHeartbeat(source: string): Promise<boolean> {
+      try {
+        const response = await api.get(`/heartbeat/metadata/${source}`);
+        return response.data;
+      } catch (error) {
+        console.error("Error fetching metadata heartbeat: ", error);
+        return false;
+      }
+    },
+
     getAllMetadataOptions(): MetadataOption[] {
       return [
         {

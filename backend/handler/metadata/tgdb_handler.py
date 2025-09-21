@@ -28,6 +28,9 @@ class TGDBHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return TGDB_API_ENABLED
 
+    async def heartbeat(self) -> bool:
+        return self.is_enabled()
+
     def get_platform(self, slug: str) -> TGDBPlatform:
         if slug not in TGDB_PLATFORM_LIST:
             return TGDBPlatform(tgdb_id=None, slug=slug)

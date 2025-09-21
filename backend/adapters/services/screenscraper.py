@@ -129,6 +129,14 @@ class ScreenScraperService:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 
+    async def get_infra_info(self) -> dict:
+        """Retrieve information about the infrastructure.
+
+        Reference: https://api.screenscraper.fr/webapi2.php#infraInfos
+        """
+        url = self.url.joinpath("ssinfraInfos.php")
+        return await self._request(str(url))
+
     async def get_game_info(
         self,
         *,
