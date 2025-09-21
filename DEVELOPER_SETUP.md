@@ -171,7 +171,6 @@ docker exec -i romm-db-dev mariadb -uroot -p<root password> < backend/romm_test/
 
 _Migrations will be run automatically when running the tests._
 
-
 ```sh
 cd backend
 # path or test file can be passed as argument to test only a subset
