@@ -17,3 +17,7 @@ class ConfigResponse(TypedDict):
     EJS_CACHE_LIMIT: int | None
     EJS_SETTINGS: dict[str, dict[str, str]]
     EJS_CONTROLS: dict[str, EjsControls]
+    SCAN_METADATA_PRIORITY: list[str]
+    SCAN_ARTWORK_PRIORITY: list[str]
+    SCAN_REGION_PRIORITY: list[str]
+    SCAN_LANGUAGE_PRIORITY: list[str]

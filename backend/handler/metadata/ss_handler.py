@@ -10,6 +10,7 @@ from unidecode import unidecode as uc
 from adapters.services.screenscraper import ScreenScraperService
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from config.config_manager import config_manager as cm
 from logger.logger import log
 
 from .base_handler import (
@@ -25,7 +26,20 @@ from .base_handler import UniversalPlatformSlug as UPS
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 
-PREFERRED_REGIONS: Final = ["us", "wor", "ss", "eu", "jp"]
+
+def get_preferred_regions() -> list[str]:
+    """Get preferred regions from config"""
+    config = cm.get_config()
+    return list(
+        dict.fromkeys(config.SCAN_REGION_PRIORITY + ["us", "wor", "ss", "eu", "jp"])
+    )
+
+
+def get_preferred_languages() -> list[str]:
+    """Get preferred languages from config"""
+    config = cm.get_config()
+    return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY + ["en", "fr"]))
+
 
 PS1_SS_ID: Final = 57
 PS2_SS_ID: Final = 58
@@ -135,7 +149,7 @@ class SSRom(BaseRom):
 
 def build_ss_rom(game: SSGame) -> SSRom:
     res_name = ""
-    for region in PREFERRED_REGIONS:
+    for region in get_preferred_regions():
         res_name = next(
             (
                 name["text"]
@@ -147,17 +161,21 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if res_name:
             break
 
-    res_summary = next(
-        (
-            synopsis["text"]
-            for synopsis in game.get("synopsis", [])
-            if synopsis.get("langue") == "en"
-        ),
-        "",
-    )
+    res_summary = ""
+    for lang in get_preferred_languages():
+        res_summary = next(
+            (
+                synopsis["text"]
+                for synopsis in game.get("synopsis", [])
+                if synopsis.get("langue") == lang
+            ),
+            "",
+        )
+        if res_summary:
+            break
 
     url_cover = ""
-    for region in PREFERRED_REGIONS:
+    for region in get_preferred_regions():
         url_cover = next(
             (
                 media["url"]
@@ -172,7 +190,7 @@ def build_ss_rom(game: SSGame) -> SSRom:
             break
 
     url_manual: str = ""
-    for region in PREFERRED_REGIONS:
+    for region in get_preferred_regions():
         url_manual = next(
             (
                 media["url"]
@@ -231,7 +249,7 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
         ]
 
     def _get_franchises(rom: SSGame) -> list[str]:
-        preferred_languages = ["en", "fr"]
+        preferred_languages = get_preferred_languages()
         for lang in preferred_languages:
             franchises = [
                 franchise_name["text"]
@@ -244,7 +262,7 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
         return []
 
     def _get_game_modes(rom: SSGame) -> list[str]:
-        preferred_languages = ["en", "fr"]
+        preferred_languages = get_preferred_languages()
         for lang in preferred_languages:
             modes = [
                 mode_name["text"]

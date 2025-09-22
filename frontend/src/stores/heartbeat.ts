@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import type { HeartbeatResponse } from "@/__generated__";
 import i18n from "@/locales";
 import api from "@/services/api";
+import storeConfig from "./config";
 
 export type Heartbeat = HeartbeatResponse;
 export type MetadataOption = {
@@ -165,6 +166,28 @@ export default defineStore("heartbeat", {
     },
     getEnabledMetadataOptions(): MetadataOption[] {
       return this.getAllMetadataOptions().filter((s) => !s.disabled);
+    },
+    getMetadataOptionsByPriority(): MetadataOption[] {
+      const allOptions = this.getAllMetadataOptions();
+      const { config } = storeConfig();
+      const priority = config.SCAN_METADATA_PRIORITY || [];
+
+      // Create a map for quick lookup
+      const optionsMap = new Map(
+        allOptions.map((option) => [option.value, option]),
+      );
+
+      // Get options in priority order
+      const priorityOrdered = priority
+        .map((value: string) => optionsMap.get(value))
+        .filter(Boolean) as MetadataOption[];
+
+      // Add remaining options that weren't in priority list
+      const remaining = allOptions.filter(
+        (option) => !priority.includes(option.value),
+      );
+
+      return [...priorityOrdered, ...remaining];
     },
     reset() {},
   },
