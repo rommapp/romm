@@ -91,10 +91,19 @@ const coverImageSource = computed(() => {
 
     if (hostname === "images.igdb.com") return "IGDB";
     if (hostname === "screenscraper.fr") return "ScreenScraper";
-    if (hostname === "cdn.mobygames.com") return "MobyGames";
-    if (hostname === "retroachievements.org") return "RetroAchievements";
+    if (hostname === "cdn.mobygames.com" || hostname === "cdn2.mobygames.com")
+      return "MobyGames";
+    if (
+      hostname === "retroachievements.org" ||
+      hostname === "media.retroachievements.org"
+    )
+      return "RetroAchievements";
     if (hostname === "images.launchbox-app.com") return "LaunchBox";
-    if (hostname === "cdn2.steamgriddb.com") return "SteamGridDB";
+    if (
+      hostname === "cdn.steamgriddb.com" ||
+      hostname === "cdn2.steamgriddb.com"
+    )
+      return "SteamGridDB";
     if (hostname === "hasheous.org") return "Hasheous";
     if (hostname === "infinity.unstable.life") return "Flashpoint";
     if (hostname === "howlongtobeat.com") return "HowLongToBeat";

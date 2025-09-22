@@ -57,7 +57,7 @@ class MetadataSource(enum.StrEnum):
     IGDB = "igdb"  # IGDB
     MOBY = "moby"  # MobyGames
     SS = "ss"  # Screenscraper
-    RA = "ra"  # RetroAchivements
+    RA = "ra"  # RetroAchievements
     LB = "lb"  # Launchbox
     HASHEOUS = "hasheous"  # Hasheous
     TGDB = "tgdb"  # TheGamesDB
@@ -633,6 +633,7 @@ async def scan_rom(
     priority_ordered = get_priority_ordered_metadata_sources(
         available_sources, "metadata"
     )
+    # Reverse priority order to apply highest priority last
     for source_name in reversed(priority_ordered):
         rom_attrs.update({**metadata_handlers[source_name]})
 
@@ -640,6 +641,8 @@ async def scan_rom(
     priority_ordered_artwork = get_priority_ordered_metadata_sources(
         available_sources, "artwork"
     )
+
+    # Reverse priority order to apply highest priority last
     for source_name in reversed(priority_ordered_artwork):
         handler_data = metadata_handlers[source_name]
         if handler_data.get("url_cover"):

@@ -55,7 +55,7 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #       - "igdb" # IGDB
 #       - "moby" # MobyGames
 #       - "ss" # Screenscraper
-#       - "ra" # RetroAchivements
+#       - "ra" # RetroAchievements
 #       - "lb" # Launchbox
 #       - "hasheous" # Hasheous
 #       - "flashpoint" # Flashpoint Project
@@ -64,7 +64,7 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #       - "igdb" # IGDB
 #       - "moby" # MobyGames
 #       - "ss" # Screenscraper
-#       - "ra" # RetroAchivements
+#       - "ra" # RetroAchievements
 #       - "lb" # Launchbox
 #       - "hasheous" # Hasheous
 #       - "flashpoint" # Flashpoint Project

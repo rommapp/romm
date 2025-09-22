@@ -398,19 +398,19 @@ class ConfigManager:
                             sys.exit(3)
 
         if not isinstance(self.config.SCAN_METADATA_PRIORITY, list):
-            log.critical("Invalid config.yml: scan.metadata.priority must be a list")
+            log.critical("Invalid config.yml: scan.priority.metadata must be a list")
             sys.exit(3)
 
         if not isinstance(self.config.SCAN_ARTWORK_PRIORITY, list):
-            log.critical("Invalid config.yml: scan.artwork.priority must be a list")
+            log.critical("Invalid config.yml: scan.priority.artwork must be a list")
             sys.exit(3)
 
         if not isinstance(self.config.SCAN_REGION_PRIORITY, list):
-            log.critical("Invalid config.yml: scan.region.priority must be a list")
+            log.critical("Invalid config.yml: scan.priority.region must be a list")
             sys.exit(3)
 
         if not isinstance(self.config.SCAN_LANGUAGE_PRIORITY, list):
-            log.critical("Invalid config.yml: scan.language.priority must be a list")
+            log.critical("Invalid config.yml: scan.priority.language must be a list")
             sys.exit(3)
 
     def get_config(self) -> Config:

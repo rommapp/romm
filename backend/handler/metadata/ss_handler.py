@@ -28,33 +28,17 @@ SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 
 
 def get_preferred_regions() -> list[str]:
-    """Get preferred regions from config, merged with defaults"""
+    """Get preferred regions from config"""
     config = cm.get_config()
-    default_regions = ["us", "wor", "ss", "eu", "jp"]
-    ordered_regions = [
-        region for region in config.SCAN_REGION_PRIORITY if region in default_regions
-    ]
-    remaining_regions = [
-        region
-        for region in default_regions
-        if region not in config.SCAN_REGION_PRIORITY
-    ]
-
-    return ordered_regions + remaining_regions
+    return list(
+        dict.fromkeys(config.SCAN_REGION_PRIORITY + ["us", "wor", "ss", "eu", "jp"])
+    )
 
 
 def get_preferred_languages() -> list[str]:
-    """Get preferred languages from config, merged with defaults"""
+    """Get preferred languages from config"""
     config = cm.get_config()
-    default_languages = ["en", "fr"]
-    ordered_languages = [
-        lang for lang in config.SCAN_LANGUAGE_PRIORITY if lang in default_languages
-    ]
-    remaining_languages = [
-        lang for lang in default_languages if lang not in config.SCAN_LANGUAGE_PRIORITY
-    ]
-
-    return ordered_languages + remaining_languages
+    return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY + ["en", "fr"]))
 
 
 PS1_SS_ID: Final = 57

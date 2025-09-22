@@ -510,8 +510,8 @@ class DBRomsHandler(DBBaseHandler):
                             ),
                             _create_metadata_id_case(
                                 "romm",
-                                base_subquery.c.platform_id,
                                 base_subquery.c.id,
+                                base_subquery.c.platform_id,
                             ),
                         ),
                         order_by=[
