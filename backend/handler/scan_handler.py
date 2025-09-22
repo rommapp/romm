@@ -57,7 +57,7 @@ class MetadataSource(enum.StrEnum):
     IGDB = "igdb"  # IGDB
     MOBY = "moby"  # MobyGames
     SS = "ss"  # Screenscraper
-    RA = "ra"  # RetroAchivements
+    RA = "ra"  # RetroAchievements
     LB = "lb"  # Launchbox
     HASHEOUS = "hasheous"  # Hasheous
     TGDB = "tgdb"  # TheGamesDB
@@ -82,6 +82,42 @@ def get_main_platform_igdb_id(platform: Platform):
     else:
         main_platform_igdb_id = platform.igdb_id
     return main_platform_igdb_id
+
+
+def get_priority_ordered_metadata_sources(
+    metadata_sources: list[MetadataSource], priority_type: str = "metadata"
+) -> list[MetadataSource]:
+    """Get metadata sources ordered by priority from config
+
+    Args:
+        metadata_sources: List of available metadata sources
+        priority_type: Type of priority to use ("metadata" or "artwork")
+
+    Returns:
+        List of metadata sources ordered by priority
+    """
+    cnfg = cm.get_config()
+
+    if priority_type == "metadata":
+        priority_order = cnfg.SCAN_METADATA_PRIORITY
+    else:
+        priority_order = cnfg.SCAN_ARTWORK_PRIORITY
+
+    # Filter priority order to only include sources that are available
+    ordered_sources = [
+        MetadataSource(source)
+        for source in priority_order
+        if source in metadata_sources
+    ]
+
+    # Add any remaining sources that weren't in the priority list
+    remaining_sources = [
+        MetadataSource(source)
+        for source in metadata_sources
+        if source not in ordered_sources
+    ]
+
+    return ordered_sources + remaining_sources
 
 
 async def scan_platform(
@@ -579,68 +615,48 @@ async def scan_rom(
         fetch_hltb_rom(),
     )
 
-    # Only update fields if match is found
-    if hltb_handler_rom.get("hltb_id"):
-        rom_attrs.update({**hltb_handler_rom})
-    if flashpoint_handler_rom.get("flashpoint_id"):
-        rom_attrs.update({**flashpoint_handler_rom})
-    if ra_handler_rom.get("ra_id"):
-        rom_attrs.update({**ra_handler_rom})
-    if launchbox_handler_rom.get("launchbox_id"):
-        rom_attrs.update({**launchbox_handler_rom})
-    if hasheous_handler_rom.get("hasheous_id"):
-        rom_attrs.update({**hasheous_handler_rom})
-    if moby_handler_rom.get("moby_id"):
-        rom_attrs.update({**moby_handler_rom})
-    if ss_handler_rom.get("ss_id"):
-        rom_attrs.update({**ss_handler_rom})
-    if igdb_handler_rom.get("igdb_id"):
-        rom_attrs.update({**igdb_handler_rom})
+    metadata_handlers = {
+        MetadataSource.IGDB: igdb_handler_rom,
+        MetadataSource.MOBY: moby_handler_rom,
+        MetadataSource.SS: ss_handler_rom,
+        MetadataSource.RA: ra_handler_rom,
+        MetadataSource.LB: launchbox_handler_rom,
+        MetadataSource.HASHEOUS: hasheous_handler_rom,
+        MetadataSource.FLASHPOINT: flashpoint_handler_rom,
+        MetadataSource.HLTB: hltb_handler_rom,
+    }
 
-    # Screenshots are a special case
-    rom_attrs["url_screenshots"] = (
-        igdb_handler_rom.get("url_screenshots", [])
-        or ss_handler_rom.get("url_screenshots", [])
-        or moby_handler_rom.get("url_screenshots", [])
-        or ra_handler_rom.get("url_screenshots", [])
-        or hasheous_handler_rom.get("url_screenshots", [])
-        or launchbox_handler_rom.get("url_screenshots", [])
+    # Determine which metadata sources are available
+    available_sources = [
+        name for name, handler in metadata_handlers.items() if handler.get(f"{name}_id")
+    ]
+
+    # Apply metadata priority order
+    priority_ordered = get_priority_ordered_metadata_sources(
+        available_sources, "metadata"
     )
+    # Reverse priority order to apply highest priority last
+    for source_name in reversed(priority_ordered):
+        handler_data = metadata_handlers[source_name]
+        # Only update fields that have valid values
+        for key, field_value in handler_data.items():
+            if field_value:
+                rom_attrs[key] = field_value
 
-    # Stop IDs from getting overridden by empty values
-    rom_attrs.update(
-        {
-            "igdb_id": igdb_handler_rom.get("igdb_id")
-            or hasheous_handler_rom.get("igdb_id")
-            or rom_attrs.get("igdb_id")
-            or None,
-            "ss_id": ss_handler_rom.get("ss_id") or rom_attrs.get("ss_id") or None,
-            "moby_id": moby_handler_rom.get("moby_id")
-            or rom_attrs.get("moby_id")
-            or None,
-            "ra_id": ra_handler_rom.get("ra_id")
-            or hasheous_handler_rom.get("ra_id")
-            or rom_attrs.get("ra_id")
-            or None,
-            "launchbox_id": launchbox_handler_rom.get("launchbox_id")
-            or rom_attrs.get("launchbox_id")
-            or None,
-            "hasheous_id": hasheous_handler_rom.get("hasheous_id")
-            or rom_attrs.get("hasheous_id")
-            or None,
-            "tgdb_id": hasheous_handler_rom.get("tgdb_id")
-            or rom_attrs.get("tgdb_id")
-            or None,
-            "flashpoint_id": flashpoint_handler_rom.get("flashpoint_id")
-            or rom_attrs.get("flashpoint_id")
-            or None,
-            "hltb_id": hltb_handler_rom.get("hltb_id")
-            or rom_attrs.get("hltb_id")
-            or None,
-        }
+    # Artwork sources are prioritized separately
+    priority_ordered_artwork = get_priority_ordered_metadata_sources(
+        available_sources, "artwork"
     )
+    # Reverse priority order to apply highest priority last
+    for source_name in reversed(priority_ordered_artwork):
+        handler_data = metadata_handlers[source_name]
+        for field in ["url_cover", "url_screenshots", "url_manual"]:
+            # Only update fields that have valid values
+            field_value = handler_data.get(field)
+            if field_value:
+                rom_attrs[field] = field_value
 
-    # Don't overwrite existing fields on partial scans
+    # Don't overwrite existing base fields on partial scans
     if not newly_added and scan_type == ScanType.PARTIAL:
         rom_attrs.update(
             {

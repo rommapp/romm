@@ -385,6 +385,8 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int | None = None,
         session: Session = None,
     ) -> Query[Rom]:
+        from handler.scan_handler import MetadataSource
+
         if platform_id:
             query = self.filter_by_platform_id(query, platform_id)
 
@@ -467,44 +469,48 @@ class DBRomsHandler(DBBaseHandler):
                     .over(
                         partition_by=func.coalesce(
                             _create_metadata_id_case(
-                                "igdb",
+                                MetadataSource.IGDB,
                                 base_subquery.c.igdb_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "ss", base_subquery.c.ss_id, base_subquery.c.platform_id
+                                MetadataSource.SS,
+                                base_subquery.c.ss_id,
+                                base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "moby",
+                                MetadataSource.MOBY,
                                 base_subquery.c.moby_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "ra", base_subquery.c.ra_id, base_subquery.c.platform_id
+                                MetadataSource.RA,
+                                base_subquery.c.ra_id,
+                                base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "hasheous",
+                                MetadataSource.HASHEOUS,
                                 base_subquery.c.hasheous_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "launchbox",
+                                MetadataSource.LB,
                                 base_subquery.c.launchbox_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "tgdb",
+                                MetadataSource.TGDB,
                                 base_subquery.c.tgdb_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "romm-",
+                                MetadataSource.FLASHPOINT,
+                                base_subquery.c.flashpoint_id,
                                 base_subquery.c.platform_id,
-                                base_subquery.c.id,
                             ),
                             _create_metadata_id_case(
-                                "flashpoint",
-                                base_subquery.c.flashpoint_id,
+                                "romm",
+                                base_subquery.c.id,
                                 base_subquery.c.platform_id,
                             ),
                         ),

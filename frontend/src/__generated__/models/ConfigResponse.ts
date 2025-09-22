@@ -17,5 +17,9 @@ export type ConfigResponse = {
     EJS_CACHE_LIMIT: (number | null);
     EJS_SETTINGS: Record<string, Record<string, string>>;
     EJS_CONTROLS: Record<string, EjsControls>;
+    SCAN_METADATA_PRIORITY: Array<string>;
+    SCAN_ARTWORK_PRIORITY: Array<string>;
+    SCAN_REGION_PRIORITY: Array<string>;
+    SCAN_LANGUAGE_PRIORITY: Array<string>;
 };
 

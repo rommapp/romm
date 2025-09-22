@@ -61,6 +61,10 @@ class Config:
     EJS_CACHE_LIMIT: int | None
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
+    SCAN_METADATA_PRIORITY: list[str]
+    SCAN_ARTWORK_PRIORITY: list[str]
+    SCAN_REGION_PRIORITY: list[str]
+    SCAN_LANGUAGE_PRIORITY: list[str]
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -191,6 +195,46 @@ class ConfigManager:
             ),
             EJS_SETTINGS=pydash.get(self._raw_config, "emulatorjs.settings", {}),
             EJS_CONTROLS=self._get_ejs_controls(),
+            SCAN_METADATA_PRIORITY=pydash.get(
+                self._raw_config,
+                "scan.priority.metadata",
+                [
+                    "igdb",
+                    "moby",
+                    "ss",
+                    "ra",
+                    "lb",
+                    "hasheous",
+                    "tgdb",
+                    "flashpoint",
+                    "hltb",
+                ],
+            ),
+            SCAN_ARTWORK_PRIORITY=pydash.get(
+                self._raw_config,
+                "scan.priority.artwork",
+                [
+                    "igdb",
+                    "moby",
+                    "ss",
+                    "ra",
+                    "lb",
+                    "hasheous",
+                    "tgdb",
+                    "flashpoint",
+                    "hltb",
+                ],
+            ),
+            SCAN_REGION_PRIORITY=pydash.get(
+                self._raw_config,
+                "scan.priority.region",
+                ["us", "wor", "ss", "eu", "jp"],
+            ),
+            SCAN_LANGUAGE_PRIORITY=pydash.get(
+                self._raw_config,
+                "scan.priority.language",
+                ["en", "fr"],
+            ),
         )
 
     def _get_ejs_controls(self) -> dict[str, EjsControls]:
@@ -353,6 +397,22 @@ class ConfigManager:
                             )
                             sys.exit(3)
 
+        if not isinstance(self.config.SCAN_METADATA_PRIORITY, list):
+            log.critical("Invalid config.yml: scan.priority.metadata must be a list")
+            sys.exit(3)
+
+        if not isinstance(self.config.SCAN_ARTWORK_PRIORITY, list):
+            log.critical("Invalid config.yml: scan.priority.artwork must be a list")
+            sys.exit(3)
+
+        if not isinstance(self.config.SCAN_REGION_PRIORITY, list):
+            log.critical("Invalid config.yml: scan.priority.region must be a list")
+            sys.exit(3)
+
+        if not isinstance(self.config.SCAN_LANGUAGE_PRIORITY, list):
+            log.critical("Invalid config.yml: scan.priority.language must be a list")
+            sys.exit(3)
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r+") as config_file:
@@ -401,6 +461,14 @@ class ConfigManager:
                 "cache_limit": self.config.EJS_CACHE_LIMIT,
                 "settings": self.config.EJS_SETTINGS,
                 "controls": self._format_ejs_controls_for_yaml(),
+            },
+            "scan": {
+                "priority": {
+                    "metadata": self.config.SCAN_METADATA_PRIORITY,
+                    "artwork": self.config.SCAN_ARTWORK_PRIORITY,
+                    "region": self.config.SCAN_REGION_PRIORITY,
+                    "language": self.config.SCAN_LANGUAGE_PRIORITY,
+                },
             },
         }
 
