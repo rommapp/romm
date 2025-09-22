@@ -626,55 +626,37 @@ async def scan_rom(
         MetadataSource.HLTB: hltb_handler_rom,
     }
 
-    # Get metadata sources and apply in priority order
+    # Determine which metadata sources are available
     available_sources = [
         name for name, handler in metadata_handlers.items() if handler.get(f"{name}_id")
     ]
+
+    # Apply metadata priority order
     priority_ordered = get_priority_ordered_metadata_sources(
         available_sources, "metadata"
     )
     # Reverse priority order to apply highest priority last
     for source_name in reversed(priority_ordered):
-        rom_attrs.update({**metadata_handlers[source_name]})
+        handler_data = metadata_handlers[source_name]
+        # Only update fields that have valid values
+        for key, field_value in handler_data.items():
+            if field_value:
+                rom_attrs[key] = field_value
 
-    # Get artwork sources and apply in reverse priority order (highest priority last)
+    # Artwork sources are prioritized separately
     priority_ordered_artwork = get_priority_ordered_metadata_sources(
         available_sources, "artwork"
     )
-
     # Reverse priority order to apply highest priority last
     for source_name in reversed(priority_ordered_artwork):
         handler_data = metadata_handlers[source_name]
-        if handler_data.get("url_cover"):
-            rom_attrs["url_cover"] = handler_data.get("url_cover")
-        if handler_data.get("url_screenshots"):
-            rom_attrs["url_screenshots"] = handler_data.get("url_screenshots")
-        if handler_data.get("url_manual"):
-            rom_attrs["url_manual"] = handler_data.get("url_manual")
+        for field in ["url_cover", "url_screenshots", "url_manual"]:
+            # Only update fields that have valid values
+            field_value = handler_data.get(field)
+            if field_value:
+                rom_attrs[field] = field_value
 
-    # Stop IDs from getting overridden by empty values
-    rom_attrs.update(
-        {
-            "igdb_id": igdb_handler_rom.get("igdb_id")
-            or hasheous_handler_rom.get("igdb_id")
-            or rom_attrs.get("igdb_id"),
-            "ss_id": ss_handler_rom.get("ss_id") or rom_attrs.get("ss_id"),
-            "moby_id": moby_handler_rom.get("moby_id") or rom_attrs.get("moby_id"),
-            "ra_id": ra_handler_rom.get("ra_id")
-            or hasheous_handler_rom.get("ra_id")
-            or rom_attrs.get("ra_id"),
-            "launchbox_id": launchbox_handler_rom.get("launchbox_id")
-            or rom_attrs.get("launchbox_id"),
-            "hasheous_id": hasheous_handler_rom.get("hasheous_id")
-            or rom_attrs.get("hasheous_id"),
-            "tgdb_id": hasheous_handler_rom.get("tgdb_id") or rom_attrs.get("tgdb_id"),
-            "flashpoint_id": flashpoint_handler_rom.get("flashpoint_id")
-            or rom_attrs.get("flashpoint_id"),
-            "hltb_id": hltb_handler_rom.get("hltb_id") or rom_attrs.get("hltb_id"),
-        }
-    )
-
-    # Don't overwrite existing fields on partial scans
+    # Don't overwrite existing base fields on partial scans
     if not newly_added and scan_type == ScanType.PARTIAL:
         rom_attrs.update(
             {
