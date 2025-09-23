@@ -16,6 +16,7 @@ class PlatformSchema(BaseModel):
     name: str
     igdb_slug: str | None
     moby_slug: str | None
+    hltb_slug: str | None
     custom_name: str | None = None
     igdb_id: int | None = None
     sgdb_id: int | None = None
@@ -25,6 +26,7 @@ class PlatformSchema(BaseModel):
     ra_id: int | None = None
     hasheous_id: int | None = None
     tgdb_id: int | None = None
+    flashpoint_id: int | None = None
     category: str | None = None
     generation: int | None = None
     family_name: str | None = None
