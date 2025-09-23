@@ -247,6 +247,10 @@ class Rom(BaseModel):
         back_populates="roms",
     )
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._is_identifying = False
+
     @property
     def platform_slug(self) -> str:
         return self.platform.slug
