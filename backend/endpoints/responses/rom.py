@@ -242,6 +242,7 @@ class RomSchema(BaseModel):
     path_manual: str | None
     url_manual: str | None
 
+    is_identifying: bool = False
     is_unidentified: bool
     is_identified: bool
 

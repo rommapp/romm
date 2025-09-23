@@ -369,6 +369,14 @@ class Rom(BaseModel):
                 )
         return self.ra_metadata
 
+    @property
+    def is_identifying(self) -> bool:
+        return self._is_identifying or False
+
+    @is_identifying.setter
+    def is_identifying(self, value: bool) -> None:
+        self._is_identifying = value
+
     def __repr__(self) -> str:
         return self.fs_name
 
