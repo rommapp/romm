@@ -236,8 +236,8 @@ function selectCover(source: MatchedSource) {
 }
 
 function confirm() {
-  if (!selectedMatchRom.value || !selectedCover.value) return;
-  updateRom(selectedMatchRom.value, selectedCover.value.url_cover);
+  if (!selectedMatchRom.value) return;
+  updateRom(selectedMatchRom.value, selectedCover.value?.url_cover);
   closeDialog();
 }
 
@@ -719,8 +719,7 @@ onBeforeUnmount(() => {
           </v-btn>
           <v-btn
             class="text-romm-green bg-toplayer"
-            :disabled="selectedCover == undefined"
-            :variant="selectedCover == undefined ? 'plain' : 'flat'"
+            variant="flat"
             @click="confirm"
           >
             {{ t("common.confirm") }}
