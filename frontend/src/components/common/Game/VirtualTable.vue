@@ -250,6 +250,16 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
             </v-avatar>
           </v-chip>
           <v-chip
+            v-if="item.flashpoint_id"
+            class="mr-1 pa-0 item-chip"
+            size="x-small"
+            title="Flashpoint match"
+          >
+            <v-avatar size="20" rounded>
+              <v-img src="/assets/scrappers/flashpoint.png" />
+            </v-avatar>
+          </v-chip>
+          <v-chip
             v-if="item.hltb_id"
             class="mr-1 pa-0 item-chip"
             size="x-small"
