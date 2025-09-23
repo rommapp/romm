@@ -2,8 +2,11 @@ import asyncio
 import enum
 from typing import Any
 
+import socketio  # type: ignore
+
 from config.config_manager import config_manager as cm
-from handler.database import db_platform_handler
+from endpoints.responses.rom import SimpleRomSchema
+from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
@@ -281,6 +284,7 @@ async def scan_rom(
     fs_rom: FSRom,
     metadata_sources: list[str],
     newly_added: bool,
+    socket_manager: socketio.AsyncRedisManager | None = None,
 ) -> Rom:
     if not metadata_sources:
         log.error("No metadata sources provided")
@@ -383,6 +387,19 @@ async def scan_rom(
             )
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+
+    _added_rom = db_rom_handler.add_rom(Rom(**rom_attrs))
+    _added_rom.is_identifying = True
+
+    if socket_manager:
+        await socket_manager.emit(
+            "scan:scanning_rom",
+            {
+                **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
+                    exclude={"created_at", "updated_at", "rom_user"}
+                ),
+            },
+        )
 
     # Run hash fetches concurrently
     (
