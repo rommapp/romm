@@ -62,7 +62,7 @@ jobs:
           uv run pytest -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
 
       - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action/linux@sha-3a74b29
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2.20.0
         if: (!cancelled())
         with:
           files: |
