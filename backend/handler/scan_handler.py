@@ -284,7 +284,7 @@ async def scan_rom(
     fs_rom: FSRom,
     metadata_sources: list[str],
     newly_added: bool,
-    socket_manager: socketio.AsyncRedisManager,
+    socket_manager: socketio.AsyncRedisManager | None = None,
 ) -> Rom:
     if not metadata_sources:
         log.error("No metadata sources provided")
@@ -391,14 +391,15 @@ async def scan_rom(
     _added_rom = db_rom_handler.add_rom(Rom(**rom_attrs))
     _added_rom.is_identifying = True
 
-    await socket_manager.emit(
-        "scan:scanning_rom",
-        {
-            **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                exclude={"created_at", "updated_at", "rom_user"}
-            ),
-        },
-    )
+    if socket_manager:
+        await socket_manager.emit(
+            "scan:scanning_rom",
+            {
+                **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
+                    exclude={"created_at", "updated_at", "rom_user"}
+                ),
+            },
+        )
 
     # Run hash fetches concurrently
     (
