@@ -369,6 +369,7 @@ class Rom(BaseModel):
                 )
         return self.ra_metadata
 
+    # Used only during scan process
     @property
     def is_identifying(self) -> bool:
         return self._is_identifying or False
