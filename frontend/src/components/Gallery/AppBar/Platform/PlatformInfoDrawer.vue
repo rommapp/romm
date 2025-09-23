@@ -413,6 +413,26 @@ watch(
                 <span>{{ currentPlatform.hasheous_id }}</span>
               </v-chip>
             </a>
+            <v-chip
+              v-if="currentPlatform.flashpoint_id"
+              class="px-0 ml-1 mt-1"
+              size="small"
+              title="Flashpoint"
+            >
+              <v-avatar class="bg-surface" size="30" rounded="0">
+                <v-img src="/assets/scrappers/flashpoint.png" />
+              </v-avatar>
+            </v-chip>
+            <v-chip
+              v-if="currentPlatform.hltb_slug"
+              class="px-0 ml-1 mt-1"
+              size="small"
+              title="HLTB"
+            >
+              <v-avatar class="bg-surface" size="30" rounded="0">
+                <v-img src="/assets/scrappers/hltb.png" />
+              </v-avatar>
+            </v-chip>
           </v-col>
         </v-row>
         <v-card class="mt-4 bg-toplayer fill-width" elevation="0">

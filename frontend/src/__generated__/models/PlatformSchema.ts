@@ -11,6 +11,7 @@ export type PlatformSchema = {
     name: string;
     igdb_slug: (string | null);
     moby_slug: (string | null);
+    hltb_slug: (string | null);
     custom_name?: (string | null);
     igdb_id?: (number | null);
     sgdb_id?: (number | null);
@@ -20,6 +21,7 @@ export type PlatformSchema = {
     ra_id?: (number | null);
     hasheous_id?: (number | null);
     tgdb_id?: (number | null);
+    flashpoint_id?: (number | null);
     category?: (string | null);
     generation?: (number | null);
     family_name?: (string | null);
