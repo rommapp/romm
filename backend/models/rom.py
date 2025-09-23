@@ -247,6 +247,10 @@ class Rom(BaseModel):
         back_populates="roms",
     )
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._is_identifying = False
+
     @property
     def platform_slug(self) -> str:
         return self.platform.slug
@@ -368,6 +372,15 @@ class Rom(BaseModel):
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
                 )
         return self.ra_metadata
+
+    # Used only during scan process
+    @property
+    def is_identifying(self) -> bool:
+        return self._is_identifying or False
+
+    @is_identifying.setter
+    def is_identifying(self, value: bool) -> None:
+        self._is_identifying = value
 
     def __repr__(self) -> str:
         return self.fs_name

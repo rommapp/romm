@@ -57,9 +57,18 @@ socket.on(
 
 socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   scanningStore.set(true);
+
+  // Remove the ROM from the recent list and add it back to the top
+  romsStore.removeFromRecent(rom);
   romsStore.addToRecent(rom);
+
   if (romsStore.currentPlatform?.id === rom.platform_id) {
-    romsStore.add([rom]);
+    const existingRom = romsStore.allRoms.find((r) => r.id === rom.id);
+    if (existingRom) {
+      romsStore.update(rom);
+    } else {
+      romsStore.add([rom]);
+    }
   }
 
   let scannedPlatform = scanningPlatforms.value.find(
@@ -78,7 +87,15 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
     scannedPlatform = scanningPlatforms.value[0];
   }
 
-  scannedPlatform?.roms.push(rom);
+  // Check if ROM already exists in the store
+  const existingRom = scannedPlatform?.roms.find((r) => r.id === rom.id);
+  if (existingRom) {
+    scannedPlatform.roms = scannedPlatform.roms.map((r) =>
+      r.id === rom.id ? rom : r,
+    );
+  } else {
+    scannedPlatform?.roms.push(rom);
+  }
 });
 
 socket.on("scan:done", () => {
