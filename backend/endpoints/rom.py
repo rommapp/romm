@@ -61,7 +61,7 @@ from handler.metadata import (
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import RomFile
+from models.rom import Rom, RomFile
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
@@ -161,6 +161,7 @@ class CustomLimitOffsetParams(LimitOffsetParams):
 
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     char_index: dict[str, int]
+    rom_id_index: list[int]
     __params_type__ = CustomLimitOffsetParams
 
 
@@ -312,14 +313,20 @@ def get_roms(
         )
         char_index_dict = {char: index for (char, index) in char_index}
 
+    # Get all ROM IDs in order for the additional data
     with sync_session.begin() as session:
+        rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
+
         return paginate(
             session,
             query,
             transformer=lambda items: [
                 SimpleRomSchema.from_orm_with_request(i, request) for i in items
             ],
-            additional_data={"char_index": char_index_dict},
+            additional_data={
+                "char_index": char_index_dict,
+                "rom_id_index": rom_id_index,
+            },
         )
 
 
