@@ -730,25 +730,24 @@ async def update_rom(
 
             cleaned_data.update(
                 {
-                    "url_cover": "",
+                    "url_cover": f"http://local.internal/{path_cover_s}",  # Fake url_cover to avoid overwriting
                     "path_cover_s": path_cover_s,
                     "path_cover_l": path_cover_l,
                 }
             )
         else:
-            if data.get(
-                "url_cover", ""
-            ) != rom.url_cover or not fs_resource_handler.cover_exists(
+            url_cover = data.get("url_cover", rom.url_cover)
+            if url_cover != rom.url_cover or not fs_resource_handler.cover_exists(
                 rom, CoverSize.BIG
             ):
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     entity=rom,
                     overwrite=True,
-                    url_cover=str(data.get("url_cover") or ""),
+                    url_cover=str(url_cover),
                 )
                 cleaned_data.update(
                     {
-                        "url_cover": data.get("url_cover", rom.url_cover),
+                        "url_cover": url_cover,
                         "path_cover_s": path_cover_s,
                         "path_cover_l": path_cover_l,
                     }
