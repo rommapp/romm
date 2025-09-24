@@ -675,13 +675,20 @@ async def scan_rom(
             if field_value:
                 rom_attrs[field] = field_value
 
-    # Don't overwrite existing base fields on partial scans
-    if not newly_added and scan_type == ScanType.PARTIAL:
+    # Don't overwrite existing base fields on partial and unidentified scans
+    if not newly_added and (
+        scan_type == ScanType.PARTIAL or scan_type == ScanType.UNIDENTIFIED
+    ):
         rom_attrs.update(
             {
                 "name": rom.name or rom_attrs.get("name") or None,
                 "summary": rom.summary or rom_attrs.get("summary") or None,
-                "url_cover": rom.url_cover or rom_attrs.get("url_cover") or None,
+                # Don't overwrite existing manually uploaded cover image
+                "url_cover": (
+                    rom.url_cover
+                    if rom.path_cover_s
+                    else rom_attrs.get("url_cover") or None
+                ),
                 "url_manual": rom.url_manual or rom_attrs.get("url_manual") or None,
                 "url_screenshots": rom.url_screenshots
                 or rom_attrs.get("url_screenshots")
@@ -712,8 +719,6 @@ async def scan_rom(
             MetadataSource.SGDB in metadata_sources
             and newly_added
             or scan_type == ScanType.COMPLETE
-            or (scan_type == ScanType.PARTIAL and not rom.sgdb_id)
-            or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
         ):
             game_names = [
                 igdb_handler_rom.get("name", None),
