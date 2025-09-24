@@ -737,7 +737,7 @@ async def update_rom(
 
             cleaned_data.update(
                 {
-                    "url_cover": f"http://local.internal/{path_cover_s}",  # Fake url_cover to avoid overwriting
+                    "url_cover": "",
                     "path_cover_s": path_cover_s,
                     "path_cover_l": path_cover_l,
                 }
