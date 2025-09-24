@@ -259,8 +259,13 @@ async function updateRom({
   formData.append("name", rom.name || "");
   formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");
-  formData.append("url_cover", rom.url_cover || "");
-  if (rom.artwork) formData.append("artwork", rom.artwork);
+
+  // Don't set url_cover on manual artwork upload
+  if (rom.artwork) {
+    formData.append("artwork", rom.artwork);
+  } else {
+    formData.append("url_cover", rom.url_cover || "");
+  }
 
   return api.put(`/roms/${rom.id}`, formData, {
     params: {

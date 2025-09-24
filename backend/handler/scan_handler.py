@@ -377,7 +377,7 @@ async def scan_rom(
                 or (
                     scan_type == ScanType.PARTIAL
                     and not rom.hasheous_id
-                    and rom.slug in HASHEOUS_PLATFORM_LIST
+                    and rom.platform_slug in HASHEOUS_PLATFORM_LIST
                 )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
@@ -422,7 +422,7 @@ async def scan_rom(
                 or (
                     scan_type == ScanType.PARTIAL
                     and not rom.igdb_id
-                    and rom.slug in IGDB_PLATFORM_LIST
+                    and rom.platform_slug in IGDB_PLATFORM_LIST
                 )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
@@ -501,7 +501,7 @@ async def scan_rom(
                 or (
                     scan_type == ScanType.PARTIAL
                     and not rom.moby_id
-                    and rom.slug in MOBYGAMES_PLATFORM_LIST
+                    and rom.platform_slug in MOBYGAMES_PLATFORM_LIST
                 )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
@@ -522,7 +522,7 @@ async def scan_rom(
                 or (
                     scan_type == ScanType.PARTIAL
                     and not rom.ss_id
-                    and rom.slug in SCREENSAVER_PLATFORM_LIST
+                    and rom.platform_slug in SCREENSAVER_PLATFORM_LIST
                 )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
@@ -540,7 +540,7 @@ async def scan_rom(
             or (
                 scan_type == ScanType.PARTIAL
                 and not rom.launchbox_id
-                and rom.slug in LAUNCHBOX_PLATFORM_LIST
+                and rom.platform_slug in LAUNCHBOX_PLATFORM_LIST
             )
             or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
         ):
@@ -561,7 +561,7 @@ async def scan_rom(
                 or (
                     scan_type == ScanType.PARTIAL
                     and not rom.ra_id
-                    and rom.slug in RA_PLATFORM_LIST
+                    and rom.platform_slug in RA_PLATFORM_LIST
                 )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
@@ -590,7 +590,7 @@ async def scan_rom(
                 or (
                     scan_type == ScanType.PARTIAL
                     and not rom.hasheous_id
-                    and rom.slug in HASHEOUS_PLATFORM_LIST
+                    and rom.platform_slug in HASHEOUS_PLATFORM_LIST
                 )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
