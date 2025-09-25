@@ -237,6 +237,11 @@ onBeforeUnmount(() => {
             emit('hover', { isHovering: false, id: rom.id });
           }
         "
+        @blur="
+          () => {
+            emit('hover', { isHovering: false, id: rom.id });
+          }
+        "
       >
         <v-card-text class="pa-0">
           <v-hover v-slot="{ isHovering, props: imgProps }" open-delay="800">

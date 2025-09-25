@@ -63,6 +63,7 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
             :platform="platform"
             :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
+            @focus="onHover"
           />
         </v-col>
       </v-row>

@@ -160,7 +160,8 @@ onMounted(() => {
           <a
             :href="`https://retroachievements.org/achievement/${achievement.ra_id}`"
             target="_blank"
-            style="height: 100%; width: 100%"
+            class="h-100 w-100"
+            :aria-label="achievement.badge_id || 'Achievement badge'"
           >
             <v-img
               :src="
@@ -168,6 +169,7 @@ onMounted(() => {
                   ? (achievement.badge_path ?? '')
                   : (achievement.badge_path_lock ?? '')
               "
+              :alt="achievement.badge_id || 'Achievement badge'"
             />
           </a>
         </v-avatar>

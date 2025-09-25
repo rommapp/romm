@@ -268,6 +268,7 @@ onBeforeRouteUpdate(async (to, from) => {
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"
               @hover="onHover"
+              @focus="onHover"
               @openedmenu="onOpenedMenu"
               @closedmenu="onClosedMenu"
             />

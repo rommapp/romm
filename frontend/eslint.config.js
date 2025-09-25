@@ -1,5 +1,6 @@
 import eslint from "@eslint/js";
 import vue from "eslint-plugin-vue";
+import vuea11y from "eslint-plugin-vuejs-accessibility";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
@@ -7,6 +8,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   ...vue.configs["flat/recommended"],
+  ...vuea11y.configs["flat/recommended"],
   {
     ignores: [
       "logs",

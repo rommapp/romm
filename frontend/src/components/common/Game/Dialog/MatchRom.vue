@@ -536,7 +536,6 @@ onBeforeUnmount(() => {
           <v-text-field
             id="search-text-field"
             v-model="searchText"
-            autofocus
             class="bg-toplayer"
             :disabled="searching"
             :label="t('common.search')"
