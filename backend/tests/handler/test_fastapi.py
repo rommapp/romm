@@ -42,7 +42,6 @@ async def test_scan_rom():
         igdb_id=3340,
         fs_size_bytes=1024,
         tags=[],
-        multi=False,
     )
 
     async with initialize_context():
@@ -52,7 +51,6 @@ async def test_scan_rom():
             rom=rom,
             fs_rom={
                 "fs_name": "Paper Mario (USA).z64",
-                "multi": False,
                 "files": [
                     RomFile(
                         file_name="Paper Mario (USA).z64",
@@ -76,4 +74,5 @@ async def test_scan_rom():
     assert rom.igdb_id == 3340
     assert rom.fs_size_bytes == 1024
     assert rom.tags == []
-    assert not rom.multi
+    assert rom.has_simple_single_file
+    assert not rom.has_multiple_files

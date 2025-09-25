@@ -200,7 +200,6 @@ async def _identify_rom(
                 tags=fs_other_tags,
                 platform_id=platform.id,
                 name=fs_rom["fs_name"],
-                multi=fs_rom["multi"],
                 url_cover="",
                 url_manual="",
                 url_screenshots=[],

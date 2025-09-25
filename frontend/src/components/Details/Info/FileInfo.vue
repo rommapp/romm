@@ -46,7 +46,11 @@ watch(
 <template>
   <v-row no-gutters>
     <v-col>
-      <v-row v-if="!rom.multi" class="align-center my-3" no-gutters>
+      <v-row
+        v-if="rom.has_simple_single_file"
+        class="align-center my-3"
+        no-gutters
+      >
         <v-col cols="3" xl="2" class="mr-2">
           <span>{{ t("rom.file") }}</span>
         </v-col>
@@ -58,7 +62,7 @@ watch(
           /><span class="text-body-1">{{ rom.fs_name }}</span>
         </v-col>
       </v-row>
-      <v-row v-if="rom.multi" class="align-center my-3" no-gutters>
+      <v-row v-else class="align-center my-3" no-gutters>
         <v-col cols="3" xl="2" class="mr-2">
           <span>{{ t("rom.files") }}</span>
         </v-col>

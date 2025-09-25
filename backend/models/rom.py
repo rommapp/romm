@@ -100,6 +100,10 @@ class RomFile(BaseModel):
 
         return fs_rom_handler.parse_file_extension(self.file_name)
 
+    @cached_property
+    def is_nested(self) -> bool:
+        return self.file_path.count("/") > 1
+
     def file_name_for_download(self, rom: Rom, hidden_folder: bool = False) -> str:
         # This needs a trailing slash in the path to work!
         return self.full_path.replace(
@@ -286,11 +290,22 @@ class Rom(BaseModel):
 
         return []
 
+    # TODO: Remove this after 4.3 release
     @cached_property
     def multi(self) -> bool:
-        return len(self.files) > 1 or (
-            len(self.files) > 0 and len(self.files[0].full_path.split("/")) > 3
-        )
+        return self.has_nested_single_file or self.has_multiple_files
+
+    @cached_property
+    def has_simple_single_file(self) -> bool:
+        return len(self.files) == 1 and not self.files[0].is_nested
+
+    @cached_property
+    def has_nested_single_file(self) -> bool:
+        return len(self.files) == 1 and self.files[0].is_nested
+
+    @cached_property
+    def has_multiple_files(self) -> bool:
+        return len(self.files) > 1
 
     @property
     def fs_resources_path(self) -> str:

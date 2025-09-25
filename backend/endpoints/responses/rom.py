@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import NotRequired, TypedDict, get_type_hints
+from typing import Annotated, NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
-from pydantic import computed_field, field_validator
+from pydantic import Field, computed_field, field_validator
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from handler.metadata.flashpoint_handler import FlashpointMetadata
@@ -255,7 +255,11 @@ class RomSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
 
-    multi: bool
+    # TODO: Remove this after 4.3 release
+    multi: Annotated[int, Field(deprecated="Replaced by has_multiple_files")]
+    has_simple_single_file: bool
+    has_nested_single_file: bool
+    has_multiple_files: bool
     files: list[RomFileSchema]
     full_path: str
     created_at: datetime

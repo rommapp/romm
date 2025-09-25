@@ -272,7 +272,11 @@ function closeDialog() {
             <v-text-field
               v-model="rom.fs_name"
               :rules="[(value: string) => !!value || t('common.required')]"
-              :label="rom.multi ? t('rom.folder-name') : t('rom.filename')"
+              :label="
+                rom.has_multiple_files
+                  ? t('rom.folder-name')
+                  : t('rom.filename')
+              "
               variant="outlined"
               class="my-2"
               @keyup.enter="updateRom"
