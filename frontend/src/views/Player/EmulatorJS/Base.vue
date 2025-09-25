@@ -257,7 +257,7 @@ onBeforeUnmount(async () => {
         <v-col>
           <!-- disc selector -->
           <v-select
-            v-if="rom.multi"
+            v-if="rom.has_multiple_files"
             v-model="selectedDisc"
             class="mt-4"
             hide-details

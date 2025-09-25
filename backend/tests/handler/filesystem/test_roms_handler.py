@@ -48,14 +48,24 @@ class TestFSRomsHandler:
 
     @pytest.fixture
     def rom_multi(self, platform: Platform):
-        rom = Rom(
+        return Rom(
             id=2,
             fs_name="Super Mario 64 (J) (Rev A)",
             fs_path="n64/roms",
             platform=platform,
+            files=[
+                RomFile(
+                    id=1,
+                    file_name="Super Mario 64 (J) (Rev A) [Part 1].z64",
+                    file_path="n64/roms",
+                ),
+                RomFile(
+                    id=2,
+                    file_name="Super Mario 64 (J) (Rev A) [Part 2].z64",
+                    file_path="n64/roms",
+                ),
+            ],
         )
-        rom.multi = True
-        return rom
 
     def test_init_uses_library_base_path(self, handler: FSRomsHandler):
         """Test that FSRomsHandler initializes with LIBRARY_BASE_PATH"""
@@ -154,20 +164,20 @@ class TestFSRomsHandler:
         assert languages == []
         assert other_tags == []
 
-    def test_exclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
-        """Test _exclude_multi_roms filters out excluded multi-file ROMs"""
+    def testexclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
+        """Test exclude_multi_roms filters out excluded multi-file ROMs"""
         roms = ["Game1", "excluded_multi", "Game2", "Game3"]
 
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
 
-            result = handler._exclude_multi_roms(roms)
+            result = handler.exclude_multi_roms(roms)
             expected = ["Game1", "Game2", "Game3"]
 
             assert result == expected
 
-    def test_exclude_multi_roms_no_exclusions(self, handler: FSRomsHandler):
-        """Test _exclude_multi_roms with no exclusions"""
+    def testexclude_multi_roms_no_exclusions(self, handler: FSRomsHandler):
+        """Test exclude_multi_roms with no exclusions"""
         roms = ["Game1", "Game2", "Game3"]
         config = Config(
             EXCLUDED_PLATFORMS=[],
@@ -185,7 +195,7 @@ class TestFSRomsHandler:
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
 
-            result = handler._exclude_multi_roms(roms)
+            result = handler.exclude_multi_roms(roms)
             assert result == roms
 
     def test_build_rom_file_single_file(self, handler: FSRomsHandler):
@@ -254,8 +264,8 @@ class TestFSRomsHandler:
             assert len(result) > 0
 
             # Check that we have both single and multi ROMs
-            single_roms = [r for r in result if not r["multi"]]
-            multi_roms = [r for r in result if r["multi"]]
+            single_roms = [r for r in result if not r["flat"]]
+            multi_roms = [r for r in result if r["nested"]]
 
             assert len(single_roms) > 0
             assert len(multi_roms) > 0
@@ -477,7 +487,7 @@ class TestFSRomsHandler:
             assert "Test Multi Rom [USA]" in directories
 
             # After exclusion, normal directories should remain
-            filtered_dirs = handler._exclude_multi_roms(directories)
+            filtered_dirs = handler.exclude_multi_roms(directories)
             assert "Super Mario 64 (J) (Rev A)" in filtered_dirs
             assert "Test Multi Rom [USA]" in filtered_dirs
 
