@@ -611,7 +611,7 @@ onUnmounted(() => {
                   }"
                   tabindex="0"
                   @click="openDescription()"
-                  @keydown.enter.prevent="openDescription()"
+                  @keydown.enter="openDescription()"
                 >
                   {{ rom.summary }}
                 </div>

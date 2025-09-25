@@ -53,7 +53,6 @@ watch(
     v-model="searchTerm"
     density="default"
     clearable
-    autofocus
     hide-details
     rounded="0"
     :label="t('common.search')"

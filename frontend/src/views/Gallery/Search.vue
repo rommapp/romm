@@ -182,6 +182,7 @@ onUnmounted(() => {
             @touchstart="onGameTouchStart"
             @touchend="onGameTouchEnd"
             @hover="onHover"
+            @focus="onHover"
             @openedmenu="onOpenedMenu"
             @closedmenu="onClosedMenu"
           />

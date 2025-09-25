@@ -85,6 +85,7 @@ function onClosedMenu() {
             show-action-bar
             :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
+            @focus="onHover"
             @openedmenu="onOpenedMenu"
             @closedmenu="onClosedMenu"
           />

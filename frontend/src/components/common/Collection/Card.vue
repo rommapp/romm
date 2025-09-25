@@ -199,6 +199,11 @@ onBeforeUnmount(() => {
             emit('hover', { isHovering: false, id: collection.id });
           }
         "
+        @blur="
+          () => {
+            emit('hover', { isHovering: false, id: collection.id });
+          }
+        "
       >
         <v-row v-if="showTitle" class="pa-1 justify-center bg-surface">
           <div

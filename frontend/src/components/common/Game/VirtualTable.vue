@@ -4,7 +4,6 @@ import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
-import FavBtn from "@/components/common/Game/FavBtn.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
@@ -282,7 +281,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
             :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
             class="mr-1 px-1 item-chip"
             chip
-            chipSize="x-small"
+            chip-size="x-small"
           />
         </template>
       </v-list-item>
