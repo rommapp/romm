@@ -20,8 +20,8 @@ export async function saveState({
   screenshotFile,
 }: {
   rom: DetailedRom;
-  stateFile: Uint8Array;
-  screenshotFile?: Uint8Array;
+  stateFile: ArrayBuffer;
+  screenshotFile?: ArrayBuffer;
 }): Promise<StateSchema | null> {
   const filename = buildStateName(rom);
   try {
@@ -62,8 +62,8 @@ export async function saveSave({
 }: {
   rom: DetailedRom;
   save: SaveSchema | null;
-  saveFile: Uint8Array;
-  screenshotFile?: Uint8Array;
+  saveFile: ArrayBuffer;
+  screenshotFile?: ArrayBuffer;
 }): Promise<SaveSchema | null> {
   if (save) {
     try {

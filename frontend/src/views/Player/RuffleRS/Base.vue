@@ -156,12 +156,15 @@ onMounted(async () => {
               <v-col>
                 <v-card-title class="text-subtitle-1 pa-0 text-uppercase">
                   <v-icon class="mr-2"> mdi-palette </v-icon>
-                  {{ t("play.background-color") }}
+                  <label for="background-color-input">{{
+                    t("play.select-background-color")
+                  }}</label>
                 </v-card-title>
               </v-col>
               <v-col class="d-flex justify-end">
                 <input
                   v-model="backgroundColor"
+                  id="background-color-input"
                   type="color"
                   class="h-100 w-50 text-right"
                   :title="t('play.select-background-color')"

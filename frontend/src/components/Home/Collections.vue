@@ -85,6 +85,7 @@ watch(documentY, () => {
             title-on-hover
             :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
+            @focus="onHover"
           />
         </v-col>
       </v-row>

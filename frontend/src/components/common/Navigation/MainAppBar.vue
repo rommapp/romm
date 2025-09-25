@@ -75,7 +75,7 @@ function collapse() {
   >
     <template #prepend>
       <v-row no-gutters class="my-2 justify-center">
-        <HomeBtn aria-label="Home" tabindex="1" />
+        <HomeBtn aria-label="Home" />
       </v-row>
     </template>
 
@@ -84,7 +84,6 @@ function collapse() {
       <v-btn
         id="collapseBtn"
         aria-label="Collapse main navbar"
-        tabindex="2"
         size="small"
         density="comfortable"
         variant="flat"
@@ -101,41 +100,11 @@ function collapse() {
         </v-icon>
       </v-btn>
     </v-row>
-    <SearchBtn
-      :with-tag="!mainBarCollapsed"
-      rounded
-      class="mt-4"
-      block
-      tabindex="3"
-    />
-    <PlatformsBtn
-      :with-tag="!mainBarCollapsed"
-      rounded
-      class="mt-2"
-      block
-      tabindex="4"
-    />
-    <CollectionsBtn
-      :with-tag="!mainBarCollapsed"
-      rounded
-      class="mt-2"
-      block
-      tabindex="5"
-    />
-    <ScanBtn
-      :with-tag="!mainBarCollapsed"
-      rounded
-      class="mt-2"
-      block
-      tabindex="7"
-    />
-    <ConsoleModeBtn
-      :with-tag="!mainBarCollapsed"
-      rounded
-      class="mt-2"
-      block
-      tabindex="8"
-    />
+    <SearchBtn :with-tag="!mainBarCollapsed" rounded class="mt-4" block />
+    <PlatformsBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
+    <CollectionsBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
+    <ScanBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
+    <ConsoleModeBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
 
     <template #append>
       <UploadBtn
@@ -143,10 +112,9 @@ function collapse() {
         rounded
         class="mt-2 mb-6"
         block
-        tabindex="9"
       />
       <v-row no-gutters class="my-2 justify-center">
-        <UserBtn tabindex="10" aria-label="Settings menu" />
+        <UserBtn aria-label="Settings menu" />
       </v-row>
     </template>
   </v-navigation-drawer>

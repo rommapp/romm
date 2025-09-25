@@ -19,6 +19,7 @@ const romInfo = ref([
   { label: "SHA-1", value: props.rom.sha1_hash },
   { label: "MD5", value: props.rom.md5_hash },
   { label: "CRC", value: props.rom.crc_hash },
+  { label: "Revision", value: props.rom.revision },
 ]);
 
 async function toggleMainSibling() {
