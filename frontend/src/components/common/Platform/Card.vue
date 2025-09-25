@@ -61,6 +61,11 @@ onBeforeUnmount(() => {
             emit('hover', { isHovering: false, id: platform.id });
           }
         "
+        @blur="
+          () => {
+            emit('hover', { isHovering: false, id: platform.id });
+          }
+        "
       >
         <v-card-text>
           <v-row class="pa-1 justify-center align-center bg-background">

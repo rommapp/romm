@@ -162,13 +162,13 @@ function closeDialog() {
                     "
                   >
                     <v-fade-transition>
-                      <div
+                      <v-btn
                         v-if="isHovering"
-                        class="d-flex translucent cursor-pointer h-100 align-center justify-center text-h4"
+                        class="d-flex translucent cursor-pointer h-100 w-100 align-center justify-center text-h4"
                         @click="triggerFileInput"
                       >
                         <v-icon>mdi-pencil</v-icon>
-                      </div>
+                      </v-btn>
                     </v-fade-transition>
                     <v-file-input
                       id="file-input"
