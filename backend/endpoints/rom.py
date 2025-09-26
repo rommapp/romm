@@ -378,7 +378,6 @@ async def head_rom_content(
     if file_ids:
         file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
         files = [f for f in rom.files if f.id in file_id_values]
-
     files.sort(key=lambda x: x.file_name)
 
     # Serve the file directly in development mode for emulatorjs

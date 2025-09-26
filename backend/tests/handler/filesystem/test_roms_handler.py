@@ -164,7 +164,7 @@ class TestFSRomsHandler:
         assert languages == []
         assert other_tags == []
 
-    def testexclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
+    def test_exclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms filters out excluded multi-file ROMs"""
         roms = ["Game1", "excluded_multi", "Game2", "Game3"]
 
@@ -176,7 +176,7 @@ class TestFSRomsHandler:
 
             assert result == expected
 
-    def testexclude_multi_roms_no_exclusions(self, handler: FSRomsHandler):
+    def test_exclude_multi_roms_no_exclusions(self, handler: FSRomsHandler):
         """Test exclude_multi_roms with no exclusions"""
         roms = ["Game1", "Game2", "Game3"]
         config = Config(

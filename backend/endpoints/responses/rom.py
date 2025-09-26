@@ -256,7 +256,7 @@ class RomSchema(BaseModel):
     sha1_hash: str | None
 
     # TODO: Remove this after 4.3 release
-    multi: Annotated[int, Field(deprecated="Replaced by has_multiple_files")]
+    multi: Annotated[bool, Field(deprecated="Replaced by has_multiple_files")]
     has_simple_single_file: bool
     has_nested_single_file: bool
     has_multiple_files: bool
