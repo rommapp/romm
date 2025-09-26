@@ -295,7 +295,6 @@ async def scan_rom(
         "platform_id": platform.id,
         "name": fs_rom["fs_name"],
         "fs_name": fs_rom["fs_name"],
-        "multi": fs_rom["multi"],
         "crc_hash": fs_rom["crc_hash"],
         "md5_hash": fs_rom["md5_hash"],
         "sha1_hash": fs_rom["sha1_hash"],
@@ -741,7 +740,8 @@ async def scan_rom(
         f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
         extra=LOGGER_MODULE_NAME,
     )
-    if rom.multi:
+
+    if rom.has_nested_single_file or rom.has_multiple_files:
         for file in fs_rom["files"]:
             log.info(
                 f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",

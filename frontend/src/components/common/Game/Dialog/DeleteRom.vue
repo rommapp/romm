@@ -52,7 +52,7 @@ async function deleteRoms() {
       });
       if (excludeOnDelete.value) {
         for (const rom of roms.value) {
-          if (!rom.multi) {
+          if (rom.has_simple_single_file) {
             configApi.addExclusion({
               exclusionValue: rom.fs_name,
               exclusionType: "EXCLUDED_SINGLE_FILES",
