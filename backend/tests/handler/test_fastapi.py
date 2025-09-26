@@ -42,7 +42,6 @@ async def test_scan_rom():
         igdb_id=3340,
         fs_size_bytes=1024,
         tags=[],
-        multi=False,
     )
 
     async with initialize_context():
@@ -52,7 +51,8 @@ async def test_scan_rom():
             rom=rom,
             fs_rom={
                 "fs_name": "Paper Mario (USA).z64",
-                "multi": False,
+                "flat": True,
+                "nested": False,
                 "files": [
                     RomFile(
                         file_name="Paper Mario (USA).z64",
@@ -73,7 +73,7 @@ async def test_scan_rom():
     assert type(rom) is Rom
     assert rom.fs_name == "Paper Mario (USA).z64"
     assert rom.name == "Paper Mario"
+    assert rom.fs_path == "n64/Paper Mario (USA)"
     assert rom.igdb_id == 3340
     assert rom.fs_size_bytes == 1024
     assert rom.tags == []
-    assert not rom.multi

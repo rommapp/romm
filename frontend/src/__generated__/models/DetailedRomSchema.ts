@@ -72,7 +72,13 @@ export type DetailedRomSchema = {
     crc_hash: (string | null);
     md5_hash: (string | null);
     sha1_hash: (string | null);
+    /**
+     * @deprecated
+     */
     multi: boolean;
+    has_simple_single_file: boolean;
+    has_nested_single_file: boolean;
+    has_multiple_files: boolean;
     files: Array<RomFileSchema>;
     full_path: string;
     created_at: string;
