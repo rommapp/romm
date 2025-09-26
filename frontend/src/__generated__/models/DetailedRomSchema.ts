@@ -75,7 +75,7 @@ export type DetailedRomSchema = {
     /**
      * @deprecated
      */
-    multi: number;
+    multi: boolean;
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;
