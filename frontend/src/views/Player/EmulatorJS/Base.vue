@@ -722,27 +722,6 @@ onBeforeUnmount(async () => {
         </v-col>
       </v-row>
 
-      <v-row class="align-center my-4" no-gutters>
-        <v-btn
-          :class="{ 'mt-2': smAndDown, 'pr-1': !smAndDown }"
-          block
-          variant="flat"
-          prepend-icon="mdi-exit-to-app"
-          @click="onlyQuit"
-        >
-          {{ t("play.quit") }}
-        </v-btn>
-        <v-btn
-          :class="{ 'mt-2': smAndDown, 'pl-1': !smAndDown }"
-          block
-          variant="flat"
-          prepend-icon="mdi-content-save-move"
-          @click="saveAndQuit"
-        >
-          {{ t("play.save-and-quit") }}
-        </v-btn>
-      </v-row>
-
       <CacheDialog />
     </v-col>
 
