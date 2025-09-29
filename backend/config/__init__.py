@@ -119,6 +119,7 @@ DISABLE_DOWNLOAD_ENDPOINT_AUTH = str_to_bool(
     os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false")
 )
 DISABLE_USERPASS_LOGIN = str_to_bool(os.environ.get("DISABLE_USERPASS_LOGIN", "false"))
+DISABLE_SETUP_WIZARD = str_to_bool(os.environ.get("DISABLE_SETUP_WIZARD", "false"))
 
 # OIDC
 OIDC_ENABLED: Final = str_to_bool(os.environ.get("OIDC_ENABLED", "false"))

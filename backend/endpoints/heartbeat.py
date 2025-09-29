@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from config import (
     DISABLE_EMULATOR_JS,
     DISABLE_RUFFLE_RS,
+    DISABLE_SETUP_WIZARD,
     DISABLE_USERPASS_LOGIN,
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     ENABLE_SCHEDULED_RESCAN,
@@ -64,7 +65,8 @@ async def heartbeat() -> HeartbeatResponse:
     return {
         "SYSTEM": {
             "VERSION": get_version(),
-            "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0,
+            "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0
+            and not DISABLE_SETUP_WIZARD,
         },
         "METADATA_SOURCES": {
             "ANY_SOURCE_ENABLED": (
