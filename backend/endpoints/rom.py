@@ -572,6 +572,92 @@ async def get_rom_content(
 
 
 @protected_route(
+    router.post,
+    "/download",
+    [Scope.ROMS_READ],
+)
+async def download_roms(
+    request: Request,
+    roms: Annotated[
+        list[int],
+        Body(
+            description="List of ROM IDs to download as a zip file.",
+            embed=True,
+        ),
+    ],
+    zip_name: Annotated[
+        str | None,
+        Body(
+            description="Name for the zip file (optional).",
+            embed=True,
+        ),
+    ] = None,
+) -> ZipResponse:
+    """Download a list of roms as a zip file."""
+
+    current_username = (
+        request.user.username if request.user.is_authenticated else "unknown"
+    )
+
+    if not roms:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No ROM IDs provided",
+        )
+
+    rom_objects = db_rom_handler.get_roms_by_ids(roms)
+
+    if not rom_objects:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No ROMs found with the provided IDs",
+        )
+
+    # Check if all requested ROMs were found
+    found_ids = {rom.id for rom in rom_objects}
+    missing_ids = set(roms) - found_ids
+    if missing_ids:
+        log.warning(
+            f"User {hl(current_username, color=BLUE)} requested ROMs with IDs {missing_ids} that were not found"
+        )
+
+    log.info(
+        f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
+    )
+
+    # Maintain folder structure when creating zip content lines
+    async def create_zip_content(
+        f: RomFile, rom: Rom, base_path: str = LIBRARY_BASE_PATH
+    ):
+        file_size = await fs_rom_handler.get_file_size(f.full_path)
+        filename = f.file_name_for_download(rom)
+
+        return ZipContentLine(
+            crc32=f.crc_hash,
+            size_bytes=file_size,
+            encoded_location=quote(f"{base_path}/{f.full_path}"),
+            filename=filename,
+        )
+
+    content_lines = []
+    for rom in rom_objects:
+        rom_files = sorted(rom.files, key=lambda x: x.file_name)
+        for file in rom_files:
+            content_lines.append(await create_zip_content(file, rom, "/library"))
+
+    # Generate zip filename
+    if zip_name:
+        file_name = sanitize_filename(zip_name)
+    else:
+        file_name = f"ROMs ({len(rom_objects)})"
+
+    return ZipResponse(
+        content_lines=content_lines,
+        filename=f"{quote(file_name)}.zip",
+    )
+
+
+@protected_route(
     router.put,
     "/{id}",
     [Scope.ROMS_WRITE],
