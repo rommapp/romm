@@ -15,7 +15,6 @@ import { getDownloadPath, getStatusKeyForText } from "@/utils";
 export const romApi = api;
 
 const DOWNLOAD_CLEANUP_DELAY = 100;
-const DOWNLOAD_INTERVAL_DELAY = 300;
 
 async function uploadRoms({
   platformId,
@@ -223,15 +222,44 @@ async function downloadRom({
   });
 }
 
-async function bulkDownloadRoms({ roms }: { roms: SimpleRom[] }) {
+async function bulkDownloadRoms({
+  roms,
+  zipName,
+}: {
+  roms: SimpleRom[];
+  zipName?: string;
+}) {
   if (roms.length === 0) return;
 
-  for (let i = 0; i < roms.length; i++) {
-    await downloadRom({ rom: roms[i] });
-    await new Promise((resolve) =>
-      setTimeout(resolve, DOWNLOAD_INTERVAL_DELAY),
-    );
-  }
+  // Use the new multi-download endpoint for better performance
+  const romIds = roms.map((rom) => rom.id);
+
+  const response = await api.post(
+    "/roms/download",
+    {
+      roms: romIds,
+      zip_name: zipName,
+    },
+    {
+      responseType: "blob",
+    },
+  );
+
+  // Create and trigger download
+  const blob = new Blob([response.data], { type: "application/zip" });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = zipName || `ROMs (${roms.length}).zip`;
+  a.style.display = "none";
+
+  document.body.appendChild(a);
+  a.click();
+
+  setTimeout(() => {
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }, DOWNLOAD_CLEANUP_DELAY);
 }
 
 export type UpdateRom = SimpleRom & {
