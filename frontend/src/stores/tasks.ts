@@ -8,7 +8,7 @@ export default defineStore("tasks", {
     watcherTasks: [] as TaskInfo[],
     scheduledTasks: [] as TaskInfo[],
     manualTasks: [] as TaskInfo[],
-    runningTasks: [] as TaskStatusResponse[],
+    activeTasks: [] as TaskStatusResponse[],
   }),
 
   actions: {
@@ -37,14 +37,14 @@ export default defineStore("tasks", {
         };
       }
     },
-    async fetchRunningTasks(): Promise<TaskStatusResponse[]> {
+    async fetchActiveTasks(): Promise<TaskStatusResponse[]> {
       try {
-        const response = await tasksApi.getRunningTasks();
-        this.runningTasks = response.data;
-        return this.runningTasks;
+        const response = await tasksApi.getActiveTasks();
+        this.activeTasks = response.data;
+        return this.activeTasks;
       } catch (error) {
-        console.error("Error fetching running tasks: ", error);
-        this.runningTasks = [];
+        console.error("Error fetching active tasks: ", error);
+        this.activeTasks = [];
         return [];
       }
     },
