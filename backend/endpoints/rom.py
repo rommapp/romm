@@ -411,7 +411,7 @@ async def download_roms(
                     crc32=None,
                     size_bytes=file.file_size_bytes,
                     encoded_location=quote(f"/library/{file.full_path}"),
-                    filename=file.file_name_for_download(rom),
+                    filename=file.full_path,
                 )
             )
 
