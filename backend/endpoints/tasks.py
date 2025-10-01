@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, Request
 from rq import Worker
 from rq.job import Job
+from rq.registry import FailedJobRegistry, FinishedJobRegistry
 
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
@@ -93,17 +94,18 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
     return grouped_tasks
 
 
-@protected_route(router.get, "/active", [Scope.TASKS_RUN])
-async def get_active_tasks(request: Request) -> list[TaskStatusResponse]:
-    """Get all currently active tasks.
+@protected_route(router.get, "/status", [Scope.TASKS_RUN])
+async def get_task_status(request: Request) -> list[TaskStatusResponse]:
+    """Get all task statuses including active, queued, completed, and failed tasks.
 
     Args:
         request (Request): FastAPI Request object
     Returns:
-        list[TaskStatusResponse]: List of currently active tasks
+        list[TaskStatusResponse]: List of all tasks with their current status
     """
-    active_tasks = []
+    all_tasks = []
 
+    # Get currently running jobs from workers
     workers = Worker.all(connection=redis_client)
     for worker in workers:
         current_job = worker.get_current_job()
@@ -125,7 +127,7 @@ async def get_active_tasks(request: Request) -> list[TaskStatusResponse]:
                 current_job.ended_at.isoformat() if current_job.ended_at else None
             )
 
-            active_tasks.append(
+            all_tasks.append(
                 TaskStatusResponse(
                     task_name=str(task_name),
                     task_id=current_job.get_id(),
@@ -136,7 +138,7 @@ async def get_active_tasks(request: Request) -> list[TaskStatusResponse]:
                 )
             )
 
-    # Get all jobs from the queue
+    # Get all jobs from the queues (including completed ones)
     low_prio_jobs = low_prio_queue.get_jobs()
     default_prio_jobs = default_queue.get_jobs()
     high_prio_jobs = high_prio_queue.get_jobs()
@@ -153,7 +155,7 @@ async def get_active_tasks(request: Request) -> list[TaskStatusResponse]:
             job.meta.get("task_name") or job.func_name if job.meta else job.func_name
         )
 
-        active_tasks.append(
+        all_tasks.append(
             TaskStatusResponse(
                 task_name=str(task_name),
                 task_id=job.get_id(),
@@ -164,7 +166,72 @@ async def get_active_tasks(request: Request) -> list[TaskStatusResponse]:
             )
         )
 
-    return active_tasks
+    # Get finished jobs from all queues
+    finished_registries = [
+        FinishedJobRegistry(queue=low_prio_queue),
+        FinishedJobRegistry(queue=default_queue),
+        FinishedJobRegistry(queue=high_prio_queue),
+    ]
+
+    failed_registries = [
+        FailedJobRegistry(queue=low_prio_queue),
+        FailedJobRegistry(queue=default_queue),
+        FailedJobRegistry(queue=high_prio_queue),
+    ]
+
+    # Process finished jobs
+    for registry in finished_registries:
+        for job_id in registry.get_job_ids():
+            job = Job.fetch(job_id, connection=redis_client)
+            task_name = (
+                job.meta.get("task_name") or job.func_name
+                if job.meta
+                else job.func_name
+            )
+
+            # Convert datetime objects to ISO format strings
+            queued_at = job.created_at.isoformat() if job.created_at else None
+            started_at = job.started_at.isoformat() if job.started_at else None
+            ended_at = job.ended_at.isoformat() if job.ended_at else None
+
+            all_tasks.append(
+                TaskStatusResponse(
+                    task_name=str(task_name),
+                    task_id=job_id,
+                    status=job.get_status(),
+                    queued_at=queued_at or "",
+                    started_at=started_at,
+                    ended_at=ended_at,
+                )
+            )
+
+    # Process failed jobs
+    for registry in failed_registries:
+        for job_id in registry.get_job_ids():
+            job = Job.fetch(job_id, connection=redis_client)
+            task_name = (
+                job.meta.get("task_name") or job.func_name
+                if job.meta
+                else job.func_name
+            )
+
+            # Convert datetime objects to ISO format strings
+            queued_at = job.created_at.isoformat() if job.created_at else None
+            started_at = job.started_at.isoformat() if job.started_at else None
+            ended_at = job.ended_at.isoformat() if job.ended_at else None
+
+            all_tasks.append(
+                TaskStatusResponse(
+                    task_name=str(task_name),
+                    task_id=job_id,
+                    status=job.get_status(),
+                    queued_at=queued_at or "",
+                    started_at=started_at,
+                    ended_at=ended_at,
+                )
+            )
+
+    return all_tasks
 
 
 @protected_route(router.get, "/{task_id}", [Scope.TASKS_RUN])

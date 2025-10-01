@@ -27,8 +27,8 @@ async function runTask(
   return api.post(`/tasks/run/${taskName}`);
 }
 
-async function getActiveTasks(): Promise<{ data: TaskStatusResponse[] }> {
-  return api.get("/tasks/active");
+async function getTaskStatus(): Promise<{ data: TaskStatusResponse[] }> {
+  return api.get("/tasks/status");
 }
 
 export default {
@@ -36,5 +36,5 @@ export default {
   getTaskById,
   runAllTasks,
   runTask,
-  getActiveTasks,
+  getTaskStatus,
 };
