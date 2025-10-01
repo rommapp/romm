@@ -8,7 +8,7 @@ import storeTasks from "@/stores/tasks";
 import { convertCronExperssion } from "@/utils";
 
 const tasksStore = storeTasks();
-const { watcherTasks, scheduledTasks, manualTasks, activeTasks } =
+const { watcherTasks, scheduledTasks, manualTasks, taskStatuses } =
   storeToRefs(tasksStore);
 const isLoadingRunningTasks = ref(false);
 
@@ -42,24 +42,24 @@ const getManualTaskIcon = (taskName: string) => {
   return iconMap[taskName] || "mdi-play";
 };
 
-// Fetch running tasks
-const fetchActiveTasks = async () => {
+// Fetch task status
+const fetchTaskStatus = async () => {
   isLoadingRunningTasks.value = true;
   try {
-    await tasksStore.fetchActiveTasks();
+    await tasksStore.fetchTaskStatus();
   } catch (error) {
-    console.error("Error fetching running tasks:", error);
+    console.error("Error fetching task status:", error);
   } finally {
     isLoadingRunningTasks.value = false;
   }
 };
 
-// Auto-refresh running tasks every 5 seconds
+// Auto-refresh task status every 5 seconds
 let refreshInterval: NodeJS.Timeout | null = null;
 
 onMounted(() => {
-  fetchActiveTasks();
-  refreshInterval = setInterval(fetchActiveTasks, 5000);
+  fetchTaskStatus();
+  refreshInterval = setInterval(fetchTaskStatus, 5000);
 });
 
 // Cleanup interval on unmount
@@ -85,7 +85,7 @@ onUnmounted(() => {
       <v-divider class="border-opacity-25 ma-1" />
       <v-row no-gutters class="align-center py-1">
         <v-col
-          v-if="activeTasks.length === 0 && !isLoadingRunningTasks"
+          v-if="taskStatuses.length === 0 && !isLoadingRunningTasks"
           cols="12"
         >
           <v-card elevation="0" class="bg-background ma-3">
@@ -111,7 +111,7 @@ onUnmounted(() => {
         </v-col>
         <v-col
           v-else
-          v-for="task in activeTasks"
+          v-for="task in taskStatuses"
           :key="task.task_id"
           cols="12"
           md="6"
