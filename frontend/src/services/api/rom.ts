@@ -229,25 +229,27 @@ async function bulkDownloadRoms({
   roms: SimpleRom[];
   filename?: string;
 }) {
-  if (roms.length === 0) return;
+  return new Promise<void>((resolve) => {
+    if (roms.length === 0) return resolve();
 
-  const romIds = roms.map((rom) => rom.id);
+    const romIds = roms.map((rom) => rom.id);
 
-  const queryParams = new URLSearchParams();
-  queryParams.append("rom_ids", romIds.join(","));
-  if (filename) queryParams.append("filename", filename);
+    const queryParams = new URLSearchParams();
+    queryParams.append("rom_ids", romIds.join(","));
+    if (filename) queryParams.append("filename", filename);
 
-  const a = document.createElement("a");
-  a.href = `/api/roms/download?${queryParams.toString()}`;
-  a.style.display = "none";
+    const a = document.createElement("a");
+    a.href = `/api/roms/download?${queryParams.toString()}`;
+    a.style.display = "none";
 
-  document.body.appendChild(a);
-  a.click();
+    document.body.appendChild(a);
+    a.click();
 
-  setTimeout(() => {
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(a.href);
-  }, DOWNLOAD_CLEANUP_DELAY);
+    setTimeout(() => {
+      document.body.removeChild(a);
+      resolve();
+    }, DOWNLOAD_CLEANUP_DELAY);
+  });
 }
 
 export type UpdateRom = SimpleRom & {

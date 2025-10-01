@@ -403,7 +403,7 @@ async def download_roms(
         for file in rom_files:
             content_lines.append(
                 ZipContentLine(
-                    crc32=None,
+                    crc32=None,  # The CRC hash stored for compressed files is for the uncompressed content
                     size_bytes=file.file_size_bytes,
                     encoded_location=quote(f"/library/{file.full_path}"),
                     filename=file.full_path,
@@ -637,7 +637,7 @@ async def get_rom_content(
 
     content_lines = [
         ZipContentLine(
-            crc32=None,
+            crc32=None,  # The CRC hash stored for compressed files is for the uncompressed content
             size_bytes=f.file_size_bytes,
             encoded_location=quote(f"/library/{f.full_path}"),
             filename=f.file_name_for_download(rom, hidden_folder),
