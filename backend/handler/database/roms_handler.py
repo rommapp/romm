@@ -169,6 +169,16 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Rom | None:
         return session.scalar(query.filter_by(id=id).limit(1))
 
+    @begin_session
+    @with_details
+    def get_roms_by_ids(
+        self, ids: list[int], *, query: Query = None, session: Session = None
+    ) -> Sequence[Rom]:
+        """Get multiple ROMs by their IDs."""
+        if not ids:
+            return []
+        return session.scalars(query.filter(Rom.id.in_(ids))).all()
+
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
 
