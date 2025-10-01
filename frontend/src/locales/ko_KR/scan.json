@@ -11,6 +11,7 @@
   "new-platforms": "새 플랫폼",
   "new-platforms-desc": "새 플랫폼에서만 스캔 (가장 빠름)",
   "no-new-roms": "새로운/수정된 롬이 없습니다",
+  "not-identified": "확인되지 않음",
   "partial-metadata": "일부 메타데이터",
   "partial-metadata-desc": "일부 메타데이터와 대응된 게임들 스캔",
   "platforms-scanned-n": "플랫폼: {n}개 스캔됨",

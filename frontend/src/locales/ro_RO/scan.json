@@ -11,6 +11,7 @@
   "new-platforms": "Platforme noi",
   "new-platforms-desc": "Scanează doar platformele adăugate recent (mai rapid)",
   "no-new-roms": "Nu s-au găsit fișiere noi sau modificate",
+  "not-identified": "Neidentificat",
   "partial-metadata": "Metadate parțiale",
   "partial-metadata-desc": "Scanează doar jocurile identificate cu metadate incomplete",
   "platforms-scanned-n": "Platforme: {n} scanată | Platforme: {n} scanate",

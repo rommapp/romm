@@ -219,8 +219,8 @@ async def scan_platform(
         or platform_attrs["launchbox_id"]
         or hasheous_platform["hasheous_id"]
         or tgdb_platform["tgdb_id"]
-        or flashpoint_platform["slug"]
-        or hltb_platform["slug"]
+        or flashpoint_platform["flashpoint_id"]
+        or hltb_platform["hltb_slug"]
     ):
         log.info(
             f"Folder {hl(platform_attrs['slug'])}[{hl(fs_slug, color=LIGHTYELLOW)}] identified as {hl(platform_attrs['name'], color=BLUE)} {emoji.EMOJI_VIDEO_GAME}",
