@@ -61,7 +61,7 @@ from handler.metadata import (
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom, RomFile
+from models.rom import Rom
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
@@ -71,26 +71,6 @@ router = APIRouter(
     prefix="/roms",
     tags=["roms"],
 )
-
-
-async def create_zip_content(
-    rom: Rom,
-    f: RomFile,
-    base_path: str,
-    hidden_folder: bool = False,
-):
-    async with await open_file(
-        f"{fs_rom_handler.base_path}/{f.full_path}", "rb"
-    ) as file:
-        content = await file.read()
-        actual_crc32 = crc32_to_hex(binascii.crc32(content))
-
-    return ZipContentLine(
-        crc32=actual_crc32,
-        size_bytes=f.file_size_bytes,
-        encoded_location=quote(f"{base_path}/{f.full_path}"),
-        filename=f.file_name_for_download(rom, hidden_folder),
-    )
 
 
 @protected_route(
@@ -352,6 +332,97 @@ def get_roms(
 
 @protected_route(
     router.get,
+    "/download",
+    [Scope.ROMS_READ],
+)
+async def download_roms(
+    request: Request,
+    rom_ids: Annotated[
+        str,
+        Query(
+            description="Comma-separated list of ROM IDs to download as a zip file.",
+        ),
+    ],
+    filename: Annotated[
+        str | None,
+        Query(
+            description="Name for the zip file (optional).",
+        ),
+    ] = None,
+):
+    """Download a list of roms as a zip file."""
+
+    current_username = (
+        request.user.username if request.user.is_authenticated else "unknown"
+    )
+
+    if not rom_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No ROM IDs provided",
+        )
+
+    # Parse comma-separated string into list of integers
+    try:
+        rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid ROM ID format. Must be comma-separated integers.",
+        ) from e
+
+    if not rom_id_list:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid ROM IDs provided",
+        )
+
+    rom_objects = db_rom_handler.get_roms_by_ids(rom_id_list)
+
+    if not rom_objects:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No ROMs found with the provided IDs",
+        )
+
+    # Check if all requested ROMs were found
+    found_ids = {rom.id for rom in rom_objects}
+    missing_ids = set(rom_id_list) - found_ids
+    if missing_ids:
+        log.warning(
+            f"User {hl(current_username, color=BLUE)} requested ROMs with IDs {missing_ids} that were not found"
+        )
+
+    log.info(
+        f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
+    )
+
+    if filename:
+        file_name = sanitize_filename(filename)
+    else:
+        file_name = f"ROMs ({len(rom_objects)}).zip"
+
+    content_lines = []
+    for rom in rom_objects:
+        rom_files = sorted(rom.files, key=lambda x: x.file_name)
+        for file in rom_files:
+            content_lines.append(
+                ZipContentLine(
+                    crc32=None,
+                    size_bytes=file.file_size_bytes,
+                    encoded_location=quote(f"/library/{file.full_path}"),
+                    filename=file.file_name_for_download(rom),
+                )
+            )
+
+    return ZipResponse(
+        content_lines=content_lines,
+        filename=quote(file_name),
+    )
+
+
+@protected_route(
+    router.get,
     "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
@@ -562,7 +633,13 @@ async def get_rom_content(
         )
 
     content_lines = [
-        await create_zip_content(rom, f, "/library", hidden_folder) for f in files
+        ZipContentLine(
+            crc32=None,
+            size_bytes=f.file_size_bytes,
+            encoded_location=quote(f"/library/{f.full_path}"),
+            filename=f.file_name_for_download(rom, hidden_folder),
+        )
+        for f in files
     ]
 
     if not rom.has_m3u_file():
@@ -577,77 +654,6 @@ async def get_rom_content(
             filename=f"{file_name}.m3u",
         )
         content_lines.append(m3u_line)
-
-    return ZipResponse(
-        content_lines=content_lines,
-        filename=f"{quote(file_name)}.zip",
-    )
-
-
-@protected_route(
-    router.post,
-    "/download",
-    [Scope.ROMS_READ],
-)
-async def download_roms(
-    request: Request,
-    roms: Annotated[
-        list[int],
-        Body(
-            description="List of ROM IDs to download as a zip file.",
-            embed=True,
-        ),
-    ],
-    zip_name: Annotated[
-        str | None,
-        Body(
-            description="Name for the zip file (optional).",
-            embed=True,
-        ),
-    ] = None,
-):
-    """Download a list of roms as a zip file."""
-
-    current_username = (
-        request.user.username if request.user.is_authenticated else "unknown"
-    )
-
-    if not roms:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No ROM IDs provided",
-        )
-
-    rom_objects = db_rom_handler.get_roms_by_ids(roms)
-
-    if not rom_objects:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No ROMs found with the provided IDs",
-        )
-
-    # Check if all requested ROMs were found
-    found_ids = {rom.id for rom in rom_objects}
-    missing_ids = set(roms) - found_ids
-    if missing_ids:
-        log.warning(
-            f"User {hl(current_username, color=BLUE)} requested ROMs with IDs {missing_ids} that were not found"
-        )
-
-    log.info(
-        f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
-    )
-
-    if zip_name:
-        file_name = sanitize_filename(zip_name)
-    else:
-        file_name = f"ROMs ({len(rom_objects)})"
-
-    content_lines = []
-    for rom in rom_objects:
-        rom_files = sorted(rom.files, key=lambda x: x.file_name)
-        for file in rom_files:
-            content_lines.append(await create_zip_content(rom, file, "/library"))
 
     return ZipResponse(
         content_lines=content_lines,

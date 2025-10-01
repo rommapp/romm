@@ -224,33 +224,22 @@ async function downloadRom({
 
 async function bulkDownloadRoms({
   roms,
-  zipName,
+  filename,
 }: {
   roms: SimpleRom[];
-  zipName?: string;
+  filename?: string;
 }) {
   if (roms.length === 0) return;
 
-  // Use the new multi-download endpoint for better performance
   const romIds = roms.map((rom) => rom.id);
 
-  const response = await api.post(
-    "/roms/download",
-    {
-      roms: romIds,
-      zip_name: zipName,
-    },
-    {
-      responseType: "blob",
-    },
-  );
+  const queryParams = new URLSearchParams();
+  queryParams.append("rom_ids", romIds.join(","));
+  queryParams.append("filename", filename || `ROMs (${roms.length}).zip`);
 
-  // Create and trigger download
-  const blob = new Blob([response.data], { type: "application/zip" });
-  const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
-  a.download = zipName || `ROMs (${roms.length}).zip`;
+  a.href = `/api/roms/download?${queryParams.toString()}`;
+  a.download = filename || `ROMs (${roms.length}).zip`;
   a.style.display = "none";
 
   document.body.appendChild(a);
@@ -258,7 +247,7 @@ async function bulkDownloadRoms({
 
   setTimeout(() => {
     document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    window.URL.revokeObjectURL(a.href);
   }, DOWNLOAD_CLEANUP_DELAY);
 }
 
