@@ -76,10 +76,12 @@ router = APIRouter(
 async def create_zip_content(
     rom: Rom,
     f: RomFile,
-    base_path: str = LIBRARY_BASE_PATH,
+    base_path: str,
     hidden_folder: bool = False,
 ):
-    async with await open_file(f"{LIBRARY_BASE_PATH}/{f.full_path}", "rb") as file:
+    async with await open_file(
+        f"{fs_rom_handler.base_path}/{f.full_path}", "rb"
+    ) as file:
         content = await file.read()
         actual_crc32 = crc32_to_hex(binascii.crc32(content))
 
