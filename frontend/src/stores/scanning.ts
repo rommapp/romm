@@ -6,6 +6,7 @@ interface ScanningPlatforms {
   slug: string;
   fs_slug: string;
   id: number;
+  is_identified: boolean;
   roms: SimpleRom[];
 }
 

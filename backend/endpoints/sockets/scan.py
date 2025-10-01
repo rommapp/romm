@@ -370,7 +370,7 @@ async def _identify_platform(
     await socket_manager.emit(
         "scan:scanning_platform",
         PlatformSchema.model_validate(platform).model_dump(
-            include={"id", "name", "slug", "fs_slug"}
+            include={"id", "name", "slug", "fs_slug", "is_identified"}
         ),
     )
     await socket_manager.emit("", None)
