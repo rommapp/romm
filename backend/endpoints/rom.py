@@ -397,11 +397,6 @@ async def download_roms(
         f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
     )
 
-    if filename:
-        file_name = sanitize_filename(filename)
-    else:
-        file_name = f"ROMs ({len(rom_objects)}).zip"
-
     content_lines = []
     for rom in rom_objects:
         rom_files = sorted(rom.files, key=lambda x: x.file_name)
@@ -414,6 +409,14 @@ async def download_roms(
                     filename=file.full_path,
                 )
             )
+
+    if filename:
+        file_name = sanitize_filename(filename)
+    else:
+        base64_content = b64encode(
+            ("\n".join([str(line) for line in content_lines])).encode()
+        )
+        file_name = f"{len(rom_objects)} ROMs ({crc32_to_hex(binascii.crc32(base64_content))}).zip"
 
     return ZipResponse(
         content_lines=content_lines,

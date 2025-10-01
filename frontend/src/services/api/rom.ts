@@ -235,11 +235,10 @@ async function bulkDownloadRoms({
 
   const queryParams = new URLSearchParams();
   queryParams.append("rom_ids", romIds.join(","));
-  queryParams.append("filename", filename || `ROMs (${roms.length}).zip`);
+  if (filename) queryParams.append("filename", filename);
 
   const a = document.createElement("a");
   a.href = `/api/roms/download?${queryParams.toString()}`;
-  a.download = filename || `ROMs (${roms.length}).zip`;
   a.style.display = "none";
 
   document.body.appendChild(a);
