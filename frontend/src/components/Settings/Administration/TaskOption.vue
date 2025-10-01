@@ -2,7 +2,7 @@
 import type { Emitter } from "mitt";
 import { inject, computed } from "vue";
 import taskApi from "@/services/api/task";
-import storeRunningTasks from "@/stores/runningTasks";
+import storeTasks from "@/stores/tasks";
 import type { Events } from "@/types/emitter";
 
 const props = withDefaults(
@@ -26,18 +26,10 @@ const props = withDefaults(
   },
 );
 const emitter = inject<Emitter<Events>>("emitter");
-const runningTasksStore = storeRunningTasks();
-
-// Computed properties
-const isTaskRunning = computed(() =>
-  props.name ? runningTasksStore.isTaskRunning(props.name) : false,
-);
+const tasksStore = storeTasks();
 
 function run() {
   if (!props.name) return;
-
-  // Add task to running tasks
-  runningTasksStore.addTask(props.name);
 
   taskApi
     .runTask(props.name)
@@ -56,10 +48,7 @@ function run() {
         color: "red",
       });
     })
-    .finally(() => {
-      // Remove task from running tasks
-      runningTasksStore.removeTask(props.name);
-    });
+    .finally(() => {});
 }
 </script>
 <template>
@@ -84,8 +73,8 @@ function run() {
           variant="outlined"
           size="small"
           class="text-primary"
-          :disabled="isTaskRunning"
-          :loading="isTaskRunning"
+          :disabled="false"
+          :loading="false"
           @click="run"
         >
           <v-icon>mdi-play</v-icon>
