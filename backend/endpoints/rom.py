@@ -79,7 +79,7 @@ async def create_zip_content(
     base_path: str = LIBRARY_BASE_PATH,
     hidden_folder: bool = False,
 ):
-    async with await open_file(f"{base_path}/{f.full_path}", "rb") as file:
+    async with await open_file(f"{LIBRARY_BASE_PATH}/{f.full_path}", "rb") as file:
         content = await file.read()
         actual_crc32 = crc32_to_hex(binascii.crc32(content))
 
