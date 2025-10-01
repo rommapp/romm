@@ -352,6 +352,16 @@ async function stopScan() {
                       <v-chip class="ml-3" color="primary" size="x-small" label>
                         {{ platform.roms.length }}
                       </v-chip>
+                      <v-chip
+                        v-if="!platform.is_identified"
+                        color="red"
+                        size="small"
+                        class="ml-3"
+                        label
+                      >
+                        <v-icon class="mr-1"> mdi-close </v-icon>
+                        {{ t("scan.not-identified").toUpperCase() }}
+                      </v-chip>
                     </template>
                   </v-list-item>
                 </v-expansion-panel-title>
@@ -379,7 +389,7 @@ async function stopScan() {
                           label
                         >
                           <v-icon class="mr-1"> mdi-close </v-icon>
-                          Not identified
+                          {{ t("scan.not-identified") }}
                         </v-chip>
                         <v-chip
                           v-if="rom.hasheous_id"

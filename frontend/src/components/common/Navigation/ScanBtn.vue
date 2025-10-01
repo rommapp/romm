@@ -41,17 +41,26 @@ socket.on(
     slug,
     id,
     fs_slug,
+    is_identified,
   }: {
     name: string;
     slug: string;
     id: number;
     fs_slug: string;
+    is_identified: boolean;
   }) => {
     scanningStore.set(true);
     scanningPlatforms.value = scanningPlatforms.value.filter(
       (platform) => platform.name !== name,
     );
-    scanningPlatforms.value.push({ name, slug, id, fs_slug, roms: [] });
+    scanningPlatforms.value.push({
+      name,
+      slug,
+      id,
+      fs_slug,
+      roms: [],
+      is_identified,
+    });
   },
 );
 
@@ -82,6 +91,7 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
       slug: rom.platform_slug,
       id: rom.platform_id,
       fs_slug: rom.platform_fs_slug,
+      is_identified: true,
       roms: [],
     });
     scannedPlatform = scanningPlatforms.value[0];
