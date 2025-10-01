@@ -12,7 +12,7 @@ from decorators.auth import protected_route
 from endpoints.responses import TaskExecutionResponse, TaskStatusResponse
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
 from handler.auth.constants import Scope
-from handler.redis_handler import low_prio_queue
+from handler.redis_handler import default_queue, high_prio_queue, low_prio_queue
 from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
@@ -85,6 +85,50 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
     )
 
     return grouped_tasks
+
+
+@protected_route(router.get, "/running", [Scope.TASKS_RUN])
+async def get_running_tasks(request: Request) -> list[TaskStatusResponse]:
+    """Get all currently running tasks.
+
+    Args:
+        request (Request): FastAPI Request object
+    Returns:
+        list[TaskStatusResponse]: List of currently running tasks
+    """
+    running_tasks = []
+
+    # Get all jobs from the queue
+    low_prio_jobs = low_prio_queue.get_jobs()
+    default_prio_jobs = default_queue.get_jobs()
+    high_prio_jobs = high_prio_queue.get_jobs()
+
+    for job in low_prio_jobs + default_prio_jobs + high_prio_jobs:
+        # Only include jobs that are currently running or queued
+        status = job.get_status()
+
+        # Convert datetime objects to ISO format strings
+        queued_at = job.created_at.isoformat() if job.created_at else None
+        started_at = job.started_at.isoformat() if job.started_at else None
+        ended_at = job.ended_at.isoformat() if job.ended_at else None
+
+        # Get task name from job metadata or function name
+        task_name = (
+            job.meta.get("task_name") or job.func_name if job.meta else job.func_name
+        )
+
+        running_tasks.append(
+            TaskStatusResponse(
+                task_name=str(task_name),
+                task_id=job.get_id(),
+                status=status,
+                queued_at=queued_at or "",
+                started_at=started_at,
+                ended_at=ended_at,
+            )
+        )
+
+    return running_tasks
 
 
 @protected_route(router.get, "/{task_id}", [Scope.TASKS_RUN])

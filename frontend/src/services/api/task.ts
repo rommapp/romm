@@ -27,9 +27,14 @@ async function runTask(
   return api.post(`/tasks/run/${taskName}`);
 }
 
+async function getRunningTasks(): Promise<{ data: TaskStatusResponse[] }> {
+  return api.get("/tasks/running");
+}
+
 export default {
   getTasks,
   getTaskById,
   runAllTasks,
   runTask,
+  getRunningTasks,
 };

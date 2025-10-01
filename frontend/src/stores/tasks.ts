@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import type { TaskStatusResponse } from "@/__generated__";
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import tasksApi from "@/services/api/task";
 
@@ -7,6 +8,7 @@ export default defineStore("tasks", {
     watcherTasks: [] as TaskInfo[],
     scheduledTasks: [] as TaskInfo[],
     manualTasks: [] as TaskInfo[],
+    runningTasks: [] as TaskStatusResponse[],
   }),
 
   actions: {
@@ -33,6 +35,17 @@ export default defineStore("tasks", {
           scheduledTasks: [],
           manualTasks: [],
         };
+      }
+    },
+    async fetchRunningTasks(): Promise<TaskStatusResponse[]> {
+      try {
+        const response = await tasksApi.getRunningTasks();
+        this.runningTasks = response.data;
+        return this.runningTasks;
+      } catch (error) {
+        console.error("Error fetching running tasks: ", error);
+        this.runningTasks = [];
+        return [];
       }
     },
   },
