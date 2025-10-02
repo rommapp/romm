@@ -522,8 +522,8 @@ async function stopScan() {
           <span v-else class="ml-2">{{
             t("scan.platforms-scanned-with-details", {
               n_platforms: scanningPlatforms.length,
-              n_added_platforms: scanStats.added_platforms,
-              n_identified_platforms: scanStats.metadata_platforms,
+              n_new_platforms: scanStats.new_platforms,
+              n_identified_platforms: scanStats.identified_platforms,
             })
           }}</span>
         </v-chip>

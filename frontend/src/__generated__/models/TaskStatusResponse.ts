@@ -10,5 +10,7 @@ export type TaskStatusResponse = {
     queued_at: string;
     started_at: (string | null);
     ended_at: (string | null);
+    result: null;
+    meta: (Record<string, any> | null);
 };
 
