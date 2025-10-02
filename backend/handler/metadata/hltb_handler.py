@@ -172,7 +172,7 @@ class HowLongToBeatHandler(MetadataHandler):
     def __init__(self) -> None:
         self.base_url = "https://howlongtobeat.com"
         self.user_endpoint = f"{self.base_url}/api/user"
-        self.search_url = f"{self.base_url}/api/seek/28b235595e8e894c"
+        self.search_url = f"{self.base_url}/api/seek/791cd10c5e8e894c"
         self.min_similarity_score: Final = 0.85
 
     @classmethod
