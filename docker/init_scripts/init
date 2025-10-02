@@ -81,7 +81,7 @@ wait_for_gunicorn_socket() {
 	if [[ -S /tmp/gunicorn.sock ]]; then
 		debug_log "Gunicorn socket file found"
 	else
-		error_log "Gunicorn socket file not found after waiting 30s"
+		warn_log "Gunicorn socket file not found after waiting 30s!"
 	fi
 }
 
