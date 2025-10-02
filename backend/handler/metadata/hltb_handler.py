@@ -409,7 +409,16 @@ class HowLongToBeatHandler(MetadataHandler):
                 (game for game in games if game["game_name"] == best_match), None
             )
 
-            if best_game:
+            if (
+                best_game
+                and best_game["game_id"]
+                and (
+                    best_game["comp_main"]
+                    or best_game["comp_plus"]
+                    or best_game["comp_100"]
+                    or best_game["comp_all"]
+                )
+            ):
                 log.debug(
                     f"Found HowLongToBeat match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
                 )
