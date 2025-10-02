@@ -95,8 +95,8 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
 
 
 @protected_route(router.get, "/status", [Scope.TASKS_RUN])
-async def get_task_status(request: Request) -> list[TaskStatusResponse]:
-    """Get all task statuses including active, queued, completed, and failed tasks.
+async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
+    """Get all active, queued, completed, and failed tasks.
 
     Args:
         request (Request): FastAPI Request object
@@ -135,6 +135,8 @@ async def get_task_status(request: Request) -> list[TaskStatusResponse]:
                     queued_at=queued_at or "",
                     started_at=started_at,
                     ended_at=ended_at,
+                    result=current_job.result,
+                    meta=current_job.get_meta(),
                 )
             )
 
@@ -163,6 +165,8 @@ async def get_task_status(request: Request) -> list[TaskStatusResponse]:
                 queued_at=queued_at or "",
                 started_at=started_at,
                 ended_at=ended_at,
+                result=job.result,
+                meta=job.get_meta(),
             )
         )
 
@@ -202,6 +206,8 @@ async def get_task_status(request: Request) -> list[TaskStatusResponse]:
                     queued_at=queued_at or "",
                     started_at=started_at,
                     ended_at=ended_at,
+                    result=job.result,
+                    meta=job.get_meta(),
                 )
             )
 
@@ -228,6 +234,8 @@ async def get_task_status(request: Request) -> list[TaskStatusResponse]:
                     queued_at=queued_at or "",
                     started_at=started_at,
                     ended_at=ended_at,
+                    result=job.result,
+                    meta=job.get_meta(),
                 )
             )
 
@@ -269,6 +277,8 @@ async def get_task_by_id(request: Request, task_id: str) -> TaskStatusResponse:
         queued_at=queued_at or "",
         started_at=started_at,
         ended_at=ended_at,
+        result=job.result,
+        meta=job.get_meta(),
     )
 
 

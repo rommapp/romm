@@ -15,7 +15,7 @@
   "partial-metadata": "Métadonnées partielles",
   "partial-metadata-desc": "Scanner uniquement les jeux identifiés avec des métadonnées partielles",
   "platforms-scanned-n": "Plateformes : {n} scannée | Plateformes : {n} scannées",
-  "platforms-scanned-with-details": "Plateformes : {n_platforms} scannées, {n_added_platforms} nouvelles et {n_identified_platforms} identifiées",
+  "platforms-scanned-with-details": "Plateformes : {n_platforms} scannées, {n_new_platforms} nouvelles et {n_identified_platforms} identifiées",
   "quick-scan": "Scan rapide",
   "quick-scan-desc": "Scanner votre bibliothèque à la recherche de nouveaux fichiers",
   "roms-scanned-n": "Roms : {n} scannée | Roms : {n} scannées",

@@ -34,6 +34,65 @@ const manualTasksUI = computed(() =>
   })),
 );
 
+// Get active scan tasks with progress
+const activeScanTasks = computed(() => {
+  return taskStatuses.value.filter(
+    (task) =>
+      task.status === "started" &&
+      (task.task_name?.toLowerCase().includes("scan") || task.meta?.scan_stats),
+  );
+});
+
+// Calculate overall scan progress
+const overallScanProgress = computed(() => {
+  if (activeScanTasks.value.length === 0) return null;
+
+  const totalStats = activeScanTasks.value.reduce(
+    (acc, task) => {
+      if (task.meta?.scan_stats) {
+        const stats = task.meta.scan_stats;
+        acc.totalPlatforms += stats.total_platforms || 0;
+        acc.scannedPlatforms += stats.scanned_platforms || 0;
+        acc.totalRoms += stats.total_roms || 0;
+        acc.scannedRoms += stats.scanned_roms || 0;
+        acc.addedRoms += stats.added_roms || 0;
+        acc.metadataRoms += stats.metadata_roms || 0;
+      }
+      return acc;
+    },
+    {
+      totalPlatforms: 0,
+      scannedPlatforms: 0,
+      totalRoms: 0,
+      scannedRoms: 0,
+      addedRoms: 0,
+      metadataRoms: 0,
+    },
+  );
+
+  const platformProgress =
+    totalStats.totalPlatforms > 0
+      ? Math.round(
+          (totalStats.scannedPlatforms / totalStats.totalPlatforms) * 100,
+        )
+      : 0;
+  const romProgress =
+    totalStats.totalRoms > 0
+      ? Math.round((totalStats.scannedRoms / totalStats.totalRoms) * 100)
+      : 0;
+
+  return {
+    platformProgress,
+    romProgress,
+    totalPlatforms: totalStats.totalPlatforms,
+    scannedPlatforms: totalStats.scannedPlatforms,
+    totalRoms: totalStats.totalRoms,
+    scannedRoms: totalStats.scannedRoms,
+    addedRoms: totalStats.addedRoms,
+    metadataRoms: totalStats.metadataRoms,
+  };
+});
+
 // Icon mapping for manual tasks
 const getManualTaskIcon = (taskName: string) => {
   const iconMap: Record<string, string> = {
@@ -83,6 +142,62 @@ onUnmounted(() => {
         Currently Running
       </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
+
+      <!-- Scan Progress Summary -->
+      <div v-if="overallScanProgress" class="ma-3">
+        <v-card variant="outlined" class="pa-3">
+          <div class="d-flex align-center mb-2">
+            <v-icon color="primary" class="mr-2">mdi-magnify-scan</v-icon>
+            <span class="text-h6">Scan Progress</span>
+          </div>
+          <div class="mb-3">
+            <div class="d-flex justify-space-between align-center mb-1">
+              <span class="text-caption">Platforms</span>
+              <span class="text-caption"
+                >{{ overallScanProgress.platformProgress }}%</span
+              >
+            </div>
+            <v-progress-linear
+              :model-value="overallScanProgress.platformProgress"
+              color="primary"
+              height="8"
+              rounded
+            />
+          </div>
+          <div class="mb-3">
+            <div class="d-flex justify-space-between align-center mb-1">
+              <span class="text-caption">ROMs</span>
+              <span class="text-caption"
+                >{{ overallScanProgress.romProgress }}%</span
+              >
+            </div>
+            <v-progress-linear
+              :model-value="overallScanProgress.romProgress"
+              color="secondary"
+              height="8"
+              rounded
+            />
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <v-chip size="small" color="primary" variant="outlined">
+              Platforms: {{ overallScanProgress.scannedPlatforms }}/{{
+                overallScanProgress.totalPlatforms
+              }}
+            </v-chip>
+            <v-chip size="small" color="secondary" variant="outlined">
+              ROMs: {{ overallScanProgress.scannedRoms }}/{{
+                overallScanProgress.totalRoms
+              }}
+            </v-chip>
+            <v-chip size="small" color="success" variant="outlined">
+              Added: {{ overallScanProgress.addedRoms }}
+            </v-chip>
+            <v-chip size="small" color="info" variant="outlined">
+              Metadata: {{ overallScanProgress.metadataRoms }}
+            </v-chip>
+          </div>
+        </v-card>
+      </div>
       <v-row no-gutters class="align-center py-1">
         <v-col
           v-if="taskStatuses.length === 0 && !isLoadingRunningTasks"
