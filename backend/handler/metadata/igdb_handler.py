@@ -2798,7 +2798,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "family_slug": "microsoft",
         "generation": 9,
         "id": 169,
-        "name": "Xbox Series X|S",
+        "name": "Xbox Series X/S",
         "slug": "series-x-s",
         "url": "https://www.igdb.com/platforms/series-x-s",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plfl.jpg",
