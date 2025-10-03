@@ -548,7 +548,6 @@ class UniversalPlatformSlug(enum.StrEnum):
     OCULUS_VR = "oculus-vr"
     ODYSSEY = "odyssey"
     ODYSSEY_2 = "odyssey-2"
-    ODYSSEY_2_SLASH_VIDEOPAC_G7000 = "odyssey-2-slash-videopac-g7000"
     OHIO_SCIENTIFIC = "ohio-scientific"
     ONLIVE_GAME_SYSTEM = "onlive-game-system"
     OOPARTS = "ooparts"
