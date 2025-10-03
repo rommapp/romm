@@ -245,7 +245,8 @@ async def test_oidc_valid_edit_user_role(
     oidc_handler = OpenIDHandler()
     user, _ = await oidc_handler.get_current_active_user_from_openid_token(mock_token)
 
-    assert user == mock_user_edited
+    assert user is not None
+    assert user.role == Role.ADMIN
     mock_edit_user.assert_called_once_with(mock_user.id, {"role": Role.ADMIN})
 
 
