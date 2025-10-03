@@ -963,11 +963,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "Odyssey 2",
         "slug": "odyssey-2",
     },
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
-        "id": 78,
-        "name": "Odyssey 2/Videopac G7000",
-        "slug": "odyssey-2",
-    },
     UPS.OHIO_SCIENTIFIC: {
         "id": 178,
         "name": "Ohio Scientific",

@@ -1057,7 +1057,7 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
+    UPS.ODYSSEY_2: {
         "id": 49,
         "igdb_id": 133,
         "igdb_slug": "odyssey-2-slash-videopac-g7000",
