@@ -96,7 +96,6 @@ class AuthHandler:
             {"alg": ALGORITHM},
             to_encode,
             OctKey.import_key(ROMM_AUTH_SECRET_KEY),
-            algorithms=[ALGORITHM],
         )
         log.info(
             f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}"
@@ -194,7 +193,6 @@ class AuthHandler:
             {"alg": ALGORITHM},
             to_encode,
             OctKey.import_key(ROMM_AUTH_SECRET_KEY),
-            algorithms=[ALGORITHM],
         )
         invite_link = f"{ROMM_BASE_URL}/register?token={token}"
         log.info(
@@ -259,7 +257,6 @@ class OAuthHandler:
             {"alg": ALGORITHM},
             to_encode,
             OctKey.import_key(ROMM_AUTH_SECRET_KEY),
-            algorithms=[ALGORITHM],
         )
 
     async def get_current_active_user_from_bearer_token(self, token: str):
