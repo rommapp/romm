@@ -463,7 +463,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.NGC: {"id": 31, "name": "Nintendo GameCube"},
     UPS.NUON: {"id": 126, "name": "Nuon"},
     UPS.ODYSSEY: {"id": 78, "name": "Magnavox Odyssey"},
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
+    UPS.ODYSSEY_2: {
         "id": 57,
         "name": "Magnavox Odyssey 2",
     },
