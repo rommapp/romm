@@ -15,7 +15,7 @@
   "partial-metadata": "일부 메타데이터",
   "partial-metadata-desc": "일부 메타데이터와 대응된 게임들 스캔",
   "platforms-scanned-n": "플랫폼: {n}개 스캔됨",
-  "platforms-scanned-with-details": "플랫폼: {n_platforms}개 스캔됨, 새로운 플랫폼: {n_added_platforms}개, 확인된 플랫폼:{n_identified_platforms}개",
+  "platforms-scanned-with-details": "플랫폼: {n_platforms}개 스캔됨, 새로운 플랫폼: {n_new_platforms}개, 확인된 플랫폼:{n_identified_platforms}개",
   "quick-scan": "빠른 스캔",
   "quick-scan-desc": "새 파일만 검색",
   "roms-scanned-n": "롬: {n}개 스캔됨",

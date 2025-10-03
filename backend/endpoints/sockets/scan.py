@@ -5,10 +5,10 @@ from itertools import batched
 from typing import Any, Final
 
 import socketio  # type: ignore
-from rq import Worker
+from rq import Worker, get_current_job
 from rq.job import Job
 
-from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT
+from config import REDIS_URL, SCAN_TIMEOUT
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
 from exceptions.fs_exceptions import (
@@ -47,14 +47,49 @@ STOP_SCAN_FLAG: Final = "scan:stop"
 
 @dataclass
 class ScanStats:
+    total_platforms: int = 0
+    total_roms: int = 0
     scanned_platforms: int = 0
-    added_platforms: int = 0
-    metadata_platforms: int = 0
+    new_platforms: int = 0
+    identified_platforms: int = 0
     scanned_roms: int = 0
     added_roms: int = 0
     metadata_roms: int = 0
     scanned_firmware: int = 0
     added_firmware: int = 0
+
+    def __post_init__(self):
+        self._meta_update_callback = None
+
+    def set_meta_update_callback(self, callback):
+        """Set a callback function to be called when stats are updated"""
+        self._meta_update_callback = callback
+
+    def _trigger_meta_update(self):
+        """Trigger meta update if callback is set"""
+        if self._meta_update_callback:
+            self._meta_update_callback(self)
+
+    def update(self, **kwargs):
+        """Update stats and trigger meta update"""
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        self._trigger_meta_update()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "total_platforms": self.total_platforms,
+            "total_roms": self.total_roms,
+            "scanned_platforms": self.scanned_platforms,
+            "new_platforms": self.new_platforms,
+            "identified_platforms": self.identified_platforms,
+            "scanned_roms": self.scanned_roms,
+            "added_roms": self.added_roms,
+            "metadata_roms": self.metadata_roms,
+            "scanned_firmware": self.scanned_firmware,
+            "added_firmware": self.added_firmware,
+        }
 
     def __add__(self, other: Any) -> ScanStats:
         if not isinstance(other, ScanStats):
@@ -62,10 +97,12 @@ class ScanStats:
                 f"Addition not implemented between ScanStats and {type(other)}"
             )
 
-        return ScanStats(
+        result = ScanStats(
+            total_platforms=max(self.total_platforms, other.total_platforms),
+            total_roms=max(self.total_roms, other.total_roms),
             scanned_platforms=self.scanned_platforms + other.scanned_platforms,
-            added_platforms=self.added_platforms + other.added_platforms,
-            metadata_platforms=self.metadata_platforms + other.metadata_platforms,
+            new_platforms=self.new_platforms + other.new_platforms,
+            identified_platforms=self.identified_platforms + other.identified_platforms,
             scanned_roms=self.scanned_roms + other.scanned_roms,
             added_roms=self.added_roms + other.added_roms,
             metadata_roms=self.metadata_roms + other.metadata_roms,
@@ -73,10 +110,31 @@ class ScanStats:
             added_firmware=self.added_firmware + other.added_firmware,
         )
 
+        # Preserve the meta update callback from the first instance
+        if hasattr(self, "_meta_update_callback"):
+            result.set_meta_update_callback(self._meta_update_callback)
+
+        # Trigger meta update for the result
+        result._trigger_meta_update()
+
+        return result
+
 
 def _get_socket_manager() -> socketio.AsyncRedisManager:
     """Connect to external socketio server"""
     return socketio.AsyncRedisManager(str(REDIS_URL), write_only=True)
+
+
+def _update_job_meta(scan_stats: ScanStats) -> None:
+    """Update the current RQ job's meta data with ScanStats information"""
+    try:
+        current_job = get_current_job()
+        if current_job:
+            current_job.meta.update({"scan_stats": scan_stats.to_dict()})
+            current_job.save_meta()
+    except Exception as e:
+        # Silently fail if we can't update meta (e.g., not running in RQ context)
+        log.debug(f"Could not update job meta: {e}")
 
 
 async def _identify_firmware(
@@ -106,8 +164,10 @@ async def _identify_firmware(
         crc_hash=scanned_firmware.crc_hash,
     )
 
-    scan_stats.scanned_firmware += 1
-    scan_stats.added_firmware += 1 if not firmware else 0
+    scan_stats.update(
+        scanned_firmware=scan_stats.scanned_firmware + 1,
+        added_firmware=scan_stats.added_firmware + (1 if not firmware else 0),
+    )
 
     scanned_firmware.missing_from_fs = False
     scanned_firmware.is_verified = is_verified
@@ -172,6 +232,7 @@ async def _identify_rom(
             if rom.missing_from_fs:
                 db_rom_handler.update_rom(rom.id, {"missing_from_fs": False})
 
+        scan_stats.update(scanned_roms=scan_stats.scanned_roms + 1)
         return scan_stats
 
     # Update properties that don't require metadata
@@ -236,9 +297,12 @@ async def _identify_rom(
         socket_manager=socket_manager,
     )
 
-    scan_stats.scanned_roms += 1
-    scan_stats.added_roms += 1 if not rom else 0
-    scan_stats.metadata_roms += 1 if scanned_rom.is_identified else 0
+    scan_stats.update(
+        scanned_roms=scan_stats.scanned_roms + 1,
+        added_roms=scan_stats.added_roms + (1 if not rom else 0),
+        metadata_roms=scan_stats.metadata_roms
+        + (1 if scanned_rom.is_identified else 0),
+    )
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
@@ -354,16 +418,13 @@ async def _identify_platform(
     scanned_platform = await scan_platform(platform_slug, fs_platforms)
     if platform:
         scanned_platform.id = platform.id
-        # Keep the existing ids if they exist on the platform
-        scanned_platform.igdb_id = scanned_platform.igdb_id or platform.igdb_id
-        scanned_platform.moby_id = scanned_platform.moby_id or platform.moby_id
-        scanned_platform.launchbox_id = (
-            scanned_platform.launchbox_id or platform.launchbox_id
-        )
 
-    scan_stats.scanned_platforms += 1
-    scan_stats.added_platforms += 1 if not platform else 0
-    scan_stats.metadata_platforms += 1 if scanned_platform.is_identified else 0
+    scan_stats.update(
+        scanned_platforms=scan_stats.scanned_platforms + 1,
+        new_platforms=scan_stats.new_platforms + (1 if not platform else 0),
+        identified_platforms=scan_stats.identified_platforms
+        + (1 if scanned_platform.is_identified else 0),
+    )
 
     platform = db_platform_handler.add_platform(scanned_platform)
 
@@ -477,11 +538,19 @@ async def scan_platforms(
         await socket_manager.emit("scan:done_ko", e.message)
         return None
 
-    scan_stats = ScanStats()
+    scan_stats = ScanStats(total_platforms=len(fs_platforms))
+
+    # Set up meta update callback for the scan stats
+    scan_stats.set_meta_update_callback(_update_job_meta)
+
+    for platform in fs_platforms:
+        pl = Platform(fs_slug=platform)
+        fs_roms = await fs_rom_handler.get_roms(pl)
+        scan_stats.update(total_roms=scan_stats.total_roms + len(fs_roms))
 
     async def stop_scan():
         log.info(f"{emoji.EMOJI_STOP_SIGN} Scan stopped manually")
-        await socket_manager.emit("scan:done", scan_stats.__dict__)
+        await socket_manager.emit("scan:done", scan_stats.to_dict())
         redis_client.delete(STOP_SCAN_FLAG)
 
     try:
@@ -519,7 +588,7 @@ async def scan_platforms(
                 log.warning(f" - {p.slug} ({p.fs_slug})")
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
-        await socket_manager.emit("scan:done", scan_stats.__dict__)
+        await socket_manager.emit("scan:done", scan_stats.to_dict())
     except ScanStoppedException:
         await stop_scan()
     except Exception as e:
@@ -545,7 +614,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
 
-    if DEV_MODE:
+    if False:
         return await scan_platforms(
             platform_ids=platform_ids,
             scan_type=scan_type,

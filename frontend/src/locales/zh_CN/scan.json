@@ -15,7 +15,7 @@
   "partial-metadata": "部分元数据",
   "partial-metadata-desc": "扫描部分元数据匹配的游戏",
   "platforms-scanned-n": "平台：{n} 已扫描",
-  "platforms-scanned-with-details": "平台：{n_platforms} 已扫描，新增 {n_added_platforms}，识别 {n_identified_platforms}",
+  "platforms-scanned-with-details": "平台：{n_platforms} 已扫描，新增 {n_new_platforms}，识别 {n_identified_platforms}",
   "quick-scan": "快速扫描",
   "quick-scan-desc": "仅扫描新文件",
   "roms-scanned-n": "Roms：{n} 已扫描",
