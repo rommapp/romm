@@ -9,8 +9,10 @@ from rq import Worker
 from rq.job import Job
 
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT
+from decorators.socket_auth import require_socket_write_auth
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
+from endpoints.responses.socket_rom import SocketRomSchema
 from exceptions.fs_exceptions import (
     FirmwareNotFoundException,
     FolderStructureNotMatchException,
@@ -324,7 +326,7 @@ async def _identify_rom(
 
     await socket_manager.emit(
         "scan:scanning_rom",
-        SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
+        SocketRomSchema.from_orm_with_factory(_added_rom).model_dump(
             exclude={"created_at", "updated_at", "rom_user"}
         ),
     )
@@ -531,7 +533,10 @@ async def scan_platforms(
 
 
 @socket_handler.socket_server.on("scan")  # type: ignore
-async def scan_handler(_sid: str, options: dict[str, Any]):
+@require_socket_write_auth
+async def scan_handler(
+    _sid: str, options: dict[str, Any], _authenticated_user=None, _user_scopes=None
+):
     """Scan socket endpoint
 
     Args:
@@ -564,7 +569,8 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
 
 
 @socket_handler.socket_server.on("scan:stop")  # type: ignore
-async def stop_scan_handler(_sid: str):
+@require_socket_write_auth
+async def stop_scan_handler(_sid: str, _authenticated_user=None, _user_scopes=None):
     """Stop scan socket endpoint"""
 
     log.info(f"{emoji.EMOJI_STOP_BUTTON} Stop scan requested...")

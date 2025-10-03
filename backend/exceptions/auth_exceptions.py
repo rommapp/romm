@@ -1,5 +1,18 @@
 from fastapi import HTTPException, status
 
+
+class AuthenticationRequiredError(Exception):
+    """Raised when authentication is required but not provided."""
+
+    pass
+
+
+class AuthorizationError(Exception):
+    """Raised when user lacks required permissions."""
+
+    pass
+
+
 AuthCredentialsException = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
     detail="Incorrect username or password",
