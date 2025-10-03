@@ -356,3 +356,76 @@ async def test_oidc_invalid_token_signature(mock_oidc_enabled):
     token = {"id_token": "invalid_signature_token"}
     with pytest.raises(HTTPException):
         await oidc_handler.get_current_active_user_from_openid_token(token)
+
+
+async def test_oidc_security_role_escalation_prevention(
+    mocker,
+    mock_oidc_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """Test that OIDC role escalation attacks are prevented."""
+    mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "roles")
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", "admin")
+    mock_token["userinfo"]["roles"] = ["admin"]
+
+    # User starts as EDITOR (higher privilege than VIEWER)
+    mock_user = MagicMock(enabled=True, role=Role.EDITOR)
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_email", return_value=mock_user
+    )
+    mock_edit_user = mocker.patch(
+        "handler.database.db_user_handler.update_user", return_value=mock_user
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    user, _ = await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    # User should remain as EDITOR, not be escalated to ADMIN
+    assert user is not None
+    assert user == mock_user
+    assert user.role == Role.EDITOR
+    # update_user should NOT be called due to privilege escalation prevention
+    mock_edit_user.assert_not_called()
+
+
+async def test_oidc_security_role_downgrade_allowed(
+    mocker,
+    mock_oidc_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """Test that OIDC role downgrades are allowed (lower privilege)."""
+    mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "roles")
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_VIEWER", "viewer")
+    mock_token["userinfo"]["roles"] = ["viewer"]
+
+    # User starts as ADMIN (highest privilege)
+    mock_user = MagicMock(enabled=True, role=Role.ADMIN)
+    mock_user_updated = MagicMock(enabled=True, role=Role.VIEWER)
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_email", return_value=mock_user
+    )
+    mock_edit_user = mocker.patch(
+        "handler.database.db_user_handler.update_user", return_value=mock_user_updated
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    user, _ = await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    # User should be downgraded to VIEWER (allowed)
+    assert user is not None
+    assert user == mock_user_updated
+    assert user.role == Role.VIEWER
+    # update_user should be called for downgrade
+    mock_edit_user.assert_called_once_with(mock_user.id, {"role": Role.VIEWER})

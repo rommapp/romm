@@ -278,6 +278,16 @@ class OAuthHandler:
 
 
 class OpenIDHandler:
+    def _get_role_priority(self, role) -> int:
+        from models.user import Role
+
+        role_priorities = {
+            Role.ADMIN: 3,
+            Role.EDITOR: 2,
+            Role.VIEWER: 1,
+        }
+        return role_priorities.get(role, 0)
+
     async def get_current_active_user_from_openid_token(self, token: Any):
         from handler.database import db_user_handler
         from models.user import Role, User
@@ -353,7 +363,26 @@ class OpenIDHandler:
             )
             user = db_user_handler.add_user(new_user)
         elif OIDC_CLAIM_ROLES and user.role != role:
-            user = db_user_handler.update_user(user.id, {"role": role})
+            # Only allow role escalation if the new role is lower or equal privilege
+            # This prevents privilege escalation attacks via OIDC role claims
+            current_role_priority = self._get_role_priority(user.role)
+            new_role_priority = self._get_role_priority(role)
+
+            if new_role_priority <= current_role_priority:
+                log.info(
+                    "Updating user '%s' role from %s to %s via OIDC",
+                    hl(email, color=CYAN),
+                    user.role.value,
+                    role.value,
+                )
+                user = db_user_handler.update_user(user.id, {"role": role})
+            else:
+                log.warning(
+                    "Blocked OIDC role escalation attempt for user '%s': %s -> %s",
+                    hl(email, color=CYAN),
+                    user.role.value,
+                    role.value,
+                )
 
         if not user.enabled:
             raise UserDisabledException
