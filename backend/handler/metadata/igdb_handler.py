@@ -2341,7 +2341,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/odyssey--1",
         "url_logo": "",
     },
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
+    UPS.ODYSSEY_2: {
         "category": "Computer",
         "family_name": "Magnavox",
         "family_slug": "magnavox",
