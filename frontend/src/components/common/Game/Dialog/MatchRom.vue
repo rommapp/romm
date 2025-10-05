@@ -635,7 +635,8 @@ onBeforeUnmount(() => {
                     class="transform-scale mx-2"
                     :class="{
                       'on-hover': isHovering,
-                      'border-primary': selectedCover?.name == source.name,
+                      'border-selected border-lg':
+                        selectedCover?.name == source.name,
                     }"
                     :elevation="isHovering ? 20 : 3"
                     @click="selectCover(source)"
