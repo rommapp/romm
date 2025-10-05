@@ -10,7 +10,7 @@ import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getDownloadLink, is3DSCIARom } from "@/utils";
+import { getDownloadLink, isNintendoDSRom } from "@/utils";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
@@ -19,8 +19,8 @@ const qrCodeIcon = ref("mdi-qrcode");
 const auth = storeAuth();
 const { t } = useI18n();
 
-const is3DSRom = computed(() => {
-  return is3DSCIARom(props.rom);
+const isNDSRom = computed(() => {
+  return isNintendoDSRom(props.rom);
 });
 
 async function copyDownloadLink(rom: DetailedRom) {
@@ -84,7 +84,7 @@ async function copyDownloadLink(rom: DetailedRom) {
       </v-btn>
       <PlayBtn :rom="rom" class="flex-grow-1" />
       <v-btn
-        v-if="is3DSRom"
+        v-if="isNDSRom"
         :disabled="rom.missing_from_fs"
         class="flex-grow-1"
         :aria-label="`Show ${rom.name} QR code`"
