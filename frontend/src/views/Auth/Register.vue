@@ -64,7 +64,7 @@ onBeforeMount(() => {
             v-model="username"
             :label="t('settings.username')"
             type="text"
-            :rules="usersStore.nameRules"
+            :rules="usersStore.usernameRules"
             required
             variant="underlined"
             class="mt-4"
