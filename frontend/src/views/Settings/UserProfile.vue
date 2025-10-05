@@ -144,8 +144,8 @@ onUnmounted(() => {
           class="ma-4"
           variant="outlined"
           :label="t('settings.username')"
+          :rules="usersStore.nameRules"
           required
-          hide-details
           clearable
         />
         <v-text-field
@@ -153,8 +153,8 @@ onUnmounted(() => {
           class="ma-4"
           variant="outlined"
           :label="t('settings.password')"
+          :rules="usersStore.passwordRules"
           required
-          hide-details
           clearable
         />
         <v-text-field
@@ -162,8 +162,8 @@ onUnmounted(() => {
           class="ma-4"
           variant="outlined"
           :label="t('settings.email')"
+          :rules="usersStore.emailRules"
           required
-          hide-details
           clearable
         />
         <v-select
