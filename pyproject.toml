@@ -9,7 +9,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 readme = "README.md"
-license = "GNU AGPLv3"
+license = "AGPL-3.0-only"
 dependencies = [
   "PyYAML ~= 6.0",
   "SQLAlchemy[mariadb-connector,mysql-connector,postgresql-psycopg] ~= 2.0",
