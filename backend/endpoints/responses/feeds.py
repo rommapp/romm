@@ -1,4 +1,5 @@
 from typing import NotRequired, TypedDict
+from pydantic import BaseModel, Field, field_validator
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 
@@ -105,22 +106,44 @@ class TinfoilFeedFileSchema(TypedDict):
     size: int
 
 
-class TinfoilFeedTitleDBSchema(TypedDict):
-    id: str
-    name: str
-    version: int
-    region: str
-    releaseDate: int
-    rating: int
-    publisher: str
-    description: str
-    size: int
-    rank: int
+class TinfoilFeedTitleDBSchema(BaseModel):
+    id: str = Field(default="")
+    name: str = Field(default="")
+    description: str = Field(default="")
+    size: int = Field(default=0)
+    version: int = Field(default=0)
+    region: str = Field(default="US")
+    releaseDate: int = Field(default=19700101)
+    rating: int = Field(default=0)
+    publisher: str = Field(default="")
+    rank: int = Field(default=0)
+
+    # --- STRING COERCION ---
+    @field_validator("id", "name", "description", "region", "publisher", mode="before")
+    @classmethod
+    def _str_or_empty(cls, v):
+        return "" if v is None else str(v)
+
+    # --- INT COERCION ---
+    @field_validator("size", "version", "releaseDate", "rating", "rank", mode="before")
+    @classmethod
+    def _int_or_zero(cls, v):
+        if v in (None, ""):
+            return 0
+        try:
+            return int(v)
+        except Exception:
+            return 0
+
+    model_config = {
+        "str_strip_whitespace": True,
+        "validate_assignment": True,
+    }
 
 
 class TinfoilFeedSchema(TypedDict):
     files: list[TinfoilFeedFileSchema]
     directories: list[str]
-    titledb: NotRequired[dict[str, TinfoilFeedTitleDBSchema]]
+    titledb: NotRequired[dict[str, dict]]  # dict after .model_dump()
     success: NotRequired[str]
     error: NotRequired[str]
