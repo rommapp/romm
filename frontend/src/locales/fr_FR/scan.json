@@ -10,6 +10,7 @@
   "metadata-sources": "Sources de métadonnées",
   "new-platforms": "Nouvelles plateformes",
   "new-platforms-desc": "Scanner uniquement les plateformes récemment ajoutées (plus rapide)",
+  "not-identified": "Non identifié",
   "no-new-roms": "Aucun nouveau fichier ou fichier modifié trouvé",
   "partial-metadata": "Métadonnées partielles",
   "partial-metadata-desc": "Scanner uniquement les jeux identifiés avec des métadonnées partielles",

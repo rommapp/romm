@@ -1,9 +1,10 @@
-from config import KIOSK_MODE
 from fastapi.security.http import HTTPBasic
-from handler.auth import auth_handler, oauth_handler
-from models.user import User
 from starlette.authentication import AuthCredentials, AuthenticationBackend
 from starlette.requests import HTTPConnection
+
+from config import KIOSK_MODE
+from handler.auth import auth_handler, oauth_handler
+from models.user import User
 
 from .constants import READ_SCOPES
 
@@ -31,7 +32,7 @@ class HybridAuthBackend(AuthenticationBackend):
                 user = auth_handler.authenticate_user(
                     credentials.username, credentials.password
                 )
-                if user is None:
+                if user is None or not user.enabled:
                     return None
 
                 user.set_last_active()

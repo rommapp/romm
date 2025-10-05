@@ -1,20 +1,17 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
-import { refetchCSRFToken } from "@/services/api/index";
+import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
-import userApi from "@/services/api/user";
-import type { Emitter } from "mitt";
-import storeAuth from "@/stores/auth";
-import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
-import { useRouter } from "vue-router";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const heartbeatStore = storeHeartbeat();
-const auth = storeAuth();
-const { user } = storeToRefs(auth);
+const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
 const username = ref("");
@@ -39,8 +36,7 @@ async function login() {
     .then(async () => {
       await refetchCSRFToken();
       try {
-        const { data: userData } = await userApi.fetchCurrentUser();
-        auth.setUser(userData);
+        await authStore.fetchCurrentUser();
       } catch (userError) {
         console.error("Error loading user: ", userError);
       }
@@ -78,9 +74,10 @@ async function sendReset() {
     });
     forgotMode.value = false;
     forgotUser.value = "";
-  } catch (error: any) {
+  } catch (error) {
+    console.error("Error sending reset link: ", error);
     emitter?.emit("snackbarShow", {
-      msg: error.response?.data?.detail || error.message || "Error",
+      msg: "Could not send reset link",
       icon: "mdi-alert-circle",
       color: "red",
     });
@@ -106,8 +103,8 @@ async function loginOIDC() {
       >
         <v-col cols="10">
           <v-form
-            v-model="validForm"
             v-if="!loginDisabled"
+            v-model="validForm"
             @submit.prevent="login"
           >
             <v-text-field
@@ -129,8 +126,8 @@ async function loginOIDC() {
               name="password"
               prepend-inner-icon="mdi-lock"
               :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
-              @click:append-inner="visiblePassword = !visiblePassword"
               variant="underlined"
+              @click:append-inner="visiblePassword = !visiblePassword"
             />
             <v-btn
               type="submit"
@@ -177,7 +174,7 @@ async function loginOIDC() {
                       .replace(/ /g, '-')}.png`"
                   >
                     <template #error>
-                      <v-icon size="20">mdi-key</v-icon>
+                      <v-icon size="20"> mdi-key </v-icon>
                     </template>
                   </v-img>
                 </v-icon>

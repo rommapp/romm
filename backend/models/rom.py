@@ -5,13 +5,6 @@ from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
-from config import FRONTEND_RESOURCES_PATH
-from models.base import (
-    FILE_EXTENSION_MAX_LENGTH,
-    FILE_NAME_MAX_LENGTH,
-    FILE_PATH_MAX_LENGTH,
-    BaseModel,
-)
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
@@ -24,6 +17,14 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from config import FRONTEND_RESOURCES_PATH
+from models.base import (
+    FILE_EXTENSION_MAX_LENGTH,
+    FILE_NAME_MAX_LENGTH,
+    FILE_PATH_MAX_LENGTH,
+    BaseModel,
+)
 from utils.database import CustomJSON
 
 if TYPE_CHECKING:
@@ -99,6 +100,10 @@ class RomFile(BaseModel):
 
         return fs_rom_handler.parse_file_extension(self.file_name)
 
+    @cached_property
+    def is_nested(self) -> bool:
+        return self.file_path.count("/") > 1
+
     def file_name_for_download(self, rom: Rom, hidden_folder: bool = False) -> str:
         # This needs a trailing slash in the path to work!
         return self.full_path.replace(
@@ -138,6 +143,8 @@ class Rom(BaseModel):
     launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     hasheous_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -148,6 +155,8 @@ class Rom(BaseModel):
         Index("idx_roms_launchbox_id", "launchbox_id"),
         Index("idx_roms_hasheous_id", "hasheous_id"),
         Index("idx_roms_tgdb_id", "tgdb_id"),
+        Index("idx_roms_flashpoint_id", "flashpoint_id"),
+        Index("idx_roms_hltb_id", "hltb_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
@@ -176,6 +185,12 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     hasheous_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    flashpoint_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    hltb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
 
@@ -236,6 +251,10 @@ class Rom(BaseModel):
         back_populates="roms",
     )
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._is_identifying = False
+
     @property
     def platform_slug(self) -> str:
         return self.platform.slug
@@ -271,11 +290,22 @@ class Rom(BaseModel):
 
         return []
 
+    # TODO: Remove this after 4.3 release
     @cached_property
     def multi(self) -> bool:
-        return len(self.files) > 1 or (
-            len(self.files) > 0 and len(self.files[0].full_path.split("/")) > 3
-        )
+        return self.has_nested_single_file or self.has_multiple_files
+
+    @cached_property
+    def has_simple_single_file(self) -> bool:
+        return len(self.files) == 1 and not self.files[0].is_nested
+
+    @cached_property
+    def has_nested_single_file(self) -> bool:
+        return len(self.files) == 1 and self.files[0].is_nested
+
+    @cached_property
+    def has_multiple_files(self) -> bool:
+        return len(self.files) > 1
 
     @property
     def fs_resources_path(self) -> str:
@@ -306,6 +336,8 @@ class Rom(BaseModel):
             and not self.ra_id
             and not self.launchbox_id
             and not self.hasheous_id
+            and not self.flashpoint_id
+            and not self.hltb_id
         )
 
     @property
@@ -355,6 +387,15 @@ class Rom(BaseModel):
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
                 )
         return self.ra_metadata
+
+    # Used only during scan process
+    @property
+    def is_identifying(self) -> bool:
+        return self._is_identifying or False
+
+    @is_identifying.setter
+    def is_identifying(self, value: bool) -> None:
+        self._is_identifying = value
 
     def __repr__(self) -> str:
         return self.fs_name

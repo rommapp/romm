@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import storeRoms from "@/stores/roms";
-import storeGalleryFilter from "@/stores/galleryFilter";
-import storeGalleryView from "@/stores/galleryView";
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, watch, computed } from "vue";
 import { useDisplay } from "vuetify";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryView from "@/stores/galleryView";
+import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 
 const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
@@ -47,6 +47,10 @@ async function fetchRoms() {
         loading: false,
         scrim: false,
       });
+    })
+    .finally(() => {
+      // Scroll to the top of the gallery
+      document.body.scrollTo({ top: 0, behavior: "smooth" });
     });
 }
 

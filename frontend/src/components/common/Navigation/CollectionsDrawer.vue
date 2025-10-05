@@ -1,20 +1,21 @@
 <script setup lang="ts">
-import storeCollections from "@/stores/collections";
-import CollectionListItem from "@/components/common/Collection/ListItem.vue";
-import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
-import CreateSmartCollectionDialog from "@/components/common/Collection/Dialog/CreateSmartCollection.vue";
-import storeNavigation from "@/stores/navigation";
-import type { Events } from "@/types/emitter";
+import { useActiveElement, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch, computed } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
-import { isNull } from "lodash";
+import { useDisplay } from "vuetify";
+import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
+import CreateSmartCollectionDialog from "@/components/common/Collection/Dialog/CreateSmartCollection.vue";
+import CollectionListItem from "@/components/common/Collection/ListItem.vue";
+import storeCollections from "@/stores/collections";
+import storeNavigation from "@/stores/navigation";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { mdAndUp, smAndDown } = useDisplay();
+const activeElement = useActiveElement();
 const collectionsStore = storeCollections();
 const {
   filteredCollections,
@@ -27,11 +28,10 @@ const emitter = inject<Emitter<Events>>("emitter");
 const visibleVirtualCollections = ref(72);
 const tabIndex = computed(() => (activeCollectionsDrawer.value ? 0 : -1));
 
-const showVirtualCollections = isNull(
-  localStorage.getItem("settings.showVirtualCollections"),
-)
-  ? true
-  : localStorage.getItem("settings.showVirtualCollections") === "true";
+const showVirtualCollections = useLocalStorage(
+  "settings.showVirtualCollections",
+  true,
+);
 
 async function addCollection() {
   emitter?.emit("showCreateCollectionDialog", null);
@@ -41,16 +41,11 @@ function clear() {
   filterText.value = "";
 }
 
-// Ref to store the element that triggered the drawer
-const triggerElement = ref<HTMLElement | null>(null);
-// Watch for changes in the navigation drawer state
-const textFieldRef = ref();
+const triggerElement = ref<HTMLElement | null | undefined>(undefined);
 watch(activeCollectionsDrawer, (isOpen) => {
   if (isOpen) {
     // Store the currently focused element before opening the drawer
-    triggerElement.value = document.activeElement as HTMLElement;
-    // Focus the text field when the drawer is opened
-    // textFieldRef.value?.focus();
+    triggerElement.value = activeElement.value;
   }
 });
 
@@ -70,6 +65,12 @@ function onScroll() {
   }
 }
 
+function onClose() {
+  activeCollectionsDrawer.value = false;
+  // Refocus the trigger element for keyboard navigation
+  triggerElement.value?.focus();
+}
+
 onMounted(() => {
   const collectionsDrawer = document.querySelector(
     "#collections-drawer .v-navigation-drawer__content",
@@ -83,21 +84,14 @@ onBeforeUnmount(() => {
   );
   collectionsDrawer?.removeEventListener("scroll", onScroll);
 });
-
-function onClose() {
-  activeCollectionsDrawer.value = false;
-  // Focus the element that triggered the drawer
-  triggerElement.value?.focus();
-}
 </script>
 <template>
   <v-navigation-drawer
     id="collections-drawer"
+    v-model="activeCollectionsDrawer"
     mobile
     :location="smAndDown ? 'bottom' : 'left'"
-    @update:model-value="clear"
     width="500"
-    v-model="activeCollectionsDrawer"
     :class="{
       'my-2': mdAndUp || (smAndDown && activeCollectionsDrawer),
       'ml-2': (mdAndUp && activeCollectionsDrawer) || smAndDown,
@@ -107,28 +101,28 @@ function onClose() {
     class="bg-surface pa-1"
     rounded
     :border="1"
+    @update:model-value="clear"
     @keydown.esc="onClose"
   >
     <template #prepend>
       <v-text-field
-        ref="textFieldRef"
+        v-model="filterText"
         aria-label="Search collections"
         :tabindex="tabIndex"
-        v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
         hide-details
-        @click:clear="clear"
-        @update:model-value=""
         single-line
         :label="t('collection.search-collection')"
         variant="solo-filled"
         density="compact"
-      ></v-text-field>
+        @click:clear="clear"
+      />
     </template>
     <v-list tabindex="-1" lines="two" class="py-1 px-0">
-      <collection-list-item
+      <CollectionListItem
         v-for="collection in filteredCollections"
+        :key="collection.id"
         :collection="collection"
         with-link
         :tabindex="tabIndex"
@@ -144,10 +138,12 @@ function onClose() {
           :aria-label="t('common.smart-collections')"
           :tabindex="tabIndex"
           class="uppercase"
-          >{{ t("common.smart-collections").toUpperCase() }}</v-list-subheader
         >
-        <collection-list-item
+          {{ t("common.smart-collections").toUpperCase() }}
+        </v-list-subheader>
+        <CollectionListItem
           v-for="collection in filteredSmartCollections"
+          :key="collection.id"
           :collection="collection"
           with-link
           role="listitem"
@@ -171,13 +167,15 @@ function onClose() {
           :aria-label="t('common.virtual-collections')"
           :tabindex="tabIndex"
           class="uppercase"
-          >{{ t("common.virtual-collections").toUpperCase() }}</v-list-subheader
         >
-        <collection-list-item
+          {{ t("common.virtual-collections").toUpperCase() }}
+        </v-list-subheader>
+        <CollectionListItem
           v-for="collection in filteredVirtualCollections.slice(
             0,
             visibleVirtualCollections,
           )"
+          :key="collection.id"
           :collection="collection"
           with-link
           role="listitem"
@@ -188,19 +186,19 @@ function onClose() {
     </v-list>
     <template #append>
       <v-btn
-        @click="addCollection"
         variant="tonal"
         color="primary"
         prepend-icon="mdi-plus"
         :tabindex="tabIndex"
         size="large"
         block
+        @click="addCollection"
       >
         {{ t("collection.add-collection") }}
       </v-btn>
     </template>
   </v-navigation-drawer>
 
-  <create-collection-dialog />
-  <create-smart-collection-dialog />
+  <CreateCollectionDialog />
+  <CreateSmartCollectionDialog />
 </template>

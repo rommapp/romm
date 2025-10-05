@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RomFileSchema } from "@/__generated__";
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
@@ -7,8 +9,6 @@ import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
-import { ref, watch } from "vue";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
@@ -19,6 +19,7 @@ const romInfo = ref([
   { label: "SHA-1", value: props.rom.sha1_hash },
   { label: "MD5", value: props.rom.md5_hash },
   { label: "CRC", value: props.rom.crc_hash },
+  { label: "Revision", value: props.rom.revision },
 ]);
 
 async function toggleMainSibling() {
@@ -45,26 +46,30 @@ watch(
 <template>
   <v-row no-gutters>
     <v-col>
-      <v-row v-if="!rom.multi" class="align-center my-3" no-gutters>
+      <v-row
+        v-if="rom.has_simple_single_file"
+        class="align-center my-3"
+        no-gutters
+      >
         <v-col cols="3" xl="2" class="mr-2">
           <span>{{ t("rom.file") }}</span>
         </v-col>
         <v-col>
-          <missing-from-f-s-icon
+          <MissingFromFSIcon
             v-if="rom.missing_from_fs"
             :text="`Missing game from filesystem: ${rom.fs_path}/${rom.fs_name}`"
             class="mr-2"
           /><span class="text-body-1">{{ rom.fs_name }}</span>
         </v-col>
       </v-row>
-      <v-row v-if="rom.multi" class="align-center my-3" no-gutters>
+      <v-row v-else class="align-center my-3" no-gutters>
         <v-col cols="3" xl="2" class="mr-2">
           <span>{{ t("rom.files") }}</span>
         </v-col>
         <v-col>
           <v-row class="align-center" no-gutters>
             <v-col v-if="rom.missing_from_fs" cols="auto" class="pr-2">
-              <missing-from-f-s-icon
+              <MissingFromFSIcon
                 :text="`Missing game from filesystem: ${rom.fs_path}/${rom.fs_name}`"
                 :size="25"
               />
@@ -74,7 +79,7 @@ watch(
                 v-model="downloadStore.filesToDownload"
                 :label="rom.fs_name"
                 :items="rom.files"
-                :itemProps="itemProps"
+                :item-props="itemProps"
                 density="compact"
                 variant="outlined"
                 return-object
@@ -83,9 +88,9 @@ watch(
                 clearable
                 chips
               >
-                <template #item="{ item, props }">
-                  <v-list-item v-bind="props">
-                    <template v-slot:prepend="{ isSelected }">
+                <template #item="{ item, props: subItemProps }">
+                  <v-list-item v-bind="subItemProps">
+                    <template #prepend="{ isSelected }">
                       <v-checkbox-btn
                         :model-value="isSelected"
                         density="compact"
@@ -94,15 +99,16 @@ watch(
                     </template>
                     <v-list-item-subtitle class="mt-1">
                       <v-chip
+                        v-if="item.raw.category"
                         color="primary"
                         size="x-small"
                         class="mr-1"
-                        v-if="item.raw.category"
-                        >{{ item.raw.category.toLocaleUpperCase() }}</v-chip
                       >
-                      <v-chip size="x-small">{{
-                        formatBytes(item.raw.file_size_bytes)
-                      }}</v-chip>
+                        {{ item.raw.category.toLocaleUpperCase() }}
+                      </v-chip>
+                      <v-chip size="x-small">
+                        {{ formatBytes(item.raw.file_size_bytes) }}
+                      </v-chip>
                     </v-list-item-subtitle>
                   </v-list-item>
                 </template>
@@ -119,18 +125,18 @@ watch(
           <v-row no-gutters>
             <v-col cols="12">
               <v-chip size="small" class="mr-2 px-0" label>
-                <v-chip label>{{ t("rom.size") }}</v-chip
+                <v-chip label> {{ t("rom.size") }} </v-chip
                 ><span class="px-2">{{ formatBytes(rom.fs_size_bytes) }}</span>
               </v-chip>
             </v-col>
-            <v-col v-for="info in romInfo" cols="12">
+            <v-col v-for="info in romInfo" :key="info.label" cols="12">
               <v-chip
                 v-if="info.value"
                 size="small"
                 class="mt-1 mr-2 px-0"
                 label
               >
-                <v-chip label>{{ info.label }}</v-chip
+                <v-chip label> {{ info.label }} </v-chip
                 ><span class="px-2">{{ info.value }}</span>
               </v-chip>
             </v-col>
@@ -165,7 +171,7 @@ watch(
         </v-col>
         <v-col>
           <v-row class="align-center" no-gutters>
-            <version-switcher class="mr-2" :rom="rom" />
+            <VersionSwitcher class="mr-2" :rom="rom" />
             <v-tooltip
               v-if="auth.scopes.includes('roms.user.write')"
               location="top"
@@ -174,10 +180,10 @@ watch(
               :text="t('rom.set-as-default')"
               open-delay="300"
             >
-              <template #activator="{ props }">
+              <template #activator="{ props: activatorProps }">
                 <v-btn
                   rounded="1"
-                  v-bind="props"
+                  v-bind="activatorProps"
                   variant="flat"
                   class="my-1 text-grey-lighten-2"
                   style="padding: 10px 14px"

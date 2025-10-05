@@ -1,4 +1,4 @@
-import api from "@/services/api/index";
+import api from "@/services/api";
 import type {
   Collection,
   VirtualCollection,
@@ -18,11 +18,10 @@ async function createCollection({
   collection: Partial<UpdatedCollection>;
 }): Promise<{ data: Collection }> {
   const formData = new FormData();
-
   formData.append("name", collection.name || "");
   formData.append("description", collection.description || "");
   formData.append("url_cover", collection.url_cover || "");
-  formData.append("rom_ids", JSON.stringify(collection.rom_ids));
+  formData.append("rom_ids", JSON.stringify(collection.rom_ids || []));
   if (collection.artwork) formData.append("artwork", collection.artwork);
 
   return api.post(`/collections`, formData, {
@@ -98,8 +97,9 @@ async function updateCollection({
   formData.append("name", collection.name || "");
   formData.append("description", collection.description || "");
   formData.append("url_cover", collection.url_cover || "");
-  formData.append("rom_ids", JSON.stringify(collection.rom_ids));
+  formData.append("rom_ids", JSON.stringify(collection.rom_ids || []));
   if (collection.artwork) formData.append("artwork", collection.artwork);
+
   return api.put(`/collections/${collection.id}`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",

@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
 import { defaultAvatarPath } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 
 const user = ref<UserItem | null>(null);
 const show = ref(false);
@@ -51,12 +51,12 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-if="user"
-    @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
     :width="lgAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>
@@ -68,12 +68,11 @@ function closeDialog() {
                 ? `/assets/romm/assets/${user.avatar_path}?ts=${user.updated_at}`
                 : defaultAvatarPath
             "
-          >
-          </v-img> </v-avatar
+          /> </v-avatar
         ><span class="text-primary ml-1">{{ user.username }}</span
         ><span class="ml-1">user. Do you confirm?</span>
-      </v-row></template
-    >
+      </v-row>
+    </template>
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
@@ -84,5 +83,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

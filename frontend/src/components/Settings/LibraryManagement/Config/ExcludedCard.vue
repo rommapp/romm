@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import configApi from "@/services/api/config";
-import storeConfig from "@/stores/config";
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
 import { useI18n } from "vue-i18n";
+import configApi from "@/services/api/config";
+import storeConfig from "@/stores/config";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -31,10 +31,9 @@ function removeExclusion(exclusionValue: string) {
 </script>
 <template>
   <v-card color="toplayer" class="ma-2">
-    <v-card-title class="text-body-2 align-center justify-center"
-      ><v-icon class="mr-2">{{ icon }}</v-icon
-      >{{ title }}</v-card-title
-    >
+    <v-card-title class="text-body-2 align-center justify-center">
+      <v-icon class="mr-2"> {{ icon }} </v-icon>{{ title }}
+    </v-card-title>
     <v-divider />
     <v-card-text class="pa-2">
       <v-chip

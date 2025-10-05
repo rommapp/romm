@@ -2,8 +2,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-from exceptions.task_exceptions import SchedulerException
 from rq.job import Job
+
+from exceptions.task_exceptions import SchedulerException
 from tasks.tasks import PeriodicTask, RemoteFilePullTask, tasks_scheduler
 
 

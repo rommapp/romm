@@ -46,3 +46,56 @@ system:
 
 # The folder name where your roms are located
 filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is /home/user/library/roms_folder
+
+# Metadata priority during scans
+# Below are the default priority values used
+# scan:
+#   priority:
+#     metadata: # Top-level metadata source priority
+#       - "igdb" # IGDB
+#       - "moby" # MobyGames
+#       - "ss" # Screenscraper
+#       - "ra" # RetroAchievements
+#       - "lb" # Launchbox
+#       - "hasheous" # Hasheous
+#       - "flashpoint" # Flashpoint Project
+#       - "hltb" # HowLongToBeat
+#     artwork: # Cover art and screenshots
+#       - "igdb" # IGDB
+#       - "moby" # MobyGames
+#       - "ss" # Screenscraper
+#       - "ra" # RetroAchievements
+#       - "lb" # Launchbox
+#       - "hasheous" # Hasheous
+#       - "flashpoint" # Flashpoint Project
+#       - "hltb" # HowLongToBeat
+#     region: # Cover art and game title (only used by Screenscraper)
+#       - "us"
+#       - "wor"
+#       - "ss"
+#       - "eu"
+#       - "jp"
+#     language: # Cover art and game title (only used by Screenscraper)
+#       - "en"
+#       - "fr"
+
+# EmulatorJS per-core options
+# emulatorjs:
+#   debug: true # Available options will be logged to the browser console
+#   cache_limit: null # Cache limit per ROM (in bytes)
+#   settings:
+#     parallel_n64: # Use the exact core name
+#       vsync: disable
+#     snes9x:
+#       snes9x_region: ntsc
+#     default: # These settings apply to all cores
+#       fps: show
+#   controls: # https://emulatorjs.org/docs4devs/control-mapping/
+#     snes9x:
+#       0: # Player 1
+#         0: # A MAPPING FOR EACH BUTTON MUST BE SET!
+#           value: x # Mapping for keyboard
+#           value2: BUTTON_2 # Mapping for connected controller
+#       1: # Player 2
+#       2: # Player 3
+#       3: # Player 4

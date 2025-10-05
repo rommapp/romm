@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import storeRoms from "@/stores/roms";
 import { useI18n } from "vue-i18n";
+import storeRoms from "@/stores/roms";
 
 const { t } = useI18n();
 const romsStore = storeRoms();
@@ -23,6 +23,8 @@ const romsStore = storeRoms();
         class="mr-0"
         icon="mdi-select-group"
         aria-label="Multi select"
-        @click="romsStore.setSelecting" /></template
-  ></v-tooltip>
+        @click="romsStore.setSelecting"
+      />
+    </template>
+  </v-tooltip>
 </template>

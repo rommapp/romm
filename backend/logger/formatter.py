@@ -2,6 +2,7 @@ import logging
 from pprint import pformat
 
 from colorama import Fore, Style, init
+
 from config import FORCE_COLOR, NO_COLOR
 
 RED = Fore.RED
@@ -14,6 +15,39 @@ CYAN = Fore.CYAN
 LIGHTMAGENTA = Fore.LIGHTMAGENTA_EX
 RESET = Fore.RESET
 RESET_ALL = Style.RESET_ALL
+
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "romm": {
+            "()": "logger.formatter.Formatter",
+        }
+    },
+    "handlers": {
+        "default": {
+            "formatter": "romm",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+        }
+    },
+    "root": {
+        "handlers": ["default"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "uvicorn": {
+            "level": "INFO",
+            "handlers": ["default"],
+            "propagate": False,
+        },
+        "uvicorn.error": {
+            "level": "INFO",
+            "handlers": ["default"],
+            "propagate": False,
+        },
+    },
+}
 
 
 def should_strip_ansi() -> bool:

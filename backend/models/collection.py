@@ -4,10 +4,11 @@ import base64
 import json
 from typing import TYPE_CHECKING, Any
 
-from config import FRONTEND_RESOURCES_PATH
-from models.base import BaseModel
 from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from config import FRONTEND_RESOURCES_PATH
+from models.base import BaseModel
 from utils.database import CustomJSON
 
 if TYPE_CHECKING:
@@ -152,6 +153,7 @@ class VirtualCollection(BaseModel):
         return [
             f"{FRONTEND_RESOURCES_PATH}/{cover}?ts={self.updated_at}"
             for cover in self.path_covers_s
+            if cover
         ]
 
     @property
@@ -159,6 +161,7 @@ class VirtualCollection(BaseModel):
         return [
             f"{FRONTEND_RESOURCES_PATH}/{cover}?ts={self.updated_at}"
             for cover in self.path_covers_l
+            if cover
         ]
 
     __table_args__ = (

@@ -55,49 +55,59 @@ REDIS_URL: Final = yarl.URL.build(
 )
 
 # IGDB
-IGDB_CLIENT_ID: Final = os.environ.get(
+IGDB_CLIENT_ID: Final[str] = os.environ.get(
     "IGDB_CLIENT_ID", os.environ.get("CLIENT_ID", "")
 ).strip()
-IGDB_CLIENT_SECRET: Final = os.environ.get(
+IGDB_CLIENT_SECRET: Final[str] = os.environ.get(
     "IGDB_CLIENT_SECRET", os.environ.get("CLIENT_SECRET", "")
 ).strip()
 
 # MOBYGAMES
-MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()
+MOBYGAMES_API_KEY: Final[str] = os.environ.get("MOBYGAMES_API_KEY", "").strip()
 
 # SCREENSCRAPER
-SCREENSCRAPER_USER: Final = os.environ.get("SCREENSCRAPER_USER", "")
-SCREENSCRAPER_PASSWORD: Final = os.environ.get("SCREENSCRAPER_PASSWORD", "")
+SCREENSCRAPER_USER: Final[str] = os.environ.get("SCREENSCRAPER_USER", "")
+SCREENSCRAPER_PASSWORD: Final[str] = os.environ.get("SCREENSCRAPER_PASSWORD", "")
 
 # STEAMGRIDDB
-STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "").strip()
+STEAMGRIDDB_API_KEY: Final[str] = os.environ.get("STEAMGRIDDB_API_KEY", "").strip()
 
 # RETROACHIEVEMENTS
-RETROACHIEVEMENTS_API_KEY: Final = os.environ.get("RETROACHIEVEMENTS_API_KEY", "")
-REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final = int(
+RETROACHIEVEMENTS_API_KEY: Final[str] = os.environ.get("RETROACHIEVEMENTS_API_KEY", "")
+REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final[int] = int(
     os.environ.get("REFRESH_RETROACHIEVEMENTS_CACHE_DAYS", 30)
 )
 
 # LAUNCHBOX
-LAUNCHBOX_API_ENABLED: Final = str_to_bool(
+LAUNCHBOX_API_ENABLED: Final[bool] = str_to_bool(
     os.environ.get("LAUNCHBOX_API_ENABLED", "false")
 )
 
 # PLAYMATCH
-PLAYMATCH_API_ENABLED: Final = str_to_bool(
+PLAYMATCH_API_ENABLED: Final[bool] = str_to_bool(
     os.environ.get("PLAYMATCH_API_ENABLED", "false")
 )
 
 # HASHEOUS
-HASHEOUS_API_ENABLED: Final = str_to_bool(
+HASHEOUS_API_ENABLED: Final[bool] = str_to_bool(
     os.environ.get("HASHEOUS_API_ENABLED", "false")
 )
 
 # THEGAMESDB
-TGDB_API_ENABLED: Final = str_to_bool(os.environ.get("TGDB_API_ENABLED", "false"))
+TGDB_API_ENABLED: Final[bool] = str_to_bool(os.environ.get("TGDB_API_ENABLED", "false"))
+
+# FLASHPOINT
+FLASHPOINT_API_ENABLED: Final = str_to_bool(
+    os.environ.get("FLASHPOINT_API_ENABLED", "false")
+)
+
+# HOWLONGTOBEAT
+HLTB_API_ENABLED: Final = str_to_bool(os.environ.get("HLTB_API_ENABLED", "false"))
 
 # AUTH
-ROMM_AUTH_SECRET_KEY: Final = os.environ.get("ROMM_AUTH_SECRET_KEY")
+ROMM_AUTH_SECRET_KEY: Final[str] = os.environ.get("ROMM_AUTH_SECRET_KEY", "")
+if not ROMM_AUTH_SECRET_KEY:
+    raise ValueError("ROMM_AUTH_SECRET_KEY environment variable is not set!")
 
 SESSION_MAX_AGE_SECONDS: Final = int(
     os.environ.get("SESSION_MAX_AGE_SECONDS", 14 * 24 * 60 * 60)
@@ -109,12 +119,17 @@ DISABLE_DOWNLOAD_ENDPOINT_AUTH = str_to_bool(
     os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false")
 )
 DISABLE_USERPASS_LOGIN = str_to_bool(os.environ.get("DISABLE_USERPASS_LOGIN", "false"))
+DISABLE_SETUP_WIZARD = str_to_bool(os.environ.get("DISABLE_SETUP_WIZARD", "false"))
 
 # OIDC
 OIDC_ENABLED: Final = str_to_bool(os.environ.get("OIDC_ENABLED", "false"))
 OIDC_PROVIDER: Final = os.environ.get("OIDC_PROVIDER", "")
 OIDC_CLIENT_ID: Final = os.environ.get("OIDC_CLIENT_ID", "").strip()
 OIDC_CLIENT_SECRET: Final = os.environ.get("OIDC_CLIENT_SECRET", "").strip()
+OIDC_CLAIM_ROLES: Final = os.environ.get("OIDC_CLAIM_ROLES", "").strip()
+OIDC_ROLE_VIEWER: Final = os.environ.get("OIDC_ROLE_VIEWER", "").strip()
+OIDC_ROLE_EDITOR: Final = os.environ.get("OIDC_ROLE_EDITOR", "").strip()
+OIDC_ROLE_ADMIN: Final = os.environ.get("OIDC_ROLE_ADMIN", "").strip()
 OIDC_REDIRECT_URI: Final = os.environ.get("OIDC_REDIRECT_URI", "")
 OIDC_SERVER_APPLICATION_URL: Final = os.environ.get("OIDC_SERVER_APPLICATION_URL", "")
 OIDC_TLS_CACERTFILE: Final = os.environ.get("OIDC_TLS_CACERTFILE", None)
@@ -149,7 +164,21 @@ ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA: Final = str_to_bool(
 )
 SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON: Final = os.environ.get(
     "SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON",
-    "0 5 * * *",  # At 5:00 AM every day
+    "0 4 * * *",  # At 4:00 AM every day
+)
+ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP: Final = str_to_bool(
+    os.environ.get("ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP", "false")
+)
+SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON: Final = os.environ.get(
+    "SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON",
+    "0 4 * * *",  # At 4:00 AM every day
+)
+ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC: Final[bool] = str_to_bool(
+    os.environ.get("ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC", "false")
+)
+SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = os.environ.get(
+    "SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON",
+    "0 4 * * *",  # At 4:00 AM every day
 )
 
 # EMULATION
@@ -169,6 +198,11 @@ NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
 YOUTUBE_BASE_URL: Final = os.environ.get(
     "YOUTUBE_BASE_URL", "https://www.youtube.com"
 ).rstrip("/")
+
+# TINFOIL
+TINFOIL_WELCOME_MESSAGE: Final = os.environ.get(
+    "TINFOIL_WELCOME_MESSAGE", "RomM Switch Library"
+)
 
 # SENTRY
 SENTRY_DSN: Final = os.environ.get("SENTRY_DSN", None)

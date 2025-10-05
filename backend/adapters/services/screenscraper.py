@@ -6,11 +6,13 @@ from typing import Final, cast
 
 import aiohttp
 import yarl
-from adapters.services.screenscraper_types import SSGame
 from aiohttp.client import ClientTimeout
-from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from fastapi import HTTPException, status
+
+from adapters.services.screenscraper_types import SSGame
+from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from logger.logger import log
+from utils import get_version
 from utils.context import ctx_aiohttp_session
 
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
@@ -57,6 +59,7 @@ class ScreenScraperService:
         try:
             res = await aiohttp_session.get(
                 url,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )
@@ -100,6 +103,7 @@ class ScreenScraperService:
             )
             res = await aiohttp_session.get(
                 url,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )
@@ -124,6 +128,14 @@ class ScreenScraperService:
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
+
+    async def get_infra_info(self) -> dict:
+        """Retrieve information about the infrastructure.
+
+        Reference: https://api.screenscraper.fr/webapi2.php#infraInfos
+        """
+        url = self.url.joinpath("ssinfraInfos.php")
+        return await self._request(str(url))
 
     async def get_game_info(
         self,

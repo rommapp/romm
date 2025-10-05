@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import storeUpload from "@/stores/upload";
-import { formatBytes } from "@/utils";
 import { storeToRefs } from "pinia";
 import { ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import storeUpload from "@/stores/upload";
+import { formatBytes } from "@/utils";
 
 const { xs } = useDisplay();
 const uploadStore = storeUpload();
@@ -33,6 +33,7 @@ watch(files, (newList) => {
     <v-list class="bg-toplayer pa-0">
       <v-list-item
         v-for="file in files"
+        :key="file.filename"
         class="py-2 px-4 bg-toplayer"
         :disabled="file.finished && !file.failed"
       >

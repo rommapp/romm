@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { inject, computed } from "vue";
-import type { Events } from "@/types/emitter";
-import taskApi from "@/services/api/task";
 import type { Emitter } from "mitt";
+import { inject, computed } from "vue";
+import taskApi from "@/services/api/task";
 import storeRunningTasks from "@/stores/runningTasks";
+import type { Events } from "@/types/emitter";
 
 const props = withDefaults(
   defineProps<{
@@ -12,8 +12,8 @@ const props = withDefaults(
     description?: string;
     icon?: string;
     name?: string;
-    manual_run?: boolean;
-    cron_string?: string;
+    manualRun?: boolean;
+    cronString?: string;
   }>(),
   {
     enabled: true,
@@ -21,8 +21,8 @@ const props = withDefaults(
     description: "",
     icon: "",
     name: "",
-    manual_run: false,
-    cron_string: "",
+    manualRun: false,
+    cronString: "",
   },
 );
 const emitter = inject<Emitter<Events>>("emitter");
@@ -73,12 +73,13 @@ function run() {
           <v-list-item-title
             class="font-weight-bold"
             :class="{ 'text-primary': enabled }"
-            >{{ title }}</v-list-item-title
           >
+            {{ title }}
+          </v-list-item-title>
           <v-list-item-subtitle>{{ description }}</v-list-item-subtitle>
         </v-list-item>
       </v-col>
-      <v-col v-if="manual_run" cols="auto" class="d-flex align-center">
+      <v-col v-if="manualRun" cols="auto" class="d-flex align-center">
         <v-btn
           variant="outlined"
           size="small"

@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+
 from config import RESOURCES_BASE_PATH
 from handler.filesystem.base_handler import CoverSize
 from handler.filesystem.resources_handler import FSResourcesHandler

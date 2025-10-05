@@ -19,6 +19,24 @@ def test_config_loader():
     assert loader.config.PLATFORMS_VERSIONS == {"naomi": "arcade"}
     assert loader.config.ROMS_FOLDER_NAME == "ROMS"
     assert loader.config.FIRMWARE_FOLDER_NAME == "BIOS"
+    assert loader.config.EJS_DEBUG
+    assert loader.config.EJS_CACHE_LIMIT == 1000
+    assert loader.config.EJS_SETTINGS == {
+        "parallel_n64": {"vsync": "disable"},
+        "snes9x": {"snes9x_region": "ntsc"},
+    }
+    assert loader.config.EJS_CONTROLS == {
+        "snes9x": {
+            "_0": {0: {"value": "x", "value2": "BUTTON_2"}},
+            "_1": {},
+            "_2": {},
+            "_3": {},
+        },
+    }
+    assert loader.config.SCAN_METADATA_PRIORITY == ["ss", "lb"]
+    assert loader.config.SCAN_ARTWORK_PRIORITY == ["igdb", "ss"]
+    assert loader.config.SCAN_REGION_PRIORITY == ["jp", "eu", "wor"]
+    assert loader.config.SCAN_LANGUAGE_PRIORITY == ["jp", "es"]
 
 
 def test_empty_config_loader():
@@ -38,3 +56,7 @@ def test_empty_config_loader():
     assert loader.config.PLATFORMS_VERSIONS == {}
     assert loader.config.ROMS_FOLDER_NAME == "roms"
     assert loader.config.FIRMWARE_FOLDER_NAME == "bios"
+    assert not loader.config.EJS_DEBUG
+    assert loader.config.EJS_CACHE_LIMIT is None
+    assert loader.config.EJS_SETTINGS == {}
+    assert loader.config.EJS_CONTROLS == {}

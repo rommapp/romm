@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import BaseCollection from "./BaseCollection.vue";
+import { storeToRefs } from "pinia";
 import storeCollections, {
   type VirtualCollection,
   type CollectionType,
 } from "@/stores/collections";
 import storeRoms from "@/stores/roms";
-import { storeToRefs } from "pinia";
+import BaseCollection from "./BaseCollection.vue";
 
 const collectionsStore = storeCollections();
 const { virtualCollections } = storeToRefs(collectionsStore);
@@ -18,9 +18,9 @@ function setCurrentVirtualCollection(collection: CollectionType) {
 </script>
 
 <template>
-  <base-collection
+  <BaseCollection
     :collections="virtualCollections"
     :current-collection="currentVirtualCollection"
     :set-current-collection="setCurrentVirtualCollection"
-  ></base-collection>
+  />
 </template>

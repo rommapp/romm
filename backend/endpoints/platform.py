@@ -1,18 +1,21 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
+from fastapi import Body
+from fastapi import Path as PathVar
+from fastapi import Request, status
+
 from decorators.auth import protected_route
 from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
-from fastapi import Body
-from fastapi import Path as PathVar
-from fastapi import Request, status
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata import (
+    meta_flashpoint_handler,
     meta_hasheous_handler,
+    meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
@@ -20,7 +23,7 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -93,6 +96,8 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
         launchbox_platform = meta_launchbox_handler.get_platform(slug)
         hasheous_platform = meta_hasheous_handler.get_platform(slug)
         tgdb_platform = meta_tgdb_handler.get_platform(slug)
+        flashpoint_platform = meta_flashpoint_handler.get_platform(slug)
+        hltb_platform = meta_hltb_handler.get_platform(slug)
 
         platform_attrs = {
             "id": -1,
@@ -110,6 +115,8 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
 
         platform_attrs.update(
             {
+                **hltb_platform,
+                **flashpoint_platform,
                 **hasheous_platform,
                 **tgdb_platform,
                 **launchbox_platform,
@@ -133,6 +140,8 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
                 or launchbox_platform.get("name")
                 or hasheous_platform.get("name")
                 or tgdb_platform.get("name")
+                or flashpoint_platform.get("name")
+                or hltb_platform.get("name")
                 or slug.replace("-", " ").title(),
                 "url_logo": igdb_platform.get("url_logo")
                 or tgdb_platform.get("url_logo")
@@ -203,7 +212,7 @@ async def delete_platform(
     request: Request,
     id: Annotated[int, PathVar(description="Platform id.", ge=1)],
 ) -> None:
-    """Delete a platform."""
+    """Delete a platform by ID."""
 
     platform = db_platform_handler.get_platform(id)
     if not platform:

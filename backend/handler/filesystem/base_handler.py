@@ -11,31 +11,63 @@ from tempfile import SpooledTemporaryFile
 from typing import BinaryIO
 
 from anyio import open_file
+from starlette.datastructures import UploadFile
+
 from config.config_manager import config_manager as cm
 from models.base import FILE_NAME_MAX_LENGTH
-from starlette.datastructures import UploadFile
 from utils.filesystem import iter_directories, iter_files
 
 TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
 EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 
 LANGUAGES = (
+    ("Af", "Afrikaans"),
     ("Ar", "Arabic"),
+    ("Be", "Belarusian"),
+    ("Bg", "Bulgarian"),
+    ("Ca", "Catalan"),
+    ("Cs", "Czech"),
     ("Da", "Danish"),
     ("De", "German"),
+    ("El", "Greek"),
     ("En", "English"),
     ("Es", "Spanish"),
+    ("Et", "Estonian"),
+    ("Eu", "Basque"),
     ("Fi", "Finnish"),
     ("Fr", "French"),
+    ("Gd", "Gaelic"),
+    ("He", "Hebrew"),
+    ("Hi", "Hindi"),
+    ("Hr", "Croatian"),
+    ("Hu", "Hungarian"),
+    ("Hy", "Armenian"),
+    ("Id", "Indonesian"),
+    ("Is", "Icelandic"),
     ("It", "Italian"),
     ("Ja", "Japanese"),
     ("Ko", "Korean"),
+    ("La", "Latin"),
+    ("Lt", "Lithuanian"),
+    ("Lv", "Latvian"),
+    ("Mk", "Macedonian"),
     ("Nl", "Dutch"),
     ("No", "Norwegian"),
+    ("Pa", "Punjabi"),
     ("Pl", "Polish"),
     ("Pt", "Portuguese"),
+    ("Ro", "Romanian"),
     ("Ru", "Russian"),
+    ("Sk", "Slovak"),
+    ("Sl", "Slovenian"),
+    ("Sq", "Albanian"),
+    ("Sr", "Serbian"),
     ("Sv", "Swedish"),
+    ("Ta", "Tamil"),
+    ("Th", "Thai"),
+    ("Tr", "Turkish"),
+    ("Uk", "Ukrainian"),
+    ("Vi", "Vietnamese"),
     ("Zh", "Chinese"),
     ("nolang", "No Language"),
 )

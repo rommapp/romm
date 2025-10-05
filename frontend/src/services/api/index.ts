@@ -1,8 +1,8 @@
-import router from "@/plugins/router";
-import { ROUTES } from "@/plugins/router";
 import axios from "axios";
 import { default as Cookies } from "js-cookie";
 import { debounce } from "lodash";
+import router from "@/plugins/router";
+import { ROUTES } from "@/plugins/router";
 
 const api = axios.create({ baseURL: "/api", timeout: 120000 });
 

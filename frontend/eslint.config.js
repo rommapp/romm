@@ -1,12 +1,14 @@
 import eslint from "@eslint/js";
-import tseslint from "typescript-eslint";
-import globals from "globals";
 import vue from "eslint-plugin-vue";
+import vuea11y from "eslint-plugin-vuejs-accessibility";
+import globals from "globals";
+import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   ...vue.configs["flat/recommended"],
+  ...vuea11y.configs["flat/recommended"],
   {
     ignores: [
       "logs",
@@ -22,8 +24,9 @@ export default tseslint.config(
       "dist-ssr",
       "coverage",
       "*.local",
-      "__generated__",
+      "src/__generated__",
       "*.config.js",
+      "src/plugins/*.d.ts",
     ],
     languageOptions: {
       parserOptions: {
@@ -38,8 +41,18 @@ export default tseslint.config(
     },
     rules: {
       "vue/multi-word-component-names": "off",
-      // Vuetify supports modifier syntax of { [x: `item.${string}`]: ... }
+      "vue/max-attributes-per-line": "off",
       "vue/valid-v-slot": "off",
+      "vue/no-use-v-if-with-v-for": "off",
+      "vue/component-name-in-template-casing": [
+        "error",
+        "PascalCase",
+        {
+          registeredComponentsOnly: true,
+        },
+      ],
+      "vue/prop-name-casing": ["error", "camelCase"],
+      "vue/attribute-hyphenation": ["error", "always"],
     },
   },
 );

@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import RSection from "@/components/common/RSection.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
-import { views } from "@/utils";
+import RSection from "@/components/common/RSection.vue";
 import { RECENT_ROMS_LIMIT } from "@/services/api/rom";
+import { views } from "@/utils";
 
 defineProps<{ title: string }>();
 </script>
 <template>
-  <r-section icon="mdi-shimmer" :title="title">
+  <RSection icon="mdi-shimmer" :title="title">
     <template #content>
       <v-row class="flex-nowrap overflow-x-auto pa-1" no-gutters>
         <v-col
-          v-for="_ in RECENT_ROMS_LIMIT"
+          v-for="index in RECENT_ROMS_LIMIT"
+          :key="index"
           class="align-self-end pa-1"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
@@ -19,9 +20,9 @@ defineProps<{ title: string }>();
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <skeleton />
+          <Skeleton />
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

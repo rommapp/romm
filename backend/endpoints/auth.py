@@ -1,6 +1,10 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Final
 
+from fastapi import Body, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
+from fastapi.security.http import HTTPBasic
+
 from config import OIDC_ENABLED, OIDC_REDIRECT_URI
 from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
@@ -11,9 +15,6 @@ from exceptions.auth_exceptions import (
     OIDCNotConfiguredException,
     UserDisabledException,
 )
-from fastapi import Body, Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse
-from fastapi.security.http import HTTPBasic
 from handler.auth import auth_handler, oauth_handler, oidc_handler
 from handler.database import db_user_handler
 from logger.formatter import CYAN
@@ -112,6 +113,11 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
             )
 
+        if not user.enabled:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled"
+            )
+
         access_token = oauth_handler.create_oauth_token(
             data={
                 "sub": user.username,
@@ -141,6 +147,11 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid username or password",
+            )
+
+        if not user.enabled:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled"
             )
 
     # TODO: Authentication via client_id/client_secret

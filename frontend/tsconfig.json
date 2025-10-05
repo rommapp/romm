@@ -1,11 +1,12 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": ["src/**/*.ts", "src/**/*.vue"],
+  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.d.ts"],
+  "exclude": ["node_modules"],
   "types": ["node", "lodash", "js-cookie", "vue-router", "vue"],
   "compilerOptions": {
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "lib": ["dom", "ES6"],
+    "lib": ["dom", "esnext"],
     "baseUrl": ".",
     "noImplicitAny": true,
     "paths": {

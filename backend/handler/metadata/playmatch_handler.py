@@ -4,8 +4,10 @@ from typing import NotRequired, TypedDict
 
 import httpx
 import yarl
-from config import PLAYMATCH_API_ENABLED
 from fastapi import HTTPException, status
+
+from config import PLAYMATCH_API_ENABLED
+from handler.metadata.base_handler import MetadataHandler
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
@@ -38,7 +40,7 @@ class PlaymatchRomMatch(TypedDict):
     igdb_id: int | None
 
 
-class PlaymatchHandler:
+class PlaymatchHandler(MetadataHandler):
     """
     Handler for [Playmatch](https://github.com/RetroRealm/playmatch), a service for matching Roms by Hashes.
     """
@@ -46,6 +48,23 @@ class PlaymatchHandler:
     def __init__(self):
         self.base_url = "https://playmatch.retrorealm.dev/api"
         self.identify_url = f"{self.base_url}/identify/ids"
+        self.healthcheck_url = f"{self.base_url}/health"
+
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return PLAYMATCH_API_ENABLED
+
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            response = await self._request(self.healthcheck_url, {})
+        except Exception as e:
+            log.error("Error checking Playmatch API: %s", e)
+            return False
+
+        return bool(response)
 
     async def _request(self, url: str, query: dict) -> dict:
         """
@@ -72,9 +91,7 @@ class PlaymatchHandler:
             60,
         )
 
-        headers = {
-            "user-agent": "RomM/" + get_version() + " (https://github.com/rommapp/romm)"
-        }
+        headers = {"user-agent": f"RomM/{get_version()}"}
 
         try:
             res = await httpx_client.get(
@@ -100,7 +117,7 @@ class PlaymatchHandler:
         :return: A PlaymatchRomMatch objects containing the matched ROM information.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
-        if not PLAYMATCH_API_ENABLED:
+        if not self.is_enabled():
             return PlaymatchRomMatch(igdb_id=None)
 
         first_file = next(

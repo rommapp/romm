@@ -1,6 +1,6 @@
 {
   "name": "ROMM Development",
-  "dockerComposeFile": "docker-compose.yml",
+  "dockerComposeFile": ["../docker-compose.yml"],
   "service": "romm-dev",
   "workspaceFolder": "/app",
   "shutdownAction": "stopCompose",
@@ -33,7 +33,6 @@
         "ms-python.python",
         "ms-python.pylint",
         "ms-python.black-formatter",
-        "bradlc.vscode-tailwindcss",
         "vue.volar",
         "ms-vscode.vscode-typescript-next"
       ],

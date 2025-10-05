@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
+from typing import Annotated
+
+from fastapi import Body, HTTPException, Request, UploadFile, status
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import SaveSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from fastapi import HTTPException, Request, UploadFile, status
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_save_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
@@ -222,17 +224,32 @@ async def update_save(request: Request, id: int) -> SaveSchema:
     return SaveSchema.model_validate(db_save)
 
 
-@protected_route(router.post, "/delete", [Scope.ASSETS_WRITE])
-async def delete_saves(request: Request) -> list[int]:
-    data: dict = await request.json()
-    save_ids: list = data["saves"]
-
-    if not save_ids:
+@protected_route(
+    router.post,
+    "/delete",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_404_NOT_FOUND: {},
+    },
+)
+async def delete_saves(
+    request: Request,
+    saves: Annotated[
+        list[int],
+        Body(
+            description="List of save ids to delete from database.",
+            embed=True,
+        ),
+    ],
+) -> list[int]:
+    """Delete saves."""
+    if not saves:
         error = "No saves were provided"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
-    for save_id in save_ids:
+    for save_id in saves:
         save = db_save_handler.get_save(user_id=request.user.id, id=save_id)
         if not save:
             error = f"Save with ID {save_id} not found"
@@ -261,4 +278,4 @@ async def delete_saves(request: Request) -> list[int]:
                 error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
                 log.error(error)
 
-    return save_ids
+    return saves

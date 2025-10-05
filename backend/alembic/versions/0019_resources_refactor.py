@@ -13,6 +13,7 @@ from urllib.parse import quote
 
 import sqlalchemy as sa
 from alembic import op
+
 from config import RESOURCES_BASE_PATH
 
 # revision identifiers, used by Alembic.

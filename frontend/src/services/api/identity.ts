@@ -1,4 +1,4 @@
-import api from "@/services/api/index";
+import api from "@/services/api";
 
 export const identityApi = api;
 

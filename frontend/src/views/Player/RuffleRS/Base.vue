@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { nextTick, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
 import RomListItem from "@/components/common/Game/ListItem.vue";
+import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
+import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
-import { ROUTES } from "@/plugins/router";
-import { isNull } from "lodash";
-import { nextTick, onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
-import { useI18n } from "vue-i18n";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
 const DEFAULT_BACKGROUND_COLOR = "#0D1117";
@@ -16,13 +17,21 @@ const { t } = useI18n();
 const route = useRoute();
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
-const storedFSOP = localStorage.getItem("fullScreenOnPlay");
-const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
+const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
 const backgroundColor = ref(DEFAULT_BACKGROUND_COLOR);
 
 declare global {
   interface Window {
-    RufflePlayer: any;
+    RufflePlayer: {
+      version: string;
+      newestSourceName: () => string | null;
+      init: () => void;
+      newest: () => RuffleSourceAPI | null;
+      satisfying: (requirementString: string) => RuffleSourceAPI | null;
+      localCompatible: () => RuffleSourceAPI | null;
+      local: () => RuffleSourceAPI | null;
+      superseded: () => void;
+    };
   }
 }
 
@@ -35,6 +44,8 @@ function onPlay() {
     if (!rom.value) return;
 
     const ruffle = window.RufflePlayer.newest();
+    if (!ruffle) return;
+
     const player = ruffle.createPlayer();
     const container = document.getElementById("game");
     container?.appendChild(player);
@@ -57,7 +68,6 @@ function onPlay() {
 
 function onFullScreenChange() {
   fullScreenOnPlay.value = !fullScreenOnPlay.value;
-  localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
 }
 
 function onBackgroundColorChange() {
@@ -108,10 +118,10 @@ onMounted(async () => {
   <v-row v-if="rom" class="align-center justify-center scroll h-100" no-gutters>
     <v-col
       v-if="gameRunning"
+      id="game-wrapper"
       cols="12"
       md="8"
       xl="10"
-      id="game-wrapper"
       class="bg-surface"
       rounded
     >
@@ -124,16 +134,17 @@ onMounted(async () => {
       :md="!gameRunning ? 8 : 4"
       :xl="!gameRunning ? 6 : 2"
     >
-      <v-row class="px-3 mt-6" no-gutters>
+      <v-row no-gutters>
         <v-col>
-          <v-img
-            class="mx-auto"
-            width="250"
-            src="/assets/ruffle/powered_by_ruffle.png"
-          />
-          <v-divider class="my-4" />
-          <rom-list-item :rom="rom" with-filename with-size />
-          <v-divider class="my-4" />
+          <v-img class="mx-auto" width="250" src="/assets/ruffle/ruffle.svg" />
+        </v-col>
+      </v-row>
+
+      <v-divider class="my-4" />
+
+      <v-row class="mb-4" no-gutters>
+        <v-col>
+          <RomListItem :rom="rom" with-filename with-size />
         </v-col>
       </v-row>
 
@@ -144,17 +155,20 @@ onMounted(async () => {
             <v-row no-gutters>
               <v-col>
                 <v-card-title class="text-subtitle-1 pa-0 text-uppercase">
-                  <v-icon class="mr-2">mdi-palette</v-icon>
-                  {{ t("play.background-color") }}
+                  <v-icon class="mr-2"> mdi-palette </v-icon>
+                  <label for="background-color-input">{{
+                    t("play.select-background-color")
+                  }}</label>
                 </v-card-title>
               </v-col>
               <v-col class="d-flex justify-end">
                 <input
-                  type="color"
                   v-model="backgroundColor"
-                  @change="onBackgroundColorChange"
+                  id="background-color-input"
+                  type="color"
                   class="h-100 w-50 text-right"
                   :title="t('play.select-background-color')"
+                  @change="onBackgroundColorChange"
                 />
               </v-col>
             </v-row>
@@ -169,17 +183,19 @@ onMounted(async () => {
               <v-btn
                 block
                 size="large"
-                @click="onFullScreenChange"
                 :disabled="gameRunning"
                 :variant="fullScreenOnPlay ? 'flat' : 'outlined'"
                 :color="fullScreenOnPlay ? 'primary' : ''"
-                ><v-icon class="mr-1">{{
-                  fullScreenOnPlay
-                    ? "mdi-checkbox-outline"
-                    : "mdi-checkbox-blank-outline"
-                }}</v-icon
-                >{{ t("play.full-screen") }}</v-btn
+                @click="onFullScreenChange"
               >
+                <v-icon class="mr-1">
+                  {{
+                    fullScreenOnPlay
+                      ? "mdi-checkbox-outline"
+                      : "mdi-checkbox-blank-outline"
+                  }} </v-icon
+                >{{ t("play.full-screen") }}
+              </v-btn>
             </v-col>
             <v-col
               cols="12"
@@ -194,7 +210,8 @@ onMounted(async () => {
                 size="large"
                 prepend-icon="mdi-play"
                 @click="onPlay"
-                >{{ t("play.play") }}
+              >
+                {{ t("play.play") }}
               </v-btn>
             </v-col>
           </v-row>
@@ -210,7 +227,8 @@ onMounted(async () => {
                   params: { rom: rom?.id },
                 })
               "
-              >{{ t("play.back-to-game-details") }}
+            >
+              {{ t("play.back-to-game-details") }}
             </v-btn>
             <v-btn
               block
@@ -223,7 +241,8 @@ onMounted(async () => {
                   params: { platform: rom?.platform_id },
                 })
               "
-              >{{ t("play.back-to-gallery") }}
+            >
+              {{ t("play.back-to-gallery") }}
             </v-btn>
           </v-row>
           <v-btn

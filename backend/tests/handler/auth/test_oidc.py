@@ -3,8 +3,10 @@ from unittest.mock import MagicMock
 import pytest
 from authlib.integrations.starlette_client.apps import StarletteOAuth2App
 from fastapi import HTTPException
-from handler.auth.base_handler import OpenIDHandler
 from joserfc.jwt import Token
+
+from handler.auth.base_handler import OpenIDHandler
+from models.user import Role
 
 # Mock constants
 OIDC_SERVER_APPLICATION_URL = "http://mock-oidc-server"
@@ -130,7 +132,7 @@ async def test_oidc_valid_token_decoding(
         header={"alg": "RS256"},
         claims={"iss": OIDC_SERVER_APPLICATION_URL, "email": "test@example.com"},
     )
-    mock_user = MagicMock(enabled=True)
+    mock_user = MagicMock(enabled=True, role=Role.VIEWER)
     mocker.patch(
         "handler.database.db_user_handler.get_user_by_email", return_value=mock_user
     )
@@ -150,6 +152,148 @@ async def test_oidc_valid_token_decoding(
 
     assert user == mock_user
     assert userinfo.get("email") == mock_jwt_payload.claims.get("email")
+
+
+@pytest.mark.parametrize(
+    "config_override,token_roles,romm_role",
+    [
+        # Without OIDC role mapping.
+        [{"OIDC_CLAIM_ROLES": ""}, ["admin", "editor"], Role.VIEWER],
+        # OIDC role mapping.
+        [{}, ["admin", "editor", "viewer"], Role.ADMIN],
+        [{}, ["editor", "viewer"], Role.EDITOR],
+        [{}, ["viewer"], Role.VIEWER],
+        # OIDC viewer role fallback.
+        [{"OIDC_ROLE_VIEWER": "*"}, [], Role.VIEWER],
+    ],
+    ids=["no-mapping", "admin-role", "editor-role", "viewer-role", "viewer-fallback"],
+)
+async def test_oidc_valid_add_user(
+    mocker,
+    mock_oidc_enabled,
+    mock_token,
+    mock_openid_configuration,
+    config_override,
+    token_roles,
+    romm_role,
+):
+    """Test user creation & role assignment on login."""
+    mocker.patch(
+        "handler.auth.base_handler.OIDC_CLAIM_ROLES",
+        config_override.get("OIDC_CLAIM_ROLES", "roles"),
+    )
+    mocker.patch(
+        "handler.auth.base_handler.OIDC_ROLE_ADMIN",
+        config_override.get("OIDC_ROLE_ADMIN", "admin"),
+    )
+    mocker.patch(
+        "handler.auth.base_handler.OIDC_ROLE_EDITOR",
+        config_override.get("OIDC_ROLE_EDITOR", "editor"),
+    )
+    mocker.patch(
+        "handler.auth.base_handler.OIDC_ROLE_VIEWER",
+        config_override.get("OIDC_ROLE_VIEWER", "viewer"),
+    )
+    mock_token["userinfo"]["roles"] = token_roles
+    mock_user = MagicMock(enabled=True, role=Role.VIEWER)
+    mock_add_user = mocker.patch(
+        "handler.database.db_user_handler.add_user", return_value=mock_user
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    mock_add_user.assert_called_once()
+    assert (
+        mock_add_user.call_args.args[0].username
+        == mock_token["userinfo"]["preferred_username"]
+    )
+    assert mock_add_user.call_args.args[0].email == mock_token["userinfo"]["email"]
+    assert mock_add_user.call_args.args[0].enabled
+    assert mock_add_user.call_args.args[0].role == romm_role
+
+
+async def test_oidc_valid_edit_user_role(
+    mocker,
+    mock_oidc_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """Test role change for existing user on login based on OIDC role mapping."""
+    mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "roles")
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", "admin")
+    mock_token["userinfo"]["roles"] = ["admin"]
+    mock_user = MagicMock(enabled=True, role=Role.VIEWER)
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_email", return_value=mock_user
+    )
+    mock_user_edited = MagicMock(enabled=True, role=Role.ADMIN)
+    mock_edit_user = mocker.patch(
+        "handler.database.db_user_handler.update_user", return_value=mock_user_edited
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    user, _ = await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    assert user == mock_user_edited
+    mock_edit_user.assert_called_once_with(mock_user.id, {"role": Role.ADMIN})
+
+
+async def test_oidc_valid_no_edit_user_role_if_mapping_disabled(
+    mocker,
+    mock_oidc_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """Test that role is not changed for existing user on login if OIDC role mapping is disabled."""
+    mock_token["userinfo"]["roles"] = ["admin"]
+    mock_user = MagicMock(enabled=True, role=Role.EDITOR)
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_email", return_value=mock_user
+    )
+    mock_edit_user = mocker.patch(
+        "handler.database.db_user_handler.update_user", return_value=mock_user
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    user, _ = await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    mock_edit_user.assert_not_called()
+
+
+async def test_oidc_invalid_user_no_roles(
+    mocker,
+    mock_oidc_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """Test valid token response for user with no roles/access to this application."""
+    mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "roles")
+    mock_token["userinfo"]["roles"] = ["not-mapped"]
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    with pytest.raises(HTTPException, match="has not been granted any roles"):
+        await oidc_handler.get_current_active_user_from_openid_token(mock_token)
 
 
 async def test_oidc_token_unverified_email(
@@ -178,7 +322,7 @@ async def test_oidc_token_without_email_verified_claim(
         header={"alg": "RS256"},
         claims={"iss": OIDC_SERVER_APPLICATION_URL, "email": "test@example.com"},
     )
-    mock_user = MagicMock(enabled=True)
+    mock_user = MagicMock(enabled=True, role=Role.VIEWER)
     mocker.patch(
         "handler.database.db_user_handler.get_user_by_email", return_value=mock_user
     )

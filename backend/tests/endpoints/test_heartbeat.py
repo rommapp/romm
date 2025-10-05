@@ -2,6 +2,7 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
+
 from utils import get_version
 
 
@@ -34,6 +35,7 @@ def test_heartbeat(client):
     assert isinstance(metadata["PLAYMATCH_API_ENABLED"], bool)
     assert isinstance(metadata["HASHEOUS_API_ENABLED"], bool)
     assert isinstance(metadata["TGDB_API_ENABLED"], bool)
+    assert isinstance(metadata["FLASHPOINT_API_ENABLED"], bool)
 
     assert "FILESYSTEM" in heartbeat
     filesystem = heartbeat["FILESYSTEM"]
@@ -53,3 +55,16 @@ def test_heartbeat(client):
     oidc = heartbeat["OIDC"]
     assert isinstance(oidc["ENABLED"], bool)
     assert isinstance(oidc["PROVIDER"], str)
+
+
+def test_heartbeat_metadata(client):
+    response = client.get("/api/heartbeat/metadata/lb")
+    assert response.status_code == status.HTTP_200_OK
+
+    heartbeat = response.json()
+    assert heartbeat
+
+
+def test_heartbeat_metadata_unknown_source(client):
+    response = client.get("/api/heartbeat/metadata/unknown")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST

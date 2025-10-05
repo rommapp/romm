@@ -1,9 +1,10 @@
 from collections.abc import Sequence
 
-from decorators.database import begin_session
-from models.assets import State
 from sqlalchemy import and_, delete, select, update
 from sqlalchemy.orm import Session
+
+from decorators.database import begin_session
+from models.assets import State
 
 from .base_handler import DBBaseHandler
 

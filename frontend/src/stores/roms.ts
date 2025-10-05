@@ -1,3 +1,5 @@
+import { isNull, isUndefined } from "lodash";
+import { defineStore } from "pinia";
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
 import romApi from "@/services/api/rom";
@@ -9,8 +11,6 @@ import {
 import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
-import { isNull, isUndefined } from "lodash";
-import { defineStore } from "pinia";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
@@ -37,6 +37,7 @@ const defaultRomsState = {
   fetchLimit: 72,
   characterIndex: {} as Record<string, number>,
   selectedCharacter: null as string | null,
+  romIdIndex: [] as number[],
   orderBy: "name" as keyof SimpleRom,
   orderDir: "asc" as "asc" | "desc",
 };
@@ -150,49 +151,52 @@ export default defineStore("roms", {
             orderDir: this.orderDir,
             groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
           })
-          .then(({ data: { items, offset, total, char_index } }) => {
-            if (!concat || this.fetchOffset === 0) {
-              this.allRoms = items;
+          .then(
+            ({ data: { items, offset, total, char_index, rom_id_index } }) => {
+              if (!concat || this.fetchOffset === 0) {
+                this.allRoms = items;
 
-              // Cache the first batch of roms for each context
-              if (this.currentPlatform) {
-                _romsCacheByPlatform.set(
-                  this.currentPlatform.id,
-                  items.map((rom) => rom.id),
-                );
-                items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
-              } else if (this.currentCollection) {
-                _romsCacheByCollection.set(
-                  this.currentCollection.id,
-                  items.map((rom) => rom.id),
-                );
-                items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
-              } else if (this.currentVirtualCollection) {
-                _romsCacheByVirtualCollection.set(
-                  this.currentVirtualCollection.id,
-                  items.map((rom) => rom.id),
-                );
-                items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
-              } else if (this.currentSmartCollection) {
-                _romsCacheBySmartCollection.set(
-                  this.currentSmartCollection.id,
-                  items.map((rom) => rom.id),
-                );
-                items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
+                // Cache the first batch of roms for each context
+                if (this.currentPlatform) {
+                  _romsCacheByPlatform.set(
+                    this.currentPlatform.id,
+                    items.map((rom) => rom.id),
+                  );
+                  items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
+                } else if (this.currentCollection) {
+                  _romsCacheByCollection.set(
+                    this.currentCollection.id,
+                    items.map((rom) => rom.id),
+                  );
+                  items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
+                } else if (this.currentVirtualCollection) {
+                  _romsCacheByVirtualCollection.set(
+                    this.currentVirtualCollection.id,
+                    items.map((rom) => rom.id),
+                  );
+                  items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
+                } else if (this.currentSmartCollection) {
+                  _romsCacheBySmartCollection.set(
+                    this.currentSmartCollection.id,
+                    items.map((rom) => rom.id),
+                  );
+                  items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
+                }
+              } else {
+                this.allRoms = this.allRoms.concat(items);
               }
-            } else {
-              this.allRoms = this.allRoms.concat(items);
-            }
 
-            // Update the offset and total roms in filtered database result
-            if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
-            if (total !== null) this.fetchTotalRoms = total;
+              // Update the offset and total roms in filtered database result
+              if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
+              if (total !== null) this.fetchTotalRoms = total;
 
-            // Set the character index for the current platform
-            this.characterIndex = char_index;
+              // Set the character index for the current platform
+              this.characterIndex = char_index;
+              this.romIdIndex = rom_id_index;
 
-            resolve(items);
-          })
+              resolve(items);
+            },
+          )
           .catch((error) => {
             reject(error);
           })
@@ -273,6 +277,7 @@ export default defineStore("roms", {
       this.initialSearch = false;
       this.characterIndex = {};
       this.selectedCharacter = null;
+      this.romIdIndex = [];
       this.resetPagination();
     },
     resetPagination() {

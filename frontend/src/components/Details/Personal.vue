@@ -1,18 +1,18 @@
 <script setup lang="ts">
+import { debounce } from "lodash";
+import { MdEditor, MdPreview } from "md-editor-v3";
+import "md-editor-v3/lib/style.css";
+import { storeToRefs } from "pinia";
+import { ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay, useTheme } from "vuetify";
+import type { RomUserStatus } from "@/__generated__";
 import RetroAchievements from "@/components/Details/RetroAchievements.vue";
 import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
-import type { RomUserStatus } from "@/__generated__";
 import { getTextForStatus, getEmojiForStatus } from "@/utils";
-import { MdEditor, MdPreview } from "md-editor-v3";
-import "md-editor-v3/lib/style.css";
-import { debounce } from "lodash";
-import { ref, watch } from "vue";
-import { useDisplay, useTheme } from "vuetify";
-import { useI18n } from "vue-i18n";
-import { storeToRefs } from "pinia";
 
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
@@ -82,21 +82,24 @@ watch(
           prepend-icon="mdi-list-status"
           class="rounded text-caption"
           value="status"
-          >Status</v-tab
         >
+          Status
+        </v-tab>
         <v-tab
           v-if="rom.ra_id && auth.user?.ra_username"
           prepend-icon="mdi-trophy"
           class="rounded text-caption"
           value="ra"
-          >RetroAchievements</v-tab
         >
+          RetroAchievements
+        </v-tab>
         <v-tab
           prepend-icon="mdi-notebook-edit"
           class="rounded text-caption"
           value="notes"
-          >Notes</v-tab
         >
+          Notes
+        </v-tab>
       </v-tabs>
     </v-col>
     <v-col>
@@ -109,43 +112,41 @@ watch(
           >
             <v-col cols="12" md="5">
               <v-checkbox
-                :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.backlogged"
+                :disabled="!scopes.includes('roms.user.write')"
                 color="primary"
                 hide-details
               >
-                <template #label
-                  ><span>{{ t("rom.backlogged") }}</span
+                <template #label>
+                  <span>{{ t("rom.backlogged") }}</span
                   ><span class="ml-2">{{
                     getEmojiForStatus("backlogged")
-                  }}</span></template
-                >
+                  }}</span>
+                </template>
               </v-checkbox>
               <v-checkbox
-                :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.now_playing"
+                :disabled="!scopes.includes('roms.user.write')"
                 color="primary"
                 hide-details
               >
-                <template #label
-                  ><span>{{ t("rom.now-playing") }}</span
+                <template #label>
+                  <span>{{ t("rom.now-playing") }}</span
                   ><span class="ml-2">{{
                     getEmojiForStatus("now_playing")
-                  }}</span></template
-                >
+                  }}</span>
+                </template>
               </v-checkbox>
               <v-checkbox
-                :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.hidden"
+                :disabled="!scopes.includes('roms.user.write')"
                 color="primary"
                 hide-details
               >
-                <template #label
-                  ><span>{{ t("rom.hidden") }}</span
-                  ><span class="ml-2">{{
-                    getEmojiForStatus("hidden")
-                  }}</span></template
-                >
+                <template #label>
+                  <span>{{ t("rom.hidden") }}</span
+                  ><span class="ml-2">{{ getEmojiForStatus("hidden") }}</span>
+                </template>
               </v-checkbox>
             </v-col>
             <v-col cols="12" md="7">
@@ -159,18 +160,19 @@ watch(
                 </v-col>
                 <v-col cols="12" md="8">
                   <v-rating
+                    v-model="romUser.rating"
                     :class="{ 'ml-2': mdAndUp }"
                     hover
                     ripple
+                    clearable
                     length="10"
                     size="26"
                     :disabled="!scopes.includes('roms.user.write')"
-                    v-model="romUser.rating"
+                    active-color="yellow"
                     @update:model-value="
                       romUser.rating =
                         typeof $event === 'number' ? $event : parseInt($event)
                     "
-                    active-color="yellow"
                   />
                 </v-col>
               </v-row>
@@ -180,20 +182,21 @@ watch(
                 </v-col>
                 <v-col cols="12" md="8">
                   <v-rating
+                    v-model="romUser.difficulty"
                     :class="{ 'ml-2': mdAndUp }"
                     hover
                     ripple
+                    clearable
                     length="10"
                     size="26"
                     :disabled="!scopes.includes('roms.user.write')"
                     full-icon="mdi-chili-mild"
                     empty-icon="mdi-chili-mild-outline"
-                    v-model="romUser.difficulty"
+                    active-color="red"
                     @update:model-value="
                       romUser.difficulty =
                         typeof $event === 'number' ? $event : parseInt($event)
                     "
-                    active-color="red"
                   />
                 </v-col>
               </v-row>
@@ -203,26 +206,27 @@ watch(
                 </v-col>
                 <v-col cols="12" md="8">
                   <v-slider
+                    v-model="romUser.completion"
                     :class="{ 'ml-4': mdAndUp }"
                     :disabled="!scopes.includes('roms.user.write')"
-                    v-model="romUser.completion"
                     min="1"
                     max="100"
                     step="1"
                     hide-details
                     track-fill-color="primary"
-                    ><template #append>
+                  >
+                    <template #append>
                       <v-label class="ml-2 opacity-100">
                         {{ romUser.completion }}%
                       </v-label>
-                    </template></v-slider
-                  >
+                    </template>
+                  </v-slider>
                 </v-col>
               </v-row>
               <div class="d-flex align-center mt-4">
                 <v-select
-                  :disabled="!scopes.includes('roms.user.write')"
                   v-model="romUser.status"
+                  :disabled="!scopes.includes('roms.user.write')"
                   :items="statusOptions"
                   hide-details
                   :label="t('rom.status')"
@@ -255,15 +259,15 @@ watch(
           </v-row>
         </v-tabs-window-item>
         <v-tabs-window-item value="ra">
-          <retro-achievements :rom="rom" />
+          <RetroAchievements :rom="rom" />
         </v-tabs-window-item>
         <v-tabs-window-item value="notes">
-          <r-section
+          <RSection
             icon="mdi-account"
             :title="t('rom.my-notes')"
             elevation="0"
-            titleDivider
-            bgColor="bg-surface"
+            title-divider
+            bg-color="bg-surface"
             class="mt-2"
           >
             <template #toolbar-append>
@@ -276,52 +280,61 @@ watch(
                     romUser.note_is_public ? 'Make private' : 'Make public'
                   "
                   open-delay="500"
-                  ><template #activator="{ props: tooltipProps }">
+                >
+                  <template #activator="{ props: tooltipProps }">
                     <v-btn
                       :disabled="!scopes.includes('roms.user.write')"
-                      @click="romUser.note_is_public = !romUser.note_is_public"
                       v-bind="tooltipProps"
                       class="bg-toplayer"
+                      @click="romUser.note_is_public = !romUser.note_is_public"
                     >
                       <v-icon size="large">
                         {{ romUser.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
                       </v-icon>
                     </v-btn>
-                  </template></v-tooltip
-                >
+                  </template>
+                </v-tooltip>
                 <v-tooltip
                   location="top"
                   class="tooltip"
                   transition="fade-transition"
                   text="Edit note"
                   open-delay="500"
-                  ><template #activator="{ props: tooltipProps }">
+                >
+                  <template #activator="{ props: tooltipProps }">
                     <v-btn
                       :disabled="!scopes.includes('roms.user.write')"
-                      @click="editNote"
                       v-bind="tooltipProps"
                       class="bg-toplayer"
+                      @click="editNote"
                     >
                       <v-icon size="large">
                         {{ editingNote ? "mdi-check" : "mdi-pencil" }}
                       </v-icon>
                     </v-btn>
-                  </template></v-tooltip
-                >
+                  </template>
+                </v-tooltip>
               </v-btn-group>
             </template>
             <template #content>
               <MdEditor
                 v-if="editingNote"
-                :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.note_raw_markdown"
+                no-highlight
+                no-katex
+                no-mermaid
+                no-prettier
+                no-upload-img
+                :disabled="!scopes.includes('roms.user.write')"
                 :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
                 language="en-US"
                 :preview="false"
-                :no-upload-img="true"
               />
               <MdPreview
                 v-else
+                no-highlight
+                no-katex
+                no-mermaid
                 :model-value="romUser.note_raw_markdown"
                 :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
                 language="en-US"
@@ -330,24 +343,31 @@ watch(
                 class="py-4 px-6"
               />
             </template>
-          </r-section>
-          <r-section
+          </RSection>
+          <RSection
             v-if="publicNotes.length > 0"
             icon="mdi-account-multiple"
             :title="t('rom.public-notes')"
             elevation="0"
-            titleDivider
-            bgColor="bg-surface"
+            title-divider
+            bg-color="bg-surface"
             class="mt-2"
           >
             <template #content>
               <v-expansion-panels multiple flat variant="accordion">
-                <v-expansion-panel v-for="note in publicNotes" rounded="0">
+                <v-expansion-panel
+                  v-for="note in publicNotes"
+                  :key="note.user_id"
+                  rounded="0"
+                >
                   <v-expansion-panel-title class="bg-toplayer">
                     <span class="text-body-1">{{ note.username }}</span>
                   </v-expansion-panel-title>
                   <v-expansion-panel-text class="bg-surface">
                     <MdPreview
+                      no-highlight
+                      no-katex
+                      no-mermaid
                       :model-value="note.note_raw_markdown"
                       :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
                       language="en-US"
@@ -359,7 +379,7 @@ watch(
                 </v-expansion-panel>
               </v-expansion-panels>
             </template>
-          </r-section>
+          </RSection>
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>

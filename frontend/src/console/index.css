@@ -1,0 +1,213 @@
+@import "tailwindcss";
+
+:root {
+  --motion-fast: 150ms;
+  --motion-med: 220ms;
+  --motion-slow: 360ms;
+  --elev-1: 0 6px 24px rgba(0, 0, 0, 0.35);
+  --elev-2: 0 10px 32px rgba(0, 0, 0, 0.45);
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  background: #38286a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Hide scrollbars (cross-browser) */
+.no-scrollbar {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+  scrollbar-color: transparent transparent !important; /* Firefox ensure transparent */
+}
+.no-scrollbar::-webkit-scrollbar {
+  width: 0 !important; /* Chrome, Safari */
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+  -webkit-appearance: none !important;
+}
+.no-scrollbar::-webkit-scrollbar:horizontal {
+  height: 0 !important;
+  display: none !important;
+}
+.no-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  border: none !important;
+}
+.no-scrollbar::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+.no-scrollbar::-webkit-scrollbar-corner {
+  background: transparent !important;
+}
+.no-scrollbar::-webkit-scrollbar-button {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+/* Console Page Transitions */
+/* Slide Left (Going Forward/Deeper) */
+.slide-left-enter-active,
+.slide-left-leave-active {
+  transition: all 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+}
+.slide-left-enter-from {
+  opacity: 0;
+  transform: translateX(60px);
+}
+.slide-left-leave-to {
+  opacity: 0;
+  transform: translateX(-60px);
+}
+
+/* Slide Right (Going Back) */
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: all 0.25s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+}
+.slide-right-enter-from {
+  opacity: 0;
+  transform: translateX(-60px);
+}
+.slide-right-leave-to {
+  opacity: 0;
+  transform: translateX(60px);
+}
+
+/* Slide Up (Entering Play Mode) */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+}
+.slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(30px);
+}
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(-30px);
+}
+
+/* Slide Down (Exiting Play Mode) */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+}
+.slide-down-enter-from {
+  opacity: 0;
+  transform: translateY(-30px);
+}
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+/* Fade (Same Level or First Load) */
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Ensure smooth transitions */
+.slide-left-enter-active > *,
+.slide-right-enter-active > *,
+.slide-up-enter-active > *,
+.slide-down-enter-active > *,
+.fade-enter-active > * {
+  transition: inherit;
+}
+
+.console-root {
+  background:
+    var(
+        --console-root-background,
+        url("/assets/console/default/backgrounds/background.svg")
+      )
+      center/cover fixed,
+    #38286a;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.console-root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    var(
+        --console-root-foreground,
+        url("/assets/console/default/backgrounds/background.svg")
+      )
+      center/cover fixed,
+    #38286a;
+  opacity: var(--console-root-opacity, 0);
+  transition: opacity 0.3s ease-in-out;
+}
+
+.console-root::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  backdrop-filter: blur(20px) brightness(0.8);
+}
+
+.console-root > * {
+  position: relative;
+  z-index: 1;
+}
+
+.play-root {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 70 !important;
+  transform: none !important;
+}

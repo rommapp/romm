@@ -1,15 +1,15 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import RDialog from "@/components/common/RDialog.vue";
+import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import storeCollections, { type Collection } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
-import { ROUTES } from "@/plugins/router";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -62,23 +62,19 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-if="collection"
-    @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
     scroll-content
     :width="lgAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>
         <span>{{ t("collection.removing-collection-1") }}</span>
         <v-chip class="pl-0 ml-1" label>
-          <r-avatar-collection
-            :collection="collection"
-            :size="35"
-            class="mr-2"
-          />
+          <RAvatarCollection :collection="collection" :size="35" class="mr-2" />
           {{ collection.name }}
         </v-chip>
         <span class="ml-1">{{ t("collection.removing-collection-2") }}</span>
@@ -96,5 +92,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

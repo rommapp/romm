@@ -1,14 +1,14 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject } from "vue";
-import { useRouter } from "vue-router";
-import { ROUTES } from "@/plugins/router";
-import { storeToRefs } from "pinia";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const router = useRouter();
@@ -123,9 +123,9 @@ async function goToRandomGame() {
     color="text-white"
     :disabled="romsStore.filteredRoms.length === 0"
     rounded="0"
-    @click="goToRandomGame"
     :title="t('common.random')"
     class="bg-surface ma-0"
+    @click="goToRandomGame"
   >
     <v-icon>mdi-shuffle-variant</v-icon>
   </v-btn>

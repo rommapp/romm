@@ -3,7 +3,8 @@ import re
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from handler.metadata.base_hander import (
+
+from handler.metadata.base_handler import (
     LEADING_ARTICLE_PATTERN,
     MAME_XML_KEY,
     MULTIPLE_SPACE_PATTERN,
@@ -22,6 +23,12 @@ from handler.metadata.base_hander import (
     _normalize_search_term,
 )
 from handler.redis_handler import async_cache
+
+
+class ExampleMetadataHandler(MetadataHandler):
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return True
 
 
 class TestNormalizeSearchTerm:
@@ -102,7 +109,7 @@ class TestMetadataHandlerMethods:
 
     @pytest.fixture
     def handler(self):
-        return MetadataHandler()
+        return ExampleMetadataHandler()
 
     def test_normalize_cover_url_with_url(self, handler: MetadataHandler):
         """Test URL normalization with valid URL."""
@@ -123,7 +130,7 @@ class TestMetadataHandlerMethods:
 
     def test_normalize_search_term_delegates(self, handler: MetadataHandler):
         """Test that normalize_search_term delegates to the cached function."""
-        with patch("handler.metadata.base_hander._normalize_search_term") as mock_func:
+        with patch("handler.metadata.base_handler._normalize_search_term") as mock_func:
             mock_func.return_value = "normalized"
 
             result = handler.normalize_search_term("Test Game", True, False)
@@ -271,7 +278,7 @@ class TestMetadataHandlerMethods:
         ) as mock_exists, patch.object(
             async_cache, "hget", new_callable=AsyncMock
         ) as mock_hget, patch(
-            "handler.metadata.base_hander.update_switch_titledb_task"
+            "handler.metadata.base_handler.update_switch_titledb_task"
         ) as mock_task:
 
             # First call returns False (cache missing), second returns True (after fetch)
@@ -294,9 +301,9 @@ class TestMetadataHandlerMethods:
         with patch.object(
             async_cache, "exists", new_callable=AsyncMock
         ) as mock_exists, patch(
-            "handler.metadata.base_hander.update_switch_titledb_task"
+            "handler.metadata.base_handler.update_switch_titledb_task"
         ) as mock_task, patch(
-            "handler.metadata.base_hander.log"
+            "handler.metadata.base_handler.log"
         ) as mock_log:
 
             mock_exists.return_value = False  # Cache always missing
@@ -508,10 +515,9 @@ class TestRegexPatterns:
         assert LEADING_ARTICLE_PATTERN.match("the game")
         assert LEADING_ARTICLE_PATTERN.match("a game")
         assert LEADING_ARTICLE_PATTERN.match("an adventure")
+        assert LEADING_ARTICLE_PATTERN.match("The Game")
         # Should not match when not at start
         assert not LEADING_ARTICLE_PATTERN.match("game the")
-        # Should not match uppercase (pattern is for lowercase strings)
-        assert not LEADING_ARTICLE_PATTERN.match("The Game")
 
     def test_space_patterns(self):
         """Test space normalization patterns."""

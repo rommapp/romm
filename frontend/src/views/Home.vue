@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { onBeforeMount, ref, computed } from "vue";
+import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
+import { onBeforeMount, ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import Stats from "@/components/Home/Stats.vue";
 import Collections from "@/components/Home/Collections.vue";
-import Platforms from "@/components/Home/Platforms.vue";
-import PlatformsSkeleton from "@/components/Home/PlatformsSkeleton.vue";
-import RecentAddedSkeleton from "@/components/Home/RecentAddedSkeleton.vue";
-import RecentAdded from "@/components/Home/RecentAdded.vue";
 import ContinuePlaying from "@/components/Home/ContinuePlaying.vue";
 import EmptyHome from "@/components/Home/EmptyHome.vue";
+import Platforms from "@/components/Home/Platforms.vue";
+import PlatformsSkeleton from "@/components/Home/PlatformsSkeleton.vue";
+import RecentAdded from "@/components/Home/RecentAdded.vue";
+import RecentAddedSkeleton from "@/components/Home/RecentAddedSkeleton.vue";
+import Stats from "@/components/Home/Stats.vue";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
@@ -29,18 +30,22 @@ const {
   fetchingVirtualCollections,
 } = storeToRefs(collectionsStore);
 
-function getSettingValue(key: string, defaultValue: boolean = true): boolean {
-  const stored = localStorage.getItem(`settings.${key}`);
-  return stored === null ? defaultValue : stored === "true";
-}
-
-const showStats = getSettingValue("showStats");
-const showRecentRoms = getSettingValue("showRecentRoms");
-const showContinuePlaying = getSettingValue("showContinuePlaying");
-const showPlatforms = getSettingValue("showPlatforms");
-const showCollections = getSettingValue("showCollections");
-const showVirtualCollections = getSettingValue("showVirtualCollections");
-const showSmartCollections = getSettingValue("showSmartCollections");
+const showStats = useLocalStorage("settings.showStats", true);
+const showRecentRoms = useLocalStorage("settings.showRecentRoms", true);
+const showContinuePlaying = useLocalStorage(
+  "settings.showContinuePlaying",
+  true,
+);
+const showPlatforms = useLocalStorage("settings.showPlatforms", true);
+const showCollections = useLocalStorage("settings.showCollections", true);
+const showVirtualCollections = useLocalStorage(
+  "settings.showVirtualCollections",
+  true,
+);
+const showSmartCollections = useLocalStorage(
+  "settings.showSmartCollections",
+  true,
+);
 
 const fetchingRecentAdded = ref(false);
 const fetchingContinuePlaying = ref(false);
@@ -76,45 +81,45 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-  <empty-home v-if="isEmpty" />
+  <EmptyHome v-if="isEmpty" />
   <template v-else>
-    <stats v-if="showStats" />
+    <Stats v-if="showStats" />
 
     <template v-if="showRecentRoms">
-      <recent-added-skeleton
+      <RecentAddedSkeleton
         v-if="fetchingRecentAdded && recentRoms.length === 0"
         :title="t('home.recently-added')"
         class="ma-2"
       />
-      <recent-added v-else-if="recentRoms.length > 0" class="ma-2" />
+      <RecentAdded v-else-if="recentRoms.length > 0" class="ma-2" />
     </template>
 
     <template v-if="showContinuePlaying">
-      <recent-added-skeleton
+      <RecentAddedSkeleton
         v-if="fetchingContinuePlaying && continuePlayingRoms.length === 0"
         :title="t('home.continue-playing')"
         class="ma-2"
       />
-      <continue-playing
+      <ContinuePlaying
         v-else-if="continuePlayingRoms.length > 0"
         class="ma-2"
       />
     </template>
 
     <template v-if="showPlatforms">
-      <platforms-skeleton
+      <PlatformsSkeleton
         v-if="fetchingPlatforms && filledPlatforms.length === 0"
       />
-      <platforms v-else-if="filledPlatforms.length > 0" class="ma-2" />
+      <Platforms v-else-if="filledPlatforms.length > 0" class="ma-2" />
     </template>
 
     <template v-if="showCollections">
-      <recent-added-skeleton
+      <RecentAddedSkeleton
         v-if="fetchingCollections && filteredCollections.length === 0"
         :title="t('common.collections')"
         class="ma-2"
       />
-      <collections
+      <Collections
         v-if="filteredCollections.length > 0"
         :collections="filteredCollections"
         :title="t('common.collections')"
@@ -124,12 +129,12 @@ onBeforeMount(async () => {
     </template>
 
     <template v-if="showSmartCollections">
-      <recent-added-skeleton
+      <RecentAddedSkeleton
         v-if="fetchingSmartCollections && filteredSmartCollections.length === 0"
         :title="t('common.smart-collections')"
         class="ma-2"
       />
-      <collections
+      <Collections
         v-if="filteredSmartCollections.length > 0"
         :collections="filteredSmartCollections"
         :title="t('common.smart-collections')"
@@ -139,14 +144,14 @@ onBeforeMount(async () => {
     </template>
 
     <template v-if="showVirtualCollections">
-      <recent-added-skeleton
+      <RecentAddedSkeleton
         v-if="
           fetchingVirtualCollections && filteredVirtualCollections.length === 0
         "
         :title="t('common.virtual-collections')"
         class="ma-2"
       />
-      <collections
+      <Collections
         v-if="filteredVirtualCollections.length > 0"
         :collections="filteredVirtualCollections"
         :title="t('common.virtual-collections')"
