@@ -1,17 +1,17 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { ref, computed } from "vue";
+import { inject } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
-import storeGalleryFilter from "@/stores/galleryFilter";
-import type { Events } from "@/types/emitter";
+import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
-import { storeToRefs } from "pinia";
-import type { Emitter } from "mitt";
-import { inject } from "vue";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
-import { ROUTES } from "@/plugins/router";
-import { useRouter } from "vue-router";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import type { Events } from "@/types/emitter";
 import { getStatusKeyForText } from "@/utils";
 
 const { t } = useI18n();
@@ -110,7 +110,7 @@ async function createSmartCollection() {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   try {
-    const filterCriteria: Record<string, any> = {};
+    const filterCriteria: Record<string, number | boolean | string | null> = {};
 
     if (searchTerm.value) filterCriteria.search_term = searchTerm.value;
     if (selectedPlatform.value)
@@ -163,10 +163,10 @@ async function createSmartCollection() {
       params: { collection: data.id },
     });
     closeDialog();
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to create smart collection:", error);
     emitter?.emit("snackbarShow", {
-      msg: error.response?.data?.detail || "Failed to create smart collection",
+      msg: "Failed to create smart collection",
       icon: "mdi-close-circle",
       color: "red",
     });
@@ -175,11 +175,11 @@ async function createSmartCollection() {
 </script>
 
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-playlist-plus"
     :width="mdAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-card-title>{{ t("collection.create-smart-collection") }}</v-card-title>
@@ -228,7 +228,7 @@ async function createSmartCollection() {
             <v-col class="filters-preview">
               <v-card variant="outlined" class="h-100">
                 <v-card-title class="text-subtitle-1">
-                  <v-icon class="mr-2">mdi-filter</v-icon>
+                  <v-icon class="mr-2"> mdi-filter </v-icon>
                   {{ t("collection.current-filters") }}
                 </v-card-title>
                 <v-card-text>
@@ -262,7 +262,7 @@ async function createSmartCollection() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>
 <style scoped>
 .filters-preview {

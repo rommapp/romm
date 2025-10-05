@@ -10,10 +10,11 @@ import os
 
 import sqlalchemy as sa
 from alembic import op
-from config import ROMM_DB_DRIVER
-from config.config_manager import SQLITE_DB_BASE_PATH, ConfigManager
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+
+from config import ROMM_DB_DRIVER
+from config.config_manager import SQLITE_DB_BASE_PATH, ConfigManager
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.

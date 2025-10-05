@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import RomListItem from "@/components/common/Game/ListItem.vue";
-import RDialog from "@/components/common/RDialog.vue";
-import romApi from "@/services/api/rom";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
-import configApi from "@/services/api/config";
-import type { Events } from "@/types/emitter";
-import storeConfig from "@/stores/config";
-import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
+import RomListItem from "@/components/common/Game/ListItem.vue";
+import RDialog from "@/components/common/RDialog.vue";
+import { ROUTES } from "@/plugins/router";
+import configApi from "@/services/api/config";
+import romApi from "@/services/api/rom";
+import storeConfig from "@/stores/config";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
@@ -52,7 +52,7 @@ async function deleteRoms() {
       });
       if (excludeOnDelete.value) {
         for (const rom of roms.value) {
-          if (!rom.multi) {
+          if (rom.has_simple_single_file) {
             configApi.addExclusion({
               exclusionValue: rom.fs_name,
               exclusionType: "EXCLUDED_SINGLE_FILES",
@@ -107,12 +107,12 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-delete"
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row no-gutters class="justify-center">
@@ -131,15 +131,15 @@ function closeDialog() {
     </template>
     <template #content>
       <v-data-table-virtual
+        v-model="romsToDeleteFromFs"
         :item-value="(item) => item.id"
         :items="roms"
         :width="mdAndUp ? '60vw' : '95vw'"
         :headers="HEADERS"
-        v-model="romsToDeleteFromFs"
         show-select
       >
         <template #item.name="{ item }">
-          <rom-list-item :rom="item" with-filename with-size>
+          <RomListItem :rom="item" with-filename with-size>
             <template #append-body>
               <v-row v-if="romsToDeleteFromFs.includes(item.id)" no-gutters>
                 <v-col>
@@ -149,19 +149,21 @@ function closeDialog() {
                 </v-col>
               </v-row>
             </template>
-          </rom-list-item>
+          </RomListItem>
         </template>
       </v-data-table-virtual>
     </template>
     <template #append>
       <v-row class="justify-center text-center pa-2" no-gutters>
         <v-col>
-          <v-chip @click="excludeOnDelete = !excludeOnDelete" variant="text"
-            ><v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">{{
-              excludeOnDelete
-                ? "mdi-checkbox-outline"
-                : "mdi-checkbox-blank-outline"
-            }}</v-icon>
+          <v-chip variant="text" @click="excludeOnDelete = !excludeOnDelete">
+            <v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">
+              {{
+                excludeOnDelete
+                  ? "mdi-checkbox-outline"
+                  : "mdi-checkbox-blank-outline"
+              }}
+            </v-icon>
             {{ t("common.exclude-on-delete") }}
           </v-chip>
         </v-col>
@@ -182,7 +184,7 @@ function closeDialog() {
       </v-row>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
             Cancel
           </v-btn>
           <v-btn
@@ -195,5 +197,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

@@ -1,16 +1,16 @@
+import { storeToRefs } from "pinia";
 import {
   createRouter,
   createWebHistory,
   type NavigationGuardWithThis,
 } from "vue-router";
-import storeHeartbeat from "@/stores/heartbeat";
-import storeAuth from "@/stores/auth";
-import storeRoms from "@/stores/roms";
-import { storeToRefs } from "pinia";
-import type { User } from "@/stores/users";
+import i18n from "@/locales";
 import { startViewTransition } from "@/plugins/transition";
 import romApi from "@/services/api/rom";
-import i18n from "@/locales";
+import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
+import storeRoms from "@/stores/roms";
+import type { User } from "@/stores/users";
 
 export const ROUTES = {
   SETUP: "setup",
@@ -31,9 +31,17 @@ export const ROUTES = {
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
+  METADATA_SOURCES: "metadata-sources",
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   NOT_FOUND: "404",
+  CONSOLE_HOME: "console-home",
+  CONSOLE_PLATFORM: "console-platform",
+  CONSOLE_COLLECTION: "console-collection",
+  CONSOLE_SMART_COLLECTION: "console-smart-collection",
+  CONSOLE_VIRTUAL_COLLECTION: "console-virtual-collection",
+  CONSOLE_ROM: "console-rom",
+  CONSOLE_PLAY: "console-play",
 } as const;
 
 const routes = [
@@ -202,6 +210,14 @@ const routes = [
         component: () => import("@/views/Settings/LibraryManagement.vue"),
       },
       {
+        path: "metadata-sources",
+        name: ROUTES.METADATA_SOURCES,
+        meta: {
+          title: i18n.global.t("scan.metadata-sources"),
+        },
+        component: () => import("@/views/Settings/MetadataSources.vue"),
+      },
+      {
         path: "administration",
         name: ROUTES.ADMINISTRATION,
         meta: {
@@ -221,6 +237,48 @@ const routes = [
         path: ":pathMatch(.*)*",
         name: ROUTES.NOT_FOUND,
         component: () => import("@/views/404.vue"),
+      },
+    ],
+  },
+  // Console mode (separate UI namespace under /console)
+  {
+    path: "/console",
+    component: () => import("@/console/Layout.vue"),
+    children: [
+      {
+        path: "",
+        name: ROUTES.CONSOLE_HOME,
+        component: () => import("@/console/views/Home.vue"),
+      },
+      {
+        path: "platform/:id",
+        name: ROUTES.CONSOLE_PLATFORM,
+        component: () => import("@/console/views/GamesList.vue"),
+      },
+      {
+        path: "collection/:id",
+        name: ROUTES.CONSOLE_COLLECTION,
+        component: () => import("@/console/views/GamesList.vue"),
+      },
+      {
+        path: "collection/smart/:id",
+        name: ROUTES.CONSOLE_SMART_COLLECTION,
+        component: () => import("@/console/views/GamesList.vue"),
+      },
+      {
+        path: "collection/virtual/:id",
+        name: ROUTES.CONSOLE_VIRTUAL_COLLECTION,
+        component: () => import("@/console/views/GamesList.vue"),
+      },
+      {
+        path: "rom/:rom",
+        name: ROUTES.CONSOLE_ROM,
+        component: () => import("@/console/views/Game.vue"),
+      },
+      {
+        path: "rom/:rom/play",
+        name: ROUTES.CONSOLE_PLAY,
+        component: () => import("@/console/views/Play.vue"),
       },
     ],
   },

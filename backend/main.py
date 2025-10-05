@@ -5,9 +5,15 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import alembic.config
-import endpoints.sockets.scan  # noqa
 import sentry_sdk
 import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi_pagination import add_pagination
+from starlette.middleware.authentication import AuthenticationMiddleware
+from startup import main
+
+import endpoints.sockets.scan  # noqa
 from config import (
     DEV_HOST,
     DEV_PORT,
@@ -34,16 +40,11 @@ from endpoints import (
     tasks,
     user,
 )
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi_pagination import add_pagination
 from handler.auth.constants import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
 from handler.socket_handler import socket_handler
-from logger.log_middleware import LOGGING_CONFIG, CustomLoggingMiddleware
-from starlette.middleware.authentication import AuthenticationMiddleware
-from startup import main
+from logger.formatter import LOGGING_CONFIG
 from utils import get_version
 from utils.context import (
     ctx_aiohttp_session,
@@ -134,8 +135,8 @@ app.mount("/ws", socket_handler.socket_app)
 add_pagination(app)
 
 
-# NOTE: This code is only executed when running the application directly, not by Production
-# deployments using Gunicorn.
+# NOTE: This code is only executed when running the application directly,
+# not by deployments using gunicorn.
 if __name__ == "__main__":
     # Run migrations
     alembic.config.main(argv=["upgrade", "head"])
@@ -144,5 +145,4 @@ if __name__ == "__main__":
     asyncio.run(main())
 
     # Run application
-    app.add_middleware(CustomLoggingMiddleware)
     uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True, access_log=False)

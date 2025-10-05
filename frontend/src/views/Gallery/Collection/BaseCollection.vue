@@ -1,23 +1,23 @@
 <script setup lang="ts">
+import { useLocalStorage, useScroll } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onMounted, ref, watch } from "vue";
+import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import GalleryAppBarCollection from "@/components/Gallery/AppBar/Collection/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
+import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
+import Skeleton from "@/components/Gallery/Skeleton.vue";
 import EmptyCollection from "@/components/common/EmptyStates/EmptyCollection.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import Skeleton from "@/components/Gallery/Skeleton.vue";
-import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
-import GameTable from "@/components/common/Game/Table.vue";
+import GameTable from "@/components/common/Game/VirtualTable.vue";
+import { type CollectionType } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
-import { type CollectionType } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
-import { isNull, throttle } from "lodash";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 
 const props = defineProps<{
   collections: CollectionType[];
@@ -38,16 +38,12 @@ const {
   fetchTotalRoms,
 } = storeToRefs(romsStore);
 const noCollectionError = ref(false);
-const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const isHovering = ref(false);
-const hoveringRomId = ref();
+const hoveringRomId = ref<number>();
 const openedMenu = ref(false);
-const openedMenuRomId = ref();
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const openedMenuRomId = ref<number>();
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 let timeout: ReturnType<typeof setTimeout>;
 
 async function fetchRoms() {
@@ -92,7 +88,7 @@ function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
 
 function onClosedMenu() {
   openedMenu.value = false;
-  openedMenuRomId.value = null;
+  openedMenuRomId.value = undefined;
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -141,19 +137,21 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
-const onScroll = throttle(() => {
+const { y: documentY } = useScroll(document.body, { throttle: 500 });
+
+watch(documentY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = window.scrollY === 0;
+    scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
       fetchTotalRoms.value > allRoms.value.length
     ) {
       await fetchRoms();
     }
   }, 100);
-}, 500);
+});
 
 function resetGallery() {
   romsStore.reset();
@@ -188,8 +186,6 @@ onMounted(async () => {
           document.title = `${collection.name}`;
           await fetchRoms();
         }
-
-        window.addEventListener("scroll", onScroll);
       }
     },
     { immediate: true }, // Ensure watcher is triggered immediately
@@ -225,19 +221,15 @@ onBeforeRouteUpdate(async (to, from) => {
     { immediate: true }, // Ensure watcher is triggered immediately
   );
 });
-
-onBeforeUnmount(() => {
-  window.removeEventListener("scroll", onScroll);
-});
 </script>
 
 <template>
   <template v-if="!noCollectionError">
-    <gallery-app-bar-collection />
+    <GalleryAppBarCollection />
     <template
       v-if="currentCollection && fetchingRoms && filteredRoms.length === 0"
     >
-      <skeleton :romCount="currentCollection.rom_count" />
+      <Skeleton :rom-count="currentCollection.rom_count" />
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">
@@ -256,26 +248,27 @@ onBeforeUnmount(() => {
               zIndex:
                 (isHovering && hoveringRomId === rom.id) ||
                 (openedMenu && openedMenuRomId === rom.id)
-                  ? 1100
+                  ? 1000
                   : 1,
             }"
           >
-            <game-card
-              :key="rom.updated_at"
+            <GameCard
+              :key="rom.id"
               :rom="rom"
-              titleOnHover
-              pointerOnHover
-              withLink
-              transformScale
-              showActionBar
-              showChips
-              :withBorderPrimary="selectedRoms?.includes(rom)"
-              :sizeActionBar="currentView"
-              :enable3DTilt="enable3DEffect"
+              title-on-hover
+              pointer-on-hover
+              with-link
+              transform-scale
+              show-action-bar
+              show-chips
+              :with-border-primary="selectedRoms?.includes(rom)"
+              :size-action-bar="currentView"
+              :enable3-d-tilt="enable3DEffect"
               @click="onGameClick"
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"
               @hover="onHover"
+              @focus="onHover"
               @openedmenu="onOpenedMenu"
               @closedmenu="onClosedMenu"
             />
@@ -283,20 +276,20 @@ onBeforeUnmount(() => {
         </v-row>
 
         <!-- Gallery list view -->
-        <v-row class="mr-13" v-if="currentView == 2" no-gutters>
+        <v-row v-if="currentView == 2" class="mr-13" no-gutters>
           <v-col class="my-4">
-            <game-table show-platform-icon class="mx-2" />
+            <GameTable show-platform-icon class="mx-2" />
           </v-col>
         </v-row>
 
-        <load-more-btn :fetchRoms="fetchRoms" />
-        <fab-overlay />
+        <LoadMoreBtn :fetch-roms="fetchRoms" />
+        <FabOverlay />
       </template>
       <template v-else>
-        <empty-game v-if="props.collections.length > 0 && !fetchingRoms" />
+        <EmptyGame v-if="props.collections.length > 0 && !fetchingRoms" />
       </template>
     </template>
   </template>
 
-  <empty-collection v-else />
+  <EmptyCollection v-else />
 </template>

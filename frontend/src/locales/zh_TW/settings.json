@@ -55,6 +55,8 @@
   "show-stats-desc": "在首頁上顯示統計摘要",
   "show-actionbar": "顯示操作列",
   "show-actionbar-desc": "在遊戲卡片上保持顯示操作列",
+  "show-game-titles": "顯示遊戲標題",
+  "show-game-titles-desc": "在遊戲卡片上始終顯示遊戲標題",
   "show-virtual-collections": "顯示自動生成收藏庫",
   "show-virtual-collections-desc": "在主頁及收藏庫側邊欄中顯示",
   "theme": "主題",

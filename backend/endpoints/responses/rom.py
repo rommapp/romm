@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import NotRequired, TypedDict, get_type_hints
+from typing import Annotated, NotRequired, TypedDict, get_type_hints
+
+from fastapi import Request
+from pydantic import Field, computed_field, field_validator
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
-from fastapi import Request
+from handler.metadata.flashpoint_handler import FlashpointMetadata
 from handler.metadata.hasheous_handler import HasheousMetadata
+from handler.metadata.hltb_handler import HLTBMetadata
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.launchbox_handler import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
@@ -14,7 +18,6 @@ from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from models.collection import Collection
 from models.rom import Rom, RomFileCategory, RomUserStatus
-from pydantic import computed_field, field_validator
 
 from .base import BaseModel
 
@@ -48,6 +51,16 @@ RomLaunchboxMetadata = TypedDict(  # type: ignore[misc]
 RomHasheousMetadata = TypedDict(  # type: ignore[misc]
     "RomHasheousMetadata",
     {k: NotRequired[v] for k, v in get_type_hints(HasheousMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomFlashpointMetadata = TypedDict(  # type: ignore[misc]
+    "RomFlashpointMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(FlashpointMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomHLTBMetadata = TypedDict(  # type: ignore[misc]
+    "RomHLTBMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(HLTBMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 
@@ -188,6 +201,8 @@ class RomSchema(BaseModel):
     launchbox_id: int | None
     hasheous_id: int | None
     tgdb_id: int | None
+    flashpoint_id: str | None
+    hltb_id: int | None
 
     platform_id: int
     platform_slug: str
@@ -216,6 +231,8 @@ class RomSchema(BaseModel):
     ss_metadata: RomSSMetadata | None
     launchbox_metadata: RomLaunchboxMetadata | None
     hasheous_metadata: RomHasheousMetadata | None
+    flashpoint_metadata: RomFlashpointMetadata | None
+    hltb_metadata: RomHLTBMetadata | None
 
     path_cover_small: str | None
     path_cover_large: str | None
@@ -225,6 +242,7 @@ class RomSchema(BaseModel):
     path_manual: str | None
     url_manual: str | None
 
+    is_identifying: bool = False
     is_unidentified: bool
     is_identified: bool
 
@@ -237,7 +255,11 @@ class RomSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
 
-    multi: bool
+    # TODO: Remove this after 4.3 release
+    multi: Annotated[bool, Field(deprecated="Replaced by has_multiple_files")]
+    has_simple_single_file: bool
+    has_nested_single_file: bool
+    has_multiple_files: bool
     files: list[RomFileSchema]
     full_path: str
     created_at: datetime

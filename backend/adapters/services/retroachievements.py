@@ -6,6 +6,9 @@ from typing import cast
 
 import aiohttp
 import yarl
+from aiohttp.client import ClientTimeout
+from fastapi import HTTPException, status
+
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
     RAGameInfoAndUserProgress,
@@ -13,10 +16,9 @@ from adapters.services.retroachievements_types import (
     RAUserCompletionProgress,
     RAUserCompletionProgressResult,
 )
-from aiohttp.client import ClientTimeout
 from config import RETROACHIEVEMENTS_API_KEY
-from fastapi import HTTPException, status
 from logger.logger import log
+from utils import get_version
 from utils.context import ctx_aiohttp_session
 
 
@@ -53,6 +55,7 @@ class RetroAchievementsService:
         try:
             res = await aiohttp_session.get(
                 url,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )
@@ -89,6 +92,7 @@ class RetroAchievementsService:
             )
             res = await aiohttp_session.get(
                 url,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )
@@ -106,6 +110,15 @@ class RetroAchievementsService:
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
+
+    async def get_achievement_of_the_week(self) -> dict:
+        """Retrieve the achievement of the week.
+
+        Reference: https://api-docs.retroachievements.org/v1/get-achievement-of-the-week.html
+        """
+        url = self.url.joinpath("API_GetAchievementOfTheWeek.php")
+        response = await self._request(str(url))
+        return response
 
     async def get_game_extended_details(self, game_id: int) -> RAGameExtendedDetails:
         """Retrieve extended metadata about a game, targeted via its unique ID.

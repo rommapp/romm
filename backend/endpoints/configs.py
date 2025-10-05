@@ -1,11 +1,9 @@
+from fastapi import HTTPException, Request, status
+
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.config import ConfigResponse
-from exceptions.config_exceptions import (
-    ConfigNotReadableException,
-    ConfigNotWritableException,
-)
-from fastapi import HTTPException, Request, status
+from exceptions.config_exceptions import ConfigNotWritableException
 from handler.auth.constants import Scope
 from logger.logger import log
 from utils.router import APIRouter
@@ -24,23 +22,26 @@ def get_config() -> ConfigResponse:
         ConfigResponse: RomM's configuration
     """
 
-    try:
-        cfg = cm.get_config()
-        return ConfigResponse(
-            EXCLUDED_PLATFORMS=cfg.EXCLUDED_PLATFORMS,
-            EXCLUDED_SINGLE_EXT=cfg.EXCLUDED_SINGLE_EXT,
-            EXCLUDED_SINGLE_FILES=cfg.EXCLUDED_SINGLE_FILES,
-            EXCLUDED_MULTI_FILES=cfg.EXCLUDED_MULTI_FILES,
-            EXCLUDED_MULTI_PARTS_EXT=cfg.EXCLUDED_MULTI_PARTS_EXT,
-            EXCLUDED_MULTI_PARTS_FILES=cfg.EXCLUDED_MULTI_PARTS_FILES,
-            PLATFORMS_BINDING=cfg.PLATFORMS_BINDING,
-            PLATFORMS_VERSIONS=cfg.PLATFORMS_VERSIONS,
-        )
-    except ConfigNotReadableException as exc:
-        log.critical(exc.message)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
-        ) from exc
+    cfg = cm.get_config()
+    return ConfigResponse(
+        CONFIG_FILE_MOUNTED=cfg.CONFIG_FILE_MOUNTED,
+        EXCLUDED_PLATFORMS=cfg.EXCLUDED_PLATFORMS,
+        EXCLUDED_SINGLE_EXT=cfg.EXCLUDED_SINGLE_EXT,
+        EXCLUDED_SINGLE_FILES=cfg.EXCLUDED_SINGLE_FILES,
+        EXCLUDED_MULTI_FILES=cfg.EXCLUDED_MULTI_FILES,
+        EXCLUDED_MULTI_PARTS_EXT=cfg.EXCLUDED_MULTI_PARTS_EXT,
+        EXCLUDED_MULTI_PARTS_FILES=cfg.EXCLUDED_MULTI_PARTS_FILES,
+        PLATFORMS_BINDING=cfg.PLATFORMS_BINDING,
+        PLATFORMS_VERSIONS=cfg.PLATFORMS_VERSIONS,
+        EJS_DEBUG=cfg.EJS_DEBUG,
+        EJS_CACHE_LIMIT=cfg.EJS_CACHE_LIMIT,
+        EJS_CONTROLS=cfg.EJS_CONTROLS,
+        EJS_SETTINGS=cfg.EJS_SETTINGS,
+        SCAN_METADATA_PRIORITY=cfg.SCAN_METADATA_PRIORITY,
+        SCAN_ARTWORK_PRIORITY=cfg.SCAN_ARTWORK_PRIORITY,
+        SCAN_REGION_PRIORITY=cfg.SCAN_REGION_PRIORITY,
+        SCAN_LANGUAGE_PRIORITY=cfg.SCAN_LANGUAGE_PRIORITY,
+    )
 
 
 @protected_route(router.post, "/system/platforms", [Scope.PLATFORMS_WRITE])

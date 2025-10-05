@@ -7,8 +7,8 @@ withDefaults(
   }>(),
   { enabled: false },
 );
-const { t } = useI18n();
 const emit = defineEmits(["click"]);
+const { t } = useI18n();
 </script>
 <template>
   <v-expand-transition>
@@ -20,7 +20,7 @@ const emit = defineEmits(["click"]);
       prepend-icon="mdi-plus"
       variant="outlined"
       class="text-primary"
-      @click="$emit('click')"
+      @click="emit('click')"
     >
       {{ t("common.add") }}
     </v-btn>

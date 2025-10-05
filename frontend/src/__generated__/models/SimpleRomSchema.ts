@@ -3,7 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { RomFileSchema } from './RomFileSchema';
+import type { RomFlashpointMetadata } from './RomFlashpointMetadata';
 import type { RomHasheousMetadata } from './RomHasheousMetadata';
+import type { RomHLTBMetadata } from './RomHLTBMetadata';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
@@ -21,6 +23,8 @@ export type SimpleRomSchema = {
     launchbox_id: (number | null);
     hasheous_id: (number | null);
     tgdb_id: (number | null);
+    flashpoint_id: (string | null);
+    hltb_id: (number | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -44,12 +48,15 @@ export type SimpleRomSchema = {
     ss_metadata: (RomSSMetadata | null);
     launchbox_metadata: (RomLaunchboxMetadata | null);
     hasheous_metadata: (RomHasheousMetadata | null);
+    flashpoint_metadata: (RomFlashpointMetadata | null);
+    hltb_metadata: (RomHLTBMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
     has_manual: boolean;
     path_manual: (string | null);
     url_manual: (string | null);
+    is_identifying?: boolean;
     is_unidentified: boolean;
     is_identified: boolean;
     revision: (string | null);
@@ -59,7 +66,13 @@ export type SimpleRomSchema = {
     crc_hash: (string | null);
     md5_hash: (string | null);
     sha1_hash: (string | null);
+    /**
+     * @deprecated
+     */
     multi: boolean;
+    has_simple_single_file: boolean;
+    has_nested_single_file: boolean;
+    has_multiple_files: boolean;
     files: Array<RomFileSchema>;
     full_path: string;
     created_at: string;

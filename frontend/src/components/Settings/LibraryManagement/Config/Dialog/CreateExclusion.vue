@@ -1,12 +1,12 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
 import storeConfig from "@/stores/config";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const { mdAndUp, smAndDown } = useDisplay();
@@ -43,11 +43,11 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-cancel"
     :width="mdAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row v-if="smAndDown" no-gutters>
@@ -95,5 +95,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

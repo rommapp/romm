@@ -1,21 +1,20 @@
+import type { AxiosProgressEvent } from "axios";
 import type {
   BulkOperationResponse,
   SearchRomSchema,
   RomUserSchema,
 } from "@/__generated__";
-import api from "@/services/api/index";
-import socket from "@/services/socket";
-import storeUpload from "@/stores/upload";
-import type { DetailedRom, SimpleRom } from "@/stores/roms";
-import { getDownloadPath, getStatusKeyForText } from "@/utils";
-import type { AxiosProgressEvent } from "axios";
-import storeHeartbeat from "@/stores/heartbeat";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
+import api from "@/services/api";
+import socket from "@/services/socket";
+import storeHeartbeat from "@/stores/heartbeat";
+import type { DetailedRom, SimpleRom } from "@/stores/roms";
+import storeUpload from "@/stores/upload";
+import { getDownloadPath, getStatusKeyForText } from "@/utils";
 
 export const romApi = api;
 
 const DOWNLOAD_CLEANUP_DELAY = 100;
-const DOWNLOAD_INTERVAL_DELAY = 300;
 
 async function uploadRoms({
   platformId,
@@ -223,15 +222,34 @@ async function downloadRom({
   });
 }
 
-async function bulkDownloadRoms({ roms }: { roms: SimpleRom[] }) {
-  if (roms.length === 0) return;
+async function bulkDownloadRoms({
+  roms,
+  filename,
+}: {
+  roms: SimpleRom[];
+  filename?: string;
+}) {
+  return new Promise<void>((resolve) => {
+    if (roms.length === 0) return resolve();
 
-  for (let i = 0; i < roms.length; i++) {
-    await downloadRom({ rom: roms[i] });
-    await new Promise((resolve) =>
-      setTimeout(resolve, DOWNLOAD_INTERVAL_DELAY),
-    );
-  }
+    const romIds = roms.map((rom) => rom.id);
+
+    const queryParams = new URLSearchParams();
+    queryParams.append("rom_ids", romIds.join(","));
+    if (filename) queryParams.append("filename", filename);
+
+    const a = document.createElement("a");
+    a.href = `/api/roms/download?${queryParams.toString()}`;
+    a.style.display = "none";
+
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      document.body.removeChild(a);
+      resolve();
+    }, DOWNLOAD_CLEANUP_DELAY);
+  });
 }
 
 export type UpdateRom = SimpleRom & {
@@ -254,13 +272,20 @@ async function updateRom({
   formData.append("ss_id", rom.ss_id?.toString() ?? "");
   formData.append("ra_id", rom.ra_id?.toString() ?? "");
   formData.append("launchbox_id", rom.launchbox_id?.toString() ?? "");
+  formData.append("flashpoint_id", rom.flashpoint_id?.toString() ?? "");
   formData.append("hasheous_id", rom.hasheous_id?.toString() ?? "");
   formData.append("tgdb_id", rom.tgdb_id?.toString() ?? "");
+  formData.append("hltb_id", rom.hltb_id?.toString() ?? "");
   formData.append("name", rom.name || "");
   formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");
-  formData.append("url_cover", rom.url_cover || "");
-  if (rom.artwork) formData.append("artwork", rom.artwork);
+
+  // Don't set url_cover on manual artwork upload
+  if (rom.artwork) {
+    formData.append("artwork", rom.artwork);
+  } else {
+    formData.append("url_cover", rom.url_cover || "");
+  }
 
   return api.put(`/roms/${rom.id}`, formData, {
     params: {

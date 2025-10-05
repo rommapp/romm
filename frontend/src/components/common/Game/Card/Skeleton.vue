@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import storePlatforms from "@/stores/platforms";
-import storeGalleryView from "@/stores/galleryView";
+import { useLocalStorage } from "@vueuse/core";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
-import { isNull } from "lodash";
+import storeGalleryView from "@/stores/galleryView";
+import storePlatforms from "@/stores/platforms";
 
 const props = withDefaults(
   defineProps<{
@@ -14,7 +14,7 @@ const props = withDefaults(
   {
     platformId: undefined,
     aspectRatio: undefined,
-    type: "image, avatar, chip, chip, actions",
+    type: undefined,
   },
 );
 
@@ -22,13 +22,10 @@ const { smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
 
-const showActionBarAlways = isNull(
-  localStorage.getItem("settings.showActionBar"),
-)
-  ? false
-  : localStorage.getItem("settings.showActionBar") === "true";
-
-const showActionBar = computed(() => smAndDown.value || showActionBarAlways);
+const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
+const showActionBar = computed(
+  () => smAndDown.value || showActionBarAlways.value,
+);
 
 const computedAspectRatio = computed(() => {
   const ratio =
@@ -37,13 +34,19 @@ const computedAspectRatio = computed(() => {
     galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
+
+const computedType = computed(() => {
+  if (props.type) return props.type;
+  if (showActionBar.value) return "image, avatar, chip, chip, actions";
+  return "image, avatar, chip, chip";
+});
 </script>
 
 <template>
   <v-skeleton-loader
     class="card-skeleton"
     :class="{ 'show-action-bar': showActionBar }"
-    :type="type"
+    :type="computedType"
     :style="{ aspectRatio: computedAspectRatio }"
   />
 </template>

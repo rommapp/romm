@@ -1,14 +1,17 @@
+import gzip
 import os
 from io import BytesIO
 from pathlib import Path
 
 import httpx
-from config import RESOURCES_BASE_PATH
 from fastapi import status
+from PIL import Image, ImageFile, UnidentifiedImageError
+
+from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
-from PIL import Image, ImageFile, UnidentifiedImageError
+from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
 
 from .base_handler import CoverSize, FSHandler
@@ -17,6 +20,7 @@ from .base_handler import CoverSize, FSHandler
 class FSResourcesHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=RESOURCES_BASE_PATH)
+        self.image_converter = ImageConverter()
 
     def get_platform_resources_path(self, platform_id: int) -> str:
         return os.path.join("roms", str(platform_id))
@@ -68,11 +72,32 @@ class FSResourcesHandler(FSHandler):
         try:
             async with httpx_client.stream("GET", url_cover, timeout=120) as response:
                 if response.status_code == status.HTTP_200_OK:
+                    # Check if content is gzipped from response headers
+                    is_gzipped = (
+                        response.headers.get("content-encoding", "").lower() == "gzip"
+                    )
+
                     async with await self.write_file_streamed(
                         path=cover_file, filename=f"{size.value}.png"
                     ) as f:
-                        async for chunk in response.aiter_raw():
-                            await f.write(chunk)
+                        if is_gzipped:
+                            # Content is gzipped, decompress it
+                            content = await response.aread()
+                            try:
+                                decompressed_content = gzip.decompress(content)
+                                await f.write(decompressed_content)
+                            except gzip.BadGzipFile:
+                                await f.write(content)
+                        else:
+                            # Content is not gzipped, stream directly
+                            async for chunk in response.aiter_raw():
+                                await f.write(chunk)
+
+                    if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                        self.image_converter.convert_to_webp(
+                            self.validate_path(f"{cover_file}/{size.value}.png"),
+                            force=True,
+                        )
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
             return None
@@ -82,6 +107,11 @@ class FSResourcesHandler(FSHandler):
                 image_path = self.validate_path(f"{cover_file}/{size.value}.png")
                 with Image.open(image_path) as img:
                     self.resize_cover_to_small(img, save_path=str(image_path))
+
+                if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                    self.image_converter.convert_to_webp(
+                        self.validate_path(f"{cover_file}/{size.value}.png"), force=True
+                    )
             except UnidentifiedImageError as exc:
                 log.error(f"Unable to identify image {cover_file}: {str(exc)}")
                 return None
@@ -160,6 +190,10 @@ class FSResourcesHandler(FSHandler):
             with Image.open(artwork) as img:
                 img.save(path_cover_l)
                 self.resize_cover_to_small(img, save_path=str(path_cover_s))
+
+                if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                    self.image_converter.convert_to_webp(path_cover_l, force=True)
+                    self.image_converter.convert_to_webp(path_cover_s, force=True)
         except UnidentifiedImageError as exc:
             log.error(
                 f"Unable to identify image for {entity.fs_resources_path}: {str(exc)}"
@@ -185,11 +219,26 @@ class FSResourcesHandler(FSHandler):
                 "GET", url_screenhot, timeout=120
             ) as response:
                 if response.status_code == status.HTTP_200_OK:
+                    # Check if content is gzipped from response headers
+                    is_gzipped = (
+                        response.headers.get("content-encoding", "").lower() == "gzip"
+                    )
+
                     async with await self.write_file_streamed(
                         path=screenshot_path, filename=f"{idx}.jpg"
                     ) as f:
-                        async for chunk in response.aiter_raw():
-                            await f.write(chunk)
+                        if is_gzipped:
+                            # Content is gzipped, decompress it
+                            content = await response.aread()
+                            try:
+                                decompressed_content = gzip.decompress(content)
+                                await f.write(decompressed_content)
+                            except gzip.BadGzipFile:
+                                await f.write(content)
+                        else:
+                            # Content is not gzipped, stream directly
+                            async for chunk in response.aiter_raw():
+                                await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
             return None
@@ -236,11 +285,26 @@ class FSResourcesHandler(FSHandler):
         try:
             async with httpx_client.stream("GET", url_manual, timeout=120) as response:
                 if response.status_code == status.HTTP_200_OK:
+                    # Check if content is gzipped from response headers
+                    is_gzipped = (
+                        response.headers.get("content-encoding", "").lower() == "gzip"
+                    )
+
                     async with await self.write_file_streamed(
                         path=manual_path, filename=f"{rom.id}.pdf"
                     ) as f:
-                        async for chunk in response.aiter_raw():
-                            await f.write(chunk)
+                        if is_gzipped:
+                            # Decompress gzipped content
+                            content = await response.aread()
+                            try:
+                                decompressed_content = gzip.decompress(content)
+                                await f.write(decompressed_content)
+                            except gzip.BadGzipFile:
+                                await f.write(content)
+                        else:
+                            # Content is not gzipped, stream directly
+                            async for chunk in response.aiter_raw():
+                                await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
             return None

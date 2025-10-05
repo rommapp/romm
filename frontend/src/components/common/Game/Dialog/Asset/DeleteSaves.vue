@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 import type { SaveSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
 import saveApi from "@/services/api/save";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 
 const { mdAndUp, smAndUp } = useDisplay();
 const romsStore = storeRoms();
@@ -72,11 +72,11 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row no-gutters class="justify-center">
@@ -120,10 +120,11 @@ function closeDialog() {
                   size="x-small"
                   class="text-orange"
                   label
-                  >{{ item.emulator }}
+                >
+                  {{ item.emulator }}
                 </v-chip>
-                <v-chip class="ml-1" size="x-small" label
-                  >{{ formatBytes(item.file_size_bytes) }}
+                <v-chip class="ml-1" size="x-small" label>
+                  {{ formatBytes(item.file_size_bytes) }}
                 </v-chip>
               </template>
             </template>
@@ -144,7 +145,7 @@ function closeDialog() {
       </v-row>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
             Cancel
           </v-btn>
           <v-btn
@@ -157,5 +158,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

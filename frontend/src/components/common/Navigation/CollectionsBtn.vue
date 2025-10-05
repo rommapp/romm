@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
+import storeNavigation from "@/stores/navigation";
 
 withDefaults(
   defineProps<{
@@ -41,8 +41,9 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
             ? 'primary'
             : ''
         "
-        >mdi-bookmark-box-multiple</v-icon
       >
+        mdi-bookmark-box-multiple
+      </v-icon>
       <v-expand-transition>
         <span
           v-if="withTag"

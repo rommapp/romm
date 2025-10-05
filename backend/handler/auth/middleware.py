@@ -1,7 +1,6 @@
 import time
 from collections import namedtuple
 
-from config import SESSION_MAX_AGE_SECONDS
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
@@ -9,6 +8,8 @@ from starlette.datastructures import MutableHeaders, Secret
 from starlette.requests import HTTPConnection, Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from starlette_csrf.middleware import CSRFMiddleware
+
+from config import SESSION_MAX_AGE_SECONDS
 
 
 class CustomCSRFMiddleware(CSRFMiddleware):
@@ -66,6 +67,7 @@ class SessionMiddleware:
                     else self.jwt_secret.encode
                 )
             ),
+            algorithms=[self.jwt_alg],
         )
         if token.claims != {"1": 2} or token.header != {"typ": "JWT", "alg": jwt_alg}:
             raise ValueError(
@@ -114,6 +116,7 @@ class SessionMiddleware:
                             else self.jwt_secret.encode
                         )
                     ),
+                    algorithms=[self.jwt_alg],
                 )
 
                 jwt_claims = self._validate_jwt_payload(jwt_payload)

@@ -1,14 +1,14 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onBeforeUnmount } from "vue";
+import { useI18n } from "vue-i18n";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount } from "vue";
-import { useI18n } from "vue-i18n";
 
 withDefaults(
   defineProps<{
@@ -41,25 +41,43 @@ socket.on(
     slug,
     id,
     fs_slug,
+    is_identified,
   }: {
     name: string;
     slug: string;
     id: number;
     fs_slug: string;
+    is_identified: boolean;
   }) => {
     scanningStore.set(true);
     scanningPlatforms.value = scanningPlatforms.value.filter(
       (platform) => platform.name !== name,
     );
-    scanningPlatforms.value.push({ name, slug, id, fs_slug, roms: [] });
+    scanningPlatforms.value.push({
+      name,
+      slug,
+      id,
+      fs_slug,
+      roms: [],
+      is_identified,
+    });
   },
 );
 
 socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   scanningStore.set(true);
+
+  // Remove the ROM from the recent list and add it back to the top
+  romsStore.removeFromRecent(rom);
   romsStore.addToRecent(rom);
+
   if (romsStore.currentPlatform?.id === rom.platform_id) {
-    romsStore.add([rom]);
+    const existingRom = romsStore.allRoms.find((r) => r.id === rom.id);
+    if (existingRom) {
+      romsStore.update(rom);
+    } else {
+      romsStore.add([rom]);
+    }
   }
 
   let scannedPlatform = scanningPlatforms.value.find(
@@ -73,12 +91,21 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
       slug: rom.platform_slug,
       id: rom.platform_id,
       fs_slug: rom.platform_fs_slug,
+      is_identified: true,
       roms: [],
     });
     scannedPlatform = scanningPlatforms.value[0];
   }
 
-  scannedPlatform?.roms.push(rom);
+  // Check if ROM already exists in the store
+  const existingRom = scannedPlatform?.roms.find((r) => r.id === rom.id);
+  if (existingRom) {
+    scannedPlatform.roms = scannedPlatform.roms.map((r) =>
+      r.id === rom.id ? rom : r,
+    );
+  } else {
+    scannedPlatform?.roms.push(rom);
+  }
 });
 
 socket.on("scan:done", () => {

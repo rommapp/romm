@@ -55,6 +55,8 @@
   "show-stats-desc": "Mostra il riepilogo delle statistiche nella home",
   "show-actionbar": "Mostra barra delle azioni",
   "show-actionbar-desc": "Mostra sempre la barra delle azioni nella scheda del gioco",
+  "show-game-titles": "Mostra titoli giochi",
+  "show-game-titles-desc": "Mostra sempre i titoli dei giochi sulle schede",
   "show-virtual-collections": "Mostra collezioni autogenerate",
   "show-virtual-collections-desc": "Visualizzate nella home e nella barra laterale delle collezioni",
   "theme": "Tema",

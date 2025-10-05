@@ -10,6 +10,7 @@ import json
 
 from alembic import op
 from sqlalchemy.sql import text
+
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.

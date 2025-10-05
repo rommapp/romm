@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import storeHeartbeat from "@/stores/heartbeat";
+import { useLocalStorage } from "@vueuse/core";
 import semver from "semver";
 import { onMounted, ref } from "vue";
+import storeHeartbeat from "@/stores/heartbeat";
 
 const heartbeat = storeHeartbeat();
 const { VERSION } = heartbeat.value.SYSTEM;
 const GITHUB_VERSION = ref(VERSION);
 const latestVersionDismissed = ref(VERSION === "development");
+const dismissedVersion = useLocalStorage("ui.dismissedVersion", "");
 
 function dismissVersionBanner() {
-  localStorage.setItem("dismissedVersion", GITHUB_VERSION.value);
+  dismissedVersion.value = GITHUB_VERSION.value;
   latestVersionDismissed.value = true;
 }
 
@@ -26,7 +28,7 @@ async function fetchLatestVersion() {
       // Hide if the version is not valid
       !semver.valid(VERSION) ||
       // Hide if the version is the same as the dismissed version
-      json.tag_name === localStorage.getItem("dismissedVersion") ||
+      json.tag_name === dismissedVersion.value ||
       // Hide if the version is less than 2 hours old
       publishedAt.getTime() + 2 * 60 * 60 * 1000 > Date.now();
   } catch (error) {
@@ -34,6 +36,13 @@ async function fetchLatestVersion() {
   }
 
   document.removeEventListener("network-quiesced", fetchLatestVersion);
+}
+
+function openNewVersion() {
+  window.open(
+    `https://github.com/rommapp/romm/releases/tag/${GITHUB_VERSION.value}`,
+    "_blank",
+  );
 }
 
 onMounted(async () => {
@@ -51,23 +60,33 @@ onMounted(async () => {
           !latestVersionDismissed
         "
         class="pa-1 border-selected mx-auto"
-        max-width="250"
+        max-width="fit-content"
       >
         <v-card-text class="text-center py-2 px-4">
-          <span class="text-white text-shadow">New version available</span>
-          <span class="text-primary ml-1">v{{ GITHUB_VERSION }}</span>
-          <v-row class="mt-1" no-gutters>
-            <v-col>
-              <span class="pointer text-grey" @click="dismissVersionBanner"
-                >Dismiss</span
-              ><span class="ml-4"
-                ><a
-                  target="_blank"
-                  :href="`https://github.com/rommapp/romm/releases/tag/${GITHUB_VERSION}`"
-                  >See what's new!</a
-                ></span
+          <span class="text-white text-body-1">New version available:</span>
+          <span class="text-primary ml-1 text-body-1">{{
+            GITHUB_VERSION
+          }}</span>
+          <v-row class="mt-2 flex justify-center" no-gutters>
+            <v-btn-group>
+              <v-btn
+                density="compact"
+                variant="outlined"
+                class="pointer"
+                size="small"
+                @click="dismissVersionBanner"
               >
-            </v-col>
+                Dismiss
+              </v-btn>
+              <v-btn
+                variant="tonal"
+                density="compact"
+                size="small"
+                @click="openNewVersion"
+              >
+                See what's new!
+              </v-btn>
+            </v-btn-group>
           </v-row>
         </v-card-text>
       </v-card>

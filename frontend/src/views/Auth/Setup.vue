@@ -1,20 +1,21 @@
 <script setup lang="ts">
-import router from "@/plugins/router";
-import { refetchCSRFToken } from "@/services/api/index";
-import userApi from "@/services/api/user";
-import api from "@/services/api/index";
-import storeHeartbeat from "@/stores/heartbeat";
-import type { Events } from "@/types/emitter";
-import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
+import router from "@/plugins/router";
+import { ROUTES } from "@/plugins/router";
+import { refetchCSRFToken } from "@/services/api";
+import userApi from "@/services/api/user";
+import storeHeartbeat from "@/stores/heartbeat";
+import storeUsers from "@/stores/users";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
+const usersStore = storeUsers();
 const visiblePassword = ref(false);
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
@@ -37,12 +38,6 @@ const metadataOptions = computed(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
   },
   {
-    name: "SteamgridDB",
-    value: "sgdb",
-    logo_path: "/assets/scrappers/sgdb.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
-  },
-  {
     name: "RetroAchievements",
     value: "ra",
     logo_path: "/assets/scrappers/ra.png",
@@ -53,6 +48,30 @@ const metadataOptions = computed(() => [
     value: "hasheous",
     logo_path: "/assets/scrappers/hasheous.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED,
+  },
+  {
+    name: "Launchbox",
+    value: "lb",
+    logo_path: "/assets/scrappers/launchbox.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
+  },
+  {
+    name: "Flashpoint Project",
+    value: "flashpoint",
+    logo_path: "/assets/scrappers/flashpoint.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED,
+  },
+  {
+    name: "HowLongToBeat",
+    value: "hltb",
+    logo_path: "/assets/scrappers/hltb.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.HLTB_API_ENABLED,
+  },
+  {
+    name: "SteamgridDB",
+    value: "sgdb",
+    logo_path: "/assets/scrappers/sgdb.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
   },
 ]);
 const defaultAdminUser = ref({
@@ -75,10 +94,8 @@ async function finishWizard() {
     .createUser(defaultAdminUser.value)
     .then(async () => {
       await refetchCSRFToken();
-      await api.get("/heartbeat").then(({ data: heartbeatData }) => {
-        heartbeat.set(heartbeatData);
-        router.push({ name: ROUTES.LOGIN });
-      });
+      await heartbeat.fetchHeartbeat();
+      router.push({ name: ROUTES.LOGIN });
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
@@ -95,7 +112,7 @@ async function finishWizard() {
 <template>
   <v-card class="translucent px-3" width="700">
     <v-img src="/assets/isotipo.svg" class="mx-auto mt-6" width="70" />
-    <v-stepper :mobile="xs" class="bg-transparent" v-model="step" flat>
+    <v-stepper v-model="step" :mobile="xs" class="bg-transparent" flat>
       <template #default="{ prev, next }">
         <v-stepper-header>
           <v-stepper-item :value="1">
@@ -104,7 +121,7 @@ async function finishWizard() {
             </template>
           </v-stepper-item>
 
-          <v-divider></v-divider>
+          <v-divider />
 
           <v-stepper-item :value="2">
             <template #title>
@@ -114,7 +131,7 @@ async function finishWizard() {
         </v-stepper-header>
 
         <v-stepper-window>
-          <v-stepper-window-item :value="1" :key="1">
+          <v-stepper-window-item :key="1" :value="1">
             <v-row no-gutters>
               <v-col>
                 <v-row v-if="xs" no-gutters class="text-center">
@@ -129,6 +146,7 @@ async function finishWizard() {
                         v-model="defaultAdminUser.username"
                         :label="`${t('settings.username')} *`"
                         type="text"
+                        :rules="usersStore.usernameRules"
                         required
                         autocomplete="on"
                         prepend-inner-icon="mdi-account"
@@ -138,6 +156,7 @@ async function finishWizard() {
                         v-model="defaultAdminUser.email"
                         :label="`${t('settings.email')} *`"
                         type="text"
+                        :rules="usersStore.emailRules"
                         required
                         autocomplete="on"
                         prepend-inner-icon="mdi-account"
@@ -147,15 +166,16 @@ async function finishWizard() {
                         v-model="defaultAdminUser.password"
                         :label="`${t('settings.password')} *`"
                         :type="visiblePassword ? 'text' : 'password'"
+                        :rules="usersStore.passwordRules"
                         required
                         autocomplete="on"
                         prepend-inner-icon="mdi-lock"
                         :append-inner-icon="
                           visiblePassword ? 'mdi-eye-off' : 'mdi-eye'
                         "
+                        variant="underlined"
                         @click:append-inner="visiblePassword = !visiblePassword"
                         @keydown.enter="filledAdminUser && next()"
-                        variant="underlined"
                       />
                     </v-form>
                   </v-col>
@@ -164,7 +184,7 @@ async function finishWizard() {
             </v-row>
           </v-stepper-window-item>
 
-          <v-stepper-window-item :value="2" :key="2">
+          <v-stepper-window-item :key="2" :value="2">
             <v-row no-gutters>
               <v-col>
                 <v-row v-if="xs" no-gutters class="text-center mb-6">
@@ -173,9 +193,10 @@ async function finishWizard() {
                   </v-col>
                 </v-row>
                 <v-row class="justify-center align-center" no-gutters>
-                  <v-col :max-width="300" id="sources">
+                  <v-col id="sources" :max-width="300">
                     <v-list-item
                       v-for="source in metadataOptions"
+                      :key="source.value"
                       class="text-white text-shadow"
                       :title="source.name"
                       :subtitle="
@@ -188,8 +209,8 @@ async function finishWizard() {
                         </v-avatar>
                       </template>
                       <template #append>
-                        <span class="ml-2" v-if="source.disabled">❌</span>
-                        <span class="ml-2" v-else>✅</span>
+                        <span v-if="source.disabled" class="ml-2">❌</span>
+                        <span v-else class="ml-2">✅</span>
                       </template>
                     </v-list-item>
                   </v-col>

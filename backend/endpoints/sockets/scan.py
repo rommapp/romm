@@ -5,6 +5,9 @@ from itertools import batched
 from typing import Any, Final
 
 import socketio  # type: ignore
+from rq import Worker
+from rq.job import Job
+
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
@@ -36,8 +39,6 @@ from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom, RomFile
-from rq import Worker
-from rq.job import Job
 from utils import emoji
 from utils.context import initialize_context
 
@@ -199,7 +200,6 @@ async def _identify_rom(
                 tags=fs_other_tags,
                 platform_id=platform.id,
                 name=fs_rom["fs_name"],
-                multi=fs_rom["multi"],
                 url_cover="",
                 url_manual="",
                 url_screenshots=[],
@@ -233,6 +233,7 @@ async def _identify_rom(
         fs_rom=fs_rom,
         metadata_sources=metadata_sources,
         newly_added=newly_added,
+        socket_manager=socket_manager,
     )
 
     scan_stats.scanned_roms += 1
@@ -240,6 +241,14 @@ async def _identify_rom(
     scan_stats.metadata_roms += 1 if scanned_rom.is_identified else 0
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
+
+    if _added_rom.is_identified:
+        await socket_manager.emit(
+            "scan:scanning_rom",
+            SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
+                exclude={"created_at", "updated_at", "rom_user"}
+            ),
+        )
 
     # Delete the existing rom files in the DB
     db_rom_handler.purge_rom_files(_added_rom.id)
@@ -315,14 +324,9 @@ async def _identify_rom(
 
     await socket_manager.emit(
         "scan:scanning_rom",
-        {
-            "platform_name": platform.name,
-            "platform_slug": platform.slug,
-            "platform_fs_slug": platform.fs_slug,
-            **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                exclude={"created_at", "updated_at", "rom_user"}
-            ),
-        },
+        SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
+            exclude={"created_at", "updated_at", "rom_user"}
+        ),
     )
     await socket_manager.emit("", None)
 
@@ -366,7 +370,7 @@ async def _identify_platform(
     await socket_manager.emit(
         "scan:scanning_platform",
         PlatformSchema.model_validate(platform).model_dump(
-            include={"id", "name", "slug", "fs_slug"}
+            include={"id", "name", "slug", "fs_slug", "is_identified"}
         ),
     )
     await socket_manager.emit("", None)
@@ -459,25 +463,25 @@ async def scan_platforms(
     if not roms_ids:
         roms_ids = []
 
-    sm = _get_socket_manager()
+    socket_manager = _get_socket_manager()
 
     if not metadata_sources:
         log.error("No metadata sources provided")
-        await sm.emit("scan:done_ko", "No metadata sources provided")
+        await socket_manager.emit("scan:done_ko", "No metadata sources provided")
         return None
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()
     except FolderStructureNotMatchException as e:
         log.error(e)
-        await sm.emit("scan:done_ko", e.message)
+        await socket_manager.emit("scan:done_ko", e.message)
         return None
 
     scan_stats = ScanStats()
 
     async def stop_scan():
         log.info(f"{emoji.EMOJI_STOP_SIGN} Scan stopped manually")
-        await sm.emit("scan:done", scan_stats.__dict__)
+        await socket_manager.emit("scan:done", scan_stats.__dict__)
         redis_client.delete(STOP_SCAN_FLAG)
 
     try:
@@ -505,7 +509,7 @@ async def scan_platforms(
                 fs_platforms=fs_platforms,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
-                socket_manager=sm,
+                socket_manager=socket_manager,
             )
 
         missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
@@ -515,13 +519,13 @@ async def scan_platforms(
                 log.warning(f" - {p.slug} ({p.fs_slug})")
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
-        await sm.emit("scan:done", scan_stats.__dict__)
+        await socket_manager.emit("scan:done", scan_stats.__dict__)
     except ScanStoppedException:
         await stop_scan()
     except Exception as e:
         log.error(f"Error in scan_platform: {e}")
         # Catch all exceptions and emit error to the client
-        await sm.emit("scan:done_ko", str(e))
+        await socket_manager.emit("scan:done_ko", str(e))
         # Re-raise the exception to be caught by the error handler
         raise e
 

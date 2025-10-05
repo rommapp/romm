@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
+import { useDisplay } from "vuetify";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
@@ -9,12 +15,6 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
-import { useRoute } from "vue-router";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
 
 const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
@@ -75,7 +75,7 @@ async function addToFavourites() {
   );
   await collectionApi
     .updateCollection({ collection: favoriteCollection.value as Collection })
-    .then(({ data }) => {
+    .then(() => {
       emitter?.emit("snackbarShow", {
         msg: "Roms added to favourites successfully!",
         icon: "mdi-check-bold",
@@ -146,9 +146,9 @@ async function onDownload() {
     }"
   >
     <v-speed-dial
+      v-model="fabMenu"
       location="left bottom"
       transition="fade-transition"
-      v-model="fabMenu"
     >
       <template #activator="{ props }">
         <v-fab-transition>
@@ -161,14 +161,15 @@ async function onDownload() {
             icon
             :size="40"
             rounded="0"
-            >{{ selectedRoms.length }}</v-btn
           >
+            {{ selectedRoms.length }}
+          </v-btn>
         </v-fab-transition>
       </template>
 
       <v-btn
-        :title="t('rom.unselect-all')"
         key="1"
+        :title="t('rom.unselect-all')"
         color="toplayer"
         elevation="8"
         icon="mdi-select"
@@ -178,8 +179,8 @@ async function onDownload() {
         @click.stop="resetSelection"
       />
       <v-btn
-        :title="t('rom.select-all')"
         key="2"
+        :title="t('rom.select-all')"
         color="toplayer"
         elevation="8"
         icon="mdi-select-all"
@@ -189,8 +190,8 @@ async function onDownload() {
         @click.stop="selectAllRoms"
       />
       <v-btn
-        :title="t('rom.add-to-fav')"
         key="3"
+        :title="t('rom.add-to-fav')"
         color="toplayer"
         elevation="8"
         icon="mdi-star"
@@ -200,8 +201,8 @@ async function onDownload() {
         @click="addToFavourites"
       />
       <v-btn
-        :title="t('rom.remove-from-fav')"
         key="4"
+        :title="t('rom.remove-from-fav')"
         color="toplayer"
         elevation="8"
         icon="mdi-star-remove-outline"
@@ -211,8 +212,8 @@ async function onDownload() {
         @click="removeFromFavourites"
       />
       <v-btn
-        :title="t('rom.add-to-collection')"
         key="5"
+        :title="t('rom.add-to-collection')"
         color="toplayer"
         elevation="8"
         icon="mdi-bookmark-plus"
@@ -224,8 +225,8 @@ async function onDownload() {
         "
       />
       <v-btn
-        :title="t('rom.remove-from-collection')"
         key="6"
+        :title="t('rom.remove-from-collection')"
         color="toplayer"
         elevation="8"
         icon="mdi-bookmark-remove-outline"
@@ -240,8 +241,8 @@ async function onDownload() {
         "
       />
       <v-btn
-        :title="t('rom.download')"
         key="7"
+        :title="t('rom.download')"
         color="toplayer"
         elevation="8"
         icon="mdi-download"
@@ -251,9 +252,9 @@ async function onDownload() {
         @click="onDownload"
       />
       <v-btn
-        :title="t('rom.refresh-metadata')"
-        key="8"
         v-if="auth.scopes.includes('roms.write')"
+        key="8"
+        :title="t('rom.refresh-metadata')"
         color="toplayer"
         elevation="8"
         icon="mdi-magnify-scan"
@@ -263,9 +264,9 @@ async function onDownload() {
         @click="onScan"
       />
       <v-btn
-        :title="t('rom.delete')"
-        key="9"
         v-if="auth.scopes.includes('roms.write')"
+        key="9"
+        :title="t('rom.delete')"
         color="toplayer"
         elevation="8"
         icon
@@ -291,16 +292,17 @@ async function onDownload() {
   >
     <v-scroll-y-reverse-transition>
       <v-btn
-        icon
         v-show="!scrolledToTop"
+        icon
         class="border-selected rounded ml-2"
         color="background"
         elevation="8"
         :size="40"
         rounded="0"
         @click="scrollToTop"
-        ><v-icon color="primary">mdi-chevron-up</v-icon></v-btn
       >
+        <v-icon color="primary"> mdi-chevron-up </v-icon>
+      </v-btn>
     </v-scroll-y-reverse-transition>
   </div>
 </template>

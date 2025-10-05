@@ -4,15 +4,16 @@ from typing import Any, NotRequired, TypedDict
 
 import httpx
 import pydash
-from config import DEV_MODE, HASHEOUS_API_ENABLED
 from fastapi import HTTPException, status
+
+from config import DEV_MODE, HASHEOUS_API_ENABLED
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
 
-from .base_hander import BaseRom, MetadataHandler
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import BaseRom, MetadataHandler
+from .base_handler import UniversalPlatformSlug as UPS
 from .igdb_handler import (
     IGDB_AGE_RATINGS,
     IGDBMetadata,
@@ -112,6 +113,7 @@ class HasheousHandler(MetadataHandler):
             if DEV_MODE
             else "https://hasheous.org/api/v1"
         )
+        self.healthcheck_endpoint = f"{self.BASE_URL}/HealthCheck"
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
         self.proxy_igdb_game_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Game"
@@ -122,6 +124,25 @@ class HasheousHandler(MetadataHandler):
             if DEV_MODE
             else "JNoFBA-jEh4HbxuxEHM6MVzydKoAXs9eCcp2dvcg5LRCnpp312voiWmjuaIssSzS"
         )
+
+    @classmethod
+    def is_enabled(cls) -> bool:
+        """Return whether this metadata handler is enabled."""
+        return HASHEOUS_API_ENABLED
+
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        httpx_client = ctx_httpx_client.get()
+        try:
+            response = await httpx_client.get(self.healthcheck_endpoint)
+            response.raise_for_status()
+        except Exception as e:
+            log.error("Error checking Hasheous API: %s", e)
+            return False
+
+        return bool(response)
 
     async def _request(
         self,
@@ -162,9 +183,7 @@ class HasheousHandler(MetadataHandler):
             if method == "POST":
                 request_kwargs["json"] = data
 
-            # Make the request
             res = await httpx_client.request(method, **request_kwargs)
-
             res.raise_for_status()
             return res.json()
         except httpx.HTTPStatusError as exc:
@@ -213,7 +232,7 @@ class HasheousHandler(MetadataHandler):
             hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None
         )
 
-        if not HASHEOUS_API_ENABLED:
+        if not self.is_enabled():
             return fallback_rom
 
         filtered_files = [
@@ -314,7 +333,7 @@ class HasheousHandler(MetadataHandler):
         )
 
     async def get_igdb_game(self, hasheous_rom: HasheousRom) -> HasheousRom:
-        if not HASHEOUS_API_ENABLED:
+        if not self.is_enabled():
             return hasheous_rom
 
         igdb_id = hasheous_rom.get("igdb_id", None)
@@ -358,7 +377,7 @@ class HasheousHandler(MetadataHandler):
         )
 
     async def get_ra_game(self, hasheous_rom: HasheousRom) -> HasheousRom:
-        if not HASHEOUS_API_ENABLED:
+        if not self.is_enabled():
             return hasheous_rom
 
         ra_id = hasheous_rom.get("ra_id", None)
@@ -1038,7 +1057,7 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
+    UPS.ODYSSEY_2: {
         "id": 49,
         "igdb_id": 133,
         "igdb_slug": "odyssey-2-slash-videopac-g7000",

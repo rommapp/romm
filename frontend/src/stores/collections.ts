@@ -1,12 +1,12 @@
+import { uniqBy } from "lodash";
+import { defineStore } from "pinia";
 import type {
   CollectionSchema,
   VirtualCollectionSchema,
   SmartCollectionSchema,
 } from "@/__generated__";
-import { uniqBy } from "lodash";
-import { defineStore } from "pinia";
-import type { SimpleRom } from "./roms";
 import collectionApi from "@/services/api/collection";
+import type { SimpleRom } from "./roms";
 
 export type Collection = CollectionSchema;
 export type VirtualCollection = VirtualCollectionSchema;
@@ -18,7 +18,7 @@ export default defineStore("collections", {
     allCollections: [] as Collection[],
     virtualCollections: [] as VirtualCollection[],
     smartCollections: [] as SmartCollection[],
-    favoriteCollection: {} as Collection | undefined,
+    favoriteCollection: undefined as Collection | undefined,
     filterText: "" as string,
     fetchingCollections: false as boolean,
     fetchingSmartCollections: false as boolean,
@@ -67,6 +67,11 @@ export default defineStore("collections", {
           .getCollections()
           .then(({ data: collections }) => {
             this.allCollections = collections;
+
+            // Set the favorite collection
+            const fav = collections.find((c) => c.is_favorite);
+            if (fav) this.favoriteCollection = fav;
+
             resolve(collections);
           })
           .catch((error) => {

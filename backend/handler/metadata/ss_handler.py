@@ -5,13 +5,15 @@ from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
 import pydash
+from unidecode import unidecode as uc
+
 from adapters.services.screenscraper import ScreenScraperService
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from config.config_manager import config_manager as cm
 from logger.logger import log
-from unidecode import unidecode as uc
 
-from .base_hander import (
+from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
@@ -19,14 +21,25 @@ from .base_hander import (
     BaseRom,
     MetadataHandler,
 )
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import UniversalPlatformSlug as UPS
 
-# Used to display the Screenscraper API status in the frontend
-SS_API_ENABLED: Final = bool(SCREENSCRAPER_USER) and bool(SCREENSCRAPER_PASSWORD)
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 
-PREFERRED_REGIONS: Final = ["us", "wor", "ss", "eu", "jp"]
+
+def get_preferred_regions() -> list[str]:
+    """Get preferred regions from config"""
+    config = cm.get_config()
+    return list(
+        dict.fromkeys(config.SCAN_REGION_PRIORITY + ["us", "wor", "ss", "eu", "jp"])
+    )
+
+
+def get_preferred_languages() -> list[str]:
+    """Get preferred languages from config"""
+    config = cm.get_config()
+    return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY + ["en", "fr"]))
+
 
 PS1_SS_ID: Final = 57
 PS2_SS_ID: Final = 58
@@ -103,6 +116,9 @@ ARCADE_SS_IDS: Final = [
     269,
 ]
 
+# Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
+SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
+
 
 class SSPlatform(TypedDict):
     slug: str
@@ -133,7 +149,7 @@ class SSRom(BaseRom):
 
 def build_ss_rom(game: SSGame) -> SSRom:
     res_name = ""
-    for region in PREFERRED_REGIONS:
+    for region in get_preferred_regions():
         res_name = next(
             (
                 name["text"]
@@ -145,17 +161,21 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if res_name:
             break
 
-    res_summary = next(
-        (
-            synopsis["text"]
-            for synopsis in game.get("synopsis", [])
-            if synopsis.get("langue") == "en"
-        ),
-        "",
-    )
+    res_summary = ""
+    for lang in get_preferred_languages():
+        res_summary = next(
+            (
+                synopsis["text"]
+                for synopsis in game.get("synopsis", [])
+                if synopsis.get("langue") == lang
+            ),
+            "",
+        )
+        if res_summary:
+            break
 
     url_cover = ""
-    for region in PREFERRED_REGIONS:
+    for region in get_preferred_regions():
         url_cover = next(
             (
                 media["url"]
@@ -170,7 +190,7 @@ def build_ss_rom(game: SSGame) -> SSRom:
             break
 
     url_manual: str = ""
-    for region in PREFERRED_REGIONS:
+    for region in get_preferred_regions():
         url_manual = next(
             (
                 media["url"]
@@ -229,7 +249,7 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
         ]
 
     def _get_franchises(rom: SSGame) -> list[str]:
-        preferred_languages = ["en", "fr"]
+        preferred_languages = get_preferred_languages()
         for lang in preferred_languages:
             franchises = [
                 franchise_name["text"]
@@ -242,7 +262,7 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
         return []
 
     def _get_game_modes(rom: SSGame) -> list[str]:
-        preferred_languages = ["en", "fr"]
+        preferred_languages = get_preferred_languages()
         for lang in preferred_languages:
             modes = [
                 mode_name["text"]
@@ -275,6 +295,30 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
 class SSHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ss_service = ScreenScraperService()
+
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return bool(SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD)
+
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            response = await self.ss_service.get_infra_info()
+        except Exception as e:
+            log.error("Error checking ScreenScraper API: %s", e)
+            return False
+
+        return bool(response.get("response", {}))
+
+    @staticmethod
+    def extract_ss_id_from_filename(fs_name: str) -> int | None:
+        """Extract ScreenScraper ID from filename tag like (ss-12345)."""
+        match = SS_TAG_REGEX.search(fs_name)
+        if match:
+            return int(match.group(1))
+        return None
 
     async def _search_rom(
         self, search_term: str, platform_ss_id: int, split_game_name: bool = False
@@ -323,11 +367,26 @@ class SSHandler(MetadataHandler):
     async def get_rom(self, file_name: str, platform_ss_id: int) -> SSRom:
         from handler.filesystem import fs_rom_handler
 
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return SSRom(ss_id=None)
 
         if not platform_ss_id:
             return SSRom(ss_id=None)
+
+        # Check for ScreenScraper ID tag in filename first
+        ss_id_from_tag = self.extract_ss_id_from_filename(file_name)
+        if ss_id_from_tag:
+            log.debug(f"Found ScreenScraper ID tag in filename: {ss_id_from_tag}")
+            rom_by_id = await self.get_rom_by_id(ss_id_from_tag)
+            if rom_by_id["ss_id"]:
+                log.debug(
+                    f"Successfully matched ROM by ScreenScraper ID tag: {file_name} -> {ss_id_from_tag}"
+                )
+                return rom_by_id
+            else:
+                log.warning(
+                    f"ScreenScraper ID {ss_id_from_tag} from filename tag not found in ScreenScraper"
+                )
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
         fallback_rom = SSRom(ss_id=None)
@@ -411,7 +470,7 @@ class SSHandler(MetadataHandler):
         return build_ss_rom(res)
 
     async def get_rom_by_id(self, ss_id: int) -> SSRom:
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return SSRom(ss_id=None)
 
         res = await self.ss_service.get_game_info(game_id=ss_id)
@@ -421,7 +480,7 @@ class SSHandler(MetadataHandler):
         return build_ss_rom(res)
 
     async def get_matched_rom_by_id(self, ss_id: int) -> SSRom | None:
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return None
 
         rom = await self.get_rom_by_id(ss_id)
@@ -430,7 +489,7 @@ class SSHandler(MetadataHandler):
     async def get_matched_roms_by_name(
         self, search_term: str, platform_ss_id: int | None
     ) -> list[SSRom]:
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return []
 
         if not platform_ss_id:
@@ -547,10 +606,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.NINTENDO_DSI: {"id": 15, "name": "Nintendo DS"},
     UPS.SWITCH: {"id": 225, "name": "Switch"},
     UPS.ODYSSEY_2: {"id": 104, "name": "Videopac G7000"},
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
-        "id": 104,
-        "name": "Videopac G7000",
-    },
     UPS.ORIC: {"id": 131, "name": "Oric 1 / Atmos"},
     UPS.PC_8800_SERIES: {"id": 221, "name": "NEC PC-8801"},
     UPS.PC_9800_SERIES: {"id": 208, "name": "NEC PC-9801"},

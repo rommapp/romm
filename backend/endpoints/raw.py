@@ -1,6 +1,7 @@
-from decorators.auth import protected_route
 from fastapi import HTTPException, Request
 from fastapi.responses import FileResponse
+
+from decorators.auth import protected_route
 from handler.auth.constants import Scope
 from handler.filesystem import fs_asset_handler
 from utils.router import APIRouter

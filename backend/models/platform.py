@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from functools import cached_property
 from typing import TYPE_CHECKING
+
+from sqlalchemy import String, func, select
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from models.base import BaseModel
 from models.rom import Rom
-from sqlalchemy import String, func, select
-from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 if TYPE_CHECKING:
     from models.firmware import Firmware
@@ -27,6 +27,10 @@ class Platform(BaseModel):
     launchbox_id: Mapped[int | None]
     hasheous_id: Mapped[int | None]
     tgdb_id: Mapped[int | None]
+    flashpoint_id: Mapped[int | None]
+    igdb_slug: Mapped[str | None]
+    moby_slug: Mapped[str | None]
+    hltb_slug: Mapped[str | None]
     slug: Mapped[str] = mapped_column(String(length=100))
     fs_slug: Mapped[str] = mapped_column(String(length=100))
     name: Mapped[str] = mapped_column(String(length=400))
@@ -81,22 +85,6 @@ class Platform(BaseModel):
     @property
     def is_identified(self) -> bool:
         return not self.is_unidentified
-
-    @cached_property
-    def igdb_slug(self) -> str | None:
-        from handler.metadata import meta_igdb_handler
-
-        igdb_platform = meta_igdb_handler.get_platform(self.slug)
-
-        return igdb_platform.get("igdb_slug", None)
-
-    @cached_property
-    def moby_slug(self) -> str | None:
-        from handler.metadata import meta_moby_handler
-
-        moby_platform = meta_moby_handler.get_platform(self.slug)
-
-        return moby_platform.get("moby_slug", None)
 
     def __repr__(self) -> str:
         return self.name

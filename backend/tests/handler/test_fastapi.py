@@ -1,4 +1,6 @@
 import pytest
+
+from handler.database import db_platform_handler
 from handler.scan_handler import MetadataSource, ScanType, scan_platform, scan_rom
 from models.platform import Platform
 from models.rom import Rom, RomFile
@@ -27,14 +29,19 @@ async def test_scan_platform():
 
 @pytest.mark.vcr
 async def test_scan_rom():
-    platform = Platform(fs_slug="n64", igdb_id=4)
+    platform = Platform(id=1, slug="n64", fs_slug="n64", name="Nintendo 64", igdb_id=4)
+    platform = db_platform_handler.add_platform(platform)
+
     rom = Rom(
         fs_name="Paper Mario (USA).z64",
+        fs_name_no_tags="Paper Mario",
+        fs_name_no_ext="Paper Mario",
+        fs_extension="z64",
+        fs_path="n64/Paper Mario (USA)",
         name="Paper Mario",
         igdb_id=3340,
         fs_size_bytes=1024,
         tags=[],
-        multi=False,
     )
 
     async with initialize_context():
@@ -44,7 +51,8 @@ async def test_scan_rom():
             rom=rom,
             fs_rom={
                 "fs_name": "Paper Mario (USA).z64",
-                "multi": False,
+                "flat": True,
+                "nested": False,
                 "files": [
                     RomFile(
                         file_name="Paper Mario (USA).z64",
@@ -65,7 +73,7 @@ async def test_scan_rom():
     assert type(rom) is Rom
     assert rom.fs_name == "Paper Mario (USA).z64"
     assert rom.name == "Paper Mario"
+    assert rom.fs_path == "n64/Paper Mario (USA)"
     assert rom.igdb_id == 3340
     assert rom.fs_size_bytes == 1024
     assert rom.tags == []
-    assert not rom.multi

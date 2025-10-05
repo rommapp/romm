@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import RSection from "@/components/common/RSection.vue";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref, onMounted, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import RetroAchievements from "@/components/Settings/UserProfile/RetroAchievements.vue";
+import RSection from "@/components/common/RSection.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
 import type { UserItem } from "@/types/user";
 import { defaultAvatarPath, getRoleIcon } from "@/utils";
-import { inject, ref, onMounted, onUnmounted } from "vue";
-import { useI18n } from "vue-i18n";
-import { storeToRefs } from "pinia";
 
 const { t } = useI18n();
 const auth = storeAuth();
@@ -52,7 +52,7 @@ function editUser() {
       });
       usersStore.update(data);
       if (data.id == auth.user?.id) {
-        auth.setUser(data);
+        auth.setCurrentUser(data);
       }
     })
     .catch(({ response, message }) => {
@@ -97,13 +97,13 @@ onUnmounted(() => {
                   "
                 >
                   <v-fade-transition>
-                    <div
+                    <v-btn
                       v-if="isHovering"
-                      class="d-flex translucent cursor-pointer h-100 align-center justify-center text-h4"
+                      class="d-flex translucent cursor-pointer h-100 w-100 align-center justify-center text-h4"
                       @click="triggerFileInput"
                     >
                       <v-icon>mdi-pencil</v-icon>
-                    </div>
+                    </v-btn>
                   </v-fade-transition>
                   <v-file-input
                     id="file-input"
@@ -128,45 +128,47 @@ onUnmounted(() => {
           <template #subtitle>
             <v-list-item-subtitle class="mt-2">
               {{ userToEdit.role
-              }}<v-icon class="ml-1">{{ getRoleIcon(userToEdit.role) }}</v-icon>
+              }}<v-icon class="ml-1">
+                {{ getRoleIcon(userToEdit.role) }}
+              </v-icon>
             </v-list-item-subtitle>
           </template>
         </v-list-item>
       </v-col>
     </v-row>
 
-    <r-section class="ma-4" icon="mdi-account" title="Account details">
+    <RSection class="ma-4" icon="mdi-account" title="Account details">
       <template #content>
         <v-text-field
-          class="ma-4"
           v-model="userToEdit.username"
+          class="ma-4"
           variant="outlined"
           :label="t('settings.username')"
+          :rules="usersStore.usernameRules"
           required
-          hide-details
           clearable
         />
         <v-text-field
-          class="ma-4"
           v-model="userToEdit.password"
+          class="ma-4"
           variant="outlined"
           :label="t('settings.password')"
+          :rules="usersStore.passwordRules"
           required
-          hide-details
           clearable
         />
         <v-text-field
-          class="ma-4"
           v-model="userToEdit.email"
+          class="ma-4"
           variant="outlined"
           :label="t('settings.email')"
+          :rules="usersStore.emailRules"
           required
-          hide-details
           clearable
         />
         <v-select
-          class="ma-4"
           v-model="userToEdit.role"
+          class="ma-4"
           variant="outlined"
           :items="['viewer', 'editor', 'admin']"
           :label="t('settings.role')"
@@ -175,7 +177,9 @@ onUnmounted(() => {
         >
           <template #selection="{ item }">
             <v-list-item class="pa-0">
-              <v-icon class="mr-2">{{ getRoleIcon(item.title) }}</v-icon>
+              <v-icon class="mr-2">
+                {{ getRoleIcon(item.title) }}
+              </v-icon>
               {{ item.title }}
             </v-list-item>
           </template>
@@ -196,8 +200,8 @@ onUnmounted(() => {
           {{ t("common.apply") }}
         </v-btn>
       </template>
-    </r-section>
+    </RSection>
 
-    <retro-achievements class="mx-4 mt-8" />
+    <RetroAchievements class="mx-4 mt-8" />
   </template>
 </template>

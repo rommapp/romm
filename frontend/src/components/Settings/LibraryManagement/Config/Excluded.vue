@@ -1,48 +1,50 @@
 <script setup lang="ts">
-import RSection from "@/components/common/RSection.vue";
-import CreateExclusionDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreateExclusion.vue";
-import ExcludedCard from "@/components/Settings/LibraryManagement/Config/ExcludedCard.vue";
-import storeAuth from "@/stores/auth";
-import storeConfig from "@/stores/config";
+import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
+import CreateExclusionDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreateExclusion.vue";
+import ExcludedCard from "@/components/Settings/LibraryManagement/Config/ExcludedCard.vue";
+import RSection from "@/components/common/RSection.vue";
+import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
 
 const { t } = useI18n();
 const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
 const authStore = storeAuth();
 const exclusions = [
   {
-    set: configStore.config.EXCLUDED_PLATFORMS,
+    set: config.value.EXCLUDED_PLATFORMS,
     title: t("common.platform"),
     icon: "mdi-controller-off",
     type: "EXCLUDED_PLATFORMS",
   },
   {
-    set: configStore.config.EXCLUDED_SINGLE_FILES,
+    set: config.value.EXCLUDED_SINGLE_FILES,
     title: t("settings.excluded-single-rom-files"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_SINGLE_FILES",
   },
   {
-    set: configStore.config.EXCLUDED_SINGLE_EXT,
+    set: config.value.EXCLUDED_SINGLE_EXT,
     title: t("settings.excluded-single-rom-extensions"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_SINGLE_EXT",
   },
   {
-    set: configStore.config.EXCLUDED_MULTI_FILES,
+    set: config.value.EXCLUDED_MULTI_FILES,
     title: t("settings.excluded-multi-rom-files"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_MULTI_FILES",
   },
   {
-    set: configStore.config.EXCLUDED_MULTI_PARTS_FILES,
+    set: config.value.EXCLUDED_MULTI_PARTS_FILES,
     title: t("settings.excluded-multi-rom-parts-files"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_MULTI_PARTS_FILES",
   },
   {
-    set: configStore.config.EXCLUDED_MULTI_PARTS_EXT,
+    set: config.value.EXCLUDED_MULTI_PARTS_EXT,
     title: t("settings.excluded-multi-rom-parts-extensions"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_MULTI_PARTS_EXT",
@@ -51,7 +53,7 @@ const exclusions = [
 const editable = ref(false);
 </script>
 <template>
-  <r-section icon="mdi-cancel" :title="t('settings.excluded')">
+  <RSection icon="mdi-cancel" :title="t('settings.excluded')">
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
@@ -61,11 +63,13 @@ const editable = ref(false);
         variant="text"
         icon="mdi-cog"
         @click="editable = !editable"
+        :disabled="!config.CONFIG_FILE_MOUNTED"
       />
     </template>
     <template #content>
-      <excluded-card
+      <ExcludedCard
         v-for="exclusion in exclusions"
+        :key="exclusion.type"
         class="mb-1"
         :set="exclusion.set"
         :type="exclusion.type"
@@ -73,7 +77,7 @@ const editable = ref(false);
         :icon="exclusion.icon"
         :editable="editable && authStore.scopes.includes('platforms.write')"
       />
-      <create-exclusion-dialog />
+      <CreateExclusionDialog />
     </template>
-  </r-section>
+  </RSection>
 </template>

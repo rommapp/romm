@@ -6,11 +6,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 import yarl
+from fastapi import HTTPException, status
+
 from adapters.services.mobygames import (
     MobyGamesService,
     auth_middleware,
 )
-from fastapi import HTTPException, status
 
 INVALID_GAME_ID = 999999
 
@@ -85,10 +86,10 @@ class TestMobyGamesServiceUnit:
     async def test_request_success(self, service):
         """Test successful API request."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.json.return_value = {
-            "games": [{"game_id": 1, "title": "Test Game"}]
-        }
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(
+            return_value={"games": [{"game_id": 1, "title": "Test Game"}]},
+        )
         mock_response.raise_for_status.return_value = None
         mock_session.get.return_value = mock_response
 
@@ -124,8 +125,8 @@ class TestMobyGamesServiceUnit:
     async def test_request_timeout_with_retry(self, service):
         """Test request timeout with successful retry."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.json.return_value = {"games": []}
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={"games": []})
         mock_response.raise_for_status.return_value = None
 
         # First call times out, second succeeds
@@ -166,8 +167,8 @@ class TestMobyGamesServiceUnit:
     async def test_request_rate_limit_with_retry(self, service):
         """Test rate limit handling with retry."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.json.return_value = {"games": []}
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={"games": []})
         mock_response.raise_for_status.return_value = None
 
         # First call hits rate limit, second succeeds
@@ -194,7 +195,7 @@ class TestMobyGamesServiceUnit:
     async def test_request_json_decode_error(self, service):
         """Test handling of JSON decode error."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
         mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "", 0)
         mock_session.get.return_value = mock_response
@@ -621,8 +622,8 @@ class TestMobyGamesServicePerformance:
 
         # Simulate timeout on first call, success on retry
         timeout_error = aiohttp.ServerTimeoutError("Request timeout")
-        success_response = AsyncMock()
-        success_response.json.return_value = {"games": []}
+        success_response = MagicMock()
+        success_response.json = AsyncMock(return_value={"games": []})
         success_response.raise_for_status.return_value = None
 
         mock_session.get.side_effect = [timeout_error, success_response]
@@ -716,8 +717,8 @@ class TestMobyGamesServiceEdgeCases:
     async def test_request_with_custom_timeout(self, service):
         """Test request with custom timeout."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.json.return_value = {"games": []}
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={"games": []})
         mock_response.raise_for_status.return_value = None
         mock_session.get.return_value = mock_response
 

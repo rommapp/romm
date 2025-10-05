@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import storeGalleryFilter from "@/stores/galleryFilter";
-import storeRoms from "@/stores/roms";
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
 import { useI18n } from "vue-i18n";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const romsStore = storeRoms();
@@ -25,8 +25,8 @@ function setRA() {
     block
     variant="tonal"
     :color="filterRA ? 'primary' : ''"
-    @click="setRA"
     :disabled="fetchTotalRoms > 10000"
+    @click="setRA"
   >
     <v-icon :color="filterRA ? 'primary' : ''"> mdi-trophy </v-icon>
     <span

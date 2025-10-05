@@ -6,10 +6,7 @@ from adapters.services.steamgriddb_types import SGDBDimension, SGDBGame, SGDBTyp
 from config import STEAMGRIDDB_API_KEY
 from logger.logger import log
 
-from .base_hander import MetadataHandler
-
-# Used to display the Mobygames API status in the frontend
-STEAMGRIDDB_API_ENABLED: Final = bool(STEAMGRIDDB_API_KEY)
+from .base_handler import MetadataHandler
 
 
 class SGDBResource(TypedDict):
@@ -33,8 +30,56 @@ class SGDBBaseHandler(MetadataHandler):
         self.sgdb_service = SteamGridDBService()
         self.min_similarity_score: Final = 0.98
 
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return bool(STEAMGRIDDB_API_KEY)
+
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            response = await self.sgdb_service.get_game_by_id(1)
+        except Exception as e:
+            log.error("Error checking SteamGridDB API: %s", e)
+            return False
+
+        return bool(response)
+
+    async def get_rom_by_id(self, sgdb_id: int) -> SGDBRom:
+        """Get ROM details by SteamGridDB ID."""
+        if not self.is_enabled():
+            return SGDBRom(sgdb_id=None)
+
+        try:
+            game = await self.sgdb_service.get_game_by_id(sgdb_id)
+            if not game:
+                return SGDBRom(sgdb_id=None)
+
+            # Get covers for the game
+            game_details = await self._get_game_covers(
+                game_id=game["id"],
+                game_name=game["name"],
+                types=(SGDBType.STATIC,),
+                is_nsfw=False,
+                is_humor=False,
+                is_epilepsy=False,
+            )
+
+            first_resource = next(
+                (res for res in game_details["resources"] if res["url"]), None
+            )
+
+            result = SGDBRom(sgdb_id=game["id"])
+            if first_resource:
+                result["url_cover"] = first_resource["url"]
+            return result
+        except Exception as e:
+            log.warning(f"Failed to fetch ROM by SteamGridDB ID {sgdb_id}: {e}")
+            return SGDBRom(sgdb_id=None)
+
     async def get_details(self, search_term: str) -> list[SGDBResult]:
-        if not STEAMGRIDDB_API_ENABLED:
+        if not self.is_enabled():
             return []
 
         games = await self.sgdb_service.search_games(term=search_term)
@@ -51,7 +96,7 @@ class SGDBBaseHandler(MetadataHandler):
         return list(filter(None, results))
 
     async def get_details_by_names(self, game_names: list[str]) -> SGDBRom:
-        if not STEAMGRIDDB_API_ENABLED:
+        if not self.is_enabled():
             return SGDBRom(sgdb_id=None)
 
         for game_name in game_names:

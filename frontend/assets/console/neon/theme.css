@@ -1,0 +1,169 @@
+/* Neon Console Theme */
+:root {
+  /* ================================ */
+  /* THEME FOUNDATION COLORS */
+  /* ================================ */
+  --console-accent-primary: #0d6efd;
+  --console-accent-secondary: #ffd601;
+  --console-accent-tertiary: #6f42c1;
+  --console-accent-fallback: #f8b400;
+
+  --console-text-primary: #212529;
+  --console-text-secondary: #ffffff;
+  --console-text-muted: #868e96;
+  --console-text-dimmed: #adb5bd;
+
+  /* ================================ */
+  /* GLOBAL MODALS */
+  /* ================================ */
+  --console-modal-bg: #ffffff;
+  --console-modal-header-bg: #f8f9fa;
+  --console-modal-text: var(--console-text-primary);
+  --console-modal-text-secondary: #6b7280;
+  --console-modal-border: #dee2e6;
+  --console-modal-border-secondary: #e9ecef;
+  --console-modal-shadow: rgba(0, 0, 0, 0.25);
+
+  /* Modal Tiles */
+  --console-modal-tile-bg: #f1f3f4;
+  --console-modal-tile-border: rgba(0, 0, 0, 0.1);
+  --console-modal-tile-selected-bg: #e8f0fe;
+  --console-modal-tile-selected-border: var(--console-accent-secondary);
+
+  /* Modal Buttons and Controls */
+  --console-modal-button-bg: #f8f9fa;
+  --console-modal-button-border: rgba(0, 0, 0, 0.25);
+  --console-modal-button-text: #000000;
+  --console-modal-button-indicator: var(--console-accent-tertiary);
+
+  /* Modal Navigation Hints */
+  --console-nav-hint-modal-text: var(--console-text-primary);
+  --console-nav-hint-modal-accent: rgba(0, 0, 0, 0.15);
+  --console-nav-hint-modal-keycap: rgba(0, 0, 0, 0.7);
+
+  /* ================================ */
+  /* GLOBAL NAVIGATION */
+  /* ================================ */
+  --console-nav-back-button-bg: rgba(255, 255, 255, 0.5);
+  --console-nav-back-button-text: var(--console-text-secondary);
+  --console-nav-back-button-border: rgba(0, 0, 0, 0.2);
+  --console-nav-back-button-hover-bg: rgba(0, 0, 0, 0.2);
+
+  /* Standalone Navigation Hints */
+  --console-nav-hint-bg: rgba(255, 255, 255, 0.5);
+  --console-nav-hint-border: rgba(0, 0, 0, 0.2);
+  --console-nav-hint-text: var(--console-text-primary);
+  --console-nav-hint-accent: rgba(0, 0, 0, 0.15);
+  --console-nav-hint-keycap: rgba(0, 0, 0, 0.7);
+
+  /* ================================ */
+  /* GLOBAL TEXT */
+  /* ================================ */
+  --console-loading-text: var(--console-text-muted);
+  --console-error-text: #ff6b6b; /* neon red variant */
+
+  /* ================================ */
+  /* GLOBAL UI */
+  /* ================================ */
+  /* System Cards */
+  --console-system-card-bg-fallback: linear-gradient(
+    135deg,
+    #e2e6ea 0%,
+    #d6dae0 100%
+  );
+  --console-system-accent-fallback: var(--console-accent-tertiary);
+  --console-system-card-text: var(--console-text-secondary);
+
+  /* Game Cards */
+  --console-game-card-text: var(--console-text-secondary);
+  --console-game-card-focus-border: var(--console-accent-secondary);
+  --console-game-card-star: var(--console-accent-secondary);
+
+  /* Collections Cards */
+  --console-collection-card-bg: linear-gradient(
+    180deg,
+    #212121 0%,
+    #303030 100%
+  );
+  --console-collection-card-text: var(--console-text-secondary);
+  --console-collection-card-text-secondary: var(--console-accent-secondary);
+  --console-collection-card-focus-border: var(--console-accent-secondary);
+
+  /* ================================ */
+  /* HOME VIEW */
+  /* ================================ */
+  /* Title and Branding */
+  --console-home-title-text: var(--console-text-secondary);
+
+  /* Category Headers */
+  --console-home-category-text: var(--console-text-secondary);
+
+  /* Carousel Navigation */
+  --console-home-carousel-button-bg: rgba(0, 0, 0, 0.2);
+  --console-home-carousel-button-text: #ffffff;
+  --console-home-carousel-button-border: rgba(255, 255, 255, 0.2);
+
+  /* Control Buttons */
+  --console-home-control-button-bg: rgba(0, 0, 0, 0.1);
+  --console-home-control-button-text: var(--console-text-secondary);
+  --console-home-control-button-border: rgba(0, 0, 0, 0.2);
+  --console-home-control-button-focus-border: var(--console-accent-secondary);
+
+  /* ================================ */
+  /* GAME VIEW */
+  /* ================================ */
+  /* Text Elements */
+  --console-game-title-text: var(--console-text-secondary);
+  --console-game-description-text: var(--console-text-secondary);
+  --console-game-metadata-text: var(--console-text-secondary);
+  --console-game-section-header: var(--console-text-secondary);
+
+  /* Action Buttons */
+  --console-game-play-button-bg: var(--console-accent-primary);
+  --console-game-play-button-text: #ffffff;
+  --console-game-play-button-focus-border: var(--console-accent-secondary);
+
+  --console-game-details-button-bg: var(--console-accent-tertiary);
+  --console-game-details-button-text: #ffffff;
+  --console-game-details-button-focus-border: var(--console-accent-secondary);
+
+  /* Platform Badge */
+  --console-game-platform-badge-bg: var(--console-accent-primary);
+  --console-game-platform-badge-text: #ffffff;
+
+  /* Screenshot Panel */
+  --console-game-screenshot-panel-bg: rgba(0, 0, 0, 0.4);
+  --console-game-screenshot-panel-border: rgba(0, 0, 0, 0.1);
+
+  /* Screenshot Thumbnails */
+  --console-game-screenshot-thumbnail-focus-border: var(
+    --console-accent-secondary
+  );
+
+  /* State Cards */
+  --console-game-state-card-border: rgba(0, 0, 0, 0.1);
+  --console-game-state-card-focus-border: var(--console-accent-secondary);
+
+  /* ================================ */
+  /* GAMESLIST VIEW */
+  /* ================================ */
+  /* Alphabet Navigation */
+  --console-gameslist-scrollbar-bg: rgba(0, 0, 0, 0.3);
+  --console-gameslist-alphabet-bg: rgba(0, 0, 0, 0.05);
+  --console-gameslist-alphabet-border: rgba(0, 0, 0, 0.1);
+  --console-gameslist-alphabet-text: var(--console-text-secondary);
+  --console-gameslist-alphabet-active-text: var(--console-text-secondary);
+  --console-gameslist-alphabet-active-bg: rgba(248, 180, 0, 1);
+
+  /* ================================ */
+  /* PLAY VIEW */
+  /* ================================ */
+  /* Control Hints */
+  --console-play-hint-bg: rgba(0, 0, 0, 0.6);
+  --console-play-hint-border: rgba(0, 0, 0, 0.1);
+  --console-play-hint-text: rgba(255, 255, 255, 0.8);
+
+  /* Save State Dialog */
+  --console-play-save-status-text: var(--console-accent-secondary);
+  --console-play-save-separator-border: rgba(0, 0, 0, 0.1);
+}

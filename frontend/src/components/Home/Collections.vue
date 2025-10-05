@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { useLocalStorage, useScroll } from "@vueuse/core";
+import { ref, watch } from "vue";
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import RSection from "@/components/common/RSection.vue";
 import { type CollectionType } from "@/stores/collections";
 import { views } from "@/utils";
-import { isNull, throttle } from "lodash";
-import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
   collections: CollectionType[];
@@ -15,24 +15,14 @@ const props = defineProps<{
     | "gridSmartCollections";
 }>();
 
-const storedCollections = localStorage.getItem(`settings.${props.setting}`);
-const gridCollections = ref(
-  isNull(storedCollections) ? false : storedCollections === "true",
-);
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const gridCollections = useLocalStorage(`settings.${props.setting}`, false);
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 const visibleCollections = ref(72);
 const isHovering = ref(false);
-const hoveringCollectionId = ref();
+const hoveringCollectionId = ref<number>();
 
 function toggleGridCollections() {
   gridCollections.value = !gridCollections.value;
-  localStorage.setItem(
-    `settings.${props.setting}`,
-    gridCollections.value.toString(),
-  );
 }
 
 function onHover(emitData: { isHovering: boolean; id: number }) {
@@ -40,34 +30,30 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
   hoveringCollectionId.value = emitData.id;
 }
 
-const onScroll = throttle(() => {
+const { y: documentY } = useScroll(document.body, { throttle: 100 });
+
+// Watch for scroll changes and trigger the throttled function
+watch(documentY, () => {
   if (
-    window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+    window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
     visibleCollections.value < props.collections.length
   ) {
     visibleCollections.value += 72;
   }
-}, 100);
-
-onMounted(() => {
-  window.addEventListener("scroll", onScroll);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("scroll", onScroll);
 });
 </script>
 <template>
-  <r-section icon="mdi-bookmark-box-multiple" :title="props.title">
+  <RSection icon="mdi-bookmark-box-multiple" :title="props.title">
     <template #toolbar-append>
       <v-btn
         aria-label="Toggle collections grid view"
         icon
         rounded="0"
         @click="toggleGridCollections"
-        ><v-icon>{{
-          gridCollections ? "mdi-view-comfy" : "mdi-view-column"
-        }}</v-icon>
+      >
+        <v-icon>
+          {{ gridCollections ? "mdi-view-comfy" : "mdi-view-column" }}
+        </v-icon>
       </v-btn>
     </template>
     <template #content>
@@ -87,21 +73,22 @@ onBeforeUnmount(() => {
           :xl="views[0]['size-xl']"
           :style="{
             zIndex:
-              isHovering && hoveringCollectionId === collection.id ? 1100 : 1,
+              isHovering && hoveringCollectionId === collection.id ? 1000 : 1,
           }"
         >
-          <collection-card
+          <CollectionCard
+            :key="collection.id"
             show-rom-count
             transform-scale
-            :key="collection.id"
             :collection="collection"
             with-link
             title-on-hover
-            :enable3DTilt="enable3DEffect"
+            :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
+            @focus="onHover"
           />
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>
