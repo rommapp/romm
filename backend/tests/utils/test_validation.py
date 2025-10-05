@@ -118,6 +118,12 @@ class TestValidatePassword:
             validate_password("12345")
         assert "at least 6 characters" in exc_info.value.message
 
+    def test_invalid_non_ascii_password(self):
+        """Test that passwords with non-ASCII characters fail validation."""
+        with pytest.raises(ValidationError) as exc_info:
+            validate_password("résumé")
+        assert "ASCII characters" in exc_info.value.message
+
 
 class TestValidateEmail:
     """Test email validation."""
@@ -145,3 +151,9 @@ class TestValidateEmail:
         with pytest.raises(ValidationError) as exc_info:
             validate_email("@domain.com")
         assert True
+
+    def test_invalid_non_ascii_email(self):
+        """Test that emails with non-ASCII characters fail validation."""
+        with pytest.raises(ValidationError) as exc_info:
+            validate_email("résumé@example.com")
+        assert "ASCII characters" in exc_info.value.message

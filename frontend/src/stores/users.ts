@@ -28,12 +28,14 @@ export default defineStore("users", {
     ],
     passwordRules: [
       (v: string) => !!v || i18n.global.t("common.required"),
+      asciiOnly,
       passwordLength,
     ],
     emailRules: [
       (v: string) => !!v || i18n.global.t("common.required"),
       (v: string) =>
         /.+@.+\..+/.test(v) || i18n.global.t("common.invalid-email"),
+      asciiOnly,
     ],
   }),
 

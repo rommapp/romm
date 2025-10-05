@@ -15,7 +15,7 @@ class ValidationError(Exception):
 
 # Pre-compiled regex patterns for better performance
 USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
-EMAIL_PATTERN = re.compile(r"^.+@.+\..+$")
+EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
 def validate_ascii_only(value: str, field_name: str = "field") -> None:
@@ -83,6 +83,8 @@ def validate_password(password: str) -> None:
         msg = "Password cannot be empty"
         log.error(msg)
         raise ValidationError(msg, "Password")
+
+    validate_ascii_only(password, "Password")
 
     if len(password) < 6:
         msg = "Password must be at least 6 characters long"
