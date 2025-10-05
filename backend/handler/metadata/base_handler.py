@@ -42,7 +42,7 @@ PS2_SERIAL_INDEX_KEY: Final = "romm:ps2_serial_index"
 PSP_SERIAL_INDEX_KEY: Final = "romm:psp_serial_index"
 
 LEADING_ARTICLE_PATTERN = re.compile(r"^(a|an|the)\b", re.IGNORECASE)
-COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b", re.IGNORECASE)
+COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b(?=\s*[^\w\s]|$)", re.IGNORECASE)
 NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
 
