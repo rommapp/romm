@@ -34,7 +34,7 @@ def validate_ascii_only(value: str, field_name: str = "field") -> None:
     # Check if any character is outside ASCII range (0-127)
     if any(ord(char) > 127 for char in value):
         msg = f"{field_name} must contain only ASCII characters"
-        log.error(f"Validation failed: {msg} for value: {value}")
+        log.error(f"Validation failed: {msg}")
         raise ValidationError(msg, field_name)
 
 

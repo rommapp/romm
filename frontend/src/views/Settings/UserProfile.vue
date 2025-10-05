@@ -144,7 +144,7 @@ onUnmounted(() => {
           class="ma-4"
           variant="outlined"
           :label="t('settings.username')"
-          :rules="usersStore.nameRules"
+          :rules="usersStore.usernameRules"
           required
           clearable
         />

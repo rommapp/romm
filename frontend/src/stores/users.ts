@@ -20,7 +20,7 @@ const passwordLength = (v: string) =>
 export default defineStore("users", {
   state: () => ({
     allUsers: [] as User[],
-    nameRules: [
+    usernameRules: [
       (v: string) => !!v || i18n.global.t("common.required"),
       asciiOnly,
       usernameLength,

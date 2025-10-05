@@ -146,7 +146,7 @@ async function finishWizard() {
                         v-model="defaultAdminUser.username"
                         :label="`${t('settings.username')} *`"
                         type="text"
-                        :rules="usersStore.nameRules"
+                        :rules="usersStore.usernameRules"
                         required
                         autocomplete="on"
                         prepend-inner-icon="mdi-account"
