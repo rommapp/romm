@@ -199,6 +199,11 @@ YOUTUBE_BASE_URL: Final = os.environ.get(
     "YOUTUBE_BASE_URL", "https://www.youtube.com"
 ).rstrip("/")
 
+# TINFOIL
+TINFOIL_WELCOME_MESSAGE: Final = os.environ.get(
+    "TINFOIL_WELCOME_MESSAGE", "RomM Switch Library"
+)
+
 # SENTRY
 SENTRY_DSN: Final = os.environ.get("SENTRY_DSN", None)
 

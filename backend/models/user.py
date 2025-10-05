@@ -31,23 +31,34 @@ class Role(enum.Enum):
     ADMIN = "admin"
 
 
+TEXT_FIELD_LENGTH = 255
+
+
 class User(BaseModel, SimpleUser):
     __tablename__ = "users"
     __table_args__ = {"extend_existing": True}
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    username: Mapped[str] = mapped_column(String(length=255), unique=True, index=True)
-    hashed_password: Mapped[str | None] = mapped_column(String(length=255))
+    username: Mapped[str] = mapped_column(
+        String(length=TEXT_FIELD_LENGTH), unique=True, index=True
+    )
+    hashed_password: Mapped[str | None] = mapped_column(
+        String(length=TEXT_FIELD_LENGTH)
+    )
     email: Mapped[str | None] = mapped_column(
-        String(length=255), unique=True, index=True
+        String(length=TEXT_FIELD_LENGTH), unique=True, index=True
     )
     enabled: Mapped[bool] = mapped_column(default=True)
     role: Mapped[Role] = mapped_column(Enum(Role), default=Role.VIEWER)
-    avatar_path: Mapped[str] = mapped_column(String(length=255), default="")
+    avatar_path: Mapped[str] = mapped_column(
+        String(length=TEXT_FIELD_LENGTH), default=""
+    )
     last_login: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     last_active: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
-    ra_username: Mapped[str | None] = mapped_column(String(length=255), default="")
+    ra_username: Mapped[str | None] = mapped_column(
+        String(length=TEXT_FIELD_LENGTH), default=""
+    )
     ra_progression: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )

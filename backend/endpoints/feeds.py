@@ -3,7 +3,11 @@ from collections.abc import Sequence
 from fastapi import Request
 from starlette.datastructures import URLPath
 
-from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, FRONTEND_RESOURCES_PATH
+from config import (
+    DISABLE_DOWNLOAD_ENDPOINT_AUTH,
+    FRONTEND_RESOURCES_PATH,
+    TINFOIL_WELCOME_MESSAGE,
+)
 from decorators.auth import protected_route
 from endpoints.responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
@@ -203,6 +207,6 @@ async def tinfoil_index_feed(
             if rom_file.file_extension in ["xci", "nsp", "nsz", "xcz", "nro"]
         ],
         directories=[],
-        success="RomM Switch Library",
+        success=TINFOIL_WELCOME_MESSAGE,
         titledb=await extract_titledb(roms),
     )
