@@ -1,10 +1,21 @@
-"""Validation utilities for user input."""
-
 import re
 
-from fastapi import HTTPException, status
-
 from logger.logger import log
+from models.user import TEXT_FIELD_LENGTH
+
+
+class ValidationError(Exception):
+    """Custom exception for validation errors."""
+
+    def __init__(self, message: str, field_name: str = "field"):
+        self.message = message
+        self.field_name = field_name
+        super().__init__(self.message)
+
+
+# Pre-compiled regex patterns for better performance
+USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+EMAIL_PATTERN = re.compile(r"^.+@.+\..+$")
 
 
 def validate_ascii_only(value: str, field_name: str = "field") -> None:
@@ -15,7 +26,7 @@ def validate_ascii_only(value: str, field_name: str = "field") -> None:
         field_name (str): The name of the field for error messages
 
     Raises:
-        HTTPException: If the value contains non-ASCII characters
+        ValidationError: If the value contains non-ASCII characters
     """
     if not value:
         return
@@ -24,10 +35,7 @@ def validate_ascii_only(value: str, field_name: str = "field") -> None:
     if any(ord(char) > 127 for char in value):
         msg = f"{field_name} must contain only ASCII characters"
         log.error(f"Validation failed: {msg} for value: {value}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg,
-        )
+        raise ValidationError(msg, field_name)
 
 
 def validate_username(username: str) -> None:
@@ -37,44 +45,29 @@ def validate_username(username: str) -> None:
         username (str): The username to validate
 
     Raises:
-        HTTPException: If the username is invalid
+        ValidationError: If the username is invalid
     """
     if not username or not username.strip():
         msg = "Username cannot be empty"
         log.error(msg)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg,
-        )
+        raise ValidationError(msg, "Username")
 
-    # Check for ASCII-only characters
     validate_ascii_only(username, "Username")
 
-    # Additional username validation rules
     if len(username) < 3:
         msg = "Username must be at least 3 characters long"
         log.error(msg)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg,
-        )
+        raise ValidationError(msg, "Username")
 
-    if len(username) > 50:
-        msg = "Username must be no more than 50 characters long"
+    if len(username) > TEXT_FIELD_LENGTH:
+        msg = "Username must be no more than 255 characters long"
         log.error(msg)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg,
-        )
+        raise ValidationError(msg, "Username")
 
-    # Check for valid characters (alphanumeric, underscore, hyphen)
-    if not re.match(r"^[a-zA-Z0-9_-]+$", username):
+    if not USERNAME_PATTERN.match(username):
         msg = "Username can only contain letters, numbers, underscores, and hyphens"
         log.error(f"Validation failed: {msg} for username: {username}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg,
-        )
+        raise ValidationError(msg, "Username")
 
 
 def validate_password(password: str) -> None:
@@ -84,27 +77,22 @@ def validate_password(password: str) -> None:
         password (str): The password to validate
 
     Raises:
-        HTTPException: If the password is invalid
+        ValidationError: If the password is invalid
     """
     if not password or not password.strip():
         msg = "Password cannot be empty"
         log.error(msg)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg,
-        )
+        raise ValidationError(msg, "Password")
 
-    # Check for ASCII-only characters
-    validate_ascii_only(password, "Password")
-
-    # Additional password validation rules
     if len(password) < 6:
         msg = "Password must be at least 6 characters long"
         log.error(msg)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg,
-        )
+        raise ValidationError(msg, "Password")
+
+    if len(password) > TEXT_FIELD_LENGTH:
+        msg = "Password must be no more than 255 characters long"
+        log.error(msg)
+        raise ValidationError(msg, "Password")
 
 
 def validate_email(email: str) -> None:
@@ -114,20 +102,14 @@ def validate_email(email: str) -> None:
         email (str): The email to validate
 
     Raises:
-        HTTPException: If the email is invalid
+        ValidationError: If the email is invalid
     """
     if not email:
-        return  # Email is optional
+        return
 
-    # Check for ASCII-only characters
     validate_ascii_only(email, "Email")
 
-    # Basic email format validation
-    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-    if not re.match(email_pattern, email):
+    if not EMAIL_PATTERN.match(email):
         msg = "Invalid email format"
         log.error(f"Validation failed: {msg} for email: {email}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg,
-        )
+        raise ValidationError(msg, "Email")

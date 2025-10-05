@@ -8,22 +8,32 @@ const asciiOnly = (v: string) =>
   // eslint-disable-next-line no-control-regex
   /^[\u0000-\u007F]*$/.test(v) || i18n.global.t("common.ascii-only");
 
+const usernameLength = (v: string) =>
+  (v.length >= 3 && v.length <= 255) || i18n.global.t("common.username-length");
+
+const usernameChars = (v: string) =>
+  /^[a-zA-Z0-9_-]*$/.test(v) || i18n.global.t("common.username-chars");
+
+const passwordLength = (v: string) =>
+  (v.length >= 6 && v.length <= 255) || i18n.global.t("common.password-length");
+
 export default defineStore("users", {
   state: () => ({
     allUsers: [] as User[],
     nameRules: [
       (v: string) => !!v || i18n.global.t("common.required"),
       asciiOnly,
+      usernameLength,
+      usernameChars,
     ],
     passwordRules: [
       (v: string) => !!v || i18n.global.t("common.required"),
-      asciiOnly,
+      passwordLength,
     ],
     emailRules: [
       (v: string) => !!v || i18n.global.t("common.required"),
       (v: string) =>
         /.+@.+\..+/.test(v) || i18n.global.t("common.invalid-email"),
-      asciiOnly,
     ],
   }),
 
