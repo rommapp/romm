@@ -515,10 +515,9 @@ class TestRegexPatterns:
         assert LEADING_ARTICLE_PATTERN.match("the game")
         assert LEADING_ARTICLE_PATTERN.match("a game")
         assert LEADING_ARTICLE_PATTERN.match("an adventure")
+        assert LEADING_ARTICLE_PATTERN.match("The Game")
         # Should not match when not at start
         assert not LEADING_ARTICLE_PATTERN.match("game the")
-        # Should not match uppercase (pattern is for lowercase strings)
-        assert not LEADING_ARTICLE_PATTERN.match("The Game")
 
     def test_space_patterns(self):
         """Test space normalization patterns."""
