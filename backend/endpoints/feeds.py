@@ -154,8 +154,8 @@ async def tinfoil_index_feed(
                     )
                 )
                 if index_entry:
-                    key = str(index_entry.get("nsuId", ""))
-                    if key:  # only store if we have an id
+                    key = str(index_entry.get("nsuId", None))
+                    if key is not None:  # only store if we have an id
                         titledb[key] = TinfoilFeedTitleDBSchema(
                             **index_entry
                         ).model_dump()
@@ -166,8 +166,8 @@ async def tinfoil_index_feed(
                     )
                 )
                 if index_entry:
-                    key = str(index_entry.get("nsuId", ""))
-                    if key:
+                    key = str(index_entry.get("nsuId", None))
+                    if key is not None:
                         titledb[key] = TinfoilFeedTitleDBSchema(
                             **index_entry
                         ).model_dump()
