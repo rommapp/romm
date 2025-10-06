@@ -59,7 +59,7 @@ oauth.register(
         config.get("OIDC_SERVER_APPLICATION_URL"), external=True
     ),
     client_kwargs={
-        "scope": "openid profile email" + ((" " + OIDC_CLAIM_ROLES) if OIDC_CLAIM_ROLES else ""),
+        "scope": f"openid profile email {OIDC_CLAIM_ROLES}".strip(),
         "verify": OIDC_TLS_CACERTFILE,
     },
 )
