@@ -1,6 +1,6 @@
-from typing import Any, NotRequired, TypedDict
+from typing import Annotated, Any, NotRequired, TypedDict
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, Field
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 
@@ -82,6 +82,11 @@ def coerce_to_int(value: Any) -> int:
         return 0
 
 
+# Annotated types for cleaner field definitions
+StringField = Annotated[str, BeforeValidator(coerce_to_string)]
+IntField = Annotated[int, BeforeValidator(coerce_to_int)]
+
+
 class WebrcadeFeedItemPropsSchema(TypedDict):
     rom: str
 
@@ -130,31 +135,16 @@ class TinfoilFeedTitleDBSchema(BaseModel):
     for the Tinfoil custom index format.
     """
 
-    id: str = Field(default="")
-    name: str = Field(default="")
-    description: str = Field(default="")
-    region: str = Field(default="US")
-    publisher: str = Field(default="")
-    size: int = Field(default=0)
-    version: int = Field(default=0)
-    releaseDate: int = Field(default=19700101)
-    rating: int = Field(default=0)
-    rank: int = Field(default=0)
-
-    @field_validator("id", "name", "description", "region", "publisher", mode="before")
-    @classmethod
-    def _coerce_string_fields(cls, v: Any) -> str:
-        return coerce_to_string(v)
-
-    @field_validator("size", "version", "releaseDate", "rating", "rank", mode="before")
-    @classmethod
-    def _coerce_int_fields(cls, v: Any) -> int:
-        return coerce_to_int(v)
-
-    model_config = {
-        "str_strip_whitespace": True,
-        "validate_assignment": True,
-    }
+    id: StringField = Field(default="")
+    name: StringField = Field(default="")
+    description: StringField = Field(default="")
+    region: StringField = Field(default="US")
+    publisher: StringField = Field(default="")
+    size: IntField = Field(default=0, ge=0)
+    version: IntField = Field(default=0, ge=0)
+    releaseDate: IntField = Field(default=19700101, ge=19700101)
+    rating: IntField = Field(default=0, ge=0, le=100)
+    rank: IntField = Field(default=0, ge=0)
 
 
 class TinfoilFeedSchema(TypedDict):
