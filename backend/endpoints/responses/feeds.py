@@ -1,4 +1,5 @@
-from typing import NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
+
 from pydantic import BaseModel, Field, field_validator
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
@@ -65,6 +66,22 @@ WEBRCADE_SLUG_TO_TYPE_MAP = {
 # Source: https://docs.webrcade.com/feeds/format/
 
 
+def coerce_to_string(value: Any) -> str:
+    """Coerce value to string, returning empty string for None."""
+    return "" if value is None else str(value)
+
+
+def coerce_to_int(value: Any) -> int:
+    """Coerce value to int, returning 0 for None/empty values."""
+    if value in (None, ""):
+        return 0
+
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return 0
+
+
 class WebrcadeFeedItemPropsSchema(TypedDict):
     rom: str
 
@@ -107,33 +124,32 @@ class TinfoilFeedFileSchema(TypedDict):
 
 
 class TinfoilFeedTitleDBSchema(BaseModel):
+    """Schema for Tinfoil feed title database entries.
+
+    This schema handles the conversion and validation of game metadata
+    for the Tinfoil custom index format.
+    """
+
     id: str = Field(default="")
     name: str = Field(default="")
     description: str = Field(default="")
+    region: str = Field(default="US")
+    publisher: str = Field(default="")
     size: int = Field(default=0)
     version: int = Field(default=0)
-    region: str = Field(default="US")
     releaseDate: int = Field(default=19700101)
     rating: int = Field(default=0)
-    publisher: str = Field(default="")
     rank: int = Field(default=0)
 
-    # --- STRING COERCION ---
     @field_validator("id", "name", "description", "region", "publisher", mode="before")
     @classmethod
-    def _str_or_empty(cls, v):
-        return "" if v is None else str(v)
+    def _coerce_string_fields(cls, v: Any) -> str:
+        return coerce_to_string(v)
 
-    # --- INT COERCION ---
     @field_validator("size", "version", "releaseDate", "rating", "rank", mode="before")
     @classmethod
-    def _int_or_zero(cls, v):
-        if v in (None, ""):
-            return 0
-        try:
-            return int(v)
-        except Exception:
-            return 0
+    def _coerce_int_fields(cls, v: Any) -> int:
+        return coerce_to_int(v)
 
     model_config = {
         "str_strip_whitespace": True,
