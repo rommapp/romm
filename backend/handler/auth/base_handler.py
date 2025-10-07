@@ -22,7 +22,7 @@ from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
 from handler.redis_handler import redis_client
-from logger.formatter import CYAN
+from logger.formatter import CYAN, YELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
 
@@ -146,7 +146,8 @@ class AuthHandler:
             raise HTTPException(status_code=404, detail="User not found")
 
         now = datetime.now(timezone.utc).timestamp()
-        if now > payload.claims.get("exp"):
+        exp = payload.claims.get("exp")
+        if exp is not None and now > exp:
             raise HTTPException(status_code=400, detail="Token has expired")
 
         return user
@@ -303,12 +304,27 @@ class OpenIDHandler:
                 detail="Userinfo is missing from token.",
             )
 
+        # Get stable, unique identifier from OIDC provider
+        sub = userinfo.get("sub")
+        if sub is None:
+            log.error("Subject (sub) is missing from token.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Subject (sub) is missing from token.",
+            )
+
         email = userinfo.get("email")
         if email is None:
             log.error("Email is missing from token.")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email is missing from token.",
+            )
+
+        if not oauth.openid:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="OIDC not configured",
             )
 
         metadata = await oauth.openid.load_server_metadata()
@@ -348,21 +364,46 @@ class OpenIDHandler:
                     detail="User has not been granted any roles for this application.",
                 )
 
-        user = db_user_handler.get_user_by_email(email)
-        if user is None:
-            log.info(
-                "User with email '%s' not found, creating new user",
-                hl(email, color=CYAN),
-            )
-            new_user = User(
-                username=preferred_username,
-                hashed_password=str(uuid.uuid4()),
-                email=email,
-                enabled=True,
-                role=role,
-            )
-            user = db_user_handler.add_user(new_user)
-        elif OIDC_CLAIM_ROLES and user.role != role:
+        # First, try to find user by OIDC subject (most secure)
+        user = db_user_handler.get_user_by_oidc_sub(sub)
+        if user is not None:
+            # User found by OIDC subject - update email if it changed
+            if user.email != email:
+                log.info(
+                    "User found by OIDC subject, updating email from '%s' to '%s'",
+                    hl(user.email or "None", color=YELLOW),
+                    hl(email, color=CYAN),
+                )
+                user = db_user_handler.update_user(user.id, {"email": email})
+
+        else:
+            # If not found by OIDC subject, try by email (backward compatibility)
+            user = db_user_handler.get_user_by_email(email)
+            if user is not None:
+                # User found by email - add OIDC subject for future lookups
+                log.info(
+                    "User found by email, adding OIDC subject for future lookups",
+                    hl(email, color=CYAN),
+                )
+                user = db_user_handler.update_user(user.id, {"oidc_sub": sub})
+            else:
+                # No user found - create new one
+                log.info(
+                    "User not found, creating new user with OIDC subject",
+                    hl(email, color=CYAN),
+                )
+                new_user = User(
+                    username=preferred_username,
+                    hashed_password=str(uuid.uuid4()),
+                    email=email,
+                    oidc_sub=sub,
+                    enabled=True,
+                    role=role,
+                )
+                user = db_user_handler.add_user(new_user)
+
+        # Update role if it changed
+        if OIDC_CLAIM_ROLES and user.role != role:
             user = db_user_handler.update_user(user.id, {"role": role})
 
         if not user.enabled:

@@ -356,3 +356,68 @@ async def test_oidc_invalid_token_signature(mock_oidc_enabled):
     token = {"id_token": "invalid_signature_token"}
     with pytest.raises(HTTPException):
         await oidc_handler.get_current_active_user_from_openid_token(token)
+
+
+async def test_oidc_email_update_existing_user(
+    mocker,
+    mock_oidc_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """Test email update for existing user when email changes in OIDC provider."""
+    # Mock user not found by OIDC subject (new user)
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_oidc_sub", return_value=None
+    )
+
+    # Mock user found by email (existing user with old email)
+    mock_user = MagicMock(
+        id=1,
+        enabled=True,
+        role=Role.VIEWER,
+        email="old@example.com",
+        username="testuser",
+        oidc_sub=None,
+    )
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_email", return_value=mock_user
+    )
+
+    # Mock the update_user call
+    mock_updated_user = MagicMock(
+        id=1,
+        enabled=True,
+        role=Role.VIEWER,
+        email="new@example.com",
+        username="testuser",
+        oidc_sub="test-sub-123",
+    )
+    mock_update_user = mocker.patch(
+        "handler.database.db_user_handler.update_user", return_value=mock_updated_user
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    # Set up token with new email and OIDC subject
+    mock_token["userinfo"]["email"] = "new@example.com"
+    mock_token["userinfo"]["preferred_username"] = "testuser"
+    mock_token["userinfo"]["sub"] = "test-sub-123"
+
+    oidc_handler = OpenIDHandler()
+    user, userinfo = await oidc_handler.get_current_active_user_from_openid_token(
+        mock_token
+    )
+
+    # Verify user was found by email and both email and OIDC subject were updated
+    assert user == mock_updated_user
+    # Should be called twice: once for email update, once for OIDC subject
+    assert mock_update_user.call_count == 2
+    # Check the calls were made with correct parameters
+    calls = mock_update_user.call_args_list
+    assert {"email": "new@example.com"} in [call[0][1] for call in calls]
+    assert {"oidc_sub": "test-sub-123"} in [call[0][1] for call in calls]
+    assert userinfo is not None
+    assert userinfo.get("email") == "new@example.com"

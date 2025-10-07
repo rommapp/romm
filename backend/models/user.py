@@ -49,6 +49,9 @@ class User(BaseModel, SimpleUser):
     email: Mapped[str | None] = mapped_column(
         String(length=TEXT_FIELD_LENGTH), unique=True, index=True
     )
+    oidc_sub: Mapped[str | None] = mapped_column(
+        String(length=TEXT_FIELD_LENGTH), unique=True, index=True, default=None
+    )
     enabled: Mapped[bool] = mapped_column(default=True)
     role: Mapped[Role] = mapped_column(Enum(Role), default=Role.VIEWER)
     avatar_path: Mapped[str] = mapped_column(
