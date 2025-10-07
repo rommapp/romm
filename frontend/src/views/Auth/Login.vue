@@ -87,6 +87,7 @@ async function sendReset() {
 }
 
 async function loginOIDC() {
+  if (loggingInOIDC.value) return;
   loggingInOIDC.value = true;
   window.open("/api/login/openid", "_self");
 }
