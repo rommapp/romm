@@ -79,7 +79,6 @@ export type { TasksDict } from './models/TasksDict';
 export type { TaskStatusResponse } from './models/TaskStatusResponse';
 export type { TinfoilFeedFileSchema } from './models/TinfoilFeedFileSchema';
 export type { TinfoilFeedSchema } from './models/TinfoilFeedSchema';
-export type { TinfoilFeedTitleDBSchema } from './models/TinfoilFeedTitleDBSchema';
 export type { TokenResponse } from './models/TokenResponse';
 export type { UserCollectionSchema } from './models/UserCollectionSchema';
 export type { UserForm } from './models/UserForm';
