@@ -111,6 +111,15 @@ class RetroAchievementsService:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 
+    async def get_achievement_of_the_week(self) -> dict:
+        """Retrieve the achievement of the week.
+
+        Reference: https://api-docs.retroachievements.org/v1/get-achievement-of-the-week.html
+        """
+        url = self.url.joinpath("API_GetAchievementOfTheWeek.php")
+        response = await self._request(str(url))
+        return response
+
     async def get_game_extended_details(self, game_id: int) -> RAGameExtendedDetails:
         """Retrieve extended metadata about a game, targeted via its unique ID.
 

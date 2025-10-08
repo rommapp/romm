@@ -93,8 +93,9 @@ FILE_READ_CHUNK_SIZE = 1024 * 8
 
 
 class FSRom(TypedDict):
-    multi: bool
     fs_name: str
+    flat: bool
+    nested: bool
     files: list[RomFile]
     crc_hash: str
     md5_hash: str
@@ -247,7 +248,7 @@ class FSRomsHandler(FSHandler):
             other_tags.append(tag)
         return regs, rev, langs, other_tags
 
-    def _exclude_multi_roms(self, roms: list[str]) -> list[str]:
+    def exclude_multi_roms(self, roms: list[str]) -> list[str]:
         excluded_names = cm.get_config().EXCLUDED_MULTI_FILES
         filtered_files: list = []
 
@@ -511,18 +512,19 @@ class FSRomsHandler(FSHandler):
             raise RomsNotFoundException(platform=platform.fs_slug) from e
 
         fs_roms: list[dict] = [
-            {"multi": False, "fs_name": rom}
+            {"fs_name": rom, "flat": True, "nested": False}
             for rom in self.exclude_single_files(fs_single_roms)
         ] + [
-            {"multi": True, "fs_name": rom}
-            for rom in self._exclude_multi_roms(fs_multi_roms)
+            {"fs_name": rom, "flat": False, "nested": True}
+            for rom in self.exclude_multi_roms(fs_multi_roms)
         ]
 
         return sorted(
             [
                 FSRom(
-                    multi=rom["multi"],
                     fs_name=rom["fs_name"],
+                    flat=rom["flat"],
+                    nested=rom["nested"],
                     files=[],
                     crc_hash="",
                     md5_hash="",

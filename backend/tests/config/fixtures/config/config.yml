@@ -30,6 +30,22 @@ filesystem:
   roms_folder: "ROMS"
   firmware_folder: "BIOS"
 
+scan:
+  priority:
+    metadata:
+      - "ss" # Screenscraper
+      - "lb" # Launchbox
+    artwork:
+      - "igdb" # IGDB
+      - "ss" # Screenscraper
+    region:
+      - jp
+      - eu
+      - wor
+    language:
+      - jp
+      - es
+
 emulatorjs:
   debug: true
   cache_limit: 1000

@@ -5,7 +5,7 @@ set -o nounset           # treat unset variables as an error
 set -o pipefail          # treat errors in pipes as fatal
 shopt -s inherit_errexit # inherit errexit
 
-LOGLEVEL="${LOGLEVEL:="info"}"
+LOGLEVEL="${LOGLEVEL:="INFO"}"
 
 # make it possible to disable the inotify watcher process
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="false"}"
@@ -43,7 +43,7 @@ print_banner() {
 
 debug_log() {
 	# print debug log output if enabled
-	if [[ ${LOGLEVEL} == "debug" ]]; then
+	if [[ ${LOGLEVEL} == "DEBUG" ]]; then
 		echo -e "${LIGHTMAGENTA}DEBUG:    ${BLUE}[RomM]${LIGHTMAGENTA}[init]${CYAN}[$(date +"%Y-%m-%d %T")]${RESET}" "${@}" || true
 	fi
 }
@@ -81,7 +81,7 @@ wait_for_gunicorn_socket() {
 	if [[ -S /tmp/gunicorn.sock ]]; then
 		debug_log "Gunicorn socket file found"
 	else
-		error_log "Gunicorn socket file not found after waiting 30s"
+		warn_log "Gunicorn socket file not found after waiting 30s!"
 	fi
 }
 
@@ -136,13 +136,13 @@ start_bin_valkey-server() {
 	info_log "Starting internal valkey"
 
 	if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
-		if [[ ${LOGLEVEL} == "debug" ]]; then
+		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
 			valkey-server /usr/local/etc/valkey/valkey.conf &
 		else
 			valkey-server /usr/local/etc/valkey/valkey.conf >/dev/null 2>&1 &
 		fi
 	else
-		if [[ ${LOGLEVEL} == "debug" ]]; then
+		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
 			valkey-server --dir /redis-data &
 		else
 			valkey-server --dir /redis-data >/dev/null 2>&1 &

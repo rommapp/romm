@@ -19,6 +19,7 @@ const romInfo = ref([
   { label: "SHA-1", value: props.rom.sha1_hash },
   { label: "MD5", value: props.rom.md5_hash },
   { label: "CRC", value: props.rom.crc_hash },
+  { label: "Revision", value: props.rom.revision },
 ]);
 
 async function toggleMainSibling() {
@@ -45,7 +46,11 @@ watch(
 <template>
   <v-row no-gutters>
     <v-col>
-      <v-row v-if="!rom.multi" class="align-center my-3" no-gutters>
+      <v-row
+        v-if="rom.has_simple_single_file"
+        class="align-center my-3"
+        no-gutters
+      >
         <v-col cols="3" xl="2" class="mr-2">
           <span>{{ t("rom.file") }}</span>
         </v-col>
@@ -57,7 +62,7 @@ watch(
           /><span class="text-body-1">{{ rom.fs_name }}</span>
         </v-col>
       </v-row>
-      <v-row v-if="rom.multi" class="align-center my-3" no-gutters>
+      <v-row v-else class="align-center my-3" no-gutters>
         <v-col cols="3" xl="2" class="mr-2">
           <span>{{ t("rom.files") }}</span>
         </v-col>

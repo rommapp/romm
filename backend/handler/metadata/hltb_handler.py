@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Final, NotRequired, TypedDict
 
 import httpx
@@ -11,6 +12,9 @@ from utils import get_version
 from utils.context import ctx_httpx_client
 
 from .base_handler import BaseRom, MetadataHandler
+
+# Regex to detect HLTB ID tags in filenames like (hltb-12345)
+HLTB_TAG_REGEX = re.compile(r"\(hltb-(\d+)\)", re.IGNORECASE)
 
 
 class HLTBPlatform(TypedDict):
@@ -167,12 +171,35 @@ class HowLongToBeatHandler(MetadataHandler):
 
     def __init__(self) -> None:
         self.base_url = "https://howlongtobeat.com"
-        self.search_url = f"{self.base_url}/api/seek/28b235595e8e894c"
+        self.user_endpoint = f"{self.base_url}/api/user"
+        self.search_url = f"{self.base_url}/api/seek/791cd10c5e8e894c"
         self.min_similarity_score: Final = 0.85
 
     @classmethod
     def is_enabled(cls) -> bool:
         return HLTB_API_ENABLED
+
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        httpx_client = ctx_httpx_client.get()
+        try:
+            response = await httpx_client.get(self.user_endpoint)
+            response.raise_for_status()
+        except Exception as e:
+            log.error("Error checking HLTB API: %s", e)
+            return False
+
+        return True
+
+    @staticmethod
+    def extract_hltb_id_from_filename(fs_name: str) -> int | None:
+        """Extract HLTB ID from filename tag like (hltb-12345)."""
+        match = HLTB_TAG_REGEX.search(fs_name)
+        if match:
+            return int(match.group(1))
+        return None
 
     async def _request(self, url: str, payload: dict) -> dict:
         """
@@ -340,8 +367,25 @@ class HowLongToBeatHandler(MetadataHandler):
         if not HLTB_API_ENABLED:
             return HLTBRom(hltb_id=None)
 
-        # Normalize the search term
-        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+        # Check for HLTB ID tag in filename first
+        hltb_id_from_tag = self.extract_hltb_id_from_filename(fs_name)
+        if hltb_id_from_tag:
+            log.debug(f"Found HLTB ID tag in filename: {hltb_id_from_tag}")
+            rom_by_id = await self.get_rom_by_id(hltb_id_from_tag)
+            if rom_by_id["hltb_id"]:
+                log.debug(
+                    f"Successfully matched ROM by HLTB ID tag: {fs_name} -> {hltb_id_from_tag}"
+                )
+                return rom_by_id
+            else:
+                log.warning(
+                    f"HLTB ID tag found but no match: {fs_name} -> {hltb_id_from_tag}"
+                )
+
+        # We replace " - " with ": " to match HowLongToBeat's naming convention
+        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
+            " - ", ": "
+        )
         search_term = self.normalize_search_term(search_term, remove_punctuation=False)
 
         # Search for games
@@ -365,7 +409,16 @@ class HowLongToBeatHandler(MetadataHandler):
                 (game for game in games if game["game_name"] == best_match), None
             )
 
-            if best_game:
+            if (
+                best_game
+                and best_game["game_id"]
+                and (
+                    best_game["comp_main"]
+                    or best_game["comp_plus"]
+                    or best_game["comp_100"]
+                    or best_game["comp_all"]
+                )
+            ):
                 log.debug(
                     f"Found HowLongToBeat match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
                 )

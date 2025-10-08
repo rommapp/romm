@@ -73,7 +73,7 @@ watch(documentY, () => {
           :xl="views[0]['size-xl']"
           :style="{
             zIndex:
-              isHovering && hoveringCollectionId === collection.id ? 1100 : 1,
+              isHovering && hoveringCollectionId === collection.id ? 1000 : 1,
           }"
         >
           <CollectionCard
@@ -85,6 +85,7 @@ watch(documentY, () => {
             title-on-hover
             :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
+            @focus="onHover"
           />
         </v-col>
       </v-row>

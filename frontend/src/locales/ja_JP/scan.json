@@ -11,6 +11,7 @@
   "new-platforms": "新規プラットフォーム",
   "new-platforms-desc": "新規プラットフォームのみを検索 (最速)",
   "no-new-roms": "新規・変更されたromはありません",
+  "not-identified": "未識別",
   "partial-metadata": "部分的なメタデータ",
   "partial-metadata-desc": "メタデータが部分的に一致するゲームをスキャン",
   "platforms-scanned-n": "プラットフォーム: {n} スキャン済み",

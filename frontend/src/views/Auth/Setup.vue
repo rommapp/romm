@@ -8,12 +8,14 @@ import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
 import userApi from "@/services/api/user";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
+const usersStore = storeUsers();
 const visiblePassword = ref(false);
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
@@ -49,7 +51,7 @@ const metadataOptions = computed(() => [
   },
   {
     name: "Launchbox",
-    value: "launchbox",
+    value: "lb",
     logo_path: "/assets/scrappers/launchbox.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
   },
@@ -144,6 +146,7 @@ async function finishWizard() {
                         v-model="defaultAdminUser.username"
                         :label="`${t('settings.username')} *`"
                         type="text"
+                        :rules="usersStore.usernameRules"
                         required
                         autocomplete="on"
                         prepend-inner-icon="mdi-account"
@@ -153,6 +156,7 @@ async function finishWizard() {
                         v-model="defaultAdminUser.email"
                         :label="`${t('settings.email')} *`"
                         type="text"
+                        :rules="usersStore.emailRules"
                         required
                         autocomplete="on"
                         prepend-inner-icon="mdi-account"
@@ -162,6 +166,7 @@ async function finishWizard() {
                         v-model="defaultAdminUser.password"
                         :label="`${t('settings.password')} *`"
                         :type="visiblePassword ? 'text' : 'password'"
+                        :rules="usersStore.passwordRules"
                         required
                         autocomplete="on"
                         prepend-inner-icon="mdi-lock"

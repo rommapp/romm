@@ -152,7 +152,10 @@ const largeCover = computed(() => {
     return (
       props.rom.igdb_url_cover ||
       props.rom.moby_url_cover ||
-      props.rom.ss_url_cover
+      props.rom.ss_url_cover ||
+      props.rom.launchbox_url_cover ||
+      props.rom.flashpoint_url_cover ||
+      props.rom.hltb_url_cover
     );
   const pathCoverLarge = isWebpEnabled.value
     ? props.rom.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
@@ -234,6 +237,11 @@ onBeforeUnmount(() => {
             emit('hover', { isHovering: false, id: rom.id });
           }
         "
+        @blur="
+          () => {
+            emit('hover', { isHovering: false, id: rom.id });
+          }
+        "
       >
         <v-card-text class="pa-0">
           <v-hover v-slot="{ isHovering, props: imgProps }" open-delay="800">
@@ -260,7 +268,10 @@ onBeforeUnmount(() => {
                         !rom.igdb_url_cover &&
                         !rom.moby_url_cover &&
                         !rom.ss_url_cover &&
-                        !rom.sgdb_url_cover)
+                        !rom.sgdb_url_cover &&
+                        !rom.launchbox_url_cover &&
+                        !rom.flashpoint_url_cover &&
+                        !rom.hltb_url_cover)
                     "
                     class="translucent text-white"
                     :class="

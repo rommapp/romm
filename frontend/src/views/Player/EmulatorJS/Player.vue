@@ -85,13 +85,13 @@ declare global {
     EJS_VirtualGamepadSettings: Record<string, unknown>;
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: {
-      screenshot: Uint8Array;
-      state: Uint8Array;
+      screenshot: ArrayBuffer;
+      state: ArrayBuffer;
     }) => void;
     EJS_onLoadState: () => void;
     EJS_onSaveSave: (args: {
-      screenshot: Uint8Array;
-      save: Uint8Array;
+      screenshot: ArrayBuffer;
+      save: ArrayBuffer;
     }) => void;
     EJS_onLoadSave: () => void;
   }

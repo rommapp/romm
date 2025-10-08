@@ -309,6 +309,21 @@ class IGDBHandler(MetadataHandler):
 
         return None
 
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            roms = await self.igdb_service.list_games(
+                fields=["id"],
+                limit=1,
+            )
+        except Exception as e:
+            log.error("Error checking IGDB API: %s", e)
+            return False
+
+        return bool(roms)
+
     def get_platform(self, slug: str) -> IGDBPlatform:
         if slug in IGDB_PLATFORM_LIST:
             platform = IGDB_PLATFORM_LIST[UPS(slug)]
@@ -2326,7 +2341,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/odyssey--1",
         "url_logo": "",
     },
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
+    UPS.ODYSSEY_2: {
         "category": "Computer",
         "family_name": "Magnavox",
         "family_slug": "magnavox",
@@ -2783,7 +2798,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "family_slug": "microsoft",
         "generation": 9,
         "id": 169,
-        "name": "Xbox Series X|S",
+        "name": "Xbox Series X/S",
         "slug": "series-x-s",
         "url": "https://www.igdb.com/platforms/series-x-s",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plfl.jpg",

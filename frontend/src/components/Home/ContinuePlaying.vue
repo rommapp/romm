@@ -81,6 +81,7 @@ function onClosedMenu() {
             show-chips
             :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
+            @focus="onHover"
             @openedmenu="onOpenedMenu"
             @closedmenu="onClosedMenu"
           />

@@ -12,6 +12,7 @@ type ExclusionTypes =
   | "EXCLUDED_MULTI_PARTS_FILES";
 
 const defaultConfig = {
+  CONFIG_FILE_MOUNTED: false,
   EXCLUDED_PLATFORMS: [],
   EXCLUDED_SINGLE_EXT: [],
   EXCLUDED_SINGLE_FILES: [],
@@ -24,6 +25,10 @@ const defaultConfig = {
   EJS_CACHE_LIMIT: null,
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
+  SCAN_METADATA_PRIORITY: [],
+  SCAN_ARTWORK_PRIORITY: [],
+  SCAN_REGION_PRIORITY: [],
+  SCAN_LANGUAGE_PRIORITY: [],
 } as ConfigResponse;
 
 export default defineStore("config", {

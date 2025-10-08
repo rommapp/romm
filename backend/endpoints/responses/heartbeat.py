@@ -9,13 +9,13 @@ class SystemDict(TypedDict):
 class MetadataSourcesDict(TypedDict):
     ANY_SOURCE_ENABLED: bool
     IGDB_API_ENABLED: bool
-    MOBY_API_ENABLED: bool
     SS_API_ENABLED: bool
+    MOBY_API_ENABLED: bool
     STEAMGRIDDB_API_ENABLED: bool
     RA_API_ENABLED: bool
     LAUNCHBOX_API_ENABLED: bool
-    PLAYMATCH_API_ENABLED: bool
     HASHEOUS_API_ENABLED: bool
+    PLAYMATCH_API_ENABLED: bool
     TGDB_API_ENABLED: bool
     FLASHPOINT_API_ENABLED: bool
     HLTB_API_ENABLED: bool

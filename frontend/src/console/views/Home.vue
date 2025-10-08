@@ -1043,7 +1043,7 @@ onUnmounted(() => {
           title="Exit Console Mode (F1)"
           @click="exitConsoleMode"
         >
-          ⏻
+          <v-icon size="small">mdi-power</v-icon>
         </button>
         <button
           class="w-12 h-12 rounded-md cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:-translate-y-0.5 hover:shadow-lg"
@@ -1059,7 +1059,7 @@ onUnmounted(() => {
           title="Fullscreen (F11)"
           @click="toggleFullscreen"
         >
-          ⛶
+          <v-icon size="small">mdi-fullscreen</v-icon>
         </button>
         <button
           class="w-12 h-12 rounded-md cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:-translate-y-0.5 hover:shadow-lg"
@@ -1075,7 +1075,7 @@ onUnmounted(() => {
           title="Settings"
           @click="showSettings = true"
         >
-          ⚙
+          <v-icon size="small">mdi-cog</v-icon>
         </button>
       </div>
 

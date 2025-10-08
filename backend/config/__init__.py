@@ -119,12 +119,17 @@ DISABLE_DOWNLOAD_ENDPOINT_AUTH = str_to_bool(
     os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false")
 )
 DISABLE_USERPASS_LOGIN = str_to_bool(os.environ.get("DISABLE_USERPASS_LOGIN", "false"))
+DISABLE_SETUP_WIZARD = str_to_bool(os.environ.get("DISABLE_SETUP_WIZARD", "false"))
 
 # OIDC
 OIDC_ENABLED: Final = str_to_bool(os.environ.get("OIDC_ENABLED", "false"))
 OIDC_PROVIDER: Final = os.environ.get("OIDC_PROVIDER", "")
 OIDC_CLIENT_ID: Final = os.environ.get("OIDC_CLIENT_ID", "").strip()
 OIDC_CLIENT_SECRET: Final = os.environ.get("OIDC_CLIENT_SECRET", "").strip()
+OIDC_CLAIM_ROLES: Final = os.environ.get("OIDC_CLAIM_ROLES", "").strip()
+OIDC_ROLE_VIEWER: Final = os.environ.get("OIDC_ROLE_VIEWER", "").strip()
+OIDC_ROLE_EDITOR: Final = os.environ.get("OIDC_ROLE_EDITOR", "").strip()
+OIDC_ROLE_ADMIN: Final = os.environ.get("OIDC_ROLE_ADMIN", "").strip()
 OIDC_REDIRECT_URI: Final = os.environ.get("OIDC_REDIRECT_URI", "")
 OIDC_SERVER_APPLICATION_URL: Final = os.environ.get("OIDC_SERVER_APPLICATION_URL", "")
 OIDC_TLS_CACERTFILE: Final = os.environ.get("OIDC_TLS_CACERTFILE", None)
@@ -193,6 +198,11 @@ NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
 YOUTUBE_BASE_URL: Final = os.environ.get(
     "YOUTUBE_BASE_URL", "https://www.youtube.com"
 ).rstrip("/")
+
+# TINFOIL
+TINFOIL_WELCOME_MESSAGE: Final = os.environ.get(
+    "TINFOIL_WELCOME_MESSAGE", "RomM Switch Library"
+)
 
 # SENTRY
 SENTRY_DSN: Final = os.environ.get("SENTRY_DSN", None)

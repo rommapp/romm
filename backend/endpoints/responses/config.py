@@ -4,6 +4,7 @@ from config.config_manager import EjsControls
 
 
 class ConfigResponse(TypedDict):
+    CONFIG_FILE_MOUNTED: bool
     EXCLUDED_PLATFORMS: list[str]
     EXCLUDED_SINGLE_EXT: list[str]
     EXCLUDED_SINGLE_FILES: list[str]
@@ -16,3 +17,7 @@ class ConfigResponse(TypedDict):
     EJS_CACHE_LIMIT: int | None
     EJS_SETTINGS: dict[str, dict[str, str]]
     EJS_CONTROLS: dict[str, EjsControls]
+    SCAN_METADATA_PRIORITY: list[str]
+    SCAN_ARTWORK_PRIORITY: list[str]
+    SCAN_REGION_PRIORITY: list[str]
+    SCAN_LANGUAGE_PRIORITY: list[str]

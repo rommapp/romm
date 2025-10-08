@@ -12,7 +12,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
-  is3DSCIARom,
+  isNintendoDSRom,
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
 } from "@/utils";
@@ -30,8 +30,8 @@ const computedSize = computed(() => {
   return props.sizeActionBar === 1 ? "small" : "x-small";
 });
 
-const is3DSRom = computed(() => {
-  return is3DSCIARom(props.rom);
+const isNDSRom = computed(() => {
+  return isNintendoDSRom(props.rom);
 });
 
 const isEmulationSupported = computed(() => {
@@ -81,7 +81,7 @@ watch(menuOpen, (val) => {
         @click.prevent
       />
     </v-col>
-    <v-col v-if="is3DSRom" class="d-flex">
+    <v-col v-if="isNDSRom" class="d-flex">
       <v-btn
         :disabled="rom.missing_from_fs"
         class="action-bar-btn-small flex-grow-1"

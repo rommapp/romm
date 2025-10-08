@@ -53,6 +53,7 @@ from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import (
     meta_flashpoint_handler,
+    meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
@@ -61,7 +62,7 @@ from handler.metadata import (
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import RomFile
+from models.rom import Rom
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
@@ -161,6 +162,7 @@ class CustomLimitOffsetParams(LimitOffsetParams):
 
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     char_index: dict[str, int]
+    rom_id_index: list[int]
     __params_type__ = CustomLimitOffsetParams
 
 
@@ -312,15 +314,115 @@ def get_roms(
         )
         char_index_dict = {char: index for (char, index) in char_index}
 
+    # Get all ROM IDs in order for the additional data
     with sync_session.begin() as session:
+        rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
+
         return paginate(
             session,
             query,
             transformer=lambda items: [
                 SimpleRomSchema.from_orm_with_request(i, request) for i in items
             ],
-            additional_data={"char_index": char_index_dict},
+            additional_data={
+                "char_index": char_index_dict,
+                "rom_id_index": rom_id_index,
+            },
         )
+
+
+@protected_route(
+    router.get,
+    "/download",
+    [Scope.ROMS_READ],
+)
+async def download_roms(
+    request: Request,
+    rom_ids: Annotated[
+        str,
+        Query(
+            description="Comma-separated list of ROM IDs to download as a zip file.",
+        ),
+    ],
+    filename: Annotated[
+        str | None,
+        Query(
+            description="Name for the zip file (optional).",
+        ),
+    ] = None,
+):
+    """Download a list of roms as a zip file."""
+
+    current_username = (
+        request.user.username if request.user.is_authenticated else "unknown"
+    )
+
+    if not rom_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No ROM IDs provided",
+        )
+
+    # Parse comma-separated string into list of integers
+    try:
+        rom_id_list = [int(id.strip()) for id in rom_ids.split(",") if id.strip()]
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid ROM ID format. Must be comma-separated integers.",
+        ) from e
+
+    if not rom_id_list:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid ROM IDs provided",
+        )
+
+    rom_objects = db_rom_handler.get_roms_by_ids(rom_id_list)
+
+    if not rom_objects:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No ROMs found with the provided IDs",
+        )
+
+    # Check if all requested ROMs were found
+    found_ids = {rom.id for rom in rom_objects}
+    missing_ids = set(rom_id_list) - found_ids
+    if missing_ids:
+        log.warning(
+            f"User {hl(current_username, color=BLUE)} requested ROMs with IDs {missing_ids} that were not found"
+        )
+
+    log.info(
+        f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
+    )
+
+    content_lines = []
+    for rom in rom_objects:
+        rom_files = sorted(rom.files, key=lambda x: x.file_name)
+        for file in rom_files:
+            content_lines.append(
+                ZipContentLine(
+                    crc32=None,  # The CRC hash stored for compressed files is for the uncompressed content
+                    size_bytes=file.file_size_bytes,
+                    encoded_location=quote(f"/library/{file.full_path}"),
+                    filename=file.full_path,
+                )
+            )
+
+    if filename:
+        file_name = sanitize_filename(filename)
+    else:
+        base64_content = b64encode(
+            ("\n".join([str(line) for line in content_lines])).encode()
+        )
+        file_name = f"{len(rom_objects)} ROMs ({crc32_to_hex(binascii.crc32(base64_content))}).zip"
+
+    return ZipResponse(
+        content_lines=content_lines,
+        filename=quote(file_name),
+    )
 
 
 @protected_route(
@@ -534,16 +636,15 @@ async def get_rom_content(
             download_path=Path(f"/library/{files[0].full_path}"),
         )
 
-    async def create_zip_content(f: RomFile, base_path: str = LIBRARY_BASE_PATH):
-        file_size = await fs_rom_handler.get_file_size(f.full_path)
-        return ZipContentLine(
-            crc32=f.crc_hash,
-            size_bytes=file_size,
-            encoded_location=quote(f"{base_path}/{f.full_path}"),
+    content_lines = [
+        ZipContentLine(
+            crc32=None,  # The CRC hash stored for compressed files is for the uncompressed content
+            size_bytes=f.file_size_bytes,
+            encoded_location=quote(f"/library/{f.full_path}"),
             filename=f.file_name_for_download(rom, hidden_folder),
         )
-
-    content_lines = [await create_zip_content(f, "/library") for f in files]
+        for f in files
+    ]
 
     if not rom.has_m3u_file():
         m3u_encoded_content = "\n".join(
@@ -604,6 +705,8 @@ async def update_rom(
                 "ss_id": None,
                 "ra_id": None,
                 "launchbox_id": None,
+                "flashpoint_id": None,
+                "hltb_id": None,
                 "name": rom.fs_name,
                 "summary": "",
                 "url_screenshots": [],
@@ -618,6 +721,8 @@ async def update_rom(
                 "ss_metadata": {},
                 "ra_metadata": {},
                 "launchbox_metadata": {},
+                "flashpoint_metadata": {},
+                "hltb_metadata": {},
                 "revision": "",
             },
         )
@@ -634,7 +739,15 @@ async def update_rom(
         "ss_id": data.get("ss_id", rom.ss_id),
         "launchbox_id": data.get("launchbox_id", rom.launchbox_id),
         "flashpoint_id": data.get("flashpoint_id", rom.flashpoint_id),
+        "hltb_id": data.get("hltb_id", rom.hltb_id),
     }
+
+    if (
+        cleaned_data.get("hltb_id", "")
+        and int(cleaned_data.get("hltb_id", "")) != rom.hltb_id
+    ):
+        hltb_rom = await meta_hltb_handler.get_rom_by_id(cleaned_data["hltb_id"])
+        cleaned_data.update(hltb_rom)
 
     if (
         cleaned_data.get("flashpoint_id", "")
@@ -736,19 +849,18 @@ async def update_rom(
                 }
             )
         else:
-            if data.get(
-                "url_cover", ""
-            ) != rom.url_cover or not fs_resource_handler.cover_exists(
+            url_cover = data.get("url_cover", rom.url_cover)
+            if url_cover != rom.url_cover or not fs_resource_handler.cover_exists(
                 rom, CoverSize.BIG
             ):
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     entity=rom,
                     overwrite=True,
-                    url_cover=str(data.get("url_cover") or ""),
+                    url_cover=str(url_cover),
                 )
                 cleaned_data.update(
                     {
-                        "url_cover": data.get("url_cover", rom.url_cover),
+                        "url_cover": url_cover,
                         "path_cover_s": path_cover_s,
                         "path_cover_l": path_cover_l,
                     }
@@ -871,6 +983,66 @@ async def add_rom_manuals(
             "path_manual": path_manual,
         },
     )
+
+    return Response()
+
+
+@protected_route(
+    router.delete,
+    "/{id}/manuals",
+    [Scope.ROMS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def delete_rom_manuals(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> Response:
+    """Delete manuals for a rom."""
+
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    if not fs_resource_handler.manual_exists(rom):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No manual found for this ROM",
+        )
+
+    try:
+        await fs_resource_handler.remove_manual(rom)
+        db_rom_handler.update_rom(
+            id,
+            {
+                "path_manual": "",
+                "url_manual": "",
+            },
+        )
+
+        log.info(
+            f"Deleted manual for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
+        )
+    except FileNotFoundError:
+        log.warning(
+            f"Manual file not found for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
+        )
+        # Still update the database even if file doesn't exist
+        db_rom_handler.update_rom(
+            id,
+            {
+                "path_manual": "",
+                "url_manual": "",
+            },
+        )
+    except Exception as exc:
+        log.error(
+            f"Error deleting manual for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]",
+            exc_info=exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="There was an error deleting the manual",
+        ) from exc
 
     return Response()
 

@@ -41,8 +41,8 @@ PS1_SERIAL_INDEX_KEY: Final = "romm:ps1_serial_index"
 PS2_SERIAL_INDEX_KEY: Final = "romm:ps2_serial_index"
 PSP_SERIAL_INDEX_KEY: Final = "romm:psp_serial_index"
 
-LEADING_ARTICLE_PATTERN = re.compile(r"^(a|an|the)\b")
-COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b$")
+LEADING_ARTICLE_PATTERN = re.compile(r"^(a|an|the)\b", re.IGNORECASE)
+COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b(?=\s*[^\w\s]|$)", re.IGNORECASE)
 NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
 
@@ -548,7 +548,6 @@ class UniversalPlatformSlug(enum.StrEnum):
     OCULUS_VR = "oculus-vr"
     ODYSSEY = "odyssey"
     ODYSSEY_2 = "odyssey-2"
-    ODYSSEY_2_SLASH_VIDEOPAC_G7000 = "odyssey-2-slash-videopac-g7000"
     OHIO_SCIENTIFIC = "ohio-scientific"
     ONLIVE_GAME_SYSTEM = "onlive-game-system"
     OOPARTS = "ooparts"
