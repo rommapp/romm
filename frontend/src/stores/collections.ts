@@ -194,6 +194,12 @@ export default defineStore("collections", {
     getCollection(collectionId: number) {
       return this.allCollections.find((p) => p.id === collectionId);
     },
+    getSmartCollection(smartCollectionId: number) {
+      return this.smartCollections.find((p) => p.id === smartCollectionId);
+    },
+    getVirtualCollection(virtualCollectionId: string) {
+      return this.virtualCollections.find((p) => p.id === virtualCollectionId);
+    },
     isFavorite(rom: SimpleRom) {
       return this.favoriteCollection?.rom_ids?.includes(rom.id);
     },
