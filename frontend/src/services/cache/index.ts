@@ -1,3 +1,4 @@
+// trunk-ignore-all(eslint/@typescript-eslint/no-explicit-any)
 import type { AxiosRequestConfig, AxiosResponse } from "axios";
 import api from "@/services/api";
 
@@ -8,8 +9,7 @@ interface CacheEntry {
 class CacheService {
   private cache: Cache | null = null;
   private pendingRequests = new Map<string, Promise<AxiosResponse>>();
-  // trunk-ignore(eslint/@typescript-eslint/no-explicit-any)
-  private backgroundCallbacks = new Map<string, Set<(data: any) => void>>();
+  private backgroundCallbacks = new Map<string, (data: any) => void>();
   private readonly CACHE_NAME = "romm-api-cache";
 
   async init(): Promise<void> {
@@ -26,12 +26,10 @@ class CacheService {
   }
 
   private generateCacheKey(config: AxiosRequestConfig): string {
-    const { url, params, data } = config;
-    const baseUrl = url || "";
+    const { url, params } = config;
     const queryString = params ? new URLSearchParams(params).toString() : "";
-    const dataString = data ? JSON.stringify(data) : "";
 
-    return `${window.location.origin}${baseUrl}${queryString ? `?${queryString}` : ""}${dataString ? `:${dataString}` : ""}`;
+    return `${window.location.origin}${url}${queryString ? `?${queryString}` : ""}`;
   }
 
   private async getCachedResponse(
@@ -71,7 +69,7 @@ class CacheService {
 
   async request<T = unknown>(
     config: AxiosRequestConfig,
-    onBackgroundUpdate?: (data: T) => void,
+    onBackgroundUpdate: (data: T) => void,
   ): Promise<AxiosResponse<T>> {
     const cacheKey = this.generateCacheKey(config);
 
@@ -83,10 +81,7 @@ class CacheService {
     // Check cache first
     const cachedEntry = await this.getCachedResponse(cacheKey);
     if (cachedEntry) {
-      // Register callback for background update if provided
-      if (onBackgroundUpdate) {
-        this.registerBackgroundCallback(cacheKey, onBackgroundUpdate);
-      }
+      this.backgroundCallbacks.set(cacheKey, onBackgroundUpdate);
 
       // Trigger background update
       this.makeRequest<T>(cacheKey, config);
@@ -99,7 +94,7 @@ class CacheService {
       } as AxiosResponse<T>;
     }
 
-    // Make the actual request if no cache
+    // Make the actual request if no cache hit
     const requestPromise = this.makeRequest<T>(cacheKey, config);
     this.pendingRequests.set(cacheKey, requestPromise);
 
@@ -121,27 +116,19 @@ class CacheService {
       await this.setCachedResponse(cacheKey, response.data);
     }
 
-    // Trigger all registered callbacks
-    const callbacks = this.backgroundCallbacks.get(cacheKey);
-    if (callbacks) {
-      callbacks.forEach((callback) => {
+    // Trigger the registered callback
+    const callback = this.backgroundCallbacks.get(cacheKey);
+    if (callback) {
+      try {
         callback(response.data);
-      });
-      // Clear callbacks after triggering
-      this.backgroundCallbacks.delete(cacheKey);
+      } catch (error) {
+        console.error("Error in background update callback:", error);
+      } finally {
+        this.backgroundCallbacks.delete(cacheKey);
+      }
     }
 
     return response;
-  }
-
-  private registerBackgroundCallback<T = unknown>(
-    cacheKey: string,
-    callback: (data: T) => void,
-  ): void {
-    if (!this.backgroundCallbacks.has(cacheKey)) {
-      this.backgroundCallbacks.set(cacheKey, new Set());
-    }
-    this.backgroundCallbacks.get(cacheKey)!.add(callback);
   }
 
   async clearCache(): Promise<void> {

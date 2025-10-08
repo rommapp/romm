@@ -2,7 +2,7 @@ import { isNull, isUndefined } from "lodash";
 import { defineStore } from "pinia";
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
-import type { CustomLimitOffsetPage_SimpleRomSchema_ } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
+import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import cachedApiService from "@/services/cache/api";
 import {
   type Collection,
@@ -86,10 +86,25 @@ export default defineStore("roms", {
     setCurrentSmartCollection(collection: SmartCollection | null) {
       this.currentSmartCollection = collection;
     },
-    _postFetchRoms(
-      response: CustomLimitOffsetPage_SimpleRomSchema_,
-      concat: boolean,
-    ) {
+    // Fetching multiple roms
+    _buildRequestParams(galleryFilter: GalleryFilterStore) {
+      return {
+        ...galleryFilter.$state,
+        platformId:
+          this.currentPlatform?.id ??
+          galleryFilter.selectedPlatform?.id ??
+          null,
+        collectionId: this.currentCollection?.id ?? null,
+        virtualCollectionId: this.currentVirtualCollection?.id ?? null,
+        smartCollectionId: this.currentSmartCollection?.id ?? null,
+        limit: this.fetchLimit,
+        offset: this.fetchOffset,
+        orderBy: this.orderBy,
+        orderDir: this.orderDir,
+        groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
+      };
+    },
+    _postFetchRoms(response: GetRomsResponse, concat: boolean) {
       const { items, offset, total, char_index, rom_id_index } = response;
 
       if (!concat || this.fetchOffset === 0) {
@@ -116,33 +131,23 @@ export default defineStore("roms", {
       if (this.fetchingRoms) return Promise.resolve([]);
       this.fetchingRoms = true;
 
+      // Capture current request parameters to validate background updates
+      const currentRequestParams = this._buildRequestParams(galleryFilter);
+
       return new Promise((resolve, reject) => {
         cachedApiService
-          .getRoms(
-            {
-              ...galleryFilter.$state,
-              platformId:
-                this.currentPlatform?.id ??
-                galleryFilter.selectedPlatform?.id ??
-                null,
-              collectionId: this.currentCollection?.id ?? null,
-              virtualCollectionId: this.currentVirtualCollection?.id ?? null,
-              smartCollectionId: this.currentSmartCollection?.id ?? null,
-              limit: this.fetchLimit,
-              offset: this.fetchOffset,
-              orderBy: this.orderBy,
-              orderDir: this.orderDir,
-              groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
-            },
-            // Background update callback
-            (response) => {
-              if (concat && this.fetchOffset != 0) return;
-              this._postFetchRoms(
-                response as CustomLimitOffsetPage_SimpleRomSchema_,
-                concat,
-              );
-            },
-          )
+          .getRoms(currentRequestParams, (response) => {
+            if (concat && this.fetchOffset != 0) return;
+
+            // Check if parameters have changed since the request was made
+            const currentParams = this._buildRequestParams(galleryFilter);
+            const paramsChanged =
+              JSON.stringify(currentParams) !==
+              JSON.stringify(currentRequestParams);
+            if (paramsChanged) return;
+
+            this._postFetchRoms(response, concat);
+          })
           .then((response) => {
             this._postFetchRoms(response.data, concat);
             resolve(response.data.items);
@@ -155,26 +160,22 @@ export default defineStore("roms", {
           });
       });
     },
+    // Recent ROMs for home page
     async fetchRecentRoms(): Promise<SimpleRom[]> {
-      const response = await cachedApiService.getRecentRoms(
-        // Background update callback
-        (data) => {
-          const response = data as CustomLimitOffsetPage_SimpleRomSchema_;
-          this.setRecentRoms(response.items);
-        },
-      );
+      const response = await cachedApiService.getRecentRoms((data) => {
+        const response = data;
+        this.setRecentRoms(response.items);
+      });
       const { items } = response.data;
       this.setRecentRoms(items);
       return items;
     },
+    // Continue playing ROMs for home page
     async fetchContinuePlayingRoms(): Promise<SimpleRom[]> {
-      const response = await cachedApiService.getRecentPlayedRoms(
-        // Background update callback
-        (data) => {
-          const response = data as CustomLimitOffsetPage_SimpleRomSchema_;
-          this.setContinuePlayingRoms(response.items);
-        },
-      );
+      const response = await cachedApiService.getRecentPlayedRoms((data) => {
+        const response = data;
+        this.setContinuePlayingRoms(response.items);
+      });
       const { items } = response.data;
       this.setContinuePlayingRoms(items);
       return items;
@@ -184,23 +185,30 @@ export default defineStore("roms", {
     },
     addToRecent(rom: SimpleRom) {
       this.recentRoms = [rom, ...this.recentRoms];
+      cachedApiService.clearRecentRomsCache();
     },
     removeFromRecent(rom: SimpleRom) {
       this.recentRoms = this.recentRoms.filter((value) => value.id !== rom.id);
+      cachedApiService.clearRecentRomsCache();
     },
     addToContinuePlaying(rom: SimpleRom) {
       this.continuePlayingRoms = [rom, ...this.continuePlayingRoms];
+      cachedApiService.clearRecentPlayedRomsCache();
     },
     removeFromContinuePlaying(rom: SimpleRom) {
       this.continuePlayingRoms = this.continuePlayingRoms.filter(
         (value) => value.id !== rom.id,
       );
+      cachedApiService.clearRecentPlayedRomsCache();
     },
     update(rom: SimpleRom) {
       this.allRoms = this.allRoms.map((value) =>
         value.id === rom.id ? rom : value,
       );
       this.recentRoms = this.recentRoms.map((value) =>
+        value.id === rom.id ? rom : value,
+      );
+      this.continuePlayingRoms = this.continuePlayingRoms.map((value) =>
         value.id === rom.id ? rom : value,
       );
     },
@@ -262,15 +270,6 @@ export default defineStore("roms", {
     },
     isSimpleRom(rom: SimpleRom | SearchRomSchema): rom is SimpleRom {
       return !isNull(rom.id) && !isUndefined(rom.id);
-    },
-    async clearCache() {
-      return cachedApiService.clearCache();
-    },
-    async getCacheSize() {
-      return cachedApiService.getCacheSize();
-    },
-    async clearCacheForPattern(pattern: string) {
-      return cachedApiService.clearCacheForPattern(pattern);
     },
   },
 });
