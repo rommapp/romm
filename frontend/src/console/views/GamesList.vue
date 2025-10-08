@@ -24,12 +24,12 @@ import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
-import consoleStore from "@/stores/console";
+import storeConsole from "@/stores/console";
 import type { SimpleRom } from "@/stores/roms";
 
 const route = useRoute();
 const router = useRouter();
-const storeConsole = consoleStore();
+const consoleStore = storeConsole();
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 const { setSelectedBackgroundArt, clearSelectedBackgroundArt } =
   useBackgroundArt();
@@ -65,13 +65,13 @@ const gridRef = useTemplateRef<HTMLDivElement>("game-grid-ref");
 
 // Initialize selection from store
 if (platformId != null) {
-  selectedIndex.value = storeConsole.getPlatformGameIndex(platformId);
+  selectedIndex.value = consoleStore.getPlatformGameIndex(platformId);
 } else if (collectionId != null) {
-  selectedIndex.value = storeConsole.getCollectionGameIndex(collectionId);
+  selectedIndex.value = consoleStore.getCollectionGameIndex(collectionId);
 } else if (smartCollectionId != null) {
-  selectedIndex.value = storeConsole.getCollectionGameIndex(smartCollectionId);
+  selectedIndex.value = consoleStore.getCollectionGameIndex(smartCollectionId);
 } else if (virtualCollectionId != null) {
-  selectedIndex.value = storeConsole.getCollectionGameIndex(
+  selectedIndex.value = consoleStore.getCollectionGameIndex(
     Number(virtualCollectionId),
   );
 }
@@ -106,13 +106,13 @@ const letters = computed(() => {
 
 function persistIndex() {
   if (platformId != null) {
-    storeConsole.setPlatformGameIndex(platformId, selectedIndex.value);
+    consoleStore.setPlatformGameIndex(platformId, selectedIndex.value);
   } else if (collectionId != null) {
-    storeConsole.setCollectionGameIndex(collectionId, selectedIndex.value);
+    consoleStore.setCollectionGameIndex(collectionId, selectedIndex.value);
   } else if (smartCollectionId != null) {
-    storeConsole.setCollectionGameIndex(smartCollectionId, selectedIndex.value);
+    consoleStore.setCollectionGameIndex(smartCollectionId, selectedIndex.value);
   } else if (virtualCollectionId != null) {
-    storeConsole.setCollectionGameIndex(
+    consoleStore.setCollectionGameIndex(
       Number(virtualCollectionId),
       selectedIndex.value,
     );

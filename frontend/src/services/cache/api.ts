@@ -1,6 +1,10 @@
-import type { AxiosRequestConfig, AxiosResponse } from "axios";
-import type { SearchRomSchema } from "@/__generated__";
-import type { DetailedRomSchema } from "@/__generated__/";
+// trunk-ignore-all(eslint/@typescript-eslint/no-explicit-any)
+import type {
+  AxiosRequestConfig,
+  AxiosResponse,
+  AxiosHeaders,
+  Method,
+} from "axios";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import type { GetRomsParams } from "@/services/api/rom";
 import cacheService from "@/services/cache";
@@ -8,24 +12,22 @@ import { getStatusKeyForText } from "@/utils";
 
 class CachedApiService {
   private createRequestConfig(
-    method: string,
+    method: Method,
     url: string,
-    params?: unknown,
-    data?: unknown,
-    headers?: Record<string, string>,
+    params?: any,
+    headers?: AxiosHeaders,
   ): AxiosRequestConfig {
     return {
-      method: method as "GET" | "POST" | "PUT" | "DELETE" | "PATCH",
+      method,
       url,
       params,
-      data,
       headers,
     };
   }
 
   async getRoms(
     params: GetRomsParams,
-    onBackgroundUpdate?: (data: GetRomsResponse) => void,
+    onBackgroundUpdate: (data: GetRomsResponse) => void,
   ): Promise<AxiosResponse<GetRomsResponse>> {
     const config = this.createRequestConfig("GET", "/roms", {
       platform_id: params.platformId,
@@ -60,7 +62,7 @@ class CachedApiService {
   }
 
   async getRecentRoms(
-    onBackgroundUpdate?: (data: unknown) => void,
+    onBackgroundUpdate: (data: GetRomsResponse) => void,
   ): Promise<AxiosResponse<GetRomsResponse>> {
     const config = this.createRequestConfig("GET", "/roms", {
       order_by: "id",
@@ -73,7 +75,7 @@ class CachedApiService {
   }
 
   async getRecentPlayedRoms(
-    onBackgroundUpdate?: (data: unknown) => void,
+    onBackgroundUpdate: (data: GetRomsResponse) => void,
   ): Promise<AxiosResponse<GetRomsResponse>> {
     const config = this.createRequestConfig("GET", "/roms", {
       order_by: "last_played",
@@ -85,43 +87,27 @@ class CachedApiService {
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
   }
 
-  async getRom(
-    romId: number,
-    onBackgroundUpdate?: (data: unknown) => void,
-  ): Promise<AxiosResponse<DetailedRomSchema>> {
-    const config = this.createRequestConfig("GET", `/roms/${romId}`);
-
-    return cacheService.request<DetailedRomSchema>(config, onBackgroundUpdate);
+  private async clearRomsCache(params: any) {
+    const queryString = params ? new URLSearchParams(params).toString() : "";
+    await cacheService.clearCacheForPattern(`/roms?${queryString}`);
   }
 
-  async searchRom(
-    params: {
-      romId: number;
-      searchTerm: string;
-      searchBy: string;
-    },
-    onBackgroundUpdate?: (data: unknown) => void,
-  ): Promise<AxiosResponse<SearchRomSchema[]>> {
-    const config = this.createRequestConfig("GET", "/search/roms", {
-      rom_id: params.romId,
-      search_term: params.searchTerm,
-      search_by: params.searchBy,
+  async clearRecentRomsCache() {
+    await this.clearRomsCache({
+      order_by: "id",
+      order_dir: "desc",
+      limit: 15,
+      with_char_index: false,
     });
-
-    return cacheService.request<SearchRomSchema[]>(config, onBackgroundUpdate);
   }
 
-  async clearRelatedCache(romId: number) {
-    await cacheService.clearCacheForPattern(`/roms/${romId}`);
-    await cacheService.clearCacheForPattern("/roms");
-  }
-
-  async clearPlatformCache(platformId: number) {
-    await cacheService.clearCacheForPattern(`platform_id=${platformId}`);
-  }
-
-  async clearAllRomsCache() {
-    await cacheService.clearCacheForPattern("/roms");
+  async clearRecentPlayedRomsCache() {
+    await this.clearRomsCache({
+      order_by: "last_played",
+      order_dir: "desc",
+      limit: 15,
+      with_char_index: false,
+    });
   }
 
   // Cache management methods
@@ -132,13 +118,6 @@ class CachedApiService {
   async getCacheSize() {
     return cacheService.getCacheSize();
   }
-
-  async clearCacheForPattern(pattern: string) {
-    return cacheService.clearCacheForPattern(pattern);
-  }
 }
 
-// Create singleton instance
-const cachedApiService = new CachedApiService();
-
-export default cachedApiService;
+export default new CachedApiService();
