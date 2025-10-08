@@ -2,6 +2,7 @@ import { isNull, isUndefined } from "lodash";
 import { defineStore } from "pinia";
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
+import type { CustomLimitOffsetPage_SimpleRomSchema_ } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import cachedApiService from "@/services/cache/api";
 import {
   type Collection,
@@ -85,6 +86,26 @@ export default defineStore("roms", {
     setCurrentSmartCollection(collection: SmartCollection | null) {
       this.currentSmartCollection = collection;
     },
+    _postFetchRoms(
+      response: CustomLimitOffsetPage_SimpleRomSchema_,
+      concat: boolean,
+    ) {
+      const { items, offset, total, char_index, rom_id_index } = response;
+
+      if (!concat || this.fetchOffset === 0) {
+        this.allRoms = items;
+      } else {
+        this.allRoms = this.allRoms.concat(items);
+      }
+
+      // Update the offset and total roms in filtered database result
+      if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
+      if (total !== null) this.fetchTotalRoms = total;
+
+      // Set the character index for the current platform
+      this.characterIndex = char_index;
+      this.romIdIndex = rom_id_index;
+    },
     async fetchRoms({
       galleryFilter,
       concat = true,
@@ -97,40 +118,34 @@ export default defineStore("roms", {
 
       return new Promise((resolve, reject) => {
         cachedApiService
-          .getRoms({
-            ...galleryFilter.$state,
-            platformId:
-              this.currentPlatform?.id ??
-              galleryFilter.selectedPlatform?.id ??
-              null,
-            collectionId: this.currentCollection?.id ?? null,
-            virtualCollectionId: this.currentVirtualCollection?.id ?? null,
-            smartCollectionId: this.currentSmartCollection?.id ?? null,
-            limit: this.fetchLimit,
-            offset: this.fetchOffset,
-            orderBy: this.orderBy,
-            orderDir: this.orderDir,
-            groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
-          })
+          .getRoms(
+            {
+              ...galleryFilter.$state,
+              platformId:
+                this.currentPlatform?.id ??
+                galleryFilter.selectedPlatform?.id ??
+                null,
+              collectionId: this.currentCollection?.id ?? null,
+              virtualCollectionId: this.currentVirtualCollection?.id ?? null,
+              smartCollectionId: this.currentSmartCollection?.id ?? null,
+              limit: this.fetchLimit,
+              offset: this.fetchOffset,
+              orderBy: this.orderBy,
+              orderDir: this.orderDir,
+              groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
+            },
+            // Background update callback
+            (response) => {
+              if (concat && this.fetchOffset != 0) return;
+              this._postFetchRoms(
+                response as CustomLimitOffsetPage_SimpleRomSchema_,
+                concat,
+              );
+            },
+          )
           .then((response) => {
-            const { items, offset, total, char_index, rom_id_index } =
-              response.data;
-
-            if (!concat || this.fetchOffset === 0) {
-              this.allRoms = items;
-            } else {
-              this.allRoms = this.allRoms.concat(items);
-            }
-
-            // Update the offset and total roms in filtered database result
-            if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
-            if (total !== null) this.fetchTotalRoms = total;
-
-            // Set the character index for the current platform
-            this.characterIndex = char_index;
-            this.romIdIndex = rom_id_index;
-
-            resolve(items);
+            this._postFetchRoms(response.data, concat);
+            resolve(response.data.items);
           })
           .catch((error) => {
             reject(error);
@@ -141,13 +156,25 @@ export default defineStore("roms", {
       });
     },
     async fetchRecentRoms(): Promise<SimpleRom[]> {
-      const response = await cachedApiService.getRecentRoms();
+      const response = await cachedApiService.getRecentRoms(
+        // Background update callback
+        (data) => {
+          const response = data as CustomLimitOffsetPage_SimpleRomSchema_;
+          this.setRecentRoms(response.items);
+        },
+      );
       const { items } = response.data;
       this.setRecentRoms(items);
       return items;
     },
     async fetchContinuePlayingRoms(): Promise<SimpleRom[]> {
-      const response = await cachedApiService.getRecentPlayedRoms();
+      const response = await cachedApiService.getRecentPlayedRoms(
+        // Background update callback
+        (data) => {
+          const response = data as CustomLimitOffsetPage_SimpleRomSchema_;
+          this.setContinuePlayingRoms(response.items);
+        },
+      );
       const { items } = response.data;
       this.setContinuePlayingRoms(items);
       return items;
