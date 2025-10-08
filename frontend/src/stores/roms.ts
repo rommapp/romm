@@ -2,7 +2,6 @@ import { isNull, isUndefined } from "lodash";
 import { defineStore } from "pinia";
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
-// import romApi from "@/services/api/rom"; // No longer needed with cached API service
 import cachedApiService from "@/services/cache/api";
 import {
   type Collection,
@@ -43,9 +42,6 @@ const defaultRomsState = {
   orderDir: "asc" as "asc" | "desc",
 };
 
-// Cache service handles all caching via Web Cache API
-// No need for manual Map-based caching anymore
-
 export default defineStore("roms", {
   state: () => ({ ...defaultRomsState }),
 
@@ -70,8 +66,6 @@ export default defineStore("roms", {
     },
     setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
-      // Cache service will handle platform-specific data retrieval
-      // No need to manually manage cache lookups
     },
     setCurrentRom(rom: DetailedRom) {
       this.currentRom = rom;
@@ -84,15 +78,12 @@ export default defineStore("roms", {
     },
     setCurrentCollection(collection: Collection | null) {
       this.currentCollection = collection;
-      // Cache service will handle collection-specific data retrieval
     },
     setCurrentVirtualCollection(collection: VirtualCollection | null) {
       this.currentVirtualCollection = collection;
-      // Cache service will handle virtual collection-specific data retrieval
     },
     setCurrentSmartCollection(collection: SmartCollection | null) {
       this.currentSmartCollection = collection;
-      // Cache service will handle smart collection-specific data retrieval
     },
     async fetchRoms({
       galleryFilter,
@@ -104,9 +95,9 @@ export default defineStore("roms", {
       if (this.fetchingRoms) return Promise.resolve([]);
       this.fetchingRoms = true;
 
-      return new Promise(async (resolve, reject) => {
-        try {
-          const response = await cachedApiService.getRoms({
+      return new Promise((resolve, reject) => {
+        cachedApiService
+          .getRoms({
             ...galleryFilter.$state,
             platformId:
               this.currentPlatform?.id ??
@@ -120,31 +111,33 @@ export default defineStore("roms", {
             orderBy: this.orderBy,
             orderDir: this.orderDir,
             groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
+          })
+          .then((response) => {
+            const { items, offset, total, char_index, rom_id_index } =
+              response.data;
+
+            if (!concat || this.fetchOffset === 0) {
+              this.allRoms = items;
+            } else {
+              this.allRoms = this.allRoms.concat(items);
+            }
+
+            // Update the offset and total roms in filtered database result
+            if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
+            if (total !== null) this.fetchTotalRoms = total;
+
+            // Set the character index for the current platform
+            this.characterIndex = char_index;
+            this.romIdIndex = rom_id_index;
+
+            resolve(items);
+          })
+          .catch((error) => {
+            reject(error);
+          })
+          .finally(() => {
+            this.fetchingRoms = false;
           });
-
-          const { items, offset, total, char_index, rom_id_index } =
-            response.data;
-
-          if (!concat || this.fetchOffset === 0) {
-            this.allRoms = items;
-          } else {
-            this.allRoms = this.allRoms.concat(items);
-          }
-
-          // Update the offset and total roms in filtered database result
-          if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
-          if (total !== null) this.fetchTotalRoms = total;
-
-          // Set the character index for the current platform
-          this.characterIndex = char_index;
-          this.romIdIndex = rom_id_index;
-
-          resolve(items);
-        } catch (error) {
-          reject(error);
-        } finally {
-          this.fetchingRoms = false;
-        }
       });
     },
     async fetchRecentRoms(): Promise<SimpleRom[]> {
@@ -243,16 +236,12 @@ export default defineStore("roms", {
     isSimpleRom(rom: SimpleRom | SearchRomSchema): rom is SimpleRom {
       return !isNull(rom.id) && !isUndefined(rom.id);
     },
-
-    // Cache management methods
     async clearCache() {
       return cachedApiService.clearCache();
     },
-
     async getCacheSize() {
       return cachedApiService.getCacheSize();
     },
-
     async clearCacheForPattern(pattern: string) {
       return cachedApiService.clearCacheForPattern(pattern);
     },

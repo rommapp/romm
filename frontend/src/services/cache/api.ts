@@ -6,66 +6,7 @@ import type { GetRomsParams } from "@/services/api/rom";
 import cacheService from "@/services/cache";
 import { getStatusKeyForText } from "@/utils";
 
-export interface CacheConfig {
-  ttl?: number;
-  staleWhileRevalidate?: boolean;
-}
-
-// Cache configurations for different types of requests
-const CACHE_CONFIGS: Record<string, CacheConfig> = {
-  // ROMs data - cache for 5 minutes, allow stale for 30 minutes
-  roms: {
-    ttl: 5 * 60 * 1000, // 5 minutes
-    staleWhileRevalidate: true,
-  },
-  // Recent ROMs - cache for 2 minutes, allow stale for 10 minutes
-  recentRoms: {
-    ttl: 2 * 60 * 1000, // 2 minutes
-    staleWhileRevalidate: true,
-  },
-  // Individual ROM details - cache for 10 minutes, allow stale for 1 hour
-  romDetails: {
-    ttl: 10 * 60 * 1000, // 10 minutes
-    staleWhileRevalidate: true,
-  },
-  // Search results - cache for 1 minute, no stale while revalidate
-  search: {
-    ttl: 1 * 60 * 1000, // 1 minute
-  },
-  // Platform/collection data - cache for 15 minutes, allow stale for 2 hours
-  metadata: {
-    ttl: 15 * 60 * 1000, // 15 minutes
-    staleWhileRevalidate: true,
-  },
-};
-
 class CachedApiService {
-  private getCacheConfig(
-    endpoint: string,
-    params?: GetRomsParams,
-  ): CacheConfig {
-    // Determine cache strategy based on endpoint and parameters
-    if (endpoint.includes("/roms") && !endpoint.includes("/search")) {
-      if (params?.searchTerm) {
-        return CACHE_CONFIGS.search;
-      }
-      if (params?.orderBy === "id" || params?.orderBy === "last_played") {
-        return CACHE_CONFIGS.recentRoms;
-      }
-      return CACHE_CONFIGS.roms;
-    }
-
-    if (endpoint.includes("/search")) {
-      return CACHE_CONFIGS.search;
-    }
-
-    if (endpoint.match(/\/roms\/\d+$/)) {
-      return CACHE_CONFIGS.romDetails;
-    }
-
-    return CACHE_CONFIGS.metadata;
-  }
-
   private createRequestConfig(
     method: string,
     url: string,
@@ -113,9 +54,8 @@ class CachedApiService {
       ...(params.filterRA ? { has_ra: true } : {}),
       ...(params.filterVerified ? { verified: true } : {}),
     });
-    const cacheConfig = this.getCacheConfig("/roms", params);
 
-    return cacheService.request<GetRomsResponse>(config, cacheConfig);
+    return cacheService.request<GetRomsResponse>(config);
   }
 
   async getRecentRoms(): Promise<AxiosResponse<GetRomsResponse>> {
@@ -125,9 +65,8 @@ class CachedApiService {
       limit: 15,
       with_char_index: false,
     });
-    const cacheConfig = this.getCacheConfig("/roms", { orderBy: "id" });
 
-    return cacheService.request<GetRomsResponse>(config, cacheConfig);
+    return cacheService.request<GetRomsResponse>(config);
   }
 
   async getRecentPlayedRoms(): Promise<AxiosResponse<GetRomsResponse>> {
@@ -137,18 +76,14 @@ class CachedApiService {
       limit: 15,
       with_char_index: false,
     });
-    const cacheConfig = this.getCacheConfig("/roms", {
-      orderBy: "last_played",
-    });
 
-    return cacheService.request<GetRomsResponse>(config, cacheConfig);
+    return cacheService.request<GetRomsResponse>(config);
   }
 
   async getRom(romId: number): Promise<AxiosResponse<DetailedRomSchema>> {
     const config = this.createRequestConfig("GET", `/roms/${romId}`);
-    const cacheConfig = this.getCacheConfig(`/roms/${romId}`);
 
-    return cacheService.request<DetailedRomSchema>(config, cacheConfig);
+    return cacheService.request<DetailedRomSchema>(config);
   }
 
   async searchRom(params: {
@@ -161,100 +96,20 @@ class CachedApiService {
       search_term: params.searchTerm,
       search_by: params.searchBy,
     });
-    const cacheConfig = this.getCacheConfig("/search/roms", params);
 
-    return cacheService.request<SearchRomSchema[]>(config, cacheConfig);
-  }
-
-  // Non-cached methods (write operations)
-  async updateRom(romId: number, data: unknown, params?: unknown) {
-    const config = this.createRequestConfig(
-      "PUT",
-      `/roms/${romId}`,
-      params,
-      data,
-    );
-
-    // Don't cache write operations, but clear related cache entries
-    const response = await cacheService.request(config, { ttl: 0 });
-
-    // Clear related cache entries
-    await this.clearRelatedCache(romId);
-
-    return response;
-  }
-
-  async updateUserRomProps(romId: number, data: unknown, params?: unknown) {
-    const config = this.createRequestConfig(
-      "PUT",
-      `/roms/${romId}/props`,
-      params,
-      data,
-    );
-
-    const response = await cacheService.request(config, { ttl: 0 });
-
-    // Clear related cache entries
-    await this.clearRelatedCache(romId);
-
-    return response;
-  }
-
-  async deleteRoms(data: unknown) {
-    const config = this.createRequestConfig(
-      "POST",
-      "/roms/delete",
-      undefined,
-      data,
-    );
-
-    const response = await cacheService.request(config, { ttl: 0 });
-
-    // Clear all ROMs cache since we don't know which specific ROMs were deleted
-    await this.clearAllRomsCache();
-
-    return response;
-  }
-
-  async uploadRoms(
-    platformId: number,
-    formData: FormData,
-    headers: Record<string, string>,
-  ) {
-    const config = this.createRequestConfig(
-      "POST",
-      "/roms",
-      undefined,
-      formData,
-      {
-        "Content-Type": "multipart/form-data",
-        ...headers,
-      },
-    );
-
-    const response = await cacheService.request(config, { ttl: 0 });
-
-    // Clear platform-specific cache
-    await this.clearPlatformCache(platformId);
-
-    return response;
+    return cacheService.request<SearchRomSchema[]>(config);
   }
 
   private async clearRelatedCache(romId: number) {
-    // Clear individual ROM cache
     await cacheService.clearCacheForPattern(`/roms/${romId}`);
-
-    // Clear ROMs list cache (since the ROM might have been updated)
     await cacheService.clearCacheForPattern("/roms");
   }
 
   private async clearPlatformCache(platformId: number) {
-    // Clear platform-specific ROMs cache
     await cacheService.clearCacheForPattern(`platform_id=${platformId}`);
   }
 
   private async clearAllRomsCache() {
-    // Clear all ROMs-related cache
     await cacheService.clearCacheForPattern("/roms");
   }
 
