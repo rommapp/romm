@@ -25,6 +25,7 @@ class CachedApiService {
 
   async getRoms(
     params: GetRomsParams,
+    onBackgroundUpdate?: (data: GetRomsResponse) => void,
   ): Promise<AxiosResponse<GetRomsResponse>> {
     const config = this.createRequestConfig("GET", "/roms", {
       platform_id: params.platformId,
@@ -55,10 +56,12 @@ class CachedApiService {
       ...(params.filterVerified ? { verified: true } : {}),
     });
 
-    return cacheService.request<GetRomsResponse>(config);
+    return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
   }
 
-  async getRecentRoms(): Promise<AxiosResponse<GetRomsResponse>> {
+  async getRecentRoms(
+    onBackgroundUpdate?: (data: unknown) => void,
+  ): Promise<AxiosResponse<GetRomsResponse>> {
     const config = this.createRequestConfig("GET", "/roms", {
       order_by: "id",
       order_dir: "desc",
@@ -66,10 +69,12 @@ class CachedApiService {
       with_char_index: false,
     });
 
-    return cacheService.request<GetRomsResponse>(config);
+    return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
   }
 
-  async getRecentPlayedRoms(): Promise<AxiosResponse<GetRomsResponse>> {
+  async getRecentPlayedRoms(
+    onBackgroundUpdate?: (data: unknown) => void,
+  ): Promise<AxiosResponse<GetRomsResponse>> {
     const config = this.createRequestConfig("GET", "/roms", {
       order_by: "last_played",
       order_dir: "desc",
@@ -77,27 +82,33 @@ class CachedApiService {
       with_char_index: false,
     });
 
-    return cacheService.request<GetRomsResponse>(config);
+    return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
   }
 
-  async getRom(romId: number): Promise<AxiosResponse<DetailedRomSchema>> {
+  async getRom(
+    romId: number,
+    onBackgroundUpdate?: (data: unknown) => void,
+  ): Promise<AxiosResponse<DetailedRomSchema>> {
     const config = this.createRequestConfig("GET", `/roms/${romId}`);
 
-    return cacheService.request<DetailedRomSchema>(config);
+    return cacheService.request<DetailedRomSchema>(config, onBackgroundUpdate);
   }
 
-  async searchRom(params: {
-    romId: number;
-    searchTerm: string;
-    searchBy: string;
-  }): Promise<AxiosResponse<SearchRomSchema[]>> {
+  async searchRom(
+    params: {
+      romId: number;
+      searchTerm: string;
+      searchBy: string;
+    },
+    onBackgroundUpdate?: (data: unknown) => void,
+  ): Promise<AxiosResponse<SearchRomSchema[]>> {
     const config = this.createRequestConfig("GET", "/search/roms", {
       rom_id: params.romId,
       search_term: params.searchTerm,
       search_by: params.searchBy,
     });
 
-    return cacheService.request<SearchRomSchema[]>(config);
+    return cacheService.request<SearchRomSchema[]>(config, onBackgroundUpdate);
   }
 
   private async clearRelatedCache(romId: number) {

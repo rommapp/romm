@@ -3,16 +3,13 @@ import api from "@/services/api";
 
 interface CacheEntry {
   data: unknown;
-  timestamp: number;
-  ttl: number;
-  etag?: string;
 }
 
 class CacheService {
   private cache: Cache | null = null;
   private pendingRequests = new Map<string, Promise<AxiosResponse>>();
+  private backgroundCallbacks = new Map<string, Set<(data: any) => void>>();
   private readonly CACHE_NAME = "romm-api-cache";
-  private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
 
   async init(): Promise<void> {
     if (!("caches" in window)) {
@@ -45,16 +42,7 @@ class CacheService {
       const response = await this.cache.match(cacheKey);
       if (!response) return null;
 
-      const cacheEntry: CacheEntry = await response.json();
-      const now = Date.now();
-
-      // Check if cache entry is expired (only if TTL is specified)
-      if (cacheEntry.ttl > 0 && now - cacheEntry.timestamp > cacheEntry.ttl) {
-        await this.cache.delete(cacheKey);
-        return null;
-      }
-
-      return cacheEntry;
+      return await response.json();
     } catch (error) {
       console.error("Error reading from cache:", error);
       return null;
@@ -68,14 +56,7 @@ class CacheService {
     if (!this.cache) return;
 
     try {
-      // If no TTL is provided, set to 0 to indicate permanent caching
-      const cacheEntry: CacheEntry = {
-        data,
-        timestamp: Date.now(),
-        ttl: 0,
-      };
-
-      const response = new Response(JSON.stringify(cacheEntry), {
+      const response = new Response(JSON.stringify({ data }), {
         headers: {
           "Content-Type": "application/json",
         },
@@ -89,6 +70,7 @@ class CacheService {
 
   async request<T = unknown>(
     config: AxiosRequestConfig,
+    onBackgroundUpdate?: (data: T) => void,
   ): Promise<AxiosResponse<T>> {
     const cacheKey = this.generateCacheKey(config);
 
@@ -97,12 +79,16 @@ class CacheService {
       return this.pendingRequests.get(cacheKey)!;
     }
 
-    const requestPromise = this.makeRequest<T>(config);
-    this.pendingRequests.set(cacheKey, requestPromise);
-
     // Check cache first
     const cachedEntry = await this.getCachedResponse(cacheKey);
     if (cachedEntry) {
+      // Register callback for background update if provided
+      if (onBackgroundUpdate) {
+        this.registerBackgroundCallback(cacheKey, onBackgroundUpdate);
+      }
+
+      // Trigger background update
+      this.makeRequest<T>(cacheKey, config);
       return {
         data: cachedEntry.data,
         status: 200,
@@ -112,6 +98,10 @@ class CacheService {
       } as AxiosResponse<T>;
     }
 
+    // Make the actual request if no cache
+    const requestPromise = this.makeRequest<T>(cacheKey, config);
+    this.pendingRequests.set(cacheKey, requestPromise);
+
     try {
       return await requestPromise;
     } finally {
@@ -120,17 +110,37 @@ class CacheService {
   }
 
   private async makeRequest<T = unknown>(
+    cacheKey: string,
     config: AxiosRequestConfig,
   ): Promise<AxiosResponse<T>> {
     const response = await api.request<T>(config);
 
     // Cache successful responses
     if (response.status >= 200 && response.status < 300) {
-      const cacheKey = this.generateCacheKey(config);
       await this.setCachedResponse(cacheKey, response.data);
     }
 
+    // Trigger all registered callbacks
+    const callbacks = this.backgroundCallbacks.get(cacheKey);
+    if (callbacks) {
+      callbacks.forEach((callback) => {
+        callback(response.data);
+      });
+      // Clear callbacks after triggering
+      this.backgroundCallbacks.delete(cacheKey);
+    }
+
     return response;
+  }
+
+  private registerBackgroundCallback<T = unknown>(
+    cacheKey: string,
+    callback: (data: T) => void,
+  ): void {
+    if (!this.backgroundCallbacks.has(cacheKey)) {
+      this.backgroundCallbacks.set(cacheKey, new Set());
+    }
+    this.backgroundCallbacks.get(cacheKey)!.add(callback);
   }
 
   async clearCache(): Promise<void> {
