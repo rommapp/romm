@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import CreateExclusionDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreateExclusion.vue";
@@ -9,40 +10,41 @@ import storeConfig from "@/stores/config";
 
 const { t } = useI18n();
 const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
 const authStore = storeAuth();
 const exclusions = [
   {
-    set: configStore.config.EXCLUDED_PLATFORMS,
+    set: config.value.EXCLUDED_PLATFORMS,
     title: t("common.platform"),
     icon: "mdi-controller-off",
     type: "EXCLUDED_PLATFORMS",
   },
   {
-    set: configStore.config.EXCLUDED_SINGLE_FILES,
+    set: config.value.EXCLUDED_SINGLE_FILES,
     title: t("settings.excluded-single-rom-files"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_SINGLE_FILES",
   },
   {
-    set: configStore.config.EXCLUDED_SINGLE_EXT,
+    set: config.value.EXCLUDED_SINGLE_EXT,
     title: t("settings.excluded-single-rom-extensions"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_SINGLE_EXT",
   },
   {
-    set: configStore.config.EXCLUDED_MULTI_FILES,
+    set: config.value.EXCLUDED_MULTI_FILES,
     title: t("settings.excluded-multi-rom-files"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_MULTI_FILES",
   },
   {
-    set: configStore.config.EXCLUDED_MULTI_PARTS_FILES,
+    set: config.value.EXCLUDED_MULTI_PARTS_FILES,
     title: t("settings.excluded-multi-rom-parts-files"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_MULTI_PARTS_FILES",
   },
   {
-    set: configStore.config.EXCLUDED_MULTI_PARTS_EXT,
+    set: config.value.EXCLUDED_MULTI_PARTS_EXT,
     title: t("settings.excluded-multi-rom-parts-extensions"),
     icon: "mdi-file-document-remove-outline",
     type: "EXCLUDED_MULTI_PARTS_EXT",
@@ -61,6 +63,7 @@ const editable = ref(false);
         variant="text"
         icon="mdi-cog"
         @click="editable = !editable"
+        :disabled="!config.CONFIG_FILE_MOUNTED"
       />
     </template>
     <template #content>

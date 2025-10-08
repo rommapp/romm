@@ -70,7 +70,7 @@ function onClosedMenu() {
             zIndex:
               (isHovering && hoveringRomId === rom.id) ||
               (openedMenu && openedMenuRomId === rom.id)
-                ? 1100
+                ? 1000
                 : 1,
           }"
         >
@@ -85,6 +85,7 @@ function onClosedMenu() {
             show-action-bar
             :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
+            @focus="onHover"
             @openedmenu="onOpenedMenu"
             @closedmenu="onClosedMenu"
           />

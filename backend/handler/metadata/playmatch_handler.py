@@ -48,10 +48,23 @@ class PlaymatchHandler(MetadataHandler):
     def __init__(self):
         self.base_url = "https://playmatch.retrorealm.dev/api"
         self.identify_url = f"{self.base_url}/identify/ids"
+        self.healthcheck_url = f"{self.base_url}/health"
 
     @classmethod
     def is_enabled(cls) -> bool:
         return PLAYMATCH_API_ENABLED
+
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            response = await self._request(self.healthcheck_url, {})
+        except Exception as e:
+            log.error("Error checking Playmatch API: %s", e)
+            return False
+
+        return bool(response)
 
     async def _request(self, url: str, query: dict) -> dict:
         """

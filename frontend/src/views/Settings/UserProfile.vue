@@ -97,13 +97,13 @@ onUnmounted(() => {
                   "
                 >
                   <v-fade-transition>
-                    <div
+                    <v-btn
                       v-if="isHovering"
-                      class="d-flex translucent cursor-pointer h-100 align-center justify-center text-h4"
+                      class="d-flex translucent cursor-pointer h-100 w-100 align-center justify-center text-h4"
                       @click="triggerFileInput"
                     >
                       <v-icon>mdi-pencil</v-icon>
-                    </div>
+                    </v-btn>
                   </v-fade-transition>
                   <v-file-input
                     id="file-input"
@@ -144,8 +144,8 @@ onUnmounted(() => {
           class="ma-4"
           variant="outlined"
           :label="t('settings.username')"
+          :rules="usersStore.usernameRules"
           required
-          hide-details
           clearable
         />
         <v-text-field
@@ -153,8 +153,8 @@ onUnmounted(() => {
           class="ma-4"
           variant="outlined"
           :label="t('settings.password')"
+          :rules="usersStore.passwordRules"
           required
-          hide-details
           clearable
         />
         <v-text-field
@@ -162,8 +162,8 @@ onUnmounted(() => {
           class="ma-4"
           variant="outlined"
           :label="t('settings.email')"
+          :rules="usersStore.emailRules"
           required
-          hide-details
           clearable
         />
         <v-select

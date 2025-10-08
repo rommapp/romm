@@ -101,7 +101,7 @@ function closeDialog() {
               v-model="user.username"
               variant="outlined"
               :label="t('settings.username')"
-              :rules="usersStore.nameRules"
+              :rules="usersStore.usernameRules"
               required
               clearable
               class="ma-2"
@@ -111,6 +111,9 @@ function closeDialog() {
               variant="outlined"
               :label="t('settings.password')"
               :placeholder="t('settings.password-placeholder')"
+              :rules="usersStore.passwordRules"
+              type="password"
+              required
               clearable
               class="ma-2"
             />
@@ -162,13 +165,13 @@ function closeDialog() {
                     "
                   >
                     <v-fade-transition>
-                      <div
+                      <v-btn
                         v-if="isHovering"
-                        class="d-flex translucent cursor-pointer h-100 align-center justify-center text-h4"
+                        class="d-flex translucent cursor-pointer h-100 w-100 align-center justify-center text-h4"
                         @click="triggerFileInput"
                       >
                         <v-icon>mdi-pencil</v-icon>
-                      </div>
+                      </v-btn>
                     </v-fade-transition>
                     <v-file-input
                       id="file-input"

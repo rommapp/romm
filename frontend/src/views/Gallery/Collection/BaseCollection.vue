@@ -248,7 +248,7 @@ onBeforeRouteUpdate(async (to, from) => {
               zIndex:
                 (isHovering && hoveringRomId === rom.id) ||
                 (openedMenu && openedMenuRomId === rom.id)
-                  ? 1100
+                  ? 1000
                   : 1,
             }"
           >
@@ -268,6 +268,7 @@ onBeforeRouteUpdate(async (to, from) => {
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"
               @hover="onHover"
+              @focus="onHover"
               @openedmenu="onOpenedMenu"
               @closedmenu="onClosedMenu"
             />

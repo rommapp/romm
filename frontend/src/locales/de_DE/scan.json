@@ -11,6 +11,7 @@
   "new-platforms": "Neue Platformen",
   "new-platforms-desc": "Nur neue Plattformen scannen (am schnellsten)",
   "no-new-roms": "Keine neuen oder geänderten Roms gefunden",
+  "not-identified": "Nicht identifiziert",
   "partial-metadata": "Unvollständige Metadaten",
   "partial-metadata-desc": "Scanne Spiele mit unvollständigen Metadaten",
   "platforms-scanned-n": "Plattformen: {n} gescannte | Plattformen: {n} gescannt",

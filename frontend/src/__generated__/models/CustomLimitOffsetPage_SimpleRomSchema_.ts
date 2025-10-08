@@ -9,5 +9,6 @@ export type CustomLimitOffsetPage_SimpleRomSchema_ = {
     limit: (number | null);
     offset: (number | null);
     char_index: Record<string, number>;
+    rom_id_index: Array<number>;
 };
 

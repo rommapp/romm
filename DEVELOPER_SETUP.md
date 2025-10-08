@@ -95,11 +95,11 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 Then create the virtual environment and install the dependencies using uv:
 
-````sh
+```sh
 uv venv
 source .venv/bin/activate
 uv sync --all-extras --dev
-``
+```
 
 #### - Spin up the database and other services
 
@@ -109,7 +109,7 @@ docker compose up -d
 
 #### - Run the backend
 
-*\_\_*Migrations will be run automatically when running the backend.\_\_\*
+_Migrations will be run automatically when running the backend._
 
 ```sh
 cd backend
@@ -169,7 +169,7 @@ docker exec -i romm-db-dev mariadb -uroot -p<root password> < backend/romm_test/
 
 ### - Run tests
 
-*\_*Migrations will be run automatically when running the tests.\_\_\_
+_Migrations will be run automatically when running the tests._
 
 ```sh
 cd backend
@@ -179,4 +179,3 @@ uv run pytest [path/file]
 # the -vv switch increases the verbosity of the output, providing more detailed information during test execution.
 uv run pytest -vv
 ```
-````

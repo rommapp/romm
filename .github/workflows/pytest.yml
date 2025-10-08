@@ -31,7 +31,7 @@ jobs:
         options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.3.0
 
       - name: Install mariadb connectors
         run: |
@@ -39,7 +39,7 @@ jobs:
           sudo apt-get install -y libmariadb3 libmariadb-dev
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6.7.0
 
       - name: Install python
         run: |
@@ -62,7 +62,7 @@ jobs:
           uv run pytest -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
 
       - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action/linux@v2
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2.20.0
         if: (!cancelled())
         with:
           files: |

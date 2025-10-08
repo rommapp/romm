@@ -100,6 +100,10 @@ class RomFile(BaseModel):
 
         return fs_rom_handler.parse_file_extension(self.file_name)
 
+    @cached_property
+    def is_nested(self) -> bool:
+        return self.file_path.count("/") > 1
+
     def file_name_for_download(self, rom: Rom, hidden_folder: bool = False) -> str:
         # This needs a trailing slash in the path to work!
         return self.full_path.replace(
@@ -247,6 +251,10 @@ class Rom(BaseModel):
         back_populates="roms",
     )
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._is_identifying = False
+
     @property
     def platform_slug(self) -> str:
         return self.platform.slug
@@ -282,11 +290,22 @@ class Rom(BaseModel):
 
         return []
 
+    # TODO: Remove this after 4.3 release
     @cached_property
     def multi(self) -> bool:
-        return len(self.files) > 1 or (
-            len(self.files) > 0 and len(self.files[0].full_path.split("/")) > 3
-        )
+        return self.has_nested_single_file or self.has_multiple_files
+
+    @cached_property
+    def has_simple_single_file(self) -> bool:
+        return len(self.files) == 1 and not self.files[0].is_nested
+
+    @cached_property
+    def has_nested_single_file(self) -> bool:
+        return len(self.files) == 1 and self.files[0].is_nested
+
+    @cached_property
+    def has_multiple_files(self) -> bool:
+        return len(self.files) > 1
 
     @property
     def fs_resources_path(self) -> str:
@@ -368,6 +387,15 @@ class Rom(BaseModel):
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
                 )
         return self.ra_metadata
+
+    # Used only during scan process
+    @property
+    def is_identifying(self) -> bool:
+        return self._is_identifying or False
+
+    @is_identifying.setter
+    def is_identifying(self, value: bool) -> None:
+        self._is_identifying = value
 
     def __repr__(self) -> str:
         return self.fs_name

@@ -127,6 +127,9 @@ class LaunchboxHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return LAUNCHBOX_API_ENABLED
 
+    async def heartbeat(self) -> bool:
+        return self.is_enabled()
+
     @staticmethod
     def extract_launchbox_id_from_filename(fs_name: str) -> int | None:
         """Extract LaunchBox ID from filename tag like (launchbox-12345)."""
@@ -328,6 +331,15 @@ class LaunchboxHandler(MetadataHandler):
 
         return await self.get_rom_by_id(database_id)
 
+    async def get_matched_roms_by_name(
+        self, search_term: str, platform_slug: str
+    ) -> list[LaunchboxRom]:
+        if not self.is_enabled():
+            return []
+
+        rom = await self.get_rom(search_term, platform_slug)
+        return [rom] if rom else []
+
 
 class SlugToLaunchboxId(TypedDict):
     id: int
@@ -451,7 +463,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.NGC: {"id": 31, "name": "Nintendo GameCube"},
     UPS.NUON: {"id": 126, "name": "Nuon"},
     UPS.ODYSSEY: {"id": 78, "name": "Magnavox Odyssey"},
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
+    UPS.ODYSSEY_2: {
         "id": 57,
         "name": "Magnavox Odyssey 2",
     },

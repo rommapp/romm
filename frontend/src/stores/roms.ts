@@ -38,6 +38,7 @@ const defaultRomsState = {
   fetchLimit: 72,
   characterIndex: {} as Record<string, number>,
   selectedCharacter: null as string | null,
+  romIdIndex: [] as number[],
   orderBy: "name" as keyof SimpleRom,
   orderDir: "asc" as "asc" | "desc",
 };
@@ -103,42 +104,48 @@ export default defineStore("roms", {
       if (this.fetchingRoms) return Promise.resolve([]);
       this.fetchingRoms = true;
 
-      try {
-        const response = await cachedApiService.getRoms({
-          ...galleryFilter.$state,
-          platformId:
-            this.currentPlatform?.id ??
-            galleryFilter.selectedPlatform?.id ??
-            null,
-          collectionId: this.currentCollection?.id ?? null,
-          virtualCollectionId: this.currentVirtualCollection?.id ?? null,
-          smartCollectionId: this.currentSmartCollection?.id ?? null,
-          limit: this.fetchLimit,
-          offset: this.fetchOffset,
-          orderBy: this.orderBy,
-          orderDir: this.orderDir,
-          groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
-        });
+      return new Promise(async (resolve, reject) => {
+        try {
+          const response = await cachedApiService.getRoms({
+            ...galleryFilter.$state,
+            platformId:
+              this.currentPlatform?.id ??
+              galleryFilter.selectedPlatform?.id ??
+              null,
+            collectionId: this.currentCollection?.id ?? null,
+            virtualCollectionId: this.currentVirtualCollection?.id ?? null,
+            smartCollectionId: this.currentSmartCollection?.id ?? null,
+            limit: this.fetchLimit,
+            offset: this.fetchOffset,
+            orderBy: this.orderBy,
+            orderDir: this.orderDir,
+            groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
+          });
 
-        const { items, offset, total, char_index } = response.data;
+          const { items, offset, total, char_index, rom_id_index } =
+            response.data;
 
-        if (!concat || this.fetchOffset === 0) {
-          this.allRoms = items;
-        } else {
-          this.allRoms = this.allRoms.concat(items);
+          if (!concat || this.fetchOffset === 0) {
+            this.allRoms = items;
+          } else {
+            this.allRoms = this.allRoms.concat(items);
+          }
+
+          // Update the offset and total roms in filtered database result
+          if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
+          if (total !== null) this.fetchTotalRoms = total;
+
+          // Set the character index for the current platform
+          this.characterIndex = char_index;
+          this.romIdIndex = rom_id_index;
+
+          resolve(items);
+        } catch (error) {
+          reject(error);
+        } finally {
+          this.fetchingRoms = false;
         }
-
-        // Update the offset and total roms in filtered database result
-        if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
-        if (total !== null) this.fetchTotalRoms = total;
-
-        // Set the character index for the current platform
-        this.characterIndex = char_index;
-
-        return items;
-      } finally {
-        this.fetchingRoms = false;
-      }
+      });
     },
     async fetchRecentRoms(): Promise<SimpleRom[]> {
       const response = await cachedApiService.getRecentRoms();
@@ -198,6 +205,7 @@ export default defineStore("roms", {
       this.initialSearch = false;
       this.characterIndex = {};
       this.selectedCharacter = null;
+      this.romIdIndex = [];
       this.resetPagination();
     },
     resetPagination() {

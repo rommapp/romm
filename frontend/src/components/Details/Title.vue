@@ -107,18 +107,6 @@ const hashMatches = computed(() => {
     </v-row>
 
     <v-row
-      v-if="smAndDown && rom.revision"
-      class="text-white text-shadow mt-2 text-center"
-      no-gutters
-    >
-      <v-col>
-        <v-chip v-if="rom.revision" size="small" class="ml-1">
-          Revision {{ rom.revision }}
-        </v-chip>
-      </v-col>
-    </v-row>
-
-    <v-row
       v-if="rom.is_identified"
       class="text-white text-shadow mt-2"
       :class="{ 'text-center': smAndDown }"

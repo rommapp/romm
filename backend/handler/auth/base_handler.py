@@ -9,7 +9,15 @@ from joserfc.jwk import OctKey
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
 
-from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY, ROMM_BASE_URL
+from config import (
+    OIDC_CLAIM_ROLES,
+    OIDC_ENABLED,
+    OIDC_ROLE_ADMIN,
+    OIDC_ROLE_EDITOR,
+    OIDC_ROLE_VIEWER,
+    ROMM_AUTH_SECRET_KEY,
+    ROMM_BASE_URL,
+)
 from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
@@ -85,7 +93,9 @@ class AuthHandler:
             "jti": jti,
         }
         token = jwt.encode(
-            {"alg": ALGORITHM}, to_encode, OctKey.import_key(ROMM_AUTH_SECRET_KEY)
+            {"alg": ALGORITHM},
+            to_encode,
+            OctKey.import_key(ROMM_AUTH_SECRET_KEY),
         )
         log.info(
             f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}"
@@ -180,7 +190,9 @@ class AuthHandler:
             "jti": jti,
         }
         token = jwt.encode(
-            {"alg": ALGORITHM}, to_encode, OctKey.import_key(ROMM_AUTH_SECRET_KEY)
+            {"alg": ALGORITHM},
+            to_encode,
+            OctKey.import_key(ROMM_AUTH_SECRET_KEY),
         )
         invite_link = f"{ROMM_BASE_URL}/register?token={token}"
         log.info(
@@ -200,7 +212,9 @@ class AuthHandler:
             str: The JTI (JWT ID) of the token.
         """
         try:
-            payload = jwt.decode(token, OctKey.import_key(ROMM_AUTH_SECRET_KEY))
+            payload = jwt.decode(
+                token, OctKey.import_key(ROMM_AUTH_SECRET_KEY), algorithms=[ALGORITHM]
+            )
         except (BadSignatureError, DecodeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail="Invalid token") from exc
 
@@ -240,14 +254,18 @@ class OAuthHandler:
         to_encode.update({"exp": expire})
 
         return jwt.encode(
-            {"alg": ALGORITHM}, to_encode, OctKey.import_key(ROMM_AUTH_SECRET_KEY)
+            {"alg": ALGORITHM},
+            to_encode,
+            OctKey.import_key(ROMM_AUTH_SECRET_KEY),
         )
 
     async def get_current_active_user_from_bearer_token(self, token: str):
         from handler.database import db_user_handler
 
         try:
-            payload = jwt.decode(token, OctKey.import_key(ROMM_AUTH_SECRET_KEY))
+            payload = jwt.decode(
+                token, OctKey.import_key(ROMM_AUTH_SECRET_KEY), algorithms=[ALGORITHM]
+            )
         except (BadSignatureError, DecodeError, ValueError) as exc:
             raise OAuthCredentialsException from exc
 
@@ -312,6 +330,24 @@ class OpenIDHandler:
 
         preferred_username = userinfo.get("preferred_username")
 
+        role = Role.VIEWER
+        if OIDC_CLAIM_ROLES and OIDC_CLAIM_ROLES in userinfo:
+            roles = userinfo[OIDC_CLAIM_ROLES]
+            if OIDC_ROLE_ADMIN and OIDC_ROLE_ADMIN in roles:
+                role = Role.ADMIN
+            elif OIDC_ROLE_EDITOR and OIDC_ROLE_EDITOR in roles:
+                role = Role.EDITOR
+            elif OIDC_ROLE_VIEWER and (
+                OIDC_ROLE_VIEWER in roles or OIDC_ROLE_VIEWER == "*"
+            ):
+                role = Role.VIEWER
+            else:
+                log.error("User has not been granted any roles for this application.")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="User has not been granted any roles for this application.",
+                )
+
         user = db_user_handler.get_user_by_email(email)
         if user is None:
             log.info(
@@ -323,9 +359,11 @@ class OpenIDHandler:
                 hashed_password=str(uuid.uuid4()),
                 email=email,
                 enabled=True,
-                role=Role.VIEWER,
+                role=role,
             )
             user = db_user_handler.add_user(new_user)
+        elif OIDC_CLAIM_ROLES and user.role != role:
+            user = db_user_handler.update_user(user.id, {"role": role})
 
         if not user.enabled:
             raise UserDisabledException

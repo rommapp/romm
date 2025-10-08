@@ -82,6 +82,18 @@ class MobyGamesHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return bool(MOBYGAMES_API_KEY)
 
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            response = await self.moby_service.list_groups(limit=1)
+        except Exception as e:
+            log.error("Error checking MobyGames API: %s", e)
+            return False
+
+        return bool(response)
+
     @staticmethod
     def extract_mobygames_id_from_filename(fs_name: str) -> int | None:
         """Extract MobyGames ID from filename tag like (moby-12345)."""
@@ -949,11 +961,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
     UPS.ODYSSEY_2: {
         "id": 78,
         "name": "Odyssey 2",
-        "slug": "odyssey-2",
-    },
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
-        "id": 78,
-        "name": "Odyssey 2/Videopac G7000",
         "slug": "odyssey-2",
     },
     UPS.OHIO_SCIENTIFIC: {

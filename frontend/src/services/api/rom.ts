@@ -15,7 +15,6 @@ import { getDownloadPath, getStatusKeyForText } from "@/utils";
 export const romApi = api;
 
 const DOWNLOAD_CLEANUP_DELAY = 100;
-const DOWNLOAD_INTERVAL_DELAY = 300;
 
 async function uploadRoms({
   platformId,
@@ -223,15 +222,34 @@ async function downloadRom({
   });
 }
 
-async function bulkDownloadRoms({ roms }: { roms: SimpleRom[] }) {
-  if (roms.length === 0) return;
+async function bulkDownloadRoms({
+  roms,
+  filename,
+}: {
+  roms: SimpleRom[];
+  filename?: string;
+}) {
+  return new Promise<void>((resolve) => {
+    if (roms.length === 0) return resolve();
 
-  for (let i = 0; i < roms.length; i++) {
-    await downloadRom({ rom: roms[i] });
-    await new Promise((resolve) =>
-      setTimeout(resolve, DOWNLOAD_INTERVAL_DELAY),
-    );
-  }
+    const romIds = roms.map((rom) => rom.id);
+
+    const queryParams = new URLSearchParams();
+    queryParams.append("rom_ids", romIds.join(","));
+    if (filename) queryParams.append("filename", filename);
+
+    const a = document.createElement("a");
+    a.href = `/api/roms/download?${queryParams.toString()}`;
+    a.style.display = "none";
+
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      document.body.removeChild(a);
+      resolve();
+    }, DOWNLOAD_CLEANUP_DELAY);
+  });
 }
 
 export type UpdateRom = SimpleRom & {
@@ -259,8 +277,13 @@ async function updateRom({
   formData.append("name", rom.name || "");
   formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");
-  formData.append("url_cover", rom.url_cover || "");
-  if (rom.artwork) formData.append("artwork", rom.artwork);
+
+  // Don't set url_cover on manual artwork upload
+  if (rom.artwork) {
+    formData.append("artwork", rom.artwork);
+  } else {
+    formData.append("url_cover", rom.url_cover || "");
+  }
 
   return api.put(`/roms/${rom.id}`, formData, {
     params: {
@@ -280,7 +303,6 @@ async function uploadManuals({
   const heartbeat = storeHeartbeat();
   const uploadStore = storeUpload();
 
-  console.log(filesToUpload);
   const promises = filesToUpload.map((file) => {
     const formData = new FormData();
     formData.append(file.name, file);
@@ -308,6 +330,14 @@ async function uploadManuals({
   });
 
   return Promise.allSettled(promises);
+}
+
+async function removeManual({
+  romId,
+}: {
+  romId: number;
+}): Promise<{ data: DetailedRom }> {
+  return api.delete(`/roms/${romId}/manuals`);
 }
 
 async function updateUserRomProps({
@@ -352,6 +382,7 @@ export default {
   searchRom,
   updateRom,
   uploadManuals,
+  removeManual,
   updateUserRomProps,
   deleteRoms,
 };

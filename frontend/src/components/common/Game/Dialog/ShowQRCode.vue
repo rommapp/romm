@@ -6,7 +6,7 @@ import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { get3DSCIAFiles, getDownloadLink, is3DSCIAFile } from "@/utils";
+import { getNintendoDSFiles, getDownloadLink, isNintendoDSFile } from "@/utils";
 
 const { lgAndUp } = useDisplay();
 const show = ref(false);
@@ -19,12 +19,12 @@ emitter?.on("showQRCodeDialog", async (romToView: SimpleRom) => {
 
   await nextTick();
 
-  const is3DSFile = is3DSCIAFile(romToView);
-  const matchingFiles = get3DSCIAFiles(romToView);
+  const isNDSFile = isNintendoDSFile(romToView);
+  const matchingFiles = getNintendoDSFiles(romToView);
 
   const downloadLink = getDownloadLink({
     rom: romToView,
-    fileIDs: is3DSFile ? [] : [matchingFiles[0].id],
+    fileIDs: isNDSFile ? [] : [matchingFiles[0].id],
   });
 
   const qrCode = document.getElementById("qr-code");

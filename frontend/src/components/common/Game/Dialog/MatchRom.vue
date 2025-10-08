@@ -24,6 +24,7 @@ type MatchedSource = {
     | "Mobygames"
     | "Screenscraper"
     | "Flashpoint"
+    | "Launchbox"
     | "HowLongToBeat"
     | "SteamGridDB";
   logo_path: string;
@@ -54,6 +55,7 @@ const isIGDBFiltered = ref(true);
 const isMobyFiltered = ref(true);
 const isSSFiltered = ref(true);
 const isFlashpointFiltered = ref(true);
+const isLaunchboxFiltered = ref(true);
 const isHLTBFiltered = ref(true);
 const computedAspectRatio = computed(() => {
   const ratio =
@@ -95,6 +97,11 @@ function toggleSourceFilter(source: MatchedSource["name"]) {
   ) {
     isFlashpointFiltered.value = !isFlashpointFiltered.value;
   } else if (
+    source == "Launchbox" &&
+    heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED
+  ) {
+    isLaunchboxFiltered.value = !isLaunchboxFiltered.value;
+  } else if (
     source == "HowLongToBeat" &&
     heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED
   ) {
@@ -106,6 +113,7 @@ function toggleSourceFilter(source: MatchedSource["name"]) {
       (rom.moby_id && isMobyFiltered.value) ||
       (rom.ss_id && isSSFiltered.value) ||
       (rom.flashpoint_id && isFlashpointFiltered.value) ||
+      (rom.launchbox_id && isLaunchboxFiltered.value) ||
       (rom.hltb_id && isHLTBFiltered.value)
     ) {
       return true;
@@ -138,6 +146,7 @@ async function searchRom() {
             (rom.moby_id && isMobyFiltered.value) ||
             (rom.ss_id && isSSFiltered.value) ||
             (rom.flashpoint_id && isFlashpointFiltered.value) ||
+            (rom.launchbox_id && isLaunchboxFiltered.value) ||
             (rom.hltb_id && isHLTBFiltered.value)
           ) {
             return true;
@@ -203,6 +212,13 @@ function showSources(matchedRom: SearchRomSchema) {
       logo_path: "/assets/scrappers/flashpoint.png",
     });
   }
+  if (matchedRom.launchbox_url_cover) {
+    sources.value.push({
+      url_cover: matchedRom.launchbox_url_cover,
+      name: "Launchbox",
+      logo_path: "/assets/scrappers/launchbox.png",
+    });
+  }
   if (matchedRom.hltb_url_cover) {
     sources.value.push({
       url_cover: matchedRom.hltb_url_cover,
@@ -220,8 +236,8 @@ function selectCover(source: MatchedSource) {
 }
 
 function confirm() {
-  if (!selectedMatchRom.value || !selectedCover.value) return;
-  updateRom(selectedMatchRom.value, selectedCover.value.url_cover);
+  if (!selectedMatchRom.value) return;
+  updateRom(selectedMatchRom.value, selectedCover.value?.url_cover);
   closeDialog();
 }
 
@@ -260,6 +276,7 @@ async function updateRom(
     ss_id: selectedRom.ss_id || null,
     moby_id: selectedRom.moby_id || null,
     flashpoint_id: selectedRom.flashpoint_id || null,
+    launchbox_id: selectedRom.launchbox_id || null,
     hltb_id: selectedRom.hltb_id || null,
     name: selectedRom.name || null,
     slug: selectedRom.slug || null,
@@ -270,6 +287,7 @@ async function updateRom(
       selectedRom.ss_url_cover ||
       selectedRom.moby_url_cover ||
       selectedRom.flashpoint_url_cover ||
+      selectedRom.launchbox_url_cover ||
       selectedRom.hltb_url_cover ||
       null,
   };
@@ -428,6 +446,36 @@ onBeforeUnmount(() => {
         class="tooltip"
         transition="fade-transition"
         :text="
+          heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED
+            ? 'Filter Launchbox matches'
+            : 'Launchbox source is not enabled'
+        "
+        open-delay="500"
+      >
+        <template #activator="{ props }">
+          <v-avatar
+            @click="toggleSourceFilter('Launchbox')"
+            v-bind="props"
+            class="ml-3 cursor-pointer opacity-40"
+            :class="{
+              'opacity-100':
+                isLaunchboxFiltered &&
+                heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED,
+            }"
+            size="30"
+            rounded="1"
+          >
+            <v-img src="/assets/scrappers/launchbox.png" />
+          </v-avatar>
+        </template>
+      </v-tooltip>
+      <v-tooltip
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        :text="
           heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED
             ? 'Filter Flashpoint matches'
             : 'Flashpoint source is not enabled'
@@ -488,7 +536,6 @@ onBeforeUnmount(() => {
           <v-text-field
             id="search-text-field"
             v-model="searchText"
-            autofocus
             class="bg-toplayer"
             :disabled="searching"
             :label="t('common.search')"
@@ -588,7 +635,8 @@ onBeforeUnmount(() => {
                     class="transform-scale mx-2"
                     :class="{
                       'on-hover': isHovering,
-                      'border-primary': selectedCover?.name == source.name,
+                      'border-selected border-lg':
+                        selectedCover?.name == source.name,
                     }"
                     :elevation="isHovering ? 20 : 3"
                     @click="selectCover(source)"
@@ -671,8 +719,7 @@ onBeforeUnmount(() => {
           </v-btn>
           <v-btn
             class="text-romm-green bg-toplayer"
-            :disabled="selectedCover == undefined"
-            :variant="selectedCover == undefined ? 'plain' : 'flat'"
+            variant="flat"
             @click="confirm"
           >
             {{ t("common.confirm") }}

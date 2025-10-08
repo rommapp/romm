@@ -67,7 +67,7 @@ function onClose() {
     v-model="activeSettingsDrawer"
     mobile
     :location="smAndDown ? 'top' : 'left'"
-    width="450"
+    :width="smAndDown ? 500 : 400"
     :class="{
       'my-2': mdAndUp || (smAndDown && activeSettingsDrawer),
       'ml-2': (mdAndUp && activeSettingsDrawer) || smAndDown,
@@ -133,6 +133,17 @@ function onClose() {
         :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
       >
         {{ t("common.library-management") }}
+      </v-list-item>
+      <v-list-item
+        :tabindex="tabIndex"
+        class="mt-1"
+        rounded
+        append-icon="mdi-database-cog"
+        aria-label="Metadata sources"
+        role="listitem"
+        :to="{ name: ROUTES.METADATA_SOURCES }"
+      >
+        {{ t("scan.metadata-sources") }}
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"

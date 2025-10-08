@@ -3,7 +3,11 @@ from collections.abc import Sequence
 from fastapi import Request
 from starlette.datastructures import URLPath
 
-from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, FRONTEND_RESOURCES_PATH
+from config import (
+    DISABLE_DOWNLOAD_ENDPOINT_AUTH,
+    FRONTEND_RESOURCES_PATH,
+    TINFOIL_WELCOME_MESSAGE,
+)
 from decorators.auth import protected_route
 from endpoints.responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
@@ -138,8 +142,8 @@ async def tinfoil_index_feed(
 
     async def extract_titledb(
         roms: Sequence[Rom],
-    ) -> dict[str, TinfoilFeedTitleDBSchema]:
-        titledb = {}
+    ) -> dict[str, dict]:
+        titledb: dict[str, dict] = {}
         for rom in roms:
             tdb_match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
             pid_match = SWITCH_PRODUCT_ID_REGEX.search(rom.fs_name)
@@ -150,18 +154,11 @@ async def tinfoil_index_feed(
                     )
                 )
                 if index_entry:
-                    titledb[str(index_entry["nsuId"])] = TinfoilFeedTitleDBSchema(
-                        id=str(index_entry["nsuId"]),
-                        name=index_entry["name"],
-                        description=index_entry["description"],
-                        size=index_entry["size"],
-                        version=index_entry["version"] or 0,
-                        region=index_entry["region"] or "US",
-                        releaseDate=index_entry["releaseDate"] or 19700101,
-                        rating=index_entry["rating"] or 0,
-                        publisher=index_entry["publisher"] or "",
-                        rank=0,
-                    )
+                    key = str(index_entry.get("nsuId", None))
+                    if key is not None:  # only store if we have an id
+                        titledb[key] = TinfoilFeedTitleDBSchema(
+                            **index_entry
+                        ).model_dump()
             elif pid_match:
                 _search_term, index_entry = (
                     await meta_igdb_handler._switch_productid_format(
@@ -169,18 +166,11 @@ async def tinfoil_index_feed(
                     )
                 )
                 if index_entry:
-                    titledb[str(index_entry["nsuId"])] = TinfoilFeedTitleDBSchema(
-                        id=str(index_entry["nsuId"]),
-                        name=index_entry["name"],
-                        description=index_entry["description"],
-                        size=index_entry["size"],
-                        version=index_entry["version"] or 0,
-                        region=index_entry["region"] or "US",
-                        releaseDate=index_entry["releaseDate"] or 19700101,
-                        rating=index_entry["rating"] or 0,
-                        publisher=index_entry["publisher"] or "",
-                        rank=0,
-                    )
+                    key = str(index_entry.get("nsuId", None))
+                    if key is not None:
+                        titledb[key] = TinfoilFeedTitleDBSchema(
+                            **index_entry
+                        ).model_dump()
 
         return titledb
 
@@ -203,6 +193,6 @@ async def tinfoil_index_feed(
             if rom_file.file_extension in ["xci", "nsp", "nsz", "xcz", "nro"]
         ],
         directories=[],
-        success="RomM Switch Library",
+        success=TINFOIL_WELCOME_MESSAGE,
         titledb=await extract_titledb(roms),
     )

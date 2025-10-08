@@ -11,6 +11,7 @@
   "new-platforms": "新平台",
   "new-platforms-desc": "只掃描新平台（最快）",
   "no-new-roms": "未找到新增或更新過的 Rom 檔案",
+  "not-identified": "未識別",
   "partial-metadata": "部分元數據",
   "partial-metadata-desc": "只掃描部分元數據匹配的遊戲",
   "platforms-scanned-n": "已掃描 {n} 個平台",

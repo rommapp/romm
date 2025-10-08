@@ -1,14 +1,7 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import {
-  onMounted,
-  onBeforeUnmount,
-  ref,
-  watch,
-  nextTick,
-  onUnmounted,
-} from "vue";
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
 import NavigationText from "@/console/components/NavigationText.vue";
@@ -159,7 +152,10 @@ async function saveAndExit() {
   }
 }
 
-async function uploadState(stateFile: Uint8Array, screenshotFile: Uint8Array) {
+async function uploadState(
+  stateFile: ArrayBuffer,
+  screenshotFile: ArrayBuffer,
+) {
   if (!romRef.value) return;
   const filename = `${romRef.value.fs_name_no_ext.trim()} [${new Date()
     .toISOString()
@@ -435,8 +431,8 @@ async function boot() {
     state: stateFile,
     screenshot: screenshotFile,
   }: {
-    state: Uint8Array;
-    screenshot: Uint8Array;
+    state: ArrayBuffer;
+    screenshot: ArrayBuffer;
   }) {
     try {
       const formData = new FormData();
@@ -463,15 +459,15 @@ async function boot() {
     save: saveFile,
     screenshot: screenshotFile,
   }: {
-    save: Uint8Array;
-    screenshot: Uint8Array;
+    save: ArrayBuffer;
+    screenshot: ArrayBuffer;
   }) {
     console.info(
       "EJS_onSaveSave callback triggered",
       "saveFile:",
-      saveFile?.length,
+      saveFile?.byteLength,
       "screenshotFile:",
-      screenshotFile?.length,
+      screenshotFile?.byteLength,
     );
 
     try {
@@ -779,6 +775,7 @@ onBeforeUnmount(() => {
             role="button"
             :aria-selected="focusedExitIndex === i"
             @click="activateExitOption(opt.id)"
+            @keydown.enter="activateExitOption(opt.id)"
           >
             <div class="flex items-center gap-3">
               <div class="flex-1">
