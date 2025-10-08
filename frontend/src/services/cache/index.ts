@@ -8,6 +8,7 @@ interface CacheEntry {
 class CacheService {
   private cache: Cache | null = null;
   private pendingRequests = new Map<string, Promise<AxiosResponse>>();
+  // trunk-ignore(eslint/@typescript-eslint/no-explicit-any)
   private backgroundCallbacks = new Map<string, Set<(data: any) => void>>();
   private readonly CACHE_NAME = "romm-api-cache";
 

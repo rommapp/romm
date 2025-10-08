@@ -111,16 +111,16 @@ class CachedApiService {
     return cacheService.request<SearchRomSchema[]>(config, onBackgroundUpdate);
   }
 
-  private async clearRelatedCache(romId: number) {
+  async clearRelatedCache(romId: number) {
     await cacheService.clearCacheForPattern(`/roms/${romId}`);
     await cacheService.clearCacheForPattern("/roms");
   }
 
-  private async clearPlatformCache(platformId: number) {
+  async clearPlatformCache(platformId: number) {
     await cacheService.clearCacheForPattern(`platform_id=${platformId}`);
   }
 
-  private async clearAllRomsCache() {
+  async clearAllRomsCache() {
     await cacheService.clearCacheForPattern("/roms");
   }
 
