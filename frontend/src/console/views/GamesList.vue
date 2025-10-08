@@ -23,13 +23,19 @@ import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
-import romApi from "@/services/api/rom";
+import storeCollections from "@/stores/collections";
 import storeConsole from "@/stores/console";
-import type { SimpleRom } from "@/stores/roms";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storePlatforms from "@/stores/platforms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 
 const route = useRoute();
 const router = useRouter();
 const consoleStore = storeConsole();
+const platformsStore = storePlatforms();
+const collectionsStore = storeCollections();
+const galleryFilterStore = storeGalleryFilter();
+const romsStore = storeRoms();
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 const { setSelectedBackgroundArt, clearSelectedBackgroundArt } =
   useBackgroundArt();
@@ -313,46 +319,47 @@ let off: (() => void) | null = null;
 onMounted(async () => {
   try {
     if (platformId != null) {
-      const { data } = await romApi.getRoms({
-        platformId: platformId,
-        limit: 500,
-        orderBy: "name",
-        orderDir: "asc",
-      });
-      roms.value = data.items ?? [];
+      const currentPlatform = platformsStore.get(platformId);
+      if (currentPlatform) romsStore.setCurrentPlatform(currentPlatform);
     } else if (collectionId != null) {
-      const { data } = await romApi.getRoms({
-        collectionId: collectionId,
-        limit: 500,
-        orderBy: "name",
-        orderDir: "asc",
-      });
-      roms.value = data.items ?? [];
+      const currentCollection = collectionsStore.getCollection(collectionId);
+      if (currentCollection) romsStore.setCurrentCollection(currentCollection);
+    } else if (smartCollectionId != null) {
+      const currentSmartCollection =
+        collectionsStore.getSmartCollection(smartCollectionId);
+      if (currentSmartCollection)
+        romsStore.setCurrentSmartCollection(currentSmartCollection);
+    } else if (virtualCollectionId != null) {
+      const currentVirtualCollection =
+        collectionsStore.getVirtualCollection(virtualCollectionId);
+      if (currentVirtualCollection)
+        romsStore.setCurrentVirtualCollection(currentVirtualCollection);
+    }
+
+    romsStore.setLimit(500);
+    romsStore.setOrderBy("name");
+    romsStore.setOrderDir("asc");
+    romsStore.resetPagination();
+
+    const fetchedRoms = await romsStore.fetchRoms({
+      galleryFilter: galleryFilterStore,
+      concat: false,
+    });
+    roms.value = fetchedRoms;
+
+    if (collectionId != null) {
       const { data: col } = await collectionApi.getCollection(collectionId);
       collection.value = col ?? null;
     } else if (smartCollectionId != null) {
-      const { data } = await romApi.getRoms({
-        smartCollectionId: smartCollectionId,
-        limit: 500,
-        orderBy: "name",
-        orderDir: "asc",
-      });
-      roms.value = data.items ?? [];
       const { data: smartCol } =
         await collectionApi.getSmartCollection(smartCollectionId);
       smartCollection.value = smartCol ?? null;
     } else if (virtualCollectionId != null) {
-      const { data } = await romApi.getRoms({
-        virtualCollectionId: virtualCollectionId,
-        limit: 500,
-        orderBy: "name",
-        orderDir: "asc",
-      });
-      roms.value = data.items ?? [];
       const { data: virtualCol } =
         await collectionApi.getVirtualCollection(virtualCollectionId);
       virtualCollection.value = virtualCol ?? null;
     }
+
     for (const r of roms.value) {
       if (!r.url_cover && !r.path_cover_large && !r.path_cover_small) {
         loadedMap.value[r.id] = true;
