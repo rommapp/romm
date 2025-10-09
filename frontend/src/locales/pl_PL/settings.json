@@ -5,6 +5,8 @@
   "edit-user": "Edytuj użytkownika",
   "enable-3d-effect": "Włącz efekt 3D",
   "enable-3d-effect-desc": "Włącz efekt 3D dla kart gier/platform/kolekcji",
+  "enable-experimental-cache": "Włącz eksperymentalne buforowanie żądań",
+  "enable-experimental-cache-desc": "Włącz eksperymentalne buforowanie żądań w celu poprawy wydajności (może powodować problemy)",
   "excluded": "Wykluczone",
   "excluded-multi-rom-files": "Pliki multi-ROM",
   "excluded-multi-rom-parts-extensions": "Rozszerzenia części multi-ROM",

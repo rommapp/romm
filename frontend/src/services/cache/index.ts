@@ -1,4 +1,5 @@
 // trunk-ignore-all(eslint/@typescript-eslint/no-explicit-any)
+import { useLocalStorage } from "@vueuse/core";
 import type { AxiosRequestConfig, AxiosResponse } from "axios";
 import api from "@/services/api";
 
@@ -11,6 +12,10 @@ class CacheService {
   private pendingRequests = new Map<string, Promise<AxiosResponse>>();
   private backgroundCallbacks = new Map<string, (data: any) => void>();
   private readonly CACHE_NAME = "romm-api-cache";
+  private enableExperimentalCache = useLocalStorage(
+    "settings.enableExperimentalCache",
+    false,
+  );
 
   async init(): Promise<void> {
     if (!("caches" in window)) {
@@ -71,6 +76,11 @@ class CacheService {
     config: AxiosRequestConfig,
     onBackgroundUpdate: (data: T) => void,
   ): Promise<AxiosResponse<T>> {
+    // If experimental cache is disabled, make direct API call
+    if (!this.enableExperimentalCache.value) {
+      return api.request<T>(config);
+    }
+
     const cacheKey = this.generateCacheKey(config);
 
     // Check if there's already a pending request for this cache key
@@ -111,7 +121,7 @@ class CacheService {
   ): Promise<AxiosResponse<T>> {
     const response = await api.request<T>(config);
 
-    // Cache successful responses
+    // Only cache successful responses
     if (response.status >= 200 && response.status < 300) {
       await this.setCachedResponse(cacheKey, response.data);
     }

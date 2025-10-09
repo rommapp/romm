@@ -5,6 +5,8 @@
   "email": "E-mail",
   "enable-3d-effect": "Ativar efeito 3D",
   "enable-3d-effect-desc": "Ativar efeito 3D para os cartões de jogo, plataforma e coleção",
+  "enable-experimental-cache": "Ativar cache experimental de requisições",
+  "enable-experimental-cache-desc": "Ativar cache experimental de requisições para melhorar o desempenho (pode causar problemas)",
   "excluded": "Excluído",
   "excluded-multi-rom-files": "Arquivos de rom múltiplos",
   "excluded-multi-rom-parts-extensions": "Extensões de partes de rom múltiplos",
