@@ -5,9 +5,7 @@ import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-from config import (
-    ROMM_TMP_PATH,
-)
+from config import ROMM_TMP_PATH
 from logger.logger import log
 
 SEVEN_ZIP_PATH = "/usr/bin/7zz"
