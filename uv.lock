@@ -822,14 +822,14 @@ wheels = [
 
 [[package]]
 name = "joserfc"
-version = "1.3.2"
+version = "1.3.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9e/ca/416df9a71e2eacca95a55f9a4978cd771742c0eccf14e07e088315554c6f/joserfc-1.3.2.tar.gz", hash = "sha256:147bbba5b0b7c29fa270921dc1f17d83b48ccf0fecf51295b8de1ff1b682ca53", size = 196379, upload-time = "2025-09-04T06:51:11.349Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b0/79/d63a882c0212e95f3ba8863a115e5ca9a5d39413b02273ddce72058e717f/joserfc-1.3.4.tar.gz", hash = "sha256:67d8413c501c239f65eefad5ae685cfbfc401aa63289fc409ef7cc331b007227", size = 197787, upload-time = "2025-09-21T15:49:34.7Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ec/2a/f4915889af9b77d8ea96797640e77ca1995037eaa456be2cdc80ef4a7507/joserfc-1.3.2-py3-none-any.whl", hash = "sha256:81a1d14a0da6d0278f963cb6d6ee43b4640552341b6e984d1535083eba535723", size = 74499, upload-time = "2025-09-04T06:51:09.863Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/78/beb171f0caac81f51695f43c87c0c20b3ce2a190cf74a3fbb0b9afe03b45/joserfc-1.3.4-py3-none-any.whl", hash = "sha256:30c845c58d441cfe32d08ac35e437812481ca8155373873b7abf80224bf601c0", size = 75638, upload-time = "2025-09-21T15:49:33.14Z" },
 ]
 
 [[package]]
@@ -1970,7 +1970,7 @@ requires-dist = [
     { name = "httpx", specifier = "~=0.27" },
     { name = "ipdb", marker = "extra == 'dev'", specifier = "~=0.13" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = "~=6.29" },
-    { name = "joserfc", specifier = "~=1.3" },
+    { name = "joserfc", specifier = "~=1.3.4" },
     { name = "memray", marker = "extra == 'dev'", specifier = "~=1.15" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "~=1.13" },
     { name = "opentelemetry-distro", specifier = "~=0.56" },

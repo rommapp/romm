@@ -5,6 +5,8 @@
   "email": "メール",
   "enable-3d-effect": "3D効果を有効化",
   "enable-3d-effect-desc": "ゲーム・プラットフォーム・コレクションカードに3D効果を有効化する",
+  "enable-experimental-cache": "実験的リクエストキャッシュを有効化",
+  "enable-experimental-cache-desc": "パフォーマンス向上のための実験的リクエストキャッシュを有効化（問題を引き起こす可能性があります）",
   "excluded": "除外",
   "excluded-multi-rom-files": "複数ファイル",
   "excluded-multi-rom-parts-extensions": "複数ファイルの拡張子",

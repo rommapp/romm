@@ -3,11 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { TinfoilFeedFileSchema } from './TinfoilFeedFileSchema';
-import type { TinfoilFeedTitleDBSchema } from './TinfoilFeedTitleDBSchema';
 export type TinfoilFeedSchema = {
     files: Array<TinfoilFeedFileSchema>;
     directories: Array<string>;
-    titledb?: Record<string, TinfoilFeedTitleDBSchema>;
+    titledb?: Record<string, Record<string, any>>;
     success?: string;
     error?: string;
 };

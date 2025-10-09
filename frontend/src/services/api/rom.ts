@@ -303,7 +303,6 @@ async function uploadManuals({
   const heartbeat = storeHeartbeat();
   const uploadStore = storeUpload();
 
-  console.log(filesToUpload);
   const promises = filesToUpload.map((file) => {
     const formData = new FormData();
     formData.append(file.name, file);
@@ -331,6 +330,14 @@ async function uploadManuals({
   });
 
   return Promise.allSettled(promises);
+}
+
+async function removeManual({
+  romId,
+}: {
+  romId: number;
+}): Promise<{ data: DetailedRom }> {
+  return api.delete(`/roms/${romId}/manuals`);
 }
 
 async function updateUserRomProps({
@@ -375,6 +382,7 @@ export default {
   searchRom,
   updateRom,
   uploadManuals,
+  removeManual,
   updateUserRomProps,
   deleteRoms,
 };
