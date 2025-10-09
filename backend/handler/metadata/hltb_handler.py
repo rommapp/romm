@@ -172,12 +172,23 @@ class HowLongToBeatHandler(MetadataHandler):
     def __init__(self) -> None:
         self.base_url = "https://howlongtobeat.com"
         self.user_endpoint = f"{self.base_url}/api/user"
-        self.search_url = f"{self.base_url}/api/seek/791cd10c5e8e894c"
+        self.search_url = f"{self.base_url}/api/search"
         self.min_similarity_score: Final = 0.85
+
+        # HLTB rotates their search endpoint regularly
+        self.fetch_search_endpoint()
 
     @classmethod
     def is_enabled(cls) -> bool:
         return HLTB_API_ENABLED
+
+    def fetch_search_endpoint(self):
+        """Fetch the API endpoint from the gist."""
+        github_file_url = "https://raw.githubusercontent.com/rommapp/romm/refs/heads/master/backend/handler/metadata/fixtures/hltb_api_url"
+
+        with httpx.Client() as client:
+            response = client.get(github_file_url)
+            self.search_url = response.text.strip()
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
