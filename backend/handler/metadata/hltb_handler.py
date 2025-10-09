@@ -164,6 +164,9 @@ def extract_hltb_metadata(game: HLTBGame) -> HLTBMetadata:
     return metadata
 
 
+GITHUB_FILE_URL = "https://raw.githubusercontent.com/rommapp/romm/refs/heads/master/backend/handler/metadata/fixtures/hltb_api_url"
+
+
 class HowLongToBeatHandler(MetadataHandler):
     """
     Handler for HowLongToBeat, a service that provides game completion times.
@@ -183,11 +186,9 @@ class HowLongToBeatHandler(MetadataHandler):
         return HLTB_API_ENABLED
 
     def fetch_search_endpoint(self):
-        """Fetch the API endpoint from the gist."""
-        github_file_url = "https://raw.githubusercontent.com/rommapp/romm/refs/heads/master/backend/handler/metadata/fixtures/hltb_api_url"
-
+        """Fetch the API endpoint URL from Github."""
         with httpx.Client() as client:
-            response = client.get(github_file_url)
+            response = client.get(GITHUB_FILE_URL)
             self.search_url = response.text.strip()
 
     async def heartbeat(self) -> bool:
