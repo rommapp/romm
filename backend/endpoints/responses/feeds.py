@@ -1,4 +1,6 @@
-from typing import NotRequired, TypedDict
+from typing import Annotated, Any, NotRequired, TypedDict
+
+from pydantic import BaseModel, BeforeValidator, Field
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 
@@ -64,6 +66,27 @@ WEBRCADE_SLUG_TO_TYPE_MAP = {
 # Source: https://docs.webrcade.com/feeds/format/
 
 
+def coerce_to_string(value: Any) -> str:
+    """Coerce value to string, returning empty string for None."""
+    return "" if value is None else str(value)
+
+
+def coerce_to_int(value: Any) -> int:
+    """Coerce value to int, returning 0 for None/empty values."""
+    if value in (None, ""):
+        return 0
+
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return 0
+
+
+# Annotated types for cleaner field definitions
+StringField = Annotated[str, BeforeValidator(coerce_to_string)]
+IntField = Annotated[int, BeforeValidator(coerce_to_int)]
+
+
 class WebrcadeFeedItemPropsSchema(TypedDict):
     rom: str
 
@@ -105,22 +128,28 @@ class TinfoilFeedFileSchema(TypedDict):
     size: int
 
 
-class TinfoilFeedTitleDBSchema(TypedDict):
-    id: str
-    name: str
-    version: int
-    region: str
-    releaseDate: int
-    rating: int
-    publisher: str
-    description: str
-    size: int
-    rank: int
+class TinfoilFeedTitleDBSchema(BaseModel):
+    """Schema for Tinfoil feed title database entries.
+
+    This schema handles the conversion and validation of game metadata
+    for the Tinfoil custom index format.
+    """
+
+    id: StringField = Field(default="")
+    name: StringField = Field(default="")
+    description: StringField = Field(default="")
+    region: StringField = Field(default="US")
+    publisher: StringField = Field(default="")
+    size: IntField = Field(default=0, ge=0)
+    version: IntField = Field(default=0, ge=0)
+    releaseDate: IntField = Field(default=19700101, ge=19700101)
+    rating: IntField = Field(default=0, ge=0, le=100)
+    rank: IntField = Field(default=0, ge=0)
 
 
 class TinfoilFeedSchema(TypedDict):
     files: list[TinfoilFeedFileSchema]
     directories: list[str]
-    titledb: NotRequired[dict[str, TinfoilFeedTitleDBSchema]]
+    titledb: NotRequired[dict[str, dict]]  # dict after .model_dump()
     success: NotRequired[str]
     error: NotRequired[str]

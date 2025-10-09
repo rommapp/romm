@@ -22,6 +22,7 @@ DEV_SQL_ECHO: Final = str_to_bool(os.environ.get("DEV_SQL_ECHO", "false"))
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
+ROMM_TMP_PATH: Final = os.environ.get("ROMM_TMP_PATH", None)
 LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
 RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"

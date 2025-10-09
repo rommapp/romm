@@ -335,6 +335,9 @@ class FSResourcesHandler(FSHandler):
         path_manual = self._get_manual_path(rom) if manual_exists else None
         return path_manual
 
+    async def remove_manual(self, rom: Rom):
+        await self.remove_directory(f"{rom.fs_resources_path}/manual")
+
     async def store_ra_badge(self, url: str, path: str) -> None:
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
