@@ -140,6 +140,9 @@ SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hour
 
 # TASKS
 TASK_TIMEOUT: Final = int(os.environ.get("TASK_TIMEOUT", 60 * 5))  # 5 minutes
+TASK_RESULT_TTL: Final = int(
+    os.environ.get("TASK_RESULT_TTL", 24 * 60 * 60)
+)  # 24 hours
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = str_to_bool(
     os.environ.get("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false")
 )

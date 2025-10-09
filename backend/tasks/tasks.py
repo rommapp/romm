@@ -115,7 +115,7 @@ class RemoteFilePullTask(PeriodicTask, ABC):
         super().__init__(*args, **kwargs)
         self.url = url
 
-    async def run(self, force: bool = False) -> bytes | None:
+    async def run(self, force: bool = False) -> Any:
         if not self.enabled and not force:
             log.info(f"Scheduled {self.description} not enabled, unscheduling...")
             self.unschedule()

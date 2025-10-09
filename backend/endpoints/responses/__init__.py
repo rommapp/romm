@@ -13,7 +13,7 @@ class TaskExecutionResponse(TypedDict):
 class TaskStatusResponse(TaskExecutionResponse):
     started_at: str | None
     ended_at: str | None
-    result: str | None
+    result: dict[str, Any] | None
     meta: dict[str, Any] | None
 
 

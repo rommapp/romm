@@ -38,15 +38,15 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
         )
 
     @initialize_context()
-    async def run(self, force: bool = False) -> None:
+    async def run(self, force: bool = False) -> dict[str, Any]:
         if not meta_launchbox_handler.is_enabled():
             log.warning("Launchbox API is not enabled, skipping metadata update")
-            return None
+            return {"status": "skipped", "reason": "Launchbox API not enabled"}
 
         content = await super().run(force)
         if content is None:
             log.warning("No content received from launchbox metadata update")
-            return None
+            return {"status": "failed", "reason": "No content received"}
 
         try:
             zip_file_bytes = BytesIO(content)
@@ -239,9 +239,13 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
         except zipfile.BadZipFile:
             log.error("Bad zip file in launchbox metadata update")
-            return None
+            return {"status": "failed", "reason": "Bad zip file"}
 
         log.info("Scheduled launchbox metadata update completed!")
+        return {
+            "status": "completed",
+            "message": "Launchbox metadata update completed successfully",
+        }
 
 
 update_launchbox_metadata_task = UpdateLaunchboxMetadataTask()

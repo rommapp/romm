@@ -10,7 +10,6 @@ import { convertCronExperssion } from "@/utils";
 const tasksStore = storeTasks();
 const { watcherTasks, scheduledTasks, manualTasks, taskStatuses } =
   storeToRefs(tasksStore);
-const isLoadingRunningTasks = ref(false);
 
 const watcherTasksUI = computed(() =>
   watcherTasks.value.map((task) => ({
@@ -103,13 +102,10 @@ const getManualTaskIcon = (taskName: string) => {
 
 // Fetch task status
 const fetchTaskStatus = async () => {
-  isLoadingRunningTasks.value = true;
   try {
     await tasksStore.fetchTaskStatus();
   } catch (error) {
     console.error("Error fetching task status:", error);
-  } finally {
-    isLoadingRunningTasks.value = false;
   }
 };
 
@@ -199,28 +195,15 @@ onUnmounted(() => {
         </v-card>
       </div>
       <v-row no-gutters class="align-center py-1">
-        <v-col
-          v-if="taskStatuses.length === 0 && !isLoadingRunningTasks"
-          cols="12"
-        >
+        <v-col v-if="taskStatuses.length === 0" cols="12">
           <v-card elevation="0" class="bg-background ma-3">
             <v-list-item>
               <template #prepend>
                 <v-icon color="grey">mdi-information-outline</v-icon>
               </template>
               <v-list-item-title class="text-grey">
-                No tasks currently running
+                No currently running tasks
               </v-list-item-title>
-            </v-list-item>
-          </v-card>
-        </v-col>
-        <v-col v-else-if="isLoadingRunningTasks" cols="12">
-          <v-card elevation="0" class="bg-background ma-3">
-            <v-list-item>
-              <template #prepend>
-                <v-progress-circular indeterminate size="24" />
-              </template>
-              <v-list-item-title> Loading running tasks... </v-list-item-title>
             </v-list-item>
           </v-card>
         </v-col>

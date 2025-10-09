@@ -19,7 +19,7 @@ class CleanupOrphanedResourcesTask(Task):
         )
 
     @initialize_context()
-    async def run(self) -> None:
+    async def run(self) -> dict[str, int]:
         """Clean up orphaned resources."""
         log.info(f"Starting {self.title} task...")
 
@@ -28,7 +28,7 @@ class CleanupOrphanedResourcesTask(Task):
         roms_resources_path = os.path.join(RESOURCES_BASE_PATH, "roms")
         if not os.path.exists(roms_resources_path):
             log.info("Resources path does not exist, skipping cleanup")
-            return None
+            return {"removed_count": 0}
 
         existing_platforms = {
             str(platform.id) for platform in db_platform_handler.get_platforms()
@@ -81,6 +81,8 @@ class CleanupOrphanedResourcesTask(Task):
 
         log.info(f"Removed {removed_count} orphaned resource directories")
         log.info("Cleanup of orphaned resources completed!")
+
+        return {"removed_count": removed_count}
 
 
 cleanup_orphaned_resources_task = CleanupOrphanedResourcesTask()

@@ -8,6 +8,7 @@ from rq.registry import FailedJobRegistry, FinishedJobRegistry
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
+    TASK_RESULT_TTL,
     TASK_TIMEOUT,
 )
 from decorators.auth import protected_route
@@ -305,7 +306,12 @@ async def run_all_tasks(request: Request) -> list[TaskExecutionResponse]:
         )
 
     jobs = [
-        (task_name, low_prio_queue.enqueue(task_instance.run, job_timeout=TASK_TIMEOUT))
+        (
+            task_name,
+            low_prio_queue.enqueue(
+                task_instance.run, job_timeout=TASK_TIMEOUT, result_ttl=TASK_RESULT_TTL
+            ),
+        )
         for task_name, task_instance in runnable_tasks.items()
     ]
 
@@ -346,7 +352,9 @@ async def run_single_task(request: Request, task_name: str) -> TaskExecutionResp
             detail=f"Task '{task_name}' cannot be run",
         )
 
-    job = low_prio_queue.enqueue(task_instance.run, job_timeout=TASK_TIMEOUT)
+    job = low_prio_queue.enqueue(
+        task_instance.run, job_timeout=TASK_TIMEOUT, result_ttl=TASK_RESULT_TTL
+    )
 
     return {
         "task_name": task_name,

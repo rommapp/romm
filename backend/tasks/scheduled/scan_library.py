@@ -31,11 +31,11 @@ class ScanLibraryTask(PeriodicTask):
             func="tasks.scheduled.scan_library.scan_library_task.run",
         )
 
-    async def run(self):
+    async def run(self) -> dict[str, str]:
         if not ENABLE_SCHEDULED_RESCAN:
             log.info("Scheduled library scan not enabled, unscheduling...")
             self.unschedule()
-            return None
+            return {"status": "skipped", "reason": "Scheduled library scan not enabled"}
 
         source_mapping: dict[str, bool] = {
             MetadataSource.IGDB: meta_igdb_handler.is_enabled(),
@@ -54,13 +54,15 @@ class ScanLibraryTask(PeriodicTask):
         if not metadata_sources:
             log.warning("No metadata sources enabled, unscheduling library scan")
             self.unschedule()
-            return None
+            return {"status": "skipped", "reason": "No metadata sources enabled"}
 
         log.info("Scheduled library scan started...")
         await scan_platforms(
             [], scan_type=ScanType.UNIDENTIFIED, metadata_sources=metadata_sources
         )
         log.info("Scheduled library scan done")
+
+        return {"status": "completed", "message": "Library scan completed successfully"}
 
 
 scan_library_task = ScanLibraryTask()

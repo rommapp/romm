@@ -28,10 +28,10 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
         )
 
     @initialize_context()
-    async def run(self, force: bool = False) -> None:
+    async def run(self, force: bool = False) -> dict[str, str]:
         content = await super().run(force)
         if content is None:
-            return None
+            return {"status": "failed", "reason": "No content received"}
 
         index_json = json.loads(content)
         relevant_data = {k: v for k, v in index_json.items() if k and v}
@@ -51,6 +51,11 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             await pipe.execute()
 
         log.info("Scheduled switch titledb update completed!")
+
+        return {
+            "status": "completed",
+            "message": "Switch TitleDB update completed successfully",
+        }
 
 
 update_switch_titledb_task = UpdateSwitchTitleDBTask()
