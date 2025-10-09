@@ -179,7 +179,8 @@ class HowLongToBeatHandler(MetadataHandler):
         self.min_similarity_score: Final = 0.85
 
         # HLTB rotates their search endpoint regularly
-        self.fetch_search_endpoint()
+        if HLTB_API_ENABLED:
+            self.fetch_search_endpoint()
 
     @classmethod
     def is_enabled(cls) -> bool:
