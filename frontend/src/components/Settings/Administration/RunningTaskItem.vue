@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { TaskStatusResponse } from "@/__generated__";
+import TaskProgressDisplay from "./tasks/TaskProgressDisplay.vue";
+import type {
+  ScanStats,
+  ConversionStats,
+  CleanupStats,
+  DownloadProgress,
+  TaskType,
+  ProgressPercentages,
+} from "./tasks/task-types";
 
 const props = defineProps<{
   task: TaskStatusResponse;
@@ -34,63 +43,139 @@ const formatDateTime = (dateTime: string | null) => {
 };
 
 // Extract scan stats from meta if available
-const scanStats = computed(() => {
+const scanStats = computed((): ScanStats | null => {
   if (props.task.meta?.scan_stats) {
     return props.task.meta.scan_stats;
   }
   return null;
 });
 
-// Format scan progress for display
-const scanProgress = computed(() => {
-  if (!scanStats.value) return null;
-
-  const stats = scanStats.value;
-  const totalPlatforms = stats.total_platforms || 0;
-  const totalRoms = stats.total_roms || 0;
-  const scannedPlatforms = stats.scanned_platforms || 0;
-  const scannedRoms = stats.scanned_roms || 0;
-
-  return {
-    platforms: `${scannedPlatforms}/${totalPlatforms}`,
-    roms: `${scannedRoms}/${totalRoms}`,
-    addedRoms: stats.added_roms || 0,
-    metadataRoms: stats.metadata_roms || 0,
-    scannedFirmware: stats.scanned_firmware || 0,
-    addedFirmware: stats.added_firmware || 0,
-  };
+// Extract conversion stats from meta if available
+const conversionStats = computed((): ConversionStats | null => {
+  if (props.task.meta?.processed_count !== undefined) {
+    return {
+      processed: props.task.meta.processed_count || 0,
+      errors: props.task.meta.error_count || 0,
+      total: props.task.meta.total_files || 0,
+      errorList: props.task.meta.errors || [],
+    };
+  }
+  return null;
 });
 
-// Check if this is a scan task
-const isScanTask = computed(() => {
-  return (
-    props.task.task_name?.toLowerCase().includes("scan") ||
-    props.task.meta?.scan_stats
-  );
+// Extract cleanup stats from result if available
+const cleanupStats = computed((): CleanupStats | null => {
+  if (props.task.result && typeof props.task.result === "object") {
+    const result = props.task.result as any;
+    if (result.removed_count !== undefined) {
+      return {
+        removed: result.removed_count || 0,
+      };
+    }
+  }
+  return null;
+});
+
+// Extract download progress from meta if available
+const downloadProgress = computed((): DownloadProgress | null => {
+  if (props.task.meta?.download_progress !== undefined) {
+    return {
+      progress: props.task.meta.download_progress || 0,
+      total: props.task.meta.download_total || 0,
+      current: props.task.meta.download_current || 0,
+    };
+  }
+  return null;
+});
+
+// Check task type
+const taskType = computed((): TaskType => {
+  const taskName = props.task.task_name?.toLowerCase() || "";
+
+  if (taskName.includes("scan") || props.task.meta?.scan_stats) {
+    return "scan";
+  }
+  if (
+    taskName.includes("convert") ||
+    taskName.includes("webp") ||
+    conversionStats.value
+  ) {
+    return "conversion";
+  }
+  if (
+    taskName.includes("cleanup") ||
+    taskName.includes("orphan") ||
+    cleanupStats.value
+  ) {
+    return "cleanup";
+  }
+  if (
+    taskName.includes("update") ||
+    taskName.includes("metadata") ||
+    taskName.includes("launchbox") ||
+    taskName.includes("switch") ||
+    downloadProgress.value
+  ) {
+    return "update";
+  }
+  if (taskName.includes("watcher") || taskName.includes("filesystem")) {
+    return "watcher";
+  }
+
+  return "generic";
 });
 
 // Expandable details state
 const showDetails = ref(false);
 
 // Calculate progress percentages
-const progressPercentages = computed(() => {
-  if (!scanStats.value) return null;
+const progressPercentages = computed((): ProgressPercentages | null => {
+  if (taskType.value === "scan" && scanStats.value) {
+    const stats = scanStats.value;
+    const platformProgress =
+      stats.total_platforms > 0
+        ? Math.round((stats.scanned_platforms / stats.total_platforms) * 100)
+        : 0;
+    const romProgress =
+      stats.total_roms > 0
+        ? Math.round((stats.scanned_roms / stats.total_roms) * 100)
+        : 0;
 
-  const stats = scanStats.value;
-  const platformProgress =
-    stats.total_platforms > 0
-      ? Math.round((stats.scanned_platforms / stats.total_platforms) * 100)
-      : 0;
-  const romProgress =
-    stats.total_roms > 0
-      ? Math.round((stats.scanned_roms / stats.total_roms) * 100)
-      : 0;
+    return {
+      platforms: platformProgress,
+      roms: romProgress,
+    };
+  }
 
-  return {
-    platforms: platformProgress,
-    roms: romProgress,
-  };
+  if (taskType.value === "conversion" && conversionStats.value) {
+    const stats = conversionStats.value;
+    const total = stats.total || 0;
+    const processed = stats.processed || 0;
+    const progress = total > 0 ? Math.round((processed / total) * 100) : 0;
+
+    return {
+      conversion: progress,
+    };
+  }
+
+  if (taskType.value === "update" && downloadProgress.value) {
+    const progress = downloadProgress.value;
+    const downloadProgressPercent =
+      progress.total > 0
+        ? Math.round((progress.current / progress.total) * 100)
+        : 0;
+
+    return {
+      download: downloadProgressPercent,
+    };
+  }
+
+  return null;
 });
+
+const toggleDetails = () => {
+  showDetails.value = !showDetails.value;
+};
 </script>
 
 <template>
@@ -114,149 +199,22 @@ const progressPercentages = computed(() => {
                 Started: {{ formatDateTime(task.started_at) }}
               </span>
 
-              <!-- Scan Progress Display -->
-              <div v-if="isScanTask && scanProgress" class="mt-2">
-                <v-divider class="mb-2" />
-                <div class="d-flex align-center justify-space-between mb-1">
-                  <div class="text-caption text-blue-grey-lighten-1">
-                    Scan Progress
-                  </div>
-                  <v-btn
-                    v-if="scanStats"
-                    size="x-small"
-                    variant="text"
-                    :icon="showDetails ? 'mdi-chevron-up' : 'mdi-chevron-down'"
-                    @click="showDetails = !showDetails"
-                  />
-                </div>
-                <!-- Progress Bars -->
-                <div v-if="progressPercentages" class="mb-3">
-                  <div class="mb-2">
-                    <div class="d-flex justify-space-between align-center mb-1">
-                      <span class="text-caption">Platforms</span>
-                      <span class="text-caption"
-                        >{{ progressPercentages.platforms }}%</span
-                      >
-                    </div>
-                    <v-progress-linear
-                      :model-value="progressPercentages.platforms"
-                      color="primary"
-                      height="6"
-                      rounded
-                    />
-                  </div>
-                  <div>
-                    <div class="d-flex justify-space-between align-center mb-1">
-                      <span class="text-caption">ROMs</span>
-                      <span class="text-caption"
-                        >{{ progressPercentages.roms }}%</span
-                      >
-                    </div>
-                    <v-progress-linear
-                      :model-value="progressPercentages.roms"
-                      color="secondary"
-                      height="6"
-                      rounded
-                    />
-                  </div>
-                </div>
-
-                <!-- Summary Chips -->
-                <div class="d-flex flex-wrap gap-2">
-                  <v-chip size="x-small" color="primary" variant="outlined">
-                    Platforms: {{ scanProgress.platforms }}
-                  </v-chip>
-                  <v-chip size="x-small" color="secondary" variant="outlined">
-                    ROMs: {{ scanProgress.roms }}
-                  </v-chip>
-                  <v-chip size="x-small" color="success" variant="outlined">
-                    Added: {{ scanProgress.addedRoms }}
-                  </v-chip>
-                  <v-chip size="x-small" color="info" variant="outlined">
-                    Metadata: {{ scanProgress.metadataRoms }}
-                  </v-chip>
-                  <v-chip size="x-small" color="warning" variant="outlined">
-                    Firmware: {{ scanProgress.scannedFirmware }}
-                  </v-chip>
-                </div>
-
-                <!-- Detailed Scan Stats -->
-                <v-expand-transition>
-                  <div v-if="showDetails && scanStats" class="mt-3">
-                    <v-card variant="outlined" class="pa-3">
-                      <div class="text-caption text-blue-grey-lighten-1 mb-2">
-                        Detailed Statistics
-                      </div>
-                      <v-row dense>
-                        <v-col cols="6" sm="4">
-                          <div class="text-caption">Total Platforms</div>
-                          <div class="text-h6">
-                            {{ scanStats.total_platforms || 0 }}
-                          </div>
-                        </v-col>
-                        <v-col cols="6" sm="4">
-                          <div class="text-caption">Scanned Platforms</div>
-                          <div class="text-h6">
-                            {{ scanStats.scanned_platforms || 0 }}
-                          </div>
-                        </v-col>
-                        <v-col cols="6" sm="4">
-                          <div class="text-caption">New Platforms</div>
-                          <div class="text-h6">
-                            {{ scanStats.new_platforms || 0 }}
-                          </div>
-                        </v-col>
-                        <v-col cols="6" sm="4">
-                          <div class="text-caption">Identified Platforms</div>
-                          <div class="text-h6">
-                            {{ scanStats.identified_platforms || 0 }}
-                          </div>
-                        </v-col>
-                        <v-col cols="6" sm="4">
-                          <div class="text-caption">Total ROMs</div>
-                          <div class="text-h6">
-                            {{ scanStats.total_roms || 0 }}
-                          </div>
-                        </v-col>
-                        <v-col cols="6" sm="4">
-                          <div class="text-caption">Scanned ROMs</div>
-                          <div class="text-h6">
-                            {{ scanStats.scanned_roms || 0 }}
-                          </div>
-                        </v-col>
-                        <v-col cols="6" sm="4">
-                          <div class="text-caption">Added ROMs</div>
-                          <div class="text-h6">
-                            {{ scanStats.added_roms || 0 }}
-                          </div>
-                        </v-col>
-                        <v-col cols="6" sm="4">
-                          <div class="text-caption">Metadata ROMs</div>
-                          <div class="text-h6">
-                            {{ scanStats.metadata_roms || 0 }}
-                          </div>
-                        </v-col>
-                        <v-col cols="6" sm="4">
-                          <div class="text-caption">Scanned Firmware</div>
-                          <div class="text-h6">
-                            {{ scanStats.scanned_firmware || 0 }}
-                          </div>
-                        </v-col>
-                        <v-col cols="6" sm="4">
-                          <div class="text-caption">Added Firmware</div>
-                          <div class="text-h6">
-                            {{ scanStats.added_firmware || 0 }}
-                          </div>
-                        </v-col>
-                      </v-row>
-                    </v-card>
-                  </div>
-                </v-expand-transition>
-              </div>
+              <!-- Task Progress Display -->
+              <TaskProgressDisplay
+                :task="task"
+                :task-type="taskType"
+                :scan-stats="scanStats"
+                :conversion-stats="conversionStats"
+                :cleanup-stats="cleanupStats"
+                :download-progress="downloadProgress"
+                :progress-percentages="progressPercentages"
+                :show-details="showDetails"
+                @toggle-details="toggleDetails"
+              />
 
               <!-- Generic Meta Data Display -->
               <div
-                v-else-if="task.meta && Object.keys(task.meta).length > 0"
+                v-if="task.meta && Object.keys(task.meta).length > 0"
                 class="mt-2"
               >
                 <v-divider class="mb-2" />

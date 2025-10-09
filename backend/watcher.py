@@ -15,6 +15,7 @@ from config import (
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCAN_TIMEOUT,
     SENTRY_DSN,
+    TASK_RESULT_TTL,
 )
 from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import scan_platforms
@@ -144,6 +145,7 @@ def process_changes(changes: Sequence[Change]) -> None:
                 scan_type=ScanType.UNIDENTIFIED,
                 metadata_sources=metadata_sources,
                 timeout=SCAN_TIMEOUT,
+                result_ttl=TASK_RESULT_TTL,
             )
             return
 
@@ -167,6 +169,7 @@ def process_changes(changes: Sequence[Change]) -> None:
                 scan_type=ScanType.QUICK,
                 metadata_sources=metadata_sources,
                 timeout=SCAN_TIMEOUT,
+                result_ttl=TASK_RESULT_TTL,
             )
 
 
