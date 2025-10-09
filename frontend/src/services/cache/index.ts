@@ -135,7 +135,7 @@ class CacheService {
     if (!this.cache) return;
 
     try {
-      await this.cache.delete(this.CACHE_NAME);
+      await caches.delete(this.CACHE_NAME);
       this.cache = await caches.open(this.CACHE_NAME);
     } catch (error) {
       console.error("Error clearing cache:", error);
