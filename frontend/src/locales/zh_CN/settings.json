@@ -5,6 +5,8 @@
   "email": "电子邮件",
   "enable-3d-effect": "启用 3D 效果",
   "enable-3d-effect-desc": "为游戏、平台和收藏卡片启用 3D 效果",
+  "enable-experimental-cache": "启用实验性请求缓存",
+  "enable-experimental-cache-desc": "启用实验性请求缓存以提高性能（可能会引起问题）",
   "excluded": "排除",
   "excluded-multi-rom-files": "多个 Rom 文件",
   "excluded-multi-rom-parts-extensions": "多个 Rom 部分扩展",
