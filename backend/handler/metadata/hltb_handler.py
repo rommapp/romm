@@ -179,8 +179,7 @@ class HowLongToBeatHandler(MetadataHandler):
         self.min_similarity_score: Final = 0.85
 
         # HLTB rotates their search endpoint regularly
-        if HLTB_API_ENABLED:
-            self.fetch_search_endpoint()
+        self.fetch_search_endpoint()
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -188,9 +187,16 @@ class HowLongToBeatHandler(MetadataHandler):
 
     def fetch_search_endpoint(self):
         """Fetch the API endpoint URL from Github."""
-        with httpx.Client() as client:
-            response = client.get(GITHUB_FILE_URL)
-            self.search_url = response.text.strip()
+        if not HLTB_API_ENABLED:
+            return
+
+        try:
+            with httpx.Client() as client:
+                response = client.get(GITHUB_FILE_URL, timeout=10)
+                response.raise_for_status()
+                self.search_url = response.text.strip()
+        except Exception as e:
+            log.warning("Unexpected error fetching HLTB endpoint from GitHub: %s", e)
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
