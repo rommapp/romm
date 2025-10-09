@@ -46,6 +46,10 @@ const statusRef = useLocalStorage("settings.showStatus", true);
 const actionBarRef = useLocalStorage("settings.showActionBar", false);
 const gameTitleRef = useLocalStorage("settings.showGameTitle", false);
 const enable3DEffectRef = useLocalStorage("settings.enable3DEffect", false);
+const enableExperimentalCacheRef = useLocalStorage(
+  "settings.enableExperimentalCache",
+  false,
+);
 
 const homeOptions = computed(() => [
   {
@@ -167,6 +171,14 @@ const galleryOptions = computed(() => [
     model: gameTitleRef,
     modelTrigger: toggleShowGameTitles,
   },
+  {
+    title: t("settings.enable-experimental-cache"),
+    description: t("settings.enable-experimental-cache-desc"),
+    iconEnabled: "mdi-cached",
+    iconDisabled: "mdi-cached",
+    model: enableExperimentalCacheRef,
+    modelTrigger: toggleExperimentalCache,
+  },
 ]);
 
 const setPlatformDrawerGroupBy = (value: string) => {
@@ -225,6 +237,9 @@ const toggle3DEffect = (value: boolean) => {
 };
 const toggleShowGameTitles = (value: boolean) => {
   gameTitleRef.value = value;
+};
+const toggleExperimentalCache = (value: boolean) => {
+  enableExperimentalCacheRef.value = value;
 };
 </script>
 <template>
