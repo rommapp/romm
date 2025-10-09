@@ -163,8 +163,7 @@ export default defineStore("roms", {
     // Recent ROMs for home page
     async fetchRecentRoms(): Promise<SimpleRom[]> {
       const response = await cachedApiService.getRecentRoms((data) => {
-        const response = data;
-        this.setRecentRoms(response.items);
+        this.setRecentRoms(data.items);
       });
       const { items } = response.data;
       this.setRecentRoms(items);
@@ -173,8 +172,7 @@ export default defineStore("roms", {
     // Continue playing ROMs for home page
     async fetchContinuePlayingRoms(): Promise<SimpleRom[]> {
       const response = await cachedApiService.getRecentPlayedRoms((data) => {
-        const response = data;
-        this.setContinuePlayingRoms(response.items);
+        this.setContinuePlayingRoms(data.items);
       });
       const { items } = response.data;
       this.setContinuePlayingRoms(items);
