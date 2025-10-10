@@ -62,6 +62,8 @@ async def search_rom(
         and not meta_ss_handler.is_enabled()
         and not meta_moby_handler.is_enabled()
         and not meta_flashpoint_handler.is_enabled()
+        and not meta_launchbox_handler.is_enabled()
+        and not meta_hltb_handler.is_enabled()
     ):
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(
