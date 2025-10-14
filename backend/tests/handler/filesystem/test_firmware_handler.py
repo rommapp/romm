@@ -6,7 +6,8 @@ from unittest.mock import patch
 import pytest
 from anyio import open_file
 
-from config.config_manager import LIBRARY_BASE_PATH, Config
+from config import LIBRARY_BASE_PATH  # type: ignore
+from config.config_manager import Config
 from exceptions.fs_exceptions import FirmwareNotFoundException
 from handler.filesystem.firmware_handler import FSFirmwareHandler
 from utils.hashing import crc32_to_hex
@@ -146,7 +147,9 @@ class TestFSFirmwareHandler:
             "handler.filesystem.firmware_handler.cm.get_config", return_value=config
         ):
             # Test normal path (high prio doesn't exist)
-            path = handler.get_firmware_fs_structure(platform_fs_slug)
+            path = handler.get_firmware_structure().resolve_path(
+                platform=platform_fs_slug
+            )
             assert path == f"{platform_fs_slug}/{config.FIRMWARE_FOLDER_NAME}"
 
     async def test_multiple_platform_handling(self, handler: FSFirmwareHandler, config):
@@ -157,7 +160,7 @@ class TestFSFirmwareHandler:
             "handler.filesystem.firmware_handler.cm.get_config", return_value=config
         ):
             for platform in platforms:
-                path = handler.get_firmware_fs_structure(platform)
+                path = handler.get_firmware_structure().resolve_path(platform=platform)
                 assert platform in path
                 assert config.FIRMWARE_FOLDER_NAME in path
 
@@ -175,7 +178,9 @@ class TestFSFirmwareHandler:
             "handler.filesystem.firmware_handler.cm.get_config", return_value=config
         ):
             # Get all files in the directory
-            firmware_path = handler.get_firmware_fs_structure(platform_fs_slug)
+            firmware_path = handler.get_firmware_structure().resolve_path(
+                platform=platform_fs_slug
+            )
             all_files = await handler.list_files(path=firmware_path)
 
             # Should include .tmp files before exclusion

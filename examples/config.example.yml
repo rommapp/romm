@@ -44,9 +44,22 @@ system:
   # Asociate one platform to it's main version
   versions: {} # { naomi: 'arcade' }
 
-# The folder name where your roms are located
-filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is /home/user/library/roms_folder
+# Library structure configuration
+filesystem:
+  # Custom library structure using macros
+  # Available macros: {platform} and {game}
+  # Custom macros: any {name} will be extracted as tags
+  structure: "roms/{platform}/{game}" # Default structure
+  # Examples:
+  # - 'roms/{platform}/{region}/{game}' # roms organized by region
+  # - 'games/{platform}/{collection}/{game}' # roms organized by collection
+  # - '{platform}/roms/{game}' # `roms` folder within each platform
 
+  # Firmware structure (BIOS files)
+  firmware_structure: "bios/{platform}" # Default structure
+  # Examples:
+  # - 'bios/{region}/{platform}' # bios organized by region
+  # - '{platform}/bios' # `bios` folder within each platform
 # Metadata priority during scans
 # Below are the default priority values used
 # scan:

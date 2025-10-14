@@ -26,6 +26,7 @@ from models.rom import Rom, RomFile, RomFileCategory
 from utils.archive_7zip import process_file_7z
 from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
+from utils.structure_parser import LibraryStructure
 
 from .base_handler import (
     LANGUAGES_BY_SHORTCODE,
@@ -195,13 +196,33 @@ class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=LIBRARY_BASE_PATH)
 
-    def get_roms_fs_structure(self, fs_slug: str) -> str:
+    def get_roms_structure(self) -> LibraryStructure:
+        """Get the filesystem path for ROMs of a platform based on structure."""
         cnfg = cm.get_config()
-        return (
-            f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
-            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-            else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
-        )
+        return LibraryStructure(cnfg.LIBRARY_STRUCTURE, "roms")
+
+    def _find_platform_path(
+        self, structure: LibraryStructure, platform_slug: str
+    ) -> str:
+        """Find the actual path to a platform by searching the filesystem.
+
+        This is needed for structures with custom macros like {region}.
+        """
+        import os
+
+        # Get the platforms directory
+        platforms_dir = structure.get_platforms_directory()
+
+        # Search for the platform in all subdirectories
+        for root, dirs, _ in os.walk(os.path.join(self.base_path, platforms_dir)):
+            # Check if this directory contains the platform we're looking for
+            if platform_slug in dirs:
+                # Found the platform, return the relative path
+                rel_path = os.path.relpath(root, self.base_path)
+                return os.path.join(rel_path, platform_slug)
+
+        # If not found, fall back to the old method (this shouldn't happen)
+        return structure.resolve_path(platform=platform_slug)
 
     def parse_tags(self, fs_name: str) -> tuple:
         rev = ""
@@ -289,8 +310,8 @@ class FSRomsHandler(FSHandler):
         from adapters.services.rahasher import RAHasherService
         from handler.metadata import meta_ra_handler
 
-        rel_roms_path = self.get_roms_fs_structure(
-            rom.platform.fs_slug
+        rel_roms_path = self.get_roms_structure().resolve_path(
+            platform=rom.platform.fs_slug
         )  # Relative path to roms
         abs_fs_path = self.validate_path(rel_roms_path)  # Absolute path to roms
         rom_files: list[RomFile] = []
@@ -493,48 +514,54 @@ class FSRomsHandler(FSHandler):
                 rom_sha1_h,
             )
 
+    async def list_directory_contents(self, path: str) -> list[str]:
+        """List all items (files and directories) in a directory."""
+        if not path:
+            raise ValueError("Directory cannot be empty")
+
+        # Validate and normalize path
+        full_path = self.validate_path(path)
+
+        # Async thread-safe directory listing
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
+            if not full_path.exists() or not full_path.is_dir():
+                raise FileNotFoundError(f"Directory not found: {full_path}")
+
+            return [item.name for item in full_path.iterdir()]
+
     async def get_roms(self, platform: Platform) -> list[FSRom]:
-        """Gets all filesystem roms for a platform
+        """Gets all filesystem roms for a platform"""
+        fs_roms: list[FSRom] = []
 
-        Args:
-            platform: platform where roms belong
-        Returns:
-            list with all the filesystem roms for a platform
-        """
         try:
-            rel_roms_path = self.get_roms_fs_structure(
-                platform.fs_slug
-            )  # Relative path to roms
+            structure = self.get_roms_structure()
+            # For structures with custom macros, we need to find the region
+            # by looking for the platform in the filesystem
+            rel_roms_path = self._find_platform_path(structure, platform.fs_slug)
 
-            fs_single_roms = await self.list_files(path=rel_roms_path)
-            fs_multi_roms = await self.list_directories(path=rel_roms_path)
+            all_items = await self.list_directory_contents(path=rel_roms_path)
+            for item in all_items:
+                item_path = os.path.join(rel_roms_path, item)
+                is_directory = os.path.isdir(item_path)
+                fs_roms.append(
+                    FSRom(
+                        {
+                            "fs_name": item,
+                            "flat": not is_directory,
+                            "nested": is_directory,
+                            "files": [],
+                            "crc_hash": "",
+                            "md5_hash": "",
+                            "sha1_hash": "",
+                            "ra_hash": "",
+                        }
+                    )
+                )
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
 
-        fs_roms: list[dict] = [
-            {"fs_name": rom, "flat": True, "nested": False}
-            for rom in self.exclude_single_files(fs_single_roms)
-        ] + [
-            {"fs_name": rom, "flat": False, "nested": True}
-            for rom in self.exclude_multi_roms(fs_multi_roms)
-        ]
-
-        return sorted(
-            [
-                FSRom(
-                    fs_name=rom["fs_name"],
-                    flat=rom["flat"],
-                    nested=rom["nested"],
-                    files=[],
-                    crc_hash="",
-                    md5_hash="",
-                    sha1_hash="",
-                    ra_hash="",
-                )
-                for rom in fs_roms
-            ],
-            key=lambda rom: rom["fs_name"],
-        )
+        return sorted(fs_roms, key=lambda rom: rom["fs_name"])
 
     async def rename_fs_rom(self, old_name: str, new_name: str, fs_path: str) -> None:
         if new_name != old_name:

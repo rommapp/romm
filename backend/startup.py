@@ -1,6 +1,7 @@
 """Startup script to run tasks before the main application is started."""
 
 import asyncio
+import os
 
 import sentry_sdk
 from opentelemetry import trace
@@ -11,8 +12,10 @@ from config import (
     ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+    LIBRARY_BASE_PATH,
     SENTRY_DSN,
 )
+from config.config_manager import config_manager as cm
 from handler.metadata.base_handler import (
     MAME_XML_KEY,
     METADATA_FIXTURES_DIR,
@@ -38,12 +41,61 @@ from utils.context import initialize_context
 tracer = trace.get_tracer(__name__)
 
 
+# TODO: Remove this in v4.5 release
+def validate_library_structure() -> None:
+    """Validate library structure and warn about migration needs."""
+    # Check if old low-priority structure exists
+    old_structure_path = f"{LIBRARY_BASE_PATH}/roms"
+    if not os.path.exists(old_structure_path):
+        # Check if any platform directories exist at library root (old low-priority structure)
+        try:
+            library_contents = os.listdir(LIBRARY_BASE_PATH)
+            platform_dirs = [
+                d
+                for d in library_contents
+                if os.path.isdir(os.path.join(LIBRARY_BASE_PATH, d))
+            ]
+
+            # Check if any of these directories contain a roms subdirectory
+            old_structure_detected = False
+            for platform_dir in platform_dirs:
+                platform_path = os.path.join(LIBRARY_BASE_PATH, platform_dir)
+                roms_path = os.path.join(platform_path, "roms")
+                if os.path.exists(roms_path):
+                    old_structure_detected = True
+                    break
+
+            if old_structure_detected:
+                log.critical(
+                    "⚠️  OLD LIBRARY STRUCTURE DETECTED ⚠️\n"
+                    "RomM has detected the old low-priority library structure pattern.\n"
+                    "This structure is no longer supported and must be migrated.\n\n"
+                    "CURRENT STRUCTURE: {platform}/{roms}/\n"
+                    "REQUIRED STRUCTURE: {roms}/{platform}/\n\n"
+                    "To migrate:\n"
+                    "1. Update your config.yml to specify the custom structure:\n"
+                    "   filesystem:\n"
+                    '     structure: "{roms}/{platform}/{game}"\n'
+                    "2. Reorganize your library files to match the new structure\n"
+                    "3. Restart RomM\n\n"
+                    "For more information, see the migration guide in the documentation."
+                )
+        except (OSError, PermissionError):
+            pass  # Can't read directory, skip validation
+
+
 @tracer.start_as_current_span("main")
 async def main() -> None:
     """Run startup tasks."""
 
     async with initialize_context():
         log.info("Running startup tasks")
+
+        # Temporary check for old library structure
+        validate_library_structure()
+
+        # Validate structure patterns
+        cm.validate_structures()
 
         # Initialize scheduled tasks
         if ENABLE_SCHEDULED_RESCAN:

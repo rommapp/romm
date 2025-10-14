@@ -111,7 +111,9 @@ async def add_rom(
         )
 
     platform_fs_slug = db_platform.fs_slug
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform_fs_slug)
+    roms_path = fs_rom_handler.get_roms_structure().resolve_path(
+        platform=platform_fs_slug
+    )
     log.info(
         f"Uploading file to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}[{hl(platform_fs_slug)}]"
     )

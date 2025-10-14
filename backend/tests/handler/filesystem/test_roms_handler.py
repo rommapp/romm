@@ -4,7 +4,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from config.config_manager import LIBRARY_BASE_PATH, Config
+from config import LIBRARY_BASE_PATH  # type: ignore
+from config.config_manager import Config
 from handler.filesystem.roms_handler import FileHash, FSRomsHandler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -71,10 +72,8 @@ class TestFSRomsHandler:
         """Test that FSRomsHandler initializes with LIBRARY_BASE_PATH"""
         assert handler.base_path == Path(LIBRARY_BASE_PATH).resolve()
 
-    def test_get_roms_fs_structure_normal_structure(self, handler: FSRomsHandler):
-        """Test get_roms_fs_structure with normal structure"""
-        fs_slug = "n64"
-
+    def test_get_roms_structure_normal_structure(self, handler: FSRomsHandler):
+        """Test get_roms_structure with normal structure"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr(
                 "handler.filesystem.roms_handler.cm.get_config",
@@ -87,21 +86,17 @@ class TestFSRomsHandler:
                     EXCLUDED_MULTI_PARTS_FILES=[],
                     PLATFORMS_BINDING={},
                     PLATFORMS_VERSIONS={},
-                    ROMS_FOLDER_NAME="roms",
-                    FIRMWARE_FOLDER_NAME="bios",
+                    LIBRARY_STRUCTURE="{roms}/{platform}/{game}",
+                    FIRMWARE_STRUCTURE="{firmware}/{platform}",
                 ),
             )
-            m.setattr("os.path.exists", lambda x: False)  # Simulate normal structure
 
-            result = handler.get_roms_fs_structure(fs_slug)
-            assert result == f"{fs_slug}/roms"
+            result = handler.get_roms_structure()
+            assert result.structure_string == "{roms}/{platform}/{game}"
+            assert result.resolve_path(platform="n64") == "roms/n64"
 
-    def test_get_roms_fs_structure_high_priority_structure(
-        self, handler: FSRomsHandler
-    ):
-        """Test get_roms_fs_structure with high priority structure"""
-        fs_slug = "n64"
-
+    def test_get_roms_structure_custom_structure(self, handler: FSRomsHandler):
+        """Test get_roms_structure with custom structure"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr(
                 "handler.filesystem.roms_handler.cm.get_config",
@@ -114,16 +109,14 @@ class TestFSRomsHandler:
                     EXCLUDED_MULTI_PARTS_FILES=[],
                     PLATFORMS_BINDING={},
                     PLATFORMS_VERSIONS={},
-                    ROMS_FOLDER_NAME="roms",
-                    FIRMWARE_FOLDER_NAME="bios",
+                    LIBRARY_STRUCTURE="{roms}/{platform}/{region}/{game}",
+                    FIRMWARE_STRUCTURE="{firmware}/{platform}",
                 ),
             )
-            m.setattr(
-                "os.path.exists", lambda x: True
-            )  # Simulate high priority structure
 
-            result = handler.get_roms_fs_structure(fs_slug)
-            assert result == f"roms/{fs_slug}"
+            result = handler.get_roms_structure()
+            assert result.structure_string == "{roms}/{platform}/{region}/{game}"
+            assert result.resolve_path(platform="n64", region="usa") == "roms/n64/usa"
 
     def test_parse_tags_regions_and_languages(self, handler: FSRomsHandler):
         """Test parse_tags method with regions and languages"""
@@ -465,14 +458,18 @@ class TestFSRomsHandler:
         non_hashable_platform.slug = "nintendo-64"
 
         # Test ROM file structure paths
-        hashable_path = handler.get_roms_fs_structure(hashable_platform.fs_slug)
-        non_hashable_path = handler.get_roms_fs_structure(non_hashable_platform.fs_slug)
+        hashable_path = handler.get_roms_structure().resolve_path(
+            platform=hashable_platform.fs_slug
+        )
+        non_hashable_path = handler.get_roms_structure().resolve_path(
+            platform=non_hashable_platform.fs_slug
+        )
 
         with pytest.MonkeyPatch.context() as m:
             m.setattr("os.path.exists", lambda x: False)  # Normal structure
 
-            assert hashable_path == f"{hashable_platform.fs_slug}/roms"
-            assert non_hashable_path == f"{non_hashable_platform.fs_slug}/roms"
+            assert hashable_path == f"roms/{hashable_platform.fs_slug}"
+            assert non_hashable_path == f"roms/{non_hashable_platform.fs_slug}"
 
     async def test_multi_rom_directory_handling(self, handler: FSRomsHandler, config):
         """Test handling of multi-ROM directories with actual structure"""
@@ -495,18 +492,9 @@ class TestFSRomsHandler:
         """Test that ROM filesystem structure is consistent across methods"""
         fs_slug = "gba"
 
-        with pytest.MonkeyPatch.context() as m:
-            # Test with normal structure
-            m.setattr("os.path.exists", lambda x: False)
-
-            structure = handler.get_roms_fs_structure(fs_slug)
-            assert structure == f"{fs_slug}/roms"
-
-            # Test with high priority structure
-            m.setattr("os.path.exists", lambda x: True)
-
-            structure = handler.get_roms_fs_structure(fs_slug)
-            assert structure == f"roms/{fs_slug}"
+        # Test with default structure
+        structure = handler.get_roms_structure()
+        assert structure.resolve_path(platform=fs_slug) == f"roms/{fs_slug}"
 
     def test_actual_file_hash_calculation(self, handler: FSRomsHandler):
         """Test hash calculation with actual files"""

@@ -241,7 +241,9 @@ async def scan_firmware(
     file_name: str,
     firmware: Firmware | None = None,
 ) -> Firmware:
-    firmware_path = fs_firmware_handler.get_firmware_fs_structure(platform.fs_slug)
+    firmware_path = fs_firmware_handler.get_firmware_structure().resolve_path(
+        platform=platform.fs_slug
+    )
 
     # Set default properties
     firmware_attrs = {

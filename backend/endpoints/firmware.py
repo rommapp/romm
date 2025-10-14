@@ -50,7 +50,9 @@ async def add_firmware(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     uploaded_firmware = []
-    firmware_path = fs_firmware_handler.get_firmware_fs_structure(db_platform.fs_slug)
+    firmware_path = fs_firmware_handler.get_firmware_structure().resolve_path(
+        platform=db_platform.fs_slug
+    )
 
     for file in files:
         if not file.filename:

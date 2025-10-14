@@ -1,11 +1,11 @@
 import binascii
 import hashlib
-import os
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import FirmwareNotFoundException
 from utils.hashing import crc32_to_hex
+from utils.structure_parser import LibraryStructure
 
 from .base_handler import FSHandler
 
@@ -14,13 +14,9 @@ class FSFirmwareHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=LIBRARY_BASE_PATH)
 
-    def get_firmware_fs_structure(self, fs_slug: str) -> str:
+    def get_firmware_structure(self) -> LibraryStructure:
         cnfg = cm.get_config()
-        return (
-            f"{cnfg.FIRMWARE_FOLDER_NAME}/{fs_slug}"
-            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-            else f"{fs_slug}/{cnfg.FIRMWARE_FOLDER_NAME}"
-        )
+        return LibraryStructure(cnfg.FIRMWARE_STRUCTURE, "firmware")
 
     async def get_firmware(self, platform_fs_slug: str):
         """Gets all filesystem firmware for a platform
@@ -30,7 +26,9 @@ class FSFirmwareHandler(FSHandler):
         Returns:
             list with all the filesystem firmware for a platform
         """
-        firmware_path = self.get_firmware_fs_structure(platform_fs_slug)
+        firmware_path = self.get_firmware_structure().resolve_path(
+            platform=platform_fs_slug
+        )
         try:
             fs_firmware_files = await self.list_files(path=firmware_path)
         except FileNotFoundError as e:

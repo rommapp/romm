@@ -37,6 +37,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from tasks.tasks import tasks_scheduler
 from utils import get_version
+from utils.structure_parser import LibraryStructure
 
 sentry_sdk.init(
     dsn=SENTRY_DSN,
@@ -44,7 +45,16 @@ sentry_sdk.init(
 )
 tracer = trace.get_tracer(__name__)
 
-structure_level = 2 if os.path.exists(cm.get_config().HIGH_PRIO_STRUCTURE_PATH) else 1
+
+# Calculate structure level based on the platform position in the structure
+def get_structure_level() -> int:
+    """Get the structure level based on platform position in the library structure."""
+    config = cm.get_config()
+    structure = LibraryStructure(config.LIBRARY_STRUCTURE, "roms")
+    return structure.get_platform_position()
+
+
+structure_level = get_structure_level()
 
 
 @enum.unique

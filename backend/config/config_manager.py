@@ -15,7 +15,6 @@ from config import (
     DB_PORT,
     DB_QUERY_JSON,
     DB_USER,
-    LIBRARY_BASE_PATH,
     ROMM_BASE_PATH,
     ROMM_DB_DRIVER,
 )
@@ -23,6 +22,7 @@ from exceptions.config_exceptions import ConfigNotWritableException
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.structure_parser import LibraryStructure
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
@@ -54,9 +54,8 @@ class Config:
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
-    ROMS_FOLDER_NAME: str
-    FIRMWARE_FOLDER_NAME: str
-    HIGH_PRIO_STRUCTURE_PATH: str
+    FIRMWARE_STRUCTURE: str
+    LIBRARY_STRUCTURE: str
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
@@ -68,7 +67,6 @@ class Config:
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
-        self.HIGH_PRIO_STRUCTURE_PATH = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}"
 
 
 class ConfigManager:
@@ -183,11 +181,15 @@ class ConfigManager:
             ),
             PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {}),
             PLATFORMS_VERSIONS=pydash.get(self._raw_config, "system.versions", {}),
-            ROMS_FOLDER_NAME=pydash.get(
-                self._raw_config, "filesystem.roms_folder", "roms"
+            FIRMWARE_STRUCTURE=pydash.get(
+                self._raw_config,
+                "filesystem.firmware_structure",
+                "bios/{platform}",
             ),
-            FIRMWARE_FOLDER_NAME=pydash.get(
-                self._raw_config, "filesystem.firmware_folder", "bios"
+            LIBRARY_STRUCTURE=pydash.get(
+                self._raw_config,
+                "filesystem.structure",
+                "roms/{platform}/{game}",
             ),
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
             EJS_CACHE_LIMIT=pydash.get(
@@ -327,28 +329,6 @@ class ConfigManager:
                     )
                     sys.exit(3)
 
-        if not isinstance(self.config.ROMS_FOLDER_NAME, str):
-            log.critical("Invalid config.yml: filesystem.roms_folder must be a string")
-            sys.exit(3)
-
-        if self.config.ROMS_FOLDER_NAME == "":
-            log.critical(
-                "Invalid config.yml: filesystem.roms_folder cannot be an empty string"
-            )
-            sys.exit(3)
-
-        if not isinstance(self.config.FIRMWARE_FOLDER_NAME, str):
-            log.critical(
-                "Invalid config.yml: filesystem.firmware_folder must be a string"
-            )
-            sys.exit(3)
-
-        if self.config.FIRMWARE_FOLDER_NAME == "":
-            log.critical(
-                "Invalid config.yml: filesystem.firmware_folder cannot be an empty string"
-            )
-            sys.exit(3)
-
         if not isinstance(self.config.EJS_DEBUG, bool):
             log.critical("Invalid config.yml: emulatorjs.debug must be a boolean")
             sys.exit(3)
@@ -413,6 +393,16 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.priority.language must be a list")
             sys.exit(3)
 
+    def validate_structures(self):
+        try:
+            # Validate ROM structure
+            LibraryStructure(self.config.LIBRARY_STRUCTURE, "roms")
+            # Validate firmware structure
+            LibraryStructure(self.config.FIRMWARE_STRUCTURE, "firmware")
+        except (ValueError, Exception) as e:
+            log.critical(f"Invalid config.yml: filesystem.structure - {e}")
+            sys.exit(3)
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r+") as config_file:
@@ -449,8 +439,8 @@ class ConfigManager:
                 },
             },
             "filesystem": {
-                "roms_folder": self.config.ROMS_FOLDER_NAME,
-                "firmware_folder": self.config.FIRMWARE_FOLDER_NAME,
+                "firmware_structure": self.config.FIRMWARE_STRUCTURE,
+                "structure": self.config.LIBRARY_STRUCTURE,
             },
             "system": {
                 "platforms": self.config.PLATFORMS_BINDING,

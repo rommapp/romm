@@ -12,7 +12,7 @@ exclude:
     single_file:
       extensions: []
       names: []
-filesystem: {}
+
 system:
   platforms:
     3do: 3do

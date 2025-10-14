@@ -178,7 +178,9 @@ async def _identify_rom(
     fs_regions, fs_revisions, fs_languages, fs_other_tags = fs_rom_handler.parse_tags(
         fs_rom["fs_name"]
     )
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
+    roms_path = fs_rom_handler.get_roms_structure().resolve_path(
+        platform=platform.fs_slug
+    )
 
     # Create the entry early so we have the ID
     newly_added: bool = rom is None
