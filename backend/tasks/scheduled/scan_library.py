@@ -17,7 +17,7 @@ from handler.metadata import (
 )
 from handler.scan_handler import MetadataSource, ScanType
 from logger.logger import log
-from tasks.tasks import PeriodicTask
+from tasks.tasks import PeriodicTask, TaskType
 
 
 class ScanLibraryTask(PeriodicTask):
@@ -25,6 +25,7 @@ class ScanLibraryTask(PeriodicTask):
         super().__init__(
             title="Scheduled rescan",
             description="Rescans the entire library",
+            task_type=TaskType.SCAN,
             enabled=ENABLE_SCHEDULED_RESCAN,
             manual_run=False,
             cron_string=SCHEDULED_RESCAN_CRON,

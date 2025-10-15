@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import RunningTaskItem from "@/components/Settings/Administration/RunningTaskItem.vue";
 import TaskOption from "@/components/Settings/Administration/TaskOption.vue";
 import RSection from "@/components/common/RSection.vue";
@@ -104,6 +104,8 @@ const getManualTaskIcon = (taskName: string) => {
 const fetchTaskStatus = async () => {
   try {
     await tasksStore.fetchTaskStatus();
+    // Use nextTick to ensure DOM updates are complete before next operation
+    await nextTick();
   } catch (error) {
     console.error("Error fetching task status:", error);
   }
@@ -114,8 +116,19 @@ let refreshInterval: NodeJS.Timeout | null = null;
 
 onMounted(() => {
   fetchTaskStatus();
-  refreshInterval = setInterval(fetchTaskStatus, 5000);
+  refreshInterval = setInterval(() => {
+    // Add error handling to prevent uncaught promise rejections
+    fetchTaskStatus().catch((error) => {
+      console.error("Error in task status refresh:", error);
+    });
+  }, 5000);
 });
+
+// Add error handling for component errors
+const handleComponentError = (error: Error, instance: any, info: string) => {
+  console.error("Component error:", error, info);
+  // You could show a user-friendly error message here
+};
 
 // Cleanup interval on unmount
 onUnmounted(() => {
@@ -194,29 +207,27 @@ onUnmounted(() => {
           </div>
         </v-card>
       </div>
-      <v-row no-gutters class="align-center py-1">
-        <v-col v-if="taskStatuses.length === 0" cols="12">
-          <v-card elevation="0" class="bg-background ma-3">
-            <v-list-item>
-              <template #prepend>
-                <v-icon color="grey">mdi-information-outline</v-icon>
-              </template>
-              <v-list-item-title class="text-grey">
-                No currently running tasks
-              </v-list-item-title>
-            </v-list-item>
-          </v-card>
-        </v-col>
-        <v-col
-          v-else
+      <div v-if="taskStatuses.length === 0" class="no-tasks-container">
+        <v-card elevation="0" class="bg-background ma-3">
+          <v-list-item>
+            <template #prepend>
+              <v-icon color="grey">mdi-information-outline</v-icon>
+            </template>
+            <v-list-item-title class="text-grey">
+              No currently running tasks
+            </v-list-item-title>
+          </v-list-item>
+        </v-card>
+      </div>
+      <div v-else class="tasks-grid">
+        <div
           v-for="task in taskStatuses"
-          :key="task.task_id"
-          cols="12"
-          md="6"
+          :key="`task-${task.task_id}-${task.status}`"
+          class="task-item"
         >
           <RunningTaskItem class="ma-3" :task="task" />
-        </v-col>
-      </v-row>
+        </div>
+      </div>
 
       <v-chip
         label
@@ -290,3 +301,28 @@ onUnmounted(() => {
     </template>
   </RSection>
 </template>
+
+<style scoped>
+.tasks-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: masonry;
+  gap: 0;
+  margin: 0;
+}
+
+.task-item {
+  min-height: 0;
+}
+
+.no-tasks-container {
+  margin: 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .tasks-grid {
+    flex-direction: column;
+  }
+}
+</style>

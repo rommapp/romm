@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import Any
 
 import httpx
@@ -14,6 +15,17 @@ from utils.context import ctx_httpx_client
 tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.connection)
 
 
+class TaskType(str, Enum):
+    """Enumeration of task types for categorization and UI display."""
+
+    SCAN = "scan"
+    CONVERSION = "conversion"
+    CLEANUP = "cleanup"
+    UPDATE = "update"
+    WATCHER = "watcher"
+    GENERIC = "generic"
+
+
 class Task(ABC):
     """Base class for all RQ tasks."""
 
@@ -22,17 +34,20 @@ class Task(ABC):
     enabled: bool
     manual_run: bool
     cron_string: str | None = None
+    task_type: TaskType
 
     def __init__(
         self,
         title: str,
         description: str,
+        task_type: TaskType,
         enabled: bool = False,
         manual_run: bool = False,
         cron_string: str | None = None,
     ):
         self.title = title
         self.description = description or title
+        self.task_type = task_type
         self.enabled = enabled
         self.manual_run = manual_run
         self.cron_string = cron_string

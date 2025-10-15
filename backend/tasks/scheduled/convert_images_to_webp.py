@@ -13,7 +13,7 @@ from config import (
     SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
 )
 from logger.logger import log
-from tasks.tasks import PeriodicTask
+from tasks.tasks import PeriodicTask, TaskType
 
 
 @dataclass
@@ -94,6 +94,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
         super().__init__(
             title="Convert images to WebP",
             description="Convert existing image files (PNG, JPG, BMP, TIFF, GIF) to WebP format for better performance",
+            task_type=TaskType.CONVERSION,
             enabled=ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
             manual_run=True,
             cron_string=SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,

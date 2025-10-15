@@ -4,7 +4,7 @@ import shutil
 from config import RESOURCES_BASE_PATH
 from handler.database import db_platform_handler, db_rom_handler
 from logger.logger import log
-from tasks.tasks import Task
+from tasks.tasks import Task, TaskType
 from utils.context import initialize_context
 
 
@@ -13,6 +13,7 @@ class CleanupOrphanedResourcesTask(Task):
         super().__init__(
             title="Cleanup orphaned resources",
             description="Clean up orphaned resources in the ROMs directory",
+            task_type=TaskType.CLEANUP,
             enabled=True,
             manual_run=True,
             cron_string=None,

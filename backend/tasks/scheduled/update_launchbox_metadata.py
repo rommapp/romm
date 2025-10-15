@@ -21,7 +21,7 @@ from handler.metadata.launchbox_handler import (
 )
 from handler.redis_handler import async_cache
 from logger.logger import log
-from tasks.tasks import RemoteFilePullTask
+from tasks.tasks import RemoteFilePullTask, TaskType
 from utils.context import initialize_context
 
 
@@ -30,6 +30,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
         super().__init__(
             title="Scheduled LaunchBox metadata update",
             description="Updates the LaunchBox metadata store",
+            task_type=TaskType.UPDATE,
             enabled=ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
             cron_string=SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
             manual_run=True,

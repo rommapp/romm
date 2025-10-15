@@ -8,7 +8,7 @@ from config import (
 )
 from handler.redis_handler import async_cache
 from logger.logger import log
-from tasks.tasks import RemoteFilePullTask
+from tasks.tasks import RemoteFilePullTask, TaskType
 from utils.context import initialize_context
 
 SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
@@ -20,6 +20,7 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
         super().__init__(
             title="Scheduled Switch TitleDB update",
             description="Updates the Nintendo Switch TitleDB file",
+            task_type=TaskType.UPDATE,
             enabled=ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
             cron_string=SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
             manual_run=True,

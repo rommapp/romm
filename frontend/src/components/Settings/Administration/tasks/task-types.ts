@@ -1,3 +1,6 @@
+// Import TaskType from generated types
+export type { TaskType } from "@/__generated__";
+
 // Shared types for task components
 export interface ScanStats {
   total_platforms: number;
@@ -49,11 +52,3 @@ export interface ProgressPercentages {
   conversion?: number;
   download?: number;
 }
-
-export type TaskType =
-  | "scan"
-  | "conversion"
-  | "cleanup"
-  | "update"
-  | "watcher"
-  | "generic";
