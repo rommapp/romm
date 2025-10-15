@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type {
-  ConversionStats,
-  TaskProgress,
-  ProgressPercentages,
-} from "./task-types";
+import type { ConversionStats } from "@/__generated__";
 
 const props = defineProps<{
   conversionStats: ConversionStats;
-  progressPercentages: ProgressPercentages | null;
 }>();
 
-const conversionProgress = computed((): TaskProgress => {
+const conversionProgress = computed(() => {
   const stats = props.conversionStats;
   const total = stats.total || 0;
   const processed = stats.processed || 0;
@@ -19,6 +14,7 @@ const conversionProgress = computed((): TaskProgress => {
 
   return {
     processed: `${processed}/${total}`,
+    processedProgress: Math.round((processed / total) * 100),
     errors: errors,
     successRate:
       total > 0 ? Math.round(((processed - errors) / total) * 100) : 0,
@@ -29,13 +25,15 @@ const conversionProgress = computed((): TaskProgress => {
 <template>
   <div>
     <!-- Progress Bar -->
-    <div v-if="progressPercentages" class="mb-3">
+    <div class="mb-3">
       <div class="d-flex justify-space-between align-center mb-1">
         <span class="text-caption">Conversion Progress</span>
-        <span class="text-caption">{{ progressPercentages.conversion }}%</span>
+        <span class="text-caption"
+          >{{ conversionProgress.processedProgress }}%</span
+        >
       </div>
       <v-progress-linear
-        :model-value="progressPercentages.conversion"
+        :model-value="conversionProgress.processedProgress"
         color="primary"
         height="6"
         rounded

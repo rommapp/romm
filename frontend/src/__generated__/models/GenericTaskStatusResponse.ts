@@ -2,8 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { GenericTaskMeta } from './GenericTaskMeta';
 import type { JobStatus } from './JobStatus';
-export type TaskStatusResponse = {
+export type GenericTaskStatusResponse = {
     task_name: string;
     task_id: string;
     status: (JobStatus | null);
@@ -11,6 +12,7 @@ export type TaskStatusResponse = {
     started_at: (string | null);
     ended_at: (string | null);
     result: (Record<string, any> | null);
-    meta: (Record<string, any> | null);
+    task_type: "generic";
+    meta: (GenericTaskMeta | null);
 };
 

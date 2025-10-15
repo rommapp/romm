@@ -104,6 +104,10 @@ class PeriodicTask(Task, ABC):
                 func=self.func,
                 repeat=None,
                 timeout=TASK_TIMEOUT,
+                meta={
+                    "task_name": self.title,
+                    "task_type": self.task_type.value,
+                },
             )
 
         return None

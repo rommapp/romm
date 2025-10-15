@@ -1,6 +1,9 @@
 import {
   type TaskExecutionResponse,
-  type TaskStatusResponse,
+  type ScanTaskStatusResponse,
+  type ConversionTaskStatusResponse,
+  type CleanupTaskStatusResponse,
+  type UpdateTaskStatusResponse,
   type TaskInfo,
 } from "@/__generated__";
 import api from "@/services/api";
@@ -11,9 +14,13 @@ async function getTasks(): Promise<{
   return api.get("/tasks");
 }
 
-async function getTaskById(
-  taskId: string,
-): Promise<{ data: TaskStatusResponse }> {
+async function getTaskById(taskId: string): Promise<{
+  data:
+    | ScanTaskStatusResponse
+    | ConversionTaskStatusResponse
+    | CleanupTaskStatusResponse
+    | UpdateTaskStatusResponse;
+}> {
   return api.get(`/tasks/${taskId}`);
 }
 
@@ -27,7 +34,14 @@ async function runTask(
   return api.post(`/tasks/run/${taskName}`);
 }
 
-async function getTaskStatus(): Promise<{ data: TaskStatusResponse[] }> {
+async function getTaskStatus(): Promise<{
+  data: (
+    | ScanTaskStatusResponse
+    | ConversionTaskStatusResponse
+    | CleanupTaskStatusResponse
+    | UpdateTaskStatusResponse
+  )[];
+}> {
   return api.get("/tasks/status");
 }
 

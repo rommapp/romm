@@ -1,46 +1,63 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
-import type { TaskStatusResponse } from "@/__generated__";
-import CleanupTaskProgress from "./CleanupTaskProgress.vue";
-import ConversionTaskProgress from "./ConversionTaskProgress.vue";
-import ScanTaskProgress from "./ScanTaskProgress.vue";
-import TaskDetailedStats from "./TaskDetailedStats.vue";
-import UpdateTaskProgress from "./UpdateTaskProgress.vue";
+import { computed } from "vue";
 import type {
+  ScanTaskStatusResponse,
+  ConversionTaskStatusResponse,
+  CleanupTaskStatusResponse,
+  UpdateTaskStatusResponse,
   ScanStats,
   ConversionStats,
   CleanupStats,
-  DownloadProgress,
-  TaskType,
-  ProgressPercentages,
-} from "./task-types";
+  UpdateStats,
+} from "@/__generated__";
+import CleanupTaskProgress from "./CleanupTaskProgress.vue";
+import ConversionTaskProgress from "./ConversionTaskProgress.vue";
+import ScanTaskProgress from "./ScanTaskProgress.vue";
+import UpdateTaskProgress from "./UpdateTaskProgress.vue";
 
 const props = defineProps<{
-  task: TaskStatusResponse;
-  taskType: TaskType;
-  scanStats?: ScanStats | null;
-  conversionStats?: ConversionStats | null;
-  cleanupStats?: CleanupStats | null;
-  downloadProgress?: DownloadProgress | null;
-  progressPercentages: ProgressPercentages | null;
-  showDetails: boolean;
+  task:
+    | ScanTaskStatusResponse
+    | ConversionTaskStatusResponse
+    | CleanupTaskStatusResponse
+    | UpdateTaskStatusResponse;
 }>();
 
-const emit = defineEmits<{
-  "toggle-details": [];
-}>();
+const scanStats = computed((): ScanStats | null => {
+  if (!props.task.meta) return null;
+  if (props.task.task_type !== "scan") return null;
+  return props.task.meta.scan_stats;
+});
+
+const conversionStats = computed((): ConversionStats | null => {
+  if (!props.task.meta) return null;
+  if (props.task.task_type !== "conversion") return null;
+  return props.task.meta.conversion_stats;
+});
+
+const cleanupStats = computed((): CleanupStats | null => {
+  if (!props.task.meta) return null;
+  if (props.task.task_type !== "cleanup") return null;
+  return props.task.meta.cleanup_stats;
+});
+
+const updateStats = computed((): UpdateStats | null => {
+  if (!props.task.meta) return null;
+  if (props.task.task_type !== "update") return null;
+  return props.task.meta.update_stats;
+});
 
 const hasDetailedStats = computed(() => {
   return !!(
-    props.scanStats ||
-    props.conversionStats ||
-    props.cleanupStats ||
-    props.downloadProgress
+    scanStats.value ||
+    conversionStats.value ||
+    cleanupStats.value ||
+    updateStats.value
   );
 });
 
 const progressTitle = computed(() => {
-  switch (props.taskType) {
+  switch (props.task.task_type) {
     case "scan":
       return "Scan Progress";
     case "conversion":
@@ -56,7 +73,7 @@ const progressTitle = computed(() => {
 
 // Get progress icon based on task type
 const getProgressIcon = () => {
-  switch (props.taskType) {
+  switch (props.task.task_type) {
     case "scan":
       return "mdi-magnify-scan";
     case "conversion":
@@ -94,10 +111,7 @@ const getProgressStatusText = () => {
 </script>
 
 <template>
-  <div
-    v-if="taskType !== 'generic' && hasDetailedStats"
-    class="progress-container"
-  >
+  <div v-if="hasDetailedStats" class="progress-container">
     <!-- Progress Header -->
     <div class="progress-header">
       <div class="progress-title">
@@ -120,49 +134,34 @@ const getProgressStatusText = () => {
     <div class="progress-content">
       <!-- Scan Task Progress -->
       <ScanTaskProgress
-        v-if="taskType === 'scan' && scanStats"
+        v-if="task.task_type === 'scan' && scanStats"
         :scan-stats="scanStats"
-        :progress-percentages="progressPercentages"
       />
 
       <!-- Conversion Task Progress -->
       <ConversionTaskProgress
-        v-else-if="taskType === 'conversion' && conversionStats"
+        v-else-if="task.task_type === 'conversion' && conversionStats"
         :conversion-stats="conversionStats"
-        :progress-percentages="progressPercentages"
       />
 
       <!-- Cleanup Task Progress -->
       <CleanupTaskProgress
-        v-else-if="taskType === 'cleanup' && cleanupStats"
+        v-else-if="task.task_type === 'cleanup' && cleanupStats"
         :cleanup-stats="cleanupStats"
       />
 
       <!-- Update Task Progress -->
       <UpdateTaskProgress
-        v-else-if="taskType === 'update' && downloadProgress"
-        :download-progress="downloadProgress"
-        :progress-percentages="progressPercentages"
+        v-else-if="task.task_type === 'update' && updateStats"
+        :update-stats="updateStats"
       />
     </div>
-
-    <!-- Detailed Stats (Expandable) -->
-    <v-expand-transition>
-      <div v-if="showDetails && hasDetailedStats" class="detailed-stats">
-        <TaskDetailedStats
-          :task-type="taskType"
-          :scan-stats="scanStats"
-          :conversion-stats="conversionStats"
-          :cleanup-stats="cleanupStats"
-          :download-progress="downloadProgress"
-        />
-      </div>
-    </v-expand-transition>
   </div>
 </template>
 
 <style scoped>
 .progress-container {
+  padding: 0 20px 20px 20px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -201,11 +200,6 @@ const getProgressStatusText = () => {
 
 .progress-content {
   padding: 20px;
-}
-
-.detailed-stats {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.1);
 }
 
 /* Responsive Design */
