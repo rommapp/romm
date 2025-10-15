@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CleanupStats } from "./task-types";
+import type { CleanupStats } from "@/__generated__";
 
 defineProps<{
   cleanupStats: CleanupStats;

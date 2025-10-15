@@ -1,228 +1,61 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import type { TaskStatusResponse } from "@/__generated__";
-import TaskProgressDisplay from "./tasks/TaskProgressDisplay.vue";
+import { computed } from "vue";
 import type {
-  ScanStats,
-  ConversionStats,
-  CleanupStats,
-  DownloadProgress,
-  TaskType,
-  ProgressPercentages,
-} from "./tasks/task-types";
+  ScanTaskStatusResponse,
+  ConversionTaskStatusResponse,
+  CleanupTaskStatusResponse,
+  UpdateTaskStatusResponse,
+} from "@/__generated__";
+import TaskProgressDisplay from "./tasks/TaskProgressDisplay.vue";
 
 const props = defineProps<{
-  task: TaskStatusResponse;
+  task:
+    | ScanTaskStatusResponse
+    | ConversionTaskStatusResponse
+    | CleanupTaskStatusResponse
+    | UpdateTaskStatusResponse;
 }>();
 
-const statusIcon = computed(() => {
+const statusIconColor = computed(() => {
   switch (props.task.status) {
     case "queued":
-      return "mdi-clock-outline";
-    case "started":
-      return "mdi-loading";
-    case "finished":
-      return "mdi-check-circle";
-    case "failed":
-      return "mdi-alert-circle";
-    case "stopped":
-    case "canceled":
-      return "mdi-stop-circle";
-    default:
-      return "mdi-help-circle-outline";
-  }
-});
-
-const statusColor = computed(() => {
-  switch (props.task.status) {
-    case "queued":
-      return "orange";
-    case "started":
-      return "blue";
-    case "finished":
-      return "green";
-    case "failed":
-      return "red";
-    case "stopped":
-    case "canceled":
-      return "grey";
-    default:
-      return "grey";
-  }
-});
-
-// Extract scan stats from meta if available
-const scanStats = computed((): ScanStats | null => {
-  if (props.task.meta?.scan_stats) {
-    return props.task.meta.scan_stats;
-  }
-  return null;
-});
-
-// Extract conversion stats from meta if available
-const conversionStats = computed((): ConversionStats | null => {
-  if (props.task.meta?.processed_count !== undefined) {
-    return {
-      processed: props.task.meta.processed_count || 0,
-      errors: props.task.meta.error_count || 0,
-      total: props.task.meta.total_files || 0,
-      errorList: props.task.meta.errors || [],
-    };
-  }
-  return null;
-});
-
-// Extract cleanup stats from result if available
-const cleanupStats = computed((): CleanupStats | null => {
-  if (props.task.result && typeof props.task.result === "object") {
-    const result = props.task.result as any;
-    if (result.removed_count !== undefined) {
       return {
-        removed: result.removed_count || 0,
+        color: "orange",
+        icon: "mdi-clock-outline",
       };
-    }
+    case "started":
+      return {
+        color: "blue",
+        icon: "mdi-loading",
+      };
+    case "finished":
+      return {
+        color: "green",
+        icon: "mdi-check-circle",
+      };
+    case "failed":
+      return {
+        color: "red",
+        icon: "mdi-alert-circle",
+      };
+    case "stopped":
+      return {
+        color: "grey",
+        icon: "mdi-stop-circle",
+      };
+    case "canceled":
+      return {
+        color: "grey",
+        icon: "mdi-stop-circle",
+      };
+    default:
+      return {
+        color: "grey",
+        icon: "mdi-help-circle-outline",
+      };
   }
-  return null;
 });
 
-// Extract download progress from meta if available
-const downloadProgress = computed((): DownloadProgress | null => {
-  if (props.task.meta?.download_progress !== undefined) {
-    return {
-      progress: props.task.meta.download_progress || 0,
-      total: props.task.meta.download_total || 0,
-      current: props.task.meta.download_current || 0,
-    };
-  }
-  return null;
-});
-
-// Check task type
-const taskType = computed((): TaskType => {
-  const taskName = props.task.task_name?.toLowerCase() || "";
-
-  if (taskName.includes("scan") || props.task.meta?.scan_stats) {
-    return "scan";
-  }
-  if (
-    taskName.includes("convert") ||
-    taskName.includes("webp") ||
-    conversionStats.value
-  ) {
-    return "conversion";
-  }
-  if (
-    taskName.includes("cleanup") ||
-    taskName.includes("orphan") ||
-    cleanupStats.value
-  ) {
-    return "cleanup";
-  }
-  if (
-    taskName.includes("update") ||
-    taskName.includes("metadata") ||
-    taskName.includes("launchbox") ||
-    taskName.includes("switch") ||
-    downloadProgress.value
-  ) {
-    return "update";
-  }
-  if (taskName.includes("watcher") || taskName.includes("filesystem")) {
-    return "watcher";
-  }
-
-  return "generic";
-});
-
-// Expandable details state
-const showDetails = ref(false);
-
-// Calculate progress percentages
-const progressPercentages = computed((): ProgressPercentages | null => {
-  if (taskType.value === "scan" && scanStats.value) {
-    const stats = scanStats.value;
-    const platformProgress =
-      stats.total_platforms > 0
-        ? Math.round((stats.scanned_platforms / stats.total_platforms) * 100)
-        : 0;
-    const romProgress =
-      stats.total_roms > 0
-        ? Math.round((stats.scanned_roms / stats.total_roms) * 100)
-        : 0;
-
-    return {
-      platforms: platformProgress,
-      roms: romProgress,
-    };
-  }
-
-  if (taskType.value === "conversion" && conversionStats.value) {
-    const stats = conversionStats.value;
-    const total = stats.total || 0;
-    const processed = stats.processed || 0;
-    const progress = total > 0 ? Math.round((processed / total) * 100) : 0;
-
-    return {
-      conversion: progress,
-    };
-  }
-
-  if (taskType.value === "update" && downloadProgress.value) {
-    const progress = downloadProgress.value;
-    const downloadProgressPercent =
-      progress.total > 0
-        ? Math.round((progress.current / progress.total) * 100)
-        : 0;
-
-    return {
-      download: downloadProgressPercent,
-    };
-  }
-
-  return null;
-});
-
-const toggleDetails = () => {
-  showDetails.value = !showDetails.value;
-};
-
-// Check if task has detailed stats
-const hasDetailedStats = computed(() => {
-  return !!(
-    scanStats.value ||
-    conversionStats.value ||
-    cleanupStats.value ||
-    downloadProgress.value
-  );
-});
-
-// Get display name for task
-const getTaskDisplayName = (type: TaskType) => {
-  const labels = {
-    scan: "Library Scan",
-    conversion: "Image Conversion",
-    cleanup: "Cleanup",
-    update: "Metadata Update",
-    watcher: "File Watcher",
-    generic: "General Task",
-  };
-  return labels[type] || "Task";
-};
-
-// Get task type label
-const getTaskTypeLabel = (type: TaskType) => {
-  const labels = {
-    scan: "Library Scan",
-    conversion: "Image Conversion",
-    cleanup: "Cleanup",
-    update: "Metadata Update",
-    watcher: "File Watcher",
-    generic: "General Task",
-  };
-  return labels[type] || "Task";
-};
-
-// Calculate task duration
 const getTaskDuration = () => {
   if (!props.task.started_at) return "Not started";
 
@@ -236,25 +69,6 @@ const getTaskDuration = () => {
   if (duration < 60000) return `${Math.round(duration / 1000)}s`;
   if (duration < 3600000) return `${Math.round(duration / 60000)}m`;
   return `${Math.round(duration / 3600000)}h`;
-};
-
-// Format key for display
-const formatKey = (key: string) => {
-  return key
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-};
-
-// Format value for display
-const formatValue = (value: any) => {
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
-  }
-  return String(value);
 };
 </script>
 
@@ -276,16 +90,16 @@ const formatValue = (value: any) => {
       <div class="task-header__left">
         <div class="task-icon-wrapper">
           <v-icon
-            :color="statusColor"
-            :icon="statusIcon"
+            :color="statusIconColor.color"
+            :icon="statusIconColor.icon"
             size="24"
             :class="{ 'task-icon--spinning': task.status === 'started' }"
           />
         </div>
         <div class="task-info">
-          <h3 class="task-title">{{ getTaskDisplayName(taskType) }}</h3>
+          <h3 class="task-title">{{ task.task_name }}</h3>
           <div class="task-meta">
-            <span class="task-type">{{ getTaskTypeLabel(taskType) }}</span>
+            <span class="task-type">{{ task.task_type }}</span>
             <span class="task-separator">•</span>
             <span class="task-duration">{{ getTaskDuration() }}</span>
           </div>
@@ -293,13 +107,13 @@ const formatValue = (value: any) => {
       </div>
       <div class="task-header__right">
         <v-chip
-          :color="statusColor"
+          :color="statusIconColor.color"
           size="small"
           variant="flat"
           class="task-status-chip"
         >
           <v-icon
-            :icon="statusIcon"
+            :icon="statusIconColor.icon"
             size="16"
             class="mr-1"
             :class="{ 'task-icon--spinning': task.status === 'started' }"
@@ -310,78 +124,7 @@ const formatValue = (value: any) => {
     </div>
 
     <!-- Progress Section -->
-    <div v-if="hasDetailedStats" class="task-progress">
-      <TaskProgressDisplay
-        :task="task"
-        :task-type="taskType"
-        :scan-stats="scanStats"
-        :conversion-stats="conversionStats"
-        :cleanup-stats="cleanupStats"
-        :download-progress="downloadProgress"
-        :progress-percentages="progressPercentages"
-        :show-details="showDetails"
-        @toggle-details="toggleDetails"
-      />
-    </div>
-
-    <!-- Details Section -->
-    <v-expand-transition>
-      <div v-if="showDetails" class="task-details">
-        <!-- Task Details -->
-        <div
-          v-if="task.meta && Object.keys(task.meta).length > 0"
-          class="task-details__section"
-        >
-          <h4 class="task-details__title">
-            <v-icon icon="mdi-cog" size="16" class="mr-2" />
-            Task Details
-          </h4>
-          <div class="task-details__content">
-            <div class="task-details__grid">
-              <div
-                v-for="(value, key) in task.meta"
-                :key="key"
-                class="task-detail-item"
-              >
-                <span class="task-detail-key">{{ formatKey(key) }}</span>
-                <span class="task-detail-value">
-                  {{ formatValue(value) }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Result Section -->
-        <div v-if="task.result" class="task-details__section">
-          <h4 class="task-details__title">
-            <v-icon icon="mdi-check-circle" size="16" class="mr-2" />
-            Result
-          </h4>
-          <div class="task-details__content">
-            <v-card variant="outlined" class="result-card">
-              <pre class="result-json">{{
-                typeof task.result === "object"
-                  ? JSON.stringify(task.result, null, 2)
-                  : task.result
-              }}</pre>
-            </v-card>
-          </div>
-        </div>
-      </div>
-    </v-expand-transition>
-
-    <div class="task-footer" v-if="hasDetailedStats">
-      <v-btn
-        size="small"
-        variant="text"
-        :icon="showDetails ? 'mdi-chevron-up' : 'mdi-chevron-down'"
-        @click="toggleDetails"
-        class="task-toggle-btn"
-      >
-        {{ showDetails ? "Hide Details" : "Show Details" }}
-      </v-btn>
-    </div>
+    <TaskProgressDisplay :task="task" />
   </v-card>
 </template>
 
@@ -536,105 +279,6 @@ const formatValue = (value: any) => {
   text-transform: capitalize;
   border-radius: 20px;
   padding: 8px 16px;
-}
-
-.task-progress {
-  padding: 0 20px 20px 20px;
-}
-
-.task-details {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.task-details__section {
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.task-details__section:last-child {
-  border-bottom: none;
-}
-
-.task-details__title {
-  display: flex;
-  align-items: center;
-  font-size: 16px;
-  font-weight: 600;
-  color: #ffffff;
-  margin: 0 0 16px 0;
-}
-
-.task-details__content {
-  margin-top: 16px;
-}
-
-.task-details__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.task-detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.task-detail-key {
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.task-detail-value {
-  font-size: 14px;
-  color: #ffffff;
-  font-family: "Monaco", "Menlo", monospace;
-  word-break: break-all;
-}
-
-.result-card {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.result-json {
-  font-family: "Monaco", "Menlo", monospace;
-  font-size: 12px;
-  color: #ffffff;
-  margin: 0;
-  padding: 16px;
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.5;
-  background: transparent;
-}
-
-.task-footer {
-  padding: 16px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: center;
-}
-
-.task-toggle-btn {
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 500;
-  text-transform: none;
-}
-
-.task-toggle-btn:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Responsive Design */

@@ -146,6 +146,10 @@ def process_changes(changes: Sequence[Change]) -> None:
                 metadata_sources=metadata_sources,
                 timeout=SCAN_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
+                meta={
+                    "task_name": "scan_platforms",
+                    "task_type": "scan",
+                },
             )
             return
 
@@ -170,6 +174,10 @@ def process_changes(changes: Sequence[Change]) -> None:
                 metadata_sources=metadata_sources,
                 timeout=SCAN_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
+                meta={
+                    "task_name": "scan_platforms",
+                    "task_type": "scan",
+                },
             )
 
 

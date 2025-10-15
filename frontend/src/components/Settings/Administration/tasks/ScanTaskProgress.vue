@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type {
-  ScanStats,
-  TaskProgress,
-  ProgressPercentages,
-} from "./task-types";
+import type { ScanStats } from "@/__generated__";
 
 const props = defineProps<{
   scanStats: ScanStats;
-  progressPercentages: ProgressPercentages | null;
 }>();
 
-const scanProgress = computed((): TaskProgress => {
+const scanProgress = computed(() => {
   const stats = props.scanStats;
   const totalPlatforms = stats.total_platforms || 0;
   const totalRoms = stats.total_roms || 0;
@@ -20,7 +15,9 @@ const scanProgress = computed((): TaskProgress => {
 
   return {
     platforms: `${scannedPlatforms}/${totalPlatforms}`,
+    platformsProgress: Math.round((scannedPlatforms / totalPlatforms) * 100),
     roms: `${scannedRoms}/${totalRoms}`,
+    romsProgress: Math.round((scannedRoms / totalRoms) * 100),
     addedRoms: stats.added_roms || 0,
     metadataRoms: stats.metadata_roms || 0,
     scannedFirmware: stats.scanned_firmware || 0,
@@ -32,17 +29,17 @@ const scanProgress = computed((): TaskProgress => {
 <template>
   <div class="scan-progress">
     <!-- Progress Bars -->
-    <div v-if="progressPercentages" class="progress-bars">
+    <div class="progress-bars">
       <div class="progress-item">
         <div class="progress-label">
           <v-icon icon="mdi-console" size="16" class="mr-2" />
           <span>Platforms</span>
           <span class="progress-percentage"
-            >{{ progressPercentages.platforms }}%</span
+            >{{ scanProgress.platformsProgress }}%</span
           >
         </div>
         <v-progress-linear
-          :model-value="progressPercentages.platforms"
+          :model-value="scanProgress.platformsProgress"
           color="primary"
           height="8"
           rounded
@@ -58,11 +55,11 @@ const scanProgress = computed((): TaskProgress => {
           <v-icon icon="mdi-gamepad-variant" size="16" class="mr-2" />
           <span>ROMs</span>
           <span class="progress-percentage"
-            >{{ progressPercentages.roms }}%</span
+            >{{ scanProgress.romsProgress }}%</span
           >
         </div>
         <v-progress-linear
-          :model-value="progressPercentages.roms"
+          :model-value="scanProgress.romsProgress"
           color="secondary"
           height="8"
           rounded
@@ -177,13 +174,6 @@ const scanProgress = computed((): TaskProgress => {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.6);
   margin-top: 4px;
-}
-
-.summary-stats {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  padding: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .stats-grid {

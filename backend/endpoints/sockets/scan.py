@@ -630,6 +630,10 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
         metadata_sources,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
+        meta={
+            "task_name": "scan_platforms",
+            "task_type": "scan",
+        },
     )
 
 
