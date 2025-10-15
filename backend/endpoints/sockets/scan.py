@@ -9,6 +9,7 @@ from rq import Worker, get_current_job
 from rq.job import Job
 
 from config import REDIS_URL, SCAN_TIMEOUT, TASK_RESULT_TTL
+from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
 from exceptions.fs_exceptions import (
@@ -631,8 +632,8 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={
-            "task_name": "scan_platforms",
-            "task_type": "scan",
+            "task_name": f"{scan_type.value.capitalize()} Scan",
+            "task_type": TaskType.SCAN,
         },
     )
 

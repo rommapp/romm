@@ -253,8 +253,9 @@ const getTaskDuration = () => {
 }
 
 .task-type {
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 6px;
 }
 
 .task-separator {

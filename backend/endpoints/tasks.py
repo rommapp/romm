@@ -164,17 +164,15 @@ def _build_task_status_response(
             )
         case TaskType.WATCHER:
             return WatcherTaskStatusResponse(
-                # trunk-ignore(mypy/typeddict-item)
                 task_type=TaskType.WATCHER,
                 meta={},
-                **common_data,
+                **common_data,  # trunk-ignore(mypy/typeddict-item)
             )
         case TaskType.GENERIC:
             return GenericTaskStatusResponse(
-                # trunk-ignore(mypy/typeddict-item)
                 task_type=TaskType.GENERIC,
                 meta={},
-                **common_data,
+                **common_data,  # trunk-ignore(mypy/typeddict-item)
             )
         case _:
             raise ValueError(f"Invalid task type: {task_type}")
@@ -327,7 +325,7 @@ async def run_all_tasks(request: Request) -> list[TaskExecutionResponse]:
                 job_timeout=TASK_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
                 meta={
-                    "task_name": task_name,
+                    "task_name": task_instance.title,
                     "task_type": task_instance.task_type.value,
                 },
             ),
@@ -377,13 +375,13 @@ async def run_single_task(request: Request, task_name: str) -> TaskExecutionResp
         job_timeout=TASK_TIMEOUT,
         result_ttl=TASK_RESULT_TTL,
         meta={
-            "task_name": task_name,
+            "task_name": task_instance.title,
             "task_type": task_instance.task_type.value,
         },
     )
 
     return {
-        "task_name": task_name,
+        "task_name": task_instance.title,
         "task_id": job.get_id(),
         "status": job.get_status(),
         "queued_at": datetime.now(timezone.utc).isoformat(),
