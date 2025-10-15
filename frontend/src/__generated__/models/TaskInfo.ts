@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { TaskType } from './TaskType';
 export type TaskInfo = {
     name: string;
     manual_run: boolean;
@@ -9,5 +10,6 @@ export type TaskInfo = {
     description: string;
     enabled: boolean;
     cron_string: string;
+    task_type: TaskType;
 };
 

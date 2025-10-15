@@ -8,7 +8,7 @@ from handler.database import db_user_handler
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from logger.logger import log
-from tasks.tasks import PeriodicTask
+from tasks.tasks import PeriodicTask, TaskType
 from utils.context import initialize_context
 
 
@@ -16,6 +16,7 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
     def __init__(self):
         super().__init__(
             title="Scheduled RetroAchievements progress sync",
+            task_type=TaskType.UPDATE,
             description="Updates RetroAchievements progress for all users",
             enabled=ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
             cron_string=SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
@@ -39,7 +40,7 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
         for user in users:
             try:
                 user_progression = await meta_ra_handler.get_user_progression(
-                    user.ra_username,
+                    user.ra_username or "",
                     current_progression=cast(
                         RAUserProgression | None, user.ra_progression
                     ),

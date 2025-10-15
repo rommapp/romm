@@ -26,7 +26,7 @@ from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
 from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
-from tasks.tasks import Task
+from tasks.tasks import Task, TaskType
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -55,6 +55,7 @@ def _build_task_info(name: str, task: Task) -> TaskInfo:
         enabled=task.enabled,
         manual_run=task.manual_run,
         cron_string=task.cron_string or "",
+        task_type=task.task_type,
     )
 
 
@@ -84,6 +85,7 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
     grouped_tasks["watcher"].append(
         TaskInfo(
             name="filesystem_watcher",
+            task_type=TaskType.WATCHER,
             title="Rescan on filesystem change",
             description=f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
             enabled=ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,

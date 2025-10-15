@@ -77,6 +77,7 @@ export type { TaskExecutionResponse } from './models/TaskExecutionResponse';
 export type { TaskInfo } from './models/TaskInfo';
 export type { TasksDict } from './models/TasksDict';
 export type { TaskStatusResponse } from './models/TaskStatusResponse';
+export type { TaskType } from './models/TaskType';
 export type { TinfoilFeedFileSchema } from './models/TinfoilFeedFileSchema';
 export type { TinfoilFeedSchema } from './models/TinfoilFeedSchema';
 export type { TokenResponse } from './models/TokenResponse';
