@@ -47,10 +47,16 @@ const hasDetailedStats = computed(() => {
 </script>
 
 <template>
-  <v-card v-if="hasDetailedStats" elevation="0" rounded="0">
+  <v-card
+    v-if="hasDetailedStats"
+    elevation="0"
+    rounded="0"
+    class="position-static"
+  >
     <v-card-text class="pa-0 pt-3">
       <ScanTaskProgress
         v-if="task.task_type === 'scan' && scanStats"
+        :task="task"
         :scan-stats="scanStats"
       />
       <ConversionTaskProgress

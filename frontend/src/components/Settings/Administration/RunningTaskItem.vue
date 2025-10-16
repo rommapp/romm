@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { formatTimestamp } from "@/utils";
 import { TaskStatusItem, type TaskStatusResponse } from "@/utils/tasks";
 import TaskProgressDisplay from "./tasks/TaskProgressDisplay.vue";
 
@@ -26,21 +27,10 @@ const taskDuration = computed(() => {
   if (duration < 3600000) return `${Math.round(duration / 60000)}m`;
   return `${Math.round(duration / 3600000)}h`;
 });
-
-const formatRunTime = () => {
-  if (!props.task.started_at) return "Not started";
-
-  const startTime = new Date(props.task.started_at);
-  return startTime.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-};
 </script>
 
 <template>
-  <v-card elevation="2" class="rounded">
+  <v-card elevation="2" class="rounded relative">
     <v-card-text class="pa-0">
       <div class="d-flex align-center justify-space-between">
         <div class="d-flex align-center ga-2 flex-grow-1">
@@ -70,9 +60,6 @@ const formatRunTime = () => {
           </div>
         </div>
         <div class="d-flex align-center ga-2">
-          <v-chip size="small" variant="tonal" class="text-caption">
-            {{ formatRunTime() }}
-          </v-chip>
           <v-chip
             :color="statusIconColor.color"
             size="small"
@@ -86,6 +73,9 @@ const formatRunTime = () => {
               :class="{ 'task-icon--spinning': task.status === 'started' }"
             />
             {{ task.status }}
+          </v-chip>
+          <v-chip size="small" variant="tonal" class="text-caption">
+            {{ formatTimestamp(task.started_at || task.queued_at) }}
           </v-chip>
         </div>
       </div>

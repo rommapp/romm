@@ -271,7 +271,7 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
             job = Job.fetch(job_id, connection=redis_client)
             all_tasks.append(_build_task_status_response(job))
 
-    all_tasks.sort(key=lambda x: x["queued_at"], reverse=True)
+    all_tasks.sort(key=lambda x: x["started_at"] or x["queued_at"], reverse=True)
 
     return all_tasks
 
