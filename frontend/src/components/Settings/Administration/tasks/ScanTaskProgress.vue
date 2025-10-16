@@ -14,7 +14,7 @@ const scanProgress = computed(() => {
     scanned_platforms,
     scanned_roms,
     added_roms,
-    metadata_roms,
+    identified_roms,
     scanned_firmware,
     added_firmware,
   } = props.scanStats;
@@ -27,7 +27,7 @@ const scanProgress = computed(() => {
     roms: `${scanned_roms}/${total_roms}`,
     romsPercentage: Math.round((scanned_roms / total_roms) * 100),
     addedRoms: added_roms,
-    metadataRoms: metadata_roms,
+    metadataRoms: identified_roms,
     scannedFirmware: scanned_firmware,
     addedFirmware: added_firmware,
   };

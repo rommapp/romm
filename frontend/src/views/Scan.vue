@@ -542,7 +542,7 @@ async function stopScan() {
             t("scan.roms-scanned-with-details", {
               n_roms: scanStats.scanned_roms,
               n_added_roms: scanStats.added_roms,
-              n_identified_roms: scanStats.metadata_roms,
+              n_identified_roms: scanStats.identified_roms,
             })
           }}</span>
         </v-chip>

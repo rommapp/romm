@@ -10,22 +10,15 @@ const props = defineProps<{
 const cleanupProgress = computed(() => {
   const { total_platforms, total_roms, removed_platforms, removed_roms } =
     props.cleanupStats;
-  const totalPlatforms = total_platforms || 0;
-  const totalRoms = total_roms || 0;
-  const totalItems = totalPlatforms + totalRoms;
-  const removedPlatforms = removed_platforms || 0;
-  const removedRoms = removed_roms || 0;
-  const removedItems = removedPlatforms + removedRoms;
 
   return {
-    totalPlatforms: totalPlatforms,
-    totalRoms: totalRoms,
-    removedPlatforms: removedPlatforms,
-    removedRoms: removedRoms,
-    totalItems: totalItems,
-    removedItems: removedItems,
-    percentage:
-      totalItems > 0 ? Math.round((removedItems / totalItems) * 100) : 100,
+    totalPlatforms: total_platforms,
+    totalRoms: total_roms,
+    removedPlatforms: removed_platforms,
+    removedRoms: removed_roms,
+    totalItems: total_platforms + total_roms,
+    removedItems: removed_platforms + removed_roms,
+    percentage: Math.round((removed_roms / total_roms) * 100),
   };
 });
 </script>
