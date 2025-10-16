@@ -40,14 +40,14 @@ const taskDistanceFromNow = computed(() => {
   <v-card elevation="2" class="rounded relative">
     <v-card-text class="pa-0">
       <div class="d-flex align-center justify-space-between">
-        <div class="d-flex align-center ga-2 flex-grow-1">
+        <div class="d-flex align-center ga-2">
           <v-icon
             :color="statusIconColor.color"
             :icon="statusIconColor.icon"
             size="18"
             :class="{ 'task-icon--spinning': task.status === 'started' }"
           />
-          <div class="d-flex flex-row flex-grow-1 ga-3">
+          <div class="d-flex flex-row ga-3">
             <h3 class="text-body-1">
               {{ task.task_name }}
             </h3>
@@ -68,6 +68,14 @@ const taskDistanceFromNow = computed(() => {
         </div>
         <div class="d-flex align-center ga-2">
           <v-chip
+            size="small"
+            variant="tonal"
+            class="text-caption"
+            :title="formatTimestamp(task.started_at || task.queued_at)"
+          >
+            {{ taskDistanceFromNow }}
+          </v-chip>
+          <v-chip
             :color="statusIconColor.color"
             size="small"
             variant="flat"
@@ -80,14 +88,6 @@ const taskDistanceFromNow = computed(() => {
               :class="{ 'task-icon--spinning': task.status === 'started' }"
             />
             {{ task.status }}
-          </v-chip>
-          <v-chip
-            size="small"
-            variant="tonal"
-            class="text-caption"
-            :title="formatTimestamp(task.started_at || task.queued_at)"
-          >
-            {{ taskDistanceFromNow }}
           </v-chip>
         </div>
       </div>

@@ -3,8 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type UpdateStats = {
-    progress: number;
+    processed: number;
     total: number;
-    current: number;
 };
 

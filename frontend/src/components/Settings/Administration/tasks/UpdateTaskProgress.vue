@@ -1,40 +1,56 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { UpdateStats } from "@/__generated__";
+import type { UpdateStats, UpdateTaskStatusResponse } from "@/__generated__";
 
 const props = defineProps<{
+  task: UpdateTaskStatusResponse;
   updateStats: UpdateStats;
 }>();
 
 const updateProgress = computed(() => {
-  return {
-    updated: `${props.updateStats.current}/${props.updateStats.total}`,
-    percentage: Math.round(
-      (props.updateStats.current / props.updateStats.total) * 100,
-    ),
-  };
+  const { processed, total } = props.updateStats;
+  return total > 0 ? Math.round((processed / total) * 100) : 100;
 });
 </script>
 
 <template>
-  <div>
-    <div class="mb-3">
-      <div class="d-flex justify-space-between align-center mb-1">
-        <span class="text-caption">Download Progress</span>
-        <span class="text-caption">{{ updateProgress.percentage }}%</span>
-      </div>
-      <v-progress-linear
-        :model-value="updateProgress.percentage"
-        color="primary"
-        height="6"
-        rounded
+  <div class="d-flex flex-column ga-3">
+    <div
+      v-if="['started', 'stopped'].includes(task.status)"
+      class="overflow-hidden w-100 h-100 position-absolute top-0 left-0"
+    >
+      <div
+        class="progress-bar-fill h-100 rounded"
+        :style="{ width: `${updateProgress}%` }"
       />
-    </div>
-
-    <div class="d-flex flex-wrap gap-2">
-      <v-chip size="x-small" color="primary" variant="outlined">
-        Downloaded: {{ updateProgress.updated }}
-      </v-chip>
     </div>
   </div>
 </template>
+
+<style scoped>
+.progress-bar-fill {
+  background: linear-gradient(
+    90deg,
+    rgba(var(--v-theme-primary), 0.35) 0%,
+    rgba(var(--v-theme-primary), 0.2) 50%,
+    rgba(var(--v-theme-primary), 0.35) 100%
+  );
+  animation: progress-pulse 2s ease-in-out infinite;
+  transition: width 0.3s ease;
+}
+
+@keyframes progress-pulse {
+  0% {
+    opacity: 0.8;
+    transform: scaleX(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1.02);
+  }
+  100% {
+    opacity: 0.8;
+    transform: scaleX(1);
+  }
+}
+</style>
