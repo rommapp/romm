@@ -2,7 +2,7 @@ from config import (
     ENABLE_SCHEDULED_RESCAN,
     SCHEDULED_RESCAN_CRON,
 )
-from endpoints.sockets.scan import scan_platforms
+from endpoints.sockets.scan import ScanStats, scan_platforms
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_hasheous_handler,
@@ -33,10 +33,12 @@ class ScanLibraryTask(PeriodicTask):
         )
 
     async def run(self) -> dict[str, str]:
+        scan_stats = ScanStats()
+
         if not ENABLE_SCHEDULED_RESCAN:
             log.info("Scheduled library scan not enabled, unscheduling...")
             self.unschedule()
-            return {"status": "skipped", "reason": "Scheduled library scan not enabled"}
+            return scan_stats.to_dict()
 
         source_mapping: dict[str, bool] = {
             MetadataSource.IGDB: meta_igdb_handler.is_enabled(),
@@ -55,15 +57,15 @@ class ScanLibraryTask(PeriodicTask):
         if not metadata_sources:
             log.warning("No metadata sources enabled, unscheduling library scan")
             self.unschedule()
-            return {"status": "skipped", "reason": "No metadata sources enabled"}
+            return scan_stats.to_dict()
 
         log.info("Scheduled library scan started...")
-        await scan_platforms(
+        scan_stats = await scan_platforms(
             [], scan_type=ScanType.UNIDENTIFIED, metadata_sources=metadata_sources
         )
         log.info("Scheduled library scan done")
 
-        return {"status": "completed", "message": "Library scan completed successfully"}
+        return scan_stats.to_dict()
 
 
 scan_library_task = ScanLibraryTask()

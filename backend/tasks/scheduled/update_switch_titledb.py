@@ -32,18 +32,18 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
 
     @initialize_context()
     async def run(self, force: bool = False) -> dict[str, Any]:
+        update_stats = UpdateStats()
+
         content = await super().run(force)
         if content is None:
-            return {"status": "failed", "reason": "No content received"}
+            return update_stats.to_dict()
 
         index_json = json.loads(content)
         relevant_data = {k: v for k, v in index_json.items() if k and v}
-
         total_items = len(relevant_data)
         processed_items = 0
 
         # Update initial progress
-        update_stats = UpdateStats()
         update_stats.update(processed=processed_items, total=total_items)
 
         async with async_cache.pipeline() as pipe:
