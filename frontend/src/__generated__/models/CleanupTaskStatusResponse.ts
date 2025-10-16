@@ -12,6 +12,6 @@ export type CleanupTaskStatusResponse = {
     started_at: (string | null);
     ended_at: (string | null);
     task_type: "cleanup";
-    meta: (CleanupTaskMeta | null);
+    meta: CleanupTaskMeta;
 };
 

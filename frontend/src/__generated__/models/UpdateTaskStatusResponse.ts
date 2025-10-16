@@ -12,6 +12,6 @@ export type UpdateTaskStatusResponse = {
     started_at: (string | null);
     ended_at: (string | null);
     task_type: "update";
-    meta: (UpdateTaskMeta | null);
+    meta: UpdateTaskMeta;
 };
 

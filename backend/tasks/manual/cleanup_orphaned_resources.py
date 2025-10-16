@@ -51,13 +51,10 @@ class CleanupOrphanedResourcesTask(Task):
         log.info(f"Starting {self.title} task...")
 
         cleanup_stats = CleanupStats()
-        cleanup_stats.update(cleanup_stats=cleanup_stats.to_dict())
 
         roms_resources_path = os.path.join(RESOURCES_BASE_PATH, "roms")
         if not os.path.exists(roms_resources_path):
-            cleanup_stats.update(
-                total_platforms=0, total_roms=0, removed_platforms=0, removed_roms=0
-            )
+            cleanup_stats.update()
             log.info("Resources path does not exist, skipping cleanup")
             return cleanup_stats.to_dict()
 

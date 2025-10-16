@@ -12,6 +12,6 @@ export type ScanTaskStatusResponse = {
     started_at: (string | null);
     ended_at: (string | null);
     task_type: "scan";
-    meta: (ScanTaskMeta | null);
+    meta: ScanTaskMeta;
 };
 

@@ -12,6 +12,6 @@ export type ConversionTaskStatusResponse = {
     started_at: (string | null);
     ended_at: (string | null);
     task_type: "conversion";
-    meta: (ConversionTaskMeta | null);
+    meta: ConversionTaskMeta;
 };
 
