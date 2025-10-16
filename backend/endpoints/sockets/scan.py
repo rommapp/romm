@@ -141,9 +141,8 @@ def _update_job_meta(scan_stats: ScanStats) -> None:
 async def _identify_firmware(
     platform: Platform,
     fs_fw: str,
+    scan_stats: ScanStats,
 ) -> ScanStats:
-    scan_stats = ScanStats()
-
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return scan_stats
@@ -216,9 +215,8 @@ async def _identify_rom(
     roms_ids: list[int],
     metadata_sources: list[str],
     socket_manager: socketio.AsyncRedisManager,
+    scan_stats: ScanStats,
 ) -> ScanStats:
-    scan_stats = ScanStats()
-
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         return scan_stats
@@ -405,12 +403,11 @@ async def _identify_platform(
     roms_ids: list[int],
     metadata_sources: list[str],
     socket_manager: socketio.AsyncRedisManager,
+    scan_stats: ScanStats,
 ) -> ScanStats:
     # Stop the scan if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
         raise ScanStoppedException()
-
-    scan_stats = ScanStats()
 
     platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
     if platform and scan_type == ScanType.NEW_PLATFORMS:
@@ -451,9 +448,10 @@ async def _identify_platform(
         log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
 
     for fs_fw in fs_firmware:
-        scan_stats += await _identify_firmware(
+        scan_stats = await _identify_firmware(
             platform=platform,
             fs_fw=fs_fw,
+            scan_stats=scan_stats,
         )
 
     # Scanning roms
@@ -477,7 +475,7 @@ async def _identify_platform(
         )
 
         for fs_rom in fs_roms_batch:
-            scan_stats += await _identify_rom(
+            scan_stats = await _identify_rom(
                 platform=platform,
                 fs_rom=fs_rom,
                 rom=rom_by_filename_map.get(fs_rom["fs_name"]),
@@ -485,6 +483,7 @@ async def _identify_platform(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 socket_manager=socket_manager,
+                scan_stats=scan_stats,
             )
 
     missing_roms = db_rom_handler.mark_missing_roms(
@@ -573,13 +572,14 @@ async def scan_platforms(
             )
 
         for platform_slug in platform_list:
-            scan_stats += await _identify_platform(
+            scan_stats = await _identify_platform(
                 platform_slug=platform_slug,
                 scan_type=scan_type,
                 fs_platforms=fs_platforms,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 socket_manager=socket_manager,
+                scan_stats=scan_stats,
             )
 
         missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
