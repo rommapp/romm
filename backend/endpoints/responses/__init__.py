@@ -75,7 +75,7 @@ TaskMeta = Union[
 class TaskExecutionResponse(TypedDict):
     task_name: str
     task_id: str
-    status: JobStatus | None
+    status: JobStatus
     queued_at: str
 
 

@@ -4,6 +4,6 @@
 /* eslint-disable */
 import type { ConversionStats } from './ConversionStats';
 export type ConversionTaskMeta = {
-    conversion_stats: ConversionStats;
+    conversion_stats: (ConversionStats | null);
 };
 
