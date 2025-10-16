@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { inject, computed } from "vue";
 import taskApi from "@/services/api/task";
-import storeRunningTasks from "@/stores/runningTasks";
+import storeTasks from "@/stores/tasks";
 import type { Events } from "@/types/emitter";
 
 const props = withDefaults(
@@ -26,24 +27,22 @@ const props = withDefaults(
   },
 );
 const emitter = inject<Emitter<Events>>("emitter");
-const runningTasksStore = storeRunningTasks();
-
-// Computed properties
-const isTaskRunning = computed(() =>
-  props.name ? runningTasksStore.isTaskRunning(props.name) : false,
+const tasksStore = storeTasks();
+const { taskStatuses } = storeToRefs(tasksStore);
+const task = computed(() =>
+  taskStatuses.value
+    .filter((task) => !["queued", "started"].includes(task.status))
+    .find((task) => task.task_name === props.name),
 );
 
 function run() {
   if (!props.name) return;
 
-  // Add task to running tasks
-  runningTasksStore.addTask(props.name);
-
   taskApi
     .runTask(props.name)
     .then(() => {
       emitter?.emit("snackbarShow", {
-        msg: `Task '${props.title}' ran successfully!`,
+        msg: `Task '${props.title}' started...`,
         icon: "mdi-check-bold",
         color: "green",
       });
@@ -56,10 +55,7 @@ function run() {
         color: "red",
       });
     })
-    .finally(() => {
-      // Remove task from running tasks
-      runningTasksStore.removeTask(props.name);
-    });
+    .finally(() => {});
 }
 </script>
 <template>
@@ -84,8 +80,8 @@ function run() {
           variant="outlined"
           size="small"
           class="text-primary"
-          :disabled="isTaskRunning"
-          :loading="isTaskRunning"
+          :disabled="!!task"
+          :loading="false"
           @click="run"
         >
           <v-icon>mdi-play</v-icon>

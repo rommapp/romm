@@ -21,8 +21,10 @@ from handler.metadata.launchbox_handler import (
 )
 from handler.redis_handler import async_cache
 from logger.logger import log
-from tasks.tasks import RemoteFilePullTask
+from tasks.tasks import RemoteFilePullTask, TaskType
 from utils.context import initialize_context
+
+from . import UpdateStats
 
 
 class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
@@ -30,6 +32,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
         super().__init__(
             title="Scheduled LaunchBox metadata update",
             description="Updates the LaunchBox metadata store",
+            task_type=TaskType.UPDATE,
             enabled=ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
             cron_string=SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
             manual_run=True,
@@ -38,20 +41,29 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
         )
 
     @initialize_context()
-    async def run(self, force: bool = False) -> None:
+    async def run(self, force: bool = False) -> dict[str, Any]:
+        update_stats = UpdateStats()
+
         if not meta_launchbox_handler.is_enabled():
             log.warning("Launchbox API is not enabled, skipping metadata update")
-            return None
+            return update_stats.to_dict()
 
         content = await super().run(force)
         if content is None:
             log.warning("No content received from launchbox metadata update")
-            return None
+            return update_stats.to_dict()
 
         try:
             zip_file_bytes = BytesIO(content)
             with zipfile.ZipFile(zip_file_bytes) as z:
-                for file in z.namelist():
+                file_list = z.namelist()
+                total_files = len(file_list)
+                processed_files = 0
+
+                # Update initial progress
+                update_stats.update(processed=processed_files, total=total_files)
+
+                for file in file_list:
                     if file == "Platforms.xml":
                         with z.open(file, "r") as f:
                             async with async_cache.pipeline() as pipe:
@@ -75,6 +87,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
                                         elem.clear()
                                 await pipe.execute()
+                                processed_files += 1
+                                update_stats.update(processed=processed_files)
 
                     elif file == "Metadata.xml":
                         with z.open(file, "r") as f:
@@ -182,6 +196,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                         },
                                     )
                                 await pipe.execute()
+                                processed_files += 1
+                                update_stats.update(processed=processed_files)
 
                     elif file == "Mame.xml":
                         with z.open(file, "r") as f:
@@ -209,6 +225,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
                                         elem.clear()
                                 await pipe.execute()
+                                processed_files += 1
+                                update_stats.update(processed=processed_files)
 
                     elif file == "Files.xml":
                         with z.open(file, "r") as f:
@@ -236,12 +254,16 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
                                         elem.clear()
                                 await pipe.execute()
+                                processed_files += 1
+                                update_stats.update(processed=processed_files)
 
         except zipfile.BadZipFile:
             log.error("Bad zip file in launchbox metadata update")
-            return None
+            return update_stats.to_dict()
 
         log.info("Scheduled launchbox metadata update completed!")
+
+        return update_stats.to_dict()
 
 
 update_launchbox_metadata_task = UpdateLaunchboxMetadataTask()

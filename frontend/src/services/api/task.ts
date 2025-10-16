@@ -1,9 +1,6 @@
-import {
-  type TaskExecutionResponse,
-  type TaskStatusResponse,
-  type TaskInfo,
-} from "@/__generated__";
+import { type TaskExecutionResponse, type TaskInfo } from "@/__generated__";
 import api from "@/services/api";
+import type { TaskStatusResponse } from "@/utils/tasks";
 
 async function getTasks(): Promise<{
   data: Record<string, TaskInfo[]>;
@@ -11,9 +8,9 @@ async function getTasks(): Promise<{
   return api.get("/tasks");
 }
 
-async function getTaskById(
-  taskId: string,
-): Promise<{ data: TaskStatusResponse }> {
+async function getTaskById(taskId: string): Promise<{
+  data: TaskStatusResponse;
+}> {
   return api.get(`/tasks/${taskId}`);
 }
 
@@ -27,9 +24,16 @@ async function runTask(
   return api.post(`/tasks/run/${taskName}`);
 }
 
+async function getTaskStatus(): Promise<{
+  data: TaskStatusResponse[];
+}> {
+  return api.get("/tasks/status");
+}
+
 export default {
   getTasks,
   getTaskById,
   runAllTasks,
   runTask,
+  getTaskStatus,
 };

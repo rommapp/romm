@@ -15,7 +15,7 @@
   "partial-metadata": "Metadate parțiale",
   "partial-metadata-desc": "Scanează doar jocurile identificate cu metadate incomplete",
   "platforms-scanned-n": "Platforme: {n} scanată | Platforme: {n} scanate",
-  "platforms-scanned-with-details": "Platforme: {n_platforms} scanate, {n_added_platforms} noi și {n_identified_platforms} identificate",
+  "platforms-scanned-with-details": "Platforme: {n_platforms} scanate, {n_new_platforms} noi și {n_identified_platforms} identificate",
   "quick-scan": "Scanare rapidă",
   "quick-scan-desc": "Scanează biblioteca pentru a găsi fișiere noi",
   "roms-scanned-n": "Roms: {n} scanată | Roms: {n} scanate",
