@@ -12,6 +12,6 @@ export type WatcherTaskStatusResponse = {
     started_at: (string | null);
     ended_at: (string | null);
     task_type: "watcher";
-    meta: (WatcherTaskMeta | null);
+    meta: WatcherTaskMeta;
 };
 

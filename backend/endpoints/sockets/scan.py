@@ -488,11 +488,10 @@ async def scan_platforms(
         await socket_manager.emit("scan:done_ko", e.message)
         return scan_stats
 
+    # Precalculate total platforms and ROMs
     scan_stats.update(total_platforms=len(fs_platforms))
-
-    for platform in fs_platforms:
-        pl = Platform(fs_slug=platform)
-        fs_roms = await fs_rom_handler.get_roms(pl)
+    for platform_slug in fs_platforms:
+        fs_roms = await fs_rom_handler.get_roms(Platform(fs_slug=platform_slug))
         scan_stats.update(total_roms=scan_stats.total_roms + len(fs_roms))
 
     async def stop_scan():

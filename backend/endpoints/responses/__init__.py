@@ -85,32 +85,32 @@ class BaseTaskStatusResponse(TaskExecutionResponse):
 
 class ScanTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.SCAN]
-    meta: ScanTaskMeta | None
+    meta: ScanTaskMeta
 
 
 class ConversionTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.CONVERSION]
-    meta: ConversionTaskMeta | None
+    meta: ConversionTaskMeta
 
 
 class UpdateTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.UPDATE]
-    meta: UpdateTaskMeta | None
+    meta: UpdateTaskMeta
 
 
 class CleanupTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.CLEANUP]
-    meta: CleanupTaskMeta | None
+    meta: CleanupTaskMeta
 
 
 class WatcherTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.WATCHER]
-    meta: WatcherTaskMeta | None
+    meta: WatcherTaskMeta
 
 
 class GenericTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.GENERIC]
-    meta: GenericTaskMeta | None
+    meta: GenericTaskMeta
 
 
 TaskStatusResponse = Union[

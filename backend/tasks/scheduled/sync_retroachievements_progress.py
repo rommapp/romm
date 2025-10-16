@@ -46,7 +46,7 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
         for user in users:
             try:
                 user_progression = await meta_ra_handler.get_user_progression(
-                    user.ra_username or "",
+                    user.ra_username,  # type: ignore[union-attr]
                     current_progression=cast(
                         RAUserProgression | None, user.ra_progression
                     ),
