@@ -14,7 +14,7 @@ const conversionProgress = computed(() => {
 
   return {
     processed: `${processed}/${total}`,
-    processedProgress: Math.round((processed / total) * 100),
+    percentage: Math.round((processed / total) * 100),
     errors: errors,
     successRate:
       total > 0 ? Math.round(((processed - errors) / total) * 100) : 0,
@@ -24,16 +24,13 @@ const conversionProgress = computed(() => {
 
 <template>
   <div>
-    <!-- Progress Bar -->
     <div class="mb-3">
       <div class="d-flex justify-space-between align-center mb-1">
         <span class="text-caption">Conversion Progress</span>
-        <span class="text-caption"
-          >{{ conversionProgress.processedProgress }}%</span
-        >
+        <span class="text-caption">{{ conversionProgress.percentage }}%</span>
       </div>
       <v-progress-linear
-        :model-value="conversionProgress.processedProgress"
+        :model-value="conversionProgress.percentage"
         color="primary"
         height="6"
         rounded

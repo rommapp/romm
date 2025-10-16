@@ -1,24 +1,14 @@
 import { defineStore } from "pinia";
-import type {
-  ScanTaskStatusResponse,
-  ConversionTaskStatusResponse,
-  CleanupTaskStatusResponse,
-  UpdateTaskStatusResponse,
-} from "@/__generated__";
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import tasksApi from "@/services/api/task";
+import type { TaskStatusResponse } from "@/utils/tasks";
 
 export default defineStore("tasks", {
   state: () => ({
     watcherTasks: [] as TaskInfo[],
     scheduledTasks: [] as TaskInfo[],
     manualTasks: [] as TaskInfo[],
-    taskStatuses: [] as (
-      | ScanTaskStatusResponse
-      | ConversionTaskStatusResponse
-      | CleanupTaskStatusResponse
-      | UpdateTaskStatusResponse
-    )[],
+    taskStatuses: [] as TaskStatusResponse[],
   }),
 
   actions: {
@@ -47,14 +37,7 @@ export default defineStore("tasks", {
         };
       }
     },
-    async fetchTaskStatus(): Promise<
-      (
-        | ScanTaskStatusResponse
-        | ConversionTaskStatusResponse
-        | CleanupTaskStatusResponse
-        | UpdateTaskStatusResponse
-      )[]
-    > {
+    async fetchTaskStatus(): Promise<TaskStatusResponse[]> {
       try {
         const response = await tasksApi.getTaskStatus();
         this.taskStatuses = response.data;

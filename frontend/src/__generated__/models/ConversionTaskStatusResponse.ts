@@ -7,7 +7,7 @@ import type { JobStatus } from './JobStatus';
 export type ConversionTaskStatusResponse = {
     task_name: string;
     task_id: string;
-    status: (JobStatus | null);
+    status: JobStatus;
     queued_at: string;
     started_at: (string | null);
     ended_at: (string | null);

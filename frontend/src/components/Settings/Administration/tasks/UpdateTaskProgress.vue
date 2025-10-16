@@ -9,7 +9,7 @@ const props = defineProps<{
 const updateProgress = computed(() => {
   return {
     updated: `${props.updateStats.current}/${props.updateStats.total}`,
-    updatedProgress: Math.round(
+    percentage: Math.round(
       (props.updateStats.current / props.updateStats.total) * 100,
     ),
   };
@@ -18,21 +18,19 @@ const updateProgress = computed(() => {
 
 <template>
   <div>
-    <!-- Progress Bar -->
     <div class="mb-3">
       <div class="d-flex justify-space-between align-center mb-1">
         <span class="text-caption">Download Progress</span>
-        <span class="text-caption">{{ updateProgress.updatedProgress }}%</span>
+        <span class="text-caption">{{ updateProgress.percentage }}%</span>
       </div>
       <v-progress-linear
-        :model-value="updateProgress.updatedProgress"
+        :model-value="updateProgress.percentage"
         color="primary"
         height="6"
         rounded
       />
     </div>
 
-    <!-- Summary Chips -->
     <div class="d-flex flex-wrap gap-2">
       <v-chip size="x-small" color="primary" variant="outlined">
         Downloaded: {{ updateProgress.updated }}

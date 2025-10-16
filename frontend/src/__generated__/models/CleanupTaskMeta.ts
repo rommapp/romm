@@ -4,6 +4,6 @@
 /* eslint-disable */
 import type { CleanupStats } from './CleanupStats';
 export type CleanupTaskMeta = {
-    cleanup_stats: CleanupStats;
+    cleanup_stats: (CleanupStats | null);
 };
 

@@ -4,6 +4,6 @@
 /* eslint-disable */
 import type { ScanStats } from './ScanStats';
 export type ScanTaskMeta = {
-    scan_stats: ScanStats;
+    scan_stats: (ScanStats | null);
 };
 
