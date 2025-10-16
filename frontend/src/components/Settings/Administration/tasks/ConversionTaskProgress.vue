@@ -11,17 +11,14 @@ const props = defineProps<{
 }>();
 
 const conversionProgress = computed(() => {
-  const stats = props.conversionStats;
-  const total = stats.total || 0;
-  const processed = stats.processed || 0;
-  const errors = stats.errors || 0;
+  const { processed, total, errors } = props.conversionStats;
 
   return {
     processed: `${processed}/${total}`,
     percentage: Math.round((processed / total) * 100),
     errors: errors,
     successRate:
-      total > 0 ? Math.round(((processed - errors) / total) * 100) : 0,
+      total > 0 ? Math.round(((processed - errors) / total) * 100) : 100,
   };
 });
 </script>

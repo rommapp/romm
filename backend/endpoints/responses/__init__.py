@@ -34,9 +34,8 @@ class ConversionTaskMeta(TypedDict):
 
 
 class UpdateStats(TypedDict):
-    progress: int
+    processed: int
     total: int
-    current: int
 
 
 class UpdateTaskMeta(TypedDict):
@@ -44,7 +43,10 @@ class UpdateTaskMeta(TypedDict):
 
 
 class CleanupStats(TypedDict):
-    removed: int
+    total_platforms: int
+    total_roms: int
+    removed_platforms: int
+    removed_roms: int
 
 
 class CleanupTaskMeta(TypedDict):

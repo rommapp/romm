@@ -35,7 +35,7 @@ function run() {
     .runTask(props.name)
     .then(() => {
       emitter?.emit("snackbarShow", {
-        msg: `Task '${props.title}' ran successfully!`,
+        msg: `Task '${props.title}' started...`,
         icon: "mdi-check-bold",
         color: "green",
       });

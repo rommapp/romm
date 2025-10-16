@@ -53,7 +53,7 @@ const hasDetailedStats = computed(() => {
     rounded="0"
     class="position-static"
   >
-    <v-card-text class="pa-0 pt-3">
+    <v-card-text class="pa-0 pt-2">
       <ScanTaskProgress
         v-if="task.task_type === 'scan' && scanStats"
         :task="task"
@@ -66,10 +66,12 @@ const hasDetailedStats = computed(() => {
       />
       <CleanupTaskProgress
         v-else-if="task.task_type === 'cleanup' && cleanupStats"
+        :task="task"
         :cleanup-stats="cleanupStats"
       />
       <UpdateTaskProgress
         v-else-if="task.task_type === 'update' && updateStats"
+        :task="task"
         :update-stats="updateStats"
       />
     </v-card-text>

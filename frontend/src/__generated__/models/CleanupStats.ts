@@ -3,6 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type CleanupStats = {
-    removed: number;
+    total_platforms: number;
+    total_roms: number;
+    removed_platforms: number;
+    removed_roms: number;
 };
 

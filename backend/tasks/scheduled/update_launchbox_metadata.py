@@ -4,6 +4,7 @@ from io import BytesIO
 from typing import Any
 
 from defusedxml import ElementTree as ET
+from rq import get_current_job
 
 from config import (
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
@@ -38,6 +39,24 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
             url="https://gamesdb.launchbox-app.com/Metadata.zip",
         )
 
+    def _update_job_meta(self, processed: int, total: int) -> None:
+        """Update the current RQ job's meta data with update stats information"""
+        try:
+            current_job = get_current_job()
+            if current_job:
+                current_job.meta.update(
+                    {
+                        "update_stats": {
+                            "processed": processed,
+                            "total": total,
+                        }
+                    }
+                )
+                current_job.save_meta()
+        except Exception as e:
+            # Silently fail if we can't update meta (e.g., not running in RQ context)
+            log.debug(f"Could not update job meta: {e}")
+
     @initialize_context()
     async def run(self, force: bool = False) -> dict[str, Any]:
         if not meta_launchbox_handler.is_enabled():
@@ -52,7 +71,14 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
         try:
             zip_file_bytes = BytesIO(content)
             with zipfile.ZipFile(zip_file_bytes) as z:
-                for file in z.namelist():
+                file_list = z.namelist()
+                total_files = len(file_list)
+                processed_files = 0
+
+                # Update initial progress
+                self._update_job_meta(processed_files, total_files)
+
+                for file in file_list:
                     if file == "Platforms.xml":
                         with z.open(file, "r") as f:
                             async with async_cache.pipeline() as pipe:
@@ -76,6 +102,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
                                         elem.clear()
                                 await pipe.execute()
+                                processed_files += 1
+                                self._update_job_meta(processed_files, total_files)
 
                     elif file == "Metadata.xml":
                         with z.open(file, "r") as f:
@@ -183,6 +211,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                         },
                                     )
                                 await pipe.execute()
+                                processed_files += 1
+                                self._update_job_meta(processed_files, total_files)
 
                     elif file == "Mame.xml":
                         with z.open(file, "r") as f:
@@ -210,6 +240,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
                                         elem.clear()
                                 await pipe.execute()
+                                processed_files += 1
+                                self._update_job_meta(processed_files, total_files)
 
                     elif file == "Files.xml":
                         with z.open(file, "r") as f:
@@ -237,6 +269,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
                                         elem.clear()
                                 await pipe.execute()
+                                processed_files += 1
+                                self._update_job_meta(processed_files, total_files)
 
         except zipfile.BadZipFile:
             log.error("Bad zip file in launchbox metadata update")

@@ -8,21 +8,28 @@ const props = defineProps<{
 }>();
 
 const scanProgress = computed(() => {
-  const stats = props.scanStats;
-  const totalPlatforms = stats.total_platforms || 0;
-  const totalRoms = stats.total_roms || 0;
-  const scannedPlatforms = stats.scanned_platforms || 0;
-  const scannedRoms = stats.scanned_roms || 0;
+  const {
+    total_platforms,
+    total_roms,
+    scanned_platforms,
+    scanned_roms,
+    added_roms,
+    metadata_roms,
+    scanned_firmware,
+    added_firmware,
+  } = props.scanStats;
 
   return {
-    platforms: `${scannedPlatforms}/${totalPlatforms}`,
-    platformsPercentage: Math.round((scannedPlatforms / totalPlatforms) * 100),
-    roms: `${scannedRoms}/${totalRoms}`,
-    romsPercentage: Math.round((scannedRoms / totalRoms) * 100),
-    addedRoms: stats.added_roms || 0,
-    metadataRoms: stats.metadata_roms || 0,
-    scannedFirmware: stats.scanned_firmware || 0,
-    addedFirmware: stats.added_firmware || 0,
+    platforms: `${scanned_platforms}/${total_platforms}`,
+    platformsPercentage: Math.round(
+      (scanned_platforms / total_platforms) * 100,
+    ),
+    roms: `${scanned_roms}/${total_roms}`,
+    romsPercentage: Math.round((scanned_roms / total_roms) * 100),
+    addedRoms: added_roms,
+    metadataRoms: metadata_roms,
+    scannedFirmware: scanned_firmware,
+    addedFirmware: added_firmware,
   };
 });
 </script>
