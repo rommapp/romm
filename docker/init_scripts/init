@@ -211,6 +211,7 @@ start_bin_rq_worker() {
 		--path /backend \
 		--pid /tmp/rq_worker.pid \
 		--url "${redis_url}" \
+		--results-ttl "${TASK_RESULT_TTL:-86400}" \
 		high default low &
 }
 

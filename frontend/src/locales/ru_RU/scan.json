@@ -15,7 +15,7 @@
   "partial-metadata": "Частичные метаданные",
   "partial-metadata-desc": "Сканировать игры с частичными совпадениями метаданных",
   "platforms-scanned-n": "Платформы: {n} отсканировано",
-  "platforms-scanned-with-details": "Платформы: {n_platforms} отсканировано, {n_added_platforms} новых и {n_identified_platforms} опознано",
+  "platforms-scanned-with-details": "Платформы: {n_platforms} отсканировано, {n_new_platforms} новых и {n_identified_platforms} опознано",
   "quick-scan": "Быстрое сканирование",
   "quick-scan-desc": "Сканировать только новые файлы",
   "roms-scanned-n": "Ромы: {n} отсканировано",
