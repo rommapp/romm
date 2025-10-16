@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from PIL import Image, UnidentifiedImageError
+from rq import get_current_job
 
 from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -104,6 +105,24 @@ class ConvertImagesToWebPTask(PeriodicTask):
         self.converter = ImageConverter()
         self._reset_counters()
 
+    def _update_job_meta(self, total_files: int) -> None:
+        """Update the current RQ job's meta data with conversion stats information"""
+        conversion_stats = {
+            "processed": self.processed_count,
+            "errors": self.error_count,
+            "total": total_files,
+            "errorList": self.errors[:10],
+        }
+
+        try:
+            current_job = get_current_job()
+            if current_job:
+                current_job.meta.update({"conversion_stats": conversion_stats})
+                current_job.save_meta()
+        except Exception as e:
+            # Silently fail if we can't update meta (e.g., not running in RQ context)
+            log.debug(f"Could not update job meta: {e}")
+
     def _reset_counters(self) -> None:
         """Reset processing counters."""
         self.processed_count = 0
@@ -178,6 +197,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
         total_files = len(image_files)
 
         if total_files == 0:
+            self._update_job_meta(total_files)
             log.info("No convertible images found")
             return self._create_result_dict(total_files)
 
@@ -189,6 +209,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
         # Process images
         for i, image_file in enumerate(image_files, 1):
             self._process_single_image(image_file)
+            self._update_job_meta(total_files)
 
             # Log progress periodically
             if i % 50 == 0 or i == total_files:
