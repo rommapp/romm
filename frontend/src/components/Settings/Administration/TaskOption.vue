@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { inject, computed } from "vue";
 import taskApi from "@/services/api/task";
 import storeTasks from "@/stores/tasks";
@@ -27,6 +28,12 @@ const props = withDefaults(
 );
 const emitter = inject<Emitter<Events>>("emitter");
 const tasksStore = storeTasks();
+const { taskStatuses } = storeToRefs(tasksStore);
+const task = computed(() =>
+  taskStatuses.value
+    .filter((task) => !["queued", "started"].includes(task.status))
+    .find((task) => task.task_name === props.name),
+);
 
 function run() {
   if (!props.name) return;
@@ -73,7 +80,7 @@ function run() {
           variant="outlined"
           size="small"
           class="text-primary"
-          :disabled="false"
+          :disabled="!!task"
           :loading="false"
           @click="run"
         >

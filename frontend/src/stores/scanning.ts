@@ -20,7 +20,7 @@ export default defineStore("scanning", {
       identified_platforms: 0,
       scanned_roms: 0,
       added_roms: 0,
-      metadata_roms: 0,
+      identified_roms: 0,
     },
   }),
 
@@ -37,7 +37,7 @@ export default defineStore("scanning", {
         identified_platforms: 0,
         scanned_roms: 0,
         added_roms: 0,
-        metadata_roms: 0,
+        identified_roms: 0,
       };
     },
   },
