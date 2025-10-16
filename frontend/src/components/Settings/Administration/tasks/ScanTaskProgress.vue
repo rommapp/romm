@@ -27,72 +27,28 @@ const scanProgress = computed(() => {
 </script>
 
 <template>
-  <div class="d-flex flex-column ga-6">
-    <!-- Progress Bars -->
-    <div class="d-flex flex-column ga-5">
-      <div class="d-flex flex-column ga-2">
-        <div
-          class="d-flex align-center justify-space-between text-body-2 font-weight-semibold text-white"
-        >
-          <div class="d-flex align-center">
-            <v-icon icon="mdi-console" size="16" class="mr-2" />
-            <span>Platforms</span>
-          </div>
-          <v-chip
-            size="x-small"
-            variant="tonal"
-            class="text-caption font-family-monospace"
-          >
-            {{ scanProgress.platformsPercentage }}%
-          </v-chip>
-        </div>
-        <v-progress-linear
-          :model-value="scanProgress.platformsPercentage"
-          color="primary"
-          height="8"
-          rounded
-        />
-        <div class="text-caption text-grey-lighten-1">
-          {{ scanProgress.platforms }} platforms processed
-        </div>
-      </div>
-
-      <div class="d-flex flex-column ga-2">
-        <div
-          class="d-flex align-center justify-space-between text-body-2 font-weight-semibold text-white"
-        >
-          <div class="d-flex align-center">
-            <v-icon icon="mdi-gamepad-variant" size="16" class="mr-2" />
-            <span>ROMs</span>
-          </div>
-          <v-chip
-            size="x-small"
-            variant="tonal"
-            class="text-caption font-family-monospace"
-          >
-            {{ scanProgress.romsPercentage }}%
-          </v-chip>
-        </div>
+  <div class="d-flex flex-column ga-4">
+    <div class="d-flex flex-column">
+      <div
+        class="d-flex align-center justify-space-between gap-4 font-weight-semibold text-white"
+      >
         <v-progress-linear
           :model-value="scanProgress.romsPercentage"
-          color="secondary"
-          height="8"
+          color="primary"
+          height="12"
           rounded
         />
-        <div class="text-caption text-grey-lighten-1">
-          {{ scanProgress.roms }} ROMs processed
-        </div>
+        <v-chip size="small" variant="tonal">
+          {{ scanProgress.romsPercentage }}%
+        </v-chip>
+      </div>
+      <div class="text-grey-lighten-1">
+        {{ scanProgress.roms }} ROMs and {{ scanProgress.platforms }} platforms
+        processed
       </div>
     </div>
 
-    <!-- Summary Stats -->
-    <div
-      class="d-grid"
-      style="
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 16px;
-      "
-    >
+    <div class="grid grid-cols-5 gap-4">
       <v-card
         variant="tonal"
         class="d-flex align-center ga-3 pa-4 border-l-4 border-primary"
@@ -101,14 +57,10 @@ const scanProgress = computed(() => {
           <v-icon icon="mdi-console" size="20" />
         </v-avatar>
         <div class="d-flex flex-column ga-1 flex-grow-1">
-          <div
-            class="text-h6 font-weight-bold text-white font-family-monospace"
-          >
+          <div class="text-h6 font-weight-bold text-white">
             {{ scanProgress.platforms }}
           </div>
-          <div
-            class="text-caption text-grey-lighten-1 font-weight-medium text-uppercase"
-          >
+          <div class="text-grey-lighten-1 font-weight-medium text-uppercase">
             Platforms
           </div>
         </div>
@@ -122,14 +74,10 @@ const scanProgress = computed(() => {
           <v-icon icon="mdi-gamepad-variant" size="20" />
         </v-avatar>
         <div class="d-flex flex-column ga-1 flex-grow-1">
-          <div
-            class="text-h6 font-weight-bold text-white font-family-monospace"
-          >
+          <div class="text-h6 font-weight-bold text-white">
             {{ scanProgress.roms }}
           </div>
-          <div
-            class="text-caption text-grey-lighten-1 font-weight-medium text-uppercase"
-          >
+          <div class="text-grey-lighten-1 font-weight-medium text-uppercase">
             ROMs
           </div>
         </div>
@@ -143,14 +91,10 @@ const scanProgress = computed(() => {
           <v-icon icon="mdi-plus-circle" size="20" />
         </v-avatar>
         <div class="d-flex flex-column ga-1 flex-grow-1">
-          <div
-            class="text-h6 font-weight-bold text-white font-family-monospace"
-          >
+          <div class="text-h6 font-weight-bold text-white">
             {{ scanProgress.addedRoms }}
           </div>
-          <div
-            class="text-caption text-grey-lighten-1 font-weight-medium text-uppercase"
-          >
+          <div class="text-grey-lighten-1 font-weight-medium text-uppercase">
             Added
           </div>
         </div>
@@ -164,14 +108,10 @@ const scanProgress = computed(() => {
           <v-icon icon="mdi-information" size="20" />
         </v-avatar>
         <div class="d-flex flex-column ga-1 flex-grow-1">
-          <div
-            class="text-h6 font-weight-bold text-white font-family-monospace"
-          >
+          <div class="text-h6 font-weight-bold text-white">
             {{ scanProgress.metadataRoms }}
           </div>
-          <div
-            class="text-caption text-grey-lighten-1 font-weight-medium text-uppercase"
-          >
+          <div class="text-grey-lighten-1 font-weight-medium text-uppercase">
             Metadata
           </div>
         </div>
@@ -185,14 +125,10 @@ const scanProgress = computed(() => {
           <v-icon icon="mdi-chip" size="20" />
         </v-avatar>
         <div class="d-flex flex-column ga-1 flex-grow-1">
-          <div
-            class="text-h6 font-weight-bold text-white font-family-monospace"
-          >
+          <div class="text-h6 font-weight-bold text-white">
             {{ scanProgress.scannedFirmware }}
           </div>
-          <div
-            class="text-caption text-grey-lighten-1 font-weight-medium text-uppercase"
-          >
+          <div class="text-grey-lighten-1 font-weight-medium text-uppercase">
             Firmware
           </div>
         </div>

@@ -3,7 +3,7 @@ from typing import TypedDict
 
 from fastapi import HTTPException, Request
 from rq import Worker
-from rq.job import Job
+from rq.job import Job, JobStatus
 from rq.registry import FailedJobRegistry, FinishedJobRegistry
 
 from config import (
@@ -271,6 +271,8 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
             job = Job.fetch(job_id, connection=redis_client)
             all_tasks.append(_build_task_status_response(job))
 
+    all_tasks.sort(key=lambda x: x["queued_at"], reverse=True)
+
     return all_tasks
 
 
@@ -334,12 +336,12 @@ async def run_all_tasks(request: Request) -> list[TaskExecutionResponse]:
     ]
 
     return [
-        {
-            "task_name": task_name,
-            "task_id": job.get_id(),
-            "status": job.get_status(),
-            "queued_at": datetime.now(timezone.utc).isoformat(),
-        }
+        TaskExecutionResponse(
+            task_name=task_name,
+            task_id=job.get_id(),
+            status=job.get_status() or JobStatus.QUEUED,
+            queued_at=datetime.now(timezone.utc).isoformat(),
+        )
         for (task_name, job) in jobs
     ]
 
@@ -383,6 +385,6 @@ async def run_single_task(request: Request, task_name: str) -> TaskExecutionResp
     return {
         "task_name": task_instance.title,
         "task_id": job.get_id(),
-        "status": job.get_status(),
+        "status": job.get_status() or JobStatus.QUEUED,
         "queued_at": datetime.now(timezone.utc).isoformat(),
     }
