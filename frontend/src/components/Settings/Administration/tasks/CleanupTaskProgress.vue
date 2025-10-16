@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { CleanupStats, CleanupTaskStatusResponse } from "@/__generated__";
+
+const { t } = useI18n();
 
 const props = defineProps<{
   task: CleanupTaskStatusResponse;
@@ -51,7 +54,7 @@ const cleanupProgress = computed(() => {
               cleanupProgress.totalPlatforms
             }}
           </div>
-          <div class="text-uppercase">Platforms</div>
+          <div class="text-uppercase">{{ t("common.platforms") }}</div>
         </div>
       </v-card>
 
@@ -68,7 +71,7 @@ const cleanupProgress = computed(() => {
           <div class="font-weight-bold">
             {{ cleanupProgress.removedRoms }}/{{ cleanupProgress.totalRoms }}
           </div>
-          <div class="text-uppercase">ROMs</div>
+          <div class="text-uppercase">{{ t("common.roms") }}</div>
         </div>
       </v-card>
 
@@ -85,7 +88,7 @@ const cleanupProgress = computed(() => {
           <div class="font-weight-bold">
             {{ cleanupProgress.removedItems }}
           </div>
-          <div class="text-uppercase">Removed</div>
+          <div class="text-uppercase">{{ t("settings.removed") }}</div>
         </div>
       </v-card>
 
@@ -100,7 +103,7 @@ const cleanupProgress = computed(() => {
             <v-icon icon="mdi-percent" size="20" />
           </v-avatar>
           <div class="font-weight-bold">{{ cleanupProgress.percentage }}%</div>
-          <div class="text-uppercase">Progress</div>
+          <div class="text-uppercase">{{ t("settings.progress") }}</div>
         </div>
       </v-card>
     </div>

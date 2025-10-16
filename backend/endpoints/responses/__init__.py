@@ -1,4 +1,4 @@
-from typing import Any, Literal, TypedDict, Union
+from typing import Literal, TypedDict, Union
 
 from rq_scheduler.scheduler import JobStatus
 
@@ -26,7 +26,6 @@ class ConversionStats(TypedDict):
     processed: int
     errors: int
     total: int
-    errorList: list[str]
 
 
 class ConversionTaskMeta(TypedDict):

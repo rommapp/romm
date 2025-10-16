@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import RunningTaskItem from "@/components/Settings/Administration/RunningTaskItem.vue";
 import TaskOption from "@/components/Settings/Administration/TaskOption.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeTasks from "@/stores/tasks";
 import { convertCronExperssion } from "@/utils";
+
+const { t } = useI18n();
 
 const tasksStore = storeTasks();
 const { watcherTasks, scheduledTasks, manualTasks, taskStatuses } =
@@ -59,7 +62,7 @@ onUnmounted(() => {
 });
 </script>
 <template>
-  <RSection icon="mdi-pulse" title="Tasks" class="ma-2">
+  <RSection icon="mdi-pulse" :title="t('settings.tasks')" class="ma-2">
     <template #toolbar-append />
     <template #content>
       <v-chip
@@ -68,7 +71,7 @@ onUnmounted(() => {
         prepend-icon="mdi-folder-eye"
         class="ml-2 mt-1"
       >
-        Watcher
+        {{ t("settings.watcher") }}
       </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row no-gutters class="align-center py-1">
@@ -87,7 +90,7 @@ onUnmounted(() => {
       </v-row>
 
       <v-chip label variant="text" prepend-icon="mdi-clock" class="ml-2 mt-1">
-        Scheduled
+        {{ t("settings.scheduled") }}
       </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row no-gutters class="align-center py-1">
@@ -116,7 +119,7 @@ onUnmounted(() => {
         prepend-icon="mdi-gesture-double-tap"
         class="ml-2 mt-1"
       >
-        Manual
+        {{ t("settings.manual") }}
       </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row no-gutters class="align-center py-1">
@@ -139,7 +142,7 @@ onUnmounted(() => {
         prepend-icon="mdi-play-circle"
         class="ml-2 mt-1"
       >
-        Task History
+        {{ t("settings.task-history") }}
       </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
 
@@ -150,7 +153,7 @@ onUnmounted(() => {
               <v-icon color="grey">mdi-information-outline</v-icon>
             </template>
             <v-list-item-title class="text-grey">
-              No currently running tasks
+              {{ t("settings.no-tasks-in-history") }}
             </v-list-item-title>
           </v-list-item>
         </v-card>
