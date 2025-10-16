@@ -5,7 +5,7 @@ import pytest
 from rq.job import Job
 
 from exceptions.task_exceptions import SchedulerException
-from tasks.tasks import PeriodicTask, RemoteFilePullTask, tasks_scheduler
+from tasks.tasks import PeriodicTask, RemoteFilePullTask, TaskType, tasks_scheduler
 
 
 class ConcretePeriodicTask(PeriodicTask):
@@ -22,6 +22,7 @@ class TestPeriodicTask:
             func="test.function",
             title="Test Task",
             description="test task",
+            task_type=TaskType.GENERIC,
             enabled=True,
             cron_string="0 0 * * *",
         )
@@ -32,6 +33,7 @@ class TestPeriodicTask:
             func="test.disabled.function",
             title="Disabled Task",
             description="disabled task",
+            task_type=TaskType.GENERIC,
             enabled=False,
             cron_string="0 0 * * *",
         )
@@ -133,7 +135,11 @@ class TestPeriodicTask:
         result = task.schedule()
 
         mock_cron.assert_called_once_with(
-            "0 0 * * *", func="test.function", repeat=None, timeout=5 * 60
+            "0 0 * * *",
+            func="test.function",
+            repeat=None,
+            timeout=5 * 60,
+            meta={"task_name": "Test Task", "task_type": "generic"},
         )
         assert result == mock_job
 
@@ -161,6 +167,7 @@ class TestPeriodicTask:
         task = ConcretePeriodicTask(
             func="test.function",
             title="Test Task",
+            task_type=TaskType.GENERIC,
             description="test task",
             enabled=True,
             cron_string=None,
@@ -207,6 +214,7 @@ class TestRemoteFilePullTask:
         return RemoteFilePullTask(
             func="test.remote.function",
             title="Remote Test Task",
+            task_type=TaskType.UPDATE,
             description="remote test task",
             enabled=True,
             cron_string="0 0 * * *",
@@ -218,6 +226,7 @@ class TestRemoteFilePullTask:
         return RemoteFilePullTask(
             func="test.remote.disabled.function",
             title="Disabled Remote Task",
+            task_type=TaskType.UPDATE,
             description="disabled remote task",
             enabled=False,
             url="https://example.com/data.json",
@@ -226,6 +235,7 @@ class TestRemoteFilePullTask:
     def test_init(self, task):
         """Test RemoteFilePullTask initialization"""
         assert task.func == "test.remote.function"
+        assert task.task_type == TaskType.UPDATE
         assert task.description == "remote test task"
         assert task.enabled is True
         assert task.url == "https://example.com/data.json"

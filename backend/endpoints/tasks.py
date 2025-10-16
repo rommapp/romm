@@ -117,8 +117,11 @@ def _build_task_status_response(
     job: Job,
 ) -> TaskStatusResponse:
     job_meta = job.get_meta()
-    task_name = job_meta.get("task_name", job.func_name)
+    task_name = job_meta.get("task_name") or job.func_name
     task_type = job_meta.get("task_type")
+
+    if not task_type:
+        raise ValueError("Task type not found in job meta")
 
     # Convert datetime objects to ISO format strings
     queued_at = job.created_at.isoformat() if job.created_at else None
@@ -134,8 +137,6 @@ def _build_task_status_response(
         "ended_at": ended_at,
         "result": job.result,
     }
-    if not task_type:
-        raise ValueError("Task type not found in job meta")
 
     match TaskType(task_type):
         case TaskType.SCAN:
