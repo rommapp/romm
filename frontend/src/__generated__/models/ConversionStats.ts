@@ -6,6 +6,5 @@ export type ConversionStats = {
     processed: number;
     errors: number;
     total: number;
-    errorList: Array<string>;
 };
 

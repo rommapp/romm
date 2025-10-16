@@ -8,6 +8,9 @@ import type {
   JobStatus,
   TaskType,
 } from "@/__generated__";
+import i18n from "@/locales";
+
+const { t } = i18n.global;
 
 export type TaskStatusResponse =
   | ScanTaskStatusResponse
@@ -25,49 +28,49 @@ export const TaskStatusItem: Record<
     color: "orange",
     icon: "mdi-clock-outline",
     status: "queued",
-    text: "Queued",
+    text: t("settings.queued"),
   },
   started: {
     color: "blue",
     icon: "mdi-loading",
     status: "primary",
-    text: "Running",
+    text: t("settings.running"),
   },
   finished: {
     color: "green",
     icon: "mdi-check-circle",
     status: "success",
-    text: "Completed",
+    text: t("settings.completed"),
   },
   failed: {
     color: "red",
     icon: "mdi-alert-circle",
     status: "error",
-    text: "Failed",
+    text: t("settings.failed"),
   },
   stopped: {
     color: "grey",
     icon: "mdi-stop-circle",
     status: "grey",
-    text: "Stopped",
+    text: t("settings.stopped"),
   },
   canceled: {
     color: "grey",
     icon: "mdi-stop-circle",
     status: "grey",
-    text: "Canceled",
+    text: t("settings.canceled"),
   },
   deferred: {
     color: "grey",
     icon: "mdi-clock-outline",
     status: "grey",
-    text: "Deferred",
+    text: t("settings.deferred"),
   },
   scheduled: {
     color: "grey",
     icon: "mdi-clock-outline",
     status: "grey",
-    text: "Scheduled",
+    text: t("settings.scheduled"),
   },
 };
 
