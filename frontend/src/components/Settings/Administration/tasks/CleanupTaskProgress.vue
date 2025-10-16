@@ -21,7 +21,8 @@ const cleanupProgress = computed(() => {
     removedRoms: removed_roms,
     totalItems: total_platforms + total_roms,
     removedItems: removed_platforms + removed_roms,
-    percentage: Math.round((removed_roms / total_roms) * 100),
+    percentage:
+      total_roms > 0 ? Math.round((removed_roms / total_roms) * 100) : 100,
   };
 });
 </script>
@@ -71,13 +72,13 @@ const cleanupProgress = computed(() => {
           <div class="font-weight-bold">
             {{ cleanupProgress.removedRoms }}/{{ cleanupProgress.totalRoms }}
           </div>
-          <div class="text-uppercase">{{ t("common.roms") }}</div>
+          <div class="text-uppercase">ROMs</div>
         </div>
       </v-card>
 
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-success stat-card--success"
+        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-success stat-card--warning"
       >
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
@@ -94,7 +95,7 @@ const cleanupProgress = computed(() => {
 
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-warning stat-card--warning"
+        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-warning stat-card--success"
       >
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
