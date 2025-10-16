@@ -56,7 +56,7 @@ class ScanStats:
     identified_platforms: int = 0
     scanned_roms: int = 0
     added_roms: int = 0
-    metadata_roms: int = 0
+    identified_roms: int = 0
     scanned_firmware: int = 0
     added_firmware: int = 0
 
@@ -76,7 +76,7 @@ class ScanStats:
             "identified_platforms": self.identified_platforms,
             "scanned_roms": self.scanned_roms,
             "added_roms": self.added_roms,
-            "metadata_roms": self.metadata_roms,
+            "identified_roms": self.identified_roms,
             "scanned_firmware": self.scanned_firmware,
             "added_firmware": self.added_firmware,
         }
@@ -248,7 +248,7 @@ async def _identify_rom(
     scan_stats.update(
         scanned_roms=scan_stats.scanned_roms + 1,
         added_roms=scan_stats.added_roms + (1 if not rom else 0),
-        metadata_roms=scan_stats.metadata_roms
+        identified_roms=scan_stats.identified_roms
         + (1 if scanned_rom.is_identified else 0),
     )
 
@@ -460,7 +460,7 @@ async def scan_platforms(
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[int] | None = None,
     metadata_sources: list[str] | None = None,
-):
+) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
     Args:
@@ -474,23 +474,21 @@ async def scan_platforms(
         roms_ids = []
 
     socket_manager = _get_socket_manager()
+    scan_stats = ScanStats()
 
     if not metadata_sources:
         log.error("No metadata sources provided")
         await socket_manager.emit("scan:done_ko", "No metadata sources provided")
-        return None
+        return scan_stats
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()
     except FolderStructureNotMatchException as e:
         log.error(e)
         await socket_manager.emit("scan:done_ko", e.message)
-        return None
+        return scan_stats
 
-    scan_stats = ScanStats(total_platforms=len(fs_platforms))
-
-    # Set up meta update for the scan stats
-    update_job_meta({"scan_stats": scan_stats.to_dict()})
+    scan_stats.update(total_platforms=len(fs_platforms))
 
     for platform in fs_platforms:
         pl = Platform(fs_slug=platform)
@@ -547,6 +545,8 @@ async def scan_platforms(
         await socket_manager.emit("scan:done_ko", str(e))
         # Re-raise the exception to be caught by the error handler
         raise e
+
+    return scan_stats
 
 
 @socket_handler.socket_server.on("scan")  # type: ignore

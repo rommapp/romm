@@ -13,7 +13,7 @@ class ScanStats(TypedDict):
     identified_platforms: int
     scanned_roms: int
     added_roms: int
-    metadata_roms: int
+    identified_roms: int
     scanned_firmware: int
     added_firmware: int
 

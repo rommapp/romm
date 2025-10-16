@@ -28,13 +28,11 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
 
     @initialize_context()
     async def run(self) -> dict[str, Any]:
+        update_stats = UpdateStats()
+
         if not meta_ra_handler.is_enabled():
             log.warning("RetroAchievements API is not enabled, skipping progress sync")
-            return {
-                "status": "skipped",
-                "reason": "RetroAchievements API not enabled",
-                "updated_users": 0,
-            }
+            return update_stats.to_dict()
 
         log.info("Scheduled RetroAchievements progress sync started...")
 
@@ -43,7 +41,6 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
         processed_users = 0
 
         # Update initial progress
-        update_stats = UpdateStats()
         update_stats.update(processed=processed_users, total=total_users)
 
         for user in users:
