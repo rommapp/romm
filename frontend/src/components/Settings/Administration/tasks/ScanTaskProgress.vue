@@ -31,14 +31,14 @@ const scanProgress = computed(() => {
     <v-progress-linear
       :model-value="scanProgress.romsPercentage"
       color="primary"
-      height="12"
+      height="8"
       rounded
     />
 
     <div class="grid grid-cols-5 gap-4">
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 pa-2 border-l-4 border-primary stat-card--primary"
+        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-primary stat-card--primary"
       >
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
@@ -55,7 +55,7 @@ const scanProgress = computed(() => {
 
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 pa-2 border-l-4 border-secondary stat-card--secondary"
+        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-secondary stat-card--secondary"
       >
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
@@ -72,7 +72,7 @@ const scanProgress = computed(() => {
 
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 pa-2 border-l-4 border-success stat-card--success"
+        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-success stat-card--success"
       >
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
@@ -89,7 +89,7 @@ const scanProgress = computed(() => {
 
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 pa-2 border-l-4 border-info stat-card--info"
+        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-info stat-card--info"
       >
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
@@ -106,7 +106,7 @@ const scanProgress = computed(() => {
 
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 pa-2 border-l-4 border-warning stat-card--warning"
+        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-warning stat-card--warning"
       >
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
@@ -126,42 +126,22 @@ const scanProgress = computed(() => {
 
 <style scoped>
 .stat-card--primary {
-  background: linear-gradient(
-    135deg,
-    rgba(33, 150, 243, 0.1) 0%,
-    rgba(33, 150, 243, 0.05) 100%
-  );
+  background: rgba(var(--v-theme-primary), 0.1);
 }
 
 .stat-card--secondary {
-  background: linear-gradient(
-    135deg,
-    rgba(156, 39, 176, 0.1) 0%,
-    rgba(156, 39, 176, 0.05) 100%
-  );
+  background: rgba(var(--v-theme-accent), 0.1);
 }
 
 .stat-card--success {
-  background: linear-gradient(
-    135deg,
-    rgba(76, 175, 80, 0.1) 0%,
-    rgba(76, 175, 80, 0.05) 100%
-  );
+  background: rgba(var(--v-theme-success), 0.1);
 }
 
 .stat-card--info {
-  background: linear-gradient(
-    135deg,
-    rgba(0, 188, 212, 0.1) 0%,
-    rgba(0, 188, 212, 0.05) 100%
-  );
+  background: rgba(var(--v-theme-info), 0.1);
 }
 
 .stat-card--warning {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 152, 0, 0.1) 0%,
-    rgba(255, 152, 0, 0.05) 100%
-  );
+  background: rgba(var(--v-theme-error), 0.1);
 }
 </style>

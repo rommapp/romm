@@ -13,7 +13,7 @@ const statusIconColor = computed(() => {
 
 const taskDuration = computed(() => {
   if (!props.task.started_at) return null;
-  if (props.task.status === "failed") return null;
+  if (!props.task.ended_at && props.task.status === "failed") return null;
 
   const startTime = new Date(props.task.started_at);
   const endTime = props.task.ended_at
@@ -47,11 +47,11 @@ const formatRunTime = () => {
           <v-icon
             :color="statusIconColor.color"
             :icon="statusIconColor.icon"
-            size="20"
+            size="18"
             :class="{ 'task-icon--spinning': task.status === 'started' }"
           />
           <div class="d-flex flex-row flex-grow-1 ga-3">
-            <h3 class="text-lg">
+            <h3 class="text-body-1">
               {{ task.task_name }}
             </h3>
             <div class="d-flex align-center ga-2">
@@ -77,7 +77,7 @@ const formatRunTime = () => {
             :color="statusIconColor.color"
             size="small"
             variant="flat"
-            class="font-weight-semibold text-capitalize"
+            class="text-capitalize"
           >
             <v-icon
               :icon="statusIconColor.icon"
