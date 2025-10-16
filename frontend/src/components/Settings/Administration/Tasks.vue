@@ -65,37 +65,6 @@ onUnmounted(() => {
       <v-chip
         label
         variant="text"
-        prepend-icon="mdi-play-circle"
-        class="ml-2 mt-1"
-      >
-        Task History
-      </v-chip>
-      <v-divider class="border-opacity-25 ma-1" />
-
-      <div v-if="taskStatuses.length === 0" class="ma-0">
-        <v-card elevation="0" class="bg-background ma-3">
-          <v-list-item>
-            <template #prepend>
-              <v-icon color="grey">mdi-information-outline</v-icon>
-            </template>
-            <v-list-item-title class="text-grey">
-              No currently running tasks
-            </v-list-item-title>
-          </v-list-item>
-        </v-card>
-      </div>
-      <div v-else>
-        <div
-          v-for="task in taskStatuses"
-          :key="`task-${task.task_id}-${task.status}`"
-        >
-          <RunningTaskItem class="ma-3 pa-2" :task="task" />
-        </div>
-      </div>
-
-      <v-chip
-        label
-        variant="text"
         prepend-icon="mdi-folder-eye"
         class="ml-2 mt-1"
       >
@@ -140,16 +109,17 @@ onUnmounted(() => {
           />
         </v-col>
       </v-row>
+
+      <v-chip
+        label
+        variant="text"
+        prepend-icon="mdi-gesture-double-tap"
+        class="ml-2 mt-1"
+      >
+        Manual
+      </v-chip>
+      <v-divider class="border-opacity-25 ma-1" />
       <v-row no-gutters class="align-center py-1">
-        <v-chip
-          label
-          variant="text"
-          prepend-icon="mdi-gesture-double-tap"
-          class="ml-2 mt-1"
-        >
-          Manual
-        </v-chip>
-        <v-divider class="border-opacity-25 ma-1" />
         <v-col v-for="task in manualTasksUI" :key="task.name" cols="12" md="6">
           <TaskOption
             class="ma-3"
@@ -160,6 +130,38 @@ onUnmounted(() => {
             :manual-run="task.manual_run"
             :cron-string="task.cron_string"
           />
+        </v-col>
+      </v-row>
+
+      <v-chip
+        label
+        variant="text"
+        prepend-icon="mdi-play-circle"
+        class="ml-2 mt-1"
+      >
+        Task History
+      </v-chip>
+      <v-divider class="border-opacity-25 ma-1" />
+
+      <v-row no-gutters v-if="taskStatuses.length === 0">
+        <v-card elevation="0" class="bg-background ma-3">
+          <v-list-item>
+            <template #prepend>
+              <v-icon color="grey">mdi-information-outline</v-icon>
+            </template>
+            <v-list-item-title class="text-grey">
+              No currently running tasks
+            </v-list-item-title>
+          </v-list-item>
+        </v-card>
+      </v-row>
+      <v-row no-gutters v-else>
+        <v-col
+          cols="12"
+          v-for="task in taskStatuses"
+          :key="`task-${task.task_id}-${task.status}`"
+        >
+          <RunningTaskItem class="ma-1 pa-2" :task="task" />
         </v-col>
       </v-row>
     </template>
