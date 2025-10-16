@@ -11,8 +11,9 @@ const statusIconColor = computed(() => {
   return TaskStatusItem[props.task.status];
 });
 
-const getTaskDuration = () => {
-  if (!props.task.started_at) return "Not started";
+const taskDuration = computed(() => {
+  if (!props.task.started_at) return null;
+  if (props.task.status === "failed") return null;
 
   const startTime = new Date(props.task.started_at);
   const endTime = props.task.ended_at
@@ -24,7 +25,7 @@ const getTaskDuration = () => {
   if (duration < 60000) return `${Math.round(duration / 1000)}s`;
   if (duration < 3600000) return `${Math.round(duration / 60000)}m`;
   return `${Math.round(duration / 3600000)}h`;
-};
+});
 
 const formatRunTime = () => {
   if (!props.task.started_at) return "Not started";
@@ -39,36 +40,31 @@ const formatRunTime = () => {
 </script>
 
 <template>
-  <v-card
-    elevation="2"
-    class="rounded border"
-    :class="{
-      'border-blue': task.status === 'started',
-      'border-orange': task.status === 'queued',
-      'border-green': task.status === 'finished',
-      'border-red': task.status === 'failed',
-      'border-grey': task.status === 'stopped' || task.status === 'canceled',
-    }"
-  >
-    <v-card-text class="pa-2">
+  <v-card elevation="2" class="rounded">
+    <v-card-text class="pa-0">
       <div class="d-flex align-center justify-space-between">
-        <div class="d-flex align-center ga-4 flex-grow-1">
+        <div class="d-flex align-center ga-2 flex-grow-1">
           <v-icon
             :color="statusIconColor.color"
             :icon="statusIconColor.icon"
-            size="24"
+            size="20"
             :class="{ 'task-icon--spinning': task.status === 'started' }"
           />
-          <div class="d-flex flex-row flex-grow-1">
-            <h3 class="text-h6 font-weight-semibold text-white mr-4">
+          <div class="d-flex flex-row flex-grow-1 ga-3">
+            <h3 class="text-lg">
               {{ task.task_name }}
             </h3>
             <div class="d-flex align-center ga-2">
               <v-chip size="x-small" variant="tonal" class="text-caption">
                 {{ task.task_type }}
               </v-chip>
-              <v-chip size="x-small" variant="tonal" class="text-caption">
-                {{ getTaskDuration() }}
+              <v-chip
+                v-if="taskDuration"
+                size="x-small"
+                variant="tonal"
+                class="text-caption"
+              >
+                {{ taskDuration }}
               </v-chip>
             </div>
           </div>
