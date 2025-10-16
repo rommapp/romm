@@ -31,7 +31,7 @@ const cleanupProgress = computed(() => {
 </script>
 
 <template>
-  <div class="d-flex flex-column ga-3">
+  <div class="d-flex flex-column ga-3 pt-2">
     <div
       v-if="['started', 'stopped'].includes(task.status)"
       class="overflow-hidden w-100 h-100 position-absolute top-0 left-0"
@@ -129,15 +129,12 @@ const cleanupProgress = computed(() => {
 @keyframes progress-pulse {
   0% {
     opacity: 0.8;
-    transform: scaleX(1);
   }
   50% {
     opacity: 1;
-    transform: scaleX(1.02);
   }
   100% {
     opacity: 0.8;
-    transform: scaleX(1);
   }
 }
 

@@ -1,8 +1,6 @@
 import json
 from itertools import batched
-from typing import Final
-
-from rq import get_current_job
+from typing import Any, Final
 
 from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
@@ -12,6 +10,8 @@ from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
 from utils.context import initialize_context
+
+from . import UpdateStats
 
 SWITCH_TITLEDB_INDEX_KEY: Final = "romm:switch_titledb"
 SWITCH_PRODUCT_ID_KEY: Final = "romm:switch_product_id"
@@ -30,26 +30,8 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             url="https://raw.githubusercontent.com/blawar/titledb/master/US.en.json",
         )
 
-    def _update_job_meta(self, processed: int, total: int) -> None:
-        """Update the current RQ job's meta data with update stats information"""
-        try:
-            current_job = get_current_job()
-            if current_job:
-                current_job.meta.update(
-                    {
-                        "update_stats": {
-                            "processed": processed,
-                            "total": total,
-                        }
-                    }
-                )
-                current_job.save_meta()
-        except Exception as e:
-            # Silently fail if we can't update meta (e.g., not running in RQ context)
-            log.debug(f"Could not update job meta: {e}")
-
     @initialize_context()
-    async def run(self, force: bool = False) -> dict[str, str]:
+    async def run(self, force: bool = False) -> dict[str, Any]:
         content = await super().run(force)
         if content is None:
             return {"status": "failed", "reason": "No content received"}
@@ -61,14 +43,15 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
         processed_items = 0
 
         # Update initial progress
-        self._update_job_meta(processed_items, total_items)
+        update_stats = UpdateStats()
+        update_stats.update(processed=processed_items, total=total_items)
 
         async with async_cache.pipeline() as pipe:
             for data_batch in batched(relevant_data.items(), 2000, strict=False):
                 titledb_map = {k: json.dumps(v) for k, v in dict(data_batch).items()}
                 await pipe.hset(SWITCH_TITLEDB_INDEX_KEY, mapping=titledb_map)
                 processed_items += len(data_batch)
-                self._update_job_meta(processed_items, total_items)
+                update_stats.update(processed=processed_items)
 
             for data_batch in batched(relevant_data.items(), 2000, strict=False):
                 product_map = {
@@ -81,13 +64,10 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             await pipe.execute()
 
         # Final progress update
-        self._update_job_meta(total_items, total_items)
+        update_stats.update(processed=processed_items)
         log.info("Scheduled switch titledb update completed!")
 
-        return {
-            "status": "completed",
-            "message": "Switch TitleDB update completed successfully",
-        }
+        return update_stats.to_dict()
 
 
 update_switch_titledb_task = UpdateSwitchTitleDBTask()

@@ -35,7 +35,7 @@ const scanProgress = computed(() => {
 </script>
 
 <template>
-  <div class="d-flex flex-column ga-3">
+  <div class="d-flex flex-column ga-3 pt-2">
     <div
       v-if="['started', 'stopped'].includes(task.status)"
       class="overflow-hidden w-100 h-100 position-absolute top-0 left-0"

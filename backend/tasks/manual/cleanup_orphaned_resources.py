@@ -1,14 +1,11 @@
 import os
 import shutil
 from dataclasses import dataclass
-from typing import Callable
-
-from rq import get_current_job
 
 from config import RESOURCES_BASE_PATH
 from handler.database import db_platform_handler, db_rom_handler
 from logger.logger import log
-from tasks.tasks import Task, TaskType
+from tasks.tasks import Task, TaskType, update_job_meta
 from utils.context import initialize_context
 
 
@@ -21,23 +18,12 @@ class CleanupStats:
     removed_platforms: int = 0
     removed_roms: int = 0
 
-    def __post_init__(self):
-        self._meta_update_callback: Callable[["CleanupStats"], None] | None = None
-
-    def set_meta_update_callback(
-        self, callback: Callable[["CleanupStats"], None]
-    ) -> None:
-        self._meta_update_callback = callback
-
-    def _trigger_meta_update(self) -> None:
-        if self._meta_update_callback:
-            self._meta_update_callback(self)
-
     def update(self, **kwargs) -> None:
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
-        self._trigger_meta_update()
+
+        update_job_meta({"cleanup_stats": self.to_dict()})
 
     def to_dict(self) -> dict[str, int]:
         return {
@@ -59,24 +45,13 @@ class CleanupOrphanedResourcesTask(Task):
             cron_string=None,
         )
 
-    def _update_job_meta(self, cleanup_stats: CleanupStats) -> None:
-        """Update the current RQ job's meta data with cleanup stats information"""
-        try:
-            current_job = get_current_job()
-            if current_job:
-                current_job.meta.update({"cleanup_stats": cleanup_stats.to_dict()})
-                current_job.save_meta()
-        except Exception as e:
-            # Silently fail if we can't update meta (e.g., not running in RQ context)
-            log.debug(f"Could not update job meta: {e}")
-
     @initialize_context()
     async def run(self) -> dict[str, int]:
         """Clean up orphaned resources."""
         log.info(f"Starting {self.title} task...")
 
         cleanup_stats = CleanupStats()
-        cleanup_stats.set_meta_update_callback(self._update_job_meta)
+        cleanup_stats.update(cleanup_stats=cleanup_stats.to_dict())
 
         roms_resources_path = os.path.join(RESOURCES_BASE_PATH, "roms")
         if not os.path.exists(roms_resources_path):

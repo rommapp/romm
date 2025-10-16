@@ -3,10 +3,9 @@
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, List
 
 from PIL import Image, UnidentifiedImageError
-from rq import get_current_job
 
 from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -14,7 +13,7 @@ from config import (
     SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
 )
 from logger.logger import log
-from tasks.tasks import PeriodicTask, TaskType
+from tasks.tasks import PeriodicTask, TaskType, update_job_meta
 
 
 @dataclass
@@ -88,6 +87,29 @@ class ImageConverter:
             return False
 
 
+@dataclass
+class ConversionStats:
+    """Statistics for cleanup operations."""
+
+    processed: int = 0
+    errors: int = 0
+    total: int = 0
+
+    def update(self, **kwargs) -> None:
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+        update_job_meta({"conversion_stats": self.to_dict()})
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "processed": self.processed,
+            "errors": self.errors,
+            "total": self.total,
+        }
+
+
 class ConvertImagesToWebPTask(PeriodicTask):
     """Task to convert existing images to WebP format."""
 
@@ -104,24 +126,6 @@ class ConvertImagesToWebPTask(PeriodicTask):
         self.resources_path = Path(RESOURCES_BASE_PATH)
         self.converter = ImageConverter()
         self._reset_counters()
-
-    def _update_job_meta(self, total_files: int) -> None:
-        """Update the current RQ job's meta data with conversion stats information"""
-        conversion_stats = {
-            "processed": self.processed_count,
-            "errors": self.error_count,
-            "total": total_files,
-            "errorList": self.errors[:10],
-        }
-
-        try:
-            current_job = get_current_job()
-            if current_job:
-                current_job.meta.update({"conversion_stats": conversion_stats})
-                current_job.save_meta()
-        except Exception as e:
-            # Silently fail if we can't update meta (e.g., not running in RQ context)
-            log.debug(f"Could not update job meta: {e}")
 
     def _reset_counters(self) -> None:
         """Reset processing counters."""
@@ -185,7 +189,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
         """Get current progress message."""
         return f"Processed: {self.processed_count}, Errors: {self.error_count}"
 
-    async def run(self) -> Dict[str, Any]:
+    async def run(self) -> dict[str, Any]:
         """Run the image conversion task.
         Returns:
             Dictionary with task results
@@ -193,13 +197,14 @@ class ConvertImagesToWebPTask(PeriodicTask):
         log.info("Starting image to WebP conversion task")
 
         # Find all convertible images
+        conversion_stats = ConversionStats()
         image_files = self._find_convertible_images()
         total_files = len(image_files)
 
         if total_files == 0:
-            self._update_job_meta(total_files)
+            conversion_stats.update(processed=0, errors=0, total=total_files)
             log.info("No convertible images found")
-            return self._create_result_dict(total_files)
+            return conversion_stats.to_dict()
 
         log.info(f"Found {total_files} image files to process")
 
@@ -209,7 +214,11 @@ class ConvertImagesToWebPTask(PeriodicTask):
         # Process images
         for i, image_file in enumerate(image_files, 1):
             self._process_single_image(image_file)
-            self._update_job_meta(total_files)
+            conversion_stats.update(
+                processed=self.processed_count,
+                errors=self.error_count,
+                total=total_files,
+            )
 
             # Log progress periodically
             if i % 50 == 0 or i == total_files:
@@ -224,23 +233,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
         # Log final results
         log.info(f"Image to WebP conversion completed. {self._get_progress_message()}")
 
-        return self._create_result_dict(total_files)
-
-    def _create_result_dict(self, total_files: int) -> Dict[str, Any]:
-        """Create the result dictionary.
-        Args:
-            total_files: Total number of files found
-        Returns:
-            Dictionary with task results
-        """
-        return {
-            "task": "convert_images_to_webp",
-            "status": "completed",
-            "processed_count": self.processed_count,
-            "error_count": self.error_count,
-            "total_files": total_files,
-            "errors": self.errors[:10],  # Limit error list to prevent huge responses
-        }
+        return conversion_stats.to_dict()
 
 
 # Task instance
