@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import {
+  formatDistanceToNow,
+  intervalToDuration,
+  formatDuration,
+} from "date-fns";
 import { computed } from "vue";
 import { formatTimestamp } from "@/utils";
 import { TaskStatusItem, type TaskStatusResponse } from "@/utils/tasks";
@@ -16,16 +21,18 @@ const taskDuration = computed(() => {
   if (!props.task.started_at) return null;
   if (!props.task.ended_at && props.task.status === "failed") return null;
 
-  const startTime = new Date(props.task.started_at);
-  const endTime = props.task.ended_at
-    ? new Date(props.task.ended_at)
-    : new Date();
-  const duration = endTime.getTime() - startTime.getTime();
+  const duration = intervalToDuration({
+    start: new Date(props.task.started_at),
+    end: props.task.ended_at ? new Date(props.task.ended_at) : new Date(),
+  });
+  return formatDuration(duration);
+});
 
-  if (duration < 1000) return "< 1s";
-  if (duration < 60000) return `${Math.round(duration / 1000)}s`;
-  if (duration < 3600000) return `${Math.round(duration / 60000)}m`;
-  return `${Math.round(duration / 3600000)}h`;
+const taskDistanceFromNow = computed(() => {
+  return formatDistanceToNow(
+    new Date(props.task.started_at || props.task.queued_at),
+    { addSuffix: true },
+  );
 });
 </script>
 
@@ -74,8 +81,13 @@ const taskDuration = computed(() => {
             />
             {{ task.status }}
           </v-chip>
-          <v-chip size="small" variant="tonal" class="text-caption">
-            {{ formatTimestamp(task.started_at || task.queued_at) }}
+          <v-chip
+            size="small"
+            variant="tonal"
+            class="text-caption"
+            :title="formatTimestamp(task.started_at || task.queued_at)"
+          >
+            {{ taskDistanceFromNow }}
           </v-chip>
         </div>
       </div>
