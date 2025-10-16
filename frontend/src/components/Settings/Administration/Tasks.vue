@@ -89,7 +89,7 @@ onUnmounted(() => {
           v-for="task in taskStatuses"
           :key="`task-${task.task_id}-${task.status}`"
         >
-          <RunningTaskItem class="ma-3" :task="task" />
+          <RunningTaskItem class="ma-3 pa-2" :task="task" />
         </div>
       </div>
 

@@ -27,112 +27,141 @@ const scanProgress = computed(() => {
 </script>
 
 <template>
-  <div class="d-flex flex-column ga-4">
-    <div class="d-flex flex-column">
-      <div
-        class="d-flex align-center justify-space-between gap-4 font-weight-semibold text-white"
-      >
-        <v-progress-linear
-          :model-value="scanProgress.romsPercentage"
-          color="primary"
-          height="12"
-          rounded
-        />
-        <v-chip size="small" variant="tonal">
-          {{ scanProgress.romsPercentage }}%
-        </v-chip>
-      </div>
-      <div class="text-grey-lighten-1">
-        {{ scanProgress.roms }} ROMs and {{ scanProgress.platforms }} platforms
-        processed
-      </div>
-    </div>
+  <div class="d-flex flex-column ga-3">
+    <v-progress-linear
+      :model-value="scanProgress.romsPercentage"
+      color="primary"
+      height="12"
+      rounded
+    />
 
     <div class="grid grid-cols-5 gap-4">
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 pa-4 border-l-4 border-primary"
+        class="d-flex align-center ga-3 pa-2 border-l-4 border-primary stat-card--primary"
       >
-        <v-avatar size="40" class="bg-primary-lighten-1">
-          <v-icon icon="mdi-console" size="20" />
-        </v-avatar>
-        <div class="d-flex flex-column ga-1 flex-grow-1">
-          <div class="text-h6 font-weight-bold text-white">
+        <div
+          class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
+        >
+          <v-avatar size="24" class="bg-primary-lighten-1">
+            <v-icon icon="mdi-console" size="20" />
+          </v-avatar>
+          <div class="font-weight-bold">
             {{ scanProgress.platforms }}
           </div>
-          <div class="text-grey-lighten-1 font-weight-medium text-uppercase">
-            Platforms
-          </div>
+          <div class="text-uppercase">Platforms</div>
         </div>
       </v-card>
 
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 pa-4 border-l-4 border-secondary"
+        class="d-flex align-center ga-3 pa-2 border-l-4 border-secondary stat-card--secondary"
       >
-        <v-avatar size="40" class="bg-secondary-lighten-1">
-          <v-icon icon="mdi-gamepad-variant" size="20" />
-        </v-avatar>
-        <div class="d-flex flex-column ga-1 flex-grow-1">
-          <div class="text-h6 font-weight-bold text-white">
+        <div
+          class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
+        >
+          <v-avatar size="24" class="bg-secondary-lighten-1">
+            <v-icon icon="mdi-gamepad-variant" size="20" />
+          </v-avatar>
+          <div class="font-weight-bold">
             {{ scanProgress.roms }}
           </div>
-          <div class="text-grey-lighten-1 font-weight-medium text-uppercase">
-            ROMs
-          </div>
+          <div class="text-uppercase">ROMs</div>
         </div>
       </v-card>
 
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 pa-4 border-l-4 border-success"
+        class="d-flex align-center ga-3 pa-2 border-l-4 border-success stat-card--success"
       >
-        <v-avatar size="40" class="bg-success-lighten-1">
-          <v-icon icon="mdi-plus-circle" size="20" />
-        </v-avatar>
-        <div class="d-flex flex-column ga-1 flex-grow-1">
-          <div class="text-h6 font-weight-bold text-white">
+        <div
+          class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
+        >
+          <v-avatar size="24" class="bg-success-lighten-1">
+            <v-icon icon="mdi-plus-circle" size="20" />
+          </v-avatar>
+          <div class="font-weight-bold">
             {{ scanProgress.addedRoms }}
           </div>
-          <div class="text-grey-lighten-1 font-weight-medium text-uppercase">
-            Added
-          </div>
+          <div class="text-uppercase">Added</div>
         </div>
       </v-card>
 
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 pa-4 border-l-4 border-info"
+        class="d-flex align-center ga-3 pa-2 border-l-4 border-info stat-card--info"
       >
-        <v-avatar size="40" class="bg-info-lighten-1">
-          <v-icon icon="mdi-information" size="20" />
-        </v-avatar>
-        <div class="d-flex flex-column ga-1 flex-grow-1">
-          <div class="text-h6 font-weight-bold text-white">
+        <div
+          class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
+        >
+          <v-avatar size="24" class="bg-info-lighten-1">
+            <v-icon icon="mdi-information" size="20" />
+          </v-avatar>
+          <div class="font-weight-bold">
             {{ scanProgress.metadataRoms }}
           </div>
-          <div class="text-grey-lighten-1 font-weight-medium text-uppercase">
-            Metadata
-          </div>
+          <div class="text-uppercase">Metadata</div>
         </div>
       </v-card>
 
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 pa-4 border-l-4 border-warning"
+        class="d-flex align-center ga-3 pa-2 border-l-4 border-warning stat-card--warning"
       >
-        <v-avatar size="40" class="bg-warning-lighten-1">
-          <v-icon icon="mdi-chip" size="20" />
-        </v-avatar>
-        <div class="d-flex flex-column ga-1 flex-grow-1">
-          <div class="text-h6 font-weight-bold text-white">
+        <div
+          class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
+        >
+          <v-avatar size="24" class="bg-warning-lighten-1">
+            <v-icon icon="mdi-chip" size="20" />
+          </v-avatar>
+          <div class="font-weight-bold">
             {{ scanProgress.scannedFirmware }}
           </div>
-          <div class="text-grey-lighten-1 font-weight-medium text-uppercase">
-            Firmware
-          </div>
+          <div class="text-uppercase">Firmware</div>
         </div>
       </v-card>
     </div>
   </div>
 </template>
+
+<style scoped>
+.stat-card--primary {
+  background: linear-gradient(
+    135deg,
+    rgba(33, 150, 243, 0.1) 0%,
+    rgba(33, 150, 243, 0.05) 100%
+  );
+}
+
+.stat-card--secondary {
+  background: linear-gradient(
+    135deg,
+    rgba(156, 39, 176, 0.1) 0%,
+    rgba(156, 39, 176, 0.05) 100%
+  );
+}
+
+.stat-card--success {
+  background: linear-gradient(
+    135deg,
+    rgba(76, 175, 80, 0.1) 0%,
+    rgba(76, 175, 80, 0.05) 100%
+  );
+}
+
+.stat-card--info {
+  background: linear-gradient(
+    135deg,
+    rgba(0, 188, 212, 0.1) 0%,
+    rgba(0, 188, 212, 0.05) 100%
+  );
+}
+
+.stat-card--warning {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 152, 0, 0.1) 0%,
+    rgba(255, 152, 0, 0.05) 100%
+  );
+}
+</style>
