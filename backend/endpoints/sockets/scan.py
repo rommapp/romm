@@ -5,10 +5,10 @@ from itertools import batched
 from typing import Any, Final
 
 import socketio  # type: ignore
-from rq import Worker, get_current_job
+from rq import Worker
 from rq.job import Job
 
-from config import REDIS_URL, SCAN_TIMEOUT, TASK_RESULT_TTL
+from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, TASK_RESULT_TTL
 from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
@@ -40,6 +40,7 @@ from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom, RomFile
+from tasks.tasks import update_job_meta
 from utils import emoji
 from utils.context import initialize_context
 
@@ -59,24 +60,12 @@ class ScanStats:
     scanned_firmware: int = 0
     added_firmware: int = 0
 
-    def __post_init__(self):
-        self._meta_update_callback = None
-
-    def set_meta_update_callback(self, callback):
-        """Set a callback function to be called when stats are updated"""
-        self._meta_update_callback = callback
-
-    def _trigger_meta_update(self):
-        """Trigger meta update if callback is set"""
-        if self._meta_update_callback:
-            self._meta_update_callback(self)
-
     def update(self, **kwargs):
-        """Update stats and trigger meta update"""
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
-        self._trigger_meta_update()
+
+        update_job_meta({"scan_stats": self.to_dict()})
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -92,50 +81,10 @@ class ScanStats:
             "added_firmware": self.added_firmware,
         }
 
-    def __add__(self, other: Any) -> ScanStats:
-        if not isinstance(other, ScanStats):
-            raise NotImplementedError(
-                f"Addition not implemented between ScanStats and {type(other)}"
-            )
-
-        result = ScanStats(
-            total_platforms=max(self.total_platforms, other.total_platforms),
-            total_roms=max(self.total_roms, other.total_roms),
-            scanned_platforms=self.scanned_platforms + other.scanned_platforms,
-            new_platforms=self.new_platforms + other.new_platforms,
-            identified_platforms=self.identified_platforms + other.identified_platforms,
-            scanned_roms=self.scanned_roms + other.scanned_roms,
-            added_roms=self.added_roms + other.added_roms,
-            metadata_roms=self.metadata_roms + other.metadata_roms,
-            scanned_firmware=self.scanned_firmware + other.scanned_firmware,
-            added_firmware=self.added_firmware + other.added_firmware,
-        )
-
-        # Preserve the meta update callback from the first instance
-        if hasattr(self, "_meta_update_callback"):
-            result.set_meta_update_callback(self._meta_update_callback)
-
-        # Trigger meta update for the result
-        result._trigger_meta_update()
-
-        return result
-
 
 def _get_socket_manager() -> socketio.AsyncRedisManager:
     """Connect to external socketio server"""
     return socketio.AsyncRedisManager(str(REDIS_URL), write_only=True)
-
-
-def _update_job_meta(scan_stats: ScanStats) -> None:
-    """Update the current RQ job's meta data with ScanStats information"""
-    try:
-        current_job = get_current_job()
-        if current_job:
-            current_job.meta.update({"scan_stats": scan_stats.to_dict()})
-            current_job.save_meta()
-    except Exception as e:
-        # Silently fail if we can't update meta (e.g., not running in RQ context)
-        log.debug(f"Could not update job meta: {e}")
 
 
 async def _identify_firmware(
@@ -540,8 +489,8 @@ async def scan_platforms(
 
     scan_stats = ScanStats(total_platforms=len(fs_platforms))
 
-    # Set up meta update callback for the scan stats
-    scan_stats.set_meta_update_callback(_update_job_meta)
+    # Set up meta update for the scan stats
+    update_job_meta({"scan_stats": scan_stats.to_dict()})
 
     for platform in fs_platforms:
         pl = Platform(fs_slug=platform)
@@ -615,7 +564,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
 
-    if False:
+    if DEV_MODE:
         return await scan_platforms(
             platform_ids=platform_ids,
             scan_type=scan_type,

@@ -1,6 +1,4 @@
-from typing import cast
-
-from rq import get_current_job
+from typing import Any, cast
 
 from config import (
     ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
@@ -12,6 +10,8 @@ from handler.metadata.ra_handler import RAUserProgression
 from logger.logger import log
 from tasks.tasks import PeriodicTask, TaskType
 from utils.context import initialize_context
+
+from . import UpdateStats
 
 
 class SyncRetroAchievementsProgressTask(PeriodicTask):
@@ -26,26 +26,8 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
             func="tasks.scheduled.sync_retroachievements_progress.sync_retroachievements_progress_task.run",
         )
 
-    def _update_job_meta(self, processed: int, total: int) -> None:
-        """Update the current RQ job's meta data with update stats information"""
-        try:
-            current_job = get_current_job()
-            if current_job:
-                current_job.meta.update(
-                    {
-                        "update_stats": {
-                            "processed": processed,
-                            "total": total,
-                        }
-                    }
-                )
-                current_job.save_meta()
-        except Exception as e:
-            # Silently fail if we can't update meta (e.g., not running in RQ context)
-            log.debug(f"Could not update job meta: {e}")
-
     @initialize_context()
-    async def run(self) -> dict[str, str | int]:
+    async def run(self) -> dict[str, Any]:
         if not meta_ra_handler.is_enabled():
             log.warning("RetroAchievements API is not enabled, skipping progress sync")
             return {
@@ -61,7 +43,8 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
         processed_users = 0
 
         # Update initial progress
-        self._update_job_meta(processed_users, total_users)
+        update_stats = UpdateStats()
+        update_stats.update(processed=processed_users, total=total_users)
 
         for user in users:
             try:
@@ -85,13 +68,13 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
                 )
 
             processed_users += 1
-            self._update_job_meta(processed_users, total_users)
+            update_stats.update(processed=processed_users)
 
         log.info(
             f"Scheduled RetroAchievements progress sync done. Updated users: {len(users)}"
         )
 
-        return {"status": "completed", "updated_users": len(users)}
+        return update_stats.to_dict()
 
 
 sync_retroachievements_progress_task = SyncRetroAchievementsProgressTask()

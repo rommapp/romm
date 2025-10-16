@@ -54,12 +54,10 @@ class CleanupTaskMeta(TypedDict):
 
 
 class WatcherTaskMeta(TypedDict):
-    # Watcher tasks typically don't have complex meta
     pass
 
 
 class GenericTaskMeta(TypedDict):
-    # Generic tasks can have any meta structure
     pass
 
 
@@ -84,7 +82,6 @@ class TaskExecutionResponse(TypedDict):
 class BaseTaskStatusResponse(TaskExecutionResponse):
     started_at: str | None
     ended_at: str | None
-    result: dict[str, Any] | None
 
 
 class ScanTaskStatusResponse(BaseTaskStatusResponse):

@@ -135,7 +135,6 @@ def _build_task_status_response(
         "queued_at": queued_at or "",
         "started_at": started_at,
         "ended_at": ended_at,
-        "result": job.result,
     }
 
     match TaskType(task_type):

@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Any
 
 import httpx
+from rq import get_current_job
 from rq.job import Job
 from rq_scheduler import Scheduler
 
@@ -13,6 +14,18 @@ from logger.logger import log
 from utils.context import ctx_httpx_client
 
 tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.connection)
+
+
+def update_job_meta(metadata: dict[str, Any]) -> None:
+    """Update the current RQ job's meta data with update stats information"""
+    try:
+        current_job = get_current_job()
+        if current_job:
+            current_job.meta.update(metadata)
+            current_job.save_meta()
+    except Exception as e:
+        # Silently fail if we can't update meta (e.g., not running in RQ context)
+        log.debug(f"Could not update job meta: {e}")
 
 
 class TaskType(str, Enum):

@@ -42,15 +42,12 @@ const updateProgress = computed(() => {
 @keyframes progress-pulse {
   0% {
     opacity: 0.8;
-    transform: scaleX(1);
   }
   50% {
     opacity: 1;
-    transform: scaleX(1.02);
   }
   100% {
     opacity: 0.8;
-    transform: scaleX(1);
   }
 }
 </style>

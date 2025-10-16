@@ -11,7 +11,6 @@ export type CleanupTaskStatusResponse = {
     queued_at: string;
     started_at: (string | null);
     ended_at: (string | null);
-    result: (Record<string, any> | null);
     task_type: "cleanup";
     meta: (CleanupTaskMeta | null);
 };

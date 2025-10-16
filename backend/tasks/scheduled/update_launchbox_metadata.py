@@ -4,7 +4,6 @@ from io import BytesIO
 from typing import Any
 
 from defusedxml import ElementTree as ET
-from rq import get_current_job
 
 from config import (
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
@@ -25,6 +24,8 @@ from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
 from utils.context import initialize_context
 
+from . import UpdateStats
+
 
 class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
     def __init__(self):
@@ -39,24 +40,6 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
             url="https://gamesdb.launchbox-app.com/Metadata.zip",
         )
 
-    def _update_job_meta(self, processed: int, total: int) -> None:
-        """Update the current RQ job's meta data with update stats information"""
-        try:
-            current_job = get_current_job()
-            if current_job:
-                current_job.meta.update(
-                    {
-                        "update_stats": {
-                            "processed": processed,
-                            "total": total,
-                        }
-                    }
-                )
-                current_job.save_meta()
-        except Exception as e:
-            # Silently fail if we can't update meta (e.g., not running in RQ context)
-            log.debug(f"Could not update job meta: {e}")
-
     @initialize_context()
     async def run(self, force: bool = False) -> dict[str, Any]:
         if not meta_launchbox_handler.is_enabled():
@@ -68,6 +51,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
             log.warning("No content received from launchbox metadata update")
             return {"status": "failed", "reason": "No content received"}
 
+        update_stats = UpdateStats()
+
         try:
             zip_file_bytes = BytesIO(content)
             with zipfile.ZipFile(zip_file_bytes) as z:
@@ -76,7 +61,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                 processed_files = 0
 
                 # Update initial progress
-                self._update_job_meta(processed_files, total_files)
+                update_stats.update(processed=processed_files, total=total_files)
 
                 for file in file_list:
                     if file == "Platforms.xml":
@@ -103,7 +88,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                         elem.clear()
                                 await pipe.execute()
                                 processed_files += 1
-                                self._update_job_meta(processed_files, total_files)
+                                update_stats.update(processed=processed_files)
 
                     elif file == "Metadata.xml":
                         with z.open(file, "r") as f:
@@ -212,7 +197,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                     )
                                 await pipe.execute()
                                 processed_files += 1
-                                self._update_job_meta(processed_files, total_files)
+                                update_stats.update(processed=processed_files)
 
                     elif file == "Mame.xml":
                         with z.open(file, "r") as f:
@@ -241,7 +226,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                         elem.clear()
                                 await pipe.execute()
                                 processed_files += 1
-                                self._update_job_meta(processed_files, total_files)
+                                update_stats.update(processed=processed_files)
 
                     elif file == "Files.xml":
                         with z.open(file, "r") as f:
@@ -270,17 +255,15 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                         elem.clear()
                                 await pipe.execute()
                                 processed_files += 1
-                                self._update_job_meta(processed_files, total_files)
+                                update_stats.update(processed=processed_files)
 
         except zipfile.BadZipFile:
             log.error("Bad zip file in launchbox metadata update")
-            return {"status": "failed", "reason": "Bad zip file"}
+            return update_stats.to_dict()
 
         log.info("Scheduled launchbox metadata update completed!")
-        return {
-            "status": "completed",
-            "message": "Launchbox metadata update completed successfully",
-        }
+
+        return update_stats.to_dict()
 
 
 update_launchbox_metadata_task = UpdateLaunchboxMetadataTask()

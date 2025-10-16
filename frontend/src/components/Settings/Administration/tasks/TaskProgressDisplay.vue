@@ -53,7 +53,7 @@ const hasDetailedStats = computed(() => {
     rounded="0"
     class="position-static"
   >
-    <v-card-text class="pa-0 pt-2">
+    <v-card-text class="pa-0">
       <ScanTaskProgress
         v-if="task.task_type === 'scan' && scanStats"
         :task="task"
