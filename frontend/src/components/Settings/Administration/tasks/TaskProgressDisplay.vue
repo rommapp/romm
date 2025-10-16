@@ -61,6 +61,7 @@ const hasDetailedStats = computed(() => {
       />
       <ConversionTaskProgress
         v-else-if="task.task_type === 'conversion' && conversionStats"
+        :task="task"
         :conversion-stats="conversionStats"
       />
       <CleanupTaskProgress
