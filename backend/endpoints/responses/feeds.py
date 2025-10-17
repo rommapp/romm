@@ -3,6 +3,7 @@ from typing import Annotated, Any, Final, NotRequired, TypedDict
 from pydantic import BaseModel, BeforeValidator, Field, field_validator
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from tasks.scheduled.update_switch_titledb import TITLEDB_REGION_LIST
 
 WEBRCADE_SUPPORTED_PLATFORM_SLUGS = frozenset(
     (
@@ -147,6 +148,12 @@ class TinfoilFeedTitleDBSchema(BaseModel):
     )
     rating: IntField = Field(default=0, ge=0, le=100)
     rank: IntField = Field(default=0, ge=0)
+
+    @field_validator("region")
+    def validate_region(cls, v: str) -> str:
+        if v not in TITLEDB_REGION_LIST:
+            return "US"
+        return v
 
     @field_validator("releaseDate")
     def validate_release_date(cls, v: int) -> int:
