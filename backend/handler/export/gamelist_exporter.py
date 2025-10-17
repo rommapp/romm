@@ -1,8 +1,9 @@
 import os
-import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Dict, List, Optional
+from xml.etree.ElementTree import Element, SubElement, indent, tostring
 
+from config import YOUTUBE_BASE_URL
 from handler.database import db_platform_handler, db_rom_handler
 from logger.logger import log
 from models.rom import Rom
@@ -14,125 +15,62 @@ class GamelistExporter:
     def __init__(self):
         self.base_path = "/romm/library"  # Base path for ROM files
 
-    def _format_release_date(self, date_str: Optional[str]) -> str:
+    def _format_release_date(self, date_str: int) -> str:
         """Format release date to YYYYMMDDTHHMMSS format"""
-        if not date_str:
-            return ""
+        return f"{date_str // 10000:04d}{date_str % 10000:02d}T000000"
 
-        try:
-            # Parse date string (assuming YYYY-MM-DD format)
-            if len(date_str) >= 10:
-                year = date_str[:4]
-                month = date_str[5:7]
-                day = date_str[8:10]
-                return f"{year}{month}{day}T000000"
-        except (ValueError, IndexError):
-            pass
-
-        return ""
-
-    def _format_rating(self, rating: Optional[float]) -> str:
-        """Format rating to 0.0-1.0 scale"""
-        if rating is None:
-            return ""
-
-        # Ensure rating is in valid range
-        if 0.0 <= rating <= 1.0:
-            return str(rating)
-
-        return ""
-
-    def _get_relative_path(self, file_path: str, platform_dir: str) -> str:
-        """Convert absolute path to relative path for gamelist.xml"""
-        if not file_path:
-            return ""
-
-        # Handle file:// URLs
-        if file_path.startswith("file://"):
-            file_path = file_path[7:]
-
-        # Get relative path from platform directory
-        try:
-            rel_path = os.path.relpath(file_path, platform_dir)
-            return f"./{rel_path}"
-        except ValueError:
-            # If paths are on different drives, return the original path
-            return file_path
-
-    def _get_media_path(
-        self, media_url: str, platform_dir: str, media_type: str
-    ) -> str:
-        """Get relative path for media files"""
-        if not media_url:
-            return ""
-
-        # Handle file:// URLs
-        if media_url.startswith("file://"):
-            file_path = media_url[7:]
-            return self._get_relative_path(file_path, platform_dir)
-
-        # Handle HTTP URLs - store as-is for now
-        return media_url
-
-    def _create_game_element(self, rom: Rom, platform_dir: str) -> ET.Element:
+    def _create_game_element(self, rom: Rom, platform_dir: str) -> Element:
         """Create a <game> element for a ROM"""
-        game = ET.Element("game")
+        game = Element("game")
 
         # Basic game info
-        ET.SubElement(game, "path").text = f"./{rom.fs_name}"
-        ET.SubElement(game, "name").text = rom.name or rom.fs_name
+        SubElement(game, "path").text = f"./{rom.fs_name}"
+        SubElement(game, "name").text = rom.name or rom.fs_name
 
         if rom.summary:
-            ET.SubElement(game, "desc").text = rom.summary
+            SubElement(game, "desc").text = rom.summary
 
         # Media files
         if rom.url_cover:
-            image_path = self._get_media_path(rom.url_cover, platform_dir, "image")
-            if image_path:
-                ET.SubElement(game, "image").text = image_path
+            SubElement(game, "image").text = rom.url_cover
 
-        if rom.url_screenshots:
-            for screenshot_url in rom.url_screenshots:
-                video_path = self._get_media_path(screenshot_url, platform_dir, "video")
-                if video_path:
-                    ET.SubElement(game, "video").text = video_path
-                    break  # Only use first screenshot as video
+        if rom.youtube_video_id:
+            SubElement(game, "video").text = (
+                f"{YOUTUBE_BASE_URL}/embed/{rom.youtube_video_id}"
+            )
 
         # Additional metadata
-        if hasattr(rom, "developer") and rom.developer:
-            ET.SubElement(game, "developer").text = rom.developer
+        if rom.metadatum.companies and len(rom.metadatum.companies) > 0:
+            SubElement(game, "developer").text = rom.metadatum.companies[0]
 
-        if hasattr(rom, "publisher") and rom.publisher:
-            ET.SubElement(game, "publisher").text = rom.publisher
+        if rom.metadatum.companies and len(rom.metadatum.companies) > 1:
+            SubElement(game, "publisher").text = rom.metadatum.companies[1]
 
-        if hasattr(rom, "genre") and rom.genre:
-            ET.SubElement(game, "genre").text = rom.genre
+        if rom.metadatum.genres and len(rom.metadatum.genres) > 0:
+            SubElement(game, "genre").text = rom.metadatum.genres[0]
 
-        if hasattr(rom, "players") and rom.players:
-            ET.SubElement(game, "players").text = rom.players
+        if rom.gamelist_metadata and rom.gamelist_metadata["players"]:
+            SubElement(game, "players").text = rom.gamelist_metadata["players"]
 
-        if hasattr(rom, "lang") and rom.lang:
-            ET.SubElement(game, "lang").text = rom.lang
+        if rom.languages and len(rom.languages) > 0:
+            SubElement(game, "lang").text = rom.languages[0]
 
-        if hasattr(rom, "region") and rom.region:
-            ET.SubElement(game, "region").text = rom.region
+        if rom.regions and len(rom.regions) > 0:
+            SubElement(game, "region").text = rom.regions[0]
 
-        if hasattr(rom, "releasedate") and rom.releasedate:
-            release_date = self._format_release_date(rom.releasedate)
-            if release_date:
-                ET.SubElement(game, "releasedate").text = release_date
+        if rom.metadatum.first_release_date is not None:
+            SubElement(game, "releasedate").text = self._format_release_date(
+                rom.metadatum.first_release_date
+            )
 
-        if hasattr(rom, "rating") and rom.rating is not None:
-            rating = self._format_rating(rom.rating)
-            if rating:
-                ET.SubElement(game, "rating").text = rating
+        if rom.metadatum.average_rating is not None:
+            SubElement(game, "rating").text = f"{rom.metadatum.average_rating:.2f}"
 
-        # Add external ID if available
-        if rom.igdb_id:
-            ET.SubElement(game, "id").text = str(rom.igdb_id)
+        if rom.gamelist_id:
+            SubElement(game, "id").text = str(rom.gamelist_id)
 
         # Add scraping info
-        scrap = ET.SubElement(game, "scrap")
+        scrap = SubElement(game, "scrap")
         scrap.set("name", "RomM")
         scrap.set("date", datetime.now().strftime("%Y%m%dT%H%M%S"))
 
@@ -156,13 +94,12 @@ class GamelistExporter:
 
         # Get ROMs for the platform
         if rom_ids:
-            roms = [db_rom_handler.get_rom(rom_id) for rom_id in rom_ids]
-            roms = [rom for rom in roms if rom and rom.platform_id == platform_id]
+            roms = db_rom_handler.get_roms_by_ids(rom_ids)
         else:
             roms = db_rom_handler.get_roms_scalar(platform_id=platform_id)
 
         # Create root element
-        root = ET.Element("gameList")
+        root = Element("gameList")
 
         # Platform directory for relative paths
         platform_dir = os.path.join(self.base_path, "roms", platform.fs_slug)
@@ -174,8 +111,8 @@ class GamelistExporter:
                 root.append(game_element)
 
         # Convert to XML string
-        ET.indent(root, space="  ", level=0)
-        xml_str = ET.tostring(root, encoding="unicode", xml_declaration=True)
+        indent(root, space="  ", level=0)
+        xml_str = tostring(root, encoding="unicode", xml_declaration=True)
 
         log.info(f"Exported {len(roms)} ROMs for platform {platform.name}")
         return xml_str

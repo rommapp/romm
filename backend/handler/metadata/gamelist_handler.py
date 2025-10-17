@@ -1,6 +1,9 @@
 import os
-import xml.etree.ElementTree as ET
-from typing import NotRequired
+from typing import NotRequired, TypedDict
+from xml.etree.ElementTree import Element
+
+import pydash
+from defusedxml import ElementTree as ET
 
 from handler.filesystem import fs_rom_handler
 from logger.logger import log
@@ -8,22 +11,74 @@ from models.platform import Platform
 
 from .base_handler import BaseRom, MetadataHandler
 
+# https://github.com/Aloshi/EmulationStation/blob/master/GAMELISTS.md#reference
+
+
+class GamelistMetadata(TypedDict):
+    rating: float | None
+    first_release_date: str | None
+    companies: list[str] | None
+    franchises: list[str] | None
+    genres: list[str] | None
+    player_count: int | None
+    md5_hash: str | None
+
 
 class GamelistRom(BaseRom):
-    """ROM data extracted from gamelist.xml"""
-
     gamelist_id: str | None
-    developer: NotRequired[str | None]
-    publisher: NotRequired[str | None]
-    genre: NotRequired[str | None]
-    players: NotRequired[str | None]
-    lang: NotRequired[str | None]
-    region: NotRequired[str | None]
-    releasedate: NotRequired[str | None]
-    rating: NotRequired[float | None]
-    hidden: NotRequired[bool]
-    marquee: NotRequired[str | None]
-    thumbnail: NotRequired[str | None]
+    regions: NotRequired[list[str]]
+    languages: NotRequired[list[str]]
+    gamelist_metadata: NotRequired[GamelistMetadata]
+
+
+def extract_metadata_from_gamelist_rom(game: Element) -> GamelistMetadata:
+    rating_elem = game.find("rating")
+    releasedate_elem = game.find("releasedate")
+    developer_elem = game.find("developer")
+    publisher_elem = game.find("publisher")
+    family_elem = game.find("family")
+    genre_elem = game.find("genre")
+    players_elem = game.find("players")
+    md5_elem = game.find("md5")
+
+    rating = (
+        float(rating_elem.text)
+        if rating_elem is not None and rating_elem.text
+        else None
+    )
+    first_release_date = (
+        releasedate_elem.text
+        if releasedate_elem is not None and releasedate_elem.text
+        else None
+    )
+    developer = (
+        developer_elem.text
+        if developer_elem is not None and developer_elem.text
+        else None
+    )
+    publisher = (
+        publisher_elem.text
+        if publisher_elem is not None and publisher_elem.text
+        else None
+    )
+    family = family_elem.text if family_elem is not None and family_elem.text else None
+    genre = genre_elem.text if genre_elem is not None and genre_elem.text else None
+    players = (
+        int(players_elem.text)
+        if players_elem is not None and players_elem.text
+        else None
+    )
+    md5 = md5_elem.text if md5_elem is not None and md5_elem.text else None
+
+    return GamelistMetadata(
+        rating=rating,
+        first_release_date=first_release_date,
+        companies=pydash.compact([developer, publisher]),
+        franchises=pydash.compact([family]),
+        genres=pydash.compact([genre]),
+        player_count=players,
+        md5_hash=md5,
+    )
 
 
 class GamelistHandler(MetadataHandler):
@@ -31,40 +86,10 @@ class GamelistHandler(MetadataHandler):
 
     @classmethod
     def is_enabled(cls) -> bool:
-        """Gamelist handler is always enabled (no API keys required)"""
         return True
 
-    def _parse_release_date(self, date_str: str | None) -> str | None:
-        """Parse release date from YYYYMMDDTHHMMSS format"""
-        if not date_str:
-            return None
-
-        try:
-            # Convert YYYYMMDDTHHMMSS to YYYY-MM-DD
-            if len(date_str) >= 8:
-                year = date_str[:4]
-                month = date_str[4:6]
-                day = date_str[6:8]
-                return f"{year}-{month}-{day}"
-        except (ValueError, IndexError):
-            pass
-
-        return None
-
-    def _parse_rating(self, rating_str: str | None) -> float | None:
-        """Parse rating from 0.0-1.0 scale"""
-        if not rating_str:
-            return None
-
-        try:
-            rating = float(rating_str)
-            # Ensure rating is in valid range
-            if 0.0 <= rating <= 1.0:
-                return rating
-        except (ValueError, TypeError):
-            pass
-
-        return None
+    async def heartbeat(self) -> bool:
+        return True
 
     def _resolve_media_path(
         self, media_path: str | None, gamelist_dir: str
@@ -103,18 +128,6 @@ class GamelistHandler(MetadataHandler):
         if os.path.exists(platform_gamelist):
             gamelist_files.append((platform_gamelist, platform_dir))
 
-        # Check for ROM-level gamelist.xml files (for multi-file ROMs)
-        try:
-            for rom_name in os.listdir(platform_dir):
-                rom_path = os.path.join(platform_dir, rom_name)
-                if os.path.isdir(rom_path):
-                    # Check if this is a multi-file ROM directory
-                    rom_gamelist = os.path.join(rom_path, "gamelist.xml")
-                    if os.path.exists(rom_gamelist):
-                        gamelist_files.append((rom_gamelist, rom_path))
-        except OSError:
-            pass
-
         return gamelist_files
 
     def _parse_gamelist_xml(
@@ -124,16 +137,19 @@ class GamelistHandler(MetadataHandler):
         roms_data = {}
 
         try:
+            # trunk-ignore(bandit/B314)
             tree = ET.parse(gamelist_path)
             root = tree.getroot()
+            if root is None:
+                return roms_data
 
             for game in root.findall("game"):
-                # Get ROM path from XML
                 path_elem = game.find("path")
                 if path_elem is None or path_elem.text is None:
                     continue
 
                 rom_path = path_elem.text
+                gamelist_id = game.find("id")
 
                 # Handle relative paths
                 if rom_path.startswith("./"):
@@ -145,51 +161,38 @@ class GamelistHandler(MetadataHandler):
                 # Extract metadata
                 name_elem = game.find("name")
                 desc_elem = game.find("desc")
+                lang_elem = game.find("lang")
+                region_elem = game.find("region")
+
+                name = (
+                    name_elem.text if name_elem is not None and name_elem.text else ""
+                )
+                summary = (
+                    desc_elem.text if desc_elem is not None and desc_elem.text else ""
+                )
+                regions = (
+                    pydash.compact([region_elem.text])
+                    if region_elem is not None
+                    else []
+                )
+                languages = (
+                    pydash.compact([lang_elem.text]) if lang_elem is not None else []
+                )
+
+                # Build ROM data
+                rom_data = GamelistRom(
+                    gamelist_id=gamelist_id.text if gamelist_id is not None else None,
+                    name=name,
+                    summary=summary,
+                    regions=regions,
+                    languages=languages,
+                    gamelist_metadata=extract_metadata_from_gamelist_rom(game),
+                )
+
                 image_elem = game.find("image")
                 video_elem = game.find("video")
                 marquee_elem = game.find("marquee")
                 thumbnail_elem = game.find("thumbnail")
-                rating_elem = game.find("rating")
-                releasedate_elem = game.find("releasedate")
-                developer_elem = game.find("developer")
-                publisher_elem = game.find("publisher")
-                genre_elem = game.find("genre")
-                players_elem = game.find("players")
-                lang_elem = game.find("lang")
-                region_elem = game.find("region")
-                id_elem = game.find("id")
-                hidden_elem = game.find("hidden")
-
-                # Build ROM data
-                rom_data = GamelistRom(
-                    gamelist_id=id_elem.text if id_elem is not None else None,
-                    name=name_elem.text if name_elem is not None else "",
-                    summary=desc_elem.text if desc_elem is not None else "",
-                    url_cover="",
-                    url_screenshots=[],
-                    url_manual="",
-                    developer=(
-                        developer_elem.text if developer_elem is not None else None
-                    ),
-                    publisher=(
-                        publisher_elem.text if publisher_elem is not None else None
-                    ),
-                    genre=genre_elem.text if genre_elem is not None else None,
-                    players=players_elem.text if players_elem is not None else None,
-                    lang=lang_elem.text if lang_elem is not None else None,
-                    region=region_elem.text if region_elem is not None else None,
-                    releasedate=self._parse_release_date(
-                        releasedate_elem.text if releasedate_elem is not None else None
-                    ),
-                    rating=self._parse_rating(
-                        rating_elem.text if rating_elem is not None else None
-                    ),
-                    hidden=(
-                        hidden_elem.text == "true" if hidden_elem is not None else False
-                    ),
-                    marquee=None,
-                    thumbnail=None,
-                )
 
                 # Handle media files
                 if image_elem is not None and image_elem.text:
@@ -202,16 +205,6 @@ class GamelistHandler(MetadataHandler):
                     video_url = self._resolve_media_path(video_elem.text, rom_dir)
                     if video_url:
                         rom_data["url_screenshots"] = [video_url]
-
-                if marquee_elem is not None and marquee_elem.text:
-                    rom_data["marquee"] = self._resolve_media_path(
-                        marquee_elem.text, rom_dir
-                    )
-
-                if thumbnail_elem is not None and thumbnail_elem.text:
-                    rom_data["thumbnail"] = self._resolve_media_path(
-                        thumbnail_elem.text, rom_dir
-                    )
 
                 # Store by filename for matching
                 roms_data[rom_filename] = rom_data
@@ -226,49 +219,13 @@ class GamelistHandler(MetadataHandler):
     async def get_rom(self, fs_name: str, platform: Platform) -> GamelistRom:
         """Get ROM metadata from gamelist.xml files"""
         if not self.is_enabled():
-            return GamelistRom(
-                gamelist_id=None,
-                name="",
-                summary="",
-                url_cover="",
-                url_screenshots=[],
-                url_manual="",
-                developer=None,
-                publisher=None,
-                genre=None,
-                players=None,
-                lang=None,
-                region=None,
-                releasedate=None,
-                rating=None,
-                hidden=False,
-                marquee=None,
-                thumbnail=None,
-            )
+            return GamelistRom(gamelist_id=None)
 
         # Find all gamelist.xml files for this platform
         gamelist_files = self._find_gamelist_files(platform)
 
         if not gamelist_files:
-            return GamelistRom(
-                gamelist_id=None,
-                name="",
-                summary="",
-                url_cover="",
-                url_screenshots=[],
-                url_manual="",
-                developer=None,
-                publisher=None,
-                genre=None,
-                players=None,
-                lang=None,
-                region=None,
-                releasedate=None,
-                rating=None,
-                hidden=False,
-                marquee=None,
-                thumbnail=None,
-            )
+            return GamelistRom(gamelist_id=None)
 
         # Parse all gamelist files
         all_roms_data = {}
@@ -307,22 +264,4 @@ class GamelistHandler(MetadataHandler):
             log.debug(f"Found fuzzy gamelist match for {fs_name} -> {best_match}")
             return all_roms_data[best_match]
 
-        return GamelistRom(
-            gamelist_id=None,
-            name="",
-            summary="",
-            url_cover="",
-            url_screenshots=[],
-            url_manual="",
-            developer=None,
-            publisher=None,
-            genre=None,
-            players=None,
-            lang=None,
-            region=None,
-            releasedate=None,
-            rating=None,
-            hidden=False,
-            marquee=None,
-            thumbnail=None,
-        )
+        return GamelistRom(gamelist_id=None)
