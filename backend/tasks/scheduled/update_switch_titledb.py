@@ -71,3 +71,57 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
 
 
 update_switch_titledb_task = UpdateSwitchTitleDBTask()
+
+TITLEDB_REGION_LANG_MAP: Final = {
+    "BG": ["en"],
+    "BR": ["en", "pt"],
+    "CH": ["fr", "de", "it"],
+    "CY": ["en"],
+    "EE": ["en"],
+    "HR": ["en"],
+    "IE": ["en"],
+    "LT": ["en"],
+    "LU": ["fr", "de"],
+    "LV": ["en"],
+    "MT": ["en"],
+    "RO": ["en"],
+    "SI": ["en"],
+    "SK": ["en"],
+    "CO": ["en", "es"],
+    "AR": ["en", "es"],
+    "CL": ["en", "es"],
+    "PE": ["en", "es"],
+    "KR": ["ko"],
+    "HK": ["zh"],
+    "CN": ["zh"],
+    "NZ": ["en"],
+    "AT": ["de"],
+    "BE": ["fr", "nl"],
+    "CZ": ["en"],
+    "DK": ["en"],
+    "ES": ["es"],
+    "FI": ["en"],
+    "GR": ["en"],
+    "HU": ["en"],
+    "NL": ["nl"],
+    "NO": ["en"],
+    "PL": ["en"],
+    "PT": ["pt"],
+    "RU": ["ru"],
+    "ZA": ["en"],
+    "SE": ["en"],
+    "MX": ["en", "es"],
+    "IT": ["it"],
+    "CA": ["en", "fr"],
+    "FR": ["fr"],
+    "DE": ["de"],
+    "JP": ["ja"],
+    "AU": ["en"],
+    "GB": ["en"],
+    "US": ["en", "es"],
+}
+
+TITLEDB_REGION_LIST: Final = list(TITLEDB_REGION_LANG_MAP.keys())
+TITLEDB_LANGUAGE_LIST: Final = list(
+    set(lang for sublist in TITLEDB_REGION_LANG_MAP.values() for lang in sublist)
+)
