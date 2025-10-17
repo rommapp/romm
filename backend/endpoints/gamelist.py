@@ -35,7 +35,6 @@ async def export_gamelist(
     ] = None,
 ) -> Response:
     """Export platforms/ROMs to gamelist.xml format"""
-
     if not platform_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -48,7 +47,7 @@ async def export_gamelist(
         # If only one platform, return single XML
         if len(platform_ids) == 1:
             platform_id = platform_ids[0]
-            xml_content = exporter.export_platform(platform_id, rom_ids)
+            xml_content = exporter.export_platform(platform_id, rom_ids, request)
 
             log.info(
                 f"Exported gamelist for platform {hl(str(platform_id), color=BLUE)} "
@@ -67,7 +66,7 @@ async def export_gamelist(
             # For now, return the first platform's XML
             # TODO: Implement zip export for multiple platforms
             platform_id = platform_ids[0]
-            xml_content = exporter.export_platform(platform_id, rom_ids)
+            xml_content = exporter.export_platform(platform_id, rom_ids, request)
 
             log.info(
                 f"Exported gamelist for platform {hl(str(platform_id), color=BLUE)} "
@@ -105,7 +104,7 @@ async def export_platform_gamelist(
 
     try:
         exporter = GamelistExporter()
-        xml_content = exporter.export_platform(platform_id, rom_ids)
+        xml_content = exporter.export_platform(platform_id, rom_ids, request)
 
         log.info(
             f"Exported gamelist for platform {hl(str(platform_id), color=BLUE)} "

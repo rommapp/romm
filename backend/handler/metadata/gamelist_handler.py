@@ -134,10 +134,9 @@ class GamelistHandler(MetadataHandler):
         self, gamelist_path: str, rom_dir: str
     ) -> dict[str, GamelistRom]:
         """Parse a gamelist.xml file and return ROM data indexed by filename"""
-        roms_data = {}
+        roms_data: dict[str, GamelistRom] = {}
 
         try:
-            # trunk-ignore(bandit/B314)
             tree = ET.parse(gamelist_path)
             root = tree.getroot()
             if root is None:
@@ -191,8 +190,8 @@ class GamelistHandler(MetadataHandler):
 
                 image_elem = game.find("image")
                 video_elem = game.find("video")
-                marquee_elem = game.find("marquee")
-                thumbnail_elem = game.find("thumbnail")
+                # marquee_elem = game.find("marquee")
+                # thumbnail_elem = game.find("thumbnail")
 
                 # Handle media files
                 if image_elem is not None and image_elem.text:
