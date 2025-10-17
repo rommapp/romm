@@ -481,6 +481,16 @@ async function stopScan() {
                             <v-img src="/assets/scrappers/hltb.png" />
                           </v-avatar>
                         </v-chip>
+                        <v-chip
+                          v-if="rom.gamelist_id"
+                          class="pa-1 mr-1 bg-surface"
+                          size="small"
+                          title="ES-DE match"
+                        >
+                          <v-avatar size="18" rounded>
+                            <v-img src="/assets/scrappers/esde.png" />
+                          </v-avatar>
+                        </v-chip>
                       </template>
                     </template>
                   </RomListItem>
