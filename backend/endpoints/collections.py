@@ -53,6 +53,7 @@ async def add_collection(
         "description": data.get("description", ""),
         "url_cover": data.get("url_cover", ""),
         "is_public": data.get("is_public", False),
+        "is_favorite": data.get("is_favorite", False),
         "user_id": request.user.id,
     }
     db_collection = db_collection_handler.get_collection_by_name(
