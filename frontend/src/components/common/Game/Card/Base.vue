@@ -154,8 +154,7 @@ const largeCover = computed(() => {
       props.rom.moby_url_cover ||
       props.rom.ss_url_cover ||
       props.rom.launchbox_url_cover ||
-      props.rom.flashpoint_url_cover ||
-      props.rom.hltb_url_cover
+      props.rom.flashpoint_url_cover
     );
   const pathCoverLarge = isWebpEnabled.value
     ? props.rom.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
@@ -270,8 +269,7 @@ onBeforeUnmount(() => {
                         !rom.ss_url_cover &&
                         !rom.sgdb_url_cover &&
                         !rom.launchbox_url_cover &&
-                        !rom.flashpoint_url_cover &&
-                        !rom.hltb_url_cover)
+                        !rom.flashpoint_url_cover)
                     "
                     class="translucent text-white"
                     :class="

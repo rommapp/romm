@@ -25,7 +25,6 @@ type MatchedSource = {
     | "Screenscraper"
     | "Flashpoint"
     | "Launchbox"
-    | "HowLongToBeat"
     | "SteamGridDB";
   logo_path: string;
 };
@@ -56,7 +55,6 @@ const isMobyFiltered = ref(true);
 const isSSFiltered = ref(true);
 const isFlashpointFiltered = ref(true);
 const isLaunchboxFiltered = ref(true);
-const isHLTBFiltered = ref(true);
 const computedAspectRatio = computed(() => {
   const ratio =
     platfotmsStore.getAspectRatio(rom.value?.platform_id ?? -1) ||
@@ -101,20 +99,15 @@ function toggleSourceFilter(source: MatchedSource["name"]) {
     heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED
   ) {
     isLaunchboxFiltered.value = !isLaunchboxFiltered.value;
-  } else if (
-    source == "HowLongToBeat" &&
-    heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED
-  ) {
-    isHLTBFiltered.value = !isHLTBFiltered.value;
   }
+
   filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
     if (
       (rom.igdb_id && isIGDBFiltered.value) ||
       (rom.moby_id && isMobyFiltered.value) ||
       (rom.ss_id && isSSFiltered.value) ||
       (rom.flashpoint_id && isFlashpointFiltered.value) ||
-      (rom.launchbox_id && isLaunchboxFiltered.value) ||
-      (rom.hltb_id && isHLTBFiltered.value)
+      (rom.launchbox_id && isLaunchboxFiltered.value)
     ) {
       return true;
     }
@@ -146,8 +139,7 @@ async function searchRom() {
             (rom.moby_id && isMobyFiltered.value) ||
             (rom.ss_id && isSSFiltered.value) ||
             (rom.flashpoint_id && isFlashpointFiltered.value) ||
-            (rom.launchbox_id && isLaunchboxFiltered.value) ||
-            (rom.hltb_id && isHLTBFiltered.value)
+            (rom.launchbox_id && isLaunchboxFiltered.value)
           ) {
             return true;
           }
@@ -219,13 +211,6 @@ function showSources(matchedRom: SearchRomSchema) {
       logo_path: "/assets/scrappers/launchbox.png",
     });
   }
-  if (matchedRom.hltb_url_cover) {
-    sources.value.push({
-      url_cover: matchedRom.hltb_url_cover,
-      name: "HowLongToBeat",
-      logo_path: "/assets/scrappers/hltb.png",
-    });
-  }
   if (sources.value.length == 1) {
     selectedCover.value = sources.value[0];
   }
@@ -277,7 +262,6 @@ async function updateRom(
     moby_id: selectedRom.moby_id || null,
     flashpoint_id: selectedRom.flashpoint_id || null,
     launchbox_id: selectedRom.launchbox_id || null,
-    hltb_id: selectedRom.hltb_id || null,
     name: selectedRom.name || null,
     slug: selectedRom.slug || null,
     summary: selectedRom.summary || null,
@@ -288,7 +272,6 @@ async function updateRom(
       selectedRom.moby_url_cover ||
       selectedRom.flashpoint_url_cover ||
       selectedRom.launchbox_url_cover ||
-      selectedRom.hltb_url_cover ||
       null,
   };
 
@@ -497,35 +480,6 @@ onBeforeUnmount(() => {
             rounded="1"
           >
             <v-img src="/assets/scrappers/flashpoint.png" />
-          </v-avatar>
-        </template>
-      </v-tooltip>
-      <v-tooltip
-        location="top"
-        class="tooltip"
-        transition="fade-transition"
-        :text="
-          heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED
-            ? 'Filter HowLongToBeat matches'
-            : 'HowLongToBeat source is not enabled'
-        "
-        open-delay="500"
-        ><template #activator="{ props }">
-          <v-avatar
-            @click="toggleSourceFilter('HowLongToBeat')"
-            v-bind="props"
-            class="ml-3 cursor-pointer opacity-40"
-            :class="{
-              'opacity-100':
-                isHLTBFiltered &&
-                heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED,
-              'cursor-not-allowed':
-                !heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED,
-            }"
-            size="30"
-            rounded="1"
-          >
-            <v-img src="/assets/scrappers/hltb.png" />
           </v-avatar>
         </template>
       </v-tooltip>

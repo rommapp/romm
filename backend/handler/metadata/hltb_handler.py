@@ -212,14 +212,6 @@ class HowLongToBeatHandler(MetadataHandler):
 
         return True
 
-    @staticmethod
-    def extract_hltb_id_from_filename(fs_name: str) -> int | None:
-        """Extract HLTB ID from filename tag like (hltb-12345)."""
-        match = HLTB_TAG_REGEX.search(fs_name)
-        if match:
-            return int(match.group(1))
-        return None
-
     async def _request(self, url: str, payload: dict) -> dict:
         """
         Sends a POST request to HowLongToBeat API.
@@ -386,21 +378,6 @@ class HowLongToBeatHandler(MetadataHandler):
         if not HLTB_API_ENABLED:
             return HLTBRom(hltb_id=None)
 
-        # Check for HLTB ID tag in filename first
-        hltb_id_from_tag = self.extract_hltb_id_from_filename(fs_name)
-        if hltb_id_from_tag:
-            log.debug(f"Found HLTB ID tag in filename: {hltb_id_from_tag}")
-            rom_by_id = await self.get_rom_by_id(hltb_id_from_tag)
-            if rom_by_id["hltb_id"]:
-                log.debug(
-                    f"Successfully matched ROM by HLTB ID tag: {fs_name} -> {hltb_id_from_tag}"
-                )
-                return rom_by_id
-            else:
-                log.warning(
-                    f"HLTB ID tag found but no match: {fs_name} -> {hltb_id_from_tag}"
-                )
-
         # We replace " - " with ": " to match HowLongToBeat's naming convention
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
             " - ", ": "
@@ -492,29 +469,6 @@ class HowLongToBeatHandler(MetadataHandler):
             )
 
         return roms
-
-    async def get_rom_by_id(self, hltb_id: int) -> HLTBRom:
-        """
-        Get ROM information by HowLongToBeat ID.
-        Note: HLTB doesn't have a direct "get by ID" endpoint,
-        so this method searches by the game name if we can find it.
-
-        :param hltb_id: The HowLongToBeat game ID.
-        :return: A HLTBRom object.
-        """
-        if not HLTB_API_ENABLED:
-            return HLTBRom(hltb_id=None)
-
-        if not hltb_id:
-            return HLTBRom(hltb_id=None)
-
-        # Unfortunately, HLTB doesn't provide a direct "get by ID" endpoint
-        # This is a limitation of their API - we would need to search and filter
-        # In practice, this method might not be very useful for HLTB
-        log.debug(
-            f"get_rom_by_id not fully supported for HowLongToBeat (ID: {hltb_id})"
-        )
-        return HLTBRom(hltb_id=hltb_id)
 
     async def price_check(
         self, hltb_id: int, steam_id: int = 0, itch_id: int = 0
