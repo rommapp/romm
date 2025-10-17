@@ -69,7 +69,7 @@ class MetadataSource(enum.StrEnum):
     SGDB = "sgdb"  # SteamGridDB
     FLASHPOINT = "flashpoint"  # Flashpoint Project
     HLTB = "hltb"  # HowLongToBeat
-    GAMELIST = "gamelist"  # EmulationStation gamelist.xml
+    GAMELIST = "gamelist"  # ES-DE gamelist.xml
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -738,10 +738,11 @@ async def scan_rom(
 
     async def fetch_sgdb_details() -> SGDBRom:
         """Fetch SteamGridDB details for the ROM."""
-        if (
-            MetadataSource.SGDB in metadata_sources
-            and newly_added
+        if MetadataSource.SGDB in metadata_sources and (
+            newly_added
             or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.PARTIAL and not rom.sgdb_id)
+            or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
         ):
             game_names = [
                 igdb_handler_rom.get("name", None),

@@ -1,11 +1,13 @@
 import os
+import uuid
+from pathlib import Path
 from typing import NotRequired, TypedDict
 from xml.etree.ElementTree import Element
 
 import pydash
 from defusedxml import ElementTree as ET
 
-from handler.filesystem import fs_rom_handler
+from handler.filesystem import fs_platform_handler
 from logger.logger import log
 from models.platform import Platform
 
@@ -20,7 +22,7 @@ class GamelistMetadata(TypedDict):
     companies: list[str] | None
     franchises: list[str] | None
     genres: list[str] | None
-    player_count: int | None
+    player_count: str | None
     md5_hash: str | None
 
 
@@ -64,9 +66,7 @@ def extract_metadata_from_gamelist_rom(game: Element) -> GamelistMetadata:
     family = family_elem.text if family_elem is not None and family_elem.text else None
     genre = genre_elem.text if genre_elem is not None and genre_elem.text else None
     players = (
-        int(players_elem.text)
-        if players_elem is not None and players_elem.text
-        else None
+        players_elem.text if players_elem is not None and players_elem.text else None
     )
     md5 = md5_elem.text if md5_elem is not None and md5_elem.text else None
 
@@ -111,28 +111,18 @@ class GamelistHandler(MetadataHandler):
 
         return None
 
-    def _find_gamelist_files(self, platform: Platform) -> list[tuple[str, str]]:
-        """Find gamelist.xml files for a platform
-
-        Returns:
-            List of (gamelist_path, rom_path) tuples
-        """
-        gamelist_files = []
-
-        # Get platform ROM directory
-        roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
-        platform_dir = os.path.join(roms_path, platform.fs_slug)
+    async def _find_gamelist_file(self, platform: Platform) -> Path | None:
+        """Find the gamelist.xml file for a platform"""
+        platform_dir = fs_platform_handler.get_plaform_fs_structure(platform.fs_slug)
 
         # Check for platform-level gamelist.xml
-        platform_gamelist = os.path.join(platform_dir, "gamelist.xml")
-        if os.path.exists(platform_gamelist):
-            gamelist_files.append((platform_gamelist, platform_dir))
+        platform_gamelist = f"{platform_dir}/gamelist.xml"
+        if await fs_platform_handler.file_exists(platform_gamelist):
+            return fs_platform_handler.validate_path(platform_gamelist)
 
-        return gamelist_files
+        return None
 
-    def _parse_gamelist_xml(
-        self, gamelist_path: str, rom_dir: str
-    ) -> dict[str, GamelistRom]:
+    def _parse_gamelist_xml(self, gamelist_path: Path) -> dict[str, GamelistRom]:
         """Parse a gamelist.xml file and return ROM data indexed by filename"""
         roms_data: dict[str, GamelistRom] = {}
 
@@ -147,10 +137,8 @@ class GamelistHandler(MetadataHandler):
                 if path_elem is None or path_elem.text is None:
                     continue
 
-                rom_path = path_elem.text
-                gamelist_id = game.find("id")
-
                 # Handle relative paths
+                rom_path = path_elem.text
                 if rom_path.startswith("./"):
                     rom_path = rom_path[2:]
 
@@ -180,7 +168,7 @@ class GamelistHandler(MetadataHandler):
 
                 # Build ROM data
                 rom_data = GamelistRom(
-                    gamelist_id=gamelist_id.text if gamelist_id is not None else None,
+                    gamelist_id=str(uuid.uuid4()),
                     name=name,
                     summary=summary,
                     regions=regions,
@@ -188,22 +176,22 @@ class GamelistHandler(MetadataHandler):
                     gamelist_metadata=extract_metadata_from_gamelist_rom(game),
                 )
 
-                image_elem = game.find("image")
-                video_elem = game.find("video")
+                # image_elem = game.find("image")
+                # video_elem = game.find("video")
                 # marquee_elem = game.find("marquee")
                 # thumbnail_elem = game.find("thumbnail")
 
                 # Handle media files
-                if image_elem is not None and image_elem.text:
-                    cover_url = self._resolve_media_path(image_elem.text, rom_dir)
-                    if cover_url:
-                        rom_data["url_cover"] = cover_url
+                # if image_elem is not None and image_elem.text:
+                #     cover_url = self._resolve_media_path(image_elem.text, gamelist_path)
+                #     if cover_url:
+                #         rom_data["url_cover"] = cover_url
 
-                if video_elem is not None and video_elem.text:
-                    # Store video as first screenshot for now
-                    video_url = self._resolve_media_path(video_elem.text, rom_dir)
-                    if video_url:
-                        rom_data["url_screenshots"] = [video_url]
+                # if video_elem is not None and video_elem.text:
+                #     # Store video as first screenshot for now
+                #     video_url = self._resolve_media_path(video_elem.text, gamelist_path)
+                #     if video_url:
+                #         rom_data["url_screenshots"] = [video_url]
 
                 # Store by filename for matching
                 roms_data[rom_filename] = rom_data
@@ -220,47 +208,17 @@ class GamelistHandler(MetadataHandler):
         if not self.is_enabled():
             return GamelistRom(gamelist_id=None)
 
-        # Find all gamelist.xml files for this platform
-        gamelist_files = self._find_gamelist_files(platform)
-
-        if not gamelist_files:
+        # Find the gamelist.xml file for this platform
+        gamelist_file_path = await self._find_gamelist_file(platform)
+        if not gamelist_file_path:
             return GamelistRom(gamelist_id=None)
 
-        # Parse all gamelist files
-        all_roms_data = {}
-        for gamelist_path, rom_dir in gamelist_files:
-            roms_data = self._parse_gamelist_xml(gamelist_path, rom_dir)
-            all_roms_data.update(roms_data)
+        # Parse the gamelist file
+        all_roms_data = self._parse_gamelist_xml(gamelist_file_path)
 
         # Try to find exact match first
         if fs_name in all_roms_data:
             log.debug(f"Found exact gamelist match for {fs_name}")
             return all_roms_data[fs_name]
-
-        # Try to find match by filename without extension
-        fs_name_no_ext = fs_rom_handler.get_file_name_with_no_extension(fs_name)
-        for rom_filename, rom_data in all_roms_data.items():
-            rom_filename_no_ext = fs_rom_handler.get_file_name_with_no_extension(
-                rom_filename
-            )
-            if rom_filename_no_ext == fs_name_no_ext:
-                log.debug(
-                    f"Found gamelist match by name for {fs_name} -> {rom_filename}"
-                )
-                return rom_data
-
-        # Try fuzzy matching
-        best_match, best_score = self.find_best_match(
-            fs_name_no_ext,
-            [
-                fs_rom_handler.get_file_name_with_no_extension(f)
-                for f in all_roms_data.keys()
-            ],
-            min_similarity_score=0.8,
-        )
-
-        if best_match:
-            log.debug(f"Found fuzzy gamelist match for {fs_name} -> {best_match}")
-            return all_roms_data[best_match]
 
         return GamelistRom(gamelist_id=None)

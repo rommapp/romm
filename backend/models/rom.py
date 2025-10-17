@@ -145,7 +145,7 @@ class Rom(BaseModel):
     tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
-    gamelist_id: Mapped[str | None] = mapped_column(Integer(), default=None)
+    gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -343,6 +343,7 @@ class Rom(BaseModel):
             and not self.hasheous_id
             and not self.flashpoint_id
             and not self.hltb_id
+            and not self.gamelist_id
         )
 
     @property
