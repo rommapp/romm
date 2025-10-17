@@ -52,6 +52,7 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 # scan:
 #   priority:
 #     metadata: # Top-level metadata source priority
+#       - "gamelist" # EmulationStation (highest priority)
 #       - "igdb" # IGDB
 #       - "moby" # MobyGames
 #       - "ss" # Screenscraper
@@ -59,8 +60,9 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #       - "lb" # Launchbox
 #       - "hasheous" # Hasheous
 #       - "flashpoint" # Flashpoint Project
-#       - "hltb" # HowLongToBeat
+#       - "hltb" # HowLongToBeat (lowest priority)
 #     artwork: # Cover art and screenshots
+#       - "gamelist" # EmulationStation
 #       - "igdb" # IGDB
 #       - "moby" # MobyGames
 #       - "ss" # Screenscraper
