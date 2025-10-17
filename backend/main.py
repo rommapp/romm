@@ -29,6 +29,7 @@ from endpoints import (
     configs,
     feeds,
     firmware,
+    gamelist,
     heartbeat,
     platform,
     raw,
@@ -130,6 +131,7 @@ app.include_router(raw.router, prefix="/api")
 app.include_router(screenshots.router, prefix="/api")
 app.include_router(firmware.router, prefix="/api")
 app.include_router(collections.router, prefix="/api")
+app.include_router(gamelist.router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 

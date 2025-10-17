@@ -199,6 +199,7 @@ class ConfigManager:
                 self._raw_config,
                 "scan.priority.metadata",
                 [
+                    "gamelist",
                     "igdb",
                     "moby",
                     "ss",
@@ -214,6 +215,7 @@ class ConfigManager:
                 self._raw_config,
                 "scan.priority.artwork",
                 [
+                    "gamelist",
                     "igdb",
                     "moby",
                     "ss",

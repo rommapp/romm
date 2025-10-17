@@ -11,6 +11,7 @@ from handler.filesystem import fs_asset_handler, fs_firmware_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_flashpoint_handler,
+    meta_gamelist_handler,
     meta_hasheous_handler,
     meta_hltb_handler,
     meta_igdb_handler,
@@ -23,6 +24,7 @@ from handler.metadata import (
     meta_tgdb_handler,
 )
 from handler.metadata.flashpoint_handler import FLASHPOINT_PLATFORM_LIST, FlashpointRom
+from handler.metadata.gamelist_handler import GamelistRom
 from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST, HasheousRom
 from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST, HLTBRom
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST, IGDBRom
@@ -67,6 +69,7 @@ class MetadataSource(enum.StrEnum):
     SGDB = "sgdb"  # SteamGridDB
     FLASHPOINT = "flashpoint"  # Flashpoint Project
     HLTB = "hltb"  # HowLongToBeat
+    GAMELIST = "gamelist"  # EmulationStation gamelist.xml
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -332,6 +335,9 @@ async def scan_rom(
                 "launchbox_id": rom.launchbox_id,
                 "hasheous_id": rom.hasheous_id,
                 "tgdb_id": rom.tgdb_id,
+                "gamelist_id": rom.gamelist_id,
+                "flashpoint_id": rom.flashpoint_id,
+                "hltb_id": rom.hltb_id,
                 "name": rom.name,
                 "slug": rom.slug,
                 "summary": rom.summary,
@@ -341,6 +347,9 @@ async def scan_rom(
                 "ra_metadata": rom.ra_metadata,
                 "launchbox_metadata": rom.launchbox_metadata,
                 "hasheous_metadata": rom.hasheous_metadata,
+                "gamelist_metadata": rom.gamelist_metadata,
+                "flashpoint_metadata": rom.flashpoint_metadata,
+                "hltb_metadata": rom.hltb_metadata,
                 "path_cover_s": rom.path_cover_s,
                 "path_cover_l": rom.path_cover_l,
                 "path_screenshots": rom.path_screenshots,
@@ -453,6 +462,17 @@ async def scan_rom(
             )
 
         return IGDBRom(igdb_id=None)
+
+    async def fetch_gamelist_rom() -> GamelistRom:
+        if MetadataSource.GAMELIST in metadata_sources and (
+            newly_added
+            or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.PARTIAL and not rom.gamelist_id)
+            or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
+        ):
+            return await meta_gamelist_handler.get_rom(rom_attrs["fs_name"], platform)
+
+        return GamelistRom(gamelist_id=None)
 
     async def fetch_flashpoint_rom() -> FlashpointRom:
         if (
@@ -622,6 +642,7 @@ async def scan_rom(
         hasheous_handler_rom,
         flashpoint_handler_rom,
         hltb_handler_rom,
+        gamelist_handler_rom,
     ) = await asyncio.gather(
         fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
         fetch_moby_rom(),
@@ -631,6 +652,7 @@ async def scan_rom(
         fetch_hasheous_rom(hasheous_hash_match),
         fetch_flashpoint_rom(),
         fetch_hltb_rom(),
+        fetch_gamelist_rom(),
     )
 
     metadata_handlers = {
@@ -642,6 +664,7 @@ async def scan_rom(
         MetadataSource.HASHEOUS: hasheous_handler_rom,
         MetadataSource.FLASHPOINT: flashpoint_handler_rom,
         MetadataSource.HLTB: hltb_handler_rom,
+        MetadataSource.GAMELIST: gamelist_handler_rom,
     }
 
     # Determine which metadata sources are available
@@ -705,6 +728,7 @@ async def scan_rom(
         and not hasheous_handler_rom.get("hasheous_id")
         and not flashpoint_handler_rom.get("flashpoint_id")
         and not hltb_handler_rom.get("hltb_id")
+        and not gamelist_handler_rom.get("gamelist_id")
     ):
         log.warning(
             f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",
@@ -725,6 +749,7 @@ async def scan_rom(
                 ss_handler_rom.get("name", None),
                 moby_handler_rom.get("name", None),
                 launchbox_handler_rom.get("name", None),
+                gamelist_handler_rom.get("name", None),
                 rom_attrs["fs_name_no_tags"],
             ]
             game_names = [name for name in game_names if name]
