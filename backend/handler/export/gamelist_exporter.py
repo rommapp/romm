@@ -19,12 +19,23 @@ class GamelistExporter:
         """Format release date to YYYYMMDDTHHMMSS format"""
         return f"{date_str // 10000:04d}{date_str % 10000:02d}T000000"
 
-    def _create_game_element(self, rom: Rom, platform_dir: str) -> Element:
+    def _create_game_element(
+        self, rom: Rom, platform_dir: str, request=None
+    ) -> Element:
         """Create a <game> element for a ROM"""
         game = Element("game")
 
         # Basic game info
-        SubElement(game, "path").text = f"./{rom.fs_name}"
+        if request:
+            SubElement(game, "path").text = str(
+                request.url_for(
+                    "get_rom_content",
+                    id=rom.id,
+                    file_name=rom.fs_name,
+                )
+            )
+        else:
+            SubElement(game, "path").text = f"./{rom.fs_name}"
         SubElement(game, "name").text = rom.name or rom.fs_name
 
         if rom.summary:
@@ -77,7 +88,7 @@ class GamelistExporter:
         return game
 
     def export_platform(
-        self, platform_id: int, rom_ids: Optional[List[int]] = None
+        self, platform_id: int, rom_ids: Optional[List[int]] = None, request=None
     ) -> str:
         """Export a platform's ROMs to gamelist.xml format
 
@@ -107,7 +118,7 @@ class GamelistExporter:
         # Add games
         for rom in roms:
             if rom and not rom.missing_from_fs:
-                game_element = self._create_game_element(rom, platform_dir)
+                game_element = self._create_game_element(rom, platform_dir, request)
                 root.append(game_element)
 
         # Convert to XML string
@@ -118,7 +129,7 @@ class GamelistExporter:
         return xml_str
 
     def export_multiple_platforms(
-        self, platform_ids: List[int], rom_ids: Optional[List[int]] = None
+        self, platform_ids: List[int], rom_ids: Optional[List[int]] = None, request=None
     ) -> Dict[str, str]:
         """Export multiple platforms to separate gamelist.xml files
 
@@ -135,7 +146,7 @@ class GamelistExporter:
             try:
                 platform = db_platform_handler.get_platform(platform_id)
                 if platform:
-                    xml_content = self.export_platform(platform_id, rom_ids)
+                    xml_content = self.export_platform(platform_id, rom_ids, request)
                     results[platform.fs_slug] = xml_content
             except Exception as e:
                 log.error(f"Failed to export platform {platform_id}: {e}")
@@ -143,7 +154,11 @@ class GamelistExporter:
         return results
 
     def export_roms_to_file(
-        self, platform_id: int, output_path: str, rom_ids: Optional[List[int]] = None
+        self,
+        platform_id: int,
+        output_path: str,
+        rom_ids: Optional[List[int]] = None,
+        request=None,
     ) -> bool:
         """Export platform ROMs to a gamelist.xml file
 
@@ -156,7 +171,7 @@ class GamelistExporter:
             True if successful, False otherwise
         """
         try:
-            xml_content = self.export_platform(platform_id, rom_ids)
+            xml_content = self.export_platform(platform_id, rom_ids, request)
 
             # Ensure output directory exists
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
