@@ -254,6 +254,7 @@ class DBRomsHandler(DBBaseHandler):
 
         from . import db_collection_handler
 
+        # TODO: fix
         favourites_collection = db_collection_handler.get_collection_by_name(
             "favourites", user_id
         )
