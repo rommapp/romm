@@ -20,12 +20,11 @@ const { mdAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
 const heartbeat = storeHeartbeat();
-// @ts-ignore
 const collection = ref<UpdatedCollection>({
   name: "",
   path_covers_large: [],
   path_covers_small: [],
-});
+} as unknown as UpdatedCollection);
 const collectionsStore = storeCollections();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
@@ -39,7 +38,7 @@ emitter?.on("updateUrlCover", (coverUrl) => {
 });
 
 const missingCoverImage = computed(() =>
-  getMissingCoverImage(collection.value.name),
+  getMissingCoverImage(collection.value.name || ""),
 );
 
 function triggerFileInput() {
