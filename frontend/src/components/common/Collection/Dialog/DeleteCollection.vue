@@ -36,7 +36,7 @@ async function deleteCollection() {
         color: "green",
       });
       collectionsStore.removeCollection(collection.value as Collection);
-      if (collection.value?.name.toLowerCase() == "favourites") {
+      if (collection.value?.is_favorite) {
         collectionsStore.setFavoriteCollection(undefined);
       }
     })

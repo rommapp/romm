@@ -196,9 +196,9 @@ def get_roms(
         bool | None,
         Query(description="Whether the rom matched a metadata source."),
     ] = None,
-    favourite: Annotated[
+    favorite: Annotated[
         bool | None,
-        Query(description="Whether the rom is marked as favourite."),
+        Query(description="Whether the rom is marked as favorite."),
     ] = None,
     duplicate: Annotated[
         bool | None,
@@ -288,7 +288,7 @@ def get_roms(
         smart_collection_id=smart_collection_id,
         search_term=search_term,
         matched=matched,
-        favourite=favourite,
+        favorite=favorite,
         duplicate=duplicate,
         playable=playable,
         has_ra=has_ra,
