@@ -47,6 +47,28 @@ class TestFSRomsHandler:
         )
 
     @pytest.fixture
+    def rom_single_nested(self, platform: Platform):
+        return Rom(
+            id=3,
+            fs_name="Sonic (EU) [T]",
+            fs_path="n64/roms",
+            platform=platform,
+            full_path="n64/roms/Sonic (EU) [T]",
+            files=[
+                RomFile(
+                    id=1,
+                    file_name="Sonic (EU) [T].n64",
+                    file_path="n64/roms",
+                ),
+                RomFile(
+                    id=2,
+                    file_name="Sonic (EU) [T-En].z64",
+                    file_path="n64/roms/translation",
+                ),
+            ],
+        )
+
+    @pytest.fixture
     def rom_multi(self, platform: Platform):
         return Rom(
             id=2,
@@ -555,3 +577,47 @@ class TestFSRomsHandler:
         async with await handler.stream_file("psx/roms/PaRappa the Rapper.zip") as f:
             content = await f.read()
             assert len(content) > 0
+
+    async def test_top_level_files_only_in_main_hash(
+        self, handler: FSRomsHandler, rom_single_nested
+    ):
+        """Test that only top-level files contribute to main ROM hash calculation"""
+        rom_files, rom_crc, rom_md5, rom_sha1, rom_ra = await handler.get_rom_files(
+            rom_single_nested
+        )
+
+        # Verify we have multiple files (base game + translation)
+        assert len(rom_files) == 2
+
+        base_game_rom_file = None
+        translation_rom_file = None
+
+        for rom_file in rom_files:
+            if rom_file.file_name == "Sonic (EU) [T].n64":
+                base_game_rom_file = rom_file
+            elif rom_file.file_name == "Sonic (EU) [T-En].z64":
+                translation_rom_file = rom_file
+
+        assert base_game_rom_file is not None, "Base game file not found"
+        assert translation_rom_file is not None, "Translation file not found"
+
+        # Verify file categories
+        assert base_game_rom_file.category is None
+        assert translation_rom_file.category == RomFileCategory.TRANSLATION
+
+        # The main ROM hash should be different from the translation file hash
+        # (this verifies that the translation is not included in the main hash)
+
+        assert (
+            rom_md5 == base_game_rom_file.md5_hash
+        ), "Main ROM hash should include base game file"
+        assert (
+            rom_md5 != translation_rom_file.md5_hash
+        ), "Main ROM hash should not include translation file"
+
+        assert (
+            rom_sha1 == base_game_rom_file.sha1_hash
+        ), "Main ROM hash should include base game file"
+        assert (
+            rom_sha1 != translation_rom_file.sha1_hash
+        ), "Main ROM hash should not include translation file"
