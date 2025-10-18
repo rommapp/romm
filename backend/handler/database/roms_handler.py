@@ -254,11 +254,7 @@ class DBRomsHandler(DBBaseHandler):
 
         from . import db_collection_handler
 
-        # TODO: fix
-        favourites_collection = db_collection_handler.get_collection_by_name(
-            "favourites", user_id
-        )
-
+        favourites_collection = db_collection_handler.get_favorite_collection(user_id)
         if favourites_collection:
             predicate = Rom.id.in_(favourites_collection.rom_ids)
             if not value:

@@ -61,6 +61,15 @@ class DBCollectionsHandler(DBBaseHandler):
 
     @begin_session
     @with_roms
+    def get_favorite_collection(
+        self, user_id: int, query: Query = None, session: Session = None
+    ) -> Collection | None:
+        return session.scalar(
+            query.filter_by(is_favorite=True, user_id=user_id).limit(1)
+        )
+
+    @begin_session
+    @with_roms
     def get_collections(
         self, query: Query = None, session: Session = None
     ) -> Sequence[Collection]:
