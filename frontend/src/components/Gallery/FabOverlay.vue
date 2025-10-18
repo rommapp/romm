@@ -102,7 +102,7 @@ async function removeFromFavorites() {
   favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.filter(
     (value) => !selectedRoms.value.map((r) => r.id).includes(value),
   );
-  if (romsStore.currentCollection?.name.toLowerCase() == "favorites") {
+  if (romsStore.currentCollection?.is_favorite) {
     romsStore.remove(selectedRoms.value);
   }
   await collectionApi
