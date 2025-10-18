@@ -20,7 +20,12 @@ const { mdAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
 const heartbeat = storeHeartbeat();
-const collection = ref<UpdatedCollection>({ name: "" } as UpdatedCollection);
+// @ts-ignore
+const collection = ref<UpdatedCollection>({
+  name: "",
+  path_covers_large: [],
+  path_covers_small: [],
+});
 const collectionsStore = storeCollections();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
