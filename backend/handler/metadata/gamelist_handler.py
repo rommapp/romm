@@ -92,7 +92,7 @@ class GamelistHandler(MetadataHandler):
         return True
 
     def _resolve_media_path(
-        self, media_path: str | None, gamelist_dir: str
+        self, media_path: str | None, gamelist_dir: Path
     ) -> str | None:
         """Convert relative media path to file:// URL"""
         if not media_path:
@@ -103,11 +103,11 @@ class GamelistHandler(MetadataHandler):
             media_path = media_path[2:]
 
         # Build absolute path
-        abs_path = os.path.join(gamelist_dir, media_path)
+        abs_path = gamelist_dir / media_path
 
         # Check if file exists
-        if os.path.exists(abs_path):
-            return f"file://{os.path.abspath(abs_path)}"
+        if abs_path.exists():
+            return f"file://{abs_path.resolve()}"
 
         return None
 
@@ -176,22 +176,22 @@ class GamelistHandler(MetadataHandler):
                     gamelist_metadata=extract_metadata_from_gamelist_rom(game),
                 )
 
-                # image_elem = game.find("image")
-                # video_elem = game.find("video")
+                image_elem = game.find("image")
+                video_elem = game.find("video")
                 # marquee_elem = game.find("marquee")
                 # thumbnail_elem = game.find("thumbnail")
 
                 # Handle media files
-                # if image_elem is not None and image_elem.text:
-                #     cover_url = self._resolve_media_path(image_elem.text, gamelist_path)
-                #     if cover_url:
-                #         rom_data["url_cover"] = cover_url
+                if image_elem is not None and image_elem.text:
+                    cover_url = self._resolve_media_path(image_elem.text, gamelist_path)
+                    if cover_url:
+                        rom_data["url_cover"] = cover_url
 
-                # if video_elem is not None and video_elem.text:
-                #     # Store video as first screenshot for now
-                #     video_url = self._resolve_media_path(video_elem.text, gamelist_path)
-                #     if video_url:
-                #         rom_data["url_screenshots"] = [video_url]
+                if video_elem is not None and video_elem.text:
+                    # Store video as first screenshot for now
+                    video_url = self._resolve_media_path(video_elem.text, gamelist_path)
+                    if video_url:
+                        rom_data["url_screenshots"] = [video_url]
 
                 # Store by filename for matching
                 roms_data[rom_filename] = rom_data
