@@ -137,6 +137,7 @@ OIDC_TLS_CACERTFILE: Final = os.environ.get("OIDC_TLS_CACERTFILE", None)
 
 # SCANS
 SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
+SCAN_WORKERS: Final = max(1, int(os.environ.get("SCAN_WORKERS", "1")))
 
 # TASKS
 TASK_TIMEOUT: Final = int(os.environ.get("TASK_TIMEOUT", 60 * 5))  # 5 minutes
