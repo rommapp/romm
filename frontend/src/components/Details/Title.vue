@@ -289,6 +289,16 @@ const hashMatches = computed(() => {
             </template>
           </v-chip>
         </a>
+        <v-chip
+          v-if="rom.gamelist_id"
+          class="px-0 mr-1 mt-1"
+          size="small"
+          title="ES-DE (gamelist.xml)"
+        >
+          <v-avatar size="30" rounded="0">
+            <v-img src="/assets/scrappers/esde.png" />
+          </v-avatar>
+        </v-chip>
         <a
           v-if="rom.sgdb_id"
           style="text-decoration: none; color: inherit"

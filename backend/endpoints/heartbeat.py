@@ -23,6 +23,7 @@ from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata import (
     meta_flashpoint_handler,
+    meta_gamelist_handler,
     meta_hasheous_handler,
     meta_hltb_handler,
     meta_igdb_handler,
@@ -150,3 +151,7 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_flashpoint_handler.heartbeat()
         case MetadataSource.HLTB:
             return await meta_hltb_handler.heartbeat()
+        case MetadataSource.GAMELIST:
+            return await meta_gamelist_handler.heartbeat()
+        case _:
+            return False

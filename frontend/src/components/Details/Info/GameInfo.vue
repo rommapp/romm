@@ -327,7 +327,7 @@ function onFilterClick(filter: FilterType, value: string) {
       </template>
       <v-row v-if="rom.is_identified">
         <v-col class="mt-4 text-right">
-          <div class="text-grey">
+          <div v-if="dataSources.length > 0" class="text-grey">
             Data provided by
             <template v-for="(source, index) in dataSources" :key="source.name">
               <a
