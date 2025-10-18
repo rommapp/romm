@@ -220,7 +220,7 @@ class DBCollectionsHandler(DBBaseHandler):
             virtual_collection_id=criteria.get("virtual_collection_id"),
             search_term=criteria.get("search_term"),
             matched=criteria.get("matched"),
-            favourite=criteria.get("favourite"),
+            favorite=criteria.get("favorite"),
             duplicate=criteria.get("duplicate"),
             playable=criteria.get("playable"),
             has_ra=criteria.get("has_ra"),

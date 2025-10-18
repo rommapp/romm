@@ -50,7 +50,7 @@ class CachedApiService {
       selected_language: params.selectedLanguage,
       ...(params.filterUnmatched ? { matched: false } : {}),
       ...(params.filterMatched ? { matched: true } : {}),
-      ...(params.filterFavourites ? { favourite: true } : {}),
+      ...(params.filterFavorites ? { favourite: true } : {}),
       ...(params.filterDuplicates ? { duplicate: true } : {}),
       ...(params.filterPlayables ? { playable: true } : {}),
       ...(params.filterMissing ? { missing: true } : {}),

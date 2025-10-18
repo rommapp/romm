@@ -649,11 +649,7 @@ onMounted(async () => {
     virtualCollections.value = virtualCols ?? [];
 
     collectionsStore.setCollections(cols ?? []);
-    collectionsStore.setFavoriteCollection(
-      cols?.find(
-        (collection) => collection.name.toLowerCase() === "favourites",
-      ),
-    );
+    collectionsStore.setFavoriteCollection(cols?.find((c) => c.is_favorite));
   } catch (err: unknown) {
     errorMessage.value = err instanceof Error ? err.message : "Failed to load";
   } finally {

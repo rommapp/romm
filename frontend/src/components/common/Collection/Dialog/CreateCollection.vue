@@ -88,9 +88,7 @@ async function createCollection() {
       timeout: 2000,
     });
     collectionsStore.addCollection(data);
-    if (data.name.toLowerCase() == "favourites") {
-      collectionsStore.setFavoriteCollection(data);
-    }
+    if (data.is_favorite) collectionsStore.setFavoriteCollection(data);
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     router.push({ name: ROUTES.COLLECTION, params: { collection: data.id } });
     closeDialog();

@@ -20,7 +20,7 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
     // Create if still missing
     const { data } = await collectionApi.createCollection({
       collection: {
-        name: "Favourites",
+        name: "Favorites",
         rom_ids: [],
         is_favorite: true,
         is_public: false,
@@ -77,7 +77,7 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
       const detail = (error as { response?: { data?: { detail?: string } } })
         ?.response?.data?.detail;
       emitter?.emit("snackbarShow", {
-        msg: detail || "Failed to update favourites",
+        msg: detail || "Failed to update favorites",
         icon: "mdi-close-circle",
         color: "red",
       });
