@@ -1,6 +1,6 @@
 {
   "add-to-collection": "모음집에 추가",
-  "add-to-fav": "즐겨찾기에 추가",
+  "add-to-favorites": "즐겨찾기에 추가",
   "adding-to-collection-part1": "",
   "adding-to-collection-part2": "개의 롬을 모음집에 추가합니다",
   "additional-content": "추가 컨텐츠",
@@ -46,7 +46,7 @@
   "regions": "지역",
   "related-content": "관련 컨텐츠",
   "remove-from-collection": "모음집에서 제거",
-  "remove-from-fav": "즐겨찾기에서 제거",
+  "remove-from-favorites": "즐겨찾기에서 제거",
   "remove-from-playing": "플레이 중지",
   "removing-from-collection-part1": "",
   "removing-from-collection-part2": "개의 롬을 모음집에서 제거합니다",

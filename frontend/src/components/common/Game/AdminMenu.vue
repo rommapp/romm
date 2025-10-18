@@ -23,7 +23,7 @@ const { toggleFavorite } = useFavoriteToggle(emitter);
 const romsStore = storeRoms();
 const scanningStore = storeScanning();
 
-async function switchFromFavourites() {
+async function switchFromFavorites() {
   await toggleFavorite(props.rom);
 }
 
@@ -124,7 +124,7 @@ async function onScan() {
     <v-list-item
       v-if="auth.scopes.includes('collections.write')"
       class="py-4 pr-5"
-      @click="switchFromFavourites"
+      @click="switchFromFavorites"
     >
       <v-list-item-title class="d-flex">
         <v-icon
@@ -136,8 +136,8 @@ async function onScan() {
           class="mr-2"
         />{{
           collectionsStore.isFavorite(rom)
-            ? t("rom.remove-from-fav")
-            : t("rom.add-to-fav")
+            ? t("rom.remove-from-favorites")
+            : t("rom.add-to-favorites")
         }}
       </v-list-item-title>
     </v-list-item>

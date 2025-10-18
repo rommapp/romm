@@ -28,7 +28,7 @@ const {
   searchTerm,
   filterUnmatched,
   filterMatched,
-  filterFavourites,
+  filterFavorites,
   filterDuplicates,
   filterPlayables,
   filterRA,
@@ -68,7 +68,7 @@ const filterSummary = computed(() => {
     filters.push(`Platform: ${selectedPlatform.value.name}`);
   if (filterMatched.value) filters.push("Matched only");
   if (filterUnmatched.value) filters.push("Unmatched only");
-  if (filterFavourites.value) filters.push("Favourites");
+  if (filterFavorites.value) filters.push("Favorites");
   if (filterDuplicates.value) filters.push("Duplicates");
   if (filterPlayables.value) filters.push("Playable");
   if (filterRA.value) filters.push("Has RetroAchievements");
@@ -117,7 +117,7 @@ async function createSmartCollection() {
       filterCriteria.platform_id = selectedPlatform.value.id;
     if (filterMatched.value) filterCriteria.matched = true;
     if (filterUnmatched.value) filterCriteria.matched = false;
-    if (filterFavourites.value) filterCriteria.favourite = true;
+    if (filterFavorites.value) filterCriteria.favorite = true;
     if (filterDuplicates.value) filterCriteria.duplicate = true;
     if (filterPlayables.value) filterCriteria.playable = true;
     if (filterRA.value) filterCriteria.has_ra = true;
