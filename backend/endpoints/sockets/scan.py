@@ -444,7 +444,7 @@ async def _identify_platform(
             }
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
-        rom_by_filename_map = db_rom_handler.get_roms_by_fs_name(
+        roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
         )
@@ -452,7 +452,7 @@ async def _identify_platform(
         # Process ROMs concurrently within the batch
         scan_tasks = [
             scan_rom_with_semaphore(
-                fs_rom=fs_rom, rom=rom_by_filename_map.get(fs_rom["fs_name"])
+                fs_rom=fs_rom, rom=roms_by_fs_name.get(fs_rom["fs_name"])
             )
             for fs_rom in fs_roms_batch
         ]
@@ -461,9 +461,9 @@ async def _identify_platform(
         batch_results = await asyncio.gather(*scan_tasks, return_exceptions=True)
 
         # Aggregate stats from all ROMs in the batch
-        for result in batch_results:
+        for result, fs_rom in zip(batch_results, fs_roms_batch, strict=False):
             if isinstance(result, BaseException):
-                log.error(f"Error scanning ROM: {result}")
+                log.error(f"Error scanning ROM {fs_rom['fs_name']}: {result}")
             else:
                 scan_stats.update(
                     scanned_roms=scan_stats.scanned_roms + result["scanned_roms"],
