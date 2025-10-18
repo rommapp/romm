@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
@@ -8,7 +9,7 @@ import socketio  # type: ignore
 from rq import Worker
 from rq.job import Job
 
-from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, TASK_RESULT_TTL
+from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
 from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
@@ -417,23 +418,59 @@ async def _identify_platform(
     else:
         log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
-    for fs_roms_batch in batched(fs_roms, 200, strict=False):
-        rom_by_filename_map = db_rom_handler.get_roms_by_fs_name(
-            platform_id=platform.id,
-            fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
-        )
+    # Create semaphore to limit concurrent ROM scanning
+    scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
 
-        for fs_rom in fs_roms_batch:
-            scan_stats = await _identify_rom(
+    async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> dict[str, int]:
+        """Scan a single ROM with semaphore limiting and return stats delta"""
+        async with scan_semaphore:
+            # Create a fresh stats object for this ROM to avoid race conditions
+            rom_scan_stats = ScanStats()
+            result_stats = await _identify_rom(
                 platform=platform,
                 fs_rom=fs_rom,
-                rom=rom_by_filename_map.get(fs_rom["fs_name"]),
+                rom=rom,
                 scan_type=scan_type,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 socket_manager=socket_manager,
-                scan_stats=scan_stats,
+                scan_stats=rom_scan_stats,
             )
+
+            return {
+                "scanned_roms": result_stats.scanned_roms,
+                "added_roms": result_stats.added_roms,
+                "identified_roms": result_stats.identified_roms,
+            }
+
+    for fs_roms_batch in batched(fs_roms, 200, strict=False):
+        roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
+            platform_id=platform.id,
+            fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
+        )
+
+        # Process ROMs concurrently within the batch
+        scan_tasks = [
+            scan_rom_with_semaphore(
+                fs_rom=fs_rom, rom=roms_by_fs_name.get(fs_rom["fs_name"])
+            )
+            for fs_rom in fs_roms_batch
+        ]
+
+        # Wait for all ROMs in the batch to complete
+        batch_results = await asyncio.gather(*scan_tasks, return_exceptions=True)
+
+        # Aggregate stats from all ROMs in the batch
+        for result, fs_rom in zip(batch_results, fs_roms_batch, strict=False):
+            if isinstance(result, BaseException):
+                log.error(f"Error scanning ROM {fs_rom['fs_name']}: {result}")
+            else:
+                scan_stats.update(
+                    scanned_roms=scan_stats.scanned_roms + result["scanned_roms"],
+                    added_roms=scan_stats.added_roms + result["added_roms"],
+                    identified_roms=scan_stats.identified_roms
+                    + result["identified_roms"],
+                )
 
     missing_roms = db_rom_handler.mark_missing_roms(
         platform.id, [rom["fs_name"] for rom in fs_roms]
