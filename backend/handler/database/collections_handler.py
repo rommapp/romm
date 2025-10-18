@@ -204,6 +204,37 @@ class DBCollectionsHandler(DBBaseHandler):
         # Extract filter criteria
         criteria = smart_collection.filter_criteria
 
+        # Backwards compatibility with old criteria names
+        genres = criteria.get("genres") or (
+            [criteria["selected_genre"]] if criteria.get("selected_genre") else None
+        )
+        franchises = criteria.get("franchises") or (
+            [criteria["selected_franchise"]]
+            if criteria.get("selected_franchise")
+            else None
+        )
+        collections = criteria.get("collections") or (
+            [criteria["selected_collection"]]
+            if criteria.get("selected_collection")
+            else None
+        )
+        companies = criteria.get("companies") or (
+            [criteria["selected_company"]] if criteria.get("selected_company") else None
+        )
+        age_ratings = criteria.get("age_ratings") or (
+            [criteria["selected_age_rating"]]
+            if criteria.get("selected_age_rating")
+            else None
+        )
+        regions = criteria.get("regions") or (
+            [criteria["selected_region"]] if criteria.get("selected_region") else None
+        )
+        languages = criteria.get("languages") or (
+            [criteria["selected_language"]]
+            if criteria.get("selected_language")
+            else None
+        )
+
         # Use the existing filter_roms method with the stored criteria
         return db_rom_handler.get_roms_scalar(
             platform_id=criteria.get("platform_id"),
@@ -217,14 +248,14 @@ class DBCollectionsHandler(DBBaseHandler):
             has_ra=criteria.get("has_ra"),
             missing=criteria.get("missing"),
             verified=criteria.get("verified"),
-            selected_genre=criteria.get("selected_genre"),
-            selected_franchise=criteria.get("selected_franchise"),
-            selected_collection=criteria.get("selected_collection"),
-            selected_company=criteria.get("selected_company"),
-            selected_age_rating=criteria.get("selected_age_rating"),
+            genres=genres,
+            franchises=franchises,
+            collections=collections,
+            companies=companies,
+            age_ratings=age_ratings,
             selected_status=criteria.get("selected_status"),
-            selected_region=criteria.get("selected_region"),
-            selected_language=criteria.get("selected_language"),
+            regions=regions,
+            languages=languages,
             user_id=user_id,
             order_by=criteria.get("order_by", "name"),
             order_dir=criteria.get("order_dir", "asc"),
