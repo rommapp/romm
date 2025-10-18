@@ -46,7 +46,7 @@ const memoizedCovers = ref({
 });
 
 const fallbackCollectionCover = computed(() =>
-  props.collection.name?.toLowerCase() == "favourites"
+  props.collection.is_favorite
     ? getFavoriteCoverImage(props.collection.name)
     : getCollectionCoverImage(props.collection.name),
 );

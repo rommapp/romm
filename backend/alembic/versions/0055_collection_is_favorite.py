@@ -26,6 +26,11 @@ def upgrade() -> None:
     users = db_user_handler.get_users()
     for user in users:
         collection = db_collection_handler.get_collection_by_name("favourites", user.id)
+        if not collection:
+            collection = db_collection_handler.get_collection_by_name(
+                "favorites", user.id
+            )
+
         if collection:
             db_collection_handler.update_collection(
                 collection.id, {"is_favorite": True}
