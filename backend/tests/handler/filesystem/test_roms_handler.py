@@ -58,12 +58,12 @@ class TestFSRomsHandler:
                 RomFile(
                     id=1,
                     file_name="Sonic (EU) [T].n64",
-                    file_path="n64/roms",
+                    file_path="n64/roms/Sonic (EU) [T]",
                 ),
                 RomFile(
                     id=2,
                     file_name="Sonic (EU) [T-En].z64",
-                    file_path="n64/roms/translation",
+                    file_path="n64/roms/Sonic (EU) [T]/translation",
                 ),
             ],
         )
