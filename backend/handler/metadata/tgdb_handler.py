@@ -81,7 +81,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.ACORN_ARCHIMEDES: {
         "id": 4944,
         "name": "Acorn Archimedes",
-        "manufacturer": "Acorn Computers",
+        "manufacturer": "Acorn",
         "developer": "Acorn Computers",
         "media_medium": None,
         "cpu": "Acorn RISC Machine",
@@ -96,7 +96,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.ATOM: {
         "id": 5014,
         "name": "Acorn Atom",
-        "manufacturer": "Acorn Computers",
+        "manufacturer": "Acorn",
         "developer": "Acorn Computers",
         "media_medium": "100KB 5¼ Floppy, Cassette",
         "cpu": "MOS Technology 6502 clocked at 1MHz",
@@ -111,7 +111,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.ACORN_ELECTRON: {
         "id": 4954,
         "name": "Acorn Electron",
-        "manufacturer": "Acorn Computers",
+        "manufacturer": "Acorn",
         "developer": "Acorn Computers",
         "media_medium": "Cassette tape, floppy disk (optional), ROM cartridge (optional)",
         "cpu": "MOS Technology 6502A with 2/1 MHz",
@@ -321,7 +321,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.ATARI800: {
         "id": 4943,
         "name": "Atari 800",
-        "manufacturer": "Atari Corporation",
+        "manufacturer": "Atari",
         "developer": "Atari Corporation",
         "media_medium": None,
         "cpu": "MOS Technology 6502B",
@@ -366,7 +366,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.LYNX: {
         "id": 4924,
         "name": "Atari Lynx",
-        "manufacturer": "Atari Corporation",
+        "manufacturer": "Atari",
         "developer": "Epyx / Atari",
         "media_medium": None,
         "cpu": "MOS Technology 6502",
@@ -381,7 +381,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.ATARI_ST: {
         "id": 4937,
         "name": "Atari ST",
-        "manufacturer": "Atari Corporation",
+        "manufacturer": "Atari",
         "developer": "Atari Corporation",
         "media_medium": "Floppy",
         "cpu": "Motorola 680x0 @ 8 MHz &amp; higher",
@@ -411,7 +411,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.ASTROCADE: {
         "id": 4968,
         "name": "Bally Astrocade",
-        "manufacturer": "Bally Manufacturing",
+        "manufacturer": "Bally",
         "developer": "Bally Manufacturing",
         "media_medium": None,
         "cpu": None,
@@ -426,7 +426,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.BBCMICRO: {
         "id": 5013,
         "name": "BBC Micro",
-        "manufacturer": "Acorn Computers",
+        "manufacturer": "Acorn",
         "developer": "BBC",
         "media_medium": "Cassette, Floppy, Hard Disk, Laserdisc",
         "cpu": "2 MHz MOS Technology 6502/6512",
@@ -501,7 +501,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.C128: {
         "id": 4946,
         "name": "Commodore 128",
-        "manufacturer": "Commodore Business Machines",
+        "manufacturer": "Commodore",
         "developer": "Commodore International",
         "media_medium": None,
         "cpu": "Zilog Z80A @ 4 MHz",
@@ -516,7 +516,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.C16: {
         "id": 5006,
         "name": "Commodore 16",
-        "manufacturer": "Commodore Business Machines",
+        "manufacturer": "Commodore",
         "developer": None,
         "media_medium": "ROM cartridge, Compact Cassette",
         "cpu": "MOS Technology 7501 @ 0.89 MHz / MOS Technology 8501 @ 1.76 MHz",
@@ -531,7 +531,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.C64: {
         "id": 40,
         "name": "Commodore 64",
-        "manufacturer": "Commodore International",
+        "manufacturer": "Commodore",
         "developer": "Commodore International",
         "media_medium": "Cartridge",
         "cpu": "MOS Technology 6510",
@@ -546,7 +546,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.CPET: {
         "id": 5008,
         "name": "Commodore PET",
-        "manufacturer": "Commodore International",
+        "manufacturer": "Commodore",
         "developer": None,
         "media_medium": "Cassette tape, 5.25-inch floppy, 8-inch floppy, hard disk",
         "cpu": "MOS Technology 6502 @ 1 MHz",
@@ -561,7 +561,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.C_PLUS_4: {
         "id": 5007,
         "name": "Commodore Plus/4",
-        "manufacturer": "Commodore Business Machines",
+        "manufacturer": "Commodore",
         "developer": None,
         "media_medium": None,
         "cpu": "MOS Technology 7501 or 8501 @ 1.76 MHz",
@@ -576,7 +576,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.VIC_20: {
         "id": 4945,
         "name": "Commodore VIC-20",
-        "manufacturer": "Commodore Business Machines",
+        "manufacturer": "Commodore",
         "developer": "Commodore International",
         "media_medium": None,
         "cpu": "MOS Technology 6502",
@@ -1416,7 +1416,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.NUON: {
         "id": 4935,
         "name": "Nuon",
-        "manufacturer": "Motorola, Samsung, Toshiba",
+        "manufacturer": "Samsung",
         "developer": "VM Labs",
         "media_medium": None,
         "cpu": None,
@@ -1491,7 +1491,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
     UPS.WIN: {
         "id": 1,
         "name": "PC",
-        "manufacturer": None,
+        "manufacturer": "Microsoft",
         "developer": "IBM",
         "media_medium": None,
         "cpu": "x86 Based",
