@@ -56,31 +56,31 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 | :------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------: |
 | <img src=".github/resources/screenshots/preview-desktop.webp" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/preview-mobile.webp" alt="mobile preview" /> |
 
-# Installation
+## Installation
 
 To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] in the docs. If you are having issues with RomM, please review the page for [troubleshooting steps][docs-troubleshooting].
 
-# Contributing
+## Contributing
 
 To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).
 
-# Community
+## Community
 
 Here are a few projects maintained by members of our community. Please note that the RomM team does not regularly review their source code.
 
-## Mobile
+### Mobile
 
 - [romm-mobile][romm-mobile]: Android (and soon iOS) app by @mattsays
 - [romm-android][romm-android]: Android app by @samwelnella
 
-## Desktop
+### Desktop
 
 - [RommBrowser][romm-browser]: Electron client by @smurflabs
 - [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by @Covin90
 - [RomMate][rommate]: Desktop app for browsing your collection by @brenoprata10
 - [romm-client][romm-client]: Desktop client by @chaun14
 
-## Other
+### Other
 
 - [romm-comm][romm-comm-discord-bot]: Discord bot by @idio-sync
 - [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by @PeriBluGaming
@@ -90,17 +90,17 @@ Join us on Discord, where you can ask questions, submit ideas, get help, showcas
 
 [![discord-invite-img]][discord-invite]
 
-# Technical Support
+## Technical Support
 
 If you have any issues with RomM, please [open an issue](https://github.com/rommapp/romm/issues/new) in this repository.
 
-# Project Support
+## Project Support
 
 Consider supporting the development of this project on Open Collective. All funds will be used to cover the costs of hosting, development, and maintenance of RomM.
 
 [![oc-donate-img]][oc-donate]
 
-# Our Friends
+## Our Friends
 
 Here are a few projects that we think you might like:
 
