@@ -168,3 +168,34 @@ class TinfoilFeedSchema(TypedDict):
     titledb: NotRequired[dict[str, dict]]  # dict after .model_dump()
     success: NotRequired[str]
     error: NotRequired[str]
+
+
+# PKGi PS3 feed format
+# Source: https://github.com/bucanero/pkgi-ps3
+class PKGiFeedItemSchema(BaseModel):
+    """Schema for PKGi PS3 feed items.
+
+    Follows the PKGi database format:
+    contentid,type,name,description,rap,url,size,checksum
+    """
+
+    contentid: str
+    type: int
+    name: str
+    description: str
+    rap: str | None = None
+    url: str
+    size: int
+    checksum: str | None = None
+
+    @field_validator("checksum")
+    def validate_checksum(cls, v: str) -> str:
+        if v and len(v) != 64:  # SHA256 = 32 bytes = 64 hex chars
+            return ""
+        return v.upper()
+
+
+class PKGiFeedSchema(TypedDict):
+    """Schema for PKGi PS3 feed response."""
+
+    items: list[PKGiFeedItemSchema]

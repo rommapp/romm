@@ -831,6 +831,10 @@ class DBRomsHandler(DBBaseHandler):
         return session.merge(rom_file)
 
     @begin_session
+    def get_rom_files(self, rom_id: int, session: Session = None) -> Sequence[RomFile]:
+        return session.scalars(select(RomFile).filter_by(rom_id=rom_id)).all()
+
+    @begin_session
     def get_rom_file_by_id(self, id: int, session: Session = None) -> RomFile | None:
         return session.scalar(select(RomFile).filter_by(id=id).limit(1))
 
