@@ -141,9 +141,9 @@ def process_changes(changes: Sequence[Change]) -> None:
             tasks_scheduler.enqueue_in(
                 time_delta,
                 scan_platforms,
-                [],
-                scan_type=ScanType.UNIDENTIFIED,
+                platform_ids=[],
                 metadata_sources=metadata_sources,
+                scan_type=ScanType.UNIDENTIFIED,
                 timeout=SCAN_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
                 meta={
@@ -169,9 +169,9 @@ def process_changes(changes: Sequence[Change]) -> None:
             tasks_scheduler.enqueue_in(
                 time_delta,
                 scan_platforms,
-                [db_platform.id],
-                scan_type=ScanType.QUICK,
+                platform_ids=[db_platform.id],
                 metadata_sources=metadata_sources,
+                scan_type=ScanType.QUICK,
                 timeout=SCAN_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
                 meta={

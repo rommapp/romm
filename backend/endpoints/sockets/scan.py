@@ -130,9 +130,9 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[int]) 
     """Decide if a rom should be scanned or not
 
     Args:
-        scan_type (str): Type of scan to be performed.
-        roms_ids (list[int], optional): List of selected roms to be scanned.
-        metadata_sources (list[str], optional): List of metadata sources to be used
+        scan_type (ScanType): Type of scan to be performed.
+        rom (Rom | None): The rom to be scanned.
+        roms_ids (list[int]): List of selected roms to be scanned.
     """
 
     # This logic is tricky so only touch it if you know what you're doing"""
@@ -494,17 +494,17 @@ async def _identify_platform(
 @initialize_context()
 async def scan_platforms(
     platform_ids: list[int],
+    metadata_sources: list[str],
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[int] | None = None,
-    metadata_sources: list[str] | None = None,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
     Args:
-        platform_slugs (list[str]): List of platform slugs to be scanned
-        scan_type (str): Type of scan to be performed. Defaults to "quick".
-        roms_ids (list[int], optional): List of selected roms to be scanned. Defaults to [].
-        metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to all sources.
+        platform_ids (list[int]): List of platform ids to be scanned
+        metadata_sources (list[str]): List of metadata sources to be used
+        scan_type (ScanType): Type of scan to be performed.
+        roms_ids (list[int], optional): List of selected roms to be scanned.
     """
 
     if not roms_ids:
@@ -512,11 +512,6 @@ async def scan_platforms(
 
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
-
-    if not metadata_sources:
-        log.error("No metadata sources provided")
-        await socket_manager.emit("scan:done_ko", "No metadata sources provided")
-        return scan_stats
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()
@@ -603,17 +598,17 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
     if DEV_MODE:
         return await scan_platforms(
             platform_ids=platform_ids,
+            metadata_sources=metadata_sources,
             scan_type=scan_type,
             roms_ids=roms_ids,
-            metadata_sources=metadata_sources,
         )
 
     return high_prio_queue.enqueue(
         scan_platforms,
-        platform_ids,
-        scan_type,
-        roms_ids,
-        metadata_sources,
+        platform_ids=platform_ids,
+        metadata_sources=metadata_sources,
+        scan_type=scan_type,
+        roms_ids=roms_ids,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={
