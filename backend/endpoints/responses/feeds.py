@@ -193,9 +193,3 @@ class PKGiFeedItemSchema(BaseModel):
         if v and len(v) != 64:  # SHA256 = 32 bytes = 64 hex chars
             return ""
         return v.upper()
-
-
-class PKGiFeedSchema(TypedDict):
-    """Schema for PKGi PS3 feed response."""
-
-    items: list[PKGiFeedItemSchema]
