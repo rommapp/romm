@@ -172,7 +172,7 @@ class TinfoilFeedSchema(TypedDict):
 
 # PKGi PS3 feed format
 # Source: https://github.com/bucanero/pkgi-ps3
-class PKGiFeedItemSchema(BaseModel):
+class PKGiFeedPS3ItemSchema(BaseModel):
     """Schema for PKGi PS3 feed items.
 
     Follows the PKGi database format:
@@ -188,8 +188,19 @@ class PKGiFeedItemSchema(BaseModel):
     size: int
     checksum: str
 
-    @field_validator("checksum")
-    def validate_checksum(cls, v: str) -> str:
-        if v and len(v) != 64:  # SHA256 = 32 bytes = 64 hex chars
-            return ""
-        return v.upper()
+
+class PKGiFeedPSVitaItemSchema(BaseModel):
+    """Schema for PKGi PS Vita feed items.
+
+    Follows the PKGi database format:
+    contentid,flags,name,name2,zrif,url,size,checksum
+    """
+
+    contentid: str
+    flags: int
+    name: str
+    name2: str
+    zrif: str
+    url: str
+    size: int
+    checksum: str
