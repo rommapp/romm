@@ -47,11 +47,13 @@ const sortedGroupedPlatforms = computed(() => {
         [
           groupName,
           platforms.sort((a, b) => {
-            const aGen = a.generation ?? -1;
-            const bGen = b.generation ?? -1;
-
-            if (aGen > bGen) return 1;
-            if (aGen < bGen) return -1;
+            // Sort platforms by generation within the same family
+            if (groupByRef.value === "family_name") {
+              const aGen = a.generation ?? -1;
+              const bGen = b.generation ?? -1;
+              if (aGen > bGen) return 1;
+              if (aGen < bGen) return -1;
+            }
             return a.display_name.localeCompare(b.display_name);
           }),
         ] as [string, Platform[]],
