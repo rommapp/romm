@@ -605,10 +605,10 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
 
     return high_prio_queue.enqueue(
         scan_platforms,
-        platform_ids,
-        metadata_sources,
-        scan_type,
-        roms_ids,
+        platform_ids=platform_ids,
+        metadata_sources=metadata_sources,
+        scan_type=scan_type,
+        roms_ids=roms_ids,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={
