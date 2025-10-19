@@ -16,7 +16,8 @@ from decorators.auth import protected_route
 from endpoints.responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,
-    PKGiFeedItemSchema,
+    PKGiFeedPS3ItemSchema,
+    PKGiFeedPSVitaItemSchema,
     TinfoilFeedFileSchema,
     TinfoilFeedSchema,
     TinfoilFeedTitleDBSchema,
@@ -34,7 +35,7 @@ from handler.metadata.base_handler import (
     SWITCH_TITLEDB_REGEX,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from models.rom import Rom, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -218,6 +219,41 @@ CONTENT_TYPE_MAP = {
 }
 
 
+def validate_pkgi_file(file: RomFile, content_type_enum: RomFileCategory) -> bool:
+    # Match content type by file category
+    if content_type_enum != RomFileCategory.GAME and file.category != content_type_enum:
+        return False
+
+    # Only consider top-level files as games
+    if content_type_enum == RomFileCategory.GAME and not file.is_top_level:
+        return False
+
+    # PKGi only supports PKG files
+    if file.file_extension.lower() != "pkg":
+        return False
+
+    return True
+
+
+def generate_content_id(file: RomFile) -> str:
+    """Generate content ID for a rom file"""
+    titleid_match = SONY_SERIAL_REGEX.search(file.file_name)
+    if titleid_match:
+        # UP9644 is our custom Publisher ID
+        return f"UP9644-{titleid_match.group(1).replace('-', '')}_00-0000000000000000"
+    return f"UP9644-{file.id:09d}_00-0000000000000000"
+
+
+def generate_download_url(request: Request, file: RomFile) -> str:
+    return str(
+        request.url_for(
+            "get_romfile_content",
+            id=file.id,
+            file_name=file.file_name,
+        )
+    )
+
+
 @protected_route(
     router.get,
     "/pkgi/ps3/{content_type}",
@@ -225,8 +261,18 @@ CONTENT_TYPE_MAP = {
 )
 def pkgi_ps3_feed(
     request: Request,
-    content_type: Annotated[int, PathVar(description="Content type.", ge=1, le=9)],
+    content_type: Annotated[int, PathVar(description="Content type", ge=1, le=9)],
 ) -> Response:
+    """Get PKGi PS3 feed endpoint
+    https://github.com/bucanero/pkgi-ps3
+
+    Args:
+        request (Request): Fastapi Request object
+        content_type (int): Content type (1=Game, 2=DLC, 5=Demo, 6=Update)
+
+    Returns:
+        Response: CSV file with PKGi PS3 database format
+    """
     ps3_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PS3)
     if not ps3_platform:
         raise HTTPException(status_code=404, detail="PlayStation 3 platform not found")
@@ -242,40 +288,17 @@ def pkgi_ps3_feed(
 
     for rom in roms:
         for file in db_rom_handler.get_rom_files(rom.id):
-            # Match content type by file category
-            if (
-                content_type_enum != RomFileCategory.GAME
-                and file.category != content_type_enum
-            ):
+            if not validate_pkgi_file(file, content_type_enum):
                 continue
 
-            # Only consider top-level files as games
-            if content_type_enum == RomFileCategory.GAME and not file.is_top_level:
-                continue
-
-            # PKGi only supports PKG files
-            if file.file_extension.lower() != "pkg":
-                continue
-
-            content_id = f"UP9644-{file.id:09d}_00-0000000000000000"
-            titleid_match = SONY_SERIAL_REGEX.search(file.file_name)
-            if titleid_match:
-                content_id = f"UP9644-{titleid_match.group(1).replace('-', '')}_00-0000000000000000"
-
-            download_url = str(
-                request.url_for(
-                    "get_romfile_content",
-                    id=rom.id,
-                    file_name=file.file_name,
-                )
-            )
+            content_id = generate_content_id(file)
+            download_url = generate_download_url(request, file)
 
             # Validate the item schema
-            pkgi_item = PKGiFeedItemSchema(
+            pkgi_item = PKGiFeedPS3ItemSchema(
                 contentid=content_id,
                 type=content_type,
                 name=file.file_name_no_tags,
-                # Replace newlines with spaces to avoid CSV parsing issues
                 description="",
                 rap="",
                 url=download_url,
@@ -283,7 +306,7 @@ def pkgi_ps3_feed(
                 checksum=file.sha1_hash or "",
             )
 
-            # Format: contentid,type,name,description,rap,url,size,checksum (tab-separated)
+            # Format: contentid,type,name,description,rap,url,size,checksum
             csv_line = f"{pkgi_item.contentid},{pkgi_item.type},{pkgi_item.name},{pkgi_item.description},{pkgi_item.rap},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum or ''}"
             csv_lines.append(csv_line)
 
@@ -294,6 +317,75 @@ def pkgi_ps3_feed(
         media_type="text/tab-separated-values",
         headers={
             f"Content-Disposition": f"attachment; filename=pkgi_{content_type_enum.value}.txt",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@protected_route(
+    router.get,
+    "/pkgi/psvita/{content_type}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+def pkgi_psvita_feed(
+    request: Request,
+    content_type: Annotated[int, PathVar(description="Content type", ge=1, le=9)],
+) -> Response:
+    """Get PKGi PS Vita feed endpoint
+    https://github.com/mmozeiko/pkgi
+
+    Args:
+        request (Request): Fastapi Request object
+        content_type (int): Content type (1=Game, 2=DLC, 5=Demo, 6=Update)
+
+    Returns:
+        Response: CSV file with PKGi PS Vita database format
+    """
+    psvita_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PSVITA)
+    if not psvita_platform:
+        raise HTTPException(
+            status_code=404, detail="PlayStation Vita platform not found"
+        )
+
+    content_type_enum = CONTENT_TYPE_MAP.get(content_type)
+    if not content_type_enum:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid content type: {content_type}"
+        )
+
+    roms = db_rom_handler.get_roms_scalar(platform_id=psvita_platform.id)
+    csv_lines = []
+
+    for rom in roms:
+        for file in db_rom_handler.get_rom_files(rom.id):
+            if not validate_pkgi_file(file, content_type_enum):
+                continue
+
+            content_id = generate_content_id(file)
+            download_url = generate_download_url(request, file)
+
+            pkgi_item = PKGiFeedPSVitaItemSchema(
+                contentid=content_id,
+                flags=0,
+                name=file.file_name_no_tags,
+                name2="",
+                zrif="",
+                url=download_url,
+                size=file.file_size_bytes,
+                checksum=file.sha1_hash or "",
+            )
+
+            # Format: contentid,flags,name,name2,zrif,url,size,checksum
+            csv_line = f"{pkgi_item.contentid},{pkgi_item.flags},{pkgi_item.name},{pkgi_item.name2},{pkgi_item.zrif},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum or ''}"
+            csv_lines.append(csv_line)
+
+    csv_content = "\n".join(csv_lines)
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=pkgi_{content_type_enum.value}.txt",
             "Cache-Control": "no-cache",
         },
     )
