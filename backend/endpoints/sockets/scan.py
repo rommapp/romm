@@ -494,9 +494,9 @@ async def _identify_platform(
 @initialize_context()
 async def scan_platforms(
     platform_ids: list[int],
+    metadata_sources: list[str],
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[int] | None = None,
-    metadata_sources: list[str] | None = None,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -512,11 +512,6 @@ async def scan_platforms(
 
     socket_manager = _get_socket_manager()
     scan_stats = ScanStats()
-
-    if not metadata_sources:
-        log.error("No metadata sources provided")
-        await socket_manager.emit("scan:done_ko", "No metadata sources provided")
-        return scan_stats
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()
@@ -603,17 +598,17 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
     if DEV_MODE:
         return await scan_platforms(
             platform_ids=platform_ids,
+            metadata_sources=metadata_sources,
             scan_type=scan_type,
             roms_ids=roms_ids,
-            metadata_sources=metadata_sources,
         )
 
     return high_prio_queue.enqueue(
         scan_platforms,
         platform_ids,
+        metadata_sources,
         scan_type,
         roms_ids,
-        metadata_sources,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={
