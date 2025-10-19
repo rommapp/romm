@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from starlette.datastructures import URLPath
 
 from config import (
@@ -12,6 +12,8 @@ from decorators.auth import protected_route
 from endpoints.responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,
+    PKGiFeedItemSchema,
+    PKGiFeedSchema,
     TinfoilFeedFileSchema,
     TinfoilFeedSchema,
     TinfoilFeedTitleDBSchema,
@@ -23,18 +25,23 @@ from endpoints.responses.feeds import (
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata import meta_igdb_handler
-from handler.metadata.base_handler import SWITCH_PRODUCT_ID_REGEX, SWITCH_TITLEDB_REGEX
-from models.rom import Rom
+from handler.metadata.base_handler import (
+    SWITCH_PRODUCT_ID_REGEX,
+    SWITCH_TITLEDB_REGEX,
+)
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from models.rom import Rom, RomFileCategory
 from utils.router import APIRouter
 
 router = APIRouter(
+    prefix="/feeds",
     tags=["feeds"],
 )
 
 
 @protected_route(
     router.get,
-    "/webrcade/feed",
+    "/webrcade",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
@@ -116,7 +123,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
 
 @protected_route(
     router.get,
-    "/tinfoil/feed",
+    "/tinfoil",
     [],
 )
 async def tinfoil_index_feed(
@@ -189,10 +196,80 @@ async def tinfoil_index_feed(
                 size=rom_file.file_size_bytes,
             )
             for rom in roms
-            for rom_file in rom.files
+            for rom_file in db_rom_handler.get_rom_files(rom.id)
             if rom_file.file_extension in ["xci", "nsp", "nsz", "xcz", "nro"]
         ],
         directories=[],
         success=TINFOIL_WELCOME_MESSAGE,
         titledb=await extract_titledb(roms),
     )
+
+
+@protected_route(
+    router.get,
+    "/pkgi/ps3",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+def pkgi_ps3_feed(request: Request) -> PKGiFeedSchema:
+    """Get PKGi PS3 feed endpoint
+    https://github.com/bucanero/pkgi-ps3
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        PKGiFeedSchema: PKGi PS3 feed object schema
+    """
+
+    ps3_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PS3)
+    if not ps3_platform:
+        raise HTTPException(status_code=404, detail="PlayStation 3 platform not found")
+
+    roms = db_rom_handler.get_roms_scalar(platform_id=ps3_platform.id)
+    items = []
+    for rom in roms:
+        for file in db_rom_handler.get_rom_files(rom.id):
+            if file.file_extension.lower() != "pkg":
+                continue
+
+            content_id = f"EP0001-{file.id:09d}_00-0000000000000000"
+            content_type = None
+
+            if file.category == RomFileCategory.DLC:
+                content_type = 2  # DLC
+            elif file.category == RomFileCategory.UPDATE:
+                content_type = 6  # Update
+            elif file.category == RomFileCategory.DEMO:
+                content_type = 5  # Demo
+            elif file.category == RomFileCategory.PATCH:
+                content_type = 6  # Update (patches are treated as updates in PKGi)
+            elif file.category == RomFileCategory.UPDATE:
+                content_type = 6  # Update
+            elif file.is_top_level:
+                content_type = 1  # Game
+
+            if not content_type:
+                continue
+
+            download_url = str(
+                request.url_for(
+                    "get_romfile_content",
+                    id=rom.id,
+                    file_name=file.file_name,
+                )
+            )
+
+            items.append(
+                PKGiFeedItemSchema(
+                    contentid=content_id,
+                    type=content_type,
+                    name=file.file_name_no_ext,
+                    description=file.file_name,
+                    rap=None,
+                    url=download_url,
+                    size=file.file_size_bytes,
+                    checksum=file.sha1_hash,
+                )
+            )
+
+    return PKGiFeedSchema(items=items)
