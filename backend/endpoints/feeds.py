@@ -1,6 +1,10 @@
 from collections.abc import Sequence
+from typing import Annotated
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request
+from fastapi.responses import Response
 from starlette.datastructures import URLPath
 
 from config import (
@@ -13,7 +17,6 @@ from endpoints.responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,
     PKGiFeedItemSchema,
-    PKGiFeedSchema,
     TinfoilFeedFileSchema,
     TinfoilFeedSchema,
     TinfoilFeedTitleDBSchema,
@@ -26,6 +29,7 @@ from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_handler import (
+    SONY_SERIAL_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
 )
@@ -205,51 +209,49 @@ async def tinfoil_index_feed(
     )
 
 
+CONTENT_TYPE_MAP = {
+    1: RomFileCategory.GAME,
+    2: RomFileCategory.DLC,
+    5: RomFileCategory.DEMO,
+    6: RomFileCategory.UPDATE,
+    6: RomFileCategory.PATCH,
+}
+
+
 @protected_route(
     router.get,
-    "/pkgi/ps3",
+    "/pkgi/ps3/{content_type}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
-def pkgi_ps3_feed(request: Request) -> PKGiFeedSchema:
-    """Get PKGi PS3 feed endpoint
-    https://github.com/bucanero/pkgi-ps3
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        PKGiFeedSchema: PKGi PS3 feed object schema
-    """
-
+def pkgi_ps3_feed(
+    request: Request,
+    content_type: Annotated[int, PathVar(description="Content type.", ge=1, le=9)],
+) -> Response:
     ps3_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PS3)
     if not ps3_platform:
         raise HTTPException(status_code=404, detail="PlayStation 3 platform not found")
 
+    content_type_enum = CONTENT_TYPE_MAP.get(content_type)
+    if not content_type_enum:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid content type: {content_type}"
+        )
+
     roms = db_rom_handler.get_roms_scalar(platform_id=ps3_platform.id)
-    items = []
+    csv_lines = []
+
     for rom in roms:
         for file in db_rom_handler.get_rom_files(rom.id):
+            if file.category != content_type_enum:
+                continue
+
             if file.file_extension.lower() != "pkg":
                 continue
 
-            content_id = f"EP0001-{file.id:09d}_00-0000000000000000"
-            content_type = None
-
-            if file.category == RomFileCategory.DLC:
-                content_type = 2  # DLC
-            elif file.category == RomFileCategory.UPDATE:
-                content_type = 6  # Update
-            elif file.category == RomFileCategory.DEMO:
-                content_type = 5  # Demo
-            elif file.category == RomFileCategory.PATCH:
-                content_type = 6  # Update (patches are treated as updates in PKGi)
-            elif file.category == RomFileCategory.UPDATE:
-                content_type = 6  # Update
-            elif file.is_top_level:
-                content_type = 1  # Game
-
-            if not content_type:
-                continue
+            content_id = f"UP9644-{file.id:09d}_00-0000000000000000"
+            titleid_match = SONY_SERIAL_REGEX.search(file.file_name)
+            if titleid_match:
+                content_id = f"UP9644-{titleid_match.group(1).replace('-', '')}_00-0000000000000000"
 
             download_url = str(
                 request.url_for(
@@ -259,17 +261,29 @@ def pkgi_ps3_feed(request: Request) -> PKGiFeedSchema:
                 )
             )
 
-            items.append(
-                PKGiFeedItemSchema(
-                    contentid=content_id,
-                    type=content_type,
-                    name=file.file_name_no_ext,
-                    description=file.file_name,
-                    rap=None,
-                    url=download_url,
-                    size=file.file_size_bytes,
-                    checksum=file.sha1_hash,
-                )
+            # Validate the item schema
+            pkgi_item = PKGiFeedItemSchema(
+                contentid=content_id,
+                type=content_type,
+                name=file.file_name_no_ext,
+                description=file.file_name,
+                rap=None,
+                url=download_url,
+                size=file.file_size_bytes,
+                checksum=file.sha1_hash,
             )
 
-    return PKGiFeedSchema(items=items)
+            # Format: contentid,type,name,description,rap,url,size,checksum (tab-separated)
+            csv_line = f"{pkgi_item.contentid},{pkgi_item.type},{pkgi_item.name},{pkgi_item.description},{pkgi_item.rap},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum or ''}"
+            csv_lines.append(csv_line)
+
+    tsv_content = "\n".join(csv_lines)
+
+    return Response(
+        content=tsv_content,
+        media_type="text/tab-separated-values",
+        headers={
+            f"Content-Disposition": f"attachment; filename=pkgi_{content_type_enum.value}.txt",
+            "Cache-Control": "no-cache",
+        },
+    )

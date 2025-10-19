@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
 
 class RomFileCategory(enum.StrEnum):
+    GAME = "game"
     DLC = "dlc"
     HACK = "hack"
     MANUAL = "manual"
