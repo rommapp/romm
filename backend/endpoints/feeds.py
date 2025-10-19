@@ -242,9 +242,18 @@ def pkgi_ps3_feed(
 
     for rom in roms:
         for file in db_rom_handler.get_rom_files(rom.id):
-            if file.category != content_type_enum:
+            # Match content type by file category
+            if (
+                content_type_enum != RomFileCategory.GAME
+                and file.category != content_type_enum
+            ):
                 continue
 
+            # Only consider top-level files as games
+            if content_type_enum == RomFileCategory.GAME and not file.is_top_level:
+                continue
+
+            # PKGi only supports PKG files
             if file.file_extension.lower() != "pkg":
                 continue
 
@@ -265,12 +274,13 @@ def pkgi_ps3_feed(
             pkgi_item = PKGiFeedItemSchema(
                 contentid=content_id,
                 type=content_type,
-                name=file.file_name_no_ext,
-                description=file.file_name,
-                rap=None,
+                name=file.file_name_no_tags,
+                # Replace newlines with spaces to avoid CSV parsing issues
+                description="",
+                rap="",
                 url=download_url,
                 size=file.file_size_bytes,
-                checksum=file.sha1_hash,
+                checksum=file.sha1_hash or "",
             )
 
             # Format: contentid,type,name,description,rap,url,size,checksum (tab-separated)
