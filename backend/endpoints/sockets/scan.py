@@ -130,9 +130,9 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[int]) 
     """Decide if a rom should be scanned or not
 
     Args:
-        scan_type (str): Type of scan to be performed.
-        roms_ids (list[int], optional): List of selected roms to be scanned.
-        metadata_sources (list[str], optional): List of metadata sources to be used
+        scan_type (ScanType): Type of scan to be performed.
+        rom (Rom | None): The rom to be scanned.
+        roms_ids (list[int]): List of selected roms to be scanned.
     """
 
     # This logic is tricky so only touch it if you know what you're doing"""
@@ -502,9 +502,9 @@ async def scan_platforms(
 
     Args:
         platform_slugs (list[str]): List of platform slugs to be scanned
-        scan_type (str): Type of scan to be performed. Defaults to "quick".
-        roms_ids (list[int], optional): List of selected roms to be scanned. Defaults to [].
-        metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to all sources.
+        metadata_sources (list[str]): List of metadata sources to be used
+        scan_type (str): Type of scan to be performed.
+        roms_ids (list[int], optional): List of selected roms to be scanned.
     """
 
     if not roms_ids:
