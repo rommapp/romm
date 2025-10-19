@@ -501,9 +501,9 @@ async def scan_platforms(
     """Scan all the listed platforms and fetch metadata from different sources
 
     Args:
-        platform_slugs (list[str]): List of platform slugs to be scanned
+        platform_ids (list[int]): List of platform ids to be scanned
         metadata_sources (list[str]): List of metadata sources to be used
-        scan_type (str): Type of scan to be performed.
+        scan_type (ScanType): Type of scan to be performed.
         roms_ids (list[int], optional): List of selected roms to be scanned.
     """
 
