@@ -183,10 +183,10 @@ class PKGiFeedItemSchema(BaseModel):
     type: int
     name: str
     description: str
-    rap: str | None = None
+    rap: str
     url: str
     size: int
-    checksum: str | None = None
+    checksum: str
 
     @field_validator("checksum")
     def validate_checksum(cls, v: str) -> str:
