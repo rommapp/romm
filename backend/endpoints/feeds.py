@@ -16,6 +16,7 @@ from decorators.auth import protected_route
 from endpoints.responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,
+    KekatsuDSItemSchema,
     PKGiFeedPS3ItemSchema,
     PKGiFeedPSVitaItemSchema,
     TinfoilFeedFileSchema,
@@ -71,7 +72,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         roms = db_rom_handler.get_roms_scalar(platform_id=p.id)
         for rom in roms:
             category_item = WebrcadeFeedItemSchema(
-                title=rom.name or "",
+                title=rom.name or rom.fs_name_no_tags,
                 description=rom.summary or "",
                 type=WEBRCADE_SLUG_TO_TYPE_MAP.get(p.slug, p.slug),
                 props=WebrcadeFeedItemPropsSchema(
@@ -271,7 +272,7 @@ def pkgi_ps3_feed(
         content_type (str): Content type (game, dlc, demo, update, patch, mod, translation, prototype)
 
     Returns:
-        Response: CSV file with PKGi PS3 database format
+        Response: txt file with PKGi PS3 database format
     """
     ps3_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PS3)
     if not ps3_platform:
@@ -286,7 +287,7 @@ def pkgi_ps3_feed(
         ) from e
 
     roms = db_rom_handler.get_roms_scalar(platform_id=ps3_platform.id)
-    csv_lines = []
+    txt_lines = []
 
     for rom in roms:
         for file in db_rom_handler.get_rom_files(rom.id):
@@ -309,16 +310,16 @@ def pkgi_ps3_feed(
             )
 
             # Format: contentid,type,name,description,rap,url,size,checksum
-            csv_line = f"{pkgi_item.contentid},{pkgi_item.type},{pkgi_item.name},{pkgi_item.description},{pkgi_item.rap},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum or ''}"
-            csv_lines.append(csv_line)
+            txt_line = f"{pkgi_item.contentid},{pkgi_item.type},{pkgi_item.name},{pkgi_item.description},{pkgi_item.rap},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum or ''}"
+            txt_lines.append(txt_line)
 
-    tsv_content = "\n".join(csv_lines)
+    txt_content = "\n".join(txt_lines)
 
     return Response(
-        content=tsv_content,
-        media_type="text/tab-separated-values",
+        content=txt_content,
+        media_type="text/plain",
         headers={
-            "Content-Disposition": f"attachment; filename=pkgi_{content_type_enum.value}.txt",
+            "Content-Disposition": f"filename=pkgi_{content_type_enum.value}.txt",
             "Cache-Control": "no-cache",
         },
     )
@@ -341,7 +342,7 @@ def pkgi_psvita_feed(
         content_type (str): Content type (game, dlc, demo, update, patch, mod, translation, prototype)
 
     Returns:
-        Response: CSV file with PKGi PS Vita database format
+        Response: txt file with PKGi PS Vita database format
     """
     psvita_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PSVITA)
     if not psvita_platform:
@@ -357,7 +358,7 @@ def pkgi_psvita_feed(
         ) from e
 
     roms = db_rom_handler.get_roms_scalar(platform_id=psvita_platform.id)
-    csv_lines = []
+    txt_lines = []
 
     for rom in roms:
         for file in db_rom_handler.get_rom_files(rom.id):
@@ -379,16 +380,89 @@ def pkgi_psvita_feed(
             )
 
             # Format: contentid,flags,name,name2,zrif,url,size,checksum
-            csv_line = f"{pkgi_item.contentid},{pkgi_item.flags},{pkgi_item.name},{pkgi_item.name2},{pkgi_item.zrif},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum or ''}"
-            csv_lines.append(csv_line)
+            txt_line = f"{pkgi_item.contentid},{pkgi_item.flags},{pkgi_item.name},{pkgi_item.name2},{pkgi_item.zrif},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum or ''}"
+            txt_lines.append(txt_line)
 
-    csv_content = "\n".join(csv_lines)
+    txt_content = "\n".join(txt_lines)
 
     return Response(
-        content=csv_content,
-        media_type="text/csv",
+        content=txt_content,
+        media_type="text/plain",
         headers={
-            "Content-Disposition": f"attachment; filename=pkgi_{content_type_enum.value}.txt",
+            "Content-Disposition": f"filename=pkgi_{content_type_enum.value}.txt",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@protected_route(
+    router.get,
+    "/kekatsu/{platform_slug}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
+    """Get Kekatsu DS feed endpoint
+    https://github.com/cavv-dev/Kekatsu-DS
+
+    Args:
+        request (Request): Fastapi Request object
+        platform_slug (str): Platform slug (nds, nintendo-ds, ds, gba, etc.)
+
+    Returns:
+        Response: Text file with Kekatsu DS database format
+    """
+    platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+    if not platform:
+        raise HTTPException(
+            status_code=404, detail=f"Platform {platform_slug} not found"
+        )
+
+    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
+
+    txt_lines = []
+    txt_lines.append("1")  # Database version
+    txt_lines.append(",")
+
+    for rom in roms:
+        download_url = str(
+            request.url_for(
+                "get_rom_content",
+                id=rom.id,
+                file_name=rom.fs_name,
+            )
+        )
+
+        # Generate box art URL if cover exists
+        box_art_url = ""
+        if rom.path_cover_small:
+            box_art_url = str(
+                URLPath(rom.path_cover_small).make_absolute_url(request.base_url)
+            )
+
+        # Create Kekatsu DS item
+        kekatsu_item = KekatsuDSItemSchema(
+            title=rom.name or rom.fs_name_no_tags,
+            platform=platform.slug,
+            region=rom.regions[0] if rom.regions else "ANY",
+            version=rom.revision or "1.0.0",
+            author="RomM",
+            download_url=download_url,
+            filename=rom.fs_name,
+            size=rom.fs_size_bytes,
+            box_art_url=box_art_url,
+        )
+
+        # Format: title,platform,region,version,author,download_url,filename,size,box_art_url
+        txt_line = f"{kekatsu_item.title},{kekatsu_item.platform},{kekatsu_item.region},{kekatsu_item.version},{kekatsu_item.author},{kekatsu_item.download_url},{kekatsu_item.filename},{kekatsu_item.size},{kekatsu_item.box_art_url}"
+        txt_lines.append(txt_line)
+
+    txt_content = "\n".join(txt_lines)
+
+    return Response(
+        content=txt_content,
+        media_type="text/plain",
+        headers={
+            "Content-Disposition": f"filename=kekatsu_{platform_slug}.txt",
             "Cache-Control": "no-cache",
         },
     )
