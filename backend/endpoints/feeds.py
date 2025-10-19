@@ -210,22 +210,22 @@ async def tinfoil_index_feed(
     )
 
 
-CONTENT_TYPE_MAP = {
-    1: RomFileCategory.GAME,
-    2: RomFileCategory.DLC,
-    5: RomFileCategory.DEMO,
-    6: RomFileCategory.UPDATE,
-    6: RomFileCategory.PATCH,
+CONTENT_TYPE_MAP: dict[RomFileCategory, int] = {
+    RomFileCategory.GAME: 1,
+    RomFileCategory.DLC: 2,
+    RomFileCategory.DEMO: 5,
+    RomFileCategory.UPDATE: 6,
+    RomFileCategory.PATCH: 6,
 }
 
 
-def validate_pkgi_file(file: RomFile, content_type_enum: RomFileCategory) -> bool:
+def validate_pkgi_file(file: RomFile, content_type: RomFileCategory) -> bool:
     # Match content type by file category
-    if content_type_enum != RomFileCategory.GAME and file.category != content_type_enum:
+    if content_type != RomFileCategory.GAME and file.category != content_type:
         return False
 
     # Only consider top-level files as games
-    if content_type_enum == RomFileCategory.GAME and not file.is_top_level:
+    if content_type == RomFileCategory.GAME and not file.is_top_level:
         return False
 
     # PKGi only supports PKG files
@@ -261,14 +261,14 @@ def generate_download_url(request: Request, file: RomFile) -> str:
 )
 def pkgi_ps3_feed(
     request: Request,
-    content_type: Annotated[int, PathVar(description="Content type", ge=1, le=9)],
+    content_type: Annotated[str, PathVar(description="Content type")],
 ) -> Response:
     """Get PKGi PS3 feed endpoint
     https://github.com/bucanero/pkgi-ps3
 
     Args:
         request (Request): Fastapi Request object
-        content_type (int): Content type (1=Game, 2=DLC, 5=Demo, 6=Update)
+        content_type (str): Content type (game, dlc, demo, update, patch, mod, translation, prototype)
 
     Returns:
         Response: CSV file with PKGi PS3 database format
@@ -277,11 +277,13 @@ def pkgi_ps3_feed(
     if not ps3_platform:
         raise HTTPException(status_code=404, detail="PlayStation 3 platform not found")
 
-    content_type_enum = CONTENT_TYPE_MAP.get(content_type)
-    if not content_type_enum:
+    try:
+        content_type_enum = RomFileCategory(content_type)
+        content_type_int = CONTENT_TYPE_MAP[content_type_enum]
+    except ValueError as e:
         raise HTTPException(
             status_code=400, detail=f"Invalid content type: {content_type}"
-        )
+        ) from e
 
     roms = db_rom_handler.get_roms_scalar(platform_id=ps3_platform.id)
     csv_lines = []
@@ -297,7 +299,7 @@ def pkgi_ps3_feed(
             # Validate the item schema
             pkgi_item = PKGiFeedPS3ItemSchema(
                 contentid=content_id,
-                type=content_type,
+                type=content_type_int,
                 name=file.file_name_no_tags,
                 description="",
                 rap="",
@@ -316,7 +318,7 @@ def pkgi_ps3_feed(
         content=tsv_content,
         media_type="text/tab-separated-values",
         headers={
-            f"Content-Disposition": f"attachment; filename=pkgi_{content_type_enum.value}.txt",
+            "Content-Disposition": f"attachment; filename=pkgi_{content_type_enum.value}.txt",
             "Cache-Control": "no-cache",
         },
     )
@@ -329,14 +331,14 @@ def pkgi_ps3_feed(
 )
 def pkgi_psvita_feed(
     request: Request,
-    content_type: Annotated[int, PathVar(description="Content type", ge=1, le=9)],
+    content_type: Annotated[str, PathVar(description="Content type")],
 ) -> Response:
     """Get PKGi PS Vita feed endpoint
     https://github.com/mmozeiko/pkgi
 
     Args:
         request (Request): Fastapi Request object
-        content_type (int): Content type (1=Game, 2=DLC, 5=Demo, 6=Update)
+        content_type (str): Content type (game, dlc, demo, update, patch, mod, translation, prototype)
 
     Returns:
         Response: CSV file with PKGi PS Vita database format
@@ -347,11 +349,12 @@ def pkgi_psvita_feed(
             status_code=404, detail="PlayStation Vita platform not found"
         )
 
-    content_type_enum = CONTENT_TYPE_MAP.get(content_type)
-    if not content_type_enum:
+    try:
+        content_type_enum = RomFileCategory(content_type)
+    except ValueError as e:
         raise HTTPException(
             status_code=400, detail=f"Invalid content type: {content_type}"
-        )
+        ) from e
 
     roms = db_rom_handler.get_roms_scalar(platform_id=psvita_platform.id)
     csv_lines = []
