@@ -254,6 +254,15 @@ async function bulkDownloadRoms({
 
 export type UpdateRom = SimpleRom & {
   artwork?: File;
+  raw_metadata?: {
+    igdb_metadata?: string;
+    moby_metadata?: string;
+    ss_metadata?: string;
+    launchbox_metadata?: string;
+    hasheous_metadata?: string;
+    flashpoint_metadata?: string;
+    hltb_metadata?: string;
+  };
 };
 
 async function updateRom({
@@ -276,12 +285,43 @@ async function updateRom({
   if (rom.ss_id) formData.append("ss_id", rom.ss_id.toString());
   if (rom.launchbox_id)
     formData.append("launchbox_id", rom.launchbox_id.toString());
+  if (rom.ra_id) formData.append("ra_id", rom.ra_id.toString());
   if (rom.flashpoint_id)
     formData.append("flashpoint_id", rom.flashpoint_id.toString());
   if (rom.hasheous_id)
     formData.append("hasheous_id", rom.hasheous_id.toString());
   if (rom.tgdb_id) formData.append("tgdb_id", rom.tgdb_id.toString());
   if (rom.hltb_id) formData.append("hltb_id", rom.hltb_id.toString());
+  if (rom.raw_metadata?.igdb_metadata) {
+    formData.append("raw_igdb_metadata", rom.raw_metadata.igdb_metadata);
+  }
+  if (rom.raw_metadata?.moby_metadata) {
+    formData.append("raw_moby_metadata", rom.raw_metadata.moby_metadata);
+  }
+  if (rom.raw_metadata?.ss_metadata) {
+    formData.append("raw_ss_metadata", rom.raw_metadata.ss_metadata);
+  }
+  if (rom.raw_metadata?.launchbox_metadata) {
+    formData.append(
+      "raw_launchbox_metadata",
+      rom.raw_metadata.launchbox_metadata,
+    );
+  }
+  if (rom.raw_metadata?.hasheous_metadata) {
+    formData.append(
+      "raw_hasheous_metadata",
+      rom.raw_metadata.hasheous_metadata,
+    );
+  }
+  if (rom.raw_metadata?.flashpoint_metadata) {
+    formData.append(
+      "raw_flashpoint_metadata",
+      rom.raw_metadata.flashpoint_metadata,
+    );
+  }
+  if (rom.raw_metadata?.hltb_metadata) {
+    formData.append("raw_hltb_metadata", rom.raw_metadata.hltb_metadata);
+  }
 
   // Don't set url_cover on manual artwork upload
   if (rom.artwork) {
