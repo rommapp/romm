@@ -2750,6 +2750,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "family_name": "",
         "family_slug": "",
         "generation": -1,
+        # Note: The ID 50501 is a keyword ID (not a platform ID) in IGDB's system
         "id": 50501,
         "name": "ScummVM",
         "slug": "scummvm",
