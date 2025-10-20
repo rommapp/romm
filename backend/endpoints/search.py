@@ -9,7 +9,6 @@ from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.metadata import (
     meta_flashpoint_handler,
-    meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
@@ -17,7 +16,6 @@ from handler.metadata import (
     meta_ss_handler,
 )
 from handler.metadata.flashpoint_handler import FlashpointRom
-from handler.metadata.hltb_handler import HLTBRom
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.launchbox_handler import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesRom
@@ -62,6 +60,7 @@ async def search_rom(
         and not meta_ss_handler.is_enabled()
         and not meta_moby_handler.is_enabled()
         and not meta_flashpoint_handler.is_enabled()
+        and not meta_launchbox_handler.is_enabled()
     ):
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(
@@ -92,7 +91,6 @@ async def search_rom(
     ss_matched_roms: list[SSRom] = []
     flashpoint_matched_roms: list[FlashpointRom] = []
     launchbox_matched_roms: list[LaunchboxRom] = []
-    hltb_matched_roms: list[HLTBRom] = []
 
     if search_by.lower() == "id":
         try:
@@ -118,7 +116,6 @@ async def search_rom(
             ss_matched_roms,
             flashpoint_matched_roms,
             launchbox_matched_roms,
-            hltb_matched_roms,
         ) = await asyncio.gather(
             meta_igdb_handler.get_matched_roms_by_name(
                 search_term, get_main_platform_igdb_id(rom.platform)
@@ -133,7 +130,6 @@ async def search_rom(
             meta_launchbox_handler.get_matched_roms_by_name(
                 search_term, rom.platform.slug
             ),
-            meta_hltb_handler.get_matched_roms_by_name(search_term, rom.platform.slug),
         )
 
     merged_dict: dict[str, dict] = {}
@@ -211,21 +207,6 @@ async def search_rom(
                 "platform_id": rom.platform_id,
                 "launchbox_url_cover": launchbox_rom.pop("url_cover", ""),
                 **merged_dict.get(launchbox_name, {}),
-            }
-
-    for hltb_rom in hltb_matched_roms:
-        if hltb_rom["hltb_id"]:
-            hltb_name = meta_hltb_handler.normalize_search_term(
-                hltb_rom.get("name", ""),
-                remove_articles=False,
-            )
-            merged_dict[hltb_name] = {
-                **hltb_rom,
-                "is_identified": True,
-                "is_unidentified": False,
-                "platform_id": rom.platform_id,
-                "hltb_url_cover": hltb_rom.pop("url_cover", ""),
-                **merged_dict.get(hltb_name, {}),
             }
 
     async def get_sgdb_rom(name: str) -> tuple[str, SGDBRom]:

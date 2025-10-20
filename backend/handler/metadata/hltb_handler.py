@@ -164,6 +164,9 @@ def extract_hltb_metadata(game: HLTBGame) -> HLTBMetadata:
     return metadata
 
 
+GITHUB_FILE_URL = "https://raw.githubusercontent.com/rommapp/romm/refs/heads/master/backend/handler/metadata/fixtures/hltb_api_url"
+
+
 class HowLongToBeatHandler(MetadataHandler):
     """
     Handler for HowLongToBeat, a service that provides game completion times.
@@ -172,12 +175,28 @@ class HowLongToBeatHandler(MetadataHandler):
     def __init__(self) -> None:
         self.base_url = "https://howlongtobeat.com"
         self.user_endpoint = f"{self.base_url}/api/user"
-        self.search_url = f"{self.base_url}/api/seek/791cd10c5e8e894c"
+        self.search_url = f"{self.base_url}/api/search"
         self.min_similarity_score: Final = 0.85
+
+        # HLTB rotates their search endpoint regularly
+        self.fetch_search_endpoint()
 
     @classmethod
     def is_enabled(cls) -> bool:
         return HLTB_API_ENABLED
+
+    def fetch_search_endpoint(self):
+        """Fetch the API endpoint URL from Github."""
+        if not HLTB_API_ENABLED:
+            return
+
+        try:
+            with httpx.Client() as client:
+                response = client.get(GITHUB_FILE_URL, timeout=10)
+                response.raise_for_status()
+                self.search_url = response.text.strip()
+        except Exception as e:
+            log.warning("Unexpected error fetching HLTB endpoint from GitHub: %s", e)
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
@@ -192,14 +211,6 @@ class HowLongToBeatHandler(MetadataHandler):
             return False
 
         return True
-
-    @staticmethod
-    def extract_hltb_id_from_filename(fs_name: str) -> int | None:
-        """Extract HLTB ID from filename tag like (hltb-12345)."""
-        match = HLTB_TAG_REGEX.search(fs_name)
-        if match:
-            return int(match.group(1))
-        return None
 
     async def _request(self, url: str, payload: dict) -> dict:
         """
@@ -367,21 +378,6 @@ class HowLongToBeatHandler(MetadataHandler):
         if not HLTB_API_ENABLED:
             return HLTBRom(hltb_id=None)
 
-        # Check for HLTB ID tag in filename first
-        hltb_id_from_tag = self.extract_hltb_id_from_filename(fs_name)
-        if hltb_id_from_tag:
-            log.debug(f"Found HLTB ID tag in filename: {hltb_id_from_tag}")
-            rom_by_id = await self.get_rom_by_id(hltb_id_from_tag)
-            if rom_by_id["hltb_id"]:
-                log.debug(
-                    f"Successfully matched ROM by HLTB ID tag: {fs_name} -> {hltb_id_from_tag}"
-                )
-                return rom_by_id
-            else:
-                log.warning(
-                    f"HLTB ID tag found but no match: {fs_name} -> {hltb_id_from_tag}"
-                )
-
         # We replace " - " with ": " to match HowLongToBeat's naming convention
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
             " - ", ": "
@@ -473,29 +469,6 @@ class HowLongToBeatHandler(MetadataHandler):
             )
 
         return roms
-
-    async def get_rom_by_id(self, hltb_id: int) -> HLTBRom:
-        """
-        Get ROM information by HowLongToBeat ID.
-        Note: HLTB doesn't have a direct "get by ID" endpoint,
-        so this method searches by the game name if we can find it.
-
-        :param hltb_id: The HowLongToBeat game ID.
-        :return: A HLTBRom object.
-        """
-        if not HLTB_API_ENABLED:
-            return HLTBRom(hltb_id=None)
-
-        if not hltb_id:
-            return HLTBRom(hltb_id=None)
-
-        # Unfortunately, HLTB doesn't provide a direct "get by ID" endpoint
-        # This is a limitation of their API - we would need to search and filter
-        # In practice, this method might not be very useful for HLTB
-        log.debug(
-            f"get_rom_by_id not fully supported for HowLongToBeat (ID: {hltb_id})"
-        )
-        return HLTBRom(hltb_id=hltb_id)
 
     async def price_check(
         self, hltb_id: int, steam_id: int = 0, itch_id: int = 0

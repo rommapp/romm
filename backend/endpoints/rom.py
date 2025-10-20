@@ -53,7 +53,6 @@ from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import (
     meta_flashpoint_handler,
-    meta_hltb_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
@@ -198,9 +197,9 @@ def get_roms(
         bool | None,
         Query(description="Whether the rom matched a metadata source."),
     ] = None,
-    favourite: Annotated[
+    favorite: Annotated[
         bool | None,
-        Query(description="Whether the rom is marked as favourite."),
+        Query(description="Whether the rom is marked as favorite."),
     ] = None,
     duplicate: Annotated[
         bool | None,
@@ -290,7 +289,7 @@ def get_roms(
         smart_collection_id=smart_collection_id,
         search_term=search_term,
         matched=matched,
-        favourite=favourite,
+        favorite=favorite,
         duplicate=duplicate,
         playable=playable,
         has_ra=has_ra,
@@ -744,24 +743,19 @@ async def update_rom(
         return int(value)
 
     cleaned_data: dict[str, Any] = {
-        "igdb_id": parse_id_value(str(data.get("igdb_id"))),
-        "sgdb_id": parse_id_value(str(data.get("sgdb_id"))),
-        "moby_id": parse_id_value(str(data.get("moby_id"))),
-        "ss_id": parse_id_value(str(data.get("ss_id"))),
-        "ra_id": parse_id_value(str(data.get("ra_id"))),
-        "launchbox_id": parse_id_value(str(data.get("launchbox_id"))),
-        "hasheous_id": parse_id_value(str(data.get("hasheous_id"))),
-        "tgdb_id": parse_id_value(str(data.get("tgdb_id"))),
-        "flashpoint_id": parse_id_value(str(data.get("flashpoint_id"))),
-        "hltb_id": parse_id_value(str(data.get("hltb_id"))),
+        "igdb_id": parse_id_value(str(data.get("igdb_id", rom.igdb_id))),
+        "sgdb_id": parse_id_value(str(data.get("sgdb_id", rom.sgdb_id))),
+        "moby_id": parse_id_value(str(data.get("moby_id", rom.moby_id))),
+        "ss_id": parse_id_value(str(data.get("ss_id", rom.ss_id))),
+        "ra_id": parse_id_value(str(data.get("ra_id", rom.ra_id))),
+        "launchbox_id": parse_id_value(str(data.get("launchbox_id", rom.launchbox_id))),
+        "hasheous_id": parse_id_value(str(data.get("hasheous_id", rom.hasheous_id))),
+        "tgdb_id": parse_id_value(str(data.get("tgdb_id", rom.tgdb_id))),
+        "flashpoint_id": parse_id_value(
+            str(data.get("flashpoint_id", rom.flashpoint_id))
+        ),
+        "hltb_id": parse_id_value(str(data.get("hltb_id", rom.hltb_id))),
     }
-
-    if (
-        cleaned_data.get("hltb_id", "")
-        and int(cleaned_data.get("hltb_id", "")) != rom.hltb_id
-    ):
-        hltb_rom = await meta_hltb_handler.get_rom_by_id(cleaned_data["hltb_id"])
-        cleaned_data.update(hltb_rom)
 
     if (
         cleaned_data.get("flashpoint_id", "")
@@ -1005,6 +999,66 @@ async def add_rom_manuals(
             "path_manual": path_manual,
         },
     )
+
+    return Response()
+
+
+@protected_route(
+    router.delete,
+    "/{id}/manuals",
+    [Scope.ROMS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def delete_rom_manuals(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> Response:
+    """Delete manuals for a rom."""
+
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    if not fs_resource_handler.manual_exists(rom):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No manual found for this ROM",
+        )
+
+    try:
+        await fs_resource_handler.remove_manual(rom)
+        db_rom_handler.update_rom(
+            id,
+            {
+                "path_manual": "",
+                "url_manual": "",
+            },
+        )
+
+        log.info(
+            f"Deleted manual for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
+        )
+    except FileNotFoundError:
+        log.warning(
+            f"Manual file not found for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
+        )
+        # Still update the database even if file doesn't exist
+        db_rom_handler.update_rom(
+            id,
+            {
+                "path_manual": "",
+                "url_manual": "",
+            },
+        )
+    except Exception as exc:
+        log.error(
+            f"Error deleting manual for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]",
+            exc_info=exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="There was an error deleting the manual",
+        ) from exc
 
     return Response()
 

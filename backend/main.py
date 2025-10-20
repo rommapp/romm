@@ -19,6 +19,7 @@ from config import (
     DEV_PORT,
     DISABLE_CSRF_PROTECTION,
     IS_PYTEST_RUN,
+    OIDC_ENABLED,
     ROMM_AUTH_SECRET_KEY,
     SENTRY_DSN,
 )
@@ -105,7 +106,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=ROMM_AUTH_SECRET_KEY,
     session_cookie="romm_session",
-    same_site="strict",
+    same_site="lax" if OIDC_ENABLED else "strict",
     https_only=False,
     jwt_alg=ALGORITHM,
 )

@@ -522,8 +522,8 @@ async function stopScan() {
           <span v-else class="ml-2">{{
             t("scan.platforms-scanned-with-details", {
               n_platforms: scanningPlatforms.length,
-              n_added_platforms: scanStats.added_platforms,
-              n_identified_platforms: scanStats.metadata_platforms,
+              n_new_platforms: scanStats.new_platforms,
+              n_identified_platforms: scanStats.identified_platforms,
             })
           }}</span>
         </v-chip>
@@ -542,7 +542,7 @@ async function stopScan() {
             t("scan.roms-scanned-with-details", {
               n_roms: scanStats.scanned_roms,
               n_added_roms: scanStats.added_roms,
-              n_identified_roms: scanStats.metadata_roms,
+              n_identified_roms: scanStats.identified_roms,
             })
           }}</span>
         </v-chip>

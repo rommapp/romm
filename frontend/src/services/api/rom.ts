@@ -72,7 +72,7 @@ export interface GetRomsParams {
   orderDir?: string | null;
   filterUnmatched?: boolean;
   filterMatched?: boolean;
-  filterFavourites?: boolean;
+  filterFavorites?: boolean;
   filterDuplicates?: boolean;
   filterPlayables?: boolean;
   filterRA?: boolean;
@@ -101,7 +101,7 @@ async function getRoms({
   orderDir = "asc",
   filterUnmatched = false,
   filterMatched = false,
-  filterFavourites = false,
+  filterFavorites = false,
   filterDuplicates = false,
   filterPlayables = false,
   filterRA = false,
@@ -139,7 +139,7 @@ async function getRoms({
       selected_language: selectedLanguage,
       ...(filterUnmatched ? { matched: false } : {}),
       ...(filterMatched ? { matched: true } : {}),
-      ...(filterFavourites ? { favourite: true } : {}),
+      ...(filterFavorites ? { favorite: true } : {}),
       ...(filterDuplicates ? { duplicate: true } : {}),
       ...(filterPlayables ? { playable: true } : {}),
       ...(filterMissing ? { missing: true } : {}),
@@ -266,19 +266,22 @@ async function updateRom({
   unmatch?: boolean;
 }): Promise<{ data: DetailedRom }> {
   const formData = new FormData();
-  formData.append("igdb_id", rom.igdb_id?.toString() ?? "");
-  formData.append("sgdb_id", rom.sgdb_id?.toString() ?? "");
-  formData.append("moby_id", rom.moby_id?.toString() ?? "");
-  formData.append("ss_id", rom.ss_id?.toString() ?? "");
-  formData.append("ra_id", rom.ra_id?.toString() ?? "");
-  formData.append("launchbox_id", rom.launchbox_id?.toString() ?? "");
-  formData.append("flashpoint_id", rom.flashpoint_id?.toString() ?? "");
-  formData.append("hasheous_id", rom.hasheous_id?.toString() ?? "");
-  formData.append("tgdb_id", rom.tgdb_id?.toString() ?? "");
-  formData.append("hltb_id", rom.hltb_id?.toString() ?? "");
   formData.append("name", rom.name || "");
   formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");
+
+  if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
+  if (rom.sgdb_id) formData.append("sgdb_id", rom.sgdb_id.toString());
+  if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
+  if (rom.ss_id) formData.append("ss_id", rom.ss_id.toString());
+  if (rom.launchbox_id)
+    formData.append("launchbox_id", rom.launchbox_id.toString());
+  if (rom.flashpoint_id)
+    formData.append("flashpoint_id", rom.flashpoint_id.toString());
+  if (rom.hasheous_id)
+    formData.append("hasheous_id", rom.hasheous_id.toString());
+  if (rom.tgdb_id) formData.append("tgdb_id", rom.tgdb_id.toString());
+  if (rom.hltb_id) formData.append("hltb_id", rom.hltb_id.toString());
 
   // Don't set url_cover on manual artwork upload
   if (rom.artwork) {
@@ -305,7 +308,6 @@ async function uploadManuals({
   const heartbeat = storeHeartbeat();
   const uploadStore = storeUpload();
 
-  console.log(filesToUpload);
   const promises = filesToUpload.map((file) => {
     const formData = new FormData();
     formData.append(file.name, file);
@@ -333,6 +335,14 @@ async function uploadManuals({
   });
 
   return Promise.allSettled(promises);
+}
+
+async function removeManual({
+  romId,
+}: {
+  romId: number;
+}): Promise<{ data: DetailedRom }> {
+  return api.delete(`/roms/${romId}/manuals`);
 }
 
 async function updateUserRomProps({
@@ -377,6 +387,7 @@ export default {
   searchRom,
   updateRom,
   uploadManuals,
+  removeManual,
   updateUserRomProps,
   deleteRoms,
 };

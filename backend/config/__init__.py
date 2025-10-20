@@ -22,6 +22,7 @@ DEV_SQL_ECHO: Final = str_to_bool(os.environ.get("DEV_SQL_ECHO", "false"))
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
+ROMM_TMP_PATH: Final = os.environ.get("ROMM_TMP_PATH", None)
 LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
 RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
@@ -136,9 +137,13 @@ OIDC_TLS_CACERTFILE: Final = os.environ.get("OIDC_TLS_CACERTFILE", None)
 
 # SCANS
 SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
+SCAN_WORKERS: Final = max(1, int(os.environ.get("SCAN_WORKERS", "1")))
 
 # TASKS
 TASK_TIMEOUT: Final = int(os.environ.get("TASK_TIMEOUT", 60 * 5))  # 5 minutes
+TASK_RESULT_TTL: Final = int(
+    os.environ.get("TASK_RESULT_TTL", 24 * 60 * 60)
+)  # 24 hours
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = str_to_bool(
     os.environ.get("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false")
 )

@@ -135,14 +135,14 @@ wheels = [
 
 [[package]]
 name = "authlib"
-version = "1.6.4"
+version = "1.6.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ce/bb/73a1f1c64ee527877f64122422dafe5b87a846ccf4ac933fe21bcbb8fee8/authlib-1.6.4.tar.gz", hash = "sha256:104b0442a43061dc8bc23b133d1d06a2b0a9c2e3e33f34c4338929e816287649", size = 164046, upload-time = "2025-09-17T09:59:23.897Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cd/3f/1d3bbd0bf23bdd99276d4def22f29c27a914067b4cf66f753ff9b8bbd0f3/authlib-1.6.5.tar.gz", hash = "sha256:6aaf9c79b7cc96c900f0b284061691c5d4e61221640a948fe690b556a6d6d10b", size = 164553, upload-time = "2025-10-02T13:36:09.489Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0e/aa/91355b5f539caf1b94f0e66ff1e4ee39373b757fce08204981f7829ede51/authlib-1.6.4-py2.py3-none-any.whl", hash = "sha256:39313d2a2caac3ecf6d8f95fbebdfd30ae6ea6ae6a6db794d976405fdd9aa796", size = 243076, upload-time = "2025-09-17T09:59:22.259Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/aa/5082412d1ee302e9e7d80b6949bc4d2a8fa1149aaab610c5fc24709605d6/authlib-1.6.5-py2.py3-none-any.whl", hash = "sha256:3e0e0507807f842b02175507bdee8957a1d5707fd4afb17c32fb43fee90b6e3a", size = 243608, upload-time = "2025-10-02T13:36:07.637Z" },
 ]
 
 [[package]]
@@ -822,14 +822,14 @@ wheels = [
 
 [[package]]
 name = "joserfc"
-version = "1.3.2"
+version = "1.3.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9e/ca/416df9a71e2eacca95a55f9a4978cd771742c0eccf14e07e088315554c6f/joserfc-1.3.2.tar.gz", hash = "sha256:147bbba5b0b7c29fa270921dc1f17d83b48ccf0fecf51295b8de1ff1b682ca53", size = 196379, upload-time = "2025-09-04T06:51:11.349Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b0/79/d63a882c0212e95f3ba8863a115e5ca9a5d39413b02273ddce72058e717f/joserfc-1.3.4.tar.gz", hash = "sha256:67d8413c501c239f65eefad5ae685cfbfc401aa63289fc409ef7cc331b007227", size = 197787, upload-time = "2025-09-21T15:49:34.7Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ec/2a/f4915889af9b77d8ea96797640e77ca1995037eaa456be2cdc80ef4a7507/joserfc-1.3.2-py3-none-any.whl", hash = "sha256:81a1d14a0da6d0278f963cb6d6ee43b4640552341b6e984d1535083eba535723", size = 74499, upload-time = "2025-09-04T06:51:09.863Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/78/beb171f0caac81f51695f43c87c0c20b3ce2a190cf74a3fbb0b9afe03b45/joserfc-1.3.4-py3-none-any.whl", hash = "sha256:30c845c58d441cfe32d08ac35e437812481ca8155373873b7abf80224bf601c0", size = 75638, upload-time = "2025-09-21T15:49:33.14Z" },
 ]
 
 [[package]]
@@ -1960,7 +1960,7 @@ requires-dist = [
     { name = "aiohttp", specifier = "~=3.12" },
     { name = "alembic", specifier = "~=1.13" },
     { name = "anyio", specifier = "~=4.4" },
-    { name = "authlib", specifier = "~=1.6" },
+    { name = "authlib", specifier = "~=1.6.5" },
     { name = "colorama", specifier = "~=0.4" },
     { name = "defusedxml", specifier = "~=0.7" },
     { name = "fakeredis", marker = "extra == 'test'", specifier = "~=2.21" },
@@ -1970,7 +1970,7 @@ requires-dist = [
     { name = "httpx", specifier = "~=0.27" },
     { name = "ipdb", marker = "extra == 'dev'", specifier = "~=0.13" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = "~=6.29" },
-    { name = "joserfc", specifier = "~=1.3" },
+    { name = "joserfc", specifier = "~=1.3.4" },
     { name = "memray", marker = "extra == 'dev'", specifier = "~=1.15" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "~=1.13" },
     { name = "opentelemetry-distro", specifier = "~=0.56" },

@@ -52,7 +52,7 @@ const memoizedCovers = ref({
 });
 
 const collectionCoverImage = computed(() =>
-  props.collection.name?.toLowerCase() == "favourites"
+  props.collection.is_favorite
     ? getFavoriteCoverImage(props.collection.name)
     : getCollectionCoverImage(props.collection.name),
 );

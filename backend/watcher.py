@@ -15,6 +15,7 @@ from config import (
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCAN_TIMEOUT,
     SENTRY_DSN,
+    TASK_RESULT_TTL,
 )
 from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import scan_platforms
@@ -35,7 +36,7 @@ from handler.scan_handler import MetadataSource, ScanType
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
-from tasks.tasks import tasks_scheduler
+from tasks.tasks import TaskType, tasks_scheduler
 from utils import get_version
 
 sentry_sdk.init(
@@ -140,10 +141,15 @@ def process_changes(changes: Sequence[Change]) -> None:
             tasks_scheduler.enqueue_in(
                 time_delta,
                 scan_platforms,
-                [],
-                scan_type=ScanType.UNIDENTIFIED,
+                platform_ids=[],
                 metadata_sources=metadata_sources,
+                scan_type=ScanType.UNIDENTIFIED,
                 timeout=SCAN_TIMEOUT,
+                result_ttl=TASK_RESULT_TTL,
+                meta={
+                    "task_name": "Unidentified Scan",
+                    "task_type": TaskType.SCAN,
+                },
             )
             return
 
@@ -163,10 +169,15 @@ def process_changes(changes: Sequence[Change]) -> None:
             tasks_scheduler.enqueue_in(
                 time_delta,
                 scan_platforms,
-                [db_platform.id],
-                scan_type=ScanType.QUICK,
+                platform_ids=[db_platform.id],
                 metadata_sources=metadata_sources,
+                scan_type=ScanType.QUICK,
                 timeout=SCAN_TIMEOUT,
+                result_ttl=TASK_RESULT_TTL,
+                meta={
+                    "task_name": "Quick Scan",
+                    "task_type": TaskType.SCAN,
+                },
             )
 
 
