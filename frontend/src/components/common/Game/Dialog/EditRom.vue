@@ -14,6 +14,8 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage } from "@/utils/covers";
+import MetadataIdSection from "./EditRom/MetadataIdSection.vue";
+import MetadataSections from "./EditRom/MetadataSections.vue";
 
 const { t } = useI18n();
 const { lgAndUp } = useDisplay();
@@ -32,32 +34,16 @@ const validForm = ref(false);
 const showConfirmDeleteManual = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 
-// Metadata JSON editing
-const igdbMetadataJson = ref("");
-const mobyMetadataJson = ref("");
-const ssMetadataJson = ref("");
-const launchboxMetadataJson = ref("");
-const hasheousMetadataJson = ref("");
-const flashpointMetadataJson = ref("");
-const hltbMetadataJson = ref("");
-
-// Edit states for each metadata type
-const isEditingIgdb = ref(false);
-const isEditingMoby = ref(false);
-const isEditingSs = ref(false);
-const isEditingLaunchbox = ref(false);
-const isEditingHasheous = ref(false);
-const isEditingFlashpoint = ref(false);
-const isEditingHltb = ref(false);
 emitter?.on("showEditRomDialog", (romToEdit: SimpleRom) => {
   show.value = true;
   rom.value = romToEdit;
   removeCover.value = false;
-  initializeMetadataJson();
 });
+
 emitter?.on("updateUrlCover", (url_cover) => {
   setArtwork(url_cover);
 });
+
 const computedAspectRatio = computed(() => {
   const ratio = rom.value?.platform_id
     ? platfotmsStore.getAspectRatio(rom.value?.platform_id)
@@ -242,238 +228,8 @@ function closeDialog() {
   showConfirmDeleteManual.value = false;
 }
 
-function initializeMetadataJson() {
-  if (!rom.value) return;
-
-  igdbMetadataJson.value = rom.value.igdb_metadata
-    ? JSON.stringify(rom.value.igdb_metadata, null, 2)
-    : "";
-  mobyMetadataJson.value = rom.value.moby_metadata
-    ? JSON.stringify(rom.value.moby_metadata, null, 2)
-    : "";
-  ssMetadataJson.value = rom.value.ss_metadata
-    ? JSON.stringify(rom.value.ss_metadata, null, 2)
-    : "";
-  launchboxMetadataJson.value = rom.value.launchbox_metadata
-    ? JSON.stringify(rom.value.launchbox_metadata, null, 2)
-    : "";
-  hasheousMetadataJson.value = rom.value.hasheous_metadata
-    ? JSON.stringify(rom.value.hasheous_metadata, null, 2)
-    : "";
-  flashpointMetadataJson.value = rom.value.flashpoint_metadata
-    ? JSON.stringify(rom.value.flashpoint_metadata, null, 2)
-    : "";
-  hltbMetadataJson.value = rom.value.hltb_metadata
-    ? JSON.stringify(rom.value.hltb_metadata, null, 2)
-    : "";
-
-  // Reset edit states
-  isEditingIgdb.value = false;
-  isEditingMoby.value = false;
-  isEditingSs.value = false;
-  isEditingLaunchbox.value = false;
-  isEditingHasheous.value = false;
-  isEditingFlashpoint.value = false;
-  isEditingHltb.value = false;
-}
-
-function validateJson(value: string): boolean | string {
-  if (!value || value.trim() === "") return true;
-
-  try {
-    JSON.parse(value);
-    return true;
-  } catch (error) {
-    return "Invalid JSON format";
-  }
-}
-
-function startEdit(metadataType: string) {
-  switch (metadataType) {
-    case "igdb":
-      isEditingIgdb.value = true;
-      break;
-    case "moby":
-      isEditingMoby.value = true;
-      break;
-    case "ss":
-      isEditingSs.value = true;
-      break;
-    case "launchbox":
-      isEditingLaunchbox.value = true;
-      break;
-    case "hasheous":
-      isEditingHasheous.value = true;
-      break;
-    case "flashpoint":
-      isEditingFlashpoint.value = true;
-      break;
-    case "hltb":
-      isEditingHltb.value = true;
-      break;
-  }
-}
-
-function cancelEdit(metadataType: string) {
-  // Reset to original value
-  if (!rom.value) return;
-
-  switch (metadataType) {
-    case "igdb":
-      isEditingIgdb.value = false;
-      igdbMetadataJson.value = rom.value.igdb_metadata
-        ? JSON.stringify(rom.value.igdb_metadata, null, 2)
-        : "";
-      break;
-    case "moby":
-      isEditingMoby.value = false;
-      mobyMetadataJson.value = rom.value.moby_metadata
-        ? JSON.stringify(rom.value.moby_metadata, null, 2)
-        : "";
-      break;
-    case "ss":
-      isEditingSs.value = false;
-      ssMetadataJson.value = rom.value.ss_metadata
-        ? JSON.stringify(rom.value.ss_metadata, null, 2)
-        : "";
-      break;
-    case "launchbox":
-      isEditingLaunchbox.value = false;
-      launchboxMetadataJson.value = rom.value.launchbox_metadata
-        ? JSON.stringify(rom.value.launchbox_metadata, null, 2)
-        : "";
-      break;
-    case "hasheous":
-      isEditingHasheous.value = false;
-      hasheousMetadataJson.value = rom.value.hasheous_metadata
-        ? JSON.stringify(rom.value.hasheous_metadata, null, 2)
-        : "";
-      break;
-    case "flashpoint":
-      isEditingFlashpoint.value = false;
-      flashpointMetadataJson.value = rom.value.flashpoint_metadata
-        ? JSON.stringify(rom.value.flashpoint_metadata, null, 2)
-        : "";
-      break;
-    case "hltb":
-      isEditingHltb.value = false;
-      hltbMetadataJson.value = rom.value.hltb_metadata
-        ? JSON.stringify(rom.value.hltb_metadata, null, 2)
-        : "";
-      break;
-  }
-}
-
-async function saveMetadata(metadataType: string) {
-  if (!rom.value) return;
-
-  let jsonValue = "";
-  switch (metadataType) {
-    case "igdb":
-      jsonValue = igdbMetadataJson.value;
-      break;
-    case "moby":
-      jsonValue = mobyMetadataJson.value;
-      break;
-    case "ss":
-      jsonValue = ssMetadataJson.value;
-      break;
-    case "launchbox":
-      jsonValue = launchboxMetadataJson.value;
-      break;
-    case "hasheous":
-      jsonValue = hasheousMetadataJson.value;
-      break;
-    case "flashpoint":
-      jsonValue = flashpointMetadataJson.value;
-      break;
-    case "hltb":
-      jsonValue = hltbMetadataJson.value;
-      break;
-    default:
-      return;
-  }
-
-  if (!jsonValue || jsonValue.trim() === "") {
-    emitter?.emit("snackbarShow", {
-      msg: "No metadata to save",
-      icon: "mdi-information",
-      color: "info",
-      timeout: 3000,
-    });
-    return;
-  }
-
-  try {
-    // Prepare raw metadata object
-    const rawMetadata: any = {};
-    switch (metadataType) {
-      case "igdb":
-        rawMetadata.igdb_metadata = jsonValue;
-        break;
-      case "moby":
-        rawMetadata.moby_metadata = jsonValue;
-        break;
-      case "ss":
-        rawMetadata.ss_metadata = jsonValue;
-        break;
-      case "launchbox":
-        rawMetadata.launchbox_metadata = jsonValue;
-        break;
-      case "hasheous":
-        rawMetadata.hasheous_metadata = jsonValue;
-        break;
-      case "flashpoint":
-        rawMetadata.flashpoint_metadata = jsonValue;
-        break;
-      case "hltb":
-        rawMetadata.hltb_metadata = jsonValue;
-        break;
-    }
-
-    // Update the ROM with raw metadata
-    await handleRomUpdate(
-      {
-        rom: {
-          ...rom.value,
-          raw_metadata: rawMetadata,
-        },
-      },
-      `${metadataType.toUpperCase()} metadata updated successfully!`,
-    );
-
-    // Exit edit mode
-    switch (metadataType) {
-      case "igdb":
-        isEditingIgdb.value = false;
-        break;
-      case "moby":
-        isEditingMoby.value = false;
-        break;
-      case "ss":
-        isEditingSs.value = false;
-        break;
-      case "launchbox":
-        isEditingLaunchbox.value = false;
-        break;
-      case "hasheous":
-        isEditingHasheous.value = false;
-        break;
-      case "flashpoint":
-        isEditingFlashpoint.value = false;
-        break;
-      case "hltb":
-        isEditingHltb.value = false;
-        break;
-    }
-  } catch (error) {
-    emitter?.emit("snackbarShow", {
-      msg: "Invalid JSON format",
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 3000,
-    });
-  }
+function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
+  rom.value = updatedRom;
 }
 </script>
 
@@ -584,62 +340,55 @@ async function saveMetadata(metadataType: string) {
               variant="outlined"
               class="my-4"
             />
-            <v-chip
-              :variant="rom.has_manual ? 'flat' : 'tonal'"
-              label
-              size="large"
-              class="bg-toplayer px-0"
-            >
-              <span
-                class="ml-4 flex items-center"
-                :class="{
-                  'text-romm-red': !rom.has_manual,
-                  'text-romm-green': rom.has_manual,
-                }"
+
+            <div class="d-flex justify-space-between">
+              <v-chip
+                :variant="rom.has_manual ? 'flat' : 'tonal'"
+                label
+                class="bg-toplayer px-0"
               >
-                {{ t("rom.manual") }}
-                <v-icon class="ml-1">
-                  {{ rom.has_manual ? "mdi-check" : "mdi-close" }}
-                </v-icon>
-              </span>
-              <v-btn
-                class="bg-toplayer ml-3"
-                icon="mdi-cloud-upload-outline"
-                rounded="0"
-                size="small"
-                @click="triggerFileInput('manual-file-input')"
-              >
-                <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
-                <v-file-input
-                  id="manual-file-input"
-                  v-model="manualFiles"
-                  accept="application/pdf"
-                  hide-details
-                  multiple
-                  class="file-input"
-                  @change="uploadManuals"
+                <span
+                  class="ml-4 flex items-center"
+                  :class="{
+                    'text-romm-red': !rom.has_manual,
+                    'text-romm-green': rom.has_manual,
+                  }"
+                >
+                  {{ t("rom.manual") }}
+                  <v-icon class="ml-1">
+                    {{ rom.has_manual ? "mdi-check" : "mdi-close" }}
+                  </v-icon>
+                </span>
+                <v-btn
+                  class="bg-toplayer ml-3"
+                  icon="mdi-cloud-upload-outline"
+                  rounded="0"
+                  size="small"
+                  @click="triggerFileInput('manual-file-input')"
+                >
+                  <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
+                  <v-file-input
+                    id="manual-file-input"
+                    v-model="manualFiles"
+                    accept="application/pdf"
+                    hide-details
+                    multiple
+                    class="file-input"
+                    @change="uploadManuals"
+                  />
+                </v-btn>
+                <v-btn
+                  v-if="rom.has_manual"
+                  size="small"
+                  class="bg-toplayer text-romm-red"
+                  icon="mdi-delete"
+                  rounded="0"
+                  @click="confirmRemoveManual"
                 />
-              </v-btn>
-              <v-btn
-                v-if="rom.has_manual"
-                size="small"
-                class="bg-toplayer text-romm-red"
-                icon="mdi-delete"
-                rounded="0"
-                @click="confirmRemoveManual"
-              />
-            </v-chip>
-            <div v-if="rom.has_manual">
-              <v-label class="text-caption text-wrap">
-                <v-icon size="small" class="text-primary mr-2">
-                  mdi-folder-file-outline
-                </v-icon>
-                <span> /romm/resources/{{ rom.path_manual }} </span>
-              </v-label>
-            </div>
-            <div class="mt-6">
+              </v-chip>
               <v-btn
                 :disabled="rom.is_unidentified"
+                class="ml-2"
                 :class="{
                   'text-romm-red bg-toplayer': !rom.is_unidentified,
                 }"
@@ -649,497 +398,25 @@ async function saveMetadata(metadataType: string) {
                 {{ t("rom.unmatch") }}
               </v-btn>
             </div>
+            <div v-if="rom.has_manual">
+              <v-label class="text-caption text-wrap">
+                <v-icon size="small" class="text-primary mr-2">
+                  mdi-folder-file-outline
+                </v-icon>
+                <span> /romm/resources/{{ rom.path_manual }} </span>
+              </v-label>
+            </div>
           </v-col>
         </v-row>
         <v-expansion-panels class="mt-6">
-          <v-expansion-panel>
-            <v-expansion-panel-title class="bg-toplayer">
-              <v-icon class="mr-2">mdi-database</v-icon>
-              {{ t("rom.metadata-ids") }}
-            </v-expansion-panel-title>
-            <v-expansion-panel-text class="mt-4 px-2">
-              <v-row no-gutters class="my-2">
-                <v-col cols="12" md="6" xl="4" class="pa-2">
-                  <v-text-field
-                    hide-details
-                    clearable
-                    :model-value="rom.igdb_id?.toString() || null"
-                    label="IGDB ID"
-                    variant="outlined"
-                    @update:model-value="
-                      (value) =>
-                        rom && (rom.igdb_id = value ? parseInt(value) : null)
-                    "
-                  />
-                </v-col>
-                <v-col cols="12" md="6" xl="4" class="pa-2">
-                  <v-text-field
-                    hide-details
-                    clearable
-                    :model-value="rom.moby_id?.toString() || null"
-                    label="MobyGames ID"
-                    variant="outlined"
-                    @update:model-value="
-                      (value) =>
-                        rom && (rom.moby_id = value ? parseInt(value) : null)
-                    "
-                  />
-                </v-col>
-                <v-col cols="12" md="6" xl="4" class="pa-2">
-                  <v-text-field
-                    hide-details
-                    clearable
-                    :model-value="rom.ss_id?.toString() || null"
-                    label="ScreenScraper ID"
-                    variant="outlined"
-                    @update:model-value="
-                      (value) =>
-                        rom && (rom.ss_id = value ? parseInt(value) : null)
-                    "
-                  />
-                </v-col>
-                <v-col cols="12" md="6" xl="4" class="pa-2">
-                  <v-text-field
-                    hide-details
-                    clearable
-                    :model-value="rom.ra_id?.toString() || null"
-                    label="RetroAchievements ID"
-                    variant="outlined"
-                    @update:model-value="
-                      (value) =>
-                        rom && (rom.ra_id = value ? parseInt(value) : null)
-                    "
-                  />
-                </v-col>
-                <v-col cols="12" md="6" xl="4" class="pa-2">
-                  <v-text-field
-                    hide-details
-                    clearable
-                    :model-value="rom.launchbox_id?.toString() || null"
-                    label="LaunchBox ID"
-                    variant="outlined"
-                    @update:model-value="
-                      (value) =>
-                        rom &&
-                        (rom.launchbox_id = value ? parseInt(value) : null)
-                    "
-                  />
-                </v-col>
-                <v-col cols="12" md="6" xl="4" class="pa-2">
-                  <v-text-field
-                    hide-details
-                    clearable
-                    :model-value="rom.sgdb_id?.toString() || null"
-                    label="SteamGridDB ID"
-                    variant="outlined"
-                    @update:model-value="
-                      (value) =>
-                        rom && (rom.sgdb_id = value ? parseInt(value) : null)
-                    "
-                  />
-                </v-col>
-                <v-col cols="12" md="6" xl="4" class="pa-2">
-                  <v-text-field
-                    hide-details
-                    clearable
-                    :model-value="rom.hasheous_id?.toString() || null"
-                    label="Hasheous ID"
-                    variant="outlined"
-                    @update:model-value="
-                      (value) =>
-                        rom &&
-                        (rom.hasheous_id = value ? parseInt(value) : null)
-                    "
-                  />
-                </v-col>
-                <v-col cols="12" md="6" xl="4" class="pa-2">
-                  <v-text-field
-                    hide-details
-                    clearable
-                    :model-value="rom.flashpoint_id || null"
-                    label="Flashpoint ID"
-                    variant="outlined"
-                    @update:model-value="
-                      (value) => rom && (rom.flashpoint_id = value || null)
-                    "
-                  />
-                </v-col>
-                <v-col cols="12" md="6" xl="4" class="pa-2">
-                  <v-text-field
-                    hide-details
-                    clearable
-                    :model-value="rom.hltb_id?.toString() || null"
-                    label="HowLongToBeat ID"
-                    variant="outlined"
-                    @update:model-value="
-                      (value) =>
-                        rom && (rom.hltb_id = value ? parseInt(value) : null)
-                    "
-                  />
-                </v-col>
-              </v-row>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-
-          <!-- IGDB Metadata -->
-          <v-expansion-panel v-if="rom.igdb_id">
-            <v-expansion-panel-title class="bg-toplayer">
-              <v-avatar size="26" rounded class="mr-2">
-                <v-img src="/assets/scrappers/igdb.png" />
-              </v-avatar>
-              IGDB Raw Metadata
-            </v-expansion-panel-title>
-            <v-expansion-panel-text class="mt-4 px-2">
-              <v-textarea
-                v-model="igdbMetadataJson"
-                label="IGDB Metadata JSON"
-                variant="outlined"
-                rows="8"
-                hide-details
-                :readonly="!isEditingIgdb"
-                :rules="[validateJson]"
-              />
-              <v-btn-group
-                divided
-                density="compact"
-                rounded="0"
-                class="my-2 d-flex justify-center"
-              >
-                <v-btn
-                  v-if="!isEditingIgdb"
-                  color="primary"
-                  variant="flat"
-                  @click="startEdit('igdb')"
-                >
-                  Edit
-                </v-btn>
-                <template v-else>
-                  <v-btn
-                    color="success"
-                    variant="flat"
-                    @click="saveMetadata('igdb')"
-                  >
-                    Save
-                  </v-btn>
-                  <v-btn
-                    color="error"
-                    variant="flat"
-                    @click="cancelEdit('igdb')"
-                  >
-                    Cancel
-                  </v-btn>
-                </template>
-              </v-btn-group>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-
-          <!-- MobyGames Metadata -->
-          <v-expansion-panel v-if="rom.moby_id">
-            <v-expansion-panel-title class="bg-toplayer">
-              <v-avatar size="26" rounded class="mr-2">
-                <v-img src="/assets/scrappers/moby.png" />
-              </v-avatar>
-              MobyGames Raw Metadata
-            </v-expansion-panel-title>
-            <v-expansion-panel-text class="mt-4 px-2">
-              <v-textarea
-                v-model="mobyMetadataJson"
-                label="MobyGames Metadata JSON"
-                variant="outlined"
-                rows="8"
-                hide-details
-                :readonly="!isEditingMoby"
-                :rules="[validateJson]"
-              />
-              <v-btn-group
-                divided
-                density="compact"
-                rounded="0"
-                class="my-2 d-flex justify-center"
-              >
-                <v-btn
-                  v-if="!isEditingMoby"
-                  color="primary"
-                  variant="flat"
-                  @click="startEdit('moby')"
-                >
-                  Edit
-                </v-btn>
-                <template v-else>
-                  <v-btn
-                    color="success"
-                    variant="flat"
-                    @click="saveMetadata('moby')"
-                  >
-                    Save
-                  </v-btn>
-                  <v-btn
-                    color="error"
-                    variant="flat"
-                    @click="cancelEdit('moby')"
-                  >
-                    Cancel
-                  </v-btn>
-                </template>
-              </v-btn-group>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-
-          <!-- ScreenScraper Metadata -->
-          <v-expansion-panel v-if="rom.ss_id">
-            <v-expansion-panel-title class="bg-toplayer">
-              <v-avatar size="26" rounded class="mr-2">
-                <v-img src="/assets/scrappers/ss.png" />
-              </v-avatar>
-              ScreenScraper Raw Metadata
-            </v-expansion-panel-title>
-            <v-expansion-panel-text class="mt-4 px-2">
-              <v-textarea
-                v-model="ssMetadataJson"
-                label="ScreenScraper Metadata JSON"
-                variant="outlined"
-                rows="8"
-                hide-details
-                :readonly="!isEditingSs"
-                :rules="[validateJson]"
-              />
-              <v-btn-group
-                divided
-                density="compact"
-                rounded="0"
-                class="my-2 d-flex justify-center"
-              >
-                <v-btn
-                  v-if="!isEditingSs"
-                  color="primary"
-                  variant="flat"
-                  @click="startEdit('ss')"
-                >
-                  Edit
-                </v-btn>
-                <template v-else>
-                  <v-btn
-                    color="success"
-                    variant="flat"
-                    @click="saveMetadata('ss')"
-                  >
-                    Save
-                  </v-btn>
-                  <v-btn color="error" variant="flat" @click="cancelEdit('ss')">
-                    Cancel
-                  </v-btn>
-                </template>
-              </v-btn-group>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-
-          <!-- LaunchBox Metadata -->
-          <v-expansion-panel v-if="rom.launchbox_id">
-            <v-expansion-panel-title class="bg-toplayer">
-              <v-avatar size="26" rounded class="mr-2">
-                <v-img src="/assets/scrappers/launchbox.png" />
-              </v-avatar>
-              LaunchBox Raw Metadata
-            </v-expansion-panel-title>
-            <v-expansion-panel-text class="mt-4 px-2">
-              <v-textarea
-                v-model="launchboxMetadataJson"
-                label="LaunchBox Metadata JSON"
-                variant="outlined"
-                rows="8"
-                hide-details
-                :readonly="!isEditingLaunchbox"
-                :rules="[validateJson]"
-              />
-              <v-btn-group
-                divided
-                density="compact"
-                rounded="0"
-                class="my-2 d-flex justify-center"
-              >
-                <v-btn
-                  v-if="!isEditingLaunchbox"
-                  color="primary"
-                  variant="flat"
-                  @click="startEdit('launchbox')"
-                >
-                  Edit
-                </v-btn>
-                <template v-else>
-                  <v-btn
-                    color="success"
-                    variant="flat"
-                    @click="saveMetadata('launchbox')"
-                  >
-                    Save
-                  </v-btn>
-                  <v-btn
-                    color="error"
-                    variant="flat"
-                    @click="cancelEdit('launchbox')"
-                  >
-                    Cancel
-                  </v-btn>
-                </template>
-              </v-btn-group>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-
-          <!-- Hasheous Metadata -->
-          <v-expansion-panel v-if="rom.hasheous_id">
-            <v-expansion-panel-title class="bg-toplayer">
-              <v-avatar size="26" rounded class="mr-2">
-                <v-img src="/assets/scrappers/hasheous.png" />
-              </v-avatar>
-              Hasheous Raw Metadata
-            </v-expansion-panel-title>
-            <v-expansion-panel-text class="mt-4 px-2">
-              <v-textarea
-                v-model="hasheousMetadataJson"
-                label="Hasheous Metadata JSON"
-                variant="outlined"
-                rows="8"
-                hide-details
-                :readonly="!isEditingHasheous"
-                :rules="[validateJson]"
-              />
-              <v-btn-group
-                divided
-                density="compact"
-                rounded="0"
-                class="my-2 d-flex justify-center"
-              >
-                <v-btn
-                  v-if="!isEditingHasheous"
-                  color="primary"
-                  variant="flat"
-                  @click="startEdit('hasheous')"
-                >
-                  Edit
-                </v-btn>
-                <template v-else>
-                  <v-btn
-                    color="success"
-                    variant="flat"
-                    @click="saveMetadata('hasheous')"
-                  >
-                    Save
-                  </v-btn>
-                  <v-btn
-                    color="error"
-                    variant="flat"
-                    @click="cancelEdit('hasheous')"
-                  >
-                    Cancel
-                  </v-btn>
-                </template>
-              </v-btn-group>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-
-          <!-- Flashpoint Metadata -->
-          <v-expansion-panel v-if="rom.flashpoint_id">
-            <v-expansion-panel-title class="bg-toplayer">
-              <v-avatar size="26" rounded class="mr-2">
-                <v-img src="/assets/scrappers/flashpoint.png" />
-              </v-avatar>
-              Flashpoint Raw Metadata
-            </v-expansion-panel-title>
-            <v-expansion-panel-text class="mt-4 px-2">
-              <v-textarea
-                v-model="flashpointMetadataJson"
-                label="Flashpoint Metadata JSON"
-                variant="outlined"
-                rows="8"
-                hide-details
-                :readonly="!isEditingFlashpoint"
-                :rules="[validateJson]"
-              />
-              <v-btn-group
-                divided
-                density="compact"
-                rounded="0"
-                class="my-2 d-flex justify-center"
-              >
-                <v-btn
-                  v-if="!isEditingFlashpoint"
-                  color="primary"
-                  variant="flat"
-                  @click="startEdit('flashpoint')"
-                >
-                  Edit
-                </v-btn>
-                <template v-else>
-                  <v-btn
-                    color="success"
-                    variant="flat"
-                    @click="saveMetadata('flashpoint')"
-                  >
-                    Save
-                  </v-btn>
-                  <v-btn
-                    color="error"
-                    variant="flat"
-                    @click="cancelEdit('flashpoint')"
-                  >
-                    Cancel
-                  </v-btn>
-                </template>
-              </v-btn-group>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-
-          <!-- HLTB Metadata -->
-          <v-expansion-panel v-if="rom.hltb_id">
-            <v-expansion-panel-title class="bg-toplayer">
-              <v-avatar size="26" rounded class="mr-2">
-                <v-img src="/assets/scrappers/hltb.png" />
-              </v-avatar>
-              HLTB Raw Metadata
-            </v-expansion-panel-title>
-            <v-expansion-panel-text class="mt-4 px-2">
-              <v-textarea
-                v-model="hltbMetadataJson"
-                label="HLTB Metadata JSON"
-                variant="outlined"
-                rows="8"
-                hide-details
-                :readonly="!isEditingHltb"
-                :rules="[validateJson]"
-              />
-              <v-btn-group
-                divided
-                density="compact"
-                rounded="0"
-                class="my-2 d-flex justify-center"
-              >
-                <v-btn
-                  v-if="!isEditingHltb"
-                  color="primary"
-                  variant="flat"
-                  @click="startEdit('hltb')"
-                >
-                  Edit
-                </v-btn>
-                <template v-else>
-                  <v-btn
-                    color="success"
-                    variant="flat"
-                    @click="saveMetadata('hltb')"
-                  >
-                    Save
-                  </v-btn>
-                  <v-btn
-                    color="error"
-                    variant="flat"
-                    @click="cancelEdit('hltb')"
-                  >
-                    Cancel
-                  </v-btn>
-                </template>
-              </v-btn-group>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
+          <MetadataIdSection
+            :rom="rom"
+            @update:rom="handleRomUpdateFromMetadata"
+          />
+          <MetadataSections
+            :rom="rom"
+            @update:rom="handleRomUpdateFromMetadata"
+          />
         </v-expansion-panels>
       </v-form>
     </template>
@@ -1147,7 +424,7 @@ async function saveMetadata(metadataType: string) {
       <v-divider />
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog">
+          <v-btn class="text-romm-red bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn

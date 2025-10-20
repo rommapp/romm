@@ -292,6 +292,7 @@ async function updateRom({
     formData.append("hasheous_id", rom.hasheous_id.toString());
   if (rom.tgdb_id) formData.append("tgdb_id", rom.tgdb_id.toString());
   if (rom.hltb_id) formData.append("hltb_id", rom.hltb_id.toString());
+
   if (rom.raw_metadata?.igdb_metadata) {
     formData.append("raw_igdb_metadata", rom.raw_metadata.igdb_metadata);
   }
