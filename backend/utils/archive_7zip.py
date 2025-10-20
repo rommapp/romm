@@ -5,6 +5,7 @@ import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
+from config import ROMM_TMP_PATH
 from logger.logger import log
 
 SEVEN_ZIP_PATH = "/usr/bin/7zz"
@@ -60,7 +61,7 @@ def process_file_7z(
         if not largest_file:
             return False
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(dir=ROMM_TMP_PATH) as temp_dir:
             log.debug(f"Extracting {largest_file} from {file_path}...")
 
             temp_path = Path(temp_dir)

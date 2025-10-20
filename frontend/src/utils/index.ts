@@ -717,3 +717,30 @@ export function calculateMainLayoutWidth() {
 
   return { calculatedWidth };
 }
+
+/**
+ * Get the icon for a given platform category.
+ *
+ * @param category The platform category.
+ * @returns The corresponding icon.
+ */
+export function platformCategoryToIcon(category: string) {
+  if (!category) return "";
+  switch (category.toLowerCase()) {
+    case "console":
+      return "mdi-gamepad-variant";
+    case "computer":
+      return "mdi-desktop-classic";
+    case "portable console":
+      return "mdi-nintendo-game-boy";
+    case "arcade":
+      return "mdi-gamepad-circle";
+    case "operating system":
+      return "mdi-monitor-shimmer";
+    case "platform":
+      return "mdi-desktop-tower-monitor";
+    case "unknown":
+    default:
+      return "";
+  }
+}

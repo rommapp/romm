@@ -36,15 +36,24 @@ import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import platformApi from "@/services/api/platform";
-import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
-import consoleStore from "@/stores/console";
+import storeConsole from "@/stores/console";
+import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 
 const router = useRouter();
 const collectionsStore = storeCollections();
-const storeConsole = consoleStore();
-const { navigationMode } = storeToRefs(storeConsole);
+const consoleStore = storeConsole();
+const romsStore = storeRoms();
+const {
+  navigationMode,
+  platformIndex,
+  recentIndex,
+  collectionsIndex,
+  smartCollectionsIndex,
+  virtualCollectionsIndex,
+  controlIndex,
+} = storeToRefs(consoleStore);
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 const { setSelectedBackgroundArt, clearSelectedBackgroundArt } =
   useBackgroundArt();
@@ -60,12 +69,6 @@ const errorMessage = ref("");
 const showSettings = ref(false);
 
 // Navigation indices
-const platformIndex = ref(storeConsole.platformIndex);
-const recentIndex = ref(storeConsole.recentIndex);
-const collectionsIndex = ref(storeConsole.collectionsIndex);
-const smartCollectionsIndex = ref(storeConsole.smartCollectionsIndex);
-const virtualCollectionsIndex = ref(storeConsole.virtualCollectionsIndex);
-const controlIndex = ref(storeConsole.controlIndex);
 const scrollContainerRef = useTemplateRef<HTMLDivElement>(
   "scroll-container-ref",
 );
@@ -625,13 +628,13 @@ onMounted(async () => {
   try {
     const [
       { data: plats },
-      { data: recents },
+      recents,
       { data: cols },
       { data: smartCols },
       { data: virtualCols },
     ] = await Promise.all([
       platformApi.getPlatforms(),
-      romApi.getRecentPlayedRoms(),
+      romsStore.fetchRecentRoms(),
       collectionApi.getCollections(),
       collectionApi.getSmartCollections(),
       collectionApi.getVirtualCollections({ type: "collection" }),
@@ -640,17 +643,13 @@ onMounted(async () => {
     platforms.value = plats.filter(
       (p) => p.rom_count > 0 && isSupportedPlatform(p.slug),
     );
-    recentRoms.value = recents.items ?? [];
+    recentRoms.value = recents ?? [];
     collections.value = cols ?? [];
     smartCollections.value = smartCols ?? [];
     virtualCollections.value = virtualCols ?? [];
 
     collectionsStore.setCollections(cols ?? []);
-    collectionsStore.setFavoriteCollection(
-      cols?.find(
-        (collection) => collection.name.toLowerCase() === "favourites",
-      ),
-    );
+    collectionsStore.setFavoriteCollection(cols?.find((c) => c.is_favorite));
   } catch (err: unknown) {
     errorMessage.value = err instanceof Error ? err.message : "Failed to load";
   } finally {
@@ -692,7 +691,7 @@ onMounted(async () => {
 let off: (() => void) | null = null;
 
 onUnmounted(() => {
-  storeConsole.setHomeState({
+  consoleStore.setHomeState({
     platformIndex: platformIndex.value,
     recentIndex: recentIndex.value,
     collectionsIndex: collectionsIndex.value,

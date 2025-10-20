@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String, func, select
+from sqlalchemy import Integer, String, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from models.base import BaseModel
@@ -19,18 +19,18 @@ class Platform(BaseModel):
     __tablename__ = "platforms"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    igdb_id: Mapped[int | None]
-    sgdb_id: Mapped[int | None]
-    moby_id: Mapped[int | None]
-    ss_id: Mapped[int | None]
-    ra_id: Mapped[int | None]
-    launchbox_id: Mapped[int | None]
-    hasheous_id: Mapped[int | None]
-    tgdb_id: Mapped[int | None]
-    flashpoint_id: Mapped[int | None]
-    igdb_slug: Mapped[str | None]
-    moby_slug: Mapped[str | None]
-    hltb_slug: Mapped[str | None]
+    igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    sgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    moby_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ss_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ra_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    hasheous_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    flashpoint_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    igdb_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    moby_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    hltb_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
     slug: Mapped[str] = mapped_column(String(length=100))
     fs_slug: Mapped[str] = mapped_column(String(length=100))
     name: Mapped[str] = mapped_column(String(length=400))

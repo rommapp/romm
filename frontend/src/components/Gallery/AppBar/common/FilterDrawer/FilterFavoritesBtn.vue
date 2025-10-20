@@ -8,10 +8,10 @@ import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
-const { filterFavourites } = storeToRefs(galleryFilterStore);
+const { filterFavorites } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
-function setFavourites() {
-  galleryFilterStore.switchFilterFavourites();
+function setFavorites() {
+  galleryFilterStore.switchFilterFavorites();
   emitter?.emit("filterRoms", null);
 }
 </script>
@@ -20,16 +20,16 @@ function setFavourites() {
   <v-btn
     block
     variant="tonal"
-    :color="filterFavourites ? 'primary' : ''"
-    @click="setFavourites"
+    :color="filterFavorites ? 'primary' : ''"
+    @click="setFavorites"
   >
-    <v-icon :color="filterFavourites ? 'primary' : ''"> mdi-star </v-icon
+    <v-icon :color="filterFavorites ? 'primary' : ''"> mdi-star </v-icon
     ><span
       class="ml-2"
       :class="{
-        'text-primary': filterFavourites,
+        'text-primary': filterFavorites,
       }"
-      >{{ t("platform.show-favourites") }}</span
+      >{{ t("platform.show-favorites") }}</span
     >
   </v-btn>
 </template>

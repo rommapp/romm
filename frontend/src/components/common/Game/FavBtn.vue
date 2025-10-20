@@ -13,7 +13,7 @@ const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const { toggleFavorite } = useFavoriteToggle(emitter);
 
-async function switchFromFavourites() {
+async function switchFromFavorites() {
   await toggleFavorite(props.rom);
 }
 </script>
@@ -25,7 +25,7 @@ async function switchFromFavourites() {
     rouded="0"
     size="small"
     variant="text"
-    @click.stop="switchFromFavourites"
+    @click.stop="switchFromFavorites"
   >
     <v-icon color="primary">
       {{ collectionsStore.isFavorite(rom) ? "mdi-star" : "mdi-star-outline" }}

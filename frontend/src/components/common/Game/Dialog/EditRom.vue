@@ -29,6 +29,7 @@ const platfotmsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
 const uploadStore = storeUpload();
 const validForm = ref(false);
+const showConfirmDeleteManual = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: SimpleRom) => {
   show.value = true;
@@ -163,6 +164,34 @@ async function uploadManuals() {
   manualFiles.value = [];
 }
 
+function confirmRemoveManual() {
+  showConfirmDeleteManual.value = true;
+}
+
+async function removeManual() {
+  if (!rom.value) return;
+  showConfirmDeleteManual.value = false;
+
+  try {
+    await romApi.removeManual({ romId: rom.value.id });
+    rom.value.has_manual = false;
+    rom.value.url_manual = "";
+    rom.value.path_manual = "";
+
+    emitter?.emit("snackbarShow", {
+      msg: "Manual removed successfully",
+      icon: "mdi-check-bold",
+      color: "green",
+    });
+  } catch (error: any) {
+    emitter?.emit("snackbarShow", {
+      msg: `Failed to remove manual: ${error.response?.data?.detail || error.message}`,
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+  }
+}
+
 async function unmatchRom() {
   if (!rom.value) return;
   await handleRomUpdate(
@@ -191,6 +220,7 @@ function closeDialog() {
   show.value = false;
   rom.value = null;
   imagePreviewUrl.value = "";
+  showConfirmDeleteManual.value = false;
 }
 </script>
 
@@ -308,16 +338,17 @@ function closeDialog() {
               class="bg-toplayer px-0"
             >
               <span
-                class="ml-4"
+                class="ml-4 flex items-center"
                 :class="{
                   'text-romm-red': !rom.has_manual,
                   'text-romm-green': rom.has_manual,
                 }"
-                >{{ t("rom.manual")
-                }}<v-icon class="ml-1">{{
-                  rom.has_manual ? "mdi-check" : "mdi-close"
-                }}</v-icon></span
               >
+                {{ t("rom.manual") }}
+                <v-icon class="ml-1">
+                  {{ rom.has_manual ? "mdi-check" : "mdi-close" }}
+                </v-icon>
+              </span>
               <v-btn
                 class="bg-toplayer ml-3"
                 icon="mdi-cloud-upload-outline"
@@ -336,6 +367,14 @@ function closeDialog() {
                   @change="uploadManuals"
                 />
               </v-btn>
+              <v-btn
+                v-if="rom.has_manual"
+                size="small"
+                class="bg-toplayer text-romm-red"
+                icon="mdi-delete"
+                rounded="0"
+                @click="confirmRemoveManual"
+              />
             </v-chip>
             <div v-if="rom.has_manual">
               <v-label class="text-caption text-wrap">
@@ -466,6 +505,36 @@ function closeDialog() {
             @click="updateRom"
           >
             {{ t("common.apply") }}
+          </v-btn>
+        </v-btn-group>
+      </v-row>
+    </template>
+  </RDialog>
+
+  <RDialog
+    v-model="showConfirmDeleteManual"
+    icon="mdi-alert-circle"
+    :width="lgAndUp ? '400px' : '90vw'"
+  >
+    <template #content>
+      <div class="pa-4">
+        <p class="text-body-1 mb-4">
+          Are you sure you want to delete the manual?
+        </p>
+        <p class="text-body-2 text-medium-emphasis">
+          The manual file will be permanently removed from the filesystem.
+        </p>
+      </div>
+    </template>
+    <template #append>
+      <v-divider />
+      <v-row class="justify-center pa-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-toplayer" @click="showConfirmDeleteManual = false">
+            Cancel
+          </v-btn>
+          <v-btn class="text-romm-red bg-toplayer" @click="removeManual">
+            Delete
           </v-btn>
         </v-btn-group>
       </v-row>

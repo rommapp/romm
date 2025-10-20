@@ -10,6 +10,7 @@ from starlette.authentication import requires
 from starlette.config import Config
 
 from config import (
+    OIDC_CLAIM_ROLES,
     OIDC_CLIENT_ID,
     OIDC_CLIENT_SECRET,
     OIDC_ENABLED,
@@ -58,7 +59,7 @@ oauth.register(
         config.get("OIDC_SERVER_APPLICATION_URL"), external=True
     ),
     client_kwargs={
-        "scope": "openid profile email",
+        "scope": f"openid profile email {OIDC_CLAIM_ROLES}".strip(),
         "verify": OIDC_TLS_CACERTFILE,
     },
 )

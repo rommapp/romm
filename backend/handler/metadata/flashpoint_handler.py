@@ -9,7 +9,7 @@ from fastapi import HTTPException, status
 
 from config import FLASHPOINT_API_ENABLED
 from logger.logger import log
-from utils import get_version
+from utils import get_version, is_valid_uuid
 from utils.context import ctx_httpx_client
 
 from .base_handler import MetadataHandler
@@ -242,6 +242,11 @@ class FlashpointHandler(MetadataHandler):
 
         if platform_slug not in FLASHPOINT_PLATFORM_LIST:
             return FlashpointRom(flashpoint_id=None)
+
+        # Check if the filename is a UUID
+        fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+        if is_valid_uuid(fs_name_no_tags):
+            return await self.get_rom_by_id(flashpoint_id=fs_name_no_tags)
 
         # Normalize the search term
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)

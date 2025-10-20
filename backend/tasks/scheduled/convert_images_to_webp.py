@@ -3,7 +3,7 @@
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, List
 
 from PIL import Image, UnidentifiedImageError
 
@@ -13,7 +13,7 @@ from config import (
     SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
 )
 from logger.logger import log
-from tasks.tasks import PeriodicTask
+from tasks.tasks import PeriodicTask, TaskType, update_job_meta
 
 
 @dataclass
@@ -87,6 +87,29 @@ class ImageConverter:
             return False
 
 
+@dataclass
+class ConversionStats:
+    """Statistics for cleanup operations."""
+
+    processed: int = 0
+    errors: int = 0
+    total: int = 0
+
+    def update(self, **kwargs) -> None:
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
+        update_job_meta({"conversion_stats": self.to_dict()})
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "processed": self.processed,
+            "errors": self.errors,
+            "total": self.total,
+        }
+
+
 class ConvertImagesToWebPTask(PeriodicTask):
     """Task to convert existing images to WebP format."""
 
@@ -94,6 +117,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
         super().__init__(
             title="Convert images to WebP",
             description="Convert existing image files (PNG, JPG, BMP, TIFF, GIF) to WebP format for better performance",
+            task_type=TaskType.CONVERSION,
             enabled=ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
             manual_run=True,
             cron_string=SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
@@ -165,7 +189,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
         """Get current progress message."""
         return f"Processed: {self.processed_count}, Errors: {self.error_count}"
 
-    async def run(self) -> Dict[str, Any]:
+    async def run(self) -> dict[str, Any]:
         """Run the image conversion task.
         Returns:
             Dictionary with task results
@@ -173,12 +197,14 @@ class ConvertImagesToWebPTask(PeriodicTask):
         log.info("Starting image to WebP conversion task")
 
         # Find all convertible images
+        conversion_stats = ConversionStats()
         image_files = self._find_convertible_images()
         total_files = len(image_files)
 
         if total_files == 0:
+            conversion_stats.update(processed=0, errors=0, total=total_files)
             log.info("No convertible images found")
-            return self._create_result_dict(total_files)
+            return conversion_stats.to_dict()
 
         log.info(f"Found {total_files} image files to process")
 
@@ -188,6 +214,11 @@ class ConvertImagesToWebPTask(PeriodicTask):
         # Process images
         for i, image_file in enumerate(image_files, 1):
             self._process_single_image(image_file)
+            conversion_stats.update(
+                processed=self.processed_count,
+                errors=self.error_count,
+                total=total_files,
+            )
 
             # Log progress periodically
             if i % 50 == 0 or i == total_files:
@@ -202,23 +233,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
         # Log final results
         log.info(f"Image to WebP conversion completed. {self._get_progress_message()}")
 
-        return self._create_result_dict(total_files)
-
-    def _create_result_dict(self, total_files: int) -> Dict[str, Any]:
-        """Create the result dictionary.
-        Args:
-            total_files: Total number of files found
-        Returns:
-            Dictionary with task results
-        """
-        return {
-            "task": "convert_images_to_webp",
-            "status": "completed",
-            "processed_count": self.processed_count,
-            "error_count": self.error_count,
-            "total_files": total_files,
-            "errors": self.errors[:10],  # Limit error list to prevent huge responses
-        }
+        return conversion_stats.to_dict()
 
 
 # Task instance
