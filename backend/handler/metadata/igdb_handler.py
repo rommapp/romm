@@ -245,10 +245,18 @@ class IGDBHandler(MetadataHandler):
             game_type_filter = ""
 
         log.debug("Searching in games endpoint with game_type %s", game_type_filter)
+        where_filter = f"platforms=[{platform_igdb_id}] {game_type_filter}"
+
+        # Special case for ScummVM games
+        # https://github.com/rommapp/romm/issues/2424
+        scummvm_platform = self.get_platform(UPS.SCUMMVM)
+        if scummvm_platform["igdb_id"] == platform_igdb_id:
+            where_filter = f"keywords=[{platform_igdb_id}] {game_type_filter}"
+
         roms = await self.igdb_service.list_games(
             search_term=search_term,
             fields=GAMES_FIELDS,
-            where=f"platforms=[{platform_igdb_id}] {game_type_filter}",
+            where=where_filter,
             limit=self.pagination_limit,
         )
 
@@ -2736,6 +2744,17 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "slug": "saturn",
         "url": "https://www.igdb.com/platforms/saturn",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/hrmqljpwunky1all3v78.jpg",
+    },
+    UPS.SCUMMVM: {
+        "category": "Computer",
+        "family_name": "",
+        "family_slug": "",
+        "generation": -1,
+        "id": 50501,
+        "name": "ScummVM",
+        "slug": "scummvm",
+        "url": "https://www.igdb.com/categories/scummvm-compatible",
+        "url_logo": "",
     },
     UPS.SDSSIGMA7: {
         "category": "Computer",
