@@ -1,4 +1,5 @@
 import binascii
+import json
 from base64 import b64encode
 from datetime import datetime, timezone
 from io import BytesIO
@@ -25,6 +26,7 @@ from fastapi.responses import Response
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from pydantic import BaseModel
+from starlette.datastructures import UploadFile as StarletteUploadFile
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
@@ -736,26 +738,68 @@ async def update_rom(
 
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
-    def parse_id_value(value: str) -> int | None:
-        if not value or value.strip() == "":
+    def parse_id_value(value: StarletteUploadFile | str | int | None) -> int | None:
+        if value is None or isinstance(value, StarletteUploadFile):
             return None
-
+        if isinstance(value, int):
+            return value
         return int(value)
 
     cleaned_data: dict[str, Any] = {
-        "igdb_id": parse_id_value(str(data.get("igdb_id", rom.igdb_id))),
-        "sgdb_id": parse_id_value(str(data.get("sgdb_id", rom.sgdb_id))),
-        "moby_id": parse_id_value(str(data.get("moby_id", rom.moby_id))),
-        "ss_id": parse_id_value(str(data.get("ss_id", rom.ss_id))),
-        "ra_id": parse_id_value(str(data.get("ra_id", rom.ra_id))),
-        "launchbox_id": parse_id_value(str(data.get("launchbox_id", rom.launchbox_id))),
-        "hasheous_id": parse_id_value(str(data.get("hasheous_id", rom.hasheous_id))),
-        "tgdb_id": parse_id_value(str(data.get("tgdb_id", rom.tgdb_id))),
-        "flashpoint_id": parse_id_value(
-            str(data.get("flashpoint_id", rom.flashpoint_id))
-        ),
-        "hltb_id": parse_id_value(str(data.get("hltb_id", rom.hltb_id))),
+        "igdb_id": parse_id_value(data.get("igdb_id")) or rom.igdb_id,
+        "sgdb_id": parse_id_value(data.get("sgdb_id", rom.sgdb_id)),
+        "moby_id": parse_id_value(data.get("moby_id", rom.moby_id)),
+        "ss_id": parse_id_value(data.get("ss_id", rom.ss_id)),
+        "ra_id": parse_id_value(data.get("ra_id", rom.ra_id)),
+        "launchbox_id": parse_id_value(data.get("launchbox_id", rom.launchbox_id)),
+        "hasheous_id": parse_id_value(data.get("hasheous_id", rom.hasheous_id)),
+        "tgdb_id": parse_id_value(data.get("tgdb_id", rom.tgdb_id)),
+        "flashpoint_id": parse_id_value(data.get("flashpoint_id", rom.flashpoint_id)),
+        "hltb_id": parse_id_value(data.get("hltb_id", rom.hltb_id)),
     }
+
+    # Parse raw metadata JSON if provided
+    def parse_raw_metadata(metadata_key: str, data_key: str) -> dict | None:
+        raw_json = str(data.get(data_key))
+        if not raw_json or raw_json.strip() == "":
+            return None
+
+        try:
+            return json.loads(raw_json)
+        except json.JSONDecodeError as e:
+            log.warning(f"Invalid JSON for {metadata_key}: {e}")
+            return None
+
+    # Add raw metadata parsing
+    raw_igdb = parse_raw_metadata("igdb_metadata", "raw_igdb_metadata")
+    if raw_igdb is not None:
+        cleaned_data["igdb_metadata"] = raw_igdb
+
+    raw_moby = parse_raw_metadata("moby_metadata", "raw_moby_metadata")
+    if raw_moby is not None:
+        cleaned_data["moby_metadata"] = raw_moby
+
+    raw_ss = parse_raw_metadata("ss_metadata", "raw_ss_metadata")
+    if raw_ss is not None:
+        cleaned_data["ss_metadata"] = raw_ss
+
+    raw_launchbox = parse_raw_metadata("launchbox_metadata", "raw_launchbox_metadata")
+    if raw_launchbox is not None:
+        cleaned_data["launchbox_metadata"] = raw_launchbox
+
+    raw_hasheous = parse_raw_metadata("hasheous_metadata", "raw_hasheous_metadata")
+    if raw_hasheous is not None:
+        cleaned_data["hasheous_metadata"] = raw_hasheous
+
+    raw_flashpoint = parse_raw_metadata(
+        "flashpoint_metadata", "raw_flashpoint_metadata"
+    )
+    if raw_flashpoint is not None:
+        cleaned_data["flashpoint_metadata"] = raw_flashpoint
+
+    raw_hltb = parse_raw_metadata("hltb_metadata", "raw_hltb_metadata")
+    if raw_hltb is not None:
+        cleaned_data["hltb_metadata"] = raw_hltb
 
     if (
         cleaned_data.get("flashpoint_id", "")
