@@ -7,6 +7,7 @@ import {
   nextTick,
   watch,
   useTemplateRef,
+  onBeforeMount,
 } from "vue";
 import { useRouter } from "vue-router";
 import RIsotipo from "@/components/common/RIsotipo.vue";
@@ -19,7 +20,7 @@ import SystemCard from "@/console/components/SystemCard.vue";
 import useBackgroundArt from "@/console/composables/useBackgroundArt";
 import {
   systemElementRegistry,
-  recentElementRegistry,
+  continuePlayingElementRegistry,
   collectionElementRegistry,
   smartCollectionElementRegistry,
   virtualCollectionElementRegistry,
@@ -42,12 +43,12 @@ const collectionsStore = storeCollections();
 const { allCollections, smartCollections, virtualCollections } =
   storeToRefs(collectionsStore);
 const romsStore = storeRoms();
-const { recentRoms } = storeToRefs(romsStore);
+const { continuePlayingRoms } = storeToRefs(romsStore);
 const consoleStore = storeConsole();
 const {
   navigationMode,
   platformIndex,
-  recentIndex,
+  continuePlayingIndex,
   collectionsIndex,
   smartCollectionsIndex,
   virtualCollectionsIndex,
@@ -66,7 +67,9 @@ const scrollContainerRef = useTemplateRef<HTMLDivElement>(
   "scroll-container-ref",
 );
 const platformsRef = useTemplateRef<HTMLDivElement>("platforms-ref");
-const recentRef = useTemplateRef<HTMLDivElement>("recent-ref");
+const continuePlayingRef = useTemplateRef<HTMLDivElement>(
+  "continue-playing-ref",
+);
 const collectionsRef = useTemplateRef<HTMLDivElement>("collections-ref");
 const smartCollectionsRef = useTemplateRef<HTMLDivElement>(
   "smart-collections-ref",
@@ -74,7 +77,9 @@ const smartCollectionsRef = useTemplateRef<HTMLDivElement>(
 const virtualCollectionsRef = useTemplateRef<HTMLDivElement>(
   "virtual-collections-ref",
 );
-const recentSectionRef = useTemplateRef<HTMLElement>("recent-section-ref");
+const continuePlayingSectionRef = useTemplateRef<HTMLElement>(
+  "continue-playing-section-ref",
+);
 const collectionsSectionRef = useTemplateRef<HTMLElement>(
   "collections-section-ref",
 );
@@ -86,7 +91,8 @@ const virtualCollectionsSectionRef = useTemplateRef<HTMLElement>(
 );
 
 const systemElementAt = (i: number) => systemElementRegistry.getElement(i);
-const recentElementAt = (i: number) => recentElementRegistry.getElement(i);
+const continuePlayingElementAt = (i: number) =>
+  continuePlayingElementRegistry.getElement(i);
 const collectionElementAt = (i: number) =>
   collectionElementRegistry.getElement(i);
 const smartCollectionElementAt = (i: number) =>
@@ -100,10 +106,13 @@ const { moveLeft: moveSystemLeft, moveRight: moveSystemRight } = useSpatialNav(
   () => allPlatforms.value.length || 1,
   () => allPlatforms.value.length,
 );
-const { moveLeft: moveRecentLeft, moveRight: moveRecentRight } = useSpatialNav(
-  recentIndex,
-  () => recentRoms.value.length || 1,
-  () => recentRoms.value.length,
+const {
+  moveLeft: moveContinuePlayingLeft,
+  moveRight: moveContinuePlayingRight,
+} = useSpatialNav(
+  continuePlayingIndex,
+  () => continuePlayingRoms.value.length || 1,
+  () => continuePlayingRoms.value.length,
 );
 const { moveLeft: moveCollectionLeft, moveRight: moveCollectionRight } =
   useSpatialNav(
@@ -134,7 +143,7 @@ useRovingDom(platformIndex, systemElementAt, {
   behavior: "smooth",
   scroll: false, // handle scrolling manually
 });
-useRovingDom(recentIndex, recentElementAt, {
+useRovingDom(continuePlayingIndex, continuePlayingElementAt, {
   inline: "center",
   block: "nearest",
   behavior: "smooth",
@@ -169,11 +178,11 @@ watch(platformIndex, (newIdx) => {
   }
 });
 
-watch(recentIndex, (newIdx) => {
+watch(continuePlayingIndex, (newIdx) => {
   if (!isVerticalScrolling) {
-    const el = recentElementAt(newIdx);
-    if (el && recentRef.value) {
-      centerInCarousel(recentRef.value, el, "smooth");
+    const el = continuePlayingElementAt(newIdx);
+    if (el && continuePlayingRef.value) {
+      centerInCarousel(continuePlayingRef.value, el, "smooth");
     }
   }
 });
@@ -231,27 +240,34 @@ const navigationFunctions = {
       return true;
     },
   },
-  recent: {
+  continuePlaying: {
     prev: () => {
-      const before = recentIndex.value;
-      moveRecentLeft();
-      if (recentIndex.value === before) {
-        recentIndex.value = Math.max(0, recentRoms.value.length - 1);
+      const before = continuePlayingIndex.value;
+      moveContinuePlayingLeft();
+      if (continuePlayingIndex.value === before) {
+        continuePlayingIndex.value = Math.max(
+          0,
+          continuePlayingRoms.value.length - 1,
+        );
       }
     },
     next: () => {
-      const before = recentIndex.value;
-      moveRecentRight();
-      if (recentIndex.value === before) {
-        recentIndex.value = 0;
+      const before = continuePlayingIndex.value;
+      moveContinuePlayingRight();
+      if (continuePlayingIndex.value === before) {
+        continuePlayingIndex.value = 0;
       }
     },
     confirm: () => {
-      if (!recentRoms.value[recentIndex.value]) return false;
+      if (!continuePlayingRoms.value[continuePlayingIndex.value]) return false;
       router.push({
         name: ROUTES.CONSOLE_ROM,
-        params: { rom: recentRoms.value[recentIndex.value].id },
-        query: { id: recentRoms.value[recentIndex.value].platform_id },
+        params: {
+          rom: continuePlayingRoms.value[continuePlayingIndex.value].id,
+        },
+        query: {
+          id: continuePlayingRoms.value[continuePlayingIndex.value].platform_id,
+        },
       });
       return true;
     },
@@ -367,8 +383,11 @@ function scrollToCurrentRow() {
     case "systems":
       scrollContainerRef.value?.scrollTo({ top: 0, behavior });
       break;
-    case "recent":
-      recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
+    case "continuePlaying":
+      continuePlayingSectionRef.value?.scrollIntoView({
+        behavior,
+        block: "start",
+      });
       break;
     case "collections":
       collectionsSectionRef.value?.scrollIntoView({
@@ -506,14 +525,14 @@ function handleAction(action: InputAction): boolean {
         navigationMode.value = "controls";
         return true;
       }
-      if (currentMode === "recent") {
+      if (currentMode === "continuePlaying") {
         navigationMode.value = "systems";
         scrollToCurrentRow();
         return true;
       }
       if (currentMode === "collections") {
         navigationMode.value =
-          recentRoms.value.length > 0 ? "recent" : "systems";
+          continuePlayingRoms.value.length > 0 ? "continuePlaying" : "systems";
         scrollToCurrentRow();
         return true;
       }
@@ -521,8 +540,8 @@ function handleAction(action: InputAction): boolean {
         navigationMode.value =
           allCollections.value.length > 0
             ? "collections"
-            : recentRoms.value.length > 0
-              ? "recent"
+            : continuePlayingRoms.value.length > 0
+              ? "continuePlaying"
               : "systems";
         scrollToCurrentRow();
         return true;
@@ -533,8 +552,8 @@ function handleAction(action: InputAction): boolean {
             ? "smartCollections"
             : allCollections.value.length > 0
               ? "collections"
-              : recentRoms.value.length > 0
-                ? "recent"
+              : continuePlayingRoms.value.length > 0
+                ? "continuePlaying"
                 : "systems";
         scrollToCurrentRow();
         return true;
@@ -544,8 +563,8 @@ function handleAction(action: InputAction): boolean {
     case "moveDown":
       if (currentMode === "systems") {
         navigationMode.value =
-          recentRoms.value.length > 0
-            ? "recent"
+          continuePlayingRoms.value.length > 0
+            ? "continuePlaying"
             : allCollections.value.length > 0
               ? "collections"
               : smartCollections.value.length > 0
@@ -556,7 +575,7 @@ function handleAction(action: InputAction): boolean {
         scrollToCurrentRow();
         return true;
       }
-      if (currentMode === "recent") {
+      if (currentMode === "continuePlaying") {
         navigationMode.value =
           allCollections.value.length > 0
             ? "collections"
@@ -606,8 +625,13 @@ function handleAction(action: InputAction): boolean {
       return true;
 
     case "toggleFavorite":
-      if (currentMode === "recent" && recentRoms.value[recentIndex.value]) {
-        toggleFavoriteComposable(recentRoms.value[recentIndex.value]);
+      if (
+        currentMode === "continuePlaying" &&
+        continuePlayingRoms.value[continuePlayingIndex.value]
+      ) {
+        toggleFavoriteComposable(
+          continuePlayingRoms.value[continuePlayingIndex.value],
+        );
         return true;
       }
       return false;
@@ -617,10 +641,15 @@ function handleAction(action: InputAction): boolean {
   }
 }
 
+onBeforeMount(async () => {
+  await romsStore.fetchContinuePlayingRoms();
+});
+
 onMounted(async () => {
   // Restore indices within bounds
   if (platformIndex.value >= allPlatforms.value.length) platformIndex.value = 0;
-  if (recentIndex.value >= recentRoms.value.length) recentIndex.value = 0;
+  if (continuePlayingIndex.value >= continuePlayingRoms.value.length)
+    continuePlayingIndex.value = 0;
   if (collectionsIndex.value >= allCollections.value.length)
     collectionsIndex.value = 0;
   if (smartCollectionsIndex.value >= smartCollections.value.length)
@@ -633,7 +662,10 @@ onMounted(async () => {
 
   // Center carousels
   centerInCarousel(platformsRef.value, systemElementAt(platformIndex.value));
-  centerInCarousel(recentRef.value, recentElementAt(recentIndex.value));
+  centerInCarousel(
+    continuePlayingRef.value,
+    continuePlayingElementAt(continuePlayingIndex.value),
+  );
   centerInCarousel(
     collectionsRef.value,
     collectionElementAt(collectionsIndex.value),
@@ -655,7 +687,7 @@ let off: (() => void) | null = null;
 onUnmounted(() => {
   consoleStore.setHomeState({
     platformIndex: platformIndex.value,
-    recentIndex: recentIndex.value,
+    continuePlayingIndex: continuePlayingIndex.value,
     collectionsIndex: collectionsIndex.value,
     smartCollectionsIndex: smartCollectionsIndex.value,
     virtualCollectionsIndex: virtualCollectionsIndex.value,
@@ -752,8 +784,8 @@ onUnmounted(() => {
         </section>
 
         <section
-          v-if="recentRoms.length > 0"
-          ref="recent-section-ref"
+          v-if="continuePlayingRoms.length > 0"
+          ref="continue-playing-section-ref"
           class="pb-8"
         >
           <h2
@@ -770,7 +802,7 @@ onUnmounted(() => {
                 border: `1px solid var(--console-home-carousel-button-border)`,
                 color: 'var(--console-home-carousel-button-text)',
               }"
-              @click="navigationFunctions.recent.prev"
+              @click="navigationFunctions.continuePlaying.prev"
             >
               ◀
             </button>
@@ -781,26 +813,29 @@ onUnmounted(() => {
                 border: `1px solid var(--console-home-carousel-button-border)`,
                 color: 'var(--console-home-carousel-button-text)',
               }"
-              @click="navigationFunctions.recent.next"
+              @click="navigationFunctions.continuePlaying.next"
             >
               ▶
             </button>
             <div
-              ref="recent-ref"
+              ref="continue-playing-ref"
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
               @wheel.prevent
             >
               <div class="flex items-center gap-4 h-full px-12 min-w-max">
                 <GameCard
-                  v-for="(g, i) in recentRoms"
+                  v-for="(g, i) in continuePlayingRoms"
                   :key="`${g.platform_id}-${g.id}`"
                   :rom="g"
                   :index="i"
-                  :is-recent="true"
-                  :selected="navigationMode === 'recent' && i === recentIndex"
+                  :continue-playing="true"
+                  :selected="
+                    navigationMode === 'continuePlaying' &&
+                    i === continuePlayingIndex
+                  "
                   :loaded="true"
                   @click="goGame(g)"
-                  @focus="recentIndex = i"
+                  @focus="continuePlayingIndex = i"
                   @select="handleItemSelected"
                   @deselect="handleItemDeselected"
                 />
@@ -1042,7 +1077,7 @@ onUnmounted(() => {
 
       <NavigationHint
         :show-back="false"
-        :show-toggle-favorite="navigationMode === 'recent'"
+        :show-toggle-favorite="navigationMode === 'continuePlaying'"
       />
     </div>
     <SettingsModal v-model="showSettings" />

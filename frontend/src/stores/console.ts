@@ -3,7 +3,7 @@ import { ROUTES } from "@/plugins/router";
 
 export type NavigationMode =
   | "systems"
-  | "recent"
+  | "continuePlaying"
   | "collections"
   | "smartCollections"
   | "virtualCollections"
@@ -12,7 +12,7 @@ export type NavigationMode =
 export default defineStore("console", {
   state: () => ({
     platformIndex: 0,
-    recentIndex: 0,
+    continuePlayingIndex: 0,
     collectionsIndex: 0,
     smartCollectionsIndex: 0,
     virtualCollectionsIndex: 0,
@@ -45,7 +45,7 @@ export default defineStore("console", {
   actions: {
     setHomeState(payload: {
       platformIndex?: number;
-      recentIndex?: number;
+      continuePlayingIndex?: number;
       collectionsIndex?: number;
       smartCollectionsIndex?: number;
       virtualCollectionsIndex?: number;
@@ -54,8 +54,8 @@ export default defineStore("console", {
     }) {
       if (payload.platformIndex !== undefined)
         this.platformIndex = payload.platformIndex;
-      if (payload.recentIndex !== undefined)
-        this.recentIndex = payload.recentIndex;
+      if (payload.continuePlayingIndex !== undefined)
+        this.continuePlayingIndex = payload.continuePlayingIndex;
       if (payload.collectionsIndex !== undefined)
         this.collectionsIndex = payload.collectionsIndex;
       if (payload.smartCollectionsIndex !== undefined)
