@@ -341,13 +341,14 @@ async function stopScan() {
                     <template #prepend>
                       <v-avatar rounded="0" size="40">
                         <PlatformIcon
+                          v-if="platform.slug"
                           :key="platform.slug"
                           :slug="platform.slug"
-                          :name="platform.name"
+                          :name="platform.display_name"
                         />
                       </v-avatar>
                     </template>
-                    {{ platform.name }}
+                    {{ platform.display_name }}
                     <template #append>
                       <v-chip class="ml-3" color="primary" size="x-small" label>
                         {{ platform.roms.length }}

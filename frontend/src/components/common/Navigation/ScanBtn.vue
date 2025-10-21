@@ -37,13 +37,13 @@ if (!socket.connected) socket.connect();
 socket.on(
   "scan:scanning_platform",
   ({
-    name,
+    display_name,
     slug,
     id,
     fs_slug,
     is_identified,
   }: {
-    name: string;
+    display_name: string;
     slug: string;
     id: number;
     fs_slug: string;
@@ -51,10 +51,10 @@ socket.on(
   }) => {
     scanningStore.set(true);
     scanningPlatforms.value = scanningPlatforms.value.filter(
-      (platform) => platform.name !== name,
+      (platform) => platform.display_name !== display_name,
     );
     scanningPlatforms.value.push({
-      name,
+      display_name,
       slug,
       id,
       fs_slug,
@@ -87,7 +87,7 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   // Add the platform if the socket dropped and it's missing
   if (!scannedPlatform) {
     scanningPlatforms.value.push({
-      name: rom.platform_name,
+      display_name: rom.platform_display_name,
       slug: rom.platform_slug,
       id: rom.platform_id,
       fs_slug: rom.platform_fs_slug,

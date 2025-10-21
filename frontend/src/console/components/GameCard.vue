@@ -2,7 +2,7 @@
 import { computed, onMounted, useTemplateRef, watch } from "vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import {
-  recentElementRegistry,
+  continuePlayingElementRegistry,
   gamesListElementRegistry,
 } from "@/console/composables/useElementRegistry";
 import storeCollections from "@/stores/collections";
@@ -19,8 +19,8 @@ const props = defineProps<{
   index: number;
   selected?: boolean;
   loaded?: boolean;
-  isRecent?: boolean;
-  registry?: "recent" | "gamesList";
+  continuePlaying?: boolean;
+  registry?: "continuePlaying" | "gamesList";
 }>();
 
 const heartbeatStore = storeHeartbeat();
@@ -84,7 +84,10 @@ onMounted(() => {
   if (props.registry === "gamesList") {
     gamesListElementRegistry.registerElement(props.index, gameCardRef.value);
   } else {
-    recentElementRegistry.registerElement(props.index, gameCardRef.value);
+    continuePlayingElementRegistry.registerElement(
+      props.index,
+      gameCardRef.value,
+    );
   }
 });
 </script>
@@ -96,7 +99,7 @@ onMounted(() => {
     :class="{
       '-translate-y-[2px] scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-game-card-focus-border),_0_0_16px_var(--console-game-card-focus-border)]':
         selected,
-      'w-[250px] shrink-0': isRecent,
+      'w-[250px] shrink-0': continuePlaying,
     }"
     @click="emit('click')"
     @focus="emit('focus')"
