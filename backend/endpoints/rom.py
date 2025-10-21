@@ -27,7 +27,6 @@ from fastapi.responses import Response
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from pydantic import BaseModel
-from starlette.datastructures import UploadFile as StarletteUploadFile
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
@@ -66,6 +65,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom
+from utils.database import safe_int
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
@@ -75,13 +75,6 @@ router = APIRouter(
     prefix="/roms",
     tags=["roms"],
 )
-
-
-def parse_id_value(value: StarletteUploadFile | str | None) -> int | None:
-    if not value or isinstance(value, StarletteUploadFile):
-        return None
-
-    return int(value)
 
 
 def parse_raw_metadata(data: FormData, form_key: str) -> dict | None:
@@ -711,7 +704,6 @@ async def update_rom(
 ) -> DetailedRomSchema:
     """Update a rom."""
     data = await request.form()
-    print("DATA", data)
 
     rom = db_rom_handler.get_rom(id)
 
@@ -760,16 +752,16 @@ async def update_rom(
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     cleaned_data: dict[str, Any] = {
-        "igdb_id": parse_id_value(data.get("igdb_id")) or rom.igdb_id,
-        "sgdb_id": parse_id_value(data.get("sgdb_id")) or rom.sgdb_id,
-        "moby_id": parse_id_value(data.get("moby_id")) or rom.moby_id,
-        "ss_id": parse_id_value(data.get("ss_id")) or rom.ss_id,
-        "ra_id": parse_id_value(data.get("ra_id")) or rom.ra_id,
-        "launchbox_id": parse_id_value(data.get("launchbox_id")) or rom.launchbox_id,
-        "hasheous_id": parse_id_value(data.get("hasheous_id")) or rom.hasheous_id,
-        "tgdb_id": parse_id_value(data.get("tgdb_id")) or rom.tgdb_id,
-        "flashpoint_id": parse_id_value(data.get("flashpoint_id")) or rom.flashpoint_id,
-        "hltb_id": parse_id_value(data.get("hltb_id")) or rom.hltb_id,
+        "igdb_id": safe_int(data.get("igdb_id")) or rom.igdb_id,
+        "sgdb_id": safe_int(data.get("sgdb_id")) or rom.sgdb_id,
+        "moby_id": safe_int(data.get("moby_id")) or rom.moby_id,
+        "ss_id": safe_int(data.get("ss_id")) or rom.ss_id,
+        "ra_id": safe_int(data.get("ra_id")) or rom.ra_id,
+        "launchbox_id": safe_int(data.get("launchbox_id")) or rom.launchbox_id,
+        "hasheous_id": safe_int(data.get("hasheous_id")) or rom.hasheous_id,
+        "tgdb_id": safe_int(data.get("tgdb_id")) or rom.tgdb_id,
+        "flashpoint_id": safe_int(data.get("flashpoint_id")) or rom.flashpoint_id,
+        "hltb_id": safe_int(data.get("hltb_id")) or rom.hltb_id,
     }
 
     # Add raw metadata parsing
