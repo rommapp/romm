@@ -77,12 +77,9 @@ router = APIRouter(
 )
 
 
-def parse_id_value(value: StarletteUploadFile | str | int | None) -> int | None:
+def parse_id_value(value: StarletteUploadFile | str | None) -> int | None:
     if not value or isinstance(value, StarletteUploadFile):
         return None
-
-    if isinstance(value, int):
-        return value
 
     return int(value)
 
@@ -764,15 +761,15 @@ async def update_rom(
 
     cleaned_data: dict[str, Any] = {
         "igdb_id": parse_id_value(data.get("igdb_id")) or rom.igdb_id,
-        "sgdb_id": parse_id_value(data.get("sgdb_id", rom.sgdb_id)),
-        "moby_id": parse_id_value(data.get("moby_id", rom.moby_id)),
-        "ss_id": parse_id_value(data.get("ss_id", rom.ss_id)),
-        "ra_id": parse_id_value(data.get("ra_id", rom.ra_id)),
-        "launchbox_id": parse_id_value(data.get("launchbox_id", rom.launchbox_id)),
-        "hasheous_id": parse_id_value(data.get("hasheous_id", rom.hasheous_id)),
-        "tgdb_id": parse_id_value(data.get("tgdb_id", rom.tgdb_id)),
-        "flashpoint_id": parse_id_value(data.get("flashpoint_id", rom.flashpoint_id)),
-        "hltb_id": parse_id_value(data.get("hltb_id", rom.hltb_id)),
+        "sgdb_id": parse_id_value(data.get("sgdb_id")) or rom.sgdb_id,
+        "moby_id": parse_id_value(data.get("moby_id")) or rom.moby_id,
+        "ss_id": parse_id_value(data.get("ss_id")) or rom.ss_id,
+        "ra_id": parse_id_value(data.get("ra_id")) or rom.ra_id,
+        "launchbox_id": parse_id_value(data.get("launchbox_id")) or rom.launchbox_id,
+        "hasheous_id": parse_id_value(data.get("hasheous_id")) or rom.hasheous_id,
+        "tgdb_id": parse_id_value(data.get("tgdb_id")) or rom.tgdb_id,
+        "flashpoint_id": parse_id_value(data.get("flashpoint_id")) or rom.flashpoint_id,
+        "hltb_id": parse_id_value(data.get("hltb_id")) or rom.hltb_id,
     }
 
     # Add raw metadata parsing

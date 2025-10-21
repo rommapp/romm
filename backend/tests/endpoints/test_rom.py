@@ -23,6 +23,17 @@ def client():
         yield client
 
 
+MOCK_IGDB_ID = 11111
+MOCK_MOBY_ID = 22222
+MOCK_SS_ID = 33333
+MOCK_RA_ID = 44444
+MOCK_LAUNCHBOX_ID = 55555
+MOCK_FLASHPOINT_ID = 66666
+MOCK_HLTB_ID = 77777
+MOCK_SGDB_ID = 88888
+MOCK_HASHEOUS_ID = 99999
+
+
 def test_get_rom(client: TestClient, access_token: str, rom: Rom):
     response = client.get(
         f"/api/roms/{rom.id}",
@@ -68,7 +79,7 @@ def test_update_rom(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
         data={
-            "igdb_id": "236663",
+            "igdb_id": str(MOCK_IGDB_ID),
             "name": "Metroid Prime Remastered",
             "slug": "metroid-prime-remastered",
             "fs_name": "Metroid Prime Remastered.zip",
@@ -112,7 +123,9 @@ def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
 
 
 class TestUpdateMetadataIDs:
-    @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=54321))
+    @patch.object(
+        IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=MOCK_IGDB_ID)
+    )
     def test_update_rom_igdb_id(
         self,
         get_rom_by_id_mock: AsyncMock,
@@ -124,16 +137,18 @@ class TestUpdateMetadataIDs:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"igdb_id": "54321"},
+            data={"igdb_id": str(MOCK_IGDB_ID)},
         )
         assert response.status_code == status.HTTP_200_OK
 
         body = response.json()
-        assert body["igdb_id"] == 54321
+        assert body["igdb_id"] == MOCK_IGDB_ID
         assert get_rom_by_id_mock.called
 
     @patch.object(
-        MobyGamesHandler, "get_rom_by_id", return_value=MobyGamesRom(moby_id=22222)
+        MobyGamesHandler,
+        "get_rom_by_id",
+        return_value=MobyGamesRom(moby_id=MOCK_MOBY_ID),
     )
     def test_update_rom_moby_id(
         self,
@@ -146,15 +161,15 @@ class TestUpdateMetadataIDs:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"moby_id": "22222"},
+            data={"moby_id": str(MOCK_MOBY_ID)},
         )
         assert response.status_code == status.HTTP_200_OK
 
         body = response.json()
-        assert body["moby_id"] == 22222
+        assert body["moby_id"] == MOCK_MOBY_ID
         assert get_rom_by_id_mock.called
 
-    @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=33333))
+    @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=MOCK_SS_ID))
     def test_update_rom_ss_id(
         self,
         get_rom_by_id_mock: AsyncMock,
@@ -166,15 +181,15 @@ class TestUpdateMetadataIDs:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"ss_id": "33333"},
+            data={"ss_id": str(MOCK_SS_ID)},
         )
         assert response.status_code == status.HTTP_200_OK
 
         body = response.json()
-        assert body["ss_id"] == 33333
+        assert body["ss_id"] == MOCK_SS_ID
         assert get_rom_by_id_mock.called
 
-    @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=44444))
+    @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=MOCK_RA_ID))
     def test_update_rom_ra_id(
         self,
         get_rom_by_id_mock: AsyncMock,
@@ -186,16 +201,18 @@ class TestUpdateMetadataIDs:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"ra_id": "44444"},
+            data={"ra_id": str(MOCK_RA_ID)},
         )
         assert response.status_code == status.HTTP_200_OK
 
         body = response.json()
-        assert body["ra_id"] == 44444
+        assert body["ra_id"] == MOCK_RA_ID
         assert get_rom_by_id_mock.called
 
     @patch.object(
-        LaunchboxHandler, "get_rom_by_id", return_value=LaunchboxRom(launchbox_id=55555)
+        LaunchboxHandler,
+        "get_rom_by_id",
+        return_value=LaunchboxRom(launchbox_id=MOCK_LAUNCHBOX_ID),
     )
     def test_update_rom_launchbox_id(
         self,
@@ -208,18 +225,18 @@ class TestUpdateMetadataIDs:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"launchbox_id": "55555"},
+            data={"launchbox_id": str(MOCK_LAUNCHBOX_ID)},
         )
         assert response.status_code == status.HTTP_200_OK
 
         body = response.json()
-        assert body["launchbox_id"] == 55555
+        assert body["launchbox_id"] == MOCK_LAUNCHBOX_ID
         assert get_rom_by_id_mock.called
 
     @patch.object(
         FlashpointHandler,
         "get_rom_by_id",
-        return_value=FlashpointRom(flashpoint_id="88888"),
+        return_value=FlashpointRom(flashpoint_id=str(MOCK_FLASHPOINT_ID)),
     )
     def test_update_rom_flashpoint_id(
         self,
@@ -232,12 +249,12 @@ class TestUpdateMetadataIDs:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"flashpoint_id": "88888"},
+            data={"flashpoint_id": str(MOCK_FLASHPOINT_ID)},
         )
         assert response.status_code == status.HTTP_200_OK
 
         body = response.json()
-        assert body["flashpoint_id"] == "88888"
+        assert body["flashpoint_id"] == str(MOCK_FLASHPOINT_ID)
         assert get_rom_by_id_mock.called
 
     # These metadata sources are not called when updating roms
@@ -246,12 +263,12 @@ class TestUpdateMetadataIDs:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"sgdb_id": "67890"},
+            data={"sgdb_id": str(MOCK_SGDB_ID)},
         )
         assert response.status_code == status.HTTP_200_OK
 
         body = response.json()
-        assert body["sgdb_id"] == 67890
+        assert body["sgdb_id"] == MOCK_SGDB_ID
 
     def test_update_rom_hasheous_id(
         self, client: TestClient, access_token: str, rom: Rom
@@ -260,29 +277,38 @@ class TestUpdateMetadataIDs:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"hasheous_id": "66666"},
+            data={"hasheous_id": str(MOCK_HASHEOUS_ID)},
         )
         assert response.status_code == status.HTTP_200_OK
 
         body = response.json()
-        assert body["hasheous_id"] == 66666
+        assert body["hasheous_id"] == MOCK_HASHEOUS_ID
 
     def test_update_rom_hltb_id(self, client: TestClient, access_token: str, rom: Rom):
         """Test updating HowLongToBeat ID."""
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"hltb_id": "99999"},
+            data={"hltb_id": str(MOCK_HLTB_ID)},
         )
         assert response.status_code == status.HTTP_200_OK
 
         body = response.json()
-        assert body["hltb_id"] == 99999
+        assert body["hltb_id"] == MOCK_HLTB_ID
 
 
 class TestUpdateRawMetadata:
+    @patch.object(
+        IGDBHandler,
+        "get_rom_by_id",
+        return_value=IGDBRom(igdb_id=MOCK_IGDB_ID),
+    )
     def test_update_raw_igdb_metadata(
-        self, client: TestClient, access_token: str, rom: Rom
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
     ):
         """Test updating raw IGDB metadata."""
         raw_metadata = {
@@ -293,7 +319,10 @@ class TestUpdateRawMetadata:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"raw_igdb_metadata": json.dumps(raw_metadata)},
+            data={
+                "igdb_id": str(MOCK_IGDB_ID),
+                "raw_igdb_metadata": json.dumps(raw_metadata),
+            },
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -302,8 +331,17 @@ class TestUpdateRawMetadata:
         assert body["igdb_metadata"]["genres"] == ["Action"]
         assert body["igdb_metadata"]["franchises"] == ["Metroid"]
 
+    @patch.object(
+        MobyGamesHandler,
+        "get_rom_by_id",
+        return_value=MobyGamesRom(moby_id=MOCK_MOBY_ID),
+    )
     def test_update_raw_moby_metadata(
-        self, client: TestClient, access_token: str, rom: Rom
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
     ):
         """Test updating raw MobyGames metadata."""
         raw_metadata = {
@@ -314,7 +352,10 @@ class TestUpdateRawMetadata:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"raw_moby_metadata": json.dumps(raw_metadata)},
+            data={
+                "moby_id": str(MOCK_MOBY_ID),
+                "raw_moby_metadata": json.dumps(raw_metadata),
+            },
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -323,8 +364,17 @@ class TestUpdateRawMetadata:
         assert body["moby_metadata"]["moby_score"] == "90"
         assert body["moby_metadata"]["genres"] == ["Action", "Adventure"]
 
+    @patch.object(
+        SSHandler,
+        "get_rom_by_id",
+        return_value=SSRom(ss_id=MOCK_SS_ID),
+    )
     def test_update_raw_ss_metadata(
-        self, client: TestClient, access_token: str, rom: Rom
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
     ):
         """Test updating raw ScreenScraper metadata."""
         raw_metadata = {
@@ -335,7 +385,10 @@ class TestUpdateRawMetadata:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"raw_ss_metadata": json.dumps(raw_metadata)},
+            data={
+                "ss_id": str(MOCK_SS_ID),
+                "raw_ss_metadata": json.dumps(raw_metadata),
+            },
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -344,8 +397,17 @@ class TestUpdateRawMetadata:
         assert body["ss_metadata"]["ss_score"] == "85"
         assert body["ss_metadata"]["alternative_names"] == ["Test SS Game"]
 
+    @patch.object(
+        LaunchboxHandler,
+        "get_rom_by_id",
+        return_value=LaunchboxRom(launchbox_id=MOCK_LAUNCHBOX_ID),
+    )
     def test_update_raw_launchbox_metadata(
-        self, client: TestClient, access_token: str, rom: Rom
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
     ):
         """Test updating raw LaunchBox metadata."""
         raw_metadata = {
@@ -357,7 +419,10 @@ class TestUpdateRawMetadata:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"raw_launchbox_metadata": json.dumps(raw_metadata)},
+            data={
+                "launchbox_id": str(MOCK_LAUNCHBOX_ID),
+                "raw_launchbox_metadata": json.dumps(raw_metadata),
+            },
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -380,7 +445,10 @@ class TestUpdateRawMetadata:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"raw_hasheous_metadata": json.dumps(raw_metadata)},
+            data={
+                "hasheous_id": str(MOCK_HASHEOUS_ID),
+                "raw_hasheous_metadata": json.dumps(raw_metadata),
+            },
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -390,8 +458,17 @@ class TestUpdateRawMetadata:
         assert body["hasheous_metadata"]["mame_arcade_match"] is False
         assert body["hasheous_metadata"]["mame_mess_match"] is True
 
+    @patch.object(
+        FlashpointHandler,
+        "get_rom_by_id",
+        return_value=FlashpointRom(flashpoint_id=str(MOCK_FLASHPOINT_ID)),
+    )
     def test_update_raw_flashpoint_metadata(
-        self, client: TestClient, access_token: str, rom: Rom
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
     ):
         """Test updating raw Flashpoint metadata."""
         raw_metadata = {
@@ -403,7 +480,10 @@ class TestUpdateRawMetadata:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"raw_flashpoint_metadata": json.dumps(raw_metadata)},
+            data={
+                "flashpoint_id": str(MOCK_FLASHPOINT_ID),
+                "raw_flashpoint_metadata": json.dumps(raw_metadata),
+            },
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -414,7 +494,10 @@ class TestUpdateRawMetadata:
         assert body["flashpoint_metadata"]["source"] == "Flashpoint"
 
     def test_update_raw_hltb_metadata(
-        self, client: TestClient, access_token: str, rom: Rom
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
     ):
         """Test updating raw HowLongToBeat metadata."""
         raw_metadata = {
@@ -425,7 +508,10 @@ class TestUpdateRawMetadata:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"raw_hltb_metadata": json.dumps(raw_metadata)},
+            data={
+                "hltb_id": str(MOCK_HLTB_ID),
+                "raw_hltb_metadata": json.dumps(raw_metadata),
+            },
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -435,7 +521,9 @@ class TestUpdateRawMetadata:
         assert body["hltb_metadata"]["main_story_count"] == 1
 
     # Tests for combined updates
-    @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=99999))
+    @patch.object(
+        IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=MOCK_IGDB_ID)
+    )
     def test_update_rom_metadata_id_and_raw_metadata(
         self,
         get_rom_by_id_mock: AsyncMock,
@@ -453,7 +541,7 @@ class TestUpdateRawMetadata:
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
             data={
-                "igdb_id": "99999",
+                "igdb_id": str(MOCK_IGDB_ID),
                 "raw_igdb_metadata": json.dumps(raw_igdb_metadata),
             },
         )
@@ -461,16 +549,20 @@ class TestUpdateRawMetadata:
         assert get_rom_by_id_mock.called
 
         body = response.json()
-        assert body["igdb_id"] == 99999
+        assert body["igdb_id"] == MOCK_IGDB_ID
         assert body["igdb_metadata"] is not None
         assert body["igdb_metadata"]["genres"] == ["Action"]
         assert body["igdb_metadata"]["franchises"] == ["Metroid"]
 
-    @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=11111))
     @patch.object(
-        MobyGamesHandler, "get_rom_by_id", return_value=MobyGamesRom(moby_id=22222)
+        IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=MOCK_IGDB_ID)
     )
-    @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=33333))
+    @patch.object(
+        MobyGamesHandler,
+        "get_rom_by_id",
+        return_value=MobyGamesRom(moby_id=MOCK_MOBY_ID),
+    )
+    @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=MOCK_SS_ID))
     def test_update_rom_multiple_metadata_ids(
         self,
         igdb_get_rom_by_id_mock: AsyncMock,
@@ -485,9 +577,9 @@ class TestUpdateRawMetadata:
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
             data={
-                "igdb_id": "11111",
-                "moby_id": "22222",
-                "ss_id": "33333",
+                "igdb_id": str(MOCK_IGDB_ID),
+                "moby_id": str(MOCK_MOBY_ID),
+                "ss_id": str(MOCK_SS_ID),
             },
         )
         assert response.status_code == status.HTTP_200_OK
@@ -496,12 +588,27 @@ class TestUpdateRawMetadata:
         assert ss_get_rom_by_id_mock.called
 
         body = response.json()
-        assert body["igdb_id"] == 11111
-        assert body["moby_id"] == 22222
-        assert body["ss_id"] == 33333
+        assert body["igdb_id"] == MOCK_IGDB_ID
+        assert body["moby_id"] == MOCK_MOBY_ID
+        assert body["ss_id"] == MOCK_SS_ID
 
+    @patch.object(
+        IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=MOCK_IGDB_ID)
+    )
+    @patch.object(
+        MobyGamesHandler,
+        "get_rom_by_id",
+        return_value=MobyGamesRom(moby_id=MOCK_MOBY_ID),
+    )
+    @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=MOCK_SS_ID))
     def test_update_rom_multiple_raw_metadata(
-        self, client: TestClient, access_token: str, rom: Rom
+        self,
+        igdb_get_rom_by_id_mock: AsyncMock,
+        moby_get_rom_by_id_mock: AsyncMock,
+        ss_get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
     ):
         """Test updating multiple raw metadata fields in the same request."""
         raw_igdb = {
@@ -521,12 +628,18 @@ class TestUpdateRawMetadata:
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
             data={
+                "igdb_id": str(MOCK_IGDB_ID),
+                "moby_id": str(MOCK_MOBY_ID),
+                "ss_id": str(MOCK_SS_ID),
                 "raw_igdb_metadata": json.dumps(raw_igdb),
                 "raw_moby_metadata": json.dumps(raw_moby),
                 "raw_ss_metadata": json.dumps(raw_ss),
             },
         )
         assert response.status_code == status.HTTP_200_OK
+        assert igdb_get_rom_by_id_mock.called
+        assert moby_get_rom_by_id_mock.called
+        assert ss_get_rom_by_id_mock.called
 
         body = response.json()
         assert body["igdb_metadata"] is not None
@@ -543,7 +656,10 @@ class TestUpdateRawMetadata:
 
     # Tests for invalid JSON handling
     def test_update_rom_invalid_json_raw_metadata(
-        self, client: TestClient, access_token: str, rom: Rom
+        self,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
     ):
         """Test that invalid JSON in raw metadata is handled gracefully."""
         response = client.put(
@@ -553,9 +669,9 @@ class TestUpdateRawMetadata:
         )
         # Should still succeed, but raw metadata should not be updated
         assert response.status_code == status.HTTP_200_OK
-
         # The invalid JSON should be ignored, so igdb_metadata should remain unchanged
-        # (or be None if it was None before)
+        body = response.json()
+        assert body["igdb_metadata"] == {}
 
     def test_update_rom_empty_raw_metadata(
         self, client: TestClient, access_token: str, rom: Rom
@@ -567,12 +683,15 @@ class TestUpdateRawMetadata:
             data={"raw_igdb_metadata": ""},
         )
         assert response.status_code == status.HTTP_200_OK
-
         # Empty string should be ignored, so igdb_metadata should remain unchanged
+        body = response.json()
+        assert body["igdb_metadata"] == {}
 
 
 class TestUnmatchMetadata:
-    @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=12345))
+    @patch.object(
+        IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=MOCK_IGDB_ID)
+    )
     def test_update_rom_unmatch_metadata(
         self,
         get_rom_by_id_mock: AsyncMock,
@@ -585,13 +704,13 @@ class TestUnmatchMetadata:
         initial_response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"igdb_id": "12345"},
+            data={"igdb_id": str(MOCK_IGDB_ID)},
         )
         assert initial_response.status_code == status.HTTP_200_OK
         assert get_rom_by_id_mock.called
 
         initial_body = initial_response.json()
-        assert initial_body["igdb_id"] == 12345
+        assert initial_body["igdb_id"] == MOCK_IGDB_ID
         assert initial_body["igdb_metadata"] is not None
 
         # Now unmatch all metadata
@@ -637,7 +756,7 @@ class TestUnmatchMetadata:
             headers={"Authorization": f"Bearer {access_token}"},
             params={"unmatch_metadata": True},
             data={
-                "igdb_id": "12345",  # This should be ignored
+                "igdb_id": str(MOCK_IGDB_ID),  # This should be ignored
                 "name": "Should be ignored",  # This should be ignored
                 "summary": "Should be ignored",  # This should be ignored
             },
