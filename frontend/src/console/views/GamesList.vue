@@ -351,25 +351,21 @@ onMounted(async () => {
     () => allPlatforms.value,
     async (platforms) => {
       if (platforms.length > 0) {
-        if (platforms.some((platform) => platform.id === routePlatformId)) {
-          const platform = platforms.find(
-            (platform) => platform.id === routePlatformId,
-          );
+        const platform = platforms.find(
+          (platform) => platform.id === routePlatformId,
+        );
 
-          // Check if the current platform is different or no ROMs have been loaded
-          if (
-            (currentPlatform.value?.id !== routePlatformId ||
-              allRoms.value.length === 0) &&
-            platform
-          ) {
-            resetGallery();
-            romsStore.setCurrentPlatform(platform);
-            selectedIndex.value = consoleStore.getPlatformGameIndex(
-              platform.id,
-            );
-            document.title = platform.display_name;
-            await fetchRoms();
-          }
+        // Check if the current platform is different or no ROMs have been loaded
+        if (
+          platform &&
+          (currentPlatform.value?.id !== routePlatformId ||
+            allRoms.value.length === 0)
+        ) {
+          resetGallery();
+          romsStore.setCurrentPlatform(platform);
+          selectedIndex.value = consoleStore.getPlatformGameIndex(platform.id);
+          document.title = platform.display_name;
+          await fetchRoms();
         }
       }
     },
@@ -380,27 +376,23 @@ onMounted(async () => {
     () => allCollections.value,
     async (collections) => {
       if (collections.length > 0) {
-        if (
-          collections.some((collection) => collection.id === routeCollectionId)
-        ) {
-          const collection = collections.find(
-            (collection) => collection.id === routeCollectionId,
-          );
+        const collection = collections.find(
+          (collection) => collection.id === routeCollectionId,
+        );
 
-          // Check if the current collection is different or no ROMs have been loaded
-          if (
-            (currentCollection.value?.id !== routeCollectionId ||
-              allRoms.value.length === 0) &&
-            collection
-          ) {
-            resetGallery();
-            romsStore.setCurrentCollection(collection);
-            selectedIndex.value = consoleStore.getCollectionGameIndex(
-              collection.id,
-            );
-            document.title = collection.name;
-            await fetchRoms();
-          }
+        // Check if the current collection is different or no ROMs have been loaded
+        if (
+          collection &&
+          (currentCollection.value?.id !== routeCollectionId ||
+            allRoms.value.length === 0)
+        ) {
+          resetGallery();
+          romsStore.setCurrentCollection(collection);
+          selectedIndex.value = consoleStore.getCollectionGameIndex(
+            collection.id,
+          );
+          document.title = collection.name;
+          await fetchRoms();
         }
       }
     },
@@ -411,29 +403,23 @@ onMounted(async () => {
     () => smartCollections.value,
     async (smartCollections) => {
       if (smartCollections.length > 0) {
-        if (
-          smartCollections.some(
-            (smartCollection) => smartCollection.id === routeSmartCollectionId,
-          )
-        ) {
-          const smartCollection = smartCollections.find(
-            (smartCollection) => smartCollection.id === routeSmartCollectionId,
-          );
+        const smartCollection = smartCollections.find(
+          (smartCollection) => smartCollection.id === routeSmartCollectionId,
+        );
 
-          // Check if the current smartCollection is different or no ROMs have been loaded
-          if (
-            (currentSmartCollection.value?.id !== routeSmartCollectionId ||
-              allRoms.value.length === 0) &&
-            smartCollection
-          ) {
-            resetGallery();
-            romsStore.setCurrentSmartCollection(smartCollection);
-            selectedIndex.value = consoleStore.getSmartCollectionGameIndex(
-              smartCollection.id,
-            );
-            document.title = smartCollection.name;
-            await fetchRoms();
-          }
+        // Check if the current smartCollection is different or no ROMs have been loaded
+        if (
+          smartCollection &&
+          (currentSmartCollection.value?.id !== routeSmartCollectionId ||
+            allRoms.value.length === 0)
+        ) {
+          resetGallery();
+          romsStore.setCurrentSmartCollection(smartCollection);
+          selectedIndex.value = consoleStore.getSmartCollectionGameIndex(
+            smartCollection.id,
+          );
+          document.title = smartCollection.name;
+          await fetchRoms();
         }
       }
     },
@@ -444,31 +430,24 @@ onMounted(async () => {
     () => virtualCollections.value,
     async (virtualCollections) => {
       if (virtualCollections.length > 0) {
-        if (
-          virtualCollections.some(
-            (virtualCollection) =>
-              virtualCollection.id === routeVirtualCollectionId,
-          )
-        ) {
-          const virtualCollection = virtualCollections.find(
-            (virtualCollection) =>
-              virtualCollection.id === routeVirtualCollectionId,
-          );
+        const virtualCollection = virtualCollections.find(
+          (virtualCollection) =>
+            virtualCollection.id === routeVirtualCollectionId,
+        );
 
-          // Check if the current virtualCollection is different or no ROMs have been loaded
-          if (
-            (currentVirtualCollection.value?.id !== routeVirtualCollectionId ||
-              allRoms.value.length === 0) &&
-            virtualCollection
-          ) {
-            resetGallery();
-            romsStore.setCurrentVirtualCollection(virtualCollection);
-            selectedIndex.value = consoleStore.getVirtualCollectionGameIndex(
-              virtualCollection.id,
-            );
-            document.title = virtualCollection.name;
-            await fetchRoms();
-          }
+        // Check if the current virtualCollection is different or no ROMs have been loaded
+        if (
+          virtualCollection &&
+          (currentVirtualCollection.value?.id !== routeVirtualCollectionId ||
+            allRoms.value.length === 0)
+        ) {
+          resetGallery();
+          romsStore.setCurrentVirtualCollection(virtualCollection);
+          selectedIndex.value = consoleStore.getVirtualCollectionGameIndex(
+            virtualCollection.id,
+          );
+          document.title = virtualCollection.name;
+          await fetchRoms();
         }
       }
     },
