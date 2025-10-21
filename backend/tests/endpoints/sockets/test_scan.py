@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+import socketio
 
 from endpoints.sockets.scan import ScanStats, _should_scan_rom
 from handler.scan_handler import ScanType
@@ -37,7 +38,7 @@ def test_scan_stats():
     assert stats.new_firmware == 1
 
 
-def test_merging_scan_stats():
+async def test_merging_scan_stats():
     stats = ScanStats(
         scanned_platforms=1,
         new_platforms=2,
@@ -49,7 +50,8 @@ def test_merging_scan_stats():
         new_firmware=8,
     )
 
-    stats.update(
+    await stats.update(
+        socket_manager=Mock(spec=socketio.AsyncRedisManager),
         scanned_platforms=stats.scanned_platforms + 10,
         new_platforms=stats.new_platforms + 11,
         identified_platforms=stats.identified_platforms + 12,
