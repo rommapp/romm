@@ -139,20 +139,6 @@ const headerTitle = computed(() => {
   );
 });
 
-const headerSubtext = computed(() => {
-  if (isCollectionRoute) {
-    return currentCollection.value?.description || "";
-  }
-  if (isSmartCollectionRoute) {
-    return currentSmartCollection.value?.description || "";
-  }
-  if (isVirtualCollectionRoute) {
-    return currentVirtualCollection.value?.description || "";
-  }
-  if (!currentPlatform.value?.fs_slug) return "";
-  return config.value.PLATFORMS_VERSIONS[currentPlatform.value.fs_slug];
-});
-
 function getCols(): number {
   if (!gridRef.value) return 4;
 
@@ -516,11 +502,7 @@ function handleItemDeselected() {
     class="relative min-h-screen overflow-y-auto overflow-x-hidden max-w-[100vw] flex"
     @wheel.prevent
   >
-    <BackButton
-      :text="headerTitle"
-      :subtext="headerSubtext"
-      :on-back="navigateBack"
-    />
+    <BackButton :text="headerTitle" :on-back="navigateBack" />
     <div
       class="relative flex-1 min-w-0 pr-[40px]"
       :style="{ width: 'calc(100vw - 40px)' }"
