@@ -12,11 +12,11 @@ const props = defineProps<{
 }>();
 const { t } = useI18n();
 const platformsStore = storePlatforms();
-const { filteredPlatforms } = storeToRefs(platformsStore);
+const { allPlatforms } = storeToRefs(platformsStore);
 const orderBy = ref<"name" | "size" | "count">("name");
 
 const sortedPlatforms = computed(() => {
-  const platforms = [...filteredPlatforms.value];
+  const platforms = [...allPlatforms.value];
   if (orderBy.value === "size") {
     return platforms.sort(
       (a, b) => Number(b.fs_size_bytes) - Number(a.fs_size_bytes),

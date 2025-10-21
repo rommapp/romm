@@ -36,10 +36,8 @@ const editable = ref(false);
           />
         </template>
         <p>
-          Versions of the same platform. A common example is Capcom Play System
-          1 is an arcade system. Platform versions will let you setup a custom
-          platform for RomM to import and tell RomM which platform it needs to
-          scrape against.
+          Platform versions allow you to create custom platform entries for
+          games that belong to the same system but have different versions.
         </p>
       </v-tooltip>
     </template>
