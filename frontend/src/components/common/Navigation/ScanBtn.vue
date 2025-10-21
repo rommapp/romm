@@ -3,6 +3,7 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount } from "vue";
 import { useI18n } from "vue-i18n";
+import type { ScanStats } from "@/__generated__";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
@@ -49,7 +50,7 @@ socket.on(
     fs_slug: string;
     is_identified: boolean;
   }) => {
-    scanningStore.set(true);
+    scanningStore.setScanning(true);
     scanningPlatforms.value = scanningPlatforms.value.filter(
       (platform) => platform.display_name !== display_name,
     );
@@ -65,7 +66,7 @@ socket.on(
 );
 
 socket.on("scan:scanning_rom", (rom: SimpleRom) => {
-  scanningStore.set(true);
+  scanningStore.setScanning(true);
 
   // Remove the ROM from the recent list and add it back to the top
   romsStore.removeFromRecent(rom);
@@ -109,7 +110,7 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
 });
 
 socket.on("scan:done", () => {
-  scanningStore.set(false);
+  scanningStore.setScanning(false);
   socket.disconnect();
 
   emitter?.emit("refreshDrawer", null);
@@ -122,7 +123,7 @@ socket.on("scan:done", () => {
 });
 
 socket.on("scan:done_ko", (msg) => {
-  scanningStore.set(false);
+  scanningStore.setScanning(false);
 
   emitter?.emit("snackbarShow", {
     msg: `Scan failed: ${msg}`,
@@ -130,6 +131,10 @@ socket.on("scan:done_ko", (msg) => {
     color: "red",
   });
   socket.disconnect();
+});
+
+socket.on("scan:update_stats", (stats: ScanStats) => {
+  scanningStore.setScanStats(stats);
 });
 
 onBeforeUnmount(() => {

@@ -56,17 +56,18 @@ class ScanStats:
     new_platforms: int = 0
     identified_platforms: int = 0
     scanned_roms: int = 0
-    added_roms: int = 0
+    new_roms: int = 0
     identified_roms: int = 0
     scanned_firmware: int = 0
-    added_firmware: int = 0
+    new_firmware: int = 0
 
-    def update(self, **kwargs):
+    async def update(self, socket_manager: socketio.AsyncRedisManager, **kwargs):
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
 
         update_job_meta({"scan_stats": self.to_dict()})
+        await socket_manager.emit("scan:update_stats", self.to_dict())
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -76,10 +77,10 @@ class ScanStats:
             "new_platforms": self.new_platforms,
             "identified_platforms": self.identified_platforms,
             "scanned_roms": self.scanned_roms,
-            "added_roms": self.added_roms,
+            "new_roms": self.new_roms,
             "identified_roms": self.identified_roms,
             "scanned_firmware": self.scanned_firmware,
-            "added_firmware": self.added_firmware,
+            "new_firmware": self.new_firmware,
         }
 
 
@@ -92,6 +93,7 @@ async def _identify_firmware(
     platform: Platform,
     fs_fw: str,
     scan_stats: ScanStats,
+    socket_manager: socketio.AsyncRedisManager,
 ) -> ScanStats:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -114,9 +116,10 @@ async def _identify_firmware(
         crc_hash=scanned_firmware.crc_hash,
     )
 
-    scan_stats.update(
+    await scan_stats.update(
+        socket_manager=socket_manager,
         scanned_firmware=scan_stats.scanned_firmware + 1,
-        added_firmware=scan_stats.added_firmware + (1 if not firmware else 0),
+        new_firmware=scan_stats.new_firmware + (1 if not firmware else 0),
     )
 
     scanned_firmware.missing_from_fs = False
@@ -181,7 +184,6 @@ async def _identify_rom(
             if rom.missing_from_fs:
                 db_rom_handler.update_rom(rom.id, {"missing_from_fs": False})
 
-        scan_stats.update(scanned_roms=scan_stats.scanned_roms + 1)
         return scan_stats
 
     # Update properties that don't require metadata
@@ -246,9 +248,10 @@ async def _identify_rom(
         socket_manager=socket_manager,
     )
 
-    scan_stats.update(
+    await scan_stats.update(
+        socket_manager=socket_manager,
         scanned_roms=scan_stats.scanned_roms + 1,
-        added_roms=scan_stats.added_roms + (1 if not rom else 0),
+        new_roms=scan_stats.new_roms + (1 if not rom else 0),
         identified_roms=scan_stats.identified_roms
         + (1 if scanned_rom.is_identified else 0),
     )
@@ -341,7 +344,6 @@ async def _identify_rom(
             exclude={"created_at", "updated_at", "rom_user"}
         ),
     )
-    await socket_manager.emit("", None)
 
     return scan_stats
 
@@ -367,7 +369,8 @@ async def _identify_platform(
     if platform:
         scanned_platform.id = platform.id
 
-    scan_stats.update(
+    await scan_stats.update(
+        socket_manager=socket_manager,
         scanned_platforms=scan_stats.scanned_platforms + 1,
         new_platforms=scan_stats.new_platforms + (1 if not platform else 0),
         identified_platforms=scan_stats.identified_platforms
@@ -382,7 +385,6 @@ async def _identify_platform(
             include={"id", "name", "display_name", "slug", "fs_slug", "is_identified"}
         ),
     )
-    await socket_manager.emit("", None)
 
     # Scanning firmware
     try:
@@ -399,6 +401,7 @@ async def _identify_platform(
 
     for fs_fw in fs_firmware:
         scan_stats = await _identify_firmware(
+            socket_manager=socket_manager,
             platform=platform,
             fs_fw=fs_fw,
             scan_stats=scan_stats,
@@ -421,12 +424,11 @@ async def _identify_platform(
     # Create semaphore to limit concurrent ROM scanning
     scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
 
-    async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> dict[str, int]:
+    async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> ScanStats:
         """Scan a single ROM with semaphore limiting and return stats delta"""
         async with scan_semaphore:
             # Create a fresh stats object for this ROM to avoid race conditions
-            rom_scan_stats = ScanStats()
-            result_stats = await _identify_rom(
+            return await _identify_rom(
                 platform=platform,
                 fs_rom=fs_rom,
                 rom=rom,
@@ -434,14 +436,8 @@ async def _identify_platform(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 socket_manager=socket_manager,
-                scan_stats=rom_scan_stats,
+                scan_stats=scan_stats,
             )
-
-            return {
-                "scanned_roms": result_stats.scanned_roms,
-                "added_roms": result_stats.added_roms,
-                "identified_roms": result_stats.identified_roms,
-            }
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
         roms_by_fs_name = db_rom_handler.get_roms_by_fs_name(
@@ -458,19 +454,7 @@ async def _identify_platform(
         ]
 
         # Wait for all ROMs in the batch to complete
-        batch_results = await asyncio.gather(*scan_tasks, return_exceptions=True)
-
-        # Aggregate stats from all ROMs in the batch
-        for result, fs_rom in zip(batch_results, fs_roms_batch, strict=False):
-            if isinstance(result, BaseException):
-                log.error(f"Error scanning ROM {fs_rom['fs_name']}: {result}")
-            else:
-                scan_stats.update(
-                    scanned_roms=scan_stats.scanned_roms + result["scanned_roms"],
-                    added_roms=scan_stats.added_roms + result["added_roms"],
-                    identified_roms=scan_stats.identified_roms
-                    + result["identified_roms"],
-                )
+        await asyncio.gather(*scan_tasks, return_exceptions=True)
 
     missing_roms = db_rom_handler.mark_missing_roms(
         platform.id, [rom["fs_name"] for rom in fs_roms]
@@ -521,10 +505,15 @@ async def scan_platforms(
         return scan_stats
 
     # Precalculate total platforms and ROMs
-    scan_stats.update(total_platforms=len(fs_platforms))
+    total_roms = 0
     for platform_slug in fs_platforms:
         fs_roms = await fs_rom_handler.get_roms(Platform(fs_slug=platform_slug))
-        scan_stats.update(total_roms=scan_stats.total_roms + len(fs_roms))
+        total_roms += len(fs_roms)
+    await scan_stats.update(
+        socket_manager=socket_manager,
+        total_platforms=len(fs_platforms),
+        total_roms=total_roms,
+    )
 
     async def stop_scan():
         log.info(f"{emoji.EMOJI_STOP_SIGN} Scan stopped manually")
