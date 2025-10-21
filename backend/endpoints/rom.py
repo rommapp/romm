@@ -782,19 +782,19 @@ async def update_rom(
     raw_flashpoint_metadata = parse_raw_metadata(data, "raw_flashpoint_metadata")
     raw_hltb_metadata = parse_raw_metadata(data, "raw_hltb_metadata")
 
-    if raw_igdb_metadata is not None:
+    if cleaned_data["igdb_id"] and raw_igdb_metadata is not None:
         cleaned_data["igdb_metadata"] = raw_igdb_metadata
-    if raw_moby_metadata is not None:
+    if cleaned_data["moby_id"] and raw_moby_metadata is not None:
         cleaned_data["moby_metadata"] = raw_moby_metadata
-    if raw_ss_metadata is not None:
+    if cleaned_data["ss_id"] and raw_ss_metadata is not None:
         cleaned_data["ss_metadata"] = raw_ss_metadata
-    if raw_launchbox_metadata is not None:
+    if cleaned_data["launchbox_id"] and raw_launchbox_metadata is not None:
         cleaned_data["launchbox_metadata"] = raw_launchbox_metadata
-    if raw_hasheous_metadata is not None:
+    if cleaned_data["hasheous_id"] and raw_hasheous_metadata is not None:
         cleaned_data["hasheous_metadata"] = raw_hasheous_metadata
-    if raw_flashpoint_metadata is not None:
+    if cleaned_data["flashpoint_id"] and raw_flashpoint_metadata is not None:
         cleaned_data["flashpoint_metadata"] = raw_flashpoint_metadata
-    if raw_hltb_metadata is not None:
+    if cleaned_data["hltb_id"] and raw_hltb_metadata is not None:
         cleaned_data["hltb_metadata"] = raw_hltb_metadata
 
     # Fetch metadata from external sources

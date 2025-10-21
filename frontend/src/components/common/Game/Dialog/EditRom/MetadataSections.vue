@@ -13,39 +13,51 @@ const handleRomUpdate = (updatedRom: UpdateRom) => {
   emit("update:rom", updatedRom);
 };
 
-const metadataConfigs = [
+const metadataConfigs: {
+  idField: keyof SimpleRom;
+  metadataField: keyof SimpleRom;
+  iconSrc: string;
+  label: string;
+}[] = [
   {
-    metadataField: "igdb_metadata" as keyof SimpleRom,
+    idField: "igdb_id",
+    metadataField: "igdb_metadata",
     iconSrc: "/assets/scrappers/igdb.png",
     label: "IGDB",
   },
   {
-    metadataField: "moby_metadata" as keyof SimpleRom,
+    idField: "moby_id",
+    metadataField: "moby_metadata",
     iconSrc: "/assets/scrappers/moby.png",
     label: "MobyGames",
   },
   {
-    metadataField: "ss_metadata" as keyof SimpleRom,
+    idField: "ss_id",
+    metadataField: "ss_metadata",
     iconSrc: "/assets/scrappers/ss.png",
     label: "ScreenScraper",
   },
   {
-    metadataField: "launchbox_metadata" as keyof SimpleRom,
+    idField: "launchbox_id",
+    metadataField: "launchbox_metadata",
     iconSrc: "/assets/scrappers/launchbox.png",
     label: "LaunchBox",
   },
   {
-    metadataField: "hasheous_metadata" as keyof SimpleRom,
+    idField: "hasheous_id",
+    metadataField: "hasheous_metadata",
     iconSrc: "/assets/scrappers/hasheous.png",
     label: "Hasheous",
   },
   {
-    metadataField: "flashpoint_metadata" as keyof SimpleRom,
+    idField: "flashpoint_id",
+    metadataField: "flashpoint_metadata",
     iconSrc: "/assets/scrappers/flashpoint.png",
     label: "Flashpoint",
   },
   {
-    metadataField: "hltb_metadata" as keyof SimpleRom,
+    idField: "hltb_id",
+    metadataField: "hltb_metadata",
     iconSrc: "/assets/scrappers/hltb.png",
     label: "HLTB",
   },
@@ -53,8 +65,9 @@ const metadataConfigs = [
 </script>
 
 <template>
-  <template v-for="config in metadataConfigs" :key="config.metadataField">
+  <template v-for="config in metadataConfigs" :key="config.idField">
     <RawMetadataPanel
+      v-if="rom[config.idField]"
       :rom="rom"
       :metadata-field="config.metadataField"
       :icon-src="config.iconSrc"
