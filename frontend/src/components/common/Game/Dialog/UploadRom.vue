@@ -123,7 +123,7 @@ async function uploadRoms() {
         timeout: 3000,
       });
 
-      scanningStore.set(true);
+      scanningStore.setScanning(true);
 
       if (!socket.connected) socket.connect();
       setTimeout(() => {

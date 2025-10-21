@@ -42,7 +42,7 @@ function scrollToTop() {
   });
 }
 async function onScan() {
-  scanningStore.set(true);
+  scanningStore.setScanning(true);
   const romCount = romsStore.selectedRoms.length;
   emitter?.emit("snackbarShow", {
     msg: `Scanning ${romCount} game${romCount > 1 ? "s" : ""}...`,

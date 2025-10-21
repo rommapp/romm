@@ -56,7 +56,7 @@ async function resetLastPlayed() {
 }
 
 async function onScan() {
-  scanningStore.set(true);
+  scanningStore.setScanning(true);
   emitter?.emit("snackbarShow", {
     msg: `Refreshing ${props.rom.name} metadata...`,
     icon: "mdi-loading mdi-spin",
