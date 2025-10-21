@@ -362,12 +362,12 @@ onMounted(async () => {
               allRoms.value.length === 0) &&
             platform
           ) {
-            if (currentPlatform.value) resetGallery();
+            resetGallery();
+            romsStore.setCurrentPlatform(platform);
             selectedIndex.value = consoleStore.getPlatformGameIndex(
               platform.id,
             );
-            romsStore.setCurrentPlatform(platform);
-            document.title = `${platform.display_name}`;
+            document.title = platform.display_name;
             await fetchRoms();
           }
         }
@@ -393,12 +393,12 @@ onMounted(async () => {
               allRoms.value.length === 0) &&
             collection
           ) {
-            if (currentCollection.value) resetGallery();
+            resetGallery();
+            romsStore.setCurrentCollection(collection);
             selectedIndex.value = consoleStore.getCollectionGameIndex(
               collection.id,
             );
-            romsStore.setCurrentCollection(collection);
-            document.title = `${collection.name}`;
+            document.title = collection.name;
             await fetchRoms();
           }
         }
@@ -426,12 +426,12 @@ onMounted(async () => {
               allRoms.value.length === 0) &&
             smartCollection
           ) {
-            if (currentSmartCollection.value) resetGallery();
+            resetGallery();
+            romsStore.setCurrentSmartCollection(smartCollection);
             selectedIndex.value = consoleStore.getSmartCollectionGameIndex(
               smartCollection.id,
             );
-            romsStore.setCurrentSmartCollection(smartCollection);
-            document.title = `${smartCollection.name}`;
+            document.title = smartCollection.name;
             await fetchRoms();
           }
         }
@@ -461,12 +461,12 @@ onMounted(async () => {
               allRoms.value.length === 0) &&
             virtualCollection
           ) {
-            if (currentVirtualCollection.value) resetGallery();
+            resetGallery();
+            romsStore.setCurrentVirtualCollection(virtualCollection);
             selectedIndex.value = consoleStore.getVirtualCollectionGameIndex(
               virtualCollection.id,
             );
-            romsStore.setCurrentVirtualCollection(virtualCollection);
-            document.title = `${virtualCollection.name}`;
+            document.title = virtualCollection.name;
             await fetchRoms();
           }
         }
