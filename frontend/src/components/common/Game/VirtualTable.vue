@@ -148,8 +148,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           selectedRomIDs.length < filteredRoms.length
         "
         :model-value="selectedRomIDs.length === filteredRoms.length"
-        @click.stop
-        @click="updateSelectAll"
+        @click.stop="updateSelectAll"
       />
     </template>
     <template #item="{ item }">
@@ -377,8 +376,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
               download
               variant="text"
               size="small"
-              @click.prevent
-              @click="romApi.downloadRom({ rom: item })"
+              @click.prevent="romApi.downloadRom({ rom: item })"
             >
               <v-icon>mdi-download</v-icon>
             </v-btn>
