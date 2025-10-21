@@ -1,6 +1,6 @@
 from .flashpoint_handler import FlashpointHandler
 from .hasheous_handler import HasheousHandler
-from .hltb_handler import HowLongToBeatHandler
+from .hltb_handler import HLTBHandler
 from .igdb_handler import IGDBHandler
 from .launchbox_handler import LaunchboxHandler
 from .moby_handler import MobyGamesHandler
@@ -20,4 +20,4 @@ meta_launchbox_handler = LaunchboxHandler()
 meta_hasheous_handler = HasheousHandler()
 meta_tgdb_handler = TGDBHandler()
 meta_flashpoint_handler = FlashpointHandler()
-meta_hltb_handler = HowLongToBeatHandler()
+meta_hltb_handler = HLTBHandler()
