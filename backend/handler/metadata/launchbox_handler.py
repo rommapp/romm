@@ -142,17 +142,8 @@ class LaunchboxHandler(MetadataHandler):
         self, file_name: str, platform_slug: str
     ) -> dict | None:
         if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
-            log.info("Fetching the Launchbox Metadata.xml file...")
-
-            from tasks.scheduled.update_launchbox_metadata import (
-                update_launchbox_metadata_task,
-            )
-
-            await update_launchbox_metadata_task.run(force=True)
-
-            if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
-                log.error("Could not fetch the Launchbox Metadata.xml file")
-                return None
+            log.error("Could not find the Launchbox Metadata.xml file in cache")
+            return None
 
         lb_platform = self.get_platform(platform_slug)
         platform_name = lb_platform.get("name", None)
