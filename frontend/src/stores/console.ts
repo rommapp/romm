@@ -20,8 +20,12 @@ export default defineStore("console", {
     navigationMode: "systems" as NavigationMode,
     perPlatformGameIndex: {} as Record<number, number>,
     perCollectionGameIndex: {} as Record<number, number>,
+    perSmartCollectionGameIndex: {} as Record<number, number>,
+    perVirtualCollectionGameIndex: {} as Record<string, number>,
     perPlatformScrollTop: {} as Record<number, number>,
     perCollectionScrollTop: {} as Record<number, number>,
+    perSmartCollectionScrollTop: {} as Record<number, number>,
+    perVirtualCollectionScrollTop: {} as Record<string, number>,
   }),
   getters: {
     consoleMode: (state) => {
@@ -75,6 +79,18 @@ export default defineStore("console", {
     getCollectionGameIndex(collectionId: number) {
       return this.perCollectionGameIndex[collectionId] ?? 0;
     },
+    setSmartCollectionGameIndex(smartCollectionId: number, idx: number) {
+      this.perSmartCollectionGameIndex[smartCollectionId] = idx;
+    },
+    getSmartCollectionGameIndex(smartCollectionId: number) {
+      return this.perSmartCollectionGameIndex[smartCollectionId] ?? 0;
+    },
+    setVirtualCollectionGameIndex(virtualCollectionId: string, idx: number) {
+      this.perVirtualCollectionGameIndex[virtualCollectionId] = idx;
+    },
+    getVirtualCollectionGameIndex(virtualCollectionId: string) {
+      return this.perVirtualCollectionGameIndex[virtualCollectionId] ?? 0;
+    },
     setPlatformScroll(platformId: number, top: number) {
       this.perPlatformScrollTop[platformId] = top;
     },
@@ -86,6 +102,18 @@ export default defineStore("console", {
     },
     getCollectionScroll(collectionId: number) {
       return this.perCollectionScrollTop[collectionId] ?? 0;
+    },
+    setSmartCollectionScroll(smartCollectionId: number, top: number) {
+      this.perSmartCollectionScrollTop[smartCollectionId] = top;
+    },
+    getSmartCollectionScroll(smartCollectionId: number) {
+      return this.perSmartCollectionScrollTop[smartCollectionId] ?? 0;
+    },
+    setVirtualCollectionScroll(virtualCollectionId: string, top: number) {
+      this.perVirtualCollectionScrollTop[virtualCollectionId] = top;
+    },
+    getVirtualCollectionScroll(virtualCollectionId: string) {
+      return this.perVirtualCollectionScrollTop[virtualCollectionId] ?? 0;
     },
   },
 });

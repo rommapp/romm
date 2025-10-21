@@ -574,7 +574,7 @@ onUnmounted(() => {
                     }"
                   >
                     {{
-                      rom.platform_name ||
+                      rom.platform_display_name ||
                       (rom.platform_slug || "RETRO")?.toString().toUpperCase()
                     }}
                   </span>

@@ -20,7 +20,7 @@ const releaseDate = new Date(
 });
 
 const platformsStore = storePlatforms();
-const { filteredPlatforms } = storeToRefs(platformsStore);
+const { allPlatforms } = storeToRefs(platformsStore);
 
 const hashMatches = computed(() => {
   return [
@@ -81,7 +81,7 @@ const hashMatches = computed(() => {
         >
           <MissingFromFSIcon
             v-if="
-              filteredPlatforms.find((p) => p.id === rom.platform_id)
+              allPlatforms.find((p) => p.id === rom.platform_id)
                 ?.missing_from_fs
             "
             class="mr-2"
@@ -90,7 +90,7 @@ const hashMatches = computed(() => {
           <PlatformIcon
             :key="rom.platform_slug"
             :slug="rom.platform_slug"
-            :name="rom.platform_name"
+            :name="rom.platform_display_name"
             :fs-slug="rom.platform_fs_slug"
             :size="30"
             class="mr-2"

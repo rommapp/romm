@@ -9,10 +9,6 @@ import {
   useTemplateRef,
 } from "vue";
 import { useRouter } from "vue-router";
-import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
-import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
-import type { SmartCollectionSchema } from "@/__generated__/models/SmartCollectionSchema";
-import type { VirtualCollectionSchema } from "@/__generated__/models/VirtualCollectionSchema";
 import RIsotipo from "@/components/common/RIsotipo.vue";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
 import CollectionCard from "@/console/components/CollectionCard.vue";
@@ -31,20 +27,23 @@ import {
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useRovingDom } from "@/console/composables/useRovingDom";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
-import { isSupportedPlatform } from "@/console/constants/platforms";
 import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
-import collectionApi from "@/services/api/collection";
-import platformApi from "@/services/api/platform";
 import storeCollections from "@/stores/collections";
 import storeConsole from "@/stores/console";
+import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 
 const router = useRouter();
+const platformsStore = storePlatforms();
+const { allPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
 const collectionsStore = storeCollections();
-const consoleStore = storeConsole();
+const { allCollections, smartCollections, virtualCollections } =
+  storeToRefs(collectionsStore);
 const romsStore = storeRoms();
+const { recentRoms } = storeToRefs(romsStore);
+const consoleStore = storeConsole();
 const {
   navigationMode,
   platformIndex,
@@ -59,12 +58,6 @@ const { setSelectedBackgroundArt, clearSelectedBackgroundArt } =
   useBackgroundArt();
 const { subscribe } = useInputScope();
 
-const platforms = ref<PlatformSchema[]>([]);
-const recentRoms = ref<SimpleRom[]>([]);
-const collections = ref<CollectionSchema[]>([]);
-const smartCollections = ref<SmartCollectionSchema[]>([]);
-const virtualCollections = ref<VirtualCollectionSchema[]>([]);
-const loadingPlatforms = ref(true);
 const errorMessage = ref("");
 const showSettings = ref(false);
 
@@ -104,8 +97,8 @@ const virtualCollectionElementAt = (i: number) =>
 // Spatial navigation
 const { moveLeft: moveSystemLeft, moveRight: moveSystemRight } = useSpatialNav(
   platformIndex,
-  () => platforms.value.length || 1,
-  () => platforms.value.length,
+  () => allPlatforms.value.length || 1,
+  () => allPlatforms.value.length,
 );
 const { moveLeft: moveRecentLeft, moveRight: moveRecentRight } = useSpatialNav(
   recentIndex,
@@ -115,8 +108,8 @@ const { moveLeft: moveRecentLeft, moveRight: moveRecentRight } = useSpatialNav(
 const { moveLeft: moveCollectionLeft, moveRight: moveCollectionRight } =
   useSpatialNav(
     collectionsIndex,
-    () => collections.value.length || 1,
-    () => collections.value.length,
+    () => allCollections.value.length || 1,
+    () => allCollections.value.length,
   );
 const {
   moveLeft: moveSmartCollectionLeft,
@@ -219,7 +212,7 @@ const navigationFunctions = {
       const before = platformIndex.value;
       moveSystemLeft();
       if (platformIndex.value === before) {
-        platformIndex.value = Math.max(0, platforms.value.length - 1);
+        platformIndex.value = Math.max(0, allPlatforms.value.length - 1);
       }
     },
     next: () => {
@@ -230,10 +223,10 @@ const navigationFunctions = {
       }
     },
     confirm: () => {
-      if (!platforms.value[platformIndex.value]) return false;
+      if (!allPlatforms.value[platformIndex.value]) return false;
       router.push({
         name: ROUTES.CONSOLE_PLATFORM,
-        params: { id: platforms.value[platformIndex.value].id },
+        params: { id: allPlatforms.value[platformIndex.value].id },
       });
       return true;
     },
@@ -268,7 +261,7 @@ const navigationFunctions = {
       const before = collectionsIndex.value;
       moveCollectionLeft();
       if (collectionsIndex.value === before) {
-        collectionsIndex.value = Math.max(0, collections.value.length - 1);
+        collectionsIndex.value = Math.max(0, allCollections.value.length - 1);
       }
     },
     next: () => {
@@ -279,10 +272,10 @@ const navigationFunctions = {
       }
     },
     confirm: () => {
-      if (!collections.value[collectionsIndex.value]) return false;
+      if (!allCollections.value[collectionsIndex.value]) return false;
       router.push({
         name: ROUTES.CONSOLE_COLLECTION,
-        params: { id: collections.value[collectionsIndex.value].id },
+        params: { id: allCollections.value[collectionsIndex.value].id },
       });
       return true;
     },
@@ -526,7 +519,7 @@ function handleAction(action: InputAction): boolean {
       }
       if (currentMode === "smartCollections") {
         navigationMode.value =
-          collections.value.length > 0
+          allCollections.value.length > 0
             ? "collections"
             : recentRoms.value.length > 0
               ? "recent"
@@ -538,7 +531,7 @@ function handleAction(action: InputAction): boolean {
         navigationMode.value =
           smartCollections.value.length > 0
             ? "smartCollections"
-            : collections.value.length > 0
+            : allCollections.value.length > 0
               ? "collections"
               : recentRoms.value.length > 0
                 ? "recent"
@@ -553,7 +546,7 @@ function handleAction(action: InputAction): boolean {
         navigationMode.value =
           recentRoms.value.length > 0
             ? "recent"
-            : collections.value.length > 0
+            : allCollections.value.length > 0
               ? "collections"
               : smartCollections.value.length > 0
                 ? "smartCollections"
@@ -565,7 +558,7 @@ function handleAction(action: InputAction): boolean {
       }
       if (currentMode === "recent") {
         navigationMode.value =
-          collections.value.length > 0
+          allCollections.value.length > 0
             ? "collections"
             : smartCollections.value.length > 0
               ? "smartCollections"
@@ -625,41 +618,10 @@ function handleAction(action: InputAction): boolean {
 }
 
 onMounted(async () => {
-  try {
-    const [
-      { data: plats },
-      recents,
-      { data: cols },
-      { data: smartCols },
-      { data: virtualCols },
-    ] = await Promise.all([
-      platformApi.getPlatforms(),
-      romsStore.fetchRecentRoms(),
-      collectionApi.getCollections(),
-      collectionApi.getSmartCollections(),
-      collectionApi.getVirtualCollections({ type: "collection" }),
-    ]);
-
-    platforms.value = plats.filter(
-      (p) => p.rom_count > 0 && isSupportedPlatform(p.slug),
-    );
-    recentRoms.value = recents ?? [];
-    collections.value = cols ?? [];
-    smartCollections.value = smartCols ?? [];
-    virtualCollections.value = virtualCols ?? [];
-
-    collectionsStore.setCollections(cols ?? []);
-    collectionsStore.setFavoriteCollection(cols?.find((c) => c.is_favorite));
-  } catch (err: unknown) {
-    errorMessage.value = err instanceof Error ? err.message : "Failed to load";
-  } finally {
-    loadingPlatforms.value = false;
-  }
-
   // Restore indices within bounds
-  if (platformIndex.value >= platforms.value.length) platformIndex.value = 0;
+  if (platformIndex.value >= allPlatforms.value.length) platformIndex.value = 0;
   if (recentIndex.value >= recentRoms.value.length) recentIndex.value = 0;
-  if (collectionsIndex.value >= collections.value.length)
+  if (collectionsIndex.value >= allCollections.value.length)
     collectionsIndex.value = 0;
   if (smartCollectionsIndex.value >= smartCollections.value.length)
     smartCollectionsIndex.value = 0;
@@ -723,7 +685,7 @@ onUnmounted(() => {
       </div>
 
       <div
-        v-if="loadingPlatforms"
+        v-if="fetchingPlatforms"
         class="text-center mt-16"
         :style="{ color: 'var(--console-loading-text)' }"
       >
@@ -774,7 +736,7 @@ onUnmounted(() => {
             >
               <div class="flex items-center gap-6 h-full px-12 min-w-max">
                 <SystemCard
-                  v-for="(p, i) in platforms"
+                  v-for="(p, i) in allPlatforms"
                   :key="p.id"
                   :platform="p"
                   :index="i"
@@ -848,7 +810,7 @@ onUnmounted(() => {
         </section>
 
         <section
-          v-if="collections.length > 0"
+          v-if="allCollections.length > 0"
           ref="collections-section-ref"
           class="pb-8"
         >
@@ -888,7 +850,7 @@ onUnmounted(() => {
             >
               <div class="flex items-center gap-4 h-full px-12 min-w-max">
                 <CollectionCard
-                  v-for="(c, i) in collections"
+                  v-for="(c, i) in allCollections"
                   :key="`collection-${c.id}`"
                   :collection="c"
                   :index="i"

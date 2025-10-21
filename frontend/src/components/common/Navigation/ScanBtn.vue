@@ -87,7 +87,7 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   // Add the platform if the socket dropped and it's missing
   if (!scannedPlatform) {
     scanningPlatforms.value.push({
-      name: rom.platform_name,
+      name: rom.platform_display_name,
       slug: rom.platform_slug,
       id: rom.platform_id,
       fs_slug: rom.platform_fs_slug,

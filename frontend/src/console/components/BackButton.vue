@@ -3,6 +3,7 @@ import { useRouter } from "vue-router";
 
 const props = defineProps<{
   text?: string;
+  subtext?: string;
   onBack?: () => void;
 }>();
 
@@ -25,11 +26,19 @@ function goBack() {
     >
       <span aria-hidden="true" class="text-lg leading-none">←</span>
     </button>
-    <span
-      v-if="text"
-      class="ml-3 text-white/90 text-3xl font-bold drop-shadow select-none"
-    >
-      {{ text }}
-    </span>
+    <div class="ml-3">
+      <span
+        v-if="text"
+        class="text-white/90 text-3xl font-bold drop-shadow select-none"
+      >
+        {{ text }}
+      </span>
+      <span
+        v-if="subtext"
+        class="text-white/50 text-sm font-normal drop-shadow select-none"
+      >
+        {{ subtext }}
+      </span>
+    </div>
   </div>
 </template>
