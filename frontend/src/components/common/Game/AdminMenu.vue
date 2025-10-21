@@ -99,7 +99,7 @@ async function onScan() {
         @click="emitter?.emit('showEditRomDialog', rom)"
       >
         <v-list-item-title class="d-flex">
-          <v-icon icon="mdi-pencil-box" class="mr-2" />{{ t("rom.edit") }}
+          <v-icon icon="mdi-pencil-box" class="mr-2" />{{ t("common.edit") }}
         </v-list-item-title>
       </v-list-item>
       <v-list-item class="py-4 pr-5" @click="onScan">

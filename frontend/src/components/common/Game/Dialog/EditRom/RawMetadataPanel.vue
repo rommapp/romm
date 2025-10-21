@@ -91,12 +91,12 @@ const saveMetadata = () => {
       <v-avatar size="26" rounded class="mr-2">
         <v-img :src="iconSrc" />
       </v-avatar>
-      {{ label }} Metadata
+      {{ label }} {{ $t("rom.metadata") }}
     </v-expansion-panel-title>
     <v-expansion-panel-text class="mt-4 px-2">
       <v-textarea
         v-model="metadataJson"
-        :label="`${label} Metadata JSON`"
+        :label="`${label} ${$t('rom.metadata')} JSON`"
         variant="outlined"
         rows="8"
         hide-details
@@ -115,7 +115,7 @@ const saveMetadata = () => {
           class="text-primary bg-toplayer"
           @click="startEdit"
         >
-          Edit
+          {{ $t("common.edit") }}
         </v-btn>
         <template v-else>
           <v-btn
@@ -123,14 +123,14 @@ const saveMetadata = () => {
             @click="cancelEdit"
             class="text-romm-red bg-toplayer"
           >
-            Cancel
+            {{ $t("common.cancel") }}
           </v-btn>
           <v-btn
             variant="flat"
             @click="saveMetadata"
             class="text-romm-green bg-toplayer"
           >
-            Save
+            {{ $t("common.save") }}
           </v-btn>
         </template>
       </v-btn-group>
