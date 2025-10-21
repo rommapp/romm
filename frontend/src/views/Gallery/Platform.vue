@@ -181,7 +181,7 @@ onMounted(async () => {
           ) {
             if (currentPlatform.value) resetGallery();
             romsStore.setCurrentPlatform(platform);
-            document.title = `${platform.display_name}`;
+            document.title = platform.display_name;
             await fetchRoms();
           }
         } else {
@@ -215,7 +215,7 @@ onBeforeRouteUpdate(async (to, from) => {
         ) {
           if (currentPlatform.value) resetGallery();
           romsStore.setCurrentPlatform(platform);
-          document.title = `${platform.display_name}`;
+          document.title = platform.display_name;
           await fetchRoms();
         } else {
           noPlatformError.value = true;
