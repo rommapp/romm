@@ -16,18 +16,18 @@ const { allPlatforms } = storeToRefs(platformsStore);
 const orderBy = ref<"name" | "size" | "count">("name");
 
 const sortedPlatforms = computed(() => {
-  const platforms = [...allPlatforms.value];
   if (orderBy.value === "size") {
-    return platforms.sort(
+    return allPlatforms.value.sort(
       (a, b) => Number(b.fs_size_bytes) - Number(a.fs_size_bytes),
     );
   }
   if (orderBy.value === "count") {
-    return platforms.sort((a, b) => b.rom_count - a.rom_count);
+    return allPlatforms.value.sort((a, b) => b.rom_count - a.rom_count);
   }
-  // Default to name
-  return platforms.sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  return allPlatforms.value.sort((a, b) =>
+    a.display_name.localeCompare(b.display_name, undefined, {
+      sensitivity: "base",
+    }),
   );
 });
 
