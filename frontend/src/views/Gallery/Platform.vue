@@ -168,28 +168,26 @@ onMounted(async () => {
     () => filteredPlatforms.value,
     async (platforms) => {
       if (platforms.length > 0) {
-        if (platforms.some((platform) => platform.id === routePlatformId)) {
-          const platform = platforms.find(
-            (platform) => platform.id === routePlatformId,
-          );
+        const platform = platforms.find(
+          (platform) => platform.id === routePlatformId,
+        );
 
-          // Check if the current platform is different or no ROMs have been loaded
-          if (
-            (currentPlatform.value?.id !== routePlatformId ||
-              allRoms.value.length === 0) &&
-            platform
-          ) {
-            if (currentPlatform.value) resetGallery();
-            romsStore.setCurrentPlatform(platform);
-            document.title = platform.display_name;
-            await fetchRoms();
-          }
-        } else {
-          noPlatformError.value = true;
+        // Check if the current platform is different or no ROMs have been loaded
+        if (
+          platform &&
+          (currentPlatform.value?.id !== routePlatformId ||
+            allRoms.value.length === 0)
+        ) {
+          if (currentPlatform.value) resetGallery();
+          romsStore.setCurrentPlatform(platform);
+          document.title = platform.display_name;
+          await fetchRoms();
         }
+      } else {
+        noPlatformError.value = true;
       }
     },
-    { immediate: true }, // Ensure watcher is triggered immediately
+    { immediate: true },
   );
 });
 
