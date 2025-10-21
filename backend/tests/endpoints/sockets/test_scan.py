@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+import socketio
 
 from endpoints.sockets.scan import ScanStats, _should_scan_rom
 from handler.scan_handler import ScanType
@@ -13,61 +14,62 @@ def test_scan_stats():
     assert stats.new_platforms == 0
     assert stats.identified_platforms == 0
     assert stats.scanned_roms == 0
-    assert stats.added_roms == 0
+    assert stats.new_roms == 0
     assert stats.identified_roms == 0
     assert stats.scanned_firmware == 0
-    assert stats.added_firmware == 0
+    assert stats.new_firmware == 0
 
     stats.scanned_platforms += 1
     stats.new_platforms += 1
     stats.identified_platforms += 1
     stats.scanned_roms += 1
-    stats.added_roms += 1
+    stats.new_roms += 1
     stats.identified_roms += 1
     stats.scanned_firmware += 1
-    stats.added_firmware += 1
+    stats.new_firmware += 1
 
     assert stats.scanned_platforms == 1
     assert stats.new_platforms == 1
     assert stats.identified_platforms == 1
     assert stats.scanned_roms == 1
-    assert stats.added_roms == 1
+    assert stats.new_roms == 1
     assert stats.identified_roms == 1
     assert stats.scanned_firmware == 1
-    assert stats.added_firmware == 1
+    assert stats.new_firmware == 1
 
 
-def test_merging_scan_stats():
+async def test_merging_scan_stats():
     stats = ScanStats(
         scanned_platforms=1,
         new_platforms=2,
         identified_platforms=3,
         scanned_roms=4,
-        added_roms=5,
+        new_roms=5,
         identified_roms=6,
         scanned_firmware=7,
-        added_firmware=8,
+        new_firmware=8,
     )
 
-    stats.update(
+    await stats.update(
+        socket_manager=Mock(spec=socketio.AsyncRedisManager),
         scanned_platforms=stats.scanned_platforms + 10,
         new_platforms=stats.new_platforms + 11,
         identified_platforms=stats.identified_platforms + 12,
         scanned_roms=stats.scanned_roms + 13,
-        added_roms=stats.added_roms + 14,
+        new_roms=stats.new_roms + 14,
         identified_roms=stats.identified_roms + 15,
         scanned_firmware=stats.scanned_firmware + 16,
-        added_firmware=stats.added_firmware + 17,
+        new_firmware=stats.new_firmware + 17,
     )
 
     assert stats.scanned_platforms == 11
     assert stats.new_platforms == 13
     assert stats.identified_platforms == 15
     assert stats.scanned_roms == 17
-    assert stats.added_roms == 19
+    assert stats.new_roms == 19
     assert stats.identified_roms == 21
     assert stats.scanned_firmware == 23
-    assert stats.added_firmware == 25
+    assert stats.new_firmware == 25
 
 
 class TestShouldScanRom:
