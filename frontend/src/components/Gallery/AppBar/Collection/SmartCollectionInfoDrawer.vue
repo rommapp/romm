@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref, watch } from "vue";
+import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import CollectionCard from "@/components/common/Collection/Card.vue";
@@ -214,7 +214,7 @@ async function updateCollection() {
             <template v-for="field in collectionInfoFields" :key="field.key">
               <div>
                 <v-chip size="small" class="mr-2 px-0" label>
-                  <v-chip label>{{ field.label }} </v-chip>
+                  <v-chip label>{{ field.label }}</v-chip>
                   <span class="px-2">{{
                     currentSmartCollection[
                       field.key as keyof typeof currentSmartCollection
