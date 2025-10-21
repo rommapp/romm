@@ -279,19 +279,16 @@ async function updateRom({
   formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");
 
-  if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
-  if (rom.sgdb_id) formData.append("sgdb_id", rom.sgdb_id.toString());
-  if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
-  if (rom.ss_id) formData.append("ss_id", rom.ss_id.toString());
-  if (rom.launchbox_id)
-    formData.append("launchbox_id", rom.launchbox_id.toString());
-  if (rom.ra_id) formData.append("ra_id", rom.ra_id.toString());
-  if (rom.flashpoint_id)
-    formData.append("flashpoint_id", rom.flashpoint_id.toString());
-  if (rom.hasheous_id)
-    formData.append("hasheous_id", rom.hasheous_id.toString());
-  if (rom.tgdb_id) formData.append("tgdb_id", rom.tgdb_id.toString());
-  if (rom.hltb_id) formData.append("hltb_id", rom.hltb_id.toString());
+  formData.append("igdb_id", rom.igdb_id?.toString() || "");
+  formData.append("sgdb_id", rom.sgdb_id?.toString() || "");
+  formData.append("moby_id", rom.moby_id?.toString() || "");
+  formData.append("ss_id", rom.ss_id?.toString() || "");
+  formData.append("launchbox_id", rom.launchbox_id?.toString() || "");
+  formData.append("ra_id", rom.ra_id?.toString() || "");
+  formData.append("flashpoint_id", rom.flashpoint_id?.toString() || "");
+  formData.append("hasheous_id", rom.hasheous_id?.toString() || "");
+  formData.append("tgdb_id", rom.tgdb_id?.toString() || "");
+  formData.append("hltb_id", rom.hltb_id?.toString() || "");
 
   if (rom.raw_metadata?.igdb_metadata) {
     formData.append("raw_igdb_metadata", rom.raw_metadata.igdb_metadata);

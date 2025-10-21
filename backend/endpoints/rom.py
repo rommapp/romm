@@ -78,10 +78,12 @@ router = APIRouter(
 
 
 def parse_id_value(value: StarletteUploadFile | str | int | None) -> int | None:
-    if value is None or isinstance(value, StarletteUploadFile):
+    if not value or isinstance(value, StarletteUploadFile):
         return None
+
     if isinstance(value, int):
         return value
+
     return int(value)
 
 
