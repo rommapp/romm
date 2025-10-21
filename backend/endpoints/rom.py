@@ -1,4 +1,5 @@
 import binascii
+import json
 from base64 import b64encode
 from datetime import datetime, timezone
 from io import BytesIO
@@ -21,6 +22,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.datastructures import FormData
 from fastapi.responses import Response
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
@@ -56,12 +58,14 @@ from handler.metadata import (
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
+    meta_ra_handler,
     meta_ss_handler,
 )
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom
+from utils.database import safe_int
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
@@ -71,6 +75,18 @@ router = APIRouter(
     prefix="/roms",
     tags=["roms"],
 )
+
+
+def parse_raw_metadata(data: FormData, form_key: str) -> dict | None:
+    raw_json = data.get(form_key, None)
+    if not raw_json or str(raw_json).strip() == "":
+        return None
+
+    try:
+        return json.loads(str(raw_json))
+    except json.JSONDecodeError as e:
+        log.warning(f"Invalid JSON for {form_key}: {e}")
+        return None
 
 
 @protected_route(
@@ -704,6 +720,8 @@ async def update_rom(
                 "ss_id": None,
                 "ra_id": None,
                 "launchbox_id": None,
+                "hasheous_id": None,
+                "tgdb_id": None,
                 "flashpoint_id": None,
                 "hltb_id": None,
                 "name": rom.fs_name,
@@ -720,6 +738,7 @@ async def update_rom(
                 "ss_metadata": {},
                 "ra_metadata": {},
                 "launchbox_metadata": {},
+                "hasheous_metadata": {},
                 "flashpoint_metadata": {},
                 "hltb_metadata": {},
                 "revision": "",
@@ -733,73 +752,99 @@ async def update_rom(
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     cleaned_data: dict[str, Any] = {
-        "igdb_id": data.get("igdb_id", rom.igdb_id),
-        "moby_id": data.get("moby_id", rom.moby_id),
-        "ss_id": data.get("ss_id", rom.ss_id),
-        "launchbox_id": data.get("launchbox_id", rom.launchbox_id),
-        "flashpoint_id": data.get("flashpoint_id", rom.flashpoint_id),
+        "igdb_id": safe_int(data.get("igdb_id")) or rom.igdb_id,
+        "sgdb_id": safe_int(data.get("sgdb_id")) or rom.sgdb_id,
+        "moby_id": safe_int(data.get("moby_id")) or rom.moby_id,
+        "ss_id": safe_int(data.get("ss_id")) or rom.ss_id,
+        "ra_id": safe_int(data.get("ra_id")) or rom.ra_id,
+        "launchbox_id": safe_int(data.get("launchbox_id")) or rom.launchbox_id,
+        "hasheous_id": safe_int(data.get("hasheous_id")) or rom.hasheous_id,
+        "tgdb_id": safe_int(data.get("tgdb_id")) or rom.tgdb_id,
+        "flashpoint_id": safe_int(data.get("flashpoint_id")) or rom.flashpoint_id,
+        "hltb_id": safe_int(data.get("hltb_id")) or rom.hltb_id,
     }
 
+    # Add raw metadata parsing
+    raw_igdb_metadata = parse_raw_metadata(data, "raw_igdb_metadata")
+    raw_moby_metadata = parse_raw_metadata(data, "raw_moby_metadata")
+    raw_ss_metadata = parse_raw_metadata(data, "raw_ss_metadata")
+    raw_launchbox_metadata = parse_raw_metadata(data, "raw_launchbox_metadata")
+    raw_hasheous_metadata = parse_raw_metadata(data, "raw_hasheous_metadata")
+    raw_flashpoint_metadata = parse_raw_metadata(data, "raw_flashpoint_metadata")
+    raw_hltb_metadata = parse_raw_metadata(data, "raw_hltb_metadata")
+
+    if cleaned_data["igdb_id"] and raw_igdb_metadata is not None:
+        cleaned_data["igdb_metadata"] = raw_igdb_metadata
+    if cleaned_data["moby_id"] and raw_moby_metadata is not None:
+        cleaned_data["moby_metadata"] = raw_moby_metadata
+    if cleaned_data["ss_id"] and raw_ss_metadata is not None:
+        cleaned_data["ss_metadata"] = raw_ss_metadata
+    if cleaned_data["launchbox_id"] and raw_launchbox_metadata is not None:
+        cleaned_data["launchbox_metadata"] = raw_launchbox_metadata
+    if cleaned_data["hasheous_id"] and raw_hasheous_metadata is not None:
+        cleaned_data["hasheous_metadata"] = raw_hasheous_metadata
+    if cleaned_data["flashpoint_id"] and raw_flashpoint_metadata is not None:
+        cleaned_data["flashpoint_metadata"] = raw_flashpoint_metadata
+    if cleaned_data["hltb_id"] and raw_hltb_metadata is not None:
+        cleaned_data["hltb_metadata"] = raw_hltb_metadata
+
+    # Fetch metadata from external sources
     if (
-        cleaned_data.get("flashpoint_id", "")
-        and cleaned_data.get("flashpoint_id", "") != rom.flashpoint_id
+        cleaned_data["flashpoint_id"]
+        and cleaned_data["flashpoint_id"] != rom.flashpoint_id
     ):
         flashpoint_rom = await meta_flashpoint_handler.get_rom_by_id(
             cleaned_data["flashpoint_id"]
         )
         cleaned_data.update(flashpoint_rom)
+    elif rom.flashpoint_id and not cleaned_data["flashpoint_id"]:
+        cleaned_data.update({"flashpoint_id": None, "flashpoint_metadata": {}})
 
     if (
-        cleaned_data.get("launchbox_id", "")
-        and int(cleaned_data.get("launchbox_id", "")) != rom.launchbox_id
+        cleaned_data["launchbox_id"]
+        and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
     ):
         launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
             cleaned_data["launchbox_id"]
         )
         cleaned_data.update(launchbox_rom)
-        path_screenshots = await fs_resource_handler.get_rom_screenshots(
-            rom=rom,
-            url_screenshots=cleaned_data.get("url_screenshots", []),
-        )
-        cleaned_data.update({"path_screenshots": path_screenshots})
+    elif rom.launchbox_id and not cleaned_data["launchbox_id"]:
+        cleaned_data.update({"launchbox_id": None, "launchbox_metadata": {}})
 
-    if (
-        cleaned_data.get("moby_id", "")
-        and int(cleaned_data.get("moby_id", "")) != rom.moby_id
-    ):
+    if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
+        ra_rom = await meta_ra_handler.get_rom_by_id(rom, ra_id=cleaned_data["ra_id"])
+        cleaned_data.update(ra_rom)
+    elif rom.ra_id and not cleaned_data["ra_id"]:
+        cleaned_data.update({"ra_id": None, "ra_metadata": {}})
+
+    if cleaned_data["moby_id"] and int(cleaned_data["moby_id"]) != rom.moby_id:
         moby_rom = await meta_moby_handler.get_rom_by_id(
             int(cleaned_data.get("moby_id", ""))
         )
         cleaned_data.update(moby_rom)
-        path_screenshots = await fs_resource_handler.get_rom_screenshots(
-            rom=rom,
-            url_screenshots=cleaned_data.get("url_screenshots", []),
-        )
-        cleaned_data.update({"path_screenshots": path_screenshots})
+    elif rom.moby_id and not cleaned_data["moby_id"]:
+        cleaned_data.update({"moby_id": None, "moby_metadata": {}})
 
-    if (
-        cleaned_data.get("ss_id", "")
-        and int(cleaned_data.get("ss_id", "")) != rom.ss_id
-    ):
+    if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
         ss_rom = await meta_ss_handler.get_rom_by_id(cleaned_data["ss_id"])
         cleaned_data.update(ss_rom)
-        path_screenshots = await fs_resource_handler.get_rom_screenshots(
-            rom=rom,
-            url_screenshots=cleaned_data.get("url_screenshots", []),
-        )
-        cleaned_data.update({"path_screenshots": path_screenshots})
+    elif rom.ss_id and not cleaned_data["ss_id"]:
+        cleaned_data.update({"ss_id": None, "ss_metadata": {}})
 
-    if (
-        cleaned_data.get("igdb_id", "")
-        and int(cleaned_data.get("igdb_id", "")) != rom.igdb_id
-    ):
+    if cleaned_data["igdb_id"] and int(cleaned_data["igdb_id"]) != rom.igdb_id:
         igdb_rom = await meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
+    elif rom.igdb_id and not cleaned_data["igdb_id"]:
+        cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
+
+    if cleaned_data.get("url_screenshots", []):
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
-        cleaned_data.update({"path_screenshots": path_screenshots})
+        cleaned_data.update(
+            {"path_screenshots": path_screenshots, "url_screenshots": []}
+        )
 
     cleaned_data.update(
         {

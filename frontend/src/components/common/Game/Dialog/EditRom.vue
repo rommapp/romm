@@ -14,13 +14,15 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage } from "@/utils/covers";
+import MetadataIdSection from "./EditRom/MetadataIdSection.vue";
+import MetadataSections from "./EditRom/MetadataSections.vue";
 
 const { t } = useI18n();
 const { lgAndUp } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);
-const rom = ref<UpdateRom>();
+const rom = ref<UpdateRom | null>(null);
 const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
@@ -31,14 +33,17 @@ const uploadStore = storeUpload();
 const validForm = ref(false);
 const showConfirmDeleteManual = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
+
+emitter?.on("showEditRomDialog", (romToEdit: SimpleRom) => {
   show.value = true;
   rom.value = romToEdit;
   removeCover.value = false;
 });
+
 emitter?.on("updateUrlCover", (url_cover) => {
   setArtwork(url_cover);
 });
+
 const computedAspectRatio = computed(() => {
   const ratio = rom.value?.platform_id
     ? platfotmsStore.getAspectRatio(rom.value?.platform_id)
@@ -218,9 +223,13 @@ async function updateRom() {
 
 function closeDialog() {
   show.value = false;
+  rom.value = null;
   imagePreviewUrl.value = "";
-  rom.value = undefined;
   showConfirmDeleteManual.value = false;
+}
+
+function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
+  rom.value = updatedRom;
 }
 </script>
 
@@ -269,10 +278,10 @@ function closeDialog() {
                   >
                     <v-icon size="large"> mdi-pencil </v-icon>
                     <v-file-input
+                      hide-details
                       id="cover-file-input"
                       v-model="rom.artwork"
                       accept="image/*"
-                      hide-details
                       class="file-input"
                       @change="previewImage"
                     />
@@ -292,14 +301,16 @@ function closeDialog() {
           </v-col>
           <v-col class="pa-4">
             <v-text-field
+              hide-details
               v-model="rom.name"
               :rules="[(value: string) => !!value || t('common.required')]"
               :label="t('common.name')"
               variant="outlined"
-              class="my-2"
               @keyup.enter="updateRom"
+              class="my-4"
             />
             <v-text-field
+              hide-details
               v-model="rom.fs_name"
               :rules="[(value: string) => !!value || t('common.required')]"
               :label="
@@ -308,11 +319,11 @@ function closeDialog() {
                   : t('rom.filename')
               "
               variant="outlined"
-              class="my-2"
               @keyup.enter="updateRom"
+              class="my-4"
             >
               <template #details>
-                <v-label class="text-caption text-wrap">
+                <v-label class="text-caption text-wrap mt-1">
                   <v-icon size="small" class="text-primary mr-2">
                     mdi-folder-file-outline
                   </v-icon>
@@ -323,67 +334,61 @@ function closeDialog() {
               </template>
             </v-text-field>
             <v-textarea
+              hide-details
               v-model="rom.summary"
               :label="t('rom.summary')"
               variant="outlined"
-              class="my-2"
+              class="my-4"
             />
-            <v-chip
-              :variant="rom.has_manual ? 'flat' : 'tonal'"
-              label
-              size="large"
-              class="bg-toplayer px-0"
-            >
-              <span
-                class="ml-4 flex items-center"
-                :class="{
-                  'text-romm-red': !rom.has_manual,
-                  'text-romm-green': rom.has_manual,
-                }"
+
+            <div class="d-flex justify-space-between">
+              <v-chip
+                :variant="rom.has_manual ? 'flat' : 'tonal'"
+                label
+                class="bg-toplayer px-0"
               >
-                {{ t("rom.manual") }}
-                <v-icon class="ml-1">
-                  {{ rom.has_manual ? "mdi-check" : "mdi-close" }}
-                </v-icon>
-              </span>
-              <v-btn
-                class="bg-toplayer ml-3"
-                icon="mdi-cloud-upload-outline"
-                rounded="0"
-                size="small"
-                @click="triggerFileInput('manual-file-input')"
-              >
-                <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
-                <v-file-input
-                  id="manual-file-input"
-                  v-model="manualFiles"
-                  accept="application/pdf"
-                  hide-details
-                  multiple
-                  class="file-input"
-                  @change="uploadManuals"
+                <span
+                  class="ml-4 flex items-center"
+                  :class="{
+                    'text-romm-red': !rom.has_manual,
+                    'text-romm-green': rom.has_manual,
+                  }"
+                >
+                  {{ t("rom.manual") }}
+                  <v-icon class="ml-1">
+                    {{ rom.has_manual ? "mdi-check" : "mdi-close" }}
+                  </v-icon>
+                </span>
+                <v-btn
+                  class="bg-toplayer ml-3"
+                  icon="mdi-cloud-upload-outline"
+                  rounded="0"
+                  size="small"
+                  @click="triggerFileInput('manual-file-input')"
+                >
+                  <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
+                  <v-file-input
+                    id="manual-file-input"
+                    v-model="manualFiles"
+                    accept="application/pdf"
+                    hide-details
+                    multiple
+                    class="file-input"
+                    @change="uploadManuals"
+                  />
+                </v-btn>
+                <v-btn
+                  v-if="rom.has_manual"
+                  size="small"
+                  class="bg-toplayer text-romm-red"
+                  icon="mdi-delete"
+                  rounded="0"
+                  @click="confirmRemoveManual"
                 />
-              </v-btn>
-              <v-btn
-                v-if="rom.has_manual"
-                size="small"
-                class="bg-toplayer text-romm-red"
-                icon="mdi-delete"
-                rounded="0"
-                @click="confirmRemoveManual"
-              />
-            </v-chip>
-            <div v-if="rom.has_manual">
-              <v-label class="text-caption text-wrap">
-                <v-icon size="small" class="text-primary mr-2">
-                  mdi-folder-file-outline
-                </v-icon>
-                <span> /romm/resources/{{ rom.path_manual }} </span>
-              </v-label>
-            </div>
-            <div class="mt-6">
+              </v-chip>
               <v-btn
                 :disabled="rom.is_unidentified"
+                class="ml-2"
                 :class="{
                   'text-romm-red bg-toplayer': !rom.is_unidentified,
                 }"
@@ -393,15 +398,33 @@ function closeDialog() {
                 {{ t("rom.unmatch") }}
               </v-btn>
             </div>
+            <div v-if="rom.has_manual">
+              <v-label class="text-caption text-wrap">
+                <v-icon size="small" class="text-primary mr-2">
+                  mdi-folder-file-outline
+                </v-icon>
+                <span> /romm/resources/{{ rom.path_manual }} </span>
+              </v-label>
+            </div>
           </v-col>
         </v-row>
+        <v-expansion-panels class="mt-6">
+          <MetadataIdSection
+            :rom="rom"
+            @update:rom="handleRomUpdateFromMetadata"
+          />
+          <MetadataSections
+            :rom="rom"
+            @update:rom="handleRomUpdateFromMetadata"
+          />
+        </v-expansion-panels>
       </v-form>
     </template>
     <template #append>
       <v-divider />
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog">
+          <v-btn class="text-romm-red bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn

@@ -167,7 +167,7 @@ def extract_hltb_metadata(game: HLTBGame) -> HLTBMetadata:
 GITHUB_FILE_URL = "https://raw.githubusercontent.com/rommapp/romm/refs/heads/master/backend/handler/metadata/fixtures/hltb_api_url"
 
 
-class HowLongToBeatHandler(MetadataHandler):
+class HLTBHandler(MetadataHandler):
     """
     Handler for HowLongToBeat, a service that provides game completion times.
     """
