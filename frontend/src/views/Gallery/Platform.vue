@@ -182,9 +182,9 @@ onMounted(async () => {
           romsStore.setCurrentPlatform(platform);
           document.title = platform.display_name;
           await fetchRoms();
+        } else {
+          noPlatformError.value = true;
         }
-      } else {
-        noPlatformError.value = true;
       }
     },
     { immediate: true },
