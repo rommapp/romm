@@ -1,19 +1,15 @@
 import { defineStore } from "pinia";
 import type { SimpleRom } from "@/stores/roms";
+import type { Platform } from "./platforms";
 
-interface ScanningPlatforms {
-  name: string;
-  slug: string;
-  fs_slug: string;
-  id: number;
-  is_identified: boolean;
+interface ScanningPlatform extends Partial<Platform> {
   roms: SimpleRom[];
 }
 
 export default defineStore("scanning", {
   state: () => ({
     scanning: false,
-    scanningPlatforms: [] as ScanningPlatforms[],
+    scanningPlatforms: [] as ScanningPlatform[],
     scanStats: {
       scanned_platforms: 0,
       new_platforms: 0,
@@ -30,7 +26,7 @@ export default defineStore("scanning", {
     },
     reset() {
       this.scanning = false;
-      this.scanningPlatforms = [] as ScanningPlatforms[];
+      this.scanningPlatforms = [] as ScanningPlatform[];
       this.scanStats = {
         scanned_platforms: 0,
         new_platforms: 0,
