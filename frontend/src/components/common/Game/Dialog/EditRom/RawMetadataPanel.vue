@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { inject } from "vue";
 import type { UpdateRom } from "@/services/api/rom";
 import type { Events } from "@/types/emitter";
 
 interface Props {
   rom: UpdateRom;
-  metadataType: string;
   metadataField: keyof UpdateRom;
   iconSrc: string;
   label: string;
@@ -23,19 +22,13 @@ const emit = defineEmits<{
 const isEditing = ref(false);
 const metadataJson = ref("");
 
-// Initialize metadata JSON when component mounts or rom changes
 const initializeMetadata = () => {
   const metadata = props.rom[props.metadataField];
   metadataJson.value = metadata ? JSON.stringify(metadata, null, 2) : "";
   isEditing.value = false;
 };
 
-// Initialize on mount
-initializeMetadata();
-
-// Watch for rom changes
-const currentRom = computed(() => props.rom);
-currentRom.value && initializeMetadata();
+onMounted(() => initializeMetadata());
 
 const validateJson = (value: string): boolean | string => {
   if (!value || value.trim() === "") return true;
@@ -58,27 +51,24 @@ const cancelEdit = () => {
 };
 
 const saveMetadata = () => {
-  if (!props.rom) return;
-
-  const jsonValue = metadataJson.value;
-
-  if (!jsonValue || jsonValue.trim() === "") {
+  if (!metadataJson.value || metadataJson.value.trim() === "") {
     emit("update:rom", {
       ...props.rom,
       raw_metadata: { ...props.rom.raw_metadata, [props.metadataField]: "{}" },
     });
+    isEditing.value = false;
     return;
   }
 
   try {
-    JSON.parse(jsonValue);
+    JSON.parse(metadataJson.value);
 
     // Update the ROM with raw metadata
     const updatedRom = {
       ...props.rom,
       raw_metadata: {
         ...props.rom.raw_metadata,
-        [props.metadataField]: jsonValue,
+        [props.metadataField]: metadataJson.value,
       },
     };
 

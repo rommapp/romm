@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import type { UpdateRom } from "@/services/api/rom";
 
-interface Props {
-  rom: UpdateRom;
-}
-
-const props = defineProps<Props>();
+const props = defineProps<{ rom: UpdateRom }>();
 
 const emit = defineEmits<{
   "update:rom": [rom: UpdateRom];
