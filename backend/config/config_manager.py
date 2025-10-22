@@ -66,6 +66,7 @@ class Config:
     SCAN_ARTWORK_PRIORITY: list[str]
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
+    SCAN_ARTWORK_COVER_STYLE: str
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -242,6 +243,11 @@ class ConfigManager:
                 "scan.priority.language",
                 ["en", "fr"],
             ),
+            SCAN_ARTWORK_COVER_STYLE=pydash.get(
+                self._raw_config,
+                "scan.artwork.cover_style",
+                "box2d",
+            ).lower(),
         )
 
     def _get_ejs_controls(self) -> dict[str, EjsControls]:
@@ -420,6 +426,12 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.priority.language must be a list")
             sys.exit(3)
 
+        if not isinstance(self.config.SCAN_ARTWORK_COVER_STYLE, str):
+            log.critical(
+                "Invalid config.yml: scan.artwork.cover_style must be a string"
+            )
+            sys.exit(3)
+
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
@@ -474,6 +486,9 @@ class ConfigManager:
                     "artwork": self.config.SCAN_ARTWORK_PRIORITY,
                     "region": self.config.SCAN_REGION_PRIORITY,
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
+                },
+                "artwork": {
+                    "cover_style": self.config.SCAN_ARTWORK_COVER_STYLE,
                 },
             },
         }

@@ -41,6 +41,12 @@ def get_preferred_languages() -> list[str]:
     return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY + ["en", "fr"]))
 
 
+def get_cover_style() -> str:
+    """Get cover art style from config"""
+    config = cm.get_config()
+    return config.SCAN_ARTWORK_COVER_STYLE
+
+
 PS1_SS_ID: Final = 57
 PS2_SS_ID: Final = 58
 PSP_SS_ID: Final = 61
@@ -132,27 +138,27 @@ class SSAgeRating(TypedDict):
     rating_cover_url: str
 
 
-class SSMedia(TypedDict):
-    backcover: str | None  # box-2D-back
+class SSMetadataMedia(TypedDict):
     bezel: str | None  # bezel-16-9
-    cover: str | None  # box-2D
+    box2d: str | None  # box-2D
+    box2d_side: str | None  # box-2D-side
+    box2d_back: str | None  # box-2D-back
+    box3d: str | None  # box-3D
     fanart: str | None  # fanart
     fullbox: str | None  # box-texture
     logo: str | None  # wheel-hd
     manual: str | None  # manual
     marquee: str | None  # screenmarquee
     miximage: str | None  # mixrbv1 | mixrbv2
-    physicalmedia: str | None  # support-texture | support-2D
+    physical: str | None  # support-texture | support-2D
     screenshot: str | None  # ss
-    sidecover: str | None  # box-2D-side
     steamgrid: str | None  # steamgrid
-    threedbox: str | None  # box-3D
     title_screen: str | None  # sstitle
     video: str | None  # video
     video_normalized: str | None  # video-normalized
 
 
-class SSMetadata(TypedDict):
+class SSMetadata(SSMetadataMedia):
     ss_score: str
     first_release_date: int | None
     alternative_names: list[str]
@@ -160,7 +166,6 @@ class SSMetadata(TypedDict):
     franchises: list[str]
     game_modes: list[str]
     genres: list[str]
-    media: SSMedia
 
 
 class SSRom(BaseRom):
@@ -168,22 +173,22 @@ class SSRom(BaseRom):
     ss_metadata: NotRequired[SSMetadata]
 
 
-def extract_media_from_ss_rom(game: SSGame) -> SSMedia:
-    ss_media = SSMedia(
-        backcover=None,
+def extract_media_from_ss_rom(game: SSGame) -> SSMetadataMedia:
+    ss_media = SSMetadataMedia(
         bezel=None,
-        cover=None,
+        box2d=None,
+        box2d_back=None,
+        box2d_side=None,
+        box3d=None,
         fanart=None,
         fullbox=None,
         logo=None,
         manual=None,
         marquee=None,
         miximage=None,
-        physicalmedia=None,
+        physical=None,
         screenshot=None,
-        sidecover=None,
         steamgrid=None,
-        threedbox=None,
         title_screen=None,
         video=None,
         video_normalized=None,
@@ -194,12 +199,12 @@ def extract_media_from_ss_rom(game: SSGame) -> SSMedia:
             if not media.get("region") == region or media.get("parent") != "jeu":
                 continue
 
-            if media.get("type") == "box-2D-back" and not ss_media["backcover"]:
-                ss_media["backcover"] = media["url"]
+            if media.get("type") == "box-2D-back" and not ss_media["box2d_back"]:
+                ss_media["box2d_back"] = media["url"]
             elif media.get("type") == "bezel-16-9" and not ss_media["bezel"]:
                 ss_media["bezel"] = media["url"]
-            elif media.get("type") == "box-2D" and not ss_media["cover"]:
-                ss_media["cover"] = media["url"]
+            elif media.get("type") == "box-2D" and not ss_media["box2d"]:
+                ss_media["box2d"] = media["url"]
             elif media.get("type") == "fanart" and not ss_media["fanart"]:
                 ss_media["fanart"] = media["url"]
             elif media.get("type") == "box-texture" and not ss_media["fullbox"]:
@@ -217,16 +222,16 @@ def extract_media_from_ss_rom(game: SSGame) -> SSMedia:
             elif (
                 media.get("type") == "support-texture"
                 or media.get("type") == "support-2D"
-            ) and not ss_media["physicalmedia"]:
-                ss_media["physicalmedia"] = media["url"]
+            ) and not ss_media["physical"]:
+                ss_media["physical"] = media["url"]
             elif media.get("type") == "ss" and not ss_media["screenshot"]:
                 ss_media["screenshot"] = media["url"]
-            elif media.get("type") == "box-2D-side" and not ss_media["sidecover"]:
-                ss_media["sidecover"] = media["url"]
+            elif media.get("type") == "box-2D-side" and not ss_media["box2d_side"]:
+                ss_media["box2d_side"] = media["url"]
             elif media.get("type") == "steamgrid" and not ss_media["steamgrid"]:
                 ss_media["steamgrid"] = media["url"]
-            elif media.get("type") == "box-3D" and not ss_media["threedbox"]:
-                ss_media["threedbox"] = media["url"]
+            elif media.get("type") == "box-3D" and not ss_media["box3d"]:
+                ss_media["box3d"] = media["url"]
             elif media.get("type") == "sstitle" and not ss_media["title_screen"]:
                 ss_media["title_screen"] = media["url"]
             elif media.get("type") == "video" and not ss_media["video"]:
@@ -241,6 +246,8 @@ def extract_media_from_ss_rom(game: SSGame) -> SSMedia:
 
 
 def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
+    preferred_languages = get_preferred_languages()
+
     def _normalize_score(score: str) -> str:
         """Normalize the score to be between 0 and 10 because for some reason Screenscraper likes to rate over 20."""
         try:
@@ -270,7 +277,6 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
         ]
 
     def _get_franchises(rom: SSGame) -> list[str]:
-        preferred_languages = get_preferred_languages()
         for lang in preferred_languages:
             franchises = [
                 franchise_name["text"]
@@ -283,7 +289,6 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
         return []
 
     def _get_game_modes(rom: SSGame) -> list[str]:
-        preferred_languages = get_preferred_languages()
         for lang in preferred_languages:
             modes = [
                 mode_name["text"]
@@ -309,7 +314,7 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
             "first_release_date": _get_lowest_date(rom.get("dates", [])),
             "franchises": _get_franchises(rom),
             "game_modes": _get_game_modes(rom),
-            "media": extract_media_from_ss_rom(rom),
+            **extract_media_from_ss_rom(rom),
         }
     )
 
@@ -344,7 +349,7 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if res_summary:
             break
 
-    url_cover = ss_media["threedbox"] or ss_media["cover"] or ""
+    url_cover = str(ss_media.get(get_cover_style(), "box2d"))
     url_screenshots = pydash.compact(
         [ss_media["screenshot"], ss_media["title_screen"], ss_media["miximage"]]
     )
@@ -354,7 +359,7 @@ def build_ss_rom(game: SSGame) -> SSRom:
         "ss_id": ss_id,
         "name": res_name.replace(" : ", ": "),  # Normalize colons
         "summary": res_summary,
-        "url_cover": url_cover,
+        "url_cover": url_cover or "",
         "url_manual": ss_media["manual"] or "",
         "url_screenshots": url_screenshots,
         "ss_metadata": ss_metadata,
