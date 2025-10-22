@@ -150,7 +150,7 @@ class SSMetadataMedia(TypedDict):
     manual: str | None  # manual
     marquee: str | None  # screenmarquee
     miximage: str | None  # mixrbv1 | mixrbv2
-    physical: str | None  # support-texture | support-2D
+    physical: str | None  # support-2D
     screenshot: str | None  # ss
     steamgrid: str | None  # steamgrid
     title_screen: str | None  # sstitle
@@ -216,13 +216,13 @@ def extract_media_from_ss_rom(game: SSGame) -> SSMetadataMedia:
             elif media.get("type") == "screenmarquee" and not ss_media["marquee"]:
                 ss_media["marquee"] = media["url"]
             elif (
-                media.get("type") == "miximage1" or media.get("type") == "miximage2"
+                media.get("type") == "miximage1"
+                or media.get("type") == "miximage2"
+                or media.get("type") == "mixrbv1"
+                or media.get("type") == "mixrbv2"
             ) and not ss_media["miximage"]:
                 ss_media["miximage"] = media["url"]
-            elif (
-                media.get("type") == "support-texture"
-                or media.get("type") == "support-2D"
-            ) and not ss_media["physical"]:
+            elif media.get("type") == "support-2D" and not ss_media["physical"]:
                 ss_media["physical"] = media["url"]
             elif media.get("type") == "ss" and not ss_media["screenshot"]:
                 ss_media["screenshot"] = media["url"]

@@ -2,7 +2,7 @@ import os
 import uuid
 from pathlib import Path
 from typing import NotRequired, TypedDict
-from xml.etree.ElementTree import Element
+from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 
 import pydash
 from defusedxml import ElementTree as ET

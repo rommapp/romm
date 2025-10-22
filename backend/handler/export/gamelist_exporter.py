@@ -1,7 +1,12 @@
 import os
 from datetime import datetime
 from typing import Dict, List, Optional
-from xml.etree.ElementTree import Element, SubElement, indent, tostring
+from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
+    Element,
+    SubElement,
+    indent,
+    tostring,
+)
 
 from config import YOUTUBE_BASE_URL
 from handler.database import db_platform_handler, db_rom_handler

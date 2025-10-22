@@ -343,7 +343,7 @@ watch(
               @click="exportGamelist"
             >
               <v-icon class="text-romm-blue mr-2"> mdi-download </v-icon>
-              {{ t("platform.export-gamelist") }}
+              {{ t("platform.export") }} gamelist.xml
             </v-btn>
           </div>
         </div>
