@@ -1,5 +1,6 @@
 import gzip
 import os
+import shutil
 from io import BytesIO
 from pathlib import Path
 
@@ -71,9 +72,6 @@ class FSResourcesHandler(FSHandler):
         # Handle file:// URLs for gamelist.xml
         if url_cover.startswith("file://"):
             try:
-                import shutil
-                from pathlib import Path
-
                 file_path = Path(url_cover[7:])  # Remove "file://" prefix
                 if file_path.exists():
                     # Copy the file to the resources directory
@@ -242,9 +240,6 @@ class FSResourcesHandler(FSHandler):
         # Handle file:// URLs for gamelist.xml
         if url_screenhot.startswith("file://"):
             try:
-                import shutil
-                from pathlib import Path
-
                 file_path = Path(url_screenhot[7:])  # Remove "file://" prefix
                 if file_path.exists():
                     # Copy the file to the resources directory
@@ -328,33 +323,52 @@ class FSResourcesHandler(FSHandler):
         manual_path = f"{rom.fs_resources_path}/manual"
         await self.make_directory(manual_path)
 
-        httpx_client = ctx_httpx_client.get()
-        try:
-            async with httpx_client.stream("GET", url_manual, timeout=120) as response:
-                if response.status_code == status.HTTP_200_OK:
-                    # Check if content is gzipped from response headers
-                    is_gzipped = (
-                        response.headers.get("content-encoding", "").lower() == "gzip"
-                    )
+        # Handle file:// URLs for gamelist.xml
+        if url_manual.startswith("file://"):
+            try:
+                file_path = Path(url_manual[7:])  # Remove "file://" prefix
+                if file_path.exists():
+                    # Copy the file to the resources directory
+                    dest_path = self.validate_path(f"{manual_path}/{rom.id}.pdf")
+                    shutil.copy2(file_path, dest_path)
+                else:
+                    log.warning(f"Manual file not found: {file_path}")
+                    return None
+            except Exception as exc:
+                log.error(f"Unable to copy manual file {url_manual}: {str(exc)}")
+                return None
+        else:
+            # Handle HTTP URL
+            httpx_client = ctx_httpx_client.get()
+            try:
+                async with httpx_client.stream(
+                    "GET", url_manual, timeout=120
+                ) as response:
+                    if response.status_code == status.HTTP_200_OK:
+                        # Check if content is gzipped from response headers
+                        is_gzipped = (
+                            response.headers.get("content-encoding", "").lower()
+                            == "gzip"
+                        )
 
-                    async with await self.write_file_streamed(
-                        path=manual_path, filename=f"{rom.id}.pdf"
-                    ) as f:
-                        if is_gzipped:
-                            # Decompress gzipped content
-                            content = await response.aread()
-                            try:
-                                decompressed_content = gzip.decompress(content)
-                                await f.write(decompressed_content)
-                            except gzip.BadGzipFile:
-                                await f.write(content)
-                        else:
-                            # Content is not gzipped, stream directly
-                            async for chunk in response.aiter_raw():
-                                await f.write(chunk)
-        except httpx.TransportError as exc:
-            log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
-            return None
+                        async with await self.write_file_streamed(
+                            path=manual_path, filename=f"{rom.id}.pdf"
+                        ) as f:
+                            if is_gzipped:
+                                # Decompress gzipped content
+                                content = await response.aread()
+                                try:
+                                    decompressed_content = gzip.decompress(content)
+                                    await f.write(decompressed_content)
+                                except gzip.BadGzipFile:
+                                    await f.write(content)
+                            else:
+                                # Content is not gzipped, stream directly
+                                async for chunk in response.aiter_raw():
+                                    await f.write(chunk)
+            except httpx.TransportError as exc:
+                log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
+                return None
 
     def _get_manual_path(self, rom: Rom) -> str | None:
         """Returns rom manual filesystem path adapted to frontend folder structure

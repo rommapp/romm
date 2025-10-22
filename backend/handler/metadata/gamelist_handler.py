@@ -7,6 +7,7 @@ from xml.etree.ElementTree import Element
 import pydash
 from defusedxml import ElementTree as ET
 
+from config.config_manager import config_manager as cm
 from handler.filesystem import fs_platform_handler
 from logger.logger import log
 from models.platform import Platform
@@ -16,23 +17,23 @@ from .base_handler import BaseRom, MetadataHandler
 # https://github.com/Aloshi/EmulationStation/blob/master/GAMELISTS.md#reference
 
 
-class GamelistMedia(TypedDict):
-    backcover: str | None
-    cover: str | None
+class GamelistMetadataMedia(TypedDict):
+    box2d: str | None
+    box2d_back: str | None
+    box3d: str | None
     fanart: str | None
     image: str | None
     manual: str | None
     marquee: str | None
     miximage: str | None
-    physicalmedia: str | None
+    physical: str | None
     screenshot: str | None
-    threedbox: str | None
     thumbnail: str | None
     title_screen: str | None
     video: str | None
 
 
-class GamelistMetadata(TypedDict):
+class GamelistMetadata(GamelistMetadataMedia):
     rating: float | None
     first_release_date: str | None
     companies: list[str] | None
@@ -40,7 +41,6 @@ class GamelistMetadata(TypedDict):
     genres: list[str] | None
     player_count: str | None
     md5_hash: str | None
-    media: GamelistMedia
 
 
 class GamelistRom(BaseRom):
@@ -50,22 +50,28 @@ class GamelistRom(BaseRom):
     gamelist_metadata: NotRequired[GamelistMetadata]
 
 
-def extract_media_from_gamelist_rom(game: Element) -> GamelistMedia:
+def get_cover_style() -> str:
+    """Get cover art style from config"""
+    config = cm.get_config()
+    return config.SCAN_ARTWORK_COVER_STYLE
+
+
+def extract_media_from_gamelist_rom(game: Element) -> GamelistMetadataMedia:
     image_elem = game.find("image")
     video_elem = game.find("video")
-    threedbox_elem = game.find("box3d")
-    backcover_elem = game.find("backcover")
-    cover_elem = game.find("cover")
+    box3d_elem = game.find("box3d")
+    box2d_back_elem = game.find("backcover")
+    box2d_elem = game.find("cover")
     fanart_elem = game.find("fanart")
     manual_elem = game.find("manual")
     marquee_elem = game.find("marquee")
     miximage_elem = game.find("miximage")
-    physicalmedia_elem = game.find("physicalmedia")
+    physical_elem = game.find("physicalmedia")
     screenshot_elem = game.find("screenshot")
     title_screen_elem = game.find("title_screen")
     thumbnail_elem = game.find("thumbnail")
 
-    return GamelistMedia(
+    return GamelistMetadataMedia(
         image=(
             image_elem.text.replace("./", "")
             if image_elem is not None and image_elem.text
@@ -76,19 +82,19 @@ def extract_media_from_gamelist_rom(game: Element) -> GamelistMedia:
             if video_elem is not None and video_elem.text
             else None
         ),
-        threedbox=(
-            threedbox_elem.text.replace("./", "")
-            if threedbox_elem is not None and threedbox_elem.text
+        box2d=(
+            box2d_elem.text.replace("./", "")
+            if box2d_elem is not None and box2d_elem.text
             else None
         ),
-        backcover=(
-            backcover_elem.text.replace("./", "")
-            if backcover_elem is not None and backcover_elem.text
+        box2d_back=(
+            box2d_back_elem.text.replace("./", "")
+            if box2d_back_elem is not None and box2d_back_elem.text
             else None
         ),
-        cover=(
-            cover_elem.text.replace("./", "")
-            if cover_elem is not None and cover_elem.text
+        box3d=(
+            box3d_elem.text.replace("./", "")
+            if box3d_elem is not None and box3d_elem.text
             else None
         ),
         fanart=(
@@ -111,9 +117,9 @@ def extract_media_from_gamelist_rom(game: Element) -> GamelistMedia:
             if miximage_elem is not None and miximage_elem.text
             else None
         ),
-        physicalmedia=(
-            physicalmedia_elem.text.replace("./", "")
-            if physicalmedia_elem is not None and physicalmedia_elem.text
+        physical=(
+            physical_elem.text.replace("./", "")
+            if physical_elem is not None and physical_elem.text
             else None
         ),
         screenshot=(
@@ -179,7 +185,7 @@ def extract_metadata_from_gamelist_rom(game: Element) -> GamelistMetadata:
         genres=pydash.compact([genre]),
         player_count=players,
         md5_hash=md5,
-        media=extract_media_from_gamelist_rom(game),
+        **extract_media_from_gamelist_rom(game),
     )
 
 
@@ -266,28 +272,22 @@ class GamelistHandler(MetadataHandler):
                     platform.fs_slug
                 )
 
-                if rom_media["threedbox"]:
-                    threedbox_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['threedbox']}"
+                # Choose which cover style to use
+                cover_path = str(rom_media.get(get_cover_style(), "box2d"))
+                if cover_path:
+                    cover_path_path = fs_platform_handler.validate_path(
+                        f"{platform_dir}/{cover_path}"
                     )
-                    rom_data["url_cover"] = f"file://{str(threedbox_path)}"
-                elif rom_media["cover"]:
-                    cover_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['cover']}"
-                    )
-                    rom_data["url_cover"] = f"file://{str(cover_path)}"
-                elif rom_media["image"]:
-                    image_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['image']}"
-                    )
-                    rom_data["url_cover"] = f"file://{str(image_path)}"
+                    rom_data["url_cover"] = f"file://{str(cover_path_path)}"
 
+                # Grab the manual
                 if rom_media["manual"]:
                     manual_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{rom_media['manual']}"
                     )
                     rom_data["url_manual"] = f"file://{str(manual_path)}"
 
+                # Build list of screenshot URLs
                 url_screenshots = []
                 if rom_media["screenshot"]:
                     screenshot_path = fs_platform_handler.validate_path(
