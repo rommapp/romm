@@ -204,10 +204,22 @@ onUnmounted(() => {
         variant="tonal"
         class="my-2"
       >
-        <template #title> Configuration file not mounted </template>
+        <template #title>Configuration file not mounted!</template>
         <template #text>
-          The config.yml file is not mounted or writable. Any changes made to
-          the configuration will not persist after the application restarts.
+          The config.yml file has not been mounted. Any changes made to the
+          configuration will not persist after the application restarts.
+        </template>
+      </v-alert>
+      <v-alert
+        v-else-if="!config.CONFIG_FILE_WRITABLE"
+        type="warning"
+        variant="tonal"
+        class="my-2"
+      >
+        <template #title>Configuration file not writable!</template>
+        <template #text>
+          The config.yml file is not writable. Any changes made to the
+          configuration will not persist after the application restarts.
         </template>
       </v-alert>
       <v-tabs-window v-model="tab">

@@ -46,6 +46,7 @@ EjsOption = dict[str, str]  # option_name -> option_value
 
 class Config:
     CONFIG_FILE_MOUNTED: bool
+    CONFIG_FILE_WRITABLE: bool
     EXCLUDED_PLATFORMS: list[str]
     EXCLUDED_SINGLE_EXT: list[str]
     EXCLUDED_SINGLE_FILES: list[str]
@@ -82,6 +83,7 @@ class ConfigManager:
     _self = None
     _raw_config: dict = {}
     _config_file_mounted: bool = False
+    _config_file_writable: bool = False
 
     def __new__(cls, *args, **kwargs):
         if cls._self is None:
@@ -94,17 +96,20 @@ class ConfigManager:
         self.config_file = config_file
 
         try:
-            with open(self.config_file, "r+") as cf:
+            # Check if the config file is mounted
+            with open(self.config_file, "r") as cf:
                 self._config_file_mounted = True
                 self._raw_config = yaml.load(cf, Loader=SafeLoader) or {}
+
+            # Also check if the config file is writable
+            with open(self.config_file, "r+") as cf:
+                self._config_file_writable = True
         except FileNotFoundError:
-            self._config_file_mounted = False
             log.critical(
                 "Config file not found! Any changes made to the configuration will not persist after the application restarts."
             )
         except PermissionError:
-            self._config_file_mounted = False
-            log.critical(
+            log.warning(
                 "Config file not writable! Any changes made to the configuration will not persist after the application restarts."
             )
         finally:
@@ -159,6 +164,7 @@ class ConfigManager:
 
         self.config = Config(
             CONFIG_FILE_MOUNTED=self._config_file_mounted,
+            CONFIG_FILE_WRITABLE=self._config_file_writable,
             EXCLUDED_PLATFORMS=pydash.get(self._raw_config, "exclude.platforms", []),
             EXCLUDED_SINGLE_EXT=[
                 e.lower()
@@ -415,11 +421,10 @@ class ConfigManager:
 
     def get_config(self) -> Config:
         try:
-            with open(self.config_file, "r+") as config_file:
+            with open(self.config_file, "r") as config_file:
                 self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
-        except (FileNotFoundError, PermissionError):
-            log.debug("Config file not found or not writable")
-            pass
+        except FileNotFoundError:
+            log.debug("Config file not found!")
 
         self._parse_config()
         self._validate_config()
@@ -427,7 +432,7 @@ class ConfigManager:
         return self.config
 
     def _update_config_file(self) -> None:
-        if not self._config_file_mounted:
+        if not self._config_file_writable:
             log.warning("Config file not mounted, skipping config file update")
             raise ConfigNotWritableException
 
