@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { SSMedia } from './SSMedia';
 export type RomSSMetadata = {
     ss_score?: string;
     first_release_date?: (number | null);
@@ -10,5 +11,6 @@ export type RomSSMetadata = {
     franchises?: Array<string>;
     game_modes?: Array<string>;
     genres?: Array<string>;
+    media?: SSMedia;
 };
 

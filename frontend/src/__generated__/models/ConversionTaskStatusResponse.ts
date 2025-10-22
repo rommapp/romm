@@ -11,7 +11,7 @@ export type ConversionTaskStatusResponse = {
     queued_at: string;
     started_at: (string | null);
     ended_at: (string | null);
-    task_type: "conversion";
+    task_type: string;
     meta: ConversionTaskMeta;
 };
 

@@ -132,6 +132,26 @@ class SSAgeRating(TypedDict):
     rating_cover_url: str
 
 
+class SSMedia(TypedDict):
+    backcover: str | None  # box-2D-back
+    bezel: str | None  # bezel-16-9
+    cover: str | None  # box-2D
+    fanart: str | None  # fanart
+    fullbox: str | None  # box-texture
+    logo: str | None  # wheel-hd
+    manual: str | None  # manual
+    marquee: str | None  # screenmarquee
+    miximage: str | None  # mixrbv1 | mixrbv2
+    physicalmedia: str | None  # support-texture | support-2D
+    screenshot: str | None  # ss
+    sidecover: str | None  # box-2D-side
+    steamgrid: str | None  # steamgrid
+    threedbox: str | None  # box-3D
+    title_screen: str | None  # sstitle
+    video: str | None  # video
+    video_normalized: str | None  # video-normalized
+
+
 class SSMetadata(TypedDict):
     ss_score: str
     first_release_date: int | None
@@ -140,6 +160,7 @@ class SSMetadata(TypedDict):
     franchises: list[str]
     game_modes: list[str]
     genres: list[str]
+    media: SSMedia
 
 
 class SSRom(BaseRom):
@@ -147,76 +168,76 @@ class SSRom(BaseRom):
     ss_metadata: NotRequired[SSMetadata]
 
 
-def build_ss_rom(game: SSGame) -> SSRom:
-    res_name = ""
+def extract_media_from_ss_rom(game: SSGame) -> SSMedia:
+    ss_media = SSMedia(
+        backcover=None,
+        bezel=None,
+        cover=None,
+        fanart=None,
+        fullbox=None,
+        logo=None,
+        manual=None,
+        marquee=None,
+        miximage=None,
+        physicalmedia=None,
+        screenshot=None,
+        sidecover=None,
+        steamgrid=None,
+        threedbox=None,
+        title_screen=None,
+        video=None,
+        video_normalized=None,
+    )
+
     for region in get_preferred_regions():
-        res_name = next(
-            (
-                name["text"]
-                for name in game.get("noms", [])
-                if name.get("region") == region
-            ),
-            "",
-        )
-        if res_name:
-            break
+        for media in game.get("medias", []):
+            if not media.get("region") == region or media.get("parent") != "jeu":
+                continue
 
-    res_summary = ""
-    for lang in get_preferred_languages():
-        res_summary = next(
-            (
-                synopsis["text"]
-                for synopsis in game.get("synopsis", [])
-                if synopsis.get("langue") == lang
-            ),
-            "",
-        )
-        if res_summary:
-            break
+            if media.get("type") == "box-2D-back" and not ss_media["backcover"]:
+                ss_media["backcover"] = media["url"]
+            elif media.get("type") == "bezel-16-9" and not ss_media["bezel"]:
+                ss_media["bezel"] = media["url"]
+            elif media.get("type") == "box-2D" and not ss_media["cover"]:
+                ss_media["cover"] = media["url"]
+            elif media.get("type") == "fanart" and not ss_media["fanart"]:
+                ss_media["fanart"] = media["url"]
+            elif media.get("type") == "box-texture" and not ss_media["fullbox"]:
+                ss_media["fullbox"] = media["url"]
+            elif media.get("type") == "wheel-hd" and not ss_media["logo"]:
+                ss_media["logo"] = media["url"]
+            elif media.get("type") == "manual" and not ss_media["manual"]:
+                ss_media["manual"] = media["url"]
+            elif media.get("type") == "screenmarquee" and not ss_media["marquee"]:
+                ss_media["marquee"] = media["url"]
+            elif (
+                media.get("type") == "miximage1" or media.get("type") == "miximage2"
+            ) and not ss_media["miximage"]:
+                ss_media["miximage"] = media["url"]
+            elif (
+                media.get("type") == "support-texture"
+                or media.get("type") == "support-2D"
+            ) and not ss_media["physicalmedia"]:
+                ss_media["physicalmedia"] = media["url"]
+            elif media.get("type") == "ss" and not ss_media["screenshot"]:
+                ss_media["screenshot"] = media["url"]
+            elif media.get("type") == "box-2D-side" and not ss_media["sidecover"]:
+                ss_media["sidecover"] = media["url"]
+            elif media.get("type") == "steamgrid" and not ss_media["steamgrid"]:
+                ss_media["steamgrid"] = media["url"]
+            elif media.get("type") == "box-3D" and not ss_media["threedbox"]:
+                ss_media["threedbox"] = media["url"]
+            elif media.get("type") == "sstitle" and not ss_media["title_screen"]:
+                ss_media["title_screen"] = media["url"]
+            elif media.get("type") == "video" and not ss_media["video"]:
+                ss_media["video"] = media["url"]
+            elif (
+                media.get("type") == "video-normalized"
+                and not ss_media["video_normalized"]
+            ):
+                ss_media["video_normalized"] = media["url"]
 
-    url_cover = ""
-    for region in get_preferred_regions():
-        url_cover = next(
-            (
-                media["url"]
-                for media in game.get("medias", [])
-                if media.get("region") == region
-                and media.get("type") == "box-2D"
-                and media.get("parent") == "jeu"
-            ),
-            "",
-        )
-        if url_cover:
-            break
-
-    url_manual: str = ""
-    for region in get_preferred_regions():
-        url_manual = next(
-            (
-                media["url"]
-                for media in game.get("medias", [])
-                if media.get("region") == region
-                and media.get("type") == "manuel"
-                and media.get("parent") == "jeu"
-                and media.get("format") == "pdf"
-            ),
-            "",
-        )
-        if url_manual:
-            break
-
-    ss_id = int(game["id"]) if game.get("id") is not None else None
-    rom: SSRom = {
-        "ss_id": ss_id,
-        "name": res_name.replace(" : ", ": "),  # Normalize colons
-        "summary": res_summary,
-        "url_cover": url_cover,
-        "url_manual": url_manual,
-        "url_screenshots": [],
-        "ss_metadata": extract_metadata_from_ss_rom(game),
-    }
-
-    return SSRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+    return ss_media
 
 
 def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
@@ -288,8 +309,58 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
             "first_release_date": _get_lowest_date(rom.get("dates", [])),
             "franchises": _get_franchises(rom),
             "game_modes": _get_game_modes(rom),
+            "media": extract_media_from_ss_rom(rom),
         }
     )
+
+
+def build_ss_rom(game: SSGame) -> SSRom:
+    ss_metadata = extract_metadata_from_ss_rom(game)
+    ss_media = extract_media_from_ss_rom(game)
+
+    res_name = ""
+    for region in get_preferred_regions():
+        res_name = next(
+            (
+                name["text"]
+                for name in game.get("noms", [])
+                if name.get("region") == region
+            ),
+            "",
+        )
+        if res_name:
+            break
+
+    res_summary = ""
+    for lang in get_preferred_languages():
+        res_summary = next(
+            (
+                synopsis["text"]
+                for synopsis in game.get("synopsis", [])
+                if synopsis.get("langue") == lang
+            ),
+            "",
+        )
+        if res_summary:
+            break
+
+    url_cover = ss_media["threedbox"] or ss_media["cover"] or ""
+    url_screenshots = pydash.compact(
+        [ss_media["screenshot"], ss_media["title_screen"], ss_media["miximage"]]
+    )
+
+    ss_id = int(game["id"]) if game.get("id") is not None else None
+    rom: SSRom = {
+        "ss_id": ss_id,
+        "name": res_name.replace(" : ", ": "),  # Normalize colons
+        "summary": res_summary,
+        "url_cover": url_cover,
+        "url_manual": ss_media["manual"] or "",
+        "url_screenshots": url_screenshots,
+        "ss_metadata": ss_metadata,
+    }
+
+    return SSRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
 
 class SSHandler(MetadataHandler):
