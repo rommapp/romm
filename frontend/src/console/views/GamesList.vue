@@ -355,11 +355,11 @@ onMounted(async () => {
           (platform) => platform.id === routePlatformId,
         );
 
+        if (!platform) return;
         // Check if the current platform is different or no ROMs have been loaded
         if (
-          platform &&
-          (currentPlatform.value?.id !== routePlatformId ||
-            allRoms.value.length === 0)
+          currentPlatform.value?.id !== routePlatformId ||
+          allRoms.value.length === 0
         ) {
           resetGallery();
           romsStore.setCurrentPlatform(platform);
@@ -380,11 +380,11 @@ onMounted(async () => {
           (collection) => collection.id === routeCollectionId,
         );
 
+        if (!collection) return;
         // Check if the current collection is different or no ROMs have been loaded
         if (
-          collection &&
-          (currentCollection.value?.id !== routeCollectionId ||
-            allRoms.value.length === 0)
+          currentCollection.value?.id !== routeCollectionId ||
+          allRoms.value.length === 0
         ) {
           resetGallery();
           romsStore.setCurrentCollection(collection);
@@ -407,11 +407,11 @@ onMounted(async () => {
           (smartCollection) => smartCollection.id === routeSmartCollectionId,
         );
 
+        if (!smartCollection) return;
         // Check if the current smartCollection is different or no ROMs have been loaded
         if (
-          smartCollection &&
-          (currentSmartCollection.value?.id !== routeSmartCollectionId ||
-            allRoms.value.length === 0)
+          currentSmartCollection.value?.id !== routeSmartCollectionId ||
+          allRoms.value.length === 0
         ) {
           resetGallery();
           romsStore.setCurrentSmartCollection(smartCollection);
@@ -435,11 +435,11 @@ onMounted(async () => {
             virtualCollection.id === routeVirtualCollectionId,
         );
 
+        if (!virtualCollection) return;
         // Check if the current virtualCollection is different or no ROMs have been loaded
         if (
-          virtualCollection &&
-          (currentVirtualCollection.value?.id !== routeVirtualCollectionId ||
-            allRoms.value.length === 0)
+          currentVirtualCollection.value?.id !== routeVirtualCollectionId ||
+          allRoms.value.length === 0
         ) {
           resetGallery();
           romsStore.setCurrentVirtualCollection(virtualCollection);

@@ -11,7 +11,7 @@ export type GenericTaskStatusResponse = {
     queued_at: string;
     started_at: (string | null);
     ended_at: (string | null);
-    task_type: "generic";
+    task_type: string;
     meta: GenericTaskMeta;
 };
 

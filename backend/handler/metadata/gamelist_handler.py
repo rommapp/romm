@@ -17,19 +17,19 @@ from .base_handler import BaseRom, MetadataHandler
 
 
 class GamelistMedia(TypedDict):
-    image: str | None
-    video: str | None
-    threedbox: str | None
     backcover: str | None
     cover: str | None
     fanart: str | None
+    image: str | None
     manual: str | None
     marquee: str | None
     miximage: str | None
     physicalmedia: str | None
     screenshot: str | None
-    title_screen: str | None
+    threedbox: str | None
     thumbnail: str | None
+    title_screen: str | None
+    video: str | None
 
 
 class GamelistMetadata(TypedDict):
@@ -288,13 +288,6 @@ class GamelistHandler(MetadataHandler):
                     )
                     rom_data["url_manual"] = f"file://{str(manual_path)}"
 
-                # TODO: Add support for importing videos
-                # if rom_media["video"]:
-                #     video_path = fs_platform_handler.validate_path(
-                #         f"{platform_dir}/{rom_media['video']}"
-                #     )
-                #     rom_data["url_video"] = f"file://{str(video_path)}")
-
                 url_screenshots = []
                 if rom_media["screenshot"]:
                     screenshot_path = fs_platform_handler.validate_path(
@@ -306,32 +299,19 @@ class GamelistHandler(MetadataHandler):
                         f"{platform_dir}/{rom_media['title_screen']}"
                     )
                     url_screenshots.append(f"file://{str(title_screen_path)}")
-                if rom_media["fanart"]:
-                    fanart_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['fanart']}"
-                    )
-                    url_screenshots.append(f"file://{str(fanart_path)}")
-                if rom_media["backcover"]:
-                    backcover_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['backcover']}"
-                    )
-                    url_screenshots.append(f"file://{str(backcover_path)}")
                 if rom_media["miximage"]:
                     miximage_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{rom_media['miximage']}"
                     )
                     url_screenshots.append(f"file://{str(miximage_path)}")
-                if rom_media["physicalmedia"]:
-                    physicalmedia_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['physicalmedia']}"
-                    )
-                    url_screenshots.append(f"file://{str(physicalmedia_path)}")
-                if rom_media["marquee"]:
-                    marquee_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['marquee']}"
-                    )
-                    url_screenshots.append(f"file://{str(marquee_path)}")
                 rom_data["url_screenshots"] = url_screenshots
+
+                # TODO: Add support for importing videos
+                # if rom_media["video"]:
+                #     video_path = fs_platform_handler.validate_path(
+                #         f"{platform_dir}/{rom_media['video']}"
+                #     )
+                #     rom_data["url_video"] = f"file://{str(video_path)}")
 
                 # Store by filename for matching
                 roms_data[rom_filename] = rom_data
