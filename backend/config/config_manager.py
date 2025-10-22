@@ -102,8 +102,7 @@ class ConfigManager:
                 self._raw_config = yaml.load(cf, Loader=SafeLoader) or {}
 
             # Also check if the config file is writable
-            with open(self.config_file, "r+") as cf:
-                self._config_file_writable = True
+            self._config_file_writable = os.access(self.config_file, os.W_OK)
         except FileNotFoundError:
             log.critical(
                 "Config file not found! Any changes made to the configuration will not persist after the application restarts."
@@ -433,7 +432,7 @@ class ConfigManager:
 
     def _update_config_file(self) -> None:
         if not self._config_file_writable:
-            log.warning("Config file not mounted, skipping config file update")
+            log.warning("Config file not writable, skipping config file update")
             raise ConfigNotWritableException
 
         self._raw_config = {
