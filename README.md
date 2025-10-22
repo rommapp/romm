@@ -20,19 +20,6 @@
   </div>
 </div>
 
-# Table of Contents
-
-- [Table of Contents](#table-of-contents)
-- [Overview](#overview)
-  - [Features](#features)
-  - [Preview](#preview)
-- [Installation](#installation)
-- [Contributing](#contributing)
-- [Community](#community)
-- [Technical Support](#technical-support)
-- [Project Support](#project-support)
-- [Our Friends](#our-friends)
-
 # Overview
 
 RomM (ROM Manager) allows you to scan, enrich, browse and play your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes, and custom tags, RomM is a must-have for anyone who plays on emulators.
@@ -56,38 +43,51 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 | :------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------: |
 | <img src=".github/resources/screenshots/preview-desktop.webp" alt="desktop preview" /> | <img style="width: 325px; aspect-ratio: auto;" src=".github/resources/screenshots/preview-mobile.webp" alt="mobile preview" /> |
 
-# Installation
+## Installation
 
 To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] in the docs. If you are having issues with RomM, please review the page for [troubleshooting steps][docs-troubleshooting].
 
-# Contributing
+## Contributing
 
 To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).
 
-# Community
+## Community
 
 Here are a few projects maintained by members of our community. Please note that the RomM team does not regularly review their source code.
 
-- [romm-comm][romm-comm-discord-bot]: Discord Bot by @idio-sync
-- [DeckRommSync][deck-romm-sync]: SteamOS downloader and sync by @PeriBluGaming
-- [RommBrowser][romm-browser]: An electron client for RomM by @smurflabs
-- [RomM Android][romm-android]: An Android app for RomM by @mattsays
+### Mobile
+
+- [romm-mobile][romm-mobile]: Android (and soon iOS) app by @mattsays
+- [romm-android][romm-android]: Android app by @samwelnella
+
+### Desktop
+
+- [RommBrowser][romm-browser]: Electron client by @smurflabs
+- [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by @Covin90
+- [RomMate][rommate]: Desktop app for browsing your collection by @brenoprata10
+- [romm-client][romm-client]: Desktop client by @chaun14
+
+### Other
+
+- [romm-comm][romm-comm-discord-bot]: Discord bot by @idio-sync
+- [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by @PeriBluGaming
+- [GGRequestz][ggrequestz]: Game discovery and request tool by @XTREEMMAK
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
 [![discord-invite-img]][discord-invite]
 
-# Technical Support
+## Technical Support
 
 If you have any issues with RomM, please [open an issue](https://github.com/rommapp/romm/issues/new) in this repository.
 
-# Project Support
+## Project Support
 
 Consider supporting the development of this project on Open Collective. All funds will be used to cover the costs of hosting, development, and maintenance of RomM.
 
 [![oc-donate-img]][oc-donate]
 
-# Our Friends
+## Our Friends
 
 Here are a few projects that we think you might like:
 
@@ -148,6 +148,11 @@ Here are a few projects that we think you might like:
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
 [romm-browser]: https://github.com/smurflabs/RommBrowser/
-[romm-android]: https://github.com/mattsays/romm-android
+[romm-mobile]: https://github.com/mattsays/romm-mobile
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [muos-app]: https://github.com/rommapp/muos-app
+[ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
+[romm-client]: https://github.com/chaun14/romm-client
+[romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
+[rommate]: https://github.com/brenoprata10/rommate
+[romm-android]: https://github.com/samwelnella/romm-android

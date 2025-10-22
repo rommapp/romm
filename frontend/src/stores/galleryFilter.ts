@@ -28,7 +28,7 @@ const defaultFilterState = {
   filterStatuses: Object.values(romStatusMap).map((status) => status.text),
   filterUnmatched: false,
   filterMatched: false,
-  filterFavourites: false,
+  filterFavorites: false,
   filterDuplicates: false,
   filterPlayables: false,
   filterRA: false,
@@ -121,11 +121,11 @@ export default defineStore("galleryFilter", {
       this.filterMatched = !this.filterMatched;
       this.filterUnmatched = false;
     },
-    setFilterFavourites(value: boolean) {
-      this.filterFavourites = value;
+    setFilterFavorites(value: boolean) {
+      this.filterFavorites = value;
     },
-    switchFilterFavourites() {
-      this.filterFavourites = !this.filterFavourites;
+    switchFilterFavorites() {
+      this.filterFavorites = !this.filterFavorites;
     },
     setFilterDuplicates(value: boolean) {
       this.filterDuplicates = value;
@@ -161,7 +161,7 @@ export default defineStore("galleryFilter", {
       return Boolean(
         this.filterUnmatched ||
           this.filterMatched ||
-          this.filterFavourites ||
+          this.filterFavorites ||
           this.filterDuplicates ||
           this.filterPlayables ||
           this.filterRA ||
@@ -193,7 +193,7 @@ export default defineStore("galleryFilter", {
       this.selectedStatus = null;
       this.filterUnmatched = false;
       this.filterMatched = false;
-      this.filterFavourites = false;
+      this.filterFavorites = false;
       this.filterDuplicates = false;
       this.filterPlayables = false;
       this.filterRA = false;

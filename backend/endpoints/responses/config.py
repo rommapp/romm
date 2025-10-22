@@ -5,6 +5,7 @@ from config.config_manager import EjsControls
 
 class ConfigResponse(TypedDict):
     CONFIG_FILE_MOUNTED: bool
+    CONFIG_FILE_WRITABLE: bool
     EXCLUDED_PLATFORMS: list[str]
     EXCLUDED_SINGLE_EXT: list[str]
     EXCLUDED_SINGLE_FILES: list[str]

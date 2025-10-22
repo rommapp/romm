@@ -36,7 +36,6 @@ export type DetailedRomSchema = {
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
-    platform_name: string;
     platform_custom_name: (string | null);
     platform_display_name: string;
     fs_name: string;

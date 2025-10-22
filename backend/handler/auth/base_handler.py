@@ -332,7 +332,7 @@ class OpenIDHandler:
 
         role = Role.VIEWER
         if OIDC_CLAIM_ROLES and OIDC_CLAIM_ROLES in userinfo:
-            roles = userinfo[OIDC_CLAIM_ROLES]
+            roles = userinfo[OIDC_CLAIM_ROLES] or []
             if OIDC_ROLE_ADMIN and OIDC_ROLE_ADMIN in roles:
                 role = Role.ADMIN
             elif OIDC_ROLE_EDITOR and OIDC_ROLE_EDITOR in roles:

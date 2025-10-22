@@ -1,8 +1,10 @@
-from typing import Annotated, Any, NotRequired, TypedDict
+from typing import Annotated, Any, Final, NotRequired, TypedDict
 
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import BaseModel, BeforeValidator, Field, field_validator
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from tasks.scheduled.update_switch_titledb import TITLEDB_REGION_LIST
+from utils.database import safe_int
 
 WEBRCADE_SUPPORTED_PLATFORM_SLUGS = frozenset(
     (
@@ -64,29 +66,6 @@ WEBRCADE_SLUG_TO_TYPE_MAP = {
 
 # Webrcade feed format
 # Source: https://docs.webrcade.com/feeds/format/
-
-
-def coerce_to_string(value: Any) -> str:
-    """Coerce value to string, returning empty string for None."""
-    return "" if value is None else str(value)
-
-
-def coerce_to_int(value: Any) -> int:
-    """Coerce value to int, returning 0 for None/empty values."""
-    if value in (None, ""):
-        return 0
-
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return 0
-
-
-# Annotated types for cleaner field definitions
-StringField = Annotated[str, BeforeValidator(coerce_to_string)]
-IntField = Annotated[int, BeforeValidator(coerce_to_int)]
-
-
 class WebrcadeFeedItemPropsSchema(TypedDict):
     rom: str
 
@@ -122,6 +101,23 @@ class WebrcadeFeedSchema(TypedDict):
 # Tinfoil feed format
 # Source: https://blawar.github.io/tinfoil/custom_index/
 
+UNIX_EPOCH_START_DATE: Final = 19700101
+
+
+def coerce_to_string(value: Any) -> str:
+    """Coerce value to string, returning empty string for None."""
+    return "" if value is None else str(value)
+
+
+def coerce_to_int(value: Any) -> int:
+    """Coerce value to int, returning 0 for None/empty values."""
+    return safe_int(value, default=0)
+
+
+# Annotated types for cleaner field definitions
+StringField = Annotated[str, BeforeValidator(coerce_to_string)]
+IntField = Annotated[int, BeforeValidator(coerce_to_int)]
+
 
 class TinfoilFeedFileSchema(TypedDict):
     url: str
@@ -142,9 +138,23 @@ class TinfoilFeedTitleDBSchema(BaseModel):
     publisher: StringField = Field(default="")
     size: IntField = Field(default=0, ge=0)
     version: IntField = Field(default=0, ge=0)
-    releaseDate: IntField = Field(default=19700101, ge=19700101)
+    releaseDate: IntField = Field(
+        default=UNIX_EPOCH_START_DATE, ge=UNIX_EPOCH_START_DATE
+    )
     rating: IntField = Field(default=0, ge=0, le=100)
     rank: IntField = Field(default=0, ge=0)
+
+    @field_validator("region")
+    def validate_region(cls, v: str) -> str:
+        if v not in TITLEDB_REGION_LIST:
+            return "US"
+        return v
+
+    @field_validator("releaseDate")
+    def validate_release_date(cls, v: int) -> int:
+        if v < UNIX_EPOCH_START_DATE:
+            return UNIX_EPOCH_START_DATE
+        return v
 
 
 class TinfoilFeedSchema(TypedDict):

@@ -13,10 +13,10 @@ const scanProgress = computed(() => {
     total_roms,
     scanned_platforms,
     scanned_roms,
-    added_roms,
+    new_roms,
     identified_roms,
     scanned_firmware,
-    added_firmware,
+    new_firmware,
   } = props.scanStats;
 
   return {
@@ -26,10 +26,10 @@ const scanProgress = computed(() => {
     ),
     roms: `${scanned_roms}/${total_roms}`,
     romsPercentage: Math.round((scanned_roms / total_roms) * 100),
-    addedRoms: added_roms,
+    newRoms: new_roms,
     metadataRoms: identified_roms,
     scannedFirmware: scanned_firmware,
-    addedFirmware: added_firmware,
+    newFirmware: new_firmware,
   };
 });
 </script>
@@ -92,7 +92,7 @@ const scanProgress = computed(() => {
             <v-icon icon="mdi-plus-circle" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
-            {{ scanProgress.addedRoms }}
+            {{ scanProgress.newRoms }}
           </div>
           <div class="text-uppercase">Added</div>
         </div>

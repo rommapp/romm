@@ -25,6 +25,7 @@ def get_config() -> ConfigResponse:
     cfg = cm.get_config()
     return ConfigResponse(
         CONFIG_FILE_MOUNTED=cfg.CONFIG_FILE_MOUNTED,
+        CONFIG_FILE_WRITABLE=cfg.CONFIG_FILE_WRITABLE,
         EXCLUDED_PLATFORMS=cfg.EXCLUDED_PLATFORMS,
         EXCLUDED_SINGLE_EXT=cfg.EXCLUDED_SINGLE_EXT,
         EXCLUDED_SINGLE_FILES=cfg.EXCLUDED_SINGLE_FILES,
