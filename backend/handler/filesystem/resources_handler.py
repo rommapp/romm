@@ -237,6 +237,7 @@ class FSResourcesHandler(FSHandler):
             url_screenhot: URL to get the screenshot
         """
         screenshot_path = f"{rom.fs_resources_path}/screenshots"
+        await self.make_directory(screenshot_path)
 
         # Handle file:// URLs for gamelist.xml
         if url_screenhot.startswith("file://"):
@@ -325,6 +326,7 @@ class FSResourcesHandler(FSHandler):
 
     async def _store_manual(self, rom: Rom, url_manual: str):
         manual_path = f"{rom.fs_resources_path}/manual"
+        await self.make_directory(manual_path)
 
         httpx_client = ctx_httpx_client.get()
         try:
