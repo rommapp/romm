@@ -61,7 +61,9 @@ class ScanLibraryTask(PeriodicTask):
 
         log.info("Scheduled library scan started...")
         scan_stats = await scan_platforms(
-            [], scan_type=ScanType.UNIDENTIFIED, metadata_sources=metadata_sources
+            platform_ids=[],
+            metadata_sources=metadata_sources,
+            scan_type=ScanType.UNIDENTIFIED,
         )
         log.info("Scheduled library scan done")
 

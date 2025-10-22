@@ -101,24 +101,5 @@ defineProps<{ rom: SearchRomSchema }>();
         </v-avatar>
       </template>
     </v-tooltip>
-    <v-tooltip
-      location="top"
-      class="tooltip"
-      transition="fade-transition"
-      text="HowLongToBeat matched"
-      open-delay="500"
-    >
-      <template #activator="{ props }">
-        <v-avatar
-          v-bind="props"
-          v-if="rom.hltb_id"
-          class="mr-1 mb-1"
-          size="28"
-          rounded="1"
-        >
-          <v-img src="/assets/scrappers/hltb.png" />
-        </v-avatar>
-      </template>
-    </v-tooltip>
   </v-row>
 </template>

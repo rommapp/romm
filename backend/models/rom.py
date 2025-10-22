@@ -269,10 +269,6 @@ class Rom(BaseModel):
         return self.platform.fs_slug
 
     @property
-    def platform_name(self) -> str:
-        return self.platform.name
-
-    @property
     def platform_custom_name(self) -> str | None:
         return self.platform.custom_name
 

@@ -12,10 +12,10 @@ class ScanStats(TypedDict):
     new_platforms: int
     identified_platforms: int
     scanned_roms: int
-    added_roms: int
+    new_roms: int
     identified_roms: int
     scanned_firmware: int
-    added_firmware: int
+    new_firmware: int
 
 
 class ScanTaskMeta(TypedDict):

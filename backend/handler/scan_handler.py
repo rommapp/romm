@@ -289,10 +289,6 @@ async def scan_rom(
     newly_added: bool,
     socket_manager: socketio.AsyncRedisManager | None = None,
 ) -> Rom:
-    if not metadata_sources:
-        log.error("No metadata sources provided")
-        raise ValueError("No metadata sources provided")
-
     filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
     rom_attrs = {
         "platform_id": platform.id,

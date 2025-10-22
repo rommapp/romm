@@ -72,7 +72,7 @@ export interface GetRomsParams {
   orderDir?: string | null;
   filterUnmatched?: boolean;
   filterMatched?: boolean;
-  filterFavourites?: boolean;
+  filterFavorites?: boolean;
   filterDuplicates?: boolean;
   filterPlayables?: boolean;
   filterRA?: boolean;
@@ -101,7 +101,7 @@ async function getRoms({
   orderDir = "asc",
   filterUnmatched = false,
   filterMatched = false,
-  filterFavourites = false,
+  filterFavorites = false,
   filterDuplicates = false,
   filterPlayables = false,
   filterRA = false,
@@ -139,7 +139,7 @@ async function getRoms({
       selected_language: selectedLanguage,
       ...(filterUnmatched ? { matched: false } : {}),
       ...(filterMatched ? { matched: true } : {}),
-      ...(filterFavourites ? { favourite: true } : {}),
+      ...(filterFavorites ? { favorite: true } : {}),
       ...(filterDuplicates ? { duplicate: true } : {}),
       ...(filterPlayables ? { playable: true } : {}),
       ...(filterMissing ? { missing: true } : {}),
@@ -254,6 +254,15 @@ async function bulkDownloadRoms({
 
 export type UpdateRom = SimpleRom & {
   artwork?: File;
+  raw_metadata?: {
+    igdb_metadata?: string;
+    moby_metadata?: string;
+    ss_metadata?: string;
+    launchbox_metadata?: string;
+    hasheous_metadata?: string;
+    flashpoint_metadata?: string;
+    hltb_metadata?: string;
+  };
 };
 
 async function updateRom({
@@ -266,17 +275,51 @@ async function updateRom({
   unmatch?: boolean;
 }): Promise<{ data: DetailedRom }> {
   const formData = new FormData();
-  if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
-  if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
-  if (rom.ss_id) formData.append("ss_id", rom.ss_id.toString());
-  if (rom.launchbox_id)
-    formData.append("launchbox_id", rom.launchbox_id.toString());
-  if (rom.flashpoint_id)
-    formData.append("flashpoint_id", rom.flashpoint_id.toString());
-  if (rom.hltb_id) formData.append("hltb_id", rom.hltb_id.toString());
   formData.append("name", rom.name || "");
   formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");
+
+  formData.append("igdb_id", rom.igdb_id?.toString() || "");
+  formData.append("sgdb_id", rom.sgdb_id?.toString() || "");
+  formData.append("moby_id", rom.moby_id?.toString() || "");
+  formData.append("ss_id", rom.ss_id?.toString() || "");
+  formData.append("launchbox_id", rom.launchbox_id?.toString() || "");
+  formData.append("ra_id", rom.ra_id?.toString() || "");
+  formData.append("flashpoint_id", rom.flashpoint_id?.toString() || "");
+  formData.append("hasheous_id", rom.hasheous_id?.toString() || "");
+  formData.append("tgdb_id", rom.tgdb_id?.toString() || "");
+  formData.append("hltb_id", rom.hltb_id?.toString() || "");
+
+  if (rom.raw_metadata?.igdb_metadata) {
+    formData.append("raw_igdb_metadata", rom.raw_metadata.igdb_metadata);
+  }
+  if (rom.raw_metadata?.moby_metadata) {
+    formData.append("raw_moby_metadata", rom.raw_metadata.moby_metadata);
+  }
+  if (rom.raw_metadata?.ss_metadata) {
+    formData.append("raw_ss_metadata", rom.raw_metadata.ss_metadata);
+  }
+  if (rom.raw_metadata?.launchbox_metadata) {
+    formData.append(
+      "raw_launchbox_metadata",
+      rom.raw_metadata.launchbox_metadata,
+    );
+  }
+  if (rom.raw_metadata?.hasheous_metadata) {
+    formData.append(
+      "raw_hasheous_metadata",
+      rom.raw_metadata.hasheous_metadata,
+    );
+  }
+  if (rom.raw_metadata?.flashpoint_metadata) {
+    formData.append(
+      "raw_flashpoint_metadata",
+      rom.raw_metadata.flashpoint_metadata,
+    );
+  }
+  if (rom.raw_metadata?.hltb_metadata) {
+    formData.append("raw_hltb_metadata", rom.raw_metadata.hltb_metadata);
+  }
 
   // Don't set url_cover on manual artwork upload
   if (rom.artwork) {

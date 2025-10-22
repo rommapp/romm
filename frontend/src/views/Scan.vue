@@ -95,7 +95,7 @@ const scanOptions = [
 const scanType = ref("quick");
 
 async function scan() {
-  scanningStore.set(true);
+  scanningStore.setScanning(true);
   scanningPlatforms.value = [];
 
   if (!socket.connected) socket.connect();
@@ -317,13 +317,13 @@ async function stopScan() {
     </div>
 
     <!-- Scan log -->
-    <v-row ref="scan-log-ref" no-gutters class="scan-log overflow-y-scroll">
+    <v-row
+      ref="scan-log-ref"
+      no-gutters
+      class="scan-log overflow-y-scroll mb-4"
+    >
       <v-col>
-        <v-card
-          elevation="0"
-          class="bg-surface mx-auto mt-2 mb-14"
-          max-width="800"
-        >
+        <v-card elevation="0" class="bg-surface mx-auto mt-2" max-width="800">
           <v-card-text class="pa-0">
             <v-expansion-panels
               ref="expansion-panels-ref"
@@ -341,13 +341,14 @@ async function stopScan() {
                     <template #prepend>
                       <v-avatar rounded="0" size="40">
                         <PlatformIcon
+                          v-if="platform.slug"
                           :key="platform.slug"
                           :slug="platform.slug"
-                          :name="platform.name"
+                          :name="platform.display_name"
                         />
                       </v-avatar>
                     </template>
-                    {{ platform.name }}
+                    {{ platform.display_name }}
                     <template #append>
                       <v-chip class="ml-3" color="primary" size="x-small" label>
                         {{ platform.roms.length }}
@@ -511,7 +512,7 @@ async function stopScan() {
     <!-- Scan stats -->
     <div
       v-if="scanningPlatforms.length > 0"
-      class="text-caption position-fixed d-flex w-100 m-1 justify-center"
+      class="text-caption position-sticky d-flex w-100 m-1 justify-center"
       style="bottom: 0.5rem"
     >
       <v-chip
@@ -527,18 +528,21 @@ async function stopScan() {
         >
           <v-icon left> mdi-controller </v-icon>
           <span v-if="xs" class="ml-2">{{
-            t("scan.platforms-scanned-n", scanningPlatforms.length)
+            t("scan.platforms-scanned-n", scanStats.scanned_platforms)
           }}</span>
           <span v-else class="ml-2">{{
             t("scan.platforms-scanned-with-details", {
-              n_platforms: scanningPlatforms.length,
+              n_scanned_platforms: scanStats.scanned_platforms,
+              n_total_platforms: scanStats.total_platforms,
               n_new_platforms: scanStats.new_platforms,
-              n_identified_platforms: scanStats.identified_platforms,
+              n_identified_platforms: Math.min(
+                scanStats.identified_platforms,
+                scanStats.scanned_platforms,
+              ),
             })
           }}</span>
         </v-chip>
         <v-chip
-          v-if="scanningPlatforms.length > 0"
           color="primary"
           size="small"
           text-color="white"
@@ -550,9 +554,13 @@ async function stopScan() {
           }}</span>
           <span v-else class="ml-2">{{
             t("scan.roms-scanned-with-details", {
-              n_roms: scanStats.scanned_roms,
-              n_added_roms: scanStats.added_roms,
-              n_identified_roms: scanStats.identified_roms,
+              n_scanned_roms: scanStats.scanned_roms,
+              n_total_roms: scanStats.total_roms,
+              n_new_roms: scanStats.new_roms,
+              n_identified_roms: Math.min(
+                scanStats.identified_roms,
+                scanStats.scanned_roms,
+              ),
             })
           }}</span>
         </v-chip>

@@ -9,9 +9,9 @@ export type ScanStats = {
     new_platforms: number;
     identified_platforms: number;
     scanned_roms: number;
-    added_roms: number;
+    new_roms: number;
     identified_roms: number;
     scanned_firmware: number;
-    added_firmware: number;
+    new_firmware: number;
 };
 

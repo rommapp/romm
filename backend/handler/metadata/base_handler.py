@@ -14,7 +14,6 @@ from logger.logger import log
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
-    update_switch_titledb_task,
 )
 
 jarowinkler = JaroWinkler()
@@ -190,12 +189,8 @@ class MetadataHandler(abc.ABC):
         title_id = match.group(1)
 
         if not (await async_cache.exists(SWITCH_TITLEDB_INDEX_KEY)):
-            log.warning("Fetching the Switch titleID index file...")
-            await update_switch_titledb_task.run(force=True)
-
-            if not (await async_cache.exists(SWITCH_TITLEDB_INDEX_KEY)):
-                log.error("Could not fetch the Switch titleID index file")
-                return search_term, None
+            log.error("Could not find the Switch titleID index file in cache")
+            return search_term, None
 
         index_entry = await async_cache.hget(SWITCH_TITLEDB_INDEX_KEY, title_id)
         if index_entry:
@@ -215,12 +210,8 @@ class MetadataHandler(abc.ABC):
         product_id = "".join(product_id)
 
         if not (await async_cache.exists(SWITCH_PRODUCT_ID_KEY)):
-            log.warning("Fetching the Switch productID index file...")
-            await update_switch_titledb_task.run(force=True)
-
-            if not (await async_cache.exists(SWITCH_PRODUCT_ID_KEY)):
-                log.error("Could not fetch the Switch productID index file")
-                return search_term, None
+            log.error("Could not find the Switch productID index file in cache")
+            return search_term, None
 
         index_entry = await async_cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
         if index_entry:

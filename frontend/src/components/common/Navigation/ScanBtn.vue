@@ -3,6 +3,7 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount } from "vue";
 import { useI18n } from "vue-i18n";
+import type { ScanStats } from "@/__generated__";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
@@ -37,24 +38,24 @@ if (!socket.connected) socket.connect();
 socket.on(
   "scan:scanning_platform",
   ({
-    name,
+    display_name,
     slug,
     id,
     fs_slug,
     is_identified,
   }: {
-    name: string;
+    display_name: string;
     slug: string;
     id: number;
     fs_slug: string;
     is_identified: boolean;
   }) => {
-    scanningStore.set(true);
+    scanningStore.setScanning(true);
     scanningPlatforms.value = scanningPlatforms.value.filter(
-      (platform) => platform.name !== name,
+      (platform) => platform.display_name !== display_name,
     );
     scanningPlatforms.value.push({
-      name,
+      display_name,
       slug,
       id,
       fs_slug,
@@ -65,7 +66,7 @@ socket.on(
 );
 
 socket.on("scan:scanning_rom", (rom: SimpleRom) => {
-  scanningStore.set(true);
+  scanningStore.setScanning(true);
 
   // Remove the ROM from the recent list and add it back to the top
   romsStore.removeFromRecent(rom);
@@ -87,7 +88,7 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   // Add the platform if the socket dropped and it's missing
   if (!scannedPlatform) {
     scanningPlatforms.value.push({
-      name: rom.platform_name,
+      display_name: rom.platform_display_name,
       slug: rom.platform_slug,
       id: rom.platform_id,
       fs_slug: rom.platform_fs_slug,
@@ -109,7 +110,7 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
 });
 
 socket.on("scan:done", () => {
-  scanningStore.set(false);
+  scanningStore.setScanning(false);
   socket.disconnect();
 
   emitter?.emit("refreshDrawer", null);
@@ -122,7 +123,7 @@ socket.on("scan:done", () => {
 });
 
 socket.on("scan:done_ko", (msg) => {
-  scanningStore.set(false);
+  scanningStore.setScanning(false);
 
   emitter?.emit("snackbarShow", {
     msg: `Scan failed: ${msg}`,
@@ -130,6 +131,10 @@ socket.on("scan:done_ko", (msg) => {
     color: "red",
   });
   socket.disconnect();
+});
+
+socket.on("scan:update_stats", (stats: ScanStats) => {
+  scanningStore.setScanStats(stats);
 });
 
 onBeforeUnmount(() => {

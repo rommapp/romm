@@ -42,7 +42,7 @@ function scrollToTop() {
   });
 }
 async function onScan() {
-  scanningStore.set(true);
+  scanningStore.setScanning(true);
   const romCount = romsStore.selectedRoms.length;
   emitter?.emit("snackbarShow", {
     msg: `Scanning ${romCount} game${romCount > 1 ? "s" : ""}...`,
@@ -68,7 +68,7 @@ function resetSelection() {
   emitter?.emit("openFabMenu", false);
 }
 
-async function addToFavourites() {
+async function addToFavorites() {
   if (!favoriteCollection.value) return;
   favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.concat(
     selectedRoms.value.map((r) => r.id),
@@ -77,7 +77,7 @@ async function addToFavourites() {
     .updateCollection({ collection: favoriteCollection.value as Collection })
     .then(() => {
       emitter?.emit("snackbarShow", {
-        msg: "Roms added to favourites successfully!",
+        msg: "Roms added to favorites successfully!",
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
@@ -97,19 +97,19 @@ async function addToFavourites() {
     });
 }
 
-async function removeFromFavourites() {
+async function removeFromFavorites() {
   if (!favoriteCollection.value) return;
   favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.filter(
     (value) => !selectedRoms.value.map((r) => r.id).includes(value),
   );
-  if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
+  if (romsStore.currentCollection?.is_favorite) {
     romsStore.remove(selectedRoms.value);
   }
   await collectionApi
     .updateCollection({ collection: favoriteCollection.value as Collection })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
-        msg: "Roms removed from favourites successfully!",
+        msg: "Roms removed from favorites successfully!",
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
@@ -191,25 +191,25 @@ async function onDownload() {
       />
       <v-btn
         key="3"
-        :title="t('rom.add-to-fav')"
+        :title="t('rom.add-to-favorites')"
         color="toplayer"
         elevation="8"
         icon="mdi-star"
         class="rounded"
         :size="35"
         rounded="0"
-        @click="addToFavourites"
+        @click="addToFavorites"
       />
       <v-btn
         key="4"
-        :title="t('rom.remove-from-fav')"
+        :title="t('rom.remove-from-favorites')"
         color="toplayer"
         elevation="8"
         icon="mdi-star-remove-outline"
         class="rounded"
         :size="35"
         rounded="0"
-        @click="removeFromFavourites"
+        @click="removeFromFavorites"
       />
       <v-btn
         key="5"
