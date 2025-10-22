@@ -53,7 +53,7 @@ class GamelistRom(BaseRom):
 def extract_media_from_gamelist_rom(game: Element) -> GamelistMedia:
     image_elem = game.find("image")
     video_elem = game.find("video")
-    threedbox_elem = game.find("3dbox")
+    threedbox_elem = game.find("box3d")
     backcover_elem = game.find("backcover")
     cover_elem = game.find("cover")
     fanart_elem = game.find("fanart")
@@ -288,12 +288,14 @@ class GamelistHandler(MetadataHandler):
                     )
                     rom_data["url_manual"] = f"file://{str(manual_path)}"
 
+                # TODO: Add support for importing videos
+                # if rom_media["video"]:
+                #     video_path = fs_platform_handler.validate_path(
+                #         f"{platform_dir}/{rom_media['video']}"
+                #     )
+                #     rom_data["url_video"] = f"file://{str(video_path)}")
+
                 url_screenshots = []
-                if rom_media["video"]:
-                    video_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['video']}"
-                    )
-                    url_screenshots.append(f"file://{str(video_path)}")
                 if rom_media["screenshot"]:
                     screenshot_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{rom_media['screenshot']}"
