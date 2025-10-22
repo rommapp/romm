@@ -261,6 +261,8 @@ async def _identify_rom(
         socket_manager=socket_manager,
     )
 
+    print("SCANNED ROM", scanned_rom)
+
     await scan_stats.increment(
         socket_manager=socket_manager,
         scanned_roms=1,

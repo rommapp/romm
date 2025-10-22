@@ -1,7 +1,7 @@
 """
 
-Revision ID: 0055_gamelist_xml
-Revises: 0054_add_platform_metadata_slugs
+Revision ID: 0056_gamelist_xml
+Revises: 0055_collection_is_favorite
 Create Date: 2025-10-16 23:07:05.145056
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision = "0055_gamelist_xml"
-down_revision = "0054_add_platform_metadata_slugs"
+revision = "0056_gamelist_xml"
+down_revision = "0055_collection_is_favorite"
 branch_labels = None
 depends_on = None
 
