@@ -13,6 +13,7 @@ type ExclusionTypes =
 
 const defaultConfig = {
   CONFIG_FILE_MOUNTED: false,
+  CONFIG_FILE_WRITABLE: false,
   EXCLUDED_PLATFORMS: [],
   EXCLUDED_SINGLE_EXT: [],
   EXCLUDED_SINGLE_FILES: [],
