@@ -315,7 +315,6 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
 
 def build_ss_rom(game: SSGame) -> SSRom:
     ss_metadata = extract_metadata_from_ss_rom(game)
-    ss_media = extract_media_from_ss_rom(game)
 
     res_name = ""
     for region in get_preferred_regions():
@@ -343,13 +342,13 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if res_summary:
             break
 
-    url_cover = ss_media["box2d"]
-    url_manual = ss_media["manual"]
+    url_cover = ss_metadata["box2d"]
+    url_manual = ss_metadata["manual"]
     url_screenshots = pydash.compact(
         [
-            ss_media["screenshot"],
-            ss_media["title_screen"],
-            ss_media["miximage"],
+            ss_metadata["screenshot"],
+            ss_metadata["title_screen"],
+            ss_metadata["miximage"],
         ]
     )
 

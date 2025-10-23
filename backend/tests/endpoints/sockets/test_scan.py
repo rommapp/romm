@@ -125,10 +125,10 @@ class TestShouldScanRom:
         assert result is True
 
     def test_unmatched_scan_with_identified_rom(self, rom: Rom):
-        """UNMATCHED should not scan when rom is identified"""
+        """UNMATCHED should also scan when rom is identified"""
         rom.igdb_id = 1
         result = _should_scan_rom(ScanType.UNMATCHED, rom, [])
-        assert result is False
+        assert result is True
 
     # Test UPDATE scan type
     def test_update_scan_with_no_rom(self):

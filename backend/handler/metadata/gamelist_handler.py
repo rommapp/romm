@@ -250,7 +250,6 @@ class GamelistHandler(MetadataHandler):
                 )
 
                 # Build ROM data
-                rom_media = extract_media_from_gamelist_rom(game)
                 rom_metadata = extract_metadata_from_gamelist_rom(game)
                 rom_data = GamelistRom(
                     gamelist_id=str(uuid.uuid4()),
@@ -266,7 +265,7 @@ class GamelistHandler(MetadataHandler):
                 )
 
                 # Choose which cover style to use
-                cover_path = rom_media["box2d"]
+                cover_path = rom_metadata["box2d"]
                 if cover_path:
                     cover_path_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{cover_path}"
@@ -274,35 +273,35 @@ class GamelistHandler(MetadataHandler):
                     rom_data["url_cover"] = f"file://{str(cover_path_path)}"
 
                 # Grab the manual
-                if rom_media["manual"]:
+                if rom_metadata["manual"]:
                     manual_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['manual']}"
+                        f"{platform_dir}/{rom_metadata['manual']}"
                     )
                     rom_data["url_manual"] = f"file://{str(manual_path)}"
 
                 # Build list of screenshot URLs
                 url_screenshots = []
-                if rom_media["screenshot"]:
+                if rom_metadata["screenshot"]:
                     screenshot_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['screenshot']}"
+                        f"{platform_dir}/{rom_metadata['screenshot']}"
                     )
                     url_screenshots.append(f"file://{str(screenshot_path)}")
-                if rom_media["title_screen"]:
+                if rom_metadata["title_screen"]:
                     title_screen_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['title_screen']}"
+                        f"{platform_dir}/{rom_metadata['title_screen']}"
                     )
                     url_screenshots.append(f"file://{str(title_screen_path)}")
-                if rom_media["miximage"]:
+                if rom_metadata["miximage"]:
                     miximage_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['miximage']}"
+                        f"{platform_dir}/{rom_metadata['miximage']}"
                     )
                     url_screenshots.append(f"file://{str(miximage_path)}")
                 rom_data["url_screenshots"] = url_screenshots
 
                 # TODO: Add support for importing videos
-                # if rom_media["video"]:
+                # if rom_metadata["video"]:
                 #     video_path = fs_platform_handler.validate_path(
-                #         f"{platform_dir}/{rom_media['video']}"
+                #         f"{platform_dir}/{rom_metadata['video']}"
                 #     )
                 #     rom_data["url_video"] = f"file://{str(video_path)}")
 

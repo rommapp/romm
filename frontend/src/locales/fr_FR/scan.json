@@ -10,6 +10,7 @@
   "metadata-sources": "Sources de métadonnées",
   "new-platforms": "Nouvelles plateformes",
   "new-platforms-desc": "Scanner uniquement les plateformes récemment ajoutées (plus rapide)",
+  "no-new-roms": "Aucun nouveau ROMs trouvés",
   "not-identified": "Non identifié",
   "platforms-scanned-n": "Plateformes : {n} scannée | Plateformes : {n} scannées",
   "platforms-scanned-with-details": "Plateformes : {n_scanned_platforms} scannées sur {n_total_platforms}, avec {n_new_platforms} nouvelles et {n_identified_platforms} identifiées",
