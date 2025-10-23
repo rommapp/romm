@@ -17,7 +17,7 @@ class DBSavesHandler(DBBaseHandler):
 
     @begin_session
     def get_save(self, user_id: int, id: int, session: Session = None) -> Save | None:
-        return session.get(Save, id)
+        return session.scalar(select(Save).filter_by(user_id=user_id, id=id).limit(1))
 
     @begin_session
     def get_save_by_filename(
