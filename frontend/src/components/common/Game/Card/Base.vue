@@ -171,6 +171,14 @@ const smallCover = computed(() => {
   return pathCoverSmall || "";
 });
 
+const is3DCover = computed(() => {
+  if (!romsStore.isSimpleRom(props.rom)) return false;
+  return (
+    props.rom.url_cover?.includes("box-3D") ||
+    props.rom.url_cover?.includes("3dboxes")
+  );
+});
+
 const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
   event.preventDefault();
   if (romsStore.isSimpleRom(props.rom)) {
@@ -247,7 +255,8 @@ onBeforeUnmount(() => {
             <v-img
               v-bind="imgProps"
               :key="romsStore.isSimpleRom(rom) ? rom.id : rom.name"
-              cover
+              :cover="!is3DCover"
+              :contain="is3DCover"
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
               :src="largeCover || fallbackCoverImage"
@@ -382,7 +391,8 @@ onBeforeUnmount(() => {
               </div>
               <template #placeholder>
                 <v-img
-                  cover
+                  :cover="!is3DCover"
+                  :contain="is3DCover"
                   eager
                   :src="smallCover || fallbackCoverImage"
                   :aspect-ratio="computedAspectRatio"
@@ -398,7 +408,8 @@ onBeforeUnmount(() => {
               </template>
               <template #error>
                 <v-img
-                  cover
+                  :cover="!is3DCover"
+                  :contain="is3DCover"
                   eager
                   :src="fallbackCoverImage"
                   :aspect-ratio="computedAspectRatio"
