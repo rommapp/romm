@@ -1,8 +1,7 @@
-from typing import Annotated, List, Optional
+from typing import Annotated, List
 
 from fastapi import HTTPException, Query, Request, status
 from fastapi.responses import Response
-from pydantic import BaseModel
 
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
@@ -16,11 +15,6 @@ router = APIRouter(
     prefix="/gamelist",
     tags=["gamelist"],
 )
-
-
-class GamelistExportRequest(BaseModel):
-    platform_ids: List[int]
-    rom_ids: Optional[List[int]] = None
 
 
 @protected_route(router.post, "/export", [Scope.ROMS_READ])

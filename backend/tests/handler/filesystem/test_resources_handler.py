@@ -257,7 +257,7 @@ class TestFSResourcesHandler:
     async def test_get_rom_screenshots_no_rom(self, handler: FSResourcesHandler):
         """Test get_rom_screenshots with no ROM"""
         result = await handler.get_rom_screenshots(
-            None, ["http://example.com/screenshot.jpg"]
+            None, True, ["http://example.com/screenshot.jpg"]
         )
         assert result == []
 
@@ -266,10 +266,10 @@ class TestFSResourcesHandler:
         self, handler: FSResourcesHandler, rom: Rom
     ):
         """Test get_rom_screenshots with no URLs"""
-        result = await handler.get_rom_screenshots(rom, None)
+        result = await handler.get_rom_screenshots(rom, True, None)
         assert result == []
 
-        result = await handler.get_rom_screenshots(rom, [])
+        result = await handler.get_rom_screenshots(rom, True, [])
         assert result == []
 
     @pytest.mark.asyncio
@@ -283,7 +283,7 @@ class TestFSResourcesHandler:
         ]
 
         with patch.object(handler, "_store_screenshot") as mock_store:
-            result = await handler.get_rom_screenshots(rom, urls)
+            result = await handler.get_rom_screenshots(rom, True, urls)
 
             # Should call _store_screenshot for each URL
             assert mock_store.call_count == 2

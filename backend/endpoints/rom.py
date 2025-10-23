@@ -840,6 +840,7 @@ async def update_rom(
     if cleaned_data.get("url_screenshots", []):
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
+            overwrite=True,
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
         cleaned_data.update(

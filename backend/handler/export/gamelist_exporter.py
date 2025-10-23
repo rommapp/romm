@@ -18,8 +18,7 @@ class GamelistExporter:
 
     def _format_release_date(self, timestamp: int) -> str:
         """Format release date to YYYYMMDDTHHMMSS format"""
-        date = datetime.fromtimestamp(timestamp)
-        return date.strftime("%Y%m%dT%H%M%S")
+        return datetime.fromtimestamp(timestamp).strftime("%Y%m%dT%H%M%S")
 
     def _create_game_element(self, rom: Rom, request=None) -> Element:
         """Create a <game> element for a ROM"""
@@ -84,7 +83,8 @@ class GamelistExporter:
             )
 
         if rom.metadatum.average_rating is not None:
-            SubElement(game, "rating").text = f"{rom.metadatum.average_rating:.2f}"
+            # average_rating in is on a 0-10 scale, but gamelist.xml expects a 0-1 scale
+            SubElement(game, "rating").text = f"{rom.metadatum.average_rating / 10:.2f}"
 
         if rom.gamelist_id:
             SubElement(game, "id").text = str(rom.gamelist_id)
