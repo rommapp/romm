@@ -12,17 +12,17 @@
   "new-platforms-desc": "仅扫描新平台（最快）",
   "no-new-roms": "未找到新增或更新过的 Rom 文件",
   "not-identified": "未识别",
-  "partial-metadata": "部分元数据",
-  "partial-metadata-desc": "扫描部分元数据匹配的游戏",
   "platforms-scanned-n": "平台：{n} 已扫描",
   "platforms-scanned-with-details": "平台：{n_scanned_platforms}/{n_total_platforms} 已扫描，新增 {n_new_platforms}，识别 {n_identified_platforms}",
   "quick-scan": "快速扫描",
-  "quick-scan-desc": "仅扫描新文件",
+  "quick-scan-desc": "仅扫描新游戏",
   "roms-scanned-n": "Roms：{n} 已扫描",
   "roms-scanned-with-details": "Roms：{n_scanned_roms}/{n_total_roms} 已扫描，新增 {n_new_roms}，识别 {n_identified_roms}",
   "scan": "扫描",
   "scan-options": "扫描选项",
   "select-one-source": "请至少选择一个元数据源，以丰富您的游戏库",
-  "unidentified-games": "未识别的游戏",
-  "unidentified-games-desc": "仅扫描未识别的游戏"
+  "unmatched-games": "未匹配的游戏",
+  "unmatched-games-desc": "扫描元数据匹配缺失的游戏",
+  "update-metadata": "更新元数据",
+  "update-metadata-desc": "更新匹配游戏的元数据"
 }

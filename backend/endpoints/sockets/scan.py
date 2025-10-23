@@ -159,11 +159,28 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[int]) 
         or (
             rom
             and (
-                (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
-                or (scan_type == ScanType.PARTIAL and rom.is_identified)
+                scan_type == ScanType.UNMATCHED
+                or (scan_type == ScanType.UPDATE and rom.is_identified)
                 or (rom.id in roms_ids)
             )
         )
+    )
+
+
+def _should_update_rom_properties(
+    scan_type: ScanType, rom: Rom | None, roms_ids: list[int]
+) -> bool:
+    """Decide if the files of a rom should be rebuilt or not
+
+    Args:
+        scan_type (ScanType): Type of scan to be performed.
+        rom (Rom | None): The rom to be rebuilt.
+    """
+    return bool(
+        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
+        or (scan_type == ScanType.COMPLETE)
+        or (scan_type == ScanType.HASHES)
+        or (rom and rom.id in roms_ids)
     )
 
 
@@ -237,18 +254,20 @@ async def _identify_rom(
 
     # Build rom files object before scanning
     log.debug(f"Calculating file hashes for {rom.fs_name}...")
-    rom_files, rom_crc_c, rom_md5_h, rom_sha1_h, rom_ra_h = (
-        await fs_rom_handler.get_rom_files(rom)
-    )
-    fs_rom.update(
-        {
-            "files": rom_files,
-            "crc_hash": rom_crc_c,
-            "md5_hash": rom_md5_h,
-            "sha1_hash": rom_sha1_h,
-            "ra_hash": rom_ra_h,
-        }
-    )
+    should_update_props = _should_update_rom_properties(scan_type, rom, roms_ids)
+    if should_update_props:
+        rom_files, rom_crc_c, rom_md5_h, rom_sha1_h, rom_ra_h = (
+            await fs_rom_handler.get_rom_files(rom)
+        )
+        fs_rom.update(
+            {
+                "files": rom_files,
+                "crc_hash": rom_crc_c,
+                "md5_hash": rom_md5_h,
+                "sha1_hash": rom_sha1_h,
+                "ra_hash": rom_ra_h,
+            }
+        )
 
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
@@ -278,27 +297,28 @@ async def _identify_rom(
             ),
         )
 
-    # Delete the existing rom files in the DB
-    db_rom_handler.purge_rom_files(_added_rom.id)
+    if should_update_props:
+        # Delete the existing rom files in the DB
+        db_rom_handler.purge_rom_files(_added_rom.id)
 
-    # Create each file entry for the rom
-    new_rom_files = [
-        RomFile(
-            rom_id=_added_rom.id,
-            file_name=file.file_name,
-            file_path=file.file_path,
-            file_size_bytes=file.file_size_bytes,
-            last_modified=file.last_modified,
-            category=file.category,
-            crc_hash=file.crc_hash,
-            md5_hash=file.md5_hash,
-            sha1_hash=file.sha1_hash,
-            ra_hash=file.ra_hash,
-        )
-        for file in rom_files
-    ]
-    for new_rom_file in new_rom_files:
-        db_rom_handler.add_rom_file(new_rom_file)
+        # Create each file entry for the rom
+        new_rom_files = [
+            RomFile(
+                rom_id=_added_rom.id,
+                file_name=file.file_name,
+                file_path=file.file_path,
+                file_size_bytes=file.file_size_bytes,
+                last_modified=file.last_modified,
+                category=file.category,
+                crc_hash=file.crc_hash,
+                md5_hash=file.md5_hash,
+                sha1_hash=file.sha1_hash,
+                ra_hash=file.ra_hash,
+            )
+            for file in fs_rom["files"]
+        ]
+        for new_rom_file in new_rom_files:
+            db_rom_handler.add_rom_file(new_rom_file)
 
     if _added_rom.ra_metadata:
         await fs_resource_handler.create_ra_resources_path(platform.id, _added_rom.id)
@@ -319,18 +339,19 @@ async def _identify_rom(
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
-        overwrite=True,
+        overwrite=should_update_props,
         url_cover=_added_rom.url_cover,
     )
 
     path_manual = await fs_resource_handler.get_manual(
         rom=_added_rom,
-        overwrite=True,
+        overwrite=should_update_props,
         url_manual=_added_rom.url_manual,
     )
 
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
         rom=_added_rom,
+        overwrite=should_update_props,
         url_screenshots=_added_rom.url_screenshots,
     )
 

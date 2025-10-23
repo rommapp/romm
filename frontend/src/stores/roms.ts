@@ -110,7 +110,6 @@ export default defineStore("roms", {
     },
     _postFetchRoms(response: GetRomsResponse, concat: boolean) {
       const { items, offset, total, char_index, rom_id_index } = response;
-
       if (!concat || this.fetchOffset === 0) {
         this.allRoms = items;
       } else {
@@ -149,7 +148,6 @@ export default defineStore("roms", {
               JSON.stringify(currentParams) !==
               JSON.stringify(currentRequestParams);
             if (paramsChanged) return;
-
             this._postFetchRoms(response, concat);
           })
           .then((response) => {

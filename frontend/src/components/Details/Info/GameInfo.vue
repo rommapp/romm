@@ -90,7 +90,11 @@ const coverImageSource = computed(() => {
     const hostname = new URL(props.rom.url_cover).hostname;
 
     if (hostname === "images.igdb.com") return "IGDB";
-    if (hostname === "screenscraper.fr") return "ScreenScraper";
+    if (
+      hostname === "screenscraper.fr" ||
+      hostname === "neoclone.screenscraper.fr"
+    )
+      return "ScreenScraper";
     if (hostname === "cdn.mobygames.com" || hostname === "cdn2.mobygames.com")
       return "MobyGames";
     if (
@@ -327,7 +331,7 @@ function onFilterClick(filter: FilterType, value: string) {
       </template>
       <v-row v-if="rom.is_identified">
         <v-col class="mt-4 text-right">
-          <div class="text-grey">
+          <div v-if="dataSources.length > 0" class="text-grey">
             Data provided by
             <template v-for="(source, index) in dataSources" :key="source.name">
               <a

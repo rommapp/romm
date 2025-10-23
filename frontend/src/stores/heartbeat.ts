@@ -162,6 +162,12 @@ export default defineStore("heartbeat", {
             ? i18n.global.t("scan.api-key-missing")
             : "",
         },
+        {
+          name: "ES-DE (gamelist.xml)",
+          value: "gamelist",
+          logo_path: "/assets/scrappers/esde.png",
+          disabled: "",
+        },
       ];
     },
     getEnabledMetadataOptions(): MetadataOption[] {
