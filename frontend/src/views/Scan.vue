@@ -72,14 +72,14 @@ const scanOptions = [
     value: "quick",
   },
   {
-    title: t("scan.unidentified-games"),
-    subtitle: t("scan.unidentified-games-desc"),
-    value: "unidentified",
+    title: t("scan.unmatched-games"),
+    subtitle: t("scan.unmatched-games-desc"),
+    value: "unmatched",
   },
   {
-    title: t("scan.partial-metadata"),
-    subtitle: t("scan.partial-metadata-desc"),
-    value: "partial",
+    title: t("scan.update-metadata"),
+    subtitle: t("scan.update-metadata-desc"),
+    value: "update",
   },
   {
     title: t("scan.hashes"),
@@ -480,6 +480,16 @@ async function stopScan() {
                         >
                           <v-avatar size="18" rounded>
                             <v-img src="/assets/scrappers/hltb.png" />
+                          </v-avatar>
+                        </v-chip>
+                        <v-chip
+                          v-if="rom.gamelist_id"
+                          class="pa-1 mr-1 bg-surface"
+                          size="small"
+                          title="ES-DE match"
+                        >
+                          <v-avatar size="18" rounded>
+                            <v-img src="/assets/scrappers/esde.png" />
                           </v-avatar>
                         </v-chip>
                       </template>

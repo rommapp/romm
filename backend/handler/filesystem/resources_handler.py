@@ -1,5 +1,6 @@
 import gzip
 import os
+import shutil
 from io import BytesIO
 from pathlib import Path
 
@@ -68,39 +69,61 @@ class FSResourcesHandler(FSHandler):
         cover_file = f"{entity.fs_resources_path}/cover"
         await self.make_directory(f"{cover_file}")
 
-        httpx_client = ctx_httpx_client.get()
-        try:
-            async with httpx_client.stream("GET", url_cover, timeout=120) as response:
-                if response.status_code == status.HTTP_200_OK:
-                    # Check if content is gzipped from response headers
-                    is_gzipped = (
-                        response.headers.get("content-encoding", "").lower() == "gzip"
-                    )
-
-                    async with await self.write_file_streamed(
-                        path=cover_file, filename=f"{size.value}.png"
-                    ) as f:
-                        if is_gzipped:
-                            # Content is gzipped, decompress it
-                            content = await response.aread()
-                            try:
-                                decompressed_content = gzip.decompress(content)
-                                await f.write(decompressed_content)
-                            except gzip.BadGzipFile:
-                                await f.write(content)
-                        else:
-                            # Content is not gzipped, stream directly
-                            async for chunk in response.aiter_raw():
-                                await f.write(chunk)
+        # Handle file:// URLs for gamelist.xml
+        if url_cover.startswith("file://"):
+            try:
+                file_path = Path(url_cover[7:])  # Remove "file://" prefix
+                if file_path.exists():
+                    # Copy the file to the resources directory
+                    dest_path = self.validate_path(f"{cover_file}/{size.value}.png")
+                    shutil.copy2(file_path, dest_path)
 
                     if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-                        self.image_converter.convert_to_webp(
-                            self.validate_path(f"{cover_file}/{size.value}.png"),
-                            force=True,
+                        self.image_converter.convert_to_webp(dest_path, force=True)
+                else:
+                    log.warning(f"File not found: {file_path}")
+                    return None
+            except Exception as exc:
+                log.error(f"Unable to copy cover file {url_cover}: {str(exc)}")
+                return None
+        else:
+            # Handle HTTP URLs
+            httpx_client = ctx_httpx_client.get()
+            try:
+                async with httpx_client.stream(
+                    "GET", url_cover, timeout=120
+                ) as response:
+                    if response.status_code == status.HTTP_200_OK:
+                        # Check if content is gzipped from response headers
+                        is_gzipped = (
+                            response.headers.get("content-encoding", "").lower()
+                            == "gzip"
                         )
-        except httpx.TransportError as exc:
-            log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
-            return None
+
+                        async with await self.write_file_streamed(
+                            path=cover_file, filename=f"{size.value}.png"
+                        ) as f:
+                            if is_gzipped:
+                                # Content is gzipped, decompress it
+                                content = await response.aread()
+                                try:
+                                    decompressed_content = gzip.decompress(content)
+                                    await f.write(decompressed_content)
+                                except gzip.BadGzipFile:
+                                    await f.write(content)
+                            else:
+                                # Content is not gzipped, stream directly
+                                async for chunk in response.aiter_raw():
+                                    await f.write(chunk)
+
+                        if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                            self.image_converter.convert_to_webp(
+                                self.validate_path(f"{cover_file}/{size.value}.png"),
+                                force=True,
+                            )
+            except httpx.TransportError as exc:
+                log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
+                return None
 
         if size == CoverSize.SMALL:
             try:
@@ -212,36 +235,67 @@ class FSResourcesHandler(FSHandler):
             url_screenhot: URL to get the screenshot
         """
         screenshot_path = f"{rom.fs_resources_path}/screenshots"
+        await self.make_directory(screenshot_path)
 
-        httpx_client = ctx_httpx_client.get()
-        try:
-            async with httpx_client.stream(
-                "GET", url_screenhot, timeout=120
-            ) as response:
-                if response.status_code == status.HTTP_200_OK:
-                    # Check if content is gzipped from response headers
-                    is_gzipped = (
-                        response.headers.get("content-encoding", "").lower() == "gzip"
-                    )
+        # Handle file:// URLs for gamelist.xml
+        if url_screenhot.startswith("file://"):
+            try:
+                file_path = Path(url_screenhot[7:])  # Remove "file://" prefix
+                if file_path.exists():
+                    # Copy the file to the resources directory
+                    dest_path = self.validate_path(f"{screenshot_path}/{idx}.jpg")
+                    shutil.copy2(file_path, dest_path)
+                else:
+                    log.warning(f"Screenshot file not found: {file_path}")
+                    return None
+            except Exception as exc:
+                log.error(f"Unable to copy screenshot file {url_screenhot}: {str(exc)}")
+                return None
+        else:
+            # Handle HTTP URLs
+            httpx_client = ctx_httpx_client.get()
+            try:
+                async with httpx_client.stream(
+                    "GET", url_screenhot, timeout=120
+                ) as response:
+                    if response.status_code == status.HTTP_200_OK:
+                        # Check if content is gzipped from response headers
+                        is_gzipped = (
+                            response.headers.get("content-encoding", "").lower()
+                            == "gzip"
+                        )
 
-                    async with await self.write_file_streamed(
-                        path=screenshot_path, filename=f"{idx}.jpg"
-                    ) as f:
-                        if is_gzipped:
-                            # Content is gzipped, decompress it
-                            content = await response.aread()
-                            try:
-                                decompressed_content = gzip.decompress(content)
-                                await f.write(decompressed_content)
-                            except gzip.BadGzipFile:
-                                await f.write(content)
-                        else:
-                            # Content is not gzipped, stream directly
-                            async for chunk in response.aiter_raw():
-                                await f.write(chunk)
-        except httpx.TransportError as exc:
-            log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
-            return None
+                        async with await self.write_file_streamed(
+                            path=screenshot_path, filename=f"{idx}.jpg"
+                        ) as f:
+                            if is_gzipped:
+                                # Content is gzipped, decompress it
+                                content = await response.aread()
+                                try:
+                                    decompressed_content = gzip.decompress(content)
+                                    await f.write(decompressed_content)
+                                except gzip.BadGzipFile:
+                                    await f.write(content)
+                            else:
+                                # Content is not gzipped, stream directly
+                                async for chunk in response.aiter_raw():
+                                    await f.write(chunk)
+            except httpx.TransportError as exc:
+                log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
+                return None
+
+    def screenshots_exist(self, rom: Rom) -> bool:
+        """Check if rom screenshots exist in filesystem
+
+        Args:
+            rom: Rom object
+        Returns
+            True if screenshots exists in filesystem else False
+        """
+        full_path = self.validate_path(f"{rom.fs_resources_path}/screenshots")
+        for _ in full_path.glob("*.jpg"):
+            return True
+        return False
 
     def _get_screenshot_path(self, rom: Rom, idx: str):
         """Returns rom cover filesystem path adapted to frontend folder structure
@@ -253,15 +307,18 @@ class FSResourcesHandler(FSHandler):
         return f"{rom.fs_resources_path}/screenshots/{idx}.jpg"
 
     async def get_rom_screenshots(
-        self, rom: Rom | None, url_screenshots: list | None
+        self, rom: Rom | None, overwrite: bool, url_screenshots: list | None
     ) -> list[str]:
         if not rom or not url_screenshots:
             return []
 
         path_screenshots: list[str] = []
-        for idx, url_screenhot in enumerate(url_screenshots):
-            await self._store_screenshot(rom, url_screenhot, idx)
-            path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
+
+        screenshots_exist = self.screenshots_exist(rom)
+        if overwrite or not screenshots_exist:
+            for idx, url_screenhot in enumerate(url_screenshots):
+                await self._store_screenshot(rom, url_screenhot, idx)
+                path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
 
         return path_screenshots
 
@@ -280,34 +337,54 @@ class FSResourcesHandler(FSHandler):
 
     async def _store_manual(self, rom: Rom, url_manual: str):
         manual_path = f"{rom.fs_resources_path}/manual"
+        await self.make_directory(manual_path)
 
-        httpx_client = ctx_httpx_client.get()
-        try:
-            async with httpx_client.stream("GET", url_manual, timeout=120) as response:
-                if response.status_code == status.HTTP_200_OK:
-                    # Check if content is gzipped from response headers
-                    is_gzipped = (
-                        response.headers.get("content-encoding", "").lower() == "gzip"
-                    )
+        # Handle file:// URLs for gamelist.xml
+        if url_manual.startswith("file://"):
+            try:
+                file_path = Path(url_manual[7:])  # Remove "file://" prefix
+                if file_path.exists():
+                    # Copy the file to the resources directory
+                    dest_path = self.validate_path(f"{manual_path}/{rom.id}.pdf")
+                    shutil.copy2(file_path, dest_path)
+                else:
+                    log.warning(f"Manual file not found: {file_path}")
+                    return None
+            except Exception as exc:
+                log.error(f"Unable to copy manual file {url_manual}: {str(exc)}")
+                return None
+        else:
+            # Handle HTTP URL
+            httpx_client = ctx_httpx_client.get()
+            try:
+                async with httpx_client.stream(
+                    "GET", url_manual, timeout=120
+                ) as response:
+                    if response.status_code == status.HTTP_200_OK:
+                        # Check if content is gzipped from response headers
+                        is_gzipped = (
+                            response.headers.get("content-encoding", "").lower()
+                            == "gzip"
+                        )
 
-                    async with await self.write_file_streamed(
-                        path=manual_path, filename=f"{rom.id}.pdf"
-                    ) as f:
-                        if is_gzipped:
-                            # Decompress gzipped content
-                            content = await response.aread()
-                            try:
-                                decompressed_content = gzip.decompress(content)
-                                await f.write(decompressed_content)
-                            except gzip.BadGzipFile:
-                                await f.write(content)
-                        else:
-                            # Content is not gzipped, stream directly
-                            async for chunk in response.aiter_raw():
-                                await f.write(chunk)
-        except httpx.TransportError as exc:
-            log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
-            return None
+                        async with await self.write_file_streamed(
+                            path=manual_path, filename=f"{rom.id}.pdf"
+                        ) as f:
+                            if is_gzipped:
+                                # Decompress gzipped content
+                                content = await response.aread()
+                                try:
+                                    decompressed_content = gzip.decompress(content)
+                                    await f.write(decompressed_content)
+                                except gzip.BadGzipFile:
+                                    await f.write(content)
+                            else:
+                                # Content is not gzipped, stream directly
+                                async for chunk in response.aiter_raw():
+                                    await f.write(chunk)
+            except httpx.TransportError as exc:
+                log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
+                return None
 
     def _get_manual_path(self, rom: Rom) -> str | None:
         """Returns rom manual filesystem path adapted to frontend folder structure

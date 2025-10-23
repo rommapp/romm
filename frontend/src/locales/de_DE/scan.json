@@ -12,17 +12,17 @@
   "new-platforms-desc": "Nur neue Plattformen scannen (am schnellsten)",
   "no-new-roms": "Keine neuen oder geänderten Roms gefunden",
   "not-identified": "Nicht identifiziert",
-  "partial-metadata": "Unvollständige Metadaten",
-  "partial-metadata-desc": "Scanne Spiele mit unvollständigen Metadaten",
   "platforms-scanned-n": "Plattformen: {n} gescannte | Plattformen: {n} gescannt",
   "platforms-scanned-with-details": "Plattformen: {n_scanned_platforms} gescannt aus {n_total_platforms}, darunter {n_new_platforms} neue und {n_identified_platforms} identifizierte",
   "quick-scan": "Schneller Scan",
-  "quick-scan-desc": "Nur neue Dateien scannen",
+  "quick-scan-desc": "Nur neue Spiele scannen",
   "roms-scanned-n": "Roms: {n} gescannte | Roms: {n} gescannt",
   "roms-scanned-with-details": "Roms: {n_scanned_roms} gescannt aus {n_total_roms}, darunter {n_new_roms} neue und {n_identified_roms} identifizierte",
   "scan": "Scannen",
   "scan-options": "Scan-Optionen",
   "select-one-source": "Bitte wähle mindestens eine Metadatenquelle, wenn du die Bibliothek mit Cover-Artworks und Metadaten anreichern möchtest",
-  "unidentified-games": "Unidentifizierte Spiele",
-  "unidentified-games-desc": "Scanne Spiele ohne Metadaten"
+  "unmatched-games": "Nicht zugeordnete Spiele",
+  "unmatched-games-desc": "Scanne Spiele mit fehlenden Metadaten-Zuordnungen",
+  "update-metadata": "Metadaten aktualisieren",
+  "update-metadata-desc": "Metadaten für gefundene Spiele aktualisieren"
 }

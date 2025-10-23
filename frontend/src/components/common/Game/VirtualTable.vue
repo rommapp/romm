@@ -272,6 +272,16 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 </v-avatar>
               </v-chip>
               <v-chip
+                v-if="item.gamelist_id"
+                class="mr-1 pa-0 item-chip"
+                size="x-small"
+                title="ES-DE match"
+              >
+                <v-avatar size="20" rounded>
+                  <v-img src="/assets/scrappers/esde.png" />
+                </v-avatar>
+              </v-chip>
+              <v-chip
                 v-if="item.siblings.length > 0 && showSiblings"
                 class="translucent text-white mr-1 px-1 item-chip"
                 size="x-small"

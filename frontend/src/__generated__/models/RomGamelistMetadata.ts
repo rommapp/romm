@@ -2,30 +2,26 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type RomSSMetadata = {
-    bezel?: (string | null);
+export type RomGamelistMetadata = {
     box2d?: (string | null);
-    box2d_side?: (string | null);
     box2d_back?: (string | null);
     box3d?: (string | null);
     fanart?: (string | null);
-    fullbox?: (string | null);
-    logo?: (string | null);
+    image?: (string | null);
     manual?: (string | null);
     marquee?: (string | null);
     miximage?: (string | null);
     physical?: (string | null);
     screenshot?: (string | null);
-    steamgrid?: (string | null);
+    thumbnail?: (string | null);
     title_screen?: (string | null);
     video?: (string | null);
-    video_normalized?: (string | null);
-    ss_score?: string;
-    first_release_date?: (number | null);
-    alternative_names?: Array<string>;
-    companies?: Array<string>;
-    franchises?: Array<string>;
-    game_modes?: Array<string>;
-    genres?: Array<string>;
+    rating?: (number | null);
+    first_release_date?: (string | null);
+    companies?: (Array<string> | null);
+    franchises?: (Array<string> | null);
+    genres?: (Array<string> | null);
+    player_count?: (string | null);
+    md5_hash?: (string | null);
 };
 

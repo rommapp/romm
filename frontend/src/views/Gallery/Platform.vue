@@ -172,18 +172,20 @@ onMounted(async () => {
           (platform) => platform.id === routePlatformId,
         );
 
+        if (!platform) {
+          noPlatformError.value = true;
+          return;
+        }
+
         // Check if the current platform is different or no ROMs have been loaded
         if (
-          platform &&
-          (currentPlatform.value?.id !== routePlatformId ||
-            allRoms.value.length === 0)
+          currentPlatform.value?.id !== routePlatformId ||
+          allRoms.value.length === 0
         ) {
           if (currentPlatform.value) resetGallery();
           romsStore.setCurrentPlatform(platform);
           document.title = platform.display_name;
           await fetchRoms();
-        } else {
-          noPlatformError.value = true;
         }
       }
     },
@@ -205,18 +207,20 @@ onBeforeRouteUpdate(async (to, from) => {
           (platform) => platform.id === routePlatformId,
         );
 
-        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
+        if (!platform) {
+          noPlatformError.value = true;
+          return;
+        }
+
+        // Check if the current platform is different or no ROMs have been loaded
         if (
-          (currentPlatform.value?.id !== routePlatformId ||
-            allRoms.value.length === 0) &&
-          platform
+          currentPlatform.value?.id !== routePlatformId ||
+          allRoms.value.length === 0
         ) {
           if (currentPlatform.value) resetGallery();
           romsStore.setCurrentPlatform(platform);
           document.title = platform.display_name;
           await fetchRoms();
-        } else {
-          noPlatformError.value = true;
         }
       }
     },

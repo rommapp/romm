@@ -744,3 +744,5 @@ export function platformCategoryToIcon(category: string) {
       return "";
   }
 }
+
+export const FRONTEND_RESOURCES_PATH = "/assets/romm/resources";
