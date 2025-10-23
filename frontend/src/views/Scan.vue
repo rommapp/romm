@@ -72,14 +72,14 @@ const scanOptions = [
     value: "quick",
   },
   {
-    title: t("scan.unidentified-games"),
-    subtitle: t("scan.unidentified-games-desc"),
-    value: "unidentified",
+    title: t("scan.unmatched-games"),
+    subtitle: t("scan.unmatched-games-desc"),
+    value: "unmatched",
   },
   {
-    title: t("scan.partial-metadata"),
-    subtitle: t("scan.partial-metadata-desc"),
-    value: "partial",
+    title: t("scan.update-metadata"),
+    subtitle: t("scan.update-metadata-desc"),
+    value: "update",
   },
   {
     title: t("scan.hashes"),

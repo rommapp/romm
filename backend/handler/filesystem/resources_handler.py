@@ -284,6 +284,19 @@ class FSResourcesHandler(FSHandler):
                 log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
                 return None
 
+    def screenshots_exist(self, rom: Rom) -> bool:
+        """Check if rom screenshots exist in filesystem
+
+        Args:
+            rom: Rom object
+        Returns
+            True if screenshots exists in filesystem else False
+        """
+        full_path = self.validate_path(f"{rom.fs_resources_path}/screenshots")
+        for _ in full_path.glob("*.jpg"):
+            return True
+        return False
+
     def _get_screenshot_path(self, rom: Rom, idx: str):
         """Returns rom cover filesystem path adapted to frontend folder structure
 
@@ -294,15 +307,18 @@ class FSResourcesHandler(FSHandler):
         return f"{rom.fs_resources_path}/screenshots/{idx}.jpg"
 
     async def get_rom_screenshots(
-        self, rom: Rom | None, url_screenshots: list | None
+        self, rom: Rom | None, overwrite: bool, url_screenshots: list | None
     ) -> list[str]:
         if not rom or not url_screenshots:
             return []
 
         path_screenshots: list[str] = []
-        for idx, url_screenhot in enumerate(url_screenshots):
-            await self._store_screenshot(rom, url_screenhot, idx)
-            path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
+
+        screenshots_exist = self.screenshots_exist(rom)
+        if overwrite or not screenshots_exist:
+            for idx, url_screenhot in enumerate(url_screenshots):
+                await self._store_screenshot(rom, url_screenhot, idx)
+                path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
 
         return path_screenshots
 
