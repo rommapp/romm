@@ -16,9 +16,10 @@ from models.rom import Rom
 class GamelistExporter:
     """Export RomM collections to ES-DE gamelist.xml format"""
 
-    def _format_release_date(self, date_str: int) -> str:
+    def _format_release_date(self, timestamp: int) -> str:
         """Format release date to YYYYMMDDTHHMMSS format"""
-        return f"{date_str // 10000:04d}{date_str % 10000:02d}T000000"
+        date = datetime.fromtimestamp(timestamp)
+        return date.strftime("%Y%m%dT%H%M%S")
 
     def _create_game_element(self, rom: Rom, request=None) -> Element:
         """Create a <game> element for a ROM"""
