@@ -12,17 +12,17 @@
   "new-platforms-desc": "Escanea únicamente plataformas añadidas recientemente (más rápido)",
   "no-new-roms": "No se han encontrado ficheros nuevos o modificados",
   "not-identified": "No identificado",
-  "partial-metadata": "Metadatos parciales",
-  "partial-metadata-desc": "Escanea únicamente juegos identificados con metadatos a medias",
   "platforms-scanned-n": "Plataformas: {n} escaneada | Plataformas: {n} escaneadas",
   "platforms-scanned-with-details": "Plataformas: {n_scanned_platforms} escaneadas de {n_total_platforms}, con {n_new_platforms} nuevas y {n_identified_platforms} identificadas",
   "quick-scan": "Escaneo rápido",
-  "quick-scan-desc": "Escanea tu biblioteca en busca nuevos ficheros",
+  "quick-scan-desc": "Escanea solo juegos nuevos",
   "roms-scanned-n": "Roms: {n} escaneado | Roms: {n} escaneados",
   "roms-scanned-with-details": "Roms: {n_scanned_roms} escaneados de {n_total_roms}, con {n_new_roms} nuevos y {n_identified_roms} identificados",
   "scan": "Escanear",
   "scan-options": "Tipo de escaneo",
   "select-one-source": "Por favor, elige al menos una fuente de metadatos para enriquecer tu biblioteca con carátulas y metadatos",
-  "unidentified-games": "Juegos sin identificar",
-  "unidentified-games-desc": "Escanea únicamente juegos sin identificar por ninguna de las fuentes de metadatos"
+  "unmatched-games": "Juegos sin coincidencia",
+  "unmatched-games-desc": "Escanea juegos con coincidencias de metadatos faltantes",
+  "update-metadata": "Actualizar metadatos",
+  "update-metadata-desc": "Actualizar metadatos para juegos coincidentes"
 }

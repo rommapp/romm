@@ -12,17 +12,17 @@
   "new-platforms-desc": "新規プラットフォームのみを検索 (最速)",
   "no-new-roms": "新規・変更されたromはありません",
   "not-identified": "未識別",
-  "partial-metadata": "部分的なメタデータ",
-  "partial-metadata-desc": "メタデータが部分的に一致するゲームをスキャン",
   "platforms-scanned-n": "プラットフォーム: {n} スキャン済み",
   "platforms-scanned-with-details": "プラットフォーム: {n_scanned_platforms}/{n_total_platforms} スキャン済み 新規: {n_new_platforms} 識別済み: {n_identified_platforms}",
   "quick-scan": "クイックスキャン",
-  "quick-scan-desc": "新規ファイルのみを検索",
+  "quick-scan-desc": "新規ゲームのみを検索",
   "roms-scanned-n": "Rom: {n} スキャン済み",
   "roms-scanned-with-details": "Rom: {n_scanned_roms}/{n_total_roms} スキャン済み 新規: {n_new_roms} 識別済み: {n_identified_roms}",
   "scan": "スキャン",
   "scan-options": "スキャンオプション",
   "select-one-source": "アートワークやメタデータを使用したい場合は少なくとも1つのソースを選択してください",
-  "unidentified-games": "未識別ゲーム",
-  "unidentified-games-desc": "メタデータが存在しないファイルのみを検索"
+  "unmatched-games": "一致しないゲーム",
+  "unmatched-games-desc": "メタデータの一致が不足しているゲームをスキャン",
+  "update-metadata": "メタデータを更新",
+  "update-metadata-desc": "一致するゲームのメタデータを更新"
 }

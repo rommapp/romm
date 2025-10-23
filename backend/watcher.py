@@ -186,7 +186,7 @@ def process_changes(changes: Sequence[Change]) -> None:
                 scan_platforms,
                 platform_ids=[],
                 metadata_sources=metadata_sources,
-                scan_type=ScanType.UNIDENTIFIED,
+                scan_type=ScanType.UPDATE,
                 timeout=SCAN_TIMEOUT,
                 result_ttl=TASK_RESULT_TTL,
                 meta={
