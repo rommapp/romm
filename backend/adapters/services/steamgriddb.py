@@ -63,9 +63,9 @@ class SteamGridDBService:
             res.raise_for_status()
             return await res.json()
         except aiohttp.client_exceptions.ClientResponseError as exc:
-            print(f"Request failed with status {exc.status} for URL: {url}")
+            log.warning(f"Request failed with status {exc.status} for URL: {url}")
             if exc.status == http.HTTPStatus.UNAUTHORIZED:
-                print("Invalid API key or unauthorized access.")
+                log.warning("Invalid API key or unauthorized access.")
                 raise SGDBInvalidAPIKeyException from exc
             # Log the error and return an empty dict if the request fails with a different code
             log.error(exc)

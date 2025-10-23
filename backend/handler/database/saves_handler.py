@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
 from models.assets import Save
+from models.rom import Rom
 
 from .base_handler import DBBaseHandler
 
@@ -16,7 +17,7 @@ class DBSavesHandler(DBBaseHandler):
 
     @begin_session
     def get_save(self, user_id: int, id: int, session: Session = None) -> Save | None:
-        return session.get(Save, id)
+        return session.scalar(select(Save).filter_by(user_id=user_id, id=id).limit(1))
 
     @begin_session
     def get_save_by_filename(
@@ -42,7 +43,9 @@ class DBSavesHandler(DBBaseHandler):
             query = query.filter_by(rom_id=rom_id)
 
         if platform_id:
-            query = query.filter_by(platform_id=platform_id)
+            query = query.join(Rom, Save.rom_id == Rom.id).filter(
+                Rom.platform_id == platform_id
+            )
 
         return session.scalars(query).all()
 

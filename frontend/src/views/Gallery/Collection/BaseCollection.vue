@@ -183,7 +183,7 @@ onMounted(async () => {
         ) {
           resetGallery();
           props.setCurrentCollection(collection);
-          document.title = `${collection.name}`;
+          document.title = collection.name;
           await fetchRoms();
         }
       }
@@ -213,7 +213,7 @@ onBeforeRouteUpdate(async (to, from) => {
         ) {
           resetGallery();
           props.setCurrentCollection(collection);
-          document.title = `${collection.name}`;
+          document.title = collection.name;
           await fetchRoms();
         }
       }

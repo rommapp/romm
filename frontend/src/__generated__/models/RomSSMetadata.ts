@@ -3,6 +3,23 @@
 /* tslint:disable */
 /* eslint-disable */
 export type RomSSMetadata = {
+    bezel?: (string | null);
+    box2d?: (string | null);
+    box2d_side?: (string | null);
+    box2d_back?: (string | null);
+    box3d?: (string | null);
+    fanart?: (string | null);
+    fullbox?: (string | null);
+    logo?: (string | null);
+    manual?: (string | null);
+    marquee?: (string | null);
+    miximage?: (string | null);
+    physical?: (string | null);
+    screenshot?: (string | null);
+    steamgrid?: (string | null);
+    title_screen?: (string | null);
+    video?: (string | null);
+    video_normalized?: (string | null);
     ss_score?: string;
     first_release_date?: (number | null);
     alternative_names?: Array<string>;

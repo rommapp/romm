@@ -121,7 +121,7 @@ async function updatePlatform() {
 }
 
 async function scan() {
-  scanningStore.set(true);
+  scanningStore.setScanning(true);
 
   if (!socket.connected) socket.connect();
 

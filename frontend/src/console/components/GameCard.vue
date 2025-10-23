@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
 import { computed, onMounted, useTemplateRef, watch } from "vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import {
-  recentElementRegistry,
+  continuePlayingElementRegistry,
   gamesListElementRegistry,
 } from "@/console/composables/useElementRegistry";
 import storeCollections from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
-import type { SimpleRom } from "@/stores/roms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import {
   EXTENSION_REGEX,
   getMissingCoverImage,
@@ -19,17 +20,31 @@ const props = defineProps<{
   index: number;
   selected?: boolean;
   loaded?: boolean;
-  isRecent?: boolean;
-  registry?: "recent" | "gamesList";
+  continuePlaying?: boolean;
+  registry?: "continuePlaying" | "gamesList";
 }>();
 
 const heartbeatStore = storeHeartbeat();
+const romsStore = storeRoms();
+
+const boxartStyle = useLocalStorage<
+  "box2d" | "box3d" | "physical" | "miximage" | "fanart"
+>("settings.boxartStyle", "box2d");
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
 
+// User selected alternative cover image
+const boxartStyleCover = computed(() => {
+  if (boxartStyle.value === "box2d") return null;
+  const ssMedia = props.rom.ss_metadata?.[boxartStyle.value];
+  const gamelistMedia = props.rom.gamelist_metadata?.[boxartStyle.value];
+  return ssMedia || gamelistMedia;
+});
+
 const largeCover = computed(() => {
+  if (boxartStyleCover.value) return boxartStyleCover.value;
   const pathCoverLarge = isWebpEnabled.value
     ? props.rom.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
     : props.rom.path_cover_large;
@@ -37,6 +52,7 @@ const largeCover = computed(() => {
 });
 
 const smallCover = computed(() => {
+  if (boxartStyleCover.value) return boxartStyleCover.value;
   const pathCoverSmall = isWebpEnabled.value
     ? props.rom.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
     : props.rom.path_cover_small;
@@ -84,7 +100,10 @@ onMounted(() => {
   if (props.registry === "gamesList") {
     gamesListElementRegistry.registerElement(props.index, gameCardRef.value);
   } else {
-    recentElementRegistry.registerElement(props.index, gameCardRef.value);
+    continuePlayingElementRegistry.registerElement(
+      props.index,
+      gameCardRef.value,
+    );
   }
 });
 </script>
@@ -92,26 +111,34 @@ onMounted(() => {
 <template>
   <button
     ref="game-card-ref"
-    class="relative block border-2 border-white/10 rounded-md p-0 cursor-pointer overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.3),_inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200"
+    class="relative block border-2 border-white/10 rounded-md p-0 cursor-pointer overflow-hidden transition-all duration-200"
     :class="{
       '-translate-y-[2px] scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-game-card-focus-border),_0_0_16px_var(--console-game-card-focus-border)]':
         selected,
-      'w-[250px] shrink-0': isRecent,
+      'w-[250px] shrink-0': continuePlaying,
+      'shadow-[0_4px_20px_rgba(0,0,0,0.3),_inset_0_1px_0_rgba(255,255,255,0.1)]':
+        !boxartStyleCover,
     }"
     @click="emit('click')"
     @focus="emit('focus')"
   >
     <div class="w-full h-[350px] relative overflow-hidden rounded">
       <v-img
-        cover
-        class="w-full h-full object-cover"
+        class="w-full h-full"
+        :cover="!boxartStyleCover"
+        :contain="boxartStyleCover"
         :src="largeCover || fallbackCoverImage"
         :alt="rom.name || 'Game'"
         @load="emit('loaded')"
         @error="emit('loaded')"
       >
         <template #placeholder>
-          <v-img cover eager :src="smallCover || fallbackCoverImage">
+          <v-img
+            eager
+            :src="smallCover || fallbackCoverImage"
+            :cover="!boxartStyleCover"
+            :contain="boxartStyleCover"
+          >
             <template #placeholder>
               <Skeleton :platform-id="rom.platform_id" type="image" />
             </template>
