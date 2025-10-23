@@ -273,7 +273,7 @@ class GamelistHandler(MetadataHandler):
                 )
 
                 # Choose which cover style to use
-                cover_path = str(rom_media.get(get_cover_style(), "box2d"))
+                cover_path = str(rom_media.get(get_cover_style()))
                 if cover_path:
                     cover_path_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{cover_path}"
@@ -289,17 +289,17 @@ class GamelistHandler(MetadataHandler):
 
                 # Build list of screenshot URLs
                 url_screenshots = []
-                if rom_media["screenshot"]:
-                    screenshot_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['screenshot']}"
-                    )
-                    url_screenshots.append(f"file://{str(screenshot_path)}")
                 if rom_media["title_screen"]:
                     title_screen_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{rom_media['title_screen']}"
                     )
                     url_screenshots.append(f"file://{str(title_screen_path)}")
-                if rom_media["miximage"]:
+                if rom_media["screenshot"]:
+                    screenshot_path = fs_platform_handler.validate_path(
+                        f"{platform_dir}/{rom_media['screenshot']}"
+                    )
+                    url_screenshots.append(f"file://{str(screenshot_path)}")
+                if rom_media["miximage"] and get_cover_style() != "miximage":
                     miximage_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{rom_media['miximage']}"
                     )
