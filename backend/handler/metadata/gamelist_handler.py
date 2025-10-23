@@ -190,7 +190,7 @@ def extract_metadata_from_gamelist_rom(game: Element) -> GamelistMetadata:
 
 
 class GamelistHandler(MetadataHandler):
-    """Handler for EmulationStation gamelist.xml metadata source"""
+    """Handler for ES-DE gamelist.xml metadata source"""
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -289,16 +289,16 @@ class GamelistHandler(MetadataHandler):
 
                 # Build list of screenshot URLs
                 url_screenshots = []
-                if rom_media["title_screen"]:
-                    title_screen_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_media['title_screen']}"
-                    )
-                    url_screenshots.append(f"file://{str(title_screen_path)}")
                 if rom_media["screenshot"]:
                     screenshot_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{rom_media['screenshot']}"
                     )
                     url_screenshots.append(f"file://{str(screenshot_path)}")
+                if rom_media["title_screen"]:
+                    title_screen_path = fs_platform_handler.validate_path(
+                        f"{platform_dir}/{rom_media['title_screen']}"
+                    )
+                    url_screenshots.append(f"file://{str(title_screen_path)}")
                 if rom_media["miximage"] and get_cover_style() != "miximage":
                     miximage_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{rom_media['miximage']}"

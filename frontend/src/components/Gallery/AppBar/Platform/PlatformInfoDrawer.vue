@@ -8,7 +8,6 @@ import { useDisplay } from "vuetify";
 import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import RSection from "@/components/common/RSection.vue";
-import gamelistApi from "@/services/api/gamelist";
 import platformApi from "@/services/api/platform";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
@@ -165,40 +164,6 @@ async function setAspectRatio() {
   }
 }
 
-async function exportGamelist() {
-  if (!currentPlatform.value) return;
-
-  try {
-    const blob = await gamelistApi.exportPlatformGamelist({
-      platformId: currentPlatform.value.id,
-    });
-
-    // Create download link
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `gamelist_${currentPlatform.value.fs_slug}.xml`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-
-    emitter?.emit("snackbarShow", {
-      msg: `Gamelist exported for ${currentPlatform.value.display_name}`,
-      icon: "mdi-download",
-      color: "green",
-    });
-  } catch (error: any) {
-    emitter?.emit("snackbarShow", {
-      msg: `Failed to export gamelist: ${
-        error.response?.data?.detail || error.message
-      }`,
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-  }
-}
-
 watch(
   () => currentPlatform.value?.aspect_ratio,
   (aspectRatio) => {
@@ -334,16 +299,6 @@ watch(
                   indeterminate
                 />
               </template>
-            </v-btn>
-            <v-btn
-              v-if="auth.scopes.includes('roms.read')"
-              rounded="4"
-              :tabindex="tabIndex"
-              class="ml-2 my-1 bg-toplayer"
-              @click="exportGamelist"
-            >
-              <v-icon class="text-romm-blue mr-2"> mdi-download </v-icon>
-              {{ t("platform.export") }} gamelist.xml
             </v-btn>
           </div>
         </div>
