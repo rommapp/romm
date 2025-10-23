@@ -1,3 +1,4 @@
+import { useLocalStorage } from "@vueuse/core";
 import { isNull, isUndefined } from "lodash";
 import { defineStore } from "pinia";
 import type { SearchRomSchema } from "@/__generated__";
@@ -19,6 +20,9 @@ export type SimpleRom = SimpleRomSchema;
 export type DetailedRom = DetailedRomSchema;
 export const MAX_FETCH_LIMIT = 10000;
 
+const orderByStorage = useLocalStorage("roms.orderBy", "name");
+const orderDirStorage = useLocalStorage("roms.orderDir", "asc");
+
 const defaultRomsState = {
   currentPlatform: null as Platform | null,
   currentCollection: null as Collection | null,
@@ -39,8 +43,8 @@ const defaultRomsState = {
   characterIndex: {} as Record<string, number>,
   selectedCharacter: null as string | null,
   romIdIndex: [] as number[],
-  orderBy: "name" as keyof SimpleRom,
-  orderDir: "asc" as "asc" | "desc",
+  orderBy: orderByStorage.value as keyof SimpleRom,
+  orderDir: orderDirStorage.value as "asc" | "desc",
 };
 
 export default defineStore("roms", {
@@ -106,7 +110,6 @@ export default defineStore("roms", {
     },
     _postFetchRoms(response: GetRomsResponse, concat: boolean) {
       const { items, offset, total, char_index, rom_id_index } = response;
-
       if (!concat || this.fetchOffset === 0) {
         this.allRoms = items;
       } else {
@@ -145,7 +148,6 @@ export default defineStore("roms", {
               JSON.stringify(currentParams) !==
               JSON.stringify(currentRequestParams);
             if (paramsChanged) return;
-
             this._postFetchRoms(response, concat);
           })
           .then((response) => {
@@ -259,9 +261,11 @@ export default defineStore("roms", {
     },
     setOrderBy(orderBy: keyof SimpleRom) {
       this.orderBy = orderBy;
+      orderByStorage.value = orderBy;
     },
     setOrderDir(orderDir: "asc" | "desc") {
       this.orderDir = orderDir;
+      orderDirStorage.value = orderDir;
     },
     setLimit(limit: number) {
       this.fetchLimit = limit;

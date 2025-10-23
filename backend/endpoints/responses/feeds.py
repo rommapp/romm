@@ -4,6 +4,7 @@ from pydantic import BaseModel, BeforeValidator, Field, field_validator
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from tasks.scheduled.update_switch_titledb import TITLEDB_REGION_LIST
+from utils.database import safe_int
 
 WEBRCADE_SUPPORTED_PLATFORM_SLUGS = frozenset(
     (
@@ -110,13 +111,7 @@ def coerce_to_string(value: Any) -> str:
 
 def coerce_to_int(value: Any) -> int:
     """Coerce value to int, returning 0 for None/empty values."""
-    if value in (None, ""):
-        return 0
-
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return 0
+    return safe_int(value, default=0)
 
 
 # Annotated types for cleaner field definitions

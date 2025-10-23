@@ -148,261 +148,291 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           selectedRomIDs.length < filteredRoms.length
         "
         :model-value="selectedRomIDs.length === filteredRoms.length"
-        @click.stop
-        @click="updateSelectAll"
+        @click.stop="updateSelectAll"
       />
     </template>
-    <template #item.data-table-select="{ item }">
-      <v-checkbox-btn
-        :model-value="selectedRomIDs.includes(item.id)"
-        @click.stop
-        @click="updateSelectedRom(item)"
-      />
-    </template>
-    <template #item.name="{ item }">
-      <v-list-item :min-width="400" class="px-0 py-2 d-flex game-list-item">
-        <template #prepend>
-          <PlatformIcon
-            v-if="showPlatformIcon"
-            class="mr-4"
-            :size="30"
-            :slug="item.platform_slug"
-            :fs-slug="item.platform_fs_slug"
+    <template #item="{ item }">
+      <router-link
+        :to="{ name: ROUTES.ROM, params: { rom: item.id } }"
+        class="game-list-table-row d-table-row"
+      >
+        <div class="game-list-table-cell d-table-cell px-4">
+          <v-checkbox-btn
+            :model-value="selectedRomIDs.includes(item.id)"
+            @click.stop="updateSelectedRom(item)"
           />
-          <RAvatarRom :rom="item" />
-        </template>
-        <v-row no-gutters>
-          <v-col>
-            {{ item.name }}
-            <v-icon
-              v-if="collectionsStore.isFavorite(item)"
-              size="small"
-              color="primary"
-              class="ml-1"
+        </div>
+        <div class="game-list-table-cell d-table-cell px-4">
+          <v-list-item :min-width="400" class="px-0 py-2 d-flex game-list-item">
+            <template #prepend>
+              <PlatformIcon
+                v-if="showPlatformIcon"
+                class="mr-4"
+                :size="30"
+                :slug="item.platform_slug"
+                :fs-slug="item.platform_fs_slug"
+              />
+              <RAvatarRom :rom="item" />
+            </template>
+            <v-row no-gutters>
+              <v-col>
+                {{ item.name }}
+                <v-icon
+                  v-if="collectionsStore.isFavorite(item)"
+                  size="small"
+                  color="primary"
+                  class="ml-1"
+                >
+                  mdi-star
+                </v-icon>
+              </v-col>
+            </v-row>
+            <v-row no-gutters>
+              <v-col class="text-primary">
+                {{ item.fs_name }}
+              </v-col>
+            </v-row>
+            <template #append>
+              <v-chip
+                v-if="item.hasheous_id"
+                class="bg-romm-green text-white mr-1 px-1 item-chip"
+                size="x-small"
+                title="Verified with Hasheous"
+              >
+                <v-icon>mdi-check-decagram-outline</v-icon>
+              </v-chip>
+              <v-chip
+                v-if="item.igdb_id"
+                class="mr-1 pa-0 item-chip"
+                size="x-small"
+                title="IGDB match"
+              >
+                <v-avatar size="20" rounded>
+                  <v-img src="/assets/scrappers/igdb.png" />
+                </v-avatar>
+              </v-chip>
+              <v-chip
+                v-if="item.ss_id"
+                class="mr-1 pa-0 item-chip"
+                size="x-small"
+                title="ScreenScraper match"
+              >
+                <v-avatar size="20" rounded>
+                  <v-img src="/assets/scrappers/ss.png" />
+                </v-avatar>
+              </v-chip>
+              <v-chip
+                v-if="item.moby_id"
+                class="mr-1 pa-0 item-chip"
+                size="x-small"
+                title="MobyGames match"
+              >
+                <v-avatar size="20" rounded>
+                  <v-img src="/assets/scrappers/moby.png" />
+                </v-avatar>
+              </v-chip>
+              <v-chip
+                v-if="item.launchbox_id"
+                class="mr-1 pa-0 item-chip"
+                size="x-small"
+                title="LaunchBox match"
+              >
+                <v-avatar size="20" style="background: #185a7c">
+                  <v-img src="/assets/scrappers/launchbox.png" />
+                </v-avatar>
+              </v-chip>
+              <v-chip
+                v-if="item.ra_id"
+                class="mr-1 pa-0 item-chip"
+                size="x-small"
+                title="RetroAchievements match"
+              >
+                <v-avatar size="20" rounded>
+                  <v-img src="/assets/scrappers/ra.png" />
+                </v-avatar>
+              </v-chip>
+              <v-chip
+                v-if="item.flashpoint_id"
+                class="mr-1 pa-0 item-chip"
+                size="x-small"
+                title="Flashpoint match"
+              >
+                <v-avatar size="20" rounded>
+                  <v-img src="/assets/scrappers/flashpoint.png" />
+                </v-avatar>
+              </v-chip>
+              <v-chip
+                v-if="item.hltb_id"
+                class="mr-1 pa-0 item-chip"
+                size="x-small"
+                title="HowLongToBeat match"
+              >
+                <v-avatar size="20" rounded>
+                  <v-img src="/assets/scrappers/hltb.png" />
+                </v-avatar>
+              </v-chip>
+              <v-chip
+                v-if="item.gamelist_id"
+                class="mr-1 pa-0 item-chip"
+                size="x-small"
+                title="ES-DE match"
+              >
+                <v-avatar size="20" rounded>
+                  <v-img src="/assets/scrappers/esde.png" />
+                </v-avatar>
+              </v-chip>
+              <v-chip
+                v-if="item.siblings.length > 0 && showSiblings"
+                class="translucent text-white mr-1 px-1 item-chip"
+                size="x-small"
+                :title="`${item.siblings.length} sibling(s)`"
+              >
+                <v-icon>mdi-card-multiple-outline</v-icon>
+              </v-chip>
+              <MissingFromFSIcon
+                v-if="item.missing_from_fs"
+                :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
+                class="mr-1 px-1 item-chip"
+                chip
+                chip-size="x-small"
+              />
+            </template>
+          </v-list-item>
+        </div>
+        <div class="game-list-table-cell d-table-cell px-4">
+          <span class="text-no-wrap">{{
+            formatBytes(item.fs_size_bytes)
+          }}</span>
+        </div>
+        <div class="game-list-table-cell d-table-cell px-4">
+          <span v-if="item.created_at" class="text-no-wrap">{{
+            new Date(item.created_at).toLocaleDateString("en-US", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          }}</span>
+          <span v-else>-</span>
+        </div>
+        <div class="game-list-table-cell d-table-cell px-4">
+          <span v-if="item.metadatum.first_release_date" class="text-no-wrap">{{
+            new Date(item.metadatum.first_release_date).toLocaleDateString(
+              "en-US",
+              {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              },
+            )
+          }}</span>
+          <span v-else>-</span>
+        </div>
+        <div class="game-list-table-cell d-table-cell px-4">
+          <span v-if="item.metadatum.average_rating" class="text-no-wrap">{{
+            Intl.NumberFormat("en-US", {
+              maximumSignificantDigits: 3,
+            }).format(item.metadatum.average_rating)
+          }}</span>
+          <span v-else>-</span>
+        </div>
+        <div class="game-list-table-cell d-table-cell px-4">
+          <div v-if="item.languages.length > 0" class="text-no-wrap">
+            <span
+              v-for="language in item.languages.slice(0, 3)"
+              :key="language"
+              class="emoji"
+              :title="`Languages: ${item.languages.join(', ')}`"
+              :class="{ 'emoji-collection': item.regions.length > 3 }"
             >
-              mdi-star
-            </v-icon>
-          </v-col>
-        </v-row>
-        <v-row no-gutters>
-          <v-col class="text-primary">
-            {{ item.fs_name }}
-          </v-col>
-        </v-row>
-        <template #append>
-          <v-chip
-            v-if="item.hasheous_id"
-            class="bg-romm-green text-white mr-1 px-1 item-chip"
-            size="x-small"
-            title="Verified with Hasheous"
-          >
-            <v-icon>mdi-check-decagram-outline</v-icon>
-          </v-chip>
-          <v-chip
-            v-if="item.igdb_id"
-            class="mr-1 pa-0 item-chip"
-            size="x-small"
-            title="IGDB match"
-          >
-            <v-avatar size="20" rounded>
-              <v-img src="/assets/scrappers/igdb.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="item.ss_id"
-            class="mr-1 pa-0 item-chip"
-            size="x-small"
-            title="ScreenScraper match"
-          >
-            <v-avatar size="20" rounded>
-              <v-img src="/assets/scrappers/ss.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="item.moby_id"
-            class="mr-1 pa-0 item-chip"
-            size="x-small"
-            title="MobyGames match"
-          >
-            <v-avatar size="20" rounded>
-              <v-img src="/assets/scrappers/moby.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="item.launchbox_id"
-            class="mr-1 pa-0 item-chip"
-            size="x-small"
-            title="LaunchBox match"
-          >
-            <v-avatar size="20" style="background: #185a7c">
-              <v-img src="/assets/scrappers/launchbox.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="item.ra_id"
-            class="mr-1 pa-0 item-chip"
-            size="x-small"
-            title="RetroAchievements match"
-          >
-            <v-avatar size="20" rounded>
-              <v-img src="/assets/scrappers/ra.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="item.flashpoint_id"
-            class="mr-1 pa-0 item-chip"
-            size="x-small"
-            title="Flashpoint match"
-          >
-            <v-avatar size="20" rounded>
-              <v-img src="/assets/scrappers/flashpoint.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="item.hltb_id"
-            class="mr-1 pa-0 item-chip"
-            size="x-small"
-            title="HowLongToBeat match"
-          >
-            <v-avatar size="20" rounded>
-              <v-img src="/assets/scrappers/hltb.png" />
-            </v-avatar>
-          </v-chip>
-          <v-chip
-            v-if="item.siblings.length > 0 && showSiblings"
-            class="translucent text-white mr-1 px-1 item-chip"
-            size="x-small"
-            :title="`${item.siblings.length} sibling(s)`"
-          >
-            <v-icon>mdi-card-multiple-outline</v-icon>
-          </v-chip>
-          <MissingFromFSIcon
-            v-if="item.missing_from_fs"
-            :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
-            class="mr-1 px-1 item-chip"
-            chip
-            chip-size="x-small"
-          />
-        </template>
-      </v-list-item>
-    </template>
-    <template #item.fs_size_bytes="{ item }">
-      <span class="text-no-wrap">{{ formatBytes(item.fs_size_bytes) }}</span>
-    </template>
-    <template #item.created_at="{ item }">
-      <span v-if="item.created_at" class="text-no-wrap">{{
-        new Date(item.created_at).toLocaleDateString("en-US", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
-      }}</span>
-      <span v-else>-</span>
-    </template>
-    <template #item.first_release_date="{ item }">
-      <span v-if="item.metadatum.first_release_date" class="text-no-wrap">{{
-        new Date(item.metadatum.first_release_date).toLocaleDateString(
-          "en-US",
-          {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          },
-        )
-      }}</span>
-      <span v-else>-</span>
-    </template>
-    <template #item.average_rating="{ item }">
-      <span v-if="item.metadatum.average_rating" class="text-no-wrap">{{
-        Intl.NumberFormat("en-US", {
-          maximumSignificantDigits: 3,
-        }).format(item.metadatum.average_rating)
-      }}</span>
-      <span v-else>-</span>
-    </template>
-    <template #item.languages="{ item }">
-      <div v-if="item.languages.length > 0" class="text-no-wrap">
-        <span
-          v-for="language in item.languages.slice(0, 3)"
-          :key="language"
-          class="emoji"
-          :title="`Languages: ${item.languages.join(', ')}`"
-          :class="{ 'emoji-collection': item.regions.length > 3 }"
-        >
-          {{ languageToEmoji(language) }}
-        </span>
-        <span class="reglang-super">
-          {{
-            item.languages.length > 3
-              ? `&nbsp;+${item.languages.length - 3}`
-              : ""
-          }}
-        </span>
-      </div>
-      <span v-else>-</span>
-    </template>
-    <template #item.regions="{ item }">
-      <div v-if="item.regions.length > 0" class="text-no-wrap">
-        <span
-          v-for="region in item.regions.slice(0, 3)"
-          :key="region"
-          class="emoji"
-          :title="`Regions: ${item.regions.join(', ')}`"
-          :class="{ 'emoji-collection': item.regions.length > 3 }"
-        >
-          {{ regionToEmoji(region) }}
-        </span>
-        <span class="reglang-super">
-          {{
-            item.regions.length > 3 ? `&nbsp;+${item.regions.length - 3}` : ""
-          }}
-        </span>
-      </div>
-      <span v-else>-</span>
-    </template>
-    <template #item.actions="{ item }">
-      <v-btn-group density="compact">
-        <v-btn
-          :disabled="
-            downloadStore.value.includes(item.id) || item.missing_from_fs
-          "
-          download
-          variant="text"
-          size="small"
-          @click.stop="romApi.downloadRom({ rom: item })"
-        >
-          <v-icon>mdi-download</v-icon>
-        </v-btn>
-        <PlayBtn :rom="item" variant="text" size="small" @click.stop />
-        <v-menu
-          v-if="
-            auth.scopes.includes('roms.write') ||
-            auth.scopes.includes('roms.user.write') ||
-            auth.scopes.includes('collections.write')
-          "
-          location="bottom"
-        >
-          <template #activator="{ props }">
-            <v-btn v-bind="props" variant="text" size="small">
-              <v-icon>mdi-dots-vertical</v-icon>
+              {{ languageToEmoji(language) }}
+            </span>
+            <span class="reglang-super">
+              {{
+                item.languages.length > 3
+                  ? `&nbsp;+${item.languages.length - 3}`
+                  : ""
+              }}
+            </span>
+          </div>
+          <span v-else>-</span>
+        </div>
+        <div class="game-list-table-cell d-table-cell px-4">
+          <div v-if="item.regions.length > 0" class="text-no-wrap">
+            <span
+              v-for="region in item.regions.slice(0, 3)"
+              :key="region"
+              class="emoji"
+              :title="`Regions: ${item.regions.join(', ')}`"
+              :class="{ 'emoji-collection': item.regions.length > 3 }"
+            >
+              {{ regionToEmoji(region) }}
+            </span>
+            <span class="reglang-super">
+              {{
+                item.regions.length > 3
+                  ? `&nbsp;+${item.regions.length - 3}`
+                  : ""
+              }}
+            </span>
+          </div>
+          <span v-else>-</span>
+        </div>
+        <div class="game-list-table-cell d-table-cell px-4">
+          <v-btn-group density="compact">
+            <v-btn
+              :disabled="
+                downloadStore.value.includes(item.id) || item.missing_from_fs
+              "
+              download
+              variant="text"
+              size="small"
+              @click.prevent="romApi.downloadRom({ rom: item })"
+            >
+              <v-icon>mdi-download</v-icon>
             </v-btn>
-          </template>
-          <AdminMenu :rom="item" />
-        </v-menu>
-      </v-btn-group>
+            <PlayBtn :rom="item" variant="text" size="small" @click.prevent />
+            <v-menu
+              v-if="
+                auth.scopes.includes('roms.write') ||
+                auth.scopes.includes('roms.user.write') ||
+                auth.scopes.includes('collections.write')
+              "
+              location="bottom"
+              @click.prevent
+            >
+              <template #activator="{ props }">
+                <v-btn
+                  v-bind="props"
+                  variant="text"
+                  size="small"
+                  @click.prevent
+                >
+                  <v-icon>mdi-dots-vertical</v-icon>
+                </v-btn>
+              </template>
+              <AdminMenu :rom="item" />
+            </v-menu>
+          </v-btn-group>
+        </div>
+      </router-link>
     </template>
   </v-data-table-virtual>
 </template>
 
 <style scoped>
+.game-list-table-row:hover {
+  background-color: rgba(var(--v-theme-surface-variant), 0.08);
+}
+
+.game-list-table-cell {
+  vertical-align: middle;
+  border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
 .reglang-super {
   vertical-align: super;
   font-size: 75%;
   opacity: 75%;
-}
-
-.v-data-table {
-  width: calc(100% - 16px) !important;
 }
 
 @media (max-width: 2160px) {

@@ -168,28 +168,28 @@ onMounted(async () => {
     () => filteredPlatforms.value,
     async (platforms) => {
       if (platforms.length > 0) {
-        if (platforms.some((platform) => platform.id === routePlatformId)) {
-          const platform = platforms.find(
-            (platform) => platform.id === routePlatformId,
-          );
+        const platform = platforms.find(
+          (platform) => platform.id === routePlatformId,
+        );
 
-          // Check if the current platform is different or no ROMs have been loaded
-          if (
-            (currentPlatform.value?.id !== routePlatformId ||
-              allRoms.value.length === 0) &&
-            platform
-          ) {
-            if (currentPlatform.value) resetGallery();
-            romsStore.setCurrentPlatform(platform);
-            document.title = `${platform.display_name}`;
-            await fetchRoms();
-          }
-        } else {
+        if (!platform) {
           noPlatformError.value = true;
+          return;
+        }
+
+        // Check if the current platform is different or no ROMs have been loaded
+        if (
+          currentPlatform.value?.id !== routePlatformId ||
+          allRoms.value.length === 0
+        ) {
+          if (currentPlatform.value) resetGallery();
+          romsStore.setCurrentPlatform(platform);
+          document.title = platform.display_name;
+          await fetchRoms();
         }
       }
     },
-    { immediate: true }, // Ensure watcher is triggered immediately
+    { immediate: true },
   );
 });
 
@@ -207,18 +207,20 @@ onBeforeRouteUpdate(async (to, from) => {
           (platform) => platform.id === routePlatformId,
         );
 
-        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
+        if (!platform) {
+          noPlatformError.value = true;
+          return;
+        }
+
+        // Check if the current platform is different or no ROMs have been loaded
         if (
-          (currentPlatform.value?.id !== routePlatformId ||
-            allRoms.value.length === 0) &&
-          platform
+          currentPlatform.value?.id !== routePlatformId ||
+          allRoms.value.length === 0
         ) {
           if (currentPlatform.value) resetGallery();
           romsStore.setCurrentPlatform(platform);
-          document.title = `${platform.display_name}`;
+          document.title = platform.display_name;
           await fetchRoms();
-        } else {
-          noPlatformError.value = true;
         }
       }
     },

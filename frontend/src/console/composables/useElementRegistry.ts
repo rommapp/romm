@@ -25,7 +25,7 @@ export function useElementRegistry() {
 
 // Create a shared registry instance for each section
 export const systemElementRegistry = useElementRegistry();
-export const recentElementRegistry = useElementRegistry();
+export const continuePlayingElementRegistry = useElementRegistry();
 export const collectionElementRegistry = useElementRegistry();
 export const smartCollectionElementRegistry = useElementRegistry();
 export const virtualCollectionElementRegistry = useElementRegistry();

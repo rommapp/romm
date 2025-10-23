@@ -332,7 +332,8 @@ async function boot() {
     : null;
 
   document.title = `${rom.name} | Play`;
-  bezelSrc.value = getBezelImagePath(rom.platform_slug).value;
+  bezelSrc.value =
+    rom.ss_metadata?.bezel || getBezelImagePath(rom.platform_slug).value;
 
   // Configure EmulatorJS globals
   const supported = getSupportedEJSCores(rom.platform_slug);

@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+import socketio
 
 from endpoints.sockets.scan import ScanStats, _should_scan_rom
 from handler.scan_handler import ScanType
@@ -13,61 +14,62 @@ def test_scan_stats():
     assert stats.new_platforms == 0
     assert stats.identified_platforms == 0
     assert stats.scanned_roms == 0
-    assert stats.added_roms == 0
+    assert stats.new_roms == 0
     assert stats.identified_roms == 0
     assert stats.scanned_firmware == 0
-    assert stats.added_firmware == 0
+    assert stats.new_firmware == 0
 
     stats.scanned_platforms += 1
     stats.new_platforms += 1
     stats.identified_platforms += 1
     stats.scanned_roms += 1
-    stats.added_roms += 1
+    stats.new_roms += 1
     stats.identified_roms += 1
     stats.scanned_firmware += 1
-    stats.added_firmware += 1
+    stats.new_firmware += 1
 
     assert stats.scanned_platforms == 1
     assert stats.new_platforms == 1
     assert stats.identified_platforms == 1
     assert stats.scanned_roms == 1
-    assert stats.added_roms == 1
+    assert stats.new_roms == 1
     assert stats.identified_roms == 1
     assert stats.scanned_firmware == 1
-    assert stats.added_firmware == 1
+    assert stats.new_firmware == 1
 
 
-def test_merging_scan_stats():
+async def test_merging_scan_stats():
     stats = ScanStats(
         scanned_platforms=1,
         new_platforms=2,
         identified_platforms=3,
         scanned_roms=4,
-        added_roms=5,
+        new_roms=5,
         identified_roms=6,
         scanned_firmware=7,
-        added_firmware=8,
+        new_firmware=8,
     )
 
-    stats.update(
+    await stats.update(
+        socket_manager=Mock(spec=socketio.AsyncRedisManager),
         scanned_platforms=stats.scanned_platforms + 10,
         new_platforms=stats.new_platforms + 11,
         identified_platforms=stats.identified_platforms + 12,
         scanned_roms=stats.scanned_roms + 13,
-        added_roms=stats.added_roms + 14,
+        new_roms=stats.new_roms + 14,
         identified_roms=stats.identified_roms + 15,
         scanned_firmware=stats.scanned_firmware + 16,
-        added_firmware=stats.added_firmware + 17,
+        new_firmware=stats.new_firmware + 17,
     )
 
     assert stats.scanned_platforms == 11
     assert stats.new_platforms == 13
     assert stats.identified_platforms == 15
     assert stats.scanned_roms == 17
-    assert stats.added_roms == 19
+    assert stats.new_roms == 19
     assert stats.identified_roms == 21
     assert stats.scanned_firmware == 23
-    assert stats.added_firmware == 25
+    assert stats.new_firmware == 25
 
 
 class TestShouldScanRom:
@@ -106,48 +108,48 @@ class TestShouldScanRom:
         assert _should_scan_rom(ScanType.HASHES, rom, []) is True
         assert _should_scan_rom(ScanType.HASHES, rom, [2, 3]) is True
 
-    # Test UNIDENTIFIED scan type
-    def test_unidentified_scan_with_no_rom(self):
-        """UNIDENTIFIED should not scan when rom is None"""
-        result = _should_scan_rom(ScanType.UNIDENTIFIED, None, [])
+    # Test UNMATCHED scan type
+    def test_unmatched_scan_with_no_rom(self):
+        """UNMATCHED should not scan when rom is None"""
+        result = _should_scan_rom(ScanType.UNMATCHED, None, [])
         assert result is False
 
-    def test_unidentified_scan_with_unidentified_rom(self, rom: Rom):
-        """UNIDENTIFIED should scan when rom is unidentified"""
+    def test_unmatched_scan_with_unmatched_rom(self, rom: Rom):
+        """UNMATCHED should scan when rom is unmatched"""
         rom.igdb_id = None
         rom.moby_id = None
         rom.ss_id = None
         rom.ra_id = None
         rom.launchbox_id = None
-        result = _should_scan_rom(ScanType.UNIDENTIFIED, rom, [])
+        result = _should_scan_rom(ScanType.UNMATCHED, rom, [])
         assert result is True
 
-    def test_unidentified_scan_with_identified_rom(self, rom: Rom):
-        """UNIDENTIFIED should not scan when rom is identified"""
+    def test_unmatched_scan_with_identified_rom(self, rom: Rom):
+        """UNMATCHED should also scan when rom is identified"""
         rom.igdb_id = 1
-        result = _should_scan_rom(ScanType.UNIDENTIFIED, rom, [])
-        assert result is False
-
-    # Test PARTIAL scan type
-    def test_partial_scan_with_no_rom(self):
-        """PARTIAL should not scan when rom is None"""
-        result = _should_scan_rom(ScanType.PARTIAL, None, [])
-        assert result is False
-
-    def test_partial_scan_with_identified_rom(self, rom: Rom):
-        """PARTIAL should scan when rom is identified"""
-        rom.igdb_id = 1
-        result = _should_scan_rom(ScanType.PARTIAL, rom, [])
+        result = _should_scan_rom(ScanType.UNMATCHED, rom, [])
         assert result is True
 
-    def test_partial_scan_with_unidentified_rom(self, rom: Rom):
-        """PARTIAL should not scan when rom is not identified"""
+    # Test UPDATE scan type
+    def test_update_scan_with_no_rom(self):
+        """UPDATE should not scan when rom is None"""
+        result = _should_scan_rom(ScanType.UPDATE, None, [])
+        assert result is False
+
+    def test_update_scan_with_identified_rom(self, rom: Rom):
+        """UPDATE should scan when rom is identified"""
+        rom.igdb_id = 1
+        result = _should_scan_rom(ScanType.UPDATE, rom, [])
+        assert result is True
+
+    def test_update_scan_with_unmatched_rom(self, rom: Rom):
+        """UPDATE should not scan when rom is not identified"""
         rom.igdb_id = None
         rom.moby_id = None
         rom.ss_id = None
         rom.ra_id = None
         rom.launchbox_id = None
-        result = _should_scan_rom(ScanType.PARTIAL, rom, [])
+        result = _should_scan_rom(ScanType.UPDATE, rom, [])
         assert result is False
 
     # Test rom_ids parameter
@@ -159,8 +161,8 @@ class TestShouldScanRom:
         # Test with different scan types
         for scan_type in [
             ScanType.QUICK,
-            ScanType.UNIDENTIFIED,
-            ScanType.PARTIAL,
+            ScanType.UNMATCHED,
+            ScanType.UPDATE,
         ]:
             result = _should_scan_rom(scan_type, rom, roms_ids)
             assert result is True
@@ -173,8 +175,8 @@ class TestShouldScanRom:
         # These should not scan because rom exists and id not in list
         assert _should_scan_rom(ScanType.NEW_PLATFORMS, rom, roms_ids) is False
         assert _should_scan_rom(ScanType.QUICK, rom, roms_ids) is False
-        assert _should_scan_rom(ScanType.PARTIAL, rom, roms_ids) is False
-        assert _should_scan_rom(ScanType.UNIDENTIFIED, rom, roms_ids) is True
+        assert _should_scan_rom(ScanType.UPDATE, rom, roms_ids) is False
+        assert _should_scan_rom(ScanType.UNMATCHED, rom, roms_ids) is True
 
     # Edge cases
     def test_empty_roms_ids_list(self, rom: Rom):
@@ -182,7 +184,7 @@ class TestShouldScanRom:
         rom.id = 1
         rom.igdb_id = 1
 
-        assert _should_scan_rom(ScanType.PARTIAL, rom, []) is True
+        assert _should_scan_rom(ScanType.UPDATE, rom, []) is True
         assert _should_scan_rom(ScanType.NEW_PLATFORMS, rom, []) is False
 
     def test_rom_id_type_conversion(self, rom: Rom):
@@ -207,9 +209,9 @@ class TestShouldScanRom:
             (ScanType.COMPLETE, True, False, False, True),
             (ScanType.HASHES, False, None, False, True),
             (ScanType.HASHES, True, False, False, True),
-            (ScanType.UNIDENTIFIED, True, False, False, True),
-            (ScanType.UNIDENTIFIED, True, True, False, True),
-            (ScanType.PARTIAL, True, True, False, True),
+            (ScanType.UNMATCHED, True, False, False, True),
+            (ScanType.UNMATCHED, True, True, False, True),
+            (ScanType.UPDATE, True, True, False, True),
         ],
     )
     def test_comprehensive_scenarios(
