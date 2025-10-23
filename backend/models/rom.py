@@ -379,7 +379,7 @@ class Rom(BaseModel):
         )
 
     @property
-    def merged_ra_metadata(self) -> dict[str, Any] | None:
+    def merged_ra_metadata(self) -> dict[str, list] | None:
         if self.ra_metadata and "achievements" in self.ra_metadata:
             for achievement in self.ra_metadata.get("achievements", []):
                 achievement["badge_path_lock"] = (

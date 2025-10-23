@@ -5,10 +5,10 @@ from fastapi.responses import Response
 
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
-from handler.export.gamelist_exporter import GamelistExporter
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.gamelist_exporter import GamelistExporter
 from utils.router import APIRouter
 
 router = APIRouter(
