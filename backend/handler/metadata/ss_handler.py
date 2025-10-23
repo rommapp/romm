@@ -349,7 +349,8 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if res_summary:
             break
 
-    url_cover = str(ss_media.get(get_cover_style()))
+    url_cover = ss_media.get(get_cover_style())
+    url_manual = ss_media.get("manual")
     url_screenshots = pydash.compact(
         [
             ss_media["screenshot"],
@@ -363,8 +364,8 @@ def build_ss_rom(game: SSGame) -> SSRom:
         "ss_id": ss_id,
         "name": res_name.replace(" : ", ": "),  # Normalize colons
         "summary": res_summary,
-        "url_cover": url_cover or "",
-        "url_manual": ss_media["manual"] or "",
+        "url_cover": str(url_cover) if url_cover else "",
+        "url_manual": str(url_manual) if url_manual else "",
         "url_screenshots": url_screenshots,
         "ss_metadata": ss_metadata,
     }

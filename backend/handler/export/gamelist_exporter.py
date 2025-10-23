@@ -1,6 +1,4 @@
-import os
 from datetime import datetime
-from typing import Dict, List, Optional
 from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
     Element,
     SubElement,
