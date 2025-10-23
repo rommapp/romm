@@ -1,4 +1,12 @@
 {
+  "backlogged": "Rückstand",
+  "boxart-style": "Boxart-Stil",
+  "boxart-desc": "Wählen Sie den Boxart-Stil für Spielkarten",
+  "boxart-box2d": "2D-Box",
+  "boxart-box3d": "3D-Box",
+  "boxart-fanart": "Fanart",
+  "boxart-miximage": "Mix-Bild",
+  "boxart-physical": "Physisch",
   "canceled": "Abgebrochen",
   "cleanup": "Bereinigung",
   "completed": "Abgeschlossen",

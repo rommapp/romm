@@ -1,4 +1,12 @@
 {
+  "backlogged": "Zaległości",
+  "boxart-style": "Styl okładki",
+  "boxart-desc": "Wybierz styl okładki dla kart gier",
+  "boxart-box2d": "Pudełko 2D",
+  "boxart-box3d": "Pudełko 3D",
+  "boxart-fanart": "Fanart",
+  "boxart-miximage": "Obraz mieszany",
+  "boxart-physical": "Fizyczny",
   "canceled": "Anulowano",
   "cleanup": "Czyszczenie",
   "completed": "Ukończono",

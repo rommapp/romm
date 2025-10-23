@@ -1,4 +1,12 @@
 {
+  "backlogged": "バックログ",
+  "boxart-style": "ボックスアートスタイル",
+  "boxart-desc": "ゲームカードのボックスアートスタイルを選択",
+  "boxart-box2d": "2Dボックス",
+  "boxart-box3d": "3Dボックス",
+  "boxart-fanart": "ファンアート",
+  "boxart-miximage": "ミックス画像",
+  "boxart-physical": "物理",
   "canceled": "キャンセル済み",
   "cleanup": "クリーンアップ",
   "completed": "完了済み",

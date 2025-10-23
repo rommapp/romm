@@ -51,6 +51,9 @@ const enableExperimentalCacheRef = useLocalStorage(
   false,
 );
 
+// Boxart
+const boxartStyleRef = useLocalStorage("settings.boxartStyle", "box2d");
+
 const homeOptions = computed(() => [
   {
     title: t("settings.show-stats"),
@@ -181,6 +184,14 @@ const galleryOptions = computed(() => [
   },
 ]);
 
+const boxartStyleOptions = computed(() => [
+  { title: t("settings.boxart-box2d"), value: "box2d" },
+  { title: t("settings.boxart-box3d"), value: "box3d" },
+  { title: t("settings.boxart-physical"), value: "physical" },
+  { title: t("settings.boxart-miximage"), value: "miximage" },
+  { title: t("settings.boxart-fanart"), value: "fanart" },
+]);
+
 const setPlatformDrawerGroupBy = (value: string) => {
   platformsGroupByRef.value = value;
 };
@@ -200,19 +211,18 @@ const setVirtualCollectionType = async (value: string) => {
   virtualCollectionTypeRef.value = value;
   collectionsStore.fetchVirtualCollections(value);
 };
-
+const setBoxartStyle = (value: string) => {
+  boxartStyleRef.value = value;
+};
 const toggleShowStats = (value: boolean) => {
   showStatsRef.value = value;
 };
-
 const toggleShowRecentRoms = (value: boolean) => {
   showRecentRomsRef.value = value;
 };
-
 const toggleGroupRoms = (value: boolean) => {
   groupRomsRef.value = value;
 };
-
 const toggleSiblings = (value: boolean) => {
   siblingsRef.value = value;
 };
@@ -220,15 +230,12 @@ const toggleSiblings = (value: boolean) => {
 const toggleRegions = (value: boolean) => {
   regionsRef.value = value;
 };
-
 const toggleLanguages = (value: boolean) => {
   languagesRef.value = value;
 };
-
 const toggleStatus = (value: boolean) => {
   statusRef.value = value;
 };
-
 const toggleActionBar = (value: boolean) => {
   actionBarRef.value = value;
 };
@@ -269,6 +276,17 @@ const toggleExperimentalCache = (value: boolean) => {
               option.model.value ? option.iconEnabled : option.iconDisabled
             "
             @update:model-value="option.modelTrigger"
+          />
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-select
+            v-model="boxartStyleRef"
+            :items="boxartStyleOptions"
+            :label="t('settings.boxart-style')"
+            class="mx-2 mt-2"
+            variant="outlined"
+            hide-details
+            @update:model-value="setBoxartStyle"
           />
         </v-col>
       </v-row>

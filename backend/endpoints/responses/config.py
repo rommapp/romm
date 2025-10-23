@@ -22,4 +22,3 @@ class ConfigResponse(TypedDict):
     SCAN_ARTWORK_PRIORITY: list[str]
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
-    SCAN_ARTWORK_COVER_STYLE: str

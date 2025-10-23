@@ -90,7 +90,11 @@ const coverImageSource = computed(() => {
     const hostname = new URL(props.rom.url_cover).hostname;
 
     if (hostname === "images.igdb.com") return "IGDB";
-    if (hostname === "screenscraper.fr") return "ScreenScraper";
+    if (
+      hostname === "screenscraper.fr" ||
+      hostname === "neoclone.screenscraper.fr"
+    )
+      return "ScreenScraper";
     if (hostname === "cdn.mobygames.com" || hostname === "cdn2.mobygames.com")
       return "MobyGames";
     if (

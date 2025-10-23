@@ -41,12 +41,6 @@ def get_preferred_languages() -> list[str]:
     return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY + ["en", "fr"]))
 
 
-def get_cover_style() -> str:
-    """Get cover art style from config"""
-    config = cm.get_config()
-    return config.SCAN_ARTWORK_COVER_STYLE
-
-
 PS1_SS_ID: Final = 57
 PS2_SS_ID: Final = 58
 PSP_SS_ID: Final = 61
@@ -349,13 +343,13 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if res_summary:
             break
 
-    url_cover = ss_media.get(get_cover_style()) or ss_media["box2d"]
+    url_cover = ss_media["box2d"]
     url_manual = ss_media["manual"]
     url_screenshots = pydash.compact(
         [
             ss_media["screenshot"],
             ss_media["title_screen"],
-            ss_media["miximage"] if get_cover_style() != "miximage" else None,
+            ss_media["miximage"],
         ]
     )
 

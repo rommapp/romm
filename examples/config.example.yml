@@ -80,8 +80,6 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #     language: # Cover art and game title (only used by Screenscraper)
 #       - "en"
 #       - "fr"
-#   artwork: # Only used by Screenscraper and ES-DE
-#     cover_style: box2d (Options: box2d, box3d, physical, miximage, fanart)
 
 # EmulatorJS per-core options
 # emulatorjs:
