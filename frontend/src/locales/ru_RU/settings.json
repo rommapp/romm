@@ -1,4 +1,12 @@
 {
+  "backlogged": "В очереди",
+  "boxart-style": "Стиль обложки",
+  "boxart-desc": "Выберите стиль обложки для карточек игр",
+  "boxart-box2d": "2D коробка",
+  "boxart-box3d": "3D коробка",
+  "boxart-fanart": "Фанарт",
+  "boxart-miximage": "Смешанное изображение",
+  "boxart-physical": "Физический",
   "canceled": "Отменено",
   "cleanup": "Очистка",
   "completed": "Завершено",

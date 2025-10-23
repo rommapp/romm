@@ -1,4 +1,12 @@
 {
+  "backlogged": "În așteptare",
+  "boxart-style": "Stilul copertii",
+  "boxart-desc": "Alege stilul copertii pentru cardurile de jocuri",
+  "boxart-box2d": "Cutie 2D",
+  "boxart-box3d": "Cutie 3D",
+  "boxart-fanart": "Fanart",
+  "boxart-miximage": "Imagine mixtă",
+  "boxart-physical": "Fizic",
   "canceled": "Anulat",
   "cleanup": "Curățare",
   "completed": "Finalizat",

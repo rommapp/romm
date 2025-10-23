@@ -1,4 +1,12 @@
 {
+  "backlogged": "Pendiente",
+  "boxart-style": "Estilo de carátula",
+  "boxart-desc": "Elige el estilo de carátula para las tarjetas de juegos",
+  "boxart-box2d": "Caja 2D",
+  "boxart-box3d": "Caja 3D",
+  "boxart-fanart": "Fanart",
+  "boxart-miximage": "Imagen mixta",
+  "boxart-physical": "Físico",
   "canceled": "Cancelado",
   "cleanup": "Limpieza",
   "completed": "Completado",

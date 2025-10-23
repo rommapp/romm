@@ -1,4 +1,12 @@
 {
+  "backlogged": "待办",
+  "boxart-style": "封面样式",
+  "boxart-desc": "选择游戏卡片的封面样式",
+  "boxart-box2d": "2D盒子",
+  "boxart-box3d": "3D盒子",
+  "boxart-fanart": "粉丝艺术",
+  "boxart-miximage": "混合图像",
+  "boxart-physical": "物理",
   "canceled": "已取消",
   "cleanup": "清理",
   "completed": "已完成",

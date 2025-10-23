@@ -45,8 +45,6 @@ scan:
     language:
       - jp
       - es
-  artwork:
-    cover_style: box2d
 
 emulatorjs:
   debug: true

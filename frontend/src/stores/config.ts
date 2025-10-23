@@ -30,7 +30,6 @@ const defaultConfig = {
   SCAN_ARTWORK_PRIORITY: [],
   SCAN_REGION_PRIORITY: [],
   SCAN_LANGUAGE_PRIORITY: [],
-  SCAN_ARTWORK_COVER_STYLE: "",
 } as ConfigResponse;
 
 export default defineStore("config", {

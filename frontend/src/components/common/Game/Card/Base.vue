@@ -124,6 +124,9 @@ const activeMenu = ref(false);
 const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
 const showGameTitleAlways = useLocalStorage("settings.showGameTitle", false);
 const showSiblings = useLocalStorage("settings.showSiblings", true);
+const boxartStyle = useLocalStorage<
+  "box2d" | "box3d" | "physical" | "miximage" | "fanart"
+>("settings.boxartStyle", "box2d");
 
 const hasNotes = computed(() => {
   if (!romsStore.isSimpleRom(props.rom)) return false;
@@ -146,9 +149,23 @@ const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
 
+// User selected alternative cover image
+const boxartStyleCover = computed(() => {
+  if (
+    props.coverSrc ||
+    !romsStore.isSimpleRom(props.rom) ||
+    boxartStyle.value === "box2d"
+  )
+    return null;
+  const ssMedia = props.rom.ss_metadata?.[boxartStyle.value];
+  const gamelistMedia = props.rom.gamelist_metadata?.[boxartStyle.value];
+  return ssMedia || gamelistMedia;
+});
+
 const largeCover = computed(() => {
   if (props.coverSrc) return props.coverSrc;
-  if (!romsStore.isSimpleRom(props.rom))
+  if (boxartStyleCover.value) return boxartStyleCover.value;
+  if (!romsStore.isSimpleRom(props.rom)) {
     return (
       props.rom.igdb_url_cover ||
       props.rom.moby_url_cover ||
@@ -156,6 +173,7 @@ const largeCover = computed(() => {
       props.rom.launchbox_url_cover ||
       props.rom.flashpoint_url_cover
     );
+  }
   const pathCoverLarge = isWebpEnabled.value
     ? props.rom.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
     : props.rom.path_cover_large;
@@ -164,19 +182,12 @@ const largeCover = computed(() => {
 
 const smallCover = computed(() => {
   if (props.coverSrc) return props.coverSrc;
+  if (boxartStyleCover.value) return boxartStyleCover.value;
   if (!romsStore.isSimpleRom(props.rom)) return "";
   const pathCoverSmall = isWebpEnabled.value
     ? props.rom.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
     : props.rom.path_cover_small;
   return pathCoverSmall || "";
-});
-
-const is3DCover = computed(() => {
-  if (!romsStore.isSimpleRom(props.rom)) return false;
-  return (
-    props.rom.url_cover?.includes("box-3D") ||
-    props.rom.url_cover?.includes("3dboxes")
-  );
 });
 
 const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
@@ -232,7 +243,9 @@ onBeforeUnmount(() => {
           'border-selected': withBorderPrimary,
           'transform-scale': transformScale && !enable3DTilt,
         }"
-        :elevation="isOuterHovering && transformScale ? 20 : 3"
+        :elevation="
+          isOuterHovering && transformScale ? 20 : boxartStyleCover ? 0 : 3
+        "
         :aria-label="`${rom.name} game card`"
         @mouseenter="
           () => {
@@ -255,8 +268,8 @@ onBeforeUnmount(() => {
             <v-img
               v-bind="imgProps"
               :key="romsStore.isSimpleRom(rom) ? rom.id : rom.name"
-              :cover="!is3DCover"
-              :contain="is3DCover"
+              :cover="!boxartStyleCover"
+              :contain="boxartStyleCover"
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
               :src="largeCover || fallbackCoverImage"
@@ -309,7 +322,7 @@ onBeforeUnmount(() => {
                   />
                 </v-col>
               </v-row>
-              <div v-bind="props">
+              <div>
                 <v-row
                   v-if="romsStore.isSimpleRom(rom) && showChips"
                   no-gutters
@@ -391,8 +404,8 @@ onBeforeUnmount(() => {
               </div>
               <template #placeholder>
                 <v-img
-                  :cover="!is3DCover"
-                  :contain="is3DCover"
+                  :cover="!boxartStyleCover"
+                  :contain="boxartStyleCover"
                   eager
                   :src="smallCover || fallbackCoverImage"
                   :aspect-ratio="computedAspectRatio"
@@ -408,8 +421,8 @@ onBeforeUnmount(() => {
               </template>
               <template #error>
                 <v-img
-                  :cover="!is3DCover"
-                  :contain="is3DCover"
+                  :cover="!boxartStyleCover"
+                  :contain="boxartStyleCover"
                   eager
                   :src="fallbackCoverImage"
                   :aspect-ratio="computedAspectRatio"

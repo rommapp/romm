@@ -7,7 +7,6 @@ from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 import pydash
 from defusedxml import ElementTree as ET
 
-from config.config_manager import config_manager as cm
 from handler.filesystem import fs_platform_handler
 from logger.logger import log
 from models.platform import Platform
@@ -48,12 +47,6 @@ class GamelistRom(BaseRom):
     regions: NotRequired[list[str]]
     languages: NotRequired[list[str]]
     gamelist_metadata: NotRequired[GamelistMetadata]
-
-
-def get_cover_style() -> str:
-    """Get cover art style from config"""
-    config = cm.get_config()
-    return config.SCAN_ARTWORK_COVER_STYLE
 
 
 def extract_media_from_gamelist_rom(game: Element) -> GamelistMetadataMedia:
@@ -273,7 +266,7 @@ class GamelistHandler(MetadataHandler):
                 )
 
                 # Choose which cover style to use
-                cover_path = rom_media.get(get_cover_style()) or rom_media["box2d"]
+                cover_path = rom_media["box2d"]
                 if cover_path:
                     cover_path_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{cover_path}"
@@ -299,7 +292,7 @@ class GamelistHandler(MetadataHandler):
                         f"{platform_dir}/{rom_media['title_screen']}"
                     )
                     url_screenshots.append(f"file://{str(title_screen_path)}")
-                if rom_media["miximage"] and get_cover_style() != "miximage":
+                if rom_media["miximage"]:
                     miximage_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{rom_media['miximage']}"
                     )

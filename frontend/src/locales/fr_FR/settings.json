@@ -1,4 +1,12 @@
 {
+  "backlogged": "En attente",
+  "boxart-style": "Style de jaquette",
+  "boxart-desc": "Choisissez le style de jaquette pour les cartes de jeux",
+  "boxart-box2d": "Boîte 2D",
+  "boxart-box3d": "Boîte 3D",
+  "boxart-fanart": "Fanart",
+  "boxart-miximage": "Image mixte",
+  "boxart-physical": "Physique",
   "canceled": "Annulé",
   "cleanup": "Nettoyage",
   "completed": "Terminé",
