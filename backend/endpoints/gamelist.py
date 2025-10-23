@@ -43,7 +43,7 @@ async def export_gamelist(
 
         # Export each platform to its respective directory
         for platform_id in platform_ids:
-            success = exporter.export_platform_to_file(platform_id, request)
+            success = await exporter.export_platform_to_file(platform_id, request)
             if success:
                 files_written.append(f"gamelist_{platform_id}.xml")
             else:
@@ -56,8 +56,10 @@ async def export_gamelist(
             )
 
         log.info(
-            f"Exported gamelist for {hl(str(len(files_written)), color=BLUE)} platform(s)"
+            f"Exported gamelist for {hl(str(len(files_written)), color=BLUE)} platform(s):"
         )
+        for file in files_written:
+            log.info(f"\t• {file}")
         return Response(status_code=status.HTTP_200_OK)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e

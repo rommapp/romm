@@ -349,8 +349,8 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if res_summary:
             break
 
-    url_cover = ss_media.get(get_cover_style())
-    url_manual = ss_media.get("manual")
+    url_cover = ss_media.get(get_cover_style()) or ss_media["box2d"]
+    url_manual = ss_media["manual"]
     url_screenshots = pydash.compact(
         [
             ss_media["screenshot"],
