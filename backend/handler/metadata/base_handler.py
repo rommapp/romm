@@ -33,7 +33,7 @@ MAME_XML_KEY: Final = "romm:mame_xml"
 PS2_OPL_REGEX: Final = re.compile(r"^([A-Z]{4}_\d{3}\.\d{2})\..*$")
 PS2_OPL_KEY: Final = "romm:ps2_opl_index"
 
-# Sony serial codes for PS1, PS2, and PSP
+# Sony serial codes for PS1, PS2, PS3 and PSP
 SONY_SERIAL_REGEX: Final = re.compile(r".*([a-zA-Z]{4}-\d{5}).*$")
 
 PS1_SERIAL_INDEX_KEY: Final = "romm:ps1_serial_index"
