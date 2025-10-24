@@ -484,10 +484,10 @@ async def head_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    files = rom.files
+    files = list(db_rom_handler.get_rom_files(rom.id))
     if file_ids:
         file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
-        files = [f for f in rom.files if f.id in file_id_values]
+        files = [f for f in files if f.id in file_id_values]
     files.sort(key=lambda x: x.file_name)
 
     # Serve the file directly in development mode for emulatorjs
@@ -561,10 +561,10 @@ async def get_rom_content(
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
     hidden_folder = str_to_bool(request.query_params.get("hidden_folder", ""))
 
-    files = rom.files
+    files = list(db_rom_handler.get_rom_files(rom.id))
     if file_ids:
         file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
-        files = [f for f in rom.files if f.id in file_id_values]
+        files = [f for f in files if f.id in file_id_values]
     files.sort(key=lambda x: x.file_name)
 
     log.info(
@@ -602,7 +602,7 @@ async def get_rom_content(
 
                         # Create ZIP info with compression
                         zip_info = ZipInfo(
-                            filename=file.file_name_for_download(rom, hidden_folder),
+                            filename=file.file_name_for_download(hidden_folder),
                             date_time=now.timetuple()[:6],
                         )
                         zip_info.external_attr = S_IFREG | 0o600
@@ -620,7 +620,7 @@ async def get_rom_content(
                 # Add M3U file if not already present
                 if not rom.has_m3u_file():
                     m3u_encoded_content = "\n".join(
-                        [f.file_name_for_download(rom, hidden_folder) for f in files]
+                        [f.file_name_for_download(hidden_folder) for f in files]
                     ).encode()
                     m3u_filename = f"{rom.fs_name}.m3u"
                     m3u_info = ZipInfo(
@@ -656,14 +656,14 @@ async def get_rom_content(
             crc32=None,  # The CRC hash stored for compressed files is for the uncompressed content
             size_bytes=f.file_size_bytes,
             encoded_location=quote(f"/library/{f.full_path}"),
-            filename=f.file_name_for_download(rom, hidden_folder),
+            filename=f.file_name_for_download(hidden_folder),
         )
         for f in files
     ]
 
     if not rom.has_m3u_file():
         m3u_encoded_content = "\n".join(
-            [f.file_name_for_download(rom, hidden_folder) for f in files]
+            [f.file_name_for_download(hidden_folder) for f in files]
         ).encode()
         m3u_base64_content = b64encode(m3u_encoded_content).decode()
         m3u_line = ZipContentLine(

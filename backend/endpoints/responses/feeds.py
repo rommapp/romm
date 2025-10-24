@@ -163,3 +163,61 @@ class TinfoilFeedSchema(TypedDict):
     titledb: NotRequired[dict[str, dict]]  # dict after .model_dump()
     success: NotRequired[str]
     error: NotRequired[str]
+
+
+# PKGi PS3 feed format
+# Source: https://github.com/bucanero/pkgi-ps3
+class PKGiFeedPS3ItemSchema(BaseModel):
+    """Schema for PKGi PS3 feed items.
+
+    Follows the PKGi database format:
+    contentid,type,name,description,rap,url,size,checksum
+    """
+
+    contentid: str
+    type: int
+    name: str
+    description: str
+    rap: str
+    url: str
+    size: int
+    checksum: str
+
+
+# PKGi PS Vita feed format
+# Source: https://github.com/mmozeiko/pkgi
+class PKGiFeedPSVitaItemSchema(BaseModel):
+    """Schema for PKGi PS Vita feed items.
+
+    Follows the PKGi database format:
+    contentid,flags,name,name2,zrif,url,size,checksum
+    """
+
+    contentid: str
+    flags: int
+    name: str
+    name2: str
+    zrif: str
+    url: str
+    size: int
+    checksum: str
+
+
+# Kekatsu DS feed format
+# Source: https://github.com/cavv-dev/Kekatsu-DS
+class KekatsuDSItemSchema(BaseModel):
+    """Schema for Kekatsu DS feed items.
+
+    Follows the Kekatsu DS database format:
+    title,platform,region,version,author,download_url,filename,size,box_art_url[,extract_items...]
+    """
+
+    title: str
+    platform: str
+    region: str
+    version: str
+    author: str
+    download_url: str
+    filename: str
+    size: int
+    box_art_url: str
