@@ -301,7 +301,7 @@ def pkgi_ps3_feed(
             pkgi_item = PKGiFeedPS3ItemSchema(
                 contentid=content_id,
                 type=content_type_int,
-                name=file.file_name_no_tags,
+                name=file.file_name_no_tags.replace(",", " "),
                 description="",
                 rap="",
                 url=download_url,
@@ -310,7 +310,7 @@ def pkgi_ps3_feed(
             )
 
             # Format: contentid,type,name,description,rap,url,size,checksum
-            txt_line = f"{pkgi_item.contentid},{pkgi_item.type},{pkgi_item.name},{pkgi_item.description},{pkgi_item.rap},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum or ''}"
+            txt_line = f"{pkgi_item.contentid},{pkgi_item.type},{pkgi_item.name},{pkgi_item.description},{pkgi_item.rap},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum}"
             txt_lines.append(txt_line)
 
     txt_content = "\n".join(txt_lines)
@@ -371,7 +371,7 @@ def pkgi_psvita_feed(
             pkgi_item = PKGiFeedPSVitaItemSchema(
                 contentid=content_id,
                 flags=0,
-                name=file.file_name_no_tags,
+                name=file.file_name_no_tags.replace(",", " "),
                 name2="",
                 zrif="",
                 url=download_url,
@@ -380,7 +380,7 @@ def pkgi_psvita_feed(
             )
 
             # Format: contentid,flags,name,name2,zrif,url,size,checksum
-            txt_line = f"{pkgi_item.contentid},{pkgi_item.flags},{pkgi_item.name},{pkgi_item.name2},{pkgi_item.zrif},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum or ''}"
+            txt_line = f"{pkgi_item.contentid},{pkgi_item.flags},{pkgi_item.name},{pkgi_item.name2},{pkgi_item.zrif},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum}"
             txt_lines.append(txt_line)
 
     txt_content = "\n".join(txt_lines)
