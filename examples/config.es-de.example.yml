@@ -129,3 +129,42 @@ system:
     naomi: "arcade"
     naomi2: "arcade"
     naomigd: "arcade"
+
+scan:
+  # Metadata priority during scans
+  priority:
+    # Below are the default priority values used
+    metadata: # Top-level metadata source priority
+      - "gamelist" # ES-DE gamelist.xml
+      - "igdb" # IGDB (highest priority)
+      - "moby" # MobyGames
+      - "ss" # Screenscraper
+      - "ra" # RetroAchievements
+      - "lb" # Launchbox
+      - "hasheous" # Hasheous
+      - "flashpoint" # Flashpoint Project
+      - "hltb" # HowLongToBeat (lowest priority)
+    artwork: # Cover art and screenshots
+      - "gamelist" # ES-DE gamelist.xml
+      - "igdb" # IGDB
+      - "moby" # MobyGames
+      - "ss" # Screenscraper
+      - "ra" # RetroAchievements
+      - "lb" # Launchbox
+      - "hasheous" # Hasheous
+      - "flashpoint" # Flashpoint Project
+      - "hltb" # HowLongToBeat
+    # Media assets to download
+    media:
+      # Used as alternative cover art
+      - box2d # Normal cover art (always enabled)
+      - box3d # 3D box art
+      - miximage # Mixed image of multiple media
+      - physical # Disc, cartridge, etc.
+      # Added to the screenshots carousel
+      - screenshot # Screenshot (enabled by default)
+      - title_screen # Title screen
+      - marquee # Transparent logo
+      - fanart # User uploaded artwork
+      # Gameplay video
+      - video # Video (warning: large file size)
