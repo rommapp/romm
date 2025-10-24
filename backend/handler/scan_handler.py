@@ -451,11 +451,15 @@ async def scan_rom(
 
                 return await meta_igdb_handler.get_rom_by_id(playmatch_rom["igdb_id"])
 
-            # If no matches found, use the file name to get the IGDB ID
             main_platform_igdb_id = get_main_platform_igdb_id(platform)
-            return await meta_igdb_handler.get_rom(
-                rom_attrs["fs_name"], main_platform_igdb_id or platform.igdb_id
-            )
+            if scan_type == ScanType.UPDATE and rom.igdb_id:
+                # Use the ID to refetch the metadata from IGDB
+                return await meta_igdb_handler.get_rom_by_id(rom.igdb_id)
+            else:
+                # If no matches found, use the file name to get the IGDB ID
+                return await meta_igdb_handler.get_rom(
+                    rom_attrs["fs_name"], main_platform_igdb_id or platform.igdb_id
+                )
 
         return IGDBRom(igdb_id=None)
 
@@ -485,9 +489,12 @@ async def scan_rom(
                 )
             )
         ):
-            return await meta_flashpoint_handler.get_rom(
-                rom_attrs["fs_name"], platform.slug
-            )
+            if scan_type == ScanType.UPDATE and rom.flashpoint_id:
+                return await meta_flashpoint_handler.get_rom_by_id(rom.flashpoint_id)
+            else:
+                return await meta_flashpoint_handler.get_rom(
+                    rom_attrs["fs_name"], platform.slug
+                )
 
         return FlashpointRom(flashpoint_id=None)
 
@@ -521,9 +528,12 @@ async def scan_rom(
                 )
             )
         ):
-            return await meta_moby_handler.get_rom(
-                rom_attrs["fs_name"], platform_moby_id=platform.moby_id
-            )
+            if scan_type == ScanType.UPDATE and rom.moby_id:
+                return await meta_moby_handler.get_rom_by_id(rom.moby_id)
+            else:
+                return await meta_moby_handler.get_rom(
+                    rom_attrs["fs_name"], platform_moby_id=platform.moby_id
+                )
 
         return MobyGamesRom(moby_id=None)
 
@@ -542,9 +552,12 @@ async def scan_rom(
                 )
             )
         ):
-            return await meta_ss_handler.get_rom(
-                rom_attrs["fs_name"], platform_ss_id=platform.ss_id
-            )
+            if scan_type == ScanType.UPDATE and rom.ss_id:
+                return await meta_ss_handler.get_rom_by_id(rom.ss_id)
+            else:
+                return await meta_ss_handler.get_rom(
+                    rom_attrs["fs_name"], platform_ss_id=platform.ss_id
+                )
 
         return SSRom(ss_id=None)
 
@@ -559,9 +572,12 @@ async def scan_rom(
                 and rom.platform_slug in LAUNCHBOX_PLATFORM_LIST
             )
         ):
-            return await meta_launchbox_handler.get_rom(
-                rom_attrs["fs_name"], platform_slug
-            )
+            if scan_type == ScanType.UPDATE and rom.launchbox_id:
+                return await meta_launchbox_handler.get_rom_by_id(rom.launchbox_id)
+            else:
+                return await meta_launchbox_handler.get_rom(
+                    rom_attrs["fs_name"], platform_slug
+                )
 
         return LaunchboxRom(launchbox_id=None)
 
@@ -591,7 +607,12 @@ async def scan_rom(
                 )
                 return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
 
-            return await meta_ra_handler.get_rom(rom=rom, ra_hash=rom_attrs["ra_hash"])
+            if scan_type == ScanType.UPDATE and rom.ra_id:
+                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=rom.ra_id)
+            else:
+                return await meta_ra_handler.get_rom(
+                    rom=rom, ra_hash=rom_attrs["ra_hash"]
+                )
 
         return RAGameRom(ra_id=None)
 
@@ -740,17 +761,20 @@ async def scan_rom(
             or (scan_type == ScanType.UPDATE and rom.sgdb_id)
             or (scan_type == ScanType.UNMATCHED and not rom.sgdb_id)
         ):
-            game_names = [
-                igdb_handler_rom.get("name", None),
-                hasheous_handler_rom.get("name", None),
-                ss_handler_rom.get("name", None),
-                moby_handler_rom.get("name", None),
-                launchbox_handler_rom.get("name", None),
-                gamelist_handler_rom.get("name", None),
-                rom_attrs["fs_name_no_tags"],
-            ]
-            game_names = [name for name in game_names if name]
-            return await meta_sgdb_handler.get_details_by_names(game_names)
+            if scan_type == ScanType.UPDATE and rom.sgdb_id:
+                return await meta_sgdb_handler.get_rom_by_id(rom.sgdb_id)
+            else:
+                game_names = [
+                    igdb_handler_rom.get("name", None),
+                    hasheous_handler_rom.get("name", None),
+                    ss_handler_rom.get("name", None),
+                    moby_handler_rom.get("name", None),
+                    launchbox_handler_rom.get("name", None),
+                    gamelist_handler_rom.get("name", None),
+                    rom_attrs["fs_name_no_tags"],
+                ]
+                game_names = [name for name in game_names if name]
+                return await meta_sgdb_handler.get_details_by_names(game_names)
 
         return SGDBRom(sgdb_id=None)
 
