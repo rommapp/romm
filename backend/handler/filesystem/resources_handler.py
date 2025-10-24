@@ -9,7 +9,7 @@ from fastapi import status
 from PIL import Image, ImageFile, UnidentifiedImageError
 
 from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
-from handler.metadata.base_handler import MetadataMediaType
+from config.config_manager import MetadataMediaType
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom

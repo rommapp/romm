@@ -10,6 +10,7 @@ from unidecode import unidecode as uc
 from adapters.services.screenscraper import ScreenScraperService
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
@@ -22,7 +23,6 @@ from .base_handler import (
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
-    MetadataMediaType,
 )
 from .base_handler import UniversalPlatformSlug as UPS
 
@@ -253,12 +253,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     ss_media["physical_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.PHYSICAL)}/physical.png"
                     )
-            elif (
-                media.get("type") == "ss"
-                and not ss_media["screenshot_url"]
-                and MetadataMediaType.SCREENSHOT in preferred_media_types
-            ):
-                ss_media["screenshot_url"] = media["url"]
+            elif media.get("type") == "ss" and not ss_media["screenshot_url"]:
                 ss_media["screenshot_url"] = media["url"]
             elif media.get("type") == "box-2D-side" and not ss_media["box2d_side_url"]:
                 ss_media["box2d_side_url"] = media["url"]

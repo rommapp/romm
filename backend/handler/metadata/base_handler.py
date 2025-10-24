@@ -54,20 +54,6 @@ class BaseRom(TypedDict):
     url_manual: NotRequired[str]
 
 
-class MetadataMediaType(enum.StrEnum):
-    BEZEL = "bezel"
-    BOX2D = "box2d"
-    BOX3D = "box3d"
-    MIXIMAGE = "miximage"
-    PHYSICAL = "physical"
-    SCREENSHOT = "screenshot"
-    TITLE_SCREEN = "title_screen"
-    MARQUEE = "marquee"
-    FANART = "fanart"
-    VIDEO = "video"
-    MANUAL = "manual"
-
-
 # This caches results to avoid repeated normalization of the same search term
 @lru_cache(maxsize=1024)
 def _normalize_search_term(

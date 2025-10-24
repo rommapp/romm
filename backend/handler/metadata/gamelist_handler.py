@@ -7,13 +7,14 @@ from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 import pydash
 from defusedxml import ElementTree as ET
 
+from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom
 
-from .base_handler import BaseRom, MetadataHandler, MetadataMediaType
+from .base_handler import BaseRom, MetadataHandler
 
 # https://github.com/Aloshi/EmulationStation/blob/master/GAMELISTS.md#reference
 
