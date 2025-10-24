@@ -1,3 +1,4 @@
+import enum
 import json
 import os
 import sys
@@ -34,6 +35,20 @@ class EjsControlsButton(TypedDict):
     value2: NotRequired[str]  # Controller button
 
 
+class MetadataMediaType(enum.StrEnum):
+    BEZEL = "bezel"
+    BOX2D = "box2d"
+    BOX3D = "box3d"
+    MIXIMAGE = "miximage"
+    PHYSICAL = "physical"
+    SCREENSHOT = "screenshot"
+    TITLE_SCREEN = "title_screen"
+    MARQUEE = "marquee"
+    FANART = "fanart"
+    VIDEO = "video"
+    MANUAL = "manual"
+
+
 class EjsControls(TypedDict):
     _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
     _1: dict[int, EjsControlsButton]
@@ -66,6 +81,7 @@ class Config:
     SCAN_ARTWORK_PRIORITY: list[str]
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
+    SCAN_MEDIA: list[str]
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -241,6 +257,15 @@ class ConfigManager:
                 self._raw_config,
                 "scan.priority.language",
                 ["en", "fr"],
+            ),
+            SCAN_MEDIA=pydash.get(
+                self._raw_config,
+                "scan.media",
+                [
+                    "box2d",
+                    "screenshot",
+                    "manual",
+                ],
             ),
         )
 
@@ -419,6 +444,17 @@ class ConfigManager:
         if not isinstance(self.config.SCAN_LANGUAGE_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.language must be a list")
             sys.exit(3)
+
+        if not isinstance(self.config.SCAN_MEDIA, list):
+            log.critical("Invalid config.yml: scan.media must be a list")
+            sys.exit(3)
+
+        for media in self.config.SCAN_MEDIA:
+            if media not in MetadataMediaType:
+                log.critical(
+                    f"Invalid config.yml: scan.media.{media} is not a valid media type"
+                )
+                sys.exit(3)
 
     def get_config(self) -> Config:
         try:

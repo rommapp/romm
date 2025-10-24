@@ -12,6 +12,7 @@ import {
 } from "vue";
 import { useDisplay } from "vuetify";
 import type { SearchRomSchema } from "@/__generated__";
+import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import Flags from "@/components/common/Game/Card/Flags.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
@@ -26,6 +27,7 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import {
   getMissingCoverImage,
   getUnmatchedCoverImage,
@@ -124,9 +126,10 @@ const activeMenu = ref(false);
 const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
 const showGameTitleAlways = useLocalStorage("settings.showGameTitle", false);
 const showSiblings = useLocalStorage("settings.showSiblings", true);
-const boxartStyle = useLocalStorage<
-  "box2d" | "box3d" | "physical" | "miximage" | "fanart"
->("settings.boxartStyle", "box2d");
+const boxartStyle = useLocalStorage<BoxartStyleOption>(
+  "settings.boxartStyle",
+  "cover",
+);
 
 const hasNotes = computed(() => {
   if (!romsStore.isSimpleRom(props.rom)) return false;
@@ -154,7 +157,7 @@ const boxartStyleCover = computed(() => {
   if (
     props.coverSrc ||
     !romsStore.isSimpleRom(props.rom) ||
-    boxartStyle.value === "box2d"
+    boxartStyle.value === "cover"
   )
     return null;
   const ssMedia = props.rom.ss_metadata?.[boxartStyle.value];
@@ -164,7 +167,8 @@ const boxartStyleCover = computed(() => {
 
 const largeCover = computed(() => {
   if (props.coverSrc) return props.coverSrc;
-  if (boxartStyleCover.value) return boxartStyleCover.value;
+  if (boxartStyleCover.value)
+    return `${FRONTEND_RESOURCES_PATH}/${boxartStyleCover.value}`;
   if (!romsStore.isSimpleRom(props.rom)) {
     return (
       props.rom.igdb_url_cover ||
@@ -182,7 +186,8 @@ const largeCover = computed(() => {
 
 const smallCover = computed(() => {
   if (props.coverSrc) return props.coverSrc;
-  if (boxartStyleCover.value) return boxartStyleCover.value;
+  if (boxartStyleCover.value)
+    return `${FRONTEND_RESOURCES_PATH}/${boxartStyleCover.value}`;
   if (!romsStore.isSimpleRom(props.rom)) return "";
   const pathCoverSmall = isWebpEnabled.value
     ? props.rom.path_cover_small?.replace(EXTENSION_REGEX, ".webp")

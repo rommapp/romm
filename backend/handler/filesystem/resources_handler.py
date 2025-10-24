@@ -9,6 +9,7 @@ from fastapi import status
 from PIL import Image, ImageFile, UnidentifiedImageError
 
 from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
+from config.config_manager import MetadataMediaType
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
@@ -26,6 +27,7 @@ class FSResourcesHandler(FSHandler):
     def get_platform_resources_path(self, platform_id: int) -> str:
         return os.path.join("roms", str(platform_id))
 
+    # Cover art
     def cover_exists(self, entity: Rom | Collection, size: CoverSize) -> bool:
         """Check if rom cover exists in filesystem
 
@@ -227,6 +229,7 @@ class FSResourcesHandler(FSHandler):
             path_cover_s.relative_to(self.base_path)
         )
 
+    # Screenshots
     async def _store_screenshot(self, rom: Rom, url_screenhot: str, idx: int):
         """Store roms resources in filesystem
 
@@ -322,6 +325,7 @@ class FSResourcesHandler(FSHandler):
 
         return path_screenshots
 
+    # Manuals
     def manual_exists(self, rom: Rom) -> bool:
         """Check if rom manual exists in filesystem
 
@@ -415,6 +419,7 @@ class FSResourcesHandler(FSHandler):
     async def remove_manual(self, rom: Rom):
         await self.remove_directory(f"{rom.fs_resources_path}/manual")
 
+    # Retroachievements
     async def store_ra_badge(self, url: str, path: str) -> None:
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
@@ -447,3 +452,64 @@ class FSResourcesHandler(FSHandler):
 
     async def create_ra_resources_path(self, platform_id: int, rom_id: int) -> None:
         await self.make_directory(self.get_ra_resources_path(platform_id, rom_id))
+
+    # Mixed media
+    def get_media_resources_path(
+        self,
+        platform_id: int,
+        rom_id: int,
+        media_type: MetadataMediaType,
+    ) -> str:
+        return os.path.join("roms", str(platform_id), str(rom_id), media_type.value)
+
+    async def create_media_resources_path(
+        self,
+        platform_id: int,
+        rom_id: int,
+        media_type: MetadataMediaType,
+    ) -> None:
+        await self.make_directory(
+            self.get_media_resources_path(platform_id, rom_id, media_type)
+        )
+
+    async def store_media_file(self, url: str, path: str) -> None:
+        httpx_client = ctx_httpx_client.get()
+        directory, filename = os.path.split(path)
+
+        if await self.file_exists(path):
+            log.debug(f"Media file {path} already exists, skipping download")
+            return
+
+        # Handle file:// URLs for gamelist.xml
+        if url.startswith("file://"):
+            try:
+                file_path = Path(url[7:])  # Remove "file://" prefix
+                if file_path.exists():
+                    shutil.copy2(file_path, path)
+            except Exception as exc:
+                log.error(f"Unable to copy media file {url}: {str(exc)}")
+                return None
+        else:
+            # Handle HTTP URLs
+            httpx_client = ctx_httpx_client.get()
+            try:
+                async with httpx_client.stream("GET", url, timeout=120) as response:
+                    if response.status_code == status.HTTP_200_OK:
+                        async with await self.write_file_streamed(
+                            path=directory, filename=filename
+                        ) as f:
+                            async for chunk in response.aiter_raw():
+                                await f.write(chunk)
+            except httpx.TransportError as exc:
+                log.error(f"Unable to fetch media file at {url}: {str(exc)}")
+                return None
+
+    async def remove_media_resources_path(
+        self,
+        platform_id: int,
+        rom_id: int,
+        media_type: MetadataMediaType,
+    ) -> None:
+        await self.remove_directory(
+            self.get_media_resources_path(platform_id, rom_id, media_type)
+        )

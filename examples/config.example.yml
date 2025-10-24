@@ -47,10 +47,10 @@ system:
 # The folder name where your roms are located
 filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is /home/user/library/roms_folder
 
-# Metadata priority during scans
-# Below are the default priority values used
 # scan:
+#   # Metadata priority during scans
 #   priority:
+#     # Below are the default priority values used
 #     metadata: # Top-level metadata source priority
 #       - "igdb" # IGDB (highest priority)
 #       - "moby" # MobyGames
@@ -80,6 +80,25 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #     language: # Cover art and game title (only used by Screenscraper)
 #       - "en"
 #       - "fr"
+#     # Media assets to download
+#     # Only used by Screenscraper and ES-DE gamelist.xml
+#     media:
+#       # Used as alternative cover art
+#       - box2d  # Normal cover art (always enabled)
+#       - box3d  # 3D box art
+#       - miximage  # Mixed image of multiple media
+#       - physical  # Disc, cartridge, etc.
+#       # Added to the screenshots carousel
+#       - screenshot  # Screenshot (enabled by default)
+#       - title_screen  # Title screen
+#       - marquee  # Transparent logo
+#       - fanart  # User uploaded artwork
+#       # Bezel displayed around the emulatorjs window
+#       - bezel
+#       # Manual in PDF format
+#       - manual (enabled by default)
+#       # Gameplay video
+#       - video  # Video (warning: large file size)
 
 # EmulatorJS per-core options
 # emulatorjs:

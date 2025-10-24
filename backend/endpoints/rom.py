@@ -826,7 +826,7 @@ async def update_rom(
         cleaned_data.update({"moby_id": None, "moby_metadata": {}})
 
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
-        ss_rom = await meta_ss_handler.get_rom_by_id(cleaned_data["ss_id"])
+        ss_rom = await meta_ss_handler.get_rom_by_id(rom, cleaned_data["ss_id"])
         cleaned_data.update(ss_rom)
     elif rom.ss_id and not cleaned_data["ss_id"]:
         cleaned_data.update({"ss_id": None, "ss_metadata": {}})
