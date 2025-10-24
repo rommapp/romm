@@ -470,7 +470,9 @@ async def scan_rom(
             or (scan_type == ScanType.UPDATE and rom.gamelist_id)
             or (scan_type == ScanType.UNMATCHED and not rom.gamelist_id)
         ):
-            return await meta_gamelist_handler.get_rom(rom_attrs["fs_name"], platform)
+            return await meta_gamelist_handler.get_rom(
+                rom_attrs["fs_name"], platform, rom
+            )
 
         return GamelistRom(gamelist_id=None)
 
@@ -553,10 +555,10 @@ async def scan_rom(
             )
         ):
             if scan_type == ScanType.UPDATE and rom.ss_id:
-                return await meta_ss_handler.get_rom_by_id(rom.ss_id)
+                return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
             else:
                 return await meta_ss_handler.get_rom(
-                    rom_attrs["fs_name"], platform_ss_id=platform.ss_id
+                    rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
                 )
 
         return SSRom(ss_id=None)
@@ -737,15 +739,15 @@ async def scan_rom(
 
     # If not found in any metadata source, we return the rom with the default values
     if (
-        not igdb_handler_rom.get("igdb_id")
-        and not moby_handler_rom.get("moby_id")
-        and not ss_handler_rom.get("ss_id")
-        and not ra_handler_rom.get("ra_id")
-        and not launchbox_handler_rom.get("launchbox_id")
-        and not hasheous_handler_rom.get("hasheous_id")
-        and not flashpoint_handler_rom.get("flashpoint_id")
-        and not hltb_handler_rom.get("hltb_id")
-        and not gamelist_handler_rom.get("gamelist_id")
+        not rom_attrs.get("igdb_id")
+        and not rom_attrs.get("moby_id")
+        and not rom_attrs.get("ss_id")
+        and not rom_attrs.get("ra_id")
+        and not rom_attrs.get("launchbox_id")
+        and not rom_attrs.get("hasheous_id")
+        and not rom_attrs.get("flashpoint_id")
+        and not rom_attrs.get("hltb_id")
+        and not rom_attrs.get("gamelist_id")
     ):
         log.warning(
             f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",

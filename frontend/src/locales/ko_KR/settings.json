@@ -1,9 +1,8 @@
 {
   "backlogged": "백로그",
-  "boxart-box2d": "2D 박스",
+  "boxart-cover": "2D 박스",
   "boxart-box3d": "3D 박스",
   "boxart-desc": "게임 카드의 박스아트 스타일을 선택하세요",
-  "boxart-fanart": "팬아트",
   "boxart-miximage": "믹스 이미지",
   "boxart-physical": "물리적",
   "boxart-style": "박스아트 스타일",

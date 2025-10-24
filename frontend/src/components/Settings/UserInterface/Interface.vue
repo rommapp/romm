@@ -52,7 +52,15 @@ const enableExperimentalCacheRef = useLocalStorage(
 );
 
 // Boxart
-const boxartStyleRef = useLocalStorage("settings.boxartStyle", "box2d");
+export type BoxartStyleOption =
+  | "cover"
+  | "box3d_path"
+  | "physical_path"
+  | "miximage_path";
+const boxartStyleRef = useLocalStorage<BoxartStyleOption>(
+  "settings.boxartStyle",
+  "cover",
+);
 
 const homeOptions = computed(() => [
   {
@@ -185,11 +193,10 @@ const galleryOptions = computed(() => [
 ]);
 
 const boxartStyleOptions = computed(() => [
-  { title: t("settings.boxart-box2d"), value: "box2d" },
-  { title: t("settings.boxart-box3d"), value: "box3d" },
-  { title: t("settings.boxart-physical"), value: "physical" },
-  { title: t("settings.boxart-miximage"), value: "miximage" },
-  { title: t("settings.boxart-fanart"), value: "fanart" },
+  { title: t("settings.boxart-cover"), value: "cover" },
+  { title: t("settings.boxart-box3d"), value: "box3d_path" },
+  { title: t("settings.boxart-physical"), value: "physical_path" },
+  { title: t("settings.boxart-miximage"), value: "miximage_path" },
 ]);
 
 const setPlatformDrawerGroupBy = (value: string) => {
@@ -211,7 +218,7 @@ const setVirtualCollectionType = async (value: string) => {
   virtualCollectionTypeRef.value = value;
   collectionsStore.fetchVirtualCollections(value);
 };
-const setBoxartStyle = (value: string) => {
+const setBoxartStyle = (value: BoxartStyleOption) => {
   boxartStyleRef.value = value;
 };
 const toggleShowStats = (value: boolean) => {

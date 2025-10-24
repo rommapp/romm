@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
 import { computed, onMounted, useTemplateRef, watch } from "vue";
+import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import {
   continuePlayingElementRegistry,
@@ -8,7 +9,8 @@ import {
 } from "@/console/composables/useElementRegistry";
 import storeCollections from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { type SimpleRom } from "@/stores/roms";
+import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import {
   EXTENSION_REGEX,
   getMissingCoverImage,
@@ -25,11 +27,11 @@ const props = defineProps<{
 }>();
 
 const heartbeatStore = storeHeartbeat();
-const romsStore = storeRoms();
 
-const boxartStyle = useLocalStorage<
-  "box2d" | "box3d" | "physical" | "miximage" | "fanart"
->("settings.boxartStyle", "box2d");
+const boxartStyle = useLocalStorage<BoxartStyleOption>(
+  "settings.boxartStyle",
+  "cover",
+);
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -37,14 +39,15 @@ const isWebpEnabled = computed(
 
 // User selected alternative cover image
 const boxartStyleCover = computed(() => {
-  if (boxartStyle.value === "box2d") return null;
+  if (boxartStyle.value === "cover") return null;
   const ssMedia = props.rom.ss_metadata?.[boxartStyle.value];
   const gamelistMedia = props.rom.gamelist_metadata?.[boxartStyle.value];
   return ssMedia || gamelistMedia;
 });
 
 const largeCover = computed(() => {
-  if (boxartStyleCover.value) return boxartStyleCover.value;
+  if (boxartStyleCover.value)
+    return `${FRONTEND_RESOURCES_PATH}/${boxartStyleCover.value}`;
   const pathCoverLarge = isWebpEnabled.value
     ? props.rom.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
     : props.rom.path_cover_large;
@@ -52,7 +55,8 @@ const largeCover = computed(() => {
 });
 
 const smallCover = computed(() => {
-  if (boxartStyleCover.value) return boxartStyleCover.value;
+  if (boxartStyleCover.value)
+    return `${FRONTEND_RESOURCES_PATH}/${boxartStyleCover.value}`;
   const pathCoverSmall = isWebpEnabled.value
     ? props.rom.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
     : props.rom.path_cover_small;
