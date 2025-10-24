@@ -480,17 +480,29 @@ class FSResourcesHandler(FSHandler):
             log.debug(f"Media file {path} already exists, skipping download")
             return
 
-        try:
-            async with httpx_client.stream("GET", url, timeout=120) as response:
-                if response.status_code == status.HTTP_200_OK:
-                    async with await self.write_file_streamed(
-                        path=directory, filename=filename
-                    ) as f:
-                        async for chunk in response.aiter_raw():
-                            await f.write(chunk)
-        except httpx.TransportError as exc:
-            log.error(f"Unable to fetch media file at {url}: {str(exc)}")
-            return None
+        # Handle file:// URLs for gamelist.xml
+        if url.startswith("file://"):
+            try:
+                file_path = Path(url[7:])  # Remove "file://" prefix
+                if file_path.exists():
+                    shutil.copy2(file_path, path)
+            except Exception as exc:
+                log.error(f"Unable to copy media file {url}: {str(exc)}")
+                return None
+        else:
+            # Handle HTTP URLs
+            httpx_client = ctx_httpx_client.get()
+            try:
+                async with httpx_client.stream("GET", url, timeout=120) as response:
+                    if response.status_code == status.HTTP_200_OK:
+                        async with await self.write_file_streamed(
+                            path=directory, filename=filename
+                        ) as f:
+                            async for chunk in response.aiter_raw():
+                                await f.write(chunk)
+            except httpx.TransportError as exc:
+                log.error(f"Unable to fetch media file at {url}: {str(exc)}")
+                return None
 
     async def remove_media_resources_path(
         self,
