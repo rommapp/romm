@@ -470,7 +470,9 @@ async def scan_rom(
             or (scan_type == ScanType.UPDATE and rom.gamelist_id)
             or (scan_type == ScanType.UNMATCHED and not rom.gamelist_id)
         ):
-            return await meta_gamelist_handler.get_rom(rom_attrs["fs_name"], platform)
+            return await meta_gamelist_handler.get_rom(
+                rom_attrs["fs_name"], platform, rom
+            )
 
         return GamelistRom(gamelist_id=None)
 
@@ -553,10 +555,10 @@ async def scan_rom(
             )
         ):
             if scan_type == ScanType.UPDATE and rom.ss_id:
-                return await meta_ss_handler.get_rom_by_id(rom.ss_id)
+                return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
             else:
                 return await meta_ss_handler.get_rom(
-                    rom_attrs["fs_name"], platform_ss_id=platform.ss_id
+                    rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
                 )
 
         return SSRom(ss_id=None)

@@ -1,9 +1,8 @@
 {
   "backlogged": "Backlogged",
-  "boxart-box2d": "2D Box",
+  "boxart-cover": "2D Box",
   "boxart-box3d": "3D Box",
   "boxart-desc": "Choose the boxart style for game cards",
-  "boxart-fanart": "Fanart",
   "boxart-miximage": "Mix Image",
   "boxart-physical": "Physical",
   "boxart-style": "Boxart style",

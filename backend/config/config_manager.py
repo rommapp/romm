@@ -20,6 +20,7 @@ from config import (
     ROMM_DB_DRIVER,
 )
 from exceptions.config_exceptions import ConfigNotWritableException
+from handler.metadata.base_handler import MetadataMediaType
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -66,6 +67,7 @@ class Config:
     SCAN_ARTWORK_PRIORITY: list[str]
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
+    SCAN_MEDIA: list[str]
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -241,6 +243,15 @@ class ConfigManager:
                 self._raw_config,
                 "scan.priority.language",
                 ["en", "fr"],
+            ),
+            SCAN_MEDIA=pydash.get(
+                self._raw_config,
+                "scan.media",
+                [
+                    "box2d",
+                    "screenshot",
+                    "manual",
+                ],
             ),
         )
 
@@ -419,6 +430,17 @@ class ConfigManager:
         if not isinstance(self.config.SCAN_LANGUAGE_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.language must be a list")
             sys.exit(3)
+
+        if not isinstance(self.config.SCAN_MEDIA, list):
+            log.critical("Invalid config.yml: scan.media must be a list")
+            sys.exit(3)
+
+        for media in self.config.SCAN_MEDIA:
+            if media not in MetadataMediaType:
+                log.critical(
+                    f"Invalid config.yml: scan.media.{media} is not a valid media type"
+                )
+                sys.exit(3)
 
     def get_config(self) -> Config:
         try:

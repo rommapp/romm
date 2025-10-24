@@ -45,6 +45,11 @@ scan:
     language:
       - jp
       - es
+  media:
+    - box2d
+    - box3d
+    - physical
+    - miximage
 
 emulatorjs:
   debug: true

@@ -27,6 +27,7 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
+from handler.metadata.ss_handler import get_preferred_media_types
 from handler.redis_handler import high_prio_queue, redis_client
 from handler.scan_handler import (
     ScanType,
@@ -336,6 +337,24 @@ async def _identify_rom(
             badge_path = ach.get("badge_path", None)
             if badge_url and badge_path:
                 await fs_resource_handler.store_ra_badge(badge_url, badge_path)
+
+    if _added_rom.ss_metadata:
+        preferred_media_types = get_preferred_media_types()
+        for media_type in preferred_media_types:
+            if _added_rom.ss_metadata.get(f"{media_type.value}_path"):
+                await fs_resource_handler.store_media_file(
+                    _added_rom.ss_metadata[f"{media_type.value}_url"],
+                    _added_rom.ss_metadata[f"{media_type.value}_path"],
+                )
+
+    if _added_rom.gamelist_metadata:
+        preferred_media_types = get_preferred_media_types()
+        for media_type in preferred_media_types:
+            if _added_rom.gamelist_metadata.get(f"{media_type.value}_path"):
+                await fs_resource_handler.store_media_file(
+                    _added_rom.gamelist_metadata[f"{media_type.value}_url"],
+                    _added_rom.gamelist_metadata[f"{media_type.value}_path"],
+                )
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
