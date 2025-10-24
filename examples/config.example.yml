@@ -84,7 +84,7 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #     # Only used by Screenscraper and ES-DE gamelist.xml
 #     media:
 #       # Used as alternative cover art
-#       - box2d  # Normal cover art (enabled by default)
+#       - box2d  # Normal cover art (always enabled)
 #       - box3d  # 3D box art
 #       - miximage  # Mixed image of multiple media
 #       - physical  # Disc, cartridge, etc.
