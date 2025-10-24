@@ -1,3 +1,4 @@
+import enum
 import json
 import os
 import sys
@@ -20,7 +21,6 @@ from config import (
     ROMM_DB_DRIVER,
 )
 from exceptions.config_exceptions import ConfigNotWritableException
-from handler.metadata.base_handler import MetadataMediaType
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -33,6 +33,20 @@ SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 class EjsControlsButton(TypedDict):
     value: NotRequired[str]  # Keyboard key
     value2: NotRequired[str]  # Controller button
+
+
+class MetadataMediaType(enum.StrEnum):
+    BEZEL = "bezel"
+    BOX2D = "box2d"
+    BOX3D = "box3d"
+    MIXIMAGE = "miximage"
+    PHYSICAL = "physical"
+    SCREENSHOT = "screenshot"
+    TITLE_SCREEN = "title_screen"
+    MARQUEE = "marquee"
+    FANART = "fanart"
+    VIDEO = "video"
+    MANUAL = "manual"
 
 
 class EjsControls(TypedDict):

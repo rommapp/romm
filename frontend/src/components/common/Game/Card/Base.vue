@@ -167,7 +167,6 @@ const boxartStyleCover = computed(() => {
 
 const largeCover = computed(() => {
   if (props.coverSrc) return props.coverSrc;
-  debugger;
   if (boxartStyleCover.value)
     return `${FRONTEND_RESOURCES_PATH}/${boxartStyleCover.value}`;
   if (!romsStore.isSimpleRom(props.rom)) {
