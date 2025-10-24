@@ -65,6 +65,27 @@ class GamelistRom(BaseRom):
 
 def extract_media_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetadataMedia:
     preferred_media_types = get_preferred_media_types()
+    platform_dir = fs_platform_handler.get_plaform_fs_structure(rom.platform_fs_slug)
+
+    gamelist_media = GamelistMetadataMedia(
+        box2d_url=None,
+        box2d_back_url=None,
+        box3d_url=None,
+        fanart_url=None,
+        image_url=None,
+        manual_url=None,
+        marquee_url=None,
+        miximage_url=None,
+        physical_url=None,
+        screenshot_url=None,
+        title_screen_url=None,
+        thumbnail_url=None,
+        video_url=None,
+        box3d_path=None,
+        miximage_path=None,
+        physical_path=None,
+        video_path=None,
+    )
 
     image_elem = game.find("image")
     video_elem = game.find("video")
@@ -80,101 +101,93 @@ def extract_media_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetadata
     title_screen_elem = game.find("title_screen")
     thumbnail_elem = game.find("thumbnail")
 
-    return GamelistMetadataMedia(
-        image_url=(
-            image_elem.text.replace("./", "")
-            if image_elem is not None and image_elem.text
-            else None
-        ),
-        box2d_url=(
-            box2d_elem.text.replace("./", "")
-            if box2d_elem is not None and box2d_elem.text
-            else None
-        ),
-        box2d_back_url=(
-            box2d_back_elem.text.replace("./", "")
-            if box2d_back_elem is not None and box2d_back_elem.text
-            else None
-        ),
-        box3d_url=(
-            box3d_elem.text.replace("./", "")
-            if box3d_elem is not None and box3d_elem.text
-            else None
-        ),
-        box3d_path=(
-            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX3D)}/box3d.png"
-            if box3d_elem is not None
-            and box3d_elem.text
-            and MetadataMediaType.BOX3D in preferred_media_types
-            else None
-        ),
-        fanart_url=(
-            fanart_elem.text.replace("./", "")
-            if fanart_elem is not None and fanart_elem.text
-            else None
-        ),
-        manual_url=(
-            manual_elem.text.replace("./", "")
-            if manual_elem is not None and manual_elem.text
-            else None
-        ),
-        marquee_url=(
-            marquee_elem.text.replace("./", "")
-            if marquee_elem is not None and marquee_elem.text
-            else None
-        ),
-        miximage_url=(
-            miximage_elem.text.replace("./", "")
-            if miximage_elem is not None and miximage_elem.text
-            else None
-        ),
-        miximage_path=(
-            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
-            if miximage_elem is not None
-            and miximage_elem.text
-            and MetadataMediaType.MIXIMAGE in preferred_media_types
-            else None
-        ),
-        physical_url=(
-            physical_elem.text.replace("./", "")
-            if physical_elem is not None and physical_elem.text
-            else None
-        ),
-        physical_path=(
-            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.PHYSICAL)}/physical.png"
-            if physical_elem is not None
-            and physical_elem.text
-            and MetadataMediaType.PHYSICAL in preferred_media_types
-            else None
-        ),
-        screenshot_url=(
-            screenshot_elem.text.replace("./", "")
-            if screenshot_elem is not None and screenshot_elem.text
-            else None
-        ),
-        title_screen_url=(
-            title_screen_elem.text.replace("./", "")
-            if title_screen_elem is not None and title_screen_elem.text
-            else None
-        ),
-        thumbnail_url=(
-            thumbnail_elem.text.replace("./", "")
-            if thumbnail_elem is not None and thumbnail_elem.text
-            else None
-        ),
-        video_url=(
-            video_elem.text.replace("./", "")
-            if video_elem is not None and video_elem.text
-            else None
-        ),
-        video_path=(
-            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.VIDEO)}/video.mp4"
-            if video_elem is not None
-            and video_elem.text
-            and MetadataMediaType.VIDEO in preferred_media_types
-            else None
-        ),
-    )
+    if image_elem is not None and image_elem.text:
+        image_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{image_elem.text.replace("./", "")}"
+        )
+        gamelist_media["image_url"] = f"file://{str(image_path_path)}"
+    if box2d_elem is not None and box2d_elem.text:
+        box2d_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{box2d_elem.text.replace("./", "")}"
+        )
+        gamelist_media["box2d_url"] = f"file://{str(box2d_path_path)}"
+    if box2d_back_elem is not None and box2d_back_elem.text:
+        box2d_back_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{box2d_back_elem.text.replace("./", "")}"
+        )
+        gamelist_media["box2d_back_url"] = f"file://{str(box2d_back_path_path)}"
+    if box3d_elem is not None and box3d_elem.text:
+        box3d_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{box3d_elem.text.replace("./", "")}"
+        )
+        gamelist_media["box3d_url"] = f"file://{str(box3d_path_path)}"
+
+        if MetadataMediaType.BOX3D in preferred_media_types:
+            gamelist_media["box3d_path"] = (
+                f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX3D)}/box3d.png"
+            )
+    if fanart_elem is not None and fanart_elem.text:
+        fanart_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{fanart_elem.text.replace("./", "")}"
+        )
+        gamelist_media["fanart_url"] = f"file://{str(fanart_path_path)}"
+    if manual_elem is not None and manual_elem.text:
+        manual_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{manual_elem.text.replace("./", "")}"
+        )
+        gamelist_media["manual_url"] = f"file://{str(manual_path_path)}"
+    if marquee_elem is not None and marquee_elem.text:
+        marquee_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{marquee_elem.text.replace("./", "")}"
+        )
+        gamelist_media["marquee_url"] = f"file://{str(marquee_path_path)}"
+    if miximage_elem is not None and miximage_elem.text:
+        miximage_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{miximage_elem.text.replace("./", "")}"
+        )
+        gamelist_media["miximage_url"] = f"file://{str(miximage_path_path)}"
+
+        if MetadataMediaType.MIXIMAGE in preferred_media_types:
+            gamelist_media["miximage_path"] = (
+                f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
+            )
+    if physical_elem is not None and physical_elem.text:
+        physical_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{physical_elem.text.replace("./", "")}"
+        )
+        gamelist_media["physical_url"] = f"file://{str(physical_path_path)}"
+
+        if MetadataMediaType.PHYSICAL in preferred_media_types:
+            gamelist_media["physical_path"] = (
+                f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.PHYSICAL)}/physical.png"
+            )
+    if screenshot_elem is not None and screenshot_elem.text:
+        screenshot_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{screenshot_elem.text.replace("./", "")}"
+        )
+        gamelist_media["screenshot_url"] = f"file://{str(screenshot_path_path)}"
+    if title_screen_elem is not None and title_screen_elem.text:
+        title_screen_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{title_screen_elem.text.replace("./", "")}"
+        )
+        gamelist_media["title_screen_url"] = f"file://{str(title_screen_path_path)}"
+    if thumbnail_elem is not None and thumbnail_elem.text:
+        thumbnail_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{thumbnail_elem.text.replace("./", "")}"
+        )
+        gamelist_media["thumbnail_url"] = f"file://{str(thumbnail_path_path)}"
+    if video_elem is not None and video_elem.text:
+        video_path_path = fs_platform_handler.validate_path(
+            f"{platform_dir}/{video_elem.text.replace("./", "")}"
+        )
+        gamelist_media["video_url"] = f"file://{str(video_path_path)}"
+
+        if MetadataMediaType.VIDEO in preferred_media_types:
+            gamelist_media["video_path"] = (
+                f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.VIDEO)}/video.mp4"
+            )
+
+    return gamelist_media
 
 
 def extract_metadata_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetadata:
