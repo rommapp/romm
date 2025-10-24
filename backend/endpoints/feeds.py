@@ -281,7 +281,7 @@ def pkgi_ps3_feed(
     try:
         content_type_enum = RomFileCategory(content_type)
         content_type_int = CONTENT_TYPE_MAP[content_type_enum]
-    except ValueError as e:
+    except (ValueError, KeyError) as e:
         raise HTTPException(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
