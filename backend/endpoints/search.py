@@ -97,7 +97,7 @@ async def search_rom(
             igdb_rom, moby_rom, ss_rom = await asyncio.gather(
                 meta_igdb_handler.get_matched_rom_by_id(int(search_term)),
                 meta_moby_handler.get_matched_rom_by_id(int(search_term)),
-                meta_ss_handler.get_matched_rom_by_id(int(search_term)),
+                meta_ss_handler.get_matched_rom_by_id(rom, int(search_term)),
             )
         except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
@@ -123,7 +123,9 @@ async def search_rom(
             meta_moby_handler.get_matched_roms_by_name(
                 search_term, rom.platform.moby_id
             ),
-            meta_ss_handler.get_matched_roms_by_name(search_term, rom.platform.ss_id),
+            meta_ss_handler.get_matched_roms_by_name(
+                rom, search_term, rom.platform.ss_id
+            ),
             meta_flashpoint_handler.get_matched_roms_by_name(
                 search_term, rom.platform.slug
             ),
