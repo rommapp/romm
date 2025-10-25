@@ -41,7 +41,6 @@ const isEmulationSupported = computed(() => {
 
 const { animateCD, animateCartridge } = useGameAnimation({
   rom: props.rom,
-  accelerate: ref(false),
 });
 
 async function goToPlayer(rom: SimpleRom) {

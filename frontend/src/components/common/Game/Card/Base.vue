@@ -84,8 +84,8 @@ const emit = defineEmits([
   "touchend",
 ]);
 const handleClick = (event: MouseEvent) => {
-  // Only handle left-click
   if (event.button === 0) {
+    // Only handle left-click
     emit("click", { event: event, rom: props.rom });
   }
 };
@@ -147,6 +147,8 @@ const vImgRef = useTemplateRef("game-image-ref");
 const gameIsHovering = ref(false);
 const {
   boxartStyleCover,
+  animateCD,
+  animateCartridge,
   animateCDSpin,
   animateCDLoad,
   stopCDAnimation,
@@ -210,9 +212,14 @@ const onMouseLeave = () => {
 
 emitter?.on("playGame", (romId: number) => {
   if (romId !== props.rom.id) return;
-  animateCDSpin();
-  animateCDLoad();
-  animateLoadCart();
+
+  // Trigger animation based on game type
+  if (animateCD.value) {
+    animateCDSpin();
+    animateCDLoad();
+  } else if (animateCartridge.value) {
+    animateLoadCart();
+  }
 });
 
 onMounted(() => {
@@ -231,6 +238,7 @@ onBeforeUnmount(() => {
   if (tiltCardRef.value?.vanillaTilt && props.enable3DTilt) {
     tiltCardRef.value.vanillaTilt.destroy();
   }
+  emitter?.off("playGame");
   stopCDAnimation();
 });
 </script>
