@@ -144,12 +144,11 @@ interface TiltHTMLElement extends HTMLElement {
 const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 const vImgRef = useTemplateRef("game-image-ref");
 
-// Use the composable for animation logic
 const gameIsHovering = ref(false);
 const {
   boxartStyleCover,
-  animateSpinCD,
-  animateLoadCD,
+  animateCDSpin,
+  animateCDLoad,
   stopCDAnimation,
   animateLoadCart,
 } = useGameAnimation({
@@ -202,7 +201,7 @@ const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
 
 const onMouseEnter = () => {
   gameIsHovering.value = true;
-  animateSpinCD();
+  animateCDSpin();
 };
 
 const onMouseLeave = () => {
@@ -211,8 +210,8 @@ const onMouseLeave = () => {
 
 emitter?.on("playGame", (romId: number) => {
   if (romId !== props.rom.id) return;
-  animateSpinCD();
-  animateLoadCD();
+  animateCDSpin();
+  animateCDLoad();
   animateLoadCart();
 });
 

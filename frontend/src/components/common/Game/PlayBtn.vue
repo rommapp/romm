@@ -39,7 +39,6 @@ const isEmulationSupported = computed(() => {
   );
 });
 
-// Use the composable for animation logic
 const { animateCD, animateCartridge } = useGameAnimation({
   rom: props.rom,
   accelerate: ref(false),

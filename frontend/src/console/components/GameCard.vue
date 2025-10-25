@@ -39,8 +39,7 @@ const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
 
-// Use the composable for animation logic
-const { boxartStyleCover, animateSpinCD, stopCDAnimation } = useGameAnimation({
+const { boxartStyleCover, animateCDSpin, stopCDAnimation } = useGameAnimation({
   rom: props.rom,
   accelerate: computed(() => props.selected),
   vImgRef: vImgRef,
@@ -91,7 +90,7 @@ watch(
   (isSelected) => {
     if (isSelected && largeCover.value) {
       emit("select", largeCover.value);
-      animateSpinCD();
+      animateCDSpin();
     } else if (isSelected) {
       emit("deselect");
     }

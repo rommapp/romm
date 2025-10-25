@@ -1,3 +1,7 @@
+/**
+ * This composable is used to animate the game card and play button.
+ * It will spin CD based games on hover and load cartridge based games on play.
+ */
 import { useLocalStorage } from "@vueuse/core";
 import { computed, type Ref, type ShallowRef } from "vue";
 import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
@@ -96,7 +100,7 @@ export function useGameAnimation({
     }
   };
 
-  const animateSpinCD = () => {
+  const animateCDSpin = () => {
     if (!animateCD.value) return;
 
     cdLastTimestamp = null;
@@ -104,7 +108,7 @@ export function useGameAnimation({
     cAnimationId = requestAnimationFrame(stepCD);
   };
 
-  const animateLoadCD = () => {
+  const animateCDLoad = () => {
     if (!animateCD.value) return;
 
     const container = vImgRef?.value?.$el;
@@ -146,8 +150,8 @@ export function useGameAnimation({
     animateCD,
     animateCartridge,
     stepCD,
-    animateSpinCD,
-    animateLoadCD,
+    animateCDSpin,
+    animateCDLoad,
     stopCDAnimation,
     animateLoadCart,
   };
