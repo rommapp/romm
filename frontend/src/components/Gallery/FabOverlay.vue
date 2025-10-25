@@ -84,7 +84,7 @@ async function addToFavorites() {
       });
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
@@ -118,7 +118,7 @@ async function removeFromFavorites() {
       collectionsStore.updateCollection(data);
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",

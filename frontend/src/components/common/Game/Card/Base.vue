@@ -11,21 +11,20 @@ import {
   useTemplateRef,
 } from "vue";
 import { useDisplay } from "vuetify";
-import type { SearchRomSchema } from "@/__generated__";
-import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import Flags from "@/components/common/Game/Card/Flags.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import Sources from "@/components/common/Game/Card/Sources.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import { useGameAnimation } from "@/composables/useGameAnimation";
 import { ROUTES } from "@/plugins/router";
 import storeCollections from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
-import { type SimpleRom } from "@/stores/roms";
+import type { SimpleRom, SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import {
@@ -36,7 +35,7 @@ import {
 
 const props = withDefaults(
   defineProps<{
-    rom: SimpleRom | SearchRomSchema;
+    rom: SimpleRom | SearchRom;
     coverSrc?: string;
     aspectRatio?: string | number;
     width?: string | number;
@@ -126,10 +125,6 @@ const activeMenu = ref(false);
 const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
 const showGameTitleAlways = useLocalStorage("settings.showGameTitle", false);
 const showSiblings = useLocalStorage("settings.showSiblings", true);
-const boxartStyle = useLocalStorage<BoxartStyleOption>(
-  "settings.boxartStyle",
-  "cover",
-);
 
 const hasNotes = computed(() => {
   if (!romsStore.isSimpleRom(props.rom)) return false;
@@ -147,23 +142,27 @@ interface TiltHTMLElement extends HTMLElement {
 }
 
 const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
+const vImgRef = useTemplateRef("game-image-ref");
+
+const gameIsHovering = ref(false);
+const {
+  boxartStyleCover,
+  animateCD,
+  animateCartridge,
+  animateCDSpin,
+  animateCDLoad,
+  stopCDAnimation,
+  animateLoadCart,
+} = useGameAnimation({
+  rom: props.rom,
+  accelerate: gameIsHovering,
+  coverSrc: props.coverSrc,
+  vImgRef: vImgRef,
+});
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
-
-// User selected alternative cover image
-const boxartStyleCover = computed(() => {
-  if (
-    props.coverSrc ||
-    !romsStore.isSimpleRom(props.rom) ||
-    boxartStyle.value === "cover"
-  )
-    return null;
-  const ssMedia = props.rom.ss_metadata?.[boxartStyle.value];
-  const gamelistMedia = props.rom.gamelist_metadata?.[boxartStyle.value];
-  return ssMedia || gamelistMedia;
-});
 
 const largeCover = computed(() => {
   if (props.coverSrc) return props.coverSrc;
@@ -202,6 +201,27 @@ const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
   }
 };
 
+const onMouseEnter = () => {
+  gameIsHovering.value = true;
+  animateCDSpin();
+};
+
+const onMouseLeave = () => {
+  gameIsHovering.value = false;
+};
+
+const handlePlayGame = (romId: number) => {
+  if (romId !== props.rom.id) return;
+  if (animateCD.value) {
+    animateCDSpin();
+    animateCDLoad();
+  } else if (animateCartridge.value) {
+    animateLoadCart();
+  }
+};
+
+emitter?.on("playGame", handlePlayGame);
+
 onMounted(() => {
   if (tiltCardRef.value && !smAndDown.value && props.enable3DTilt) {
     VanillaTilt.init(tiltCardRef.value, {
@@ -218,6 +238,8 @@ onBeforeUnmount(() => {
   if (tiltCardRef.value?.vanillaTilt && props.enable3DTilt) {
     tiltCardRef.value.vanillaTilt.destroy();
   }
+  emitter?.off("playGame", handlePlayGame);
+  stopCDAnimation();
 });
 </script>
 
@@ -271,6 +293,7 @@ onBeforeUnmount(() => {
         <v-card-text class="pa-0">
           <v-hover v-slot="{ isHovering, props: imgProps }" open-delay="800">
             <v-img
+              ref="game-image-ref"
               v-bind="imgProps"
               :key="romsStore.isSimpleRom(rom) ? rom.id : rom.name"
               :cover="!boxartStyleCover"
@@ -282,6 +305,8 @@ onBeforeUnmount(() => {
               @click="handleClick"
               @touchstart="handleTouchStart"
               @touchend="handleTouchEnd"
+              @mouseenter="onMouseEnter"
+              @mouseleave="onMouseLeave"
             >
               <template v-if="titleOnHover">
                 <v-expand-transition>

@@ -746,3 +746,40 @@ export function platformCategoryToIcon(category: string) {
 }
 
 export const FRONTEND_RESOURCES_PATH = "/assets/romm/resources";
+
+export const CD_BASED_SYSTEMS = new Set([
+  "3do", // 3DO
+  "amiga-cd32", // Amiga CD32
+  "atari-jaguar-cd", // Atari Jaguar CD
+  "philips-cd-i", // Philips CD-i
+  "commodore-cdtv", // Commodore CDTV
+  "dc", // Dreamcast
+  "fm-towns", // FM Towns
+  "hyperscan", // HyperScan
+  "laseractive", // LaserActive
+  "neo-geo-cd", // Neo Geo CD
+  "ngc", // Nintendo GameCube
+  "pc-fx", // PC-FX
+  "psx", // PlayStation
+  "ps2", // PlayStation 2
+  "ps3", // PlayStation 3
+  "ps4", // PlayStation 4
+  "ps5", // PlayStation 5
+  "psp", // PlayStation Portable
+  "segacd", // Sega CD
+  "series-x-s", // Xbox Series X/S
+  "saturn", // Sega Saturn
+  "super-nes-cd-rom-system", // Super NES CD-ROM System
+  "tandy-vis", // Tandy Video Information System
+  "tg16", // TurboGrafx-16
+  "vflash", // V.Flash
+  "wii", // Wii
+  "wiiu", // Wii U
+  "xbox", // Xbox
+  "xbox360", // Xbox 360
+  "xboxone", // Xbox One
+]);
+
+export function isCDBasedSystem(platformSlug: string): boolean {
+  return CD_BASED_SYSTEMS.has(platformSlug.toLowerCase());
+}
