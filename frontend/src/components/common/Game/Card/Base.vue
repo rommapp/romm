@@ -126,12 +126,6 @@ const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
 const showGameTitleAlways = useLocalStorage("settings.showGameTitle", false);
 const showSiblings = useLocalStorage("settings.showSiblings", true);
 
-// Use the composable for animation logic
-const { boxartStyleCover, animateCD, animateCartridge } = useGameAnimation(
-  props.rom,
-  props.coverSrc,
-);
-
 const hasNotes = computed(() => {
   if (!romsStore.isSimpleRom(props.rom)) return false;
   return (
@@ -148,7 +142,22 @@ interface TiltHTMLElement extends HTMLElement {
 }
 
 const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
-const gameImageRef = useTemplateRef("game-image-ref");
+const vImgRef = useTemplateRef("game-image-ref");
+
+// Use the composable for animation logic
+const gameIsHovering = ref(false);
+const {
+  boxartStyleCover,
+  animateSpinCD,
+  animateLoadCD,
+  stopCDAnimation,
+  animateLoadCart,
+} = useGameAnimation({
+  rom: props.rom,
+  accelerate: gameIsHovering,
+  coverSrc: props.coverSrc,
+  vImgRef: vImgRef,
+});
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -191,109 +200,24 @@ const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
   }
 };
 
-/* CD animation */
-const CD_ANIMATION_CONFIG = {
-  maxRotationSpeed: 5000, // deg/sec (adjust top speed)
-  accelerationRate: 2500, // deg/sec^2 (how fast it accelerates)
-  decelerationRate: -1500, // deg/sec^2 (how fast it decelerates)
-};
-
-// Stored animation state
-let cdAngle = 0; // current rotation in degrees
-let cdVelocity = 0; // degrees / second
-let cdLastTimestamp: number | null = null;
-let cAnimationId: number | null = null;
-let cdIsHovering = false;
-
-const stepCD = (timestamp: number) => {
-  if (!gameImageRef.value) return;
-
-  const container = gameImageRef.value.$el;
-  const imageElement = gameImageRef.value.image;
-  if (!imageElement || !container) return;
-
-  if (cdLastTimestamp === null) cdLastTimestamp = timestamp;
-  const deltaTime = (timestamp - cdLastTimestamp) / 1000; // in seconds
-  cdLastTimestamp = timestamp;
-
-  const { accelerationRate, decelerationRate, maxRotationSpeed } =
-    CD_ANIMATION_CONFIG;
-
-  // Update velocity and angle with acceleration
-  cdVelocity +=
-    (cdIsHovering ? accelerationRate : decelerationRate) * deltaTime;
-  cdVelocity = Math.min(maxRotationSpeed, Math.max(0, cdVelocity));
-  cdAngle = (cdAngle + cdVelocity * deltaTime) % 360;
-
-  // Animate the rotation of the CD
-  imageElement.style.transform = `rotate(${cdAngle}deg)`;
-
-  if (cdVelocity > 0 || cdIsHovering) {
-    cAnimationId = requestAnimationFrame(stepCD);
-  } else {
-    // Stop the animation if the CD is no longer moving
-    stopCDAnimation();
-  }
-};
-
-const startCDAnimation = () => {
-  cdLastTimestamp = null;
-  stopCDAnimation();
-  cAnimationId = requestAnimationFrame(stepCD);
-};
-
-const stopCDAnimation = () => {
-  if (cAnimationId !== null) {
-    cancelAnimationFrame(cAnimationId);
-  }
-};
-
 const onMouseEnter = () => {
-  if (animateCD.value) {
-    cdIsHovering = true;
-    startCDAnimation();
-  }
+  gameIsHovering.value = true;
+  animateSpinCD();
 };
 
 const onMouseLeave = () => {
-  cdIsHovering = false;
-};
-
-const startCartridgeAnimation = () => {
-  if (gameImageRef.value) {
-    const container = gameImageRef.value.$el;
-    const imageElement = gameImageRef.value.image;
-    if (!container || !imageElement) return;
-
-    // Apply snap-down animation
-    imageElement.style.transition =
-      "transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)";
-    imageElement.style.transform = `translateY(${container.offsetHeight}px) scale(0.9)`;
-  }
+  gameIsHovering.value = false;
 };
 
 emitter?.on("playCD", (romId: number) => {
   if (romId !== props.rom.id) return;
-
-  // Set the CD spinning at max speed
-  cdVelocity = CD_ANIMATION_CONFIG.maxRotationSpeed;
-  startCDAnimation();
-
-  if (gameImageRef.value) {
-    const container = gameImageRef.value.$el;
-    const imageElement = gameImageRef.value.image;
-    if (!container || !imageElement) return;
-
-    // Apply snap-down animation
-    container.style.transition =
-      "transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)";
-    container.style.transform = `translateY(${container.offsetHeight}px) scale(0.9)`;
-  }
+  animateSpinCD();
+  animateLoadCD();
 });
 
 emitter?.on("playCartridge", (romId: number) => {
   if (romId !== props.rom.id) return;
-  startCartridgeAnimation();
+  animateLoadCart();
 });
 
 onMounted(() => {
