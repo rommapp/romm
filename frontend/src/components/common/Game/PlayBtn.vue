@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, useAttrs } from "vue";
+import { computed, inject, useAttrs, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
   ANIMATION_DELAY,
@@ -40,7 +40,10 @@ const isEmulationSupported = computed(() => {
 });
 
 // Use the composable for animation logic
-const { animateCD, animateCartridge } = useGameAnimation(props.rom);
+const { animateCD, animateCartridge } = useGameAnimation({
+  rom: props.rom,
+  accelerate: ref(false),
+});
 
 async function goToPlayer(rom: SimpleRom) {
   if (

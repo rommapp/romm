@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, useTemplateRef, watch } from "vue";
+import {
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  useTemplateRef,
+  watch,
+} from "vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { useGameAnimation } from "@/composables/useGameAnimation";
 import {
@@ -26,13 +32,19 @@ const props = defineProps<{
 }>();
 
 const heartbeatStore = storeHeartbeat();
+const gameCardRef = useTemplateRef<HTMLButtonElement>("game-card-ref");
+const vImgRef = useTemplateRef("game-image-ref");
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
 
 // Use the composable for animation logic
-const { boxartStyleCover } = useGameAnimation(props.rom);
+const { boxartStyleCover, animateSpinCD, stopCDAnimation } = useGameAnimation({
+  rom: props.rom,
+  accelerate: computed(() => props.selected),
+  vImgRef: vImgRef,
+});
 
 const largeCover = computed(() => {
   if (boxartStyleCover.value)
@@ -66,7 +78,6 @@ const emit = defineEmits([
   "select",
   "deselect",
 ]);
-const gameCardRef = useTemplateRef<HTMLButtonElement>("game-card-ref");
 
 // Check if this game is in the favorites collection
 const collectionsStore = storeCollections();
@@ -80,6 +91,7 @@ watch(
   (isSelected) => {
     if (isSelected && largeCover.value) {
       emit("select", largeCover.value);
+      animateSpinCD();
     } else if (isSelected) {
       emit("deselect");
     }
@@ -99,6 +111,10 @@ onMounted(() => {
     );
   }
 });
+
+onBeforeUnmount(() => {
+  stopCDAnimation();
+});
 </script>
 
 <template>
@@ -117,6 +133,7 @@ onMounted(() => {
   >
     <div class="w-full h-[350px] relative overflow-hidden rounded">
       <v-img
+        ref="game-image-ref"
         class="w-full h-full"
         :cover="!boxartStyleCover"
         :contain="boxartStyleCover"
