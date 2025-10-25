@@ -93,7 +93,7 @@ async function createCollection() {
     router.push({ name: ROUTES.COLLECTION, params: { collection: data.id } });
     closeDialog();
   } catch (error) {
-    console.log(error);
+    console.error(error);
     emitter?.emit("snackbarShow", {
       msg: "Failed to create collection",
       icon: "mdi-close-circle",

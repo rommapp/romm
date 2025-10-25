@@ -112,8 +112,6 @@ export function useGameAnimation({
     velocity = Math.min(maxRotationSpeed, Math.max(0, velocity));
     angle = (angle + velocity * deltaTime) % 360;
 
-    console.log(angle, velocity);
-
     if (animateLoad) {
       // Set the CD spinning at max speed
       velocity = ANIMATION_CONFIG.maxRotationSpeed;
