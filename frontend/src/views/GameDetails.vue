@@ -117,7 +117,7 @@ watch(
             :show-platform-icon="false"
             :show-action-bar="false"
           />
-          <ActionBar class="mt-2" :rom="currentRom" />
+          <ActionBar :rom="currentRom" />
           <RelatedGames v-if="mdAndUp" class="mt-4" :rom="currentRom" />
         </v-container>
       </v-col>
