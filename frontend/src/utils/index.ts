@@ -779,3 +779,7 @@ export const CD_BASED_SYSTEMS = [
   "xbox360", // Xbox 360
   "xboxone", // Xbox One
 ];
+
+export function isCDBasedSystem(platformSlug: string): boolean {
+  return CD_BASED_SYSTEMS.includes(platformSlug);
+}
