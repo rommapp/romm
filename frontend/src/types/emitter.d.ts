@@ -84,4 +84,5 @@ export type Events = {
   stateSelected: StateSchema;
   showAboutDialog: null;
   showNoteDialog: SimpleRom;
+  playGame: number;
 };

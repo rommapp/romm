@@ -20,13 +20,20 @@ const filteredCovers = ref<SearchCoverSchema[]>();
 const panels = ref([0]);
 
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showSearchCoverDialog", ({ term, aspectRatio = null }) => {
+
+const handleShowSearchCoverDialog = ({
+  term,
+  aspectRatio = null,
+}: {
+  term: string;
+  aspectRatio: number | null;
+}) => {
   searchText.value = term;
   show.value = true;
-  // TODO: set default aspect ratio to 2/3
   if (aspectRatio) coverAspectRatio.value = aspectRatio;
   if (searchText.value) searchCovers();
-});
+};
+emitter?.on("showSearchCoverDialog", handleShowSearchCoverDialog);
 
 const coverAspectRatio = ref(
   parseFloat(galleryViewStore.defaultAspectRatioCover.toString()),
@@ -105,7 +112,7 @@ function closeDialog() {
 }
 
 onBeforeUnmount(() => {
-  emitter?.off("showSearchCoverDialog");
+  emitter?.off("showSearchCoverDialog", handleShowSearchCoverDialog);
 });
 </script>
 

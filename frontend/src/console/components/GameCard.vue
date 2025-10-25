@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
-import { computed, onMounted, useTemplateRef, watch } from "vue";
-import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
+import {
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  useTemplateRef,
+  watch,
+} from "vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
+import { useGameAnimation } from "@/composables/useGameAnimation";
 import {
   continuePlayingElementRegistry,
   gamesListElementRegistry,
@@ -27,22 +32,17 @@ const props = defineProps<{
 }>();
 
 const heartbeatStore = storeHeartbeat();
-
-const boxartStyle = useLocalStorage<BoxartStyleOption>(
-  "settings.boxartStyle",
-  "cover",
-);
+const gameCardRef = useTemplateRef<HTMLButtonElement>("game-card-ref");
+const vImgRef = useTemplateRef("game-image-ref");
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
 
-// User selected alternative cover image
-const boxartStyleCover = computed(() => {
-  if (boxartStyle.value === "cover") return null;
-  const ssMedia = props.rom.ss_metadata?.[boxartStyle.value];
-  const gamelistMedia = props.rom.gamelist_metadata?.[boxartStyle.value];
-  return ssMedia || gamelistMedia;
+const { boxartStyleCover, animateCDSpin, stopCDAnimation } = useGameAnimation({
+  rom: props.rom,
+  accelerate: computed(() => props.selected),
+  vImgRef: vImgRef,
 });
 
 const largeCover = computed(() => {
@@ -77,7 +77,6 @@ const emit = defineEmits([
   "select",
   "deselect",
 ]);
-const gameCardRef = useTemplateRef<HTMLButtonElement>("game-card-ref");
 
 // Check if this game is in the favorites collection
 const collectionsStore = storeCollections();
@@ -91,6 +90,7 @@ watch(
   (isSelected) => {
     if (isSelected && largeCover.value) {
       emit("select", largeCover.value);
+      animateCDSpin();
     } else if (isSelected) {
       emit("deselect");
     }
@@ -110,6 +110,10 @@ onMounted(() => {
     );
   }
 });
+
+onBeforeUnmount(() => {
+  stopCDAnimation();
+});
 </script>
 
 <template>
@@ -128,6 +132,7 @@ onMounted(() => {
   >
     <div class="w-full h-[350px] relative overflow-hidden rounded">
       <v-img
+        ref="game-image-ref"
         class="w-full h-full"
         :cover="!boxartStyleCover"
         :contain="boxartStyleCover"
