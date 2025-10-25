@@ -4,7 +4,6 @@ import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import type { SearchRomSchema } from "@/__generated__";
 import EmptyManualMatch from "@/components/common/EmptyStates/EmptyManualMatch.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
@@ -13,7 +12,7 @@ import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage } from "@/utils/covers";
 
@@ -41,12 +40,12 @@ const route = useRoute();
 const searchText = ref("");
 const searchBy = ref("Name");
 const searched = ref(false);
-const matchedRoms = ref<SearchRomSchema[]>([]);
-const filteredMatchedRoms = ref<SearchRomSchema[]>();
+const matchedRoms = ref<SearchRom[]>([]);
+const filteredMatchedRoms = ref<SearchRom[]>();
 const emitter = inject<Emitter<Events>>("emitter");
 const showSelectSource = ref(false);
 const renameFromSource = ref(false);
-const selectedMatchRom = ref<SearchRomSchema>();
+const selectedMatchRom = ref<SearchRom>();
 const selectedCover = ref<MatchedSource>();
 const sources = ref<MatchedSource[]>([]);
 const heartbeat = storeHeartbeat();
@@ -159,7 +158,7 @@ async function searchRom() {
   }
 }
 
-function showSources(matchedRom: SearchRomSchema) {
+function showSources(matchedRom: SearchRom) {
   if (!rom.value) return;
 
   var cardContent = document.getElementById("r-dialog-content");
@@ -238,10 +237,7 @@ function backToMatched() {
   renameFromSource.value = false;
 }
 
-async function updateRom(
-  selectedRom: SearchRomSchema,
-  urlCover: string | undefined,
-) {
+async function updateRom(selectedRom: SearchRom, urlCover: string | undefined) {
   if (!rom.value) return;
 
   show.value = false;

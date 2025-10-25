@@ -11,23 +11,22 @@ import {
   useTemplateRef,
 } from "vue";
 import { useDisplay } from "vuetify";
-import type { SearchRomSchema } from "@/__generated__";
-import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import Flags from "@/components/common/Game/Card/Flags.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import Sources from "@/components/common/Game/Card/Sources.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import { useGameAnimation } from "@/composables/useGameAnimation";
 import { ROUTES } from "@/plugins/router";
 import storeCollections from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
-import { type SimpleRom } from "@/stores/roms";
+import type { SimpleRom, SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { FRONTEND_RESOURCES_PATH, isCDBasedSystem } from "@/utils";
+import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import {
   getMissingCoverImage,
   getUnmatchedCoverImage,
@@ -36,7 +35,7 @@ import {
 
 const props = withDefaults(
   defineProps<{
-    rom: SimpleRom | SearchRomSchema;
+    rom: SimpleRom | SearchRom;
     coverSrc?: string;
     aspectRatio?: string | number;
     width?: string | number;
@@ -126,9 +125,11 @@ const activeMenu = ref(false);
 const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
 const showGameTitleAlways = useLocalStorage("settings.showGameTitle", false);
 const showSiblings = useLocalStorage("settings.showSiblings", true);
-const boxartStyle = useLocalStorage<BoxartStyleOption>(
-  "settings.boxartStyle",
-  "cover",
+
+// Use the composable for animation logic
+const { boxartStyleCover, animateCD, animateCartridge } = useGameAnimation(
+  props.rom,
+  props.coverSrc,
 );
 
 const hasNotes = computed(() => {
@@ -147,23 +148,11 @@ interface TiltHTMLElement extends HTMLElement {
 }
 
 const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
+const gameImageRef = useTemplateRef("game-image-ref");
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
-
-// User selected alternative cover image
-const boxartStyleCover = computed(() => {
-  if (
-    props.coverSrc ||
-    !romsStore.isSimpleRom(props.rom) ||
-    boxartStyle.value === "cover"
-  )
-    return null;
-  const ssMedia = props.rom.ss_metadata?.[boxartStyle.value];
-  const gamelistMedia = props.rom.gamelist_metadata?.[boxartStyle.value];
-  return ssMedia || gamelistMedia;
-});
 
 const largeCover = computed(() => {
   if (props.coverSrc) return props.coverSrc;
@@ -202,10 +191,12 @@ const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
   }
 };
 
-// Spinning disk animation variables
-const maxRotationSpeed = 5000; // deg/sec (adjust top speed)
-const accelerationRate = 2500; // deg/sec^2 (how fast it accelerates)
-const decelerationRate = -1500; // deg/sec^2 (how fast it decelerates)
+/* CD animation */
+const CD_ANIMATION_CONFIG = {
+  maxRotationSpeed: 5000, // deg/sec (adjust top speed)
+  accelerationRate: 2500, // deg/sec^2 (how fast it accelerates)
+  decelerationRate: -1500, // deg/sec^2 (how fast it decelerates)
+};
 
 // Stored animation state
 let cdAngle = 0; // current rotation in degrees
@@ -213,45 +204,41 @@ let cdVelocity = 0; // degrees / second
 let cdLastTimestamp: number | null = null;
 let cAnimationId: number | null = null;
 let cdIsHovering = false;
-let cdPlayTriggered = false;
 
 const stepCD = (timestamp: number) => {
-  if (!tiltCardRef.value) return;
-  const container = tiltCardRef.value.querySelector(
-    ".v-img",
-  ) as HTMLElement | null;
-  const imageElement = tiltCardRef.value.querySelector(
-    ".v-img__img.v-img__img--contain",
-  ) as HTMLImageElement | null;
+  if (!gameImageRef.value) return;
+
+  const container = gameImageRef.value.$el;
+  const imageElement = gameImageRef.value.image;
   if (!imageElement || !container) return;
 
   if (cdLastTimestamp === null) cdLastTimestamp = timestamp;
   const deltaTime = (timestamp - cdLastTimestamp) / 1000; // in seconds
   cdLastTimestamp = timestamp;
 
+  const { accelerationRate, decelerationRate, maxRotationSpeed } =
+    CD_ANIMATION_CONFIG;
+
   // Update velocity and angle with acceleration
   cdVelocity +=
     (cdIsHovering ? accelerationRate : decelerationRate) * deltaTime;
-  cdVelocity = Math.max(0, cdVelocity);
+  cdVelocity = Math.min(maxRotationSpeed, Math.max(0, cdVelocity));
   cdAngle = (cdAngle + cdVelocity * deltaTime) % 360;
 
   // Animate the rotation of the CD
   imageElement.style.transform = `rotate(${cdAngle}deg)`;
 
-  if (cdPlayTriggered) {
-    cdVelocity = maxRotationSpeed;
-
-    // Apply snap-down animation
-    container.style.transition =
-      "transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)";
-    container.style.transform = `translateY(${container.offsetHeight}px) scale(0.9)`;
+  if (cdVelocity > 0 || cdIsHovering) {
+    cAnimationId = requestAnimationFrame(stepCD);
+  } else {
+    // Stop the animation if the CD is no longer moving
+    stopCDAnimation();
   }
-
-  cAnimationId = requestAnimationFrame(stepCD);
 };
 
 const startCDAnimation = () => {
   cdLastTimestamp = null;
+  stopCDAnimation();
   cAnimationId = requestAnimationFrame(stepCD);
 };
 
@@ -260,15 +247,6 @@ const stopCDAnimation = () => {
     cancelAnimationFrame(cAnimationId);
   }
 };
-
-const animateCD = computed(() => {
-  return (
-    boxartStyle.value === "physical_path" &&
-    Boolean(boxartStyleCover.value) &&
-    romsStore.isSimpleRom(props.rom) &&
-    isCDBasedSystem(props.rom.platform_slug)
-  );
-});
 
 const onMouseEnter = () => {
   if (animateCD.value) {
@@ -282,13 +260,9 @@ const onMouseLeave = () => {
 };
 
 const startCartridgeAnimation = () => {
-  if (tiltCardRef.value) {
-    const container = tiltCardRef.value.querySelector(
-      ".v-img",
-    ) as HTMLElement | null;
-    const imageElement = tiltCardRef.value.querySelector(
-      ".v-img__img.v-img__img--contain",
-    ) as HTMLImageElement | null;
+  if (gameImageRef.value) {
+    const container = gameImageRef.value.$el;
+    const imageElement = gameImageRef.value.image;
     if (!container || !imageElement) return;
 
     // Apply snap-down animation
@@ -300,8 +274,21 @@ const startCartridgeAnimation = () => {
 
 emitter?.on("playCD", (romId: number) => {
   if (romId !== props.rom.id) return;
-  cdPlayTriggered = true;
+
+  // Set the CD spinning at max speed
+  cdVelocity = CD_ANIMATION_CONFIG.maxRotationSpeed;
   startCDAnimation();
+
+  if (gameImageRef.value) {
+    const container = gameImageRef.value.$el;
+    const imageElement = gameImageRef.value.image;
+    if (!container || !imageElement) return;
+
+    // Apply snap-down animation
+    container.style.transition =
+      "transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)";
+    container.style.transform = `translateY(${container.offsetHeight}px) scale(0.9)`;
+  }
 });
 
 emitter?.on("playCartridge", (romId: number) => {
@@ -379,6 +366,7 @@ onBeforeUnmount(() => {
         <v-card-text class="pa-0">
           <v-hover v-slot="{ isHovering, props: imgProps }" open-delay="800">
             <v-img
+              ref="game-image-ref"
               v-bind="imgProps"
               :key="romsStore.isSimpleRom(rom) ? rom.id : rom.name"
               :cover="!boxartStyleCover"
