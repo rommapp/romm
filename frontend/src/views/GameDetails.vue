@@ -55,7 +55,7 @@ async function fetchDetails() {
       currentRom.value = data;
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       noRomError.value = true;
     })
     .finally(() => {
