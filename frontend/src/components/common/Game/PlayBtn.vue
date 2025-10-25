@@ -49,8 +49,7 @@ async function goToPlayer(rom: SimpleRom) {
   if (
     isEJSEmulationSupported(rom.platform_slug, heartbeat.value, config.value)
   ) {
-    if (animateCD.value) emitter?.emit("playCD", rom.id);
-    if (animateCartridge.value) emitter?.emit("playCartridge", rom.id);
+    emitter?.emit("playGame", rom.id);
     setTimeout(
       async () => {
         await router.push({

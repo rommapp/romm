@@ -209,14 +209,10 @@ const onMouseLeave = () => {
   gameIsHovering.value = false;
 };
 
-emitter?.on("playCD", (romId: number) => {
+emitter?.on("playGame", (romId: number) => {
   if (romId !== props.rom.id) return;
   animateSpinCD();
   animateLoadCD();
-});
-
-emitter?.on("playCartridge", (romId: number) => {
-  if (romId !== props.rom.id) return;
   animateLoadCart();
 });
 
