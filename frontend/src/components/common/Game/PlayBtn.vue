@@ -1,20 +1,40 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, useAttrs } from "vue";
+import { computed, inject, useAttrs } from "vue";
 import { useRouter } from "vue-router";
+import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import { ROUTES } from "@/plugins/router";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
-import { type SimpleRom } from "@/stores/roms";
-import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import {
+  isEJSEmulationSupported,
+  isRuffleEmulationSupported,
+  isCDBasedSystem,
+} from "@/utils";
 
-const props = defineProps<{ rom: SimpleRom; iconEmbedded?: boolean }>();
+const props = defineProps<{
+  rom: SimpleRom;
+  iconEmbedded?: boolean;
+  animateCD?: boolean;
+  animateCartridge?: boolean;
+}>();
 const attrs = useAttrs();
 const configStore = storeConfig();
 const heartbeatStore = storeHeartbeat();
+const romsStore = storeRoms();
 const router = useRouter();
 const { config } = storeToRefs(configStore);
 const { value: heartbeat } = storeToRefs(heartbeatStore);
+const emitter = inject<Emitter<Events>>("emitter");
+
+const boxartStyle = useLocalStorage<BoxartStyleOption>(
+  "settings.boxartStyle",
+  "cover",
+);
 
 const isEmulationSupported = computed(() => {
   return (
@@ -31,17 +51,50 @@ const isEmulationSupported = computed(() => {
   );
 });
 
+const boxartStyleCover = computed(() => {
+  if (!romsStore.isSimpleRom(props.rom) || boxartStyle.value === "cover")
+    return null;
+  const ssMedia = props.rom.ss_metadata?.[boxartStyle.value];
+  const gamelistMedia = props.rom.gamelist_metadata?.[boxartStyle.value];
+  return ssMedia || gamelistMedia;
+});
+
+const animateCD = computed(() => {
+  return (
+    boxartStyle.value === "physical_path" &&
+    Boolean(boxartStyleCover.value) &&
+    romsStore.isSimpleRom(props.rom) &&
+    isCDBasedSystem(props.rom.platform_slug)
+  );
+});
+
+const animateCartridge = computed(() => {
+  return (
+    boxartStyle.value === "physical_path" &&
+    Boolean(boxartStyleCover.value) &&
+    romsStore.isSimpleRom(props.rom) &&
+    !isCDBasedSystem(props.rom.platform_slug)
+  );
+});
+
 async function goToPlayer(rom: SimpleRom) {
   if (
     isEJSEmulationSupported(rom.platform_slug, heartbeat.value, config.value)
   ) {
-    await router.push({
-      name: ROUTES.EMULATORJS,
-      params: { rom: rom.id },
-    });
-    // Force full reload to retrieve COEP/COOP headers from nginx
-    // Required to enable multi-threading in EmulatorJS.
-    router.go(0);
+    if (animateCD.value) emitter?.emit("playCD", rom.id);
+    if (animateCartridge.value) emitter?.emit("playCartridge", rom.id);
+    setTimeout(
+      async () => {
+        await router.push({
+          name: ROUTES.EMULATORJS,
+          params: { rom: rom.id },
+        });
+        // Force full reload to retrieve COEP/COOP headers from nginx
+        // Required to enable multi-threading in EmulatorJS
+        router.go(0);
+      },
+      animateCD.value || animateCartridge.value ? 500 : 0,
+    );
   } else if (
     isRuffleEmulationSupported(rom.platform_slug, heartbeat.value, config.value)
   ) {

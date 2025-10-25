@@ -9,7 +9,6 @@ import {
   onBeforeUnmount,
   inject,
   useTemplateRef,
-  nextTick,
 } from "vue";
 import { useDisplay } from "vuetify";
 import type { SearchRomSchema } from "@/__generated__";
@@ -28,7 +27,7 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { FRONTEND_RESOURCES_PATH, CD_BASED_SYSTEMS } from "@/utils";
+import { FRONTEND_RESOURCES_PATH, isCDBasedSystem } from "@/utils";
 import {
   getMissingCoverImage,
   getUnmatchedCoverImage,
@@ -204,72 +203,111 @@ const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
 };
 
 // Spinning disk animation variables
-const maxRotationSpeed = 5600; // deg/sec (adjust top speed)
-const accelerationRate = 1500; // deg/sec^2 (how fast it accelerates)
-const decelerationRate = -2000; // deg/sec^2 (how fast it slows)
+const maxRotationSpeed = 5000; // deg/sec (adjust top speed)
+const accelerationRate = 2500; // deg/sec^2 (how fast it accelerates)
+const decelerationRate = -1500; // deg/sec^2 (how fast it decelerates)
 
 // Stored animation state
-let angle = 0; // current rotation in degrees
-let velocity = 0; // degrees / second
-let lastTimestamp: number | null = null;
-let isHovering = false;
-let animationId: number | null = null;
+let cdAngle = 0; // current rotation in degrees
+let cdVelocity = 0; // degrees / second
+let cdLastTimestamp: number | null = null;
+let cAnimationId: number | null = null;
+let cdIsHovering = false;
+let cdPlayTriggered = false;
 
-const onEnter = () => {
-  // Only animate physical disks
-  if (boxartStyle.value !== "physical_path") return;
-  if (!boxartStyleCover.value) return;
-  if (!romsStore.isSimpleRom(props.rom)) return;
-  if (!CD_BASED_SYSTEMS.includes(props.rom.platform_slug)) return;
+const stepCD = (timestamp: number) => {
+  if (!tiltCardRef.value) return;
+  const container = tiltCardRef.value.querySelector(
+    ".v-img",
+  ) as HTMLElement | null;
+  const imageElement = tiltCardRef.value.querySelector(
+    ".v-img__img.v-img__img--contain",
+  ) as HTMLImageElement | null;
+  if (!imageElement || !container) return;
 
-  isHovering = true;
-  startAnimation();
+  if (cdLastTimestamp === null) cdLastTimestamp = timestamp;
+  const deltaTime = (timestamp - cdLastTimestamp) / 1000; // in seconds
+  cdLastTimestamp = timestamp;
+
+  // Update velocity and angle with acceleration
+  cdVelocity +=
+    (cdIsHovering ? accelerationRate : decelerationRate) * deltaTime;
+  cdVelocity = Math.max(0, cdVelocity);
+  cdAngle = (cdAngle + cdVelocity * deltaTime) % 360;
+
+  // Animate the rotation of the CD
+  imageElement.style.transform = `rotate(${cdAngle}deg)`;
+
+  if (cdPlayTriggered) {
+    cdVelocity = maxRotationSpeed;
+
+    // Apply snap-down animation
+    container.style.transition =
+      "transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)";
+    container.style.transform = `translateY(${container.offsetHeight}px) scale(0.9)`;
+  }
+
+  cAnimationId = requestAnimationFrame(stepCD);
 };
 
-const onLeave = () => {
-  isHovering = false;
+const startCDAnimation = () => {
+  cdLastTimestamp = null;
+  cAnimationId = requestAnimationFrame(stepCD);
 };
 
-const step = (timestamp: number) => {
-  if (lastTimestamp === null) lastTimestamp = timestamp;
-  const deltaTime = (timestamp - lastTimestamp) / 1000; // in seconds
-  lastTimestamp = timestamp;
+const stopCDAnimation = () => {
+  if (cAnimationId !== null) {
+    cancelAnimationFrame(cAnimationId);
+  }
+};
 
-  // Update velocity with acceleration or deceleration
-  velocity += (isHovering ? accelerationRate : decelerationRate) * deltaTime;
-  if (velocity > maxRotationSpeed) velocity = maxRotationSpeed;
-  if (velocity < 0) velocity = 0;
+const animateCD = computed(() => {
+  return (
+    boxartStyle.value === "physical_path" &&
+    Boolean(boxartStyleCover.value) &&
+    romsStore.isSimpleRom(props.rom) &&
+    isCDBasedSystem(props.rom.platform_slug)
+  );
+});
 
-  // Integrate angle
-  angle = (angle + velocity * deltaTime) % 360;
+const onMouseEnter = () => {
+  if (animateCD.value) {
+    cdIsHovering = true;
+    startCDAnimation();
+  }
+};
 
+const onMouseLeave = () => {
+  cdIsHovering = false;
+};
+
+const startCartridgeAnimation = () => {
   if (tiltCardRef.value) {
+    const container = tiltCardRef.value.querySelector(
+      ".v-img",
+    ) as HTMLElement | null;
     const imageElement = tiltCardRef.value.querySelector(
       ".v-img__img.v-img__img--contain",
-    );
-    if (imageElement) {
-      (imageElement as HTMLImageElement).style.transform =
-        `rotate(${angle}deg)`;
-    }
-  }
+    ) as HTMLImageElement | null;
+    if (!container || !imageElement) return;
 
-  // Only continue animation if we're hovering or still decelerating
-  if (isHovering || velocity > 0) {
-    animationId = requestAnimationFrame(step);
+    // Apply snap-down animation
+    imageElement.style.transition =
+      "transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)";
+    imageElement.style.transform = `translateY(${container.offsetHeight}px) scale(0.9)`;
   }
 };
 
-const startAnimation = () => {
-  lastTimestamp = null;
-  animationId = requestAnimationFrame(step);
-};
+emitter?.on("playCD", (romId: number) => {
+  if (romId !== props.rom.id) return;
+  cdPlayTriggered = true;
+  startCDAnimation();
+});
 
-const stopAnimation = () => {
-  if (animationId !== null) {
-    cancelAnimationFrame(animationId);
-    animationId = null;
-  }
-};
+emitter?.on("playCartridge", (romId: number) => {
+  if (romId !== props.rom.id) return;
+  startCartridgeAnimation();
+});
 
 onMounted(() => {
   if (tiltCardRef.value && !smAndDown.value && props.enable3DTilt) {
@@ -287,7 +325,7 @@ onBeforeUnmount(() => {
   if (tiltCardRef.value?.vanillaTilt && props.enable3DTilt) {
     tiltCardRef.value.vanillaTilt.destroy();
   }
-  stopAnimation();
+  stopCDAnimation();
 });
 </script>
 
@@ -352,8 +390,8 @@ onBeforeUnmount(() => {
               @click="handleClick"
               @touchstart="handleTouchStart"
               @touchend="handleTouchEnd"
-              @mouseenter="onEnter"
-              @mouseleave="onLeave"
+              @mouseenter="onMouseEnter"
+              @mouseleave="onMouseLeave"
             >
               <template v-if="titleOnHover">
                 <v-expand-transition>

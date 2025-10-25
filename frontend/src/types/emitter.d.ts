@@ -84,4 +84,6 @@ export type Events = {
   stateSelected: StateSchema;
   showAboutDialog: null;
   showNoteDialog: SimpleRom;
+  playCD: number;
+  playCartridge: number;
 };
