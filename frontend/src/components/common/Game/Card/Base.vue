@@ -9,6 +9,7 @@ import {
   onBeforeUnmount,
   inject,
   useTemplateRef,
+  nextTick,
 } from "vue";
 import { useDisplay } from "vuetify";
 import type { SearchRomSchema } from "@/__generated__";
@@ -27,7 +28,7 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { FRONTEND_RESOURCES_PATH, CD_BASED_SYSTEMS } from "@/utils";
 import {
   getMissingCoverImage,
   getUnmatchedCoverImage,
@@ -85,8 +86,8 @@ const emit = defineEmits([
   "touchend",
 ]);
 const handleClick = (event: MouseEvent) => {
+  // Only handle left-click
   if (event.button === 0) {
-    // Only handle left-click
     emit("click", { event: event, rom: props.rom });
   }
 };
@@ -202,6 +203,74 @@ const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
   }
 };
 
+// Spinning disk animation variables
+const maxRotationSpeed = 5600; // deg/sec (adjust top speed)
+const accelerationRate = 1500; // deg/sec^2 (how fast it accelerates)
+const decelerationRate = -2000; // deg/sec^2 (how fast it slows)
+
+// Stored animation state
+let angle = 0; // current rotation in degrees
+let velocity = 0; // degrees / second
+let lastTimestamp: number | null = null;
+let isHovering = false;
+let animationId: number | null = null;
+
+const onEnter = () => {
+  // Only animate physical disks
+  if (boxartStyle.value !== "physical_path") return;
+  if (!boxartStyleCover.value) return;
+  if (!romsStore.isSimpleRom(props.rom)) return;
+  if (!CD_BASED_SYSTEMS.includes(props.rom.platform_slug)) return;
+
+  isHovering = true;
+  startAnimation();
+};
+
+const onLeave = () => {
+  isHovering = false;
+};
+
+const step = (timestamp: number) => {
+  if (lastTimestamp === null) lastTimestamp = timestamp;
+  const deltaTime = (timestamp - lastTimestamp) / 1000; // in seconds
+  lastTimestamp = timestamp;
+
+  // Update velocity with acceleration or deceleration
+  velocity += (isHovering ? accelerationRate : decelerationRate) * deltaTime;
+  if (velocity > maxRotationSpeed) velocity = maxRotationSpeed;
+  if (velocity < 0) velocity = 0;
+
+  // Integrate angle
+  angle = (angle + velocity * deltaTime) % 360;
+
+  if (tiltCardRef.value) {
+    const imageElement = tiltCardRef.value.querySelector(
+      ".v-img__img.v-img__img--contain",
+    );
+    if (imageElement) {
+      (imageElement as HTMLImageElement).style.transform =
+        `rotate(${angle}deg)`;
+    }
+  }
+
+  // Only continue animation if we're hovering or still decelerating
+  if (isHovering || velocity > 0) {
+    animationId = requestAnimationFrame(step);
+  }
+};
+
+const startAnimation = () => {
+  lastTimestamp = null;
+  animationId = requestAnimationFrame(step);
+};
+
+const stopAnimation = () => {
+  if (animationId !== null) {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+  }
+};
+
 onMounted(() => {
   if (tiltCardRef.value && !smAndDown.value && props.enable3DTilt) {
     VanillaTilt.init(tiltCardRef.value, {
@@ -218,6 +287,7 @@ onBeforeUnmount(() => {
   if (tiltCardRef.value?.vanillaTilt && props.enable3DTilt) {
     tiltCardRef.value.vanillaTilt.destroy();
   }
+  stopAnimation();
 });
 </script>
 
@@ -282,6 +352,8 @@ onBeforeUnmount(() => {
               @click="handleClick"
               @touchstart="handleTouchStart"
               @touchend="handleTouchEnd"
+              @mouseenter="onEnter"
+              @mouseleave="onLeave"
             >
               <template v-if="titleOnHover">
                 <v-expand-transition>
