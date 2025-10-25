@@ -22,20 +22,15 @@ export const ANIMATION_CONFIG = {
 };
 
 function getTranslateY(el: HTMLElement) {
-  const st = window.getComputedStyle(el);
-  const tr = st.transform;
-  if (!tr || tr === "none") return 0;
+  const transform = window.getComputedStyle(el).transform;
+  if (!transform || transform === "none") return 0;
 
-  const m = tr.match(/\(([^)]+)\)/);
-  if (!m) return 0;
-
-  const values = m[1].split(",").map((v) => parseFloat(v.trim()));
-  if (tr.startsWith("matrix3d")) {
-    // matrix3d(...) has 16 values, translation is at indexes 12,13,14 (tx, ty, tz)
-    return values[13] || 0; // ty
-  } else {
-    // matrix(a, b, c, d, tx, ty) -> ty is index 5
-    return values[5] || 0;
+  try {
+    const matrix = new DOMMatrix(transform);
+    return matrix.m42; // m42 is the ty value (vertical translation)
+  } catch (e) {
+    console.error("Failed to parse transform matrix:", e);
+    return 0;
   }
 }
 
@@ -109,6 +104,7 @@ export function useGameAnimation({
     // Update velocity and angle with acceleration
     velocity +=
       (accelerate.value ? accelerationRate : decelerationRate) * deltaTime;
+    // Clamp the velocity
     velocity = Math.min(maxRotationSpeed, Math.max(0, velocity));
     angle = (angle + velocity * deltaTime) % 360;
 
