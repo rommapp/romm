@@ -747,7 +747,7 @@ export function platformCategoryToIcon(category: string) {
 
 export const FRONTEND_RESOURCES_PATH = "/assets/romm/resources";
 
-export const CD_BASED_SYSTEMS = [
+export const CD_BASED_SYSTEMS = new Set([
   "3do", // 3DO
   "amiga-cd32", // Amiga CD32
   "atari-jaguar-cd", // Atari Jaguar CD
@@ -778,8 +778,8 @@ export const CD_BASED_SYSTEMS = [
   "xbox", // Xbox
   "xbox360", // Xbox 360
   "xboxone", // Xbox One
-];
+]);
 
 export function isCDBasedSystem(platformSlug: string): boolean {
-  return CD_BASED_SYSTEMS.includes(platformSlug);
+  return CD_BASED_SYSTEMS.has(platformSlug.toLowerCase());
 }

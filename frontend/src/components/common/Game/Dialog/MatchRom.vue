@@ -60,17 +60,17 @@ const computedAspectRatio = computed(() => {
     galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
-emitter?.on("showMatchRomDialog", (romToSearch) => {
+
+const handleShowMatchRomDialog = (romToSearch: SimpleRom) => {
   rom.value = romToSearch;
   show.value = true;
   matchedRoms.value = [];
-
-  // Use name as search term, only when it's matched
-  // Otherwise use the filename without tags and extensions
   searchText.value = romToSearch.is_identified
     ? (romToSearch.name ?? "")
     : romToSearch.fs_name_no_tags;
-});
+};
+emitter?.on("showMatchRomDialog", handleShowMatchRomDialog);
+
 const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
@@ -314,7 +314,7 @@ function closeDialog() {
 }
 
 onBeforeUnmount(() => {
-  emitter?.off("showMatchRomDialog");
+  emitter?.off("showMatchRomDialog", handleShowMatchRomDialog);
 });
 </script>
 

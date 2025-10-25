@@ -210,17 +210,17 @@ const onMouseLeave = () => {
   gameIsHovering.value = false;
 };
 
-emitter?.on("playGame", (romId: number) => {
+const handlePlayGame = (romId: number) => {
   if (romId !== props.rom.id) return;
-
-  // Trigger animation based on game type
   if (animateCD.value) {
     animateCDSpin();
     animateCDLoad();
   } else if (animateCartridge.value) {
     animateLoadCart();
   }
-});
+};
+
+emitter?.on("playGame", handlePlayGame);
 
 onMounted(() => {
   if (tiltCardRef.value && !smAndDown.value && props.enable3DTilt) {
@@ -238,7 +238,7 @@ onBeforeUnmount(() => {
   if (tiltCardRef.value?.vanillaTilt && props.enable3DTilt) {
     tiltCardRef.value.vanillaTilt.destroy();
   }
-  emitter?.off("playGame");
+  emitter?.off("playGame", handlePlayGame);
   stopCDAnimation();
 });
 </script>
