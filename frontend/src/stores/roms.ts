@@ -1,8 +1,11 @@
 import { useLocalStorage } from "@vueuse/core";
 import { isNull, isUndefined } from "lodash";
 import { defineStore } from "pinia";
-import type { SearchRomSchema } from "@/__generated__";
-import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
+import type {
+  DetailedRomSchema,
+  SimpleRomSchema,
+  SearchRomSchema,
+} from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import cachedApiService from "@/services/cache/api";
 import {
@@ -17,6 +20,7 @@ import type { ExtractPiniaStoreType } from "@/types";
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 export type SimpleRom = SimpleRomSchema;
+export type SearchRom = SearchRomSchema;
 export type DetailedRom = DetailedRomSchema;
 export const MAX_FETCH_LIMIT = 10000;
 
@@ -270,7 +274,7 @@ export default defineStore("roms", {
     setLimit(limit: number) {
       this.fetchLimit = limit;
     },
-    isSimpleRom(rom: SimpleRom | SearchRomSchema): rom is SimpleRom {
+    isSimpleRom(rom: SimpleRom | SearchRom): rom is SimpleRom {
       return !isNull(rom.id) && !isUndefined(rom.id);
     },
   },

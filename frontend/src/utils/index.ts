@@ -758,7 +758,7 @@ export const CD_BASED_SYSTEMS = [
   "hyperscan", // HyperScan
   "laseractive", // LaserActive
   "neo-geo-cd", // Neo Geo CD
-  "ngc", // Neo Geo CD
+  "ngc", // Nintendo GameCube
   "pc-fx", // PC-FX
   "psx", // PlayStation
   "ps2", // PlayStation 2

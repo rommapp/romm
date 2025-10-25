@@ -1,27 +1,20 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, useAttrs } from "vue";
 import { useRouter } from "vue-router";
-import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
+import {
+  ANIMATION_DELAY,
+  useGameAnimation,
+} from "@/composables/useGameAnimation";
 import { ROUTES } from "@/plugins/router";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import {
-  isEJSEmulationSupported,
-  isRuffleEmulationSupported,
-  isCDBasedSystem,
-} from "@/utils";
+import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
 
-const props = defineProps<{
-  rom: SimpleRom;
-  iconEmbedded?: boolean;
-  animateCD?: boolean;
-  animateCartridge?: boolean;
-}>();
+const props = defineProps<{ rom: SimpleRom; iconEmbedded?: boolean }>();
 const attrs = useAttrs();
 const configStore = storeConfig();
 const heartbeatStore = storeHeartbeat();
@@ -30,11 +23,6 @@ const router = useRouter();
 const { config } = storeToRefs(configStore);
 const { value: heartbeat } = storeToRefs(heartbeatStore);
 const emitter = inject<Emitter<Events>>("emitter");
-
-const boxartStyle = useLocalStorage<BoxartStyleOption>(
-  "settings.boxartStyle",
-  "cover",
-);
 
 const isEmulationSupported = computed(() => {
   return (
@@ -51,31 +39,8 @@ const isEmulationSupported = computed(() => {
   );
 });
 
-const boxartStyleCover = computed(() => {
-  if (!romsStore.isSimpleRom(props.rom) || boxartStyle.value === "cover")
-    return null;
-  const ssMedia = props.rom.ss_metadata?.[boxartStyle.value];
-  const gamelistMedia = props.rom.gamelist_metadata?.[boxartStyle.value];
-  return ssMedia || gamelistMedia;
-});
-
-const animateCD = computed(() => {
-  return (
-    boxartStyle.value === "physical_path" &&
-    Boolean(boxartStyleCover.value) &&
-    romsStore.isSimpleRom(props.rom) &&
-    isCDBasedSystem(props.rom.platform_slug)
-  );
-});
-
-const animateCartridge = computed(() => {
-  return (
-    boxartStyle.value === "physical_path" &&
-    Boolean(boxartStyleCover.value) &&
-    romsStore.isSimpleRom(props.rom) &&
-    !isCDBasedSystem(props.rom.platform_slug)
-  );
-});
+// Use the composable for animation logic
+const { animateCD, animateCartridge } = useGameAnimation(props.rom);
 
 async function goToPlayer(rom: SimpleRom) {
   if (
@@ -93,7 +58,7 @@ async function goToPlayer(rom: SimpleRom) {
         // Required to enable multi-threading in EmulatorJS
         router.go(0);
       },
-      animateCD.value || animateCartridge.value ? 500 : 0,
+      animateCD.value || animateCartridge.value ? ANIMATION_DELAY : 0,
     );
   } else if (
     isRuffleEmulationSupported(rom.platform_slug, heartbeat.value, config.value)

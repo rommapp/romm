@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { SearchRomSchema } from "@/__generated__";
+import type { SearchRom } from "@/stores/roms";
 
-defineProps<{ rom: SearchRomSchema }>();
+defineProps<{ rom: SearchRom }>();
 </script>
 
 <template>

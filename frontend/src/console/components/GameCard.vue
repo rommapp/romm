@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
 import { computed, onMounted, useTemplateRef, watch } from "vue";
-import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
+import { useGameAnimation } from "@/composables/useGameAnimation";
 import {
   continuePlayingElementRegistry,
   gamesListElementRegistry,
@@ -28,22 +27,12 @@ const props = defineProps<{
 
 const heartbeatStore = storeHeartbeat();
 
-const boxartStyle = useLocalStorage<BoxartStyleOption>(
-  "settings.boxartStyle",
-  "cover",
-);
-
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
 
-// User selected alternative cover image
-const boxartStyleCover = computed(() => {
-  if (boxartStyle.value === "cover") return null;
-  const ssMedia = props.rom.ss_metadata?.[boxartStyle.value];
-  const gamelistMedia = props.rom.gamelist_metadata?.[boxartStyle.value];
-  return ssMedia || gamelistMedia;
-});
+// Use the composable for animation logic
+const { boxartStyleCover } = useGameAnimation(props.rom);
 
 const largeCover = computed(() => {
   if (boxartStyleCover.value)
