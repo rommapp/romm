@@ -344,9 +344,6 @@ async def _identify_rom(
             db_rom_handler.add_rom_file(new_rom_file)
 
     if _added_rom.ra_metadata:
-        await fs_resource_handler.create_ra_resources_path(platform.id, _added_rom.id)
-
-        # Store the achievements badges
         for ach in _added_rom.ra_metadata.get("achievements", []):
             # Store both normal and locked version
             badge_url_lock = ach.get("badge_url_lock", None)
