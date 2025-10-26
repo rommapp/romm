@@ -174,11 +174,8 @@ def _should_scan_rom(
                 # Unmatched scan should scan ROMs that are not identified by the selected metadata sources
                 or (
                     scan_type == ScanType.UNMATCHED
-                    and (
-                        any(
-                            not getattr(rom, f"{source}_id")
-                            for source in metadata_sources
-                        )
+                    and any(
+                        not getattr(rom, f"{source}_id") for source in metadata_sources
                     )
                 )
             )
