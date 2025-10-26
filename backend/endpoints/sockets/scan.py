@@ -360,6 +360,7 @@ async def _identify_rom(
             if badge_url and badge_path:
                 await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
+    # Handle special media files from Screenscraper
     if _added_rom.ss_metadata:
         preferred_media_types = get_preferred_media_types()
         for media_type in preferred_media_types:
@@ -369,6 +370,7 @@ async def _identify_rom(
                     _added_rom.ss_metadata[f"{media_type.value}_path"],
                 )
 
+    # Handle special media files from ES-DE gamelist.xml
     if _added_rom.gamelist_metadata:
         preferred_media_types = get_preferred_media_types()
         for media_type in preferred_media_types:
