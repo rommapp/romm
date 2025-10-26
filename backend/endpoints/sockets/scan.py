@@ -254,9 +254,9 @@ async def _identify_rom(
         return
 
     # Build rom files object before scanning
-    log.debug(f"Calculating file hashes for {rom.fs_name}...")
     should_update_props = _should_update_rom_properties(scan_type, rom, roms_ids)
     if should_update_props:
+        log.debug(f"Calculating file hashes for {rom.fs_name}...")
         rom_files, rom_crc_c, rom_md5_h, rom_sha1_h, rom_ra_h = (
             await fs_rom_handler.get_rom_files(rom)
         )
