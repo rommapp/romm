@@ -6,7 +6,7 @@
   <img src=".github/resources/logotipo.png" height="45px" width="auto" alt="romm logotype">
 
   <h3 style="font-size: 25px;">
-    A beautiful, powerful, self-hosted ROM manager.
+    A beautiful, powerful, self-hosted ROM manager and player.
   </h3>
   <br/>
 
