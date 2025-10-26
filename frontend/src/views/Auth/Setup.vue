@@ -51,7 +51,7 @@ const metadataOptions = computed(() => [
   },
   {
     name: "Launchbox",
-    value: "lb",
+    value: "launchbox",
     logo_path: "/assets/scrappers/launchbox.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
   },

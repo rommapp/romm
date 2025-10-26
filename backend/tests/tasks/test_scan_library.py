@@ -44,7 +44,7 @@ class TestScanLibraryTask:
         mock_log.info.assert_any_call("Scheduled library scan started...")
         mock_scan_platforms.assert_called_once_with(
             platform_ids=[],
-            metadata_sources=[MetadataSource.RA, MetadataSource.LB],
+            metadata_sources=[MetadataSource.RA, MetadataSource.LAUNCHBOX],
             scan_type=ScanType.UPDATE,
         )
         mock_log.info.assert_any_call("Scheduled library scan done")

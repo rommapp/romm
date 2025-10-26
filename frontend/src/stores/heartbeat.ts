@@ -132,7 +132,7 @@ export default defineStore("heartbeat", {
         },
         {
           name: "Launchbox",
-          value: "lb",
+          value: "launchbox",
           logo_path: "/assets/scrappers/launchbox.png",
           disabled: !this.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED
             ? i18n.global.t("scan.disabled-by-admin")

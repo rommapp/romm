@@ -501,7 +501,7 @@ class DBRomsHandler(DBBaseHandler):
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                MetadataSource.LB,
+                                MetadataSource.LAUNCHBOX,
                                 base_subquery.c.launchbox_id,
                                 base_subquery.c.platform_id,
                             ),

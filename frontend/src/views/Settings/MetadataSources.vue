@@ -13,7 +13,7 @@ const heartbeatStatus = ref<Record<string, boolean | undefined>>({
   ss: undefined,
   ra: undefined,
   hasheous: undefined,
-  lb: undefined,
+  launchbox: undefined,
   flashpoint: undefined,
   hltb: undefined,
   sgdb: undefined,
@@ -58,10 +58,10 @@ const metadataOptions = computed(() => [
   },
   {
     name: "Launchbox",
-    value: "lb",
+    value: "launchbox",
     logo_path: "/assets/scrappers/launchbox.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
-    heartbeat: heartbeatStatus.value.lb,
+    heartbeat: heartbeatStatus.value.launchbox,
   },
   {
     name: "Flashpoint Project",

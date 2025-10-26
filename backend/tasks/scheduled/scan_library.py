@@ -45,7 +45,7 @@ class ScanLibraryTask(PeriodicTask):
             MetadataSource.SS: meta_ss_handler.is_enabled(),
             MetadataSource.MOBY: meta_moby_handler.is_enabled(),
             MetadataSource.RA: meta_ra_handler.is_enabled(),
-            MetadataSource.LB: meta_launchbox_handler.is_enabled(),
+            MetadataSource.LAUNCHBOX: meta_launchbox_handler.is_enabled(),
             MetadataSource.HASHEOUS: meta_hasheous_handler.is_enabled(),
             MetadataSource.SGDB: meta_sgdb_handler.is_enabled(),
             MetadataSource.FLASHPOINT: meta_flashpoint_handler.is_enabled(),
