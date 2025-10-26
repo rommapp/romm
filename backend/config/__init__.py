@@ -28,6 +28,9 @@ RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
 FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
 
+# SEVEN ZIP
+SEVEN_ZIP_TIMEOUT: Final = int(os.environ.get("SEVEN_ZIP_TIMEOUT", 60))
+
 # DATABASE
 DB_HOST: Final[str | None] = os.environ.get("DB_HOST", "127.0.0.1") or None
 DB_PORT: Final[int | None] = (
