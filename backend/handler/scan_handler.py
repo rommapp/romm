@@ -63,7 +63,7 @@ class MetadataSource(enum.StrEnum):
     MOBY = "moby"  # MobyGames
     SS = "ss"  # Screenscraper
     RA = "ra"  # RetroAchievements
-    LB = "lb"  # Launchbox
+    LAUNCHBOX = "launchbox"  # Launchbox
     HASHEOUS = "hasheous"  # Hasheous
     TGDB = "tgdb"  # TheGamesDB
     SGDB = "sgdb"  # SteamGridDB
@@ -564,7 +564,7 @@ async def scan_rom(
         return SSRom(ss_id=None)
 
     async def fetch_launchbox_rom(platform_slug: str) -> LaunchboxRom:
-        if MetadataSource.LB in metadata_sources and (
+        if MetadataSource.LAUNCHBOX in metadata_sources and (
             newly_added
             or scan_type == ScanType.COMPLETE
             or (scan_type == ScanType.UPDATE and rom.launchbox_id)
@@ -679,7 +679,7 @@ async def scan_rom(
         MetadataSource.MOBY: moby_handler_rom,
         MetadataSource.SS: ss_handler_rom,
         MetadataSource.RA: ra_handler_rom,
-        MetadataSource.LB: launchbox_handler_rom,
+        MetadataSource.LAUNCHBOX: launchbox_handler_rom,
         MetadataSource.HASHEOUS: hasheous_handler_rom,
         MetadataSource.FLASHPOINT: flashpoint_handler_rom,
         MetadataSource.HLTB: hltb_handler_rom,

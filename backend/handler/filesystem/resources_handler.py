@@ -424,6 +424,9 @@ class FSResourcesHandler(FSHandler):
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
 
+        # Ensure destination directory exists
+        await self.make_directory(directory)
+
         if await self.file_exists(path):
             log.debug(f"Badge {path} already exists, skipping download")
             return
@@ -450,9 +453,6 @@ class FSResourcesHandler(FSHandler):
     def get_ra_badges_path(self, platform_id: int, rom_id: int) -> str:
         return os.path.join(self.get_ra_resources_path(platform_id, rom_id), "badges")
 
-    async def create_ra_resources_path(self, platform_id: int, rom_id: int) -> None:
-        await self.make_directory(self.get_ra_resources_path(platform_id, rom_id))
-
     # Mixed media
     def get_media_resources_path(
         self,
@@ -462,16 +462,6 @@ class FSResourcesHandler(FSHandler):
     ) -> str:
         return os.path.join("roms", str(platform_id), str(rom_id), media_type.value)
 
-    async def create_media_resources_path(
-        self,
-        platform_id: int,
-        rom_id: int,
-        media_type: MetadataMediaType,
-    ) -> None:
-        await self.make_directory(
-            self.get_media_resources_path(platform_id, rom_id, media_type)
-        )
-
     async def store_media_file(self, url: str, path: str) -> None:
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
@@ -480,12 +470,17 @@ class FSResourcesHandler(FSHandler):
             log.debug(f"Media file {path} already exists, skipping download")
             return
 
+        # Ensure destination directory exists
+        await self.make_directory(directory)
+
         # Handle file:// URLs for gamelist.xml
         if url.startswith("file://"):
             try:
                 file_path = Path(url[7:])  # Remove "file://" prefix
                 if file_path.exists():
-                    shutil.copy2(file_path, path)
+                    # Validate the destination path
+                    dest_path = self.validate_path(path)
+                    shutil.copy2(file_path, dest_path)
             except Exception as exc:
                 log.error(f"Unable to copy media file {url}: {str(exc)}")
                 return None
