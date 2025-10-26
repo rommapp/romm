@@ -34,7 +34,7 @@ scan:
   priority:
     metadata:
       - "ss" # Screenscraper
-      - "lb" # Launchbox
+      - "launchbox" # Launchbox
     artwork:
       - "igdb" # IGDB
       - "ss" # Screenscraper

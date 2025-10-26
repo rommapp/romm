@@ -139,7 +139,7 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_ss_handler.heartbeat()
         case MetadataSource.RA:
             return await meta_ra_handler.heartbeat()
-        case MetadataSource.LB:
+        case MetadataSource.LAUNCHBOX:
             return await meta_launchbox_handler.heartbeat()
         case MetadataSource.HASHEOUS:
             return await meta_hasheous_handler.heartbeat()

@@ -3,7 +3,7 @@ import type { ScanStats } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import type { Platform } from "./platforms";
 
-interface ScanningPlatform extends Partial<Platform> {
+export interface ScanningPlatform extends Partial<Platform> {
   roms: SimpleRom[];
 }
 

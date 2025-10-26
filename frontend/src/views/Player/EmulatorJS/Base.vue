@@ -15,12 +15,11 @@ import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storePlaying from "@/stores/playing";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import { type DetailedRom } from "@/stores/roms";
 import { formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
-import { saveSave, saveState } from "./utils";
 
 const EMULATORJS_VERSION = "4.2.3";
 
@@ -30,7 +29,6 @@ const route = useRoute();
 const auth = storeAuth();
 const playingStore = storePlaying();
 const { playing, fullScreen } = storeToRefs(playingStore);
-const romsStore = storeRoms();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
@@ -89,42 +87,6 @@ function onPlay() {
 
 function onFullScreenChange() {
   fullScreenOnPlay.value = !fullScreenOnPlay.value;
-}
-
-async function onlyQuit() {
-  playing.value = false;
-  fullScreen.value = false;
-  if (rom.value) romsStore.update(rom.value);
-  window.history.back();
-}
-
-async function saveAndQuit() {
-  playing.value = false;
-  fullScreen.value = false;
-  if (!rom.value) return window.history.back();
-  const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
-
-  // Force a save of the current state
-  const stateFile = window.EJS_emulator.gameManager.getState();
-  await saveState({
-    rom: rom.value,
-    stateFile,
-    screenshotFile,
-  });
-
-  // Force a save of the save file
-  const saveFile = window.EJS_emulator.gameManager.getSaveFile();
-  await saveSave({
-    rom: rom.value,
-    save: selectedSave.value,
-    saveFile,
-    screenshotFile,
-  });
-
-  romsStore.update(rom.value);
-  playing.value = false;
-  fullScreen.value = false;
-  window.history.back();
 }
 
 function switchSaveSelector() {
@@ -736,30 +698,6 @@ onBeforeUnmount(async () => {
           :disc="selectedDisc"
         />
       </v-col>
-      <!-- <v-col>
-      <v-row class="align-center my-4" no-gutters>
-        <v-btn
-          class="mt-2"
-          :class="{ 'pr-1': !smAndDown }"
-          block
-          variant="flat"
-          prepend-icon="mdi-exit-to-app"
-          @click="onlyQuit"
-        >
-          {{ t("play.quit") }}
-        </v-btn>
-        <v-btn
-          class="mt-2"
-          :class="{ 'pl-1': !smAndDown }"
-          block
-          variant="flat"
-          prepend-icon="mdi-content-save-move"
-          @click="saveAndQuit"
-        >
-          {{ t("play.save-and-quit") }}
-        </v-btn>
-      </v-row>
-    </v-col> -->
     </template>
   </v-row>
 </template>

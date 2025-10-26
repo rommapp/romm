@@ -140,7 +140,7 @@ scan:
       - "moby" # MobyGames
       - "ss" # Screenscraper
       - "ra" # RetroAchievements
-      - "lb" # Launchbox
+      - "launchbox" # Launchbox
       - "hasheous" # Hasheous
       - "flashpoint" # Flashpoint Project
       - "hltb" # HowLongToBeat (lowest priority)
@@ -150,7 +150,7 @@ scan:
       - "moby" # MobyGames
       - "ss" # Screenscraper
       - "ra" # RetroAchievements
-      - "lb" # Launchbox
+      - "launchbox" # Launchbox
       - "hasheous" # Hasheous
       - "flashpoint" # Flashpoint Project
       - "hltb" # HowLongToBeat
