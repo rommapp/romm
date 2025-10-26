@@ -108,12 +108,10 @@ def _get_socket_manager() -> socketio.AsyncRedisManager:
 async def _identify_firmware(
     platform: Platform,
     fs_fw: str,
-    scan_stats: ScanStats,
-    socket_manager: socketio.AsyncRedisManager,
-) -> None:
+) -> int:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
-        return
+        return 0
 
     firmware = db_firmware_handler.get_firmware_by_filename(platform.id, fs_fw)
 
@@ -132,43 +130,62 @@ async def _identify_firmware(
         crc_hash=scanned_firmware.crc_hash,
     )
 
-    await scan_stats.increment(
-        socket_manager=socket_manager,
-        scanned_firmware=1,
-        new_firmware=1 if not firmware else 0,
-    )
-
     scanned_firmware.missing_from_fs = False
     scanned_firmware.is_verified = is_verified
     db_firmware_handler.add_firmware(scanned_firmware)
 
+    return 1 if not firmware else 0
 
-def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[int]) -> bool:
+
+def _should_scan_rom(
+    scan_type: ScanType,
+    rom: Rom | None,
+    roms_ids: list[int],
+    metadata_sources: list[str],
+) -> bool:
     """Decide if a rom should be scanned or not
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
         rom (Rom | None): The rom to be scanned.
         roms_ids (list[int]): List of selected roms to be scanned.
+        metadata_sources (list[str]): List of metadata sources to be used.
     """
 
     # This logic is tricky so only touch it if you know what you're doing"""
-    return bool(
+    should_scan = bool(
+        # Any new roms should be scanned
         (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
+        # Complete rescan should scan all roms
         or (scan_type == ScanType.COMPLETE)
+        # Hashes rescan should scan all roms to update the hashes
         or (scan_type == ScanType.HASHES)
         or (
             rom
             and (
-                scan_type == ScanType.UNMATCHED
-                or (scan_type == ScanType.UPDATE and rom.is_identified)
-                or (rom.id in roms_ids)
+                # Selected ROMs are always scanned
+                (rom.id in roms_ids)
+                # Update scan should scan ROMs identified by the selected metadata sources
+                or (
+                    scan_type == ScanType.UPDATE
+                    and rom.is_identified
+                    and any(getattr(rom, f"{source}_id") for source in metadata_sources)
+                )
+                # Unmatched scan should scan ROMs that are not identified by the selected metadata sources
+                or (
+                    scan_type == ScanType.UNMATCHED
+                    and any(
+                        not getattr(rom, f"{source}_id") for source in metadata_sources
+                    )
+                )
             )
         )
     )
 
+    return should_scan
 
-def _should_update_rom_properties(
+
+def _should_get_rom_files(
     scan_type: ScanType, rom: Rom | None, roms_ids: list[int]
 ) -> bool:
     """Decide if the files of a rom should be rebuilt or not
@@ -205,15 +222,17 @@ async def _identify_rom(
     if redis_client.get(STOP_SCAN_FLAG):
         return
 
-    if not _should_scan_rom(scan_type=scan_type, rom=rom, roms_ids=roms_ids):
+    if not _should_scan_rom(
+        scan_type=scan_type,
+        rom=rom,
+        roms_ids=roms_ids,
+        metadata_sources=metadata_sources,
+    ):
         if rom:
-            if rom.fs_name != fs_rom["fs_name"]:
-                # Just to update the filesystem data
-                rom.fs_name = fs_rom["fs_name"]
-                db_rom_handler.add_rom(rom)
-
-            if rom.missing_from_fs:
-                db_rom_handler.update_rom(rom.id, {"missing_from_fs": False})
+            # Just to update the filesystem data
+            db_rom_handler.update_rom(
+                rom.id, {"fs_name": fs_rom["fs_name"], "missing_from_fs": False}
+            )
 
         return
 
@@ -254,7 +273,7 @@ async def _identify_rom(
         return
 
     # Build rom files object before scanning
-    should_update_props = _should_update_rom_properties(scan_type, rom, roms_ids)
+    should_update_props = _should_get_rom_files(scan_type, rom, roms_ids)
     if should_update_props:
         log.debug(f"Calculating file hashes for {rom.fs_name}...")
         rom_files, rom_crc_c, rom_md5_h, rom_sha1_h, rom_ra_h = (
@@ -322,9 +341,6 @@ async def _identify_rom(
             db_rom_handler.add_rom_file(new_rom_file)
 
     if _added_rom.ra_metadata:
-        await fs_resource_handler.create_ra_resources_path(platform.id, _added_rom.id)
-
-        # Store the achievements badges
         for ach in _added_rom.ra_metadata.get("achievements", []):
             # Store both normal and locked version
             badge_url_lock = ach.get("badge_url_lock", None)
@@ -338,6 +354,7 @@ async def _identify_rom(
             if badge_url and badge_path:
                 await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
+    # Handle special media files from Screenscraper
     if _added_rom.ss_metadata:
         preferred_media_types = get_preferred_media_types()
         for media_type in preferred_media_types:
@@ -347,6 +364,7 @@ async def _identify_rom(
                     _added_rom.ss_metadata[f"{media_type.value}_path"],
                 )
 
+    # Handle special media files from ES-DE gamelist.xml
     if _added_rom.gamelist_metadata:
         preferred_media_types = get_preferred_media_types()
         for media_type in preferred_media_types:
@@ -448,13 +466,19 @@ async def _identify_platform(
     else:
         log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
 
+    new_firmware = 0
     for fs_fw in fs_firmware:
-        await _identify_firmware(
-            socket_manager=socket_manager,
+        new_firmware += await _identify_firmware(
             platform=platform,
             fs_fw=fs_fw,
-            scan_stats=scan_stats,
         )
+
+    # This reduces the number of socket emissions
+    await scan_stats.increment(
+        socket_manager=socket_manager,
+        scanned_firmware=len(fs_firmware),
+        new_firmware=new_firmware,
+    )
 
     # Scanning roms
     try:
