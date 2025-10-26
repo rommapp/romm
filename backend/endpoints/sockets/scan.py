@@ -232,14 +232,10 @@ async def _identify_rom(
         metadata_sources=metadata_sources,
     ):
         if rom:
-            if rom.fs_name != fs_rom["fs_name"]:
-                # Just to update the filesystem data
-                rom.fs_name = fs_rom["fs_name"]
-                db_rom_handler.add_rom(rom)
-
-            if rom.missing_from_fs:
-                # Reset the missing from filesystem flag
-                db_rom_handler.update_rom(rom.id, {"missing_from_fs": False})
+            # Just to update the filesystem data
+            db_rom_handler.update_rom(
+                rom.id, {"fs_name": fs_rom["fs_name"], "missing_from_fs": False}
+            )
 
         return
 
