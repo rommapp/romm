@@ -108,12 +108,10 @@ def _get_socket_manager() -> socketio.AsyncRedisManager:
 async def _identify_firmware(
     platform: Platform,
     fs_fw: str,
-    scan_stats: ScanStats,
-    socket_manager: socketio.AsyncRedisManager,
-) -> None:
+) -> int:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
-        return
+        return 0
 
     firmware = db_firmware_handler.get_firmware_by_filename(platform.id, fs_fw)
 
@@ -132,15 +130,11 @@ async def _identify_firmware(
         crc_hash=scanned_firmware.crc_hash,
     )
 
-    await scan_stats.increment(
-        socket_manager=socket_manager,
-        scanned_firmware=1,
-        new_firmware=1 if not firmware else 0,
-    )
-
     scanned_firmware.missing_from_fs = False
     scanned_firmware.is_verified = is_verified
     db_firmware_handler.add_firmware(scanned_firmware)
+
+    return 1 if not firmware else 0
 
 
 def _should_scan_rom(
@@ -480,13 +474,19 @@ async def _identify_platform(
     else:
         log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
 
+    new_firmware = 0
     for fs_fw in fs_firmware:
-        await _identify_firmware(
-            socket_manager=socket_manager,
+        new_firmware += await _identify_firmware(
             platform=platform,
             fs_fw=fs_fw,
-            scan_stats=scan_stats,
         )
+
+    # This reduces the number of socket emissions
+    await scan_stats.increment(
+        socket_manager=socket_manager,
+        scanned_firmware=len(fs_firmware),
+        new_firmware=new_firmware,
+    )
 
     # Scanning roms
     try:
