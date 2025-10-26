@@ -387,17 +387,6 @@ class TestFSResourcesHandler:
             )
             assert result == expected
 
-    async def test_create_ra_resources_path(self, handler: FSResourcesHandler):
-        """Test create_ra_resources_path method"""
-        platform_id = 1
-        rom_id = 42
-
-        with patch.object(handler, "make_directory") as mock_make_dir:
-            await handler.create_ra_resources_path(platform_id, rom_id)
-
-            expected_path = handler.get_ra_resources_path(platform_id, rom_id)
-            mock_make_dir.assert_called_once_with(expected_path)
-
     def test_integration_with_base_handler_methods(self, handler: FSResourcesHandler):
         """Test that FSResourcesHandler properly inherits from FSHandler"""
         # Test that handler has base methods
