@@ -7,6 +7,7 @@ export type TaskExecutionResponse = {
     task_name: string;
     task_id: string;
     status: JobStatus;
-    queued_at: string;
+    created_at: string;
+    enqueued_at: (string | null);
 };
 

@@ -20,17 +20,26 @@ const statusIconColor = computed(() => {
 const taskDuration = computed(() => {
   if (!props.task.started_at) return null;
   if (!props.task.ended_at && props.task.status === "failed") return null;
+  if (
+    props.task.ended_at &&
+    new Date(props.task.started_at) >= new Date(props.task.ended_at)
+  ) {
+    return null;
+  }
 
   const duration = intervalToDuration({
     start: new Date(props.task.started_at),
     end: props.task.ended_at ? new Date(props.task.ended_at) : new Date(),
   });
+
   return formatDuration(duration);
 });
 
 const taskDistanceFromNow = computed(() => {
   return formatDistanceToNow(
-    new Date(props.task.started_at || props.task.queued_at),
+    new Date(
+      props.task.started_at || props.task.enqueued_at || props.task.created_at,
+    ),
     { addSuffix: true },
   );
 });
@@ -71,7 +80,11 @@ const taskDistanceFromNow = computed(() => {
             size="small"
             variant="tonal"
             class="text-caption"
-            :title="formatTimestamp(task.started_at || task.queued_at)"
+            :title="
+              formatTimestamp(
+                task.started_at || task.enqueued_at || task.created_at,
+              )
+            "
           >
             {{ taskDistanceFromNow }}
           </v-chip>

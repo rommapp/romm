@@ -8,7 +8,8 @@ export type GenericTaskStatusResponse = {
     task_name: string;
     task_id: string;
     status: JobStatus;
-    queued_at: string;
+    created_at: string;
+    enqueued_at: (string | null);
     started_at: (string | null);
     ended_at: (string | null);
     task_type: string;
