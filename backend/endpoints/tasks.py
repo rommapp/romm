@@ -120,9 +120,6 @@ def _build_task_status_response(
     task_name = job_meta.get("task_name") or job.func_name
     task_type = job_meta.get("task_type")
 
-    if not task_type:
-        raise ValueError("Task type not found in job meta")
-
     # Convert datetime objects to ISO format strings
     queued_at = job.created_at.isoformat() if job.created_at else None
     started_at = job.started_at.isoformat() if job.started_at else None
@@ -136,6 +133,13 @@ def _build_task_status_response(
         "started_at": started_at,
         "ended_at": ended_at,
     }
+
+    if not task_type:
+        return GenericTaskStatusResponse(
+            task_type=TaskType.GENERIC,
+            meta={},
+            **common_data,  # trunk-ignore(mypy/typeddict-item)
+        )
 
     match TaskType(task_type):
         case TaskType.SCAN:
