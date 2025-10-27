@@ -121,15 +121,17 @@ def _build_task_status_response(
     task_type = job_meta.get("task_type")
 
     # Convert datetime objects to ISO format strings
-    queued_at = job.created_at.isoformat() if job.created_at else None
+    created_at = job.created_at.isoformat() if job.created_at else None
     started_at = job.started_at.isoformat() if job.started_at else None
     ended_at = job.ended_at.isoformat() if job.ended_at else None
+    enqueued_at = job.enqueued_at.isoformat() if job.enqueued_at else None
 
     common_data = {
         "task_name": task_name,
         "task_id": job.get_id(),
         "status": job.get_status(),
-        "queued_at": queued_at or "",
+        "created_at": created_at,
+        "enqueued_at": enqueued_at,
         "started_at": started_at,
         "ended_at": ended_at,
     }
@@ -275,7 +277,10 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
             job = Job.fetch(job_id, connection=redis_client)
             all_tasks.append(_build_task_status_response(job))
 
-    all_tasks.sort(key=lambda x: x["started_at"] or x["queued_at"], reverse=True)
+    all_tasks.sort(
+        key=lambda x: x["started_at"] or x["enqueued_at"] or x["created_at"] or "",
+        reverse=True,
+    )
 
     return all_tasks
 
@@ -344,7 +349,12 @@ async def run_all_tasks(request: Request) -> list[TaskExecutionResponse]:
             task_name=task_name,
             task_id=job.get_id(),
             status=job.get_status() or JobStatus.QUEUED,
-            queued_at=datetime.now(timezone.utc).isoformat(),
+            created_at=(
+                job.created_at.isoformat()
+                if job.created_at
+                else datetime.now(timezone.utc).isoformat()
+            ),
+            enqueued_at=job.enqueued_at.isoformat() if job.enqueued_at else None,
         )
         for (task_name, job) in jobs
     ]
@@ -390,5 +400,10 @@ async def run_single_task(request: Request, task_name: str) -> TaskExecutionResp
         "task_name": task_instance.title,
         "task_id": job.get_id(),
         "status": job.get_status() or JobStatus.QUEUED,
-        "queued_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": (
+            job.created_at.isoformat()
+            if job.created_at
+            else datetime.now(timezone.utc).isoformat()
+        ),
+        "enqueued_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
     }
