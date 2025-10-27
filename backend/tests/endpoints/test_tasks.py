@@ -56,6 +56,26 @@ def mock_non_manual_task():
     return task
 
 
+def create_mock_job(job_id="1", status="queued"):
+    """Helper function to create a mock job with proper datetime attributes"""
+    from datetime import datetime
+
+    mock_job = Mock()
+    mock_job.get_id.return_value = job_id
+    mock_job.get_status.return_value = status
+
+    # Create mock datetime objects with isoformat methods
+    mock_created_at = Mock()
+    mock_created_at.isoformat = lambda: datetime.now().isoformat()
+    mock_job.created_at = mock_created_at
+
+    mock_enqueued_at = Mock()
+    mock_enqueued_at.isoformat = lambda: datetime.now().isoformat()
+    mock_job.enqueued_at = mock_enqueued_at
+
+    return mock_job
+
+
 class TestListTasks:
     """Test suite for the list_tasks endpoint"""
 
@@ -192,12 +212,7 @@ class TestListTasks:
 class TestRunAllTasks:
     """Test suite for the run_all_tasks endpoint"""
 
-    @patch(
-        "endpoints.tasks.low_prio_queue.enqueue",
-        return_value=Mock(
-            get_id=Mock(return_value="1"), get_status=Mock(return_value="queued")
-        ),
-    )
+    @patch("endpoints.tasks.low_prio_queue.enqueue", return_value=create_mock_job())
     @patch(
         "endpoints.tasks.manual_tasks",
         [
@@ -332,12 +347,7 @@ class TestRunAllTasks:
 class TestRunSingleTask:
     """Test suite for the run_single_task endpoint"""
 
-    @patch(
-        "endpoints.tasks.low_prio_queue.enqueue",
-        return_value=Mock(
-            get_id=Mock(return_value="1"), get_status=Mock(return_value="queued")
-        ),
-    )
+    @patch("endpoints.tasks.low_prio_queue.enqueue", return_value=create_mock_job())
     @patch(
         "endpoints.tasks.manual_tasks",
         [
@@ -617,9 +627,7 @@ class TestIntegration:
     @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)
     @patch(
         "endpoints.tasks.low_prio_queue.enqueue",
-        return_value=Mock(
-            get_id=Mock(return_value="1"), get_status=Mock(return_value="queued")
-        ),
+        return_value=create_mock_job(),
     )
     def test_full_workflow(self, mock_queue, client, access_token):
         """Test a complete workflow: list tasks, then run a specific task"""
