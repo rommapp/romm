@@ -370,7 +370,8 @@ class TestRunSingleTask:
         assert data["task_name"] == "Test Task"
         assert data["task_id"] == "1"
         assert data["status"] == "queued"
-        assert "queued_at" in data
+        assert "created_at" in data
+        assert "enqueued_at" in data
 
         mock_queue.assert_called_once()
 
