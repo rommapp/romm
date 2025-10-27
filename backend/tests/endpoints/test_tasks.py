@@ -467,6 +467,8 @@ class TestGetTaskById:
         """Test successful retrieval of a task by job ID"""
         # Mock job object with all necessary attributes
         mock_job = Mock()
+        mock_job.enqueued_at = Mock()
+        mock_job.enqueued_at.isoformat.return_value = "2023-01-01T00:00:00"
         mock_job.created_at = Mock()
         mock_job.created_at.isoformat.return_value = "2023-01-01T00:00:00"
         mock_job.started_at = Mock()
@@ -495,7 +497,8 @@ class TestGetTaskById:
         assert data["task_name"] == "test_task"
         assert data["task_id"] == "test-job-id-123"
         assert data["status"] == "finished"
-        assert data["queued_at"] == "2023-01-01T00:00:00"
+        assert data["created_at"] == "2023-01-01T00:00:00"
+        assert data["enqueued_at"] == "2023-01-01T00:00:00"
         assert data["started_at"] == "2023-01-01T00:01:00"
         assert data["ended_at"] == "2023-01-01T00:02:00"
 
@@ -527,6 +530,8 @@ class TestGetTaskById:
     ):
         """Test retrieval of a task that failed with exception"""
         mock_job = Mock()
+        mock_job.enqueued_at = Mock()
+        mock_job.enqueued_at.isoformat.return_value = "2023-01-01T00:00:00"
         mock_job.created_at = Mock()
         mock_job.created_at.isoformat.return_value = "2023-01-01T00:00:00"
         mock_job.started_at = Mock()

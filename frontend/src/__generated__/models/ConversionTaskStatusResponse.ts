@@ -8,7 +8,7 @@ export type ConversionTaskStatusResponse = {
     task_name: string;
     task_id: string;
     status: JobStatus;
-    created_at: string;
+    created_at: (string | null);
     enqueued_at: (string | null);
     started_at: (string | null);
     ended_at: (string | null);
