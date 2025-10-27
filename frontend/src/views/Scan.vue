@@ -232,7 +232,12 @@ async function stopScan() {
         </v-col>
 
         <!-- Scan options -->
-        <v-col cols="12" md="2" class="px-1" :class="{ 'mt-3': smAndDown }">
+        <v-col
+          cols="12"
+          md="2"
+          class="px-1 d-flex align-center"
+          :class="{ 'mt-3': smAndDown }"
+        >
           <v-select
             v-model="scanType"
             :items="scanOptions"
@@ -246,6 +251,17 @@ async function stopScan() {
               <v-list-item v-bind="props" :subtitle="item.raw.subtitle" />
             </template>
           </v-select>
+          <a
+            href="https://docs.romm.app/latest/Usage/LibraryManagement/#scan"
+            target="_blank"
+          >
+            <v-icon
+              icon="mdi-information-outline"
+              size="small"
+              class="ml-2"
+              title="See documentation"
+            />
+          </a>
         </v-col>
       </v-row>
 
