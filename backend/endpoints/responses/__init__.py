@@ -75,7 +75,7 @@ class TaskExecutionResponse(TypedDict):
     task_name: str
     task_id: str
     status: JobStatus
-    created_at: str
+    created_at: str | None
     enqueued_at: str | None
 
 

@@ -36,6 +36,12 @@ const taskDuration = computed(() => {
 });
 
 const taskDistanceFromNow = computed(() => {
+  if (
+    !props.task.started_at ||
+    !props.task.enqueued_at ||
+    !props.task.created_at
+  )
+    return null;
   return formatDistanceToNow(
     new Date(
       props.task.started_at || props.task.enqueued_at || props.task.created_at,

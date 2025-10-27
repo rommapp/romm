@@ -130,7 +130,7 @@ def _build_task_status_response(
         "task_name": task_name,
         "task_id": job.get_id(),
         "status": job.get_status(),
-        "created_at": created_at or "",
+        "created_at": created_at,
         "enqueued_at": enqueued_at,
         "started_at": started_at,
         "ended_at": ended_at,
@@ -278,7 +278,7 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
             all_tasks.append(_build_task_status_response(job))
 
     all_tasks.sort(
-        key=lambda x: x["started_at"] or x["enqueued_at"] or x["created_at"],
+        key=lambda x: x["started_at"] or x["enqueued_at"] or x["created_at"] or "",
         reverse=True,
     )
 
@@ -349,8 +349,12 @@ async def run_all_tasks(request: Request) -> list[TaskExecutionResponse]:
             task_name=task_name,
             task_id=job.get_id(),
             status=job.get_status() or JobStatus.QUEUED,
-            created_at=datetime.now(timezone.utc).isoformat(),
-            enqueued_at=None,
+            created_at=(
+                job.created_at.isoformat()
+                if job.created_at
+                else datetime.now(timezone.utc).isoformat()
+            ),
+            enqueued_at=job.enqueued_at.isoformat() if job.enqueued_at else None,
         )
         for (task_name, job) in jobs
     ]
@@ -396,6 +400,10 @@ async def run_single_task(request: Request, task_name: str) -> TaskExecutionResp
         "task_name": task_instance.title,
         "task_id": job.get_id(),
         "status": job.get_status() or JobStatus.QUEUED,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "enqueued_at": None,
+        "created_at": (
+            job.created_at.isoformat()
+            if job.created_at
+            else datetime.now(timezone.utc).isoformat()
+        ),
+        "enqueued_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
     }
