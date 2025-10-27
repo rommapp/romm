@@ -5,7 +5,7 @@ import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-from config import ROMM_TMP_PATH
+from config import ROMM_TMP_PATH, SEVEN_ZIP_TIMEOUT
 from logger.logger import log
 
 SEVEN_ZIP_PATH = "/usr/bin/7zz"
@@ -30,7 +30,7 @@ def process_file_7z(
             capture_output=True,
             text=True,
             check=True,
-            timeout=60,
+            timeout=SEVEN_ZIP_TIMEOUT,
             shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
         )
 
@@ -76,7 +76,7 @@ def process_file_7z(
                 ],
                 capture_output=True,
                 check=True,
-                timeout=60,
+                timeout=SEVEN_ZIP_TIMEOUT,
                 shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
             )
 
