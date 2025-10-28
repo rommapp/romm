@@ -186,7 +186,7 @@ def _should_scan_rom(
 
 
 def _should_get_rom_files(
-    scan_type: ScanType, rom: Rom | None, roms_ids: list[int]
+    scan_type: ScanType, rom: Rom, newly_added: bool, roms_ids: list[int]
 ) -> bool:
     """Decide if the files of a rom should be rebuilt or not
 
@@ -195,7 +195,7 @@ def _should_get_rom_files(
         rom (Rom | None): The rom to be rebuilt.
     """
     return bool(
-        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
+        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and newly_added)
         or (scan_type == ScanType.COMPLETE)
         or (scan_type == ScanType.HASHES)
         or (rom and rom.id in roms_ids)
@@ -273,7 +273,9 @@ async def _identify_rom(
         return
 
     # Build rom files object before scanning
-    should_update_props = _should_get_rom_files(scan_type, rom, roms_ids)
+    should_update_props = _should_get_rom_files(
+        scan_type=scan_type, rom=rom, newly_added=newly_added, roms_ids=roms_ids
+    )
     if should_update_props:
         log.debug(f"Calculating file hashes for {rom.fs_name}...")
         rom_files, rom_crc_c, rom_md5_h, rom_sha1_h, rom_ra_h = (

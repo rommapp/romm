@@ -290,14 +290,25 @@ async def scan_rom(
     socket_manager: socketio.AsyncRedisManager | None = None,
 ) -> Rom:
     rom_attrs = {
+        "id": rom.id,
         "platform_id": platform.id,
-        "name": fs_rom["fs_name"],
         "fs_name": fs_rom["fs_name"],
-        "url_cover": "",
-        "url_manual": "",
-        "url_screenshots": [],
+        "fs_path": rom.fs_path,
+        "fs_name_no_tags": rom.fs_name_no_tags,
+        "fs_name_no_ext": rom.fs_name_no_ext,
+        "fs_extension": rom.fs_extension,
+        "regions": rom.regions,
+        "revision": rom.revision,
+        "languages": rom.languages,
+        "tags": rom.tags,
+        "crc_hash": rom.crc_hash,
+        "md5_hash": rom.md5_hash,
+        "sha1_hash": rom.sha1_hash,
+        "ra_hash": rom.ra_hash,
+        "fs_size_bytes": rom.fs_size_bytes,
     }
 
+    # Check if files have been parsed and hashed
     if len(fs_rom["files"]) > 0:
         filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
         rom_attrs.update(
@@ -310,25 +321,20 @@ async def scan_rom(
             }
         )
 
-    if rom:
-        rom_attrs.update(
-            {
-                "id": rom.id,
-                "fs_path": rom.fs_path,
-                "fs_name_no_tags": rom.fs_name_no_tags,
-                "fs_name_no_ext": rom.fs_name_no_ext,
-                "fs_extension": rom.fs_extension,
-                "regions": rom.regions,
-                "revision": rom.revision,
-                "languages": rom.languages,
-                "tags": rom.tags,
-            }
-        )
-
     # Update properties from existing rom if not a complete rescan
     if not newly_added and scan_type != ScanType.COMPLETE:
         rom_attrs.update(
             {
+                "name": rom.name,
+                "slug": rom.slug,
+                "summary": rom.summary,
+                "url_cover": rom.url_cover,
+                "url_screenshots": rom.url_screenshots,
+                "url_manual": rom.url_manual,
+                "path_cover_s": rom.path_cover_s,
+                "path_cover_l": rom.path_cover_l,
+                "path_screenshots": rom.path_screenshots,
+                "path_manual": rom.path_manual,
                 "igdb_id": rom.igdb_id,
                 "moby_id": rom.moby_id,
                 "ss_id": rom.ss_id,
@@ -340,9 +346,6 @@ async def scan_rom(
                 "gamelist_id": rom.gamelist_id,
                 "flashpoint_id": rom.flashpoint_id,
                 "hltb_id": rom.hltb_id,
-                "name": rom.name,
-                "slug": rom.slug,
-                "summary": rom.summary,
                 "igdb_metadata": rom.igdb_metadata,
                 "moby_metadata": rom.moby_metadata,
                 "ss_metadata": rom.ss_metadata,
@@ -352,13 +355,6 @@ async def scan_rom(
                 "gamelist_metadata": rom.gamelist_metadata,
                 "flashpoint_metadata": rom.flashpoint_metadata,
                 "hltb_metadata": rom.hltb_metadata,
-                "path_cover_s": rom.path_cover_s,
-                "path_cover_l": rom.path_cover_l,
-                "path_screenshots": rom.path_screenshots,
-                "path_manual": rom.path_manual,
-                "url_cover": rom.url_cover,
-                "url_screenshots": rom.url_screenshots,
-                "url_manual": rom.url_manual,
             }
         )
 
