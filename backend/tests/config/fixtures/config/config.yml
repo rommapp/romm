@@ -56,7 +56,7 @@ emulatorjs:
   cache_limit: 1000
   settings:
     parallel_n64:
-      vsync: disable
+      vsync: disabled
     snes9x:
       snes9x_region: ntsc
   controls:

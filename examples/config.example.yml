@@ -106,7 +106,7 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #   cache_limit: null # Cache limit per ROM (in bytes)
 #   settings:
 #     parallel_n64: # Use the exact core name
-#       vsync: disable
+#       vsync: disabled
 #     snes9x:
 #       snes9x_region: ntsc
 #     default: # These settings apply to all cores
