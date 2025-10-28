@@ -57,6 +57,7 @@ export const useAutoScroll = (
   };
 
   const cleanup = () => {
+    scrollToBottom.cancel();
     observer?.disconnect();
     observer = null;
   };

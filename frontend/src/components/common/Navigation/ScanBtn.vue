@@ -50,11 +50,7 @@ const processRomUpdates = debounce(() => {
 
     if (romsStore.currentPlatform?.id === rom.platform_id) {
       const existingRom = romsStore.filteredRoms.find((r) => r.id === rom.id);
-      if (existingRom) {
-        romsStore.update(rom);
-      } else {
-        romsStore.add([rom]);
-      }
+      existingRom ? romsStore.update(rom) : romsStore.add([rom]);
     }
 
     let scannedPlatform = scanningPlatforms.value.find(
@@ -71,12 +67,14 @@ const processRomUpdates = debounce(() => {
         is_identified: true,
         roms: [],
       });
-      scannedPlatform = scanningPlatforms.value[0];
+      scannedPlatform = scanningPlatforms.value.at(-1)!;
     }
 
     // Check if ROM already exists in the store
-    const existingRom = scannedPlatform?.roms.find((r) => r.id === rom.id);
-    if (existingRom) {
+    const existingRomInPlatform = scannedPlatform?.roms.find(
+      (r) => r.id === rom.id,
+    );
+    if (existingRomInPlatform) {
       scannedPlatform.roms = scannedPlatform.roms.map((r) =>
         r.id === rom.id ? rom : r,
       );
@@ -157,6 +155,7 @@ onBeforeUnmount(() => {
   socket.off("scan:scanning_rom");
   socket.off("scan:done");
   socket.off("scan:done_ko");
+  processRomUpdates.cancel();
 });
 </script>
 <template>
