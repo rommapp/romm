@@ -192,7 +192,9 @@ def _should_get_rom_files(
 
     Args:
         scan_type (ScanType): Type of scan to be performed.
-        rom (Rom | None): The rom to be rebuilt.
+        rom (Rom): The rom to be rebuilt.
+        newly_added (bool): Whether the rom is newly added.
+        roms_ids (list[int]): List of selected roms to be scanned.
     """
     return bool(
         (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and newly_added)
