@@ -184,6 +184,18 @@ class PKGiFeedPS3ItemSchema(BaseModel):
     checksum: str
 
 
+# PKGi PSP feed format
+# Source: https://github.com/bucanero/pkgi-psp
+class PKGiFeedPSPItemSchema(PKGiFeedPS3ItemSchema):
+    """Schema for PKGi PSP feed items.
+
+    Follows the PKGi database format:
+    contentid,type,name,description,rap,url,size,checksum
+    """
+
+    pass
+
+
 # PKGi PS Vita feed format
 # Source: https://github.com/mmozeiko/pkgi
 class PKGiFeedPSVitaItemSchema(BaseModel):
