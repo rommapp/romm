@@ -311,6 +311,15 @@ class FSResourcesHandler(FSHandler):
     async def get_rom_screenshots(
         self, rom: Rom, overwrite: bool, url_screenshots: list | None
     ) -> list[str]:
+        """Get rom screenshots from filesystem
+
+        Args:
+            rom: Rom object
+            overwrite: Whether to overwrite existing screenshots
+            url_screenshots: List of URLs to download screenshots from
+        Returns
+            List of paths to screenshots
+        """
         # Return existing screenshots if no URLs provided
         # Or if not overwriting and screenshots already exist
         if not url_screenshots or (not overwrite and self.screenshots_exist(rom)):
