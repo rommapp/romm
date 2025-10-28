@@ -46,6 +46,7 @@ function collapse() {
       </template>
 
       <template #append>
+        <RandomBtn />
         <UploadBtn class="mr-2" />
         <UserBtn class="mr-1" />
       </template>
