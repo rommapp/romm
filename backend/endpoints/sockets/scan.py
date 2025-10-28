@@ -275,10 +275,10 @@ async def _identify_rom(
         return
 
     # Build rom files object before scanning
-    should_update_props = _should_get_rom_files(
+    should_update_files = _should_get_rom_files(
         scan_type=scan_type, rom=rom, newly_added=newly_added, roms_ids=roms_ids
     )
-    if should_update_props:
+    if should_update_files:
         log.debug(f"Calculating file hashes for {rom.fs_name}...")
         rom_files, rom_crc_c, rom_md5_h, rom_sha1_h, rom_ra_h = (
             await fs_rom_handler.get_rom_files(rom)
@@ -321,7 +321,7 @@ async def _identify_rom(
             ),
         )
 
-    if should_update_props:
+    if should_update_files:
         # Delete the existing rom files in the DB
         db_rom_handler.purge_rom_files(_added_rom.id)
 
@@ -350,19 +350,19 @@ async def _identify_rom(
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
-        overwrite=should_update_props,
+        overwrite=True,
         url_cover=_added_rom.url_cover,
     )
 
     path_manual = await fs_resource_handler.get_manual(
         rom=_added_rom,
-        overwrite=should_update_props,
+        overwrite=True,
         url_manual=_added_rom.url_manual,
     )
 
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
         rom=_added_rom,
-        overwrite=should_update_props,
+        overwrite=True,
         url_screenshots=_added_rom.url_screenshots,
     )
 
