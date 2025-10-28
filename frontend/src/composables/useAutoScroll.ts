@@ -1,3 +1,4 @@
+import { throttle } from "lodash";
 import { onUnmounted, watchEffect, nextTick, type ShallowRef } from "vue";
 
 export const useAutoScroll = (
@@ -9,7 +10,7 @@ export const useAutoScroll = (
   let isUserScrolled = false;
   let observer: MutationObserver | null = null;
 
-  const scrollToBottom = () => {
+  const scrollToBottom = throttle(() => {
     const containerEl = scrollContainer.value?.$el;
     if (!containerEl) return;
 
@@ -17,7 +18,7 @@ export const useAutoScroll = (
       top: containerEl.scrollHeight,
       behavior: config.smooth ? "smooth" : "instant",
     });
-  };
+  }, 50);
 
   const init = () => {
     const containerEl = scrollContainer.value?.$el;
@@ -31,14 +32,27 @@ export const useAutoScroll = (
         containerEl.scrollHeight;
     });
 
-    // Auto-scroll on content changes
-    observer = new MutationObserver((e: MutationRecord[]) => {
+    // Auto-scroll on content changes with throttled observer
+    observer = new MutationObserver((mutations: MutationRecord[]) => {
       if (!config.always && isUserScrolled) return;
-      if (e[e.length - 1].addedNodes.length === 0) return;
-      scrollToBottom();
+
+      // Only process if there are actual node additions
+      const hasNewNodes = mutations.some(
+        (mutation) =>
+          mutation.type === "childList" && mutation.addedNodes.length > 0,
+      );
+
+      if (hasNewNodes) {
+        scrollToBottom();
+      }
     });
 
-    observer.observe(observedEl, { childList: true, subtree: config.deep });
+    observer.observe(observedEl, {
+      childList: true,
+      subtree: config.deep,
+      attributes: false,
+      characterData: false,
+    });
     scrollToBottom();
   };
 
