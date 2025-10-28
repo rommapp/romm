@@ -346,40 +346,6 @@ async def _identify_rom(
     if scan_type == ScanType.HASHES:
         return
 
-    if _added_rom.ra_metadata:
-        for ach in _added_rom.ra_metadata.get("achievements", []):
-            # Store both normal and locked version
-            badge_url_lock = ach.get("badge_url_lock", None)
-            badge_path_lock = ach.get("badge_path_lock", None)
-            if badge_url_lock and badge_path_lock:
-                await fs_resource_handler.store_ra_badge(
-                    badge_url_lock, badge_path_lock
-                )
-            badge_url = ach.get("badge_url", None)
-            badge_path = ach.get("badge_path", None)
-            if badge_url and badge_path:
-                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
-
-    # Handle special media files from Screenscraper
-    if _added_rom.ss_metadata:
-        preferred_media_types = get_preferred_media_types()
-        for media_type in preferred_media_types:
-            if _added_rom.ss_metadata.get(f"{media_type.value}_path"):
-                await fs_resource_handler.store_media_file(
-                    _added_rom.ss_metadata[f"{media_type.value}_url"],
-                    _added_rom.ss_metadata[f"{media_type.value}_path"],
-                )
-
-    # Handle special media files from ES-DE gamelist.xml
-    if _added_rom.gamelist_metadata:
-        preferred_media_types = get_preferred_media_types()
-        for media_type in preferred_media_types:
-            if _added_rom.gamelist_metadata.get(f"{media_type.value}_path"):
-                await fs_resource_handler.store_media_file(
-                    _added_rom.gamelist_metadata[f"{media_type.value}_url"],
-                    _added_rom.gamelist_metadata[f"{media_type.value}_path"],
-                )
-
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
         overwrite=should_update_props,
@@ -413,6 +379,40 @@ async def _identify_rom(
             "path_manual": path_manual,
         },
     )
+
+    # Handle special media files from Screenscraper
+    if _added_rom.ss_metadata:
+        preferred_media_types = get_preferred_media_types()
+        for media_type in preferred_media_types:
+            if _added_rom.ss_metadata.get(f"{media_type.value}_path"):
+                await fs_resource_handler.store_media_file(
+                    _added_rom.ss_metadata[f"{media_type.value}_url"],
+                    _added_rom.ss_metadata[f"{media_type.value}_path"],
+                )
+
+    # Handle special media files from ES-DE gamelist.xml
+    if _added_rom.gamelist_metadata:
+        preferred_media_types = get_preferred_media_types()
+        for media_type in preferred_media_types:
+            if _added_rom.gamelist_metadata.get(f"{media_type.value}_path"):
+                await fs_resource_handler.store_media_file(
+                    _added_rom.gamelist_metadata[f"{media_type.value}_url"],
+                    _added_rom.gamelist_metadata[f"{media_type.value}_path"],
+                )
+
+    # Store normal and locked badges
+    if _added_rom.ra_metadata:
+        for ach in _added_rom.ra_metadata.get("achievements", []):
+            badge_url_lock = ach.get("badge_url_lock", None)
+            badge_path_lock = ach.get("badge_path_lock", None)
+            if badge_url_lock and badge_path_lock:
+                await fs_resource_handler.store_ra_badge(
+                    badge_url_lock, badge_path_lock
+                )
+            badge_url = ach.get("badge_url", None)
+            badge_path = ach.get("badge_path", None)
+            if badge_url and badge_path:
+                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
     await socket_manager.emit(
         "scan:scanning_rom",
