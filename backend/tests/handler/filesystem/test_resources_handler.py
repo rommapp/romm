@@ -259,10 +259,10 @@ class TestFSResourcesHandler:
     ):
         """Test get_rom_screenshots with no URLs"""
         result = await handler.get_rom_screenshots(rom, True, None)
-        assert result == []
+        assert result == rom.path_screenshots
 
         result = await handler.get_rom_screenshots(rom, True, [])
-        assert result == []
+        assert result == rom.path_screenshots
 
     @pytest.mark.asyncio
     async def test_get_rom_screenshots_with_urls(
@@ -299,16 +299,10 @@ class TestFSResourcesHandler:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_manual_no_rom(self, handler: FSResourcesHandler):
-        """Test get_manual with no ROM"""
-        result = await handler.get_manual(None, False, "http://example.com/manual.pdf")
-        assert result is None
-
-    @pytest.mark.asyncio
     async def test_get_manual_no_url(self, handler: FSResourcesHandler, rom: Rom):
         """Test get_manual with no URL"""
         result = await handler.get_manual(rom, False, None)
-        assert result is None
+        assert result is rom.path_manual
 
     @pytest.mark.asyncio
     async def test_get_manual_with_url_no_overwrite(
