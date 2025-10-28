@@ -22,7 +22,7 @@ def test_config_loader():
     assert loader.config.EJS_DEBUG
     assert loader.config.EJS_CACHE_LIMIT == 1000
     assert loader.config.EJS_SETTINGS == {
-        "parallel_n64": {"vsync": "disable"},
+        "parallel_n64": {"vsync": "disabled"},
         "snes9x": {"snes9x_region": "ntsc"},
     }
     assert loader.config.EJS_CONTROLS == {
