@@ -169,3 +169,12 @@ const { t } = useI18n();
     </v-list-item>
   </v-expansion-panel-text>
 </template>
+<style scoped>
+.v-chip {
+  contain: layout style paint;
+}
+
+.v-avatar {
+  contain: layout style paint;
+}
+</style>
