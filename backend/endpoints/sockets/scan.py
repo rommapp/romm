@@ -340,6 +340,10 @@ async def _identify_rom(
         for new_rom_file in new_rom_files:
             db_rom_handler.add_rom_file(new_rom_file)
 
+    # Short circuit if the scan type is hashes
+    if scan_type == ScanType.HASHES:
+        return
+
     if _added_rom.ra_metadata:
         for ach in _added_rom.ra_metadata.get("achievements", []):
             # Store both normal and locked version

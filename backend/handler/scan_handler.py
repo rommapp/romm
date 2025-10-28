@@ -289,20 +289,26 @@ async def scan_rom(
     newly_added: bool,
     socket_manager: socketio.AsyncRedisManager | None = None,
 ) -> Rom:
-    filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
     rom_attrs = {
         "platform_id": platform.id,
         "name": fs_rom["fs_name"],
         "fs_name": fs_rom["fs_name"],
-        "crc_hash": fs_rom["crc_hash"],
-        "md5_hash": fs_rom["md5_hash"],
-        "sha1_hash": fs_rom["sha1_hash"],
-        "ra_hash": fs_rom["ra_hash"],
-        "fs_size_bytes": filesize,
         "url_cover": "",
         "url_manual": "",
         "url_screenshots": [],
     }
+
+    if len(fs_rom["files"]) > 0:
+        filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
+        rom_attrs.update(
+            {
+                "crc_hash": fs_rom["crc_hash"],
+                "md5_hash": fs_rom["md5_hash"],
+                "sha1_hash": fs_rom["sha1_hash"],
+                "ra_hash": fs_rom["ra_hash"],
+                "fs_size_bytes": filesize,
+            }
+        )
 
     if rom:
         rom_attrs.update(
