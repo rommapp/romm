@@ -30,7 +30,6 @@ const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const romsStore = storeRoms();
 const {
-  allRoms,
   filteredRoms,
   selectedRoms,
   currentPlatform,
@@ -145,8 +144,8 @@ watch(documentY, () => {
   window.setTimeout(async () => {
     scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
-      fetchTotalRoms.value > allRoms.value.length
+      documentY.value >= document.body.offsetHeight - 120 &&
+      fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
     }
@@ -178,7 +177,7 @@ onMounted(async () => {
 
         if (
           (props.currentCollection?.id != routeCollectionId ||
-            allRoms.value.length === 0) &&
+            filteredRoms.value.length === 0) &&
           collection
         ) {
           resetGallery();
@@ -208,7 +207,7 @@ onBeforeRouteUpdate(async (to, from) => {
 
         if (
           (props.currentCollection?.id != routeCollectionId ||
-            allRoms.value.length === 0) &&
+            filteredRoms.value.length === 0) &&
           collection
         ) {
           resetGallery();

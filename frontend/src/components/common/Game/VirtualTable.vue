@@ -123,7 +123,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
 </script>
 
 <template>
-  <v-data-table-virtual
+  <v-data-table-server
     v-model="selectedRomIDs"
     :items-per-page="72"
     :items-length="fetchTotalRoms"
@@ -416,7 +416,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </div>
       </router-link>
     </template>
-  </v-data-table-virtual>
+  </v-data-table-server>
 </template>
 
 <style scoped>
