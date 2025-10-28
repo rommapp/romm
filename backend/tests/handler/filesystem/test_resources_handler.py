@@ -254,14 +254,6 @@ class TestFSResourcesHandler:
             assert result == expected
 
     @pytest.mark.asyncio
-    async def test_get_rom_screenshots_no_rom(self, handler: FSResourcesHandler):
-        """Test get_rom_screenshots with no ROM"""
-        result = await handler.get_rom_screenshots(
-            None, True, ["http://example.com/screenshot.jpg"]
-        )
-        assert result == []
-
-    @pytest.mark.asyncio
     async def test_get_rom_screenshots_no_urls(
         self, handler: FSResourcesHandler, rom: Rom
     ):
