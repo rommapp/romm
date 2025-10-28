@@ -73,7 +73,7 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   romsStore.addToRecent(rom);
 
   if (romsStore.currentPlatform?.id === rom.platform_id) {
-    const existingRom = romsStore.allRoms.find((r) => r.id === rom.id);
+    const existingRom = romsStore.filteredRoms.find((r) => r.id === rom.id);
     if (existingRom) {
       romsStore.update(rom);
     } else {

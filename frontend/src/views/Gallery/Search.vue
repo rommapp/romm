@@ -122,7 +122,7 @@ watch(documentY, () => {
   window.setTimeout(async () => {
     scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
+      documentY.value >= document.body.offsetHeight - 120 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();

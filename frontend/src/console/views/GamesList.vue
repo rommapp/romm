@@ -22,7 +22,6 @@ import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
 import storeCollections from "@/stores/collections";
-import storeConfig from "@/stores/config";
 import storeConsole from "@/stores/console";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
@@ -40,15 +39,12 @@ const { allCollections, smartCollections, virtualCollections } =
 const romsStore = storeRoms();
 const {
   filteredRoms,
-  allRoms,
   fetchingRoms,
   currentPlatform,
   currentCollection,
   currentSmartCollection,
   currentVirtualCollection,
 } = storeToRefs(romsStore);
-const configStore = storeConfig();
-const { config } = storeToRefs(configStore);
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 const { setSelectedBackgroundArt, clearSelectedBackgroundArt } =
   useBackgroundArt();
@@ -359,7 +355,7 @@ onMounted(async () => {
         // Check if the current platform is different or no ROMs have been loaded
         if (
           currentPlatform.value?.id !== routePlatformId ||
-          allRoms.value.length === 0
+          filteredRoms.value.length === 0
         ) {
           resetGallery();
           romsStore.setCurrentPlatform(platform);
@@ -384,7 +380,7 @@ onMounted(async () => {
         // Check if the current collection is different or no ROMs have been loaded
         if (
           currentCollection.value?.id !== routeCollectionId ||
-          allRoms.value.length === 0
+          filteredRoms.value.length === 0
         ) {
           resetGallery();
           romsStore.setCurrentCollection(collection);
@@ -411,7 +407,7 @@ onMounted(async () => {
         // Check if the current smartCollection is different or no ROMs have been loaded
         if (
           currentSmartCollection.value?.id !== routeSmartCollectionId ||
-          allRoms.value.length === 0
+          filteredRoms.value.length === 0
         ) {
           resetGallery();
           romsStore.setCurrentSmartCollection(smartCollection);
@@ -439,7 +435,7 @@ onMounted(async () => {
         // Check if the current virtualCollection is different or no ROMs have been loaded
         if (
           currentVirtualCollection.value?.id !== routeVirtualCollectionId ||
-          allRoms.value.length === 0
+          filteredRoms.value.length === 0
         ) {
           resetGallery();
           romsStore.setCurrentVirtualCollection(virtualCollection);

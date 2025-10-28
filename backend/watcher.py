@@ -188,7 +188,7 @@ def process_changes(changes: Sequence[Change]) -> None:
                 metadata_sources=metadata_sources,
                 scan_type=ScanType.UPDATE,
                 timeout=SCAN_TIMEOUT,
-                result_ttl=TASK_RESULT_TTL,
+                job_result_ttl=TASK_RESULT_TTL,
                 meta={
                     "task_name": "Unidentified Scan",
                     "task_type": TaskType.SCAN,
@@ -223,7 +223,7 @@ def process_changes(changes: Sequence[Change]) -> None:
                 metadata_sources=metadata_sources,
                 scan_type=ScanType.QUICK,
                 timeout=SCAN_TIMEOUT,
-                result_ttl=TASK_RESULT_TTL,
+                job_result_ttl=TASK_RESULT_TTL,
                 meta={
                     "task_name": "Quick Scan",
                     "task_type": TaskType.SCAN,
