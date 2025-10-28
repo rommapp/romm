@@ -33,7 +33,7 @@ const defaultRomsState = {
   currentVirtualCollection: null as VirtualCollection | null,
   currentSmartCollection: null as SmartCollection | null,
   currentRom: null as DetailedRom | null,
-  allRoms: [] as SimpleRom[],
+  _allRoms: [] as SimpleRom[],
   selectedIDs: new Set<number>(),
   recentRoms: [] as SimpleRom[],
   continuePlayingRoms: [] as SimpleRom[],
@@ -55,9 +55,9 @@ export default defineStore("roms", {
   state: () => ({ ...defaultRomsState }),
 
   getters: {
-    filteredRoms: (state) => state.allRoms,
+    filteredRoms: (state) => state._allRoms,
     selectedRoms: (state) =>
-      state.allRoms.filter((rom) => state.selectedIDs.has(rom.id)),
+      state._allRoms.filter((rom) => state.selectedIDs.has(rom.id)),
     onGalleryView: (state) =>
       !!(
         state.currentPlatform ||
@@ -115,9 +115,9 @@ export default defineStore("roms", {
     _postFetchRoms(response: GetRomsResponse, concat: boolean) {
       const { items, offset, total, char_index, rom_id_index } = response;
       if (!concat || this.fetchOffset === 0) {
-        this.allRoms = items;
+        this._allRoms = items;
       } else {
-        this.allRoms = this.allRoms.concat(items);
+        this._allRoms = this._allRoms.concat(items);
       }
 
       // Update the offset and total roms in filtered database result
@@ -185,7 +185,7 @@ export default defineStore("roms", {
       return items;
     },
     add(roms: SimpleRom[]) {
-      this.allRoms = this.allRoms.concat(roms);
+      this._allRoms = this._allRoms.concat(roms);
     },
     addToRecent(rom: SimpleRom) {
       this.recentRoms = [rom, ...this.recentRoms];
@@ -206,7 +206,7 @@ export default defineStore("roms", {
       cachedApiService.clearRecentPlayedRomsCache();
     },
     update(rom: SimpleRom) {
-      this.allRoms = this.allRoms.map((value) =>
+      this._allRoms = this._allRoms.map((value) =>
         value.id === rom.id ? rom : value,
       );
       this.recentRoms = this.recentRoms.map((value) =>
@@ -217,7 +217,7 @@ export default defineStore("roms", {
       );
     },
     remove(roms: SimpleRom[]) {
-      this.allRoms = this.allRoms.filter((value) => {
+      this._allRoms = this._allRoms.filter((value) => {
         return !roms.find((rom) => {
           return rom.id === value.id;
         });
@@ -229,7 +229,7 @@ export default defineStore("roms", {
       this.currentVirtualCollection = null;
       this.currentSmartCollection = null;
       this.currentRom = null;
-      this.allRoms = [];
+      this._allRoms = [];
       this.selectedIDs = new Set<number>();
       this.lastSelectedIndex = -1;
       this.selectingRoms = false;
