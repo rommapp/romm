@@ -92,7 +92,6 @@ async function handleRomUpdate(
   },
   successMessage: string,
 ) {
-  show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   await romApi
@@ -306,7 +305,6 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               :rules="[(value: string) => !!value || t('common.required')]"
               :label="t('common.name')"
               variant="outlined"
-              @keyup.enter="updateRom"
               class="my-4"
             />
             <v-text-field
@@ -319,7 +317,6 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                   : t('rom.filename')
               "
               variant="outlined"
-              @keyup.enter="updateRom"
               class="my-4"
             >
               <template #details>

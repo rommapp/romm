@@ -61,6 +61,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_ss_handler,
 )
+from handler.metadata.ss_handler import get_preferred_media_types
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -752,16 +753,26 @@ async def update_rom(
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     cleaned_data: dict[str, Any] = {
-        "igdb_id": safe_int(data.get("igdb_id")) or rom.igdb_id,
-        "sgdb_id": safe_int(data.get("sgdb_id")) or rom.sgdb_id,
-        "moby_id": safe_int(data.get("moby_id")) or rom.moby_id,
-        "ss_id": safe_int(data.get("ss_id")) or rom.ss_id,
-        "ra_id": safe_int(data.get("ra_id")) or rom.ra_id,
-        "launchbox_id": safe_int(data.get("launchbox_id")) or rom.launchbox_id,
-        "hasheous_id": safe_int(data.get("hasheous_id")) or rom.hasheous_id,
-        "tgdb_id": safe_int(data.get("tgdb_id")) or rom.tgdb_id,
-        "flashpoint_id": safe_int(data.get("flashpoint_id")) or rom.flashpoint_id,
-        "hltb_id": safe_int(data.get("hltb_id")) or rom.hltb_id,
+        "igdb_id": safe_int(data["igdb_id"]) if "igdb_id" in data else rom.igdb_id,
+        "sgdb_id": safe_int(data["sgdb_id"]) if "sgdb_id" in data else rom.sgdb_id,
+        "moby_id": safe_int(data["moby_id"]) if "moby_id" in data else rom.moby_id,
+        "ss_id": safe_int(data["ss_id"]) if "ss_id" in data else rom.ss_id,
+        "ra_id": safe_int(data["ra_id"]) if "ra_id" in data else rom.ra_id,
+        "launchbox_id": (
+            safe_int(data["launchbox_id"])
+            if "launchbox_id" in data
+            else rom.launchbox_id
+        ),
+        "hasheous_id": (
+            safe_int(data["hasheous_id"]) if "hasheous_id" in data else rom.hasheous_id
+        ),
+        "tgdb_id": safe_int(data["tgdb_id"]) if "tgdb_id" in data else rom.tgdb_id,
+        "flashpoint_id": (
+            safe_int(data["flashpoint_id"])
+            if "flashpoint_id" in data
+            else rom.flashpoint_id
+        ),
+        "hltb_id": safe_int(data["hltb_id"]) if "hltb_id" in data else rom.hltb_id,
     }
 
     # Add raw metadata parsing
@@ -917,6 +928,31 @@ async def update_rom(
                 "path_manual": path_manual,
             }
         )
+
+    # Handle RetroAchievements badges when the ID has changed
+    if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
+        for ach in cleaned_data["ra_metadata"].get("achievements", []):
+            # Store both normal and locked version
+            badge_url_lock = ach.get("badge_url_lock", None)
+            badge_path_lock = ach.get("badge_path_lock", None)
+            if badge_url_lock and badge_path_lock:
+                await fs_resource_handler.store_ra_badge(
+                    badge_url_lock, badge_path_lock
+                )
+            badge_url = ach.get("badge_url", None)
+            badge_path = ach.get("badge_path", None)
+            if badge_url and badge_path:
+                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
+
+    # Handle special media files from Screenscraper when the ID has changed
+    if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
+        preferred_media_types = get_preferred_media_types()
+        for media_type in preferred_media_types:
+            if cleaned_data["ss_metadata"].get(f"{media_type.value}_path"):
+                await fs_resource_handler.store_media_file(
+                    cleaned_data["ss_metadata"][f"{media_type.value}_url"],
+                    cleaned_data["ss_metadata"][f"{media_type.value}_path"],
+                )
 
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
