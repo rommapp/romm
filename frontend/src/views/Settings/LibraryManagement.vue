@@ -25,8 +25,7 @@ const tab = ref<"config" | "missing">("config");
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const romsStore = storeRoms();
-const { allRoms, fetchingRoms, fetchTotalRoms, filteredRoms } =
-  storeToRefs(romsStore);
+const { fetchingRoms, fetchTotalRoms, filteredRoms } = storeToRefs(romsStore);
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
@@ -38,7 +37,7 @@ let timeout: ReturnType<typeof setTimeout> = setTimeout(() => {}, 400);
 const allPlatforms = computed(() =>
   [
     ...new Map(
-      allRoms.value
+      filteredRoms.value
         .map((rom) => platformsStore.get(rom.platform_id))
         .filter((platform) => !!platform)
         .map((platform) => [platform!.id, platform]),
@@ -158,7 +157,7 @@ watch(documentY, () => {
   window.setTimeout(async () => {
     scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
+      documentY.value >= document.body.offsetHeight - 120 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();

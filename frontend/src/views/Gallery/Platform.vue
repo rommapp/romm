@@ -27,7 +27,6 @@ const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
 const romsStore = storeRoms();
 const {
-  allRoms,
   filteredRoms,
   selectedRoms,
   currentPlatform,
@@ -144,8 +143,8 @@ watch(documentY, () => {
   window.setTimeout(async () => {
     scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
-      fetchTotalRoms.value > allRoms.value.length
+      documentY.value >= document.body.offsetHeight - 120 &&
+      fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
     }
@@ -180,7 +179,7 @@ onMounted(async () => {
         // Check if the current platform is different or no ROMs have been loaded
         if (
           currentPlatform.value?.id !== routePlatformId ||
-          allRoms.value.length === 0
+          filteredRoms.value.length === 0
         ) {
           if (currentPlatform.value) resetGallery();
           romsStore.setCurrentPlatform(platform);
@@ -215,7 +214,7 @@ onBeforeRouteUpdate(async (to, from) => {
         // Check if the current platform is different or no ROMs have been loaded
         if (
           currentPlatform.value?.id !== routePlatformId ||
-          allRoms.value.length === 0
+          filteredRoms.value.length === 0
         ) {
           if (currentPlatform.value) resetGallery();
           romsStore.setCurrentPlatform(platform);
