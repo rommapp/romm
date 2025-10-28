@@ -718,10 +718,6 @@ async def scan_rom(
             if field_value:
                 rom_attrs[field] = field_value
 
-    print("rom_attrs: ", rom_attrs)
-    print("newly_added: ", newly_added)
-    print("scan_type: ", scan_type)
-
     # Don't overwrite existing base fields on update and unmatched scans
     if not newly_added and (
         scan_type == ScanType.UNMATCHED or scan_type == ScanType.UPDATE

@@ -160,24 +160,23 @@ class FSResourcesHandler(FSHandler):
         if not entity:
             return None, None
 
-        small_cover_exists = self.cover_exists(entity, CoverSize.SMALL)
-        if url_cover and (overwrite or not small_cover_exists):
-            await self._store_cover(entity, url_cover, CoverSize.SMALL)
-            small_cover_exists = self.cover_exists(entity, CoverSize.SMALL)
+        # Download covers if URL provided and (overwriting or covers don't exist)
+        if url_cover:
+            if overwrite or not self.cover_exists(entity, CoverSize.SMALL):
+                await self._store_cover(entity, url_cover, CoverSize.SMALL)
+            if overwrite or not self.cover_exists(entity, CoverSize.BIG):
+                await self._store_cover(entity, url_cover, CoverSize.BIG)
 
+        # Return paths for existing covers
         path_cover_s = (
             self._get_cover_path(entity, CoverSize.SMALL)
-            if small_cover_exists
+            if self.cover_exists(entity, CoverSize.SMALL)
             else None
         )
-
-        big_cover_exists = self.cover_exists(entity, CoverSize.BIG)
-        if url_cover and (overwrite or not big_cover_exists):
-            await self._store_cover(entity, url_cover, CoverSize.BIG)
-            big_cover_exists = self.cover_exists(entity, CoverSize.BIG)
-
         path_cover_l = (
-            self._get_cover_path(entity, CoverSize.BIG) if big_cover_exists else None
+            self._get_cover_path(entity, CoverSize.BIG)
+            if self.cover_exists(entity, CoverSize.BIG)
+            else None
         )
 
         return path_cover_s, path_cover_l
@@ -310,18 +309,18 @@ class FSResourcesHandler(FSHandler):
         return f"{rom.fs_resources_path}/screenshots/{idx}.jpg"
 
     async def get_rom_screenshots(
-        self, rom: Rom | None, overwrite: bool, url_screenshots: list | None
+        self, rom: Rom, overwrite: bool, url_screenshots: list | None
     ) -> list[str]:
-        if not rom or not url_screenshots:
-            return []
+        # Return existing screenshots if no URLs provided
+        # Or if not overwriting and screenshots already exist
+        if not url_screenshots or (not overwrite and self.screenshots_exist(rom)):
+            return rom.path_screenshots or []
 
+        # Download and store new screenshots
         path_screenshots: list[str] = []
-
-        screenshots_exist = self.screenshots_exist(rom)
-        if overwrite or not screenshots_exist:
-            for idx, url_screenhot in enumerate(url_screenshots):
-                await self._store_screenshot(rom, url_screenhot, idx)
-                path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
+        for idx, url_screenshot in enumerate(url_screenshots):
+            await self._store_screenshot(rom, url_screenshot, idx)
+            path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
 
         return path_screenshots
 
@@ -403,18 +402,14 @@ class FSResourcesHandler(FSHandler):
         return None
 
     async def get_manual(
-        self, rom: Rom | None, overwrite: bool, url_manual: str | None
+        self, rom: Rom, overwrite: bool, url_manual: str | None
     ) -> str | None:
-        if not rom:
-            return None
+        if not url_manual or (not overwrite and self.manual_exists(rom)):
+            return rom.path_manual or None
 
-        manual_exists = self.manual_exists(rom)
-        if url_manual and (overwrite or not manual_exists):
-            await self._store_manual(rom, url_manual)
-            manual_exists = self.manual_exists(rom)
-
-        path_manual = self._get_manual_path(rom) if manual_exists else None
-        return path_manual
+        # Download and store new manual
+        await self._store_manual(rom, url_manual)
+        return self._get_manual_path(rom)
 
     async def remove_manual(self, rom: Rom):
         await self.remove_directory(f"{rom.fs_resources_path}/manual")
