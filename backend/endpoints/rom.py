@@ -931,7 +931,7 @@ async def update_rom(
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
-        for ach in cleaned_data["ra_metadata"].get("achievements", []):
+        for ach in cleaned_data.get("ra_metadata", {}).get("achievements", []):
             # Store both normal and locked version
             badge_url_lock = ach.get("badge_url_lock", None)
             badge_path_lock = ach.get("badge_path_lock", None)
@@ -948,7 +948,7 @@ async def update_rom(
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
         preferred_media_types = get_preferred_media_types()
         for media_type in preferred_media_types:
-            if cleaned_data["ss_metadata"].get(f"{media_type.value}_path"):
+            if cleaned_data.get("ss_metadata", {}).get(f"{media_type.value}_path"):
                 await fs_resource_handler.store_media_file(
                     cleaned_data["ss_metadata"][f"{media_type.value}_url"],
                     cleaned_data["ss_metadata"][f"{media_type.value}_path"],
