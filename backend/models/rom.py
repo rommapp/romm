@@ -106,7 +106,10 @@ class RomFile(BaseModel):
 
     @cached_property
     def is_top_level(self) -> bool:
-        return self.file_path == self.rom.full_path
+        # File is the same as the rom's full path, or nested file in the rom's directory
+        return self.rom.full_path == (
+            self.file_path if self.is_nested else self.full_path
+        )
 
     def file_name_for_download(self, hidden_folder: bool = False) -> str:
         # This needs a trailing slash in the path to work!

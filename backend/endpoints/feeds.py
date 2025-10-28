@@ -18,6 +18,7 @@ from endpoints.responses.feeds import (
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,
     KekatsuDSItemSchema,
     PKGiFeedPS3ItemSchema,
+    PKGiFeedPSPItemSchema,
     PKGiFeedPSVitaItemSchema,
     TinfoilFeedFileSchema,
     TinfoilFeedSchema,
@@ -29,6 +30,8 @@ from endpoints.responses.feeds import (
 )
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
+from handler.filesystem import fs_rom_handler
+from handler.filesystem.roms_handler import is_compressed_file
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_handler import (
     SONY_SERIAL_REGEX,
@@ -229,6 +232,11 @@ def validate_pkgi_file(file: RomFile, content_type: RomFileCategory) -> bool:
     if content_type == RomFileCategory.GAME and not file.is_top_level:
         return False
 
+    # Compressed files get a free pass
+    full_path = fs_rom_handler.validate_path(file.full_path)
+    if content_type == RomFileCategory.GAME and is_compressed_file(str(full_path)):
+        return True
+
     # PKGi only supports PKG files
     if file.file_extension.lower() != "pkg":
         return False
@@ -381,6 +389,78 @@ def pkgi_psvita_feed(
 
             # Format: contentid,flags,name,name2,zrif,url,size,checksum
             txt_line = f"{pkgi_item.contentid},{pkgi_item.flags},{pkgi_item.name},{pkgi_item.name2},{pkgi_item.zrif},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum}"
+            txt_lines.append(txt_line)
+
+    txt_content = "\n".join(txt_lines)
+
+    return Response(
+        content=txt_content,
+        media_type="text/plain",
+        headers={
+            "Content-Disposition": f"filename=pkgi_{content_type_enum.value}.txt",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@protected_route(
+    router.get,
+    "/pkgi/psp/{content_type}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+def pkgi_psp_feed(
+    request: Request,
+    content_type: Annotated[str, PathVar(description="Content type")],
+) -> Response:
+    """Get PKGi PSP feed endpoint
+    https://github.com/bucanero/pkgi-psp
+
+    Args:
+        request (Request): Fastapi Request object
+        content_type (str): Content type (game, dlc, demo, update, patch, mod, translation, prototype)
+
+    Returns:
+        Response: txt file with PKGi PSP database format
+    """
+    psp_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PSP)
+    if not psp_platform:
+        raise HTTPException(
+            status_code=404, detail="PlayStation Portable platform not found"
+        )
+
+    try:
+        content_type_enum = RomFileCategory(content_type)
+        content_type_int = CONTENT_TYPE_MAP[content_type_enum]
+    except (ValueError, KeyError) as e:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid content type: {content_type}"
+        ) from e
+
+    roms = db_rom_handler.get_roms_scalar(platform_id=psp_platform.id)
+    txt_lines = []
+
+    for rom in roms:
+        for file in db_rom_handler.get_rom_files(rom.id):
+            if not validate_pkgi_file(file, content_type_enum):
+                continue
+
+            content_id = generate_content_id(file)
+            download_url = generate_download_url(request, file)
+
+            # Validate the item schema
+            pkgi_item = PKGiFeedPSPItemSchema(
+                contentid=content_id,
+                type=content_type_int,
+                name=file.file_name_no_tags.replace(",", " "),
+                description="",
+                rap="",
+                url=download_url,
+                size=file.file_size_bytes,
+                checksum=file.sha1_hash or "",
+            )
+
+            # Format: contentid,type,name,description,rap,url,size,checksum
+            txt_line = f"{pkgi_item.contentid},{pkgi_item.type},{pkgi_item.name},{pkgi_item.description},{pkgi_item.rap},{pkgi_item.url},{pkgi_item.size},{pkgi_item.checksum}"
             txt_lines.append(txt_line)
 
     txt_content = "\n".join(txt_lines)
