@@ -20,7 +20,8 @@ const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
-const platforms = storePlatforms();
+const platformsStore = storePlatforms();
+const { filteredPlatforms } = storeToRefs(platformsStore);
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<number[]>([]);
 const panels = ref<number[]>([]);
@@ -29,6 +30,11 @@ const expansionPanels = useTemplateRef<HTMLDivElement>("expansion-panels-ref");
 
 useAutoScroll(scanLog, expansionPanels);
 
+const sortedPlatforms = computed(() => {
+  return filteredPlatforms.value.sort((a, b) =>
+    a.display_name.localeCompare(b.display_name),
+  );
+});
 const metadataOptions = computed(() =>
   heartbeat.getMetadataOptionsByPriority(),
 );
@@ -127,7 +133,7 @@ async function stopScan() {
         <v-col cols="12" md="5" lg="6" class="px-1">
           <v-select
             v-model="platformsToScan"
-            :items="platforms.filteredPlatforms"
+            :items="sortedPlatforms"
             :menu-props="{ maxHeight: 650 }"
             :label="t('common.platforms')"
             item-title="name"
