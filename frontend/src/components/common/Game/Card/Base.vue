@@ -420,9 +420,10 @@ onBeforeUnmount(() => {
                     v-if="
                       romsStore.isSimpleRom(rom) &&
                       showActionBar &&
-                      !showActionBarAlways &&
-                      (isOuterHovering || activeMenu) &&
-                      !smAndDown
+                      (isOuterHovering ||
+                        showActionBarAlways ||
+                        activeMenu ||
+                        smAndDown)
                     "
                     class="translucent"
                     :rom="rom"
@@ -461,15 +462,6 @@ onBeforeUnmount(() => {
             </v-img>
           </v-hover>
         </v-card-text>
-        <ActionBar
-          v-if="
-            (smAndDown || showActionBarAlways) &&
-            showActionBar &&
-            romsStore.isSimpleRom(rom)
-          "
-          :rom="rom"
-          :size-action-bar="sizeActionBar"
-        />
       </v-card>
     </div>
   </v-hover>
