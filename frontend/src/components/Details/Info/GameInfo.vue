@@ -11,6 +11,7 @@ import { ROUTES } from "@/plugins/router";
 import { type FilterType } from "@/stores/galleryFilter";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
+import { FRONTEND_RESOURCES_PATH } from "@/utils";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
@@ -116,6 +117,12 @@ const coverImageSource = computed(() => {
   } catch {
     return null;
   }
+});
+
+const localVideoPath = computed(() => {
+  const ssVideo = props.rom.ss_metadata?.video_path;
+  const gamelistVideo = props.rom.gamelist_metadata?.video_path;
+  return ssVideo || gamelistVideo;
 });
 
 function onFilterClick(filter: FilterType, value: string) {
@@ -264,6 +271,17 @@ function onFilterClick(filter: FilterType, value: string) {
                 />
               </v-carousel-item>
               <v-carousel-item
+                v-if="localVideoPath"
+                :key="localVideoPath"
+                content-class="d-flex justify-center align-center"
+              >
+                <video
+                  :src="`${FRONTEND_RESOURCES_PATH}/${localVideoPath}`"
+                  class="h-full object-contain"
+                  controls
+                />
+              </v-carousel-item>
+              <v-carousel-item
                 v-for="screenshot_url in rom.merged_screenshots"
                 :key="screenshot_url"
                 :src="screenshot_url"
@@ -309,6 +327,17 @@ function onFilterClick(filter: FilterType, value: string) {
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       referrerpolicy="strict-origin-when-cross-origin"
                       allowfullscreen
+                    />
+                  </v-carousel-item>
+                  <v-carousel-item
+                    v-if="localVideoPath"
+                    :key="localVideoPath"
+                    content-class="d-flex justify-center align-center"
+                  >
+                    <video
+                      :src="`${FRONTEND_RESOURCES_PATH}/${localVideoPath}`"
+                      class="h-full object-contain"
+                      controls
                     />
                   </v-carousel-item>
                   <v-carousel-item
