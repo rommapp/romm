@@ -78,6 +78,13 @@ router = APIRouter(
 )
 
 
+def safe_int_or_none(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+
+    return safe_int(value)
+
+
 def parse_raw_metadata(data: FormData, form_key: str) -> dict | None:
     raw_json = data.get(form_key, None)
     if not raw_json or str(raw_json).strip() == "":
@@ -753,26 +760,38 @@ async def update_rom(
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     cleaned_data: dict[str, Any] = {
-        "igdb_id": safe_int(data["igdb_id"]) if "igdb_id" in data else rom.igdb_id,
-        "sgdb_id": safe_int(data["sgdb_id"]) if "sgdb_id" in data else rom.sgdb_id,
-        "moby_id": safe_int(data["moby_id"]) if "moby_id" in data else rom.moby_id,
-        "ss_id": safe_int(data["ss_id"]) if "ss_id" in data else rom.ss_id,
-        "ra_id": safe_int(data["ra_id"]) if "ra_id" in data else rom.ra_id,
+        "igdb_id": (
+            safe_int_or_none(data["igdb_id"]) if "igdb_id" in data else rom.igdb_id
+        ),
+        "sgdb_id": (
+            safe_int_or_none(data["sgdb_id"]) if "sgdb_id" in data else rom.sgdb_id
+        ),
+        "moby_id": (
+            safe_int_or_none(data["moby_id"]) if "moby_id" in data else rom.moby_id
+        ),
+        "ss_id": safe_int_or_none(data["ss_id"]) if "ss_id" in data else rom.ss_id,
+        "ra_id": safe_int_or_none(data["ra_id"]) if "ra_id" in data else rom.ra_id,
         "launchbox_id": (
-            safe_int(data["launchbox_id"])
+            safe_int_or_none(data["launchbox_id"])
             if "launchbox_id" in data
             else rom.launchbox_id
         ),
         "hasheous_id": (
-            safe_int(data["hasheous_id"]) if "hasheous_id" in data else rom.hasheous_id
+            safe_int_or_none(data["hasheous_id"])
+            if "hasheous_id" in data
+            else rom.hasheous_id
         ),
-        "tgdb_id": safe_int(data["tgdb_id"]) if "tgdb_id" in data else rom.tgdb_id,
+        "tgdb_id": (
+            safe_int_or_none(data["tgdb_id"]) if "tgdb_id" in data else rom.tgdb_id
+        ),
         "flashpoint_id": (
-            safe_int(data["flashpoint_id"])
+            safe_int_or_none(data["flashpoint_id"])
             if "flashpoint_id" in data
             else rom.flashpoint_id
         ),
-        "hltb_id": safe_int(data["hltb_id"]) if "hltb_id" in data else rom.hltb_id,
+        "hltb_id": (
+            safe_int_or_none(data["hltb_id"]) if "hltb_id" in data else rom.hltb_id
+        ),
     }
 
     # Add raw metadata parsing
