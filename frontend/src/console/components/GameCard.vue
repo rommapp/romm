@@ -1,15 +1,11 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
 import {
   computed,
   onMounted,
   onBeforeUnmount,
-  ref,
   useTemplateRef,
   watch,
-  nextTick,
 } from "vue";
-import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { useGameAnimation } from "@/composables/useGameAnimation";
 import {
@@ -39,17 +35,24 @@ const props = defineProps<{
 const heartbeatStore = storeHeartbeat();
 const romsStore = storeRoms();
 const gameCardRef = useTemplateRef<HTMLButtonElement>("game-card-ref");
-const vImgRef = useTemplateRef("game-image-ref");
+const coverRef = useTemplateRef("game-image-ref");
 const videoRef = useTemplateRef<HTMLVideoElement>("hover-video-ref");
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
 
-const { boxartStyleCover, animateCDSpin, stopCDAnimation } = useGameAnimation({
+const {
+  boxartStyleCover,
+  localVideoPath,
+  isVideoPlaying,
+  stopCDAnimation,
+  stopVideo,
+} = useGameAnimation({
   rom: props.rom,
-  accelerate: computed(() => props.selected),
-  vImgRef: vImgRef,
+  isHovering: computed(() => props.selected),
+  coverRef: coverRef,
+  videoRef: videoRef,
 });
 
 const largeCover = computed(() => {
@@ -76,23 +79,6 @@ const fallbackCoverImage = computed(() =>
     : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
 );
 
-const boxartStyle = useLocalStorage<BoxartStyleOption>(
-  "settings.boxartStyle",
-  "cover",
-);
-
-const localVideoPath = computed(() => {
-  if (!romsStore.isSimpleRom(props.rom)) return null;
-  // Only play video if boxart style is miximage
-  if (boxartStyle.value !== "miximage_path") return null;
-  const ssVideo = props.rom.ss_metadata?.video_path;
-  const gamelistVideo = props.rom.gamelist_metadata?.video_path;
-  return ssVideo || gamelistVideo || null;
-});
-
-const selectionTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
-const isVideoPlaying = ref(false);
-
 const emit = defineEmits([
   "click",
   "mouseenter",
@@ -116,37 +102,8 @@ watch(
       if (largeCover.value) {
         emit("select", largeCover.value);
       }
-      animateCDSpin();
-
-      // Start video after 3 seconds if video path exists
-      if (localVideoPath.value) {
-        selectionTimeout.value = setTimeout(async () => {
-          isVideoPlaying.value = true;
-          // Wait for next tick to ensure video element is rendered
-          await nextTick();
-          if (videoRef.value) {
-            videoRef.value.load();
-            videoRef.value.play().catch(() => {
-              // Handle play() promise rejection (e.g., autoplay disabled)
-              isVideoPlaying.value = false;
-            });
-          }
-        }, 2000);
-      }
     } else {
-      // Game deselected - stop video and clear timeout
       emit("deselect");
-      isVideoPlaying.value = false;
-
-      if (selectionTimeout.value) {
-        clearTimeout(selectionTimeout.value);
-        selectionTimeout.value = null;
-      }
-
-      if (videoRef.value) {
-        videoRef.value.pause();
-        videoRef.value.currentTime = 0;
-      }
     }
   },
   { immediate: true },
@@ -167,18 +124,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopCDAnimation();
-
-  // Clean up selection timeout
-  if (selectionTimeout.value) {
-    clearTimeout(selectionTimeout.value);
-    selectionTimeout.value = null;
-  }
-
-  // Clean up video
-  if (videoRef.value) {
-    videoRef.value.pause();
-    videoRef.value.src = "";
-  }
+  stopVideo();
 });
 </script>
 
@@ -321,6 +267,7 @@ onBeforeUnmount(() => {
 .hover-video-container {
   top: 15%;
   transition: opacity 0.25s ease;
+  pointer-events: none;
 }
 
 .v-img.transitioning,

@@ -53,13 +53,13 @@ const enableExperimentalCacheRef = useLocalStorage(
 
 // Boxart
 export type BoxartStyleOption =
-  | "cover"
+  | "cover_path"
   | "box3d_path"
   | "physical_path"
   | "miximage_path";
 const boxartStyleRef = useLocalStorage<BoxartStyleOption>(
   "settings.boxartStyle",
-  "cover",
+  "cover_path",
 );
 
 const homeOptions = computed(() => [
@@ -193,7 +193,7 @@ const galleryOptions = computed(() => [
 ]);
 
 const boxartStyleOptions = computed(() => [
-  { title: t("settings.boxart-cover"), value: "cover" },
+  { title: t("settings.boxart-cover"), value: "cover_path" },
   { title: t("settings.boxart-box3d"), value: "box3d_path" },
   { title: t("settings.boxart-physical"), value: "physical_path" },
   { title: t("settings.boxart-miximage"), value: "miximage_path" },
