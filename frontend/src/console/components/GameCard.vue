@@ -204,6 +204,7 @@ onBeforeUnmount(() => {
         :contain="boxartStyleCover"
         :class="{
           'opacity-0': isVideoPlaying && localVideoPath,
+          transitioning: !isVideoPlaying && localVideoPath,
         }"
         :src="largeCover || fallbackCoverImage"
         :alt="rom.name || 'Game'"
@@ -228,7 +229,9 @@ onBeforeUnmount(() => {
       </v-img>
       <div
         class="hover-video-container position-absolute opacity-0"
-        :class="{ 'opacity-100': isVideoPlaying && localVideoPath }"
+        :class="{
+          'opacity-100 transitioning': isVideoPlaying && localVideoPath,
+        }"
       >
         <video
           ref="hover-video-ref"
@@ -318,6 +321,10 @@ onBeforeUnmount(() => {
 .hover-video-container {
   top: 15%;
   transition: opacity 0.25s ease;
+}
+
+.v-img.transitioning,
+.hover-video-container.transitioning {
   transition-delay: 0.1s;
 }
 
