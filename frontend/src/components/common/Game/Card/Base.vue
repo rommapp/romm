@@ -241,7 +241,7 @@ const onCardMouseEnter = () => {
           isVideoPlaying.value = false;
         });
       }
-    }, 500);
+    }, 2000);
   }
 };
 
