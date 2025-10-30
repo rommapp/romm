@@ -240,6 +240,7 @@ class HasheousHandler(MetadataHandler):
             for file in files
             if file.file_size_bytes is not None
             and file.file_size_bytes > 0
+            and file.is_top_level
             and (
                 file.file_extension
                 in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[platform_slug]
@@ -249,7 +250,6 @@ class HasheousHandler(MetadataHandler):
         ]
 
         first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
-
         if first_file is None:
             return fallback_rom
 

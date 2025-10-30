@@ -556,6 +556,12 @@ async def scan_rom(
                 )
             )
         ):
+            hash_lookup = await meta_ss_handler.lookup_rom(
+                rom, rom_attrs, platform.ss_id
+            )
+            if hash_lookup.get("ss_id"):
+                return hash_lookup
+
             if scan_type == ScanType.UPDATE and rom.ss_id:
                 return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
             else:
