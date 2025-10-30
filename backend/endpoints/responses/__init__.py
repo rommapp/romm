@@ -42,10 +42,12 @@ class UpdateTaskMeta(TypedDict):
 
 
 class CleanupStats(TypedDict):
-    total_platforms: int
-    total_roms: int
-    removed_platforms: int
-    removed_roms: int
+    platforms_in_db: int
+    roms_in_db: int
+    platforms_in_fs: int
+    roms_in_fs: int
+    removed_fs_platforms: int
+    removed_fs_roms: int
 
 
 class CleanupTaskMeta(TypedDict):
