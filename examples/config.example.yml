@@ -88,10 +88,11 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #       - box3d  # 3D box art
 #       - miximage  # Mixed image of multiple media
 #       - physical  # Disc, cartridge, etc.
+#       - marquee  # Custom marquee
+#       - logo  # Transparent logo
 #       # Added to the screenshots carousel
 #       - screenshot  # Screenshot (enabled by default)
 #       - title_screen  # Title screen
-#       - marquee  # Transparent logo
 #       - fanart  # User uploaded artwork
 #       # Bezel displayed around the emulatorjs window
 #       - bezel

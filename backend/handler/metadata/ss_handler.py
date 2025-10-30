@@ -165,6 +165,8 @@ class SSMetadataMedia(TypedDict):
     box3d_path: str | None
     miximage_path: str | None
     physical_path: str | None
+    marquee_path: str | None
+    logo_path: str | None
     video_path: str | None
 
 
@@ -208,6 +210,8 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         box3d_path=None,
         miximage_path=None,
         physical_path=None,
+        marquee_path=None,
+        logo_path=None,
         video_path=None,
     )
 
@@ -232,10 +236,19 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["fullbox_url"] = media["url"]
             elif media.get("type") == "wheel-hd" and not ss_media["logo_url"]:
                 ss_media["logo_url"] = media["url"]
+
+                if MetadataMediaType.LOGO in preferred_media_types:
+                    ss_media["logo_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.LOGO)}/logo.png"
+                    )
             elif media.get("type") == "manual" and not ss_media["manual_url"]:
                 ss_media["manual_url"] = media["url"]
             elif media.get("type") == "screenmarquee" and not ss_media["marquee_url"]:
                 ss_media["marquee_url"] = media["url"]
+                if MetadataMediaType.MARQUEE in preferred_media_types:
+                    ss_media["marquee_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MARQUEE)}/marquee.png"
+                    )
             elif (
                 media.get("type") == "miximage1"
                 or media.get("type") == "miximage2"

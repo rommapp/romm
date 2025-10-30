@@ -239,6 +239,7 @@ export function useGameAnimation({
   );
 
   return {
+    boxartStyle,
     boxartStyleCover,
     animateCD,
     animateCartridge,
