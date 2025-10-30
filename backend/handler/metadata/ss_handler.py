@@ -35,7 +35,7 @@ def get_preferred_regions() -> list[str]:
     config = cm.get_config()
     return list(
         dict.fromkeys(config.SCAN_REGION_PRIORITY + ["us", "wor", "ss", "eu", "jp"])
-    )
+    ) + ["unk"]
 
 
 def get_preferred_languages() -> list[str]:
@@ -213,7 +213,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
 
     for region in get_preferred_regions():
         for media in game.get("medias", []):
-            if not media.get("region") == region or media.get("parent") != "jeu":
+            if not media.get("region", "unk") == region or media.get("parent") != "jeu":
                 continue
 
             if media.get("type") == "box-2D-back" and not ss_media["box2d_back_url"]:
@@ -366,7 +366,7 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
             (
                 name["text"]
                 for name in game.get("noms", [])
-                if name.get("region") == region
+                if name.get("region", "unk") == region
             ),
             "",
         )
