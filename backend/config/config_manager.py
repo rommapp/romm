@@ -44,6 +44,7 @@ class MetadataMediaType(enum.StrEnum):
     SCREENSHOT = "screenshot"
     TITLE_SCREEN = "title_screen"
     MARQUEE = "marquee"
+    LOGO = "logo"
     FANART = "fanart"
     VIDEO = "video"
     MANUAL = "manual"

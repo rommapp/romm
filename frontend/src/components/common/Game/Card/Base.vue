@@ -157,6 +157,7 @@ const videoRef = useTemplateRef<HTMLVideoElement>("hover-video-ref");
 
 const gameIsHovering = ref(false);
 const {
+  boxartStyle,
   boxartStyleCover,
   animateCD,
   animateCartridge,
@@ -174,11 +175,6 @@ const {
   coverRef: coverRef,
   videoRef: videoRef,
 });
-
-const boxartStyle = useLocalStorage<BoxartStyleOption>(
-  "settings.boxartStyle",
-  "cover_path",
-);
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,

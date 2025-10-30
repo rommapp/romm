@@ -24,6 +24,8 @@ export type RomSSMetadata = {
     box3d_path?: (string | null);
     miximage_path?: (string | null);
     physical_path?: (string | null);
+    marquee_path?: (string | null);
+    logo_path?: (string | null);
     video_path?: (string | null);
     ss_score?: string;
     first_release_date?: (number | null);
