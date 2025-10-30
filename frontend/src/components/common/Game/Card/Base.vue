@@ -373,6 +373,7 @@ onBeforeUnmount(() => {
               :class="{
                 pointer: pointerOnHover,
                 'opacity-0': isVideoPlaying && localVideoPath,
+                transitioning: !isVideoPlaying && localVideoPath,
               }"
               :src="largeCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
@@ -535,23 +536,30 @@ onBeforeUnmount(() => {
               </template>
             </v-img>
             <div
-              class="hover-video-container position-absolute top-0 opacity-0"
-              :class="{ 'opacity-100': isVideoPlaying && localVideoPath }"
+              class="hover-video-container position-absolute top-0 opacity-0 h-full d-flex align-center justify-center"
+              :class="{
+                'opacity-100 transitioning': isVideoPlaying && localVideoPath,
+              }"
             >
-              <video
-                ref="hover-video-ref"
-                :src="`${FRONTEND_RESOURCES_PATH}/${localVideoPath}`"
-                class="hover-video"
-                loop
-                :autoplay="isVideoPlaying"
-                playsinline
-                preload="none"
-              />
-              <img
-                src="/assets/default/miximage.png"
-                style="z-index: 1"
-                class="position-absolute top-0"
-              />
+              <div
+                class="position-relative max-h-full"
+                style="margin-top: -40px"
+              >
+                <video
+                  ref="hover-video-ref"
+                  :src="`${FRONTEND_RESOURCES_PATH}/${localVideoPath}`"
+                  class="hover-video"
+                  loop
+                  :autoplay="isVideoPlaying"
+                  playsinline
+                  preload="none"
+                />
+                <img
+                  src="/assets/default/miximage.png"
+                  style="z-index: 1"
+                  class="position-relative"
+                />
+              </div>
             </div>
           </v-hover>
         </v-card-text>
@@ -603,11 +611,18 @@ onBeforeUnmount(() => {
   transition-delay: 0.1s;
 }
 
+.v-img.transitioning,
+.hover-video-container.transitioning {
+  transition-delay: 0.1s;
+}
+
 .hover-video {
-  position: relative;
-  margin-top: 8%;
+  position: absolute;
+  top: 3%;
   left: 2%;
   width: 96%;
+  height: 94%;
+  background: black;
   object-fit: contain;
   pointer-events: none;
 }
