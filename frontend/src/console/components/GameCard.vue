@@ -1,11 +1,15 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
 import {
   computed,
   onMounted,
   onBeforeUnmount,
+  ref,
   useTemplateRef,
   watch,
+  nextTick,
 } from "vue";
+import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { useGameAnimation } from "@/composables/useGameAnimation";
 import {
@@ -14,6 +18,7 @@ import {
 } from "@/console/composables/useElementRegistry";
 import storeCollections from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import {
@@ -32,8 +37,10 @@ const props = defineProps<{
 }>();
 
 const heartbeatStore = storeHeartbeat();
+const romsStore = storeRoms();
 const gameCardRef = useTemplateRef<HTMLButtonElement>("game-card-ref");
 const vImgRef = useTemplateRef("game-image-ref");
+const videoRef = useTemplateRef<HTMLVideoElement>("hover-video-ref");
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -69,6 +76,23 @@ const fallbackCoverImage = computed(() =>
     : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
 );
 
+const boxartStyle = useLocalStorage<BoxartStyleOption>(
+  "settings.boxartStyle",
+  "cover",
+);
+
+const localVideoPath = computed(() => {
+  if (!romsStore.isSimpleRom(props.rom)) return null;
+  // Only play video if boxart style is miximage
+  if (boxartStyle.value !== "miximage_path") return null;
+  const ssVideo = props.rom.ss_metadata?.video_path;
+  const gamelistVideo = props.rom.gamelist_metadata?.video_path;
+  return ssVideo || gamelistVideo || null;
+});
+
+const selectionTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
+const isVideoPlaying = ref(false);
+
 const emit = defineEmits([
   "click",
   "mouseenter",
@@ -88,11 +112,41 @@ const isFavorited = computed(() => {
 watch(
   () => props.selected,
   (isSelected) => {
-    if (isSelected && largeCover.value) {
-      emit("select", largeCover.value);
+    if (isSelected) {
+      if (largeCover.value) {
+        emit("select", largeCover.value);
+      }
       animateCDSpin();
-    } else if (isSelected) {
+
+      // Start video after 3 seconds if video path exists
+      if (localVideoPath.value) {
+        selectionTimeout.value = setTimeout(async () => {
+          isVideoPlaying.value = true;
+          // Wait for next tick to ensure video element is rendered
+          await nextTick();
+          if (videoRef.value) {
+            videoRef.value.load();
+            videoRef.value.play().catch(() => {
+              // Handle play() promise rejection (e.g., autoplay disabled)
+              isVideoPlaying.value = false;
+            });
+          }
+        }, 2000);
+      }
+    } else {
+      // Game deselected - stop video and clear timeout
       emit("deselect");
+      isVideoPlaying.value = false;
+
+      if (selectionTimeout.value) {
+        clearTimeout(selectionTimeout.value);
+        selectionTimeout.value = null;
+      }
+
+      if (videoRef.value) {
+        videoRef.value.pause();
+        videoRef.value.currentTime = 0;
+      }
     }
   },
   { immediate: true },
@@ -113,6 +167,18 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopCDAnimation();
+
+  // Clean up selection timeout
+  if (selectionTimeout.value) {
+    clearTimeout(selectionTimeout.value);
+    selectionTimeout.value = null;
+  }
+
+  // Clean up video
+  if (videoRef.value) {
+    videoRef.value.pause();
+    videoRef.value.src = "";
+  }
 });
 </script>
 
@@ -136,6 +202,9 @@ onBeforeUnmount(() => {
         class="w-full h-full"
         :cover="!boxartStyleCover"
         :contain="boxartStyleCover"
+        :class="{
+          'opacity-0': isVideoPlaying && localVideoPath,
+        }"
         :src="largeCover || fallbackCoverImage"
         :alt="rom.name || 'Game'"
         @load="emit('loaded')"
@@ -157,6 +226,25 @@ onBeforeUnmount(() => {
           <v-img cover eager :src="fallbackCoverImage" />
         </template>
       </v-img>
+      <div
+        class="hover-video-container position-absolute opacity-0"
+        :class="{ 'opacity-100': isVideoPlaying && localVideoPath }"
+      >
+        <video
+          ref="hover-video-ref"
+          :src="`${FRONTEND_RESOURCES_PATH}/${localVideoPath}`"
+          class="hover-video"
+          loop
+          :autoplay="isVideoPlaying"
+          playsinline
+          preload="none"
+        />
+        <img
+          src="/assets/default/miximage.png"
+          style="z-index: 1"
+          class="position-absolute top-0"
+        />
+      </div>
       <!-- Selected highlight radial glow -->
       <div
         class="absolute inset-0 opacity-0 pointer-events-none"
@@ -221,5 +309,24 @@ onBeforeUnmount(() => {
   100% {
     background-position: -200% 0;
   }
+}
+
+.v-img {
+  transition: opacity 0.25s ease;
+}
+
+.hover-video-container {
+  top: 15%;
+  transition: opacity 0.25s ease;
+  transition-delay: 0.1s;
+}
+
+.hover-video {
+  position: relative;
+  margin-top: 6%;
+  left: 2%;
+  width: 96%;
+  object-fit: contain;
+  pointer-events: none;
 }
 </style>
