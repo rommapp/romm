@@ -516,6 +516,37 @@ class SSHandler(MetadataHandler):
             name=platform["name"],
         )
 
+    async def lookup_rom(self, rom: Rom, rom_attrs: dict, platform_ss_id: int) -> SSRom:
+        if not self.is_enabled():
+            return SSRom(ss_id=None)
+
+        if not platform_ss_id:
+            return SSRom(ss_id=None)
+
+        md5_hash = rom_attrs["md5_hash"]
+        sha1_hash = rom_attrs["sha1_hash"]
+        crc_hash = rom_attrs["crc_hash"]
+        fs_size_bytes = rom_attrs["fs_size_bytes"]
+
+        if not (md5_hash or sha1_hash or crc_hash):
+            log.info(
+                "No hashes provided for ScreenScraper lookup. "
+                "At least one of md5_hash, sha1_hash, or crc_hash is required."
+            )
+            return SSRom(ss_id=None)
+
+        res = await self.ss_service.get_game_info(
+            system_id=platform_ss_id,
+            md5=md5_hash,
+            sha1=sha1_hash,
+            crc=crc_hash,
+            rom_size_bytes=fs_size_bytes,
+        )
+        if not res:
+            return SSRom(ss_id=None)
+
+        return build_ss_game(rom, res)
+
     async def get_rom(self, rom: Rom, file_name: str, platform_ss_id: int) -> SSRom:
         from handler.filesystem import fs_rom_handler
 
