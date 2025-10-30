@@ -3,7 +3,7 @@
  * It will spin CD based games on hover and load cartridge based games on play.
  */
 import { useLocalStorage } from "@vueuse/core";
-import { computed, ref, type Ref, type ShallowRef } from "vue";
+import { computed, nextTick, ref, watch, type Ref, type ShallowRef } from "vue";
 import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
 import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import storeRoms from "@/stores/roms";
@@ -37,18 +37,20 @@ function getTranslateY(el: HTMLElement) {
 export function useGameAnimation({
   rom,
   coverSrc,
-  vImgRef,
-  accelerate = ref(false),
+  coverRef,
+  videoRef,
+  isHovering = ref(false),
 }: {
   rom: SimpleRom | SearchRom;
-  accelerate?: Ref<boolean>;
   coverSrc?: string;
-  vImgRef?: Readonly<ShallowRef<VImg | null>>;
+  coverRef?: Readonly<ShallowRef<VImg | null>>;
+  videoRef?: Readonly<ShallowRef<HTMLVideoElement | null>>;
+  isHovering?: Ref<boolean>;
 }) {
   const romsStore = storeRoms();
   const boxartStyle = useLocalStorage<BoxartStyleOption>(
     "settings.boxartStyle",
-    "cover",
+    "cover_path",
   );
 
   // User selected alternative cover image
@@ -56,7 +58,7 @@ export function useGameAnimation({
     if (
       coverSrc ||
       !romsStore.isSimpleRom(rom) ||
-      boxartStyle.value === "cover"
+      boxartStyle.value === "cover_path"
     )
       return null;
     const ssMedia = rom.ss_metadata?.[boxartStyle.value];
@@ -90,8 +92,8 @@ export function useGameAnimation({
   let animateLoad = false;
 
   const spinCD = (timestamp: number) => {
-    const container = vImgRef?.value?.$el;
-    const imageElement = vImgRef?.value?.image;
+    const container = coverRef?.value?.$el;
+    const imageElement = coverRef?.value?.image;
     if (!container || !imageElement) return;
 
     if (lastTimestamp === null) lastTimestamp = timestamp;
@@ -103,7 +105,7 @@ export function useGameAnimation({
 
     // Update velocity and angle with acceleration
     velocity +=
-      (accelerate.value ? accelerationRate : decelerationRate) * deltaTime;
+      (isHovering.value ? accelerationRate : decelerationRate) * deltaTime;
     // Clamp the velocity
     velocity = Math.min(maxRotationSpeed, Math.max(0, velocity));
     angle = (angle + velocity * deltaTime) % 360;
@@ -122,7 +124,7 @@ export function useGameAnimation({
     // Animate rotation of the CD
     imageElement.style.transform = ANIMATION_CONFIG.transformCSS(angle);
 
-    if (velocity > 0 || accelerate.value) {
+    if (velocity > 0 || isHovering.value) {
       animationID = requestAnimationFrame(spinCD);
     } else {
       // Stop the animation if the CD is no longer moving
@@ -131,7 +133,7 @@ export function useGameAnimation({
   };
 
   const setTransitionCSS = () => {
-    const imageElement = vImgRef?.value?.image;
+    const imageElement = coverRef?.value?.image;
     if (!imageElement) return;
     imageElement.style.transition = ANIMATION_CONFIG.transitionCSS;
   };
@@ -163,8 +165,8 @@ export function useGameAnimation({
   const animateLoadCart = () => {
     if (!animateCartridge.value) return;
 
-    const container = vImgRef?.value?.$el;
-    const imageElement = vImgRef?.value?.image;
+    const container = coverRef?.value?.$el;
+    const imageElement = coverRef?.value?.image;
     if (!container || !imageElement) return;
 
     // Apply snap-down animation
@@ -173,13 +175,80 @@ export function useGameAnimation({
     imageElement.style.marginTop = `${container.offsetHeight / 3}px`;
   };
 
+  /* Video player */
+  let hoverTimeout: number | null = null;
+  const isVideoPlaying = ref(false);
+
+  const localVideoPath = computed(() => {
+    if (!romsStore.isSimpleRom(rom)) return null;
+    // Only play video if boxart style is miximage
+    if (boxartStyle.value !== "miximage_path") return null;
+    const ssVideo = rom.ss_metadata?.video_path;
+    const gamelistVideo = rom.gamelist_metadata?.video_path;
+    return ssVideo || gamelistVideo || null;
+  });
+
+  const playVideoEnabled = computed(() => {
+    return (
+      boxartStyle.value === "miximage_path" && Boolean(localVideoPath.value)
+    );
+  });
+
+  const playVideo = () => {
+    if (isVideoPlaying.value) return;
+    if (!playVideoEnabled.value) return;
+
+    // Start video after 1.5 seconds if video path exists
+    hoverTimeout = window.setTimeout(async () => {
+      isVideoPlaying.value = true;
+      // Wait for next tick to ensure video element is rendered
+      await nextTick();
+      if (videoRef?.value) {
+        videoRef.value.load();
+        videoRef.value.play().catch(() => {
+          // Handle play() promise rejection
+          isVideoPlaying.value = false;
+        });
+      }
+    }, 1500);
+  };
+
+  const stopVideo = () => {
+    isVideoPlaying.value = false;
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      hoverTimeout = null;
+    }
+    if (videoRef?.value) {
+      videoRef.value.pause();
+      videoRef.value.currentTime = 0;
+    }
+  };
+
+  watch(
+    isHovering,
+    (hovering) => {
+      if (hovering) {
+        animateCDSpin();
+        playVideo();
+      } else {
+        stopVideo();
+      }
+    },
+    { immediate: true },
+  );
+
   return {
     boxartStyleCover,
     animateCD,
     animateCartridge,
+    localVideoPath,
+    isVideoPlaying,
     animateCDSpin,
     animateCDLoad,
     stopCDAnimation,
     animateLoadCart,
+    playVideo,
+    stopVideo,
   };
 }
