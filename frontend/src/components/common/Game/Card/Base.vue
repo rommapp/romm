@@ -9,8 +9,10 @@ import {
   onBeforeUnmount,
   inject,
   useTemplateRef,
+  nextTick,
 } from "vue";
 import { useDisplay } from "vuetify";
+import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import Flags from "@/components/common/Game/Card/Flags.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
@@ -160,6 +162,24 @@ const {
   vImgRef: vImgRef,
 });
 
+const boxartStyle = useLocalStorage<BoxartStyleOption>(
+  "settings.boxartStyle",
+  "cover",
+);
+
+const localVideoPath = computed(() => {
+  if (!romsStore.isSimpleRom(props.rom)) return null;
+  // Only play video if boxart style is miximage
+  if (boxartStyle.value !== "miximage_path") return null;
+  const ssVideo = props.rom.ss_metadata?.video_path;
+  const gamelistVideo = props.rom.gamelist_metadata?.video_path;
+  return ssVideo || gamelistVideo || null;
+});
+
+const hoverTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
+const isVideoPlaying = ref(false);
+const videoRef = useTemplateRef<HTMLVideoElement>("hover-video-ref");
+
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
@@ -206,8 +226,43 @@ const onMouseEnter = () => {
   animateCDSpin();
 };
 
+const onCardMouseEnter = () => {
+  if (isVideoPlaying.value) return;
+  // Start video after 3 seconds if video path exists
+  if (localVideoPath.value) {
+    hoverTimeout.value = setTimeout(async () => {
+      isVideoPlaying.value = true;
+      // Wait for next tick to ensure video element is rendered
+      await nextTick();
+      if (videoRef.value) {
+        videoRef.value.load();
+        videoRef.value.play().catch(() => {
+          // Handle play() promise rejection (e.g., autoplay disabled)
+          isVideoPlaying.value = false;
+        });
+      }
+    }, 500);
+  }
+};
+
 const onMouseLeave = () => {
   gameIsHovering.value = false;
+};
+
+const onCardMouseLeave = () => {
+  // Clear the hover timeout if it exists
+  if (hoverTimeout.value) {
+    clearTimeout(hoverTimeout.value);
+    hoverTimeout.value = null;
+  }
+
+  // Pause and reset video
+  if (videoRef.value) {
+    videoRef.value.pause();
+    videoRef.value.currentTime = 0;
+  }
+
+  isVideoPlaying.value = false;
 };
 
 const handlePlayGame = (romId: number) => {
@@ -240,6 +295,18 @@ onBeforeUnmount(() => {
   }
   emitter?.off("playGame", handlePlayGame);
   stopCDAnimation();
+
+  // Clean up hover timeout
+  if (hoverTimeout.value) {
+    clearTimeout(hoverTimeout.value);
+    hoverTimeout.value = null;
+  }
+
+  // Clean up video
+  if (videoRef.value) {
+    videoRef.value.pause();
+    videoRef.value.src = "";
+  }
 });
 </script>
 
@@ -290,7 +357,11 @@ onBeforeUnmount(() => {
           }
         "
       >
-        <v-card-text class="pa-0">
+        <v-card-text
+          class="pa-0 position-relative"
+          @mouseenter="onCardMouseEnter"
+          @mouseleave="onCardMouseLeave"
+        >
           <v-hover v-slot="{ isHovering, props: imgProps }" open-delay="800">
             <v-img
               ref="game-image-ref"
@@ -299,7 +370,10 @@ onBeforeUnmount(() => {
               :cover="!boxartStyleCover"
               :contain="boxartStyleCover"
               content-class="d-flex flex-column justify-space-between"
-              :class="{ pointer: pointerOnHover }"
+              :class="{
+                pointer: pointerOnHover,
+                'opacity-0': isVideoPlaying && localVideoPath,
+              }"
               :src="largeCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
               @click="handleClick"
@@ -460,6 +534,25 @@ onBeforeUnmount(() => {
                 />
               </template>
             </v-img>
+            <div
+              class="hover-video-container position-absolute top-0 opacity-0"
+              :class="{ 'opacity-100': isVideoPlaying && localVideoPath }"
+            >
+              <video
+                ref="hover-video-ref"
+                :src="`${FRONTEND_RESOURCES_PATH}/${localVideoPath}`"
+                class="hover-video"
+                loop
+                :autoplay="isVideoPlaying"
+                playsinline
+                preload="none"
+              />
+              <img
+                src="/assets/default/miximage.png"
+                style="z-index: 1"
+                class="position-absolute top-0"
+              />
+            </div>
           </v-hover>
         </v-card-text>
       </v-card>
@@ -472,29 +565,27 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: max-height 0.5s; /* Add a transition for a smooth effect */
+  transition: max-height 0.5s;
 }
 
 .expand-on-hover:hover {
-  max-height: 1000px; /* Adjust to a sufficiently large value to ensure the full expansion */
+  max-height: 1000px;
 }
 
-/* Apply styles to v-expand-transition component */
 .v-expand-transition-enter-active,
 .v-expand-transition-leave-active {
   transition: max-height 0.5s;
 }
 
-.v-expand-transition-enter, .v-expand-transition-leave-to /* .v-expand-transition-leave-active in <2.1.8 */ {
-  max-height: 0; /* Set max-height to 0 when entering or leaving */
+.v-expand-transition-enter,
+.v-expand-transition-leave-to {
+  max-height: 0;
   overflow: hidden;
 }
 
 .v-img {
-  user-select: none; /* Prevents text selection */
-  -webkit-user-select: none; /* Safari */
-  -moz-user-select: none; /* Firefox */
-  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none;
+  transition: opacity 0.25s ease;
 }
 
 .append-inner-right {
@@ -502,9 +593,32 @@ onBeforeUnmount(() => {
   right: 0rem;
 }
 
-/* Note icon hover effect */
 .v-chip:hover {
   transform: scale(1.1);
   transition: transform 0.2s ease;
+}
+
+.hover-video-container {
+  transition: opacity 0.25s ease;
+  transition-delay: 0.1s;
+}
+
+.hover-video {
+  position: relative;
+  margin-top: 8%;
+  left: 2%;
+  width: 96%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
