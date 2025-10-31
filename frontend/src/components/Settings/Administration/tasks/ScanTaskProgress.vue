@@ -42,7 +42,7 @@ const scanProgress = computed(() => {
     >
       <div
         class="progress-bar-fill h-100 rounded"
-        :style="{ width: `${scanProgress.romsPercentage}%` }"
+        :style="{ width: `${scanProgress.platformsPercentage}%` }"
       />
     </div>
 
