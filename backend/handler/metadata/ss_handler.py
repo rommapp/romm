@@ -14,7 +14,7 @@ from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
-from models.rom import Rom
+from models.rom import Rom, RomFile
 
 from .base_handler import (
     PS2_OPL_REGEX,
@@ -127,6 +127,12 @@ ARCADE_SS_IDS: Final = [
 
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
 SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
+
+ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {
+    UPS.DC: ["cue", "chd", "gdi", "cdi"],
+    UPS.SEGACD: ["cue", "chd", "bin"],
+    UPS.NGC: ["rvz", "iso", "gcz"],
+}
 
 
 class SSPlatform(TypedDict):
@@ -516,17 +522,36 @@ class SSHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def lookup_rom(self, rom: Rom, rom_attrs: dict, platform_ss_id: int) -> SSRom:
+    async def lookup_rom(
+        self, rom: Rom, platform_ss_id: int, files: list[RomFile]
+    ) -> SSRom:
         if not self.is_enabled():
             return SSRom(ss_id=None)
 
         if not platform_ss_id:
             return SSRom(ss_id=None)
 
-        md5_hash = rom_attrs["md5_hash"]
-        sha1_hash = rom_attrs["sha1_hash"]
-        crc_hash = rom_attrs["crc_hash"]
-        fs_size_bytes = rom_attrs["fs_size_bytes"]
+        filtered_files = [
+            file
+            for file in files
+            if file.file_size_bytes > 0
+            and file.is_top_level
+            and (
+                file.file_extension
+                in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[UPS(rom.platform_slug)]
+                if UPS(rom.platform_slug) in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
+                else True
+            )
+        ]
+
+        first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
+        if first_file is None:
+            return SSRom(ss_id=None)
+
+        md5_hash = first_file.md5_hash
+        sha1_hash = first_file.sha1_hash
+        crc_hash = first_file.crc_hash
+        fs_size_bytes = first_file.file_size_bytes
 
         if not (md5_hash or sha1_hash or crc_hash):
             log.info(
