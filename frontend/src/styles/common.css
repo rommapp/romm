@@ -45,8 +45,9 @@ body {
   transition-property: all !important;
   transition-duration: 0.1s !important;
 }
-.transform-scale.on-hover {
-  transform: scale(1.1) !important;
+.transform-scale:hover,
+.transform-scale:focus {
+  transform: scale(1.05) !important;
 }
 .pointer {
   cursor: pointer !important;

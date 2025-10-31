@@ -11,18 +11,32 @@ const props = defineProps<{
 }>();
 
 const cleanupProgress = computed(() => {
-  const { total_platforms, total_roms, removed_platforms, removed_roms } =
-    props.cleanupStats;
+  const {
+    platforms_in_db,
+    roms_in_db,
+    platforms_in_fs,
+    roms_in_fs,
+    removed_fs_platforms,
+    removed_fs_roms,
+  } = props.cleanupStats;
+
+  const platformsToRemove = Math.max(platforms_in_fs - platforms_in_db, 0);
+  const romsToRemove = Math.max(roms_in_fs - roms_in_db, 0);
+
+  const itemsToRemove = platformsToRemove + romsToRemove;
+  const removedItems = removed_fs_platforms + removed_fs_roms;
 
   return {
-    totalPlatforms: total_platforms,
-    totalRoms: total_roms,
-    removedPlatforms: removed_platforms,
-    removedRoms: removed_roms,
-    totalItems: total_platforms + total_roms,
-    removedItems: removed_platforms + removed_roms,
+    removedFsPlatforms: removed_fs_platforms,
+    removedFsRoms: removed_fs_roms,
+    platformsToRemove: platformsToRemove,
+    romsToRemove: romsToRemove,
+    platformsInDB: platforms_in_db,
+    romsInDB: roms_in_db,
     percentage:
-      total_roms > 0 ? Math.round((removed_roms / total_roms) * 100) : 100,
+      itemsToRemove > 0
+        ? Math.round((removedItems / itemsToRemove) * 100)
+        : 100,
   };
 });
 </script>
@@ -39,7 +53,7 @@ const cleanupProgress = computed(() => {
       />
     </div>
 
-    <div class="grid grid-cols-4 gap-4">
+    <div class="grid grid-cols-3 gap-4">
       <v-card
         variant="tonal"
         class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-primary stat-card--primary"
@@ -51,9 +65,9 @@ const cleanupProgress = computed(() => {
             <v-icon icon="mdi-folder" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
-            {{ cleanupProgress.removedPlatforms }}/{{
-              cleanupProgress.totalPlatforms
-            }}
+            {{ cleanupProgress.removedFsPlatforms }}/{{
+              cleanupProgress.platformsToRemove
+            }}/{{ cleanupProgress.platformsInDB }}
           </div>
           <div class="text-uppercase">{{ t("common.platforms") }}</div>
         </div>
@@ -70,26 +84,11 @@ const cleanupProgress = computed(() => {
             <v-icon icon="mdi-gamepad-variant" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
-            {{ cleanupProgress.removedRoms }}/{{ cleanupProgress.totalRoms }}
+            {{ cleanupProgress.removedFsRoms }}/{{
+              cleanupProgress.romsToRemove
+            }}/{{ cleanupProgress.romsInDB }}
           </div>
           <div class="text-uppercase">ROMs</div>
-        </div>
-      </v-card>
-
-      <v-card
-        variant="tonal"
-        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-success stat-card--warning"
-      >
-        <div
-          class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
-        >
-          <v-avatar size="24" class="bg-success-lighten-1">
-            <v-icon icon="mdi-delete" size="20" />
-          </v-avatar>
-          <div class="font-weight-bold">
-            {{ cleanupProgress.removedItems }}
-          </div>
-          <div class="text-uppercase">{{ t("settings.removed") }}</div>
         </div>
       </v-card>
 

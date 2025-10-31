@@ -35,7 +35,7 @@ def get_preferred_regions() -> list[str]:
     config = cm.get_config()
     return list(
         dict.fromkeys(config.SCAN_REGION_PRIORITY + ["us", "wor", "ss", "eu", "jp"])
-    )
+    ) + ["unk"]
 
 
 def get_preferred_languages() -> list[str]:
@@ -165,6 +165,8 @@ class SSMetadataMedia(TypedDict):
     box3d_path: str | None
     miximage_path: str | None
     physical_path: str | None
+    marquee_path: str | None
+    logo_path: str | None
     video_path: str | None
 
 
@@ -208,12 +210,14 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         box3d_path=None,
         miximage_path=None,
         physical_path=None,
+        marquee_path=None,
+        logo_path=None,
         video_path=None,
     )
 
     for region in get_preferred_regions():
         for media in game.get("medias", []):
-            if not media.get("region") == region or media.get("parent") != "jeu":
+            if media.get("region", "unk") != region or media.get("parent") != "jeu":
                 continue
 
             if media.get("type") == "box-2D-back" and not ss_media["box2d_back_url"]:
@@ -232,10 +236,19 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["fullbox_url"] = media["url"]
             elif media.get("type") == "wheel-hd" and not ss_media["logo_url"]:
                 ss_media["logo_url"] = media["url"]
+
+                if MetadataMediaType.LOGO in preferred_media_types:
+                    ss_media["logo_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.LOGO)}/logo.png"
+                    )
             elif media.get("type") == "manual" and not ss_media["manual_url"]:
                 ss_media["manual_url"] = media["url"]
             elif media.get("type") == "screenmarquee" and not ss_media["marquee_url"]:
                 ss_media["marquee_url"] = media["url"]
+                if MetadataMediaType.MARQUEE in preferred_media_types:
+                    ss_media["marquee_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MARQUEE)}/marquee.png"
+                    )
             elif (
                 media.get("type") == "miximage1"
                 or media.get("type") == "miximage2"
@@ -366,7 +379,7 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
             (
                 name["text"]
                 for name in game.get("noms", [])
-                if name.get("region") == region
+                if name.get("region", "unk") == region
             ),
             "",
         )
@@ -502,6 +515,37 @@ class SSHandler(MetadataHandler):
             slug=slug,
             name=platform["name"],
         )
+
+    async def lookup_rom(self, rom: Rom, rom_attrs: dict, platform_ss_id: int) -> SSRom:
+        if not self.is_enabled():
+            return SSRom(ss_id=None)
+
+        if not platform_ss_id:
+            return SSRom(ss_id=None)
+
+        md5_hash = rom_attrs["md5_hash"]
+        sha1_hash = rom_attrs["sha1_hash"]
+        crc_hash = rom_attrs["crc_hash"]
+        fs_size_bytes = rom_attrs["fs_size_bytes"]
+
+        if not (md5_hash or sha1_hash or crc_hash):
+            log.info(
+                "No hashes provided for ScreenScraper lookup. "
+                "At least one of md5_hash, sha1_hash, or crc_hash is required."
+            )
+            return SSRom(ss_id=None)
+
+        res = await self.ss_service.get_game_info(
+            system_id=platform_ss_id,
+            md5=md5_hash,
+            sha1=sha1_hash,
+            crc=crc_hash,
+            rom_size_bytes=fs_size_bytes,
+        )
+        if not res:
+            return SSRom(ss_id=None)
+
+        return build_ss_game(rom, res)
 
     async def get_rom(self, rom: Rom, file_name: str, platform_ss_id: int) -> SSRom:
         from handler.filesystem import fs_rom_handler

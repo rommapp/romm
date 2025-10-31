@@ -191,30 +191,24 @@ onBeforeUnmount(() => {
                 sm="3"
                 md="2"
               >
-                <v-hover v-slot="{ isHovering, props: hoverProps }">
-                  <!-- TODO: fix aspect ratio -->
-                  <v-img
-                    v-bind="hoverProps"
-                    :class="{ 'on-hover': isHovering }"
-                    class="transform-scale pointer"
-                    :aspect-ratio="coverAspectRatio"
-                    :src="resource.thumb"
-                    cover
-                    @click="selectCover(resource.url)"
-                  >
-                    <template #error>
-                      <!-- TODO: fix aspect ratio -->
-                      <v-img
-                        :src="resource.url"
-                        cover
-                        :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
-                      />
-                    </template>
-                    <template #placeholder>
-                      <Skeleton :aspect-ratio="coverAspectRatio" type="image" />
-                    </template>
-                  </v-img>
-                </v-hover>
+                <v-img
+                  class="transform-scale pointer"
+                  :aspect-ratio="coverAspectRatio"
+                  :src="resource.thumb"
+                  cover
+                  @click="selectCover(resource.url)"
+                >
+                  <template #error>
+                    <v-img
+                      :src="resource.url"
+                      cover
+                      :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
+                    />
+                  </template>
+                  <template #placeholder>
+                    <Skeleton :aspect-ratio="coverAspectRatio" type="image" />
+                  </template>
+                </v-img>
               </v-col>
             </v-row>
           </v-expansion-panel-text>

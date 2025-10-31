@@ -22,13 +22,15 @@ async function createCollection({
   formData.append("description", collection.description || "");
   formData.append("url_cover", collection.url_cover || "");
   formData.append("rom_ids", JSON.stringify(collection.rom_ids || []));
-  formData.append("is_favorite", String(collection.is_favorite || false));
-  formData.append("is_public", String(collection.is_public || false));
   if (collection.artwork) formData.append("artwork", collection.artwork);
 
   return api.post(`/collections`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
+    },
+    params: {
+      is_public: collection.is_public || false,
+      is_favorite: collection.is_favorite || false,
     },
   });
 }
@@ -46,11 +48,13 @@ async function createSmartCollection({
     "filter_criteria",
     JSON.stringify(smartCollection.filter_criteria),
   );
-  formData.append("is_public", String(smartCollection.is_public || false));
 
   return api.post("/collections/smart", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
+    },
+    params: {
+      is_public: smartCollection.is_public,
     },
   });
 }

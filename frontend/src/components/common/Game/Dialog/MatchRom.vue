@@ -578,41 +578,36 @@ onBeforeUnmount(() => {
                 class="pa-1"
                 cols="auto"
               >
-                <v-hover v-slot="{ isHovering, props }">
-                  <v-card
-                    :width="xs ? 150 : 220"
-                    v-bind="props"
-                    class="transform-scale mx-2"
-                    :class="{
-                      'on-hover': isHovering,
-                      'border-selected border-lg':
-                        selectedCover?.name == source.name,
-                    }"
-                    :elevation="isHovering ? 20 : 3"
-                    @click="selectCover(source)"
+                <v-card
+                  :width="xs ? 150 : 220"
+                  class="transform-scale mx-2"
+                  :class="{
+                    'border-selected border-lg':
+                      selectedCover?.name == source.name,
+                  }"
+                  @click="selectCover(source)"
+                >
+                  <v-img
+                    :src="source.url_cover || missingCoverImage"
+                    :aspect-ratio="computedAspectRatio"
+                    cover
                   >
-                    <v-img
-                      :src="source.url_cover || missingCoverImage"
-                      :aspect-ratio="computedAspectRatio"
-                      cover
-                    >
-                      <template #placeholder>
-                        <Skeleton
-                          :aspect-ratio="computedAspectRatio"
-                          type="image"
-                        />
-                      </template>
-                      <v-row no-gutters class="text-white pa-1">
-                        <v-avatar class="mr-1" size="30" rounded="1">
-                          <v-img :src="source.logo_path" />
-                        </v-avatar>
-                      </v-row>
-                      <template #error>
-                        <v-img :src="missingCoverImage" />
-                      </template>
-                    </v-img>
-                  </v-card>
-                </v-hover>
+                    <template #placeholder>
+                      <Skeleton
+                        :aspect-ratio="computedAspectRatio"
+                        type="image"
+                      />
+                    </template>
+                    <v-row no-gutters class="text-white pa-1">
+                      <v-avatar class="mr-1" size="30" rounded="1">
+                        <v-img :src="source.logo_path" />
+                      </v-avatar>
+                    </v-row>
+                    <template #error>
+                      <v-img :src="missingCoverImage" />
+                    </template>
+                  </v-img>
+                </v-card>
               </v-col>
             </v-row>
           </v-col>

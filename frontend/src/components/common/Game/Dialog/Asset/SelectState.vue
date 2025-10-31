@@ -48,62 +48,48 @@ function closeDialog() {
     </template>
     <template #content>
       <div v-if="rom" class="d-flex justify-center ga-4 flex-md-wrap py-6 px-2">
-        <v-hover
+        <v-card
           v-for="state in rom.user_states"
           v-if="rom.user_states.length > 0"
           :key="state.id"
-          v-slot="{ isHovering, props }"
+          class="bg-toplayer transform-scale"
+          width="200px"
+          @click="onCardClick(state)"
         >
-          <v-card
-            v-bind="props"
-            class="bg-toplayer transform-scale"
-            :class="{
-              'on-hover': isHovering,
-            }"
-            :elevation="isHovering ? 20 : 3"
-            width="200px"
-            @click="onCardClick(state)"
+          <v-card-text
+            class="d-flex flex-column justify-end h-100"
+            style="padding: 1.5rem"
           >
-            <v-card-text
-              class="d-flex flex-column justify-end h-100"
-              style="padding: 1.5rem"
+            <v-row>
+              <v-img
+                cover
+                height="100%"
+                min-height="75px"
+                :src="
+                  state.screenshot?.download_path ??
+                  getEmptyCoverImage(state.file_name)
+                "
+              />
+            </v-row>
+            <v-row class="mt-6 flex-grow-0">
+              {{ state.file_name }}
+            </v-row>
+            <v-row
+              class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
+              style="min-height: 20px"
             >
-              <v-row>
-                <v-img
-                  cover
-                  height="100%"
-                  min-height="75px"
-                  :src="
-                    state.screenshot?.download_path ??
-                    getEmptyCoverImage(state.file_name)
-                  "
-                />
-              </v-row>
-              <v-row class="mt-6 flex-grow-0">
-                {{ state.file_name }}
-              </v-row>
-              <v-row
-                class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
-                style="min-height: 20px"
-              >
-                <v-chip
-                  v-if="state.emulator"
-                  size="x-small"
-                  color="orange"
-                  label
-                >
-                  {{ state.emulator }}
-                </v-chip>
-                <v-chip size="x-small" label>
-                  {{ formatBytes(state.file_size_bytes) }}
-                </v-chip>
-                <v-chip size="x-small" label>
-                  Updated: {{ formatTimestamp(state.updated_at) }}
-                </v-chip>
-              </v-row>
-            </v-card-text>
-          </v-card>
-        </v-hover>
+              <v-chip v-if="state.emulator" size="x-small" color="orange" label>
+                {{ state.emulator }}
+              </v-chip>
+              <v-chip size="x-small" label>
+                {{ formatBytes(state.file_size_bytes) }}
+              </v-chip>
+              <v-chip size="x-small" label>
+                Updated: {{ formatTimestamp(state.updated_at) }}
+              </v-chip>
+            </v-row>
+          </v-card-text>
+        </v-card>
         <div v-else>
           <v-col class="text-center mt-6">
             <v-icon size="x-large"> mdi-help-rhombus-outline </v-icon>
