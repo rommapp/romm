@@ -56,8 +56,7 @@ export type BoxartStyleOption =
   | "cover_path"
   | "box3d_path"
   | "physical_path"
-  | "miximage_path"
-  | "marquee_path";
+  | "miximage_path";
 const boxartStyleRef = useLocalStorage<BoxartStyleOption>(
   "settings.boxartStyle",
   "cover_path",
@@ -198,7 +197,6 @@ const boxartStyleOptions = computed(() => [
   { title: t("settings.boxart-box3d"), value: "box3d_path" },
   { title: t("settings.boxart-physical"), value: "physical_path" },
   { title: t("settings.boxart-miximage"), value: "miximage_path" },
-  { title: t("settings.boxart-marquee"), value: "marquee_path" },
 ]);
 
 const setPlatformDrawerGroupBy = (value: string) => {
