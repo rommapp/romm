@@ -217,7 +217,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
 
     for region in get_preferred_regions():
         for media in game.get("medias", []):
-            if not media.get("region", "unk") == region or media.get("parent") != "jeu":
+            if media.get("region", "unk") != region or media.get("parent") != "jeu":
                 continue
 
             if media.get("type") == "box-2D-back" and not ss_media["box2d_back_url"]:
