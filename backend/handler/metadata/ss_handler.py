@@ -537,13 +537,16 @@ class SSHandler(MetadataHandler):
             if file.file_size_bytes > 0
             and file.is_top_level
             and (
-                file.file_extension
+                UPS(rom.platform_slug)
+                not in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
+                or file.file_extension
                 in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[UPS(rom.platform_slug)]
-                if UPS(rom.platform_slug) in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
-                else True
             )
         ]
 
+        # Select the largest file by size, as it is most likely to be the main ROM file.
+        # This increases the accuracy of metadata lookups, since the largest file is
+        # expected to have the correct and complete hash values for external services.
         first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
         if first_file is None:
             return SSRom(ss_id=None)
