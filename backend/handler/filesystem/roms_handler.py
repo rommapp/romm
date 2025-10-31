@@ -259,7 +259,7 @@ class FSRomsHandler(FSHandler):
         return [f for f in roms if f not in filtered_files]
 
     def _build_rom_file(
-        self, rom_path: Path, file_name: str, file_hash: FileHash
+        self, rom: Rom, rom_path: Path, file_name: str, file_hash: FileHash
     ) -> RomFile:
         # Absolute path to roms
         abs_file_path = Path(self.base_path, rom_path, file_name)
@@ -275,6 +275,8 @@ class FSRomsHandler(FSHandler):
         )
 
         return RomFile(
+            rom=rom,
+            rom_id=rom.id,
             file_name=file_name,
             file_path=str(rom_path),
             file_size_bytes=os.stat(abs_file_path).st_size,
@@ -380,9 +382,10 @@ class FSRomsHandler(FSHandler):
 
                 rom_files.append(
                     self._build_rom_file(
-                        f_path.relative_to(self.base_path),
-                        file_name,
-                        file_hash,
+                        rom=rom,
+                        rom_path=f_path.relative_to(self.base_path),
+                        file_name=file_name,
+                        file_hash=file_hash,
                     )
                 )
         elif hashable_platform:
@@ -417,7 +420,12 @@ class FSRomsHandler(FSHandler):
                 ),
             )
             rom_files.append(
-                self._build_rom_file(Path(rel_roms_path), rom.fs_name, file_hash)
+                self._build_rom_file(
+                    rom=rom,
+                    rom_path=Path(rel_roms_path),
+                    file_name=rom.fs_name,
+                    file_hash=file_hash,
+                )
             )
         else:
             file_hash = FileHash(
@@ -426,7 +434,12 @@ class FSRomsHandler(FSHandler):
                 sha1_hash="",
             )
             rom_files.append(
-                self._build_rom_file(Path(rel_roms_path), rom.fs_name, file_hash)
+                self._build_rom_file(
+                    rom=rom,
+                    rom_path=Path(rel_roms_path),
+                    file_name=rom.fs_name,
+                    file_hash=file_hash,
+                )
             )
 
         return (

@@ -53,7 +53,7 @@ class HasheousRom(BaseRom):
     hasheous_metadata: NotRequired[HasheousMetadata]
 
 
-ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {"dc": ["cue"]}
+ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {UPS.DC: ["cue", "bin"]}
 
 
 def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
@@ -238,13 +238,12 @@ class HasheousHandler(MetadataHandler):
         filtered_files = [
             file
             for file in files
-            if file.file_size_bytes is not None
-            and file.file_size_bytes > 0
+            if file.file_size_bytes > 0
             and file.is_top_level
             and (
                 file.file_extension
-                in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[platform_slug]
-                if platform_slug in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
+                in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[UPS(platform_slug)]
+                if UPS(platform_slug) in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
                 else True
             )
         ]
