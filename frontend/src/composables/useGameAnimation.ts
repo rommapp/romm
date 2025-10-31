@@ -3,7 +3,7 @@
  * It will spin CD based games on hover and load cartridge based games on play.
  */
 import { useLocalStorage } from "@vueuse/core";
-import { computed, nextTick, ref, watch, type Ref, type ShallowRef } from "vue";
+import { computed, ref, watch, type Ref, type ShallowRef } from "vue";
 import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
 import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import storeRoms from "@/stores/roms";
@@ -200,15 +200,16 @@ export function useGameAnimation({
 
     // Start video after 1.5 seconds if video path exists
     hoverTimeout = window.setTimeout(async () => {
-      isVideoPlaying.value = true;
-      // Wait for next tick to ensure video element is rendered
-      await nextTick();
       if (videoRef?.value) {
         videoRef.value.load();
-        videoRef.value.play().catch(() => {
-          // Handle play() promise rejection
-          isVideoPlaying.value = false;
-        });
+        videoRef.value
+          .play()
+          .then(() => {
+            isVideoPlaying.value = true;
+          })
+          .catch(() => {
+            isVideoPlaying.value = false;
+          });
       }
     }, 1500);
   };

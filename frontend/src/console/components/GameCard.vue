@@ -14,7 +14,6 @@ import {
 } from "@/console/composables/useElementRegistry";
 import storeCollections from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 import {
@@ -33,7 +32,6 @@ const props = defineProps<{
 }>();
 
 const heartbeatStore = storeHeartbeat();
-const romsStore = storeRoms();
 const gameCardRef = useTemplateRef<HTMLButtonElement>("game-card-ref");
 const coverRef = useTemplateRef("game-image-ref");
 const videoRef = useTemplateRef<HTMLVideoElement>("hover-video-ref");
@@ -174,25 +172,27 @@ onBeforeUnmount(() => {
         </template>
       </v-img>
       <div
-        class="hover-video-container position-absolute opacity-0"
+        v-if="localVideoPath"
+        class="hover-video-container absolute top-0 opacity-0 h-full flex items-center justify-center"
         :class="{
-          'opacity-100 transitioning': isVideoPlaying && localVideoPath,
+          'opacity-100 transitioning': isVideoPlaying,
         }"
       >
-        <video
-          ref="hover-video-ref"
-          :src="`${FRONTEND_RESOURCES_PATH}/${localVideoPath}`"
-          class="hover-video"
-          loop
-          :autoplay="isVideoPlaying"
-          playsinline
-          preload="none"
-        />
-        <img
-          src="/assets/default/miximage.png"
-          style="z-index: 1"
-          class="position-absolute top-0"
-        />
+        <div class="relative max-h-full" style="margin-top: -40px">
+          <video
+            ref="hover-video-ref"
+            :src="`${FRONTEND_RESOURCES_PATH}/${localVideoPath}`"
+            class="hover-video absolute"
+            loop
+            playsinline
+            preload="none"
+          />
+          <img
+            src="/assets/default/miximage.png"
+            style="z-index: 1"
+            class="relative"
+          />
+        </div>
       </div>
       <!-- Selected highlight radial glow -->
       <div
@@ -276,7 +276,6 @@ onBeforeUnmount(() => {
 }
 
 .hover-video {
-  position: relative;
   margin-top: 6%;
   left: 2%;
   width: 96%;
