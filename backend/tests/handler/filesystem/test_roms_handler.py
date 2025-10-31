@@ -220,10 +220,10 @@ class TestFSRomsHandler:
             result = handler.exclude_multi_roms(roms)
             assert result == roms
 
-    def test_build_rom_file_single_file(self, handler: FSRomsHandler):
+    def test_build_rom_file_single_file(self, rom_single: Rom, handler: FSRomsHandler):
         """Test _build_rom_file with actual single ROM file"""
-        rom_path = Path("n64/roms")
-        file_name = "Paper Mario (USA).z64"
+        rom_path = Path(rom_single.fs_path)
+        file_name = rom_single.fs_name
         file_hash = FileHash(
             {
                 "crc_hash": "ABCD1234",
@@ -232,7 +232,7 @@ class TestFSRomsHandler:
             }
         )
 
-        rom_file = handler._build_rom_file(rom_path, file_name, file_hash)
+        rom_file = handler._build_rom_file(rom_single, rom_path, file_name, file_hash)
 
         assert isinstance(rom_file, RomFile)
         assert rom_file.file_name == file_name
@@ -244,10 +244,10 @@ class TestFSRomsHandler:
         assert rom_file.last_modified is not None
         assert rom_file.category is None  # No category matching for this path
 
-    def test_build_rom_file_with_category(self, handler: FSRomsHandler):
+    def test_build_rom_file_with_category(self, rom_multi: Rom, handler: FSRomsHandler):
         """Test _build_rom_file with category detection"""
         # Test with DLC category
-        rom_path = Path("n64/roms/dlc")
+        rom_path = Path(rom_multi.fs_path, "dlc")
         file_name = "test_dlc.n64"
         file_hash = FileHash(
             {
@@ -263,7 +263,9 @@ class TestFSRomsHandler:
         test_file.write_text("Test DLC content")
 
         try:
-            rom_file = handler._build_rom_file(rom_path, file_name, file_hash)
+            rom_file = handler._build_rom_file(
+                rom_multi, rom_path, file_name, file_hash
+            )
 
             assert rom_file.category == RomFileCategory.DLC
             assert rom_file.file_name == file_name

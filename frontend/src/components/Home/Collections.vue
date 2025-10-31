@@ -35,7 +35,7 @@ const { y: documentY } = useScroll(document.body, { throttle: 100 });
 // Watch for scroll changes and trigger the throttled function
 watch(documentY, () => {
   if (
-    documentY.value >= document.body.offsetHeight - 120 &&
+    documentY.value + window.innerHeight >= document.body.scrollHeight - 300 &&
     visibleCollections.value < props.collections.length
   ) {
     visibleCollections.value += 72;
