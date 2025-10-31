@@ -556,18 +556,21 @@ async def scan_rom(
                 )
             )
         ):
-            hash_lookup = await meta_ss_handler.lookup_rom(
-                rom, rom_attrs, platform.ss_id
-            )
-            if hash_lookup.get("ss_id"):
-                return hash_lookup
-
+            # Use the ID to refetch metadata
             if scan_type == ScanType.UPDATE and rom.ss_id:
                 return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
-            else:
-                return await meta_ss_handler.get_rom(
-                    rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
-                )
+
+            # Use the file hashes for lookup
+            game_by_hash = await meta_ss_handler.lookup_rom(
+                rom, platform.ss_id, fs_rom["files"]
+            )
+            if game_by_hash.get("ss_id"):
+                return game_by_hash
+
+            # Fallback to the filename
+            return await meta_ss_handler.get_rom(
+                rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id
+            )
 
         return SSRom(ss_id=None)
 

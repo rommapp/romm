@@ -121,11 +121,7 @@ class PlaymatchHandler(MetadataHandler):
             return PlaymatchRomMatch(igdb_id=None)
 
         first_file = next(
-            (
-                file
-                for file in files
-                if file.file_size_bytes is not None and file.file_size_bytes > 0
-            ),
+            (file for file in files if file.file_size_bytes > 0),
             None,
         )
         if first_file is None:

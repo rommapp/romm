@@ -117,6 +117,9 @@ class RomFile(BaseModel):
             f"{self.rom.full_path}/", ".hidden/" if hidden_folder else ""
         )
 
+    def __repr__(self) -> str:
+        return f"{self.file_name} ({self.id} -> {self.rom_id})"
+
 
 class RomMetadata(BaseModel):
     __tablename__ = "roms_metadata"
@@ -407,7 +410,7 @@ class Rom(BaseModel):
         self._is_identifying = value
 
     def __repr__(self) -> str:
-        return self.fs_name
+        return f"{self.fs_name} ({self.id})"
 
 
 class RomUserStatus(enum.StrEnum):

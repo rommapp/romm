@@ -270,10 +270,6 @@ async def _identify_rom(
             )
         )
 
-    # Silly checks to make the type checker happy
-    if not rom:
-        return
-
     # Build rom files object before scanning
     should_update_files = _should_get_rom_files(
         scan_type=scan_type, rom=rom, newly_added=newly_added, roms_ids=roms_ids
