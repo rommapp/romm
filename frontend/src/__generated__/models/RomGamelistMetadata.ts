@@ -19,6 +19,7 @@ export type RomGamelistMetadata = {
     box3d_path?: (string | null);
     miximage_path?: (string | null);
     physical_path?: (string | null);
+    marquee_path?: (string | null);
     video_path?: (string | null);
     rating?: (number | null);
     first_release_date?: (string | null);

@@ -36,10 +36,6 @@ const {
 } = storeToRefs(romsStore);
 const noPlatformError = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-const isHovering = ref(false);
-const hoveringRomId = ref<number>();
-const openedMenu = ref(false);
-const openedMenuRomId = ref<number>();
 const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 let timeout: ReturnType<typeof setTimeout>;
 
@@ -72,21 +68,6 @@ async function fetchRoms() {
         scrim: false,
       });
     });
-}
-
-function onHover(emitData: { isHovering: boolean; id: number }) {
-  isHovering.value = emitData.isHovering;
-  hoveringRomId.value = emitData.id;
-}
-
-function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
-  openedMenu.value = emitData.openedMenu;
-  openedMenuRomId.value = emitData.id;
-}
-
-function onClosedMenu() {
-  openedMenu.value = false;
-  openedMenuRomId.value = undefined;
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -252,13 +233,6 @@ onBeforeRouteUpdate(async (to, from) => {
             :md="views[currentView]['size-md']"
             :lg="views[currentView]['size-lg']"
             :xl="views[currentView]['size-xl']"
-            :style="{
-              zIndex:
-                (isHovering && hoveringRomId === rom.id) ||
-                (openedMenu && openedMenuRomId === rom.id)
-                  ? 1000
-                  : 1,
-            }"
           >
             <GameCard
               :key="rom.id"
@@ -278,10 +252,6 @@ onBeforeRouteUpdate(async (to, from) => {
               @click="onGameClick"
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"
-              @hover="onHover"
-              @focus="onHover"
-              @openedmenu="onOpenedMenu"
-              @closedmenu="onClosedMenu"
             />
           </v-col>
         </v-row>

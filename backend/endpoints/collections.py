@@ -5,7 +5,6 @@ from typing import Annotated
 from fastapi import Path as PathVar
 from fastapi import Request, UploadFile, status
 
-from config import str_to_bool
 from decorators.auth import protected_route
 from endpoints.responses.collection import (
     CollectionSchema,
@@ -36,6 +35,8 @@ router = APIRouter(
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
 async def add_collection(
     request: Request,
+    is_public: bool | None = None,
+    is_favorite: bool | None = None,
     artwork: UploadFile | None = None,
 ) -> CollectionSchema:
     """Create collection endpoint
@@ -52,8 +53,8 @@ async def add_collection(
         "name": data.get("name", ""),
         "description": data.get("description", ""),
         "url_cover": data.get("url_cover", ""),
-        "is_public": data.get("is_public", False),
-        "is_favorite": data.get("is_favorite", False),
+        "is_public": is_public or False,
+        "is_favorite": is_favorite or False,
         "user_id": request.user.id,
     }
     db_collection = db_collection_handler.get_collection_by_name(
@@ -97,7 +98,9 @@ async def add_collection(
 
 
 @protected_route(router.post, "/smart", [Scope.COLLECTIONS_WRITE])
-async def add_smart_collection(request: Request) -> SmartCollectionSchema:
+async def add_smart_collection(
+    request: Request, is_public: bool | None = None
+) -> SmartCollectionSchema:
     """Create smart collection endpoint
 
     Args:
@@ -119,7 +122,7 @@ async def add_smart_collection(request: Request) -> SmartCollectionSchema:
         "name": str(data.get("name", "")),
         "description": str(data.get("description", "")),
         "filter_criteria": filter_criteria,
-        "is_public": str_to_bool(str(data.get("is_public", "false"))),
+        "is_public": is_public if is_public is not None else False,
         "user_id": request.user.id,
     }
 

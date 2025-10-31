@@ -44,6 +44,7 @@ class GamelistMetadataMedia(TypedDict):
     box3d_path: str | None
     miximage_path: str | None
     physical_path: str | None
+    marquee_path: str | None
     video_path: str | None
 
 
@@ -85,6 +86,7 @@ def extract_media_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetadata
         box3d_path=None,
         miximage_path=None,
         physical_path=None,
+        marquee_path=None,
         video_path=None,
     )
 
@@ -142,6 +144,11 @@ def extract_media_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetadata
             f"{platform_dir}/{marquee_elem.text.replace("./", "")}"
         )
         gamelist_media["marquee_url"] = f"file://{str(marquee_path_path)}"
+
+        if MetadataMediaType.MARQUEE in preferred_media_types:
+            gamelist_media["marquee_path"] = (
+                f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MARQUEE)}/marquee.png"
+            )
     if miximage_elem is not None and miximage_elem.text:
         miximage_path_path = fs_platform_handler.validate_path(
             f"{platform_dir}/{miximage_elem.text.replace("./", "")}"

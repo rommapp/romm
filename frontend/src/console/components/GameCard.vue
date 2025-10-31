@@ -33,16 +33,24 @@ const props = defineProps<{
 
 const heartbeatStore = storeHeartbeat();
 const gameCardRef = useTemplateRef<HTMLButtonElement>("game-card-ref");
-const vImgRef = useTemplateRef("game-image-ref");
+const coverRef = useTemplateRef("game-image-ref");
+const videoRef = useTemplateRef<HTMLVideoElement>("hover-video-ref");
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
 );
 
-const { boxartStyleCover, animateCDSpin, stopCDAnimation } = useGameAnimation({
+const {
+  boxartStyleCover,
+  localVideoPath,
+  isVideoPlaying,
+  stopCDAnimation,
+  stopVideo,
+} = useGameAnimation({
   rom: props.rom,
-  accelerate: computed(() => props.selected),
-  vImgRef: vImgRef,
+  isHovering: computed(() => props.selected),
+  coverRef: coverRef,
+  videoRef: videoRef,
 });
 
 const largeCover = computed(() => {
@@ -88,10 +96,11 @@ const isFavorited = computed(() => {
 watch(
   () => props.selected,
   (isSelected) => {
-    if (isSelected && largeCover.value) {
-      emit("select", largeCover.value);
-      animateCDSpin();
-    } else if (isSelected) {
+    if (isSelected) {
+      if (largeCover.value) {
+        emit("select", largeCover.value);
+      }
+    } else {
       emit("deselect");
     }
   },
@@ -113,6 +122,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   stopCDAnimation();
+  stopVideo();
 });
 </script>
 
@@ -136,6 +146,10 @@ onBeforeUnmount(() => {
         class="w-full h-full"
         :cover="!boxartStyleCover"
         :contain="boxartStyleCover"
+        :class="{
+          'opacity-0': isVideoPlaying && localVideoPath,
+          transitioning: !isVideoPlaying && localVideoPath,
+        }"
         :src="largeCover || fallbackCoverImage"
         :alt="rom.name || 'Game'"
         @load="emit('loaded')"
@@ -157,6 +171,29 @@ onBeforeUnmount(() => {
           <v-img cover eager :src="fallbackCoverImage" />
         </template>
       </v-img>
+      <div
+        v-if="localVideoPath"
+        class="hover-video-container absolute top-0 opacity-0 h-full flex items-center justify-center"
+        :class="{
+          'opacity-100 transitioning': isVideoPlaying,
+        }"
+      >
+        <div class="relative max-h-full" style="margin-top: -40px">
+          <video
+            ref="hover-video-ref"
+            :src="`${FRONTEND_RESOURCES_PATH}/${localVideoPath}`"
+            class="hover-video absolute"
+            loop
+            playsinline
+            preload="none"
+          />
+          <img
+            src="/assets/default/miximage.png"
+            style="z-index: 1"
+            class="relative"
+          />
+        </div>
+      </div>
       <!-- Selected highlight radial glow -->
       <div
         class="absolute inset-0 opacity-0 pointer-events-none"
@@ -221,5 +258,28 @@ onBeforeUnmount(() => {
   100% {
     background-position: -200% 0;
   }
+}
+
+.v-img {
+  transition: opacity 0.25s ease;
+}
+
+.hover-video-container {
+  top: 15%;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.v-img.transitioning,
+.hover-video-container.transitioning {
+  transition-delay: 0.1s;
+}
+
+.hover-video {
+  margin-top: 6%;
+  left: 2%;
+  width: 96%;
+  object-fit: contain;
+  pointer-events: none;
 }
 </style>
