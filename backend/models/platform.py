@@ -87,4 +87,4 @@ class Platform(BaseModel):
         return not self.is_unidentified
 
     def __repr__(self) -> str:
-        return self.name
+        return f"{self.name} ({self.slug}) ({self.id})"
