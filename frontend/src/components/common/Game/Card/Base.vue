@@ -76,6 +76,7 @@ const { smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const romsStore = storeRoms();
 const activeMenu = ref(false);
+const gameIsHovering = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const emit = defineEmits([
   "hover",
@@ -155,7 +156,6 @@ const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 const coverRef = useTemplateRef("game-image-ref");
 const videoRef = useTemplateRef<HTMLVideoElement>("hover-video-ref");
 
-const gameIsHovering = ref(false);
 const {
   boxartStyle,
   boxartStyleCover,
@@ -293,8 +293,8 @@ onBeforeUnmount(() => {
             content-class="d-flex flex-column justify-space-between"
             :class="{
               pointer: pointerOnHover,
-              'opacity-0': isVideoPlaying && localVideoPath,
-              transitioning: !isVideoPlaying && localVideoPath,
+              'opacity-0': isVideoPlaying,
+              transitioning: !isVideoPlaying,
             }"
             :src="largeCover || fallbackCoverImage"
             :aspect-ratio="computedAspectRatio"
@@ -452,16 +452,17 @@ onBeforeUnmount(() => {
             </template>
           </v-img>
           <div
+            v-if="localVideoPath"
             class="hover-video-container position-absolute top-0 opacity-0 h-full d-flex align-center justify-center"
             :class="{
-              'opacity-100 transitioning': isVideoPlaying && localVideoPath,
+              'opacity-100 transitioning': isVideoPlaying,
             }"
           >
             <div class="position-relative max-h-full" style="margin-top: -40px">
               <video
                 ref="hover-video-ref"
                 :src="`${FRONTEND_RESOURCES_PATH}/${localVideoPath}`"
-                class="hover-video"
+                class="hover-video position-absolute"
                 loop
                 playsinline
                 preload="none"
@@ -529,7 +530,6 @@ onBeforeUnmount(() => {
 }
 
 .hover-video {
-  position: absolute;
   top: 3%;
   left: 2%;
   width: 96%;
