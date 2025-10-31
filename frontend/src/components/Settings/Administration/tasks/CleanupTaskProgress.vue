@@ -56,12 +56,12 @@ const cleanupProgress = computed(() => {
     <div class="grid grid-cols-3 gap-4">
       <v-card
         variant="tonal"
-        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-primary stat-card--error"
+        class="d-flex align-center ga-3 px-2 py-1 border-l-4 border-primary stat-card--primary"
       >
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-error-lighten-1">
+          <v-avatar size="24" class="bg-primary-lighten-1">
             <v-icon icon="mdi-folder" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
