@@ -2,6 +2,7 @@
 import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RomFileSchema } from "@/__generated__";
+import FileSelectItem from "@/components/Details/Info/FileSelectItem.vue";
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import romApi from "@/services/api/rom";
@@ -16,6 +17,7 @@ const downloadStore = storeDownload();
 const auth = storeAuth();
 const romUser = ref(props.rom.rom_user);
 const romInfo = ref([
+  { label: "Size", value: formatBytes(props.rom.fs_size_bytes) },
   { label: "SHA-1", value: props.rom.sha1_hash },
   { label: "MD5", value: props.rom.md5_hash },
   { label: "CRC", value: props.rom.crc_hash },
@@ -98,17 +100,7 @@ watch(
                       />
                     </template>
                     <v-list-item-subtitle class="mt-1">
-                      <v-chip
-                        v-if="item.raw.category"
-                        color="primary"
-                        size="x-small"
-                        class="mr-1"
-                      >
-                        {{ item.raw.category.toLocaleUpperCase() }}
-                      </v-chip>
-                      <v-chip size="x-small">
-                        {{ formatBytes(item.raw.file_size_bytes) }}
-                      </v-chip>
+                      <FileSelectItem :item="item.raw" />
                     </v-list-item-subtitle>
                   </v-list-item>
                 </template>
@@ -123,12 +115,6 @@ watch(
         </v-col>
         <v-col class="my-1">
           <v-row no-gutters>
-            <v-col cols="12">
-              <v-chip size="small" class="mr-2 px-0" label>
-                <v-chip label> {{ t("rom.size") }} </v-chip
-                ><span class="px-2">{{ formatBytes(rom.fs_size_bytes) }}</span>
-              </v-chip>
-            </v-col>
             <v-col v-for="info in romInfo" :key="info.label" cols="12">
               <v-chip
                 v-if="info.value"
@@ -136,8 +122,8 @@ watch(
                 class="mt-1 mr-2 px-0"
                 label
               >
-                <v-chip label> {{ info.label }} </v-chip
-                ><span class="px-2">{{ info.value }}</span>
+                <v-chip label> {{ info.label }} </v-chip>
+                <span class="px-2">{{ info.value }}</span>
               </v-chip>
             </v-col>
           </v-row>
