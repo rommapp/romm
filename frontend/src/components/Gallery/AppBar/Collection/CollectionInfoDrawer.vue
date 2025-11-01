@@ -199,8 +199,7 @@ async function updateCollection() {
                   class="translucent"
                   @click="
                     emitter?.emit('showSearchCoverDialog', {
-                      term: currentCollection.name as string,
-                      aspectRatio: null,
+                      term: currentCollection.name,
                     })
                   "
                 >

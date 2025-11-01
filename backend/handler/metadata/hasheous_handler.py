@@ -31,6 +31,7 @@ class HasheousMetadata(TypedDict):
     whdload_match: bool
     ra_match: bool
     fbneo_match: bool
+    puredos_match: bool
 
 
 class HasheousPlatform(TypedDict):
@@ -330,6 +331,7 @@ class HasheousHandler(MetadataHandler):
                 whdload_match="WHDLoad" in signatures,
                 ra_match="RetroAchievements" in signatures,
                 fbneo_match="FBNeo" in signatures,
+                puredos_match="PureDOS" in signatures,
             ),
         )
 

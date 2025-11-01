@@ -11,7 +11,6 @@ import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
-import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage } from "@/utils/covers";
@@ -34,7 +33,6 @@ const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
 const galleryViewStore = storeGalleryView();
-const platfotmsStore = storePlatforms();
 const searching = ref(false);
 const route = useRoute();
 const searchText = ref("");
@@ -54,11 +52,12 @@ const isMobyFiltered = ref(true);
 const isSSFiltered = ref(true);
 const isFlashpointFiltered = ref(true);
 const isLaunchboxFiltered = ref(true);
+
 const computedAspectRatio = computed(() => {
-  const ratio =
-    platfotmsStore.getAspectRatio(rom.value?.platform_id ?? -1) ||
-    galleryViewStore.defaultAspectRatioCover;
-  return parseFloat(ratio.toString());
+  return galleryViewStore.getAspectRatio({
+    platformId: rom.value?.platform_id,
+    boxartStyle: "cover_path",
+  });
 });
 
 const handleShowMatchRomDialog = (romToSearch: SimpleRom) => {
@@ -537,6 +536,7 @@ onBeforeUnmount(() => {
             title-on-hover
             pointer-on-hover
             disable-view-transition
+            force-boxart="cover_path"
             @click="showSources(matchedRom)"
           />
         </v-col>
@@ -593,10 +593,7 @@ onBeforeUnmount(() => {
                     cover
                   >
                     <template #placeholder>
-                      <Skeleton
-                        :aspect-ratio="computedAspectRatio"
-                        type="image"
-                      />
+                      <Skeleton type="image" />
                     </template>
                     <v-row no-gutters class="text-white pa-1">
                       <v-avatar class="mr-1" size="30" rounded="1">
