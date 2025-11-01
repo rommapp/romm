@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import VanillaTilt from "vanilla-tilt";
 import {
   computed,
@@ -43,8 +44,12 @@ const props = withDefaults(
 );
 
 const { smAndDown } = useDisplay();
-const galleryViewStore = storeGalleryView();
 const heartbeatStore = storeHeartbeat();
+const galleryViewStore = storeGalleryView();
+
+const computedAspectRatio = computed(() =>
+  galleryViewStore.getAspectRatio({ boxartStyle: "cover_path" }),
+);
 
 const memoizedCovers = ref({
   large: ["", ""],
@@ -211,9 +216,7 @@ onBeforeUnmount(() => {
       </v-row>
       <div
         class="image-container"
-        :style="{
-          aspectRatio: galleryViewStore.defaultAspectRatioCollection,
-        }"
+        :style="{ aspectRatio: computedAspectRatio }"
       >
         <template
           v-if="
@@ -226,18 +229,16 @@ onBeforeUnmount(() => {
             <v-img
               cover
               :src="firstLargeCover"
-              :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+              :aspect-ratio="computedAspectRatio"
             >
               <template #placeholder>
                 <v-img
                   :src="firstSmallCover"
-                  :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+                  :aspect-ratio="computedAspectRatio"
                 >
                   <template #placeholder>
                     <Skeleton
-                      :aspect-ratio="
-                        galleryViewStore.defaultAspectRatioCollection
-                      "
+                      :aspect-ratio="computedAspectRatio"
                       type="image"
                     />
                   </template>
@@ -246,7 +247,7 @@ onBeforeUnmount(() => {
               <template #error>
                 <v-img
                   :src="collectionCoverImage"
-                  :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+                  :aspect-ratio="computedAspectRatio"
                 />
               </template>
             </v-img>
@@ -255,18 +256,16 @@ onBeforeUnmount(() => {
             <v-img
               cover
               :src="secondLargeCover"
-              :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+              :aspect-ratio="computedAspectRatio"
             >
               <template #placeholder>
                 <v-img
                   :src="secondSmallCover"
-                  :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+                  :aspect-ratio="computedAspectRatio"
                 >
                   <template #placeholder>
                     <Skeleton
-                      :aspect-ratio="
-                        galleryViewStore.defaultAspectRatioCollection
-                      "
+                      :aspect-ratio="computedAspectRatio"
                       type="image"
                     />
                   </template>
@@ -275,7 +274,7 @@ onBeforeUnmount(() => {
               <template #error>
                 <v-img
                   :src="collectionCoverImage"
-                  :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+                  :aspect-ratio="computedAspectRatio"
                 />
               </template>
             </v-img>
@@ -285,27 +284,19 @@ onBeforeUnmount(() => {
           <v-img
             cover
             :src="firstLargeCover"
-            :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+            :aspect-ratio="computedAspectRatio"
           >
             <template #placeholder>
-              <v-img
-                :src="firstSmallCover"
-                :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-              >
+              <v-img :src="firstSmallCover" :aspect-ratio="computedAspectRatio">
                 <template #placeholder>
-                  <Skeleton
-                    :aspect-ratio="
-                      galleryViewStore.defaultAspectRatioCollection
-                    "
-                    type="image"
-                  />
+                  <Skeleton :aspect-ratio="computedAspectRatio" type="image" />
                 </template>
               </v-img>
             </template>
             <template #error>
               <v-img
                 :src="collectionCoverImage"
-                :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+                :aspect-ratio="computedAspectRatio"
               />
             </template>
           </v-img>

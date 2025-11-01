@@ -180,8 +180,7 @@ function closeDialog() {
                       class="translucent"
                       @click="
                         emitter?.emit('showSearchCoverDialog', {
-                          term: collection.name as string,
-                          aspectRatio: null,
+                          term: collection.name,
                         })
                       "
                     >

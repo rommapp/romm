@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useDisplay } from "vuetify";
 import storeGalleryView from "@/stores/galleryView";
-import storePlatforms from "@/stores/platforms";
 
 const props = withDefaults(
   defineProps<{
     platformId?: number;
-    aspectRatio?: string | number;
+    aspectRatio?: number;
     type?: string;
   }>(),
   {
@@ -17,16 +15,11 @@ const props = withDefaults(
   },
 );
 
-const { smAndDown } = useDisplay();
-const platformsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
 
 const computedAspectRatio = computed(() => {
-  const ratio =
-    props.aspectRatio ||
-    platformsStore.getAspectRatio(props.platformId || 0) ||
-    galleryViewStore.defaultAspectRatioCover;
-  return parseFloat(ratio.toString());
+  if (props.aspectRatio) return props.aspectRatio;
+  return galleryViewStore.getAspectRatio({ platformId: props.platformId });
 });
 
 const computedType = computed(() => {
