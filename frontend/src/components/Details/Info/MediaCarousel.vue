@@ -26,21 +26,15 @@ const localVideoPath = computed(() => {
 });
 const screenshots = computed(() => props.rom.merged_screenshots);
 const mediaPaths = computed(() => {
+  const ss = props.rom.ss_metadata;
+  const gamelist = props.rom.gamelist_metadata;
   return {
-    box3d_path:
-      props.rom.ss_metadata?.box3d_path ||
-      props.rom.gamelist_metadata?.box3d_path,
-    physical_path:
-      props.rom.ss_metadata?.physical_path ||
-      props.rom.gamelist_metadata?.physical_path,
-    miximage_path:
-      props.rom.ss_metadata?.miximage_path ||
-      props.rom.gamelist_metadata?.miximage_path,
-    marquee_path:
-      props.rom.ss_metadata?.marquee_path ||
-      props.rom.gamelist_metadata?.marquee_path,
-    logo_path: props.rom.ss_metadata?.logo_path,
-    bezel_path: props.rom.ss_metadata?.bezel_path,
+    box3d_path: ss?.box3d_path || gamelist?.box3d_path,
+    physical_path: ss?.physical_path || gamelist?.physical_path,
+    miximage_path: ss?.miximage_path || gamelist?.miximage_path,
+    marquee_path: ss?.marquee_path || gamelist?.marquee_path,
+    logo_path: ss?.logo_path,
+    bezel_path: ss?.bezel_path,
   };
 });
 

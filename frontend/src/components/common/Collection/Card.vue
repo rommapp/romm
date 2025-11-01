@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { storeToRefs } from "pinia";
 import VanillaTilt from "vanilla-tilt";
 import {
   computed,

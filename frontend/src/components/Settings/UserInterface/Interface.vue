@@ -139,6 +139,30 @@ const galleryOptions = computed(() => [
     modelTrigger: toggleSiblings,
   },
   {
+    title: t("settings.show-game-titles"),
+    description: t("settings.show-game-titles-desc"),
+    iconEnabled: "mdi-subtitles",
+    iconDisabled: "mdi-subtitles-outline",
+    model: gameTitleRef,
+    modelTrigger: toggleShowGameTitles,
+  },
+  {
+    title: t("settings.show-actionbar"),
+    description: t("settings.show-actionbar-desc"),
+    iconEnabled: "mdi-card",
+    iconDisabled: "mdi-card-outline",
+    model: actionBarRef,
+    modelTrigger: toggleActionBar,
+  },
+  {
+    title: t("settings.show-status"),
+    description: t("settings.show-status-desc"),
+    iconEnabled: "mdi-check-circle-outline",
+    iconDisabled: "mdi-close-circle-outline",
+    model: statusRef,
+    modelTrigger: toggleStatus,
+  },
+  {
     title: t("settings.show-regions"),
     description: t("settings.show-regions-desc"),
     iconEnabled: "mdi-flag-outline",
@@ -155,22 +179,6 @@ const galleryOptions = computed(() => [
     modelTrigger: toggleLanguages,
   },
   {
-    title: t("settings.show-status"),
-    description: t("settings.show-status-desc"),
-    iconEnabled: "mdi-check-circle-outline",
-    iconDisabled: "mdi-close-circle-outline",
-    model: statusRef,
-    modelTrigger: toggleStatus,
-  },
-  {
-    title: t("settings.show-actionbar"),
-    description: t("settings.show-actionbar-desc"),
-    iconEnabled: "mdi-card",
-    iconDisabled: "mdi-card-outline",
-    model: actionBarRef,
-    modelTrigger: toggleActionBar,
-  },
-  {
     title: t("settings.enable-3d-effect"),
     description: t("settings.enable-3d-effect-desc"),
     iconEnabled: "mdi-cube",
@@ -179,12 +187,12 @@ const galleryOptions = computed(() => [
     modelTrigger: toggle3DEffect,
   },
   {
-    title: t("settings.show-game-titles"),
-    description: t("settings.show-game-titles-desc"),
-    iconEnabled: "mdi-subtitles",
-    iconDisabled: "mdi-subtitles-outline",
-    model: gameTitleRef,
-    modelTrigger: toggleShowGameTitles,
+    title: t("settings.disable-animations"),
+    description: t("settings.disable-animations-desc"),
+    iconEnabled: "mdi-motion-pause",
+    iconDisabled: "mdi-motion-play",
+    model: disableAnimationsRef,
+    modelTrigger: toggleDisableAnimations,
   },
   {
     title: t("settings.enable-experimental-cache"),
@@ -193,14 +201,6 @@ const galleryOptions = computed(() => [
     iconDisabled: "mdi-cached",
     model: enableExperimentalCacheRef,
     modelTrigger: toggleExperimentalCache,
-  },
-  {
-    title: t("settings.disable-animations"),
-    description: t("settings.disable-animations-desc"),
-    iconEnabled: "mdi-motion-pause",
-    iconDisabled: "mdi-motion-play",
-    model: disableAnimationsRef,
-    modelTrigger: toggleDisableAnimations,
   },
 ]);
 
@@ -314,7 +314,7 @@ const toggleDisableAnimations = (value: boolean) => {
         <v-col
           v-for="option in platformsDrawerOptions"
           :key="option.title"
-          cols="12"
+          cols="6"
         >
           <v-select
             v-model="platformsGroupByRef"
