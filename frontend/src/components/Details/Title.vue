@@ -52,6 +52,10 @@ const hashMatches = computed(() => {
       name: "WHDLoad",
       match: props.rom.hasheous_metadata?.whdload_match,
     },
+    {
+      name: "PureDOS",
+      match: props.rom.hasheous_metadata?.puredos_match,
+    },
   ].filter((item) => item.match);
 });
 </script>

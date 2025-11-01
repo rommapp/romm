@@ -303,6 +303,7 @@ class DBRomsHandler(DBBaseHandler):
             "whdload_match",
             "ra_match",
             "fbneo_match",
+            "puredos_match",
         ]
 
         if ROMM_DB_DRIVER == "postgresql":

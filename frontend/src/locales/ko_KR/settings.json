@@ -19,6 +19,8 @@
   "enable-3d-effect-desc": "게임/플랫폼/모음집 카드에 3D 효과를 활성화합니다",
   "enable-experimental-cache": "실험적 요청 캐시 활성화",
   "enable-experimental-cache-desc": "성능 향상을 위한 실험적 요청 캐시를 활성화합니다 (문제를 일으킬 수 있음)",
+  "disable-animations": "애니메이션 비활성화",
+  "disable-animations-desc": "갤러리의 모든 애니메이션 비활성화 (CD 회전, 카트리지 로딩, 호버 비디오)",
   "excluded": "제외됨",
   "excluded-multi-rom-files": "멀티 롬 파일",
   "excluded-multi-rom-parts-extensions": "멀티 롬 부분 확장자",

@@ -19,6 +19,8 @@
   "enable-3d-effect-desc": "Enable 3D effect for the game/platform/collection cards",
   "enable-experimental-cache": "Enable experimental request cache",
   "enable-experimental-cache-desc": "Enable experimental request caching to improve performance (may cause issues)",
+  "disable-animations": "Disable animations",
+  "disable-animations-desc": "Disable all animations in the gallery (CD spinning, cartridge loading, hover videos)",
   "excluded": "Excluded",
   "excluded-multi-rom-files": "Multi rom files",
   "excluded-multi-rom-parts-extensions": "Multi rom parts extensions",

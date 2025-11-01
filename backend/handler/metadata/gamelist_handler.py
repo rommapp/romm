@@ -366,14 +366,6 @@ class GamelistHandler(MetadataHandler):
                         f"{platform_dir}/{rom_metadata['title_screen_url']}"
                     )
                     url_screenshots.append(f"file://{str(title_screen_path)}")
-                if (
-                    rom_metadata["miximage_url"]
-                    and MetadataMediaType.MIXIMAGE in preferred_media_types
-                ):
-                    miximage_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_metadata['miximage_url']}"
-                    )
-                    url_screenshots.append(f"file://{str(miximage_path)}")
                 rom_data["url_screenshots"] = url_screenshots
 
                 # Store by filename for matching

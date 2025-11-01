@@ -7,9 +7,7 @@ import { useDisplay } from "vuetify";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
-import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
-import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
@@ -27,8 +25,6 @@ const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const manualFiles = ref<File[]>([]);
-const platfotmsStore = storePlatforms();
-const galleryViewStore = storeGalleryView();
 const uploadStore = storeUpload();
 const validForm = ref(false);
 const showConfirmDeleteManual = ref(false);
@@ -44,12 +40,6 @@ emitter?.on("updateUrlCover", (url_cover) => {
   setArtwork(url_cover);
 });
 
-const computedAspectRatio = computed(() => {
-  const ratio = rom.value?.platform_id
-    ? platfotmsStore.getAspectRatio(rom.value?.platform_id)
-    : galleryViewStore.defaultAspectRatioCover;
-  return parseFloat(ratio.toString());
-});
 const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
@@ -252,6 +242,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               disable-view-transition
               :show-platform-icon="false"
               :show-action-bar="false"
+              force-boxart="cover_path"
             >
               <template #append-inner-right>
                 <v-btn-group divided density="compact" rounded="0">
@@ -263,8 +254,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                     class="translucent"
                     @click="
                       emitter?.emit('showSearchCoverDialog', {
-                        term: rom.name as string,
-                        aspectRatio: computedAspectRatio,
+                        term: rom.name || rom.fs_name,
+                        platformId: rom.platform_id,
                       })
                     "
                   >

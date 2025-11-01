@@ -19,6 +19,8 @@
   "enable-3d-effect-desc": "為遊戲、平台及收藏卡片啟用 3D 效果",
   "enable-experimental-cache": "啟用實驗性請求快取",
   "enable-experimental-cache-desc": "啟用實驗性請求快取以提升效能（可能會引起問題）",
+  "disable-animations": "停用動畫",
+  "disable-animations-desc": "停用遊戲庫中的所有動畫（CD 旋轉、卡帶載入、懸停影片）",
   "excluded": "排除",
   "excluded-multi-rom-files": "多個 Rom 檔名",
   "excluded-multi-rom-parts-extensions": "多個 Rom 部分副檔名",

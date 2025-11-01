@@ -19,6 +19,8 @@
   "enable-3d-effect-desc": "Włącz efekt 3D dla kart gier/platform/kolekcji",
   "enable-experimental-cache": "Włącz eksperymentalne buforowanie żądań",
   "enable-experimental-cache-desc": "Włącz eksperymentalne buforowanie żądań w celu poprawy wydajności (może powodować problemy)",
+  "disable-animations": "Wyłącz animacje",
+  "disable-animations-desc": "Wyłącz wszystkie animacje w galerii (obracanie CD, ładowanie kartridży, wideo po najechaniu)",
   "excluded": "Wykluczone",
   "excluded-multi-rom-files": "Pliki multi-ROM",
   "excluded-multi-rom-parts-extensions": "Rozszerzenia części multi-ROM",

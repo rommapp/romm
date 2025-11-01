@@ -424,11 +424,6 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
                 else None
             ),
             (
-                ss_metadata["marquee_url"]
-                if MetadataMediaType.MARQUEE in preferred_media_types
-                else None
-            ),
-            (
                 ss_metadata["fanart_url"]
                 if MetadataMediaType.FANART in preferred_media_types
                 else None
