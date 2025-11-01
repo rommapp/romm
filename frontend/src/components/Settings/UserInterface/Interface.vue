@@ -50,6 +50,10 @@ const enableExperimentalCacheRef = useLocalStorage(
   "settings.enableExperimentalCache",
   false,
 );
+const disableAnimationsRef = useLocalStorage(
+  "settings.disableAnimations",
+  false,
+);
 
 // Boxart
 export type BoxartStyleOption =
@@ -190,6 +194,14 @@ const galleryOptions = computed(() => [
     model: enableExperimentalCacheRef,
     modelTrigger: toggleExperimentalCache,
   },
+  {
+    title: t("settings.disable-animations"),
+    description: t("settings.disable-animations-desc"),
+    iconEnabled: "mdi-motion-pause",
+    iconDisabled: "mdi-motion-play",
+    model: disableAnimationsRef,
+    modelTrigger: toggleDisableAnimations,
+  },
 ]);
 
 const boxartStyleOptions = computed(() => [
@@ -255,6 +267,9 @@ const toggleShowGameTitles = (value: boolean) => {
 const toggleExperimentalCache = (value: boolean) => {
   enableExperimentalCacheRef.value = value;
 };
+const toggleDisableAnimations = (value: boolean) => {
+  disableAnimationsRef.value = value;
+};
 </script>
 <template>
   <RSection
@@ -283,17 +298,6 @@ const toggleExperimentalCache = (value: boolean) => {
               option.model.value ? option.iconEnabled : option.iconDisabled
             "
             @update:model-value="option.modelTrigger"
-          />
-        </v-col>
-        <v-col cols="12" md="6">
-          <v-select
-            v-model="boxartStyleRef"
-            :items="boxartStyleOptions"
-            :label="t('settings.boxart-style')"
-            class="mx-2 mt-2"
-            variant="outlined"
-            hide-details
-            @update:model-value="setBoxartStyle"
           />
         </v-col>
       </v-row>
@@ -354,6 +358,17 @@ const toggleExperimentalCache = (value: boolean) => {
               option.model.value ? option.iconEnabled : option.iconDisabled
             "
             @update:model-value="option.modelTrigger"
+          />
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-select
+            v-model="boxartStyleRef"
+            :items="boxartStyleOptions"
+            :label="t('settings.boxart-style')"
+            class="mx-2 mt-2"
+            variant="outlined"
+            hide-details
+            @update:model-value="setBoxartStyle"
           />
         </v-col>
       </v-row>

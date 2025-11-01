@@ -19,6 +19,8 @@
   "enable-3d-effect-desc": "Activer l'effet 3D pour les cartes de jeu/plateforme/collection",
   "enable-experimental-cache": "Activer le cache de requêtes expérimental",
   "enable-experimental-cache-desc": "Activer la mise en cache expérimentale des requêtes pour améliorer les performances (peut causer des problèmes)",
+  "disable-animations": "Désactiver les animations",
+  "disable-animations-desc": "Désactiver toutes les animations dans la galerie (rotation de CD, chargement de cartouche, vidéos au survol)",
   "excluded": "Exclu",
   "excluded-multi-rom-files": "Fichiers de rom multiples",
   "excluded-multi-rom-parts-extensions": "Extensions de parties de rom multiples",

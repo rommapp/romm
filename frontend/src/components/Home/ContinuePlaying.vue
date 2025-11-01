@@ -80,6 +80,7 @@ function onClosedMenu() {
             show-action-bar
             show-chips
             :enable3-d-tilt="enable3DEffect"
+            force-boxart="cover_path"
             @hover="onHover"
             @focus="onHover"
             @openedmenu="onOpenedMenu"

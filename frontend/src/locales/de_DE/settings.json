@@ -19,6 +19,8 @@
   "enable-3d-effect-desc": "3D-Effekt für die Spiel-/Plattform-/Sammlungskarten aktivieren",
   "enable-experimental-cache": "Experimentellen Request-Cache aktivieren",
   "enable-experimental-cache-desc": "Experimentelles Request-Caching zur Leistungsverbesserung aktivieren (kann Probleme verursachen)",
+  "disable-animations": "Animationen deaktivieren",
+  "disable-animations-desc": "Alle Animationen in der Galerie deaktivieren (CD-Rotation, Kassettenladen, Hover-Videos)",
   "excluded": "Ausnahmen",
   "excluded-multi-rom-files": "Unterverzeichnisse in Plattform-Verzeichnissen",
   "excluded-multi-rom-parts-extensions": "Dateiendungen in Unterverzeichnisse in Plattform-Verzeichnissen",

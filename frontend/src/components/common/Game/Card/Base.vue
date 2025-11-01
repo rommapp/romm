@@ -52,6 +52,7 @@ const props = withDefaults(
     withLink?: boolean;
     disableViewTransition?: boolean;
     enable3DTilt?: boolean;
+    forceBoxart?: BoxartStyleOption;
   }>(),
   {
     coverSrc: undefined,
@@ -66,9 +67,10 @@ const props = withDefaults(
     showActionBar: true,
     sizeActionBar: 0,
     withBorderPrimary: false,
+    withLink: false,
     disableViewTransition: false,
     enable3DTilt: false,
-    withLink: false,
+    forceBoxart: undefined,
   },
 );
 
@@ -174,6 +176,7 @@ const {
   coverSrc: props.coverSrc,
   coverRef: coverRef,
   videoRef: videoRef,
+  forceBoxart: props.forceBoxart,
 });
 
 const isWebpEnabled = computed(

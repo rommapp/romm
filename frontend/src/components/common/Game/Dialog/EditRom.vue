@@ -252,6 +252,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               disable-view-transition
               :show-platform-icon="false"
               :show-action-bar="false"
+              force-boxart="cover_path"
             >
               <template #append-inner-right>
                 <v-btn-group divided density="compact" rounded="0">
