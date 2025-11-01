@@ -537,6 +537,7 @@ onBeforeUnmount(() => {
             title-on-hover
             pointer-on-hover
             disable-view-transition
+            force-boxart="cover_path"
             @click="showSources(matchedRom)"
           />
         </v-col>

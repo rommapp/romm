@@ -39,19 +39,29 @@ export function useGameAnimation({
   coverSrc,
   coverRef,
   videoRef,
+  forceBoxart,
   isHovering = ref(false),
 }: {
   rom: SimpleRom | SearchRom;
   coverSrc?: string;
   coverRef?: Readonly<ShallowRef<VImg | null>>;
   videoRef?: Readonly<ShallowRef<HTMLVideoElement | null>>;
+  forceBoxart?: BoxartStyleOption;
   isHovering?: Ref<boolean>;
 }) {
   const romsStore = storeRoms();
-  const boxartStyle = useLocalStorage<BoxartStyleOption>(
+  const _boxartStyle = useLocalStorage<BoxartStyleOption>(
     "settings.boxartStyle",
     "cover_path",
   );
+  const disableAnimations = useLocalStorage(
+    "settings.disableAnimations",
+    false,
+  );
+
+  const boxartStyle = computed(() => {
+    return forceBoxart || _boxartStyle.value;
+  });
 
   // User selected alternative cover image
   const boxartStyleCover = computed(() => {
@@ -140,6 +150,7 @@ export function useGameAnimation({
 
   const animateCDSpin = () => {
     if (!animateCD.value) return;
+    if (disableAnimations.value) return;
 
     lastTimestamp = null;
     setTransitionCSS();
@@ -149,6 +160,7 @@ export function useGameAnimation({
 
   const animateCDLoad = () => {
     if (!animateCD.value) return;
+    if (disableAnimations.value) return;
     setTransitionCSS();
     animateLoad = true;
   };
@@ -164,6 +176,7 @@ export function useGameAnimation({
   /* Cartridge animation */
   const animateLoadCart = () => {
     if (!animateCartridge.value) return;
+    if (disableAnimations.value) return;
 
     const container = coverRef?.value?.$el;
     const imageElement = coverRef?.value?.image;
@@ -229,6 +242,7 @@ export function useGameAnimation({
   watch(
     isHovering,
     (hovering) => {
+      if (disableAnimations.value) return;
       if (hovering) {
         animateCDSpin();
         playVideo();
@@ -238,6 +252,12 @@ export function useGameAnimation({
     },
     { immediate: true },
   );
+
+  watch(disableAnimations, (disabled) => {
+    if (disabled) {
+      stopCDAnimation();
+    }
+  });
 
   return {
     boxartStyle,
