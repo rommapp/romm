@@ -21,7 +21,7 @@ export type Events = {
   showDeleteCollectionDialog: Collection;
   showDeleteSmartCollectionDialog: SmartCollection;
   showMatchRomDialog: SimpleRom;
-  showSearchCoverDialog: { term: string; aspectRatio: number | null };
+  showSearchCoverDialog: { term: string; platformId?: number };
   updateUrlCover: string;
   showEditRomDialog: SimpleRom;
   showCopyDownloadLinkDialog: string;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay } from "vuetify";
 import type { SearchCoverSchema } from "@/__generated__";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
@@ -15,29 +15,33 @@ const show = ref(false);
 const searching = ref(false);
 const searchText = ref("");
 const coverType = ref("all");
+const platformIdRef = ref<number | undefined>(undefined);
 const covers = ref<SearchCoverSchema[]>([]);
 const filteredCovers = ref<SearchCoverSchema[]>();
 const panels = ref([0]);
 
 const emitter = inject<Emitter<Events>>("emitter");
-
-const handleShowSearchCoverDialog = ({
-  term,
-  aspectRatio = null,
-}: {
-  term: string;
-  aspectRatio: number | null;
-}) => {
-  searchText.value = term;
-  show.value = true;
-  if (aspectRatio) coverAspectRatio.value = aspectRatio;
-  if (searchText.value) searchCovers();
-};
 emitter?.on("showSearchCoverDialog", handleShowSearchCoverDialog);
 
-const coverAspectRatio = ref(
-  parseFloat(galleryViewStore.defaultAspectRatioCover.toString()),
-);
+const computedAspectRatio = computed(() => {
+  return galleryViewStore.getAspectRatio({
+    platformId: platformIdRef.value,
+    boxartStyle: "cover_path",
+  });
+});
+
+function handleShowSearchCoverDialog({
+  term,
+  platformId,
+}: {
+  term: string;
+  platformId?: number;
+}) {
+  searchText.value = term;
+  show.value = true;
+  if (platformId) platformIdRef.value = platformId;
+  if (searchText.value) searchCovers();
+}
 
 async function searchCovers() {
   covers.value = [];
@@ -193,7 +197,7 @@ onBeforeUnmount(() => {
               >
                 <v-img
                   class="transform-scale pointer"
-                  :aspect-ratio="coverAspectRatio"
+                  :aspect-ratio="computedAspectRatio"
                   :src="resource.thumb"
                   cover
                   @click="selectCover(resource.url)"
@@ -202,11 +206,11 @@ onBeforeUnmount(() => {
                     <v-img
                       :src="resource.url"
                       cover
-                      :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
+                      :aspect-ratio="computedAspectRatio"
                     />
                   </template>
                   <template #placeholder>
-                    <Skeleton :aspect-ratio="coverAspectRatio" type="image" />
+                    <Skeleton type="image" />
                   </template>
                 </v-img>
               </v-col>

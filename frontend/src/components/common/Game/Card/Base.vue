@@ -23,7 +23,6 @@ import { ROUTES } from "@/plugins/router";
 import storeCollections from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
-import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom, SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -34,11 +33,17 @@ import {
   EXTENSION_REGEX,
 } from "@/utils/covers";
 
+// Tilt 3D effect logic
+interface TiltHTMLElement extends HTMLElement {
+  vanillaTilt?: {
+    destroy: () => void;
+  };
+}
+
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRom;
     coverSrc?: string;
-    aspectRatio?: string | number;
     width?: string | number;
     height?: string | number;
     transformScale?: boolean;
@@ -56,7 +61,6 @@ const props = withDefaults(
   }>(),
   {
     coverSrc: undefined,
-    aspectRatio: undefined,
     width: undefined,
     height: undefined,
     transformScale: false,
@@ -75,11 +79,12 @@ const props = withDefaults(
 );
 
 const { smAndDown } = useDisplay();
-const platformsStore = storePlatforms();
 const romsStore = storeRoms();
 const activeMenu = ref(false);
 const gameIsHovering = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("playGame", handlePlayGame);
+
 const emit = defineEmits([
   "hover",
   "openedmenu",
@@ -121,39 +126,9 @@ const handleMouseLeave = () => {
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
 const heartbeatStore = storeHeartbeat();
-
-const computedAspectRatio = computed(() => {
-  const ratio =
-    props.aspectRatio ||
-    platformsStore.getAspectRatio(props.rom.platform_id) ||
-    galleryViewStore.defaultAspectRatioCover;
-  return parseFloat(ratio.toString());
-});
-const fallbackCoverImage = computed(() =>
-  props.rom.is_identified
-    ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
-    : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
-);
-
 const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
 const showGameTitleAlways = useLocalStorage("settings.showGameTitle", false);
 const showSiblings = useLocalStorage("settings.showSiblings", true);
-
-const hasNotes = computed(() => {
-  if (!romsStore.isSimpleRom(props.rom)) return false;
-  return (
-    props.rom.rom_user?.note_raw_markdown &&
-    props.rom.rom_user.note_raw_markdown.trim().length > 0
-  );
-});
-
-// Tilt 3D effect logic
-interface TiltHTMLElement extends HTMLElement {
-  vanillaTilt?: {
-    destroy: () => void;
-  };
-}
-
 const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 const coverRef = useTemplateRef("game-image-ref");
 const videoRef = useTemplateRef<HTMLVideoElement>("hover-video-ref");
@@ -178,6 +153,27 @@ const {
   videoRef: videoRef,
   forceBoxart: props.forceBoxart,
 });
+
+const hasNotes = computed(() => {
+  if (!romsStore.isSimpleRom(props.rom)) return false;
+  return (
+    props.rom.rom_user?.note_raw_markdown &&
+    props.rom.rom_user.note_raw_markdown.trim().length > 0
+  );
+});
+
+const computedAspectRatio = computed(() => {
+  return galleryViewStore.getAspectRatio({
+    platformId: props.rom.platform_id,
+    boxartStyle: boxartStyle.value,
+  });
+});
+
+const fallbackCoverImage = computed(() =>
+  props.rom.is_identified
+    ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
+    : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
+);
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -213,14 +209,14 @@ const smallCover = computed(() => {
   return pathCoverSmall || "";
 });
 
-const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
+function showNoteDialog(event: MouseEvent | KeyboardEvent) {
   event.preventDefault();
   if (romsStore.isSimpleRom(props.rom)) {
     emitter?.emit("showNoteDialog", props.rom);
   }
-};
+}
 
-const handlePlayGame = (romId: number) => {
+function handlePlayGame(romId: number) {
   if (romId !== props.rom.id) return;
   if (animateCD.value) {
     animateCDSpin();
@@ -228,9 +224,7 @@ const handlePlayGame = (romId: number) => {
   } else if (animateCartridge.value) {
     animateLoadCart();
   }
-};
-
-emitter?.on("playGame", handlePlayGame);
+}
 
 onMounted(() => {
   if (tiltCardRef.value && !smAndDown.value && props.enable3DTilt) {
