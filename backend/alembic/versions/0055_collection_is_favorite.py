@@ -42,7 +42,7 @@ def upgrade() -> None:
 
     # Now make the column non-nullable
     with op.batch_alter_table("collections", schema=None) as batch_op:
-        batch_op.alter_column("is_favorite", nullable=False)
+        batch_op.alter_column("is_favorite", existing_type=sa.Boolean(), nullable=False)
 
 
 def downgrade() -> None:
