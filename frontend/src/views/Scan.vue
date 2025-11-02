@@ -171,7 +171,97 @@ async function stopScan() {
                     chip-density="compact"
                     class="ml-2"
                   />
-                  <v-chip class="ml-2" size="x-small" label>
+                  <v-row
+                    v-if="item.raw.is_identified"
+                    class="text-white text-shadow text-center"
+                    no-gutters
+                  >
+                    <v-col cols="12">
+                      <v-avatar
+                        v-if="item.raw.igdb_id"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/igdb.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.ss_id"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/ss.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.moby_slug"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/moby.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.ra_id"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/ra.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.launchbox_id"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                        style="background: #185a7c"
+                      >
+                        <v-img src="/assets/scrappers/launchbox.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.hasheous_id"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/hasheous.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.flashpoint_id"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/flashpoint.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.hltb_slug"
+                        class="bg-surface"
+                        size="25"
+                        rounded
+                      >
+                        <v-img src="/assets/scrappers/hltb.png" />
+                      </v-avatar>
+                    </v-col>
+                  </v-row>
+                  <v-row
+                    v-else
+                    class="text-white text-shadow text-center"
+                    no-gutters
+                  >
+                    <v-chip color="red" size="small" label>
+                      <v-icon class="mr-1"> mdi-close </v-icon>
+                      {{ t("scan.not-identified").toUpperCase() }}
+                    </v-chip>
+                  </v-row>
+                  <v-chip class="ml-1" size="small" label>
                     {{ item.raw.rom_count }}
                   </v-chip>
                 </template>
@@ -185,7 +275,6 @@ async function stopScan() {
                   :name="item.raw.name"
                   :fs-slug="item.raw.fs_slug"
                   :size="20"
-                  class="mr-2"
                 />
                 {{ item.raw.name }}
               </v-chip>
