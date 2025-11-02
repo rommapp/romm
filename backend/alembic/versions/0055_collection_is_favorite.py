@@ -17,8 +17,12 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Add column as nullable first
     with op.batch_alter_table("collections", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("is_favorite", sa.Boolean(), nullable=False))
+        batch_op.add_column(sa.Column("is_favorite", sa.Boolean(), nullable=True))
+
+    # Set default value for all existing rows
+    op.execute("UPDATE collections SET is_favorite = FALSE WHERE is_favorite IS NULL")
 
     # Find favorite collection and set is_favorite to True
     from handler.database import db_collection_handler, db_user_handler
@@ -35,6 +39,10 @@ def upgrade() -> None:
             db_collection_handler.update_collection(
                 collection.id, {"is_favorite": True}
             )
+
+    # Now make the column non-nullable
+    with op.batch_alter_table("collections", schema=None) as batch_op:
+        batch_op.alter_column("is_favorite", existing_type=sa.Boolean(), nullable=False)
 
 
 def downgrade() -> None:
