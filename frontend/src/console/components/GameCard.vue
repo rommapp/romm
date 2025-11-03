@@ -276,10 +276,13 @@ onBeforeUnmount(() => {
 }
 
 .hover-video {
-  margin-top: 6%;
+  margin-top: 2%;
   left: 2%;
+  height: 96%;
   width: 96%;
+  border-radius: 4px;
   object-fit: contain;
   pointer-events: none;
+  background: black;
 }
 </style>
