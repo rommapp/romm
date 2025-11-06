@@ -331,7 +331,7 @@ class GamelistHandler(MetadataHandler):
                 )
 
                 # Choose which cover style to use
-                cover_path = rom_metadata["box2d_url"]
+                cover_path = rom_metadata["box2d_url"] or rom_metadata["image_url"]
                 if cover_path:
                     cover_path_path = fs_platform_handler.validate_path(
                         f"{platform_dir}/{cover_path}"
