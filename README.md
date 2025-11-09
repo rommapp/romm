@@ -67,10 +67,14 @@ Here are a few projects maintained by members of our community. Please note that
 - [RomMate][rommate]: Desktop app for browsing your collection by @brenoprata10
 - [romm-client][romm-client]: Desktop client by @chaun14
 
+### Handhelds
+
+- [Mortar][mortar]: Download client for NextUI by @UncleJunVIP
+- [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by @PeriBluGaming
+
 ### Other
 
 - [romm-comm][romm-comm-discord-bot]: Discord bot by @idio-sync
-- [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by @PeriBluGaming
 - [GGRequestz][ggrequestz]: Game discovery and request tool by @XTREEMMAK
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
@@ -156,3 +160,4 @@ Here are a few projects that we think you might like:
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
 [romm-android]: https://github.com/samwelnella/romm-android
+[mortar]: https://github.com/UncleJunVIP/Mortar
