@@ -7,6 +7,18 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "aiodataloader"
+version = "0.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bc/3b/405fe771e782054509f976db2a29c69bb6250be8bde16ac1fa93755070c6/aiodataloader-0.4.2.tar.gz", hash = "sha256:c92f6f2fb7ee13939ffd68274895aca44ccc0294a1275179bfb8af2b29b788e1", size = 13458, upload-time = "2025-02-17T14:51:43.336Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ef/20/8700336be44dcccab78741f2513b1b1474ba4070134e8c2b5a50865f07bd/aiodataloader-0.4.2-py3-none-any.whl", hash = "sha256:3c9780867631326a2ae931c322fac5e2a2ad5a48bf7646e5250834630536ef57", size = 10994, upload-time = "2025-02-17T14:51:41.589Z" },
+]
+
+[[package]]
 name = "aiohappyeyeballs"
 version = "2.6.1"
 source = { registry = "https://pypi.org/simple" }
@@ -506,6 +518,19 @@ wheels = [
 sqlalchemy = [
     { name = "sqlakeyset" },
     { name = "sqlalchemy" },
+]
+
+[[package]]
+name = "fastapi-voyager"
+version = "0.11.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "pydantic-resolve" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c2/24/84943d29933fdbb797e5d6c19ac81e24b6754cf44937968e11aeac3ce9bf/fastapi_voyager-0.11.8.tar.gz", hash = "sha256:dd74b89e70ba5b01bbad3b3e8dd4d4be288705c81f04a61092ca18b976779a5e", size = 580976, upload-time = "2025-11-03T23:29:19.333Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/f1/7f5847a680fc3fc2287b1651d04e877e3905c59c22b6fe2a3de3b41a07d7/fastapi_voyager-0.11.8-py3-none-any.whl", hash = "sha256:bcc56c9fc7475ad34bdbdce8ba8aa83baf000ceb3f08371436fc091c3b078ba7", size = 529599, upload-time = "2025-11-03T23:29:17.478Z" },
 ]
 
 [[package]]
@@ -1608,6 +1633,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pydantic-resolve"
+version = "1.13.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiodataloader" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/b8/e4026796bd4a3f97255dfc6c61718aefd8e1d45a1180d39a09c60d0bf9a1/pydantic_resolve-1.13.5.tar.gz", hash = "sha256:862c75273f792ac6ef27b5117b844466ac142080a12b2f816c0b4ca08f0059c3", size = 26926, upload-time = "2025-10-23T02:51:07.447Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f3/30/03b74616dff02fa7dbfc44e67b4d0ba7608230085e9658e4d3f0a50761b8/pydantic_resolve-1.13.5-py3-none-any.whl", hash = "sha256:5a7a46c9d42ce9cd3b2b90e7f6a9cd7cf277cfe10d82451644f8f224c3e9d753", size = 28238, upload-time = "2025-10-23T02:51:05.929Z" },
+]
+
+[[package]]
 name = "pydash"
 version = "7.0.7"
 source = { registry = "https://pypi.org/simple" }
@@ -1955,6 +1992,11 @@ test = [
     { name = "pytest-recording" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "fastapi-voyager" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = "~=3.12" },
@@ -2016,6 +2058,9 @@ requires-dist = [
     { name = "zipfile-inflate64", specifier = "~=0.1" },
 ]
 provides-extras = ["dev", "test"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "fastapi-voyager", specifier = ">=0.11.8" }]
 
 [[package]]
 name = "rq"

@@ -84,3 +84,6 @@ Source = "https://github.com/rommapp/romm"
 
 [tool.uv]
 package = false
+
+[dependency-groups]
+dev = ["fastapi-voyager>=0.11.8"]

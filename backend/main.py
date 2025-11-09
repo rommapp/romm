@@ -10,6 +10,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
+from fastapi_voyager import create_voyager
 from starlette.middleware.authentication import AuthenticationMiddleware
 from startup import main
 
@@ -93,7 +94,11 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         CustomCSRFMiddleware,
         cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
-        exempt_urls=[re.compile(r"^/api/token.*"), re.compile(r"^/ws")],
+        exempt_urls=[
+            re.compile(r"^/api/token.*"),
+            re.compile(r"^/ws"),
+            re.compile(r"^/api/voyager"),
+        ],
     )
 
 # Handles both basic and oauth authentication
@@ -134,6 +139,27 @@ app.include_router(collections.router, prefix="/api")
 app.include_router(gamelist.router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
+
+app.mount(
+    "/api/voyager",
+    create_voyager(
+        app,
+        module_color={
+            "adapters": "blue",
+            "configs": "green",
+            "endpoints": "red",
+            "handler.auth": "yellow",
+            "handler.database": "cyan",
+            "handler.filesystem": "magenta",
+            "handler.metadata": "lightblue",
+            "models": "purple",
+            "tasks.manual": "orange",
+            "tasks.scheduled": "pink",
+            "utils": "brown",
+        },
+        swagger_url="/api/docs",
+    ),
+)
 
 add_pagination(app)
 
