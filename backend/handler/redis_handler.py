@@ -59,18 +59,18 @@ sync_cache = __get_sync_cache()
 async_cache = __get_async_cache()
 
 
-def get_job_func_name(job: Job, fallback: str = "") -> str | None:
+def get_job_func_name(job: Job, fallback: str = "") -> str:
     """Safely get the function name from an RQ job, handling DeserializationError.
 
     Args:
         job: The RQ Job object to get the function name from
-        fallback: The value to return if deserialization fails (default: "unknown_task")
+        fallback: The value to return if deserialization fails
 
     Returns:
         The function name if available, otherwise the fallback value
     """
     try:
-        return job.func_name
+        return job.func_name or fallback
     except DeserializationError:
         # Job data cannot be deserialized (e.g., function no longer exists)
         return fallback
