@@ -5,6 +5,8 @@ from enum import Enum
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
 from rq import Queue
+from rq.exceptions import DeserializationError
+from rq.job import Job
 
 from config import IS_PYTEST_RUN, REDIS_URL
 from logger.logger import log
@@ -55,3 +57,20 @@ def __get_async_cache() -> AsyncRedis:
 
 sync_cache = __get_sync_cache()
 async_cache = __get_async_cache()
+
+
+def get_job_func_name(job: Job, fallback: str = "") -> str:
+    """Safely get the function name from an RQ job, handling DeserializationError.
+
+    Args:
+        job: The RQ Job object to get the function name from
+        fallback: The value to return if deserialization fails
+
+    Returns:
+        The function name if available, otherwise the fallback value
+    """
+    try:
+        return job.func_name or fallback
+    except DeserializationError:
+        # Job data cannot be deserialized (e.g., function no longer exists)
+        return fallback

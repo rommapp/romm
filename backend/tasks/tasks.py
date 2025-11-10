@@ -9,7 +9,7 @@ from rq_scheduler import Scheduler
 
 from config import TASK_TIMEOUT
 from exceptions.task_exceptions import SchedulerException
-from handler.redis_handler import low_prio_queue
+from handler.redis_handler import get_job_func_name, low_prio_queue
 from logger.logger import log
 from utils.context import ctx_httpx_client
 
@@ -79,7 +79,7 @@ class PeriodicTask(Task, ABC):
     def _get_existing_job(self) -> Job | None:
         existing_jobs = tasks_scheduler.get_jobs()
         for job in existing_jobs:
-            if isinstance(job, Job) and job.func_name == self.func:
+            if isinstance(job, Job) and get_job_func_name(job) == self.func:
                 return job
 
         return None
