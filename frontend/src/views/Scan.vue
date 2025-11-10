@@ -276,7 +276,9 @@ async function stopScan() {
                   :fs-slug="item.raw.fs_slug"
                   :size="20"
                 />
-                {{ item.raw.name }}
+                <div class="ml-1">
+                  {{ item.raw.name }}
+                </div>
               </v-chip>
             </template>
           </v-select>

@@ -326,27 +326,15 @@ class GamelistHandler(MetadataHandler):
                     gamelist_metadata=rom_metadata,
                 )
 
-                platform_dir = fs_platform_handler.get_plaform_fs_structure(
-                    platform.fs_slug
-                )
-
                 # Choose which cover style to use
-                cover_path = rom_metadata["box2d_url"] or rom_metadata["image_url"]
-                if cover_path:
-                    cover_path_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{cover_path}"
-                    )
-                    rom_data["url_cover"] = f"file://{str(cover_path_path)}"
+                cover_url = rom_metadata["box2d_url"] or rom_metadata["image_url"]
+                if cover_url:
+                    rom_data["url_cover"] = cover_url
 
                 # Grab the manual
-                if (
-                    rom_metadata["manual_url"]
-                    and MetadataMediaType.MANUAL in preferred_media_types
-                ):
-                    manual_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_metadata['manual_url']}"
-                    )
-                    rom_data["url_manual"] = f"file://{str(manual_path)}"
+                manual_url = rom_metadata["manual_url"]
+                if manual_url and MetadataMediaType.MANUAL in preferred_media_types:
+                    rom_data["url_manual"] = manual_url
 
                 # Build list of screenshot URLs
                 url_screenshots = []
@@ -354,18 +342,12 @@ class GamelistHandler(MetadataHandler):
                     rom_metadata["screenshot_url"]
                     and MetadataMediaType.SCREENSHOT in preferred_media_types
                 ):
-                    screenshot_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_metadata['screenshot_url']}"
-                    )
-                    url_screenshots.append(f"file://{str(screenshot_path)}")
+                    url_screenshots.append(rom_metadata["screenshot_url"])
                 if (
                     rom_metadata["title_screen_url"]
                     and MetadataMediaType.TITLE_SCREEN in preferred_media_types
                 ):
-                    title_screen_path = fs_platform_handler.validate_path(
-                        f"{platform_dir}/{rom_metadata['title_screen_url']}"
-                    )
-                    url_screenshots.append(f"file://{str(title_screen_path)}")
+                    url_screenshots.append(rom_metadata["title_screen_url"])
                 rom_data["url_screenshots"] = url_screenshots
 
                 # Store by filename for matching

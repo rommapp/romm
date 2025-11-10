@@ -447,6 +447,37 @@ class FSHandler:
 
             return await open_file(full_path, "rb")
 
+    async def copy_file(self, source_full_path: Path, dest_path: str) -> None:
+        """
+        Copy a file from source to destination.
+
+        Args:
+            source_path: Absolute path to the source file
+            dest_path: Relative path to the destination file
+
+        Raises:
+            FileNotFoundError: If source file does not exist
+            ValueError: If destination path is invalid
+        """
+        if not source_full_path or not dest_path:
+            raise ValueError("Source and destination paths cannot be empty")
+
+        # Validate and normalize path
+        dest_full_path = self.validate_path(dest_path)
+
+        # Use locks for both source and destination
+        source_lock = await self._get_file_lock(str(source_full_path))
+        dest_lock = await self._get_file_lock(str(dest_full_path))
+
+        # Async thread-safe file copy
+        async with source_lock, dest_lock:
+            if not source_full_path.exists() or not source_full_path.is_file():
+                raise FileNotFoundError(f"Source file not found: {source_full_path}")
+
+            # Create destination directory if needed
+            dest_full_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(source_full_path), str(dest_full_path))
+
     async def move_file_or_folder(self, source_path: str, dest_path: str) -> None:
         """
         Move a file from source to destination.
@@ -479,7 +510,6 @@ class FSHandler:
 
             # Create destination directory if needed
             dest_full_path.parent.mkdir(parents=True, exist_ok=True)
-
             shutil.move(str(source_full_path), str(dest_full_path))
 
     async def remove_file(self, file_path: str) -> None:
