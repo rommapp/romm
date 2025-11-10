@@ -27,6 +27,7 @@ from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
 from handler.auth.constants import Scope
 from handler.redis_handler import (
     default_queue,
+    get_job_func_name,
     high_prio_queue,
     low_prio_queue,
     redis_client,
@@ -117,8 +118,8 @@ def _build_task_status_response(
     job: Job,
 ) -> TaskStatusResponse:
     job_meta = job.get_meta()
-    task_name = job_meta.get("task_name") or job.func_name
     task_type = job_meta.get("task_type")
+    task_name = job_meta.get("task_name") or get_job_func_name(job)
 
     # Convert datetime objects to ISO format strings
     created_at = job.created_at.isoformat() if job.created_at else None
