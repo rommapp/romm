@@ -28,7 +28,7 @@ from handler.filesystem import (
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata.ss_handler import get_preferred_media_types
-from handler.redis_handler import high_prio_queue, redis_client
+from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
     ScanType,
     scan_firmware,
@@ -699,7 +699,7 @@ async def stop_scan_handler(_sid: str):
 
     existing_jobs = high_prio_queue.get_jobs()
     for job in existing_jobs:
-        if job.func_name == "scan_platform" and job.is_started:
+        if get_job_func_name(job) == "scan_platform" and job.is_started:
             return await cancel_job(job)
 
     workers = Worker.all(connection=redis_client)
@@ -707,7 +707,8 @@ async def stop_scan_handler(_sid: str):
         current_job = worker.get_current_job()
         if (
             current_job
-            and current_job.func_name == "endpoints.sockets.scan.scan_platforms"
+            and get_job_func_name(current_job)
+            == "endpoints.sockets.scan.scan_platforms"
             and current_job.is_started
         ):
             return await cancel_job(current_job)
