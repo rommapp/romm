@@ -33,7 +33,7 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.redis_handler import low_prio_queue, redis_client
+from handler.redis_handler import get_job_func_name, low_prio_queue, redis_client
 from handler.scan_handler import MetadataSource, ScanType
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
@@ -82,7 +82,7 @@ def get_pending_scan_jobs() -> list[Job]:
     for job in scheduled_jobs:
         if (
             isinstance(job, Job)
-            and job.func_name == "endpoints.sockets.scan.scan_platforms"
+            and get_job_func_name(job) == "endpoints.sockets.scan.scan_platforms"
             and job.get_status()
             in [JobStatus.SCHEDULED, JobStatus.QUEUED, JobStatus.STARTED]
         ):
@@ -93,7 +93,7 @@ def get_pending_scan_jobs() -> list[Job]:
     for job in queue_jobs:
         if (
             isinstance(job, Job)
-            and job.func_name == "endpoints.sockets.scan.scan_platforms"
+            and get_job_func_name(job) == "endpoints.sockets.scan.scan_platforms"
             and job.get_status() in [JobStatus.QUEUED, JobStatus.STARTED]
         ):
             pending_jobs.append(job)
@@ -104,7 +104,8 @@ def get_pending_scan_jobs() -> list[Job]:
         current_job = worker.get_current_job()
         if (
             current_job
-            and current_job.func_name == "endpoints.sockets.scan.scan_platforms"
+            and get_job_func_name(current_job)
+            == "endpoints.sockets.scan.scan_platforms"
             and current_job.get_status() == JobStatus.STARTED
         ):
             pending_jobs.append(current_job)
