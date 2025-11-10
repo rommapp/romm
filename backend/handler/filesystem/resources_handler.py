@@ -1,6 +1,5 @@
 import gzip
 import os
-import shutil
 from io import BytesIO
 from pathlib import Path
 
@@ -69,7 +68,7 @@ class FSResourcesHandler(FSHandler):
             size: size of the cover
         """
         cover_file = f"{entity.fs_resources_path}/cover"
-        await self.make_directory(f"{cover_file}")
+        await self.make_directory(cover_file)
 
         # Handle file:// URLs for gamelist.xml
         if url_cover.startswith("file://"):
@@ -77,13 +76,16 @@ class FSResourcesHandler(FSHandler):
                 file_path = Path(url_cover[7:])  # Remove "file://" prefix
                 if file_path.exists():
                     # Copy the file to the resources directory
-                    dest_path = self.validate_path(f"{cover_file}/{size.value}.png")
-                    shutil.copy2(file_path, dest_path)
+                    dest_path = f"{cover_file}/{size.value}.png"
+                    await self.copy_file(file_path, dest_path)
 
                     if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-                        self.image_converter.convert_to_webp(dest_path, force=True)
+                        self.image_converter.convert_to_webp(
+                            self.validate_path(f"{cover_file}/{size.value}.png"),
+                            force=True,
+                        )
                 else:
-                    log.warning(f"File not found: {file_path}")
+                    log.warning(f"Cover file not found: {file_path}")
                     return None
             except Exception as exc:
                 log.error(f"Unable to copy cover file {url_cover}: {str(exc)}")
@@ -245,8 +247,7 @@ class FSResourcesHandler(FSHandler):
                 file_path = Path(url_screenhot[7:])  # Remove "file://" prefix
                 if file_path.exists():
                     # Copy the file to the resources directory
-                    dest_path = self.validate_path(f"{screenshot_path}/{idx}.jpg")
-                    shutil.copy2(file_path, dest_path)
+                    await self.copy_file(file_path, f"{screenshot_path}/{idx}.jpg")
                 else:
                     log.warning(f"Screenshot file not found: {file_path}")
                     return None
@@ -357,8 +358,7 @@ class FSResourcesHandler(FSHandler):
                 file_path = Path(url_manual[7:])  # Remove "file://" prefix
                 if file_path.exists():
                     # Copy the file to the resources directory
-                    dest_path = self.validate_path(f"{manual_path}/{rom.id}.pdf")
-                    shutil.copy2(file_path, dest_path)
+                    await self.copy_file(file_path, f"{manual_path}/{rom.id}.pdf")
                 else:
                     log.warning(f"Manual file not found: {file_path}")
                     return None
@@ -466,12 +466,12 @@ class FSResourcesHandler(FSHandler):
     ) -> str:
         return os.path.join("roms", str(platform_id), str(rom_id), media_type.value)
 
-    async def store_media_file(self, url: str, path: str) -> None:
+    async def store_media_file(self, url: str, dest_path: str) -> None:
         httpx_client = ctx_httpx_client.get()
-        directory, filename = os.path.split(path)
+        directory, filename = os.path.split(dest_path)
 
-        if await self.file_exists(path):
-            log.debug(f"Media file {path} already exists, skipping download")
+        if await self.file_exists(dest_path):
+            log.debug(f"Media file {dest_path} already exists, skipping download")
             return
 
         # Ensure destination directory exists
@@ -482,9 +482,7 @@ class FSResourcesHandler(FSHandler):
             try:
                 file_path = Path(url[7:])  # Remove "file://" prefix
                 if file_path.exists():
-                    # Validate the destination path
-                    dest_path = self.validate_path(path)
-                    shutil.copy2(file_path, dest_path)
+                    await self.copy_file(file_path, dest_path)
             except Exception as exc:
                 log.error(f"Unable to copy media file {url}: {str(exc)}")
                 return None
