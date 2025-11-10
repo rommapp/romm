@@ -136,11 +136,9 @@ class TinfoilFeedTitleDBSchema(BaseModel):
     description: StringField = Field(default="")
     region: StringField = Field(default="US")
     publisher: StringField = Field(default="")
+    releaseDate: IntField = Field(default=UNIX_EPOCH_START_DATE)
     size: IntField = Field(default=0, ge=0)
     version: IntField = Field(default=0, ge=0)
-    releaseDate: IntField = Field(
-        default=UNIX_EPOCH_START_DATE, ge=UNIX_EPOCH_START_DATE
-    )
     rating: IntField = Field(default=0, ge=0, le=100)
     rank: IntField = Field(default=0, ge=0)
 
