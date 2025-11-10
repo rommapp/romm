@@ -276,7 +276,7 @@ class FSHandler:
         # Async thread-safe directory listing
         lock = await self._get_file_lock(str(target_directory))
         async with lock:
-            if not target_directory.exists() or not target_directory.is_dir():
+            if not target_directory.is_dir():
                 raise FileNotFoundError(
                     f"Path does not exist or is not a directory: {str(target_directory)}"
                 )
@@ -300,7 +300,7 @@ class FSHandler:
         # Async thread-safe directory removal
         lock = await self._get_file_lock(str(target_directory))
         async with lock:
-            if not target_directory.exists() or not target_directory.is_dir():
+            if not target_directory.is_dir():
                 raise FileNotFoundError(
                     f"Path does not exist or is not a directory: {str(target_directory)}"
                 )
@@ -414,7 +414,7 @@ class FSHandler:
         # Async thread-safe file read
         lock = await self._get_file_lock(str(full_path))
         async with lock:
-            if not full_path.exists() or not full_path.is_file():
+            if not full_path.is_file():
                 raise FileNotFoundError(f"File not found: {full_path}")
 
             async with await open_file(full_path, "rb") as f:
@@ -442,7 +442,7 @@ class FSHandler:
         # Async thread-safe file stream
         lock = await self._get_file_lock(str(full_path))
         async with lock:
-            if not full_path.exists() or not full_path.is_file():
+            if not full_path.is_file():
                 raise FileNotFoundError(f"File not found: {full_path}")
 
             return await open_file(full_path, "rb")
@@ -452,7 +452,7 @@ class FSHandler:
         Copy a file from source to destination.
 
         Args:
-            source_path: Absolute path to the source file
+            source_full_path: Absolute path to the source file
             dest_path: Relative path to the destination file
 
         Raises:
@@ -471,7 +471,7 @@ class FSHandler:
 
         # Async thread-safe file copy
         async with source_lock, dest_lock:
-            if not source_full_path.exists() or not source_full_path.is_file():
+            if not source_full_path.is_file():
                 raise FileNotFoundError(f"Source file not found: {source_full_path}")
 
             # Create destination directory if needed
@@ -558,7 +558,7 @@ class FSHandler:
         # Async thread-safe directory listing
         lock = await self._get_file_lock(str(full_path))
         async with lock:
-            if not full_path.exists() or not full_path.is_dir():
+            if not full_path.is_dir():
                 raise FileNotFoundError(f"Directory not found: {full_path}")
 
             return [f for _, f in iter_files(str(full_path), recursive=False)]
@@ -582,7 +582,7 @@ class FSHandler:
         # Async thread-safe existence check
         lock = await self._get_file_lock(str(full_path))
         async with lock:
-            return full_path.exists() and full_path.is_file()
+            return full_path.is_file()
 
     async def get_file_size(self, file_path: str) -> int:
         """
@@ -606,7 +606,7 @@ class FSHandler:
         # Async thread-safe file size retrieval
         lock = await self._get_file_lock(str(full_path))
         async with lock:
-            if not full_path.exists() or not full_path.is_file():
+            if not full_path.is_file():
                 raise FileNotFoundError(f"File not found: {full_path}")
 
             return full_path.stat().st_size
