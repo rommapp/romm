@@ -173,24 +173,6 @@ def upgrade() -> None:
         batch_op.drop_column("multi")
         batch_op.drop_column("file_size_bytes")
 
-    # Run a no-scan in the background on migrate
-    if not IS_PYTEST_RUN:
-        high_prio_queue.enqueue(
-            scan_platforms,
-            platform_ids=[],
-            metadata_sources=[],
-            scan_type=ScanType.QUICK,
-            job_timeout=SCAN_TIMEOUT,
-        )
-
-        high_prio_queue.enqueue(
-            scan_platforms,
-            platform_ids=[],
-            metadata_sources=[],
-            scan_type=ScanType.HASHES,
-            job_timeout=SCAN_TIMEOUT,
-        )
-
 
 def downgrade() -> None:
     connection = op.get_bind()
