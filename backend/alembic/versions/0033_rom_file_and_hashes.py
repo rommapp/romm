@@ -10,10 +10,6 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import ENUM
 
-from config import IS_PYTEST_RUN, SCAN_TIMEOUT
-from endpoints.sockets.scan import scan_platforms
-from handler.redis_handler import high_prio_queue
-from handler.scan_handler import ScanType
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
