@@ -247,7 +247,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     ss_media["logo_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.LOGO)}/logo.png"
                     )
-            elif media.get("type") == "manual" and not ss_media["manual_url"]:
+            elif media.get("type") == "manuel" and not ss_media["manual_url"]:
                 ss_media["manual_url"] = media["url"]
             elif media.get("type") == "screenmarquee" and not ss_media["marquee_url"]:
                 ss_media["marquee_url"] = media["url"]
