@@ -10,10 +10,6 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import ENUM
 
-from config import IS_PYTEST_RUN, SCAN_TIMEOUT
-from endpoints.sockets.scan import scan_platforms
-from handler.redis_handler import high_prio_queue
-from handler.scan_handler import ScanType
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
@@ -172,24 +168,6 @@ def upgrade() -> None:
         batch_op.drop_column("files")
         batch_op.drop_column("multi")
         batch_op.drop_column("file_size_bytes")
-
-    # Run a no-scan in the background on migrate
-    if not IS_PYTEST_RUN:
-        high_prio_queue.enqueue(
-            scan_platforms,
-            platform_ids=[],
-            metadata_sources=[],
-            scan_type=ScanType.QUICK,
-            job_timeout=SCAN_TIMEOUT,
-        )
-
-        high_prio_queue.enqueue(
-            scan_platforms,
-            platform_ids=[],
-            metadata_sources=[],
-            scan_type=ScanType.HASHES,
-            job_timeout=SCAN_TIMEOUT,
-        )
 
 
 def downgrade() -> None:
