@@ -49,7 +49,7 @@ def generate_rom_download_url(request: Request, rom: Rom) -> str:
         request.url_for(
             "get_rom_content",
             id=rom.id,
-            file_name=quote(rom.fs_name, safe="/", encoding=None, errors=None),
+            file_name=quote(rom.fs_name, safe="/"),
         )
     )
 
@@ -59,7 +59,7 @@ def generate_romfile_download_url(request: Request, file: RomFile) -> str:
         request.url_for(
             "get_romfile_content",
             id=file.id,
-            file_name=quote(file.file_name, safe="/", encoding=None, errors=None),
+            file_name=quote(file.file_name, safe="/"),
         )
     )
 
