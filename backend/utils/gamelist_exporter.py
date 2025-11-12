@@ -18,7 +18,7 @@ class GamelistExporter:
 
     def _format_release_date(self, timestamp: int) -> str:
         """Format release date to YYYYMMDDTHHMMSS format"""
-        return datetime.fromtimestamp(timestamp).strftime("%Y%m%dT%H%M%S")
+        return datetime.fromtimestamp(timestamp / 1000).strftime("%Y%m%dT%H%M%S")
 
     def _create_game_element(self, rom: Rom, request=None) -> Element:
         """Create a <game> element for a ROM"""
