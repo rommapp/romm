@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import HTTPException
 from fastapi import Path as PathVar
@@ -42,6 +43,27 @@ from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.rom import Rom, RomFile, RomFileCategory
 from utils.router import APIRouter
 
+
+def generate_rom_download_url(request: Request, rom: Rom) -> str:
+    return str(
+        request.url_for(
+            "get_rom_content",
+            id=rom.id,
+            file_name=quote(rom.fs_name, safe="/", encoding=None, errors=None),
+        )
+    )
+
+
+def generate_romfile_download_url(request: Request, file: RomFile) -> str:
+    return str(
+        request.url_for(
+            "get_romfile_content",
+            id=file.id,
+            file_name=quote(file.file_name, safe="/", encoding=None, errors=None),
+        )
+    )
+
+
 router = APIRouter(
     prefix="/feeds",
     tags=["feeds"],
@@ -74,18 +96,13 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         category_items = []
         roms = db_rom_handler.get_roms_scalar(platform_id=p.id)
         for rom in roms:
+            download_url = generate_rom_download_url(request, rom)
             category_item = WebrcadeFeedItemSchema(
                 title=rom.name or rom.fs_name_no_tags,
                 description=rom.summary or "",
                 type=WEBRCADE_SLUG_TO_TYPE_MAP.get(p.slug, p.slug),
                 props=WebrcadeFeedItemPropsSchema(
-                    rom=str(
-                        request.url_for(
-                            "get_rom_content",
-                            id=rom.id,
-                            file_name=rom.fs_name,
-                        )
-                    ),
+                    rom=download_url,
                 ),
             )
             if rom.path_cover_s:
@@ -195,13 +212,7 @@ async def tinfoil_index_feed(
     return TinfoilFeedSchema(
         files=[
             TinfoilFeedFileSchema(
-                url=str(
-                    request.url_for(
-                        "get_romfile_content",
-                        id=rom_file.id,
-                        file_name=rom_file.file_name,
-                    )
-                ),
+                url=generate_romfile_download_url(request, rom_file),
                 size=rom_file.file_size_bytes,
             )
             for rom in roms
@@ -253,16 +264,6 @@ def generate_content_id(file: RomFile) -> str:
     return f"UP9644-{file.id:09d}_00-0000000000000000"
 
 
-def generate_download_url(request: Request, file: RomFile) -> str:
-    return str(
-        request.url_for(
-            "get_romfile_content",
-            id=file.id,
-            file_name=file.file_name,
-        )
-    )
-
-
 @protected_route(
     router.get,
     "/pkgi/ps3/{content_type}",
@@ -303,7 +304,7 @@ def pkgi_ps3_feed(
                 continue
 
             content_id = generate_content_id(file)
-            download_url = generate_download_url(request, file)
+            download_url = generate_romfile_download_url(request, file)
 
             # Validate the item schema
             pkgi_item = PKGiFeedPS3ItemSchema(
@@ -374,7 +375,7 @@ def pkgi_psvita_feed(
                 continue
 
             content_id = generate_content_id(file)
-            download_url = generate_download_url(request, file)
+            download_url = generate_romfile_download_url(request, file)
 
             pkgi_item = PKGiFeedPSVitaItemSchema(
                 contentid=content_id,
@@ -445,7 +446,7 @@ def pkgi_psp_feed(
                 continue
 
             content_id = generate_content_id(file)
-            download_url = generate_download_url(request, file)
+            download_url = generate_romfile_download_url(request, file)
 
             # Validate the item schema
             pkgi_item = PKGiFeedPSPItemSchema(
@@ -504,13 +505,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
     txt_lines.append(",")
 
     for rom in roms:
-        download_url = str(
-            request.url_for(
-                "get_rom_content",
-                id=rom.id,
-                file_name=rom.fs_name,
-            )
-        )
+        download_url = generate_rom_download_url(request, rom)
 
         # Generate box art URL if cover exists
         box_art_url = ""
