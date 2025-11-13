@@ -59,6 +59,7 @@ Here are a few projects maintained by members of our community. Please note that
 
 - [romm-mobile][romm-mobile]: Android (and soon iOS) app by @mattsays
 - [romm-android][romm-android]: Android app by @samwelnella
+- [romm-ios-app][romm-ios-app]: Native iOS app for RomM
 
 ### Desktop
 
@@ -161,3 +162,4 @@ Here are a few projects that we think you might like:
 [rommate]: https://github.com/brenoprata10/rommate
 [romm-android]: https://github.com/samwelnella/romm-android
 [mortar]: https://github.com/UncleJunVIP/Mortar
+[romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
