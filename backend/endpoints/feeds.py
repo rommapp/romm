@@ -502,7 +502,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
 
     txt_lines = []
     txt_lines.append("1")  # Database version
-    txt_lines.append(",")
+    txt_lines.append("  ")
 
     for rom in roms:
         download_url = generate_rom_download_url(request, rom)
@@ -528,7 +528,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
         )
 
         # Format: title,platform,region,version,author,download_url,filename,size,box_art_url
-        txt_line = f'"{kekatsu_item.title}",{kekatsu_item.platform},{kekatsu_item.region},{kekatsu_item.version},{kekatsu_item.author},"{kekatsu_item.download_url}","{kekatsu_item.filename}",{kekatsu_item.size},"{kekatsu_item.box_art_url}"'
+        txt_line = f'"{kekatsu_item.title}" {kekatsu_item.platform} {kekatsu_item.region}   {kekatsu_item.version}    {kekatsu_item.author}  "{kekatsu_item.download_url}"    "{kekatsu_item.filename}"  {kekatsu_item.size}  "{kekatsu_item.box_art_url}"'
         txt_lines.append(txt_line)
 
     txt_content = "\n".join(txt_lines)
