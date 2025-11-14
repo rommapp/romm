@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 
 from config import HLTB_API_ENABLED
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from handler.redis_handler import sync_cache, async_cache
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_httpx_client
@@ -186,6 +187,12 @@ class HLTBHandler(MetadataHandler):
         if not HLTB_API_ENABLED:
             return
 
+        # 0) Try cached endpoint first
+        cached = sync_cache.get("romm:hltb:search_url")
+        if cached:
+            self.search_url = cached
+            return
+
         try:
             with httpx.Client() as client:
                 # 1) Fetch homepage HTML
@@ -233,6 +240,7 @@ class HLTBHandler(MetadataHandler):
 
                 part1, part2 = token_match.group(1), token_match.group(2)
                 self.search_url = f"{self.base_url}/api/locate/{part1}{part2}"
+                sync_cache.set("romm:hltb:search_url", self.search_url, ex=86400)
                 log.debug("Resolved HLTB search endpoint: %s", self.search_url)
         except Exception as e:
             log.warning("Unexpected error discovering HLTB endpoint from site: %s", e)
