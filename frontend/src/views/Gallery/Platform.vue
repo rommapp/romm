@@ -27,7 +27,6 @@ const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
 const romsStore = storeRoms();
 const {
-  allRoms,
   filteredRoms,
   selectedRoms,
   currentPlatform,
@@ -37,10 +36,6 @@ const {
 } = storeToRefs(romsStore);
 const noPlatformError = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-const isHovering = ref(false);
-const hoveringRomId = ref<number>();
-const openedMenu = ref(false);
-const openedMenuRomId = ref<number>();
 const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 let timeout: ReturnType<typeof setTimeout>;
 
@@ -73,21 +68,6 @@ async function fetchRoms() {
         scrim: false,
       });
     });
-}
-
-function onHover(emitData: { isHovering: boolean; id: number }) {
-  isHovering.value = emitData.isHovering;
-  hoveringRomId.value = emitData.id;
-}
-
-function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
-  openedMenu.value = emitData.openedMenu;
-  openedMenuRomId.value = emitData.id;
-}
-
-function onClosedMenu() {
-  openedMenu.value = false;
-  openedMenuRomId.value = undefined;
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -144,8 +124,9 @@ watch(documentY, () => {
   window.setTimeout(async () => {
     scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
-      fetchTotalRoms.value > allRoms.value.length
+      documentY.value + window.innerHeight >=
+        document.body.scrollHeight - 300 &&
+      fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
     }
@@ -168,28 +149,28 @@ onMounted(async () => {
     () => filteredPlatforms.value,
     async (platforms) => {
       if (platforms.length > 0) {
-        if (platforms.some((platform) => platform.id === routePlatformId)) {
-          const platform = platforms.find(
-            (platform) => platform.id === routePlatformId,
-          );
+        const platform = platforms.find(
+          (platform) => platform.id === routePlatformId,
+        );
 
-          // Check if the current platform is different or no ROMs have been loaded
-          if (
-            (currentPlatform.value?.id !== routePlatformId ||
-              allRoms.value.length === 0) &&
-            platform
-          ) {
-            if (currentPlatform.value) resetGallery();
-            romsStore.setCurrentPlatform(platform);
-            document.title = `${platform.display_name}`;
-            await fetchRoms();
-          }
-        } else {
+        if (!platform) {
           noPlatformError.value = true;
+          return;
+        }
+
+        // Check if the current platform is different or no ROMs have been loaded
+        if (
+          currentPlatform.value?.id !== routePlatformId ||
+          filteredRoms.value.length === 0
+        ) {
+          if (currentPlatform.value) resetGallery();
+          romsStore.setCurrentPlatform(platform);
+          document.title = platform.display_name;
+          await fetchRoms();
         }
       }
     },
-    { immediate: true }, // Ensure watcher is triggered immediately
+    { immediate: true },
   );
 });
 
@@ -207,18 +188,20 @@ onBeforeRouteUpdate(async (to, from) => {
           (platform) => platform.id === routePlatformId,
         );
 
-        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
+        if (!platform) {
+          noPlatformError.value = true;
+          return;
+        }
+
+        // Check if the current platform is different or no ROMs have been loaded
         if (
-          (currentPlatform.value?.id !== routePlatformId ||
-            allRoms.value.length === 0) &&
-          platform
+          currentPlatform.value?.id !== routePlatformId ||
+          filteredRoms.value.length === 0
         ) {
           if (currentPlatform.value) resetGallery();
           romsStore.setCurrentPlatform(platform);
-          document.title = `${platform.display_name}`;
+          document.title = platform.display_name;
           await fetchRoms();
-        } else {
-          noPlatformError.value = true;
         }
       }
     },
@@ -251,13 +234,6 @@ onBeforeRouteUpdate(async (to, from) => {
             :md="views[currentView]['size-md']"
             :lg="views[currentView]['size-lg']"
             :xl="views[currentView]['size-xl']"
-            :style="{
-              zIndex:
-                (isHovering && hoveringRomId === rom.id) ||
-                (openedMenu && openedMenuRomId === rom.id)
-                  ? 1000
-                  : 1,
-            }"
           >
             <GameCard
               :key="rom.id"
@@ -277,10 +253,6 @@ onBeforeRouteUpdate(async (to, from) => {
               @click="onGameClick"
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"
-              @hover="onHover"
-              @focus="onHover"
-              @openedmenu="onOpenedMenu"
-              @closedmenu="onClosedMenu"
             />
           </v-col>
         </v-row>

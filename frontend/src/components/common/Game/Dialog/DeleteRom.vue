@@ -44,9 +44,10 @@ async function deleteRoms() {
     .deleteRoms({ roms: roms.value, deleteFromFs: romsToDeleteFromFs.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
-        msg: romsToDeleteFromFs.value
-          ? `${response.data.successful_items} roms deleted from filesystem`
-          : `${response.data.successful_items} roms deleted from RomM`,
+        msg:
+          romsToDeleteFromFs.value.length > 0
+            ? `${response.data.successful_items} roms deleted from the filesystem`
+            : `${response.data.successful_items} roms deleted from the database`,
         icon: "mdi-check-bold",
         color: "green",
       });
@@ -89,7 +90,7 @@ async function deleteRoms() {
       }
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",

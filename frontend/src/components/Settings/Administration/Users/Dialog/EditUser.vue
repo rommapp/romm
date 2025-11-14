@@ -101,7 +101,7 @@ function closeDialog() {
               v-model="user.username"
               variant="outlined"
               :label="t('settings.username')"
-              :rules="usersStore.nameRules"
+              :rules="usersStore.usernameRules"
               required
               clearable
               class="ma-2"
@@ -111,6 +111,9 @@ function closeDialog() {
               variant="outlined"
               :label="t('settings.password')"
               :placeholder="t('settings.password-placeholder')"
+              :rules="usersStore.passwordRules"
+              type="password"
+              required
               clearable
               class="ma-2"
             />

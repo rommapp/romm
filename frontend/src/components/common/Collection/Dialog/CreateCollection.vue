@@ -20,7 +20,11 @@ const { mdAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
 const heartbeat = storeHeartbeat();
-const collection = ref<UpdatedCollection>({ name: "" } as UpdatedCollection);
+const collection = ref<UpdatedCollection>({
+  name: "",
+  path_covers_large: [],
+  path_covers_small: [],
+} as unknown as UpdatedCollection);
 const collectionsStore = storeCollections();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
@@ -34,7 +38,7 @@ emitter?.on("updateUrlCover", (coverUrl) => {
 });
 
 const missingCoverImage = computed(() =>
-  getMissingCoverImage(collection.value.name),
+  getMissingCoverImage(collection.value.name || ""),
 );
 
 function triggerFileInput() {
@@ -84,14 +88,12 @@ async function createCollection() {
       timeout: 2000,
     });
     collectionsStore.addCollection(data);
-    if (data.name.toLowerCase() == "favourites") {
-      collectionsStore.setFavoriteCollection(data);
-    }
+    if (data.is_favorite) collectionsStore.setFavoriteCollection(data);
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     router.push({ name: ROUTES.COLLECTION, params: { collection: data.id } });
     closeDialog();
   } catch (error) {
-    console.log(error);
+    console.error(error);
     emitter?.emit("snackbarShow", {
       msg: "Failed to create collection",
       icon: "mdi-close-circle",
@@ -178,8 +180,7 @@ function closeDialog() {
                       class="translucent"
                       @click="
                         emitter?.emit('showSearchCoverDialog', {
-                          term: collection.name as string,
-                          aspectRatio: null,
+                          term: collection.name,
                         })
                       "
                     >

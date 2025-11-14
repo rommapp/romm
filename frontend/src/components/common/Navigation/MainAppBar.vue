@@ -2,6 +2,7 @@
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import RandomBtn from "@/components/Gallery/AppBar/common/RandomBtn.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
@@ -45,6 +46,7 @@ function collapse() {
       </template>
 
       <template #append>
+        <RandomBtn />
         <UploadBtn class="mr-2" />
         <UserBtn class="mr-1" />
       </template>
@@ -107,6 +109,7 @@ function collapse() {
     <ConsoleModeBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
 
     <template #append>
+      <RandomBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
       <UploadBtn
         :with-tag="!mainBarCollapsed"
         rounded

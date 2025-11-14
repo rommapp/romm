@@ -1,26 +1,23 @@
 <script setup lang="ts">
 import { get } from "lodash";
 import { MdPreview } from "md-editor-v3";
-import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
+import MediaCarousel from "@/components/Details/Info/MediaCarousel.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import { ROUTES } from "@/plugins/router";
 import { type FilterType } from "@/stores/galleryFilter";
-import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const { xs } = useDisplay();
 const theme = useTheme();
-const show = ref(false);
-const carousel = ref(0);
+const showDialog = ref(false);
+const carouselValue = ref(0);
 const router = useRouter();
-const heartbeatStore = storeHeartbeat();
-const { value: heartbeat } = storeToRefs(heartbeatStore);
 const filters = [
   { key: "region", path: "regions", name: t("rom.regions") },
   { key: "language", path: "languages", name: t("rom.languages") },
@@ -90,7 +87,11 @@ const coverImageSource = computed(() => {
     const hostname = new URL(props.rom.url_cover).hostname;
 
     if (hostname === "images.igdb.com") return "IGDB";
-    if (hostname === "screenscraper.fr") return "ScreenScraper";
+    if (
+      hostname === "screenscraper.fr" ||
+      hostname === "neoclone.screenscraper.fr"
+    )
+      return "ScreenScraper";
     if (hostname === "cdn.mobygames.com" || hostname === "cdn2.mobygames.com")
       return "MobyGames";
     if (
@@ -226,100 +227,19 @@ function onFilterClick(filter: FilterType, value: string) {
       >
         <v-row no-gutters class="mt-4">
           <v-col>
-            <v-carousel
-              v-model="carousel"
-              hide-delimiter-background
-              delimiter-icon="mdi-square"
-              class="bg-background"
-              show-arrows="hover"
-              hide-delimiters
-              progress="toplayer"
-              :height="xs ? '300' : '400'"
-            >
-              <template #prev="{ props: prevProps }">
-                <v-btn
-                  icon="mdi-chevron-left"
-                  class="translucent"
-                  @click="prevProps.onClick"
-                />
-              </template>
-              <v-carousel-item
-                v-if="rom.youtube_video_id"
-                :key="rom.youtube_video_id"
-                content-class="d-flex justify-center align-center"
-              >
-                <iframe
-                  height="100%"
-                  width="100%"
-                  :src="`${heartbeat.FRONTEND.YOUTUBE_BASE_URL}/embed/${rom.youtube_video_id}`"
-                  title="YouTube video player"
-                  frameborder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  allowfullscreen
-                />
-              </v-carousel-item>
-              <v-carousel-item
-                v-for="screenshot_url in rom.merged_screenshots"
-                :key="screenshot_url"
-                :src="screenshot_url"
-                class="pointer"
-                @click="show = true"
-              />
-              <template #next="{ props: nextProps }">
-                <v-btn
-                  icon="mdi-chevron-right"
-                  class="translucent"
-                  @click="nextProps.onClick"
-                />
-              </template>
-            </v-carousel>
-            <RDialog v-model="show" :width="'95vw'">
+            <MediaCarousel
+              enable-click
+              v-model="carouselValue"
+              :rom="rom"
+              @click="showDialog = true"
+            />
+            <RDialog v-model="showDialog" :width="'95vw'">
               <template #content>
-                <v-carousel
-                  v-model="carousel"
-                  hide-delimiter-background
-                  delimiter-icon="mdi-square"
-                  show-arrows="hover"
-                  hide-delimiters
-                  class="dialog-carousel"
-                >
-                  <template #prev="{ props: prevProps }">
-                    <v-btn
-                      icon="mdi-chevron-left"
-                      class="translucent"
-                      @click="prevProps.onClick"
-                    />
-                  </template>
-                  <v-carousel-item
-                    v-if="rom.youtube_video_id"
-                    :key="rom.youtube_video_id"
-                    content-class="d-flex justify-center align-center"
-                  >
-                    <iframe
-                      height="100%"
-                      width="100%"
-                      :src="`${heartbeat.FRONTEND.YOUTUBE_BASE_URL}/embed/${rom.youtube_video_id}`"
-                      title="YouTube video player"
-                      frameborder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      referrerpolicy="strict-origin-when-cross-origin"
-                      allowfullscreen
-                    />
-                  </v-carousel-item>
-                  <v-carousel-item
-                    v-for="screenshot_url in rom.merged_screenshots"
-                    :key="screenshot_url"
-                    :src="screenshot_url"
-                  />
-                  <template #next="{ props: nextProps }">
-                    <v-btn
-                      icon="mdi-chevron-right"
-                      class="translucent"
-                      @click="nextProps.onClick"
-                    />
-                  </template>
-                </v-carousel>
+                <MediaCarousel
+                  v-model="carouselValue"
+                  :rom="rom"
+                  :height="'calc(100vh - 110px)'"
+                />
               </template>
             </RDialog>
           </v-col>
@@ -327,7 +247,7 @@ function onFilterClick(filter: FilterType, value: string) {
       </template>
       <v-row v-if="rom.is_identified">
         <v-col class="mt-4 text-right">
-          <div class="text-grey">
+          <div v-if="dataSources.length > 0" class="text-grey">
             Data provided by
             <template v-for="(source, index) in dataSources" :key="source.name">
               <a

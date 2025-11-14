@@ -4,7 +4,6 @@ import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import type { SearchRomSchema } from "@/__generated__";
 import EmptyManualMatch from "@/components/common/EmptyStates/EmptyManualMatch.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
@@ -12,8 +11,7 @@ import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
-import storePlatforms from "@/stores/platforms";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage } from "@/utils/covers";
 
@@ -25,7 +23,6 @@ type MatchedSource = {
     | "Screenscraper"
     | "Flashpoint"
     | "Launchbox"
-    | "HowLongToBeat"
     | "SteamGridDB";
   logo_path: string;
 };
@@ -36,18 +33,17 @@ const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
 const galleryViewStore = storeGalleryView();
-const platfotmsStore = storePlatforms();
 const searching = ref(false);
 const route = useRoute();
 const searchText = ref("");
 const searchBy = ref("Name");
 const searched = ref(false);
-const matchedRoms = ref<SearchRomSchema[]>([]);
-const filteredMatchedRoms = ref<SearchRomSchema[]>();
+const matchedRoms = ref<SearchRom[]>([]);
+const filteredMatchedRoms = ref<SearchRom[]>();
 const emitter = inject<Emitter<Events>>("emitter");
 const showSelectSource = ref(false);
 const renameFromSource = ref(false);
-const selectedMatchRom = ref<SearchRomSchema>();
+const selectedMatchRom = ref<SearchRom>();
 const selectedCover = ref<MatchedSource>();
 const sources = ref<MatchedSource[]>([]);
 const heartbeat = storeHeartbeat();
@@ -56,24 +52,24 @@ const isMobyFiltered = ref(true);
 const isSSFiltered = ref(true);
 const isFlashpointFiltered = ref(true);
 const isLaunchboxFiltered = ref(true);
-const isHLTBFiltered = ref(true);
+
 const computedAspectRatio = computed(() => {
-  const ratio =
-    platfotmsStore.getAspectRatio(rom.value?.platform_id ?? -1) ||
-    galleryViewStore.defaultAspectRatioCover;
-  return parseFloat(ratio.toString());
+  return galleryViewStore.getAspectRatio({
+    platformId: rom.value?.platform_id,
+    boxartStyle: "cover_path",
+  });
 });
-emitter?.on("showMatchRomDialog", (romToSearch) => {
+
+const handleShowMatchRomDialog = (romToSearch: SimpleRom) => {
   rom.value = romToSearch;
   show.value = true;
   matchedRoms.value = [];
-
-  // Use name as search term, only when it's matched
-  // Otherwise use the filename without tags and extensions
   searchText.value = romToSearch.is_identified
     ? (romToSearch.name ?? "")
     : romToSearch.fs_name_no_tags;
-});
+};
+emitter?.on("showMatchRomDialog", handleShowMatchRomDialog);
+
 const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
@@ -101,20 +97,15 @@ function toggleSourceFilter(source: MatchedSource["name"]) {
     heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED
   ) {
     isLaunchboxFiltered.value = !isLaunchboxFiltered.value;
-  } else if (
-    source == "HowLongToBeat" &&
-    heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED
-  ) {
-    isHLTBFiltered.value = !isHLTBFiltered.value;
   }
+
   filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
     if (
       (rom.igdb_id && isIGDBFiltered.value) ||
       (rom.moby_id && isMobyFiltered.value) ||
       (rom.ss_id && isSSFiltered.value) ||
       (rom.flashpoint_id && isFlashpointFiltered.value) ||
-      (rom.launchbox_id && isLaunchboxFiltered.value) ||
-      (rom.hltb_id && isHLTBFiltered.value)
+      (rom.launchbox_id && isLaunchboxFiltered.value)
     ) {
       return true;
     }
@@ -146,8 +137,7 @@ async function searchRom() {
             (rom.moby_id && isMobyFiltered.value) ||
             (rom.ss_id && isSSFiltered.value) ||
             (rom.flashpoint_id && isFlashpointFiltered.value) ||
-            (rom.launchbox_id && isLaunchboxFiltered.value) ||
-            (rom.hltb_id && isHLTBFiltered.value)
+            (rom.launchbox_id && isLaunchboxFiltered.value)
           ) {
             return true;
           }
@@ -167,7 +157,7 @@ async function searchRom() {
   }
 }
 
-function showSources(matchedRom: SearchRomSchema) {
+function showSources(matchedRom: SearchRom) {
   if (!rom.value) return;
 
   var cardContent = document.getElementById("r-dialog-content");
@@ -219,13 +209,6 @@ function showSources(matchedRom: SearchRomSchema) {
       logo_path: "/assets/scrappers/launchbox.png",
     });
   }
-  if (matchedRom.hltb_url_cover) {
-    sources.value.push({
-      url_cover: matchedRom.hltb_url_cover,
-      name: "HowLongToBeat",
-      logo_path: "/assets/scrappers/hltb.png",
-    });
-  }
   if (sources.value.length == 1) {
     selectedCover.value = sources.value[0];
   }
@@ -253,10 +236,7 @@ function backToMatched() {
   renameFromSource.value = false;
 }
 
-async function updateRom(
-  selectedRom: SearchRomSchema,
-  urlCover: string | undefined,
-) {
+async function updateRom(selectedRom: SearchRom, urlCover: string | undefined) {
   if (!rom.value) return;
 
   show.value = false;
@@ -277,7 +257,6 @@ async function updateRom(
     moby_id: selectedRom.moby_id || null,
     flashpoint_id: selectedRom.flashpoint_id || null,
     launchbox_id: selectedRom.launchbox_id || null,
-    hltb_id: selectedRom.hltb_id || null,
     name: selectedRom.name || null,
     slug: selectedRom.slug || null,
     summary: selectedRom.summary || null,
@@ -288,7 +267,6 @@ async function updateRom(
       selectedRom.moby_url_cover ||
       selectedRom.flashpoint_url_cover ||
       selectedRom.launchbox_url_cover ||
-      selectedRom.hltb_url_cover ||
       null,
   };
 
@@ -335,7 +313,7 @@ function closeDialog() {
 }
 
 onBeforeUnmount(() => {
-  emitter?.off("showMatchRomDialog");
+  emitter?.off("showMatchRomDialog", handleShowMatchRomDialog);
 });
 </script>
 
@@ -500,35 +478,6 @@ onBeforeUnmount(() => {
           </v-avatar>
         </template>
       </v-tooltip>
-      <v-tooltip
-        location="top"
-        class="tooltip"
-        transition="fade-transition"
-        :text="
-          heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED
-            ? 'Filter HowLongToBeat matches'
-            : 'HowLongToBeat source is not enabled'
-        "
-        open-delay="500"
-        ><template #activator="{ props }">
-          <v-avatar
-            @click="toggleSourceFilter('HowLongToBeat')"
-            v-bind="props"
-            class="ml-3 cursor-pointer opacity-40"
-            :class="{
-              'opacity-100':
-                isHLTBFiltered &&
-                heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED,
-              'cursor-not-allowed':
-                !heartbeat.value.METADATA_SOURCES.HLTB_API_ENABLED,
-            }"
-            size="30"
-            rounded="1"
-          >
-            <v-img src="/assets/scrappers/hltb.png" />
-          </v-avatar>
-        </template>
-      </v-tooltip>
     </template>
     <template #toolbar>
       <v-row class="align-center" no-gutters>
@@ -587,6 +536,7 @@ onBeforeUnmount(() => {
             title-on-hover
             pointer-on-hover
             disable-view-transition
+            force-boxart="cover_path"
             @click="showSources(matchedRom)"
           />
         </v-col>
@@ -628,40 +578,33 @@ onBeforeUnmount(() => {
                 class="pa-1"
                 cols="auto"
               >
-                <v-hover v-slot="{ isHovering, props }">
-                  <v-card
-                    :width="xs ? 150 : 220"
-                    v-bind="props"
-                    class="transform-scale mx-2"
-                    :class="{
-                      'on-hover': isHovering,
-                      'border-primary': selectedCover?.name == source.name,
-                    }"
-                    :elevation="isHovering ? 20 : 3"
-                    @click="selectCover(source)"
+                <v-card
+                  :width="xs ? 150 : 220"
+                  class="transform-scale mx-2"
+                  :class="{
+                    'border-selected border-lg':
+                      selectedCover?.name == source.name,
+                  }"
+                  @click="selectCover(source)"
+                >
+                  <v-img
+                    :src="source.url_cover || missingCoverImage"
+                    :aspect-ratio="computedAspectRatio"
+                    cover
                   >
-                    <v-img
-                      :src="source.url_cover || missingCoverImage"
-                      :aspect-ratio="computedAspectRatio"
-                      cover
-                    >
-                      <template #placeholder>
-                        <Skeleton
-                          :aspect-ratio="computedAspectRatio"
-                          type="image"
-                        />
-                      </template>
-                      <v-row no-gutters class="text-white pa-1">
-                        <v-avatar class="mr-1" size="30" rounded="1">
-                          <v-img :src="source.logo_path" />
-                        </v-avatar>
-                      </v-row>
-                      <template #error>
-                        <v-img :src="missingCoverImage" />
-                      </template>
-                    </v-img>
-                  </v-card>
-                </v-hover>
+                    <template #placeholder>
+                      <Skeleton type="image" />
+                    </template>
+                    <v-row no-gutters class="text-white pa-1">
+                      <v-avatar class="mr-1" size="30" rounded="1">
+                        <v-img :src="source.logo_path" />
+                      </v-avatar>
+                    </v-row>
+                    <template #error>
+                      <v-img :src="missingCoverImage" />
+                    </template>
+                  </v-img>
+                </v-card>
               </v-col>
             </v-row>
           </v-col>

@@ -36,12 +36,12 @@ async function deleteCollection() {
         color: "green",
       });
       collectionsStore.removeCollection(collection.value as Collection);
-      if (collection.value?.name.toLowerCase() == "favourites") {
+      if (collection.value?.is_favorite) {
         collectionsStore.setFavoriteCollection(undefined);
       }
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",

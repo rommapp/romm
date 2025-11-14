@@ -20,7 +20,7 @@ const releaseDate = new Date(
 });
 
 const platformsStore = storePlatforms();
-const { filteredPlatforms } = storeToRefs(platformsStore);
+const { allPlatforms } = storeToRefs(platformsStore);
 
 const hashMatches = computed(() => {
   return [
@@ -52,6 +52,10 @@ const hashMatches = computed(() => {
       name: "WHDLoad",
       match: props.rom.hasheous_metadata?.whdload_match,
     },
+    {
+      name: "PureDOS",
+      match: props.rom.hasheous_metadata?.puredos_match,
+    },
   ].filter((item) => item.match);
 });
 </script>
@@ -81,7 +85,7 @@ const hashMatches = computed(() => {
         >
           <MissingFromFSIcon
             v-if="
-              filteredPlatforms.find((p) => p.id === rom.platform_id)
+              allPlatforms.find((p) => p.id === rom.platform_id)
                 ?.missing_from_fs
             "
             class="mr-2"
@@ -90,7 +94,7 @@ const hashMatches = computed(() => {
           <PlatformIcon
             :key="rom.platform_slug"
             :slug="rom.platform_slug"
-            :name="rom.platform_name"
+            :name="rom.platform_display_name"
             :fs-slug="rom.platform_fs_slug"
             :size="30"
             class="mr-2"
@@ -289,6 +293,16 @@ const hashMatches = computed(() => {
             </template>
           </v-chip>
         </a>
+        <v-chip
+          v-if="rom.gamelist_id"
+          class="px-0 mr-1 mt-1"
+          size="small"
+          title="ES-DE (gamelist.xml)"
+        >
+          <v-avatar size="30" rounded="0">
+            <v-img src="/assets/scrappers/esde.png" />
+          </v-avatar>
+        </v-chip>
         <a
           v-if="rom.sgdb_id"
           style="text-decoration: none; color: inherit"

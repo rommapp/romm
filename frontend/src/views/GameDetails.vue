@@ -55,7 +55,7 @@ async function fetchDetails() {
       currentRom.value = data;
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       noRomError.value = true;
     })
     .finally(() => {
@@ -117,7 +117,7 @@ watch(
             :show-platform-icon="false"
             :show-action-bar="false"
           />
-          <ActionBar class="mt-2" :rom="currentRom" />
+          <ActionBar :rom="currentRom" />
           <RelatedGames v-if="mdAndUp" class="mt-4" :rom="currentRom" />
         </v-container>
       </v-col>
@@ -156,7 +156,7 @@ watch(
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
-            <v-tab v-if="currentRom.hltb_metadata" value="timetobeat">
+            <v-tab v-if="currentRom.hltb_id" value="timetobeat">
               {{ t("rom.how-long-to-beat") }}
             </v-tab>
             <v-tab

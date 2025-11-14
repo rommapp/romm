@@ -118,10 +118,8 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
           v-bind="saveProps"
           class="bg-toplayer transform-scale"
           :class="{
-            'on-hover': isHovering,
             'border-selected': selectedSaves.some((s) => s.id === save.id),
           }"
-          :elevation="isHovering ? 20 : 3"
           @click="(e: MouseEvent) => onCardClick(save, e)"
         >
           <v-card-text class="pa-2">

@@ -63,8 +63,8 @@ onMounted(async () => {
         max-width="fit-content"
       >
         <v-card-text class="text-center py-2 px-4">
-          <span class="text-white text-body-1">New version available:</span>
-          <span class="text-primary ml-1 text-body-1">{{
+          <span class="text-body-1">New version available:</span>
+          <span class="text-primary ml-1 text-body-1 font-weight-medium">{{
             GITHUB_VERSION
           }}</span>
           <v-row class="mt-2 flex justify-center" no-gutters>
@@ -79,8 +79,9 @@ onMounted(async () => {
                 Dismiss
               </v-btn>
               <v-btn
-                variant="tonal"
                 density="compact"
+                variant="tonal"
+                color="primary"
                 size="small"
                 @click="openNewVersion"
               >

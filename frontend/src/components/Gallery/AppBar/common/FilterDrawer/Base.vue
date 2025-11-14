@@ -8,7 +8,7 @@ import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
-import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
+import FilterFavoritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavoritesBtn.vue";
 import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchedBtn.vue";
 import FilterMissingBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMissingBtn.vue";
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
@@ -46,7 +46,7 @@ const {
   activeFilterDrawer,
   filterUnmatched,
   filterMatched,
-  filterFavourites,
+  filterFavorites,
   filterDuplicates,
   filterPlayables,
   filterRA,
@@ -72,7 +72,7 @@ const {
   filterLanguages,
 } = storeToRefs(galleryFilterStore);
 const { filteredRoms } = storeToRefs(romsStore);
-const { filteredPlatforms } = storeToRefs(platformsStore);
+const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const onFilterChange = debounce(
@@ -86,7 +86,7 @@ const onFilterChange = debounce(
       search: searchTerm.value,
       filterMatched: filterMatched.value ? "1" : null,
       filterUnmatched: filterUnmatched.value ? "1" : null,
-      filterFavourites: filterFavourites.value ? "1" : null,
+      filterFavorites: filterFavorites.value ? "1" : null,
       filterDuplicates: filterDuplicates.value ? "1" : null,
       filterPlayables: filterPlayables.value ? "1" : null,
       filterMissing: filterMissing.value ? "1" : null,
@@ -215,7 +215,7 @@ onMounted(async () => {
     search: urlSearch,
     filterMatched: urlFilteredMatch,
     filterUnmatched: urlFilteredUnmatched,
-    filterFavourites: urlFilteredFavourites,
+    filterFavorites: urlFilteredFavorites,
     filterDuplicates: urlFilteredDuplicates,
     filterPlayables: urlFilteredPlayables,
     filterMissing: urlFilteredMissing,
@@ -239,8 +239,8 @@ onMounted(async () => {
   if (urlFilteredUnmatched !== undefined) {
     galleryFilterStore.setFilterUnmatched(true);
   }
-  if (urlFilteredFavourites !== undefined) {
-    galleryFilterStore.setFilterFavourites(true);
+  if (urlFilteredFavorites !== undefined) {
+    galleryFilterStore.setFilterFavorites(true);
   }
   if (urlFilteredDuplicates !== undefined) {
     galleryFilterStore.setFilterDuplicates(true);
@@ -305,7 +305,7 @@ onMounted(async () => {
   );
 
   watch(
-    () => filteredPlatforms.value,
+    () => allPlatforms.value,
     async () => setFilters(),
     { immediate: true }, // Ensure watcher is triggered immediately
   );
@@ -336,7 +336,7 @@ onMounted(async () => {
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <FilterFavouritesBtn
+        <FilterFavoritesBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />

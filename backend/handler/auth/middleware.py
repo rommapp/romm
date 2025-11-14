@@ -67,6 +67,7 @@ class SessionMiddleware:
                     else self.jwt_secret.encode
                 )
             ),
+            algorithms=[self.jwt_alg],
         )
         if token.claims != {"1": 2} or token.header != {"typ": "JWT", "alg": jwt_alg}:
             raise ValueError(
@@ -115,6 +116,7 @@ class SessionMiddleware:
                             else self.jwt_secret.encode
                         )
                     ),
+                    algorithms=[self.jwt_alg],
                 )
 
                 jwt_claims = self._validate_jwt_payload(jwt_payload)

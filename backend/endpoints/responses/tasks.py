@@ -1,8 +1,11 @@
 from typing import Dict, List, TypedDict
 
+from tasks.tasks import TaskType
+
 
 class TaskInfo(TypedDict):
     name: str
+    type: TaskType
     manual_run: bool
     title: str
     description: str

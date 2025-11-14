@@ -42,65 +42,61 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <v-hover v-slot="{ isHovering, props: cardProps }">
-    <div ref="tilt-card-ref" data-tilt>
-      <v-card
-        v-bind="cardProps"
-        class="bg-toplayer"
-        :class="{ 'on-hover': isHovering, 'transform-scale': !enable3DTilt }"
-        :elevation="isHovering ? 20 : 3"
-        :aria-label="`${platform.name} platform card`"
-        :to="{ name: ROUTES.PLATFORM, params: { platform: platform.id } }"
-        @mouseenter="
-          () => {
-            emit('hover', { isHovering: true, id: platform.id });
-          }
-        "
-        @mouseleave="
-          () => {
-            emit('hover', { isHovering: false, id: platform.id });
-          }
-        "
-        @blur="
-          () => {
-            emit('hover', { isHovering: false, id: platform.id });
-          }
-        "
-      >
-        <v-card-text>
-          <v-row class="pa-1 justify-center align-center bg-background">
-            <MissingFromFSIcon
-              v-if="platform.missing_from_fs"
-              text="Missing platform from filesystem"
-              :size="15"
-            />
-            <div
-              :title="platform.display_name"
-              class="px-2 text-truncate text-caption"
-            >
-              <span>{{ platform.display_name }}</span>
-            </div>
-          </v-row>
-          <v-row class="pa-1 justify-center">
-            <PlatformIcon
-              :key="platform.slug"
-              :slug="platform.slug"
-              :name="platform.name"
-              :fs-slug="platform.fs_slug"
-              :size="105"
-              class="mt-2"
-            />
-            <v-chip
-              class="bg-background position-absolute"
-              size="x-small"
-              style="bottom: 1rem; right: 1rem"
-              label
-            >
-              {{ platform.rom_count }}
-            </v-chip>
-          </v-row>
-        </v-card-text>
-      </v-card>
-    </div>
-  </v-hover>
+  <div ref="tilt-card-ref" data-tilt>
+    <v-card
+      class="bg-toplayer"
+      :class="{ 'transform-scale': !enable3DTilt }"
+      :aria-label="`${platform.name} platform card`"
+      :to="{ name: ROUTES.PLATFORM, params: { platform: platform.id } }"
+      @mouseenter="
+        () => {
+          emit('hover', { isHovering: true, id: platform.id });
+        }
+      "
+      @mouseleave="
+        () => {
+          emit('hover', { isHovering: false, id: platform.id });
+        }
+      "
+      @blur="
+        () => {
+          emit('hover', { isHovering: false, id: platform.id });
+        }
+      "
+    >
+      <v-card-text>
+        <v-row class="pa-1 justify-center align-center bg-background">
+          <MissingFromFSIcon
+            v-if="platform.missing_from_fs"
+            text="Missing platform from filesystem"
+            :size="15"
+          />
+          <div
+            :title="platform.display_name"
+            class="px-2 text-truncate text-caption"
+          >
+            <span>{{ platform.display_name }}</span>
+          </div>
+        </v-row>
+        <v-row class="pa-1 justify-center">
+          <PlatformIcon
+            :key="platform.slug"
+            :slug="platform.slug"
+            :name="platform.name"
+            :fs-slug="platform.fs_slug"
+            :size="105"
+            class="mt-2"
+          />
+          <v-chip
+            class="bg-background position-absolute"
+            size="x-small"
+            style="bottom: 1rem; right: 1rem"
+            label
+          >
+            {{ platform.rom_count }}
+          </v-chip>
+        </v-row>
+      </v-card-text>
+    </v-card>
+  </div>
 </template>

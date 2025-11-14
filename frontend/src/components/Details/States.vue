@@ -120,10 +120,8 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
           v-bind="stateProps"
           class="bg-toplayer transform-scale"
           :class="{
-            'on-hover': isHovering,
             'border-selected': selectedStates.some((s) => s.id === state.id),
           }"
-          :elevation="isHovering ? 20 : 3"
           @click="(e: MouseEvent) => onCardClick(state, e)"
         >
           <v-card-text class="pa-2">

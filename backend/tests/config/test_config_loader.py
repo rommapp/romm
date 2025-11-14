@@ -22,7 +22,7 @@ def test_config_loader():
     assert loader.config.EJS_DEBUG
     assert loader.config.EJS_CACHE_LIMIT == 1000
     assert loader.config.EJS_SETTINGS == {
-        "parallel_n64": {"vsync": "disable"},
+        "parallel_n64": {"vsync": "disabled"},
         "snes9x": {"snes9x_region": "ntsc"},
     }
     assert loader.config.EJS_CONTROLS == {
@@ -33,7 +33,7 @@ def test_config_loader():
             "_3": {},
         },
     }
-    assert loader.config.SCAN_METADATA_PRIORITY == ["ss", "lb"]
+    assert loader.config.SCAN_METADATA_PRIORITY == ["ss", "launchbox"]
     assert loader.config.SCAN_ARTWORK_PRIORITY == ["igdb", "ss"]
     assert loader.config.SCAN_REGION_PRIORITY == ["jp", "eu", "wor"]
     assert loader.config.SCAN_LANGUAGE_PRIORITY == ["jp", "es"]

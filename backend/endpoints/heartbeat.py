@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from config import (
     DISABLE_EMULATOR_JS,
     DISABLE_RUFFLE_RS,
+    DISABLE_SETUP_WIZARD,
     DISABLE_USERPASS_LOGIN,
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     ENABLE_SCHEDULED_RESCAN,
@@ -22,6 +23,7 @@ from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata import (
     meta_flashpoint_handler,
+    meta_gamelist_handler,
     meta_hasheous_handler,
     meta_hltb_handler,
     meta_igdb_handler,
@@ -64,7 +66,8 @@ async def heartbeat() -> HeartbeatResponse:
     return {
         "SYSTEM": {
             "VERSION": get_version(),
-            "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0,
+            "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0
+            and not DISABLE_SETUP_WIZARD,
         },
         "METADATA_SOURCES": {
             "ANY_SOURCE_ENABLED": (
@@ -136,7 +139,7 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_ss_handler.heartbeat()
         case MetadataSource.RA:
             return await meta_ra_handler.heartbeat()
-        case MetadataSource.LB:
+        case MetadataSource.LAUNCHBOX:
             return await meta_launchbox_handler.heartbeat()
         case MetadataSource.HASHEOUS:
             return await meta_hasheous_handler.heartbeat()
@@ -148,3 +151,7 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_flashpoint_handler.heartbeat()
         case MetadataSource.HLTB:
             return await meta_hltb_handler.heartbeat()
+        case MetadataSource.GAMELIST:
+            return await meta_gamelist_handler.heartbeat()
+        case _:
+            return False

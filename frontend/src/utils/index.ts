@@ -668,26 +668,37 @@ export function getStatusKeyForText(text: string | null) {
   return inverseRomStatusMap[text];
 }
 
-export function is3DSCIAFile(rom: SimpleRom): boolean {
-  return rom.fs_extension.toLowerCase() == "cia";
+export function isNintendoDSFile(rom: SimpleRom): boolean {
+  return ["cia", "nds", "3ds", "dsi"].includes(rom.fs_extension.toLowerCase());
 }
 
-export function get3DSCIAFiles(rom: SimpleRom): RomFileSchema[] {
-  return rom.files.filter((file) =>
-    file.file_name.toLowerCase().endsWith(".cia"),
-  );
+export function getNintendoDSFiles(rom: SimpleRom): RomFileSchema[] {
+  return rom.files.filter((file) => {
+    const fileName = file.file_name.toLowerCase();
+    return (
+      fileName.endsWith(".cia") ||
+      fileName.endsWith(".nds") ||
+      fileName.endsWith(".3ds") ||
+      fileName.endsWith(".dsi")
+    );
+  });
 }
 
 /**
- * Check if a ROM is a valid 3DS game
+ * Check if a ROM is a valid NDS/3DS/DSi game
  * @param rom The ROM object.
- * @returns True if the ROM is a valid 3DS game, false otherwise.
+ * @returns {boolean} True if the ROM is a valid game, otherwise false.
  */
-export function is3DSCIARom(rom: SimpleRom): boolean {
-  if (rom.platform_slug !== "3ds") return false;
+export function isNintendoDSRom(rom: SimpleRom): boolean {
+  if (
+    !["3ds", "nds", "new-nintendo-3ds", "nintendo-dsi"].includes(
+      rom.platform_slug,
+    )
+  )
+    return false;
 
-  const hasValidExtension = is3DSCIAFile(rom);
-  const hasValidFile = get3DSCIAFiles(rom).length > 0;
+  const hasValidExtension = isNintendoDSFile(rom);
+  const hasValidFile = getNintendoDSFiles(rom).length > 0;
 
   return hasValidExtension || hasValidFile;
 }
@@ -705,4 +716,70 @@ export function calculateMainLayoutWidth() {
   });
 
   return { calculatedWidth };
+}
+
+/**
+ * Get the icon for a given platform category.
+ *
+ * @param category The platform category.
+ * @returns The corresponding icon.
+ */
+export function platformCategoryToIcon(category: string) {
+  if (!category) return "";
+  switch (category.toLowerCase()) {
+    case "console":
+      return "mdi-gamepad-variant";
+    case "computer":
+      return "mdi-desktop-classic";
+    case "portable console":
+      return "mdi-nintendo-game-boy";
+    case "arcade":
+      return "mdi-gamepad-circle";
+    case "operating system":
+      return "mdi-monitor-shimmer";
+    case "platform":
+      return "mdi-desktop-tower-monitor";
+    case "unknown":
+    default:
+      return "";
+  }
+}
+
+export const FRONTEND_RESOURCES_PATH = "/assets/romm/resources";
+
+export const CD_BASED_SYSTEMS = new Set([
+  "3do", // 3DO
+  "amiga-cd32", // Amiga CD32
+  "atari-jaguar-cd", // Atari Jaguar CD
+  "philips-cd-i", // Philips CD-i
+  "commodore-cdtv", // Commodore CDTV
+  "dc", // Dreamcast
+  "fm-towns", // FM Towns
+  "hyperscan", // HyperScan
+  "laseractive", // LaserActive
+  "neo-geo-cd", // Neo Geo CD
+  "ngc", // Nintendo GameCube
+  "pc-fx", // PC-FX
+  "psx", // PlayStation
+  "ps2", // PlayStation 2
+  "ps3", // PlayStation 3
+  "ps4", // PlayStation 4
+  "ps5", // PlayStation 5
+  "psp", // PlayStation Portable
+  "segacd", // Sega CD
+  "series-x-s", // Xbox Series X/S
+  "saturn", // Sega Saturn
+  "super-nes-cd-rom-system", // Super NES CD-ROM System
+  "tandy-vis", // Tandy Video Information System
+  "tg16", // TurboGrafx-16
+  "vflash", // V.Flash
+  "wii", // Wii
+  "wiiu", // Wii U
+  "xbox", // Xbox
+  "xbox360", // Xbox 360
+  "xboxone", // Xbox One
+]);
+
+export function isCDBasedSystem(platformSlug: string): boolean {
+  return CD_BASED_SYSTEMS.has(platformSlug.toLowerCase());
 }

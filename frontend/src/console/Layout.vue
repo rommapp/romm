@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useIdle } from "@vueuse/core";
-import { onMounted, onUnmounted, provide } from "vue";
+import { useIdle, useLocalStorage } from "@vueuse/core";
+import { onBeforeMount, onMounted, onUnmounted, provide } from "vue";
 import { type RouteLocationNormalized } from "vue-router";
 import { useRouter } from "vue-router";
 import { useConsoleTheme } from "@/console/composables/useConsoleTheme";
@@ -8,11 +8,27 @@ import { InputBus, InputBusSymbol } from "@/console/input/bus";
 import { attachGamepad } from "@/console/input/gamepad";
 import { attachKeyboard } from "@/console/input/keyboard";
 import { ROUTES } from "@/plugins/router";
+import storeCollections from "@/stores/collections";
+import storeNavigation from "@/stores/navigation";
+import storePlatforms from "@/stores/platforms";
 
 const router = useRouter();
 const bus = new InputBus();
 const themeStore = useConsoleTheme();
 provide(InputBusSymbol, bus);
+
+const navigationStore = storeNavigation();
+const platformsStore = storePlatforms();
+const collectionsStore = storeCollections();
+
+const showVirtualCollections = useLocalStorage(
+  "settings.showVirtualCollections",
+  true,
+);
+const virtualCollectionTypeRef = useLocalStorage(
+  "settings.virtualCollectionType",
+  "collection",
+);
 
 // Define route hierarchy for transition direction logic
 const routeHierarchy = {
@@ -52,6 +68,17 @@ const { idle: mouseIdle } = useIdle(100, {
 
 let detachKeyboard: (() => void) | null = null;
 let detachGamepad: (() => void) | null = null;
+
+onBeforeMount(() => {
+  platformsStore.fetchPlatforms();
+  collectionsStore.fetchCollections();
+  collectionsStore.fetchSmartCollections();
+  if (showVirtualCollections) {
+    collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value);
+  }
+
+  navigationStore.reset();
+});
 
 onMounted(() => {
   themeStore.initializeTheme();

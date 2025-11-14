@@ -10,8 +10,11 @@ from unidecode import unidecode as uc
 from adapters.services.screenscraper import ScreenScraperService
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
+from handler.filesystem import fs_resource_handler
 from logger.logger import log
+from models.rom import Rom, RomFile
 
 from .base_handler import (
     PS2_OPL_REGEX,
@@ -32,13 +35,19 @@ def get_preferred_regions() -> list[str]:
     config = cm.get_config()
     return list(
         dict.fromkeys(config.SCAN_REGION_PRIORITY + ["us", "wor", "ss", "eu", "jp"])
-    )
+    ) + ["unk"]
 
 
 def get_preferred_languages() -> list[str]:
     """Get preferred languages from config"""
     config = cm.get_config()
     return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY + ["en", "fr"]))
+
+
+def get_preferred_media_types() -> list[MetadataMediaType]:
+    """Get preferred media types from config"""
+    config = cm.get_config()
+    return [MetadataMediaType(media) for media in config.SCAN_MEDIA]
 
 
 PS1_SS_ID: Final = 57
@@ -119,6 +128,12 @@ ARCADE_SS_IDS: Final = [
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
 SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
 
+ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {
+    UPS.DC: ["cue", "chd", "gdi", "cdi"],
+    UPS.SEGACD: ["cue", "chd", "bin"],
+    UPS.NGC: ["rvz", "iso", "gcz"],
+}
+
 
 class SSPlatform(TypedDict):
     slug: str
@@ -132,7 +147,36 @@ class SSAgeRating(TypedDict):
     rating_cover_url: str
 
 
-class SSMetadata(TypedDict):
+class SSMetadataMedia(TypedDict):
+    bezel_url: str | None  # bezel-16-9
+    box2d_url: str | None  # box-2D
+    box2d_side_url: str | None  # box-2D-side
+    box2d_back_url: str | None  # box-2D-back
+    box3d_url: str | None  # box-3D
+    fanart_url: str | None  # fanart
+    fullbox_url: str | None  # box-texture
+    logo_url: str | None  # wheel-hd
+    manual_url: str | None  # manual
+    marquee_url: str | None  # screenmarquee
+    miximage_url: str | None  # mixrbv1 | mixrbv2
+    physical_url: str | None  # support-2D
+    screenshot_url: str | None  # ss
+    steamgrid_url: str | None  # steamgrid
+    title_screen_url: str | None  # sstitle
+    video_url: str | None  # video
+    video_normalized_url: str | None  # video-normalized
+
+    # Resources stored in filesystem
+    bezel_path: str | None
+    box3d_path: str | None
+    miximage_path: str | None
+    physical_path: str | None
+    marquee_path: str | None
+    logo_path: str | None
+    video_path: str | None
+
+
+class SSMetadata(SSMetadataMedia):
     ss_score: str
     first_release_date: int | None
     alternative_names: list[str]
@@ -147,79 +191,119 @@ class SSRom(BaseRom):
     ss_metadata: NotRequired[SSMetadata]
 
 
-def build_ss_rom(game: SSGame) -> SSRom:
-    res_name = ""
+def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
+    preferred_media_types = get_preferred_media_types()
+
+    ss_media = SSMetadataMedia(
+        bezel_url=None,
+        box2d_url=None,
+        box2d_back_url=None,
+        box2d_side_url=None,
+        box3d_url=None,
+        fanart_url=None,
+        fullbox_url=None,
+        logo_url=None,
+        manual_url=None,
+        marquee_url=None,
+        miximage_url=None,
+        physical_url=None,
+        screenshot_url=None,
+        steamgrid_url=None,
+        title_screen_url=None,
+        video_url=None,
+        video_normalized_url=None,
+        bezel_path=None,
+        box3d_path=None,
+        miximage_path=None,
+        physical_path=None,
+        marquee_path=None,
+        logo_path=None,
+        video_path=None,
+    )
+
     for region in get_preferred_regions():
-        res_name = next(
-            (
-                name["text"]
-                for name in game.get("noms", [])
-                if name.get("region") == region
-            ),
-            "",
-        )
-        if res_name:
-            break
+        for media in game.get("medias", []):
+            if media.get("region", "unk") != region or media.get("parent") != "jeu":
+                continue
 
-    res_summary = ""
-    for lang in get_preferred_languages():
-        res_summary = next(
-            (
-                synopsis["text"]
-                for synopsis in game.get("synopsis", [])
-                if synopsis.get("langue") == lang
-            ),
-            "",
-        )
-        if res_summary:
-            break
+            if media.get("type") == "box-2D-back" and not ss_media["box2d_back_url"]:
+                ss_media["box2d_back_url"] = media["url"]
+            elif media.get("type") == "bezel-16-9" and not ss_media["bezel_url"]:
+                ss_media["bezel_url"] = media["url"]
+                if MetadataMediaType.BEZEL in preferred_media_types:
+                    ss_media["bezel_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BEZEL)}/bezel.png"
+                    )
+            elif media.get("type") == "box-2D" and not ss_media["box2d_url"]:
+                ss_media["box2d_url"] = media["url"]
+            elif media.get("type") == "fanart" and not ss_media["fanart_url"]:
+                ss_media["fanart_url"] = media["url"]
+            elif media.get("type") == "box-texture" and not ss_media["fullbox_url"]:
+                ss_media["fullbox_url"] = media["url"]
+            elif media.get("type") == "wheel-hd" and not ss_media["logo_url"]:
+                ss_media["logo_url"] = media["url"]
 
-    url_cover = ""
-    for region in get_preferred_regions():
-        url_cover = next(
-            (
-                media["url"]
-                for media in game.get("medias", [])
-                if media.get("region") == region
-                and media.get("type") == "box-2D"
-                and media.get("parent") == "jeu"
-            ),
-            "",
-        )
-        if url_cover:
-            break
+                if MetadataMediaType.LOGO in preferred_media_types:
+                    ss_media["logo_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.LOGO)}/logo.png"
+                    )
+            elif media.get("type") == "manuel" and not ss_media["manual_url"]:
+                ss_media["manual_url"] = media["url"]
+            elif media.get("type") == "screenmarquee" and not ss_media["marquee_url"]:
+                ss_media["marquee_url"] = media["url"]
+                if MetadataMediaType.MARQUEE in preferred_media_types:
+                    ss_media["marquee_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MARQUEE)}/marquee.png"
+                    )
+            elif (
+                media.get("type") == "miximage1"
+                or media.get("type") == "miximage2"
+                or media.get("type") == "mixrbv1"
+                or media.get("type") == "mixrbv2"
+            ) and not ss_media["miximage_url"]:
+                ss_media["miximage_url"] = media["url"]
+                if MetadataMediaType.MIXIMAGE in preferred_media_types:
+                    ss_media["miximage_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
+                    )
+            elif media.get("type") == "support-2D" and not ss_media["physical_url"]:
+                ss_media["physical_url"] = media["url"]
+                if MetadataMediaType.PHYSICAL in preferred_media_types:
+                    ss_media["physical_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.PHYSICAL)}/physical.png"
+                    )
+            elif media.get("type") == "ss" and not ss_media["screenshot_url"]:
+                ss_media["screenshot_url"] = media["url"]
+            elif media.get("type") == "box-2D-side" and not ss_media["box2d_side_url"]:
+                ss_media["box2d_side_url"] = media["url"]
+            elif media.get("type") == "steamgrid" and not ss_media["steamgrid_url"]:
+                ss_media["steamgrid_url"] = media["url"]
+            elif media.get("type") == "box-3D" and not ss_media["box3d_url"]:
+                ss_media["box3d_url"] = media["url"]
+                if MetadataMediaType.BOX3D in preferred_media_types:
+                    ss_media["box3d_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX3D)}/box3d.png"
+                    )
+            elif media.get("type") == "sstitle" and not ss_media["title_screen_url"]:
+                ss_media["title_screen_url"] = media["url"]
+            elif media.get("type") == "video" and not ss_media["video_url"]:
+                ss_media["video_url"] = media["url"]
+                if MetadataMediaType.VIDEO in preferred_media_types:
+                    ss_media["video_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.VIDEO)}/video.mp4"
+                    )
+            elif (
+                media.get("type") == "video-normalized"
+                and not ss_media["video_normalized_url"]
+            ):
+                ss_media["video_normalized_url"] = media["url"]
 
-    url_manual: str = ""
-    for region in get_preferred_regions():
-        url_manual = next(
-            (
-                media["url"]
-                for media in game.get("medias", [])
-                if media.get("region") == region
-                and media.get("type") == "manuel"
-                and media.get("parent") == "jeu"
-                and media.get("format") == "pdf"
-            ),
-            "",
-        )
-        if url_manual:
-            break
-
-    ss_id = int(game["id"]) if game.get("id") is not None else None
-    rom: SSRom = {
-        "ss_id": ss_id,
-        "name": res_name.replace(" : ", ": "),  # Normalize colons
-        "summary": res_summary,
-        "url_cover": url_cover,
-        "url_manual": url_manual,
-        "url_screenshots": [],
-        "ss_metadata": extract_metadata_from_ss_rom(game),
-    }
-
-    return SSRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+    return ss_media
 
 
-def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
+def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
+    preferred_languages = get_preferred_languages()
+
     def _normalize_score(score: str) -> str:
         """Normalize the score to be between 0 and 10 because for some reason Screenscraper likes to rate over 20."""
         try:
@@ -240,20 +324,19 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
             except ValueError:
                 return None
 
-    def _get_genres(rom: SSGame) -> list[str]:
+    def _get_genres(game: SSGame) -> list[str]:
         return [
             genre_name["text"]
-            for genre in rom.get("genres", [])
+            for genre in game.get("genres", [])
             for genre_name in genre.get("noms", [])
             if genre_name.get("langue") == "en"
         ]
 
-    def _get_franchises(rom: SSGame) -> list[str]:
-        preferred_languages = get_preferred_languages()
+    def _get_franchises(game: SSGame) -> list[str]:
         for lang in preferred_languages:
             franchises = [
                 franchise_name["text"]
-                for franchise in rom.get("familles", [])
+                for franchise in game.get("familles", [])
                 for franchise_name in franchise.get("noms", [])
                 if franchise_name.get("langue") == lang
             ]
@@ -261,12 +344,11 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
                 return franchises
         return []
 
-    def _get_game_modes(rom: SSGame) -> list[str]:
-        preferred_languages = get_preferred_languages()
+    def _get_game_modes(game: SSGame) -> list[str]:
         for lang in preferred_languages:
             modes = [
                 mode_name["text"]
-                for mode in rom.get("modes", [])
+                for mode in game.get("modes", [])
                 for mode_name in mode.get("noms", [])
                 if mode_name.get("langue") == lang
             ]
@@ -276,20 +358,91 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
 
     return SSMetadata(
         {
-            "ss_score": _normalize_score(rom.get("note", {}).get("text", "")),
-            "alternative_names": [name["text"] for name in rom.get("noms", [])],
+            "ss_score": _normalize_score(game.get("note", {}).get("text", "")),
+            "alternative_names": [name["text"] for name in game.get("noms", [])],
             "companies": pydash.compact(
                 [
-                    rom.get("editeur", {}).get("text"),
-                    rom.get("developpeur", {}).get("text"),
+                    game.get("editeur", {}).get("text"),
+                    game.get("developpeur", {}).get("text"),
                 ]
             ),
-            "genres": _get_genres(rom),
-            "first_release_date": _get_lowest_date(rom.get("dates", [])),
-            "franchises": _get_franchises(rom),
-            "game_modes": _get_game_modes(rom),
+            "genres": _get_genres(game),
+            "first_release_date": _get_lowest_date(game.get("dates", [])),
+            "franchises": _get_franchises(game),
+            "game_modes": _get_game_modes(game),
+            **extract_media_from_ss_game(rom, game),
         }
     )
+
+
+def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
+    ss_metadata = extract_metadata_from_ss_rom(rom, game)
+    preferred_media_types = get_preferred_media_types()
+
+    res_name = ""
+    for region in get_preferred_regions():
+        res_name = next(
+            (
+                name["text"]
+                for name in game.get("noms", [])
+                if name.get("region", "unk") == region
+            ),
+            "",
+        )
+        if res_name:
+            break
+
+    res_summary = ""
+    for lang in get_preferred_languages():
+        res_summary = next(
+            (
+                synopsis["text"]
+                for synopsis in game.get("synopsis", [])
+                if synopsis.get("langue") == lang
+            ),
+            "",
+        )
+        if res_summary:
+            break
+
+    url_cover = ss_metadata["box2d_url"]
+    url_manual = (
+        ss_metadata["manual_url"]
+        if MetadataMediaType.MANUAL in preferred_media_types
+        else None
+    )
+    url_screenshots = pydash.compact(
+        [
+            (
+                ss_metadata["screenshot_url"]
+                if MetadataMediaType.SCREENSHOT in preferred_media_types
+                else None
+            ),
+            (
+                ss_metadata["title_screen_url"]
+                if MetadataMediaType.TITLE_SCREEN in preferred_media_types
+                else None
+            ),
+            (
+                ss_metadata["fanart_url"]
+                if MetadataMediaType.FANART in preferred_media_types
+                else None
+            ),
+        ]
+    )
+
+    ss_id = int(game["id"]) if game.get("id") is not None else None
+    game_rom: SSRom = {
+        "ss_id": ss_id,
+        "name": res_name.replace(" : ", ": "),  # Normalize colons
+        "summary": res_summary,
+        "url_cover": str(url_cover) if url_cover else "",
+        "url_manual": str(url_manual) if url_manual else "",
+        "url_screenshots": url_screenshots,
+        "ss_metadata": ss_metadata,
+    }
+
+    return SSRom({k: v for k, v in game_rom.items() if v})  # type: ignore[misc]
 
 
 class SSHandler(MetadataHandler):
@@ -364,7 +517,60 @@ class SSHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, file_name: str, platform_ss_id: int) -> SSRom:
+    async def lookup_rom(
+        self, rom: Rom, platform_ss_id: int, files: list[RomFile]
+    ) -> SSRom:
+        if not self.is_enabled():
+            return SSRom(ss_id=None)
+
+        if not platform_ss_id:
+            return SSRom(ss_id=None)
+
+        filtered_files = [
+            file
+            for file in files
+            if file.file_size_bytes > 0
+            and file.is_top_level
+            and (
+                UPS(rom.platform_slug)
+                not in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
+                or file.file_extension
+                in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[UPS(rom.platform_slug)]
+            )
+        ]
+
+        # Select the largest file by size, as it is most likely to be the main ROM file.
+        # This increases the accuracy of metadata lookups, since the largest file is
+        # expected to have the correct and complete hash values for external services.
+        first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
+        if first_file is None:
+            return SSRom(ss_id=None)
+
+        md5_hash = first_file.md5_hash
+        sha1_hash = first_file.sha1_hash
+        crc_hash = first_file.crc_hash
+        fs_size_bytes = first_file.file_size_bytes
+
+        if not (md5_hash or sha1_hash or crc_hash):
+            log.info(
+                "No hashes provided for ScreenScraper lookup. "
+                "At least one of md5_hash, sha1_hash, or crc_hash is required."
+            )
+            return SSRom(ss_id=None)
+
+        res = await self.ss_service.get_game_info(
+            system_id=platform_ss_id,
+            md5=md5_hash,
+            sha1=sha1_hash,
+            crc=crc_hash,
+            rom_size_bytes=fs_size_bytes,
+        )
+        if not res:
+            return SSRom(ss_id=None)
+
+        return build_ss_game(rom, res)
+
+    async def get_rom(self, rom: Rom, file_name: str, platform_ss_id: int) -> SSRom:
         from handler.filesystem import fs_rom_handler
 
         if not self.is_enabled():
@@ -377,7 +583,7 @@ class SSHandler(MetadataHandler):
         ss_id_from_tag = self.extract_ss_id_from_filename(file_name)
         if ss_id_from_tag:
             log.debug(f"Found ScreenScraper ID tag in filename: {ss_id_from_tag}")
-            rom_by_id = await self.get_rom_by_id(ss_id_from_tag)
+            rom_by_id = await self.get_rom_by_id(rom, ss_id_from_tag)
             if rom_by_id["ss_id"]:
                 log.debug(
                     f"Successfully matched ROM by ScreenScraper ID tag: {file_name} -> {ss_id_from_tag}"
@@ -467,9 +673,9 @@ class SSHandler(MetadataHandler):
         if not res or not res.get("id"):
             return fallback_rom
 
-        return build_ss_rom(res)
+        return build_ss_game(rom, res)
 
-    async def get_rom_by_id(self, ss_id: int) -> SSRom:
+    async def get_rom_by_id(self, rom: Rom, ss_id: int) -> SSRom:
         if not self.is_enabled():
             return SSRom(ss_id=None)
 
@@ -477,17 +683,17 @@ class SSHandler(MetadataHandler):
         if not res:
             return SSRom(ss_id=None)
 
-        return build_ss_rom(res)
+        return build_ss_game(rom, res)
 
-    async def get_matched_rom_by_id(self, ss_id: int) -> SSRom | None:
+    async def get_matched_rom_by_id(self, rom: Rom, ss_id: int) -> SSRom | None:
         if not self.is_enabled():
             return None
 
-        rom = await self.get_rom_by_id(ss_id)
-        return rom if rom.get("ss_id", "") else None
+        game_rom = await self.get_rom_by_id(rom, ss_id)
+        return game_rom if game_rom.get("ss_id", "") else None
 
     async def get_matched_roms_by_name(
-        self, search_term: str, platform_ss_id: int | None
+        self, rom: Rom, search_term: str, platform_ss_id: int | None
     ) -> list[SSRom]:
         if not self.is_enabled():
             return []
@@ -495,18 +701,18 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return []
 
-        matched_roms = await self.ss_service.search_games(
+        matched_games = await self.ss_service.search_games(
             term=quote(uc(search_term), safe="/ "),
             system_id=platform_ss_id,
         )
 
-        def _is_ss_region(rom: SSGame) -> bool:
-            return any(name.get("region") == "ss" for name in rom.get("noms", []))
+        def _is_ss_region(game: SSGame) -> bool:
+            return any(name.get("region") == "ss" for name in game.get("noms", []))
 
         return [
-            build_ss_rom(rom)
-            for rom in matched_roms
-            if _is_ss_region(rom) and rom.get("id")
+            build_ss_game(rom, game)
+            for game in matched_games
+            if _is_ss_region(game) and game.get("id")
         ]
 
 
@@ -590,6 +796,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.MAC: {"id": 146, "name": "Mac OS"},
     UPS.NGAGE: {"id": 30, "name": "N-Gage"},
     UPS.NES: {"id": 3, "name": "NES"},
+    UPS.FAMICOM: {"id": 3, "name": "Famicom"},
     UPS.FDS: {"id": 106, "name": "Famicom"},
     UPS.NEOGEOAES: {"id": 142, "name": "Neo-Geo"},
     UPS.NEOGEOMVS: {"id": 68, "name": "Neo-Geo MVS"},
@@ -606,10 +813,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.NINTENDO_DSI: {"id": 15, "name": "Nintendo DS"},
     UPS.SWITCH: {"id": 225, "name": "Switch"},
     UPS.ODYSSEY_2: {"id": 104, "name": "Videopac G7000"},
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
-        "id": 104,
-        "name": "Videopac G7000",
-    },
     UPS.ORIC: {"id": 131, "name": "Oric 1 / Atmos"},
     UPS.PC_8800_SERIES: {"id": 221, "name": "NEC PC-8801"},
     UPS.PC_9800_SERIES: {"id": 208, "name": "NEC PC-9801"},
@@ -633,6 +836,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.SATURN: {"id": 22, "name": "Saturn"},
     UPS.SG1000: {"id": 109, "name": "SG-1000"},
     UPS.SNES: {"id": 4, "name": "Super Nintendo"},
+    UPS.SFAM: {"id": 4, "name": "Super Famicom"},
     UPS.X1: {"id": 220, "name": "Sharp X1"},
     UPS.SHARP_X68000: {"id": 79, "name": "Sharp X68000"},
     UPS.SPECTRAVIDEO: {"id": 218, "name": "Spectravideo"},

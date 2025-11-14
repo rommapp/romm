@@ -121,7 +121,7 @@ async function updatePlatform() {
 }
 
 async function scan() {
-  scanningStore.set(true);
+  scanningStore.setScanning(true);
 
   if (!socket.connected) socket.connect();
 
@@ -432,6 +432,18 @@ watch(
               <v-avatar class="bg-surface" size="30" rounded="0">
                 <v-img src="/assets/scrappers/hltb.png" />
               </v-avatar>
+            </v-chip>
+          </v-col>
+        </v-row>
+        <v-row
+          v-else
+          class="text-white text-shadow mt-2 text-center"
+          no-gutters
+        >
+          <v-col cols="12">
+            <v-chip color="red" size="small" label>
+              <v-icon class="mr-1"> mdi-close </v-icon>
+              {{ t("scan.not-identified").toUpperCase() }}
             </v-chip>
           </v-col>
         </v-row>

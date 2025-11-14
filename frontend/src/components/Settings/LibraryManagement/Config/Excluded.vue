@@ -63,7 +63,7 @@ const editable = ref(false);
         variant="text"
         icon="mdi-cog"
         @click="editable = !editable"
-        :disabled="!config.CONFIG_FILE_MOUNTED"
+        :disabled="!config.CONFIG_FILE_WRITABLE"
       />
     </template>
     <template #content>

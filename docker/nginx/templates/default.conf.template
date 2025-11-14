@@ -23,7 +23,7 @@ map $request_uri $coop_header {
 server {
     root /var/www/html;
     listen ${ROMM_PORT};
-    listen [::]:${ROMM_PORT};
+    ${IPV6_LISTEN}
     server_name localhost;
 
     proxy_set_header Host $http_host;

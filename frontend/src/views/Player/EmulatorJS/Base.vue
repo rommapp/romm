@@ -15,12 +15,11 @@ import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storePlaying from "@/stores/playing";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import { type DetailedRom } from "@/stores/roms";
 import { formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
-import { saveSave, saveState } from "./utils";
 
 const EMULATORJS_VERSION = "4.2.3";
 
@@ -30,7 +29,6 @@ const route = useRoute();
 const auth = storeAuth();
 const playingStore = storePlaying();
 const { playing, fullScreen } = storeToRefs(playingStore);
-const romsStore = storeRoms();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
@@ -89,42 +87,6 @@ function onPlay() {
 
 function onFullScreenChange() {
   fullScreenOnPlay.value = !fullScreenOnPlay.value;
-}
-
-async function onlyQuit() {
-  playing.value = false;
-  fullScreen.value = false;
-  if (rom.value) romsStore.update(rom.value);
-  window.history.back();
-}
-
-async function saveAndQuit() {
-  playing.value = false;
-  fullScreen.value = false;
-  if (!rom.value) return window.history.back();
-  const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
-
-  // Force a save of the current state
-  const stateFile = window.EJS_emulator.gameManager.getState();
-  await saveState({
-    rom: rom.value,
-    stateFile,
-    screenshotFile,
-  });
-
-  // Force a save of the save file
-  const saveFile = window.EJS_emulator.gameManager.getSaveFile();
-  await saveSave({
-    rom: rom.value,
-    save: selectedSave.value,
-    saveFile,
-    screenshotFile,
-  });
-
-  romsStore.update(rom.value);
-  playing.value = false;
-  fullScreen.value = false;
-  window.history.back();
 }
 
 function switchSaveSelector() {
@@ -510,58 +472,53 @@ onBeforeUnmount(async () => {
                   sm="4"
                   class="pa-1"
                 >
-                  <v-hover v-slot="{ isHovering, props }">
-                    <v-card
-                      :style="{
-                        zIndex: selectedState?.id === state.id ? 11 : undefined,
-                      }"
-                      v-bind="props"
-                      class="bg-toplayer transform-scale"
-                      :class="{
-                        'on-hover': isHovering,
-                        'border-selected': selectedState?.id === state.id,
-                      }"
-                      :elevation="isHovering ? 20 : 3"
-                      @click="selectState(state)"
-                    >
-                      <v-card-text class="pa-2">
-                        <v-row no-gutters>
-                          <v-col cols="12">
-                            <v-img
-                              rounded
-                              :src="
-                                state.screenshot?.download_path ??
-                                getEmptyCoverImage(state.file_name)
-                              "
-                            />
-                          </v-col>
-                        </v-row>
-                        <v-row
-                          class="py-2 px-1 text-caption text-primary"
-                          no-gutters
-                        >
-                          {{ state.file_name }}
-                        </v-row>
-                        <v-row class="ga-1" no-gutters>
-                          <v-col cols="12">
-                            <v-list-item rounded class="pa-1 text-caption">
-                              Updated: {{ formatTimestamp(state.updated_at) }}
-                              <span class="ml-1 text-grey text-caption"
-                                >({{
-                                  formatRelativeDate(state.updated_at)
-                                }})</span
-                              >
-                            </v-list-item>
-                          </v-col>
-                          <v-col v-if="state.emulator" cols="12" class="mt-1">
-                            <v-chip size="x-small" color="orange" label>
-                              {{ state.emulator }}
-                            </v-chip>
-                          </v-col>
-                        </v-row>
-                      </v-card-text>
-                    </v-card>
-                  </v-hover>
+                  <v-card
+                    :style="{
+                      zIndex: selectedState?.id === state.id ? 11 : undefined,
+                    }"
+                    class="bg-toplayer transform-scale"
+                    :class="{
+                      'border-selected': selectedState?.id === state.id,
+                    }"
+                    @click="selectState(state)"
+                  >
+                    <v-card-text class="pa-2">
+                      <v-row no-gutters>
+                        <v-col cols="12">
+                          <v-img
+                            rounded
+                            :src="
+                              state.screenshot?.download_path ??
+                              getEmptyCoverImage(state.file_name)
+                            "
+                          />
+                        </v-col>
+                      </v-row>
+                      <v-row
+                        class="py-2 px-1 text-caption text-primary"
+                        no-gutters
+                      >
+                        {{ state.file_name }}
+                      </v-row>
+                      <v-row class="ga-1" no-gutters>
+                        <v-col cols="12">
+                          <v-list-item rounded class="pa-1 text-caption">
+                            Updated: {{ formatTimestamp(state.updated_at) }}
+                            <span class="ml-1 text-grey text-caption"
+                              >({{
+                                formatRelativeDate(state.updated_at)
+                              }})</span
+                            >
+                          </v-list-item>
+                        </v-col>
+                        <v-col v-if="state.emulator" cols="12" class="mt-1">
+                          <v-chip size="x-small" color="orange" label>
+                            {{ state.emulator }}
+                          </v-chip>
+                        </v-col>
+                      </v-row>
+                    </v-card-text>
+                  </v-card>
                 </v-col>
               </template>
               <v-col v-else class="pa-1 mt-1">
@@ -586,58 +543,51 @@ onBeforeUnmount(async () => {
                   sm="4"
                   class="pa-1"
                 >
-                  <v-hover v-slot="{ isHovering, props }">
-                    <v-card
-                      :style="{
-                        zIndex: selectedSave?.id === save.id ? 11 : undefined,
-                      }"
-                      v-bind="props"
-                      class="bg-toplayer transform-scale"
-                      :class="{
-                        'on-hover': isHovering,
-                        'border-selected': selectedSave?.id === save.id,
-                      }"
-                      :elevation="isHovering ? 20 : 3"
-                      @click="selectSave(save)"
-                    >
-                      <v-card-text class="pa-2">
-                        <v-row no-gutters>
-                          <v-col cols="12">
-                            <v-img
-                              rounded
-                              :src="
-                                save.screenshot?.download_path ??
-                                getEmptyCoverImage(save.file_name)
-                              "
-                            />
-                          </v-col>
-                        </v-row>
-                        <v-row
-                          class="py-2 px-1 text-caption text-primary"
-                          no-gutters
-                        >
-                          {{ save.file_name }}
-                        </v-row>
-                        <v-row class="ga-1" no-gutters>
-                          <v-col cols="12">
-                            <v-list-item rounded class="pa-1 text-caption">
-                              Updated: {{ formatTimestamp(save.updated_at) }}
-                              <span class="ml-1 text-grey text-caption"
-                                >({{
-                                  formatRelativeDate(save.updated_at)
-                                }})</span
-                              >
-                            </v-list-item>
-                          </v-col>
-                          <v-col v-if="save.emulator" cols="12" class="mt-1">
-                            <v-chip size="x-small" color="orange" label>
-                              {{ save.emulator }}
-                            </v-chip>
-                          </v-col>
-                        </v-row>
-                      </v-card-text>
-                    </v-card>
-                  </v-hover>
+                  <v-card
+                    :style="{
+                      zIndex: selectedSave?.id === save.id ? 11 : undefined,
+                    }"
+                    class="bg-toplayer transform-scale"
+                    :class="{
+                      'border-selected': selectedSave?.id === save.id,
+                    }"
+                    @click="selectSave(save)"
+                  >
+                    <v-card-text class="pa-2">
+                      <v-row no-gutters>
+                        <v-col cols="12">
+                          <v-img
+                            rounded
+                            :src="
+                              save.screenshot?.download_path ??
+                              getEmptyCoverImage(save.file_name)
+                            "
+                          />
+                        </v-col>
+                      </v-row>
+                      <v-row
+                        class="py-2 px-1 text-caption text-primary"
+                        no-gutters
+                      >
+                        {{ save.file_name }}
+                      </v-row>
+                      <v-row class="ga-1" no-gutters>
+                        <v-col cols="12">
+                          <v-list-item rounded class="pa-1 text-caption">
+                            Updated: {{ formatTimestamp(save.updated_at) }}
+                            <span class="ml-1 text-grey text-caption"
+                              >({{ formatRelativeDate(save.updated_at) }})</span
+                            >
+                          </v-list-item>
+                        </v-col>
+                        <v-col v-if="save.emulator" cols="12" class="mt-1">
+                          <v-chip size="x-small" color="orange" label>
+                            {{ save.emulator }}
+                          </v-chip>
+                        </v-col>
+                      </v-row>
+                    </v-card-text>
+                  </v-card>
                 </v-col>
               </template>
               <v-col v-else class="pa-1 mt-1">
@@ -736,30 +686,6 @@ onBeforeUnmount(async () => {
           :disc="selectedDisc"
         />
       </v-col>
-      <!-- <v-col>
-      <v-row class="align-center my-4" no-gutters>
-        <v-btn
-          class="mt-2"
-          :class="{ 'pr-1': !smAndDown }"
-          block
-          variant="flat"
-          prepend-icon="mdi-exit-to-app"
-          @click="onlyQuit"
-        >
-          {{ t("play.quit") }}
-        </v-btn>
-        <v-btn
-          class="mt-2"
-          :class="{ 'pl-1': !smAndDown }"
-          block
-          variant="flat"
-          prepend-icon="mdi-content-save-move"
-          @click="saveAndQuit"
-        >
-          {{ t("play.save-and-quit") }}
-        </v-btn>
-      </v-row>
-    </v-col> -->
     </template>
   </v-row>
 </template>

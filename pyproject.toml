@@ -9,7 +9,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 readme = "README.md"
-license = "GNU AGPLv3"
+license = "AGPL-3.0-only"
 dependencies = [
   "PyYAML ~= 6.0",
   "SQLAlchemy[mariadb-connector,mysql-connector,postgresql-psycopg] ~= 2.0",
@@ -17,14 +17,14 @@ dependencies = [
   "aiohttp ~= 3.12",
   "alembic ~= 1.13",
   "anyio ~= 4.4",
-  "authlib ~= 1.3",
+  "authlib ~= 1.6.5",
   "colorama ~= 0.4",
   "defusedxml ~= 0.7",
-  "fastapi-pagination[sqlalchemy] ~= 0.12",
-  "fastapi[standard-no-fastapi-cloud-cli] ~= 0.116",
+  "fastapi-pagination[sqlalchemy] ~= 0.15",
+  "fastapi[standard-no-fastapi-cloud-cli] ~= 0.121.1",
   "gunicorn ~= 23.0",
   "httpx ~= 0.27",
-  "joserfc ~= 1.3",
+  "joserfc ~= 1.3.4",
   "opentelemetry-distro ~= 0.56",
   "opentelemetry-exporter-otlp ~= 1.36",
   "opentelemetry-instrumentation-aiohttp-client ~= 0.56",
@@ -45,6 +45,7 @@ dependencies = [
   #       Related PR: https://github.com/rq/rq-scheduler/pull/325
   "rq-scheduler @ git+https://github.com/adamantike/rq-scheduler.git@feat/script-options-username-ssl",
   "sentry-sdk ~= 2.32",
+  "starlette ~= 0.49",
   "starlette-csrf ~= 3.0",
   "streaming-form-data ~= 1.19",
   "strsimpy ~= 0.2",
