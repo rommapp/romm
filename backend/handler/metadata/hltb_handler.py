@@ -315,6 +315,15 @@ class HLTBHandler(MetadataHandler):
 
         platform_name = self.get_platform(platform_slug).get("name", "")
 
+        cache_key = f"romm:hltb:search:{platform_slug}:{hash(search_term)}"
+
+        cached = await async_cache.get(cache_key)
+        if cached:
+            try:
+                return [dict(x) for x in json.loads(cached)]
+            except Exception:
+                pass
+
         try:
             payload = {
                 "searchType": "games",
@@ -394,6 +403,8 @@ class HLTBHandler(MetadataHandler):
                         release_world=game_data.get("release_world", 0),
                     )
                     games.append(hltb_game)
+
+            await async_cache.set(cache_key, json.dumps(games), ex=86400)
             return games
 
         except Exception as exc:
