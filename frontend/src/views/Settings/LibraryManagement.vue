@@ -25,8 +25,7 @@ const tab = ref<"config" | "missing">("config");
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const romsStore = storeRoms();
-const { allRoms, fetchingRoms, fetchTotalRoms, filteredRoms } =
-  storeToRefs(romsStore);
+const { fetchingRoms, fetchTotalRoms, filteredRoms } = storeToRefs(romsStore);
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
@@ -38,7 +37,7 @@ let timeout: ReturnType<typeof setTimeout> = setTimeout(() => {}, 400);
 const allPlatforms = computed(() =>
   [
     ...new Map(
-      allRoms.value
+      filteredRoms.value
         .map((rom) => platformsStore.get(rom.platform_id))
         .filter((platform) => !!platform)
         .map((platform) => [platform!.id, platform]),
@@ -158,7 +157,8 @@ watch(documentY, () => {
   window.setTimeout(async () => {
     scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
+      documentY.value + window.innerHeight >=
+        document.body.scrollHeight - 300 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
@@ -204,10 +204,22 @@ onUnmounted(() => {
         variant="tonal"
         class="my-2"
       >
-        <template #title> Configuration file not mounted </template>
+        <template #title>Configuration file not mounted!</template>
         <template #text>
-          The config.yml file is not mounted or writable. Any changes made to
-          the configuration will not persist after the application restarts.
+          The config.yml file has not been mounted. Any changes made to the
+          configuration will not persist after the application restarts.
+        </template>
+      </v-alert>
+      <v-alert
+        v-else-if="!config.CONFIG_FILE_WRITABLE"
+        type="warning"
+        variant="tonal"
+        class="my-2"
+      >
+        <template #title>Configuration file not writable!</template>
+        <template #text>
+          The config.yml file is not writable. Any changes made to the
+          configuration will not persist after the application restarts.
         </template>
       </v-alert>
       <v-tabs-window v-model="tab">

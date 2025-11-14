@@ -80,7 +80,7 @@ onMounted(() => {
       usersStore.set(data);
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
     });
 });
 </script>

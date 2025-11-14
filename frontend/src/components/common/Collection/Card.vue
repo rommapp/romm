@@ -43,8 +43,12 @@ const props = withDefaults(
 );
 
 const { smAndDown } = useDisplay();
-const galleryViewStore = storeGalleryView();
 const heartbeatStore = storeHeartbeat();
+const galleryViewStore = storeGalleryView();
+
+const computedAspectRatio = computed(() =>
+  galleryViewStore.getAspectRatio({ boxartStyle: "cover_path" }),
+);
 
 const memoizedCovers = ref({
   large: ["", ""],
@@ -52,7 +56,7 @@ const memoizedCovers = ref({
 });
 
 const collectionCoverImage = computed(() =>
-  props.collection.name?.toLowerCase() == "favourites"
+  props.collection.is_favorite
     ? getFavoriteCoverImage(props.collection.name)
     : getCollectionCoverImage(props.collection.name),
 );
@@ -176,139 +180,64 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <v-hover v-slot="{ isHovering, props: hoverProps }">
-    <div ref="tilt-card-ref" data-tilt>
-      <v-card
-        v-bind="{
-          ...hoverProps,
-          to: collectionRoute,
-        }"
-        :class="{
-          'on-hover': isHovering,
-          'transform-scale': transformScale && !enable3DTilt,
-        }"
-        :elevation="isHovering && transformScale ? 20 : 3"
-        :aria-label="`${collection.name} game card`"
-        @mouseenter="
-          () => {
-            emit('hover', { isHovering: true, id: collection.id });
-          }
-        "
-        @mouseleave="
-          () => {
-            emit('hover', { isHovering: false, id: collection.id });
-          }
-        "
-        @blur="
-          () => {
-            emit('hover', { isHovering: false, id: collection.id });
-          }
-        "
-      >
-        <v-row v-if="showTitle" class="pa-1 justify-center bg-surface">
-          <div
-            :title="collection.name?.toString()"
-            class="py-4 px-6 text-truncate text-caption"
-          >
-            <span>{{ collection.name }}</span>
-          </div>
-        </v-row>
+  <div ref="tilt-card-ref" data-tilt>
+    <v-card
+      v-bind="{
+        to: collectionRoute,
+      }"
+      :class="{
+        'transform-scale': transformScale && !enable3DTilt,
+      }"
+      :aria-label="`${collection.name} game card`"
+      @mouseenter="
+        () => {
+          emit('hover', { isHovering: true, id: collection.id });
+        }
+      "
+      @mouseleave="
+        () => {
+          emit('hover', { isHovering: false, id: collection.id });
+        }
+      "
+      @blur="
+        () => {
+          emit('hover', { isHovering: false, id: collection.id });
+        }
+      "
+    >
+      <v-row v-if="showTitle" class="pa-1 justify-center bg-surface">
         <div
-          class="image-container"
-          :style="{
-            aspectRatio: galleryViewStore.defaultAspectRatioCollection,
-          }"
+          :title="collection.name?.toString()"
+          class="py-4 px-6 text-truncate text-caption"
         >
-          <template
-            v-if="
-              collection.is_virtual ||
-              !collection.path_cover_large ||
-              !collection.path_cover_small
-            "
-          >
-            <div class="split-image first-image">
-              <v-img
-                cover
-                :src="firstLargeCover"
-                :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-              >
-                <template #placeholder>
-                  <v-img
-                    :src="firstSmallCover"
-                    :aspect-ratio="
-                      galleryViewStore.defaultAspectRatioCollection
-                    "
-                  >
-                    <template #placeholder>
-                      <Skeleton
-                        :aspect-ratio="
-                          galleryViewStore.defaultAspectRatioCollection
-                        "
-                        type="image"
-                      />
-                    </template>
-                  </v-img>
-                </template>
-                <template #error>
-                  <v-img
-                    :src="collectionCoverImage"
-                    :aspect-ratio="
-                      galleryViewStore.defaultAspectRatioCollection
-                    "
-                  />
-                </template>
-              </v-img>
-            </div>
-            <div class="split-image second-image">
-              <v-img
-                cover
-                :src="secondLargeCover"
-                :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-              >
-                <template #placeholder>
-                  <v-img
-                    :src="secondSmallCover"
-                    :aspect-ratio="
-                      galleryViewStore.defaultAspectRatioCollection
-                    "
-                  >
-                    <template #placeholder>
-                      <Skeleton
-                        :aspect-ratio="
-                          galleryViewStore.defaultAspectRatioCollection
-                        "
-                        type="image"
-                      />
-                    </template>
-                  </v-img>
-                </template>
-                <template #error>
-                  <v-img
-                    :src="collectionCoverImage"
-                    :aspect-ratio="
-                      galleryViewStore.defaultAspectRatioCollection
-                    "
-                  />
-                </template>
-              </v-img>
-            </div>
-          </template>
-          <template v-else>
+          <span>{{ collection.name }}</span>
+        </div>
+      </v-row>
+      <div
+        class="image-container"
+        :style="{ aspectRatio: computedAspectRatio }"
+      >
+        <template
+          v-if="
+            collection.is_virtual ||
+            !collection.path_cover_large ||
+            !collection.path_cover_small
+          "
+        >
+          <div class="split-image first-image">
             <v-img
               cover
               :src="firstLargeCover"
-              :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+              :aspect-ratio="computedAspectRatio"
             >
               <template #placeholder>
                 <v-img
                   :src="firstSmallCover"
-                  :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+                  :aspect-ratio="computedAspectRatio"
                 >
                   <template #placeholder>
                     <Skeleton
-                      :aspect-ratio="
-                        galleryViewStore.defaultAspectRatioCollection
-                      "
+                      :aspect-ratio="computedAspectRatio"
                       type="image"
                     />
                   </template>
@@ -317,27 +246,75 @@ onBeforeUnmount(() => {
               <template #error>
                 <v-img
                   :src="collectionCoverImage"
-                  :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+                  :aspect-ratio="computedAspectRatio"
                 />
               </template>
             </v-img>
-          </template>
-          <div class="position-absolute append-inner">
-            <slot name="append-inner" />
           </div>
+          <div class="split-image second-image">
+            <v-img
+              cover
+              :src="secondLargeCover"
+              :aspect-ratio="computedAspectRatio"
+            >
+              <template #placeholder>
+                <v-img
+                  :src="secondSmallCover"
+                  :aspect-ratio="computedAspectRatio"
+                >
+                  <template #placeholder>
+                    <Skeleton
+                      :aspect-ratio="computedAspectRatio"
+                      type="image"
+                    />
+                  </template>
+                </v-img>
+              </template>
+              <template #error>
+                <v-img
+                  :src="collectionCoverImage"
+                  :aspect-ratio="computedAspectRatio"
+                />
+              </template>
+            </v-img>
+          </div>
+        </template>
+        <template v-else>
+          <v-img
+            cover
+            :src="firstLargeCover"
+            :aspect-ratio="computedAspectRatio"
+          >
+            <template #placeholder>
+              <v-img :src="firstSmallCover" :aspect-ratio="computedAspectRatio">
+                <template #placeholder>
+                  <Skeleton :aspect-ratio="computedAspectRatio" type="image" />
+                </template>
+              </v-img>
+            </template>
+            <template #error>
+              <v-img
+                :src="collectionCoverImage"
+                :aspect-ratio="computedAspectRatio"
+              />
+            </template>
+          </v-img>
+        </template>
+        <div class="position-absolute append-inner">
+          <slot name="append-inner" />
         </div>
-        <v-chip
-          v-if="showRomCount"
-          class="bg-background position-absolute"
-          size="x-small"
-          style="bottom: 0.5rem; right: 0.5rem"
-          label
-        >
-          {{ collection.rom_count }}
-        </v-chip>
-      </v-card>
-    </div>
-  </v-hover>
+      </div>
+      <v-chip
+        v-if="showRomCount"
+        class="bg-background position-absolute"
+        size="x-small"
+        style="bottom: 0.5rem; right: 0.5rem"
+        label
+      >
+        {{ collection.rom_count }}
+      </v-chip>
+    </v-card>
+  </div>
 </template>
 
 <style scoped>

@@ -19,6 +19,7 @@ from config import (
     DEV_PORT,
     DISABLE_CSRF_PROTECTION,
     IS_PYTEST_RUN,
+    OIDC_ENABLED,
     ROMM_AUTH_SECRET_KEY,
     SENTRY_DSN,
 )
@@ -28,6 +29,7 @@ from endpoints import (
     configs,
     feeds,
     firmware,
+    gamelist,
     heartbeat,
     platform,
     raw,
@@ -44,7 +46,7 @@ from handler.auth.constants import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
 from handler.socket_handler import socket_handler
-from logger.log_middleware import LOGGING_CONFIG, CustomLoggingMiddleware
+from logger.formatter import LOGGING_CONFIG
 from utils import get_version
 from utils.context import (
     ctx_aiohttp_session,
@@ -105,7 +107,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=ROMM_AUTH_SECRET_KEY,
     session_cookie="romm_session",
-    same_site="strict",
+    same_site="lax" if OIDC_ENABLED else "strict",
     https_only=False,
     jwt_alg=ALGORITHM,
 )
@@ -129,14 +131,15 @@ app.include_router(raw.router, prefix="/api")
 app.include_router(screenshots.router, prefix="/api")
 app.include_router(firmware.router, prefix="/api")
 app.include_router(collections.router, prefix="/api")
+app.include_router(gamelist.router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 
 add_pagination(app)
 
 
-# NOTE: This code is only executed when running the application directly, not by Production
-# deployments using Gunicorn.
+# NOTE: This code is only executed when running the application directly,
+# not by deployments using gunicorn.
 if __name__ == "__main__":
     # Run migrations
     alembic.config.main(argv=["upgrade", "head"])
@@ -145,5 +148,4 @@ if __name__ == "__main__":
     asyncio.run(main())
 
     # Run application
-    app.add_middleware(CustomLoggingMiddleware)
     uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True, access_log=False)

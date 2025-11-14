@@ -214,8 +214,8 @@ async function updateCollection() {
             <template v-for="field in collectionInfoFields" :key="field.key">
               <div>
                 <v-chip size="small" class="mr-2 px-0" label>
-                  <v-chip label> {{ field.label }} </v-chip
-                  ><span class="px-2">{{
+                  <v-chip label>{{ field.label }}</v-chip>
+                  <span class="px-2">{{
                     currentSmartCollection[
                       field.key as keyof typeof currentSmartCollection
                     ]?.toString()
@@ -224,6 +224,25 @@ async function updateCollection() {
                         ]
                       : "N/A"
                   }}</span>
+                </v-chip>
+              </div>
+            </template>
+          </v-card-text>
+        </v-card>
+      </v-col>
+      <v-col cols="12">
+        <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
+          <v-card-text class="pa-4 d-flex">
+            <template
+              v-for="filter in Object.entries(
+                currentSmartCollection.filter_criteria,
+              )"
+              :key="filter[0]"
+            >
+              <div>
+                <v-chip size="small" class="mr-2 px-0" label>
+                  <v-chip label> {{ filter[0] }} </v-chip>
+                  <span class="px-2">{{ filter[1] }}</span>
                 </v-chip>
               </div>
             </template>

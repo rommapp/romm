@@ -169,6 +169,16 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Rom | None:
         return session.scalar(query.filter_by(id=id).limit(1))
 
+    @begin_session
+    @with_details
+    def get_roms_by_ids(
+        self, ids: list[int], *, query: Query = None, session: Session = None
+    ) -> Sequence[Rom]:
+        """Get multiple ROMs by their IDs."""
+        if not ids:
+            return []
+        return session.scalars(query.filter(Rom.id.in_(ids))).all()
+
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
 
@@ -235,27 +245,24 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def filter_by_favourite(
+    def filter_by_favorite(
         self, query: Query, session: Session, value: bool, user_id: int | None
     ) -> Query:
-        """Filter based on whether the rom is in the user's Favourites collection."""
+        """Filter based on whether the rom is in the user's favorites collection."""
         if not user_id:
             return query
 
         from . import db_collection_handler
 
-        favourites_collection = db_collection_handler.get_collection_by_name(
-            "favourites", user_id
-        )
-
-        if favourites_collection:
-            predicate = Rom.id.in_(favourites_collection.rom_ids)
+        favorites_collection = db_collection_handler.get_favorite_collection(user_id)
+        if favorites_collection:
+            predicate = Rom.id.in_(favorites_collection.rom_ids)
             if not value:
                 predicate = not_(predicate)
             return query.filter(predicate)
 
-        # If no Favourites collection exists, return the original query if non-favourites
-        # were requested, or an empty query if favourites were requested.
+        # If no favorites collection exists, return the original query if non-favorites
+        # were requested, or an empty query if favorites were requested.
         if not value:
             return query
         return query.filter(false())
@@ -296,6 +303,7 @@ class DBRomsHandler(DBBaseHandler):
             "whdload_match",
             "ra_match",
             "fbneo_match",
+            "puredos_match",
         ]
 
         if ROMM_DB_DRIVER == "postgresql":
@@ -367,7 +375,7 @@ class DBRomsHandler(DBBaseHandler):
         smart_collection_id: int | None = None,
         search_term: str | None = None,
         matched: bool | None = None,
-        favourite: bool | None = None,
+        favorite: bool | None = None,
         duplicate: bool | None = None,
         playable: bool | None = None,
         has_ra: bool | None = None,
@@ -409,9 +417,9 @@ class DBRomsHandler(DBBaseHandler):
         if matched is not None:
             query = self.filter_by_matched(query, value=matched)
 
-        if favourite is not None:
-            query = self.filter_by_favourite(
-                query, session=session, value=favourite, user_id=user_id
+        if favorite is not None:
+            query = self.filter_by_favorite(
+                query, session=session, value=favorite, user_id=user_id
             )
 
         if duplicate is not None:
@@ -494,7 +502,7 @@ class DBRomsHandler(DBBaseHandler):
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                MetadataSource.LB,
+                                MetadataSource.LAUNCHBOX,
                                 base_subquery.c.launchbox_id,
                                 base_subquery.c.platform_id,
                             ),
@@ -641,7 +649,7 @@ class DBRomsHandler(DBBaseHandler):
             virtual_collection_id=kwargs.get("virtual_collection_id", None),
             search_term=kwargs.get("search_term", None),
             matched=kwargs.get("matched", None),
-            favourite=kwargs.get("favourite", None),
+            favorite=kwargs.get("favorite", None),
             duplicate=kwargs.get("duplicate", None),
             playable=kwargs.get("playable", None),
             has_ra=kwargs.get("has_ra", None),
@@ -822,6 +830,10 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def add_rom_file(self, rom_file: RomFile, session: Session = None) -> RomFile:
         return session.merge(rom_file)
+
+    @begin_session
+    def get_rom_files(self, rom_id: int, session: Session = None) -> Sequence[RomFile]:
+        return session.scalars(select(RomFile).filter_by(rom_id=rom_id)).all()
 
     @begin_session
     def get_rom_file_by_id(self, id: int, session: Session = None) -> RomFile | None:

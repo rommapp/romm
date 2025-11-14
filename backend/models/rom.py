@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 
 
 class RomFileCategory(enum.StrEnum):
+    GAME = "game"
     DLC = "dlc"
     HACK = "hack"
     MANUAL = "manual"
@@ -73,10 +74,9 @@ class RomFile(BaseModel):
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
     )
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="files")
-
-    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @cached_property
     def full_path(self) -> str:
@@ -104,11 +104,21 @@ class RomFile(BaseModel):
     def is_nested(self) -> bool:
         return self.file_path.count("/") > 1
 
-    def file_name_for_download(self, rom: Rom, hidden_folder: bool = False) -> str:
+    @cached_property
+    def is_top_level(self) -> bool:
+        # File is the same as the rom's full path, or nested file in the rom's directory
+        return self.rom.full_path == (
+            self.file_path if self.is_nested else self.full_path
+        )
+
+    def file_name_for_download(self, hidden_folder: bool = False) -> str:
         # This needs a trailing slash in the path to work!
         return self.full_path.replace(
-            f"{rom.full_path}/", ".hidden/" if hidden_folder else ""
+            f"{self.rom.full_path}/", ".hidden/" if hidden_folder else ""
         )
+
+    def __repr__(self) -> str:
+        return f"{self.file_name} ({self.id} -> {self.rom_id})"
 
 
 class RomMetadata(BaseModel):
@@ -145,6 +155,7 @@ class Rom(BaseModel):
     tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -157,6 +168,7 @@ class Rom(BaseModel):
         Index("idx_roms_tgdb_id", "tgdb_id"),
         Index("idx_roms_flashpoint_id", "flashpoint_id"),
         Index("idx_roms_hltb_id", "hltb_id"),
+        Index("idx_roms_gamelist_id", "gamelist_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
@@ -191,6 +203,9 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     hltb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    gamelist_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
 
@@ -264,10 +279,6 @@ class Rom(BaseModel):
         return self.platform.fs_slug
 
     @property
-    def platform_name(self) -> str:
-        return self.platform.name
-
-    @property
     def platform_custom_name(self) -> str | None:
         return self.platform.custom_name
 
@@ -338,6 +349,7 @@ class Rom(BaseModel):
             and not self.hasheous_id
             and not self.flashpoint_id
             and not self.hltb_id
+            and not self.gamelist_id
         )
 
     @property
@@ -398,7 +410,7 @@ class Rom(BaseModel):
         self._is_identifying = value
 
     def __repr__(self) -> str:
-        return self.fs_name
+        return f"{self.fs_name} ({self.id})"
 
 
 class RomUserStatus(enum.StrEnum):

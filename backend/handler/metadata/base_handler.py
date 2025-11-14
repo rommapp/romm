@@ -14,7 +14,6 @@ from logger.logger import log
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
-    update_switch_titledb_task,
 )
 
 jarowinkler = JaroWinkler()
@@ -34,15 +33,15 @@ MAME_XML_KEY: Final = "romm:mame_xml"
 PS2_OPL_REGEX: Final = re.compile(r"^([A-Z]{4}_\d{3}\.\d{2})\..*$")
 PS2_OPL_KEY: Final = "romm:ps2_opl_index"
 
-# Sony serial codes for PS1, PS2, and PSP
+# Sony serial codes for PS1, PS2, PS3 and PSP
 SONY_SERIAL_REGEX: Final = re.compile(r".*([a-zA-Z]{4}-\d{5}).*$")
 
 PS1_SERIAL_INDEX_KEY: Final = "romm:ps1_serial_index"
 PS2_SERIAL_INDEX_KEY: Final = "romm:ps2_serial_index"
 PSP_SERIAL_INDEX_KEY: Final = "romm:psp_serial_index"
 
-LEADING_ARTICLE_PATTERN = re.compile(r"^(a|an|the)\b")
-COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b$")
+LEADING_ARTICLE_PATTERN = re.compile(r"^(a|an|the)\b", re.IGNORECASE)
+COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b(?=\s*[^\w\s]|$)", re.IGNORECASE)
 NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
 
@@ -190,12 +189,8 @@ class MetadataHandler(abc.ABC):
         title_id = match.group(1)
 
         if not (await async_cache.exists(SWITCH_TITLEDB_INDEX_KEY)):
-            log.warning("Fetching the Switch titleID index file...")
-            await update_switch_titledb_task.run(force=True)
-
-            if not (await async_cache.exists(SWITCH_TITLEDB_INDEX_KEY)):
-                log.error("Could not fetch the Switch titleID index file")
-                return search_term, None
+            log.error("Could not find the Switch titleID index file in cache")
+            return search_term, None
 
         index_entry = await async_cache.hget(SWITCH_TITLEDB_INDEX_KEY, title_id)
         if index_entry:
@@ -215,12 +210,8 @@ class MetadataHandler(abc.ABC):
         product_id = "".join(product_id)
 
         if not (await async_cache.exists(SWITCH_PRODUCT_ID_KEY)):
-            log.warning("Fetching the Switch productID index file...")
-            await update_switch_titledb_task.run(force=True)
-
-            if not (await async_cache.exists(SWITCH_PRODUCT_ID_KEY)):
-                log.error("Could not fetch the Switch productID index file")
-                return search_term, None
+            log.error("Could not find the Switch productID index file in cache")
+            return search_term, None
 
         index_entry = await async_cache.hget(SWITCH_PRODUCT_ID_KEY, product_id)
         if index_entry:
@@ -548,7 +539,6 @@ class UniversalPlatformSlug(enum.StrEnum):
     OCULUS_VR = "oculus-vr"
     ODYSSEY = "odyssey"
     ODYSSEY_2 = "odyssey-2"
-    ODYSSEY_2_SLASH_VIDEOPAC_G7000 = "odyssey-2-slash-videopac-g7000"
     OHIO_SCIENTIFIC = "ohio-scientific"
     ONLIVE_GAME_SYSTEM = "onlive-game-system"
     OOPARTS = "ooparts"

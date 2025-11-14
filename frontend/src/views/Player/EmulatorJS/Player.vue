@@ -392,6 +392,18 @@ onUnmounted(() => {
 
 <template>
   <div id="game" />
+  <div
+    v-if="rom.ss_metadata?.bezel_path"
+    class="pointer-events-none fixed inset-0 flex items-center justify-center z-20 overflow-hidden"
+    aria-hidden="true"
+  >
+    <img
+      :src="rom.ss_metadata.bezel_path"
+      class="select-none"
+      draggable="false"
+      style="height: 100vh; max-height: 100%; width: auto; object-fit: cover"
+    />
+  </div>
 </template>
 
 <style>

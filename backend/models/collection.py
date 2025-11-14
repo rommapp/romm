@@ -24,6 +24,7 @@ class Collection(BaseModel):
     name: Mapped[str] = mapped_column(String(length=400))
     description: Mapped[str | None] = mapped_column(Text)
     is_public: Mapped[bool] = mapped_column(default=False)
+    is_favorite: Mapped[bool] = mapped_column(default=False)
     path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
     url_cover: Mapped[str | None] = mapped_column(
@@ -88,10 +89,6 @@ class Collection(BaseModel):
             for r in self.roms
             if r.path_cover_l
         ]
-
-    @property
-    def is_favorite(self) -> bool:
-        return self.name.lower() == "favourites"
 
     def __repr__(self) -> str:
         return self.name

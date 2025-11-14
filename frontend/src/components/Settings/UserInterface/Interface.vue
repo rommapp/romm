@@ -46,6 +46,25 @@ const statusRef = useLocalStorage("settings.showStatus", true);
 const actionBarRef = useLocalStorage("settings.showActionBar", false);
 const gameTitleRef = useLocalStorage("settings.showGameTitle", false);
 const enable3DEffectRef = useLocalStorage("settings.enable3DEffect", false);
+const enableExperimentalCacheRef = useLocalStorage(
+  "settings.enableExperimentalCache",
+  false,
+);
+const disableAnimationsRef = useLocalStorage(
+  "settings.disableAnimations",
+  false,
+);
+
+// Boxart
+export type BoxartStyleOption =
+  | "cover_path"
+  | "box3d_path"
+  | "physical_path"
+  | "miximage_path";
+const boxartStyleRef = useLocalStorage<BoxartStyleOption>(
+  "settings.boxartStyle",
+  "cover_path",
+);
 
 const homeOptions = computed(() => [
   {
@@ -120,6 +139,30 @@ const galleryOptions = computed(() => [
     modelTrigger: toggleSiblings,
   },
   {
+    title: t("settings.show-game-titles"),
+    description: t("settings.show-game-titles-desc"),
+    iconEnabled: "mdi-subtitles",
+    iconDisabled: "mdi-subtitles-outline",
+    model: gameTitleRef,
+    modelTrigger: toggleShowGameTitles,
+  },
+  {
+    title: t("settings.show-actionbar"),
+    description: t("settings.show-actionbar-desc"),
+    iconEnabled: "mdi-card",
+    iconDisabled: "mdi-card-outline",
+    model: actionBarRef,
+    modelTrigger: toggleActionBar,
+  },
+  {
+    title: t("settings.show-status"),
+    description: t("settings.show-status-desc"),
+    iconEnabled: "mdi-check-circle-outline",
+    iconDisabled: "mdi-close-circle-outline",
+    model: statusRef,
+    modelTrigger: toggleStatus,
+  },
+  {
     title: t("settings.show-regions"),
     description: t("settings.show-regions-desc"),
     iconEnabled: "mdi-flag-outline",
@@ -136,22 +179,6 @@ const galleryOptions = computed(() => [
     modelTrigger: toggleLanguages,
   },
   {
-    title: t("settings.show-status"),
-    description: t("settings.show-status-desc"),
-    iconEnabled: "mdi-check-circle-outline",
-    iconDisabled: "mdi-close-circle-outline",
-    model: statusRef,
-    modelTrigger: toggleStatus,
-  },
-  {
-    title: t("settings.show-actionbar"),
-    description: t("settings.show-actionbar-desc"),
-    iconEnabled: "mdi-card",
-    iconDisabled: "mdi-card-outline",
-    model: actionBarRef,
-    modelTrigger: toggleActionBar,
-  },
-  {
     title: t("settings.enable-3d-effect"),
     description: t("settings.enable-3d-effect-desc"),
     iconEnabled: "mdi-cube",
@@ -160,13 +187,28 @@ const galleryOptions = computed(() => [
     modelTrigger: toggle3DEffect,
   },
   {
-    title: t("settings.show-game-titles"),
-    description: t("settings.show-game-titles-desc"),
-    iconEnabled: "mdi-subtitles",
-    iconDisabled: "mdi-subtitles-outline",
-    model: gameTitleRef,
-    modelTrigger: toggleShowGameTitles,
+    title: t("settings.disable-animations"),
+    description: t("settings.disable-animations-desc"),
+    iconEnabled: "mdi-motion-pause",
+    iconDisabled: "mdi-motion-play",
+    model: disableAnimationsRef,
+    modelTrigger: toggleDisableAnimations,
   },
+  {
+    title: t("settings.enable-experimental-cache"),
+    description: t("settings.enable-experimental-cache-desc"),
+    iconEnabled: "mdi-cached",
+    iconDisabled: "mdi-cached",
+    model: enableExperimentalCacheRef,
+    modelTrigger: toggleExperimentalCache,
+  },
+]);
+
+const boxartStyleOptions = computed(() => [
+  { title: t("settings.boxart-cover"), value: "cover_path" },
+  { title: t("settings.boxart-box3d"), value: "box3d_path" },
+  { title: t("settings.boxart-physical"), value: "physical_path" },
+  { title: t("settings.boxart-miximage"), value: "miximage_path" },
 ]);
 
 const setPlatformDrawerGroupBy = (value: string) => {
@@ -188,19 +230,18 @@ const setVirtualCollectionType = async (value: string) => {
   virtualCollectionTypeRef.value = value;
   collectionsStore.fetchVirtualCollections(value);
 };
-
+const setBoxartStyle = (value: BoxartStyleOption) => {
+  boxartStyleRef.value = value;
+};
 const toggleShowStats = (value: boolean) => {
   showStatsRef.value = value;
 };
-
 const toggleShowRecentRoms = (value: boolean) => {
   showRecentRomsRef.value = value;
 };
-
 const toggleGroupRoms = (value: boolean) => {
   groupRomsRef.value = value;
 };
-
 const toggleSiblings = (value: boolean) => {
   siblingsRef.value = value;
 };
@@ -208,15 +249,12 @@ const toggleSiblings = (value: boolean) => {
 const toggleRegions = (value: boolean) => {
   regionsRef.value = value;
 };
-
 const toggleLanguages = (value: boolean) => {
   languagesRef.value = value;
 };
-
 const toggleStatus = (value: boolean) => {
   statusRef.value = value;
 };
-
 const toggleActionBar = (value: boolean) => {
   actionBarRef.value = value;
 };
@@ -225,6 +263,12 @@ const toggle3DEffect = (value: boolean) => {
 };
 const toggleShowGameTitles = (value: boolean) => {
   gameTitleRef.value = value;
+};
+const toggleExperimentalCache = (value: boolean) => {
+  enableExperimentalCacheRef.value = value;
+};
+const toggleDisableAnimations = (value: boolean) => {
+  disableAnimationsRef.value = value;
 };
 </script>
 <template>
@@ -270,7 +314,7 @@ const toggleShowGameTitles = (value: boolean) => {
         <v-col
           v-for="option in platformsDrawerOptions"
           :key="option.title"
-          cols="12"
+          cols="6"
         >
           <v-select
             v-model="platformsGroupByRef"
@@ -314,6 +358,17 @@ const toggleShowGameTitles = (value: boolean) => {
               option.model.value ? option.iconEnabled : option.iconDisabled
             "
             @update:model-value="option.modelTrigger"
+          />
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-select
+            v-model="boxartStyleRef"
+            :items="boxartStyleOptions"
+            :label="t('settings.boxart-style')"
+            class="mx-2 mt-2"
+            variant="outlined"
+            hide-details
+            @update:model-value="setBoxartStyle"
           />
         </v-col>
       </v-row>

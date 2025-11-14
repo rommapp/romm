@@ -351,7 +351,12 @@ router.beforeEach(async (to, _from, next) => {
       currentRoute !== ROUTES.RESET_PASSWORD &&
       currentRoute !== ROUTES.REGISTER
     ) {
-      return next({ name: ROUTES.LOGIN });
+      return next({
+        name: ROUTES.LOGIN,
+        query: {
+          next: to.query.next ?? (to.path !== "/login" ? to.path : "/"),
+        },
+      });
     }
 
     if (user.value && currentRoute == ROUTES.SETUP) {

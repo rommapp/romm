@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay } from "vuetify";
 import type { SearchCoverSchema } from "@/__generated__";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
@@ -15,22 +15,33 @@ const show = ref(false);
 const searching = ref(false);
 const searchText = ref("");
 const coverType = ref("all");
+const platformIdRef = ref<number | undefined>(undefined);
 const covers = ref<SearchCoverSchema[]>([]);
 const filteredCovers = ref<SearchCoverSchema[]>();
 const panels = ref([0]);
 
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showSearchCoverDialog", ({ term, aspectRatio = null }) => {
-  searchText.value = term;
-  show.value = true;
-  // TODO: set default aspect ratio to 2/3
-  if (aspectRatio) coverAspectRatio.value = aspectRatio;
-  if (searchText.value) searchCovers();
+emitter?.on("showSearchCoverDialog", handleShowSearchCoverDialog);
+
+const computedAspectRatio = computed(() => {
+  return galleryViewStore.getAspectRatio({
+    platformId: platformIdRef.value,
+    boxartStyle: "cover_path",
+  });
 });
 
-const coverAspectRatio = ref(
-  parseFloat(galleryViewStore.defaultAspectRatioCover.toString()),
-);
+function handleShowSearchCoverDialog({
+  term,
+  platformId,
+}: {
+  term: string;
+  platformId?: number;
+}) {
+  searchText.value = term;
+  show.value = true;
+  if (platformId) platformIdRef.value = platformId;
+  if (searchText.value) searchCovers();
+}
 
 async function searchCovers() {
   covers.value = [];
@@ -105,7 +116,7 @@ function closeDialog() {
 }
 
 onBeforeUnmount(() => {
-  emitter?.off("showSearchCoverDialog");
+  emitter?.off("showSearchCoverDialog", handleShowSearchCoverDialog);
 });
 </script>
 
@@ -184,30 +195,24 @@ onBeforeUnmount(() => {
                 sm="3"
                 md="2"
               >
-                <v-hover v-slot="{ isHovering, props: hoverProps }">
-                  <!-- TODO: fix aspect ratio -->
-                  <v-img
-                    v-bind="hoverProps"
-                    :class="{ 'on-hover': isHovering }"
-                    class="transform-scale pointer"
-                    :aspect-ratio="coverAspectRatio"
-                    :src="resource.thumb"
-                    cover
-                    @click="selectCover(resource.url)"
-                  >
-                    <template #error>
-                      <!-- TODO: fix aspect ratio -->
-                      <v-img
-                        :src="resource.url"
-                        cover
-                        :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
-                      />
-                    </template>
-                    <template #placeholder>
-                      <Skeleton :aspect-ratio="coverAspectRatio" type="image" />
-                    </template>
-                  </v-img>
-                </v-hover>
+                <v-img
+                  class="transform-scale pointer"
+                  :aspect-ratio="computedAspectRatio"
+                  :src="resource.thumb"
+                  cover
+                  @click="selectCover(resource.url)"
+                >
+                  <template #error>
+                    <v-img
+                      :src="resource.url"
+                      cover
+                      :aspect-ratio="computedAspectRatio"
+                    />
+                  </template>
+                  <template #placeholder>
+                    <Skeleton type="image" />
+                  </template>
+                </v-img>
               </v-col>
             </v-row>
           </v-expansion-panel-text>

@@ -22,10 +22,14 @@ DEV_SQL_ECHO: Final = str_to_bool(os.environ.get("DEV_SQL_ECHO", "false"))
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
+ROMM_TMP_PATH: Final = os.environ.get("ROMM_TMP_PATH", None)
 LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
 RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
 FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
+
+# SEVEN ZIP
+SEVEN_ZIP_TIMEOUT: Final = int(os.environ.get("SEVEN_ZIP_TIMEOUT", 60))
 
 # DATABASE
 DB_HOST: Final[str | None] = os.environ.get("DB_HOST", "127.0.0.1") or None
@@ -119,21 +123,30 @@ DISABLE_DOWNLOAD_ENDPOINT_AUTH = str_to_bool(
     os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false")
 )
 DISABLE_USERPASS_LOGIN = str_to_bool(os.environ.get("DISABLE_USERPASS_LOGIN", "false"))
+DISABLE_SETUP_WIZARD = str_to_bool(os.environ.get("DISABLE_SETUP_WIZARD", "false"))
 
 # OIDC
 OIDC_ENABLED: Final = str_to_bool(os.environ.get("OIDC_ENABLED", "false"))
 OIDC_PROVIDER: Final = os.environ.get("OIDC_PROVIDER", "")
 OIDC_CLIENT_ID: Final = os.environ.get("OIDC_CLIENT_ID", "").strip()
 OIDC_CLIENT_SECRET: Final = os.environ.get("OIDC_CLIENT_SECRET", "").strip()
+OIDC_CLAIM_ROLES: Final = os.environ.get("OIDC_CLAIM_ROLES", "").strip()
+OIDC_ROLE_VIEWER: Final = os.environ.get("OIDC_ROLE_VIEWER", "").strip()
+OIDC_ROLE_EDITOR: Final = os.environ.get("OIDC_ROLE_EDITOR", "").strip()
+OIDC_ROLE_ADMIN: Final = os.environ.get("OIDC_ROLE_ADMIN", "").strip()
 OIDC_REDIRECT_URI: Final = os.environ.get("OIDC_REDIRECT_URI", "")
 OIDC_SERVER_APPLICATION_URL: Final = os.environ.get("OIDC_SERVER_APPLICATION_URL", "")
 OIDC_TLS_CACERTFILE: Final = os.environ.get("OIDC_TLS_CACERTFILE", None)
 
 # SCANS
 SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
+SCAN_WORKERS: Final = max(1, int(os.environ.get("SCAN_WORKERS", "1")))
 
 # TASKS
 TASK_TIMEOUT: Final = int(os.environ.get("TASK_TIMEOUT", 60 * 5))  # 5 minutes
+TASK_RESULT_TTL: Final = int(
+    os.environ.get("TASK_RESULT_TTL", 24 * 60 * 60)
+)  # 24 hours
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = str_to_bool(
     os.environ.get("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false")
 )
@@ -193,6 +206,11 @@ NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
 YOUTUBE_BASE_URL: Final = os.environ.get(
     "YOUTUBE_BASE_URL", "https://www.youtube.com"
 ).rstrip("/")
+
+# TINFOIL
+TINFOIL_WELCOME_MESSAGE: Final = os.environ.get(
+    "TINFOIL_WELCOME_MESSAGE", "RomM Switch Library"
+)
 
 # SENTRY
 SENTRY_DSN: Final = os.environ.get("SENTRY_DSN", None)

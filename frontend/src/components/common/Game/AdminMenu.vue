@@ -23,7 +23,7 @@ const { toggleFavorite } = useFavoriteToggle(emitter);
 const romsStore = storeRoms();
 const scanningStore = storeScanning();
 
-async function switchFromFavourites() {
+async function switchFromFavorites() {
   await toggleFavorite(props.rom);
 }
 
@@ -45,7 +45,7 @@ async function resetLastPlayed() {
       romsStore.removeFromContinuePlaying(props.rom);
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
@@ -56,7 +56,7 @@ async function resetLastPlayed() {
 }
 
 async function onScan() {
-  scanningStore.set(true);
+  scanningStore.setScanning(true);
   emitter?.emit("snackbarShow", {
     msg: `Refreshing ${props.rom.name} metadata...`,
     icon: "mdi-loading mdi-spin",
@@ -96,10 +96,10 @@ async function onScan() {
       </v-list-item>
       <v-list-item
         class="py-4 pr-5"
-        @click="emitter?.emit('showEditRomDialog', { ...rom })"
+        @click="emitter?.emit('showEditRomDialog', rom)"
       >
         <v-list-item-title class="d-flex">
-          <v-icon icon="mdi-pencil-box" class="mr-2" />{{ t("rom.edit") }}
+          <v-icon icon="mdi-pencil-box" class="mr-2" />{{ t("common.edit") }}
         </v-list-item-title>
       </v-list-item>
       <v-list-item class="py-4 pr-5" @click="onScan">
@@ -124,7 +124,7 @@ async function onScan() {
     <v-list-item
       v-if="auth.scopes.includes('collections.write')"
       class="py-4 pr-5"
-      @click="switchFromFavourites"
+      @click="switchFromFavorites"
     >
       <v-list-item-title class="d-flex">
         <v-icon
@@ -136,8 +136,8 @@ async function onScan() {
           class="mr-2"
         />{{
           collectionsStore.isFavorite(rom)
-            ? t("rom.remove-from-fav")
-            : t("rom.add-to-fav")
+            ? t("rom.remove-from-favorites")
+            : t("rom.add-to-favorites")
         }}
       </v-list-item-title>
     </v-list-item>

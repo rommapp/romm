@@ -254,23 +254,15 @@ class TestFSResourcesHandler:
             assert result == expected
 
     @pytest.mark.asyncio
-    async def test_get_rom_screenshots_no_rom(self, handler: FSResourcesHandler):
-        """Test get_rom_screenshots with no ROM"""
-        result = await handler.get_rom_screenshots(
-            None, ["http://example.com/screenshot.jpg"]
-        )
-        assert result == []
-
-    @pytest.mark.asyncio
     async def test_get_rom_screenshots_no_urls(
         self, handler: FSResourcesHandler, rom: Rom
     ):
         """Test get_rom_screenshots with no URLs"""
-        result = await handler.get_rom_screenshots(rom, None)
-        assert result == []
+        result = await handler.get_rom_screenshots(rom, True, None)
+        assert result == rom.path_screenshots
 
-        result = await handler.get_rom_screenshots(rom, [])
-        assert result == []
+        result = await handler.get_rom_screenshots(rom, True, [])
+        assert result == rom.path_screenshots
 
     @pytest.mark.asyncio
     async def test_get_rom_screenshots_with_urls(
@@ -283,7 +275,7 @@ class TestFSResourcesHandler:
         ]
 
         with patch.object(handler, "_store_screenshot") as mock_store:
-            result = await handler.get_rom_screenshots(rom, urls)
+            result = await handler.get_rom_screenshots(rom, True, urls)
 
             # Should call _store_screenshot for each URL
             assert mock_store.call_count == 2
@@ -307,16 +299,10 @@ class TestFSResourcesHandler:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_manual_no_rom(self, handler: FSResourcesHandler):
-        """Test get_manual with no ROM"""
-        result = await handler.get_manual(None, False, "http://example.com/manual.pdf")
-        assert result is None
-
-    @pytest.mark.asyncio
     async def test_get_manual_no_url(self, handler: FSResourcesHandler, rom: Rom):
         """Test get_manual with no URL"""
         result = await handler.get_manual(rom, False, None)
-        assert result is None
+        assert result is rom.path_manual
 
     @pytest.mark.asyncio
     async def test_get_manual_with_url_no_overwrite(
@@ -386,17 +372,6 @@ class TestFSResourcesHandler:
                 "roms", str(platform_id), str(rom_id), "retroachievements", "badges"
             )
             assert result == expected
-
-    async def test_create_ra_resources_path(self, handler: FSResourcesHandler):
-        """Test create_ra_resources_path method"""
-        platform_id = 1
-        rom_id = 42
-
-        with patch.object(handler, "make_directory") as mock_make_dir:
-            await handler.create_ra_resources_path(platform_id, rom_id)
-
-            expected_path = handler.get_ra_resources_path(platform_id, rom_id)
-            mock_make_dir.assert_called_once_with(expected_path)
 
     def test_integration_with_base_handler_methods(self, handler: FSResourcesHandler):
         """Test that FSResourcesHandler properly inherits from FSHandler"""

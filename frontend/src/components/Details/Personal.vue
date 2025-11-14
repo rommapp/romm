@@ -164,6 +164,7 @@ watch(
                     :class="{ 'ml-2': mdAndUp }"
                     hover
                     ripple
+                    clearable
                     length="10"
                     size="26"
                     :disabled="!scopes.includes('roms.user.write')"
@@ -185,6 +186,7 @@ watch(
                     :class="{ 'ml-2': mdAndUp }"
                     hover
                     ripple
+                    clearable
                     length="10"
                     size="26"
                     :disabled="!scopes.includes('roms.user.write')"

@@ -6,8 +6,7 @@ import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import PlatformListItem from "@/components/common/Platform/ListItem.vue";
 import storeNavigation from "@/stores/navigation";
-import type { Platform } from "@/stores/platforms";
-import storePlatforms from "@/stores/platforms";
+import storePlatforms, { type Platform } from "@/stores/platforms";
 
 type GroupByType = "family_name" | "generation" | "category" | null;
 
@@ -19,7 +18,7 @@ const platformsStore = storePlatforms();
 const { filteredPlatforms, filterText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
 const openPanels = ref<number[]>([]);
-const groupBy = useLocalStorage<GroupByType | null>(
+const groupByRef = useLocalStorage<GroupByType | null>(
   "settings.platformsGroupBy",
   null,
 );
@@ -27,14 +26,14 @@ const groupBy = useLocalStorage<GroupByType | null>(
 const tabIndex = computed(() => (activePlatformsDrawer.value ? 0 : -1));
 
 const sortedGroupedPlatforms = computed(() => {
-  if (!groupBy.value) return null;
+  if (!groupByRef.value) return null;
 
   const groups: Record<string, Platform[]> = {};
 
   // Group platforms
   filteredPlatforms.value.forEach((platform) => {
-    let key = platform[groupBy.value!] || "Other";
-    if (groupBy.value === "generation" && key === -1) key = "Other";
+    let key = platform[groupByRef.value!] || "Other";
+    if (groupByRef.value === "generation" && key === -1) key = "Other";
 
     if (!groups[key]) groups[key] = [];
     groups[key].push(platform);
@@ -46,9 +45,16 @@ const sortedGroupedPlatforms = computed(() => {
       ([groupName, platforms]) =>
         [
           groupName,
-          platforms.sort((a, b) =>
-            a.display_name.localeCompare(b.display_name),
-          ),
+          platforms.sort((a, b) => {
+            // Sort platforms by generation within the same family
+            if (groupByRef.value === "family_name") {
+              const aGen = a.generation ?? -1;
+              const bGen = b.generation ?? -1;
+              if (aGen > bGen) return 1;
+              if (aGen < bGen) return -1;
+            }
+            return a.display_name.localeCompare(b.display_name);
+          }),
         ] as [string, Platform[]],
     )
     .sort(([a], [b]) => {
@@ -59,10 +65,10 @@ const sortedGroupedPlatforms = computed(() => {
 });
 
 const getGroupTitle = (group: string): string => {
-  if (groupBy.value === "generation" && group !== "Other") {
+  if (groupByRef.value === "generation" && group !== "Other") {
     return `Gen ${group}`;
   }
-  if (groupBy.value === "category" && group === "Portable Console") {
+  if (groupByRef.value === "category" && group === "Portable Console") {
     return "Handheld Console";
   }
   return group;

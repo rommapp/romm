@@ -61,6 +61,15 @@ class DBCollectionsHandler(DBBaseHandler):
 
     @begin_session
     @with_roms
+    def get_favorite_collection(
+        self, user_id: int, query: Query = None, session: Session = None
+    ) -> Collection | None:
+        return session.scalar(
+            query.filter_by(is_favorite=True, user_id=user_id).limit(1)
+        )
+
+    @begin_session
+    @with_roms
     def get_collections(
         self, query: Query = None, session: Session = None
     ) -> Sequence[Collection]:
@@ -211,7 +220,7 @@ class DBCollectionsHandler(DBBaseHandler):
             virtual_collection_id=criteria.get("virtual_collection_id"),
             search_term=criteria.get("search_term"),
             matched=criteria.get("matched"),
-            favourite=criteria.get("favourite"),
+            favorite=criteria.get("favorite"),
             duplicate=criteria.get("duplicate"),
             playable=criteria.get("playable"),
             has_ra=criteria.get("has_ra"),

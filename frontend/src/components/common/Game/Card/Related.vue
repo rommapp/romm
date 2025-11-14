@@ -7,9 +7,13 @@ import { getMissingCoverImage } from "@/utils/covers";
 const props = defineProps<{
   game: IGDBRelatedGame;
 }>();
+
 const galleryViewStore = storeGalleryView();
 
 const missingCoverImage = computed(() => getMissingCoverImage(props.game.name));
+const computedAspectRatio = computed(() =>
+  galleryViewStore.getAspectRatio({ boxartStyle: "cover_path" }),
+);
 </script>
 
 <template>
@@ -26,7 +30,7 @@ const missingCoverImage = computed(() => getMissingCoverImage(props.game.name));
       <v-img
         v-bind="props"
         :src="game.cover_url || missingCoverImage"
-        :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
+        :aspect-ratio="computedAspectRatio"
         cover
       >
         <v-chip

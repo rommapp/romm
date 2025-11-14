@@ -55,7 +55,7 @@ async function removeRomsFromCollection() {
       collectionsStore.updateCollection(data);
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",

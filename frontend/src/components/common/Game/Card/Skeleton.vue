@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
 import { computed } from "vue";
-import { useDisplay } from "vuetify";
 import storeGalleryView from "@/stores/galleryView";
-import storePlatforms from "@/stores/platforms";
 
 const props = withDefaults(
   defineProps<{
     platformId?: number;
-    aspectRatio?: string | number;
+    aspectRatio?: number;
     type?: string;
   }>(),
   {
@@ -18,26 +15,15 @@ const props = withDefaults(
   },
 );
 
-const { smAndDown } = useDisplay();
-const platformsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
 
-const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
-const showActionBar = computed(
-  () => smAndDown.value || showActionBarAlways.value,
-);
-
 const computedAspectRatio = computed(() => {
-  const ratio =
-    props.aspectRatio ||
-    platformsStore.getAspectRatio(props.platformId || 0) ||
-    galleryViewStore.defaultAspectRatioCover;
-  return parseFloat(ratio.toString());
+  if (props.aspectRatio) return props.aspectRatio;
+  return galleryViewStore.getAspectRatio({ platformId: props.platformId });
 });
 
 const computedType = computed(() => {
   if (props.type) return props.type;
-  if (showActionBar.value) return "image, avatar, chip, chip, actions";
   return "image, avatar, chip, chip";
 });
 </script>
@@ -45,7 +31,6 @@ const computedType = computed(() => {
 <template>
   <v-skeleton-loader
     class="card-skeleton"
-    :class="{ 'show-action-bar': showActionBar }"
     :type="computedType"
     :style="{ aspectRatio: computedAspectRatio }"
   />
@@ -106,31 +91,5 @@ const computedType = computed(() => {
 
 .card-skeleton .v-skeleton-loader__actions {
   display: none;
-}
-
-.card-skeleton.show-action-bar .v-skeleton-loader__button {
-  height: 24px;
-  margin: 4px;
-  flex: 1;
-  max-width: unset;
-}
-
-.card-skeleton.show-action-bar {
-  .v-skeleton-loader__image {
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-  }
-
-  .v-skeleton-loader__avatar,
-  .v-skeleton-loader__chip:nth-of-type(3) {
-    bottom: 32px;
-  }
-
-  .v-skeleton-loader__actions {
-    display: flex;
-    flex-wrap: nowrap;
-  }
 }
 </style>
