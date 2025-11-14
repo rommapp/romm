@@ -1,7 +1,7 @@
 """multi_notes_conversion
 
 Revision ID: 5937211f79ee
-Revises: 0054_add_platform_metadata_slugs
+Revises: 0056_gamelist_xml
 Create Date: 2025-09-29 14:20:28.990148
 
 """
@@ -12,11 +12,10 @@ from datetime import datetime, timezone
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import text
-from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = "5937211f79ee"
-down_revision = "0054_add_platform_metadata_slugs"
+revision = "0057_multi_notes"
+down_revision = "0056_gamelist_xml"
 branch_labels = None
 depends_on = None
 
