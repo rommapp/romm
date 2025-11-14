@@ -66,5 +66,13 @@
   "switch-version": "Switch version",
   "tags": "Tags",
   "unmatch": "Unmatch ROM",
-  "unselect-all": "Unselect all"
+  "unselect-all": "Unselect all",
+  "add-note": "Add Note",
+  "add-new-note": "Add New Note",
+  "note-title": "Note Title",
+  "note-title-exists": "A note with this title already exists",
+  "make-public": "Make Public",
+  "no-notes": "No notes yet",
+  "no-notes-description": "Click the Add Note button to create your first note",
+  "confirm-delete-note": "Are you sure you want to delete the note \"{title}\"?"
 }

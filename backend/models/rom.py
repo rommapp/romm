@@ -417,8 +417,7 @@ class RomUser(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    note_raw_markdown: Mapped[str] = mapped_column(Text, default="")
-    note_is_public: Mapped[bool] = mapped_column(default=False)
+    notes: Mapped[dict[str, Any]] = mapped_column(CustomJSON(), default=dict)
 
     is_main_sibling: Mapped[bool] = mapped_column(default=False)
     last_played: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
@@ -442,3 +441,42 @@ class RomUser(BaseModel):
     @property
     def user__username(self) -> str:
         return self.user.username
+
+    def get_note(self, title: str) -> dict[str, Any] | None:
+        """Get a specific note by title."""
+        return self.notes.get(title)
+
+    def add_note(self, title: str, content: str, is_public: bool = False) -> None:
+        """Add or update a note."""
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc).isoformat()
+        existing_note = self.notes.get(title, {})
+
+        self.notes[title] = {
+            "content": content,
+            "is_public": is_public,
+            "created_at": existing_note.get("created_at", now),
+            "updated_at": now,
+        }
+
+    def remove_note(self, title: str) -> bool:
+        """Remove a note by title. Returns True if note was removed."""
+        if title in self.notes:
+            del self.notes[title]
+            return True
+        return False
+
+    def list_notes(self, include_private: bool = True) -> dict[str, dict[str, Any]]:
+        """List all notes, optionally filtering private ones."""
+        if include_private:
+            return self.notes.copy()
+        return {
+            title: note
+            for title, note in self.notes.items()
+            if note.get("is_public", False)
+        }
+
+    def get_public_notes(self) -> dict[str, dict[str, Any]]:
+        """Get only public notes."""
+        return self.list_notes(include_private=False)

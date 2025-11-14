@@ -65,3 +65,5 @@ frontend/dev-dist
 # outside data
 switch_titledb.json
 switch_product_ids.json
+
+copilot-instructions.md

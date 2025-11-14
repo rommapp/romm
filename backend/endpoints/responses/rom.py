@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import Annotated, NotRequired, TypedDict, get_type_hints
+from typing import Annotated, Any, NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
 from pydantic import Field, computed_field, field_validator
@@ -22,6 +22,17 @@ from models.rom import Rom, RomFileCategory, RomUserStatus
 from .base import BaseModel
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
+
+
+class UserNoteSchema(BaseModel):
+    title: str
+    content: str
+    is_public: bool
+    created_at: datetime
+    updated_at: datetime
+    user_id: int
+    username: str
+
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
     "RomIGDBMetadata",
@@ -74,8 +85,7 @@ def rom_user_schema_factory() -> RomUserSchema:
         created_at=now,
         updated_at=now,
         last_played=None,
-        note_raw_markdown="",
-        note_is_public=False,
+        notes={},
         is_main_sibling=False,
         backlogged=False,
         now_playing=False,
@@ -95,8 +105,7 @@ class RomUserSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
     last_played: datetime | None
-    note_raw_markdown: str
-    note_is_public: bool
+    notes: dict[str, Any]
     is_main_sibling: bool
     backlogged: bool
     now_playing: bool
@@ -118,19 +127,6 @@ class RomUserSchema(BaseModel):
 
         # Return a dummy RomUserSchema if the user + rom combination doesn't exist
         return rom_user_schema_factory()
-
-    @classmethod
-    def notes_for_user(cls, user_id: int, db_rom: Rom) -> list[UserNotesSchema]:
-        return [
-            {
-                "user_id": n.user_id,
-                "username": n.user__username,
-                "note_raw_markdown": n.note_raw_markdown,
-            }
-            for n in db_rom.rom_users
-            # This is what filters out private notes
-            if n.user_id == user_id or n.note_is_public
-        ]
 
 
 class RomFileSchema(BaseModel):
@@ -359,15 +355,14 @@ class DetailedRomSchema(RomSchema):
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
     user_screenshots: list[ScreenshotSchema]
-    user_notes: list[UserNotesSchema]
     user_collections: list[UserCollectionSchema]
+    all_user_notes: list[UserNoteSchema]
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
         user_id = request.user.id
         db_rom = cls.populate_properties(db_rom, request)
 
-        db_rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)  # type: ignore
         db_rom.user_saves = [  # type: ignore
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]
@@ -382,6 +377,63 @@ class DetailedRomSchema(RomSchema):
         db_rom.user_collections = UserCollectionSchema.for_user(  # type: ignore
             user_id, db_rom.collections
         )
+
+        # Collect all notes: current user's notes + public notes from other users
+        all_notes = []
+        for rom_user in db_rom.rom_users:
+            if rom_user.notes:
+                if rom_user.user_id == user_id:
+                    # Include all notes from current user (private + public)
+                    for title, note_data in rom_user.notes.items():
+                        all_notes.append(
+                            UserNoteSchema(
+                                title=title,
+                                content=note_data.get("content", ""),
+                                is_public=note_data.get("is_public", False),
+                                created_at=datetime.fromisoformat(
+                                    note_data.get(
+                                        "created_at", rom_user.created_at.isoformat()
+                                    )
+                                ),
+                                updated_at=datetime.fromisoformat(
+                                    note_data.get(
+                                        "updated_at", rom_user.updated_at.isoformat()
+                                    )
+                                ),
+                                user_id=rom_user.user_id,
+                                username=rom_user.user__username,
+                            )
+                        )
+                else:
+                    # Include only public notes from other users
+                    for title, note_data in rom_user.notes.items():
+                        if note_data.get("is_public", False):
+                            all_notes.append(
+                                UserNoteSchema(
+                                    title=title,
+                                    content=note_data.get("content", ""),
+                                    is_public=True,
+                                    created_at=datetime.fromisoformat(
+                                        note_data.get(
+                                            "created_at",
+                                            rom_user.created_at.isoformat(),
+                                        )
+                                    ),
+                                    updated_at=datetime.fromisoformat(
+                                        note_data.get(
+                                            "updated_at",
+                                            rom_user.updated_at.isoformat(),
+                                        )
+                                    ),
+                                    user_id=rom_user.user_id,
+                                    username=rom_user.user__username,
+                                )
+                            )
+
+        # Sort notes by updated_at (most recent first)
+        all_notes.sort(key=lambda x: x.updated_at, reverse=True)
+        db_rom.all_user_notes = all_notes  # type: ignore
+
         return cls.model_validate(db_rom)
 
     @field_validator("user_saves")
@@ -397,7 +449,13 @@ class DetailedRomSchema(RomSchema):
         return sorted(v, key=lambda x: x.created_at, reverse=True)
 
 
-class UserNotesSchema(TypedDict):
-    user_id: int
-    username: str
-    note_raw_markdown: str
+class RomNoteSchema(BaseModel):
+    title: str
+    content: str
+    is_public: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class RomNotesCollectionSchema(BaseModel):
+    notes: dict[str, RomNoteSchema]

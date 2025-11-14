@@ -127,10 +127,8 @@ const showSiblings = useLocalStorage("settings.showSiblings", true);
 
 const hasNotes = computed(() => {
   if (!romsStore.isSimpleRom(props.rom)) return false;
-  return (
-    props.rom.rom_user?.note_raw_markdown &&
-    props.rom.rom_user.note_raw_markdown.trim().length > 0
-  );
+  const notes = props.rom.rom_user?.notes;
+  return notes && Object.keys(notes).length > 0;
 });
 
 // Tilt 3D effect logic

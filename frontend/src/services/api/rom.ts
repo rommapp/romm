@@ -346,6 +346,8 @@ async function deleteRoms({
   });
 }
 
+// Multi-note management functions
+
 export default {
   uploadRoms,
   getRoms,

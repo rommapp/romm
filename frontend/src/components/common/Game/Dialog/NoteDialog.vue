@@ -33,18 +33,33 @@ emitter?.on("showNoteDialog", (romToShow) => {
         </v-btn>
       </v-card-title>
       <v-card-text class="pa-4">
-        <MdPreview
-          v-if="rom?.rom_user?.note_raw_markdown"
-          no-highlight
-          no-katex
-          no-mermaid
-          :model-value="rom?.rom_user?.note_raw_markdown"
-          :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-          language="en-US"
-          preview-theme="vuepress"
-          code-theme="github"
-          class="py-2"
-        />
+        <div
+          v-if="
+            rom?.rom_user?.notes && Object.keys(rom.rom_user.notes).length > 0
+          "
+        >
+          <div
+            v-for="(note, title) in rom.rom_user.notes"
+            :key="title"
+            class="mb-4"
+          >
+            <h4 class="text-h6 mb-2">{{ title }}</h4>
+            <MdPreview
+              no-highlight
+              no-katex
+              no-mermaid
+              :model-value="note.content"
+              :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+              language="en-US"
+              preview-theme="vuepress"
+              code-theme="github"
+              class="py-2"
+            />
+          </div>
+        </div>
+        <div v-else class="text-center text-medium-emphasis pa-4">
+          {{ t("rom.no-notes") }}
+        </div>
       </v-card-text>
     </v-card>
   </v-dialog>
