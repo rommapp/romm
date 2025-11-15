@@ -48,7 +48,7 @@ config = Config(
         "OIDC_CLIENT_SECRET": OIDC_CLIENT_SECRET,
         "OIDC_REDIRECT_URI": OIDC_REDIRECT_URI,
         "OIDC_SERVER_APPLICATION_URL": OIDC_SERVER_APPLICATION_URL,
-    }  # type: ignore
+    }
 )
 oauth = OAuth(config=config)
 oauth.register(
