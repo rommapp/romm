@@ -1052,6 +1052,13 @@ async def add_rom_manuals(
     try:
         async for chunk in request.stream():
             parser.data_received(chunk)
+
+        db_rom_handler.update_rom(
+            id,
+            {
+                "path_manual": f"{manuals_path}/{rom.id}.pdf",
+            },
+        )
     except ClientDisconnect:
         log.error("Client disconnected during upload")
         cleanup_partial_file()
@@ -1062,17 +1069,6 @@ async def add_rom_manuals(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="There was an error uploading the manual",
         ) from exc
-
-    path_manual = await fs_resource_handler.get_manual(
-        rom=rom, overwrite=False, url_manual=None
-    )
-
-    db_rom_handler.update_rom(
-        id,
-        {
-            "path_manual": path_manual,
-        },
-    )
 
     return Response()
 
