@@ -1,22 +1,23 @@
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Annotated
 from urllib.parse import quote
 
 from fastapi import HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from starlette.datastructures import URLPath
 
 from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
-    FRONTEND_RESOURCES_PATH,
     TINFOIL_WELCOME_MESSAGE,
 )
 from decorators.auth import protected_route
 from endpoints.responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
     WEBRCADE_SUPPORTED_PLATFORM_SLUGS,
+    FPKGiFeedItemSchema,
     KekatsuDSItemSchema,
     PKGiFeedPS3ItemSchema,
     PKGiFeedPSPItemSchema,
@@ -105,17 +106,13 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
                     rom=download_url,
                 ),
             )
-            if rom.path_cover_s:
+            if rom.path_cover_small:
                 category_item["thumbnail"] = str(
-                    URLPath(
-                        f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_s}"
-                    ).make_absolute_url(request.base_url)
+                    URLPath(rom.path_cover_small).make_absolute_url(request.base_url)
                 )
-            if rom.path_cover_l:
+            if rom.path_cover_large:
                 category_item["background"] = str(
-                    URLPath(
-                        f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_l}"
-                    ).make_absolute_url(request.base_url)
+                    URLPath(rom.path_cover_large).make_absolute_url(request.base_url)
                 )
             category_items.append(category_item)
 
@@ -473,6 +470,59 @@ def pkgi_psp_feed(
             "Content-Disposition": f"filename=pkgi_{content_type_enum.value}.txt",
             "Cache-Control": "no-cache",
         },
+    )
+
+
+def _format_release_date(timestamp: int | None) -> str | None:
+    """Format release date to DD-MM-YYYY format"""
+    if not timestamp:
+        return None
+
+    return datetime.fromtimestamp(timestamp / 1000).strftime("%d-%m-%Y")
+
+
+@protected_route(
+    router.get,
+    "/fpkgi/{platform_slug}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+def fpkgi_feed(request: Request, platform_slug: str) -> Response:
+    """
+    https://github.com/ItsJokerZz/FPKGi
+
+    Args:
+        request (Request): Fastapi Request object
+        platform_slug (str): Platform slug (ps4, ps5)
+
+    Returns:
+        Response: JSON file in FPKGi format
+    """
+    platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+    if not platform:
+        raise HTTPException(
+            status_code=404, detail=f"Platform {platform_slug} not found"
+        )
+
+    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
+    response_data = {}
+
+    for rom in roms:
+        download_url = generate_rom_download_url(request, rom)
+        response_data[download_url] = FPKGiFeedItemSchema(
+            name=rom.name or rom.fs_name,
+            size=rom.fs_size_bytes,
+            region=rom.regions[0] if rom.regions else None,
+            version=rom.revision or None,
+            release=_format_release_date(rom.metadatum.first_release_date),
+            min_fw=None,
+            cover_url=str(
+                URLPath(rom.path_cover_large).make_absolute_url(request.base_url)
+            ),
+        ).model_dump()
+
+    return JSONResponse(
+        content={"DATA": response_data},
+        headers={"Cache-Control": "no-cache"},
     )
 
 
