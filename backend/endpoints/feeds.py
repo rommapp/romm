@@ -11,7 +11,6 @@ from starlette.datastructures import URLPath
 
 from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
-    FRONTEND_RESOURCES_PATH,
     TINFOIL_WELCOME_MESSAGE,
 )
 from decorators.auth import protected_route
@@ -107,17 +106,13 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
                     rom=download_url,
                 ),
             )
-            if rom.path_cover_s:
+            if rom.path_cover_small:
                 category_item["thumbnail"] = str(
-                    URLPath(
-                        f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_s}"
-                    ).make_absolute_url(request.base_url)
+                    URLPath(rom.path_cover_small).make_absolute_url(request.base_url)
                 )
-            if rom.path_cover_l:
+            if rom.path_cover_large:
                 category_item["background"] = str(
-                    URLPath(
-                        f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_l}"
-                    ).make_absolute_url(request.base_url)
+                    URLPath(rom.path_cover_large).make_absolute_url(request.base_url)
                 )
             category_items.append(category_item)
 
@@ -479,10 +474,10 @@ def pkgi_psp_feed(
 
 
 def _format_release_date(timestamp: int | None) -> str | None:
+    """Format release date to DD-MM-YYYY format"""
     if not timestamp:
         return None
 
-    """Format release date to DD-MM-YYYY format"""
     return datetime.fromtimestamp(timestamp / 1000).strftime("%d-%m-%Y")
 
 
@@ -520,7 +515,9 @@ def fpkgi_feed(request: Request, platform_slug: str) -> Response:
             version=rom.revision or None,
             release=_format_release_date(rom.metadatum.first_release_date),
             min_fw=None,
-            cover_url=rom.path_cover_large,
+            cover_url=str(
+                URLPath(rom.path_cover_large).make_absolute_url(request.base_url)
+            ),
         ).model_dump()
 
     return JSONResponse(
