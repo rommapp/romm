@@ -1,6 +1,7 @@
 import json
 import re
 from typing import Final, NotRequired, TypedDict
+import hashlib
 
 import httpx
 from fastapi import HTTPException, status
@@ -224,7 +225,7 @@ class HLTBHandler(MetadataHandler):
             log.warning("Unexpected error discovering HLTB endpoint from site: %s", e)
 
 
-    def fetch_hltb_app_script(self) -> str:
+    def fetch_hltb_app_script(self) -> str | None:
         """Fetch the HLTB app script from the site."""
         try:
             with httpx.Client() as client:
@@ -261,8 +262,8 @@ class HLTBHandler(MetadataHandler):
                 js_resp = client.get(app_js_url, timeout=15)
                 js_resp.raise_for_status()
                 return js_resp.text
-        except Exception:
-            log.warning("Unexpected error fetching HLTB app script;")
+        except Exception as e:
+            log.warning("Unexpected error fetching HLTB app script: %s", e)
             return None
 
     async def heartbeat(self) -> bool:
@@ -335,14 +336,14 @@ class HLTBHandler(MetadataHandler):
 
         platform_name = self.get_platform(platform_slug).get("name", "")
 
-        cache_key = f"romm:hltb:search:{platform_slug}:{hash(search_term)}"
+        cache_key = f"romm:hltb:search:{platform_slug}:{hashlib.md5(search_term.encode(), usedforsecurity=False).hexdigest()}"
 
         cached = await async_cache.get(cache_key)
         if cached:
             try:
                 return [dict(x) for x in json.loads(cached)]
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("Failed to parse cached HLTB search result, refetching: %s", e)
 
         try:
             payload = {
