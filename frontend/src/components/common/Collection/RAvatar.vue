@@ -66,7 +66,7 @@ const secondCover = computed(() => memoizedCovers.value[1]);
 </script>
 
 <template>
-  <v-avatar :rounded="0" :size="size">
+  <v-avatar variant="text" :rounded="0" :size="size">
     <div class="image-container" :style="{ aspectRatio: 1 / 1 }">
       <template v-if="collection.is_virtual || !collection.path_cover_small">
         <div class="split-image first-image">

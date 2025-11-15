@@ -13,7 +13,7 @@ const { t } = useI18n();
   <v-expansion-panel-title static>
     <v-list-item class="pa-0">
       <template #prepend>
-        <v-avatar rounded="0" size="40">
+        <v-avatar variant="text" rounded="0" size="40">
           <PlatformIcon
             v-if="platform.slug"
             :key="platform.slug"
@@ -67,7 +67,12 @@ const { t } = useI18n();
             class="text-white pa-0 mr-1"
             size="small"
           >
-            <v-avatar class="bg-romm-green" size="26" rounded="0">
+            <v-avatar
+              variant="text"
+              class="bg-romm-green"
+              size="26"
+              rounded="0"
+            >
               <v-icon>mdi-check-decagram-outline</v-icon>
             </v-avatar>
           </v-chip>
@@ -77,7 +82,7 @@ const { t } = useI18n();
             size="small"
             title="IGDB match"
           >
-            <v-avatar size="26" rounded>
+            <v-avatar variant="text" size="26" rounded>
               <v-img src="/assets/scrappers/igdb.png" />
             </v-avatar>
           </v-chip>
@@ -87,7 +92,7 @@ const { t } = useI18n();
             size="small"
             title="ScreenScraper match"
           >
-            <v-avatar size="26" rounded>
+            <v-avatar variant="text" size="26" rounded>
               <v-img src="/assets/scrappers/ss.png" />
             </v-avatar>
           </v-chip>
@@ -97,7 +102,7 @@ const { t } = useI18n();
             size="small"
             title="MobyGames match"
           >
-            <v-avatar size="26" rounded>
+            <v-avatar variant="text" size="26" rounded>
               <v-img src="/assets/scrappers/moby.png" />
             </v-avatar>
           </v-chip>
@@ -107,7 +112,7 @@ const { t } = useI18n();
             size="small"
             title="LaunchBox match"
           >
-            <v-avatar size="26" style="background: #185a7c">
+            <v-avatar variant="text" size="26" style="background: #185a7c">
               <v-img src="/assets/scrappers/launchbox.png" />
             </v-avatar>
           </v-chip>
@@ -117,7 +122,7 @@ const { t } = useI18n();
             size="small"
             title="RetroAchievements match"
           >
-            <v-avatar size="26" rounded>
+            <v-avatar variant="text" size="26" rounded>
               <v-img src="/assets/scrappers/ra.png" />
             </v-avatar>
           </v-chip>
@@ -127,7 +132,7 @@ const { t } = useI18n();
             size="small"
             title="Hasheous match"
           >
-            <v-avatar size="18" rounded>
+            <v-avatar variant="text" size="18" rounded>
               <v-img src="/assets/scrappers/hasheous.png" />
             </v-avatar>
           </v-chip>
@@ -137,7 +142,7 @@ const { t } = useI18n();
             size="small"
             title="Flashpoint match"
           >
-            <v-avatar size="18" rounded>
+            <v-avatar variant="text" size="18" rounded>
               <v-img src="/assets/scrappers/flashpoint.png" />
             </v-avatar>
           </v-chip>
@@ -147,7 +152,7 @@ const { t } = useI18n();
             size="small"
             title="HowLongToBeat match"
           >
-            <v-avatar size="18" rounded>
+            <v-avatar variant="text" size="18" rounded>
               <v-img src="/assets/scrappers/hltb.png" />
             </v-avatar>
           </v-chip>
@@ -157,7 +162,7 @@ const { t } = useI18n();
             size="small"
             title="ES-DE match"
           >
-            <v-avatar size="18" rounded>
+            <v-avatar variant="text" size="18" rounded>
               <v-img src="/assets/scrappers/esde.png" />
             </v-avatar>
           </v-chip>
