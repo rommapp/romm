@@ -18,7 +18,7 @@ class QueuePrio(Enum):
     LOW = "low"
 
 
-redis_client = Redis.from_url(str(REDIS_URL))
+redis_client = Redis.from_url(REDIS_URL)
 
 high_prio_queue = Queue(name=QueuePrio.HIGH.value, connection=redis_client)
 default_queue = Queue(name=QueuePrio.DEFAULT.value, connection=redis_client)
@@ -33,7 +33,7 @@ def __get_sync_cache() -> Redis:
         return FakeRedis(version=7)
 
     # A separate client that auto-decodes responses is needed
-    client = Redis.from_url(str(REDIS_URL), decode_responses=True)
+    client = Redis.from_url(REDIS_URL, decode_responses=True)
     log.debug(
         f"Sync redis/valkey connection established in {os.path.splitext(os.path.basename(sys.argv[0]))[0]}"
     )
@@ -48,7 +48,7 @@ def __get_async_cache() -> AsyncRedis:
         return FakeAsyncRedis(version=7)
 
     # A separate client that auto-decodes responses is needed
-    client = AsyncRedis.from_url(str(REDIS_URL), decode_responses=True)
+    client = AsyncRedis.from_url(REDIS_URL, decode_responses=True)
     log.debug(
         f"Async redis/valkey connection established in {os.path.splitext(os.path.basename(sys.argv[0]))[0]}"
     )

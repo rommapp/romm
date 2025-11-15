@@ -36,7 +36,6 @@ from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
-    str_to_bool,
 )
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
@@ -66,7 +65,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom
-from utils.database import safe_int
+from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
@@ -567,7 +566,7 @@ async def get_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
-    hidden_folder = str_to_bool(request.query_params.get("hidden_folder", ""))
+    hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
 
     files = list(db_rom_handler.get_rom_files(rom.id))
     if file_ids:
