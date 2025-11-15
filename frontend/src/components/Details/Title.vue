@@ -204,7 +204,8 @@ const hashMatches = computed(() => {
             title="LaunchBox ID"
             @click.stop
           >
-            <v-avatar variant="text"
+            <v-avatar
+              variant="text"
               class="mr-2"
               size="30"
               rounded="0"
@@ -254,7 +255,12 @@ const hashMatches = computed(() => {
             title="Hasheous ID"
             @click.stop
           >
-            <v-avatar variant="text" class="mr-2 bg-surface pa-1" size="30" rounded="0">
+            <v-avatar
+              variant="text"
+              class="mr-2 bg-surface pa-1"
+              size="30"
+              rounded="0"
+            >
               <v-img src="/assets/scrappers/hasheous.png" />
             </v-avatar>
             <span>{{ rom.hasheous_id }}</span>
@@ -268,7 +274,12 @@ const hashMatches = computed(() => {
           class="mr-1"
         >
           <v-chip class="pl-0 mt-1" size="small" title="Flashpoint ID">
-            <v-avatar variant="text" class="mr-2 bg-surface pa-1" size="30" rounded="0">
+            <v-avatar
+              variant="text"
+              class="mr-2 bg-surface pa-1"
+              size="30"
+              rounded="0"
+            >
               <v-img src="/assets/scrappers/flashpoint.png" />
             </v-avatar>
             <span>{{ rom.flashpoint_id.split("-").pop() }}…</span>
@@ -282,7 +293,12 @@ const hashMatches = computed(() => {
           class="mr-1"
         >
           <v-chip class="pl-0 mt-1" size="small" title="HowLongToBeat ID">
-            <v-avatar variant="text" class="mr-2 bg-surface pa-1" size="30" rounded="0">
+            <v-avatar
+              variant="text"
+              class="mr-2 bg-surface pa-1"
+              size="30"
+              rounded="0"
+            >
               <v-img src="/assets/scrappers/hltb.png" />
             </v-avatar>
             <span>{{ rom.hltb_id }}</span>

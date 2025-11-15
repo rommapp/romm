@@ -440,10 +440,10 @@ onBeforeUnmount(() => {
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
-              isLaunchboxFiltered &&
-              heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED,
+                isLaunchboxFiltered &&
+                heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED,
               'cursor-not-allowed':
-              !heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED,
+                !heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED,
             }"
             size="30"
             rounded="1"
@@ -465,16 +465,16 @@ onBeforeUnmount(() => {
         open-delay="500"
         ><template #activator="{ props }">
           <v-avatar
-          v-bind="props"
-          variant="text"
-          class="ml-3 cursor-pointer opacity-40"
-          :class="{
-            'opacity-100':
-            isFlashpointFiltered &&
-            heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED,
-            'cursor-not-allowed':
-            !heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED,
-          }"
+            v-bind="props"
+            variant="text"
+            class="ml-3 cursor-pointer opacity-40"
+            :class="{
+              'opacity-100':
+                isFlashpointFiltered &&
+                heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED,
+            }"
             size="30"
             rounded="1"
             @click="toggleSourceFilter('Flashpoint')"
