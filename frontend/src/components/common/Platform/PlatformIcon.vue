@@ -12,7 +12,7 @@ withDefaults(
 </script>
 
 <template>
-  <v-avatar :size="size" :rounded="rounded" :title="name || slug">
+  <v-avatar variant="text" :size="size" :rounded="rounded" :title="name || slug">
     <v-img :src="`/assets/platforms/${(fsSlug || slug).toLowerCase()}.svg`">
       <template #error>
         <v-img :src="`/assets/platforms/${(fsSlug || slug).toLowerCase()}.ico`">

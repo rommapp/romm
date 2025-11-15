@@ -15,7 +15,7 @@ const fallbackCoverImage = computed(() =>
 </script>
 
 <template>
-  <v-avatar :width="size" rounded="0">
+  <v-avatar variant="text" :width="size" rounded="0">
     <v-img
       :src="props.rom.path_cover_small || fallbackCoverImage"
       :alt="props.rom.name || props.rom.fs_name"

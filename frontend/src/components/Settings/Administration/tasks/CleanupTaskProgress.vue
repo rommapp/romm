@@ -61,7 +61,7 @@ const cleanupProgress = computed(() => {
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-primary-lighten-1">
+          <v-avatar variant="text" size="24" class="bg-primary-lighten-1">
             <v-icon icon="mdi-folder" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
@@ -80,7 +80,7 @@ const cleanupProgress = computed(() => {
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-info-lighten-1">
+          <v-avatar variant="text" size="24" class="bg-info-lighten-1">
             <v-icon icon="mdi-gamepad-variant" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
@@ -99,7 +99,7 @@ const cleanupProgress = computed(() => {
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-warning-lighten-1">
+          <v-avatar variant="text" size="24" class="bg-warning-lighten-1">
             <v-icon icon="mdi-percent" size="20" />
           </v-avatar>
           <div class="font-weight-bold">{{ cleanupProgress.percentage }}%</div>
