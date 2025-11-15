@@ -121,7 +121,7 @@ onMounted(() => {
         >
           <v-card class="pa-4 h-100 bg-toplayer" variant="elevated">
             <div class="d-flex align-center mb-3">
-              <v-avatar size="48" rounded="1" class="mr-3">
+              <v-avatar variant="text" size="48" rounded="1" class="mr-3">
                 <v-img :src="source.logo_path" />
               </v-avatar>
               <div class="flex-grow-1">

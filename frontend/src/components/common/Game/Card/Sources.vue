@@ -18,6 +18,7 @@ defineProps<{ rom: SearchRom }>();
           v-if="rom.igdb_id"
           class="mr-1 mb-1"
           v-bind="props"
+          variant="text"
           size="28"
           rounded="1"
         >
@@ -36,6 +37,7 @@ defineProps<{ rom: SearchRom }>();
         <v-avatar
           v-if="rom.moby_id"
           v-bind="props"
+          variant="text"
           class="mr-1 mb-1"
           size="28"
           rounded="1"
@@ -55,6 +57,7 @@ defineProps<{ rom: SearchRom }>();
         <v-avatar
           v-if="rom.ss_id"
           v-bind="props"
+          variant="text"
           class="mr-1 mb-1"
           size="28"
           rounded="1"
@@ -73,6 +76,7 @@ defineProps<{ rom: SearchRom }>();
       <template #activator="{ props }">
         <v-avatar
           v-bind="props"
+          variant="text"
           v-if="rom.launchbox_id"
           class="mr-1 mb-1"
           size="28"
@@ -92,6 +96,7 @@ defineProps<{ rom: SearchRom }>();
       <template #activator="{ props }">
         <v-avatar
           v-bind="props"
+          variant="text"
           v-if="rom.flashpoint_id"
           class="mr-1 mb-1"
           size="28"

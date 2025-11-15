@@ -54,7 +54,7 @@ const scanProgress = computed(() => {
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-primary-lighten-1">
+          <v-avatar variant="text" size="24" class="bg-primary-lighten-1">
             <v-icon icon="mdi-console" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
@@ -71,7 +71,7 @@ const scanProgress = computed(() => {
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-secondary-lighten-1">
+          <v-avatar variant="text" size="24" class="bg-secondary-lighten-1">
             <v-icon icon="mdi-gamepad-variant" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
@@ -88,7 +88,7 @@ const scanProgress = computed(() => {
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-success-lighten-1">
+          <v-avatar variant="text" size="24" class="bg-success-lighten-1">
             <v-icon icon="mdi-plus-circle" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
@@ -105,7 +105,7 @@ const scanProgress = computed(() => {
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-info-lighten-1">
+          <v-avatar variant="text" size="24" class="bg-info-lighten-1">
             <v-icon icon="mdi-information" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
@@ -122,7 +122,7 @@ const scanProgress = computed(() => {
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-warning-lighten-1">
+          <v-avatar variant="text" size="24" class="bg-warning-lighten-1">
             <v-icon icon="mdi-chip" size="20" />
           </v-avatar>
           <div class="font-weight-bold">

@@ -344,6 +344,7 @@ onBeforeUnmount(() => {
         <template #activator="{ props }">
           <v-avatar
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -374,6 +375,7 @@ onBeforeUnmount(() => {
         <template #activator="{ props }">
           <v-avatar
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -404,6 +406,7 @@ onBeforeUnmount(() => {
         <template #activator="{ props }">
           <v-avatar
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -432,8 +435,8 @@ onBeforeUnmount(() => {
       >
         <template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('Launchbox')"
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -444,6 +447,7 @@ onBeforeUnmount(() => {
             }"
             size="30"
             rounded="1"
+            @click="toggleSourceFilter('Launchbox')"
           >
             <v-img src="/assets/scrappers/launchbox.png" />
           </v-avatar>
@@ -461,8 +465,8 @@ onBeforeUnmount(() => {
         open-delay="500"
         ><template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('Flashpoint')"
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -473,6 +477,7 @@ onBeforeUnmount(() => {
             }"
             size="30"
             rounded="1"
+            @click="toggleSourceFilter('Flashpoint')"
           >
             <v-img src="/assets/scrappers/flashpoint.png" />
           </v-avatar>

@@ -43,7 +43,7 @@ const conversionProgress = computed(() => {
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-primary-lighten-1">
+          <v-avatar variant="text" size="24" class="bg-primary-lighten-1">
             <v-icon icon="mdi-check-circle" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
@@ -60,7 +60,7 @@ const conversionProgress = computed(() => {
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-error-lighten-1">
+          <v-avatar variant="text" size="24" class="bg-error-lighten-1">
             <v-icon icon="mdi-alert-circle" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
@@ -77,7 +77,7 @@ const conversionProgress = computed(() => {
         <div
           class="d-flex flex-row align-center justify-center ga-1 flex-grow-1"
         >
-          <v-avatar size="24" class="bg-success-lighten-1">
+          <v-avatar variant="text" size="24" class="bg-success-lighten-1">
             <v-icon icon="mdi-percent" size="20" />
           </v-avatar>
           <div class="font-weight-bold">
