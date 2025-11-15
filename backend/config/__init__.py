@@ -17,7 +17,8 @@ def _get_env(var: str, fallback: None = None) -> str | None: ...
 
 
 def _get_env(var: str, fallback: str | None = None) -> str | None:
-    return os.environ.get(var) or fallback
+    val = os.environ.get(var) or fallback
+    return val.strip() if val else val
 
 
 ROMM_BASE_URL: Final[str] = _get_env("ROMM_BASE_URL", "http://0.0.0.0")
@@ -53,7 +54,7 @@ ROMM_DB_DRIVER: Final[str] = _get_env("ROMM_DB_DRIVER", "mariadb")
 REDIS_HOST: Final[str] = _get_env("REDIS_HOST", "127.0.0.1")
 REDIS_PORT: Final[int] = safe_int(_get_env("REDIS_PORT"), 6379)
 REDIS_PASSWORD: Final[str | None] = _get_env("REDIS_PASSWORD")
-REDIS_USERNAME: Final[str | None] = _get_env("REDIS_USERNAME", "")
+REDIS_USERNAME: Final[str | None] = _get_env("REDIS_USERNAME")
 REDIS_DB: Final[int] = safe_int(_get_env("REDIS_DB"), 0)
 REDIS_SSL: Final[bool] = safe_str_to_bool(_get_env("REDIS_SSL"))
 REDIS_URL: Final[str] = str(
@@ -128,16 +129,16 @@ DISABLE_SETUP_WIZARD: Final[bool] = safe_str_to_bool(_get_env("DISABLE_SETUP_WIZ
 
 # OIDC
 OIDC_ENABLED: Final[bool] = safe_str_to_bool(_get_env("OIDC_ENABLED"))
-OIDC_PROVIDER: Final[str | None] = _get_env("OIDC_PROVIDER")
-OIDC_CLIENT_ID: Final[str | None] = _get_env("OIDC_CLIENT_ID")
-OIDC_CLIENT_SECRET: Final[str | None] = _get_env("OIDC_CLIENT_SECRET")
-OIDC_CLAIM_ROLES: Final[str | None] = _get_env("OIDC_CLAIM_ROLES")
+OIDC_PROVIDER: Final[str] = _get_env("OIDC_PROVIDER", "")
+OIDC_CLIENT_ID: Final[str] = _get_env("OIDC_CLIENT_ID", "")
+OIDC_CLIENT_SECRET: Final[str] = _get_env("OIDC_CLIENT_SECRET", "")
+OIDC_REDIRECT_URI: Final[str] = _get_env("OIDC_REDIRECT_URI", "")
+OIDC_SERVER_APPLICATION_URL: Final[str] = _get_env("OIDC_SERVER_APPLICATION_URL", "")
+OIDC_CLAIM_ROLES: Final[str] = _get_env("OIDC_CLAIM_ROLES", "")
 OIDC_ROLE_VIEWER: Final[str | None] = _get_env("OIDC_ROLE_VIEWER")
 OIDC_ROLE_EDITOR: Final[str | None] = _get_env("OIDC_ROLE_EDITOR")
 OIDC_ROLE_ADMIN: Final[str | None] = _get_env("OIDC_ROLE_ADMIN")
-OIDC_REDIRECT_URI: Final[str | None] = _get_env("OIDC_REDIRECT_URI")
-OIDC_SERVER_APPLICATION_URL: Final[str | None] = _get_env("OIDC_SERVER_APPLICATION_URL")
-OIDC_TLS_CACERTFILE: Final[str | None] = _get_env("OIDC_TLS_CACERTFILE", None)
+OIDC_TLS_CACERTFILE: Final[str | None] = _get_env("OIDC_TLS_CACERTFILE")
 
 # SCANS
 SCAN_TIMEOUT: Final[int] = safe_int(_get_env("SCAN_TIMEOUT"), 60 * 60 * 4)  # 4 hours
