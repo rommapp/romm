@@ -194,6 +194,39 @@ class HLTBHandler(MetadataHandler):
             return
 
         try:
+            # 1) Fetch the app script
+            js_code = self.fetch_hltb_app_script()
+            
+            if not js_code:
+                log.warning("Could not fetch HLTB app script; using default search endpoint")
+                return
+
+            # 2) Extract the endpoint and tokens from the app script
+            token_match = re.search(
+                r'/api/(?P<endpoint>[a-zA-Z0-9_-]+)/["\']\.concat\(["\'](?P<part1>[0-9a-zA-Z]+)["\']\)\.concat\(["\'](?P<part2>[0-9a-zA-Z]+)["\']\)',
+                js_code,
+            )
+
+            if not token_match:
+                log.warning("Could not extract HLTB endpoint and tokens from _app JS; using default search endpoint")
+                return
+
+            endpoint = token_match.group("endpoint")
+            part1 = token_match.group("part1")
+            part2 = token_match.group("part2")
+
+            # 3) Build the search URL
+            self.search_url = f"{self.base_url}/api/{endpoint}/{part1}{part2}"
+
+            sync_cache.set("romm:hltb:search_url", self.search_url, ex=86400)
+            log.debug("Resolved HLTB search endpoint: %s", self.search_url)
+        except Exception as e:
+            log.warning("Unexpected error discovering HLTB endpoint from site: %s", e)
+
+
+    def fetch_hltb_app_script(self) -> str:
+        """Fetch the HLTB app script from the site."""
+        try:
             with httpx.Client() as client:
                 # 1) Fetch homepage HTML
                 homepage_url = f"{self.base_url}/"
@@ -214,7 +247,7 @@ class HLTBHandler(MetadataHandler):
                     )
 
                 if not app_js_match:
-                    log.warning("Could not locate HLTB _app JS chunk; using default search endpoint")
+                    log.warning("Could not locate HLTB _app JS chunk.")
                     return
 
                 app_js_path = app_js_match.group("path")
@@ -227,23 +260,10 @@ class HLTBHandler(MetadataHandler):
                 # 3) Download the _app JS chunk
                 js_resp = client.get(app_js_url, timeout=15)
                 js_resp.raise_for_status()
-                js_code = js_resp.text
-
-                # 4) Extract the two tokens after "/api/locate/".concat("...").concat("...")
-                token_match = re.search(
-                    r'/api/locate/["\']\.concat\(["\']([0-9a-zA-Z]+)["\']\)\.concat\(["\']([0-9a-zA-Z]+)["\']\)',
-                    js_code,
-                )
-                if not token_match:
-                    log.warning("Could not extract HLTB locate tokens from _app JS; using default search endpoint")
-                    return
-
-                part1, part2 = token_match.group(1), token_match.group(2)
-                self.search_url = f"{self.base_url}/api/locate/{part1}{part2}"
-                sync_cache.set("romm:hltb:search_url", self.search_url, ex=86400)
-                log.debug("Resolved HLTB search endpoint: %s", self.search_url)
-        except Exception as e:
-            log.warning("Unexpected error discovering HLTB endpoint from site: %s", e)
+                return js_resp.text
+        except Exception:
+            log.warning("Unexpected error fetching HLTB app script;")
+            return None
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
