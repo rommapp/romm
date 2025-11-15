@@ -102,7 +102,7 @@ class ScanStats:
 
 def _get_socket_manager() -> socketio.AsyncRedisManager:
     """Connect to external socketio server"""
-    return socketio.AsyncRedisManager(str(REDIS_URL), write_only=True)
+    return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
 
 
 async def _identify_firmware(
