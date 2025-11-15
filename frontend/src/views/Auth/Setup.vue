@@ -204,7 +204,7 @@ async function finishWizard() {
                       "
                     >
                       <template #prepend>
-                        <v-avatar size="30" rounded="1">
+                        <v-avatar variant="text" size="30" rounded="1">
                           <v-img :src="source.logo_path" />
                         </v-avatar>
                       </template>

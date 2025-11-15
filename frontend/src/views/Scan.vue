@@ -179,6 +179,7 @@ async function stopScan() {
                     <v-col cols="12">
                       <v-avatar
                         v-if="item.raw.igdb_id"
+                        variant="text"
                         size="25"
                         rounded
                         class="mr-1"
@@ -188,6 +189,7 @@ async function stopScan() {
 
                       <v-avatar
                         v-if="item.raw.ss_id"
+                        variant="text"
                         size="25"
                         rounded
                         class="mr-1"
@@ -197,6 +199,7 @@ async function stopScan() {
 
                       <v-avatar
                         v-if="item.raw.moby_slug"
+                        variant="text"
                         size="25"
                         rounded
                         class="mr-1"
@@ -206,6 +209,7 @@ async function stopScan() {
 
                       <v-avatar
                         v-if="item.raw.ra_id"
+                        variant="text"
                         size="25"
                         rounded
                         class="mr-1"
@@ -215,6 +219,7 @@ async function stopScan() {
 
                       <v-avatar
                         v-if="item.raw.launchbox_id"
+                        variant="text"
                         size="25"
                         rounded
                         class="mr-1"
@@ -225,6 +230,7 @@ async function stopScan() {
 
                       <v-avatar
                         v-if="item.raw.hasheous_id"
+                        variant="text"
                         size="25"
                         rounded
                         class="mr-1"
@@ -234,6 +240,7 @@ async function stopScan() {
 
                       <v-avatar
                         v-if="item.raw.flashpoint_id"
+                        variant="text"
                         size="25"
                         rounded
                         class="mr-1"
@@ -244,6 +251,7 @@ async function stopScan() {
                       <v-avatar
                         v-if="item.raw.hltb_slug"
                         class="bg-surface"
+                        variant="text"
                         size="25"
                         rounded
                       >
