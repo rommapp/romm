@@ -20,7 +20,7 @@ const { t } = useI18n();
             :slug="platform.slug"
             :name="platform.display_name"
           />
-        </v-avatar variant="text">
+        </v-avatar>
       </template>
       {{ platform.display_name }}
       <template #append>
@@ -67,9 +67,14 @@ const { t } = useI18n();
             class="text-white pa-0 mr-1"
             size="small"
           >
-            <v-avatar variant="text" class="bg-romm-green" size="26" rounded="0">
+            <v-avatar
+              variant="text"
+              class="bg-romm-green"
+              size="26"
+              rounded="0"
+            >
               <v-icon>mdi-check-decagram-outline</v-icon>
-            </v-avatar variant="text">
+            </v-avatar>
           </v-chip>
           <v-chip
             v-if="rom.igdb_id"
@@ -79,7 +84,7 @@ const { t } = useI18n();
           >
             <v-avatar variant="text" size="26" rounded>
               <v-img src="/assets/scrappers/igdb.png" />
-            </v-avatar variant="text">
+            </v-avatar>
           </v-chip>
           <v-chip
             v-if="rom.ss_id"
@@ -89,7 +94,7 @@ const { t } = useI18n();
           >
             <v-avatar variant="text" size="26" rounded>
               <v-img src="/assets/scrappers/ss.png" />
-            </v-avatar variant="text">
+            </v-avatar>
           </v-chip>
           <v-chip
             v-if="rom.moby_id"
@@ -99,7 +104,7 @@ const { t } = useI18n();
           >
             <v-avatar variant="text" size="26" rounded>
               <v-img src="/assets/scrappers/moby.png" />
-            </v-avatar variant="text">
+            </v-avatar>
           </v-chip>
           <v-chip
             v-if="rom.launchbox_id"
@@ -109,7 +114,7 @@ const { t } = useI18n();
           >
             <v-avatar variant="text" size="26" style="background: #185a7c">
               <v-img src="/assets/scrappers/launchbox.png" />
-            </v-avatar variant="text">
+            </v-avatar>
           </v-chip>
           <v-chip
             v-if="rom.ra_id"
@@ -119,7 +124,7 @@ const { t } = useI18n();
           >
             <v-avatar variant="text" size="26" rounded>
               <v-img src="/assets/scrappers/ra.png" />
-            </v-avatar variant="text">
+            </v-avatar>
           </v-chip>
           <v-chip
             v-if="rom.hasheous_id"
@@ -129,7 +134,7 @@ const { t } = useI18n();
           >
             <v-avatar variant="text" size="18" rounded>
               <v-img src="/assets/scrappers/hasheous.png" />
-            </v-avatar variant="text">
+            </v-avatar>
           </v-chip>
           <v-chip
             v-if="rom.flashpoint_id"
@@ -139,7 +144,7 @@ const { t } = useI18n();
           >
             <v-avatar variant="text" size="18" rounded>
               <v-img src="/assets/scrappers/flashpoint.png" />
-            </v-avatar variant="text">
+            </v-avatar>
           </v-chip>
           <v-chip
             v-if="rom.hltb_id"
@@ -149,7 +154,7 @@ const { t } = useI18n();
           >
             <v-avatar variant="text" size="18" rounded>
               <v-img src="/assets/scrappers/hltb.png" />
-            </v-avatar variant="text">
+            </v-avatar>
           </v-chip>
           <v-chip
             v-if="rom.gamelist_id"
@@ -159,7 +164,7 @@ const { t } = useI18n();
           >
             <v-avatar variant="text" size="18" rounded>
               <v-img src="/assets/scrappers/esde.png" />
-            </v-avatar variant="text">
+            </v-avatar>
           </v-chip>
         </template>
       </template>
