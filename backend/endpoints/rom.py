@@ -929,10 +929,11 @@ async def update_rom(
                         "path_cover_l": path_cover_l,
                     }
                 )
+            else:
+                cleaned_data.update({"url_cover": rom.url_cover})
 
-    if data.get(
-        "url_manual", ""
-    ) != rom.url_manual or not fs_resource_handler.manual_exists(rom):
+    url_manual = data.get("url_manual", rom.url_manual)
+    if url_manual != rom.url_manual or not fs_resource_handler.manual_exists(rom):
         path_manual = await fs_resource_handler.get_manual(
             rom=rom,
             overwrite=True,
@@ -944,6 +945,8 @@ async def update_rom(
                 "path_manual": path_manual,
             }
         )
+    else:
+        cleaned_data.update({"url_manual": rom.url_manual})
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
