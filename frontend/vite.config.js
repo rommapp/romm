@@ -135,7 +135,12 @@ export default defineConfig(({ mode }) => {
         },
       },
       port: httpsMode ? 8443 : 3000,
-      allowedHosts: ["localhost", "127.0.0.1", "romm.dev"],
+      allowedHosts: [
+        "localhost",
+        "127.0.0.1",
+        "romm.dev",
+        "dev.romm.ginnugagap.net",
+      ],
       ...(httpsMode
         ? {
             https: {

@@ -97,7 +97,7 @@ export type { UpdateTaskMeta } from './models/UpdateTaskMeta';
 export type { UpdateTaskStatusResponse } from './models/UpdateTaskStatusResponse';
 export type { UserCollectionSchema } from './models/UserCollectionSchema';
 export type { UserForm } from './models/UserForm';
-export type { UserNotesSchema } from './models/UserNotesSchema';
+export type { UserNoteSchema } from './models/UserNoteSchema';
 export type { UserSchema } from './models/UserSchema';
 export type { ValidationError } from './models/ValidationError';
 export type { VirtualCollectionSchema } from './models/VirtualCollectionSchema';
