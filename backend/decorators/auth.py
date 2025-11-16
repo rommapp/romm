@@ -60,7 +60,7 @@ oauth.register(
         config.get("OIDC_SERVER_APPLICATION_URL"), external=True
     ),
     client_kwargs={
-        "scope": f"{OIDC_SCOPES_MAPPING} {OIDC_CLAIM_ROLES}".strip(),
+        "scope": " ".join(dict.fromkeys(f"{OIDC_SCOPES_MAPPING} {OIDC_CLAIM_ROLES}".split())),
         "verify": OIDC_TLS_CACERTFILE,
     },
 )
