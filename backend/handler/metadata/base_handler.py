@@ -54,6 +54,21 @@ class BaseRom(TypedDict):
     url_manual: NotRequired[str]
 
 
+SENSITIVE_KEYS = {
+    "Authorization",
+    "Client-ID",
+    "Client-Secret",
+    "client_id",
+    "client_secret",
+    "api_key",
+    "ssid",
+    "sspassword",
+    "devid",
+    "devpassword",
+    "y",
+}
+
+
 # This caches results to avoid repeated normalization of the same search term
 @lru_cache(maxsize=1024)
 def _normalize_search_term(
@@ -234,22 +249,8 @@ class MetadataHandler(abc.ABC):
 
     def _mask_sensitive_values(self, values: dict[str, str | None]) -> dict[str, str]:
         """
-        Mask sensitive values (headers or params), leaving only the first 3 and last 3 characters of the token.
+        Mask sensitive values (headers or params), leaving only the first 2 and last 2 characters of the token.
         """
-        sensitive_keys = {
-            "Authorization",
-            "Client-ID",
-            "Client-Secret",
-            "client_id",
-            "client_secret",
-            "api_key",
-            "ssid",
-            "sspassword",
-            "devid",
-            "devpassword",
-            "y",
-        }
-
         masked_keys: dict[str, str] = {}
         for key, val in values.items():
             if val is None:
@@ -259,7 +260,7 @@ class MetadataHandler(abc.ABC):
             if key == "Authorization" and val.startswith("Bearer "):
                 token = val.split(" ", 1)[1]
                 masked_keys[key] = f"Bearer {token[:2]}***{token[-2:]}"
-            elif key in sensitive_keys:
+            elif key in SENSITIVE_KEYS:
                 masked_keys[key] = f"{val[:2]}***{val[-2:]}"
             else:
                 masked_keys[key] = val
