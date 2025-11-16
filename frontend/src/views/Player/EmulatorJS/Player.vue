@@ -399,6 +399,7 @@ onUnmounted(() => {
   >
     <img
       :src="rom.ss_metadata.bezel_path"
+      alt=""
       class="select-none"
       draggable="false"
       style="height: 100vh; max-height: 100%; width: auto; object-fit: cover"
