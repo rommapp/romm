@@ -1,12 +1,14 @@
 import json
 import re
 from typing import Final, NotRequired, TypedDict
+import hashlib
 
 import httpx
 from fastapi import HTTPException, status
 
 from config import HLTB_API_ENABLED
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from handler.redis_handler import sync_cache, async_cache
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_httpx_client
@@ -163,10 +165,6 @@ def extract_hltb_metadata(game: HLTBGame) -> HLTBMetadata:
 
     return metadata
 
-
-GITHUB_FILE_URL = "https://raw.githubusercontent.com/rommapp/romm/refs/heads/master/backend/handler/metadata/fixtures/hltb_api_url"
-
-
 class HLTBHandler(MetadataHandler):
     """
     Handler for HowLongToBeat, a service that provides game completion times.
@@ -186,17 +184,87 @@ class HLTBHandler(MetadataHandler):
         return HLTB_API_ENABLED
 
     def fetch_search_endpoint(self):
-        """Fetch the API endpoint URL from Github."""
+        """Discover the rotating HLTB API endpoint from the site JS."""
         if not HLTB_API_ENABLED:
             return
 
+        # 0) Try cached endpoint first
+        cached = sync_cache.get("romm:hltb:search_url")
+        if cached:
+            self.search_url = cached
+            return
+
+        try:
+            # 1) Fetch the app script
+            js_code = self.fetch_hltb_app_script()
+            
+            if not js_code:
+                log.warning("Could not fetch HLTB app script; using default search endpoint")
+                return
+
+            # 2) Extract the endpoint and tokens from the app script
+            token_match = re.search(
+                r'/api/(?P<endpoint>[a-zA-Z0-9_-]+)/["\']\.concat\(["\'](?P<part1>[0-9a-zA-Z]+)["\']\)\.concat\(["\'](?P<part2>[0-9a-zA-Z]+)["\']\)',
+                js_code,
+            )
+
+            if not token_match:
+                log.warning("Could not extract HLTB endpoint and tokens from _app JS; using default search endpoint")
+                return
+
+            endpoint = token_match.group("endpoint")
+            part1 = token_match.group("part1")
+            part2 = token_match.group("part2")
+
+            # 3) Build the search URL
+            self.search_url = f"{self.base_url}/api/{endpoint}/{part1}{part2}"
+
+            sync_cache.set("romm:hltb:search_url", self.search_url, ex=86400)
+            log.debug("Resolved HLTB search endpoint: %s", self.search_url)
+        except Exception as e:
+            log.warning("Unexpected error discovering HLTB endpoint from site: %s", e)
+
+
+    def fetch_hltb_app_script(self) -> str | None:
+        """Fetch the HLTB app script from the site."""
         try:
             with httpx.Client() as client:
-                response = client.get(GITHUB_FILE_URL, timeout=10)
-                response.raise_for_status()
-                self.search_url = response.text.strip()
+                # 1) Fetch homepage HTML
+                homepage_url = f"{self.base_url}/"
+                resp = client.get(homepage_url, timeout=15)
+                resp.raise_for_status()
+                html = resp.text
+
+                # 2) Find the Next.js _app chunk (typical pattern: "/_next/static/chunks/pages/_app-<hash>.js")
+                app_js_match = re.search(
+                    r'src=["\'](?P<path>\/_next\/static\/chunks\/pages\/_app[^"\']+\.js)["\']',
+                    html,
+                )
+                if not app_js_match:
+                    # Fallback: any script path containing "_app" ending with .js
+                    app_js_match = re.search(
+                        r'src=["\'](?P<path>[^"\']*_app[^"\']+\.js)["\']',
+                        html,
+                    )
+
+                if not app_js_match:
+                    log.warning("Could not locate HLTB _app JS chunk.")
+                    return
+
+                app_js_path = app_js_match.group("path")
+                app_js_url = (
+                    app_js_path
+                    if app_js_path.startswith("http")
+                    else f"{self.base_url.rstrip('/')}/{app_js_path.lstrip('/')}"
+                )
+
+                # 3) Download the _app JS chunk
+                js_resp = client.get(app_js_url, timeout=15)
+                js_resp.raise_for_status()
+                return js_resp.text
         except Exception as e:
-            log.warning("Unexpected error fetching HLTB endpoint from GitHub: %s", e)
+            log.warning("Unexpected error fetching HLTB app script: %s", e)
+            return None
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
@@ -267,6 +335,15 @@ class HLTBHandler(MetadataHandler):
         """
 
         platform_name = self.get_platform(platform_slug).get("name", "")
+
+        cache_key = f"romm:hltb:search:{platform_slug}:{hashlib.md5(search_term.encode(), usedforsecurity=False).hexdigest()}"
+
+        cached = await async_cache.get(cache_key)
+        if cached:
+            try:
+                return [dict(x) for x in json.loads(cached)]
+            except Exception as e:
+                log.warning("Failed to parse cached HLTB search result, refetching: %s", e)
 
         try:
             payload = {
@@ -347,6 +424,8 @@ class HLTBHandler(MetadataHandler):
                         release_world=game_data.get("release_world", 0),
                     )
                     games.append(hltb_game)
+
+            await async_cache.set(cache_key, json.dumps(games), ex=86400)
             return games
 
         except Exception as exc:

@@ -513,7 +513,8 @@ async def scan_rom(
                 or (scan_type == ScanType.UNMATCHED and not rom.hltb_id)
             )
         ):
-            return await meta_hltb_handler.get_rom(rom_attrs["fs_name"], platform.slug)
+            search_input = rom.name or rom_attrs["fs_name_no_tags"]
+            return await meta_hltb_handler.get_rom(search_input, platform.slug)
 
         return HLTBRom(hltb_id=None)
 
