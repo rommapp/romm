@@ -139,6 +139,7 @@ OIDC_ROLE_VIEWER: Final[str | None] = _get_env("OIDC_ROLE_VIEWER")
 OIDC_ROLE_EDITOR: Final[str | None] = _get_env("OIDC_ROLE_EDITOR")
 OIDC_ROLE_ADMIN: Final[str | None] = _get_env("OIDC_ROLE_ADMIN")
 OIDC_TLS_CACERTFILE: Final[str | None] = _get_env("OIDC_TLS_CACERTFILE")
+OIDC_SCOPES_MAPPING: Final[str] = _get_env("OIDC_SCOPES_MAPPING", "openid profile email")
 
 # SCANS
 SCAN_TIMEOUT: Final[int] = safe_int(_get_env("SCAN_TIMEOUT"), 60 * 60 * 4)  # 4 hours

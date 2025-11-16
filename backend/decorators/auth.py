@@ -18,6 +18,7 @@ from config import (
     OIDC_REDIRECT_URI,
     OIDC_SERVER_APPLICATION_URL,
     OIDC_TLS_CACERTFILE,
+    OIDC_SCOPES_MAPPING
 )
 from handler.auth.constants import (
     EDIT_SCOPES_MAP,
@@ -59,7 +60,7 @@ oauth.register(
         config.get("OIDC_SERVER_APPLICATION_URL"), external=True
     ),
     client_kwargs={
-        "scope": f"openid profile email {OIDC_CLAIM_ROLES}".strip(),
+        "scope": f"{OIDC_SCOPES_MAPPING} {OIDC_CLAIM_ROLES}".strip(),
         "verify": OIDC_TLS_CACERTFILE,
     },
 )
