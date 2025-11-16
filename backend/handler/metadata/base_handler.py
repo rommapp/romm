@@ -232,47 +232,38 @@ class MetadataHandler(abc.ABC):
 
         return search_term
 
-    def _mask_sensitive_values(self, values: dict[str, str]) -> dict[str, str]:
+    def _mask_sensitive_values(self, values: dict[str, str | None]) -> dict[str, str]:
         """
         Mask sensitive values (headers or params), leaving only the first 3 and last 3 characters of the token.
-        This is valid for a dictionary with any of the following keys:
-            - "Authorization" (Bearer token)
-            - "Client-ID"
-            - "Client-Secret"
-            - "client_id"
-            - "client_secret"
-            - "api_key"
-            - "ssid"
-            - "sspassword"
-            - "devid"
-            - "devpassword"
-            - "y" (RA API key)
         """
-        return {
-            key: (
-                f"Bearer {values[key].split(' ')[1][:2]}***{values[key].split(' ')[1][-2:]}"
-                if key == "Authorization" and values[key].startswith("Bearer ")
-                else (
-                    f"{values[key][:2]}***{values[key][-2:]}"
-                    if key
-                    in {
-                        "Client-ID",
-                        "Client-Secret",
-                        "client_id",
-                        "client_secret",
-                        "api_key",
-                        "ssid",
-                        "sspassword",
-                        "devid",
-                        "devpassword",
-                        "y",
-                    }
-                    # Leave other keys unchanged
-                    else values[key]
-                )
-            )
-            for key in values
+        sensitive_keys = {
+            "Authorization",
+            "Client-ID",
+            "Client-Secret",
+            "client_id",
+            "client_secret",
+            "api_key",
+            "ssid",
+            "sspassword",
+            "devid",
+            "devpassword",
+            "y",
         }
+
+        masked_keys: dict[str, str] = {}
+        for key, val in values.items():
+            if val is None:
+                masked_keys[key] = ""
+                continue
+
+            if key == "Authorization" and val.startswith("Bearer "):
+                token = val.split(" ", 1)[1]
+                masked_keys[key] = f"Bearer {token[:2]}***{token[-2:]}"
+            elif key in sensitive_keys:
+                masked_keys[key] = f"{val[:2]}***{val[-2:]}"
+            else:
+                masked_keys[key] = val
+        return masked_keys
 
 
 class UniversalPlatformSlug(enum.StrEnum):
