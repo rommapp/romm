@@ -85,3 +85,6 @@ Source = "https://github.com/rommapp/romm"
 
 [tool.uv]
 package = false
+
+[tool.ty.environment]
+root = ["./backend"]
