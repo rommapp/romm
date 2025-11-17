@@ -32,7 +32,7 @@ emitter?.on("showDeleteRomDialog", (romsToDelete) => {
 });
 const HEADERS = [
   {
-    title: "Name",
+    title: t("common.name"),
     align: "start",
     sortable: true,
     key: "name",
@@ -46,8 +46,12 @@ async function deleteRoms() {
       emitter?.emit("snackbarShow", {
         msg:
           romsToDeleteFromFs.value.length > 0
-            ? `${response.data.successful_items} roms deleted from the filesystem`
-            : `${response.data.successful_items} roms deleted from the database`,
+            ? t("rom.deleted-from-filesystem", {
+                count: response.data.successful_items,
+              })
+            : t("rom.deleted-from-database", {
+                count: response.data.successful_items,
+              }),
         icon: "mdi-check-bold",
         color: "green",
       });
@@ -117,17 +121,14 @@ function closeDialog() {
   >
     <template #header>
       <v-row no-gutters class="justify-center">
-        <span>Removing</span>
+        <span>{{ t("rom.removing-title-part1") }}</span>
         <span class="text-primary mx-1">{{ roms.length }}</span>
-        <span>games from RomM</span>
+        <span>{{ t("rom.removing-title-part2", roms.length) }}</span>
       </v-row>
     </template>
     <template #prepend>
       <v-list-item class="text-caption text-center">
-        <span
-          >Select the games you want to remove from your filesystem, otherwise
-          they will only be deleted from RomM database.</span
-        >
+        <span>{{ t("rom.delete-select-instruction") }}</span>
       </v-list-item>
     </template>
     <template #content>
@@ -145,7 +146,7 @@ function closeDialog() {
               <v-row v-if="romsToDeleteFromFs.includes(item.id)" no-gutters>
                 <v-col>
                   <v-chip label size="x-small" class="text-romm-red">
-                    Removing from filesystem
+                    {{ t("rom.removing-from-filesystem") }}
                   </v-chip>
                 </v-col>
               </v-row>
@@ -172,28 +173,35 @@ function closeDialog() {
       <v-row v-if="romsToDeleteFromFs.length > 0" no-gutters>
         <v-col>
           <v-list-item class="text-center mt-2">
-            <span class="text-romm-red text-body-1">WARNING:</span>
-            <span class="text-body-2 ml-1">You are going to remove</span>
+            <span class="text-romm-red text-body-1">{{
+              t("rom.warning")
+            }}</span>
+            <span class="text-body-2 ml-1">{{
+              t("rom.delete-filesystem-warning-part1")
+            }}</span>
             <span class="text-romm-red text-body-1 ml-1">{{
               romsToDeleteFromFs.length
             }}</span>
-            <span class="text-body-2 ml-1"
-              >roms from your filesystem. This action can't be reverted!</span
-            >
+            <span class="text-body-2 ml-1">{{
+              t(
+                "rom.delete-filesystem-warning-part2",
+                romsToDeleteFromFs.length,
+              )
+            }}</span>
           </v-list-item>
         </v-col>
       </v-row>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
-            Cancel
+            {{ t("common.cancel") }}
           </v-btn>
           <v-btn
             class="text-romm-red bg-toplayer"
             variant="flat"
             @click="deleteRoms"
           >
-            Confirm
+            {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
       </v-row>
