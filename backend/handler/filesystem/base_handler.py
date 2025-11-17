@@ -20,7 +20,8 @@ from utils.filesystem import iter_directories, iter_files
 TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
 EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 UUID_V4_REGEX = re.compile(
-    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}"
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}",
+    re.IGNORECASE,
 )
 
 LANGUAGES = (
