@@ -129,12 +129,12 @@ onMounted(() => {
                 <p class="text-caption text-grey-lighten-1 mb-0">
                   {{
                     source.disabled
-                      ? "API key missing!"
+                      ? t("scan.api-key-missing-short")
                       : source.heartbeat === true
-                        ? "API key set and valid"
+                        ? t("scan.api-key-valid")
                         : source.heartbeat === false
-                          ? "API key invalid!"
-                          : "Connection in progress..."
+                          ? t("scan.api-key-invalid")
+                          : t("scan.connection-in-progress")
                   }}
                 </p>
               </div>
@@ -144,7 +144,7 @@ onMounted(() => {
               <v-avatar
                 :color="source.disabled ? 'error' : 'success'"
                 size="large"
-                :title="`${source.disabled ? 'API key missing or source disabled' : 'API key set'}`"
+                :title="source.disabled ? t('scan.api-key-missing-or-disabled') : t('scan.api-key-set')"
               >
                 <v-icon>
                   {{ source.disabled ? "mdi-key-alert" : "mdi-key" }}
@@ -161,7 +161,7 @@ onMounted(() => {
                         : 'warning'
                 "
                 size="large"
-                :title="`${source.heartbeat === true ? 'Connection successful' : source.heartbeat === false ? 'Connection failed' : 'Connection in progress...'}`"
+                :title="source.disabled ? t('scan.api-key-missing-or-disabled') : source.heartbeat === true ? t('scan.connection-successful') : source.heartbeat === false ? t('scan.connection-failed') : t('scan.connection-in-progress')"
                 class="ml-4"
               >
                 <v-icon>
