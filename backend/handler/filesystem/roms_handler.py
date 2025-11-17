@@ -58,6 +58,18 @@ COMPRESSED_FILE_EXTENSIONS = frozenset(
     )
 )
 
+# CHD (Compressed Hunks of Data) v5 format constants
+# See: https://github.com/mamedev/mame/blob/master/src/lib/util/chd.h
+CHD_SIGNATURE: Final = b"MComprHD"
+CHD_SIGNATURE_LENGTH: Final = 8
+CHD_MIN_HEADER_LENGTH: Final = 16  # Minimum to read signature and version
+CHD_V5_HEADER_LENGTH: Final = 124  # Total v5 header size
+CHD_VERSION_OFFSET: Final = 12  # Bytes offset for version field
+CHD_VERSION_LENGTH: Final = 4  # Version is a uint32
+CHD_V5_SHA1_OFFSET: Final = 84  # Combined raw+meta SHA1 offset in v5
+CHD_V5_SHA1_LENGTH: Final = 20  # SHA1 is 20 bytes
+CHD_V5_VERSION: Final = 5  # CHD v5 identifier
+
 NON_HASHABLE_PLATFORMS = frozenset(
     (
         UPS.AMAZON_ALEXA,
@@ -212,25 +224,29 @@ def extract_chd_hash(file_path: Path) -> str | None:
     """
     try:
         with open(file_path, "rb") as f:
-            # Read enough of the header to get version and hash
-            # v5 header is 124 bytes
-            header = f.read(124)
+            # Read the v5 header and extract the embedded SHA1
+            header = f.read(CHD_V5_HEADER_LENGTH)
 
-            # Check for "MComprHD" signature (8 bytes)
-            if len(header) < 16 or header[:8] != b"MComprHD":
+            # Check for "MComprHD" signature
+            if (
+                len(header) < CHD_MIN_HEADER_LENGTH
+                or header[:CHD_SIGNATURE_LENGTH] != CHD_SIGNATURE
+            ):
                 return None
 
-            # Version is at bytes 12-15 (big-endian uint32)
-            version = int.from_bytes(header[12:16], "big")
+            # Extract and verify version (big-endian uint32)
+            version_end = CHD_VERSION_OFFSET + CHD_VERSION_LENGTH
+            version = int.from_bytes(header[CHD_VERSION_OFFSET:version_end], "big")
 
             # Only support v5 CHD files
-            if version != 5:
+            if version != CHD_V5_VERSION:
                 return None
 
-            # v5: Combined raw+meta SHA1 at bytes 84-103 (20 bytes)
-            if len(header) < 104:
+            # Extract combined raw+meta SHA1 from v5 header
+            sha1_end = CHD_V5_SHA1_OFFSET + CHD_V5_SHA1_LENGTH
+            if len(header) < sha1_end:
                 return None
-            sha1_bytes = header[84:104]
+            sha1_bytes = header[CHD_V5_SHA1_OFFSET:sha1_end]
             return sha1_bytes.hex()
     except OSError:
         return None
@@ -239,11 +255,15 @@ def extract_chd_hash(file_path: Path) -> str | None:
 class CHDHashWrapper:
     """
     Wrapper class that mimics hashlib hash objects but returns a pre-computed hash.
+
+    This class provides a hashlib-compatible interface for pre-computed hashes
+    extracted from CHD v5 file headers. It implements the same methods and attributes
+    as hashlib hash objects (digest(), hexdigest(), update(), and name).
     """
 
-    def __init__(self, hash_hex: str, hash_type: str):
+    def __init__(self, hash_hex: str, name: str):
         self.hash_hex = hash_hex
-        self.hash_type = hash_type
+        self.name = name
         # Store the digest as bytes
         self._digest = bytes.fromhex(hash_hex)
 
@@ -582,11 +602,16 @@ class FSRomsHandler(FSHandler):
                 for chunk in read_bz2_file(file_path):
                     update_hashes(chunk)
 
-            if extension == ".chd" or file_type == "application/x-mame-chd":
+            elif extension == ".chd" or file_type == "application/x-mame-chd":
                 chd_hash = extract_chd_hash(file_path)
                 if chd_hash:
-                    sha1_h = cast(Any, CHDHashWrapper(chd_hash, "sha1"))
-                    rom_sha1_h = cast(Any, CHDHashWrapper(chd_hash, "sha1"))
+                    sha1_h = cast(Any, CHDHashWrapper(chd_hash, name="sha1"))
+                    rom_sha1_h = cast(Any, CHDHashWrapper(chd_hash, name="sha1"))
+                else:
+                    # Not a valid v5 CHD, treat as basic file
+                    # This ensures CRC32 and MD5 are still calculated for non-v5 CHDs
+                    for chunk in read_basic_file(file_path):
+                        update_hashes(chunk)
 
             else:
                 for chunk in read_basic_file(file_path):

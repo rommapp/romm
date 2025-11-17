@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -628,6 +629,112 @@ class TestFSRomsHandler:
         assert (
             rom_sha1 != translation_rom_file.sha1_hash
         ), "Main ROM hash should not include translation file"
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_with_chd_v5_uses_internal_hash(
+        self, handler: FSRomsHandler, platform, tmp_path
+    ):
+        """Test that a CHD v5 file uses its internal hash and skips other hashing.
+
+        This integration test verifies the complete CHD v5 hashing logic:
+        1. For valid CHD v5 files, the embedded SHA1 hash from the file header is used
+        2. CRC32 and MD5 hashes are NOT calculated from file contents
+        3. The file is not double-processed by read_basic_file
+        4. This prevents regressions in the if/elif archive type chain
+        """
+        # Create a mock CHD v5 file in a temporary directory
+        chd_file = tmp_path / "test.chd"
+        header = bytearray(124)
+        header[0:8] = b"MComprHD"
+        header[12:16] = int(5).to_bytes(4, "big")
+        internal_sha1 = "0123456789abcdef0123456789abcdef01234567"
+        header[84:104] = bytes.fromhex(internal_sha1)
+        chd_file.write_bytes(
+            header + b"This is extra file data to ensure file is not empty"
+        )
+
+        # Set up handler and rom object to point to the mock file
+        roms_path = tmp_path / platform.fs_slug / "roms"
+        roms_path.mkdir(parents=True)
+        shutil.copy(chd_file, roms_path / "test.chd")
+
+        # Create a new handler instance with temp base path
+        test_handler = FSRomsHandler()
+        test_handler.base_path = tmp_path
+
+        rom = Rom(
+            id=1,
+            fs_name="test.chd",
+            fs_path=str(roms_path.relative_to(tmp_path)),
+            platform=platform,
+        )
+
+        # Run the hashing process
+        rom_files, crc_hash, md5_hash, sha1_hash, _ = await test_handler.get_rom_files(
+            rom
+        )
+
+        # Assert that only SHA1 is populated, and it's from the header
+        assert len(rom_files) == 1
+        assert sha1_hash == internal_sha1, "SHA1 should be from CHD v5 header"
+        assert rom_files[0].sha1_hash == internal_sha1
+
+        # CRC32 and MD5 should be empty/zero (not calculated)
+        assert crc_hash == "", f"CRC hash should be empty, got: {crc_hash}"
+        assert md5_hash == "", f"MD5 hash should be empty, got: {md5_hash}"
+        assert rom_files[0].crc_hash == ""
+        assert rom_files[0].md5_hash == ""
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_with_non_v5_chd_fallback_to_std_hashing(
+        self, handler: FSRomsHandler, platform, tmp_path
+    ):
+        """Test that non-v5 CHD files fall back to standard file hashing.
+
+        This ensures backward compatibility: if a .chd file is not version 5
+        or doesn't have a valid v5 header, it should be treated as a regular
+        file and all hashes (CRC32, MD5, SHA1) are calculated from content.
+        """
+        # Create a CHD v4 file (should not use internal hash logic)
+        chd_file = tmp_path / "old_format.chd"
+        header = bytearray(124)
+        header[0:8] = b"MComprHD"
+        header[12:16] = int(4).to_bytes(4, "big")  # Version 4, not 5
+
+        # Add some content
+        content = header + b"This is CHD v4 data that should be hashed as a normal file"
+        chd_file.write_bytes(content)
+
+        # Set up handler and rom object
+        roms_path = tmp_path / platform.fs_slug / "roms"
+        roms_path.mkdir(parents=True)
+        shutil.copy(chd_file, roms_path / "old_format.chd")
+
+        test_handler = FSRomsHandler()
+        test_handler.base_path = tmp_path
+
+        rom = Rom(
+            id=1,
+            fs_name="old_format.chd",
+            fs_path=str(roms_path.relative_to(tmp_path)),
+            platform=platform,
+        )
+
+        # Run the hashing process
+        rom_files, crc_hash, md5_hash, sha1_hash, _ = await test_handler.get_rom_files(
+            rom
+        )
+
+        # All hashes should be populated (calculated from file content)
+        assert len(rom_files) == 1
+        assert crc_hash != "", "CRC hash should be calculated for non-v5 CHD"
+        assert md5_hash != "", "MD5 hash should be calculated for non-v5 CHD"
+        assert sha1_hash != "", "SHA1 hash should be calculated for non-v5 CHD"
+
+        # Verify they're actual hash values (not from an internal header)
+        assert rom_files[0].crc_hash == crc_hash
+        assert rom_files[0].md5_hash == md5_hash
+        assert rom_files[0].sha1_hash == sha1_hash
 
 
 class TestExtractCHDHash:
