@@ -97,7 +97,10 @@ async function fetchAllHeartbeats() {
 }
 
 // Helper function to get status text for a metadata source
-function getSourceStatusText(source: { disabled: boolean; heartbeat?: boolean }) {
+function getSourceStatusText(source: {
+  disabled: boolean;
+  heartbeat?: boolean;
+}) {
   if (source.disabled) {
     return t("scan.api-key-missing-short");
   }
@@ -111,7 +114,10 @@ function getSourceStatusText(source: { disabled: boolean; heartbeat?: boolean })
 }
 
 // Helper function to get tooltip text for connection status
-function getConnectionStatusTooltip(source: { disabled: boolean; heartbeat?: boolean }) {
+function getConnectionStatusTooltip(source: {
+  disabled: boolean;
+  heartbeat?: boolean;
+}) {
   if (source.disabled) {
     return t("scan.api-key-missing-or-disabled");
   }
@@ -164,7 +170,11 @@ onMounted(() => {
               <v-avatar
                 :color="source.disabled ? 'error' : 'success'"
                 size="large"
-                :title="source.disabled ? t('scan.api-key-missing-or-disabled') : t('scan.api-key-set')"
+                :title="
+                  source.disabled
+                    ? t('scan.api-key-missing-or-disabled')
+                    : t('scan.api-key-set')
+                "
               >
                 <v-icon>
                   {{ source.disabled ? "mdi-key-alert" : "mdi-key" }}
