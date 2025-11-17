@@ -9,7 +9,7 @@ import zipfile
 import zlib
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import IO, Any, Final, Literal, TypedDict
+from typing import IO, Any, Final, Literal, TypedDict, cast
 
 import magic
 import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
@@ -57,6 +57,18 @@ COMPRESSED_FILE_EXTENSIONS = frozenset(
         ".zip",
     )
 )
+
+# CHD (Compressed Hunks of Data) v5 format constants
+# See: https://github.com/mamedev/mame/blob/master/src/lib/util/chd.h
+CHD_SIGNATURE: Final = b"MComprHD"
+CHD_SIGNATURE_LENGTH: Final = 8
+CHD_MIN_HEADER_LENGTH: Final = 16  # Minimum to read signature and version
+CHD_V5_HEADER_LENGTH: Final = 124  # Total v5 header size
+CHD_VERSION_OFFSET: Final = 12  # Bytes offset for version field
+CHD_VERSION_LENGTH: Final = 4  # Version is a uint32
+CHD_V5_SHA1_OFFSET: Final = 84  # Combined raw+meta SHA1 offset in v5
+CHD_V5_SHA1_LENGTH: Final = 20  # SHA1 is 20 bytes
+CHD_V5_VERSION: Final = 5  # CHD v5 identifier
 
 NON_HASHABLE_PLATFORMS = frozenset(
     (
@@ -180,6 +192,92 @@ def read_bz2_file(file_path: Path) -> Iterator[bytes]:
     except EOFError:
         for chunk in read_basic_file(file_path):
             yield chunk
+
+
+def extract_chd_hash(file_path: Path) -> str | None:
+    """
+    Extract the embedded SHA1 hash from a CHD (Compressed Hunks of Data) v5 file header.
+
+    Only CHD v5 files are supported, matching MAMERedump's database.
+
+    CHD v5 files store the combined raw+meta SHA1 hash in the header.
+    This hash is what ROM databases use for CHD identification, since it includes
+    metadata like CD track layouts which are essential for proper disc image
+    identification.
+
+    For reference, check out "chd.h" in the MAME source tree.
+
+    ---------------------------------- Why? ----------------------------------
+    CHDMAN does not produce nor guarantee stable, byte-for-byte identical
+    outputs for a given disc image. (Including HD images.)
+
+    For this reason, the CHD format embeds the original source data hash in
+    its header, allowing different CHD files to be verified as equivalent
+    even when their compressed representations differ.
+    --------------------------------------------------------------------------
+
+    Args:
+        file_path: Path to the CHD file
+
+    Returns:
+        SHA1 hash as hex string, or None if file is not a valid CHD v5 file or parsing fails
+    """
+    try:
+        with open(file_path, "rb") as f:
+            # Read the v5 header and extract the embedded SHA1
+            header = f.read(CHD_V5_HEADER_LENGTH)
+
+            # Check for "MComprHD" signature
+            if (
+                len(header) < CHD_MIN_HEADER_LENGTH
+                or header[:CHD_SIGNATURE_LENGTH] != CHD_SIGNATURE
+            ):
+                return None
+
+            # Extract and verify version (big-endian uint32)
+            version_end = CHD_VERSION_OFFSET + CHD_VERSION_LENGTH
+            version = int.from_bytes(header[CHD_VERSION_OFFSET:version_end], "big")
+
+            # Only support v5 CHD files
+            if version != CHD_V5_VERSION:
+                return None
+
+            # Extract combined raw+meta SHA1 from v5 header
+            sha1_end = CHD_V5_SHA1_OFFSET + CHD_V5_SHA1_LENGTH
+            if len(header) < sha1_end:
+                return None
+            sha1_bytes = header[CHD_V5_SHA1_OFFSET:sha1_end]
+            return sha1_bytes.hex()
+    except OSError:
+        return None
+
+
+class CHDHashWrapper:
+    """
+    Wrapper class that mimics hashlib hash objects but returns a pre-computed hash.
+
+    This class provides a hashlib-compatible interface for pre-computed hashes
+    extracted from CHD v5 file headers. It implements the same methods and attributes
+    as hashlib hash objects (digest(), hexdigest(), update(), and name).
+    """
+
+    def __init__(self, hash_hex: str, name: str):
+        self.hash_hex = hash_hex
+        self.name = name
+        # Store the digest as bytes
+        self._digest = bytes.fromhex(hash_hex)
+
+    def hexdigest(self) -> str:
+        """Return the hash as a hexadecimal string."""
+        return self.hash_hex
+
+    def digest(self) -> bytes:
+        """Return the hash as bytes."""
+        return self._digest
+
+    def update(self, data: bytes | bytearray) -> None:
+        """No-op update method for compatibility with hashlib interface."""
+        pass
 
 
 def category_matches(category: str, path_parts: list[str]):
@@ -503,6 +601,17 @@ class FSRomsHandler(FSHandler):
             elif extension == ".bz2" or file_type == "application/x-bzip2":
                 for chunk in read_bz2_file(file_path):
                     update_hashes(chunk)
+
+            elif extension == ".chd" or file_type == "application/x-mame-chd":
+                chd_hash = extract_chd_hash(file_path)
+                if chd_hash:
+                    sha1_h = cast(Any, CHDHashWrapper(chd_hash, name="sha1"))
+                    rom_sha1_h = cast(Any, CHDHashWrapper(chd_hash, name="sha1"))
+                else:
+                    # Not a valid v5 CHD, treat as basic file
+                    # This ensures CRC32 and MD5 are still calculated for non-v5 CHDs
+                    for chunk in read_basic_file(file_path):
+                        update_hashes(chunk)
 
             else:
                 for chunk in read_basic_file(file_path):
