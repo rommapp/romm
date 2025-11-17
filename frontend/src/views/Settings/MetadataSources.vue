@@ -96,6 +96,40 @@ async function fetchAllHeartbeats() {
     });
 }
 
+// Helper function to get status text for a metadata source
+function getSourceStatusText(source: {
+  disabled: boolean;
+  heartbeat?: boolean;
+}) {
+  if (source.disabled) {
+    return t("scan.api-key-missing-short");
+  }
+  if (source.heartbeat === true) {
+    return t("scan.api-key-valid");
+  }
+  if (source.heartbeat === false) {
+    return t("scan.api-key-invalid");
+  }
+  return t("scan.connection-in-progress");
+}
+
+// Helper function to get tooltip text for connection status
+function getConnectionStatusTooltip(source: {
+  disabled: boolean;
+  heartbeat?: boolean;
+}) {
+  if (source.disabled) {
+    return t("scan.api-key-missing-or-disabled");
+  }
+  if (source.heartbeat === true) {
+    return t("scan.connection-successful");
+  }
+  if (source.heartbeat === false) {
+    return t("scan.connection-failed");
+  }
+  return t("scan.connection-in-progress");
+}
+
 onMounted(() => {
   fetchAllHeartbeats();
 });
@@ -127,15 +161,7 @@ onMounted(() => {
               <div class="flex-grow-1">
                 <h3 class="text-h6 text-white">{{ source.name }}</h3>
                 <p class="text-caption text-grey-lighten-1 mb-0">
-                  {{
-                    source.disabled
-                      ? "API key missing!"
-                      : source.heartbeat === true
-                        ? "API key set and valid"
-                        : source.heartbeat === false
-                          ? "API key invalid!"
-                          : "Connection in progress..."
-                  }}
+                  {{ getSourceStatusText(source) }}
                 </p>
               </div>
             </div>
@@ -144,7 +170,11 @@ onMounted(() => {
               <v-avatar
                 :color="source.disabled ? 'error' : 'success'"
                 size="large"
-                :title="`${source.disabled ? 'API key missing or source disabled' : 'API key set'}`"
+                :title="
+                  source.disabled
+                    ? t('scan.api-key-missing-or-disabled')
+                    : t('scan.api-key-set')
+                "
               >
                 <v-icon>
                   {{ source.disabled ? "mdi-key-alert" : "mdi-key" }}
@@ -161,7 +191,7 @@ onMounted(() => {
                         : 'warning'
                 "
                 size="large"
-                :title="`${source.heartbeat === true ? 'Connection successful' : source.heartbeat === false ? 'Connection failed' : 'Connection in progress...'}`"
+                :title="getConnectionStatusTooltip(source)"
                 class="ml-4"
               >
                 <v-icon>
