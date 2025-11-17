@@ -131,7 +131,7 @@ async function uploadManuals() {
 
       if (successfulUploads.length == 0) {
         return emitter?.emit("snackbarShow", {
-          msg: `All manuals skipped, nothing to upload.`,
+          msg: t("rom.manuals-upload-skipped"),
           icon: "mdi-close-circle",
           color: "orange",
           timeout: 5000,
@@ -139,7 +139,10 @@ async function uploadManuals() {
       }
 
       emitter?.emit("snackbarShow", {
-        msg: `${successfulUploads.length} manuals uploaded successfully (and ${failedUploads.length} skipped/failed).`,
+        msg: t("rom.manuals-upload-success", {
+          count: successfulUploads.length,
+          failed: failedUploads.length,
+        }),
         icon: "mdi-check-bold",
         color: "green",
         timeout: 3000,
@@ -147,9 +150,9 @@ async function uploadManuals() {
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
-        msg: `Unable to upload manuals: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
+        msg: t("rom.manuals-upload-failed", {
+          error: response?.data?.detail || response?.statusText || message,
+        }),
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
@@ -173,13 +176,15 @@ async function removeManual() {
     rom.value.path_manual = "";
 
     emitter?.emit("snackbarShow", {
-      msg: "Manual removed successfully",
+      msg: t("rom.manual-removed"),
       icon: "mdi-check-bold",
       color: "green",
     });
   } catch (error: any) {
     emitter?.emit("snackbarShow", {
-      msg: `Failed to remove manual: ${error.response?.data?.detail || error.message}`,
+      msg: t("rom.manual-remove-failed", {
+        error: error.response?.data?.detail || error.message,
+      }),
       icon: "mdi-close-circle",
       color: "red",
     });
@@ -190,14 +195,14 @@ async function unmatchRom() {
   if (!rom.value) return;
   await handleRomUpdate(
     { rom: rom.value, unmatch: true },
-    "Rom unmatched successfully",
+    t("rom.unmatch-success"),
   );
 }
 
 async function updateRom() {
   if (!rom.value?.fs_name) {
     emitter?.emit("snackbarShow", {
-      msg: "Cannot save: file name is required",
+      msg: t("rom.filename-required"),
       icon: "mdi-close-circle",
       color: "red",
     });
@@ -206,7 +211,7 @@ async function updateRom() {
 
   await handleRomUpdate(
     { rom: rom.value, removeCover: removeCover.value },
-    "Rom updated successfully!",
+    t("rom.update-success"),
   );
 }
 
@@ -436,10 +441,10 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
     <template #content>
       <div class="pa-4">
         <p class="text-body-1 mb-4">
-          Are you sure you want to delete the manual?
+          {{ t("rom.delete-manual-confirm-title") }}
         </p>
         <p class="text-body-2 text-medium-emphasis">
-          The manual file will be permanently removed from the filesystem.
+          {{ t("rom.delete-manual-confirm-body") }}
         </p>
       </div>
     </template>
@@ -448,10 +453,10 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="showConfirmDeleteManual = false">
-            Cancel
+            {{ t("common.cancel") }}
           </v-btn>
           <v-btn class="text-romm-red bg-toplayer" @click="removeManual">
-            Delete
+            {{ t("rom.delete-manual-button") }}
           </v-btn>
         </v-btn-group>
       </v-row>
