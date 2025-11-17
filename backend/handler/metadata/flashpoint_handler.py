@@ -245,12 +245,14 @@ class FlashpointHandler(MetadataHandler):
 
         # Check if the filename is a UUID
         fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(fs_name)
-        if is_valid_uuid(fs_name_no_tags):
-            return await self.get_rom_by_id(flashpoint_id=fs_name_no_tags)
+        file_uuid = fs_rom_handler.extract_uuid_v4_from_filename(fs_name_no_tags)
+        if is_valid_uuid(file_uuid):
+            return await self.get_rom_by_id(flashpoint_id=file_uuid)
 
         # Normalize the search term
-        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
-        search_term = self.normalize_search_term(search_term, remove_punctuation=False)
+        search_term = self.normalize_search_term(
+            fs_name_no_tags, remove_punctuation=False
+        )
 
         # Search for games
         games = await self.search_games(search_term)
