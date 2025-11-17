@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Utility script to update HowLongToBeat API URL by discovering the dynamic endpoint from the website.
-This script fetches the Next.js app script and extracts the API endpoint and tokens.
+Utility script to update HowLongToBeat API URL by discovering the dynamic endpoint from the website
 """
 
 import re
@@ -9,6 +8,15 @@ import sys
 from pathlib import Path
 
 import httpx
+
+# Precompiled regexes for better performance
+APP_JS_REGEX = re.compile(
+    r'src=["\'](?P<path>\/_next\/static\/chunks\/pages\/_app[^"\']+\.js)["\']'
+)
+APP_JS_FALLBACK_REGEX = re.compile(r'src=["\'](?P<path>[^"\']*_app[^"\']+\.js)["\']')
+ENDPOINT_TOKEN_REGEX = re.compile(
+    r'/api/(?P<endpoint>[a-zA-Z0-9_-]+)/["\']\.concat\(["\'](?P<part1>[0-9a-zA-Z]+)["\']\)\.concat\(["\'](?P<part2>[0-9a-zA-Z]+)["\']\)'
+)
 
 
 def fetch_hltb_app_script(base_url: str = "https://howlongtobeat.com") -> str | None:
@@ -23,16 +31,10 @@ def fetch_hltb_app_script(base_url: str = "https://howlongtobeat.com") -> str | 
             print(f"Fetched homepage: {homepage_url}")
 
             # 2) Find the Next.js _app chunk (typical pattern: "/_next/static/chunks/pages/_app-<hash>.js")
-            app_js_match = re.search(
-                r'src=["\'](?P<path>\/_next\/static\/chunks\/pages\/_app[^"\']+\.js)["\']',
-                html,
-            )
+            app_js_match = APP_JS_REGEX.search(html)
             if not app_js_match:
                 # Fallback: any script path containing "_app" ending with .js
-                app_js_match = re.search(
-                    r'src=["\'](?P<path>[^"\']*_app[^"\']+\.js)["\']',
-                    html,
-                )
+                app_js_match = APP_JS_FALLBACK_REGEX.search(html)
             if not app_js_match:
                 print("Could not locate HLTB _app JS chunk.")
                 return None
@@ -53,8 +55,8 @@ def fetch_hltb_app_script(base_url: str = "https://howlongtobeat.com") -> str | 
             print(f"Downloaded app JS chunk (size: {len(js_code)} chars)")
 
             return js_code
-    except Exception as e:
-        print(f"Error fetching HLTB app script: {e}")
+    except (httpx.RequestError, httpx.HTTPStatusError) as e:
+        print(f"Error fetching HLTB app script: {e}", file=sys.stderr)
         return None
 
 
@@ -69,10 +71,7 @@ def discover_hltb_endpoint(base_url: str = "https://howlongtobeat.com") -> str |
             return None
 
         # 2) Extract the endpoint and tokens from the app script
-        token_match = re.search(
-            r'/api/(?P<endpoint>[a-zA-Z0-9_-]+)/["\']\.concat\(["\'](?P<part1>[0-9a-zA-Z]+)["\']\)\.concat\(["\'](?P<part2>[0-9a-zA-Z]+)["\']\)',
-            js_code,
-        )
+        token_match = ENDPOINT_TOKEN_REGEX.search(js_code)
         if not token_match:
             print(
                 "Could not extract HLTB endpoint and tokens from _app JS; using default search endpoint"
@@ -92,8 +91,11 @@ def discover_hltb_endpoint(base_url: str = "https://howlongtobeat.com") -> str |
         print(f"Resolved HLTB search endpoint: {search_url}")
 
         return search_url
-    except Exception as e:
-        print(f"Unexpected error discovering HLTB endpoint from site: {e}")
+    except (IOError, OSError) as e:
+        print(
+            f"Unexpected error discovering HLTB endpoint from site: {e}",
+            file=sys.stderr,
+        )
         return None
 
 

@@ -26,7 +26,8 @@ jobs:
 
       - name: Run HLTB API URL discovery script
         run: |
-          uv run python backend/utils/update_hltb_api_url.py
+          cd backend
+          uv run python utils/update_hltb_api_url.py
 
       - name: Commit and push changes
         uses: EndBug/add-and-commit@v9
