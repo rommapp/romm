@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# uv run python -m utils.update_hltb_api_url
 """
 Utility script to update HowLongToBeat API URL by discovering the dynamic endpoint from the website
 """
