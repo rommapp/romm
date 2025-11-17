@@ -937,7 +937,7 @@ async def update_rom(
         path_manual = await fs_resource_handler.get_manual(
             rom=rom,
             overwrite=True,
-            url_manual=str(url_manual),
+            url_manual=url_manual,
         )
         cleaned_data.update(
             {
