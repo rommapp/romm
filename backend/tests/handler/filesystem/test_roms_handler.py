@@ -1023,8 +1023,8 @@ class TestExtractCHDHash:
         00000060: 80d2 ce5b 23f7 75c2 0000 0000 0000 0000  ...[#.u.........
         00000070: 0000 0000 0000 0000 0000 0000 4348 5432  ............CHT2
 
-        The SHA1 hash (combined raw+meta) at bytes 80-99 is:
-        e9c9 6008 0167 fc76 f9e4 312e 6ab4 8fe9 80d2 ce5b
+        The SHA1 hash (combined raw+meta) at bytes 84-103 is:
+        0167 fc76 f9e4 312e 6ab4 8fe9 80d2 ce5b 23f7 75c2
         """
         chd_file = tmp_path / "Pebble Beach.chd"
 
@@ -1045,7 +1045,6 @@ class TestExtractCHDHash:
         result = extract_chd_hash(chd_file)
 
         # Expected SHA1 from the header at bytes 84-103 (20 bytes, as per chd.h)
-        # From the actual file: 01 67 fc 76 f9 e4 31 2e 6a b4 8f e9 80 d2 ce 5b 23 f7 75 c2
         expected_sha1 = "0167fc76f9e4312e6ab48fe980d2ce5b23f775c2"
 
         assert result is not None
