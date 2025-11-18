@@ -3,7 +3,6 @@ Test suite for SessionMiddleware using JWT-based session management.
 """
 
 import time
-from typing import Any, Dict
 
 from joserfc import jwt
 from joserfc.jwk import OctKey
