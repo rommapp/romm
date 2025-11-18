@@ -83,6 +83,5 @@
   "delete-select-instruction": "選擇要從檔案系統中刪除的遊戲，否則它們只會從 RomM 資料庫中刪除。",
   "removing-from-filesystem": "正在從檔案系統刪除",
   "warning": "警告：",
-  "delete-filesystem-warning-part1": "您將要刪除",
-  "delete-filesystem-warning-part2": "個 ROM 從您的檔案系統。此操作無法撤銷！"
+  "delete-filesystem-warning": "您將要刪除 {n} 個 ROM 從您的檔案系統。此操作無法撤銷！"
 }

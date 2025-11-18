@@ -175,16 +175,7 @@ function closeDialog() {
               t("rom.warning")
             }}</span>
             <span class="text-body-2 ml-1">{{
-              t("rom.delete-filesystem-warning-part1")
-            }}</span>
-            <span class="text-romm-red text-body-1 ml-1">{{
-              romsToDeleteFromFs.length
-            }}</span>
-            <span class="text-body-2 ml-1">{{
-              t(
-                "rom.delete-filesystem-warning-part2",
-                romsToDeleteFromFs.length,
-              )
+              t("rom.delete-filesystem-warning", romsToDeleteFromFs.length)
             }}</span>
           </v-list-item>
         </v-col>

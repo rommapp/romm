@@ -83,6 +83,5 @@
   "delete-select-instruction": "파일 시스템에서 제거할 게임을 선택하세요. 그렇지 않으면 RomM 데이터베이스에서만 삭제됩니다.",
   "removing-from-filesystem": "파일 시스템에서 제거 중",
   "warning": "경고:",
-  "delete-filesystem-warning-part1": "삭제하려고 합니다",
-  "delete-filesystem-warning-part2": "개의 ROM을 파일 시스템에서. 이 작업은 되돌릴 수 없습니다!"
+  "delete-filesystem-warning": "삭제하려고 합니다 {n} 개의 ROM을 파일 시스템에서. 이 작업은 되돌릴 수 없습니다!"
 }

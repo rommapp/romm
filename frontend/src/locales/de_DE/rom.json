@@ -83,6 +83,5 @@
   "delete-select-instruction": "Wählen Sie die Spiele aus, die Sie aus Ihrem Dateisystem entfernen möchten, andernfalls werden sie nur aus der RomM-Datenbank gelöscht.",
   "removing-from-filesystem": "Aus Dateisystem entfernen",
   "warning": "WARNUNG:",
-  "delete-filesystem-warning-part1": "Sie werden",
-  "delete-filesystem-warning-part2": "ROM aus Ihrem Dateisystem entfernen. Diese Aktion kann nicht rückgängig gemacht werden! | ROMs aus Ihrem Dateisystem entfernen. Diese Aktion kann nicht rückgängig gemacht werden!"
+  "delete-filesystem-warning": "Sie werden {n} ROM aus Ihrem Dateisystem entfernen. Diese Aktion kann nicht rückgängig gemacht werden! | Sie werden {n} ROMs aus Ihrem Dateisystem entfernen. Diese Aktion kann nicht rückgängig gemacht werden!"
 }

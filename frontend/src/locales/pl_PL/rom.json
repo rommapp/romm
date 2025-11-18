@@ -83,6 +83,5 @@
   "delete-select-instruction": "Wybierz gry, które chcesz usunąć z systemu plików, w przeciwnym razie zostaną usunięte tylko z bazy danych RomM.",
   "removing-from-filesystem": "Usuwanie z systemu plików",
   "warning": "OSTRZEŻENIE:",
-  "delete-filesystem-warning-part1": "Zamierzasz usunąć",
-  "delete-filesystem-warning-part2": "ROM z systemu plików. Tej operacji nie można cofnąć! | ROM-ów z systemu plików. Tej operacji nie można cofnąć!"
+  "delete-filesystem-warning": "Zamierzasz usunąć {n} ROM z systemu plików. Tej operacji nie można cofnąć! | Zamierzasz usunąć {n} ROM-ów z systemu plików. Tej operacji nie można cofnąć!"
 }

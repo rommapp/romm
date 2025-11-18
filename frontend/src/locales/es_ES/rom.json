@@ -83,6 +83,5 @@
   "delete-select-instruction": "Selecciona los juegos que quieres eliminar de tu sistema de archivos, de lo contrario solo se eliminarán de la base de datos de RomM.",
   "removing-from-filesystem": "Eliminando del sistema de archivos",
   "warning": "ADVERTENCIA:",
-  "delete-filesystem-warning-part1": "Vas a eliminar",
-  "delete-filesystem-warning-part2": "ROM de tu sistema de archivos. ¡Esta acción no se puede deshacer! | ROMs de tu sistema de archivos. ¡Esta acción no se puede deshacer!"
+  "delete-filesystem-warning": "Vas a eliminar {n} ROM de tu sistema de archivos. ¡Esta acción no se puede deshacer! | Vas a eliminar {n} ROMs de tu sistema de archivos. ¡Esta acción no se puede deshacer!"
 }
