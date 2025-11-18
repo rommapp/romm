@@ -1,8 +1,7 @@
 {
   "add-to-collection": "모음집에 추가",
   "add-to-favorites": "즐겨찾기에 추가",
-  "adding-to-collection-part1": "",
-  "adding-to-collection-part2": "개의 롬을 모음집에 추가합니다",
+  "adding-to-collection": "{n} 개의 롬을 모음집에 추가합니다",
   "additional-content": "추가 컨텐츠",
   "age-rating": "연령 제한",
   "all-styles": "모든 스타일",

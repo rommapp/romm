@@ -1,8 +1,7 @@
 {
   "add-to-collection": "コレクションに追加",
   "add-to-favorites": "お気に入りに追加",
-  "adding-to-collection-part1": "コレクションにROM",
-  "adding-to-collection-part2": "を追加しています",
+  "adding-to-collection": "コレクションにROM {n} を追加しています",
   "additional-content": "追加コンテンツ",
   "age-rating": "レーティング",
   "all-styles": "全スタイル",

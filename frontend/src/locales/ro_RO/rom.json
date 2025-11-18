@@ -1,8 +1,7 @@
 {
   "add-to-collection": "Adaugă la colecție",
   "add-to-favorites": "Adaugă la favorite",
-  "adding-to-collection-part1": "Adăugare a",
-  "adding-to-collection-part2": "ROM-urilor la colecție",
+  "adding-to-collection": "Adăugare a {n} ROM-urilor la colecție",
   "additional-content": "Conținut suplimentar",
   "age-rating": "Clasificare pe vârstă",
   "all-styles": "Toate Stilurile",

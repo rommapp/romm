@@ -1,8 +1,7 @@
 {
   "add-to-collection": "Zu Sammlung hinzufügen",
   "add-to-favorites": "Zu Favoriten hinzufügen",
-  "adding-to-collection-part1": "Füge",
-  "adding-to-collection-part2": "ROMs zu Sammlung hinzu",
+  "adding-to-collection": "Füge {n} ROMs zu Sammlung hinzu",
   "additional-content": "Zustätliche Inhalte",
   "age-rating": "Altersfreigabe",
   "all-styles": "Alle Stile",
