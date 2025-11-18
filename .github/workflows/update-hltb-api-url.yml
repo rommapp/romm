@@ -29,9 +29,14 @@ jobs:
           cd backend
           uv run python -m utils.update_hltb_api_url
 
-      - name: Commit and push changes
-        uses: EndBug/add-and-commit@v9
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
         with:
-          add: backend/handler/metadata/fixtures/hltb_api_url
-          message: "Update HLTB API URL [skip CI]"
-          push: true
+          add-paths: |
+            backend/handler/metadata/fixtures/hltb_api_url
+          commit-message: "Update HLTB API URL [skip CI]"
+          branch: update-hltb-api-url
+          sign-commits: true
+          title: "Update HLTB API URL [skip CI]"
+          reviewers: |
+            gantoine
