@@ -128,11 +128,13 @@ class RomUserSchema(BaseModel):
     @classmethod
     def notes_for_user(cls, user_id: int, db_rom: Rom) -> list[UserNotesSchema]:
         return [
-            {
-                "user_id": n.user_id,
-                "username": n.user__username,
-                "note_raw_markdown": n.note_raw_markdown,
-            }
+            UserNotesSchema(
+                {
+                    "user_id": n.user_id,
+                    "username": n.user__username,
+                    "note_raw_markdown": n.note_raw_markdown,
+                }
+            )
             for n in db_rom.rom_users
             # This is what filters out private notes
             if n.user_id == user_id or n.note_is_public

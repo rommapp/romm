@@ -74,11 +74,12 @@ class CSRFMiddleware:
             and self._has_sensitive_cookies(request.cookies)
         ):
             submitted_csrf_token = await self._get_submitted_csrf_token(request)
+            current_user_id = request.user.id if request.user.is_authenticated else None
             if (
                 not csrf_cookie
                 or not submitted_csrf_token
                 or not self._csrf_tokens_match(
-                    csrf_cookie, submitted_csrf_token, request.user.id
+                    csrf_cookie, submitted_csrf_token, current_user_id
                 )
             ):
                 response = self._get_error_response(request)
