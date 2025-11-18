@@ -134,7 +134,7 @@ class CSRFMiddleware:
         return cast(str, self.serializer.dumps(obj))
 
     def _csrf_tokens_match(
-        self, document_cookie: str, header_cookie: str, user_id: str | None
+        self, document_cookie: str, header_cookie: str, user_id: int | None
     ) -> bool:
         try:
             decoded_doc_cookie: str = self.serializer.loads(document_cookie)
