@@ -1982,7 +1982,7 @@ requires-dist = [
     { name = "httpx", specifier = "~=0.27" },
     { name = "ipdb", marker = "extra == 'dev'", specifier = "~=0.13" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = "~=6.29" },
-    { name = "itsdangerous", specifier = ">=2.2.0" },
+    { name = "itsdangerous", specifier = "~=2.2" },
     { name = "joserfc", specifier = "~=1.3.4" },
     { name = "memray", marker = "extra == 'dev'", specifier = "~=1.15" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "~=1.13" },
