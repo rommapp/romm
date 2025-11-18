@@ -18,19 +18,7 @@ from handler.auth.middleware.session_middleware import SessionMiddleware
 
 
 def create_test_app(**middleware_kwargs) -> Starlette:
-    def get_session_data(request: Request) -> Dict[str, Any]:
-        """Extract session data from request"""
-        return dict(request.session)
-
-    def set_session_data(request: Request, data: Dict[str, Any]) -> None:
-        """Set session data"""
-        request.session.update(data)
-
-    def clear_session(request: Request) -> None:
-        """Clear session data"""
-        request.session.clear()
-
-    # Define test app routes
+    # Test app routes
     async def homepage(request: Request) -> PlainTextResponse:
         """Basic route that sets default session data."""
         request.session.setdefault("visited", 0)

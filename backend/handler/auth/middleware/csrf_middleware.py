@@ -150,9 +150,9 @@ class CSRFMiddleware:
             # and the user_id matches the authenticated user
             return (
                 secrets.compare_digest(
-                    decoded_doc_cookie["token"], decoded_doc_cookie["token"]
+                    decoded_doc_cookie["token"], decoded_header_cookie["token"]
                 )
-                and decoded_header_cookie["user_id"] == decoded_header_cookie["user_id"]
+                and decoded_doc_cookie["user_id"] == decoded_header_cookie["user_id"]
                 and decoded_doc_cookie["user_id"] == user_id
                 and decoded_header_cookie["user_id"] == user_id
             )
