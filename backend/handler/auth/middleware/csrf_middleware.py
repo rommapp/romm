@@ -160,7 +160,7 @@ class CSRFMiddleware:
                 and decoded_doc_cookie["user_id"] == user_id
                 and decoded_header_cookie["user_id"] == user_id
             )
-        except BadSignature:
+        except (TypeError, BadSignature):
             return False
 
     def _get_error_response(self, request: Request) -> Response:
