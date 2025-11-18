@@ -245,10 +245,30 @@ class TestCSRFMiddleware:
         # We simulate two users by calling _generate_csrf_token with different IDs
         mw = CSRFMiddleware(app=lambda s, r, se: None, secret="test")
         user1_token = mw._generate_csrf_token(user_id=1)
-        mw._generate_csrf_token(user_id=2)
 
         # user1_token should not validate for user_id=2
         assert not mw._csrf_tokens_match(user1_token, user1_token, user_id=2)
+
+    def test_post_with_mismatched_but_valid_tokens_fails(self) -> None:
+        """POST with a valid header token that doesn't match the cookie token should fail."""
+        app = create_test_app()
+        client = TestClient(app)
+
+        # Obtain first token
+        resp1 = client.get("/get")
+        cookie1 = resp1.cookies["csrftoken"]
+
+        # Obtain second token by clearing cookies to simulate a new session
+        client.cookies.clear()
+        resp2 = client.get("/get")
+        cookie2 = resp2.cookies["csrftoken"]
+
+        assert cookie1 != cookie2
+
+        # Try to post with cookie from first session and header from second
+        client.cookies.set("csrftoken", cookie1)
+        resp = client.post("/post", headers={"x-csrftoken": cookie2})
+        assert resp.status_code == 403
 
     def test_bad_signature_returns_false(self) -> None:
         """_csrf_tokens_match should return False on BadSignature."""
