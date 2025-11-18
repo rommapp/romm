@@ -121,9 +121,7 @@ function closeDialog() {
   >
     <template #header>
       <v-row no-gutters class="justify-center">
-        <span>{{ t("rom.removing-title-part1") }}</span>
-        <span class="text-primary mx-1">{{ roms.length }}</span>
-        <span>{{ t("rom.removing-title-part2", roms.length) }}</span>
+        <span>{{ t("rom.removing-title", roms.length) }}</span>
       </v-row>
     </template>
     <template #prepend>
@@ -177,16 +175,7 @@ function closeDialog() {
               t("rom.warning")
             }}</span>
             <span class="text-body-2 ml-1">{{
-              t("rom.delete-filesystem-warning-part1")
-            }}</span>
-            <span class="text-romm-red text-body-1 ml-1">{{
-              romsToDeleteFromFs.length
-            }}</span>
-            <span class="text-body-2 ml-1">{{
-              t(
-                "rom.delete-filesystem-warning-part2",
-                romsToDeleteFromFs.length,
-              )
+              t("rom.delete-filesystem-warning", romsToDeleteFromFs.length)
             }}</span>
           </v-list-item>
         </v-col>
