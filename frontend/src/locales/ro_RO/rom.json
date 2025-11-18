@@ -83,6 +83,5 @@
   "delete-select-instruction": "Selectează jocurile pe care vrei să le elimini din sistemul de fișiere, altfel vor fi șterse doar din baza de date RomM.",
   "removing-from-filesystem": "Se elimină din sistemul de fișiere",
   "warning": "ATENȚIE:",
-  "delete-filesystem-warning-part1": "Urmează să elimini",
-  "delete-filesystem-warning-part2": "ROM din sistemul de fișiere. Această acțiune nu poate fi anulată! | ROM-uri din sistemul de fișiere. Această acțiune nu poate fi anulată!"
+  "delete-filesystem-warning": "Urmează să elimini {n} ROM din sistemul de fișiere. Această acțiune nu poate fi anulată! | Urmează să elimini {n} ROM-uri din sistemul de fișiere. Această acțiune nu poate fi anulată!"
 }

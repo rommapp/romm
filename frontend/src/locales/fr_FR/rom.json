@@ -83,6 +83,5 @@
   "delete-select-instruction": "Sélectionnez les jeux à supprimer de votre système de fichiers, sinon ils seront uniquement supprimés de la base de données RomM.",
   "removing-from-filesystem": "Suppression du système de fichiers",
   "warning": "ATTENTION :",
-  "delete-filesystem-warning-part1": "Vous allez supprimer",
-  "delete-filesystem-warning-part2": "ROM de votre système de fichiers. Cette action ne peut pas être annulée ! | ROMs de votre système de fichiers. Cette action ne peut pas être annulée !"
+  "delete-filesystem-warning": "Vous allez supprimer {n} ROM de votre système de fichiers. Cette action ne peut pas être annulée ! | Vous allez supprimer {n} ROMs de votre système de fichiers. Cette action ne peut pas être annulée !"
 }
