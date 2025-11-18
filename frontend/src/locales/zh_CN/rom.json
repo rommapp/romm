@@ -1,8 +1,7 @@
 {
   "add-to-collection": "添加至收藏",
   "add-to-favorites": "添加至喜好",
-  "adding-to-collection-part1": "添加",
-  "adding-to-collection-part2": "ROMs 至收藏",
+  "adding-to-collection": "添加 {n} ROMs 至收藏",
   "additional-content": "附加内容",
   "age-rating": "年龄分级",
   "all-styles": "所有风格",

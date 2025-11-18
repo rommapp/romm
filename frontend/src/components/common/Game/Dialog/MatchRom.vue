@@ -463,7 +463,8 @@ onBeforeUnmount(() => {
             : 'Flashpoint source is not enabled'
         "
         open-delay="500"
-        ><template #activator="{ props }">
+      >
+        <template #activator="{ props }">
           <v-avatar
             v-bind="props"
             variant="text"
@@ -629,8 +630,9 @@ onBeforeUnmount(() => {
                       selectedCover && renameFromSource
                         ? "mdi-checkbox-outline"
                         : "mdi-checkbox-blank-outline"
-                    }} </v-icon
-                  >{{
+                    }}
+                  </v-icon>
+                  {{
                     t("rom.rename-file-part1", { source: selectedCover?.name })
                   }}
                 </v-chip>

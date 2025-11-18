@@ -1,8 +1,7 @@
 {
   "add-to-collection": "Aggiungi alla collezione",
   "add-to-favorites": "Aggiungi ai preferiti",
-  "adding-to-collection-part1": "Aggiungendo",
-  "adding-to-collection-part2": "rom alla collezione",
+  "adding-to-collection": "Aggiungendo {n} ROM alla collezione",
   "additional-content": "Contenuti aggiuntivi",
   "age-rating": "Classificazione età",
   "all-styles": "Tutti gli Stili",
