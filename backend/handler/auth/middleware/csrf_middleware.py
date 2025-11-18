@@ -25,7 +25,7 @@ class CSRFMiddleware:
         required_urls: Optional[list[Pattern]] = None,
         exempt_urls: Optional[list[Pattern]] = None,
         sensitive_cookies: Optional[set[str]] = None,
-        safe_methods: set[str] = {"GET", "HEAD", "OPTIONS", "TRACE"},
+        safe_methods: Optional[set[str]] = None,
         cookie_name: str = "csrftoken",
         cookie_path: str = "/",
         cookie_domain: Optional[str] = None,
@@ -34,6 +34,9 @@ class CSRFMiddleware:
         cookie_samesite: str = "lax",
         header_name: str = "x-csrftoken",
     ) -> None:
+        if safe_methods is None:
+            safe_methods = {"GET", "HEAD", "OPTIONS", "TRACE"}
+
         self.app = app
         self.serializer = URLSafeSerializer(secret, "csrftoken")
         self.secret = secret
@@ -143,8 +146,8 @@ class CSRFMiddleware:
         self, document_cookie: str, header_cookie: str, user_id: int | None
     ) -> bool:
         try:
-            decoded_doc_cookie: str = self.serializer.loads(document_cookie)
-            decoded_header_cookie: str = self.serializer.loads(header_cookie)
+            decoded_doc_cookie = self.serializer.loads(document_cookie)
+            decoded_header_cookie = self.serializer.loads(header_cookie)
 
             # Verify that the tokens match, the user IDs match
             # and the user_id matches the authenticated user
