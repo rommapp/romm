@@ -91,9 +91,7 @@ function closeDialog() {
   >
     <template #header>
       <v-row no-gutters class="justify-center">
-        <span>{{ t("rom.removing-from-collection-part1") }}</span>
-        <span class="text-primary mx-1">{{ roms.length }}</span>
-        <span>{{ t("rom.removing-from-collection-part2") }}</span>
+        <span>{{ t("rom.removing-from-collection", roms.length) }}</span>
       </v-row>
     </template>
     <template #prepend>
