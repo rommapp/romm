@@ -1,3 +1,7 @@
+# Original source: https://github.com/frankie567/starlette-csrf
+# Copyright (c) 2021 Sebastien Delisle
+# MIT License
+
 import functools
 import http.cookies
 import secrets
@@ -91,7 +95,9 @@ class CSRFMiddleware:
 
             cookie: http.cookies.BaseCookie = http.cookies.SimpleCookie()
             cookie_name = self.cookie_name
-            cookie[cookie_name] = self._generate_csrf_token(request.user.id)
+            cookie[cookie_name] = self._generate_csrf_token(
+                request.user.id if request.user.is_authenticated else None
+            )
             cookie[cookie_name]["path"] = self.cookie_path
             cookie[cookie_name]["secure"] = self.cookie_secure
             cookie[cookie_name]["httponly"] = self.cookie_httponly
