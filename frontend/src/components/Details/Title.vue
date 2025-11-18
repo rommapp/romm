@@ -333,6 +333,20 @@ const hashMatches = computed(() => {
             <span>{{ rom.sgdb_id }}</span>
           </v-chip>
         </a>
+        <a
+          v-if="rom.giantbomb_id"
+          style="text-decoration: none; color: inherit"
+          :href="rom.giantbomb_metadata?.site_url"
+          target="_blank"
+          class="mr-1"
+        >
+          <v-chip class="pl-0 mt-1" size="small" title="Giant Bomb ID">
+            <v-avatar variant="text" class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/giantbomb.png" />
+            </v-avatar>
+            <span>{{ rom.giantbomb_id }}</span>
+          </v-chip>
+        </a>
       </v-col>
     </v-row>
     <v-row

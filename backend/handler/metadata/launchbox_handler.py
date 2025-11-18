@@ -362,7 +362,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.ARCADE: {"id": 5, "name": "Arcade"},
     UPS.ARCADIA_2001: {"id": 79, "name": "Emerson Arcadia 2001"},
     UPS.ASTROCADE: {"id": 77, "name": "Bally Astrocade"},
-    UPS.ATARI_JAGUAR_CD: {"id": 10, "name": "Atari Jaguar CD"},
+    UPS.JAGUAR_CD: {"id": 10, "name": "Atari Jaguar CD"},
     UPS.ATARI_ST: {"id": 76, "name": "Atari ST"},
     UPS.ATARI_XEGS: {"id": 12, "name": "Atari XEGS"},
     UPS.ATARI2600: {"id": 6, "name": "Atari 2600"},

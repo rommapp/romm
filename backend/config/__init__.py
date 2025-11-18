@@ -108,6 +108,9 @@ FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
 # HOWLONGTOBEAT
 HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
 
+# GIANTBOMB
+GIANTBOMB_API_ENABLED: Final = safe_str_to_bool(_get_env("GIANTBOMB_API_ENABLED"))
+
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final[str | None] = _get_env("ROMM_AUTH_SECRET_KEY")
 if not ROMM_AUTH_SECRET_KEY:
@@ -153,7 +156,8 @@ ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE")
 )
 RESCAN_ON_FILESYSTEM_CHANGE_DELAY: Final[int] = safe_int(
-    _get_env("RESCAN_ON_FILESYSTEM_CHANGE_DELAY"), 5  # 5 minutes
+    _get_env("RESCAN_ON_FILESYSTEM_CHANGE_DELAY"),
+    5,  # 5 minutes
 )
 ENABLE_SCHEDULED_RESCAN: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_RESCAN")

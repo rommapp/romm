@@ -282,6 +282,16 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 </v-avatar>
               </v-chip>
               <v-chip
+                v-if="item.giantbomb_id"
+                class="mr-1 pa-0 item-chip"
+                size="x-small"
+                title="Giant Bomb match"
+              >
+                <v-avatar variant="text" size="20" rounded>
+                  <v-img src="/assets/scrappers/giantbomb.png" />
+                </v-avatar>
+              </v-chip>
+              <v-chip
                 v-if="item.siblings.length > 0 && showSiblings"
                 class="translucent text-white mr-1 px-1 item-chip"
                 size="x-small"

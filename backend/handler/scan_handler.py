@@ -12,6 +12,7 @@ from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_gamelist_handler,
+    meta_giantbomb_handler,
     meta_hasheous_handler,
     meta_hltb_handler,
     meta_igdb_handler,
@@ -70,6 +71,7 @@ class MetadataSource(enum.StrEnum):
     FLASHPOINT = "flashpoint"  # Flashpoint Project
     HLTB = "hltb"  # HowLongToBeat
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
+    GIANTBOMB = "giantbomb"  # Giantbomb
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -178,6 +180,7 @@ async def scan_platform(
     tgdb_platform = meta_tgdb_handler.get_platform(platform_attrs["slug"])
     flashpoint_platform = meta_flashpoint_handler.get_platform(platform_attrs["slug"])
     hltb_platform = meta_hltb_handler.get_platform(platform_attrs["slug"])
+    giantbomb_platform = meta_giantbomb_handler.get_platform(platform_attrs["slug"])
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
@@ -198,6 +201,9 @@ async def scan_platform(
             "tgdb_id": moby_platform.get("tgdb_id")
             or hasheous_platform.get("tgdb_id")
             or None,
+            "giantbomb_id": giantbomb_platform.get("giantbomb_id")
+            or hasheous_platform.get("giantbomb_id")
+            or None,
             "name": igdb_platform.get("name")
             or ss_platform.get("name")
             or moby_platform.get("name")
@@ -207,9 +213,11 @@ async def scan_platform(
             or tgdb_platform.get("name")
             or flashpoint_platform.get("name")
             or hltb_platform.get("name")
+            or giantbomb_platform.get("name")
             or platform_attrs["slug"].replace("-", " ").title(),
             "url_logo": igdb_platform.get("url_logo")
             or tgdb_platform.get("url_logo")
+            or giantbomb_platform.get("url_logo")
             or "",
         }
     )
@@ -447,7 +455,7 @@ async def scan_rom(
             if playmatch_rom["igdb_id"] is not None:
                 log.debug(
                     f"{hl(rom_attrs['fs_name'])} identified by Playmatch as "
-                    f"{hl(str(playmatch_rom["igdb_id"]), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+                    f"{hl(str(playmatch_rom['igdb_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
 

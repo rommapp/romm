@@ -391,7 +391,7 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     UPS.ARDUBOY: {"id": 71, "name": "Arduboy"},
     UPS.ATARI2600: {"id": 25, "name": "Atari 2600"},
     UPS.ATARI7800: {"id": 51, "name": "Atari 7800"},
-    UPS.ATARI_JAGUAR_CD: {"id": 77, "name": "Atari Jaguar CD"},
+    UPS.JAGUAR_CD: {"id": 77, "name": "Atari Jaguar CD"},
     UPS.COLECOVISION: {"id": 44, "name": "ColecoVision"},
     UPS.DC: {"id": 40, "name": "Dreamcast"},
     UPS.ELEKTOR: {"id": 75, "name": "Elektor"},

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Integer, String, func, select
@@ -28,6 +29,7 @@ class Platform(BaseModel):
     hasheous_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     flashpoint_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    giantbomb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     igdb_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
     moby_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
     hltb_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
@@ -80,11 +82,20 @@ class Platform(BaseModel):
             and not self.launchbox_id
             and not self.ra_id
             and not self.hasheous_id
+            and not self.tgdb_id
+            and not self.giantbomb_id
         )
 
     @property
     def is_identified(self) -> bool:
         return not self.is_unidentified
+
+    @cached_property
+    def giantbomb_slug(self) -> str | None:
+        from handler.metadata import meta_giantbomb_handler
+
+        giantbomb_platform = meta_giantbomb_handler.get_platform(self.slug)
+        return giantbomb_platform.get("slug", None)
 
     def __repr__(self) -> str:
         return f"{self.name} ({self.slug}) ({self.id})"

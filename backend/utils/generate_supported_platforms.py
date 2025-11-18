@@ -3,6 +3,7 @@ from typing import TypedDict
 
 from handler.metadata import (
     meta_flashpoint_handler,
+    meta_giantbomb_handler,
     meta_hasheous_handler,
     meta_hltb_handler,
     meta_igdb_handler,
@@ -25,6 +26,7 @@ class SupportedPlatform(TypedDict):
     ra_id: int | None
     flashpoint_id: int | None
     hltb_slug: str | None
+    giantbomb_url: str | None
 
 
 if __name__ == "__main__":
@@ -41,6 +43,7 @@ if __name__ == "__main__":
         ra_platform = meta_ra_handler.get_platform(slug_lower)
         flashpoint_platform = meta_flashpoint_handler.get_platform(slug_lower)
         hltb_platform = meta_hltb_handler.get_platform(slug_lower)
+        giantbomb_platform = meta_giantbomb_handler.get_platform(slug_lower)
 
         supported_platforms[slug_lower] = {
             "name": igdb_platform.get("name", None)
@@ -51,6 +54,7 @@ if __name__ == "__main__":
             or ra_platform.get("name", None)
             or flashpoint_platform.get("name", None)
             or hltb_platform.get("name", None)
+            or giantbomb_platform.get("name", None)
             or slug_lower.replace("-", " ").title(),
             "folder": slug_lower,
             "igdb_slug": igdb_platform.get("igdb_slug", None),
@@ -61,6 +65,7 @@ if __name__ == "__main__":
             "ra_id": ra_platform["ra_id"],
             "flashpoint_id": flashpoint_platform["flashpoint_id"],
             "hltb_slug": hltb_platform.get("hltb_slug", None),
+            "giantbomb_url": giantbomb_platform.get("url_logo", None),
         }
 
     # Sort platforms by name field
@@ -75,8 +80,8 @@ if __name__ == "__main__":
 
     for platform in supported_platforms.values():
         print(
-            f'| {platform["name"]} |',
-            f'`{platform["folder"]}` |',
+            f"| {platform['name']} |",
+            f"`{platform['folder']}` |",
             (
                 f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener noreferrer"><img alt="igdb logo" src="../../resources/metadata_providers/igdb.png" height="24px" width="24px"></a>'
                 if platform["igdb_slug"]
@@ -115,6 +120,11 @@ if __name__ == "__main__":
             (
                 '<img alt="howlongtobeat logo" src="../../resources/metadata_providers/hltb.png" height="24px" width="24px">'
                 if platform["hltb_slug"]
+                else ""
+            ),
+            (
+                f'<a href="{platform["giantbomb_url"]}" target="_blank" rel="noopener noreferrer"><img alt="giantbomb logo" src="../../resources/metadata_providers/giantbomb.png" height="24px" width="24px"></a>'
+                if platform["giantbomb_url"]
                 else ""
             ),
             " |",

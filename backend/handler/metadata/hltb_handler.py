@@ -558,7 +558,7 @@ HLTB_PLATFORM_LIST: dict[UPS, SlugToHLTBPlatform] = {
         "count": 259,
     },
     UPS.JAGUAR: {"name": "Atari Jaguar", "slug": "atari-jaguar", "count": 64},
-    UPS.ATARI_JAGUAR_CD: {
+    UPS.JAGUAR_CD: {
         "name": "Atari Jaguar CD",
         "slug": "atari-jaguar-cd",
         "count": 14,

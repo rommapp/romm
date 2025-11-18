@@ -156,6 +156,7 @@ class Rom(BaseModel):
     flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
     hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    giantbomb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -169,6 +170,7 @@ class Rom(BaseModel):
         Index("idx_roms_flashpoint_id", "flashpoint_id"),
         Index("idx_roms_hltb_id", "hltb_id"),
         Index("idx_roms_gamelist_id", "gamelist_id"),
+        Index("idx_roms_giantbomb_id", "giantbomb_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
@@ -206,6 +208,9 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     gamelist_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    giantbomb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
 
@@ -350,6 +355,7 @@ class Rom(BaseModel):
             and not self.flashpoint_id
             and not self.hltb_id
             and not self.gamelist_id
+            and not self.giantbomb_id
         )
 
     @property

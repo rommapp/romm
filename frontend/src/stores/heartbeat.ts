@@ -30,6 +30,7 @@ const defaultHeartbeat: Heartbeat = {
     TGDB_API_ENABLED: false,
     FLASHPOINT_API_ENABLED: false,
     HLTB_API_ENABLED: false,
+    GIANTBOMB_API_ENABLED: false,
   },
   FILESYSTEM: {
     FS_PLATFORMS: [],
@@ -167,6 +168,14 @@ export default defineStore("heartbeat", {
           value: "gamelist",
           logo_path: "/assets/scrappers/esde.png",
           disabled: "",
+        },
+        {
+          name: "Giant Bomb",
+          value: "giantbomb",
+          logo_path: "/assets/scrappers/giantbomb.png",
+          disabled: !this.value.METADATA_SOURCES?.GIANTBOMB_API_ENABLED
+            ? i18n.global.t("scan.api-key-missing")
+            : "",
         },
       ];
     },

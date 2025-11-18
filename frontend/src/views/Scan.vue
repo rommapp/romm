@@ -257,6 +257,16 @@ async function stopScan() {
                       >
                         <v-img src="/assets/scrappers/hltb.png" />
                       </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.giantbomb_id"
+                        class="bg-surface"
+                        variant="text"
+                        size="25"
+                        rounded
+                      >
+                        <v-img src="/assets/scrappers/giantbomb.png" />
+                      </v-avatar>
                     </v-col>
                   </v-row>
                   <v-row

@@ -15,5 +15,6 @@ export type MetadataSourcesDict = {
     TGDB_API_ENABLED: boolean;
     FLASHPOINT_API_ENABLED: boolean;
     HLTB_API_ENABLED: boolean;
+    GIANTBOMB_API_ENABLED: boolean;
 };
 
