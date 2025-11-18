@@ -178,10 +178,11 @@ async def tinfoil_index_feed(
             tdb_match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
             pid_match = SWITCH_PRODUCT_ID_REGEX.search(rom.fs_name)
             if tdb_match:
-                _search_term, index_entry = (
-                    await meta_igdb_handler._switch_titledb_format(
-                        tdb_match, rom.fs_name
-                    )
+                (
+                    _search_term,
+                    index_entry,
+                ) = await meta_igdb_handler._switch_titledb_format(
+                    tdb_match, rom.fs_name
                 )
                 if index_entry:
                     key = str(index_entry.get("nsuId", None))
@@ -190,10 +191,11 @@ async def tinfoil_index_feed(
                             **index_entry
                         ).model_dump()
             elif pid_match:
-                _search_term, index_entry = (
-                    await meta_igdb_handler._switch_productid_format(
-                        pid_match, rom.fs_name
-                    )
+                (
+                    _search_term,
+                    index_entry,
+                ) = await meta_igdb_handler._switch_productid_format(
+                    pid_match, rom.fs_name
                 )
                 if index_entry:
                     key = str(index_entry.get("nsuId", None))
@@ -474,11 +476,11 @@ def pkgi_psp_feed(
 
 
 def _format_release_date(timestamp: int | None) -> str | None:
-    """Format release date to DD-MM-YYYY format"""
+    """Format release date to MM-DD-YYYY format"""
     if not timestamp:
         return None
 
-    return datetime.fromtimestamp(timestamp / 1000).strftime("%d-%m-%Y")
+    return datetime.fromtimestamp(timestamp / 1000).strftime("%m-%d-%Y")
 
 
 @protected_route(
