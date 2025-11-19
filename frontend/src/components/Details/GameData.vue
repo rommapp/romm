@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from "vue";
+import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -14,7 +14,9 @@ const router = useRouter();
 
 // Initialize sub-tab from query parameter or default to "saves"
 const tab = ref<"saves" | "states">(
-  (route.query.subtab as "saves" | "states") || "saves",
+  route.query.subtab === "states" || route.query.subtab === "saves"
+    ? (route.query.subtab as "saves" | "states")
+    : "saves",
 );
 const { mdAndDown } = useDisplay();
 
@@ -37,15 +39,8 @@ watch(
       tab.value = newSubTab;
     }
   },
+  { immediate: true },
 );
-
-onMounted(() => {
-  // Ensure sub-tab is set correctly from URL on mount
-  const urlSubTab = route.query.subtab as "saves" | "states";
-  if (urlSubTab && (urlSubTab === "saves" || urlSubTab === "states")) {
-    tab.value = urlSubTab;
-  }
-});
 </script>
 <template>
   <v-row no-gutters>
