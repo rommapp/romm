@@ -178,8 +178,8 @@ watch(tab, (newTab) => {
 watch(
   () => route.query.tab,
   (newTab) => {
-    if (newTab && (newTab === "config" || newTab === "missing")) {
-      tab.value = newTab;
+    if (newTab && validTabs.includes(newTab as any) && tab.value !== newTab) {
+      tab.value = newTab as "config" | "missing";
     }
   },
   { immediate: true },
