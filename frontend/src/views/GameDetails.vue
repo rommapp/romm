@@ -94,20 +94,6 @@ async function fetchDetails() {
 onBeforeMount(async () => {
   const romId = parseInt(route.params.rom as string);
 
-  // Ensure tab is set correctly from URL on mount
-  const urlTab = route.query.tab as string;
-  if (urlTab && validTabs.includes(urlTab as any)) {
-    tab.value = urlTab as
-      | "details"
-      | "manual"
-      | "gamedata"
-      | "personal"
-      | "timetobeat"
-      | "additionalcontent"
-      | "screenshots"
-      | "relatedgames";
-  }
-
   // Only fetch details if the currentRom ID differs
   if (currentRom.value?.id !== romId) {
     emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
