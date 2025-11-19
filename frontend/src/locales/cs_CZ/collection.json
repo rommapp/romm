@@ -1,0 +1,21 @@
+{
+  "add-collection": "Přidat kolekci",
+  "create-collection": "Vytvořit kolekci",
+  "create-smart-collection": "Vytvořit chytrou kolekci",
+  "current-filters": "Aktuální filtry",
+  "danger-zone": "Nebezpečná zóna",
+  "delete-collection": "Smazat kolekci",
+  "description": "Popis",
+  "edit-collection": "Upravit kolekci",
+  "name": "Název",
+  "owner": "Vlastník",
+  "private": "Soukromá",
+  "private-desc": "Soukromá (viditelná pouze pro mě)",
+  "public": "Veřejná",
+  "public-desc": "Veřejná (viditelná pro každého)",
+  "removing-collection-1": "Odebírání kolekce",
+  "removing-collection-2": "z RomM. Potvrzujete?",
+  "removing-smart-collection-1": "Odebírání chytré kolekce",
+  "removing-smart-collection-2": "z RomM. Potvrzujete?",
+  "search-collection": "Hledat kolekci"
+}
