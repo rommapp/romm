@@ -5,6 +5,7 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { ref, onMounted, inject, onUnmounted, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import Excluded from "@/components/Settings/LibraryManagement/Config/Excluded.vue";
@@ -21,7 +22,18 @@ import storeRoms, { MAX_FETCH_LIMIT } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
-const tab = ref<"config" | "missing">("config");
+const route = useRoute();
+const router = useRouter();
+
+// Valid tab values
+const validTabs = ["config", "missing"] as const;
+
+// Initialize tab from query parameter or default to "config"
+const tab = ref<"config" | "missing">(
+  validTabs.includes(route.query.tab as any)
+    ? (route.query.tab as "config" | "missing")
+    : "config",
+);
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const romsStore = storeRoms();
@@ -151,6 +163,28 @@ function resetMissingRoms() {
 
 const { y: documentY } = useScroll(document.body, { throttle: 500 });
 
+// Watch for tab changes and update URL
+watch(tab, (newTab) => {
+  router.replace({
+    path: route.path,
+    query: {
+      ...route.query,
+      tab: newTab,
+    },
+  });
+});
+
+// Watch for URL changes and update tab
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab && validTabs.includes(newTab as any) && tab.value !== newTab) {
+      tab.value = newTab as "config" | "missing";
+    }
+  },
+  { immediate: true },
+);
+
 watch(documentY, () => {
   clearTimeout(timeout);
 
@@ -168,7 +202,10 @@ watch(documentY, () => {
 
 onMounted(() => {
   resetMissingRoms();
-  fetchRoms();
+  // Only fetch ROMs if we're on the missing tab
+  if (tab.value === "missing") {
+    fetchRoms();
+  }
 });
 
 onUnmounted(() => {

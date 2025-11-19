@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
@@ -8,8 +9,40 @@ import type { DetailedRom } from "@/stores/roms";
 
 const { t } = useI18n();
 defineProps<{ rom: DetailedRom }>();
-const tab = ref<"saves" | "states">("saves");
+const route = useRoute();
+const router = useRouter();
+
+// Initialize sub-tab from query parameter or default to "saves"
+const tab = ref<"saves" | "states">(
+  route.query.subtab === "states" || route.query.subtab === "saves"
+    ? (route.query.subtab as "saves" | "states")
+    : "saves",
+);
 const { mdAndDown } = useDisplay();
+
+// Watch for sub-tab changes and update URL
+watch(tab, (newSubTab) => {
+  if (route.query.subtab !== newSubTab) {
+    router.replace({
+      path: route.path,
+      query: {
+        ...route.query,
+        subtab: newSubTab,
+      },
+    });
+  }
+});
+
+// Watch for URL changes and update sub-tab
+watch(
+  () => route.query.subtab,
+  (newSubTab) => {
+    if (newSubTab && (newSubTab === "saves" || newSubTab === "states")) {
+      tab.value = newSubTab;
+    }
+  },
+  { immediate: true },
+);
 </script>
 <template>
   <v-row no-gutters>

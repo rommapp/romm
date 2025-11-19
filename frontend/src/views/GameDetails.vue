@@ -3,7 +3,7 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch, defineAsyncComponent } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import ActionBar from "@/components/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Details/AdditionalContent.vue";
@@ -30,6 +30,21 @@ const PdfViewer = defineAsyncComponent(
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
+
+// Valid tab values
+const validTabs = [
+  "details",
+  "manual",
+  "gamedata",
+  "personal",
+  "timetobeat",
+  "additionalcontent",
+  "screenshots",
+  "relatedgames",
+] as const;
+
+// Initialize tab from query parameter or default to "details"
 const tab = ref<
   | "details"
   | "manual"
@@ -39,7 +54,19 @@ const tab = ref<
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
->("details");
+>(
+  validTabs.includes(route.query.tab as any)
+    ? (route.query.tab as
+        | "details"
+        | "manual"
+        | "gamedata"
+        | "personal"
+        | "timetobeat"
+        | "additionalcontent"
+        | "screenshots"
+        | "relatedgames")
+    : "details",
+);
 const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
@@ -86,6 +113,31 @@ onBeforeMount(async () => {
   const downloadStore = storeDownload();
   downloadStore.reset();
 });
+
+// Watch for tab changes and update URL
+watch(tab, (newTab) => {
+  if (route.query.tab !== newTab) {
+    router.replace({
+      path: route.path,
+      query: {
+        ...route.query,
+        tab: newTab,
+      },
+    });
+  }
+});
+
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab && validTabs.includes(newTab as any)) {
+      if (tab.value !== newTab && typeof newTab === "string") {
+        tab.value = newTab as typeof tab.value;
+      }
+    }
+  },
+  { immediate: true },
+);
 
 watch(
   () => route.fullPath,
