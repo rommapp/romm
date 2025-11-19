@@ -86,7 +86,6 @@ watch(
 );
 
 // Clean up subtab parameter when component unmounts
-onUnmounted(removeSubtab);
 
 const statusOptions = [
   "never_playing",
