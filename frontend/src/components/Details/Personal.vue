@@ -58,9 +58,7 @@ watch(
       newSubTab &&
       (newSubTab === "status" || newSubTab === "ra" || newSubTab === "notes")
     ) {
-      if (tab.value !== newSubTab) {
-        tab.value = newSubTab;
-      }
+      tab.value = newSubTab;
     }
   },
   { immediate: true },
