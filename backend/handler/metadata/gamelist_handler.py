@@ -1,4 +1,3 @@
-import copy
 import os
 import uuid
 from pathlib import Path
@@ -224,12 +223,14 @@ def extract_metadata_from_gamelist_rom(
     )
 
 
-def populate_rom_specific_paths(rom_metadata: GamelistMetadata, rom: Rom) -> dict:
+def populate_rom_specific_paths(
+    rom_metadata: GamelistMetadata, rom: Rom
+) -> dict[str, str]:
     """Populate ROM-specific paths after retrieving metadata from cache"""
     preferred_media_types = get_preferred_media_types()
 
     # Create a copy of the metadata to avoid modifying the cached version
-    updated_metadata = {}
+    updated_metadata: dict[str, str] = {}
 
     # Set paths for media types that are preferred
     if MetadataMediaType.BOX3D in preferred_media_types and updated_metadata.get(
@@ -431,6 +432,7 @@ class GamelistHandler(MetadataHandler):
             # Populate ROM-specific paths using the actual rom object
             if gamelist_metadata:
                 rom_specific_paths = populate_rom_specific_paths(gamelist_metadata, rom)
+                # trunk-ignore(mypy/call-arg)
                 gamelist_metadata.update(**rom_specific_paths)
                 matched_rom["gamelist_metadata"] = gamelist_metadata
 
