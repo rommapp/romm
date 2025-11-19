@@ -454,15 +454,3 @@ class DetailedRomSchema(RomSchema):
     @field_validator("user_screenshots")
     def sort_user_screenshots(cls, v: list[ScreenshotSchema]) -> list[ScreenshotSchema]:
         return sorted(v, key=lambda x: x.created_at, reverse=True)
-
-
-class RomNoteSchema(BaseModel):
-    title: str
-    content: str
-    is_public: bool
-    created_at: datetime
-    updated_at: datetime
-
-
-class RomNotesCollectionSchema(BaseModel):
-    notes: dict[str, RomNoteSchema]
