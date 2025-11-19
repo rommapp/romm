@@ -273,19 +273,21 @@ class GamelistHandler(MetadataHandler):
         # Cache for storing parsed gamelist data by platform ID
         self._gamelist_cache = {}
 
+    async def populate_cache(self, platform: Platform):
+        if not self.is_enabled():
+            return
+
+        # Find the gamelist.xml file for this platform
+        gamelist_file_path = await self._find_gamelist_file(platform)
+        if not gamelist_file_path:
+            return
+
+        # Parse the gamelist file
+        self._parse_gamelist_xml(gamelist_file_path, platform)
+
     def clear_cache(self):
         """Clear the gamelist cache"""
         self._gamelist_cache.clear()
-
-    def invalidate_cache_for_platform(self, platform_id: int):
-        """Invalidate cached data for a specific platform"""
-        keys_to_remove = [
-            key
-            for key in self._gamelist_cache.keys()
-            if key.startswith(f"{platform_id}_")
-        ]
-        for key in keys_to_remove:
-            del self._gamelist_cache[key]
 
     @classmethod
     def is_enabled(cls) -> bool:
