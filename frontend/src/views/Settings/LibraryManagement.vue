@@ -25,9 +25,14 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
+// Valid tab values
+const validTabs = ["config", "missing"] as const;
+
 // Initialize tab from query parameter or default to "config"
 const tab = ref<"config" | "missing">(
-  route.query.tab === "missing" ? "missing" : "config",
+  validTabs.includes(route.query.tab as any)
+    ? (route.query.tab as "config" | "missing")
+    : "config",
 );
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);

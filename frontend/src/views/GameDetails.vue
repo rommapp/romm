@@ -32,6 +32,18 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
+// Valid tab values
+const validTabs = [
+  "details",
+  "manual",
+  "gamedata",
+  "personal",
+  "timetobeat",
+  "additionalcontent",
+  "screenshots",
+  "relatedgames",
+] as const;
+
 // Initialize tab from query parameter or default to "details"
 const tab = ref<
   | "details"
@@ -43,17 +55,7 @@ const tab = ref<
   | "screenshots"
   | "relatedgames"
 >(
-  (route.query.tab as string) &&
-    [
-      "details",
-      "manual",
-      "gamedata",
-      "personal",
-      "timetobeat",
-      "additionalcontent",
-      "screenshots",
-      "relatedgames",
-    ].includes(route.query.tab as string)
+  (route.query.tab as string) && validTabs.includes(route.query.tab as string)
     ? (route.query.tab as
         | "details"
         | "manual"
@@ -94,17 +96,7 @@ onBeforeMount(async () => {
 
   // Ensure tab is set correctly from URL on mount
   const urlTab = route.query.tab as string;
-  const validTabs = [
-    "details",
-    "manual",
-    "gamedata",
-    "personal",
-    "timetobeat",
-    "additionalcontent",
-    "screenshots",
-    "relatedgames",
-  ];
-  if (urlTab && validTabs.includes(urlTab)) {
+  if (urlTab && validTabs.includes(urlTab as any)) {
     tab.value = urlTab as
       | "details"
       | "manual"
@@ -151,17 +143,7 @@ watch(tab, (newTab) => {
 watch(
   () => route.query.tab,
   (newTab) => {
-    const validTabs = [
-      "details",
-      "manual",
-      "gamedata",
-      "personal",
-      "timetobeat",
-      "additionalcontent",
-      "screenshots",
-      "relatedgames",
-    ];
-    if (newTab && validTabs.includes(newTab as string)) {
+    if (newTab && validTabs.includes(newTab as any)) {
       tab.value = newTab as
         | "details"
         | "manual"
