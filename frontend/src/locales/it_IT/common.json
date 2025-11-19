@@ -52,5 +52,6 @@
   "upload-files-selected": "{count} file selezionato | {count} file selezionati",
   "user-interface": "Interfaccia Utente",
   "virtual-collection": "Collezione generata automaticamente",
-  "virtual-collections": "Collezioni generate automaticamente"
+  "virtual-collections": "Collezioni generate automaticamente",
+  "last-updated": "Ultimo aggiornamento"
 }
