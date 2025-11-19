@@ -295,12 +295,9 @@ class GamelistHandler(MetadataHandler):
         re-parsing the same file multiple times.
         """
         # Check if we already have cached data for this platform and gamelist path
-        platform_id = platform.id
-        cache_key = f"{platform_id}_{str(gamelist_path)}"
-
-        if cache_key in self._gamelist_cache:
-            log.debug(f"Using cached gamelist data for platform {platform_id}")
-            return self._gamelist_cache[cache_key]
+        if platform.id in self._gamelist_cache:
+            log.debug(f"Using cached gamelist data for platform {platform.id}")
+            return self._gamelist_cache[platform.id]
 
         preferred_media_types = get_preferred_media_types()
         roms_data: dict[str, GamelistRom] = {}
@@ -384,7 +381,7 @@ class GamelistHandler(MetadataHandler):
                 roms_data[rom_filename] = rom_data
 
             # Cache the parsed data for this platform and gamelist path
-            self._gamelist_cache[cache_key] = roms_data
+            self._gamelist_cache[platform.id] = roms_data
         except ET.ParseError as e:
             log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
         except Exception as e:
