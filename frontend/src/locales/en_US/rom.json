@@ -73,7 +73,8 @@
   "note-title": "Note Title",
   "note-title-exists": "A note with this title already exists",
   "make-public": "Make Public",
-  "no-notes": "No notes yet",
-  "no-notes-description": "Click the Add Note button to create your first note",
+  "no-notes": "No notes found",
+  "no-notes-desc": "Click the Add Note button to create your first note",
+  "community-notes": "Community Notes",
   "confirm-delete-note": "Are you sure you want to delete the note \"{title}\"?"
 }

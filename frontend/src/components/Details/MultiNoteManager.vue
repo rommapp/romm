@@ -39,26 +39,25 @@ const expandedPanels = ref<string[]>([]);
 const currentUserNotes = computed(() => {
   // Get current user's notes from all_user_notes
   return (
-    props.rom.all_user_notes?.filter(
-      (note) => note.user_id === auth.user?.id,
-    ) || []
+    props.rom.all_user_notes
+      ?.filter((note) => note.user_id === auth.user?.id)
+      .sort((a, b) => a.title.localeCompare(b.title)) || []
   );
 });
 
 const otherUsersPublicNotes = computed(() => {
   // Get public notes from other users
   return (
-    props.rom.all_user_notes?.filter(
-      (note) => note.user_id !== auth.user?.id && note.is_public,
-    ) || []
+    props.rom.all_user_notes
+      ?.filter((note) => note.user_id !== auth.user?.id && note.is_public)
+      .sort((a, b) => a.title.localeCompare(b.title)) || []
   );
 });
 
 const notesList = computed(() => {
   // Combine current user's notes with other users' public notes
   return [...currentUserNotes.value, ...otherUsersPublicNotes.value].sort(
-    (a, b) =>
-      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+    (a, b) => a.title.localeCompare(b.title),
   );
 });
 
@@ -249,7 +248,7 @@ watch(
         <v-btn
           :disabled="!scopes.includes('roms.user.write')"
           color="primary"
-          size="small"
+          variant="outlined"
           prepend-icon="mdi-plus"
           class="bg-toplayer"
           @click="showAddNoteDialog = true"
@@ -386,7 +385,7 @@ watch(
                   v-if="note.updated_at"
                   class="text-caption mt-2 mb-2"
                 >
-                  {{ t("rom.last-updated") }}:
+                  {{ t("common.last-updated") }}:
                   {{ new Date(note.updated_at).toLocaleString() }}
                 </v-card-subtitle>
               </v-expansion-panel-text>
@@ -447,7 +446,7 @@ watch(
                 v-if="note.updated_at"
                 class="text-caption mt-2 mb-2"
               >
-                {{ t("rom.last-updated") }}:
+                {{ t("common.last-updated") }}:
                 {{ new Date(note.updated_at).toLocaleString() }}
               </v-card-subtitle>
             </v-expansion-panel-text>
