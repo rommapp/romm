@@ -22,13 +22,15 @@ const { mdAndDown } = useDisplay();
 
 // Watch for sub-tab changes and update URL
 watch(tab, (newSubTab) => {
-  router.push({
-    path: route.path,
-    query: {
-      ...route.query,
-      subtab: newSubTab,
-    },
-  });
+  if (route.query.subtab !== newSubTab) {
+    router.push({
+      path: route.path,
+      query: {
+        ...route.query,
+        subtab: newSubTab,
+      },
+    });
+  }
 });
 
 // Watch for URL changes and update sub-tab
