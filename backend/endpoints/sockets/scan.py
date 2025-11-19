@@ -27,6 +27,7 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
+from handler.metadata import meta_gamelist_handler
 from handler.metadata.ss_handler import get_preferred_media_types
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
@@ -276,9 +277,13 @@ async def _identify_rom(
     )
     if should_update_files:
         log.debug(f"Calculating file hashes for {rom.fs_name}...")
-        rom_files, rom_crc_c, rom_md5_h, rom_sha1_h, rom_ra_h = (
-            await fs_rom_handler.get_rom_files(rom)
-        )
+        (
+            rom_files,
+            rom_crc_c,
+            rom_md5_h,
+            rom_sha1_h,
+            rom_ra_h,
+        ) = await fs_rom_handler.get_rom_files(rom)
         fs_rom.update(
             {
                 "files": rom_files,
@@ -582,6 +587,9 @@ async def scan_platforms(
         log.error(e)
         await socket_manager.emit("scan:done_ko", e.message)
         return scan_stats
+
+    # Clear the gamelist cache  to ensure we're using fresh gamelist.xml data
+    meta_gamelist_handler.clear_cache()
 
     # Precalculate total platforms and ROMs
     total_roms = 0
