@@ -67,5 +67,14 @@
   "switch-version": "Schimbă versiunea",
   "tags": "Etichete",
   "unmatch": "Dissociază ROM-ul",
-  "unselect-all": "Deselectează toate"
+  "unselect-all": "Deselectează toate",
+  "add-note": "Adaugă Notație",
+  "add-new-note": "Adaugă Notație Nouă",
+  "note-title": "Titlul Notației",
+  "note-title-exists": "Există deja o notație cu acest titlu",
+  "make-public": "Fa Publică",
+  "no-notes": "Nu s-au găsit notații",
+  "no-notes-desc": "Apăsați butonul Adaugă Notație pentru a crea prima voastră notație",
+  "community-notes": "Notațiile Comunității",
+  "confirm-delete-note": "Sunteți sigur că vreți să ștergeți notația \"{title}\"?"
 }

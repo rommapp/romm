@@ -67,5 +67,14 @@
   "switch-version": "Zmień wersję",
   "tags": "Tagi",
   "unmatch": "Odłącz ROM",
-  "unselect-all": "Odznacz wszystkie"
+  "unselect-all": "Odznacz wszystkie",
+  "add-note": "Dodaj Notatkę",
+  "add-new-note": "Dodaj Nową Notatkę",
+  "note-title": "Tytuł Notatki",
+  "note-title-exists": "Notatka z tym tytułem już istnieje",
+  "make-public": "Ustaw jako Publiczną",
+  "no-notes": "Nie znaleziono notatek",
+  "no-notes-desc": "Kliknij przycisk Dodaj Notatkę, aby utworzyć swoją pierwszą notatkę",
+  "community-notes": "Notatki Społeczności",
+  "confirm-delete-note": "Czy na pewno chcesz usunąć notatkę \"{title}\"?"
 }

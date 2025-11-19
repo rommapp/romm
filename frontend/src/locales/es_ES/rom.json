@@ -67,5 +67,14 @@
   "switch-version": "Cambiar versión",
   "tags": "Etiquetas",
   "unmatch": "Desvincular ROM",
-  "unselect-all": "Deseleccionar todos"
+  "unselect-all": "Deseleccionar todos",
+  "add-note": "Agregar Nota",
+  "add-new-note": "Agregar Nueva Nota",
+  "note-title": "Título de la Nota",
+  "note-title-exists": "Ya existe una nota con este título",
+  "make-public": "Hacer Pública",
+  "no-notes": "No se encontraron notas",
+  "no-notes-desc": "Haz clic en el botón Agregar Nota para crear tu primera nota",
+  "community-notes": "Notas de la Comunidad",
+  "confirm-delete-note": "¿Estás seguro de que quieres eliminar la nota \"{title}\"?"
 }
