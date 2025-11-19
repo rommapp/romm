@@ -55,7 +55,7 @@ const tab = ref<
   | "screenshots"
   | "relatedgames"
 >(
-  (route.query.tab as string) && validTabs.includes(route.query.tab as string)
+  (route.query.tab as string) && validTabs.includes(route.query.tab as any)
     ? (route.query.tab as
         | "details"
         | "manual"
