@@ -69,18 +69,17 @@ function closeDialog() {
                 <div class="d-flex justify-space-between align-center w-100">
                   <span class="text-body-1">{{ note.title }}</span>
                   <div class="d-flex gap-2 align-center mr-4">
-                    <v-btn
+                    <v-chip
                       :color="note.is_public ? 'success' : 'warning'"
-                      variant="outlined"
+                      variant="text"
                       class="mr-2"
-                      disabled
                     >
                       <v-icon>
                         {{
                           note.is_public ? "mdi-lock-open-variant" : "mdi-lock"
                         }}
                       </v-icon>
-                    </v-btn>
+                    </v-chip>
                   </div>
                 </div>
               </v-expansion-panel-title>
