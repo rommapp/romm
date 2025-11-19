@@ -44,7 +44,8 @@ from endpoints import (
 )
 from handler.auth.constants import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
-from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
+from handler.auth.middleware.csrf_middleware import CSRFMiddleware
+from handler.auth.middleware.session_middleware import SessionMiddleware
 from handler.socket_handler import socket_handler
 from logger.formatter import LOGGING_CONFIG
 from utils import get_version
@@ -90,7 +91,7 @@ app.add_middleware(
 if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
     # CSRF protection (except endpoints listed in exempt_urls)
     app.add_middleware(
-        CustomCSRFMiddleware,
+        CSRFMiddleware,
         cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
         exempt_urls=[re.compile(r"^/api/token.*"), re.compile(r"^/ws")],

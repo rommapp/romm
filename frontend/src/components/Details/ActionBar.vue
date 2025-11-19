@@ -5,6 +5,7 @@ import { useI18n } from "vue-i18n";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
+import { useGameAnimation } from "@/composables/useGameAnimation";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
@@ -21,6 +22,10 @@ const { t } = useI18n();
 
 const isNDSRom = computed(() => {
   return isNintendoDSRom(props.rom);
+});
+
+const { boxartStyle } = useGameAnimation({
+  rom: props.rom,
 });
 
 async function copyDownloadLink(rom: DetailedRom) {
@@ -44,7 +49,15 @@ async function copyDownloadLink(rom: DetailedRom) {
 
 <template>
   <div>
-    <v-btn-group divided density="compact" class="d-flex flex-row">
+    <v-btn-group
+      divided
+      density="compact"
+      class="d-flex flex-row"
+      :class="{
+        'mt-2':
+          boxartStyle !== 'physical_path' || !rom.ss_metadata?.physical_path,
+      }"
+    >
       <v-btn
         :disabled="downloadStore.value.includes(rom.id) || rom.missing_from_fs"
         class="flex-grow-1"

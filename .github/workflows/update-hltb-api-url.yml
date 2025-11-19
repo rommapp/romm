@@ -1,0 +1,43 @@
+name: Update HowLongToBeat API URL
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-hltb-api-url:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6.7.0
+
+      - name: Install python
+        run: |
+          uv python install 3.13
+
+      - name: Install dependencies
+        run: |
+          uv sync
+
+      - name: Run HLTB API URL discovery script
+        run: |
+          cd backend
+          uv run python -m utils.update_hltb_api_url
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: |
+            backend/handler/metadata/fixtures/hltb_api_url
+          commit-message: "Update HLTB API URL [skip CI]"
+          branch: update-hltb-api-url
+          sign-commits: true
+          title: "Update HLTB API URL [skip CI]"
+          reviewers: |
+            gantoine

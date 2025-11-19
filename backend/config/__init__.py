@@ -1,219 +1,221 @@
 import os
-from typing import Final
+from typing import Final, overload
 
 import yarl
 from dotenv import load_dotenv
 
+from utils.database import safe_int, safe_str_to_bool
+
 load_dotenv()
 
 
-def str_to_bool(value: str) -> bool:
-    return value.strip().lower() in ("1", "true", "yes", "on")
+# Supplying a string literal for fallback guarantees a `str` result
+@overload
+def _get_env(var: str, fallback: str) -> str: ...
+@overload
+def _get_env(var: str, fallback: None = None) -> str | None: ...
 
 
-ROMM_BASE_URL = os.environ.get("ROMM_BASE_URL", "http://0.0.0.0")
-ROMM_PORT = int(os.environ.get("ROMM_PORT", 8080))
+def _get_env(var: str, fallback: str | None = None) -> str | None:
+    val = os.environ.get(var) or fallback
+    return val.strip() if val else val
+
+
+ROMM_BASE_URL: Final[str] = _get_env("ROMM_BASE_URL", "http://0.0.0.0")
+ROMM_PORT: Final[int] = safe_int(_get_env("ROMM_PORT"), 8080)
 
 # GUNICORN
-DEV_MODE: Final = str_to_bool(os.environ.get("DEV_MODE", "false"))
-DEV_HOST: Final = os.environ.get("DEV_HOST", "127.0.0.1")
-DEV_PORT: Final = int(os.environ.get("DEV_PORT", "5000"))
-DEV_SQL_ECHO: Final = str_to_bool(os.environ.get("DEV_SQL_ECHO", "false"))
+DEV_MODE: Final[bool] = safe_str_to_bool(_get_env("DEV_MODE"))
+DEV_HOST: Final[str] = _get_env("DEV_HOST", "127.0.0.1")
+DEV_PORT: Final[int] = safe_int(_get_env("DEV_PORT"), 5000)
+DEV_SQL_ECHO: Final[bool] = safe_str_to_bool(_get_env("DEV_SQL_ECHO"))
 
 # PATHS
-ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
-ROMM_TMP_PATH: Final = os.environ.get("ROMM_TMP_PATH", None)
-LIBRARY_BASE_PATH: Final = f"{ROMM_BASE_PATH}/library"
-RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
-ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
-FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
+ROMM_BASE_PATH: Final[str] = _get_env("ROMM_BASE_PATH", "/romm")
+ROMM_TMP_PATH: Final[str | None] = _get_env("ROMM_TMP_PATH")
+LIBRARY_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/library"
+RESOURCES_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/resources"
+ASSETS_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/assets"
+FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
 
 # SEVEN ZIP
-SEVEN_ZIP_TIMEOUT: Final = int(os.environ.get("SEVEN_ZIP_TIMEOUT", 60))
+SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
 
 # DATABASE
-DB_HOST: Final[str | None] = os.environ.get("DB_HOST", "127.0.0.1") or None
-DB_PORT: Final[int | None] = (
-    int(os.environ.get("DB_PORT", 3306)) if os.environ.get("DB_PORT") != "" else None
-)
-DB_USER: Final[str | None] = os.environ.get("DB_USER")
-DB_PASSWD: Final[str | None] = os.environ.get("DB_PASSWD")
-DB_NAME: Final[str] = os.environ.get("DB_NAME", "romm")
-DB_QUERY_JSON: Final[str | None] = os.environ.get("DB_QUERY_JSON")
-ROMM_DB_DRIVER: Final[str] = os.environ.get("ROMM_DB_DRIVER", "mariadb")
+DB_HOST: Final[str] = _get_env("DB_HOST", "127.0.0.1")
+DB_PORT: Final[int] = safe_int(_get_env("DB_PORT", "3306"))
+DB_USER: Final[str | None] = _get_env("DB_USER")
+DB_PASSWD: Final[str | None] = _get_env("DB_PASSWD")
+DB_NAME: Final[str] = _get_env("DB_NAME", "romm")
+DB_QUERY_JSON: Final[str | None] = _get_env("DB_QUERY_JSON")
+ROMM_DB_DRIVER: Final[str] = _get_env("ROMM_DB_DRIVER", "mariadb")
 
 # REDIS
-REDIS_HOST: Final = os.environ.get("REDIS_HOST", "127.0.0.1")
-REDIS_PORT: Final = int(os.environ.get("REDIS_PORT", 6379))
-REDIS_PASSWORD: Final = os.environ.get("REDIS_PASSWORD")
-REDIS_USERNAME: Final = os.environ.get("REDIS_USERNAME", "")
-REDIS_DB: Final = int(os.environ.get("REDIS_DB", 0))
-REDIS_SSL: Final = str_to_bool(os.environ.get("REDIS_SSL", "false"))
-REDIS_URL: Final = yarl.URL.build(
-    scheme="rediss" if REDIS_SSL else "redis",
-    user=REDIS_USERNAME or None,
-    password=REDIS_PASSWORD or None,
-    host=REDIS_HOST,
-    port=REDIS_PORT,
-    path=f"/{REDIS_DB}",
+REDIS_HOST: Final[str] = _get_env("REDIS_HOST", "127.0.0.1")
+REDIS_PORT: Final[int] = safe_int(_get_env("REDIS_PORT"), 6379)
+REDIS_PASSWORD: Final[str | None] = _get_env("REDIS_PASSWORD")
+REDIS_USERNAME: Final[str | None] = _get_env("REDIS_USERNAME")
+REDIS_DB: Final[int] = safe_int(_get_env("REDIS_DB"), 0)
+REDIS_SSL: Final[bool] = safe_str_to_bool(_get_env("REDIS_SSL"))
+REDIS_URL: Final[str] = str(
+    yarl.URL.build(
+        scheme="rediss" if REDIS_SSL else "redis",
+        user=REDIS_USERNAME or None,
+        password=REDIS_PASSWORD or None,
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        path=f"/{REDIS_DB}",
+    )
 )
 
 # IGDB
-IGDB_CLIENT_ID: Final[str] = os.environ.get(
-    "IGDB_CLIENT_ID", os.environ.get("CLIENT_ID", "")
-).strip()
-IGDB_CLIENT_SECRET: Final[str] = os.environ.get(
-    "IGDB_CLIENT_SECRET", os.environ.get("CLIENT_SECRET", "")
-).strip()
+IGDB_CLIENT_ID: Final[str | None] = _get_env("IGDB_CLIENT_ID")
+IGDB_CLIENT_SECRET: Final[str | None] = _get_env("IGDB_CLIENT_SECRET")
 
 # MOBYGAMES
-MOBYGAMES_API_KEY: Final[str] = os.environ.get("MOBYGAMES_API_KEY", "").strip()
+MOBYGAMES_API_KEY: Final[str | None] = _get_env("MOBYGAMES_API_KEY")
 
 # SCREENSCRAPER
-SCREENSCRAPER_USER: Final[str] = os.environ.get("SCREENSCRAPER_USER", "")
-SCREENSCRAPER_PASSWORD: Final[str] = os.environ.get("SCREENSCRAPER_PASSWORD", "")
+SCREENSCRAPER_USER: Final[str | None] = _get_env("SCREENSCRAPER_USER")
+SCREENSCRAPER_PASSWORD: Final[str | None] = _get_env("SCREENSCRAPER_PASSWORD")
 
 # STEAMGRIDDB
-STEAMGRIDDB_API_KEY: Final[str] = os.environ.get("STEAMGRIDDB_API_KEY", "").strip()
+STEAMGRIDDB_API_KEY: Final[str | None] = _get_env("STEAMGRIDDB_API_KEY")
 
 # RETROACHIEVEMENTS
-RETROACHIEVEMENTS_API_KEY: Final[str] = os.environ.get("RETROACHIEVEMENTS_API_KEY", "")
-REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final[int] = int(
-    os.environ.get("REFRESH_RETROACHIEVEMENTS_CACHE_DAYS", 30)
+RETROACHIEVEMENTS_API_KEY: Final[str | None] = _get_env("RETROACHIEVEMENTS_API_KEY")
+REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final[int] = safe_int(
+    _get_env("REFRESH_RETROACHIEVEMENTS_CACHE_DAYS"), 30
 )
 
 # LAUNCHBOX
-LAUNCHBOX_API_ENABLED: Final[bool] = str_to_bool(
-    os.environ.get("LAUNCHBOX_API_ENABLED", "false")
-)
+LAUNCHBOX_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("LAUNCHBOX_API_ENABLED"))
 
 # PLAYMATCH
-PLAYMATCH_API_ENABLED: Final[bool] = str_to_bool(
-    os.environ.get("PLAYMATCH_API_ENABLED", "false")
-)
+PLAYMATCH_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("PLAYMATCH_API_ENABLED"))
 
 # HASHEOUS
-HASHEOUS_API_ENABLED: Final[bool] = str_to_bool(
-    os.environ.get("HASHEOUS_API_ENABLED", "false")
-)
+HASHEOUS_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HASHEOUS_API_ENABLED"))
 
 # THEGAMESDB
-TGDB_API_ENABLED: Final[bool] = str_to_bool(os.environ.get("TGDB_API_ENABLED", "false"))
+TGDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("TGDB_API_ENABLED"))
 
 # FLASHPOINT
-FLASHPOINT_API_ENABLED: Final = str_to_bool(
-    os.environ.get("FLASHPOINT_API_ENABLED", "false")
+FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
+    _get_env("FLASHPOINT_API_ENABLED")
 )
 
 # HOWLONGTOBEAT
-HLTB_API_ENABLED: Final = str_to_bool(os.environ.get("HLTB_API_ENABLED", "false"))
+HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
 
 # AUTH
-ROMM_AUTH_SECRET_KEY: Final[str] = os.environ.get("ROMM_AUTH_SECRET_KEY", "")
+ROMM_AUTH_SECRET_KEY: Final[str | None] = _get_env("ROMM_AUTH_SECRET_KEY")
 if not ROMM_AUTH_SECRET_KEY:
     raise ValueError("ROMM_AUTH_SECRET_KEY environment variable is not set!")
 
-SESSION_MAX_AGE_SECONDS: Final = int(
-    os.environ.get("SESSION_MAX_AGE_SECONDS", 14 * 24 * 60 * 60)
+SESSION_MAX_AGE_SECONDS: Final[int] = safe_int(
+    _get_env("SESSION_MAX_AGE_SECONDS"), 14 * 24 * 60 * 60
 )  # 14 days, in seconds
-DISABLE_CSRF_PROTECTION = str_to_bool(
-    os.environ.get("DISABLE_CSRF_PROTECTION", "false")
+DISABLE_CSRF_PROTECTION: Final[bool] = safe_str_to_bool(
+    _get_env("DISABLE_CSRF_PROTECTION")
 )
-DISABLE_DOWNLOAD_ENDPOINT_AUTH = str_to_bool(
-    os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false")
+DISABLE_DOWNLOAD_ENDPOINT_AUTH: Final[bool] = safe_str_to_bool(
+    _get_env("DISABLE_DOWNLOAD_ENDPOINT_AUTH")
 )
-DISABLE_USERPASS_LOGIN = str_to_bool(os.environ.get("DISABLE_USERPASS_LOGIN", "false"))
-DISABLE_SETUP_WIZARD = str_to_bool(os.environ.get("DISABLE_SETUP_WIZARD", "false"))
+DISABLE_USERPASS_LOGIN: Final[bool] = safe_str_to_bool(
+    _get_env("DISABLE_USERPASS_LOGIN")
+)
+DISABLE_SETUP_WIZARD: Final[bool] = safe_str_to_bool(_get_env("DISABLE_SETUP_WIZARD"))
 
 # OIDC
-OIDC_ENABLED: Final = str_to_bool(os.environ.get("OIDC_ENABLED", "false"))
-OIDC_PROVIDER: Final = os.environ.get("OIDC_PROVIDER", "")
-OIDC_CLIENT_ID: Final = os.environ.get("OIDC_CLIENT_ID", "").strip()
-OIDC_CLIENT_SECRET: Final = os.environ.get("OIDC_CLIENT_SECRET", "").strip()
-OIDC_CLAIM_ROLES: Final = os.environ.get("OIDC_CLAIM_ROLES", "").strip()
-OIDC_ROLE_VIEWER: Final = os.environ.get("OIDC_ROLE_VIEWER", "").strip()
-OIDC_ROLE_EDITOR: Final = os.environ.get("OIDC_ROLE_EDITOR", "").strip()
-OIDC_ROLE_ADMIN: Final = os.environ.get("OIDC_ROLE_ADMIN", "").strip()
-OIDC_REDIRECT_URI: Final = os.environ.get("OIDC_REDIRECT_URI", "")
-OIDC_SERVER_APPLICATION_URL: Final = os.environ.get("OIDC_SERVER_APPLICATION_URL", "")
-OIDC_TLS_CACERTFILE: Final = os.environ.get("OIDC_TLS_CACERTFILE", None)
+OIDC_ENABLED: Final[bool] = safe_str_to_bool(_get_env("OIDC_ENABLED"))
+OIDC_PROVIDER: Final[str] = _get_env("OIDC_PROVIDER", "")
+OIDC_CLIENT_ID: Final[str] = _get_env("OIDC_CLIENT_ID", "")
+OIDC_CLIENT_SECRET: Final[str] = _get_env("OIDC_CLIENT_SECRET", "")
+OIDC_REDIRECT_URI: Final[str] = _get_env("OIDC_REDIRECT_URI", "")
+OIDC_SERVER_APPLICATION_URL: Final[str] = _get_env("OIDC_SERVER_APPLICATION_URL", "")
+OIDC_CLAIM_ROLES: Final[str] = _get_env("OIDC_CLAIM_ROLES", "")
+OIDC_ROLE_VIEWER: Final[str | None] = _get_env("OIDC_ROLE_VIEWER")
+OIDC_ROLE_EDITOR: Final[str | None] = _get_env("OIDC_ROLE_EDITOR")
+OIDC_ROLE_ADMIN: Final[str | None] = _get_env("OIDC_ROLE_ADMIN")
+OIDC_TLS_CACERTFILE: Final[str | None] = _get_env("OIDC_TLS_CACERTFILE")
 
 # SCANS
-SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
-SCAN_WORKERS: Final = max(1, int(os.environ.get("SCAN_WORKERS", "1")))
+SCAN_TIMEOUT: Final[int] = safe_int(_get_env("SCAN_TIMEOUT"), 60 * 60 * 4)  # 4 hours
+SCAN_WORKERS: Final[int] = max(1, safe_int(_get_env("SCAN_WORKERS"), 1))
 
 # TASKS
-TASK_TIMEOUT: Final = int(os.environ.get("TASK_TIMEOUT", 60 * 5))  # 5 minutes
-TASK_RESULT_TTL: Final = int(
-    os.environ.get("TASK_RESULT_TTL", 24 * 60 * 60)
+TASK_TIMEOUT: Final[int] = safe_int(_get_env("TASK_TIMEOUT"), 60 * 5)  # 5 minutes
+TASK_RESULT_TTL: Final[int] = safe_int(
+    _get_env("TASK_RESULT_TTL"), 24 * 60 * 60
 )  # 24 hours
-ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = str_to_bool(
-    os.environ.get("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false")
+ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE")
 )
-RESCAN_ON_FILESYSTEM_CHANGE_DELAY: Final = int(
-    os.environ.get("RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)  # 5 minutes
+RESCAN_ON_FILESYSTEM_CHANGE_DELAY: Final[int] = safe_int(
+    _get_env("RESCAN_ON_FILESYSTEM_CHANGE_DELAY"), 5  # 5 minutes
 )
-ENABLE_SCHEDULED_RESCAN: Final = str_to_bool(
-    os.environ.get("ENABLE_SCHEDULED_RESCAN", "false")
+ENABLE_SCHEDULED_RESCAN: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_RESCAN")
 )
-SCHEDULED_RESCAN_CRON: Final = os.environ.get(
+SCHEDULED_RESCAN_CRON: Final[str] = _get_env(
     "SCHEDULED_RESCAN_CRON",
     "0 3 * * *",  # At 3:00 AM every day
 )
-ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = str_to_bool(
-    os.environ.get("ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB", "false")
+ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB")
 )
-SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
+SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final[str] = _get_env(
     "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
-ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA: Final = str_to_bool(
-    os.environ.get("ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA", "false")
+ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA")
 )
-SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON: Final = os.environ.get(
+SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON: Final[str] = _get_env(
     "SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
-ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP: Final = str_to_bool(
-    os.environ.get("ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP", "false")
+ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP")
 )
-SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON: Final = os.environ.get(
+SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON: Final[str] = _get_env(
     "SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
-ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC: Final[bool] = str_to_bool(
-    os.environ.get("ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC", "false")
+ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC")
 )
-SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = os.environ.get(
+SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
     "SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
 
 # EMULATION
-DISABLE_EMULATOR_JS = str_to_bool(os.environ.get("DISABLE_EMULATOR_JS", "false"))
-DISABLE_RUFFLE_RS = str_to_bool(os.environ.get("DISABLE_RUFFLE_RS", "false"))
+DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))
+DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
 
 # FRONTEND
-UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600))
-KIOSK_MODE = str_to_bool(os.environ.get("KIOSK_MODE", "false"))
+UPLOAD_TIMEOUT: Final[int] = safe_int(_get_env("UPLOAD_TIMEOUT"), 600)
+KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
 
 # LOGGING
-LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO").upper()
-FORCE_COLOR: Final = str_to_bool(os.environ.get("FORCE_COLOR", "false"))
-NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
+LOGLEVEL: Final[str] = _get_env("LOGLEVEL", "INFO").upper()
+FORCE_COLOR: Final[bool] = safe_str_to_bool(_get_env("FORCE_COLOR"))
+NO_COLOR: Final[bool] = safe_str_to_bool(_get_env("NO_COLOR"))
 
 # YOUTUBE
-YOUTUBE_BASE_URL: Final = os.environ.get(
+YOUTUBE_BASE_URL: Final[str] = _get_env(
     "YOUTUBE_BASE_URL", "https://www.youtube.com"
 ).rstrip("/")
 
 # TINFOIL
-TINFOIL_WELCOME_MESSAGE: Final = os.environ.get(
+TINFOIL_WELCOME_MESSAGE: Final[str] = _get_env(
     "TINFOIL_WELCOME_MESSAGE", "RomM Switch Library"
 )
 
 # SENTRY
-SENTRY_DSN: Final = os.environ.get("SENTRY_DSN", None)
+SENTRY_DSN: Final[str | None] = _get_env("SENTRY_DSN")
 
 # TESTING
-IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))
+IS_PYTEST_RUN: Final = bool(_get_env("PYTEST_VERSION"))

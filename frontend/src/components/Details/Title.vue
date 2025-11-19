@@ -125,7 +125,7 @@ const hashMatches = computed(() => {
           class="mr-1"
         >
           <v-chip class="pl-0 mt-1" size="small" title="IGDB ID" @click.stop>
-            <v-avatar class="mr-2" size="30" rounded="0">
+            <v-avatar variant="text" class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/igdb.png" />
             </v-avatar>
             <span>{{ rom.igdb_id }}</span>
@@ -147,7 +147,7 @@ const hashMatches = computed(() => {
             title="MobyGames ID"
             @click.stop
           >
-            <v-avatar class="mr-2" size="30" rounded="0">
+            <v-avatar variant="text" class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/moby.png" />
             </v-avatar>
             <span>{{ rom.moby_id }}</span>
@@ -178,7 +178,7 @@ const hashMatches = computed(() => {
             title="ScreenScraper ID"
             @click.stop
           >
-            <v-avatar class="mr-2" size="30" rounded="0">
+            <v-avatar variant="text" class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/ss.png" style="margin-left: -2px" />
             </v-avatar>
             <span>{{ rom.ss_id }}</span>
@@ -205,6 +205,7 @@ const hashMatches = computed(() => {
             @click.stop
           >
             <v-avatar
+              variant="text"
               class="mr-2"
               size="30"
               rounded="0"
@@ -235,7 +236,7 @@ const hashMatches = computed(() => {
             title="RetroAchievements ID"
             @click.stop
           >
-            <v-avatar class="mr-2" size="30" rounded="0">
+            <v-avatar variant="text" class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/ra.png" style="margin-left: -2px" />
             </v-avatar>
             <span>{{ rom.ra_id }}</span>
@@ -254,7 +255,12 @@ const hashMatches = computed(() => {
             title="Hasheous ID"
             @click.stop
           >
-            <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
+            <v-avatar
+              variant="text"
+              class="mr-2 bg-surface pa-1"
+              size="30"
+              rounded="0"
+            >
               <v-img src="/assets/scrappers/hasheous.png" />
             </v-avatar>
             <span>{{ rom.hasheous_id }}</span>
@@ -268,7 +274,12 @@ const hashMatches = computed(() => {
           class="mr-1"
         >
           <v-chip class="pl-0 mt-1" size="small" title="Flashpoint ID">
-            <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
+            <v-avatar
+              variant="text"
+              class="mr-2 bg-surface pa-1"
+              size="30"
+              rounded="0"
+            >
               <v-img src="/assets/scrappers/flashpoint.png" />
             </v-avatar>
             <span>{{ rom.flashpoint_id.split("-").pop() }}…</span>
@@ -282,7 +293,12 @@ const hashMatches = computed(() => {
           class="mr-1"
         >
           <v-chip class="pl-0 mt-1" size="small" title="HowLongToBeat ID">
-            <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
+            <v-avatar
+              variant="text"
+              class="mr-2 bg-surface pa-1"
+              size="30"
+              rounded="0"
+            >
               <v-img src="/assets/scrappers/hltb.png" />
             </v-avatar>
             <span>{{ rom.hltb_id }}</span>
@@ -299,7 +315,7 @@ const hashMatches = computed(() => {
           size="small"
           title="ES-DE (gamelist.xml)"
         >
-          <v-avatar size="30" rounded="0">
+          <v-avatar variant="text" size="30" rounded="0">
             <v-img src="/assets/scrappers/esde.png" />
           </v-avatar>
         </v-chip>
@@ -311,7 +327,7 @@ const hashMatches = computed(() => {
           class="mr-1"
         >
           <v-chip class="pl-0 mt-1" size="small" title="SGDB ID">
-            <v-avatar class="mr-2" size="30" rounded="0">
+            <v-avatar variant="text" class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/sgdb.png" />
             </v-avatar>
             <span>{{ rom.sgdb_id }}</span>
@@ -333,7 +349,7 @@ const hashMatches = computed(() => {
           size="small"
           title="Verified with Hasheous"
         >
-          <v-avatar class="bg-romm-green" size="30" rounded="0">
+          <v-avatar variant="text" class="bg-romm-green" size="30" rounded="0">
             <v-icon>mdi-check-decagram-outline</v-icon>
           </v-avatar>
           <span class="ml-2">{{ hash.name }}</span>

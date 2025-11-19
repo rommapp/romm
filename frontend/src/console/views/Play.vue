@@ -666,17 +666,16 @@ onBeforeUnmount(() => {
   >
     <div id="game" class="w-full h-full" />
     <div
-      v-if="bezelSrc !== ''"
+      v-if="bezelSrc"
       class="pointer-events-none fixed inset-0 flex items-center justify-center z-20 overflow-hidden"
       aria-hidden="true"
     >
       <img
         :src="bezelSrc"
-        alt="bezel"
+        alt=""
         class="select-none"
         draggable="false"
         style="height: 100vh; max-height: 100vh; width: auto; object-fit: cover"
-        @error="bezelSrc = ''"
       />
     </div>
     <div

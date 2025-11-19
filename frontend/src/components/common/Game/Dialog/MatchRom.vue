@@ -344,6 +344,7 @@ onBeforeUnmount(() => {
         <template #activator="{ props }">
           <v-avatar
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -374,6 +375,7 @@ onBeforeUnmount(() => {
         <template #activator="{ props }">
           <v-avatar
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -404,6 +406,7 @@ onBeforeUnmount(() => {
         <template #activator="{ props }">
           <v-avatar
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -432,8 +435,8 @@ onBeforeUnmount(() => {
       >
         <template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('Launchbox')"
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -444,6 +447,7 @@ onBeforeUnmount(() => {
             }"
             size="30"
             rounded="1"
+            @click="toggleSourceFilter('Launchbox')"
           >
             <v-img src="/assets/scrappers/launchbox.png" />
           </v-avatar>
@@ -459,10 +463,11 @@ onBeforeUnmount(() => {
             : 'Flashpoint source is not enabled'
         "
         open-delay="500"
-        ><template #activator="{ props }">
+      >
+        <template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('Flashpoint')"
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -473,6 +478,7 @@ onBeforeUnmount(() => {
             }"
             size="30"
             rounded="1"
+            @click="toggleSourceFilter('Flashpoint')"
           >
             <v-img src="/assets/scrappers/flashpoint.png" />
           </v-avatar>
@@ -624,28 +630,22 @@ onBeforeUnmount(() => {
                       selectedCover && renameFromSource
                         ? "mdi-checkbox-outline"
                         : "mdi-checkbox-blank-outline"
-                    }} </v-icon
-                  >{{
-                    t("rom.rename-file-part1", { source: selectedCover?.name })
+                    }}
+                  </v-icon>
+                  {{
+                    t("rom.rename-file-title", { source: selectedCover?.name })
                   }}
                 </v-chip>
                 <v-list-item v-if="rom && renameFromSource" class="mt-2">
-                  <span>{{ t("rom.rename-file-part2") }}</span>
-                  <br />
-                  <span>{{ t("rom.rename-file-part3") }}</span>
-                  <span class="text-primary ml-1">{{ rom.fs_name }}</span>
-                  <br />
-                  <span class="mx-1">{{ t("rom.rename-file-part4") }}</span>
-                  <span class="text-secondary">{{
-                    rom.fs_name.replace(
-                      rom.fs_name_no_tags,
-                      selectedMatchRom.name,
-                    )
+                  <span>{{
+                    t("rom.rename-file-details", {
+                      from: rom.fs_name,
+                      to: rom.fs_name.replace(
+                        rom.fs_name_no_tags,
+                        selectedMatchRom.name,
+                      ),
+                    })
                   }}</span>
-                  <br />
-                  <span class="text-caption font-italic font-weight-bold">
-                    *{{ t("rom.rename-file-part5") }}
-                  </span>
                 </v-list-item>
               </v-col>
             </v-row>

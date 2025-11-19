@@ -5,30 +5,10 @@ from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
 from starlette.datastructures import MutableHeaders, Secret
-from starlette.requests import HTTPConnection, Request
+from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
-from starlette_csrf.middleware import CSRFMiddleware
 
 from config import SESSION_MAX_AGE_SECONDS
-
-
-class CustomCSRFMiddleware(CSRFMiddleware):
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        # Skip CSRF check if not an HTTP request, like websockets
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return None
-
-        request = Request(scope, receive)
-
-        # Skip CSRF check if Authorization header is present
-        auth_scheme = request.headers.get("Authorization", "").split(" ", 1)[0].lower()
-        if auth_scheme == "bearer" or auth_scheme == "basic":
-            await self.app(scope, receive, send)
-            return None
-
-        await super().__call__(scope, receive, send)
-
 
 SecretKey = namedtuple("SecretKey", ("encode", "decode"))
 
