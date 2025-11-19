@@ -1,3 +1,4 @@
+import copy
 import os
 import uuid
 from pathlib import Path
@@ -40,13 +41,6 @@ class GamelistMetadataMedia(TypedDict):
     title_screen_url: str | None
     video_url: str | None
 
-    # Resources stored in filesystem
-    box3d_path: str | None
-    miximage_path: str | None
-    physical_path: str | None
-    marquee_path: str | None
-    video_path: str | None
-
 
 class GamelistMetadata(GamelistMetadataMedia):
     rating: float | None
@@ -56,6 +50,11 @@ class GamelistMetadata(GamelistMetadataMedia):
     genres: list[str] | None
     player_count: str | None
     md5_hash: str | None
+    box3d_path: str | None
+    miximage_path: str | None
+    physical_path: str | None
+    marquee_path: str | None
+    video_path: str | None
 
 
 class GamelistRom(BaseRom):
@@ -65,9 +64,10 @@ class GamelistRom(BaseRom):
     gamelist_metadata: NotRequired[GamelistMetadata]
 
 
-def extract_media_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetadataMedia:
-    preferred_media_types = get_preferred_media_types()
-    platform_dir = fs_platform_handler.get_plaform_fs_structure(rom.platform_fs_slug)
+def extract_media_from_gamelist_rom(
+    game: Element, platform: Platform
+) -> GamelistMetadataMedia:
+    platform_dir = fs_platform_handler.get_plaform_fs_structure(platform.fs_slug)
 
     gamelist_media = GamelistMetadataMedia(
         box2d_url=None,
@@ -83,11 +83,6 @@ def extract_media_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetadata
         title_screen_url=None,
         thumbnail_url=None,
         video_url=None,
-        box3d_path=None,
-        miximage_path=None,
-        physical_path=None,
-        marquee_path=None,
-        video_path=None,
     )
 
     image_elem = game.find("image")
@@ -124,11 +119,6 @@ def extract_media_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetadata
             f"{platform_dir}/{box3d_elem.text.replace('./', '')}"
         )
         gamelist_media["box3d_url"] = f"file://{str(box3d_path_path)}"
-
-        if MetadataMediaType.BOX3D in preferred_media_types:
-            gamelist_media["box3d_path"] = (
-                f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX3D)}/box3d.png"
-            )
     if fanart_elem is not None and fanart_elem.text:
         fanart_path_path = fs_platform_handler.validate_path(
             f"{platform_dir}/{fanart_elem.text.replace('./', '')}"
@@ -144,31 +134,16 @@ def extract_media_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetadata
             f"{platform_dir}/{marquee_elem.text.replace('./', '')}"
         )
         gamelist_media["marquee_url"] = f"file://{str(marquee_path_path)}"
-
-        if MetadataMediaType.MARQUEE in preferred_media_types:
-            gamelist_media["marquee_path"] = (
-                f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MARQUEE)}/marquee.png"
-            )
     if miximage_elem is not None and miximage_elem.text:
         miximage_path_path = fs_platform_handler.validate_path(
             f"{platform_dir}/{miximage_elem.text.replace('./', '')}"
         )
         gamelist_media["miximage_url"] = f"file://{str(miximage_path_path)}"
-
-        if MetadataMediaType.MIXIMAGE in preferred_media_types:
-            gamelist_media["miximage_path"] = (
-                f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
-            )
     if physical_elem is not None and physical_elem.text:
         physical_path_path = fs_platform_handler.validate_path(
             f"{platform_dir}/{physical_elem.text.replace('./', '')}"
         )
         gamelist_media["physical_url"] = f"file://{str(physical_path_path)}"
-
-        if MetadataMediaType.PHYSICAL in preferred_media_types:
-            gamelist_media["physical_path"] = (
-                f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.PHYSICAL)}/physical.png"
-            )
     if screenshot_elem is not None and screenshot_elem.text:
         screenshot_path_path = fs_platform_handler.validate_path(
             f"{platform_dir}/{screenshot_elem.text.replace('./', '')}"
@@ -190,15 +165,12 @@ def extract_media_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetadata
         )
         gamelist_media["video_url"] = f"file://{str(video_path_path)}"
 
-        if MetadataMediaType.VIDEO in preferred_media_types:
-            gamelist_media["video_path"] = (
-                f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.VIDEO)}/video.mp4"
-            )
-
     return gamelist_media
 
 
-def extract_metadata_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetadata:
+def extract_metadata_from_gamelist_rom(
+    game: Element, platform: Platform
+) -> GamelistMetadata:
     rating_elem = game.find("rating")
     releasedate_elem = game.find("releasedate")
     developer_elem = game.find("developer")
@@ -243,8 +215,55 @@ def extract_metadata_from_gamelist_rom(rom: Rom, game: Element) -> GamelistMetad
         genres=pydash.compact([genre]),
         player_count=players,
         md5_hash=md5,
-        **extract_media_from_gamelist_rom(rom, game),
+        box3d_path=None,
+        miximage_path=None,
+        physical_path=None,
+        marquee_path=None,
+        video_path=None,
+        **extract_media_from_gamelist_rom(game, platform),
     )
+
+
+def populate_rom_specific_paths(rom_metadata: GamelistMetadata, rom: Rom) -> dict:
+    """Populate ROM-specific paths after retrieving metadata from cache"""
+    preferred_media_types = get_preferred_media_types()
+
+    # Create a copy of the metadata to avoid modifying the cached version
+    updated_metadata = {}
+
+    # Set paths for media types that are preferred
+    if MetadataMediaType.BOX3D in preferred_media_types and updated_metadata.get(
+        "box3d_url"
+    ):
+        updated_metadata["box3d_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX3D)}/box3d.png"
+        )
+    if MetadataMediaType.MARQUEE in preferred_media_types and updated_metadata.get(
+        "marquee_url"
+    ):
+        updated_metadata["marquee_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MARQUEE)}/marquee.png"
+        )
+    if MetadataMediaType.MIXIMAGE in preferred_media_types and updated_metadata.get(
+        "miximage_url"
+    ):
+        updated_metadata["miximage_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
+        )
+    if MetadataMediaType.PHYSICAL in preferred_media_types and updated_metadata.get(
+        "physical_url"
+    ):
+        updated_metadata["physical_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.PHYSICAL)}/physical.png"
+        )
+    if MetadataMediaType.VIDEO in preferred_media_types and updated_metadata.get(
+        "video_url"
+    ):
+        updated_metadata["video_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.VIDEO)}/video.mp4"
+        )
+
+    return updated_metadata
 
 
 class GamelistHandler(MetadataHandler):
@@ -287,17 +306,16 @@ class GamelistHandler(MetadataHandler):
         return None
 
     def _parse_gamelist_xml(
-        self, gamelist_path: Path, platform: Platform, rom: Rom
+        self, gamelist_path: Path, platform: Platform
     ) -> dict[str, GamelistRom]:
         """Parse a gamelist.xml file and return ROM data indexed by filename.
-
-        Results are cached by platform ID and gamelist path to avoid
-        re-parsing the same file multiple times.
+        Results are cached by platform ID  to avoid re-parsing the same file multiple times.
         """
-        # Check if we already have cached data for this platform and gamelist path
-        if platform.id in self._gamelist_cache:
+        # Check if we already have cached data for this platform
+        cache_key = platform.id
+        if cache_key in self._gamelist_cache:
             log.debug(f"Using cached gamelist data for platform {platform.id}")
-            return self._gamelist_cache[platform.id]
+            return self._gamelist_cache[cache_key]
 
         preferred_media_types = get_preferred_media_types()
         roms_data: dict[str, GamelistRom] = {}
@@ -343,7 +361,7 @@ class GamelistHandler(MetadataHandler):
                 )
 
                 # Build ROM data
-                rom_metadata = extract_metadata_from_gamelist_rom(rom, game)
+                rom_metadata = extract_metadata_from_gamelist_rom(game, platform)
                 rom_data = GamelistRom(
                     gamelist_id=str(uuid.uuid4()),
                     name=name,
@@ -380,8 +398,8 @@ class GamelistHandler(MetadataHandler):
                 # Store by filename for matching
                 roms_data[rom_filename] = rom_data
 
-            # Cache the parsed data for this platform and gamelist path
-            self._gamelist_cache[platform.id] = roms_data
+            # Cache the parsed data for this platform
+            self._gamelist_cache[cache_key] = roms_data
         except ET.ParseError as e:
             log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
         except Exception as e:
@@ -400,11 +418,19 @@ class GamelistHandler(MetadataHandler):
             return GamelistRom(gamelist_id=None)
 
         # Parse the gamelist file
-        all_roms_data = self._parse_gamelist_xml(gamelist_file_path, platform, rom)
+        all_roms_data = self._parse_gamelist_xml(gamelist_file_path, platform)
 
         # Try to find exact match first
         if fs_name in all_roms_data:
             log.debug(f"Found exact gamelist match for {fs_name}")
-            return all_roms_data[fs_name]
+            matched_rom = all_roms_data[fs_name]
+
+            # Populate ROM-specific paths using the actual rom object
+            rom_specific_paths = populate_rom_specific_paths(
+                matched_rom["gamelist_metadata"], rom
+            )
+            matched_rom["gamelist_metadata"].update(**rom_specific_paths)
+
+            return matched_rom
 
         return GamelistRom(gamelist_id=None)
