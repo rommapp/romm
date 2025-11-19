@@ -426,12 +426,13 @@ class GamelistHandler(MetadataHandler):
         if fs_name in all_roms_data:
             log.debug(f"Found exact gamelist match for {fs_name}")
             matched_rom = all_roms_data[fs_name]
+            gamelist_metadata = matched_rom.get("gamelist_metadata")
 
             # Populate ROM-specific paths using the actual rom object
-            rom_specific_paths = populate_rom_specific_paths(
-                matched_rom["gamelist_metadata"], rom
-            )
-            matched_rom["gamelist_metadata"].update(**rom_specific_paths)
+            if gamelist_metadata:
+                rom_specific_paths = populate_rom_specific_paths(gamelist_metadata, rom)
+                gamelist_metadata.update(**rom_specific_paths)
+                matched_rom["gamelist_metadata"] = gamelist_metadata
 
             return matched_rom
 
