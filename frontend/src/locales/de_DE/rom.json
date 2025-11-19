@@ -67,5 +67,14 @@
   "switch-version": "Version wechseln",
   "tags": "Tags",
   "unmatch": "Zuweisung aufheben",
-  "unselect-all": "Alles abwählen"
+  "unselect-all": "Alles abwählen",
+  "add-note": "Notiz hinzufügen",
+  "add-new-note": "Neue Notiz hinzufügen",
+  "note-title": "Notiz-Titel",
+  "note-title-exists": "Eine Notiz mit diesem Titel existiert bereits",
+  "make-public": "Öffentlich machen",
+  "no-notes": "Keine Notizen gefunden",
+  "no-notes-desc": "Klicken Sie auf die Schaltfläche 'Notiz hinzufügen', um Ihre erste Notiz zu erstellen",
+  "community-notes": "Community-Notizen",
+  "confirm-delete-note": "Sind Sie sicher, dass Sie die Notiz \"{title}\" löschen möchten?"
 }
