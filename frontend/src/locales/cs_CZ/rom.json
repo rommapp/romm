@@ -80,5 +80,14 @@
   "unmatch-success": "ROM úspěšně odpojena",
   "unselect-all": "Zrušit výběr všeho",
   "update-success": "ROM úspěšně aktualizována!",
-  "warning": "UPOZORNĚNÍ:"
+  "warning": "UPOZORNĚNÍ:",
+  "add-note": "Přidat poznámku",
+  "add-new-note": "Přidat novou poznámku",
+  "note-title": "Název poznámky",
+  "note-title-exists": "Poznámka s tímto názvem již existuje",
+  "make-public": "Zveřejnit",
+  "no-notes": "Nebyly nalezeny žádné poznámky",
+  "no-notes-desc": "Klikněte na tlačítko Přidat poznámku a vytvořte svou první poznámku",
+  "community-notes": "Komunitní poznámky",
+  "confirm-delete-note": "Opravdu chcete smazat poznámku \"{title}\"?"
 }

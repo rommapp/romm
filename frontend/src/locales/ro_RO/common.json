@@ -53,5 +53,7 @@
   "user-interface": "Interfață utilizator",
   "virtual-collection": "Colecție autogenerată",
   "virtual-collections": "Colecții autogenerate",
-  "last-updated": "Ultima actualizare"
+  "last-updated": "Ultima actualizare",
+  "confirm-deletion": "Confirmă ștergerea",
+  "delete": "Șterge"
 }

@@ -53,5 +53,7 @@
   "user-interface": "Пользовательский интерфейс",
   "virtual-collection": "Автосгенерированная коллекция",
   "virtual-collections": "Автосгенерированные коллекции",
-  "last-updated": "Последнее обновление"
+  "last-updated": "Последнее обновление",
+  "confirm-deletion": "Подтвердить удаление",
+  "delete": "Удалить"
 }
