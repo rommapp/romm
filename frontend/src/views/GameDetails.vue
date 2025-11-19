@@ -144,15 +144,17 @@ watch(
   () => route.query.tab,
   (newTab) => {
     if (newTab && validTabs.includes(newTab as any)) {
-      tab.value = newTab as
-        | "details"
-        | "manual"
-        | "gamedata"
-        | "personal"
-        | "timetobeat"
-        | "additionalcontent"
-        | "screenshots"
-        | "relatedgames";
+      if (tab.value !== newTab) {
+        tab.value = newTab as
+          | "details"
+          | "manual"
+          | "gamedata"
+          | "personal"
+          | "timetobeat"
+          | "additionalcontent"
+          | "screenshots"
+          | "relatedgames";
+      }
     }
   },
 );
