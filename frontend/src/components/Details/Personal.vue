@@ -39,13 +39,15 @@ const publicNotes =
 
 // Watch for sub-tab changes and update URL
 watch(tab, (newSubTab) => {
-  router.replace({
-    path: route.path,
-    query: {
-      ...route.query,
-      subtab: newSubTab,
-    },
-  });
+  if (route.query.subtab !== newSubTab) {
+    router.replace({
+      path: route.path,
+      query: {
+        ...route.query,
+        subtab: newSubTab,
+      },
+    });
+  }
 });
 
 // Watch for URL changes and update sub-tab
