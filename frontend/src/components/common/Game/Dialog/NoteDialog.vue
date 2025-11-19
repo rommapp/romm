@@ -2,17 +2,14 @@
 import { MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
 import { inject, ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
-import storeAuth from "@/stores/auth";
+import RDialog from "@/components/common/RDialog.vue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 
 const theme = useTheme();
-const auth = storeAuth();
-const { scopes } = storeToRefs(auth);
 const emitter = inject<Emitter<Events>>("emitter");
 const { t } = useI18n();
 
@@ -29,8 +26,6 @@ const currentUserNotes = computed(() => {
       is_public: note.is_public,
       created_at: note.created_at,
       updated_at: note.updated_at,
-      user_id: auth.user?.id,
-      username: auth.user?.username,
     }))
     .sort((a, b) => a.title.localeCompare(b.title));
 });
@@ -39,20 +34,29 @@ emitter?.on("showNoteDialog", (romToShow) => {
   rom.value = romToShow;
   show.value = true;
 });
+
+function closeDialog() {
+  show.value = false;
+  rom.value = null;
+}
 </script>
 
 <template>
-  <v-dialog v-model="show" max-width="800" scrollable>
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon class="mr-2">mdi-notebook</v-icon>
-        {{ t("rom.my-notes") }} - {{ rom?.name }}
-        <v-spacer />
-        <v-btn icon @click="show = false">
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
-      </v-card-title>
-      <v-card-text class="pa-4">
+  <RDialog
+    v-if="rom"
+    v-model="show"
+    icon="mdi-notebook"
+    scroll-content
+    width="800"
+    @close="closeDialog"
+  >
+    <template #header>
+      <v-toolbar-title>
+        {{ t("rom.my-notes") }} - {{ rom.name }}
+      </v-toolbar-title>
+    </template>
+    <template #content>
+      <div class="pa-4">
         <div v-if="currentUserNotes.length > 0">
           <v-expansion-panels multiple flat variant="accordion">
             <v-expansion-panel
@@ -108,9 +112,9 @@ emitter?.on("showNoteDialog", (romToShow) => {
           <p class="text-h6 text-grey mt-4 mb-2">{{ t("rom.no-notes") }}</p>
           <p class="text-body-2 text-grey">{{ t("rom.no-notes-desc") }}</p>
         </div>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+      </div>
+    </template>
+  </RDialog>
 </template>
 
 <style scoped>
