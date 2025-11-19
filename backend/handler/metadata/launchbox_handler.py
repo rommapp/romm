@@ -5,9 +5,10 @@ from typing import Final, NotRequired, TypedDict
 
 import pydash
 
-from config import LAUNCHBOX_API_ENABLED, str_to_bool
+from config import LAUNCHBOX_API_ENABLED
 from handler.redis_handler import async_cache
 from logger.logger import log
+from utils.database import safe_str_to_bool
 
 from .base_handler import BaseRom, MetadataHandler
 from .base_handler import UniversalPlatformSlug as UPS
@@ -91,7 +92,7 @@ def extract_metadata_from_launchbox_rom(
             "first_release_date": first_release_date,
             "max_players": int(index_entry.get("MaxPlayers") or 0),
             "release_type": index_entry.get("ReleaseType", ""),
-            "cooperative": str_to_bool(index_entry.get("Cooperative") or "false"),
+            "cooperative": safe_str_to_bool(index_entry.get("Cooperative") or "false"),
             "youtube_video_id": extract_video_id_from_youtube_url(
                 index_entry.get("VideoURL")
             ),

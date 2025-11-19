@@ -221,7 +221,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 size="x-small"
                 title="IGDB match"
               >
-                <v-avatar size="20" rounded>
+                <v-avatar variant="text" size="20" rounded>
                   <v-img src="/assets/scrappers/igdb.png" />
                 </v-avatar>
               </v-chip>
@@ -231,7 +231,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 size="x-small"
                 title="ScreenScraper match"
               >
-                <v-avatar size="20" rounded>
+                <v-avatar variant="text" size="20" rounded>
                   <v-img src="/assets/scrappers/ss.png" />
                 </v-avatar>
               </v-chip>
@@ -241,7 +241,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 size="x-small"
                 title="MobyGames match"
               >
-                <v-avatar size="20" rounded>
+                <v-avatar variant="text" size="20" rounded>
                   <v-img src="/assets/scrappers/moby.png" />
                 </v-avatar>
               </v-chip>
@@ -251,7 +251,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 size="x-small"
                 title="LaunchBox match"
               >
-                <v-avatar size="20" style="background: #185a7c">
+                <v-avatar variant="text" size="20" style="background: #185a7c">
                   <v-img src="/assets/scrappers/launchbox.png" />
                 </v-avatar>
               </v-chip>
@@ -261,7 +261,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 size="x-small"
                 title="RetroAchievements match"
               >
-                <v-avatar size="20" rounded>
+                <v-avatar variant="text" size="20" rounded>
                   <v-img src="/assets/scrappers/ra.png" />
                 </v-avatar>
               </v-chip>
@@ -271,7 +271,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 size="x-small"
                 title="Flashpoint match"
               >
-                <v-avatar size="20" rounded>
+                <v-avatar variant="text" size="20" rounded>
                   <v-img src="/assets/scrappers/flashpoint.png" />
                 </v-avatar>
               </v-chip>
@@ -281,7 +281,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 size="x-small"
                 title="HowLongToBeat match"
               >
-                <v-avatar size="20" rounded>
+                <v-avatar variant="text" size="20" rounded>
                   <v-img src="/assets/scrappers/hltb.png" />
                 </v-avatar>
               </v-chip>
@@ -291,7 +291,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 size="x-small"
                 title="ES-DE match"
               >
-                <v-avatar size="20" rounded>
+                <v-avatar variant="text" size="20" rounded>
                   <v-img src="/assets/scrappers/esde.png" />
                 </v-avatar>
               </v-chip>

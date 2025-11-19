@@ -316,7 +316,7 @@ watch(
               :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="30" rounded="0">
+                <v-avatar variant="text" class="mr-2" size="30" rounded="0">
                   <v-img src="/assets/scrappers/igdb.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.igdb_id }}</span>
@@ -331,7 +331,7 @@ watch(
               :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="30" rounded="0">
+                <v-avatar variant="text" class="mr-2" size="30" rounded="0">
                   <v-img
                     src="/assets/scrappers/ss.png"
                     style="margin-left: -2px"
@@ -349,7 +349,7 @@ watch(
               :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="30" rounded="0">
+                <v-avatar variant="text" class="mr-2" size="30" rounded="0">
                   <v-img src="/assets/scrappers/moby.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.moby_id }}</span>
@@ -364,7 +364,7 @@ watch(
               :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="30" rounded="0">
+                <v-avatar variant="text" class="mr-2" size="30" rounded="0">
                   <v-img
                     src="/assets/scrappers/ra.png"
                     style="margin-left: -2px"
@@ -383,6 +383,7 @@ watch(
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar
+                  variant="text"
                   class="mr-2"
                   size="25"
                   rounded="0"
@@ -407,7 +408,12 @@ watch(
                 title="Hasheous ID"
                 @click.stop
               >
-                <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
+                <v-avatar
+                  variant="text"
+                  class="mr-2 bg-surface pa-1"
+                  size="30"
+                  rounded="0"
+                >
                   <v-img src="/assets/scrappers/hasheous.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.hasheous_id }}</span>
@@ -419,7 +425,7 @@ watch(
               size="small"
               title="Flashpoint"
             >
-              <v-avatar class="bg-surface" size="30" rounded="0">
+              <v-avatar variant="text" class="bg-surface" size="30" rounded="0">
                 <v-img src="/assets/scrappers/flashpoint.png" />
               </v-avatar>
             </v-chip>
@@ -429,7 +435,7 @@ watch(
               size="small"
               title="HLTB"
             >
-              <v-avatar class="bg-surface" size="30" rounded="0">
+              <v-avatar variant="text" class="bg-surface" size="30" rounded="0">
                 <v-img src="/assets/scrappers/hltb.png" />
               </v-avatar>
             </v-chip>

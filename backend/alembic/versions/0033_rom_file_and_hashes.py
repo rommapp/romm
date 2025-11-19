@@ -24,6 +24,7 @@ def upgrade() -> None:
 
     if is_postgresql(connection):
         rom_file_category_enum = ENUM(
+            "GAME",
             "DLC",
             "HACK",
             "MANUAL",
@@ -39,6 +40,7 @@ def upgrade() -> None:
         rom_file_category_enum.create(connection, checkfirst=False)
     else:
         rom_file_category_enum = sa.Enum(
+            "GAME",
             "DLC",
             "HACK",
             "MANUAL",

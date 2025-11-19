@@ -30,6 +30,7 @@ const randomLogo = ref<string>(getRandomLogo());
 
 <template>
   <v-avatar
+    variant="text"
     :size="size"
     :class="{ 'rounded-circle': avatar, rounded: !avatar }"
   >

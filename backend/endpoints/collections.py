@@ -214,6 +214,9 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
+    if collection.user_id != request.user.id and not collection.is_public:
+        raise CollectionPermissionError(id)
+    
     return CollectionSchema.model_validate(collection)
 
 
@@ -251,6 +254,9 @@ def get_smart_collection(request: Request, id: int) -> SmartCollectionSchema:
     smart_collection = db_collection_handler.get_smart_collection(id)
     if not smart_collection:
         raise CollectionNotFoundInDatabaseException(id)
+
+    if smart_collection.user_id != request.user.id and not smart_collection.is_public:
+        raise CollectionPermissionError(id)
 
     return SmartCollectionSchema.model_validate(smart_collection)
 
@@ -408,6 +414,9 @@ async def delete_collection(
     collection = db_collection_handler.get_collection(id)
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
+    
+    if collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
 
     log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)

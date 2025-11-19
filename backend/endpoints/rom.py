@@ -36,7 +36,6 @@ from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
-    str_to_bool,
 )
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
@@ -66,7 +65,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom
-from utils.database import safe_int
+from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
@@ -567,7 +566,7 @@ async def get_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
-    hidden_folder = str_to_bool(request.query_params.get("hidden_folder", ""))
+    hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
 
     files = list(db_rom_handler.get_rom_files(rom.id))
     if file_ids:
@@ -930,21 +929,24 @@ async def update_rom(
                         "path_cover_l": path_cover_l,
                     }
                 )
+            else:
+                cleaned_data.update({"url_cover": rom.url_cover})
 
-    if data.get(
-        "url_manual", ""
-    ) != rom.url_manual or not fs_resource_handler.manual_exists(rom):
+    url_manual = data.get("url_manual", rom.url_manual)
+    if url_manual != rom.url_manual or not fs_resource_handler.manual_exists(rom):
         path_manual = await fs_resource_handler.get_manual(
             rom=rom,
             overwrite=True,
-            url_manual=str(data.get("url_manual") or ""),
+            url_manual=url_manual,
         )
         cleaned_data.update(
             {
-                "url_manual": data.get("url_manual", rom.url_manual),
+                "url_manual": url_manual,
                 "path_manual": path_manual,
             }
         )
+    else:
+        cleaned_data.update({"url_manual": rom.url_manual})
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
@@ -1052,6 +1054,13 @@ async def add_rom_manuals(
     try:
         async for chunk in request.stream():
             parser.data_received(chunk)
+
+        db_rom_handler.update_rom(
+            id,
+            {
+                "path_manual": f"{manuals_path}/{rom.id}.pdf",
+            },
+        )
     except ClientDisconnect:
         log.error("Client disconnected during upload")
         cleanup_partial_file()
@@ -1062,17 +1071,6 @@ async def add_rom_manuals(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="There was an error uploading the manual",
         ) from exc
-
-    path_manual = await fs_resource_handler.get_manual(
-        rom=rom, overwrite=False, url_manual=None
-    )
-
-    db_rom_handler.update_rom(
-        id,
-        {
-            "path_manual": path_manual,
-        },
-    )
 
     return Response()
 
