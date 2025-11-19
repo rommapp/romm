@@ -233,31 +233,31 @@ def populate_rom_specific_paths(
     updated_metadata: dict[str, str] = {}
 
     # Set paths for media types that are preferred
-    if MetadataMediaType.BOX3D in preferred_media_types and updated_metadata.get(
+    if MetadataMediaType.BOX3D in preferred_media_types and rom_metadata.get(
         "box3d_url"
     ):
         updated_metadata["box3d_path"] = (
             f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX3D)}/box3d.png"
         )
-    if MetadataMediaType.MARQUEE in preferred_media_types and updated_metadata.get(
+    if MetadataMediaType.MARQUEE in preferred_media_types and rom_metadata.get(
         "marquee_url"
     ):
         updated_metadata["marquee_path"] = (
             f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MARQUEE)}/marquee.png"
         )
-    if MetadataMediaType.MIXIMAGE in preferred_media_types and updated_metadata.get(
+    if MetadataMediaType.MIXIMAGE in preferred_media_types and rom_metadata.get(
         "miximage_url"
     ):
         updated_metadata["miximage_path"] = (
             f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
         )
-    if MetadataMediaType.PHYSICAL in preferred_media_types and updated_metadata.get(
+    if MetadataMediaType.PHYSICAL in preferred_media_types and rom_metadata.get(
         "physical_url"
     ):
         updated_metadata["physical_path"] = (
             f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.PHYSICAL)}/physical.png"
         )
-    if MetadataMediaType.VIDEO in preferred_media_types and updated_metadata.get(
+    if MetadataMediaType.VIDEO in preferred_media_types and rom_metadata.get(
         "video_url"
     ):
         updated_metadata["video_path"] = (
@@ -426,7 +426,7 @@ class GamelistHandler(MetadataHandler):
         # Try to find exact match first
         if fs_name in all_roms_data:
             log.debug(f"Found exact gamelist match for {fs_name}")
-            matched_rom = all_roms_data[fs_name]
+            matched_rom = pydash.clone_deep(all_roms_data[fs_name])
             gamelist_metadata = matched_rom.get("gamelist_metadata")
 
             # Populate ROM-specific paths using the actual rom object
