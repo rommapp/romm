@@ -3,8 +3,9 @@ import { debounce } from "lodash";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
-import { ref, watch } from "vue";
+import { ref, watch, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import type { RomUserStatus } from "@/__generated__";
 import RetroAchievements from "@/components/Details/RetroAchievements.vue";
@@ -16,7 +17,13 @@ import { getTextForStatus, getEmojiForStatus } from "@/utils";
 
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
-const tab = ref<"status" | "ra" | "notes">("status");
+const route = useRoute();
+const router = useRouter();
+
+// Initialize sub-tab from query parameter or default to "status"
+const tab = ref<"status" | "ra" | "notes">(
+  (route.query.subtab as "status" | "ra" | "notes") || "status",
+);
 const auth = storeAuth();
 const theme = useTheme();
 const { mdAndUp, mdAndDown, smAndDown } = useDisplay();
@@ -25,6 +32,41 @@ const editingNote = ref(false);
 const romUser = ref(props.rom.rom_user);
 const publicNotes =
   props.rom.user_notes?.filter((note) => note.user_id !== auth.user?.id) ?? [];
+
+// Watch for sub-tab changes and update URL
+watch(tab, (newSubTab) => {
+  router.push({
+    path: route.path,
+    query: {
+      ...route.query,
+      subtab: newSubTab,
+    },
+  });
+});
+
+// Watch for URL changes and update sub-tab
+watch(
+  () => route.query.subtab,
+  (newSubTab) => {
+    if (
+      newSubTab &&
+      (newSubTab === "status" || newSubTab === "ra" || newSubTab === "notes")
+    ) {
+      tab.value = newSubTab;
+    }
+  },
+);
+
+onMounted(() => {
+  // Ensure sub-tab is set correctly from URL on mount
+  const urlSubTab = route.query.subtab as "status" | "ra" | "notes";
+  if (
+    urlSubTab &&
+    (urlSubTab === "status" || urlSubTab === "ra" || urlSubTab === "notes")
+  ) {
+    tab.value = urlSubTab;
+  }
+});
 
 const statusOptions = [
   "never_playing",

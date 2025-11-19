@@ -3,7 +3,7 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch, defineAsyncComponent } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import ActionBar from "@/components/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Details/AdditionalContent.vue";
@@ -30,6 +30,9 @@ const PdfViewer = defineAsyncComponent(
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
+
+// Initialize tab from query parameter or default to "details"
 const tab = ref<
   | "details"
   | "manual"
@@ -39,7 +42,29 @@ const tab = ref<
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
->("details");
+>(
+  (route.query.tab as string) &&
+    [
+      "details",
+      "manual",
+      "gamedata",
+      "personal",
+      "timetobeat",
+      "additionalcontent",
+      "screenshots",
+      "relatedgames",
+    ].includes(route.query.tab as string)
+    ? (route.query.tab as
+        | "details"
+        | "manual"
+        | "gamedata"
+        | "personal"
+        | "timetobeat"
+        | "additionalcontent"
+        | "screenshots"
+        | "relatedgames")
+    : "details",
+);
 const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
@@ -67,6 +92,30 @@ async function fetchDetails() {
 onBeforeMount(async () => {
   const romId = parseInt(route.params.rom as string);
 
+  // Ensure tab is set correctly from URL on mount
+  const urlTab = route.query.tab as string;
+  const validTabs = [
+    "details",
+    "manual",
+    "gamedata",
+    "personal",
+    "timetobeat",
+    "additionalcontent",
+    "screenshots",
+    "relatedgames",
+  ];
+  if (urlTab && validTabs.includes(urlTab)) {
+    tab.value = urlTab as
+      | "details"
+      | "manual"
+      | "gamedata"
+      | "personal"
+      | "timetobeat"
+      | "additionalcontent"
+      | "screenshots"
+      | "relatedgames";
+  }
+
   // Only fetch details if the currentRom ID differs
   if (currentRom.value?.id !== romId) {
     emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
@@ -86,6 +135,45 @@ onBeforeMount(async () => {
   const downloadStore = storeDownload();
   downloadStore.reset();
 });
+
+// Watch for tab changes and update URL
+watch(tab, (newTab) => {
+  router.push({
+    path: route.path,
+    query: {
+      ...route.query,
+      tab: newTab,
+    },
+  });
+});
+
+// Watch for URL changes and update tab
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    const validTabs = [
+      "details",
+      "manual",
+      "gamedata",
+      "personal",
+      "timetobeat",
+      "additionalcontent",
+      "screenshots",
+      "relatedgames",
+    ];
+    if (newTab && validTabs.includes(newTab as string)) {
+      tab.value = newTab as
+        | "details"
+        | "manual"
+        | "gamedata"
+        | "personal"
+        | "timetobeat"
+        | "additionalcontent"
+        | "screenshots"
+        | "relatedgames";
+    }
+  },
+);
 
 watch(
   () => route.fullPath,
