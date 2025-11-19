@@ -1,133 +1,216 @@
 <template>
   <div class="multi-note-manager">
-    <!-- Add New Note Button -->
-    <div class="d-flex justify-space-between align-center mb-4">
-      <v-btn
-        :disabled="!scopes.includes('roms.user.write')"
-        color="primary"
-        prepend-icon="mdi-plus"
-        @click="showAddNoteDialog = true"
-      >
-        {{ t("rom.add-note") }}
-      </v-btn>
-    </div>
-
-    <!-- Current User Notes -->
-    <div v-if="currentUserNotes.length > 0" class="mb-6">
-      <h3 class="text-h6 mb-3">{{ t("rom.your-notes") }}</h3>
-      <div
-        v-for="note in currentUserNotes"
-        :key="note.title"
-        class="note-card mb-4"
-      >
-        <v-card variant="outlined">
-          <v-card-title class="d-flex justify-space-between align-center">
-            <span>{{ note.title }}</span>
-            <div class="d-flex gap-2">
-              <v-chip
-                :color="note.is_public ? 'success' : 'warning'"
-                size="small"
-                variant="outlined"
-              >
-                {{ note.is_public ? t("rom.public") : t("rom.private") }}
-              </v-chip>
-              <v-btn
-                :disabled="editingNotes[note.title]"
-                icon="mdi-pencil"
-                size="small"
-                variant="text"
-                @click="editNote(note.title)"
-              />
-              <v-btn
-                :disabled="editingNotes[note.title]"
-                color="error"
-                icon="mdi-delete"
-                size="small"
-                variant="text"
-                @click="confirmDeleteNote(note.title)"
-              />
-            </div>
-          </v-card-title>
-          <v-card-text>
-            <MdPreview
-              v-if="!editingNotes[note.title]"
-              :model-value="note.content"
-              :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
-            />
-            <div v-else class="edit-container">
-              <MdEditor
-                v-model="editableNotes[note.title].content"
-                :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
-                class="mb-3"
-                language="en-US"
-              />
-              <v-switch
-                v-model="editableNotes[note.title].is_public"
-                :label="t('rom.make-public')"
-                color="success"
-                density="compact"
-                hide-details
-              />
-              <div class="d-flex gap-2 mt-3">
-                <v-btn
-                  color="primary"
-                  size="small"
-                  @click="saveNote(note.title)"
-                >
-                  {{ t("common.save") }}
-                </v-btn>
-                <v-btn size="small" variant="outlined" @click="cancelAddNote()">
-                  {{ t("common.cancel") }}
-                </v-btn>
-              </div>
-            </div>
-          </v-card-text>
-          <v-card-subtitle v-if="note.updated_at" class="text-caption">
-            {{ t("rom.last-updated") }}:
-            {{ new Date(note.updated_at).toLocaleString() }}
-          </v-card-subtitle>
-        </v-card>
-      </div>
-    </div>
-
-    <!-- Public Notes from Other Users -->
-    <div v-if="otherUsersPublicNotes.length > 0" class="mb-6">
-      <h3 class="text-h6 mb-3">{{ t("rom.community-notes") }}</h3>
-      <div
-        v-for="note in otherUsersPublicNotes"
-        :key="`${note.user_id}-${note.title}`"
-        class="note-card mb-4"
-      >
-        <v-card variant="outlined" class="community-note">
-          <v-card-title class="d-flex justify-space-between align-center">
-            <span>{{ note.title }}</span>
-            <v-chip color="info" size="small" variant="outlined">
-              {{ t("rom.by-user", { username: note.username }) }}
-            </v-chip>
-          </v-card-title>
-          <v-card-text>
-            <MdPreview
-              :model-value="note.content"
-              :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
-            />
-          </v-card-text>
-          <v-card-subtitle v-if="note.updated_at" class="text-caption">
-            {{ t("rom.last-updated") }}:
-            {{ new Date(note.updated_at).toLocaleString() }}
-          </v-card-subtitle>
-        </v-card>
-      </div>
-    </div>
-
-    <!-- Empty State -->
-    <div
-      v-if="currentUserNotes.length === 0 && otherUsersPublicNotes.length === 0"
-      class="text-center py-8"
+    <!-- Current User Notes Section -->
+    <RSection
+      icon="mdi-account"
+      :title="t('rom.my-notes')"
+      elevation="0"
+      title-divider
+      bg-color="bg-surface"
+      class="mt-2"
     >
-      <v-icon color="grey" size="64">mdi-note-text-outline</v-icon>
-      <p class="text-h6 text-grey mt-4 mb-2">{{ t("rom.no-notes") }}</p>
-      <p class="text-body-2 text-grey">{{ t("rom.no-notes-desc") }}</p>
-    </div>
+      <template #toolbar-append>
+        <v-btn
+          :disabled="!scopes.includes('roms.user.write')"
+          color="primary"
+          size="small"
+          prepend-icon="mdi-plus"
+          class="bg-toplayer"
+          @click="showAddNoteDialog = true"
+        >
+          {{ t("rom.add-note") }}
+        </v-btn>
+      </template>
+      <template #content>
+        <div v-if="currentUserNotes.length > 0">
+          <v-expansion-panels multiple flat variant="accordion">
+            <v-expansion-panel
+              v-for="note in currentUserNotes"
+              :key="note.title"
+              rounded="0"
+            >
+              <v-expansion-panel-title class="bg-toplayer">
+                <div class="d-flex justify-space-between align-center w-100">
+                  <span class="text-body-1">{{ note.title }}</span>
+                  <div class="d-flex gap-2 mr-4">
+                    <v-chip
+                      :color="note.is_public ? 'success' : 'warning'"
+                      size="small"
+                      variant="outlined"
+                    >
+                      {{ note.is_public ? t("rom.public") : t("rom.private") }}
+                    </v-chip>
+                    <v-btn-group divided density="compact">
+                      <v-tooltip
+                        location="top"
+                        class="tooltip"
+                        transition="fade-transition"
+                        :text="note.is_public ? 'Make private' : 'Make public'"
+                        open-delay="500"
+                      >
+                        <template #activator="{ props: tooltipProps }">
+                          <v-btn
+                            :disabled="
+                              !scopes.includes('roms.user.write') ||
+                              editingNotes[note.title]
+                            "
+                            v-bind="tooltipProps"
+                            class="bg-toplayer"
+                            @click.stop="toggleNoteVisibility(note.title)"
+                          >
+                            <v-icon size="large">
+                              {{ note.is_public ? "mdi-eye" : "mdi-eye-off" }}
+                            </v-icon>
+                          </v-btn>
+                        </template>
+                      </v-tooltip>
+                      <v-tooltip
+                        location="top"
+                        class="tooltip"
+                        transition="fade-transition"
+                        text="Edit note"
+                        open-delay="500"
+                      >
+                        <template #activator="{ props: tooltipProps }">
+                          <v-btn
+                            :disabled="!scopes.includes('roms.user.write')"
+                            v-bind="tooltipProps"
+                            class="bg-toplayer"
+                            @click.stop="editNote(note.title)"
+                          >
+                            <v-icon size="large">
+                              {{
+                                editingNotes[note.title]
+                                  ? "mdi-check"
+                                  : "mdi-pencil"
+                              }}
+                            </v-icon>
+                          </v-btn>
+                        </template>
+                      </v-tooltip>
+                      <v-tooltip
+                        location="top"
+                        class="tooltip"
+                        transition="fade-transition"
+                        text="Delete note"
+                        open-delay="500"
+                      >
+                        <template #activator="{ props: tooltipProps }">
+                          <v-btn
+                            :disabled="
+                              !scopes.includes('roms.user.write') ||
+                              editingNotes[note.title]
+                            "
+                            v-bind="tooltipProps"
+                            class="bg-toplayer"
+                            @click.stop="confirmDeleteNote(note.title)"
+                          >
+                            <v-icon size="large" color="error"
+                              >mdi-delete</v-icon
+                            >
+                          </v-btn>
+                        </template>
+                      </v-tooltip>
+                    </v-btn-group>
+                  </div>
+                </div>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text class="bg-surface">
+                <MdEditor
+                  v-if="editingNotes[note.title]"
+                  v-model="editableNotes[note.title].content"
+                  no-highlight
+                  no-katex
+                  no-mermaid
+                  no-prettier
+                  no-upload-img
+                  :disabled="!scopes.includes('roms.user.write')"
+                  :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
+                  language="en-US"
+                  :preview="false"
+                />
+                <MdPreview
+                  v-else
+                  no-highlight
+                  no-katex
+                  no-mermaid
+                  :model-value="note.content"
+                  :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
+                  language="en-US"
+                  preview-theme="vuepress"
+                  code-theme="github"
+                  class="py-4 px-6"
+                />
+                <v-card-subtitle
+                  v-if="note.updated_at"
+                  class="text-caption mt-2"
+                >
+                  {{ t("rom.last-updated") }}:
+                  {{ new Date(note.updated_at).toLocaleString() }}
+                </v-card-subtitle>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
+        </div>
+        <div v-else class="text-center py-8">
+          <v-icon color="grey" size="64">mdi-note-text-outline</v-icon>
+          <p class="text-h6 text-grey mt-4 mb-2">{{ t("rom.no-notes") }}</p>
+          <p class="text-body-2 text-grey">{{ t("rom.no-notes-desc") }}</p>
+        </div>
+      </template>
+    </RSection>
+
+    <!-- Public Notes from Other Users Section -->
+    <RSection
+      v-if="otherUsersPublicNotes.length > 0"
+      icon="mdi-account-multiple"
+      :title="t('rom.community-notes')"
+      elevation="0"
+      title-divider
+      bg-color="bg-surface"
+      class="mt-2"
+    >
+      <template #content>
+        <v-expansion-panels multiple flat variant="accordion">
+          <v-expansion-panel
+            v-for="note in otherUsersPublicNotes"
+            :key="`${note.user_id}-${note.title}`"
+            rounded="0"
+          >
+            <v-expansion-panel-title class="bg-toplayer">
+              <div class="d-flex justify-space-between align-center w-100">
+                <span class="text-body-1">{{ note.title }}</span>
+                <v-chip
+                  color="info"
+                  size="small"
+                  variant="outlined"
+                  class="mr-4"
+                >
+                  {{ t("rom.by-user", { username: note.username }) }}
+                </v-chip>
+              </div>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text class="bg-surface">
+              <MdPreview
+                no-highlight
+                no-katex
+                no-mermaid
+                :model-value="note.content"
+                :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
+                language="en-US"
+                preview-theme="vuepress"
+                code-theme="github"
+                class="py-4 px-6"
+              />
+              <v-card-subtitle v-if="note.updated_at" class="text-caption mt-2">
+                {{ t("rom.last-updated") }}:
+                {{ new Date(note.updated_at).toLocaleString() }}
+              </v-card-subtitle>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+      </template>
+    </RSection>
 
     <!-- Add Note Dialog -->
     <v-dialog v-model="showAddNoteDialog" max-width="500">
@@ -189,6 +272,7 @@ import { storeToRefs } from "pinia";
 import { computed, ref, reactive, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
+import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
@@ -416,11 +500,42 @@ watch(
   width: 100%;
 }
 
-.v-expansion-panel-title {
-  padding: 16px 20px;
+.md-editor-dark {
+  --md-bk-color: #161b22 !important;
 }
 
-.v-expansion-panel-text {
-  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+.md-editor,
+.md-preview {
+  line-height: 1.25 !important;
+}
+
+.md-editor-preview {
+  word-break: break-word !important;
+}
+
+.md-editor-preview blockquote {
+  border-left-color: rgba(var(--v-theme-secondary));
+}
+
+.md-editor-preview .md-editor-code-flag {
+  visibility: hidden;
+}
+
+.md-editor-preview .md-editor-admonition {
+  border-color: rgba(var(--v-theme-secondary));
+  background-color: rgba(var(--v-theme-toplayer)) !important;
+}
+
+.md-editor-preview .md-editor-code summary,
+.md-editor-preview .md-editor-code code {
+  background-color: rgba(var(--v-theme-toplayer)) !important;
+}
+
+.vuepress-theme pre code {
+  background-color: #0d1117;
+}
+
+.v-expansion-panel-text__wrapper {
+  padding: 0px !important;
 }
 </style>
