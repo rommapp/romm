@@ -127,27 +127,12 @@ watch(tab, (newTab) => {
   }
 });
 
-// Watch for URL changes and update tab
-// Type guard for valid tab names
-function isValidTab(tab: unknown): tab is (
-  | "details"
-  | "manual"
-  | "gamedata"
-  | "personal"
-  | "timetobeat"
-  | "additionalcontent"
-  | "screenshots"
-  | "relatedgames"
-) {
-  return typeof tab === "string" && validTabs.includes(tab);
-}
-
 watch(
   () => route.query.tab,
   (newTab) => {
-    if (isValidTab(newTab)) {
-      if (tab.value !== newTab) {
-        tab.value = newTab;
+    if (newTab && validTabs.includes(newTab as any)) {
+      if (tab.value !== newTab && typeof newTab === "string") {
+        tab.value = newTab as typeof tab.value;
       }
     }
   },
