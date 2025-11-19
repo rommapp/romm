@@ -53,5 +53,7 @@
   "user-interface": "Interfaz de usuario",
   "virtual-collection": "Colección autogenerada",
   "virtual-collections": "Colecciones autogeneradas",
-  "last-updated": "Última actualización"
+  "last-updated": "Última actualización",
+  "confirm-deletion": "Confirmar eliminación",
+  "delete": "Eliminar"
 }
