@@ -27,7 +27,7 @@ const router = useRouter();
 
 // Initialize tab from query parameter or default to "config"
 const tab = ref<"config" | "missing">(
-  (route.query.tab as "config" | "missing") || "config",
+  route.query.tab === "missing" ? "missing" : "config",
 );
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
@@ -183,6 +183,7 @@ watch(
       tab.value = newTab;
     }
   },
+  { immediate: true },
 );
 
 watch(documentY, () => {
@@ -201,12 +202,6 @@ watch(documentY, () => {
 });
 
 onMounted(() => {
-  // Ensure tab is set correctly from URL on mount
-  const urlTab = route.query.tab as "config" | "missing";
-  if (urlTab && (urlTab === "config" || urlTab === "missing")) {
-    tab.value = urlTab;
-  }
-
   resetMissingRoms();
   // Only fetch ROMs if we're on the missing tab
   if (tab.value === "missing") {

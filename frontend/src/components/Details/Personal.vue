@@ -3,7 +3,7 @@ import { debounce } from "lodash";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
-import { ref, watch, onMounted } from "vue";
+import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
@@ -22,7 +22,11 @@ const router = useRouter();
 
 // Initialize sub-tab from query parameter or default to "status"
 const tab = ref<"status" | "ra" | "notes">(
-  (route.query.subtab as "status" | "ra" | "notes") || "status",
+  route.query.subtab === "status" ||
+    route.query.subtab === "ra" ||
+    route.query.subtab === "notes"
+    ? (route.query.subtab as "status" | "ra" | "notes")
+    : "status",
 );
 const auth = storeAuth();
 const theme = useTheme();
@@ -55,18 +59,8 @@ watch(
       tab.value = newSubTab;
     }
   },
+  { immediate: true },
 );
-
-onMounted(() => {
-  // Ensure sub-tab is set correctly from URL on mount
-  const urlSubTab = route.query.subtab as "status" | "ra" | "notes";
-  if (
-    urlSubTab &&
-    (urlSubTab === "status" || urlSubTab === "ra" || urlSubTab === "notes")
-  ) {
-    tab.value = urlSubTab;
-  }
-});
 
 const statusOptions = [
   "never_playing",
