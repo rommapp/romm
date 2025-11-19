@@ -130,7 +130,7 @@ onBeforeMount(async () => {
 
 // Watch for tab changes and update URL
 watch(tab, (newTab) => {
-  router.push({
+  router.replace({
     path: route.path,
     query: {
       ...route.query,
