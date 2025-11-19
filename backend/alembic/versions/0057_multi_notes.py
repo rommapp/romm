@@ -1,6 +1,6 @@
 """multi_notes_conversion
 
-Revision ID: 5937211f79ee
+Revision ID: 0057_multi_notes
 Revises: 0056_gamelist_xml
 Create Date: 2025-09-29 14:20:28.990148
 
