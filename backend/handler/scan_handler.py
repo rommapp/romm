@@ -447,7 +447,7 @@ async def scan_rom(
             if playmatch_rom["igdb_id"] is not None:
                 log.debug(
                     f"{hl(rom_attrs['fs_name'])} identified by Playmatch as "
-                    f"{hl(str(playmatch_rom["igdb_id"]), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+                    f"{hl(str(playmatch_rom['igdb_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
 
