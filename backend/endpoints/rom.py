@@ -1243,9 +1243,6 @@ async def update_rom_user(
         id, request.user.id
     ) or db_rom_handler.add_rom_user(id, request.user.id)
 
-    if "notes" in rom_user_data:
-        db_rom_user.notes = rom_user_data["notes"]
-
     fields_to_update = [
         "notes",
         "is_main_sibling",
