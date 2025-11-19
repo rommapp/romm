@@ -165,19 +165,13 @@ const { y: documentY } = useScroll(document.body, { throttle: 500 });
 
 // Watch for tab changes and update URL
 watch(tab, (newTab) => {
-  router.push({
+  router.replace({
     path: route.path,
     query: {
       ...route.query,
       tab: newTab,
     },
   });
-
-  // Fetch ROMs when switching to missing tab
-  if (newTab === "missing") {
-    resetMissingRoms();
-    fetchRoms();
-  }
 });
 
 // Watch for URL changes and update tab
