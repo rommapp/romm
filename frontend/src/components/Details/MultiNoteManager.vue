@@ -72,11 +72,6 @@ const newNoteTitleErrors = computed(() => {
   return errors;
 });
 
-// Methods
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString();
-}
-
 function getCurrentUserNotesAsObject(): Record<string, any> {
   // Convert current user's notes from all_user_notes back to object format
   const notesObject: Record<string, any> = {};
