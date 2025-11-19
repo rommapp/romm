@@ -456,7 +456,7 @@ async def _identify_platform(
     platform = db_platform_handler.add_platform(scanned_platform)
 
     # Preparse the platform's gamelist.xml file and cache it
-    meta_gamelist_handler.populate_cache(platform)
+    await meta_gamelist_handler.populate_cache(platform)
 
     await socket_manager.emit(
         "scan:scanning_platform",
