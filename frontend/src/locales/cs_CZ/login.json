@@ -1,0 +1,16 @@
+{
+  "login": "Přihlásit se",
+  "login-oidc": "Přihlásit se pomocí {oidc}",
+  "or": "nebo",
+  "password": "Heslo",
+  "username": "Uživatelské jméno",
+  "forgot-password": "Zapomněli jste heslo?",
+  "send-reset-link": "Odeslat odkaz pro resetování",
+  "reset-sent": "Odkaz pro resetování odeslán. Kontaktujte svého administrátora.",
+  "new-password": "Nové heslo",
+  "confirm-new-password": "Potvrďte nové heslo",
+  "reset-password": "Resetovat heslo",
+  "back-to-login": "Zpět na přihlášení",
+  "setup-wizard": "Průvodce nastavením",
+  "register": "Registrovat se"
+}
