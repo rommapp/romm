@@ -5,7 +5,9 @@ import { useConsoleTheme } from "@/console/composables/useConsoleTheme";
 import { useInputScope } from "@/console/composables/useInputScope";
 import type { InputAction } from "@/console/input/actions";
 import { getSfxEnabled, setSfxEnabled } from "@/console/utils/sfx";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const props = defineProps<{
   modelValue: boolean;
 }>();
@@ -19,12 +21,12 @@ const { subscribe } = useInputScope();
 
 const selectedOption = ref(0);
 const options = [
-  { label: "Theme", type: "theme" as const },
-  { label: "Sound Effects", type: "sfx" as const },
+  { label: t('console.theme'), type: "theme" as const },
+  { label: t('console.sound-effects'), type: "sfx" as const },
 ];
 
 const themeOptions = [
-  { value: "default", label: "Default" },
+  { value: "default", label: t('console.default') },
   { value: "neon", label: "Soft Neon" },
 ];
 
@@ -116,7 +118,7 @@ function getCurrentThemeLabel(): string {
     <template #default>
       <div class="lightbox-header">
         <h2 class="text-h6" :style="{ color: 'var(--console-modal-text)' }">
-          Console Settings
+          {{ t('console.console-settings') }}
         </h2>
         <v-btn
           icon="mdi-close"
@@ -150,7 +152,7 @@ function getCurrentThemeLabel(): string {
                 <div class="sfx-toggle">
                   <span class="sfx-indicator">‹</span>
                   <span class="sfx-status">{{
-                    sfxEnabled ? "Enabled" : "Disabled"
+                    sfxEnabled ? t('console.enabled') : t('console.disabled')
                   }}</span>
                   <span class="sfx-indicator">›</span>
                 </div>

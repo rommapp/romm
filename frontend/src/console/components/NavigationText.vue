@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import ArrowKeysIcon from "./icons/ArrowKeysIcon.vue";
 import DPadIcon from "./icons/DPadIcon.vue";
 import FaceButtons from "./icons/FaceButtons.vue";
+import { useI18n } from "vue-i18n";
 
 interface Props {
   showNavigation?: boolean;
@@ -24,6 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
   isModal: false,
 });
 
+const { t } = useI18n();
 const hasController = ref(false);
 let rafId = 0;
 
@@ -83,54 +85,54 @@ onUnmounted(() => {
     <template v-if="hasController">
       <div v-if="showNavigation" class="flex items-center gap-2">
         <DPadIcon class="w-8 h-8 opacity-80" :modal="isModal" />
-        <span class="font-medium tracking-wide">Navigation</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-navigation') }}</span>
       </div>
       <div v-if="showSelect" class="flex items-center gap-2">
         <FaceButtons highlight="south" :modal="isModal" />
-        <span class="font-medium tracking-wide">Select</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-select') }}</span>
       </div>
       <div v-if="showBack" class="flex items-center gap-2">
         <FaceButtons highlight="east" :modal="isModal" />
-        <span class="font-medium tracking-wide">Back</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-back') }}</span>
       </div>
       <div v-if="showToggleFavorite" class="flex items-center gap-2">
         <FaceButtons highlight="north" :modal="isModal" />
-        <span class="font-medium tracking-wide">Favorite</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-favorite') }}</span>
       </div>
       <div v-if="showMenu" class="flex items-center gap-2">
         <FaceButtons highlight="west" :modal="isModal" />
-        <span class="font-medium tracking-wide">Menu</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-menu') }}</span>
       </div>
       <div v-if="showDelete" class="flex items-center gap-2">
         <FaceButtons highlight="west" :modal="isModal" />
-        <span class="font-medium tracking-wide">Delete</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-delete') }}</span>
       </div>
     </template>
     <!-- Keyboard Mode -->
     <template v-else>
       <div v-if="showNavigation" class="flex items-center gap-2">
         <ArrowKeysIcon :modal="isModal" />
-        <span class="font-medium tracking-wide">Navigation</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-navigation') }}</span>
       </div>
       <div v-if="showSelect" class="flex items-center gap-2">
         <span class="keycap" :style="keycapStyles">Enter</span>
-        <span class="font-medium tracking-wide">Select</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-select') }}</span>
       </div>
       <div v-if="showBack" class="flex items-center gap-2">
         <span class="keycap" :style="keycapStyles">Bkspc</span>
-        <span class="font-medium tracking-wide">Back</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-back') }}</span>
       </div>
       <div v-if="showToggleFavorite" class="flex items-center gap-2">
         <span class="keycap" :style="keycapStyles">F</span>
-        <span class="font-medium tracking-wide">Favorite</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-favorite') }}</span>
       </div>
       <div v-if="showMenu" class="flex items-center gap-2">
         <span class="keycap" :style="keycapStyles">X</span>
-        <span class="font-medium tracking-wide">Menu</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-menu') }}</span>
       </div>
       <div v-if="showDelete" class="flex items-center gap-2">
         <span class="keycap" :style="keycapStyles">X</span>
-        <span class="font-medium tracking-wide">Delete</span>
+        <span class="font-medium tracking-wide">{{ t('console.nav-delete') }}</span>
       </div>
     </template>
   </div>
