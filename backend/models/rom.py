@@ -464,10 +464,6 @@ class RomNote(BaseModel):
     def user__username(self) -> str:
         return self.user.username
 
-    @property
-    def user__username(self) -> str:
-        return self.user.username
-
 
 class RomUser(BaseModel):
     __tablename__ = "rom_user"
