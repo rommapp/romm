@@ -14,6 +14,7 @@ export type ConfigResponse = {
     EXCLUDED_MULTI_PARTS_FILES: Array<string>;
     PLATFORMS_BINDING: Record<string, string>;
     PLATFORMS_VERSIONS: Record<string, string>;
+    SKIP_HASH_CALCULATION: boolean;
     EJS_DEBUG: boolean;
     EJS_CACHE_LIMIT: (number | null);
     EJS_SETTINGS: Record<string, Record<string, string>>;
