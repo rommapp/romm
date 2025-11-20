@@ -1,5 +1,7 @@
 {
   "about": "About",
+  "default": "Default",
+  "language": "Language",
   "add": "Add",
   "administration": "Administration",
   "apply": "Apply",

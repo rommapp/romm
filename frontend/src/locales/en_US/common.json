@@ -14,7 +14,11 @@
   "confirm-deletion": "Confirm Deletion",
   "core": "Core",
   "create": "Create",
+<<<<<<< HEAD
   "delete": "Delete",
+=======
+  "default": "Default",
+>>>>>>> da0735a29 (Add metadata locale selection for IGDB and ScreenScraper)
   "dropzone-description": "Drag and drop your ROM files here, or click to browse",
   "dropzone-drag-over": "Release to upload",
   "dropzone-title": "Drop files here",
@@ -25,7 +29,11 @@
   "games-n": "{n} Game | {n} Games",
   "invalid-email": "Invalid email",
   "invalid-name": "Invalid name",
+<<<<<<< HEAD
   "last-updated": "Last updated",
+=======
+  "language": "Language",
+>>>>>>> da0735a29 (Add metadata locale selection for IGDB and ScreenScraper)
   "library-management": "Library management",
   "logout": "Logout",
   "name": "Name",

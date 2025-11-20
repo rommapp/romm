@@ -15,11 +15,15 @@
   "disabled-by-admin": "Wyłączone przez administratora",
   "hashes": "Przelicz sumy kontrolne",
   "hashes-desc": "Przelicza sumy kontrolne dla wybranych platform",
+<<<<<<< HEAD
   "hashes-disabled-tooltip": "Obliczanie skrótów wyłączone.<br><br>Skróty (MD5, SHA1, CRC32) to unikalne odciski palców, które precyzyjnie identyfikują pliki ROM.<br><br>Bez nich Hasheous i RetroAchievements nie mogą dopasować gier do swoich baz danych, ale skanowanie będzie szybsze.",
   "hashes-enabled-tooltip": "Obliczanie skrótów włączone.<br><br>Zostaną obliczone skróty (MD5, SHA1, CRC32) w celu utworzenia unikalnych odcisków palców każdego pliku ROM.<br><br>To pozwala Hasheous i RetroAchievements na dokładną identyfikację gier w ich bazach danych.",
   "hash-calculation-disabled": "Obliczanie skrótów jest wyłączone",
   "hasheous-requires-hashes": "Hasheous wymaga włączonego obliczania skrótów",
   "retroachievements-requires-hashes": "RetroAchievements wymaga włączonego obliczania skrótów",
+=======
+  "locale-not-supported": "Nieobsługiwane",
+>>>>>>> da0735a29 (Add metadata locale selection for IGDB and ScreenScraper)
   "manage-library": "Zarządzaj biblioteką",
   "metadata-sources": "Źródła metadanych",
   "new-platforms": "Nowe platformy",

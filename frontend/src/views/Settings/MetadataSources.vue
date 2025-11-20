@@ -3,9 +3,56 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import RSection from "@/components/common/RSection.vue";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeConfig from "@/stores/config";
+import configApi from "@/services/api/config";
 
 const { t } = useI18n();
 const heartbeat = storeHeartbeat();
+const configStore = storeConfig();
+
+// Available locales for providers that support them
+const ssLocales = computed(() => [
+  { title: t("common.default"), value: "" },
+  { title: "English", value: "en" },
+  { title: "Français", value: "fr" },
+  { title: "Deutsch", value: "de" },
+  { title: "Español", value: "es" },
+  { title: "Italiano", value: "it" },
+  { title: "Português", value: "pt" },
+]);
+
+// IGDB locales (uses full region codes like ja-JP)
+const igdbLocales = computed(() => [
+  { title: t("common.default"), value: "" },
+  { title: "日本語 (Japanese)", value: "ja-JP" },
+  { title: "한국어 (Korean)", value: "ko-KR" },
+  { title: "简体中文 (Chinese Simplified)", value: "zh-CN" },
+  { title: "繁體中文 (Chinese Traditional)", value: "zh-TW" },
+  { title: "Europe", value: "EU" },
+]);
+
+// Get the current locale for a provider
+function getProviderLocale(provider: string): string {
+  return configStore.config.METADATA_PROVIDER_LOCALES[provider] || "";
+}
+
+// Update locale for a provider
+async function updateProviderLocale(provider: string, locale: string) {
+  const newLocales = { ...configStore.config.METADATA_PROVIDER_LOCALES };
+
+  if (locale) {
+    newLocales[provider] = locale;
+  } else {
+    delete newLocales[provider];
+  }
+
+  try {
+    await configApi.updateProviderLocales({ locales: newLocales });
+    configStore.config.METADATA_PROVIDER_LOCALES = newLocales;
+  } catch (error) {
+    console.error("Error updating provider locale:", error);
+  }
+}
 
 const heartbeatStatus = ref<Record<string, boolean | undefined>>({
   igdb: undefined,
@@ -27,6 +74,8 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/igdb.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
     heartbeat: heartbeatStatus.value.igdb,
+    supportsLocale: true,
+    locales: igdbLocales.value,
   },
   {
     name: "MobyGames",
@@ -34,6 +83,8 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/moby.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
     heartbeat: heartbeatStatus.value.moby,
+    supportsLocale: false,
+    locales: [],
   },
   {
     name: "ScreenScrapper",
@@ -41,6 +92,8 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/ss.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
     heartbeat: heartbeatStatus.value.ss,
+    supportsLocale: true,
+    locales: ssLocales.value,
   },
   {
     name: "RetroAchievements",
@@ -48,6 +101,8 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/ra.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
     heartbeat: heartbeatStatus.value.ra,
+    supportsLocale: false,
+    locales: [],
   },
   {
     name: "Hasheous",
@@ -55,6 +110,8 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/hasheous.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED,
     heartbeat: heartbeatStatus.value.hasheous,
+    supportsLocale: false,
+    locales: [],
   },
   {
     name: "Launchbox",
@@ -62,6 +119,8 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/launchbox.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
     heartbeat: heartbeatStatus.value.launchbox,
+    supportsLocale: false,
+    locales: [],
   },
   {
     name: "Flashpoint Project",
@@ -69,6 +128,8 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/flashpoint.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED,
     heartbeat: heartbeatStatus.value.flashpoint,
+    supportsLocale: false,
+    locales: [],
   },
   {
     name: "HowLongToBeat",
@@ -76,6 +137,8 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/hltb.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.HLTB_API_ENABLED,
     heartbeat: heartbeatStatus.value.hltb,
+    supportsLocale: false,
+    locales: [],
   },
   {
     name: "SteamgridDB",
@@ -83,6 +146,8 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/sgdb.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
     heartbeat: heartbeatStatus.value.sgdb,
+    supportsLocale: false,
+    locales: [],
   },
 ]);
 
@@ -131,6 +196,7 @@ function getConnectionStatusTooltip(source: {
 }
 
 onMounted(() => {
+  configStore.fetchConfig();
   fetchAllHeartbeats();
 });
 </script>
@@ -206,6 +272,33 @@ onMounted(() => {
                   }}
                 </v-icon>
               </v-avatar>
+            </v-row>
+
+            <!-- Locale selector -->
+            <v-row no-gutters class="mt-3">
+              <v-col>
+                <v-select
+                  v-if="source.supportsLocale"
+                  :model-value="getProviderLocale(source.value)"
+                  :items="source.locales"
+                  :label="t('common.language')"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  @update:model-value="
+                    (value: string) => updateProviderLocale(source.value, value)
+                  "
+                />
+                <v-select
+                  v-else
+                  :label="t('common.language')"
+                  :placeholder="t('scan.locale-not-supported')"
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  disabled
+                />
+              </v-col>
             </v-row>
           </v-card>
         </v-col>

@@ -39,8 +39,20 @@ def get_preferred_regions() -> list[str]:
 
 
 def get_preferred_languages() -> list[str]:
-    """Get preferred languages from config"""
+    """Get preferred languages from config
+
+    Uses provider-specific locale if set, otherwise falls back to language priority list.
+    Always includes English as final fallback.
+    """
     config = cm.get_config()
+
+    # Check for provider-specific locale first
+    provider_locale = config.METADATA_PROVIDER_LOCALES.get("ss")
+    if provider_locale:
+        # Use provider locale with English fallback
+        return list(dict.fromkeys([provider_locale, "en"]))
+
+    # Fall back to language priority list
     return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY + ["en", "fr"]))
 
 
@@ -393,7 +405,9 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
             break
 
     res_summary = ""
-    for lang in get_preferred_languages():
+    preferred_languages = get_preferred_languages()
+    used_lang = None
+    for lang in preferred_languages:
         res_summary = next(
             (
                 synopsis["text"]
@@ -403,7 +417,12 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
             "",
         )
         if res_summary:
+            used_lang = lang
             break
+
+    # Log warning if we had to fall back from the preferred locale
+    if preferred_languages and used_lang and used_lang != preferred_languages[0]:
+        log.warning(f"ScreenScraper locale '{preferred_languages[0]}' not found for '{res_name}', using '{used_lang}'")
 
     url_cover = ss_metadata["box2d_url"]
     url_manual = (

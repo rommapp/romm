@@ -14,12 +14,17 @@
   "connection-successful": "Verbindung erfolgreich",
   "disabled-by-admin": "Vom Administrator deaktiviert",
   "hashes": "Hashes neu berechnen",
+<<<<<<< HEAD
   "hashes-desc": "Berechnet Hashes für ausgewählte Plattformen neu",
   "hashes-disabled-tooltip": "Hash-Berechnung deaktiviert.<br><br>Hashes (MD5, SHA1, CRC32) sind eindeutige Fingerabdrücke, die ROM-Dateien präzise identifizieren.<br><br>Ohne sie können Hasheous und RetroAchievements Spiele nicht mit ihren Datenbanken abgleichen, aber das Scannen wird schneller.",
   "hashes-enabled-tooltip": "Hash-Berechnung aktiviert.<br><br>Hashes (MD5, SHA1, CRC32) werden berechnet, um eindeutige Fingerabdrücke für jede ROM-Datei zu erstellen.<br><br>Dies ermöglicht es Hasheous und RetroAchievements, Spiele in ihren Datenbanken genau zu identifizieren.",
   "hash-calculation-disabled": "Hash-Berechnung ist deaktiviert",
   "hasheous-requires-hashes": "Hasheous erfordert aktivierte Hash-Berechnung",
   "retroachievements-requires-hashes": "RetroAchievements erfordert aktivierte Hash-Berechnung",
+=======
+  "hashes-desc": "Berechne Hashes für ausgewählte Plattformen neu",
+  "locale-not-supported": "Nicht unterstützt",
+>>>>>>> da0735a29 (Add metadata locale selection for IGDB and ScreenScraper)
   "manage-library": "Bibliothek verwalten",
   "metadata-sources": "Quellen für Metadaten",
   "new-platforms": "Neue Platformen",

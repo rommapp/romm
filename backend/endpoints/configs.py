@@ -43,6 +43,7 @@ def get_config() -> ConfigResponse:
         SCAN_ARTWORK_PRIORITY=cfg.SCAN_ARTWORK_PRIORITY,
         SCAN_REGION_PRIORITY=cfg.SCAN_REGION_PRIORITY,
         SCAN_LANGUAGE_PRIORITY=cfg.SCAN_LANGUAGE_PRIORITY,
+        METADATA_PROVIDER_LOCALES=cfg.METADATA_PROVIDER_LOCALES,
     )
 
 
@@ -134,6 +135,22 @@ async def delete_exclusion(
 
     try:
         cm.remove_exclusion(exclusion_type, exclusion_value)
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
+
+
+@protected_route(router.put, "/provider-locales", [Scope.PLATFORMS_WRITE])
+async def update_provider_locales(request: Request) -> None:
+    """Update metadata provider locales in the configuration"""
+
+    data = await request.json()
+    locales = data.get("locales", {})
+
+    try:
+        cm.update_provider_locales(locales)
     except ConfigNotWritableException as exc:
         log.critical(exc.message)
         raise HTTPException(
