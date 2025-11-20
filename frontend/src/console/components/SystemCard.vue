@@ -5,7 +5,9 @@ import { systemElementRegistry } from "@/console/composables/useElementRegistry"
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
 import { getPlatformTheme } from "@/console/constants/platforms";
 import type { Platform } from "@/stores/platforms";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const props = defineProps<{
   platform: Platform;
   index: number;
@@ -88,7 +90,7 @@ const theme = computed(() => {
         class="text-sm text-center font-medium"
         :style="{ color: 'var(--console-system-card-text)' }"
       >
-        {{ platform.rom_count || 0 }} games
+        {{ t("console.games-n", platform.rom_count || 0) }}
       </div>
     </div>
   </button>

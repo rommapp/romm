@@ -19,7 +19,9 @@ import {
   getFavoriteCoverImage,
   EXTENSION_REGEX,
 } from "@/utils/covers";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const props = defineProps<{
   collection: CollectionType;
   index: number;
@@ -229,7 +231,7 @@ onMounted(() => {
             class="text-xs opacity-90"
             :style="{ color: 'var(--console-collection-card-text)' }"
           >
-            {{ collection.rom_count || 0 }} games
+            {{ t("console.games-n", collection.rom_count || 0) }}
           </div>
         </div>
       </div>
