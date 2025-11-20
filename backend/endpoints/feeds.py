@@ -513,6 +513,7 @@ def fpkgi_feed(request: Request, platform_slug: str) -> Response:
         response_data[download_url] = FPKGiFeedItemSchema(
             name=rom.name or rom.fs_name,
             size=rom.fs_size_bytes,
+            title_id=f"ROMM{str(rom.id)[-5:].zfill(5)}",
             region=rom.regions[0] if rom.regions else None,
             version=rom.revision or None,
             release=_format_release_date(rom.metadatum.first_release_date),
