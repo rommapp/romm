@@ -33,6 +33,8 @@
   "roms-scanned-with-details": "롬: {n_scanned_roms}/{n_total_roms}개 스캔됨, 새로운 롬: {n_new_roms}개, 확인된 롬: {n_identified_roms}개",
   "scan": "스캔",
   "scan-options": "스캔 옵션",
+  "scan-types-info": "<strong>새 플랫폼:</strong> RomM에 아직 없는 플랫폼만 찾습니다.<br><br><strong>빠른 스캔:</strong> 아직 라이브러리에 없는 게임을 스캔합니다 (가장 빠름).<br><br><strong>일치하지 않는 게임:</strong> 선택한 메타데이터 소스와 일치하지 않는 게임을 일치시키려고 시도합니다.<br>예를 들어, IGDB와 ScreenScraper를 선택하면 IGDB나 ScreenScraper와 일치하지 않는 게임을 스캔합니다.<br><br><strong>메타데이터 업데이트:</strong> 외부 ID (예: IGDB ID)를 사용하여 선택한 메타데이터 소스와 일치한 게임의 메타데이터를 업데이트합니다.<br>예를 들어, IGDB와 ScreenScraper를 선택하면 IGDB나 ScreenScraper와 일치한 게임의 메타데이터를 업데이트하고, igdb_id 및/또는 ssfr_id를 사용하여 해당 제공자로부터 메타데이터를 다시 가져옵니다.<br><br><strong>해시 재계산:</strong> 선택한 플랫폼의 모든 파일에 대해 해시를 재계산합니다.<br><br><strong>전체 재스캔:</strong> 선택한 플랫폼의 모든 게임을 재스캔하고 재매칭합니다 (가장 느림).<br>이는 외부 ID를 포함한 모든 기존 메타데이터 일치를 지우고, 새로운 스캔처럼 다시 일치시키려고 시도합니다. 저장, 상태 및 메모는 보존됩니다.",
+  "scan-types-more-info": "더 많은 정보",
   "select-one-source": "표지와 메타데이터로 라이브러리를 꾸미고 싶으시면 메타데이터 DB를 하나 이상 선택해주세요",
   "unmatched-games": "일치하지 않는 게임",
   "unmatched-games-desc": "메타데이터 일치가 부족한 게임 스캔",

@@ -384,18 +384,31 @@ async function stopScan() {
               <v-list-item v-bind="props" :subtitle="item.raw.subtitle" />
             </template>
             <template #append-inner>
-              <a
-                href="https://docs.romm.app/latest/Usage/LibraryManagement/#scan"
-                target="_blank"
-              >
-                <v-icon
-                  @click.stop
-                  icon="mdi-information-outline"
-                  size="small"
-                  class="ml-2"
-                  title="See documentation"
-                />
-              </a>
+              <v-menu open-on-hover location="bottom start">
+                <template #activator="{ props }">
+                  <v-icon
+                    v-bind="props"
+                    @click.stop
+                    icon="mdi-information-outline"
+                    size="small"
+                    class="ml-2"
+                  />
+                </template>
+                <v-card max-width="600">
+                  <v-card-text>
+                    <div v-html="t('scan.scan-types-info')"></div>
+                    <div class="mt-3 text-right">
+                      <a
+                        href="https://docs.romm.app/latest/Usage/LibraryManagement/#scan"
+                        target="_blank"
+                        style="font-style: italic; text-decoration: underline"
+                      >
+                        {{ t("scan.scan-types-more-info") }}
+                      </a>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-menu>
             </template>
           </v-select>
         </v-col>
