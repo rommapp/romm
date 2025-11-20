@@ -1,5 +1,9 @@
 import type { AxiosProgressEvent } from "axios";
-import type { BulkOperationResponse, RomUserSchema } from "@/__generated__";
+import type {
+  BulkOperationResponse,
+  RomUserSchema,
+  UserNoteSchema,
+} from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
 import socket from "@/services/socket";
@@ -422,7 +426,7 @@ async function createRomNote({
     is_public?: boolean;
     tags?: string[];
   };
-}): Promise<{ data: any }> {
+}): Promise<{ data: UserNoteSchema }> {
   return api.post(`/roms/${romId}/notes`, noteData);
 }
 
@@ -439,7 +443,7 @@ async function updateRomNote({
     is_public?: boolean;
     tags?: string[];
   };
-}): Promise<{ data: any }> {
+}): Promise<{ data: UserNoteSchema }> {
   return api.put(`/roms/${romId}/notes/${noteId}`, noteData);
 }
 
@@ -449,7 +453,7 @@ async function deleteRomNote({
 }: {
   romId: number;
   noteId: number;
-}): Promise<{ data: any }> {
+}): Promise<{ data: UserNoteSchema }> {
   return api.delete(`/roms/${romId}/notes/${noteId}`);
 }
 
@@ -463,7 +467,7 @@ async function getRomNotes({
   publicOnly?: boolean;
   search?: string;
   tags?: string[];
-}): Promise<{ data: any[] }> {
+}): Promise<{ data: UserNoteSchema[] }> {
   return api.get(`/roms/${romId}/notes`, {
     params: {
       public_only: publicOnly,
