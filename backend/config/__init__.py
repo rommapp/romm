@@ -42,7 +42,7 @@ FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
 
 # DATABASE
-DB_HOST: Final[str] = _get_env("DB_HOST", "127.0.0.1")
+DB_HOST: Final[str | None] = _get_env("DB_HOST")
 DB_PORT: Final[int] = safe_int(_get_env("DB_PORT"), 3306)
 DB_USER: Final[str | None] = _get_env("DB_USER")
 DB_PASSWD: Final[str | None] = _get_env("DB_PASSWD")
