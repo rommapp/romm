@@ -26,13 +26,18 @@ SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
 
 class UserNoteSchema(BaseModel):
+    id: int
     title: str
     content: str
     is_public: bool
+    tags: list[str] | None = None
     created_at: datetime
     updated_at: datetime
     user_id: int
     username: str
+
+    class Config:
+        from_attributes = True
 
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
@@ -91,7 +96,6 @@ def rom_user_schema_factory() -> RomUserSchema:
         created_at=now,
         updated_at=now,
         last_played=None,
-        notes={},
         is_main_sibling=False,
         backlogged=False,
         now_playing=False,
@@ -111,7 +115,6 @@ class RomUserSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
     last_played: datetime | None
-    notes: dict[str, Any]
     is_main_sibling: bool
     backlogged: bool
     now_playing: bool
@@ -385,57 +388,26 @@ class DetailedRomSchema(RomSchema):
             user_id, db_rom.collections
         )
 
-        # Collect all notes: current user's notes + public notes from other users
+        # Load notes separately using the database handler to avoid lazy loading issues
+        from handler.database import db_rom_handler
+
+        notes = db_rom_handler.get_rom_notes(rom_id=db_rom.id, user_id=user_id)
+
+        # Convert notes to schema format
         all_notes = []
-        for rom_user in db_rom.rom_users:
-            if rom_user.notes:
-                if rom_user.user_id == user_id:
-                    # Include all notes from current user (private + public)
-                    for title, note_data in rom_user.notes.items():
-                        all_notes.append(
-                            UserNoteSchema(
-                                title=title,
-                                content=note_data.get("content", ""),
-                                is_public=note_data.get("is_public", False),
-                                created_at=datetime.fromisoformat(
-                                    note_data.get(
-                                        "created_at", rom_user.created_at.isoformat()
-                                    )
-                                ),
-                                updated_at=datetime.fromisoformat(
-                                    note_data.get(
-                                        "updated_at", rom_user.updated_at.isoformat()
-                                    )
-                                ),
-                                user_id=rom_user.user_id,
-                                username=rom_user.user__username,
-                            )
-                        )
-                else:
-                    # Include only public notes from other users
-                    for title, note_data in rom_user.notes.items():
-                        if note_data.get("is_public", False):
-                            all_notes.append(
-                                UserNoteSchema(
-                                    title=title,
-                                    content=note_data.get("content", ""),
-                                    is_public=True,
-                                    created_at=datetime.fromisoformat(
-                                        note_data.get(
-                                            "created_at",
-                                            rom_user.created_at.isoformat(),
-                                        )
-                                    ),
-                                    updated_at=datetime.fromisoformat(
-                                        note_data.get(
-                                            "updated_at",
-                                            rom_user.updated_at.isoformat(),
-                                        )
-                                    ),
-                                    user_id=rom_user.user_id,
-                                    username=rom_user.user__username,
-                                )
-                            )
+        for note in notes:
+            note_dict = {
+                "id": note.id,
+                "title": note.title,
+                "content": note.content,
+                "is_public": note.is_public,
+                "tags": note.tags,
+                "created_at": note.created_at,
+                "updated_at": note.updated_at,
+                "user_id": note.user_id,
+                "username": note.user.username,
+            }
+            all_notes.append(UserNoteSchema.model_validate(note_dict))
 
         # Sort notes by updated_at (most recent first)
         all_notes.sort(key=lambda x: x.updated_at, reverse=True)

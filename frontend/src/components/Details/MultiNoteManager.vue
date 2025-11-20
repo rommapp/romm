@@ -72,39 +72,22 @@ const newNoteTitleErrors = computed(() => {
   return errors;
 });
 
-function getCurrentUserNotesAsObject(): Record<string, any> {
-  // Convert current user's notes from all_user_notes back to object format
-  const notesObject: Record<string, any> = {};
-  currentUserNotes.value.forEach((note: any) => {
-    notesObject[note.title] = {
-      content: note.content,
-      is_public: note.is_public,
-      created_at: note.created_at,
-      updated_at: note.updated_at,
-    };
-  });
-  return notesObject;
-}
-
 async function addNewNote() {
   if (!newNoteTitle.value.trim() || newNoteTitleErrors.value.length > 0) return;
 
   try {
-    const currentUserNotesObject = getCurrentUserNotesAsObject();
-    const updatedNotes = { ...currentUserNotesObject };
-    updatedNotes[newNoteTitle.value.trim()] = {
-      content: "",
-      is_public: newNoteIsPublic.value,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    await romApi.updateUserRomProps({
+    await romApi.createRomNote({
       romId: props.rom.id,
-      data: { notes: updatedNotes },
+      noteData: {
+        title: newNoteTitle.value.trim(),
+        content: "",
+        is_public: newNoteIsPublic.value,
+        tags: [],
+        metadata: {},
+      },
     });
 
-    // Emit event to trigger ROM refetch (to get updated all_user_notes)
+    // Emit event to trigger ROM refetch
     emit("notesUpdated");
     cancelAddNote();
   } catch (error) {
@@ -142,19 +125,16 @@ function editNote(title: string) {
 
 async function saveNote(title: string) {
   try {
-    const updatedNotes = { ...(props.rom.rom_user?.notes || {}) };
-    if (updatedNotes[title]) {
-      updatedNotes[title] = {
-        ...updatedNotes[title],
+    const note = currentUserNotes.value.find((n) => n.title === title);
+    if (!note) return;
+
+    await romApi.updateRomNote({
+      romId: props.rom.id,
+      noteId: note.id,
+      noteData: {
         content: editableNotes[title].content,
         is_public: editableNotes[title].is_public,
-        updated_at: new Date().toISOString(),
-      };
-    }
-
-    await romApi.updateUserRomProps({
-      romId: props.rom.id,
-      data: { notes: updatedNotes },
+      },
     });
 
     editingNotes[title] = false;
@@ -166,18 +146,15 @@ async function saveNote(title: string) {
 
 async function toggleNoteVisibility(title: string) {
   try {
-    const updatedNotes = { ...getCurrentUserNotesAsObject() };
-    if (updatedNotes[title]) {
-      updatedNotes[title] = {
-        ...updatedNotes[title],
-        is_public: !updatedNotes[title].is_public,
-        updated_at: new Date().toISOString(),
-      };
-    }
+    const note = currentUserNotes.value.find((n) => n.title === title);
+    if (!note) return;
 
-    await romApi.updateUserRomProps({
+    await romApi.updateRomNote({
       romId: props.rom.id,
-      data: { notes: updatedNotes },
+      noteId: note.id,
+      noteData: {
+        is_public: !note.is_public,
+      },
     });
 
     emit("notesUpdated");
@@ -193,12 +170,14 @@ function confirmDeleteNote(title: string) {
 
 async function deleteNote() {
   try {
-    const updatedNotes = { ...(props.rom.rom_user?.notes || {}) };
-    delete updatedNotes[noteToDelete.value];
+    const note = currentUserNotes.value.find(
+      (n) => n.title === noteToDelete.value,
+    );
+    if (!note) return;
 
-    await romApi.updateUserRomProps({
+    await romApi.deleteRomNote({
       romId: props.rom.id,
-      data: { notes: updatedNotes },
+      noteId: note.id,
     });
 
     emit("notesUpdated");
@@ -214,11 +193,12 @@ async function deleteNote() {
 
 // Watch for prop changes to update local state
 watch(
-  () => props.rom.rom_user?.notes,
+  () => props.rom.all_user_notes,
   (newNotes) => {
     // Clean up editing states for notes that no longer exist
+    const currentTitles = new Set(currentUserNotes.value.map((n) => n.title));
     Object.keys(editingNotes).forEach((title) => {
-      if (!newNotes || !newNotes[title]) {
+      if (!currentTitles.has(title)) {
         delete editingNotes[title];
         delete editableNotes[title];
       }

@@ -92,9 +92,9 @@ const HEADERS = [
 const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 
 function hasNotes(item: SimpleRom): boolean {
-  if (!romsStore.isSimpleRom(item)) return false;
-  const notes = item.rom_user?.notes;
-  return notes && Object.keys(notes).length > 0;
+  // TODO: Add note count to SimpleRom or check all_user_notes
+  // For now, return false until we implement proper note counting
+  return false;
 }
 
 function showNoteDialog(event: MouseEvent | KeyboardEvent, item: SimpleRom) {
