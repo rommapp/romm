@@ -438,7 +438,7 @@ class FSRomsHandler(FSHandler):
                 # Check if this is a top-level file (not in a subdirectory)
                 is_top_level = f_path.samefile(Path(abs_fs_path, rom.fs_name))
 
-                if hashable_platform and calculate_hashes:
+                if hashable_platform:
                     try:
                         if is_top_level:
                             # Include this file in the main ROM hash calculation
