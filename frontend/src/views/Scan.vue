@@ -10,19 +10,20 @@ import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { ROUTES } from "@/plugins/router";
 import socket from "@/services/socket";
+import storeConfig from "@/stores/config";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
-const LOCAL_STORAGE_CALCULATE_HASHES_KEY = "scan.calculateHashes";
-
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<number[]>([]);
 const panels = ref<number[]>([]);
@@ -36,9 +37,8 @@ const sortedPlatforms = computed(() => {
     a.display_name.localeCompare(b.display_name),
   );
 });
-const calculateHashes = useLocalStorage(
-  LOCAL_STORAGE_CALCULATE_HASHES_KEY,
-  true,
+const calculateHashes = computed(
+  () => !config.value.SKIP_HASH_CALCULATION || false,
 );
 const metadataOptions = computed(() => {
   return heartbeat.getMetadataOptionsByPriority().map((option) => ({
@@ -64,16 +64,6 @@ const metadataSources = ref<MetadataOption[]>(
     (m) => storedMetadataSources.value.includes(m.value) && !m.disabled,
   ) || heartbeat.getEnabledMetadataOptions(),
 );
-
-// Watch for changes in calculateHashes to remove hash-dependent sources
-watch(calculateHashes, (newValue) => {
-  if (!newValue) {
-    // Remove Hasheous and RetroAchievements when hashes are disabled
-    metadataSources.value = metadataSources.value.filter(
-      (source) => source.value !== "hasheous" && source.value !== "ra",
-    );
-  }
-});
 
 watch(metadataOptions, (newOptions) => {
   // Remove any sources that are now disabled
@@ -140,7 +130,6 @@ async function scan() {
     platforms: platformsToScan.value,
     type: scanType.value,
     apis: metadataSources.value.map((s) => s.value),
-    calculate_hashes: calculateHashes.value,
   });
 }
 
@@ -420,49 +409,6 @@ async function stopScan() {
         :class="{ 'justify-center': smAndDown }"
         no-gutters
       >
-        <div class="d-flex align-center">
-          <v-btn
-            height="40"
-            class="ma-1"
-            @click="calculateHashes = !calculateHashes"
-          >
-            <template #prepend>
-              <v-icon
-                size="x-large"
-                :color="calculateHashes ? 'primary' : ''"
-                :icon="
-                  calculateHashes
-                    ? 'mdi-toggle-switch'
-                    : 'mdi-toggle-switch-off'
-                "
-              />
-            </template>
-            <template #append>
-              <v-menu open-on-hover location="bottom start">
-                <template #activator="{ props }">
-                  <v-icon
-                    v-bind="props"
-                    icon="mdi-information-outline"
-                    size="small"
-                    class="ml-2"
-                  />
-                </template>
-                <v-card max-width="400">
-                  <v-card-text>
-                    <div
-                      v-html="
-                        calculateHashes
-                          ? t('scan.hashes-enabled-tooltip')
-                          : t('scan.hashes-disabled-tooltip')
-                      "
-                    ></div>
-                  </v-card-text>
-                </v-card>
-              </v-menu>
-            </template>
-            {{ t("scan.calculate-hashes") }}
-          </v-btn>
-        </div>
         <v-btn
           :disabled="scanning"
           :loading="scanning"
@@ -507,16 +453,51 @@ async function stopScan() {
         >
           {{ t("scan.manage-library") }}
         </v-btn>
-        <v-alert
-          v-if="metadataSources.length == 0"
-          type="warning"
-          icon="mdi-alert"
-          variant="tonal"
-          class="my-1 mx-4"
-          density="compact"
-        >
-          <span>{{ t("scan.select-one-source") }}</span>
-        </v-alert>
+        <div class="d-flex align-center">
+          <v-alert
+            v-if="metadataSources.length == 0"
+            type="warning"
+            icon="mdi-alert"
+            variant="tonal"
+            class="ma-1"
+            density="compact"
+          >
+            <span>{{ t("scan.select-one-source") }}</span>
+          </v-alert>
+        </div>
+        <div class="d-flex align-center">
+          <v-alert
+            v-if="!calculateHashes"
+            type="warning"
+            icon="mdi-alert"
+            variant="tonal"
+            class="ma-1"
+            density="compact"
+          >
+            <span>Hash calculation is disabled</span>
+            <v-menu open-on-hover location="bottom start">
+              <template #activator="{ props }">
+                <v-icon
+                  v-bind="props"
+                  icon="mdi-information-outline"
+                  size="small"
+                  class="ml-2"
+                />
+              </template>
+              <v-card max-width="400">
+                <v-card-text>
+                  <div
+                    v-html="
+                      calculateHashes
+                        ? t('scan.hashes-enabled-tooltip')
+                        : t('scan.hashes-disabled-tooltip')
+                    "
+                  ></div>
+                </v-card-text>
+              </v-card>
+            </v-menu>
+          </v-alert>
+        </div>
       </v-row>
       <v-divider
         class="border-opacity-100 mt-2"

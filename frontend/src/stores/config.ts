@@ -22,6 +22,7 @@ const defaultConfig = {
   EXCLUDED_MULTI_PARTS_FILES: [],
   PLATFORMS_BINDING: {},
   PLATFORMS_VERSIONS: {},
+  SKIP_HASH_CALCULATION: false,
   EJS_DEBUG: false,
   EJS_CACHE_LIMIT: null,
   EJS_SETTINGS: {},
