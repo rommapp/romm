@@ -474,7 +474,7 @@ async function stopScan() {
             class="ma-1"
             density="compact"
           >
-            <span>Hash calculation is disabled</span>
+            <span>{{ t("scan.hash-calculation-disabled") }}</span>
             <v-menu open-on-hover location="bottom start">
               <template #activator="{ props }">
                 <v-icon

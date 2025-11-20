@@ -17,6 +17,7 @@
   "hashes-desc": "Recalcula los hashes de las plataformas seleccionadas",
   "hashes-disabled-tooltip": "Cálculo de hash deshabilitado.<br><br>Los hashes (MD5, SHA1, CRC32) son huellas digitales únicas que identifican archivos ROM con precisión.<br><br>Sin ellos, Hasheous y RetroAchievements no pueden comparar juegos con sus bases de datos, pero el escaneo será más rápido.",
   "hashes-enabled-tooltip": "Cálculo de hash habilitado.<br><br>Se calcularán hashes (MD5, SHA1, CRC32) para crear huellas digitales únicas de cada archivo ROM.<br><br>Esto permite a Hasheous y RetroAchievements identificar juegos con precisión en sus bases de datos.",
+  "hash-calculation-disabled": "El cálculo de hash está deshabilitado",
   "hasheous-requires-hashes": "Hasheous requiere que el cálculo de hashes esté habilitado",
   "retroachievements-requires-hashes": "RetroAchievements requiere que el cálculo de hashes esté habilitado",
   "manage-library": "Gestionar biblioteca",
