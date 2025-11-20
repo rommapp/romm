@@ -15,6 +15,8 @@
   "disabled-by-admin": "Désactivé par l'administrateur",
   "hashes": "Recalculer les hachages",
   "hashes-desc": "Recalculer les hachages des plateformes sélectionnées",
+  "hashes-disabled-tooltip": "Les hachages de fichiers seront ignorés pour un scan plus rapide",
+  "hashes-enabled-tooltip": "Les hachages de fichiers seront calculés pendant le scan",
   "manage-library": "Gérer la bibliothèque",
   "metadata-sources": "Sources de métadonnées",
   "new-platforms": "Nouvelles plateformes",

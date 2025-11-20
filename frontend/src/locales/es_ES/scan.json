@@ -15,6 +15,8 @@
   "disabled-by-admin": "Deshabilitado por el administrador",
   "hashes": "Recalcular hashes",
   "hashes-desc": "Recalcula los hashes de las plataformas seleccionadas",
+  "hashes-disabled-tooltip": "Los hashes de archivo se omitirán para un escaneo más rápido",
+  "hashes-enabled-tooltip": "Los hashes de archivo se calcularán durante el escaneo",
   "manage-library": "Gestionar biblioteca",
   "metadata-sources": "Fuentes de metadatos",
   "new-platforms": "Plataformas nuevas",
