@@ -41,19 +41,26 @@ const calculateHashes = computed(
   () => !config.value.SKIP_HASH_CALCULATION || false,
 );
 const metadataOptions = computed(() => {
-  return heartbeat.getMetadataOptionsByPriority().map((option) => ({
-    ...option,
-    disabled:
-      option.disabled ||
-      (!calculateHashes.value &&
-        (option.value === "hasheous" || option.value === "ra"))
-        ? option.value === "hasheous"
-          ? t("scan.hasheous-requires-hashes")
-          : option.value === "ra"
-            ? t("scan.retroachievements-requires-hashes")
-            : option.disabled
-        : option.disabled,
-  }));
+  return heartbeat.getMetadataOptionsByPriority().map((option) => {
+    // Check if option requires hashes but hash calculation is disabled
+    const requiresHashes = option.value === "hasheous" || option.value === "ra";
+    const hashingDisabled = !calculateHashes.value;
+
+    let disabled = option.disabled;
+
+    if (hashingDisabled && requiresHashes) {
+      if (option.value === "hasheous") {
+        disabled = t("scan.hasheous-requires-hashes");
+      } else if (option.value === "ra") {
+        disabled = t("scan.retroachievements-requires-hashes");
+      }
+    }
+
+    return {
+      ...option,
+      disabled,
+    };
+  });
 });
 const storedMetadataSources = useLocalStorage(
   LOCAL_STORAGE_METADATA_SOURCES_KEY,
