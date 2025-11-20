@@ -19,7 +19,9 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
   initialSaveId: useLocalStorage(
     `player:${romId}:initial_save_id`,
@@ -61,13 +63,13 @@ const loaderStatus = ref<
 let pausedByPrompt = false;
 
 const exitOptions = [
-  { id: "save", label: "Save & Exit", desc: "Save current state, then quit" },
+  { id: "save", label: t('console.game-exit-save'), desc: t('console.game-exit-save-desc') },
   {
     id: "nosave",
-    label: "Exit Without Saving",
-    desc: "Leave immediately, progress since last save state is lost",
+    label: t('console.game-exit-nosave'),
+    desc: t('console.game-exit-nosave-desc'),
   },
-  { id: "cancel", label: "Cancel", desc: "Return to the game" },
+  { id: "cancel", label: t('console.game-exit-cancel'), desc: t('console.game-exit-cancel-desc') },
 ];
 
 const { subscribe } = useInputScope();
@@ -693,13 +695,13 @@ onBeforeUnmount(() => {
         <template
           v-if="loaderStatus === 'idle' || loaderStatus === 'loading-local'"
         >
-          Loading emulator…
+          {{ t("console.emulator-loading") }}
         </template>
         <template v-else-if="loaderStatus === 'loading-cdn'">
-          Loading emulator (CDN)…
+          {{ t("console.emulator-cdn") }}
         </template>
         <template v-else-if="loaderStatus === 'failed'">
-          <div class="text-red-300 font-medium">Failed to load emulator</div>
+          <div class="text-red-300 font-medium">{{ t("console.emulator-failed") }}</div>
           <div class="mt-1 text-[11px] max-w-xs leading-snug break-words">
             {{ loaderError }}
           </div>
@@ -715,7 +717,7 @@ onBeforeUnmount(() => {
       }"
       class="absolute top-3 left-1/2 -translate-x-1/2 backdrop-blur px-3 py-1 rounded text-xs border"
     >
-      Press Start + Select (or Backspace) to exit
+      {{ t("console.exit-game") }}
     </div>
 
     <!-- Exit Prompt Modal -->
@@ -737,7 +739,7 @@ onBeforeUnmount(() => {
             :style="{ color: 'var(--console-modal-text)' }"
             class="text-xl font-bold tracking-wide drop-shadow"
           >
-            Exit Game
+            {{ t('console.game-exit') }}
           </h2>
           <button
             :disabled="savingState"
@@ -794,7 +796,7 @@ onBeforeUnmount(() => {
                     :style="{ color: 'var(--console-play-save-status-text)' }"
                     class="ml-2 text-[10px] font-medium tracking-wide animate-pulse"
                   >
-                    SAVING…
+                    {{ t("console.game-saving") }}
                   </span>
                 </div>
                 <div

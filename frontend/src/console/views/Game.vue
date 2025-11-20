@@ -660,7 +660,7 @@ onUnmounted(() => {
                     class="text-[10px] uppercase tracking-wider font-semibold mb-2"
                     :style="{ color: 'var(--console-game-section-header)' }"
                   >
-                    SAVE STATES
+                    {{ t('console.save-states') }}
                   </h3>
                   <div
                     ref="save-states-ref"
@@ -734,7 +734,7 @@ onUnmounted(() => {
                 class="text-xs md:text-sm font-semibold uppercase tracking-wide"
                 :style="{ color: 'var(--console-game-section-header)' }"
               >
-                Screenshots
+                {{ t('console.screenshots') }}
               </h3>
               <div
                 ref="screenshots-ref"
