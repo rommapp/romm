@@ -10,6 +10,7 @@ from rq import Worker
 from rq.job import Job
 
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
+from config.config_manager import config_manager as cm
 from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
@@ -191,7 +192,6 @@ def _should_get_rom_files(
     rom: Rom,
     newly_added: bool,
     roms_ids: list[int],
-    calculate_hashes: bool = True,
 ) -> bool:
     """Decide if the files of a rom should be rebuilt or not
 
@@ -200,8 +200,10 @@ def _should_get_rom_files(
         rom (Rom): The rom to be rebuilt.
         newly_added (bool): Whether the rom is newly added.
         roms_ids (list[int]): List of selected roms to be scanned.
-        calculate_hashes (bool): Whether to calculate file hashes.
     """
+    # Get hash calculation setting from config
+    calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
+
     # Skip file processing entirely if hashes are disabled (except for HASHES scan type)
     if not calculate_hashes and scan_type != ScanType.HASHES:
         return False
@@ -287,9 +289,10 @@ async def _identify_rom(
         rom=rom,
         newly_added=newly_added,
         roms_ids=roms_ids,
-        calculate_hashes=calculate_hashes,
     )
     if should_update_files:
+        # Get hash calculation setting from config
+        calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
         (
@@ -585,7 +588,6 @@ async def scan_platforms(
     metadata_sources: list[str],
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[int] | None = None,
-    calculate_hashes: bool = True,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -594,8 +596,10 @@ async def scan_platforms(
         metadata_sources (list[str]): List of metadata sources to be used
         scan_type (ScanType): Type of scan to be performed.
         roms_ids (list[int], optional): List of selected roms to be scanned.
-        calculate_hashes (bool): Whether to calculate file hashes.
     """
+
+    # Get hash calculation setting from config
+    calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
 
     if not roms_ids:
         roms_ids = []
@@ -693,7 +697,6 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
-    calculate_hashes = options.get("calculate_hashes", True)
 
     if DEV_MODE:
         return await scan_platforms(
@@ -701,7 +704,6 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
             metadata_sources=metadata_sources,
             scan_type=scan_type,
             roms_ids=roms_ids,
-            calculate_hashes=calculate_hashes,
         )
 
     return high_prio_queue.enqueue(
@@ -710,7 +712,6 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
         metadata_sources=metadata_sources,
         scan_type=scan_type,
         roms_ids=roms_ids,
-        calculate_hashes=calculate_hashes,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={
