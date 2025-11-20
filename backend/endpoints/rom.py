@@ -1338,7 +1338,11 @@ async def get_romfile_content(
     )
 
 
-# Note management endpoints
+DEFAULT_PUBLIC_ONLY = Query(False, description="Only return public notes")
+DEFAULT_SEARCH = Query(None, description="Search notes by title or content")
+DEFAULT_TAGS = Query(None, description="Filter by tags")
+
+
 @protected_route(
     router.get,
     "/{id}/notes",
@@ -1348,9 +1352,9 @@ async def get_romfile_content(
 async def get_rom_notes(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    public_only: bool = Query(False, description="Only return public notes"),
-    search: str = Query(None, description="Search notes by title or content"),
-    tags: list[str] | None = Query(None, description="Filter by tags"),
+    public_only: bool = DEFAULT_PUBLIC_ONLY,
+    search: str = DEFAULT_SEARCH,
+    tags: list[str] = DEFAULT_TAGS,
 ) -> list[UserNoteSchema]:
     """Get all notes for a ROM."""
     from handler.database import db_rom_handler
