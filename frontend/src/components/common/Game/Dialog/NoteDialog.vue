@@ -6,6 +6,7 @@ import { inject, ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
+import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 
@@ -15,29 +16,39 @@ const { t } = useI18n();
 
 const rom = ref<SimpleRom | null>(null);
 const show = ref(false);
+const notes = ref<any[]>([]);
+const loading = ref(false);
 
-// Computed to get current user notes from rom_user.notes
+// Computed to get current user notes
 const currentUserNotes = computed(() => {
-  if (!rom.value?.rom_user?.notes) return [];
-  return Object.entries(rom.value.rom_user.notes)
-    .map(([title, note]) => ({
-      title,
-      content: note.content,
-      is_public: note.is_public,
-      created_at: note.created_at,
-      updated_at: note.updated_at,
-    }))
+  return notes.value
+    .filter((note) => note.user_id === rom.value?.rom_user?.user_id)
     .sort((a, b) => a.title.localeCompare(b.title));
 });
 
-emitter?.on("showNoteDialog", (romToShow) => {
+emitter?.on("showNoteDialog", async (romToShow) => {
   rom.value = romToShow;
   show.value = true;
+
+  // Fetch notes for this ROM
+  if (romToShow.id) {
+    loading.value = true;
+    try {
+      const response = await romApi.getRomNotes({ romId: romToShow.id });
+      notes.value = response.data;
+    } catch (error) {
+      console.error("Failed to fetch notes:", error);
+      notes.value = [];
+    } finally {
+      loading.value = false;
+    }
+  }
 });
 
 function closeDialog() {
   show.value = false;
   rom.value = null;
+  notes.value = [];
 }
 </script>
 
@@ -57,7 +68,11 @@ function closeDialog() {
     </template>
     <template #content>
       <div class="pa-4">
-        <div v-if="currentUserNotes.length > 0">
+        <div v-if="loading" class="text-center py-8">
+          <v-progress-circular indeterminate color="primary" />
+          <p class="text-body-2 mt-2">{{ t("common.loading") }}...</p>
+        </div>
+        <div v-else-if="currentUserNotes.length > 0">
           <v-expansion-panels multiple flat variant="accordion">
             <v-expansion-panel
               v-for="note in currentUserNotes"

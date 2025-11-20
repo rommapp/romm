@@ -411,6 +411,69 @@ async function deleteRoms({
 }
 
 // Multi-note management functions
+async function createRomNote({
+  romId,
+  noteData,
+}: {
+  romId: number;
+  noteData: {
+    title: string;
+    content?: string;
+    is_public?: boolean;
+    tags?: string[];
+    metadata?: Record<string, any>;
+  };
+}): Promise<{ data: any }> {
+  return api.post(`/roms/${romId}/notes`, noteData);
+}
+
+async function updateRomNote({
+  romId,
+  noteId,
+  noteData,
+}: {
+  romId: number;
+  noteId: number;
+  noteData: {
+    title?: string;
+    content?: string;
+    is_public?: boolean;
+    tags?: string[];
+    metadata?: Record<string, any>;
+  };
+}): Promise<{ data: any }> {
+  return api.put(`/roms/${romId}/notes/${noteId}`, noteData);
+}
+
+async function deleteRomNote({
+  romId,
+  noteId,
+}: {
+  romId: number;
+  noteId: number;
+}): Promise<{ data: any }> {
+  return api.delete(`/roms/${romId}/notes/${noteId}`);
+}
+
+async function getRomNotes({
+  romId,
+  publicOnly = false,
+  search,
+  tags,
+}: {
+  romId: number;
+  publicOnly?: boolean;
+  search?: string;
+  tags?: string[];
+}): Promise<{ data: any[] }> {
+  return api.get(`/roms/${romId}/notes`, {
+    params: {
+      public_only: publicOnly,
+      search,
+      tags: tags?.join(","),
+    },
+  });
+}
 
 export default {
   uploadRoms,
@@ -426,4 +489,8 @@ export default {
   removeManual,
   updateUserRomProps,
   deleteRoms,
+  createRomNote,
+  updateRomNote,
+  deleteRomNote,
+  getRomNotes,
 };

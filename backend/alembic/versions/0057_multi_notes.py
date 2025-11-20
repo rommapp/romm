@@ -1,13 +1,10 @@
-"""multi_notes_conversion
+"""rom_notes_table
 
 Revision ID: 0057_multi_notes
 Revises: 0056_gamelist_xml
 Create Date: 2025-09-29 14:20:28.990148
 
 """
-
-import json
-from datetime import datetime, timezone
 
 import sqlalchemy as sa
 from alembic import op
@@ -21,144 +18,142 @@ depends_on = None
 
 
 def upgrade() -> None:
-    """Convert single note fields to multi-note JSON structure."""
+    """Create the rom_notes table and migrate existing notes."""
 
-    # First, add the new JSON column
-    op.add_column("rom_user", sa.Column("notes", sa.JSON(), nullable=True))
+    # Create the new rom_notes table
+    op.create_table(
+        "rom_notes",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("title", sa.String(length=400), nullable=False),
+        sa.Column("content", sa.Text(), nullable=False),
+        sa.Column("is_public", sa.Boolean(), nullable=False, default=False),
+        sa.Column("tags", sa.JSON(), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("rom_id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.ForeignKeyConstraint(["rom_id"], ["roms.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "rom_id", "user_id", "title", name="unique_rom_user_note_title"
+        ),
+    )
 
-    # Get connection to perform data migration
+    # Create indexes for performance
+    op.create_index("idx_rom_notes_public", "rom_notes", ["is_public"])
+    op.create_index("idx_rom_notes_rom_user", "rom_notes", ["rom_id", "user_id"])
+
+    # Get connection for manual index creation
+    connection = op.get_bind()
+    # For MariaDB compatibility, we limit the content index length
+    connection.execute(text("CREATE INDEX idx_rom_notes_title ON rom_notes (title)"))
+    connection.execute(
+        text("CREATE INDEX idx_rom_notes_content ON rom_notes (content(100))")
+    )
+
+    # Migrate existing notes from rom_user table if the columns exist
     connection = op.get_bind()
 
-    # Migrate existing notes to the new JSON structure
-    result = connection.execute(
-        text(
-            """
-        SELECT id, note_raw_markdown, note_is_public, updated_at 
-        FROM rom_user 
-        WHERE note_raw_markdown IS NOT NULL AND note_raw_markdown != ''
-    """
-        )
-    )
+    # Check if note columns exist in rom_user table
+    inspector = sa.inspect(connection)
+    rom_user_columns = [col["name"] for col in inspector.get_columns("rom_user")]
 
-    for row in result:
-        # Create the multi-note structure with the existing note as "Default Note"
-        notes_json = {}
-        if row.note_raw_markdown and row.note_raw_markdown.strip():
-            notes_json["Default Note"] = {
-                "content": row.note_raw_markdown,
-                "is_public": bool(row.note_is_public),
-                "created_at": (
-                    row.updated_at.isoformat()
-                    if row.updated_at
-                    else datetime.now(timezone.utc).isoformat()
-                ),
-                "updated_at": (
-                    row.updated_at.isoformat()
-                    if row.updated_at
-                    else datetime.now(timezone.utc).isoformat()
-                ),
-            }
-
-        # Update the row with the JSON data
-        connection.execute(
+    if "note_raw_markdown" in rom_user_columns and "note_is_public" in rom_user_columns:
+        # Migrate existing notes
+        result = connection.execute(
             text(
                 """
-            UPDATE rom_user 
-            SET notes = :notes_json 
-            WHERE id = :id
-        """
-            ),
-            {"notes_json": json.dumps(notes_json), "id": row.id},
-        )
-
-    # Set empty JSON object for rows with no notes
-    connection.execute(
-        text(
+                SELECT id, rom_id, user_id, note_raw_markdown, note_is_public, updated_at
+                FROM rom_user
+                WHERE note_raw_markdown IS NOT NULL AND note_raw_markdown != ''
             """
-        UPDATE rom_user 
-        SET notes = '{}' 
-        WHERE notes IS NULL
-    """
+            )
         )
-    )
 
-    # Make the notes column non-nullable with proper MySQL syntax
-    op.alter_column("rom_user", "notes", existing_type=sa.JSON(), nullable=False)
-
-    # Remove the old single-note columns
-    op.drop_column("rom_user", "note_raw_markdown")
-    op.drop_column("rom_user", "note_is_public")
+        for row in result:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO rom_notes (title, content, is_public, tags, created_at, updated_at, rom_id, user_id)
+                    VALUES (:title, :content, :is_public, :tags, :created_at, :updated_at, :rom_id, :user_id)
+                """
+                ),
+                {
+                    "title": "My Note",
+                    "content": row.note_raw_markdown,
+                    "is_public": bool(row.note_is_public),
+                    "tags": "[]",
+                    "created_at": row.updated_at or text("now()"),
+                    "updated_at": row.updated_at or text("now()"),
+                    "rom_id": row.rom_id,
+                    "user_id": row.user_id,
+                },
+            )
+        # Remove the old note columns from rom_user table
+        op.drop_column("rom_user", "note_raw_markdown")
+        op.drop_column("rom_user", "note_is_public")
 
 
 def downgrade() -> None:
-    """Convert multi-note JSON structure back to single note fields."""
+    """Drop the rom_notes table and restore note columns to rom_user."""
 
-    # Add back the old columns
+    # Add back the old columns to rom_user
     op.add_column(
         "rom_user",
         sa.Column("note_raw_markdown", sa.Text(), nullable=False, server_default=""),
     )
     op.add_column(
         "rom_user",
-        sa.Column("note_is_public", sa.Boolean(), nullable=False, server_default="0"),
+        sa.Column(
+            "note_is_public", sa.Boolean(), nullable=False, server_default=text("false")
+        ),
     )
 
-    # Get connection to perform data migration
+    # Migrate notes back to rom_user (take first note per user/rom)
     connection = op.get_bind()
-
-    # Migrate JSON notes back to single note format
     result = connection.execute(
         text(
             """
-        SELECT id, notes, updated_at 
-        FROM rom_user 
-        WHERE notes IS NOT NULL
-    """
+            SELECT DISTINCT rom_id, user_id, 
+                   FIRST_VALUE(content) OVER (PARTITION BY rom_id, user_id ORDER BY updated_at DESC) as content,
+                   FIRST_VALUE(is_public) OVER (PARTITION BY rom_id, user_id ORDER BY updated_at DESC) as is_public
+            FROM rom_notes
+        """
         )
     )
 
     for row in result:
-        try:
-            notes_data = json.loads(row.notes) if row.notes else {}
-
-            # Take the first note or "Default Note" if it exists
-            if notes_data:
-                if "Default Note" in notes_data:
-                    note_data = notes_data["Default Note"]
-                else:
-                    # Take the first note if no "Default Note" exists
-                    note_data = next(iter(notes_data.values()))
-
-                content = note_data.get("content", "")
-                is_public = note_data.get("is_public", False)
-            else:
-                content = ""
-                is_public = False
-
-            # Update the row with single note data
-            connection.execute(
-                text(
-                    """
+        connection.execute(
+            text(
+                """
                 UPDATE rom_user 
                 SET note_raw_markdown = :content, note_is_public = :is_public 
-                WHERE id = :id
+                WHERE rom_id = :rom_id AND user_id = :user_id
             """
-                ),
-                {"content": content, "is_public": is_public, "id": row.id},
-            )
+            ),
+            {
+                "content": row.content,
+                "is_public": row.is_public,
+                "rom_id": row.rom_id,
+                "user_id": row.user_id,
+            },
+        )
 
-        except (json.JSONDecodeError, KeyError, TypeError):
-            # If JSON parsing fails, set empty note
-            connection.execute(
-                text(
-                    """
-                UPDATE rom_user 
-                SET note_raw_markdown = '', note_is_public = 0 
-                WHERE id = :id
-            """
-                ),
-                {"id": row.id},
-            )
-
-    # Drop the JSON column
-    op.drop_column("rom_user", "notes")
+    # Drop indexes and table
+    connection = op.get_bind()
+    connection.execute(text("DROP INDEX IF EXISTS idx_rom_notes_content ON rom_notes"))
+    connection.execute(text("DROP INDEX IF EXISTS idx_rom_notes_title ON rom_notes"))
+    op.drop_index("idx_rom_notes_rom_user", table_name="rom_notes")
+    op.drop_index("idx_rom_notes_public", table_name="rom_notes")
+    op.drop_table("rom_notes")

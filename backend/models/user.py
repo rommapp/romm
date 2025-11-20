@@ -22,7 +22,7 @@ from utils.database import CustomJSON
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
     from models.collection import Collection, SmartCollection
-    from models.rom import RomUser
+    from models.rom import RomNote, RomUser
 
 
 class Role(enum.Enum):
@@ -69,6 +69,7 @@ class User(BaseModel, SimpleUser):
         lazy="raise", back_populates="user"
     )
     rom_users: Mapped[list[RomUser]] = relationship(lazy="raise", back_populates="user")
+    notes: Mapped[list[RomNote]] = relationship(lazy="raise", back_populates="user")
     collections: Mapped[list[Collection]] = relationship(
         lazy="raise", back_populates="user"
     )
