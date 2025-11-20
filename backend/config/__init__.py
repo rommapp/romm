@@ -42,8 +42,8 @@ FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
 
 # DATABASE
-DB_HOST: Final[str] = _get_env("DB_HOST", "127.0.0.1")
-DB_PORT: Final[int] = safe_int(_get_env("DB_PORT", "3306"))
+DB_HOST: Final[str | None] = _get_env("DB_HOST", "127.0.0.1")
+DB_PORT: Final[int | None] = safe_int(_get_env("DB_PORT"), 3306)
 DB_USER: Final[str | None] = _get_env("DB_USER")
 DB_PASSWD: Final[str | None] = _get_env("DB_PASSWD")
 DB_NAME: Final[str] = _get_env("DB_NAME", "romm")
@@ -153,7 +153,8 @@ ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE")
 )
 RESCAN_ON_FILESYSTEM_CHANGE_DELAY: Final[int] = safe_int(
-    _get_env("RESCAN_ON_FILESYSTEM_CHANGE_DELAY"), 5  # 5 minutes
+    _get_env("RESCAN_ON_FILESYSTEM_CHANGE_DELAY"),
+    5,  # 5 minutes
 )
 ENABLE_SCHEDULED_RESCAN: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_RESCAN")
