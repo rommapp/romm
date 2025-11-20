@@ -151,7 +151,13 @@ class ConfigManager:
             log.critical(f"{hl(ROMM_DB_DRIVER)} database not supported")
             sys.exit(3)
 
-        if not DB_USER or not DB_PASSWD:
+        username = DB_USER
+        password = DB_PASSWD
+        host = DB_HOST
+        port = DB_PORT
+        database = DB_NAME
+
+        if not username or not password:
             log.critical(
                 "Missing database credentials, check your environment variables!"
             )
@@ -165,13 +171,17 @@ class ConfigManager:
                 log.critical(f"Invalid JSON in DB_QUERY_JSON: {exc}")
                 sys.exit(3)
 
+            # Unset host/port if using query to connect
+            host = None
+            port = None
+
         return URL.create(
             drivername=driver,
-            username=DB_USER,
-            password=DB_PASSWD,
-            host=DB_HOST,
-            port=DB_PORT,
-            database=DB_NAME,
+            username=username,
+            password=password,
+            host=host,
+            port=port,
+            database=database,
             query=query,
         )
 
