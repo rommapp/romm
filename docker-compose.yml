@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: romm-dev
-    env_file: .env
+    env_file: .devcontainer/dev.env
     environment:
       - REDIS_HOST=romm-valkey-dev
       - DB_HOST=${DB_HOST:-romm-db-dev}
@@ -36,7 +36,7 @@ services:
     image: mariadb:11.3.2
     container_name: romm-db-dev
     restart: unless-stopped
-    env_file: .env
+    env_file: .devcontainer/dev.env
     environment:
       - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWD:-rootpassword}
       - MARIADB_DATABASE=${DB_NAME:-romm}
@@ -51,7 +51,7 @@ services:
     image: valkey/valkey:8
     container_name: romm-valkey-dev
     restart: unless-stopped
-    env_file: .env
+    env_file: .devcontainer/dev.env
     ports:
       - "${REDIS_PORT:-6379}:6379"
 
@@ -59,7 +59,7 @@ services:
     image: postgres:16-alpine
     container_name: romm-postgresql-dev
     restart: unless-stopped
-    env_file: .env
+    env_file: .devcontainer/dev.env
     environment:
       POSTGRES_PASSWORD: ${DB_PASSWD:-postgres}
       POSTGRES_USER: ${DB_USER:-postgres}
@@ -74,7 +74,7 @@ services:
     container_name: romm-authentik-server
     restart: unless-stopped
     command: server
-    env_file: .env
+    env_file: .devcontainer/dev.env
     environment:
       AUTHENTIK_REDIS__HOST: romm-valkey-dev
       AUTHENTIK_POSTGRESQL__HOST: romm-postgres-dev
@@ -98,7 +98,7 @@ services:
     container_name: romm-authentik-worker
     restart: unless-stopped
     command: worker
-    env_file: .env
+    env_file: .devcontainer/dev.env
     environment:
       AUTHENTIK_REDIS__HOST: romm-valkey-dev
       AUTHENTIK_POSTGRESQL__HOST: romm-postgres-dev
