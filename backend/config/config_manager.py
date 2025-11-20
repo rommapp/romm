@@ -614,23 +614,6 @@ class ConfigManager:
         self.config.__setattr__(exclusion_type, config_item)
         self._update_config_file()
 
-    def set_provider_locale(self, provider: str, locale: str) -> None:
-        provider_locales = self.config.METADATA_PROVIDER_LOCALES
-        provider_locales[provider] = locale
-        self.config.METADATA_PROVIDER_LOCALES = provider_locales
-        self._update_config_file()
-
-    def remove_provider_locale(self, provider: str) -> None:
-        provider_locales = self.config.METADATA_PROVIDER_LOCALES
-
-        try:
-            del provider_locales[provider]
-        except KeyError:
-            pass
-
-        self.config.METADATA_PROVIDER_LOCALES = provider_locales
-        self._update_config_file()
-
     def update_provider_locales(self, locales: dict[str, str]) -> None:
         self.config.METADATA_PROVIDER_LOCALES = locales
         self._update_config_file()

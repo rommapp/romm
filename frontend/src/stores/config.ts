@@ -78,12 +78,6 @@ export default defineStore("config", {
     isExclusionType(type: string): type is ExclusionTypes {
       return Object.keys(this.config).includes(type);
     },
-    setProviderLocale(provider: string, locale: string) {
-      this.config.METADATA_PROVIDER_LOCALES[provider] = locale;
-    },
-    removeProviderLocale(provider: string) {
-      delete this.config.METADATA_PROVIDER_LOCALES[provider];
-    },
     getEJSCoreOptions(core: string | null): Record<string, string | boolean> {
       const defaultOptions = this.config.EJS_SETTINGS["default"] || {};
       if (!core) return defaultOptions;
