@@ -382,25 +382,36 @@ async function stopScan() {
         :class="{ 'justify-center': smAndDown }"
         no-gutters
       >
-        <v-switch
-          v-model="calculateHashes"
-          color="primary"
-          density="compact"
-          hide-details
-          inset
+        <v-btn
+          height="40"
           class="ma-1"
+          @click="calculateHashes = !calculateHashes"
         >
-          <template #label>
-            <span class="text-caption">{{ t("scan.calculate-hashes") }}</span>
+          <template #prepend>
+            <v-icon
+              size="x-large"
+              :color="calculateHashes ? 'primary' : ''"
+              :icon="
+                calculateHashes ? 'mdi-toggle-switch' : 'mdi-toggle-switch-off'
+              "
+            />
           </template>
-        </v-switch>
+          {{ t("scan.calculate-hashes") }}
+          <v-tooltip activator="parent" location="bottom">
+            {{
+              calculateHashes
+                ? t("scan.hashes-enabled-tooltip")
+                : t("scan.hashes-disabled-tooltip")
+            }}
+          </v-tooltip>
+        </v-btn>
         <v-btn
           :disabled="scanning"
           :loading="scanning"
           rounded="4"
           height="40"
           @click="scan"
-          class="mr-1 mt-1 mb-1"
+          class="ma-1"
         >
           <template #prepend>
             <v-icon :color="scanning ? '' : 'primary'">
