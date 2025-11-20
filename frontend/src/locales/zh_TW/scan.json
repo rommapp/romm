@@ -33,6 +33,8 @@
   "roms-scanned-with-details": "Rom：{n_scanned_roms}/{n_total_roms} 已掃描，新增 {n_new_roms}，識別 {n_identified_roms}",
   "scan": "掃描",
   "scan-options": "掃描選項",
+  "scan-types-info": "<strong>新平台：</strong>僅尋找尚未在 RomM 中的平台。<br><br><strong>快速掃描：</strong>掃描尚未在遊戲庫中的遊戲（最快）。<br><br><strong>未匹配遊戲：</strong>嘗試匹配與所選元數據來源未匹配的遊戲。<br>例如，選擇 IGDB 和 ScreenScraper 將掃描與 IGDB 或 ScreenScraper 未匹配的遊戲。<br><br><strong>更新元數據：</strong>使用外部 ID（如 IGDB ID）為已與所選元數據來源匹配的遊戲更新元數據。<br>例如，選擇 IGDB 和 ScreenScraper 將為與 IGDB 或 ScreenScraper 匹配的遊戲更新元數據，並使用 igdb_id 和/或 ssfr_id 從相應提供者重新獲取元數據。<br><br><strong>重新計算雜湊：</strong>為選定平台中的所有文件重新計算雜湊值。<br><br><strong>完全重新掃描：</strong>重新掃描並重新匹配選定平台中的所有遊戲（最慢）。<br>這將清除所有現有的元數據匹配，包括外部 ID，並嘗試重新匹配它們，就像全新掃描一樣。存檔、狀態和筆記將被保留。",
+  "scan-types-more-info": "更多資訊",
   "select-one-source": "請至少選擇一個元數據來源，以豐富您的遊戲庫",
   "unmatched-games": "未匹配的遊戲",
   "unmatched-games-desc": "掃描元數據匹配缺失的遊戲",

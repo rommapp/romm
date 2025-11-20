@@ -33,6 +33,8 @@
   "roms-scanned-with-details": "Rom: {n_scanned_roms}/{n_total_roms} スキャン済み 新規: {n_new_roms} 識別済み: {n_identified_roms}",
   "scan": "スキャン",
   "scan-options": "スキャンオプション",
+  "scan-types-info": "<strong>新しいプラットフォーム:</strong> RomMにまだないプラットフォームのみを検索します。<br><br><strong>クイックスキャン:</strong> まだライブラリにないゲームをスキャンします（最も高速）。<br><br><strong>マッチしないゲーム:</strong> 選択されたメタデータソースとマッチしないゲームをマッチさせようとします。<br>例えば、IGDBとScreenScraperを選択すると、IGDBまたはScreenScraperとマッチしないゲームをスキャンします。<br><br><strong>メタデータ更新:</strong> 外部ID（例：IGDB ID）を使用して、選択されたメタデータソースとマッチしたゲームのメタデータを更新します。<br>例えば、IGDBとScreenScraperを選択すると、IGDBまたはScreenScraperとマッチしたゲームのメタデータを更新し、igdb_idおよび/またはssfr_idを使用してそれぞれのプロバイダーからメタデータを再取得します。<br><br><strong>ハッシュの再計算:</strong> 選択されたプラットフォームのすべてのファイルのハッシュを再計算します。<br><br><strong>完全な再スキャン:</strong> 選択されたプラットフォームのすべてのゲームを再スキャンおよび再マッチします（最も低速）。<br>これは外部IDを含むすべての既存のメタデータマッチを消去し、新たなスキャンのように再度マッチさせようとします。セーブ、ステート、メモは保持されます。",
+  "scan-types-more-info": "詳細情報",
   "select-one-source": "アートワークやメタデータを使用したい場合は少なくとも1つのソースを選択してください",
   "unmatched-games": "一致しないゲーム",
   "unmatched-games-desc": "メタデータの一致が不足しているゲームをスキャン",

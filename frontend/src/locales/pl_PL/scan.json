@@ -33,6 +33,8 @@
   "roms-scanned-with-details": "ROM-y: {n_scanned_roms} zeskanowano z {n_total_roms}, z {n_new_roms} nowych i {n_identified_roms} zidentyfikowanych",
   "scan": "Skanuj",
   "scan-options": "Opcje skanowania",
+  "scan-types-info": "<strong>Nowe platformy:</strong> Będzie szukać tylko platform, których jeszcze nie ma w RomM.<br><br><strong>Szybkie skanowanie:</strong> Skanuje gry, których jeszcze nie ma w bibliotece (najszybsze).<br><br><strong>Niedopasowane gry:</strong> Próbuje dopasować gry, które nie są dopasowane do wybranych źródeł metadanych.<br>Na przykład wybór IGDB i ScreenScraper przeskanuje gry, które nie są dopasowane do IGDB lub ScreenScraper.<br><br><strong>Aktualizacja metadanych:</strong> Aktualizuje metadane dla gier, które zostały dopasowane do wybranych źródeł metadanych przy użyciu zewnętrznego ID (np. IGDB ID).<br>Na przykład wybór IGDB i ScreenScraper zaktualizuje metadane dla gier dopasowanych do IGDB lub ScreenScraper i użyje igdb_id i/lub ssfr_id do ponownego pobrania metadanych od odpowiednich dostawców.<br><br><strong>Przeliczanie skrótów:</strong> Przelicza skróty dla wszystkich plików na wybranych platformach.<br><br><strong>Pełne ponowne skanowanie:</strong> Ponownie skanuje i dopasowuje wszystkie gry na wybranych platformach (najwolniejsze).<br>To usunie wszystkie istniejące dopasowania metadanych, w tym zewnętrzne ID, i spróbuje dopasować je ponownie, jak podczas świeżego skanowania. Zapisy, stany i notatki zostaną zachowane.",
+  "scan-types-more-info": "Więcej informacji",
   "select-one-source": "Wybierz co najmniej jedno źródło metadanych, aby wzbogacić bibliotekę o grafiki i informacje",
   "unmatched-games": "Niedopasowane gry",
   "unmatched-games-desc": "Skanuj gry z brakującymi dopasowaniami metadanych",
