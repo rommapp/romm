@@ -30,7 +30,7 @@
   "platforms-scanned-with-details": "Platforms: {n_scanned_platforms} scanned out of {n_total_platforms}, with {n_new_platforms} new and {n_identified_platforms} identified",
   "quick-scan": "Quick scan",
   "quick-scan-desc": "Scan new games only",
-  "retroachievements-requires-hashes": "RetroAchievements requires file hashes",
+  "retroachievements-requires-hashes": "RetroAchievements requires hash calculation to be enabled",
   "roms-scanned-n": "Roms: {n} scanned",
   "roms-scanned-with-details": "Roms: {n_scanned_roms} scanned out of {n_total_roms}, with {n_new_roms} new and {n_identified_roms} identified",
   "scan": "Scan",
