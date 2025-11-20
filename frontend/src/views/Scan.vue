@@ -10,18 +10,20 @@ import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { ROUTES } from "@/plugins/router";
 import socket from "@/services/socket";
+import storeConfig from "@/stores/config";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
-
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<number[]>([]);
 const panels = ref<number[]>([]);
@@ -35,16 +37,38 @@ const sortedPlatforms = computed(() => {
     a.display_name.localeCompare(b.display_name),
   );
 });
-const metadataOptions = computed(() =>
-  heartbeat.getMetadataOptionsByPriority(),
+const calculateHashes = computed(
+  () => !config.value.SKIP_HASH_CALCULATION || false,
 );
+const metadataOptions = computed(() => {
+  return heartbeat.getMetadataOptionsByPriority().map((option) => {
+    // Check if option requires hashes but hash calculation is disabled
+    const requiresHashes = option.value === "hasheous" || option.value === "ra";
+    const hashingDisabled = !calculateHashes.value;
+
+    let disabled = option.disabled;
+
+    if (hashingDisabled && requiresHashes) {
+      if (option.value === "hasheous") {
+        disabled = t("scan.hasheous-requires-hashes");
+      } else if (option.value === "ra") {
+        disabled = t("scan.retroachievements-requires-hashes");
+      }
+    }
+
+    return {
+      ...option,
+      disabled,
+    };
+  });
+});
 const storedMetadataSources = useLocalStorage(
   LOCAL_STORAGE_METADATA_SOURCES_KEY,
   [] as string[],
 );
 const metadataSources = ref<MetadataOption[]>(
-  metadataOptions.value.filter((m) =>
-    storedMetadataSources.value.includes(m.value),
+  metadataOptions.value.filter(
+    (m) => storedMetadataSources.value.includes(m.value) && !m.disabled,
   ) || heartbeat.getEnabledMetadataOptions(),
 );
 
@@ -355,24 +379,40 @@ async function stopScan() {
             <template #item="{ props, item }">
               <v-list-item v-bind="props" :subtitle="item.raw.subtitle" />
             </template>
+            <template #append-inner>
+              <v-menu open-on-hover location="bottom start">
+                <template #activator="{ props }">
+                  <v-icon
+                    v-bind="props"
+                    @click.stop
+                    icon="mdi-information-outline"
+                    size="small"
+                    class="ml-2"
+                  />
+                </template>
+                <v-card max-width="600">
+                  <v-card-text>
+                    <div v-html="t('scan.scan-types-info')"></div>
+                    <div class="mt-3 text-right">
+                      <a
+                        href="https://docs.romm.app/latest/Usage/LibraryManagement/#scan"
+                        target="_blank"
+                        style="font-style: italic; text-decoration: underline"
+                      >
+                        {{ t("scan.scan-types-more-info") }}
+                      </a>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-menu>
+            </template>
           </v-select>
-          <a
-            href="https://docs.romm.app/latest/Usage/LibraryManagement/#scan"
-            target="_blank"
-          >
-            <v-icon
-              icon="mdi-information-outline"
-              size="small"
-              class="ml-2"
-              title="See documentation"
-            />
-          </a>
         </v-col>
       </v-row>
 
       <!-- Scan buttons -->
       <v-row
-        class="px-4 mt-3 align-center"
+        class="px-4 mt-1 ml-1 align-center"
         :class="{ 'justify-center': smAndDown }"
         no-gutters
       >
@@ -382,6 +422,7 @@ async function stopScan() {
           rounded="4"
           height="40"
           @click="scan"
+          class="ma-1"
         >
           <template #prepend>
             <v-icon :color="scanning ? '' : 'primary'">
@@ -400,7 +441,7 @@ async function stopScan() {
         </v-btn>
         <v-btn
           :disabled="!scanning"
-          class="ml-2"
+          class="ma-1"
           rounded="4"
           height="40"
           @click="stopScan"
@@ -414,24 +455,59 @@ async function stopScan() {
           prepend-icon="mdi-table-cog"
           rounded="4"
           height="40"
-          class="ml-2"
+          class="ma-1"
           :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
         >
           {{ t("scan.manage-library") }}
         </v-btn>
-        <v-alert
-          v-if="metadataSources.length == 0"
-          type="warning"
-          icon="mdi-alert"
-          variant="tonal"
-          class="mx-4"
-          density="compact"
-        >
-          <span>{{ t("scan.select-one-source") }}</span>
-        </v-alert>
+        <div class="d-flex align-center">
+          <v-alert
+            v-if="metadataSources.length == 0"
+            type="warning"
+            icon="mdi-alert"
+            variant="tonal"
+            class="ma-1"
+            density="compact"
+          >
+            <span>{{ t("scan.select-one-source") }}</span>
+          </v-alert>
+        </div>
+        <div class="d-flex align-center">
+          <v-alert
+            v-if="!calculateHashes"
+            type="warning"
+            icon="mdi-alert"
+            variant="tonal"
+            class="ma-1"
+            density="compact"
+          >
+            <span>{{ t("scan.hash-calculation-disabled") }}</span>
+            <v-menu open-on-hover location="bottom start">
+              <template #activator="{ props }">
+                <v-icon
+                  v-bind="props"
+                  icon="mdi-information-outline"
+                  size="small"
+                  class="ml-2"
+                />
+              </template>
+              <v-card max-width="400">
+                <v-card-text>
+                  <div
+                    v-html="
+                      calculateHashes
+                        ? t('scan.hashes-enabled-tooltip')
+                        : t('scan.hashes-disabled-tooltip')
+                    "
+                  ></div>
+                </v-card-text>
+              </v-card>
+            </v-menu>
+          </v-alert>
+        </div>
       </v-row>
       <v-divider
-        class="border-opacity-100 mt-3"
+        class="border-opacity-100 mt-2"
         :class="{ 'mx-4': !smAndDown }"
         color="primary"
       />
