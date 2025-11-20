@@ -6,6 +6,7 @@
   "api-key-missing-short": "¡Clave de API ausente!",
   "api-key-set": "Clave de API configurada",
   "api-key-valid": "Clave de API configurada y válida",
+  "calculate-hashes": "Calcular hashes",
   "complete-rescan": "Escaneo completo",
   "complete-rescan-desc": "Escaneo completo de las plataformas seleccionadas (más lento)",
   "connection-failed": "Conexión fallida",

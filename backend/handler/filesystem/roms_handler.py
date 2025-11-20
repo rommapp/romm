@@ -385,7 +385,9 @@ class FSRomsHandler(FSHandler):
             sha1_hash=file_hash["sha1_hash"],
         )
 
-    async def get_rom_files(self, rom: Rom) -> tuple[list[RomFile], str, str, str, str]:
+    async def get_rom_files(
+        self, rom: Rom, calculate_hashes: bool = True
+    ) -> tuple[list[RomFile], str, str, str, str]:
         from adapters.services.rahasher import RAHasherService
         from handler.metadata import meta_ra_handler
 
@@ -395,26 +397,29 @@ class FSRomsHandler(FSHandler):
         abs_fs_path = self.validate_path(rel_roms_path)  # Absolute path to roms
         rom_files: list[RomFile] = []
 
-        # Skip hashing games for platforms that don't have a hash database
-        hashable_platform = rom.platform_slug not in NON_HASHABLE_PLATFORMS
+        # Skip hashing games for platforms that don't have a hash database or when hashes are disabled
+        hashable_platform = (
+            rom.platform_slug not in NON_HASHABLE_PLATFORMS and calculate_hashes
+        )
 
         excluded_file_names = cm.get_config().EXCLUDED_MULTI_PARTS_FILES
         excluded_file_exts = cm.get_config().EXCLUDED_MULTI_PARTS_EXT
 
         rom_crc_c = 0
-        rom_md5_h = hashlib.md5(usedforsecurity=False)
-        rom_sha1_h = hashlib.sha1(usedforsecurity=False)
+        rom_md5_h = hashlib.md5(usedforsecurity=False) if calculate_hashes else None
+        rom_sha1_h = hashlib.sha1(usedforsecurity=False) if calculate_hashes else None
         rom_ra_h = ""
 
         # Check if rom is a multi-part rom
         if os.path.isdir(f"{abs_fs_path}/{rom.fs_name}"):
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
-            ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
-            if ra_platform and ra_platform["ra_id"]:
-                rom_ra_h = await RAHasherService().calculate_hash(
-                    ra_platform["ra_id"],
-                    f"{abs_fs_path}/{rom.fs_name}/*",
-                )
+            if calculate_hashes:
+                ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
+                if ra_platform and ra_platform["ra_id"]:
+                    rom_ra_h = await RAHasherService().calculate_hash(
+                        ra_platform["ra_id"],
+                        f"{abs_fs_path}/{rom.fs_name}/*",
+                    )
 
             for f_path, file_name in iter_files(
                 f"{abs_fs_path}/{rom.fs_name}", recursive=True
@@ -433,7 +438,7 @@ class FSRomsHandler(FSHandler):
                 # Check if this is a top-level file (not in a subdirectory)
                 is_top_level = f_path.samefile(Path(abs_fs_path, rom.fs_name))
 
-                if hashable_platform:
+                if hashable_platform and calculate_hashes:
                     try:
                         if is_top_level:
                             # Include this file in the main ROM hash calculation
@@ -499,12 +504,13 @@ class FSRomsHandler(FSHandler):
                 sha1_h = hashlib.sha1(usedforsecurity=False)
 
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
-            ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
-            if ra_platform and ra_platform["ra_id"]:
-                rom_ra_h = await RAHasherService().calculate_hash(
-                    ra_platform["ra_id"],
-                    f"{abs_fs_path}/{rom.fs_name}",
-                )
+            if calculate_hashes:
+                ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
+                if ra_platform and ra_platform["ra_id"]:
+                    rom_ra_h = await RAHasherService().calculate_hash(
+                        ra_platform["ra_id"],
+                        f"{abs_fs_path}/{rom.fs_name}",
+                    )
 
             file_hash = FileHash(
                 crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
@@ -543,10 +549,14 @@ class FSRomsHandler(FSHandler):
         return (
             rom_files,
             crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else "",
-            rom_md5_h.hexdigest() if rom_md5_h.digest() != DEFAULT_MD5_H_DIGEST else "",
+            (
+                rom_md5_h.hexdigest()
+                if rom_md5_h and rom_md5_h.digest() != DEFAULT_MD5_H_DIGEST
+                else ""
+            ),
             (
                 rom_sha1_h.hexdigest()
-                if rom_sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
+                if rom_sha1_h and rom_sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
                 else ""
             ),
             rom_ra_h,

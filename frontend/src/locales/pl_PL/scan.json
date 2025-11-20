@@ -6,6 +6,7 @@
   "api-key-missing-short": "Brak klucza API!",
   "api-key-set": "Klucz API ustawiony",
   "api-key-valid": "Klucz API ustawiony i ważny",
+  "calculate-hashes": "Oblicz sumy kontrolne",
   "complete-rescan": "Pełne ponowne skanowanie",
   "complete-rescan-desc": "Całkowite skanowanie wybranych platform (najwolniejsze)",
   "connection-failed": "Połączenie nie powiodło się",

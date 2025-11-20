@@ -15,6 +15,7 @@ import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
+const LOCAL_STORAGE_CALCULATE_HASHES_KEY = "scan.calculateHashes";
 
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
@@ -46,6 +47,10 @@ const metadataSources = ref<MetadataOption[]>(
   metadataOptions.value.filter((m) =>
     storedMetadataSources.value.includes(m.value),
   ) || heartbeat.getEnabledMetadataOptions(),
+);
+const calculateHashes = useLocalStorage(
+  LOCAL_STORAGE_CALCULATE_HASHES_KEY,
+  true,
 );
 
 watch(metadataOptions, (newOptions) => {
@@ -113,6 +118,7 @@ async function scan() {
     platforms: platformsToScan.value,
     type: scanType.value,
     apis: metadataSources.value.map((s) => s.value),
+    calculate_hashes: calculateHashes.value,
   });
 }
 
@@ -372,16 +378,29 @@ async function stopScan() {
 
       <!-- Scan buttons -->
       <v-row
-        class="px-4 mt-3 align-center"
+        class="px-4 mt-1 ml-1 align-center"
         :class="{ 'justify-center': smAndDown }"
         no-gutters
       >
+        <v-switch
+          v-model="calculateHashes"
+          color="primary"
+          density="compact"
+          hide-details
+          inset
+          class="ma-1"
+        >
+          <template #label>
+            <span class="text-caption">{{ t("scan.calculate-hashes") }}</span>
+          </template>
+        </v-switch>
         <v-btn
           :disabled="scanning"
           :loading="scanning"
           rounded="4"
           height="40"
           @click="scan"
+          class="mr-1 mt-1 mb-1"
         >
           <template #prepend>
             <v-icon :color="scanning ? '' : 'primary'">
@@ -400,7 +419,7 @@ async function stopScan() {
         </v-btn>
         <v-btn
           :disabled="!scanning"
-          class="ml-2"
+          class="ma-1"
           rounded="4"
           height="40"
           @click="stopScan"
@@ -414,7 +433,7 @@ async function stopScan() {
           prepend-icon="mdi-table-cog"
           rounded="4"
           height="40"
-          class="ml-2"
+          class="ma-1"
           :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
         >
           {{ t("scan.manage-library") }}
@@ -424,14 +443,14 @@ async function stopScan() {
           type="warning"
           icon="mdi-alert"
           variant="tonal"
-          class="mx-4"
+          class="my-1 mx-4"
           density="compact"
         >
           <span>{{ t("scan.select-one-source") }}</span>
         </v-alert>
       </v-row>
       <v-divider
-        class="border-opacity-100 mt-3"
+        class="border-opacity-100 mt-2"
         :class="{ 'mx-4': !smAndDown }"
         color="primary"
       />
