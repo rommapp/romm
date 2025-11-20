@@ -383,18 +383,21 @@ async function stopScan() {
             <template #item="{ props, item }">
               <v-list-item v-bind="props" :subtitle="item.raw.subtitle" />
             </template>
+            <template #append-inner>
+              <a
+                href="https://docs.romm.app/latest/Usage/LibraryManagement/#scan"
+                target="_blank"
+              >
+                <v-icon
+                  @click.stop
+                  icon="mdi-information-outline"
+                  size="small"
+                  class="ml-2"
+                  title="See documentation"
+                />
+              </a>
+            </template>
           </v-select>
-          <a
-            href="https://docs.romm.app/latest/Usage/LibraryManagement/#scan"
-            target="_blank"
-          >
-            <v-icon
-              icon="mdi-information-outline"
-              size="small"
-              class="ml-2"
-              title="See documentation"
-            />
-          </a>
         </v-col>
       </v-row>
 
@@ -404,29 +407,49 @@ async function stopScan() {
         :class="{ 'justify-center': smAndDown }"
         no-gutters
       >
-        <v-btn
-          height="40"
-          class="ma-1"
-          @click="calculateHashes = !calculateHashes"
-        >
-          <template #prepend>
-            <v-icon
-              size="x-large"
-              :color="calculateHashes ? 'primary' : ''"
-              :icon="
-                calculateHashes ? 'mdi-toggle-switch' : 'mdi-toggle-switch-off'
-              "
-            />
-          </template>
-          {{ t("scan.calculate-hashes") }}
-          <v-tooltip activator="parent" location="bottom">
-            {{
-              calculateHashes
-                ? t("scan.hashes-enabled-tooltip")
-                : t("scan.hashes-disabled-tooltip")
-            }}
-          </v-tooltip>
-        </v-btn>
+        <div class="d-flex align-center">
+          <v-btn
+            height="40"
+            class="ma-1"
+            @click="calculateHashes = !calculateHashes"
+          >
+            <template #prepend>
+              <v-icon
+                size="x-large"
+                :color="calculateHashes ? 'primary' : ''"
+                :icon="
+                  calculateHashes
+                    ? 'mdi-toggle-switch'
+                    : 'mdi-toggle-switch-off'
+                "
+              />
+            </template>
+            <template #append>
+              <v-menu open-on-hover location="bottom start">
+                <template #activator="{ props }">
+                  <v-icon
+                    v-bind="props"
+                    icon="mdi-information-outline"
+                    size="small"
+                    class="ml-2"
+                  />
+                </template>
+                <v-card max-width="400">
+                  <v-card-text>
+                    <div
+                      v-html="
+                        calculateHashes
+                          ? t('scan.hashes-enabled-tooltip')
+                          : t('scan.hashes-disabled-tooltip')
+                      "
+                    ></div>
+                  </v-card-text>
+                </v-card>
+              </v-menu>
+            </template>
+            {{ t("scan.calculate-hashes") }}
+          </v-btn>
+        </div>
         <v-btn
           :disabled="scanning"
           :loading="scanning"
