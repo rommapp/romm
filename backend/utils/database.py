@@ -1,5 +1,5 @@
 import json
-from typing import Any, Sequence
+from typing import Any, Sequence, overload
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
@@ -132,7 +132,13 @@ def safe_str_to_bool(value: Any, default: bool = False) -> bool:
         return default
 
 
-def safe_float(value: Any, default: float = 0.0) -> float:
+@overload
+def safe_float(value: Any, default: float) -> float: ...
+@overload
+def safe_float(value: Any, default: None = None) -> float | None: ...
+
+
+def safe_float(value: Any, default: float | None = None) -> float | None:
     """Safely convert a value to float, returning default if conversion fails."""
     try:
         return float(value)
@@ -140,7 +146,13 @@ def safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def safe_int(value: Any, default: int = 0) -> int:
+@overload
+def safe_int(value: Any, default: int) -> int: ...
+@overload
+def safe_int(value: Any, default: None = None) -> int | None: ...
+
+
+def safe_int(value: Any, default: int | None = None) -> int | None:
     """Safely convert a value to int, returning default if conversion fails."""
     try:
         return int(value)

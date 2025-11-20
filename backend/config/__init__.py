@@ -42,8 +42,8 @@ FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
 
 # DATABASE
-DB_HOST: Final[str | None] = _get_env("DB_HOST", "127.0.0.1")
-DB_PORT: Final[int | None] = safe_int(_get_env("DB_PORT"), 3306)
+DB_HOST: Final[str | None] = _get_env("DB_HOST")
+DB_PORT: Final[int | None] = safe_int(_get_env("DB_PORT"))
 DB_USER: Final[str | None] = _get_env("DB_USER")
 DB_PASSWD: Final[str | None] = _get_env("DB_PASSWD")
 DB_NAME: Final[str] = _get_env("DB_NAME", "romm")
@@ -51,8 +51,8 @@ DB_QUERY_JSON: Final[str | None] = _get_env("DB_QUERY_JSON")
 ROMM_DB_DRIVER: Final[str] = _get_env("ROMM_DB_DRIVER", "mariadb")
 
 # REDIS
-REDIS_HOST: Final[str] = _get_env("REDIS_HOST", "127.0.0.1")
-REDIS_PORT: Final[int] = safe_int(_get_env("REDIS_PORT"), 6379)
+REDIS_HOST: Final[str | None] = _get_env("REDIS_HOST")
+REDIS_PORT: Final[int | None] = safe_int(_get_env("REDIS_PORT"))
 REDIS_PASSWORD: Final[str | None] = _get_env("REDIS_PASSWORD")
 REDIS_USERNAME: Final[str | None] = _get_env("REDIS_USERNAME")
 REDIS_DB: Final[int] = safe_int(_get_env("REDIS_DB"), 0)
@@ -62,7 +62,7 @@ REDIS_URL: Final[str] = str(
         scheme="rediss" if REDIS_SSL else "redis",
         user=REDIS_USERNAME or None,
         password=REDIS_PASSWORD or None,
-        host=REDIS_HOST,
+        host=REDIS_HOST or "127.0.0.1",
         port=REDIS_PORT,
         path=f"/{REDIS_DB}",
     )
