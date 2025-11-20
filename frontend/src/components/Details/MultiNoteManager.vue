@@ -5,6 +5,7 @@ import { storeToRefs } from "pinia";
 import { computed, ref, reactive, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
+import RDialog from "@/components/common/RDialog.vue";
 import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
@@ -27,11 +28,12 @@ const emit = defineEmits<{
 const showAddNoteDialog = ref(false);
 const showDeleteDialog = ref(false);
 const newNoteTitle = ref("");
+const newNoteContent = ref("");
 const newNoteIsPublic = ref(false);
 const noteToDelete = ref("");
 const editingNotes = reactive<Record<string, boolean>>({});
 const editableNotes = reactive<
-  Record<string, { content: string; is_public: boolean }>
+  Record<string, { title: string; content: string; is_public: boolean }>
 >({});
 const expandedPanels = ref<string[]>([]);
 
@@ -80,25 +82,29 @@ async function addNewNote() {
       romId: props.rom.id,
       noteData: {
         title: newNoteTitle.value.trim(),
-        content: "",
+        content: newNoteContent.value,
         is_public: newNoteIsPublic.value,
         tags: [],
-        metadata: {},
       },
     });
 
     // Emit event to trigger ROM refetch
     emit("notesUpdated");
-    cancelAddNote();
+    closeAddNote();
   } catch (error) {
     console.error("Failed to add note:", error);
   }
 }
 
-function cancelAddNote() {
+function closeAddNote() {
   showAddNoteDialog.value = false;
   newNoteTitle.value = "";
+  newNoteContent.value = "";
   newNoteIsPublic.value = false;
+}
+
+function toggleNewNoteVisibility() {
+  newNoteIsPublic.value = !newNoteIsPublic.value;
 }
 
 function editNote(title: string) {
@@ -115,6 +121,7 @@ function editNote(title: string) {
       }
 
       editableNotes[title] = {
+        title: note.title,
         content: note.content,
         is_public: note.is_public,
       };
@@ -132,6 +139,7 @@ async function saveNote(title: string) {
       romId: props.rom.id,
       noteId: note.id,
       noteData: {
+        title: editableNotes[title].title,
         content: editableNotes[title].content,
         is_public: editableNotes[title].is_public,
       },
@@ -247,7 +255,16 @@ watch(
             >
               <v-expansion-panel-title class="bg-toplayer">
                 <div class="d-flex justify-space-between align-center w-100">
-                  <span class="text-body-1">{{ note.title }}</span>
+                  <v-text-field
+                    v-if="editingNotes[note.title]"
+                    v-model="editableNotes[note.title].title"
+                    variant="outlined"
+                    density="compact"
+                    hide-details
+                    class="mr-4"
+                    @click.stop
+                  />
+                  <span v-else class="text-body-1">{{ note.title }}</span>
                   <div class="d-flex gap-2 align-center mr-4">
                     <v-tooltip
                       location="top"
@@ -263,18 +280,21 @@ watch(
                             editingNotes[note.title]
                           "
                           v-bind="tooltipProps"
-                          :color="note.is_public ? 'success' : 'warning'"
+                          :color="note.is_public ? 'romm-green' : 'accent'"
                           variant="outlined"
                           class="mr-2"
                           @click.stop="toggleNoteVisibility(note.title)"
                         >
-                          <v-icon>
+                          <v-icon class="mr-2">
                             {{
                               note.is_public
                                 ? "mdi-lock-open-variant"
                                 : "mdi-lock"
                             }}
                           </v-icon>
+                          {{
+                            note.is_public ? t("rom.public") : t("rom.private")
+                          }}
                         </v-btn>
                       </template>
                     </v-tooltip>
@@ -431,10 +451,17 @@ watch(
     </RSection>
 
     <!-- Add Note Dialog -->
-    <v-dialog v-model="showAddNoteDialog" max-width="500">
-      <v-card>
-        <v-card-title>{{ t("rom.add-new-note") }}</v-card-title>
-        <v-card-text>
+    <RDialog
+      v-model="showAddNoteDialog"
+      icon="mdi-note-plus"
+      width="800"
+      @close="closeAddNote"
+    >
+      <template #header>
+        <v-toolbar-title>{{ t("rom.add-new-note") }}</v-toolbar-title>
+      </template>
+      <template #content>
+        <div class="pa-4">
           <v-text-field
             v-model="newNoteTitle"
             :label="t('rom.note-title')"
@@ -442,44 +469,73 @@ watch(
             variant="outlined"
             class="mb-3"
           />
-          <v-switch
-            v-model="newNoteIsPublic"
-            :label="t('rom.make-public')"
-            color="primary"
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="cancelAddNote">{{ t("common.cancel") }}</v-btn>
+          <v-card flat class="mb-3">
+            <v-card-subtitle class="px-0 pb-2">{{
+              t("rom.note-content")
+            }}</v-card-subtitle>
+            <MdEditor
+              v-model="newNoteContent"
+              no-highlight
+              no-katex
+              no-mermaid
+              no-prettier
+              no-upload-img
+              :theme="theme.global.name.value === 'dark' ? 'dark' : 'light'"
+              language="en-US"
+              :preview="false"
+              style="min-height: 200px"
+            />
+          </v-card>
           <v-btn
-            color="primary"
-            :disabled="!newNoteTitle.trim() || newNoteTitleErrors.length > 0"
-            @click="addNewNote"
+            :color="newNoteIsPublic ? 'romm-green' : 'accent'"
+            variant="outlined"
+            @click="toggleNewNoteVisibility"
           >
-            {{ t("common.add") }}
+            <v-icon class="mr-2">
+              {{ newNoteIsPublic ? "mdi-lock-open-variant" : "mdi-lock" }}
+            </v-icon>
+            {{ newNoteIsPublic ? t("rom.public") : t("rom.private") }}
           </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+        </div>
+      </template>
+      <template #footer>
+        <v-spacer />
+        <v-btn @click="closeAddNote">{{ t("common.cancel") }}</v-btn>
+        <v-btn
+          color="primary"
+          :disabled="!newNoteTitle.trim() || newNoteTitleErrors.length > 0"
+          @click="addNewNote"
+        >
+          {{ t("common.add") }}
+        </v-btn>
+      </template>
+    </RDialog>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="showDeleteDialog" max-width="400">
-      <v-card>
-        <v-card-title>{{ t("common.confirm-deletion") }}</v-card-title>
-        <v-card-text>
+    <RDialog
+      v-model="showDeleteDialog"
+      icon="mdi-delete"
+      width="400"
+      @close="showDeleteDialog = false"
+    >
+      <template #header>
+        <v-toolbar-title>{{ t("common.confirm-deletion") }}</v-toolbar-title>
+      </template>
+      <template #content>
+        <div class="pa-4">
           {{ t("rom.confirm-delete-note", { title: noteToDelete }) }}
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="showDeleteDialog = false">{{
-            t("common.cancel")
-          }}</v-btn>
-          <v-btn color="error" @click="deleteNote">{{
-            t("common.delete")
-          }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+        </div>
+      </template>
+      <template #footer>
+        <v-spacer />
+        <v-btn @click="showDeleteDialog = false">{{
+          t("common.cancel")
+        }}</v-btn>
+        <v-btn color="error" @click="deleteNote">{{
+          t("common.delete")
+        }}</v-btn>
+      </template>
+    </RDialog>
   </div>
 </template>
 
