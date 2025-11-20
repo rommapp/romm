@@ -36,22 +36,44 @@ const sortedPlatforms = computed(() => {
     a.display_name.localeCompare(b.display_name),
   );
 });
-const metadataOptions = computed(() =>
-  heartbeat.getMetadataOptionsByPriority(),
+const calculateHashes = useLocalStorage(
+  LOCAL_STORAGE_CALCULATE_HASHES_KEY,
+  true,
 );
+const metadataOptions = computed(() => {
+  return heartbeat.getMetadataOptionsByPriority().map((option) => ({
+    ...option,
+    disabled:
+      option.disabled ||
+      (!calculateHashes.value &&
+        (option.value === "hasheous" || option.value === "ra"))
+        ? option.value === "hasheous"
+          ? t("scan.hasheous-requires-hashes")
+          : option.value === "ra"
+            ? t("scan.retroachievements-requires-hashes")
+            : option.disabled
+        : option.disabled,
+  }));
+});
 const storedMetadataSources = useLocalStorage(
   LOCAL_STORAGE_METADATA_SOURCES_KEY,
   [] as string[],
 );
 const metadataSources = ref<MetadataOption[]>(
-  metadataOptions.value.filter((m) =>
-    storedMetadataSources.value.includes(m.value),
+  metadataOptions.value.filter(
+    (m) => storedMetadataSources.value.includes(m.value) && !m.disabled,
   ) || heartbeat.getEnabledMetadataOptions(),
 );
-const calculateHashes = useLocalStorage(
-  LOCAL_STORAGE_CALCULATE_HASHES_KEY,
-  true,
-);
+
+// Watch for changes in calculateHashes to remove hash-dependent sources
+watch(calculateHashes, (newValue) => {
+  if (!newValue) {
+    // Remove Hasheous and RetroAchievements when hashes are disabled
+    metadataSources.value = metadataSources.value.filter(
+      (source) => source.value !== "hasheous" && source.value !== "ra",
+    );
+  }
+});
 
 watch(metadataOptions, (newOptions) => {
   // Remove any sources that are now disabled

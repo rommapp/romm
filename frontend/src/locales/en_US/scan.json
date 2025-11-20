@@ -17,6 +17,8 @@
   "hashes-desc": "Recalculates hashes for selected platforms",
   "hashes-disabled-tooltip": "File hashes will be skipped for faster scanning",
   "hashes-enabled-tooltip": "File hashes will be calculated during scan",
+  "hasheous-requires-hashes": "Hasheous requires hash calculation to be enabled",
+  "retroachievements-requires-hashes": "RetroAchievements requires hash calculation to be enabled",
   "manage-library": "Manage library",
   "metadata-sources": "Metadata sources",
   "new-platforms": "New platforms",

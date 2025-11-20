@@ -17,6 +17,8 @@
   "hashes-desc": "Recalcula los hashes de las plataformas seleccionadas",
   "hashes-disabled-tooltip": "Los hashes de archivo se omitirán para un escaneo más rápido",
   "hashes-enabled-tooltip": "Los hashes de archivo se calcularán durante el escaneo",
+  "hasheous-requires-hashes": "Hasheous requiere que el cálculo de hashes esté habilitado",
+  "retroachievements-requires-hashes": "RetroAchievements requiere que el cálculo de hashes esté habilitado",
   "manage-library": "Gestionar biblioteca",
   "metadata-sources": "Fuentes de metadatos",
   "new-platforms": "Plataformas nuevas",

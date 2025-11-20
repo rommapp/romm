@@ -17,6 +17,8 @@
   "hashes-desc": "Przelicza sumy kontrolne dla wybranych platform",
   "hashes-disabled-tooltip": "Sumy kontrolne plików zostaną pominięte dla szybszego skanowania",
   "hashes-enabled-tooltip": "Sumy kontrolne plików będą obliczane podczas skanowania",
+  "hasheous-requires-hashes": "Hasheous wymaga włączonego obliczania skrótów",
+  "retroachievements-requires-hashes": "RetroAchievements wymaga włączonego obliczania skrótów",
   "manage-library": "Zarządzaj biblioteką",
   "metadata-sources": "Źródła metadanych",
   "new-platforms": "Nowe platformy",
