@@ -31,7 +31,7 @@ const i18n = createI18n({
     cs_CZ(choice: number) {
       if (choice === 0) return 0;
       if (choice === 1) return 1;
-      return (choice >= 2 && choice <= 4) ? 2 : 3;
+      return choice >= 2 && choice <= 4 ? 2 : 3;
     },
   },
 });
