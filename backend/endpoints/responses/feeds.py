@@ -218,6 +218,7 @@ class PKGiFeedPSVitaItemSchema(BaseModel):
 class FPKGiFeedItemSchema(BaseModel):
     name: str
     size: int
+    title_id: str
     region: str | None
     version: str | None
     release: str | None

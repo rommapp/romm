@@ -3,8 +3,9 @@ import { debounce } from "lodash";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
-import { ref, watch } from "vue";
+import { ref, watch, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import type { RomUserStatus } from "@/__generated__";
 import MultiNoteManager from "@/components/Details/MultiNoteManager.vue";
@@ -17,12 +18,72 @@ import { getTextForStatus, getEmojiForStatus } from "@/utils";
 
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
-const tab = ref<"status" | "ra" | "notes">("status");
+const route = useRoute();
+const router = useRouter();
+
+// Valid subtab values
+const validTabs = ["status", "ra", "notes"] as const;
+
+// Helper function to update URL with new query parameters
+const updateQuery = (updates: Record<string, any>) => {
+  router.replace({
+    path: route.path,
+    query: { ...route.query, ...updates },
+  });
+};
+
+// Helper function to remove subtab from URL
+const removeSubtab = () => {
+  if (route.query.subtab) {
+    const { subtab, ...queryWithoutSubtab } = route.query;
+    router.replace({
+      path: route.path,
+      query: queryWithoutSubtab,
+    });
+  }
+};
+
+// Initialize sub-tab from query parameter or default to "status"
+const tab = ref<"status" | "ra" | "notes">(
+  validTabs.includes(route.query.subtab as any)
+    ? (route.query.subtab as "status" | "ra" | "notes")
+    : "status",
+);
 const auth = storeAuth();
 const theme = useTheme();
 const { mdAndUp, mdAndDown, smAndDown } = useDisplay();
 const { scopes } = storeToRefs(auth);
 const romUser = ref(props.rom.rom_user);
+
+// Watch for sub-tab changes and update URL
+watch(tab, (newSubTab) => {
+  if (route.query.subtab !== newSubTab) {
+    updateQuery({ subtab: newSubTab });
+  }
+});
+
+// Watch for URL changes and update sub-tab
+watch(
+  () => route.query.subtab,
+  (newSubTab) => {
+    if (newSubTab && validTabs.includes(newSubTab as any)) {
+      tab.value = newSubTab as "status" | "ra" | "notes";
+    }
+  },
+  { immediate: true },
+);
+
+// Watch for parent tab changes and clean up subtab when not on personal tab
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab !== "personal") {
+      removeSubtab();
+    }
+  },
+);
+
+// Clean up subtab parameter when component unmounts
 
 const statusOptions = [
   "never_playing",

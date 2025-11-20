@@ -42,8 +42,8 @@ FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)
 
 # DATABASE
-DB_HOST: Final[str] = _get_env("DB_HOST", "127.0.0.1")
-DB_PORT: Final[int] = safe_int(_get_env("DB_PORT", "3306"))
+DB_HOST: Final[str | None] = _get_env("DB_HOST")
+DB_PORT: Final[int] = safe_int(_get_env("DB_PORT"), 3306)
 DB_USER: Final[str | None] = _get_env("DB_USER")
 DB_PASSWD: Final[str | None] = _get_env("DB_PASSWD")
 DB_NAME: Final[str] = _get_env("DB_NAME", "romm")
@@ -51,7 +51,7 @@ DB_QUERY_JSON: Final[str | None] = _get_env("DB_QUERY_JSON")
 ROMM_DB_DRIVER: Final[str] = _get_env("ROMM_DB_DRIVER", "mariadb")
 
 # REDIS
-REDIS_HOST: Final[str] = _get_env("REDIS_HOST", "127.0.0.1")
+REDIS_HOST: Final[str | None] = _get_env("REDIS_HOST")
 REDIS_PORT: Final[int] = safe_int(_get_env("REDIS_PORT"), 6379)
 REDIS_PASSWORD: Final[str | None] = _get_env("REDIS_PASSWORD")
 REDIS_USERNAME: Final[str | None] = _get_env("REDIS_USERNAME")
@@ -62,7 +62,7 @@ REDIS_URL: Final[str] = str(
         scheme="rediss" if REDIS_SSL else "redis",
         user=REDIS_USERNAME or None,
         password=REDIS_PASSWORD or None,
-        host=REDIS_HOST,
+        host=REDIS_HOST or "127.0.0.1",
         port=REDIS_PORT,
         path=f"/{REDIS_DB}",
     )
@@ -153,7 +153,8 @@ ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE")
 )
 RESCAN_ON_FILESYSTEM_CHANGE_DELAY: Final[int] = safe_int(
-    _get_env("RESCAN_ON_FILESYSTEM_CHANGE_DELAY"), 5  # 5 minutes
+    _get_env("RESCAN_ON_FILESYSTEM_CHANGE_DELAY"),
+    5,  # 5 minutes
 )
 ENABLE_SCHEDULED_RESCAN: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_RESCAN")
