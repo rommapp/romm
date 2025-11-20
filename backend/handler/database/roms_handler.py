@@ -872,7 +872,7 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int,
         public_only: bool = False,
         search: str = "",
-        tags: list[str] = [],
+        tags: list[str] | None = None,
         session: Session = None,
     ) -> Sequence[RomNote]:
         query = session.query(RomNote).filter(RomNote.rom_id == rom_id)
@@ -890,7 +890,9 @@ class DBRomsHandler(DBBaseHandler):
 
         if tags:
             for tag in tags:
-                query = query.filter(json_array_contains_value(RomNote.tags, tag))
+                query = query.filter(
+                    json_array_contains_value(RomNote.tags, tag, session=session)
+                )
 
         return query.order_by(RomNote.updated_at.desc()).all()
 
@@ -902,7 +904,7 @@ class DBRomsHandler(DBBaseHandler):
         title: str,
         content: str = "",
         is_public: bool = False,
-        tags: list[str] = [],
+        tags: list[str] | None = None,
         session: Session = None,
     ) -> dict:
         note = RomNote(

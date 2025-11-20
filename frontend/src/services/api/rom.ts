@@ -421,7 +421,6 @@ async function createRomNote({
     content?: string;
     is_public?: boolean;
     tags?: string[];
-    metadata?: Record<string, any>;
   };
 }): Promise<{ data: any }> {
   return api.post(`/roms/${romId}/notes`, noteData);
@@ -439,7 +438,6 @@ async function updateRomNote({
     content?: string;
     is_public?: boolean;
     tags?: string[];
-    metadata?: Record<string, any>;
   };
 }): Promise<{ data: any }> {
   return api.put(`/roms/${romId}/notes/${noteId}`, noteData);
