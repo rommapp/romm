@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, NotRequired, Optional, TypedDict
 
 from fastapi import HTTPException, Request, status
 
@@ -11,7 +11,26 @@ router = APIRouter(
     tags=["netplay"],
 )
 
-rooms: Dict[str, Dict[str, Any]] = {}
+
+class NetplayPlayerInfo(TypedDict):
+    socket_id: str
+    player_name: str
+    user_id: str | None
+    player_id: str | None
+
+
+class NetplayRoom(TypedDict):
+    owner: str
+    players: Dict[str, NetplayPlayerInfo]
+    peers: list[str]
+    room_name: str
+    game_id: str
+    domain: Optional[str]
+    password: Optional[str]
+    max_players: int
+
+
+netplay_rooms: dict[str, NetplayRoom]
 
 # # Background cleanup task to delete empty rooms periodically
 # async def cleanup_empty_rooms_loop():
@@ -28,45 +47,55 @@ rooms: Dict[str, Dict[str, Any]] = {}
 #     asyncio.create_task(cleanup_empty_rooms_loop())
 
 
-@protected_route(
-    router.get,
-    "/list",
-    [Scope.ASSETS_READ],
-)
-def get_rooms(request: Request, game_id: str) -> Any:
-    if game_id is None:
+DEFAULT_MAX_PLAYERS = 4
+
+
+def _get_owner_player_name(room: NetplayRoom) -> str:
+    owner_sid = room["owner"]
+    if not owner_sid:
+        return "Unknown"
+
+    for _pid, p in room["players"].items():
+        if p["socket_id"] == owner_sid:
+            return p["player_name"]
+
+    return "Unknown"
+
+
+def _is_room_open(room: NetplayRoom, game_id: str) -> bool:
+    if len(room["players"]) >= room["max_players"]:
+        return False
+    return str(room["game_id"]) == str(game_id)
+
+
+class RoomsResponse(TypedDict):
+    room_name: str
+    current: int
+    max: int
+    player_name: str
+    hasPassword: bool
+
+
+@protected_route(router.get, "/list", [Scope.ASSETS_READ])
+def get_rooms(request: Request, game_id: Optional[str]) -> Dict[str, RoomsResponse]:
+    """Return a mapping of session_id -> room metadata for open rooms of a game."""
+    if not game_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing game_id query parameter",
         )
 
-    open_rooms = {}
-    for session_id, room in rooms.items():
-        if (
-            room
-            and len(room.get("players", {})) < room.get("maxPlayers", 4)
-            and str(room.get("gameId", "")) == str(game_id)
-        ):
-            # find owner player id to extract player_name
-            owner_sid = room.get("owner")
-            owner_player_id = next(
-                (
-                    pid
-                    for pid, p in room["players"].items()
-                    if p.get("socketId") == owner_sid
-                ),
-                None,
-            )
-            player_name = (
-                room["players"][owner_player_id].get("player_name")
-                if owner_player_id
-                else "Unknown"
-            )
-            open_rooms[session_id] = {
-                "room_name": room.get("roomName"),
-                "current": len(room.get("players", {})),
-                "max": room.get("maxPlayers"),
-                "player_name": player_name,
-                "hasPassword": bool(room.get("password")),
-            }
+    open_rooms: Dict[str, RoomsResponse] = {}
+    for session_id, room in netplay_rooms.items():
+        if not _is_room_open(room, game_id):
+            continue
+
+        open_rooms[session_id] = RoomsResponse(
+            room_name=room["room_name"],
+            current=len(room["players"]),
+            max=room["max_players"],
+            player_name=_get_owner_player_name(room),
+            hasPassword=bool(room["password"]),
+        )
+
     return open_rooms

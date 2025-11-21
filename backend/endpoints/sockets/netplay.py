@@ -1,9 +1,11 @@
 from typing import NotRequired, TypedDict
 
-import socketio  # type: ignore
-
-from config import REDIS_URL
-from endpoints.netplay import rooms
+from endpoints.netplay import (
+    DEFAULT_MAX_PLAYERS,
+    NetplayPlayerInfo,
+    NetplayRoom,
+    netplay_rooms,
+)
 from handler.socket_handler import socket_handler
 
 
@@ -23,40 +25,6 @@ class RoomData(TypedDict):
     maxPlayers: NotRequired[int]
 
 
-def _get_socket_manager() -> socketio.AsyncRedisManager:
-    """Connect to external socketio server"""
-    return socketio.AsyncRedisManager(REDIS_URL, write_only=True)
-
-
-# if (!sessionId || !playerId) {
-#   return callback('Invalid data: sessionId and playerId required');
-# }
-# if (rooms[sessionId]) {
-#   return callback('Room already exists');
-# }
-
-# let finalDomain = data.extra.domain;
-# if (finalDomain === undefined || finalDomain === null) {
-#     finalDomain = 'unknown';
-# }
-
-# rooms[sessionId] = {
-#   owner: socket.id,
-#   players: { [playerId]: { ...data.extra, socketId: socket.id } },
-#   peers: [],
-#   roomName: roomName || `Room ${sessionId}`,
-#   gameId: gameId || 'default',
-#   domain: finalDomain,
-#   password: data.password || null,
-#   maxPlayers: maxPlayers,
-# };
-# socket.join(sessionId);
-# socket.sessionId = sessionId;
-# socket.playerId = playerId;
-# io.to(sessionId).emit('users-updated', rooms[sessionId].players);
-# callback(null);
-
-
 @socket_handler.socket_server.on("open-room")  # type: ignore
 async def open_room(sid: str, data: RoomData):
     extra_data = data["extra"]
@@ -67,22 +35,29 @@ async def open_room(sid: str, data: RoomData):
     if not session_id or not player_id:
         return "Invalid data: sessionId and playerId required"
 
-    if session_id in rooms:
+    if session_id in netplay_rooms:
         return "Room already exists"
 
-    rooms[session_id] = {
-        "owner": sid,
-        "players": {[player_id]: {**extra_data, "socket_id": sid}},
-        "peers": [],
-        "room_name": extra_data["room_name"] or f"Room {session_id}",
-        "game_id": extra_data["game_id"] or "default",
-        "domain": extra_data["domain"],
-        "password": extra_data["room_password"],
-        "max_players": data["maxPlayers"] or 4,
-    }
+    netplay_rooms[session_id] = NetplayRoom(
+        owner=sid,
+        players={
+            player_id: NetplayPlayerInfo(
+                socket_id=sid,
+                player_name=extra_data.get("player_name") or f"Player {player_id}",
+                user_id=extra_data.get("userid"),
+                player_id=extra_data.get("playerId"),
+            )
+        },
+        peers=[],
+        room_name=extra_data.get("room_name") or f"Room {session_id}",
+        game_id=extra_data.get("game_id") or "default",
+        domain=extra_data.get("domain", None),
+        password=extra_data.get("room_password", None),
+        max_players=data.get("maxPlayers") or DEFAULT_MAX_PLAYERS,
+    )
 
-    socket_handler.socket_server.enter_room(sid, session_id)
-    socket_handler.socket_server.save_session(
+    await socket_handler.socket_server.enter_room(sid, session_id)
+    await socket_handler.socket_server.save_session(
         sid,
         {
             "session_id": session_id,
@@ -92,24 +67,8 @@ async def open_room(sid: str, data: RoomData):
             ),
         },
     )
-    socket_handler.socket_server.emit(
-        "users-updated", rooms[session_id]["players"], room=session_id
+    await socket_handler.socket_server.emit(
+        "users-updated", netplay_rooms[session_id]["players"], room=session_id
     )
 
     return None
-
-
-#   owner: socket.id,
-#   players: { [playerId]: { ...data.extra, socketId: socket.id } },
-#   peers: [],
-#   roomName: roomName || `Room ${sessionId}`,
-#   gameId: gameId || 'default',
-#   domain: finalDomain,
-#   password: data.password || null,
-#   maxPlayers: maxPlayers,
-# };
-# socket.join(sessionId);
-# socket.sessionId = sessionId;
-# socket.playerId = playerId;
-# io.to(sessionId).emit('users-updated', rooms[sessionId].players);
-# callback(null);
