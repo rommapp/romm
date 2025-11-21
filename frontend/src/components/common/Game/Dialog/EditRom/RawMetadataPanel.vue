@@ -86,7 +86,7 @@ const saveMetadata = () => {
 </script>
 
 <template>
-  <v-expansion-panel v-if="rom[metadataField]">
+  <v-expansion-panel v-if="rom[metadataField]" elevation="0">
     <v-expansion-panel-title class="bg-toplayer">
       <v-avatar size="26" rounded class="mr-2">
         <v-img :src="iconSrc" />

@@ -413,11 +413,10 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         </v-expansion-panels>
       </v-form>
     </template>
-    <template #append>
-      <v-divider />
-      <v-row class="justify-center pa-2" no-gutters>
+    <template #footer>
+      <v-row class="justify-center" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="text-romm-red bg-toplayer" @click="closeDialog">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn

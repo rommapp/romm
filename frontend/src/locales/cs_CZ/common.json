@@ -52,5 +52,8 @@
   "upload-files-selected": "{count} vybraných souborů | {count} vybraný soubor | {count} vybrané soubory | {count} vybraných souborů",
   "user-interface": "Uživatelské rozhraní",
   "virtual-collection": "Automaticky vytvořená kolekce",
-  "virtual-collections": "Automaticky vytvořené kolekce"
+  "virtual-collections": "Automaticky vytvořené kolekce",
+  "confirm-deletion": "Potvrdit smazání",
+  "delete": "Smazat",
+  "last-updated": "Naposledy aktualizováno"
 }

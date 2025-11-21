@@ -51,6 +51,9 @@
   "upload": "上传",
   "upload-files-selected": "已选择 {count} 个文件",
   "user-interface": "用户界面",
-  "virtual-collection": "自动生成的收藏",
-  "virtual-collections": "自动生成的收藏"
+  "virtual-collection": "自动生成的集合",
+  "virtual-collections": "自动生成的集合",
+  "last-updated": "最后更新",
+  "confirm-deletion": "确认删除",
+  "delete": "删除"
 }

@@ -8,6 +8,7 @@ import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import type { RomUserStatus } from "@/__generated__";
+import MultiNoteManager from "@/components/Details/MultiNoteManager.vue";
 import RetroAchievements from "@/components/Details/RetroAchievements.vue";
 import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
@@ -52,10 +53,7 @@ const auth = storeAuth();
 const theme = useTheme();
 const { mdAndUp, mdAndDown, smAndDown } = useDisplay();
 const { scopes } = storeToRefs(auth);
-const editingNote = ref(false);
 const romUser = ref(props.rom.rom_user);
-const publicNotes =
-  props.rom.user_notes?.filter((note) => note.user_id !== auth.user?.id) ?? [];
 
 // Watch for sub-tab changes and update URL
 watch(tab, (newSubTab) => {
@@ -95,14 +93,16 @@ const statusOptions = [
   "completed_100",
 ];
 
-function editNote() {
-  if (editingNote.value) {
-    romApi.updateUserRomProps({
-      romId: props.rom.id,
-      data: romUser.value,
-    });
+async function onNotesUpdated() {
+  // Refetch the ROM to get updated all_user_notes
+  try {
+    const updatedRom = await romApi.getRom({ romId: props.rom.id });
+    // Update the parent component with the new ROM data
+    // This is a bit of a hack - ideally we'd have better state management
+    Object.assign(props.rom, updatedRom.data);
+  } catch (error) {
+    console.error("Failed to refetch ROM data:", error);
   }
-  editingNote.value = !editingNote.value;
 }
 
 function onStatusItemClick(status: string | null) {
@@ -323,124 +323,7 @@ watch(
           <RetroAchievements :rom="rom" />
         </v-tabs-window-item>
         <v-tabs-window-item value="notes">
-          <RSection
-            icon="mdi-account"
-            :title="t('rom.my-notes')"
-            elevation="0"
-            title-divider
-            bg-color="bg-surface"
-            class="mt-2"
-          >
-            <template #toolbar-append>
-              <v-btn-group divided density="compact" class="mr-1">
-                <v-tooltip
-                  location="top"
-                  class="tooltip"
-                  transition="fade-transition"
-                  :text="
-                    romUser.note_is_public ? 'Make private' : 'Make public'
-                  "
-                  open-delay="500"
-                >
-                  <template #activator="{ props: tooltipProps }">
-                    <v-btn
-                      :disabled="!scopes.includes('roms.user.write')"
-                      v-bind="tooltipProps"
-                      class="bg-toplayer"
-                      @click="romUser.note_is_public = !romUser.note_is_public"
-                    >
-                      <v-icon size="large">
-                        {{ romUser.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
-                      </v-icon>
-                    </v-btn>
-                  </template>
-                </v-tooltip>
-                <v-tooltip
-                  location="top"
-                  class="tooltip"
-                  transition="fade-transition"
-                  text="Edit note"
-                  open-delay="500"
-                >
-                  <template #activator="{ props: tooltipProps }">
-                    <v-btn
-                      :disabled="!scopes.includes('roms.user.write')"
-                      v-bind="tooltipProps"
-                      class="bg-toplayer"
-                      @click="editNote"
-                    >
-                      <v-icon size="large">
-                        {{ editingNote ? "mdi-check" : "mdi-pencil" }}
-                      </v-icon>
-                    </v-btn>
-                  </template>
-                </v-tooltip>
-              </v-btn-group>
-            </template>
-            <template #content>
-              <MdEditor
-                v-if="editingNote"
-                v-model="romUser.note_raw_markdown"
-                no-highlight
-                no-katex
-                no-mermaid
-                no-prettier
-                no-upload-img
-                :disabled="!scopes.includes('roms.user.write')"
-                :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-                language="en-US"
-                :preview="false"
-              />
-              <MdPreview
-                v-else
-                no-highlight
-                no-katex
-                no-mermaid
-                :model-value="romUser.note_raw_markdown"
-                :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-                language="en-US"
-                preview-theme="vuepress"
-                code-theme="github"
-                class="py-4 px-6"
-              />
-            </template>
-          </RSection>
-          <RSection
-            v-if="publicNotes.length > 0"
-            icon="mdi-account-multiple"
-            :title="t('rom.public-notes')"
-            elevation="0"
-            title-divider
-            bg-color="bg-surface"
-            class="mt-2"
-          >
-            <template #content>
-              <v-expansion-panels multiple flat variant="accordion">
-                <v-expansion-panel
-                  v-for="note in publicNotes"
-                  :key="note.user_id"
-                  rounded="0"
-                >
-                  <v-expansion-panel-title class="bg-toplayer">
-                    <span class="text-body-1">{{ note.username }}</span>
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text class="bg-surface">
-                    <MdPreview
-                      no-highlight
-                      no-katex
-                      no-mermaid
-                      :model-value="note.note_raw_markdown"
-                      :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-                      language="en-US"
-                      preview-theme="vuepress"
-                      code-theme="github"
-                      class="py-4 px-6"
-                    />
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
-            </template>
-          </RSection>
+          <MultiNoteManager :rom="rom" @notes-updated="onNotesUpdated" />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>
