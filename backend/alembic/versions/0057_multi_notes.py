@@ -62,6 +62,23 @@ def upgrade() -> None:
         text("CREATE INDEX idx_rom_notes_content ON rom_notes (content(100))")
     )
 
+    # Add default values to old note columns to prevent insertion errors
+    # This allows new rom_user records to be created without specifying note fields
+    op.alter_column(
+        "rom_user",
+        "note_raw_markdown",
+        existing_type=sa.Text(),
+        server_default="",
+        nullable=True,
+    )
+    op.alter_column(
+        "rom_user",
+        "note_is_public",
+        existing_type=sa.Boolean(),
+        server_default=text("false"),
+        nullable=True,
+    )
+
     # Migrate existing notes from rom_user to rom_notes table
     # Both note_raw_markdown and note_is_public columns exist from previous migrations
     connection = op.get_bind()
