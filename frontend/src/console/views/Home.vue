@@ -9,6 +9,7 @@ import {
   useTemplateRef,
   onBeforeMount,
 } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import RIsotipo from "@/components/common/RIsotipo.vue";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
@@ -36,6 +37,7 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 
+const { t } = useI18n();
 const router = useRouter();
 const platformsStore = storePlatforms();
 const { allPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
@@ -712,7 +714,7 @@ onUnmounted(() => {
           class="font-bold text-[28px] drop-shadow-xl"
           :style="{ color: 'var(--console-home-title-text)' }"
         >
-          Console
+          {{ t("console.console") }}
         </div>
       </div>
 
@@ -721,7 +723,7 @@ onUnmounted(() => {
         class="text-center mt-16"
         :style="{ color: 'var(--console-loading-text)' }"
       >
-        Loading platforms…
+        {{ t("console.loading-platforms") }}
       </div>
       <div
         v-else-if="errorMessage"
@@ -736,7 +738,7 @@ onUnmounted(() => {
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
           >
-            Platforms
+            {{ t("console.platforms") }}
           </h2>
           <div class="relative h-[220px]">
             <button
@@ -792,7 +794,7 @@ onUnmounted(() => {
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
           >
-            Recently Played
+            {{ t("console.recently-played") }}
           </h2>
           <div class="relative h-[400px]">
             <button
@@ -853,7 +855,7 @@ onUnmounted(() => {
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
           >
-            Collections
+            {{ t("console.collections") }}
           </h2>
           <div class="relative h-[400px]">
             <button
@@ -912,7 +914,7 @@ onUnmounted(() => {
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
           >
-            Smart Collections
+            {{ t("console.smart-collections") }}
           </h2>
           <div class="relative h-[400px]">
             <button
@@ -972,7 +974,7 @@ onUnmounted(() => {
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
           >
-            Virtual Collections
+            {{ t("console.virtual-collections") }}
           </h2>
           <div class="relative h-[400px]">
             <button
@@ -1036,7 +1038,7 @@ onUnmounted(() => {
             'border-[var(--console-home-control-button-focus-border)] bg-[var(--console-home-control-button-focus-border)]/15 shadow-[0_0_0_2px_var(--console-home-control-button-focus-border),_0_0_18px_-4px_var(--console-home-control-button-focus-border)] -translate-y-0.5':
               navigationMode === 'controls' && controlIndex === 0,
           }"
-          title="Exit Console Mode (F1)"
+          :title="t('console.exit-console-mode') + ' (F1)'"
           @click="exitConsoleMode"
         >
           <v-icon size="small">mdi-power</v-icon>
@@ -1052,7 +1054,7 @@ onUnmounted(() => {
             'border-[var(--console-home-control-button-focus-border)] bg-[var(--console-home-control-button-focus-border)]/15 shadow-[0_0_0_2px_var(--console-home-control-button-focus-border),_0_0_18px_-4px_var(--console-home-control-button-focus-border)] -translate-y-0.5':
               navigationMode === 'controls' && controlIndex === 1,
           }"
-          title="Fullscreen (F11)"
+          :title="t('console.fullscreen') + ' (F11)'"
           @click="toggleFullscreen"
         >
           <v-icon size="small">mdi-fullscreen</v-icon>
@@ -1068,7 +1070,7 @@ onUnmounted(() => {
             'border-[var(--console-home-control-button-focus-border)] bg-[var(--console-home-control-button-focus-border)]/15 shadow-[0_0_0_2px_var(--console-home-control-button-focus-border),_0_0_18px_-4px_var(--console-home-control-button-focus-border)] -translate-y-0.5':
               navigationMode === 'controls' && controlIndex === 2,
           }"
-          title="Settings"
+          :title="t('console.settings')"
           @click="showSettings = true"
         >
           <v-icon size="small">mdi-cog</v-icon>
