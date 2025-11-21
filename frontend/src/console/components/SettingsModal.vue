@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useConsoleTheme } from "@/console/composables/useConsoleTheme";
 import { useInputScope } from "@/console/composables/useInputScope";
 import type { InputAction } from "@/console/input/actions";
 import { getSfxEnabled, setSfxEnabled } from "@/console/utils/sfx";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const props = defineProps<{
@@ -21,8 +21,8 @@ const { subscribe } = useInputScope();
 
 const selectedOption = ref(0);
 const options = computed(() => [
-  { label: t('console.theme'), type: "theme" as const },
-  { label: t('console.sound-effects'), type: "sfx" as const },
+  { label: t("console.theme"), type: "theme" as const },
+  { label: t("console.sound-effects"), type: "sfx" as const },
 ]);
 
 const themeOptions = [
@@ -58,7 +58,8 @@ function handleAction(action: InputAction): boolean {
       return true;
     case "moveUp":
       selectedOption.value =
-        (selectedOption.value - 1 + options.value.length) % options.value.length;
+        (selectedOption.value - 1 + options.value.length) %
+        options.value.length;
       return true;
     case "moveDown":
       selectedOption.value = (selectedOption.value + 1) % options.value.length;
@@ -118,7 +119,7 @@ function getCurrentThemeLabel(): string {
     <template #default>
       <div class="lightbox-header">
         <h2 class="text-h6" :style="{ color: 'var(--console-modal-text)' }">
-          {{ t('console.console-settings') }}
+          {{ t("console.console-settings") }}
         </h2>
         <v-btn
           icon="mdi-close"
@@ -152,7 +153,7 @@ function getCurrentThemeLabel(): string {
                 <div class="sfx-toggle">
                   <span class="sfx-indicator">‹</span>
                   <span class="sfx-status">{{
-                    sfxEnabled ? t('console.enabled') : t('console.disabled')
+                    sfxEnabled ? t("console.enabled") : t("console.disabled")
                   }}</span>
                   <span class="sfx-indicator">›</span>
                 </div>

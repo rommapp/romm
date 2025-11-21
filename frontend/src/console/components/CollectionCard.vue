@@ -7,6 +7,7 @@ import {
   useTemplateRef,
   watch,
 } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   collectionElementRegistry,
   smartCollectionElementRegistry,
@@ -19,7 +20,6 @@ import {
   getFavoriteCoverImage,
   EXTENSION_REGEX,
 } from "@/utils/covers";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const props = defineProps<{

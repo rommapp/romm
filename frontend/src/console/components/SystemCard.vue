@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, useTemplateRef } from "vue";
+import { useI18n } from "vue-i18n";
 import FallbackSystemCard from "@/console/components/FallbackSystemCard.vue";
 import { systemElementRegistry } from "@/console/composables/useElementRegistry";
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
 import { getPlatformTheme } from "@/console/constants/platforms";
 import type { Platform } from "@/stores/platforms";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const props = defineProps<{
