@@ -28,11 +28,11 @@ from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomMetadata, RomUser
+from models.rom import Rom, RomFile, RomMetadata, RomNote, RomUser
 from utils.database import (
     json_array_contains_all,
     json_array_contains_any,
-    json_array_contains_value
+    json_array_contains_value,
 )
 
 from .base_handler import DBBaseHandler
