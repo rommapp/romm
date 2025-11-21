@@ -21,8 +21,8 @@ const { subscribe } = useInputScope();
 
 const selectedOption = ref(0);
 const options = computed(() => [
-  { label: t("console.theme"), type: "theme" as const },
-  { label: t("console.sound-effects"), type: "sfx" as const },
+  { label: "console.theme", type: "theme" as const },
+  { label: "console.sound-effects", type: "sfx" as const },
 ]);
 
 const themeOptions = [
@@ -139,7 +139,7 @@ function getCurrentThemeLabel(): string {
             :class="{ 'settings-item-selected': selectedOption === index }"
           >
             <div class="settings-label">
-              {{ option.label }}
+              {{ t(option.label) }}
             </div>
             <div class="settings-value">
               <template v-if="option.type === 'theme'">
