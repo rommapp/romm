@@ -1,7 +1,7 @@
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 
-folder_struct_msg = "Check RomM folder structure here: https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure"
+folder_struct_msg = "Check RomM folder structure here: https://docs.romm.app/latest/Getting-Started/Folder-Structure/"
 
 
 class FolderStructureNotMatchException(Exception):
