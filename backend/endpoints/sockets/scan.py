@@ -18,6 +18,7 @@ from exceptions.fs_exceptions import (
     FirmwareNotFoundException,
     FolderStructureNotMatchException,
     RomsNotFoundException,
+    FOLDER_STRUCT_MSG
 )
 from exceptions.socket_exceptions import ScanStoppedException
 from handler.database import db_firmware_handler, db_platform_handler, db_rom_handler
@@ -644,7 +645,7 @@ async def scan_platforms(
         if len(platform_list) == 0:
             log.warning(
                 f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No platforms found, verify that the folder structure is right and the volume is mounted correctly."
-                "Check https://docs.romm.app/latest/Getting-Started/Folder-Structure/ for more details."
+                f"{FOLDER_STRUCT_MSG}"
             )
         else:
             log.info(
