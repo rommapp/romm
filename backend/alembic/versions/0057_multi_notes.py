@@ -62,47 +62,40 @@ def upgrade() -> None:
         text("CREATE INDEX idx_rom_notes_content ON rom_notes (content(100))")
     )
 
-    # Migrate existing notes from rom_user table if the columns exist
+    # Migrate existing notes from rom_user to rom_notes table
+    # Both note_raw_markdown and note_is_public columns exist from previous migrations
     connection = op.get_bind()
+    result = connection.execute(
+        text(
+            """
+            SELECT id, rom_id, user_id, note_raw_markdown, note_is_public, updated_at
+            FROM rom_user
+        """
+        )
+    )
 
-    # Check if note columns exist in rom_user table
-    inspector = sa.inspect(connection)
-    rom_user_columns = [col["name"] for col in inspector.get_columns("rom_user")]
-
-    if "note_raw_markdown" in rom_user_columns and "note_is_public" in rom_user_columns:
-        # Migrate existing notes
-        result = connection.execute(
+    for row in result:
+        connection.execute(
             text(
                 """
-                SELECT id, rom_id, user_id, note_raw_markdown, note_is_public, updated_at
-                FROM rom_user
-                WHERE note_raw_markdown IS NOT NULL AND note_raw_markdown != ''
+                INSERT INTO rom_notes (title, content, is_public, tags, created_at, updated_at, rom_id, user_id)
+                VALUES (:title, :content, :is_public, :tags, :created_at, :updated_at, :rom_id, :user_id)
             """
-            )
+            ),
+            {
+                "title": "My Note",
+                "content": row.note_raw_markdown or "",  # Handle potential NULL content
+                "is_public": row.note_is_public,
+                "tags": "[]",
+                "created_at": row.updated_at or text("now()"),
+                "updated_at": row.updated_at or text("now()"),
+                "rom_id": row.rom_id,
+                "user_id": row.user_id,
+            },
         )
-
-        for row in result:
-            connection.execute(
-                text(
-                    """
-                    INSERT INTO rom_notes (title, content, is_public, tags, created_at, updated_at, rom_id, user_id)
-                    VALUES (:title, :content, :is_public, :tags, :created_at, :updated_at, :rom_id, :user_id)
-                """
-                ),
-                {
-                    "title": "My Note",
-                    "content": row.note_raw_markdown,
-                    "is_public": bool(row.note_is_public),
-                    "tags": "[]",
-                    "created_at": row.updated_at or text("now()"),
-                    "updated_at": row.updated_at or text("now()"),
-                    "rom_id": row.rom_id,
-                    "user_id": row.user_id,
-                },
-            )
-        # Remove the old note columns from rom_user table
-        op.drop_column("rom_user", "note_raw_markdown")
-        op.drop_column("rom_user", "note_is_public")
+        # Remove the old note columns from rom_user table in a future migration
+        # op.drop_column("rom_user", "note_raw_markdown")
+        # op.drop_column("rom_user", "note_is_public")
 
 
 def downgrade() -> None:
