@@ -20,13 +20,13 @@ const themeStore = useConsoleTheme();
 const { subscribe } = useInputScope();
 
 const selectedOption = ref(0);
-const options = [
+const options = computed(() => [
   { label: t('console.theme'), type: "theme" as const },
   { label: t('console.sound-effects'), type: "sfx" as const },
-];
+]);
 
 const themeOptions = [
-  { value: "default", label: t('console.default') },
+  { value: "default", label: "Default" },
   { value: "neon", label: "Soft Neon" },
 ];
 
@@ -58,14 +58,14 @@ function handleAction(action: InputAction): boolean {
       return true;
     case "moveUp":
       selectedOption.value =
-        (selectedOption.value - 1 + options.length) % options.length;
+        (selectedOption.value - 1 + options.value.length) % options.value.length;
       return true;
     case "moveDown":
-      selectedOption.value = (selectedOption.value + 1) % options.length;
+      selectedOption.value = (selectedOption.value + 1) % options.value.length;
       return true;
     case "moveLeft":
     case "moveRight": {
-      const currentOption = options[selectedOption.value];
+      const currentOption = options.value[selectedOption.value];
       if (currentOption.type === "theme") {
         const currentIndex = themeOptions.findIndex(
           (t) => t.value === selectedTheme.value,
