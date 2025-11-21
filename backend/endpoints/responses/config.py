@@ -14,6 +14,7 @@ class ConfigResponse(TypedDict):
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
+    SKIP_HASH_CALCULATION: bool
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
     EJS_SETTINGS: dict[str, dict[str, str]]

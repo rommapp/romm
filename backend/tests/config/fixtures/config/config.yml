@@ -29,6 +29,7 @@ system:
 filesystem:
   roms_folder: "ROMS"
   firmware_folder: "BIOS"
+  skip_hash_calculation: true
 
 scan:
   priority:

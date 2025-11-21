@@ -22,3 +22,4 @@ def test_config(client):
     assert config.get("EXCLUDED_MULTI_PARTS_EXT") == []
     assert config.get("EXCLUDED_MULTI_PARTS_FILES") == []
     assert config.get("PLATFORMS_BINDING") == {}
+    assert not config.get("SKIP_HASH_CALCULATION")
