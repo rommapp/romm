@@ -20,6 +20,7 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { useI18n } from "vue-i18n";
+import { computed } from 'vue';
 
 const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
@@ -62,7 +63,7 @@ const loaderStatus = ref<
 
 let pausedByPrompt = false;
 
-const exitOptions = [
+const exitOptions = computed(() => [
   { id: "save", label: t('console.game-exit-save'), desc: t('console.game-exit-save-desc') },
   {
     id: "nosave",
@@ -70,7 +71,7 @@ const exitOptions = [
     desc: t('console.game-exit-nosave-desc'),
   },
   { id: "cancel", label: t('console.game-exit-cancel'), desc: t('console.game-exit-cancel-desc') },
-];
+]);
 
 const { subscribe } = useInputScope();
 let exitScopeOff: (() => void) | null = null;
@@ -113,7 +114,7 @@ function handleExitAction(action: string) {
     return true;
   }
   if (action === "confirm") {
-    activateExitOption(exitOptions[focusedExitIndex.value].id);
+    activateExitOption(exitOptions.value[focusedExitIndex.value].id);
     return true;
   }
   if (action === "back") {
@@ -224,7 +225,7 @@ function activateExitOption(id: string) {
 }
 
 function moveExitFocus(delta: number) {
-  const total = exitOptions.length;
+  const total = exitOptions.value.length;
   focusedExitIndex.value = (focusedExitIndex.value + delta + total) % total;
 }
 
@@ -287,7 +288,7 @@ function attachGamepadExit(options?: { windowMs?: number }) {
         }
       } else {
         if (edge(BTN.A))
-          activateExitOption(exitOptions[focusedExitIndex.value].id);
+          activateExitOption(exitOptions.value[focusedExitIndex.value].id);
         if (edge(BTN.B)) cancelExit();
       }
       for (let i = 0; i < pad.buttons.length; i++) {
