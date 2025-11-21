@@ -9,8 +9,8 @@ import {
   useTemplateRef,
   onBeforeMount,
 } from "vue";
-import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import RIsotipo from "@/components/common/RIsotipo.vue";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
 import CollectionCard from "@/console/components/CollectionCard.vue";
@@ -714,7 +714,7 @@ onUnmounted(() => {
           class="font-bold text-[28px] drop-shadow-xl"
           :style="{ color: 'var(--console-home-title-text)' }"
         >
-          {{ t('console.console') }}
+          {{ t("console.console") }}
         </div>
       </div>
 
@@ -723,7 +723,7 @@ onUnmounted(() => {
         class="text-center mt-16"
         :style="{ color: 'var(--console-loading-text)' }"
       >
-        {{ t('console.loading-platforms') }}
+        {{ t("console.loading-platforms") }}
       </div>
       <div
         v-else-if="errorMessage"
@@ -738,7 +738,7 @@ onUnmounted(() => {
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
           >
-            {{ t('console.platforms') }}
+            {{ t("console.platforms") }}
           </h2>
           <div class="relative h-[220px]">
             <button
@@ -794,7 +794,7 @@ onUnmounted(() => {
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
           >
-            {{ t('console.recently-played') }}
+            {{ t("console.recently-played") }}
           </h2>
           <div class="relative h-[400px]">
             <button
@@ -855,7 +855,7 @@ onUnmounted(() => {
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
           >
-            {{ t('console.collections') }}
+            {{ t("console.collections") }}
           </h2>
           <div class="relative h-[400px]">
             <button
@@ -914,7 +914,7 @@ onUnmounted(() => {
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
           >
-            {{ t('console.smart-collections') }}
+            {{ t("console.smart-collections") }}
           </h2>
           <div class="relative h-[400px]">
             <button
@@ -974,7 +974,7 @@ onUnmounted(() => {
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
           >
-            {{ t('console.virtual-collections') }}
+            {{ t("console.virtual-collections") }}
           </h2>
           <div class="relative h-[400px]">
             <button
