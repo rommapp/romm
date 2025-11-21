@@ -53,6 +53,12 @@ const { selectedLanguage } = storeToRefs(languageStore);
 
 // Declare global variables for EmulatorJS
 declare global {
+  interface NetplayICEServer {
+    urls: string;
+    username?: string;
+    credential?: string;
+  }
+
   interface Window {
     EJS_core: string;
     EJS_biosUrl: string;
@@ -69,6 +75,7 @@ declare global {
     EJS_gameParentUrl: string;
     EJS_gamePatchUrl: string;
     EJS_netplayServer: string;
+    EJS_netplayICEServers: NetplayICEServer[];
     EJS_alignStartButton: "top" | "center" | "bottom";
     EJS_startOnLoaded: boolean;
     EJS_fullscreenOnLoaded: boolean;
@@ -137,6 +144,24 @@ window.EJS_gameName = romRef.value.fs_name_no_tags
   .trim();
 window.EJS_language = selectedLanguage.value.value.replace("_", "-");
 window.EJS_disableAutoLang = true;
+
+window.EJS_netplayServer = "/netplay";
+window.EJS_netplayICEServers = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun.nextcloud.com:3478" },
+  {
+    urls: "turn:openrelay.metered.ca:80",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  {
+    urls: "turn:openrelay.metered.ca:443",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+];
 
 const { EJS_DEBUG, EJS_CACHE_LIMIT } = configStore.config;
 if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
