@@ -644,7 +644,7 @@ async def scan_platforms(
         if len(platform_list) == 0:
             log.warning(
                 f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No platforms found, verify that the folder structure is right and the volume is mounted correctly."
-                "Check https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure for more details."
+                "Check https://docs.romm.app/latest/Getting-Started/Folder-Structure/ for more details."
             )
         else:
             log.info(
