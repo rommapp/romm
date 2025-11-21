@@ -2,6 +2,7 @@
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import RandomBtn from "@/components/Gallery/AppBar/common/RandomBtn.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
@@ -41,12 +42,13 @@ function collapse() {
       left
     >
       <template #prepend>
-        <home-btn class="ml-1" />
+        <HomeBtn class="ml-1" />
       </template>
 
       <template #append>
-        <upload-btn class="mr-2" />
-        <user-btn class="mr-1" />
+        <RandomBtn />
+        <UploadBtn class="mr-2" />
+        <UserBtn class="mr-1" />
       </template>
     </v-app-bar>
 
@@ -56,11 +58,11 @@ function collapse() {
       elevation="0"
       class="bg-background align-center justify-center"
     >
-      <search-btn withTag />
-      <platforms-btn withTag />
-      <collections-btn withTag />
-      <scan-btn withTag />
-      <console-mode-btn withTag />
+      <SearchBtn with-tag />
+      <PlatformsBtn with-tag />
+      <CollectionsBtn with-tag />
+      <ScanBtn with-tag />
+      <ConsoleModeBtn with-tag />
     </v-bottom-navigation>
   </template>
 
@@ -75,83 +77,55 @@ function collapse() {
   >
     <template #prepend>
       <v-row no-gutters class="my-2 justify-center">
-        <home-btn aria-label="Home" tabindex="1" />
+        <HomeBtn aria-label="Home" />
       </v-row>
     </template>
 
     <v-row no-gutters class="justify-center mt-10">
       <v-divider class="mx-2" />
       <v-btn
-        aria-label="Collapse main navbar"
-        tabindex="2"
-        @click="collapse"
         id="collapseBtn"
+        aria-label="Collapse main navbar"
         size="small"
         density="comfortable"
         variant="flat"
         rounded
         icon
-        ><v-icon>{{
-          mainBarCollapsed
-            ? "mdi-chevron-double-right"
-            : "mdi-chevron-double-left"
-        }}</v-icon></v-btn
+        @click="collapse"
       >
+        <v-icon>
+          {{
+            mainBarCollapsed
+              ? "mdi-chevron-double-right"
+              : "mdi-chevron-double-left"
+          }}
+        </v-icon>
+      </v-btn>
     </v-row>
-    <search-btn
-      :withTag="!mainBarCollapsed"
-      rounded
-      class="mt-4"
-      block
-      tabindex="3"
-    />
-    <platforms-btn
-      :withTag="!mainBarCollapsed"
-      rounded
-      class="mt-2"
-      block
-      tabindex="4"
-    />
-    <collections-btn
-      :withTag="!mainBarCollapsed"
-      rounded
-      class="mt-2"
-      block
-      tabindex="5"
-    />
-    <scan-btn
-      :withTag="!mainBarCollapsed"
-      rounded
-      class="mt-2"
-      block
-      tabindex="7"
-    />
-    <console-mode-btn
-      :withTag="!mainBarCollapsed"
-      rounded
-      class="mt-2"
-      block
-      tabindex="8"
-    />
+    <SearchBtn :with-tag="!mainBarCollapsed" rounded class="mt-4" block />
+    <PlatformsBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
+    <CollectionsBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
+    <ScanBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
+    <ConsoleModeBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
 
     <template #append>
-      <upload-btn
-        :withTag="!mainBarCollapsed"
+      <RandomBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
+      <UploadBtn
+        :with-tag="!mainBarCollapsed"
         rounded
         class="mt-2 mb-6"
         block
-        tabindex="9"
       />
       <v-row no-gutters class="my-2 justify-center">
-        <user-btn tabindex="10" aria-label="Settings menu" />
+        <UserBtn aria-label="Settings menu" />
       </v-row>
     </template>
   </v-navigation-drawer>
 
-  <platforms-drawer />
-  <collections-drawer />
-  <upload-rom-dialog />
-  <settings-drawer />
+  <PlatformsDrawer />
+  <CollectionsDrawer />
+  <UploadRomDialog />
+  <SettingsDrawer />
 </template>
 <style scoped>
 #collapseBtn {

@@ -7,7 +7,7 @@ import storeRoms from "@/stores/roms";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 
 const romsStore = storeRoms();
-const { currentRom, filteredRoms } = storeToRefs(romsStore);
+const { currentRom, romIdIndex } = storeToRefs(romsStore);
 const router = useRouter();
 const { smAndUp } = useDisplay();
 
@@ -23,29 +23,29 @@ const unmatchedCoverImage = computed(() =>
 );
 
 const currentRomIndex = computed(() =>
-  filteredRoms.value.findIndex((rom) => rom.id === currentRom.value?.id),
+  romIdIndex.value.findIndex((rom) => rom === currentRom.value?.id),
 );
 
 function previousRom() {
   if (currentRomIndex.value > 0) {
-    router.push(`/rom/${filteredRoms.value[currentRomIndex.value - 1].id}`);
+    router.push(`/rom/${romIdIndex.value[currentRomIndex.value - 1]}`);
   }
 }
 
 function nextRom() {
-  if (currentRomIndex.value < filteredRoms.value.length - 1) {
-    router.push(`/rom/${filteredRoms.value[currentRomIndex.value + 1].id}`);
+  if (currentRomIndex.value < romIdIndex.value.length - 1) {
+    router.push(`/rom/${romIdIndex.value[currentRomIndex.value + 1]}`);
   }
 }
 </script>
 
 <template>
   <v-card
+    v-if="currentRom"
+    :key="currentRom.updated_at"
     elevation="0"
     rounded="0"
     class="w-100"
-    :key="currentRom.updated_at"
-    v-if="currentRom"
   >
     <v-img
       class="background-image"
@@ -60,7 +60,7 @@ function nextRom() {
       </template>
     </v-img>
     <v-btn-group
-      v-if="filteredRoms.length > 1"
+      v-if="romIdIndex.length > 1"
       density="compact"
       class="justify-center mb-2 px-2 position-absolute bottom-0 right-0"
       :class="{ 'd-flex justify-space-between w-100': !smAndUp }"
@@ -76,7 +76,7 @@ function nextRom() {
       <v-btn
         size="small"
         density="compact"
-        :disabled="currentRomIndex === filteredRoms.length - 1"
+        :disabled="currentRomIndex === romIdIndex.length - 1"
         @click="nextRom"
       >
         <v-icon>mdi-arrow-right</v-icon>

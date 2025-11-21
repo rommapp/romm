@@ -32,7 +32,7 @@ class HybridAuthBackend(AuthenticationBackend):
                 user = auth_handler.authenticate_user(
                     credentials.username, credentials.password
                 )
-                if user is None:
+                if user is None or not user.enabled:
                     return None
 
                 user.set_last_active()

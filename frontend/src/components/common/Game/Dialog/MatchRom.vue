@@ -4,7 +4,6 @@ import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import type { SearchRomSchema } from "@/__generated__";
 import EmptyManualMatch from "@/components/common/EmptyStates/EmptyManualMatch.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
@@ -12,14 +11,19 @@ import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
-import storePlatforms from "@/stores/platforms";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage } from "@/utils/covers";
 
 type MatchedSource = {
   url_cover: string | undefined;
-  name: "IGDB" | "Mobygames" | "Screenscraper" | "SteamGridDB";
+  name:
+    | "IGDB"
+    | "Mobygames"
+    | "Screenscraper"
+    | "Flashpoint"
+    | "Launchbox"
+    | "SteamGridDB";
   logo_path: string;
 };
 
@@ -29,42 +33,43 @@ const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
 const galleryViewStore = storeGalleryView();
-const platfotmsStore = storePlatforms();
 const searching = ref(false);
 const route = useRoute();
 const searchText = ref("");
 const searchBy = ref("Name");
 const searched = ref(false);
-const matchedRoms = ref<SearchRomSchema[]>([]);
-const filteredMatchedRoms = ref<SearchRomSchema[]>();
+const matchedRoms = ref<SearchRom[]>([]);
+const filteredMatchedRoms = ref<SearchRom[]>();
 const emitter = inject<Emitter<Events>>("emitter");
 const showSelectSource = ref(false);
 const renameFromSource = ref(false);
-const selectedMatchRom = ref<SearchRomSchema>();
+const selectedMatchRom = ref<SearchRom>();
 const selectedCover = ref<MatchedSource>();
 const sources = ref<MatchedSource[]>([]);
 const heartbeat = storeHeartbeat();
 const isIGDBFiltered = ref(true);
 const isMobyFiltered = ref(true);
 const isSSFiltered = ref(true);
+const isFlashpointFiltered = ref(true);
+const isLaunchboxFiltered = ref(true);
+
 const computedAspectRatio = computed(() => {
-  const ratio =
-    platfotmsStore.getAspectRatio(rom.value?.platform_id ?? -1) ||
-    galleryViewStore.defaultAspectRatioCover;
-  return parseFloat(ratio.toString());
+  return galleryViewStore.getAspectRatio({
+    platformId: rom.value?.platform_id,
+    boxartStyle: "cover_path",
+  });
 });
-emitter?.on("showMatchRomDialog", (romToSearch) => {
+
+const handleShowMatchRomDialog = (romToSearch: SimpleRom) => {
   rom.value = romToSearch;
   show.value = true;
   matchedRoms.value = [];
+  searchText.value = romToSearch.is_identified
+    ? (romToSearch.name ?? "")
+    : romToSearch.fs_name_no_tags;
+};
+emitter?.on("showMatchRomDialog", handleShowMatchRomDialog);
 
-  // Use name as search term, only when it's matched
-  // Otherwise use the filename without tags and extensions
-  searchText.value =
-    romToSearch.igdb_id || romToSearch.moby_id || romToSearch.ss_id
-      ? (romToSearch.name ?? "")
-      : romToSearch.fs_name_no_tags;
-});
 const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
@@ -82,12 +87,25 @@ function toggleSourceFilter(source: MatchedSource["name"]) {
     heartbeat.value.METADATA_SOURCES.SS_API_ENABLED
   ) {
     isSSFiltered.value = !isSSFiltered.value;
+  } else if (
+    source == "Flashpoint" &&
+    heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED
+  ) {
+    isFlashpointFiltered.value = !isFlashpointFiltered.value;
+  } else if (
+    source == "Launchbox" &&
+    heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED
+  ) {
+    isLaunchboxFiltered.value = !isLaunchboxFiltered.value;
   }
+
   filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
     if (
       (rom.igdb_id && isIGDBFiltered.value) ||
       (rom.moby_id && isMobyFiltered.value) ||
-      (rom.ss_id && isSSFiltered.value)
+      (rom.ss_id && isSSFiltered.value) ||
+      (rom.flashpoint_id && isFlashpointFiltered.value) ||
+      (rom.launchbox_id && isLaunchboxFiltered.value)
     ) {
       return true;
     }
@@ -117,7 +135,9 @@ async function searchRom() {
           if (
             (rom.igdb_id && isIGDBFiltered.value) ||
             (rom.moby_id && isMobyFiltered.value) ||
-            (rom.ss_id && isSSFiltered.value)
+            (rom.ss_id && isSSFiltered.value) ||
+            (rom.flashpoint_id && isFlashpointFiltered.value) ||
+            (rom.launchbox_id && isLaunchboxFiltered.value)
           ) {
             return true;
           }
@@ -137,7 +157,7 @@ async function searchRom() {
   }
 }
 
-function showSources(matchedRom: SearchRomSchema) {
+function showSources(matchedRom: SearchRom) {
   if (!rom.value) return;
 
   var cardContent = document.getElementById("r-dialog-content");
@@ -175,6 +195,20 @@ function showSources(matchedRom: SearchRomSchema) {
       logo_path: "/assets/scrappers/sgdb.png",
     });
   }
+  if (matchedRom.flashpoint_url_cover) {
+    sources.value.push({
+      url_cover: matchedRom.flashpoint_url_cover,
+      name: "Flashpoint",
+      logo_path: "/assets/scrappers/flashpoint.png",
+    });
+  }
+  if (matchedRom.launchbox_url_cover) {
+    sources.value.push({
+      url_cover: matchedRom.launchbox_url_cover,
+      name: "Launchbox",
+      logo_path: "/assets/scrappers/launchbox.png",
+    });
+  }
   if (sources.value.length == 1) {
     selectedCover.value = sources.value[0];
   }
@@ -185,8 +219,8 @@ function selectCover(source: MatchedSource) {
 }
 
 function confirm() {
-  if (!selectedMatchRom.value || !selectedCover.value) return;
-  updateRom(selectedMatchRom.value, selectedCover.value.url_cover);
+  if (!selectedMatchRom.value) return;
+  updateRom(selectedMatchRom.value, selectedCover.value?.url_cover);
   closeDialog();
 }
 
@@ -202,10 +236,7 @@ function backToMatched() {
   renameFromSource.value = false;
 }
 
-async function updateRom(
-  selectedRom: SearchRomSchema,
-  urlCover: string | undefined,
-) {
+async function updateRom(selectedRom: SearchRom, urlCover: string | undefined) {
   if (!rom.value) return;
 
   show.value = false;
@@ -222,8 +253,10 @@ async function updateRom(
           )
         : rom.value.fs_name,
     igdb_id: selectedRom.igdb_id || null,
-    moby_id: selectedRom.moby_id || null,
     ss_id: selectedRom.ss_id || null,
+    moby_id: selectedRom.moby_id || null,
+    flashpoint_id: selectedRom.flashpoint_id || null,
+    launchbox_id: selectedRom.launchbox_id || null,
     name: selectedRom.name || null,
     slug: selectedRom.slug || null,
     summary: selectedRom.summary || null,
@@ -232,6 +265,8 @@ async function updateRom(
       selectedRom.igdb_url_cover ||
       selectedRom.ss_url_cover ||
       selectedRom.moby_url_cover ||
+      selectedRom.flashpoint_url_cover ||
+      selectedRom.launchbox_url_cover ||
       null,
   };
 
@@ -278,13 +313,12 @@ function closeDialog() {
 }
 
 onBeforeUnmount(() => {
-  emitter?.off("showMatchRomDialog");
+  emitter?.off("showMatchRomDialog", handleShowMatchRomDialog);
 });
 </script>
 
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-search-web"
     :loading-condition="searching"
@@ -292,6 +326,8 @@ onBeforeUnmount(() => {
     :empty-state-type="searched ? 'game' : undefined"
     scroll-content
     :width="lgAndUp ? '60vw' : '95vw'"
+    :height="xs ? '80vh' : '90vh'"
+    @close="closeDialog"
   >
     <template #header>
       <span class="ml-4">{{ t("common.filter") }}:</span>
@@ -305,10 +341,11 @@ onBeforeUnmount(() => {
             : 'IGDB source is not enabled'
         "
         open-delay="500"
-        ><template #activator="{ props }">
+      >
+        <template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('IGDB')"
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -319,6 +356,7 @@ onBeforeUnmount(() => {
             }"
             size="30"
             rounded="1"
+            @click="toggleSourceFilter('IGDB')"
           >
             <v-img src="/assets/scrappers/igdb.png" />
           </v-avatar>
@@ -334,10 +372,11 @@ onBeforeUnmount(() => {
             : 'Mobygames source is not enabled'
         "
         open-delay="500"
-        ><template #activator="{ props }">
+      >
+        <template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('Mobygames')"
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -348,9 +387,12 @@ onBeforeUnmount(() => {
             }"
             size="30"
             rounded="1"
+            @click="toggleSourceFilter('Mobygames')"
           >
-            <v-img src="/assets/scrappers/moby.png" /></v-avatar></template
-      ></v-tooltip>
+            <v-img src="/assets/scrappers/moby.png" />
+          </v-avatar>
+        </template>
+      </v-tooltip>
       <v-tooltip
         location="top"
         class="tooltip"
@@ -361,10 +403,11 @@ onBeforeUnmount(() => {
             : 'Screenscraper source is not enabled'
         "
         open-delay="500"
-        ><template #activator="{ props }">
+      >
+        <template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('Screenscraper')"
             v-bind="props"
+            variant="text"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
               'opacity-100':
@@ -374,74 +417,154 @@ onBeforeUnmount(() => {
             }"
             size="30"
             rounded="1"
+            @click="toggleSourceFilter('Screenscraper')"
           >
             <v-img src="/assets/scrappers/ss.png" />
           </v-avatar>
         </template>
       </v-tooltip>
+      <v-tooltip
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        :text="
+          heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED
+            ? 'Filter Launchbox matches'
+            : 'Launchbox source is not enabled'
+        "
+        open-delay="500"
+      >
+        <template #activator="{ props }">
+          <v-avatar
+            v-bind="props"
+            variant="text"
+            class="ml-3 cursor-pointer opacity-40"
+            :class="{
+              'opacity-100':
+                isLaunchboxFiltered &&
+                heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.LAUNCHBOX_API_ENABLED,
+            }"
+            size="30"
+            rounded="1"
+            @click="toggleSourceFilter('Launchbox')"
+          >
+            <v-img src="/assets/scrappers/launchbox.png" />
+          </v-avatar>
+        </template>
+      </v-tooltip>
+      <v-tooltip
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        :text="
+          heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED
+            ? 'Filter Flashpoint matches'
+            : 'Flashpoint source is not enabled'
+        "
+        open-delay="500"
+      >
+        <template #activator="{ props }">
+          <v-avatar
+            v-bind="props"
+            variant="text"
+            class="ml-3 cursor-pointer opacity-40"
+            :class="{
+              'opacity-100':
+                isFlashpointFiltered &&
+                heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.FLASHPOINT_API_ENABLED,
+            }"
+            size="30"
+            rounded="1"
+            @click="toggleSourceFilter('Flashpoint')"
+          >
+            <v-img src="/assets/scrappers/flashpoint.png" />
+          </v-avatar>
+        </template>
+      </v-tooltip>
+      <v-chip label class="ml-4 pr-0" size="small">
+        {{ t("rom.results-found") }}:
+        <v-chip color="primary" class="ml-2 px-2" label>
+          {{ !searching ? matchedRoms.length : "" }}
+          <v-progress-circular
+            v-if="searching"
+            :width="1"
+            :size="10"
+            color="primary"
+            indeterminate
+          />
+        </v-chip>
+      </v-chip>
     </template>
     <template #toolbar>
       <v-row class="align-center" no-gutters>
         <v-col cols="6" sm="8">
           <v-text-field
-            autofocus
             id="search-text-field"
-            @keyup.enter="searchRom"
-            @click:clear="searchText = ''"
-            class="bg-toplayer"
             v-model="searchText"
+            class="bg-toplayer"
             :disabled="searching"
             :label="t('common.search')"
             hide-details
             clearable
+            @keyup.enter="searchRom"
+            @click:clear="searchText = ''"
           />
         </v-col>
         <v-col cols="4" sm="3">
           <v-select
+            v-model="searchBy"
             :disabled="searching"
             :label="t('rom.by')"
             class="bg-toplayer"
             :items="['ID', 'Name']"
-            v-model="searchBy"
             hide-details
           />
         </v-col>
         <v-col>
           <v-btn
             type="submit"
-            @click="searchRom"
             class="bg-toplayer"
             variant="text"
             rounded="0"
             icon="mdi-search-web"
             block
             :disabled="searching"
+            @click="searchRom"
           />
         </v-col>
       </v-row>
     </template>
     <template #content>
-      <v-row class="align-content-start" v-show="!showSelectSource" no-gutters>
-        <v-col
-          class="pa-1"
-          cols="4"
-          sm="3"
-          md="2"
-          v-show="!searching"
-          v-for="matchedRom in filteredMatchedRoms"
-        >
-          <game-card
-            v-if="rom"
-            @click="showSources(matchedRom)"
-            :rom="matchedRom"
-            transformScale
-            titleOnHover
-            pointerOnHover
-            disableViewTransition
-          />
-        </v-col>
-      </v-row>
-      <template v-if="showSelectSource">
+      <template v-if="!showSelectSource">
+        <v-row class="align-content-start" no-gutters>
+          <v-col
+            v-for="matchedRom in filteredMatchedRoms"
+            v-show="!searching"
+            :key="matchedRom.name"
+            class="pa-1"
+            cols="4"
+            sm="3"
+            md="2"
+          >
+            <GameCard
+              v-if="rom"
+              :rom="matchedRom"
+              transform-scale
+              title-on-hover
+              pointer-on-hover
+              disable-view-transition
+              :show-action-bar="false"
+              force-boxart="cover_path"
+              @click="showSources(matchedRom)"
+            />
+          </v-col>
+        </v-row>
+      </template>
+      <template v-else>
         <v-row no-gutters>
           <v-col cols="12">
             <v-card class="mx-auto bg-toplayer">
@@ -451,8 +574,8 @@ onBeforeUnmount(() => {
                   icon="mdi-arrow-left"
                   variant="flat"
                   size="small"
-                  @click="backToMatched"
                   style="float: left"
+                  @click="backToMatched"
                 />
                 {{ selectedMatchRom?.name }}
               </v-card-title>
@@ -472,80 +595,71 @@ onBeforeUnmount(() => {
           </v-col>
           <v-col cols="12">
             <v-row class="justify-center mt-4" no-gutters>
-              <v-col class="pa-1" cols="auto" v-for="source in sources">
-                <v-hover v-slot="{ isHovering, props }">
-                  <v-card
-                    :width="xs ? 150 : 220"
-                    v-bind="props"
-                    class="transform-scale mx-2"
-                    :class="{
-                      'on-hover': isHovering,
-                      'border-primary': selectedCover?.name == source.name,
-                    }"
-                    :elevation="isHovering ? 20 : 3"
-                    @click="selectCover(source)"
-                  >
-                    <v-img
-                      :src="source.url_cover || missingCoverImage"
-                      :aspect-ratio="computedAspectRatio"
-                      cover
-                    >
-                      <template #placeholder>
-                        <skeleton
-                          :aspectRatio="computedAspectRatio"
-                          type="image"
-                        />
-                      </template>
-                      <v-row no-gutters class="text-white pa-1">
-                        <v-avatar class="mr-1" size="30" rounded="1">
-                          <v-img :src="source.logo_path" />
-                        </v-avatar>
-                      </v-row>
-                      <template #error>
-                        <v-img :src="missingCoverImage" />
-                      </template>
-                    </v-img>
-                  </v-card>
-                </v-hover>
+              <v-col
+                v-for="source in sources"
+                :key="source.name"
+                class="pa-1"
+                cols="auto"
+              >
+                <GameCard
+                  :rom="{
+                    id: 0,
+                    name: source.name,
+                    platform_id: selectedMatchRom?.platform_id || 0,
+                    is_identified: true,
+                    is_unidentified: false,
+                  }"
+                  :cover-src="source.url_cover"
+                  :width="xs ? 150 : 220"
+                  transform-scale
+                  pointer-on-hover
+                  disable-view-transition
+                  force-boxart="cover_path"
+                  :show-action-bar="false"
+                  :with-border-primary="selectedCover?.name == source.name"
+                  @click="selectCover(source)"
+                >
+                  <template #append-inner-right>
+                    <v-avatar class="mr-1 mb-1" size="30" rounded="1">
+                      <v-img :src="source.logo_path" />
+                    </v-avatar>
+                  </template>
+                </GameCard>
               </v-col>
             </v-row>
           </v-col>
-          <v-col cols="12" v-if="selectedMatchRom">
+          <v-col v-if="selectedMatchRom" cols="12">
             <v-row class="mt-4 text-center" no-gutters>
               <v-col>
                 <v-chip
-                  @click="toggleRenameAsSource"
                   variant="text"
                   :disabled="selectedCover == undefined"
-                  ><v-icon
+                  @click="toggleRenameAsSource"
+                >
+                  <v-icon
                     :color="renameFromSource ? 'primary' : ''"
                     class="mr-1"
-                    >{{
+                  >
+                    {{
                       selectedCover && renameFromSource
                         ? "mdi-checkbox-outline"
                         : "mdi-checkbox-blank-outline"
-                    }}</v-icon
-                  >{{
-                    t("rom.rename-file-part1", { source: selectedCover?.name })
-                  }}</v-chip
-                >
+                    }}
+                  </v-icon>
+                  {{
+                    t("rom.rename-file-title", { source: selectedCover?.name })
+                  }}
+                </v-chip>
                 <v-list-item v-if="rom && renameFromSource" class="mt-2">
-                  <span>{{ t("rom.rename-file-part2") }}</span>
-                  <br />
-                  <span>{{ t("rom.rename-file-part3") }}</span>
-                  <span class="text-primary ml-1">{{ rom.fs_name }}</span>
-                  <br />
-                  <span class="mx-1">{{ t("rom.rename-file-part4") }}</span>
-                  <span class="text-secondary">{{
-                    rom.fs_name.replace(
-                      rom.fs_name_no_tags,
-                      selectedMatchRom.name,
-                    )
+                  <span>{{
+                    t("rom.rename-file-details", {
+                      from: rom.fs_name,
+                      to: rom.fs_name.replace(
+                        rom.fs_name_no_tags,
+                        selectedMatchRom.name,
+                      ),
+                    })
                   }}</span>
-                  <br />
-                  <span class="text-caption font-italic font-weight-bold">
-                    *{{ t("rom.rename-file-part5") }}
-                  </span>
                 </v-list-item>
               </v-col>
             </v-row>
@@ -553,16 +667,18 @@ onBeforeUnmount(() => {
         </v-row>
       </template>
     </template>
-    <template #append>
+    <template #empty-state>
+      <EmptyManualMatch />
+    </template>
+    <template #footer>
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="backToMatched">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
             class="text-romm-green bg-toplayer"
-            :disabled="selectedCover == undefined"
-            :variant="selectedCover == undefined ? 'plain' : 'flat'"
+            variant="flat"
             @click="confirm"
           >
             {{ t("common.confirm") }}
@@ -570,27 +686,5 @@ onBeforeUnmount(() => {
         </v-btn-group>
       </v-row>
     </template>
-    <template #empty-state>
-      <empty-manual-match />
-    </template>
-    <template #footer>
-      <v-row no-gutters class="text-center">
-        <v-col>
-          <v-chip label class="pr-0" size="small">
-            {{ t("rom.results-found") }}:
-            <v-chip color="primary" class="ml-2 px-2" label>
-              {{ !searching ? matchedRoms.length : "" }}
-              <v-progress-circular
-                v-if="searching"
-                :width="1"
-                :size="10"
-                color="primary"
-                indeterminate
-              />
-            </v-chip>
-          </v-chip>
-        </v-col>
-      </v-row>
-    </template>
-  </r-dialog>
+  </RDialog>
 </template>

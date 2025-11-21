@@ -4,6 +4,9 @@
   "administration": "管理者メニュー",
   "apply": "適用",
   "ascii-only": "ASCII文字のみ",
+  "username-length": "ユーザー名は3文字から255文字の間である必要があります",
+  "username-chars": "ユーザー名には文字、数字、アンダースコア、ハイフンのみ使用できます",
+  "password-length": "パスワードは6文字から255文字の間である必要があります",
   "cancel": "キャンセル",
   "collection": "コレクション",
   "collections": "コレクション",
@@ -47,7 +50,10 @@
   "update": "アップデート",
   "upload": "アップロード",
   "upload-files-selected": "{count} ファイルが選択されました",
-  "user-interface": "ユーザーインターフェイス",
+  "user-interface": "ユーザーインターフェース",
   "virtual-collection": "自動生成コレクション",
-  "virtual-collections": "自動生成コレクション"
+  "virtual-collections": "自動生成コレクションズ",
+  "last-updated": "最終更新",
+  "confirm-deletion": "削除の確認",
+  "delete": "削除"
 }

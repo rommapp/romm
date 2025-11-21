@@ -78,13 +78,6 @@ export default defineStore("platforms", {
     get(platformId: number) {
       return this.allPlatforms.find((p) => p.id === platformId);
     },
-    getAspectRatio(platformId: number): number {
-      const platform = this.allPlatforms.find((p) => p.id === platformId);
-      return platform && platform.aspect_ratio
-        ? parseInt(platform.aspect_ratio.split("/")[0]) /
-            parseInt(platform.aspect_ratio.split("/")[1])
-        : 2 / 3;
-    },
     reset() {
       this.allPlatforms = [] as Platform[];
       this.filterText = "";

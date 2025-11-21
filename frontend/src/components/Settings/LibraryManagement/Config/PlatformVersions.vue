@@ -21,7 +21,7 @@ const editable = ref(false);
 </script>
 
 <template>
-  <r-section
+  <RSection
     icon="mdi-gamepad-variant"
     :title="t('settings.platforms-versions')"
   >
@@ -36,10 +36,8 @@ const editable = ref(false);
           />
         </template>
         <p>
-          Versions of the same platform. A common example is Capcom Play System
-          1 is an arcade system. Platform versions will let you setup a custom
-          platform for RomM to import and tell RomM which platform it needs to
-          scrape against.
+          Platform versions allow you to create custom platform entries for
+          games that belong to the same system but have different versions.
         </p>
       </v-tooltip>
     </template>
@@ -52,6 +50,7 @@ const editable = ref(false);
         variant="text"
         icon="mdi-cog"
         @click="editable = !editable"
+        :disabled="!config.CONFIG_FILE_WRITABLE"
       />
     </template>
     <template #content>
@@ -65,7 +64,7 @@ const editable = ref(false);
           lg="2"
           :title="slug"
         >
-          <platform-bind-card
+          <PlatformBindCard
             :editable="authStore.scopes.includes('platforms.write') && editable"
             :slug="slug"
             :fs-slug="fsSlug"
@@ -85,7 +84,7 @@ const editable = ref(false);
           />
         </v-col>
         <v-col cols="6" sm="4" md="3" lg="2" class="px-1 pt-2">
-          <add-btn
+          <AddBtn
             :enabled="editable"
             @click="
               emitter?.emit('showCreatePlatformVersionDialog', {
@@ -96,8 +95,8 @@ const editable = ref(false);
           />
         </v-col>
       </v-row>
-      <create-platform-version-dialog />
-      <delete-platform-version-dialog />
+      <CreatePlatformVersionDialog />
+      <DeletePlatformVersionDialog />
     </template>
-  </r-section>
+  </RSection>
 </template>

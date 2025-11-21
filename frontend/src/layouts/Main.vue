@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
-import { inject, onBeforeMount, ref } from "vue";
+import { inject, onBeforeMount } from "vue";
 import EditUserDialog from "@/components/Settings/Administration/Users/Dialog/EditUser.vue";
 import AddRomsToCollectionDialog from "@/components/common/Collection/Dialog/AddRoms.vue";
 import RemoveRomsFromCollectionDialog from "@/components/common/Collection/Dialog/RemoveRoms.vue";
+import LoadingDialog from "@/components/common/Dialog/LoadingDialog.vue";
+import SearchCoverDialog from "@/components/common/Dialog/SearchCover.vue";
 import DeleteSavesDialog from "@/components/common/Game/Dialog/Asset/DeleteSaves.vue";
 import DeleteStatesDialog from "@/components/common/Game/Dialog/Asset/DeleteStates.vue";
 import SelectSaveDialog from "@/components/common/Game/Dialog/Asset/SelectSave.vue";
@@ -20,7 +22,6 @@ import MainAppBar from "@/components/common/Navigation/MainAppBar.vue";
 import NewVersionDialog from "@/components/common/NewVersionDialog.vue";
 import Notification from "@/components/common/Notifications/Notification.vue";
 import UploadProgress from "@/components/common/Notifications/UploadProgress.vue";
-import SearchCoverDialog from "@/components/common/SearchCover.vue";
 import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
@@ -67,27 +68,26 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-  <notification />
-  <main-app-bar />
+  <Notification />
+  <MainAppBar />
   <router-view />
 
-  <match-rom-dialog />
-  <edit-rom-dialog />
-  <search-cover-dialog />
-  <add-roms-to-collection-dialog />
-  <remove-roms-from-collection-dialog />
-  <delete-rom-dialog />
-  <edit-user-dialog />
-  <note-dialog />
-  <show-q-r-code-dialog />
-
-  <new-version-dialog />
-  <upload-progress />
-
-  <upload-saves-dialog />
-  <delete-saves-dialog />
-  <upload-states-dialog />
-  <delete-states-dialog />
-  <select-save-dialog />
-  <select-state-dialog />
+  <UploadProgress />
+  <LoadingDialog />
+  <MatchRomDialog />
+  <EditRomDialog />
+  <SearchCoverDialog />
+  <AddRomsToCollectionDialog />
+  <RemoveRomsFromCollectionDialog />
+  <DeleteRomDialog />
+  <EditUserDialog />
+  <NoteDialog />
+  <ShowQRCodeDialog />
+  <NewVersionDialog />
+  <UploadSavesDialog />
+  <DeleteSavesDialog />
+  <UploadStatesDialog />
+  <DeleteStatesDialog />
+  <SelectSaveDialog />
+  <SelectStateDialog />
 </template>

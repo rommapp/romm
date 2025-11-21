@@ -4,23 +4,26 @@ import { storeToRefs } from "pinia";
 import { computed, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
-import RomListItem from "@/components/common/Game/ListItem.vue";
+import ScanPlatform from "@/components/Scan/ScanPlatform.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { ROUTES } from "@/plugins/router";
 import socket from "@/services/socket";
+import storeConfig from "@/stores/config";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
-
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
-const platforms = storePlatforms();
+const platformsStore = storePlatforms();
+const { filteredPlatforms } = storeToRefs(platformsStore);
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<number[]>([]);
 const panels = ref<number[]>([]);
@@ -29,14 +32,43 @@ const expansionPanels = useTemplateRef<HTMLDivElement>("expansion-panels-ref");
 
 useAutoScroll(scanLog, expansionPanels);
 
-const metadataOptions = computed(() => heartbeat.getAllMetadataOptions());
+const sortedPlatforms = computed(() => {
+  return filteredPlatforms.value.sort((a, b) =>
+    a.display_name.localeCompare(b.display_name),
+  );
+});
+const calculateHashes = computed(
+  () => !config.value.SKIP_HASH_CALCULATION || false,
+);
+const metadataOptions = computed(() => {
+  return heartbeat.getMetadataOptionsByPriority().map((option) => {
+    // Check if option requires hashes but hash calculation is disabled
+    const requiresHashes = option.value === "hasheous" || option.value === "ra";
+    const hashingDisabled = !calculateHashes.value;
+
+    let disabled = option.disabled;
+
+    if (hashingDisabled && requiresHashes) {
+      if (option.value === "hasheous") {
+        disabled = t("scan.hasheous-requires-hashes");
+      } else if (option.value === "ra") {
+        disabled = t("scan.retroachievements-requires-hashes");
+      }
+    }
+
+    return {
+      ...option,
+      disabled,
+    };
+  });
+});
 const storedMetadataSources = useLocalStorage(
   LOCAL_STORAGE_METADATA_SOURCES_KEY,
   [] as string[],
 );
 const metadataSources = ref<MetadataOption[]>(
-  metadataOptions.value.filter((m) =>
-    storedMetadataSources.value.includes(m.value),
+  metadataOptions.value.filter(
+    (m) => storedMetadataSources.value.includes(m.value) && !m.disabled,
   ) || heartbeat.getEnabledMetadataOptions(),
 );
 
@@ -70,14 +102,14 @@ const scanOptions = [
     value: "quick",
   },
   {
-    title: t("scan.unidentified-games"),
-    subtitle: t("scan.unidentified-games-desc"),
-    value: "unidentified",
+    title: t("scan.unmatched-games"),
+    subtitle: t("scan.unmatched-games-desc"),
+    value: "unmatched",
   },
   {
-    title: t("scan.partial-metadata"),
-    subtitle: t("scan.partial-metadata-desc"),
-    value: "partial",
+    title: t("scan.update-metadata"),
+    subtitle: t("scan.update-metadata-desc"),
+    value: "update",
   },
   {
     title: t("scan.hashes"),
@@ -93,7 +125,7 @@ const scanOptions = [
 const scanType = ref("quick");
 
 async function scan() {
-  scanningStore.set(true);
+  scanningStore.setScanning(true);
   scanningPlatforms.value = [];
 
   if (!socket.connected) socket.connect();
@@ -122,10 +154,10 @@ async function stopScan() {
     <div>
       <v-row class="align-center pt-4 px-4" no-gutters>
         <!-- Platform selector -->
-        <v-col cols="12" md="3" lg="4" class="px-1">
+        <v-col cols="12" md="5" lg="6" class="px-1">
           <v-select
             v-model="platformsToScan"
-            :items="platforms.filteredPlatforms"
+            :items="sortedPlatforms"
             :menu-props="{ maxHeight: 650 }"
             :label="t('common.platforms')"
             item-title="name"
@@ -146,7 +178,7 @@ async function stopScan() {
                 :subtitle="item.raw.fs_slug"
               >
                 <template #prepend>
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :size="35"
                     :slug="item.raw.slug"
@@ -155,15 +187,113 @@ async function stopScan() {
                   />
                 </template>
                 <template #append>
-                  <missing-from-f-s-icon
+                  <MissingFromFSIcon
                     v-if="item.raw.missing_from_fs"
                     text="Missing platform from filesystem"
                     chip
                     chip-label
-                    chipDensity="compact"
+                    chip-density="compact"
                     class="ml-2"
                   />
-                  <v-chip class="ml-2" size="x-small" label>
+                  <v-row
+                    v-if="item.raw.is_identified"
+                    class="text-white text-shadow text-center"
+                    no-gutters
+                  >
+                    <v-col cols="12">
+                      <v-avatar
+                        v-if="item.raw.igdb_id"
+                        variant="text"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/igdb.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.ss_id"
+                        variant="text"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/ss.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.moby_slug"
+                        variant="text"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/moby.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.ra_id"
+                        variant="text"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/ra.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.launchbox_id"
+                        variant="text"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                        style="background: #185a7c"
+                      >
+                        <v-img src="/assets/scrappers/launchbox.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.hasheous_id"
+                        variant="text"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/hasheous.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.flashpoint_id"
+                        variant="text"
+                        size="25"
+                        rounded
+                        class="mr-1"
+                      >
+                        <v-img src="/assets/scrappers/flashpoint.png" />
+                      </v-avatar>
+
+                      <v-avatar
+                        v-if="item.raw.hltb_slug"
+                        class="bg-surface"
+                        variant="text"
+                        size="25"
+                        rounded
+                      >
+                        <v-img src="/assets/scrappers/hltb.png" />
+                      </v-avatar>
+                    </v-col>
+                  </v-row>
+                  <v-row
+                    v-else
+                    class="text-white text-shadow text-center"
+                    no-gutters
+                  >
+                    <v-chip color="red" size="small" label>
+                      <v-icon class="mr-1"> mdi-close </v-icon>
+                      {{ t("scan.not-identified").toUpperCase() }}
+                    </v-chip>
+                  </v-row>
+                  <v-chip class="ml-1" size="small" label>
                     {{ item.raw.rom_count }}
                   </v-chip>
                 </template>
@@ -171,15 +301,16 @@ async function stopScan() {
             </template>
             <template #chip="{ item }">
               <v-chip>
-                <platform-icon
+                <PlatformIcon
                   :key="item.raw.slug"
                   :slug="item.raw.slug"
                   :name="item.raw.name"
                   :fs-slug="item.raw.fs_slug"
                   :size="20"
-                  class="mr-2"
                 />
-                {{ item.raw.name }}
+                <div class="ml-1">
+                  {{ item.raw.name }}
+                </div>
               </v-chip>
             </template>
           </v-select>
@@ -189,7 +320,7 @@ async function stopScan() {
         <v-col
           cols="12"
           md="5"
-          lg="6"
+          lg="4"
           class="px-1"
           :class="{ 'mt-3': smAndDown }"
         >
@@ -222,18 +353,20 @@ async function stopScan() {
               </v-list-item>
             </template>
             <template #chip="{ item }">
-              <v-chip>
-                <v-avatar class="mr-2" size="15" rounded="1">
-                  <v-img :src="item.raw.logo_path" />
-                </v-avatar>
-                {{ item.raw.name }}
-              </v-chip>
+              <v-avatar class="mx-1" size="24" rounded="1">
+                <v-img :src="item.raw.logo_path" />
+              </v-avatar>
             </template>
           </v-select>
         </v-col>
 
         <!-- Scan options -->
-        <v-col cols="12" md="2" class="px-1" :class="{ 'mt-3': smAndDown }">
+        <v-col
+          cols="12"
+          md="2"
+          class="px-1 d-flex align-center"
+          :class="{ 'mt-3': smAndDown }"
+        >
           <v-select
             v-model="scanType"
             :items="scanOptions"
@@ -246,13 +379,40 @@ async function stopScan() {
             <template #item="{ props, item }">
               <v-list-item v-bind="props" :subtitle="item.raw.subtitle" />
             </template>
+            <template #append-inner>
+              <v-menu open-on-hover location="bottom start">
+                <template #activator="{ props }">
+                  <v-icon
+                    v-bind="props"
+                    @click.stop
+                    icon="mdi-information-outline"
+                    size="small"
+                    class="ml-2"
+                  />
+                </template>
+                <v-card max-width="600">
+                  <v-card-text>
+                    <div v-html="t('scan.scan-types-info')"></div>
+                    <div class="mt-3 text-right">
+                      <a
+                        href="https://docs.romm.app/latest/Usage/LibraryManagement/#scan"
+                        target="_blank"
+                        style="font-style: italic; text-decoration: underline"
+                      >
+                        {{ t("scan.scan-types-more-info") }}
+                      </a>
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-menu>
+            </template>
           </v-select>
         </v-col>
       </v-row>
 
       <!-- Scan buttons -->
       <v-row
-        class="px-4 mt-3 align-center"
+        class="px-4 mt-1 ml-1 align-center"
         :class="{ 'justify-center': smAndDown }"
         no-gutters
       >
@@ -262,9 +422,12 @@ async function stopScan() {
           rounded="4"
           height="40"
           @click="scan"
+          class="ma-1"
         >
           <template #prepend>
-            <v-icon :color="scanning ? '' : 'primary'">mdi-magnify-scan</v-icon>
+            <v-icon :color="scanning ? '' : 'primary'">
+              mdi-magnify-scan
+            </v-icon>
           </template>
           {{ t("scan.scan") }}
           <template #loader>
@@ -278,13 +441,13 @@ async function stopScan() {
         </v-btn>
         <v-btn
           :disabled="!scanning"
-          class="ml-2"
+          class="ma-1"
           rounded="4"
           height="40"
           @click="stopScan"
         >
           <template #prepend>
-            <v-icon :color="scanning ? 'red' : ''">mdi-alert-octagon</v-icon>
+            <v-icon :color="scanning ? 'red' : ''"> mdi-alert-octagon </v-icon>
           </template>
           {{ t("scan.abort") }}
         </v-btn>
@@ -292,37 +455,72 @@ async function stopScan() {
           prepend-icon="mdi-table-cog"
           rounded="4"
           height="40"
-          class="ml-2"
+          class="ma-1"
           :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
         >
           {{ t("scan.manage-library") }}
         </v-btn>
-        <v-alert
-          v-if="metadataSources.length == 0"
-          type="warning"
-          icon="mdi-alert"
-          variant="tonal"
-          class="mx-4"
-          density="compact"
-        >
-          <span>{{ t("scan.select-one-source") }}</span>
-        </v-alert>
+        <div class="d-flex align-center">
+          <v-alert
+            v-if="metadataSources.length == 0"
+            type="warning"
+            icon="mdi-alert"
+            variant="tonal"
+            class="ma-1"
+            density="compact"
+          >
+            <span>{{ t("scan.select-one-source") }}</span>
+          </v-alert>
+        </div>
+        <div class="d-flex align-center">
+          <v-alert
+            v-if="!calculateHashes"
+            type="warning"
+            icon="mdi-alert"
+            variant="tonal"
+            class="ma-1"
+            density="compact"
+          >
+            <span>{{ t("scan.hash-calculation-disabled") }}</span>
+            <v-menu open-on-hover location="bottom start">
+              <template #activator="{ props }">
+                <v-icon
+                  v-bind="props"
+                  icon="mdi-information-outline"
+                  size="small"
+                  class="ml-2"
+                />
+              </template>
+              <v-card max-width="400">
+                <v-card-text>
+                  <div
+                    v-html="
+                      calculateHashes
+                        ? t('scan.hashes-enabled-tooltip')
+                        : t('scan.hashes-disabled-tooltip')
+                    "
+                  ></div>
+                </v-card-text>
+              </v-card>
+            </v-menu>
+          </v-alert>
+        </div>
       </v-row>
       <v-divider
-        class="border-opacity-100 mt-3"
+        class="border-opacity-100 mt-2"
         :class="{ 'mx-4': !smAndDown }"
         color="primary"
       />
     </div>
 
     <!-- Scan log -->
-    <v-row no-gutters class="scan-log overflow-y-scroll" ref="scan-log-ref">
+    <v-row
+      ref="scan-log-ref"
+      no-gutters
+      class="scan-log overflow-y-scroll mb-4"
+    >
       <v-col>
-        <v-card
-          elevation="0"
-          class="bg-surface mx-auto mt-2 mb-14"
-          max-width="800"
-        >
+        <v-card elevation="0" class="bg-surface mx-auto mt-2" max-width="800">
           <v-card-text class="pa-0">
             <v-expansion-panels
               ref="expansion-panels-ref"
@@ -335,126 +533,7 @@ async function stopScan() {
                 v-for="platform in scanningPlatforms"
                 :key="platform.id"
               >
-                <v-expansion-panel-title static>
-                  <v-list-item class="pa-0">
-                    <template #prepend>
-                      <v-avatar rounded="0" size="40">
-                        <platform-icon
-                          :key="platform.slug"
-                          :slug="platform.slug"
-                          :name="platform.name"
-                        />
-                      </v-avatar>
-                    </template>
-                    {{ platform.name }}
-                    <template #append>
-                      <v-chip
-                        class="ml-3"
-                        color="primary"
-                        size="x-small"
-                        label
-                        >{{ platform.roms.length }}</v-chip
-                      >
-                    </template>
-                  </v-list-item>
-                </v-expansion-panel-title>
-                <v-expansion-panel-text class="bg-toplayer">
-                  <rom-list-item
-                    v-for="rom in platform.roms"
-                    class="pa-4"
-                    :rom="rom"
-                    with-link
-                    with-filename
-                  >
-                    <template #append>
-                      <v-chip
-                        v-if="rom.is_unidentified"
-                        color="red"
-                        size="x-small"
-                        label
-                      >
-                        Not identified
-                        <v-icon class="ml-1">mdi-close</v-icon>
-                      </v-chip>
-                      <v-chip
-                        v-if="rom.hasheous_id"
-                        title="Verified with Hasheous"
-                        class="text-white pa-0 mr-1"
-                        size="small"
-                      >
-                        <v-avatar class="bg-romm-green" size="26" rounded="0">
-                          <v-icon>mdi-check-decagram-outline</v-icon>
-                        </v-avatar>
-                      </v-chip>
-                      <v-chip
-                        v-if="rom.igdb_id"
-                        class="pa-0 mr-1"
-                        size="small"
-                        title="IGDB match"
-                      >
-                        <v-avatar size="26" rounded>
-                          <v-img src="/assets/scrappers/igdb.png" />
-                        </v-avatar>
-                      </v-chip>
-                      <v-chip
-                        v-if="rom.ss_id"
-                        class="pa-0 mr-1"
-                        size="small"
-                        title="ScreenScraper match"
-                      >
-                        <v-avatar size="26" rounded>
-                          <v-img src="/assets/scrappers/ss.png" />
-                        </v-avatar>
-                      </v-chip>
-                      <v-chip
-                        v-if="rom.moby_id"
-                        class="pa-0 mr-1"
-                        size="small"
-                        title="MobyGames match"
-                      >
-                        <v-avatar size="26" rounded>
-                          <v-img src="/assets/scrappers/moby.png" />
-                        </v-avatar>
-                      </v-chip>
-                      <v-chip
-                        v-if="rom.launchbox_id"
-                        class="pa-0 mr-1"
-                        size="small"
-                        title="LaunchBox match"
-                      >
-                        <v-avatar size="26" style="background: #185a7c">
-                          <v-img src="/assets/scrappers/launchbox.png" />
-                        </v-avatar>
-                      </v-chip>
-                      <v-chip
-                        v-if="rom.ra_id"
-                        class="pa-0 mr-1"
-                        size="small"
-                        title="RetroAchievements match"
-                      >
-                        <v-avatar size="26" rounded>
-                          <v-img src="/assets/scrappers/ra.png" />
-                        </v-avatar>
-                      </v-chip>
-                      <v-chip
-                        v-if="rom.hasheous_id"
-                        class="pa-1 mr-1 bg-surface"
-                        size="small"
-                        title="Hasheous match"
-                      >
-                        <v-avatar size="18" rounded>
-                          <v-img src="/assets/scrappers/hasheous.png" />
-                        </v-avatar>
-                      </v-chip>
-                    </template>
-                  </rom-list-item>
-                  <v-list-item
-                    v-if="platform.roms.length == 0"
-                    class="text-center my-2"
-                  >
-                    {{ t("scan.no-new-roms") }}
-                  </v-list-item>
-                </v-expansion-panel-text>
+                <ScanPlatform :key="platform.id" :platform="platform" />
               </v-expansion-panel>
             </v-expansion-panels>
           </v-card-text>
@@ -465,7 +544,7 @@ async function stopScan() {
     <!-- Scan stats -->
     <div
       v-if="scanningPlatforms.length > 0"
-      class="text-caption position-fixed d-flex w-100 m-1 justify-center"
+      class="text-caption position-sticky d-flex w-100 m-1 justify-center"
       style="bottom: 0.5rem"
     >
       <v-chip
@@ -479,20 +558,23 @@ async function stopScan() {
           size="small"
           class="mr-1 my-1"
         >
-          <v-icon left>mdi-controller</v-icon>
+          <v-icon left> mdi-controller </v-icon>
           <span v-if="xs" class="ml-2">{{
-            t("scan.platforms-scanned-n", scanningPlatforms.length)
+            t("scan.platforms-scanned-n", scanStats.scanned_platforms)
           }}</span>
-          <span class="ml-2" v-else>{{
+          <span v-else class="ml-2">{{
             t("scan.platforms-scanned-with-details", {
-              n_platforms: scanningPlatforms.length,
-              n_added_platforms: scanStats.added_platforms,
-              n_identified_platforms: scanStats.metadata_platforms,
+              n_scanned_platforms: scanStats.scanned_platforms,
+              n_total_platforms: scanStats.total_platforms,
+              n_new_platforms: scanStats.new_platforms,
+              n_identified_platforms: Math.min(
+                scanStats.identified_platforms,
+                scanStats.scanned_platforms,
+              ),
             })
           }}</span>
         </v-chip>
         <v-chip
-          v-if="scanningPlatforms.length > 0"
           color="primary"
           size="small"
           text-color="white"
@@ -502,11 +584,15 @@ async function stopScan() {
           <span v-if="xs" class="ml-2">{{
             t("scan.roms-scanned-n", scanStats.scanned_roms)
           }}</span>
-          <span class="ml-2" v-else>{{
+          <span v-else class="ml-2">{{
             t("scan.roms-scanned-with-details", {
-              n_roms: scanStats.scanned_roms,
-              n_added_roms: scanStats.added_roms,
-              n_identified_roms: scanStats.metadata_roms,
+              n_scanned_roms: scanStats.scanned_roms,
+              n_total_roms: scanStats.total_roms,
+              n_new_roms: scanStats.new_roms,
+              n_identified_roms: Math.min(
+                scanStats.identified_roms,
+                scanStats.scanned_roms,
+              ),
             })
           }}</span>
         </v-chip>

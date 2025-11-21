@@ -11,7 +11,7 @@ import Skeleton from "@/components/Gallery/Skeleton.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import GameTable from "@/components/common/Game/Table.vue";
+import GameTable from "@/components/common/Game/VirtualTable.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
@@ -27,7 +27,6 @@ const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
 const romsStore = storeRoms();
 const {
-  allRoms,
   filteredRoms,
   selectedRoms,
   currentPlatform,
@@ -37,10 +36,6 @@ const {
 } = storeToRefs(romsStore);
 const noPlatformError = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-const isHovering = ref(false);
-const hoveringRomId = ref<number>();
-const openedMenu = ref(false);
-const openedMenuRomId = ref<number>();
 const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 let timeout: ReturnType<typeof setTimeout>;
 
@@ -73,21 +68,6 @@ async function fetchRoms() {
         scrim: false,
       });
     });
-}
-
-function onHover(emitData: { isHovering: boolean; id: number }) {
-  isHovering.value = emitData.isHovering;
-  hoveringRomId.value = emitData.id;
-}
-
-function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
-  openedMenu.value = emitData.openedMenu;
-  openedMenuRomId.value = emitData.id;
-}
-
-function onClosedMenu() {
-  openedMenu.value = false;
-  openedMenuRomId.value = undefined;
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -144,8 +124,9 @@ watch(documentY, () => {
   window.setTimeout(async () => {
     scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
-      fetchTotalRoms.value > allRoms.value.length
+      documentY.value + window.innerHeight >=
+        document.body.scrollHeight - 300 &&
+      fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
     }
@@ -168,28 +149,28 @@ onMounted(async () => {
     () => filteredPlatforms.value,
     async (platforms) => {
       if (platforms.length > 0) {
-        if (platforms.some((platform) => platform.id === routePlatformId)) {
-          const platform = platforms.find(
-            (platform) => platform.id === routePlatformId,
-          );
+        const platform = platforms.find(
+          (platform) => platform.id === routePlatformId,
+        );
 
-          // Check if the current platform is different or no ROMs have been loaded
-          if (
-            (currentPlatform.value?.id !== routePlatformId ||
-              allRoms.value.length === 0) &&
-            platform
-          ) {
-            if (currentPlatform.value) resetGallery();
-            romsStore.setCurrentPlatform(platform);
-            document.title = `${platform.display_name}`;
-            await fetchRoms();
-          }
-        } else {
+        if (!platform) {
           noPlatformError.value = true;
+          return;
+        }
+
+        // Check if the current platform is different or no ROMs have been loaded
+        if (
+          currentPlatform.value?.id !== routePlatformId ||
+          filteredRoms.value.length === 0
+        ) {
+          if (currentPlatform.value) resetGallery();
+          romsStore.setCurrentPlatform(platform);
+          document.title = platform.display_name;
+          await fetchRoms();
         }
       }
     },
-    { immediate: true }, // Ensure watcher is triggered immediately
+    { immediate: true },
   );
 });
 
@@ -207,18 +188,20 @@ onBeforeRouteUpdate(async (to, from) => {
           (platform) => platform.id === routePlatformId,
         );
 
-        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
+        if (!platform) {
+          noPlatformError.value = true;
+          return;
+        }
+
+        // Check if the current platform is different or no ROMs have been loaded
         if (
-          (currentPlatform.value?.id !== routePlatformId ||
-            allRoms.value.length === 0) &&
-          platform
+          currentPlatform.value?.id !== routePlatformId ||
+          filteredRoms.value.length === 0
         ) {
           if (currentPlatform.value) resetGallery();
           romsStore.setCurrentPlatform(platform);
-          document.title = `${platform.display_name}`;
+          document.title = platform.display_name;
           await fetchRoms();
-        } else {
-          noPlatformError.value = true;
         }
       }
     },
@@ -229,13 +212,13 @@ onBeforeRouteUpdate(async (to, from) => {
 
 <template>
   <template v-if="!noPlatformError">
-    <gallery-app-bar />
+    <GalleryAppBar />
     <template
       v-if="currentPlatform && fetchingRoms && filteredRoms.length === 0"
     >
-      <skeleton
-        :platformId="currentPlatform.id"
-        :romCount="currentPlatform.rom_count"
+      <Skeleton
+        :platform-id="currentPlatform.id"
+        :rom-count="currentPlatform.rom_count"
       />
     </template>
     <template v-else>
@@ -251,54 +234,44 @@ onBeforeRouteUpdate(async (to, from) => {
             :md="views[currentView]['size-md']"
             :lg="views[currentView]['size-lg']"
             :xl="views[currentView]['size-xl']"
-            :style="{
-              zIndex:
-                (isHovering && hoveringRomId === rom.id) ||
-                (openedMenu && openedMenuRomId === rom.id)
-                  ? 1100
-                  : 1,
-            }"
           >
-            <game-card
+            <GameCard
               :key="rom.id"
               :rom="rom"
-              titleOnHover
-              pointerOnHover
-              withLink
-              transformScale
-              showActionBar
-              showChips
-              :showPlatformIcon="false"
-              :withBorderPrimary="
+              title-on-hover
+              pointer-on-hover
+              with-link
+              transform-scale
+              show-action-bar
+              show-chips
+              :show-platform-icon="false"
+              :with-border-primary="
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "
-              :sizeActionBar="currentView"
-              :enable3DTilt="enable3DEffect"
+              :size-action-bar="currentView"
+              :enable3-d-tilt="enable3DEffect"
               @click="onGameClick"
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"
-              @hover="onHover"
-              @openedmenu="onOpenedMenu"
-              @closedmenu="onClosedMenu"
             />
           </v-col>
         </v-row>
 
         <!-- Gallery list view -->
-        <v-row class="mr-13" v-if="currentView == 2" no-gutters>
+        <v-row v-if="currentView == 2" class="mr-13" no-gutters>
           <v-col class="my-4">
-            <game-table class="mx-2" />
+            <GameTable class="mx-2" />
           </v-col>
         </v-row>
 
-        <load-more-btn :fetchRoms="fetchRoms" />
+        <LoadMoreBtn :fetch-roms="fetchRoms" />
       </template>
       <template v-else>
-        <empty-game v-if="filteredPlatforms.length > 0 && !fetchingRoms" />
+        <EmptyGame v-if="filteredPlatforms.length > 0 && !fetchingRoms" />
       </template>
     </template>
-    <fab-overlay />
+    <FabOverlay />
   </template>
 
-  <empty-platform v-else />
+  <EmptyPlatform v-else />
 </template>

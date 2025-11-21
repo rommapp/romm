@@ -20,9 +20,14 @@ import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import stateApi from "@/services/api/state";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import { getSupportedEJSCores } from "@/utils";
-import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
+import {
+  getMissingCoverImage,
+  getUnmatchedCoverImage,
+  EXTENSION_REGEX,
+} from "@/utils/covers";
 
 type FocusZone =
   | "play"
@@ -35,6 +40,7 @@ type FocusZone =
 type PlayerState = "loading" | "unsupported" | "error" | "ready";
 
 const romsStore = storeRoms();
+const heartbeatStore = storeHeartbeat();
 const route = useRoute();
 const router = useRouter();
 
@@ -57,14 +63,19 @@ const descriptionOverlayRef = useTemplateRef<HTMLDivElement>(
 );
 const detailsOverlayRef = useTemplateRef<HTMLDivElement>("details-overlay-ref");
 
-const releaseYear = computed(() => {
-  const firstReleaseDate = rom.value?.metadatum?.first_release_date;
-  if (!firstReleaseDate) return null;
-  return new Date(firstReleaseDate * 1000).getFullYear();
+const releaseDate = computed(() => {
+  if (!rom.value?.metadatum.first_release_date) return null;
+  return new Date(
+    Number(rom.value.metadatum.first_release_date),
+  ).toLocaleDateString("en-US", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 });
 
-const companies = computed(() => rom.value?.metadatum?.companies ?? []);
-const genres = computed(() => rom.value?.metadatum?.genres ?? []);
+const companies = computed(() => rom.value?.metadatum.companies ?? []);
+const genres = computed(() => rom.value?.metadatum.genres ?? []);
 const regions = computed(() => rom.value?.regions ?? []);
 
 // Only return merged screenshots from IGDB/external sources, exclude user screenshots
@@ -77,6 +88,24 @@ const fallbackCoverImage = computed(() =>
     ? getMissingCoverImage(rom.value?.name || rom.value?.slug || "")
     : getUnmatchedCoverImage(rom.value?.name || rom.value?.slug || ""),
 );
+
+const isWebpEnabled = computed(
+  () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+);
+
+const largeCover = computed(() => {
+  const pathCoverLarge = isWebpEnabled.value
+    ? rom.value?.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
+    : rom.value?.path_cover_large;
+  return pathCoverLarge || "";
+});
+
+const smallCover = computed(() => {
+  const pathCoverSmall = isWebpEnabled.value
+    ? rom.value?.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
+    : rom.value?.path_cover_small;
+  return pathCoverSmall || "";
+});
 
 function openDescription() {
   showDescription.value = true;
@@ -500,8 +529,8 @@ onUnmounted(() => {
         <!-- Backdrop -->
         <div class="absolute inset-0 z-0 overflow-hidden">
           <img
-            :src="rom.path_cover_large || fallbackCoverImage"
-            :lazy-src="rom.path_cover_small || fallbackCoverImage"
+            :src="largeCover || fallbackCoverImage"
+            :lazy-src="smallCover || fallbackCoverImage"
             :alt="`${rom.name} background`"
             class="w-full h-full object-cover blur-xl brightness-75 saturate-[1.25] contrast-110 scale-110"
           />
@@ -519,8 +548,8 @@ onUnmounted(() => {
               <!-- Poster -->
               <div class="shrink-0 self-center md:self-end">
                 <v-img
-                  :src="rom.path_cover_large || fallbackCoverImage"
-                  :lazy-src="rom.path_cover_small || fallbackCoverImage"
+                  :src="largeCover || fallbackCoverImage"
+                  :lazy-src="smallCover || fallbackCoverImage"
                   :alt="`${rom.name} cover`"
                   class="w-[220px] md:w-[260px] h-auto rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8),_0_0_0_1px_rgba(255,255,255,0.1)]"
                 />
@@ -545,16 +574,16 @@ onUnmounted(() => {
                     }"
                   >
                     {{
-                      rom.platform_name ||
+                      rom.platform_display_name ||
                       (rom.platform_slug || "RETRO")?.toString().toUpperCase()
                     }}
                   </span>
                   <span
-                    v-if="releaseYear !== null"
+                    v-if="releaseDate"
                     class="font-medium"
                     :style="{ color: 'var(--console-game-metadata-text)' }"
                   >
-                    {{ releaseYear }}
+                    {{ releaseDate }}
                   </span>
                   <span
                     v-if="regions.length"
@@ -582,7 +611,7 @@ onUnmounted(() => {
                   }"
                   tabindex="0"
                   @click="openDescription()"
-                  @keydown.enter.prevent="openDescription()"
+                  @keydown.enter="openDescription()"
                 >
                   {{ rom.summary }}
                 </div>
@@ -774,7 +803,7 @@ onUnmounted(() => {
         scroll-strategy="block"
         no-click-animation
         persistent
-        z-index="1000"
+        z-index="9999"
         scrim="black"
         class="lightbox-dialog"
       >
@@ -814,7 +843,7 @@ onUnmounted(() => {
         scroll-strategy="block"
         no-click-animation
         persistent
-        z-index="1000"
+        z-index="9999"
         scrim="black"
         class="lightbox-dialog"
       >
@@ -877,7 +906,7 @@ onUnmounted(() => {
                 </div>
               </div>
               <div
-                v-if="releaseYear !== null"
+                v-if="releaseDate"
                 :style="{
                   backgroundColor: 'var(--console-modal-tile-bg)',
                   borderColor: 'var(--console-modal-tile-border)',
@@ -888,13 +917,13 @@ onUnmounted(() => {
                   class="text-xs font-semibold mb-1 uppercase tracking-wide"
                   :style="{ color: 'var(--console-modal-text-secondary)' }"
                 >
-                  Release Year
+                  Release Date
                 </div>
                 <div
                   class="text-sm md:text-base leading-6 break-words"
                   :style="{ color: 'var(--console-modal-text)' }"
                 >
-                  {{ releaseYear }}
+                  {{ releaseDate }}
                 </div>
               </div>
               <div

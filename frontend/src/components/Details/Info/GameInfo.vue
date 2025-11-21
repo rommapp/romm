@@ -1,27 +1,23 @@
 <script setup lang="ts">
 import { get } from "lodash";
 import { MdPreview } from "md-editor-v3";
-import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import RAvatar from "@/components/common/Collection/RAvatar.vue";
+import MediaCarousel from "@/components/Details/Info/MediaCarousel.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import { ROUTES } from "@/plugins/router";
 import { type FilterType } from "@/stores/galleryFilter";
-import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const { xs } = useDisplay();
 const theme = useTheme();
-const show = ref(false);
-const carousel = ref(0);
+const showDialog = ref(false);
+const carouselValue = ref(0);
 const router = useRouter();
-const heartbeatStore = storeHeartbeat();
-const { value: heartbeat } = storeToRefs(heartbeatStore);
 const filters = [
   { key: "region", path: "regions", name: t("rom.regions") },
   { key: "language", path: "languages", name: t("rom.languages") },
@@ -71,6 +67,16 @@ const dataSources = computed(() => {
       condition: props.rom.hasheous_id,
       url: `https://hasheous.org/index.html?page=dataobjectdetail&type=game&id=${props.rom.hasheous_id}`,
     },
+    {
+      name: "Flashpoint Project",
+      condition: props.rom.flashpoint_id,
+      url: `https://flashpointproject.github.io/flashpoint-database/search/#${props.rom.flashpoint_id}`,
+    },
+    {
+      name: "HowLongToBeat",
+      condition: props.rom.hltb_id,
+      url: `https://howlongtobeat.com/game/${props.rom.hltb_id}`,
+    },
   ].filter((source) => source.condition);
 });
 
@@ -80,15 +86,31 @@ const coverImageSource = computed(() => {
   try {
     const hostname = new URL(props.rom.url_cover).hostname;
 
-    if (hostname == "images.igdb.com") return "IGDB";
-    if (hostname == "screenscraper.fr") return "ScreenScraper";
-    if (hostname == "cdn.mobygames.com") return "MobyGames";
-    if (hostname == "images.launchbox-app.com") return "LaunchBox";
-    if (hostname == "media.retroachievements.org") return "RetroAchievements";
-    if (hostname == "cdn2.steamgriddb.com") return "SteamGridDB";
+    if (hostname === "images.igdb.com") return "IGDB";
+    if (
+      hostname === "screenscraper.fr" ||
+      hostname === "neoclone.screenscraper.fr"
+    )
+      return "ScreenScraper";
+    if (hostname === "cdn.mobygames.com" || hostname === "cdn2.mobygames.com")
+      return "MobyGames";
+    if (
+      hostname === "retroachievements.org" ||
+      hostname === "media.retroachievements.org"
+    )
+      return "RetroAchievements";
+    if (hostname === "images.launchbox-app.com") return "LaunchBox";
+    if (
+      hostname === "cdn.steamgriddb.com" ||
+      hostname === "cdn2.steamgriddb.com"
+    )
+      return "SteamGridDB";
+    if (hostname === "hasheous.org") return "Hasheous";
+    if (hostname === "infinity.unstable.life") return "Flashpoint";
+    if (hostname === "howlongtobeat.com") return "HowLongToBeat";
 
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 });
@@ -114,7 +136,11 @@ function onFilterClick(filter: FilterType, value: string) {
         </v-col>
         <v-col>
           <v-row no-gutters>
-            <v-col cols="12" v-for="collection in rom.user_collections">
+            <v-col
+              v-for="collection in rom.user_collections"
+              :key="collection.id"
+              cols="12"
+            >
               <v-chip
                 :to="{
                   name: ROUTES.COLLECTION,
@@ -143,11 +169,11 @@ function onFilterClick(filter: FilterType, value: string) {
             <v-chip
               v-for="value in get(rom, filter.path)"
               :key="value"
-              @click="onFilterClick(filter.key, value)"
               size="small"
               variant="outlined"
               class="my-1 mr-2"
               label
+              @click="onFilterClick(filter.key, value)"
             >
               {{ value }}
             </v-chip>
@@ -169,11 +195,11 @@ function onFilterClick(filter: FilterType, value: string) {
             <v-img
               v-for="value in rom.igdb_metadata.age_ratings"
               :key="value.rating"
-              @click="onFilterClick('ageRating', value.rating)"
               :src="value.rating_cover_url"
               height="50"
               width="50"
               class="mr-4 cursor-pointer"
+              @click="onFilterClick('ageRating', value.rating)"
             />
           </div>
         </v-row>
@@ -201,109 +227,27 @@ function onFilterClick(filter: FilterType, value: string) {
       >
         <v-row no-gutters class="mt-4">
           <v-col>
-            <v-carousel
-              v-model="carousel"
-              hide-delimiter-background
-              delimiter-icon="mdi-square"
-              class="bg-background"
-              show-arrows="hover"
-              hide-delimiters
-              progress="toplayer"
-              :height="xs ? '300' : '400'"
-            >
-              <template #prev="{ props }">
-                <v-btn
-                  icon="mdi-chevron-left"
-                  class="translucent"
-                  @click="props.onClick"
-                />
-              </template>
-              <v-carousel-item
-                v-if="rom.youtube_video_id"
-                :key="rom.youtube_video_id"
-                content-class="d-flex justify-center align-center"
-              >
-                <iframe
-                  height="100%"
-                  width="100%"
-                  :src="`${heartbeat.FRONTEND.YOUTUBE_BASE_URL}/embed/${rom.youtube_video_id}`"
-                  title="YouTube video player"
-                  frameborder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  referrerpolicy="strict-origin-when-cross-origin"
-                  allowfullscreen
-                ></iframe>
-              </v-carousel-item>
-              <v-carousel-item
-                v-for="screenshot_url in rom.merged_screenshots"
-                :key="screenshot_url"
-                :src="screenshot_url"
-                class="pointer"
-                @click="show = true"
-              >
-              </v-carousel-item>
-              <template #next="{ props }">
-                <v-btn
-                  icon="mdi-chevron-right"
-                  class="translucent"
-                  @click="props.onClick"
-                />
-              </template>
-            </v-carousel>
-            <r-dialog v-model="show" :width="'95vw'">
+            <MediaCarousel
+              enable-click
+              v-model="carouselValue"
+              :rom="rom"
+              @click="showDialog = true"
+            />
+            <RDialog v-model="showDialog" :width="'95vw'">
               <template #content>
-                <v-carousel
-                  v-model="carousel"
-                  hide-delimiter-background
-                  delimiter-icon="mdi-square"
-                  show-arrows="hover"
-                  hide-delimiters
-                  class="dialog-carousel"
-                >
-                  <template #prev="{ props }">
-                    <v-btn
-                      @click="props.onClick"
-                      icon="mdi-chevron-left"
-                      class="translucent"
-                    />
-                  </template>
-                  <v-carousel-item
-                    v-if="rom.youtube_video_id"
-                    :key="rom.youtube_video_id"
-                    content-class="d-flex justify-center align-center"
-                  >
-                    <iframe
-                      height="100%"
-                      width="100%"
-                      :src="`${heartbeat.FRONTEND.YOUTUBE_BASE_URL}/embed/${rom.youtube_video_id}`"
-                      title="YouTube video player"
-                      frameborder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      referrerpolicy="strict-origin-when-cross-origin"
-                      allowfullscreen
-                    ></iframe>
-                  </v-carousel-item>
-                  <v-carousel-item
-                    v-for="screenshot_url in rom.merged_screenshots"
-                    :key="screenshot_url"
-                    :src="screenshot_url"
-                  />
-                  <template #next="{ props }">
-                    <v-btn
-                      icon="mdi-chevron-right"
-                      class="translucent"
-                      @click="props.onClick"
-                    />
-                  </template>
-                </v-carousel>
+                <MediaCarousel
+                  v-model="carouselValue"
+                  :rom="rom"
+                  :height="'calc(100vh - 110px)'"
+                />
               </template>
-            </r-dialog>
+            </RDialog>
           </v-col>
         </v-row>
       </template>
       <v-row v-if="rom.is_identified">
         <v-col class="mt-4 text-right">
-          <div class="text-grey">
+          <div v-if="dataSources.length > 0" class="text-grey">
             Data provided by
             <template v-for="(source, index) in dataSources" :key="source.name">
               <a
@@ -320,7 +264,7 @@ function onFilterClick(filter: FilterType, value: string) {
             >.
           </div>
           <div v-if="rom.url_cover && coverImageSource" class="text-grey mt-1">
-            Cover image provided by
+            Cover art provided by
             <a :href="rom.url_cover" target="_blank" style="color: inherit">
               {{ coverImageSource }}</a
             >.

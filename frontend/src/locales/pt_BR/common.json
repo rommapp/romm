@@ -4,6 +4,9 @@
   "administration": "Administração",
   "apply": "Aplicar",
   "ascii-only": "Somente caracteres ASCII",
+  "username-length": "Nome de usuário deve ter entre 3 e 255 caracteres",
+  "username-chars": "Nome de usuário pode conter apenas letras, números, sublinhados e hífens",
+  "password-length": "Senha deve ter entre 6 e 255 caracteres",
   "cancel": "Cancelar",
   "collection": "Coleção",
   "collections": "Coleções",
@@ -49,5 +52,8 @@
   "upload-files-selected": "{count} arquivo selecionado | {count} arquivos selecionados",
   "user-interface": "Interface do usuário",
   "virtual-collection": "Coleção autogerada",
-  "virtual-collections": "Coleções autogeradas"
+  "virtual-collections": "Coleções autogeradas",
+  "last-updated": "Última atualização",
+  "confirm-deletion": "Confirmar exclusão",
+  "delete": "Excluir"
 }

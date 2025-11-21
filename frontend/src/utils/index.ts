@@ -149,7 +149,7 @@ export function formatBytes(bytes: number, decimals = 2) {
   const dm = Math.max(0, decimals);
   const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
 /**
@@ -162,7 +162,7 @@ export function formatTimestamp(timestamp: string | null) {
   if (!timestamp) return "-";
 
   const date = new Date(timestamp);
-  return date.toLocaleString("en-GB");
+  return date.toLocaleString("en-US");
 }
 
 /**
@@ -274,27 +274,69 @@ export function regionToEmoji(region: string) {
  */
 export function languageToEmoji(language: string) {
   switch (language.toLowerCase()) {
+    case "af":
+    case "afrikaans":
+      return "🇿🇦";
     case "ar":
     case "arabic":
       return "🇦🇪";
+    case "be":
+    case "belarusian":
+      return "🇧🇾";
+    case "bg":
+    case "bulgarian":
+      return "🇧🇬";
+    case "ca":
+    case "catalan":
+      return "🇦🇩";
+    case "cs":
+    case "czech":
+      return "🇨🇿";
     case "da":
     case "danish":
       return "🇩🇰";
     case "de":
     case "german":
       return "🇩🇪";
+    case "el":
+    case "greek":
+      return "🇬🇷";
     case "en":
     case "english":
       return "🇬🇧";
     case "es":
     case "spanish":
       return "🇪🇸";
+    case "et":
+    case "estonian":
+      return "🇪🇪";
     case "fi":
     case "finnish":
       return "🇫🇮";
     case "fr":
     case "french":
       return "🇫🇷";
+    case "he":
+    case "hebrew":
+      return "🇮🇱";
+    case "hi":
+    case "hindi":
+      return "🇮🇳";
+    case "hr":
+    case "croatian":
+      return "🇭🇷";
+    case "hu":
+    case "hungarian":
+      return "🇭🇺";
+    case "hy":
+    case "armenian":
+      return "🇦🇲";
+    case "id":
+    case "indonesian":
+      return "🇮🇩";
+    case "is":
+    case "icelandic":
+      return "🇮🇸";
     case "it":
     case "italian":
       return "🇮🇹";
@@ -304,6 +346,18 @@ export function languageToEmoji(language: string) {
     case "ko":
     case "korean":
       return "🇰🇷";
+    case "la":
+    case "latin":
+      return "🇻🇦";
+    case "lt":
+    case "lithuanian":
+      return "🇱🇹";
+    case "lv":
+    case "latvian":
+      return "🇱🇻";
+    case "mk":
+    case "macedonian":
+      return "🇲🇰";
     case "nl":
     case "dutch":
       return "🇳🇱";
@@ -316,12 +370,39 @@ export function languageToEmoji(language: string) {
     case "pt":
     case "portuguese":
       return "🇵🇹";
+    case "ro":
+    case "romanian":
+      return "🇷🇴";
     case "ru":
     case "russian":
       return "🇷🇺";
+    case "sk":
+    case "slovak":
+      return "🇸🇰";
+    case "sl":
+    case "slovenian":
+      return "🇸🇮";
+    case "sq":
+    case "albanian":
+      return "🇦🇱";
+    case "sr":
+    case "serbian":
+      return "🇷🇸";
     case "sv":
     case "swedish":
       return "🇸🇪";
+    case "th":
+    case "thai":
+      return "🇹🇭";
+    case "tr":
+    case "turkish":
+      return "🇹🇷";
+    case "uk":
+    case "ukrainian":
+      return "🇺🇦";
+    case "vi":
+    case "vietnamese":
+      return "🇻🇳";
     case "zh":
     case "chinese":
       return "🇨🇳";
@@ -587,26 +668,37 @@ export function getStatusKeyForText(text: string | null) {
   return inverseRomStatusMap[text];
 }
 
-export function is3DSCIAFile(rom: SimpleRom): boolean {
-  return rom.fs_extension.toLowerCase() == "cia";
+export function isNintendoDSFile(rom: SimpleRom): boolean {
+  return ["cia", "nds", "3ds", "dsi"].includes(rom.fs_extension.toLowerCase());
 }
 
-export function get3DSCIAFiles(rom: SimpleRom): RomFileSchema[] {
-  return rom.files.filter((file) =>
-    file.file_name.toLowerCase().endsWith(".cia"),
-  );
+export function getNintendoDSFiles(rom: SimpleRom): RomFileSchema[] {
+  return rom.files.filter((file) => {
+    const fileName = file.file_name.toLowerCase();
+    return (
+      fileName.endsWith(".cia") ||
+      fileName.endsWith(".nds") ||
+      fileName.endsWith(".3ds") ||
+      fileName.endsWith(".dsi")
+    );
+  });
 }
 
 /**
- * Check if a ROM is a valid 3DS game
+ * Check if a ROM is a valid NDS/3DS/DSi game
  * @param rom The ROM object.
- * @returns True if the ROM is a valid 3DS game, false otherwise.
+ * @returns {boolean} True if the ROM is a valid game, otherwise false.
  */
-export function is3DSCIARom(rom: SimpleRom): boolean {
-  if (rom.platform_slug !== "3ds") return false;
+export function isNintendoDSRom(rom: SimpleRom): boolean {
+  if (
+    !["3ds", "nds", "new-nintendo-3ds", "nintendo-dsi"].includes(
+      rom.platform_slug,
+    )
+  )
+    return false;
 
-  const hasValidExtension = is3DSCIAFile(rom);
-  const hasValidFile = get3DSCIAFiles(rom).length > 0;
+  const hasValidExtension = isNintendoDSFile(rom);
+  const hasValidFile = getNintendoDSFiles(rom).length > 0;
 
   return hasValidExtension || hasValidFile;
 }
@@ -624,4 +716,70 @@ export function calculateMainLayoutWidth() {
   });
 
   return { calculatedWidth };
+}
+
+/**
+ * Get the icon for a given platform category.
+ *
+ * @param category The platform category.
+ * @returns The corresponding icon.
+ */
+export function platformCategoryToIcon(category: string) {
+  if (!category) return "";
+  switch (category.toLowerCase()) {
+    case "console":
+      return "mdi-gamepad-variant";
+    case "computer":
+      return "mdi-desktop-classic";
+    case "portable console":
+      return "mdi-nintendo-game-boy";
+    case "arcade":
+      return "mdi-gamepad-circle";
+    case "operating system":
+      return "mdi-monitor-shimmer";
+    case "platform":
+      return "mdi-desktop-tower-monitor";
+    case "unknown":
+    default:
+      return "";
+  }
+}
+
+export const FRONTEND_RESOURCES_PATH = "/assets/romm/resources";
+
+export const CD_BASED_SYSTEMS = new Set([
+  "3do", // 3DO
+  "amiga-cd32", // Amiga CD32
+  "atari-jaguar-cd", // Atari Jaguar CD
+  "philips-cd-i", // Philips CD-i
+  "commodore-cdtv", // Commodore CDTV
+  "dc", // Dreamcast
+  "fm-towns", // FM Towns
+  "hyperscan", // HyperScan
+  "laseractive", // LaserActive
+  "neo-geo-cd", // Neo Geo CD
+  "ngc", // Nintendo GameCube
+  "pc-fx", // PC-FX
+  "psx", // PlayStation
+  "ps2", // PlayStation 2
+  "ps3", // PlayStation 3
+  "ps4", // PlayStation 4
+  "ps5", // PlayStation 5
+  "psp", // PlayStation Portable
+  "segacd", // Sega CD
+  "series-x-s", // Xbox Series X/S
+  "saturn", // Sega Saturn
+  "super-nes-cd-rom-system", // Super NES CD-ROM System
+  "tandy-vis", // Tandy Video Information System
+  "tg16", // TurboGrafx-16
+  "vflash", // V.Flash
+  "wii", // Wii
+  "wiiu", // Wii U
+  "xbox", // Xbox
+  "xbox360", // Xbox 360
+  "xboxone", // Xbox One
+]);
+
+export function isCDBasedSystem(platformSlug: string): boolean {
+  return CD_BASED_SYSTEMS.has(platformSlug.toLowerCase());
 }

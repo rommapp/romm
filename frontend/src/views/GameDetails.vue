@@ -3,12 +3,13 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch, defineAsyncComponent } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import ActionBar from "@/components/Details/ActionBar.vue";
 import AdditionalContent from "@/components/Details/AdditionalContent.vue";
 import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import GameData from "@/components/Details/GameData.vue";
+import HowLongToBeat from "@/components/Details/HowLongToBeat.vue";
 import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
@@ -29,15 +30,43 @@ const PdfViewer = defineAsyncComponent(
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
+
+// Valid tab values
+const validTabs = [
+  "details",
+  "manual",
+  "gamedata",
+  "personal",
+  "timetobeat",
+  "additionalcontent",
+  "screenshots",
+  "relatedgames",
+] as const;
+
+// Initialize tab from query parameter or default to "details"
 const tab = ref<
   | "details"
   | "manual"
   | "gamedata"
   | "personal"
+  | "timetobeat"
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
->("details");
+>(
+  validTabs.includes(route.query.tab as any)
+    ? (route.query.tab as
+        | "details"
+        | "manual"
+        | "gamedata"
+        | "personal"
+        | "timetobeat"
+        | "additionalcontent"
+        | "screenshots"
+        | "relatedgames")
+    : "details",
+);
 const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
@@ -53,7 +82,7 @@ async function fetchDetails() {
       currentRom.value = data;
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       noRomError.value = true;
     })
     .finally(() => {
@@ -85,6 +114,31 @@ onBeforeMount(async () => {
   downloadStore.reset();
 });
 
+// Watch for tab changes and update URL
+watch(tab, (newTab) => {
+  if (route.query.tab !== newTab) {
+    router.replace({
+      path: route.path,
+      query: {
+        ...route.query,
+        tab: newTab,
+      },
+    });
+  }
+});
+
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab && validTabs.includes(newTab as any)) {
+      if (tab.value !== newTab && typeof newTab === "string") {
+        tab.value = newTab as typeof tab.value;
+      }
+    }
+  },
+  { immediate: true },
+);
+
 watch(
   () => route.fullPath,
   async () => {
@@ -100,7 +154,7 @@ watch(
 
 <template>
   <template v-if="currentRom && !fetchingRoms">
-    <background-header />
+    <BackgroundHeader />
 
     <v-row
       class="px-6 mb-6"
@@ -108,15 +162,15 @@ watch(
       :class="{ 'justify-center': smAndDown }"
     >
       <v-col cols="auto">
-        <v-container :width="270" id="artwork-container" class="pa-0">
-          <game-card
+        <v-container id="artwork-container" :width="270" class="pa-0">
+          <GameCard
             :key="currentRom.updated_at"
             :rom="currentRom"
-            :showPlatformIcon="false"
-            :showActionBar="false"
+            :show-platform-icon="false"
+            :show-action-bar="false"
           />
-          <action-bar class="mt-2" :rom="currentRom" />
-          <related-games v-if="mdAndUp" class="mt-4" :rom="currentRom" />
+          <ActionBar :rom="currentRom" />
+          <RelatedGames v-if="mdAndUp" class="mt-4" :rom="currentRom" />
         </v-container>
       </v-col>
 
@@ -132,7 +186,7 @@ watch(
         "
       >
         <div :class="{ 'position-absolute title-desktop pl-4': mdAndUp }">
-          <title-info :rom="currentRom" />
+          <TitleInfo :rom="currentRom" />
         </div>
         <v-row
           :class="{ 'px-4': mdAndUp, 'justify-center': smAndDown }"
@@ -144,13 +198,18 @@ watch(
             show-arrows
             :class="{ 'mt-4': smAndDown }"
           >
-            <v-tab value="details"> {{ t("rom.details") }} </v-tab>
-            <v-tab value="manual" v-if="currentRom.has_manual">
+            <v-tab value="details">
+              {{ t("rom.details") }}
+            </v-tab>
+            <v-tab v-if="currentRom.has_manual" value="manual">
               {{ t("rom.manual") }}
             </v-tab>
-            <v-tab value="gamedata">Game data</v-tab>
+            <v-tab value="gamedata"> Game data </v-tab>
             <v-tab value="personal">
               {{ t("rom.personal") }}
+            </v-tab>
+            <v-tab v-if="currentRom.hltb_id" value="timetobeat">
+              {{ t("rom.how-long-to-beat") }}
             </v-tab>
             <v-tab
               v-if="
@@ -175,23 +234,26 @@ watch(
             </v-tab>
           </v-tabs>
           <v-col cols="12" class="px-1">
-            <v-window disabled v-model="tab" class="py-2">
+            <v-window v-model="tab" disabled class="py-2">
               <v-window-item value="details">
                 <v-row no-gutters>
                   <v-col>
-                    <file-info :rom="currentRom" />
-                    <game-info :rom="currentRom" />
+                    <FileInfo :rom="currentRom" />
+                    <GameInfo :rom="currentRom" />
                   </v-col>
                 </v-row>
               </v-window-item>
               <v-window-item value="manual">
-                <pdf-viewer v-if="currentRom.has_manual" :rom="currentRom" />
+                <PdfViewer v-if="currentRom.has_manual" :rom="currentRom" />
               </v-window-item>
               <v-window-item value="gamedata">
-                <game-data :rom="currentRom" />
+                <GameData :rom="currentRom" />
               </v-window-item>
               <v-window-item value="personal">
-                <personal :rom="currentRom" />
+                <Personal :rom="currentRom" />
+              </v-window-item>
+              <v-window-item v-if="currentRom.hltb_metadata" value="timetobeat">
+                <HowLongToBeat :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="
@@ -201,7 +263,7 @@ watch(
                 "
                 value="additionalcontent"
               >
-                <additional-content :rom="currentRom" />
+                <AdditionalContent :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="
@@ -212,7 +274,7 @@ watch(
                 "
                 value="relatedgames"
               >
-                <related-games :rom="currentRom" />
+                <RelatedGames :rom="currentRom" />
               </v-window-item>
             </v-window>
           </v-col>
@@ -220,21 +282,21 @@ watch(
       </v-col>
 
       <v-col
-        cols="auto"
         v-if="
           lgAndUp &&
           (currentRom.igdb_metadata?.expansions?.length ||
             currentRom.igdb_metadata?.dlcs?.length)
         "
+        cols="auto"
       >
         <v-container width="270px" class="pa-0">
-          <additional-content class="mt-2" :rom="currentRom" />
+          <AdditionalContent class="mt-2" :rom="currentRom" />
         </v-container>
       </v-col>
     </v-row>
   </template>
 
-  <empty-game v-if="noRomError" />
+  <EmptyGame v-if="noRomError" />
 </template>
 
 <style scoped>

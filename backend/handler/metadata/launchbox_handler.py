@@ -1,15 +1,17 @@
 import json
+import re
 from datetime import datetime
 from typing import Final, NotRequired, TypedDict
 
 import pydash
 
-from config import LAUNCHBOX_API_ENABLED, str_to_bool
+from config import LAUNCHBOX_API_ENABLED
 from handler.redis_handler import async_cache
 from logger.logger import log
+from utils.database import safe_str_to_bool
 
-from .base_hander import BaseRom, MetadataHandler
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import BaseRom, MetadataHandler
+from .base_handler import UniversalPlatformSlug as UPS
 
 LAUNCHBOX_PLATFORMS_KEY: Final[str] = "romm:launchbox_platforms"
 LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final[str] = "romm:launchbox_metadata_database_id"
@@ -20,6 +22,9 @@ LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final[str] = (
 LAUNCHBOX_METADATA_IMAGE_KEY: Final[str] = "romm:launchbox_metadata_image"
 LAUNCHBOX_MAME_KEY: Final[str] = "romm:launchbox_mame"
 LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
+
+# Regex to detect LaunchBox ID tags in filenames like (launchbox-12345)
+LAUNCHBOX_TAG_REGEX = re.compile(r"\(launchbox-(\d+)\)", re.IGNORECASE)
 
 
 class LaunchboxPlatform(TypedDict):
@@ -87,7 +92,7 @@ def extract_metadata_from_launchbox_rom(
             "first_release_date": first_release_date,
             "max_players": int(index_entry.get("MaxPlayers") or 0),
             "release_type": index_entry.get("ReleaseType", ""),
-            "cooperative": str_to_bool(index_entry.get("Cooperative") or "false"),
+            "cooperative": safe_str_to_bool(index_entry.get("Cooperative") or "false"),
             "youtube_video_id": extract_video_id_from_youtube_url(
                 index_entry.get("VideoURL")
             ),
@@ -123,21 +128,23 @@ class LaunchboxHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return LAUNCHBOX_API_ENABLED
 
+    async def heartbeat(self) -> bool:
+        return self.is_enabled()
+
+    @staticmethod
+    def extract_launchbox_id_from_filename(fs_name: str) -> int | None:
+        """Extract LaunchBox ID from filename tag like (launchbox-12345)."""
+        match = LAUNCHBOX_TAG_REGEX.search(fs_name)
+        if match:
+            return int(match.group(1))
+        return None
+
     async def _get_rom_from_metadata(
         self, file_name: str, platform_slug: str
     ) -> dict | None:
         if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
-            log.info("Fetching the Launchbox Metadata.xml file...")
-
-            from tasks.scheduled.update_launchbox_metadata import (
-                update_launchbox_metadata_task,
-            )
-
-            await update_launchbox_metadata_task.run(force=True)
-
-            if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
-                log.error("Could not fetch the Launchbox Metadata.xml file")
-                return None
+            log.error("Could not find the Launchbox Metadata.xml file in cache")
+            return None
 
         lb_platform = self.get_platform(platform_slug)
         platform_name = lb_platform.get("name", None)
@@ -231,6 +238,21 @@ class LaunchboxHandler(MetadataHandler):
         if not self.is_enabled():
             return fallback_rom
 
+        # Check for LaunchBox ID tag in filename first
+        launchbox_id_from_tag = self.extract_launchbox_id_from_filename(fs_name)
+        if launchbox_id_from_tag:
+            log.debug(f"Found LaunchBox ID tag in filename: {launchbox_id_from_tag}")
+            rom_by_id = await self.get_rom_by_id(launchbox_id_from_tag)
+            if rom_by_id["launchbox_id"]:
+                log.debug(
+                    f"Successfully matched ROM by LaunchBox ID tag: {fs_name} -> {launchbox_id_from_tag}"
+                )
+                return rom_by_id
+            else:
+                log.warning(
+                    f"LaunchBox ID {launchbox_id_from_tag} from filename tag not found in LaunchBox"
+                )
+
         # We replace " - " with ": " to match Launchbox's naming convention
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
             " - ", ": "
@@ -277,6 +299,8 @@ class LaunchboxHandler(MetadataHandler):
         if not metadata_database_index_entry:
             return LaunchboxRom(launchbox_id=None)
 
+        # Parse the JSON string from cache
+        metadata_database_index_entry = json.loads(metadata_database_index_entry)
         game_images = await self._get_game_images(
             metadata_database_index_entry["DatabaseID"]
         )
@@ -299,13 +323,22 @@ class LaunchboxHandler(MetadataHandler):
 
         return await self.get_rom_by_id(database_id)
 
+    async def get_matched_roms_by_name(
+        self, search_term: str, platform_slug: str
+    ) -> list[LaunchboxRom]:
+        if not self.is_enabled():
+            return []
 
-class SlugToLaunchboxPlatformName(TypedDict):
+        rom = await self.get_rom(search_term, platform_slug)
+        return [rom] if rom else []
+
+
+class SlugToLaunchboxId(TypedDict):
     id: int
     name: str
 
 
-LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxPlatformName] = {
+LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
     UPS.VECTOR_06C: {"id": 199, "name": "Vector-06C"},
     UPS._3DO: {"id": 1, "name": "3DO Interactive Multiplayer"},
     UPS.N3DS: {"id": 24, "name": "Nintendo 3DS"},
@@ -422,7 +455,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxPlatformName] = {
     UPS.NGC: {"id": 31, "name": "Nintendo GameCube"},
     UPS.NUON: {"id": 126, "name": "Nuon"},
     UPS.ODYSSEY: {"id": 78, "name": "Magnavox Odyssey"},
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
+    UPS.ODYSSEY_2: {
         "id": 57,
         "name": "Magnavox Odyssey 2",
     },

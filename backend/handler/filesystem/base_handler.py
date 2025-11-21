@@ -19,24 +19,59 @@ from utils.filesystem import iter_directories, iter_files
 
 TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
 EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
+UUID_V4_REGEX = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}",
+    re.IGNORECASE,
+)
 
 LANGUAGES = (
+    ("Af", "Afrikaans"),
     ("Ar", "Arabic"),
+    ("Be", "Belarusian"),
+    ("Bg", "Bulgarian"),
+    ("Ca", "Catalan"),
+    ("Cs", "Czech"),
     ("Da", "Danish"),
     ("De", "German"),
+    ("El", "Greek"),
     ("En", "English"),
     ("Es", "Spanish"),
+    ("Et", "Estonian"),
+    ("Eu", "Basque"),
     ("Fi", "Finnish"),
     ("Fr", "French"),
+    ("Gd", "Gaelic"),
+    ("He", "Hebrew"),
+    ("Hi", "Hindi"),
+    ("Hr", "Croatian"),
+    ("Hu", "Hungarian"),
+    ("Hy", "Armenian"),
+    ("Id", "Indonesian"),
+    ("Is", "Icelandic"),
     ("It", "Italian"),
     ("Ja", "Japanese"),
     ("Ko", "Korean"),
+    ("La", "Latin"),
+    ("Lt", "Lithuanian"),
+    ("Lv", "Latvian"),
+    ("Mk", "Macedonian"),
     ("Nl", "Dutch"),
     ("No", "Norwegian"),
+    ("Pa", "Punjabi"),
     ("Pl", "Polish"),
     ("Pt", "Portuguese"),
+    ("Ro", "Romanian"),
     ("Ru", "Russian"),
+    ("Sk", "Slovak"),
+    ("Sl", "Slovenian"),
+    ("Sq", "Albanian"),
+    ("Sr", "Serbian"),
     ("Sv", "Swedish"),
+    ("Ta", "Tamil"),
+    ("Th", "Thai"),
+    ("Tr", "Turkish"),
+    ("Uk", "Ukrainian"),
+    ("Vi", "Vietnamese"),
     ("Zh", "Chinese"),
     ("nolang", "No Language"),
 )
@@ -184,6 +219,10 @@ class FSHandler:
         match = EXTENSION_REGEX.search(file_name)
         return match.group(1) if match else ""
 
+    def extract_uuid_v4_from_filename(self, file_name: str) -> str:
+        match = UUID_V4_REGEX.search(file_name)
+        return match.group(0) if match else ""
+
     def exclude_single_files(self, files: list[str]) -> list[str]:
         excluded_extensions = cm.get_config().EXCLUDED_SINGLE_EXT
         excluded_names = cm.get_config().EXCLUDED_SINGLE_FILES
@@ -245,7 +284,7 @@ class FSHandler:
         # Async thread-safe directory listing
         lock = await self._get_file_lock(str(target_directory))
         async with lock:
-            if not target_directory.exists() or not target_directory.is_dir():
+            if not target_directory.is_dir():
                 raise FileNotFoundError(
                     f"Path does not exist or is not a directory: {str(target_directory)}"
                 )
@@ -269,7 +308,7 @@ class FSHandler:
         # Async thread-safe directory removal
         lock = await self._get_file_lock(str(target_directory))
         async with lock:
-            if not target_directory.exists() or not target_directory.is_dir():
+            if not target_directory.is_dir():
                 raise FileNotFoundError(
                     f"Path does not exist or is not a directory: {str(target_directory)}"
                 )
@@ -383,7 +422,7 @@ class FSHandler:
         # Async thread-safe file read
         lock = await self._get_file_lock(str(full_path))
         async with lock:
-            if not full_path.exists() or not full_path.is_file():
+            if not full_path.is_file():
                 raise FileNotFoundError(f"File not found: {full_path}")
 
             async with await open_file(full_path, "rb") as f:
@@ -411,10 +450,41 @@ class FSHandler:
         # Async thread-safe file stream
         lock = await self._get_file_lock(str(full_path))
         async with lock:
-            if not full_path.exists() or not full_path.is_file():
+            if not full_path.is_file():
                 raise FileNotFoundError(f"File not found: {full_path}")
 
             return await open_file(full_path, "rb")
+
+    async def copy_file(self, source_full_path: Path, dest_path: str) -> None:
+        """
+        Copy a file from source to destination.
+
+        Args:
+            source_full_path: Absolute path to the source file
+            dest_path: Relative path to the destination file
+
+        Raises:
+            FileNotFoundError: If source file does not exist
+            ValueError: If destination path is invalid
+        """
+        if not source_full_path or not dest_path:
+            raise ValueError("Source and destination paths cannot be empty")
+
+        # Validate and normalize path
+        dest_full_path = self.validate_path(dest_path)
+
+        # Use locks for both source and destination
+        source_lock = await self._get_file_lock(str(source_full_path))
+        dest_lock = await self._get_file_lock(str(dest_full_path))
+
+        # Async thread-safe file copy
+        async with source_lock, dest_lock:
+            if not source_full_path.is_file():
+                raise FileNotFoundError(f"Source file not found: {source_full_path}")
+
+            # Create destination directory if needed
+            dest_full_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(source_full_path), str(dest_full_path))
 
     async def move_file_or_folder(self, source_path: str, dest_path: str) -> None:
         """
@@ -448,7 +518,6 @@ class FSHandler:
 
             # Create destination directory if needed
             dest_full_path.parent.mkdir(parents=True, exist_ok=True)
-
             shutil.move(str(source_full_path), str(dest_full_path))
 
     async def remove_file(self, file_path: str) -> None:
@@ -497,7 +566,7 @@ class FSHandler:
         # Async thread-safe directory listing
         lock = await self._get_file_lock(str(full_path))
         async with lock:
-            if not full_path.exists() or not full_path.is_dir():
+            if not full_path.is_dir():
                 raise FileNotFoundError(f"Directory not found: {full_path}")
 
             return [f for _, f in iter_files(str(full_path), recursive=False)]
@@ -521,7 +590,7 @@ class FSHandler:
         # Async thread-safe existence check
         lock = await self._get_file_lock(str(full_path))
         async with lock:
-            return full_path.exists() and full_path.is_file()
+            return full_path.is_file()
 
     async def get_file_size(self, file_path: str) -> int:
         """
@@ -545,7 +614,7 @@ class FSHandler:
         # Async thread-safe file size retrieval
         lock = await self._get_file_lock(str(full_path))
         async with lock:
-            if not full_path.exists() or not full_path.is_file():
+            if not full_path.is_file():
                 raise FileNotFoundError(f"File not found: {full_path}")
 
             return full_path.stat().st_size

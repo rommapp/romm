@@ -22,6 +22,7 @@ from adapters.services.steamgriddb_types import (
 from config import STEAMGRIDDB_API_KEY
 from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
 from logger.logger import log
+from utils import get_version
 from utils.context import ctx_aiohttp_session
 
 
@@ -55,15 +56,16 @@ class SteamGridDBService:
         try:
             res = await aiohttp_session.get(
                 url,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
             return await res.json()
         except aiohttp.client_exceptions.ClientResponseError as exc:
-            print(f"Request failed with status {exc.status} for URL: {url}")
+            log.warning(f"Request failed with status {exc.status} for URL: {url}")
             if exc.status == http.HTTPStatus.UNAUTHORIZED:
-                print("Invalid API key or unauthorized access.")
+                log.warning("Invalid API key or unauthorized access.")
                 raise SGDBInvalidAPIKeyException from exc
             # Log the error and return an empty dict if the request fails with a different code
             log.error(exc)
@@ -178,3 +180,14 @@ class SteamGridDBService:
         url = self.url.joinpath("search/autocomplete", term)
         response = await self._request(str(url))
         return cast(list[SGDBGame], response.get("data", []))
+
+    async def get_game_by_id(self, game_id: int) -> SGDBGame | None:
+        """Get game details by ID.
+
+        Reference: https://www.steamgriddb.com/api/v2#tag/GAMES/operation/getGameById
+        """
+        url = self.url.joinpath("games/id", str(game_id))
+        response = await self._request(str(url))
+        if not response or "data" not in response:
+            return None
+        return cast(SGDBGame, response["data"])

@@ -17,7 +17,7 @@ from handler.redis_handler import async_cache
 from logger.logger import log
 from utils.context import ctx_httpx_client
 
-from .base_hander import (
+from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
@@ -25,13 +25,16 @@ from .base_hander import (
     BaseRom,
     MetadataHandler,
 )
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import UniversalPlatformSlug as UPS
 
 PS1_IGDB_ID: Final = 7
 PS2_IGDB_ID: Final = 8
 PSP_IGDB_ID: Final = 38
 SWITCH_IGDB_ID: Final = 130
 ARCADE_IGDB_IDS: Final = [52, 79, 80]
+
+# Regex to detect IGDB ID tags in filenames like (igdb-12345)
+IGDB_TAG_REGEX = re.compile(r"\(igdb-(\d+)\)", re.IGNORECASE)
 
 
 class IGDBPlatform(TypedDict):
@@ -215,6 +218,14 @@ class IGDBHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return bool(IGDB_CLIENT_ID and IGDB_CLIENT_SECRET)
 
+    @staticmethod
+    def extract_igdb_id_from_filename(fs_name: str) -> int | None:
+        """Extract IGDB ID from filename tag like (igdb-12345)."""
+        match = IGDB_TAG_REGEX.search(fs_name)
+        if match:
+            return int(match.group(1))
+        return None
+
     async def _search_rom(
         self, search_term: str, platform_igdb_id: int, with_game_type: bool = False
     ) -> Game | None:
@@ -234,10 +245,18 @@ class IGDBHandler(MetadataHandler):
             game_type_filter = ""
 
         log.debug("Searching in games endpoint with game_type %s", game_type_filter)
+        where_filter = f"platforms=[{platform_igdb_id}] {game_type_filter}"
+
+        # Special case for ScummVM games
+        # https://github.com/rommapp/romm/issues/2424
+        scummvm_platform = self.get_platform(UPS.SCUMMVM)
+        if scummvm_platform["igdb_id"] == platform_igdb_id:
+            where_filter = f"keywords=[{platform_igdb_id}] {game_type_filter}"
+
         roms = await self.igdb_service.list_games(
             search_term=search_term,
             fields=GAMES_FIELDS,
-            where=f"platforms=[{platform_igdb_id}] {game_type_filter}",
+            where=where_filter,
             limit=self.pagination_limit,
         )
 
@@ -298,6 +317,21 @@ class IGDBHandler(MetadataHandler):
 
         return None
 
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            roms = await self.igdb_service.list_games(
+                fields=["id"],
+                limit=1,
+            )
+        except Exception as e:
+            log.error("Error checking IGDB API: %s", e)
+            return False
+
+        return bool(roms)
+
     def get_platform(self, slug: str) -> IGDBPlatform:
         if slug in IGDB_PLATFORM_LIST:
             platform = IGDB_PLATFORM_LIST[UPS(slug)]
@@ -345,6 +379,21 @@ class IGDBHandler(MetadataHandler):
         if not platform_igdb_id:
             return IGDBRom(igdb_id=None)
 
+        # Check for IGDB ID tag in filename first
+        igdb_id_from_tag = self.extract_igdb_id_from_filename(fs_name)
+        if igdb_id_from_tag:
+            log.debug(f"Found IGDB ID tag in filename: {igdb_id_from_tag}")
+            rom_by_id = await self.get_rom_by_id(igdb_id_from_tag)
+            if rom_by_id["igdb_id"]:
+                log.debug(
+                    f"Successfully matched ROM by IGDB ID tag: {fs_name} -> {igdb_id_from_tag}"
+                )
+                return rom_by_id
+            else:
+                log.warning(
+                    f"IGDB ID {igdb_id_from_tag} from filename tag not found in IGDB"
+                )
+
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = IGDBRom(igdb_id=None)
 
@@ -354,7 +403,7 @@ class IGDBHandler(MetadataHandler):
             search_term = await self._ps2_opl_format(match, search_term)
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
-        # Support for sony serial filename format (PS, PS3, PS3)
+        # Support for sony serial filename format (PS, PS2, PSP)
         match = SONY_SERIAL_REGEX.search(fs_name, re.IGNORECASE)
         if platform_igdb_id == PS1_IGDB_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
@@ -686,7 +735,7 @@ IGDB_PLATFORM_CATEGORIES: dict[int, str] = {
     1: "Console",
     2: "Arcade",
     3: "Platform",
-    4: "Operative System",
+    4: "Operating System",
     5: "Portable Console",
     6: "Computer",
 }
@@ -1069,10 +1118,10 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf7.jpg",
     },
     UPS.ANALOGUEELECTRONICS: {
-        "category": "Unknown",
+        "category": "Console",
         "family_name": "",
         "family_slug": "",
-        "generation": -1,
+        "generation": 1,
         "id": 100,
         "name": "Analogue electronics",
         "slug": "analogueelectronics",
@@ -1080,7 +1129,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.ANDROID: {
-        "category": "Operative System",
+        "category": "Operating System",
         "family_name": "",
         "family_slug": "",
         "generation": -1,
@@ -1138,7 +1187,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "",
         "family_slug": "",
-        "generation": -1,
+        "generation": 2,
         "id": 473,
         "name": "Arcadia 2001",
         "slug": "arcadia-2001",
@@ -1158,8 +1207,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.ASTROCADE: {
         "category": "Console",
-        "family_name": "",
-        "family_slug": "",
+        "family_name": "Bally",
+        "family_slug": "bally",
         "generation": 2,
         "id": 91,
         "name": "Bally Astrocade",
@@ -1248,7 +1297,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "General Instruments",
         "family_slug": "general-instruments",
-        "generation": -1,
+        "generation": 1,
         "id": 145,
         "name": "AY-3-8603",
         "slug": "ay-3-8603",
@@ -1259,7 +1308,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "General Instruments",
         "family_slug": "general-instruments",
-        "generation": -1,
+        "generation": 1,
         "id": 146,
         "name": "AY-3-8605",
         "slug": "ay-3-8605",
@@ -1270,7 +1319,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "General Instruments",
         "family_slug": "general-instruments",
-        "generation": -1,
+        "generation": 1,
         "id": 147,
         "name": "AY-3-8606",
         "slug": "ay-3-8606",
@@ -1281,7 +1330,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "General Instruments",
         "family_slug": "general-instruments",
-        "generation": -1,
+        "generation": 1,
         "id": 148,
         "name": "AY-3-8607",
         "slug": "ay-3-8607",
@@ -1292,7 +1341,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Computer",
         "family_name": "General Instruments",
         "family_slug": "general-instruments",
-        "generation": -1,
+        "generation": 1,
         "id": 141,
         "name": "AY-3-8610",
         "slug": "ay-3-8610",
@@ -1303,7 +1352,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "General Instruments",
         "family_slug": "general-instruments",
-        "generation": -1,
+        "generation": 1,
         "id": 144,
         "name": "AY-3-8710",
         "slug": "ay-3-8710",
@@ -1314,7 +1363,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "General Instruments",
         "family_slug": "general-instruments",
-        "generation": -1,
+        "generation": 1,
         "id": 143,
         "name": "AY-3-8760",
         "slug": "ay-3-8760",
@@ -1333,7 +1382,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl86.jpg",
     },
     UPS.BLACKBERRY: {
-        "category": "Operative System",
+        "category": "Operating System",
         "family_name": "",
         "family_slug": "",
         "generation": -1,
@@ -1347,7 +1396,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "",
         "family_slug": "",
-        "generation": -1,
+        "generation": 7,
         "id": 239,
         "name": "Blu-ray Player",
         "slug": "blu-ray-player",
@@ -1360,7 +1409,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "family_slug": "",
         "generation": -1,
         "id": 82,
-        "name": "Web browser",
+        "name": "Browser (Flash/HTML5)",
         "slug": "browser",
         "url": "https://www.igdb.com/platforms/browser",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmx.jpg",
@@ -1413,7 +1462,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "Casio",
         "family_slug": "casio",
-        "generation": -1,
+        "generation": 5,
         "id": 380,
         "name": "Casio Loopy",
         "slug": "casio-loopy",
@@ -1465,10 +1514,10 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf3.jpg",
     },
     UPS.DAYDREAM: {
-        "category": "Unknown",
-        "family_name": "",
-        "family_slug": "",
-        "generation": -1,
+        "category": "Console",
+        "family_name": "Google",
+        "family_slug": "google",
+        "generation": 8,
         "id": 164,
         "name": "Daydream",
         "slug": "daydream",
@@ -1509,7 +1558,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.DOS: {
-        "category": "Operative System",
+        "category": "Operating System",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
         "generation": -1,
@@ -1534,7 +1583,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "",
         "family_slug": "",
-        "generation": -1,
+        "generation": 6,
         "id": 238,
         "name": "DVD Player",
         "slug": "dvd-player",
@@ -1754,7 +1803,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "Samsung",
         "family_slug": "samsung",
-        "generation": -1,
+        "generation": 8,
         "id": 388,
         "name": "Gear VR",
         "slug": "gear-vr",
@@ -1784,7 +1833,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnl.jpg",
     },
     UPS.GT40: {
-        "category": "Unknown",
+        "category": "Computer",
         "family_name": "DEC",
         "family_slug": "dec",
         "generation": -1,
@@ -1798,7 +1847,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
-        "generation": -1,
+        "generation": 1,
         "id": 411,
         "name": "Handheld Electronic LCD",
         "slug": "handheld-electronic-lcd",
@@ -1831,7 +1880,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Arcade",
         "family_name": "SNK",
         "family_slug": "snk",
-        "generation": -1,
+        "generation": 5,
         "id": 135,
         "name": "Hyper Neo Geo 64",
         "slug": "hyper-neo-geo-64",
@@ -1850,7 +1899,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj2.jpg",
     },
     UPS.IMLAC_PDS1: {
-        "category": "Unknown",
+        "category": "Computer",
         "family_name": "",
         "family_slug": "",
         "generation": -1,
@@ -1875,7 +1924,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "",
         "family_slug": "",
-        "generation": -1,
+        "generation": 9,
         "id": 382,
         "name": "Intellivision Amico",
         "slug": "intellivision-amico",
@@ -1883,7 +1932,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkp.jpg",
     },
     UPS.IOS: {
-        "category": "Operative System",
+        "category": "Operating System",
         "family_name": "Apple",
         "family_slug": "apple",
         "generation": -1,
@@ -1960,7 +2009,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "",
     },
     UPS.LINUX: {
-        "category": "Operative System",
+        "category": "Operating System",
         "family_name": "Linux",
         "family_slug": "linux",
         "generation": -1,
@@ -1982,7 +2031,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl82.jpg",
     },
     UPS.MAC: {
-        "category": "Operative System",
+        "category": "Operating System",
         "family_name": "Apple",
         "family_slug": "apple",
         "generation": -1,
@@ -2007,7 +2056,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "Meta",
         "family_slug": "meta",
-        "generation": -1,
+        "generation": 9,
         "id": 386,
         "name": "Meta Quest 2",
         "slug": "meta-quest-2",
@@ -2026,7 +2075,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnb.jpg",
     },
     UPS.MICROCOMPUTER: {
-        "category": "Unknown",
+        "category": "Computer",
         "family_name": "",
         "family_slug": "",
         "generation": -1,
@@ -2051,7 +2100,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
-        "generation": -1,
+        "generation": 7,
         "id": 55,
         "name": "Legacy Mobile Device",
         "slug": "mobile",
@@ -2161,7 +2210,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Arcade",
         "family_name": "SNK",
         "family_slug": "snk",
-        "generation": -1,
+        "generation": 4,
         "id": 79,
         "name": "Neo Geo MVS",
         "slug": "neogeomvs",
@@ -2238,7 +2287,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "",
         "family_slug": "",
-        "generation": -1,
+        "generation": 6,
         "id": 122,
         "name": "Nuon",
         "slug": "nuon",
@@ -2249,7 +2298,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "Meta",
         "family_slug": "meta",
-        "generation": -1,
+        "generation": 8,
         "id": 387,
         "name": "Oculus Go",
         "slug": "oculus-go",
@@ -2260,7 +2309,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "Meta",
         "family_slug": "meta",
-        "generation": -1,
+        "generation": 8,
         "id": 384,
         "name": "Oculus Quest",
         "slug": "oculus-quest",
@@ -2271,7 +2320,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "Meta",
         "family_slug": "meta",
-        "generation": -1,
+        "generation": 7,
         "id": 385,
         "name": "Oculus Rift",
         "slug": "oculus-rift",
@@ -2279,10 +2328,10 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln8.jpg",
     },
     UPS.OCULUS_VR: {
-        "category": "Unknown",
+        "category": "Console",
         "family_name": "Meta",
         "family_slug": "meta",
-        "generation": -1,
+        "generation": 7,
         "id": 162,
         "name": "Oculus VR",
         "slug": "oculus-vr",
@@ -2300,7 +2349,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/odyssey--1",
         "url_logo": "",
     },
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
+    UPS.ODYSSEY_2: {
         "category": "Computer",
         "family_name": "Magnavox",
         "family_slug": "magnavox",
@@ -2345,7 +2394,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6k.jpg",
     },
     UPS.PALM_OS: {
-        "category": "Operative System",
+        "category": "Operating System",
         "family_name": "",
         "family_slug": "",
         "generation": -1,
@@ -2422,7 +2471,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf8.jpg",
     },
     UPS.PDP_7: {
-        "category": "Unknown",
+        "category": "Computer",
         "family_name": "DEC",
         "family_slug": "dec",
         "generation": -1,
@@ -2480,7 +2529,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "Philips",
         "family_slug": "philips",
-        "generation": -1,
+        "generation": 4,
         "id": 117,
         "name": "Philips CD-i",
         "slug": "philips-cd-i",
@@ -2533,8 +2582,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.POCKETSTATION: {
         "category": "Portable Console",
-        "family_name": "PlayStation",
-        "family_slug": "playstation",
+        "family_name": "Sony",
+        "family_slug": "sony",
         "generation": 5,
         "id": 441,
         "name": "PocketStation",
@@ -2546,7 +2595,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Portable Console",
         "family_name": "Nintendo",
         "family_slug": "nintendo",
-        "generation": -1,
+        "generation": 6,
         "id": 166,
         "name": "Pokémon mini",
         "slug": "pokemon-mini",
@@ -2557,7 +2606,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "",
         "family_slug": "",
-        "generation": -1,
+        "generation": 9,
         "id": 509,
         "name": "Polymega",
         "slug": "polymega",
@@ -2566,8 +2615,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.PSX: {
         "category": "Console",
-        "family_name": "PlayStation",
-        "family_slug": "playstation",
+        "family_name": "Sony",
+        "family_slug": "sony",
         "generation": 5,
         "id": 7,
         "name": "PlayStation",
@@ -2577,8 +2626,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.PS2: {
         "category": "Console",
-        "family_name": "PlayStation",
-        "family_slug": "playstation",
+        "family_name": "Sony",
+        "family_slug": "sony",
         "generation": 6,
         "id": 8,
         "name": "PlayStation 2",
@@ -2588,8 +2637,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.PS3: {
         "category": "Console",
-        "family_name": "PlayStation",
-        "family_slug": "playstation",
+        "family_name": "Sony",
+        "family_slug": "sony",
         "generation": 7,
         "id": 9,
         "name": "PlayStation 3",
@@ -2599,8 +2648,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.PS4: {
         "category": "Console",
-        "family_name": "PlayStation",
-        "family_slug": "playstation",
+        "family_name": "Sony",
+        "family_slug": "sony",
         "generation": 8,
         "id": 48,
         "name": "PlayStation 4",
@@ -2610,8 +2659,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.PS5: {
         "category": "Console",
-        "family_name": "PlayStation",
-        "family_slug": "playstation",
+        "family_name": "Sony",
+        "family_slug": "sony",
         "generation": 9,
         "id": 167,
         "name": "PlayStation 5",
@@ -2621,8 +2670,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.PSP: {
         "category": "Portable Console",
-        "family_name": "PlayStation",
-        "family_slug": "playstation",
+        "family_name": "Sony",
+        "family_slug": "sony",
         "generation": 7,
         "id": 38,
         "name": "PlayStation Portable",
@@ -2632,8 +2681,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.PSVITA: {
         "category": "Portable Console",
-        "family_name": "PlayStation",
-        "family_slug": "playstation",
+        "family_name": "Sony",
+        "family_slug": "sony",
         "generation": 8,
         "id": 46,
         "name": "PlayStation Vita",
@@ -2643,8 +2692,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.PSVR: {
         "category": "Console",
-        "family_name": "PlayStation",
-        "family_slug": "playstation",
+        "family_name": "Sony",
+        "family_slug": "sony",
         "generation": 8,
         "id": 165,
         "name": "PlayStation VR",
@@ -2654,8 +2703,8 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
     },
     UPS.PSVR2: {
         "category": "Console",
-        "family_name": "PlayStation",
-        "family_slug": "playstation",
+        "family_name": "Sony",
+        "family_slug": "sony",
         "generation": 9,
         "id": 390,
         "name": "PlayStation VR2",
@@ -2695,6 +2744,18 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "slug": "saturn",
         "url": "https://www.igdb.com/platforms/saturn",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/hrmqljpwunky1all3v78.jpg",
+    },
+    UPS.SCUMMVM: {
+        "category": "Computer",
+        "family_name": "",
+        "family_slug": "",
+        "generation": -1,
+        # Note: The ID 50501 is a keyword ID (not a platform ID) in IGDB's system
+        "id": 50501,
+        "name": "ScummVM",
+        "slug": "scummvm",
+        "url": "https://www.igdb.com/categories/scummvm-compatible",
+        "url_logo": "",
     },
     UPS.SDSSIGMA7: {
         "category": "Computer",
@@ -2757,7 +2818,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "family_slug": "microsoft",
         "generation": 9,
         "id": 169,
-        "name": "Xbox Series X|S",
+        "name": "Xbox Series X/S",
         "slug": "series-x-s",
         "url": "https://www.igdb.com/platforms/series-x-s",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plfl.jpg",
@@ -2873,10 +2934,10 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl94.jpg",
     },
     UPS.STEAM_VR: {
-        "category": "Unknown",
-        "family_name": "",
-        "family_slug": "",
-        "generation": -1,
+        "category": "Platform",
+        "family_name": "Valve",
+        "family_slug": "valve",
+        "generation": 8,
         "id": 163,
         "name": "SteamVR",
         "slug": "steam-vr",
@@ -2920,7 +2981,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Portable Console",
         "family_name": "Bandai",
         "family_slug": "bandai",
-        "generation": -1,
+        "generation": 5,
         "id": 124,
         "name": "SwanCrystal",
         "slug": "swancrystal",
@@ -3052,7 +3113,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Console",
         "family_name": "",
         "family_slug": "",
-        "generation": -1,
+        "generation": 9,
         "id": 504,
         "name": "Uzebox",
         "slug": "uzebox",
@@ -3115,7 +3176,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7s.jpg",
     },
     UPS.VISIONOS: {
-        "category": "Operative System",
+        "category": "Operating System",
         "family_name": "Apple",
         "family_slug": "apple",
         "generation": -1,
@@ -3181,7 +3242,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6n.jpg",
     },
     UPS.WIN: {
-        "category": "Operative System",
+        "category": "Operating System",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
         "generation": -1,
@@ -3192,10 +3253,10 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plim.jpg",
     },
     UPS.WINDOWS_MIXED_REALITY: {
-        "category": "Unknown",
+        "category": "Platform",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
-        "generation": -1,
+        "generation": 8,
         "id": 161,
         "name": "Windows Mixed Reality",
         "slug": "windows-mixed-reality",
@@ -3203,7 +3264,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm4.jpg",
     },
     UPS.WINDOWS_MOBILE: {
-        "category": "Operative System",
+        "category": "Operating System",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
         "generation": -1,
@@ -3214,7 +3275,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkl.jpg",
     },
     UPS.WINPHONE: {
-        "category": "Operative System",
+        "category": "Operating System",
         "family_name": "Microsoft",
         "family_slug": "microsoft",
         "generation": -1,
@@ -3305,7 +3366,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",
-        "generation": -1,
+        "generation": 5,
         "id": 44,
         "name": "Tapwave Zodiac",
         "slug": "zod",
@@ -4978,7 +5039,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     },
     "web-browser": {
         "id": 86,
-        "name": "Web browser",
+        "name": "Browser (Flash/HTML5)",
         "platform_slug": UPS.BROWSER,
         "slug": "web-browser",
         "url": "https://www.igdb.com/platforms/browser/version/web-browser",

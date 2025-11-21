@@ -6,7 +6,8 @@ import type { JobStatus } from './JobStatus';
 export type TaskExecutionResponse = {
     task_name: string;
     task_id: string;
-    status: (JobStatus | null);
-    queued_at: string;
+    status: JobStatus;
+    created_at: (string | null);
+    enqueued_at: (string | null);
 };
 

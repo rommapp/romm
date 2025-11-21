@@ -3,10 +3,12 @@ import { debounce } from "lodash";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
-import { ref, watch } from "vue";
+import { ref, watch, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import type { RomUserStatus } from "@/__generated__";
+import MultiNoteManager from "@/components/Details/MultiNoteManager.vue";
 import RetroAchievements from "@/components/Details/RetroAchievements.vue";
 import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
@@ -16,15 +18,72 @@ import { getTextForStatus, getEmojiForStatus } from "@/utils";
 
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
-const tab = ref<"status" | "ra" | "notes">("status");
+const route = useRoute();
+const router = useRouter();
+
+// Valid subtab values
+const validTabs = ["status", "ra", "notes"] as const;
+
+// Helper function to update URL with new query parameters
+const updateQuery = (updates: Record<string, any>) => {
+  router.replace({
+    path: route.path,
+    query: { ...route.query, ...updates },
+  });
+};
+
+// Helper function to remove subtab from URL
+const removeSubtab = () => {
+  if (route.query.subtab) {
+    const { subtab, ...queryWithoutSubtab } = route.query;
+    router.replace({
+      path: route.path,
+      query: queryWithoutSubtab,
+    });
+  }
+};
+
+// Initialize sub-tab from query parameter or default to "status"
+const tab = ref<"status" | "ra" | "notes">(
+  validTabs.includes(route.query.subtab as any)
+    ? (route.query.subtab as "status" | "ra" | "notes")
+    : "status",
+);
 const auth = storeAuth();
 const theme = useTheme();
 const { mdAndUp, mdAndDown, smAndDown } = useDisplay();
 const { scopes } = storeToRefs(auth);
-const editingNote = ref(false);
 const romUser = ref(props.rom.rom_user);
-const publicNotes =
-  props.rom.user_notes?.filter((note) => note.user_id !== auth.user?.id) ?? [];
+
+// Watch for sub-tab changes and update URL
+watch(tab, (newSubTab) => {
+  if (route.query.subtab !== newSubTab) {
+    updateQuery({ subtab: newSubTab });
+  }
+});
+
+// Watch for URL changes and update sub-tab
+watch(
+  () => route.query.subtab,
+  (newSubTab) => {
+    if (newSubTab && validTabs.includes(newSubTab as any)) {
+      tab.value = newSubTab as "status" | "ra" | "notes";
+    }
+  },
+  { immediate: true },
+);
+
+// Watch for parent tab changes and clean up subtab when not on personal tab
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab !== "personal") {
+      removeSubtab();
+    }
+  },
+);
+
+// Clean up subtab parameter when component unmounts
 
 const statusOptions = [
   "never_playing",
@@ -34,14 +93,16 @@ const statusOptions = [
   "completed_100",
 ];
 
-function editNote() {
-  if (editingNote.value) {
-    romApi.updateUserRomProps({
-      romId: props.rom.id,
-      data: romUser.value,
-    });
+async function onNotesUpdated() {
+  // Refetch the ROM to get updated all_user_notes
+  try {
+    const updatedRom = await romApi.getRom({ romId: props.rom.id });
+    // Update the parent component with the new ROM data
+    // This is a bit of a hack - ideally we'd have better state management
+    Object.assign(props.rom, updatedRom.data);
+  } catch (error) {
+    console.error("Failed to refetch ROM data:", error);
   }
-  editingNote.value = !editingNote.value;
 }
 
 function onStatusItemClick(status: string | null) {
@@ -82,21 +143,24 @@ watch(
           prepend-icon="mdi-list-status"
           class="rounded text-caption"
           value="status"
-          >Status</v-tab
         >
+          Status
+        </v-tab>
         <v-tab
           v-if="rom.ra_id && auth.user?.ra_username"
           prepend-icon="mdi-trophy"
           class="rounded text-caption"
           value="ra"
-          >RetroAchievements</v-tab
         >
+          RetroAchievements
+        </v-tab>
         <v-tab
           prepend-icon="mdi-notebook-edit"
           class="rounded text-caption"
           value="notes"
-          >Notes</v-tab
         >
+          Notes
+        </v-tab>
       </v-tabs>
     </v-col>
     <v-col>
@@ -109,43 +173,41 @@ watch(
           >
             <v-col cols="12" md="5">
               <v-checkbox
-                :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.backlogged"
+                :disabled="!scopes.includes('roms.user.write')"
                 color="primary"
                 hide-details
               >
-                <template #label
-                  ><span>{{ t("rom.backlogged") }}</span
+                <template #label>
+                  <span>{{ t("rom.backlogged") }}</span
                   ><span class="ml-2">{{
                     getEmojiForStatus("backlogged")
-                  }}</span></template
-                >
+                  }}</span>
+                </template>
               </v-checkbox>
               <v-checkbox
-                :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.now_playing"
+                :disabled="!scopes.includes('roms.user.write')"
                 color="primary"
                 hide-details
               >
-                <template #label
-                  ><span>{{ t("rom.now-playing") }}</span
+                <template #label>
+                  <span>{{ t("rom.now-playing") }}</span
                   ><span class="ml-2">{{
                     getEmojiForStatus("now_playing")
-                  }}</span></template
-                >
+                  }}</span>
+                </template>
               </v-checkbox>
               <v-checkbox
-                :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.hidden"
+                :disabled="!scopes.includes('roms.user.write')"
                 color="primary"
                 hide-details
               >
-                <template #label
-                  ><span>{{ t("rom.hidden") }}</span
-                  ><span class="ml-2">{{
-                    getEmojiForStatus("hidden")
-                  }}</span></template
-                >
+                <template #label>
+                  <span>{{ t("rom.hidden") }}</span
+                  ><span class="ml-2">{{ getEmojiForStatus("hidden") }}</span>
+                </template>
               </v-checkbox>
             </v-col>
             <v-col cols="12" md="7">
@@ -159,18 +221,19 @@ watch(
                 </v-col>
                 <v-col cols="12" md="8">
                   <v-rating
+                    v-model="romUser.rating"
                     :class="{ 'ml-2': mdAndUp }"
                     hover
                     ripple
+                    clearable
                     length="10"
                     size="26"
                     :disabled="!scopes.includes('roms.user.write')"
-                    v-model="romUser.rating"
+                    active-color="yellow"
                     @update:model-value="
                       romUser.rating =
                         typeof $event === 'number' ? $event : parseInt($event)
                     "
-                    active-color="yellow"
                   />
                 </v-col>
               </v-row>
@@ -180,20 +243,21 @@ watch(
                 </v-col>
                 <v-col cols="12" md="8">
                   <v-rating
+                    v-model="romUser.difficulty"
                     :class="{ 'ml-2': mdAndUp }"
                     hover
                     ripple
+                    clearable
                     length="10"
                     size="26"
                     :disabled="!scopes.includes('roms.user.write')"
                     full-icon="mdi-chili-mild"
                     empty-icon="mdi-chili-mild-outline"
-                    v-model="romUser.difficulty"
+                    active-color="red"
                     @update:model-value="
                       romUser.difficulty =
                         typeof $event === 'number' ? $event : parseInt($event)
                     "
-                    active-color="red"
                   />
                 </v-col>
               </v-row>
@@ -203,26 +267,27 @@ watch(
                 </v-col>
                 <v-col cols="12" md="8">
                   <v-slider
+                    v-model="romUser.completion"
                     :class="{ 'ml-4': mdAndUp }"
                     :disabled="!scopes.includes('roms.user.write')"
-                    v-model="romUser.completion"
                     min="1"
                     max="100"
                     step="1"
                     hide-details
                     track-fill-color="primary"
-                    ><template #append>
+                  >
+                    <template #append>
                       <v-label class="ml-2 opacity-100">
                         {{ romUser.completion }}%
                       </v-label>
-                    </template></v-slider
-                  >
+                    </template>
+                  </v-slider>
                 </v-col>
               </v-row>
               <div class="d-flex align-center mt-4">
                 <v-select
-                  :disabled="!scopes.includes('roms.user.write')"
                   v-model="romUser.status"
+                  :disabled="!scopes.includes('roms.user.write')"
                   :items="statusOptions"
                   hide-details
                   :label="t('rom.status')"
@@ -255,121 +320,10 @@ watch(
           </v-row>
         </v-tabs-window-item>
         <v-tabs-window-item value="ra">
-          <retro-achievements :rom="rom" />
+          <RetroAchievements :rom="rom" />
         </v-tabs-window-item>
         <v-tabs-window-item value="notes">
-          <r-section
-            icon="mdi-account"
-            :title="t('rom.my-notes')"
-            elevation="0"
-            titleDivider
-            bgColor="bg-surface"
-            class="mt-2"
-          >
-            <template #toolbar-append>
-              <v-btn-group divided density="compact" class="mr-1">
-                <v-tooltip
-                  location="top"
-                  class="tooltip"
-                  transition="fade-transition"
-                  :text="
-                    romUser.note_is_public ? 'Make private' : 'Make public'
-                  "
-                  open-delay="500"
-                  ><template #activator="{ props: tooltipProps }">
-                    <v-btn
-                      :disabled="!scopes.includes('roms.user.write')"
-                      @click="romUser.note_is_public = !romUser.note_is_public"
-                      v-bind="tooltipProps"
-                      class="bg-toplayer"
-                    >
-                      <v-icon size="large">
-                        {{ romUser.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
-                      </v-icon>
-                    </v-btn>
-                  </template></v-tooltip
-                >
-                <v-tooltip
-                  location="top"
-                  class="tooltip"
-                  transition="fade-transition"
-                  text="Edit note"
-                  open-delay="500"
-                  ><template #activator="{ props: tooltipProps }">
-                    <v-btn
-                      :disabled="!scopes.includes('roms.user.write')"
-                      @click="editNote"
-                      v-bind="tooltipProps"
-                      class="bg-toplayer"
-                    >
-                      <v-icon size="large">
-                        {{ editingNote ? "mdi-check" : "mdi-pencil" }}
-                      </v-icon>
-                    </v-btn>
-                  </template></v-tooltip
-                >
-              </v-btn-group>
-            </template>
-            <template #content>
-              <MdEditor
-                v-if="editingNote"
-                no-highlight
-                no-katex
-                no-mermaid
-                no-prettier
-                no-upload-img
-                :disabled="!scopes.includes('roms.user.write')"
-                v-model="romUser.note_raw_markdown"
-                :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-                language="en-US"
-                :preview="false"
-              />
-              <MdPreview
-                v-else
-                no-highlight
-                no-katex
-                no-mermaid
-                :model-value="romUser.note_raw_markdown"
-                :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-                language="en-US"
-                preview-theme="vuepress"
-                code-theme="github"
-                class="py-4 px-6"
-              />
-            </template>
-          </r-section>
-          <r-section
-            v-if="publicNotes.length > 0"
-            icon="mdi-account-multiple"
-            :title="t('rom.public-notes')"
-            elevation="0"
-            titleDivider
-            bgColor="bg-surface"
-            class="mt-2"
-          >
-            <template #content>
-              <v-expansion-panels multiple flat variant="accordion">
-                <v-expansion-panel v-for="note in publicNotes" rounded="0">
-                  <v-expansion-panel-title class="bg-toplayer">
-                    <span class="text-body-1">{{ note.username }}</span>
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text class="bg-surface">
-                    <MdPreview
-                      no-highlight
-                      no-katex
-                      no-mermaid
-                      :model-value="note.note_raw_markdown"
-                      :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-                      language="en-US"
-                      preview-theme="vuepress"
-                      code-theme="github"
-                      class="py-4 px-6"
-                    />
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
-            </template>
-          </r-section>
+          <MultiNoteManager :rom="rom" @notes-updated="onNotesUpdated" />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>

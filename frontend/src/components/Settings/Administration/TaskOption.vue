@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { inject, computed } from "vue";
 import taskApi from "@/services/api/task";
-import storeRunningTasks from "@/stores/runningTasks";
+import storeTasks from "@/stores/tasks";
 import type { Events } from "@/types/emitter";
 
 const props = withDefaults(
@@ -12,8 +13,8 @@ const props = withDefaults(
     description?: string;
     icon?: string;
     name?: string;
-    manual_run?: boolean;
-    cron_string?: string;
+    manualRun?: boolean;
+    cronString?: string;
   }>(),
   {
     enabled: true,
@@ -21,45 +22,40 @@ const props = withDefaults(
     description: "",
     icon: "",
     name: "",
-    manual_run: false,
-    cron_string: "",
+    manualRun: false,
+    cronString: "",
   },
 );
 const emitter = inject<Emitter<Events>>("emitter");
-const runningTasksStore = storeRunningTasks();
-
-// Computed properties
-const isTaskRunning = computed(() =>
-  props.name ? runningTasksStore.isTaskRunning(props.name) : false,
+const tasksStore = storeTasks();
+const { taskStatuses } = storeToRefs(tasksStore);
+const task = computed(() =>
+  taskStatuses.value
+    .filter((task) => !["queued", "started"].includes(task.status))
+    .find((task) => task.task_name === props.name),
 );
 
 function run() {
   if (!props.name) return;
 
-  // Add task to running tasks
-  runningTasksStore.addTask(props.name);
-
   taskApi
     .runTask(props.name)
     .then(() => {
       emitter?.emit("snackbarShow", {
-        msg: `Task '${props.title}' ran successfully!`,
+        msg: `Task '${props.title}' started...`,
         icon: "mdi-check-bold",
         color: "green",
       });
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
         color: "red",
       });
     })
-    .finally(() => {
-      // Remove task from running tasks
-      runningTasksStore.removeTask(props.name);
-    });
+    .finally(() => {});
 }
 </script>
 <template>
@@ -73,18 +69,19 @@ function run() {
           <v-list-item-title
             class="font-weight-bold"
             :class="{ 'text-primary': enabled }"
-            >{{ title }}</v-list-item-title
           >
+            {{ title }}
+          </v-list-item-title>
           <v-list-item-subtitle>{{ description }}</v-list-item-subtitle>
         </v-list-item>
       </v-col>
-      <v-col v-if="manual_run" cols="auto" class="d-flex align-center">
+      <v-col v-if="manualRun" cols="auto" class="d-flex align-center">
         <v-btn
           variant="outlined"
           size="small"
           class="text-primary"
-          :disabled="isTaskRunning"
-          :loading="isTaskRunning"
+          :disabled="!!task"
+          :loading="false"
           @click="run"
         >
           <v-icon>mdi-play</v-icon>

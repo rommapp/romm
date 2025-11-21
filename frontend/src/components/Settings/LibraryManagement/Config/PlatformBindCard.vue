@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 
-const emit = defineEmits(["click-edit", "click-delete"]);
 defineProps<{
   slug: string;
   fsSlug: string;
   editable: boolean;
 }>();
+const emit = defineEmits(["click-edit", "click-delete"]);
 </script>
 <template>
   <v-card elevation="0">
     <v-card-text class="pa-1">
       <v-list-item class="bg-toplayer pa-1 text-truncate">
         <template #prepend>
-          <platform-icon class="mx-2" :key="slug" :slug="slug" />
+          <PlatformIcon :key="slug" class="mx-2" :slug="slug" />
         </template>
         <v-list-item class="bg-background pr-2 pl-2">
           <span>{{ fsSlug }}</span>
@@ -26,7 +26,7 @@ defineProps<{
                 size="x-small"
                 icon="mdi-pencil"
                 class="ml-0"
-                @click="$emit('click-edit')"
+                @click="emit('click-edit')"
               />
             </v-slide-x-reverse-transition>
             <v-slide-x-reverse-transition>
@@ -37,7 +37,7 @@ defineProps<{
                 size="x-small"
                 icon="mdi-delete"
                 class="text-romm-red"
-                @click="$emit('click-delete')"
+                @click="emit('click-delete')"
               />
             </v-slide-x-reverse-transition>
           </template>

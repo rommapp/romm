@@ -10,10 +10,6 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import ENUM
 
-from config import IS_PYTEST_RUN, SCAN_TIMEOUT
-from endpoints.sockets.scan import scan_platforms
-from handler.redis_handler import high_prio_queue
-from handler.scan_handler import ScanType
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
@@ -28,6 +24,7 @@ def upgrade() -> None:
 
     if is_postgresql(connection):
         rom_file_category_enum = ENUM(
+            "GAME",
             "DLC",
             "HACK",
             "MANUAL",
@@ -43,6 +40,7 @@ def upgrade() -> None:
         rom_file_category_enum.create(connection, checkfirst=False)
     else:
         rom_file_category_enum = sa.Enum(
+            "GAME",
             "DLC",
             "HACK",
             "MANUAL",
@@ -172,16 +170,6 @@ def upgrade() -> None:
         batch_op.drop_column("files")
         batch_op.drop_column("multi")
         batch_op.drop_column("file_size_bytes")
-
-    # Run a no-scan in the background on migrate
-    if not IS_PYTEST_RUN:
-        high_prio_queue.enqueue(
-            scan_platforms, [], ScanType.QUICK, [], [], job_timeout=SCAN_TIMEOUT
-        )
-
-        high_prio_queue.enqueue(
-            scan_platforms, [], ScanType.HASHES, [], [], job_timeout=SCAN_TIMEOUT
-        )
 
 
 def downgrade() -> None:

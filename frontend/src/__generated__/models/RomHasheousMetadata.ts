@@ -11,5 +11,6 @@ export type RomHasheousMetadata = {
     whdload_match?: boolean;
     ra_match?: boolean;
     fbneo_match?: boolean;
+    puredos_match?: boolean;
 };
 

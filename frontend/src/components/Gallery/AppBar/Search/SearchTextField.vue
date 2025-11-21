@@ -50,13 +50,12 @@ watch(
 
 <template>
   <v-text-field
+    v-model="searchTerm"
     density="default"
     clearable
-    autofocus
     hide-details
     rounded="0"
     :label="t('common.search')"
-    v-model="searchTerm"
     @keyup.enter="fetchRoms"
     @click:clear="clearInput"
     @update:model-value="nextTick(fetchRoms)"

@@ -14,9 +14,11 @@ import {
 } from "@/console/composables/useElementRegistry";
 import type { CollectionType } from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
-import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
-
-const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
+import {
+  getCollectionCoverImage,
+  getFavoriteCoverImage,
+  EXTENSION_REGEX,
+} from "@/utils/covers";
 
 const props = defineProps<{
   collection: CollectionType;
@@ -44,7 +46,7 @@ const memoizedCovers = ref({
 });
 
 const fallbackCollectionCover = computed(() =>
-  props.collection.name?.toLowerCase() == "favourites"
+  props.collection.is_favorite
     ? getFavoriteCoverImage(props.collection.name)
     : getCollectionCoverImage(props.collection.name),
 );

@@ -1,0 +1,20 @@
+{
+  "back-to-gallery": "Zpět do galerie",
+  "back-to-game-details": "Zpět k detailům hry",
+  "clear-cache": "Vymazat cache EmulatorJS",
+  "clear-cache-description": "Uložené pozice nebo stavy na serveru nebudou ovlivněny.",
+  "clear-cache-title": "Opravdu chcete vymazat cache EmulatorJS?",
+  "clear-cache-warning": "Tímto se odstraní všechny uložené pozice a stavy uložené v prohlížeči.",
+  "full-screen": "Celá obrazovka",
+  "play": "Hrát",
+  "quit": "Ukončit",
+  "save-and-quit": "Uložit a ukončit",
+  "select-save": "Vybrat uloženou pozici",
+  "change-save": "Změnit uloženou pozici",
+  "deselect-save": "Zrušit výběr uložené pozice",
+  "select-state": "Vybrat stav",
+  "change-state": "Změnit stav",
+  "deselect-state": "Zrušit výběr stavu",
+  "background-color": "Barva pozadí",
+  "select-background-color": "Vybrat barvu pozadí"
+}

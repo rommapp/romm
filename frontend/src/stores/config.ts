@@ -12,6 +12,8 @@ type ExclusionTypes =
   | "EXCLUDED_MULTI_PARTS_FILES";
 
 const defaultConfig = {
+  CONFIG_FILE_MOUNTED: false,
+  CONFIG_FILE_WRITABLE: false,
   EXCLUDED_PLATFORMS: [],
   EXCLUDED_SINGLE_EXT: [],
   EXCLUDED_SINGLE_FILES: [],
@@ -20,10 +22,15 @@ const defaultConfig = {
   EXCLUDED_MULTI_PARTS_FILES: [],
   PLATFORMS_BINDING: {},
   PLATFORMS_VERSIONS: {},
+  SKIP_HASH_CALCULATION: false,
   EJS_DEBUG: false,
   EJS_CACHE_LIMIT: null,
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
+  SCAN_METADATA_PRIORITY: [],
+  SCAN_ARTWORK_PRIORITY: [],
+  SCAN_REGION_PRIORITY: [],
+  SCAN_LANGUAGE_PRIORITY: [],
 } as ConfigResponse;
 
 export default defineStore("config", {

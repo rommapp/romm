@@ -13,10 +13,8 @@ body {
     0 0 3px #000000 !important;
 }
 .translucent {
-  background: rgba(0, 0, 0, 0.35) !important;
-  text-shadow:
-    1px 1px 1px #000000,
-    0 0 1px #000000 !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  font-weight: 500 !important;
 }
 .tooltip :deep(.v-overlay__content) {
   background: rgba(255, 255, 255, 1) !important;
@@ -47,8 +45,9 @@ body {
   transition-property: all !important;
   transition-duration: 0.1s !important;
 }
-.transform-scale.on-hover {
-  transform: scale(1.1) !important;
+.transform-scale:hover,
+.transform-scale:focus {
+  transform: scale(1.05) !important;
 }
 .pointer {
   cursor: pointer !important;

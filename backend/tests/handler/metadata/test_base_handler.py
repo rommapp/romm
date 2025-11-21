@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from handler.metadata.base_hander import (
+from handler.metadata.base_handler import (
     LEADING_ARTICLE_PATTERN,
     MAME_XML_KEY,
     MULTIPLE_SPACE_PATTERN,
@@ -130,7 +130,7 @@ class TestMetadataHandlerMethods:
 
     def test_normalize_search_term_delegates(self, handler: MetadataHandler):
         """Test that normalize_search_term delegates to the cached function."""
-        with patch("handler.metadata.base_hander._normalize_search_term") as mock_func:
+        with patch("handler.metadata.base_handler._normalize_search_term") as mock_func:
             mock_func.return_value = "normalized"
 
             result = handler.normalize_search_term("Test Game", True, False)
@@ -267,54 +267,6 @@ class TestMetadataHandlerMethods:
             assert index_name == "Switch Game"
             assert index_entry is not None
             assert index_entry["publisher"] == "Nintendo"
-
-    @pytest.mark.asyncio
-    async def test_switch_titledb_format_cache_missing_fetch_success(
-        self, handler: MetadataHandler
-    ):
-        """Test Switch TitleDB format when cache is missing but fetch succeeds."""
-        with patch.object(
-            async_cache, "exists", new_callable=AsyncMock
-        ) as mock_exists, patch.object(
-            async_cache, "hget", new_callable=AsyncMock
-        ) as mock_hget, patch(
-            "handler.metadata.base_hander.update_switch_titledb_task"
-        ) as mock_task:
-
-            # First call returns False (cache missing), second returns True (after fetch)
-            mock_exists.side_effect = [False, True]
-            mock_hget.return_value = json.dumps({"name": "Fetched Game"})
-            mock_task.run = AsyncMock()
-
-            match = re.match(SWITCH_TITLEDB_REGEX, "70123456789012")
-            assert match is not None
-            result = await handler._switch_titledb_format(match, "original")
-
-            mock_task.run.assert_called_once_with(force=True)
-            assert result[0] == "Fetched Game"
-
-    @pytest.mark.asyncio
-    async def test_switch_titledb_format_cache_missing_fetch_fails(
-        self, handler: MetadataHandler
-    ):
-        """Test Switch TitleDB format when cache is missing and fetch fails."""
-        with patch.object(
-            async_cache, "exists", new_callable=AsyncMock
-        ) as mock_exists, patch(
-            "handler.metadata.base_hander.update_switch_titledb_task"
-        ) as mock_task, patch(
-            "handler.metadata.base_hander.log"
-        ) as mock_log:
-
-            mock_exists.return_value = False  # Cache always missing
-            mock_task.run = AsyncMock()
-
-            match = re.match(SWITCH_TITLEDB_REGEX, "70123456789012")
-            assert match is not None
-            result = await handler._switch_titledb_format(match, "original")
-
-            mock_log.error.assert_called()
-            assert result == ("original", None)
 
     @pytest.mark.asyncio
     async def test_switch_titledb_format_not_found(self, handler: MetadataHandler):
@@ -515,10 +467,9 @@ class TestRegexPatterns:
         assert LEADING_ARTICLE_PATTERN.match("the game")
         assert LEADING_ARTICLE_PATTERN.match("a game")
         assert LEADING_ARTICLE_PATTERN.match("an adventure")
+        assert LEADING_ARTICLE_PATTERN.match("The Game")
         # Should not match when not at start
         assert not LEADING_ARTICLE_PATTERN.match("game the")
-        # Should not match uppercase (pattern is for lowercase strings)
-        assert not LEADING_ARTICLE_PATTERN.match("The Game")
 
     def test_space_patterns(self):
         """Test space normalization patterns."""

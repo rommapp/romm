@@ -36,12 +36,12 @@ async function deleteCollection() {
         color: "green",
       });
       collectionsStore.removeCollection(collection.value as Collection);
-      if (collection.value?.name.toLowerCase() == "favourites") {
+      if (collection.value?.is_favorite) {
         collectionsStore.setFavoriteCollection(undefined);
       }
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
@@ -62,23 +62,19 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-if="collection"
-    @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
     scroll-content
     :width="lgAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>
         <span>{{ t("collection.removing-collection-1") }}</span>
         <v-chip class="pl-0 ml-1" label>
-          <r-avatar-collection
-            :collection="collection"
-            :size="35"
-            class="mr-2"
-          />
+          <RAvatarCollection :collection="collection" :size="35" class="mr-2" />
           {{ collection.name }}
         </v-chip>
         <span class="ml-1">{{ t("collection.removing-collection-2") }}</span>
@@ -96,5 +92,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

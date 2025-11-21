@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
 
 
 class RomFileCategory(enum.StrEnum):
+    GAME = "game"
     DLC = "dlc"
     HACK = "hack"
     MANUAL = "manual"
@@ -73,10 +75,9 @@ class RomFile(BaseModel):
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
     )
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="files")
-
-    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @cached_property
     def full_path(self) -> str:
@@ -100,11 +101,25 @@ class RomFile(BaseModel):
 
         return fs_rom_handler.parse_file_extension(self.file_name)
 
-    def file_name_for_download(self, rom: Rom, hidden_folder: bool = False) -> str:
+    @cached_property
+    def is_nested(self) -> bool:
+        return self.file_path.count("/") > 1
+
+    @cached_property
+    def is_top_level(self) -> bool:
+        # File is the same as the rom's full path, or nested file in the rom's directory
+        return self.rom.full_path == (
+            self.file_path if self.is_nested else self.full_path
+        )
+
+    def file_name_for_download(self, hidden_folder: bool = False) -> str:
         # This needs a trailing slash in the path to work!
         return self.full_path.replace(
-            f"{rom.full_path}/", ".hidden/" if hidden_folder else ""
+            f"{self.rom.full_path}/", ".hidden/" if hidden_folder else ""
         )
+
+    def __repr__(self) -> str:
+        return f"{self.file_name} ({self.id} -> {self.rom_id})"
 
 
 class RomMetadata(BaseModel):
@@ -139,6 +154,9 @@ class Rom(BaseModel):
     launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     hasheous_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    flashpoint_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
+    hltb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    gamelist_id: Mapped[str | None] = mapped_column(String(length=100), default=None)
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -149,6 +167,9 @@ class Rom(BaseModel):
         Index("idx_roms_launchbox_id", "launchbox_id"),
         Index("idx_roms_hasheous_id", "hasheous_id"),
         Index("idx_roms_tgdb_id", "tgdb_id"),
+        Index("idx_roms_flashpoint_id", "flashpoint_id"),
+        Index("idx_roms_hltb_id", "hltb_id"),
+        Index("idx_roms_gamelist_id", "gamelist_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
@@ -177,6 +198,15 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     hasheous_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    flashpoint_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    hltb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    gamelist_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
 
@@ -226,6 +256,7 @@ class Rom(BaseModel):
         lazy="raise", back_populates="rom"
     )
     rom_users: Mapped[list[RomUser]] = relationship(lazy="raise", back_populates="rom")
+    notes: Mapped[list[RomNote]] = relationship(lazy="raise", back_populates="rom")
     metadatum: Mapped[RomMetadata] = relationship(
         lazy="joined", back_populates="rom", uselist=False
     )
@@ -237,6 +268,10 @@ class Rom(BaseModel):
         back_populates="roms",
     )
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._is_identifying = False
+
     @property
     def platform_slug(self) -> str:
         return self.platform.slug
@@ -244,10 +279,6 @@ class Rom(BaseModel):
     @property
     def platform_fs_slug(self) -> str:
         return self.platform.fs_slug
-
-    @property
-    def platform_name(self) -> str:
-        return self.platform.name
 
     @property
     def platform_custom_name(self) -> str | None:
@@ -272,11 +303,22 @@ class Rom(BaseModel):
 
         return []
 
+    # TODO: Remove this after 4.3 release
     @cached_property
     def multi(self) -> bool:
-        return len(self.files) > 1 or (
-            len(self.files) > 0 and len(self.files[0].full_path.split("/")) > 3
-        )
+        return self.has_nested_single_file or self.has_multiple_files
+
+    @cached_property
+    def has_simple_single_file(self) -> bool:
+        return len(self.files) == 1 and not self.files[0].is_nested
+
+    @cached_property
+    def has_nested_single_file(self) -> bool:
+        return len(self.files) == 1 and self.files[0].is_nested
+
+    @cached_property
+    def has_multiple_files(self) -> bool:
+        return len(self.files) > 1
 
     @property
     def fs_resources_path(self) -> str:
@@ -307,6 +349,9 @@ class Rom(BaseModel):
             and not self.ra_id
             and not self.launchbox_id
             and not self.hasheous_id
+            and not self.flashpoint_id
+            and not self.hltb_id
+            and not self.gamelist_id
         )
 
     @property
@@ -357,8 +402,17 @@ class Rom(BaseModel):
                 )
         return self.ra_metadata
 
+    # Used only during scan process
+    @property
+    def is_identifying(self) -> bool:
+        return self._is_identifying or False
+
+    @is_identifying.setter
+    def is_identifying(self, value: bool) -> None:
+        self._is_identifying = value
+
     def __repr__(self) -> str:
-        return self.fs_name
+        return f"{self.fs_name} ({self.id})"
 
 
 class RomUserStatus(enum.StrEnum):
@@ -369,6 +423,48 @@ class RomUserStatus(enum.StrEnum):
     NEVER_PLAYING = "never_playing"  # Will never play
 
 
+class RomNote(BaseModel):
+    __tablename__ = "rom_notes"
+    __table_args__ = (
+        UniqueConstraint(
+            "rom_id", "user_id", "title", name="unique_rom_user_note_title"
+        ),
+        Index("idx_rom_notes_public", "is_public"),
+        Index("idx_rom_notes_rom_user", "rom_id", "user_id"),
+        Index("idx_rom_notes_title", "title"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    # Core note fields
+    title: Mapped[str] = mapped_column(String(400))
+    content: Mapped[str] = mapped_column(Text)
+    is_public: Mapped[bool] = mapped_column(default=False)
+
+    # Future extensibility fields
+    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=list)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # Foreign keys
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+
+    # Relationships
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="notes")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="notes")
+
+    @property
+    def user__username(self) -> str:
+        return self.user.username
+
+
 class RomUser(BaseModel):
     __tablename__ = "rom_user"
     __table_args__ = (
@@ -376,9 +472,6 @@ class RomUser(BaseModel):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-
-    note_raw_markdown: Mapped[str] = mapped_column(Text, default="")
-    note_is_public: Mapped[bool] = mapped_column(default=False)
 
     is_main_sibling: Mapped[bool] = mapped_column(default=False)
     last_played: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))

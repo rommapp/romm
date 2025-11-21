@@ -46,6 +46,25 @@ const statusRef = useLocalStorage("settings.showStatus", true);
 const actionBarRef = useLocalStorage("settings.showActionBar", false);
 const gameTitleRef = useLocalStorage("settings.showGameTitle", false);
 const enable3DEffectRef = useLocalStorage("settings.enable3DEffect", false);
+const enableExperimentalCacheRef = useLocalStorage(
+  "settings.enableExperimentalCache",
+  false,
+);
+const disableAnimationsRef = useLocalStorage(
+  "settings.disableAnimations",
+  false,
+);
+
+// Boxart
+export type BoxartStyleOption =
+  | "cover_path"
+  | "box3d_path"
+  | "physical_path"
+  | "miximage_path";
+const boxartStyleRef = useLocalStorage<BoxartStyleOption>(
+  "settings.boxartStyle",
+  "cover_path",
+);
 
 const homeOptions = computed(() => [
   {
@@ -120,6 +139,30 @@ const galleryOptions = computed(() => [
     modelTrigger: toggleSiblings,
   },
   {
+    title: t("settings.show-game-titles"),
+    description: t("settings.show-game-titles-desc"),
+    iconEnabled: "mdi-subtitles",
+    iconDisabled: "mdi-subtitles-outline",
+    model: gameTitleRef,
+    modelTrigger: toggleShowGameTitles,
+  },
+  {
+    title: t("settings.show-actionbar"),
+    description: t("settings.show-actionbar-desc"),
+    iconEnabled: "mdi-card",
+    iconDisabled: "mdi-card-outline",
+    model: actionBarRef,
+    modelTrigger: toggleActionBar,
+  },
+  {
+    title: t("settings.show-status"),
+    description: t("settings.show-status-desc"),
+    iconEnabled: "mdi-check-circle-outline",
+    iconDisabled: "mdi-close-circle-outline",
+    model: statusRef,
+    modelTrigger: toggleStatus,
+  },
+  {
     title: t("settings.show-regions"),
     description: t("settings.show-regions-desc"),
     iconEnabled: "mdi-flag-outline",
@@ -136,22 +179,6 @@ const galleryOptions = computed(() => [
     modelTrigger: toggleLanguages,
   },
   {
-    title: t("settings.show-status"),
-    description: t("settings.show-status-desc"),
-    iconEnabled: "mdi-check-circle-outline",
-    iconDisabled: "mdi-close-circle-outline",
-    model: statusRef,
-    modelTrigger: toggleStatus,
-  },
-  {
-    title: t("settings.show-actionbar"),
-    description: t("settings.show-actionbar-desc"),
-    iconEnabled: "mdi-card",
-    iconDisabled: "mdi-card-outline",
-    model: actionBarRef,
-    modelTrigger: toggleActionBar,
-  },
-  {
     title: t("settings.enable-3d-effect"),
     description: t("settings.enable-3d-effect-desc"),
     iconEnabled: "mdi-cube",
@@ -160,13 +187,28 @@ const galleryOptions = computed(() => [
     modelTrigger: toggle3DEffect,
   },
   {
-    title: t("settings.show-game-titles"),
-    description: t("settings.show-game-titles-desc"),
-    iconEnabled: "mdi-subtitles",
-    iconDisabled: "mdi-subtitles-outline",
-    model: gameTitleRef,
-    modelTrigger: toggleShowGameTitles,
+    title: t("settings.disable-animations"),
+    description: t("settings.disable-animations-desc"),
+    iconEnabled: "mdi-motion-pause",
+    iconDisabled: "mdi-motion-play",
+    model: disableAnimationsRef,
+    modelTrigger: toggleDisableAnimations,
   },
+  {
+    title: t("settings.enable-experimental-cache"),
+    description: t("settings.enable-experimental-cache-desc"),
+    iconEnabled: "mdi-cached",
+    iconDisabled: "mdi-cached",
+    model: enableExperimentalCacheRef,
+    modelTrigger: toggleExperimentalCache,
+  },
+]);
+
+const boxartStyleOptions = computed(() => [
+  { title: t("settings.boxart-cover"), value: "cover_path" },
+  { title: t("settings.boxart-box3d"), value: "box3d_path" },
+  { title: t("settings.boxart-physical"), value: "physical_path" },
+  { title: t("settings.boxart-miximage"), value: "miximage_path" },
 ]);
 
 const setPlatformDrawerGroupBy = (value: string) => {
@@ -188,19 +230,18 @@ const setVirtualCollectionType = async (value: string) => {
   virtualCollectionTypeRef.value = value;
   collectionsStore.fetchVirtualCollections(value);
 };
-
+const setBoxartStyle = (value: BoxartStyleOption) => {
+  boxartStyleRef.value = value;
+};
 const toggleShowStats = (value: boolean) => {
   showStatsRef.value = value;
 };
-
 const toggleShowRecentRoms = (value: boolean) => {
   showRecentRomsRef.value = value;
 };
-
 const toggleGroupRoms = (value: boolean) => {
   groupRomsRef.value = value;
 };
-
 const toggleSiblings = (value: boolean) => {
   siblingsRef.value = value;
 };
@@ -208,15 +249,12 @@ const toggleSiblings = (value: boolean) => {
 const toggleRegions = (value: boolean) => {
   regionsRef.value = value;
 };
-
 const toggleLanguages = (value: boolean) => {
   languagesRef.value = value;
 };
-
 const toggleStatus = (value: boolean) => {
   statusRef.value = value;
 };
-
 const toggleActionBar = (value: boolean) => {
   actionBarRef.value = value;
 };
@@ -226,33 +264,39 @@ const toggle3DEffect = (value: boolean) => {
 const toggleShowGameTitles = (value: boolean) => {
   gameTitleRef.value = value;
 };
+const toggleExperimentalCache = (value: boolean) => {
+  enableExperimentalCacheRef.value = value;
+};
+const toggleDisableAnimations = (value: boolean) => {
+  disableAnimationsRef.value = value;
+};
 </script>
 <template>
-  <r-section
+  <RSection
     icon="mdi-palette-swatch-outline"
     :title="t('settings.interface')"
     class="ma-2"
   >
     <template #content>
-      <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2 mt-1">{{
-        t("settings.home")
-      }}</v-chip>
+      <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2 mt-1">
+        {{ t("settings.home") }}
+      </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row class="py-1" no-gutters>
         <v-col
-          cols="12"
-          md="6"
           v-for="option in homeOptions"
           :key="option.title"
+          cols="12"
+          md="6"
         >
-          <interface-option
+          <InterfaceOption
+            v-model="option.model.value"
             class="ma-1"
             :title="option.title"
             :description="option.description"
             :icon="
               option.model.value ? option.iconEnabled : option.iconDisabled
             "
-            v-model="option.model.value"
             @update:model-value="option.modelTrigger"
           />
         </v-col>
@@ -262,14 +306,15 @@ const toggleShowGameTitles = (value: boolean) => {
         variant="text"
         prepend-icon="mdi-controller"
         class="ml-2 mt-4"
-        >{{ t("settings.platforms-drawer") }}</v-chip
       >
+        {{ t("settings.platforms-drawer") }}
+      </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row class="align-center py-1" no-gutters>
         <v-col
-          cols="12"
           v-for="option in platformsDrawerOptions"
           :key="option.title"
+          cols="6"
         >
           <v-select
             v-model="platformsGroupByRef"
@@ -292,17 +337,19 @@ const toggleShowGameTitles = (value: boolean) => {
         variant="text"
         prepend-icon="mdi-view-grid"
         class="ml-2 mt-4"
-        >{{ t("settings.gallery") }}</v-chip
       >
+        {{ t("settings.gallery") }}
+      </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row class="py-1" no-gutters>
         <v-col
-          cols="12"
-          md="6"
           v-for="option in galleryOptions"
           :key="option.title"
+          cols="12"
+          md="6"
         >
-          <interface-option
+          <InterfaceOption
+            v-model="option.model.value"
             class="ma-1"
             :disabled="option.disabled"
             :title="option.title"
@@ -310,8 +357,18 @@ const toggleShowGameTitles = (value: boolean) => {
             :icon="
               option.model.value ? option.iconEnabled : option.iconDisabled
             "
-            v-model="option.model.value"
             @update:model-value="option.modelTrigger"
+          />
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-select
+            v-model="boxartStyleRef"
+            :items="boxartStyleOptions"
+            :label="t('settings.boxart-style')"
+            class="mx-2 mt-2"
+            variant="outlined"
+            hide-details
+            @update:model-value="setBoxartStyle"
           />
         </v-col>
       </v-row>
@@ -320,12 +377,14 @@ const toggleShowGameTitles = (value: boolean) => {
         variant="text"
         prepend-icon="mdi-view-grid"
         class="ml-2 mt-4"
-        >{{ t("common.virtual-collections") }}</v-chip
       >
+        {{ t("common.virtual-collections") }}
+      </v-chip>
       <v-divider class="border-opacity-25 mx-2 mb-2" />
       <v-row class="py-1 align-center" no-gutters>
         <v-col cols="12" md="6">
-          <interface-option
+          <InterfaceOption
+            v-model="showVirtualCollectionsRef"
             class="mx-2"
             :title="t('settings.show-virtual-collections')"
             :description="t('settings.show-virtual-collections-desc')"
@@ -334,7 +393,6 @@ const toggleShowGameTitles = (value: boolean) => {
                 ? 'mdi-bookmark-box-multiple'
                 : 'mdi-bookmark-box-multiple'
             "
-            v-model="showVirtualCollectionsRef"
             @update:model-value="toggleShowVirtualCollections"
           />
         </v-col>
@@ -360,5 +418,5 @@ const toggleShowGameTitles = (value: boolean) => {
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

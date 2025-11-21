@@ -10,7 +10,7 @@ import Skeleton from "@/components/Gallery/Skeleton.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptySearch from "@/components/common/EmptyStates/EmptySearch.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import GameTable from "@/components/common/Game/Table.vue";
+import GameTable from "@/components/common/Game/VirtualTable.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -122,7 +122,8 @@ watch(documentY, () => {
   window.setTimeout(async () => {
     scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
+      documentY.value + window.innerHeight >=
+        document.body.scrollHeight - 300 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
@@ -140,9 +141,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <gallery-app-bar-search />
+  <GalleryAppBarSearch />
   <template v-if="fetchingRoms && filteredRoms.length === 0">
-    <skeleton />
+    <Skeleton />
   </template>
   <template v-else>
     <template v-if="filteredRoms.length > 0">
@@ -160,28 +161,29 @@ onUnmounted(() => {
             zIndex:
               (isHovering && hoveringRomId === rom.id) ||
               (openedMenu && openedMenuRomId === rom.id)
-                ? 1100
+                ? 1000
                 : 1,
           }"
         >
-          <game-card
+          <GameCard
             :key="rom.id"
             :rom="rom"
-            titleOnHover
-            pointerOnHover
-            withLink
-            transformScale
-            showActionBar
-            showChips
-            :withBorderPrimary="
+            title-on-hover
+            pointer-on-hover
+            with-link
+            transform-scale
+            show-action-bar
+            show-chips
+            :with-border-primary="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
-            :enable3DTilt="enable3DEffect"
-            :sizeActionBar="currentView"
+            :enable3-d-tilt="enable3DEffect"
+            :size-action-bar="currentView"
             @click="onGameClick"
             @touchstart="onGameTouchStart"
             @touchend="onGameTouchEnd"
             @hover="onHover"
+            @focus="onHover"
             @openedmenu="onOpenedMenu"
             @closedmenu="onClosedMenu"
           />
@@ -189,18 +191,18 @@ onUnmounted(() => {
       </v-row>
 
       <!-- Gallery list view -->
-      <v-row class="mr-13" v-else="currentView == 2" no-gutters>
+      <v-row v-else class="mr-13" no-gutters>
         <v-col class="my-4">
-          <game-table show-platform-icon class="mx-2" />
+          <GameTable show-platform-icon class="mx-2" />
         </v-col>
       </v-row>
 
-      <load-more-btn :fetchRoms="fetchRoms" />
-      <fab-overlay />
+      <LoadMoreBtn :fetch-roms="fetchRoms" />
+      <FabOverlay />
     </template>
     <template v-else>
-      <empty-game v-if="!fetchingRoms && initialSearch" />
-      <empty-search v-else-if="!initialSearch" />
+      <EmptyGame v-if="!fetchingRoms && initialSearch" />
+      <EmptySearch v-else-if="!initialSearch" />
     </template>
   </template>
 </template>

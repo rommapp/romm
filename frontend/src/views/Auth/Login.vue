@@ -74,9 +74,10 @@ async function sendReset() {
     });
     forgotMode.value = false;
     forgotUser.value = "";
-  } catch (error: any) {
+  } catch (error) {
+    console.error("Error sending reset link: ", error);
     emitter?.emit("snackbarShow", {
-      msg: error.response?.data?.detail || error.message || "Error",
+      msg: "Could not send reset link",
       icon: "mdi-alert-circle",
       color: "red",
     });
@@ -86,6 +87,7 @@ async function sendReset() {
 }
 
 async function loginOIDC() {
+  if (loggingInOIDC.value) return;
   loggingInOIDC.value = true;
   window.open("/api/login/openid", "_self");
 }
@@ -102,8 +104,8 @@ async function loginOIDC() {
       >
         <v-col cols="10">
           <v-form
-            v-model="validForm"
             v-if="!loginDisabled"
+            v-model="validForm"
             @submit.prevent="login"
           >
             <v-text-field
@@ -125,8 +127,8 @@ async function loginOIDC() {
               name="password"
               prepend-inner-icon="mdi-lock"
               :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
-              @click:append-inner="visiblePassword = !visiblePassword"
               variant="underlined"
+              @click:append-inner="visiblePassword = !visiblePassword"
             />
             <v-btn
               type="submit"
@@ -173,7 +175,7 @@ async function loginOIDC() {
                       .replace(/ /g, '-')}.png`"
                   >
                     <template #error>
-                      <v-icon size="20">mdi-key</v-icon>
+                      <v-icon size="20"> mdi-key </v-icon>
                     </template>
                   </v-img>
                 </v-icon>

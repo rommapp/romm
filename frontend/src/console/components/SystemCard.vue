@@ -68,10 +68,10 @@ const theme = computed(() => {
         class="w-full h-full object-cover"
       >
         <template #error>
-          <fallback-system-card :platform-name="platform.name" />
+          <FallbackSystemCard :platform-name="platform.name" />
         </template>
       </v-img>
-      <fallback-system-card v-else :platform-name="platform.name" />
+      <FallbackSystemCard v-else :platform-name="platform.name" />
     </div>
     <div
       class="absolute inset-0 opacity-0 pointer-events-none"

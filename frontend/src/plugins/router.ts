@@ -31,6 +31,7 @@ export const ROUTES = {
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
+  METADATA_SOURCES: "metadata-sources",
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   NOT_FOUND: "404",
@@ -209,6 +210,14 @@ const routes = [
         component: () => import("@/views/Settings/LibraryManagement.vue"),
       },
       {
+        path: "metadata-sources",
+        name: ROUTES.METADATA_SOURCES,
+        meta: {
+          title: i18n.global.t("scan.metadata-sources"),
+        },
+        component: () => import("@/views/Settings/MetadataSources.vue"),
+      },
+      {
         path: "administration",
         name: ROUTES.ADMINISTRATION,
         meta: {
@@ -342,7 +351,12 @@ router.beforeEach(async (to, _from, next) => {
       currentRoute !== ROUTES.RESET_PASSWORD &&
       currentRoute !== ROUTES.REGISTER
     ) {
-      return next({ name: ROUTES.LOGIN });
+      return next({
+        name: ROUTES.LOGIN,
+        query: {
+          next: to.query.next ?? (to.path !== "/login" ? to.path : "/"),
+        },
+      });
     }
 
     if (user.value && currentRoute == ROUTES.SETUP) {

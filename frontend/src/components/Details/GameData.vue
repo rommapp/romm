@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
@@ -8,8 +9,40 @@ import type { DetailedRom } from "@/stores/roms";
 
 const { t } = useI18n();
 defineProps<{ rom: DetailedRom }>();
-const tab = ref<"saves" | "states">("saves");
+const route = useRoute();
+const router = useRouter();
+
+// Initialize sub-tab from query parameter or default to "saves"
+const tab = ref<"saves" | "states">(
+  route.query.subtab === "states" || route.query.subtab === "saves"
+    ? (route.query.subtab as "saves" | "states")
+    : "saves",
+);
 const { mdAndDown } = useDisplay();
+
+// Watch for sub-tab changes and update URL
+watch(tab, (newSubTab) => {
+  if (route.query.subtab !== newSubTab) {
+    router.replace({
+      path: route.path,
+      query: {
+        ...route.query,
+        subtab: newSubTab,
+      },
+    });
+  }
+});
+
+// Watch for URL changes and update sub-tab
+watch(
+  () => route.query.subtab,
+  (newSubTab) => {
+    if (newSubTab && (newSubTab === "saves" || newSubTab === "states")) {
+      tab.value = newSubTab;
+    }
+  },
+  { immediate: true },
+);
 </script>
 <template>
   <v-row no-gutters>
@@ -26,23 +59,25 @@ const { mdAndDown } = useDisplay();
           prepend-icon="mdi-content-save"
           class="rounded text-caption"
           value="saves"
-          >{{ t("common.saves") }}</v-tab
         >
+          {{ t("common.saves") }}
+        </v-tab>
         <v-tab
           prepend-icon="mdi-file"
           class="rounded text-caption"
           value="states"
-          >{{ t("common.states") }}</v-tab
         >
+          {{ t("common.states") }}
+        </v-tab>
       </v-tabs>
     </v-col>
     <v-col>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="saves">
-          <saves :rom="rom" />
+          <Saves :rom="rom" />
         </v-tabs-window-item>
         <v-tabs-window-item value="states">
-          <states :rom="rom" />
+          <States :rom="rom" />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>

@@ -1,9 +1,10 @@
 import json
 from io import BytesIO
+from typing import Annotated
 
-from fastapi import Request, UploadFile
+from fastapi import Path as PathVar
+from fastapi import Request, UploadFile, status
 
-from config import str_to_bool
 from decorators.auth import protected_route
 from endpoints.responses.collection import (
     CollectionSchema,
@@ -34,6 +35,8 @@ router = APIRouter(
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
 async def add_collection(
     request: Request,
+    is_public: bool | None = None,
+    is_favorite: bool | None = None,
     artwork: UploadFile | None = None,
 ) -> CollectionSchema:
     """Create collection endpoint
@@ -50,7 +53,8 @@ async def add_collection(
         "name": data.get("name", ""),
         "description": data.get("description", ""),
         "url_cover": data.get("url_cover", ""),
-        "is_public": data.get("is_public", False),
+        "is_public": is_public or False,
+        "is_favorite": is_favorite or False,
         "user_id": request.user.id,
     }
     db_collection = db_collection_handler.get_collection_by_name(
@@ -94,7 +98,9 @@ async def add_collection(
 
 
 @protected_route(router.post, "/smart", [Scope.COLLECTIONS_WRITE])
-async def add_smart_collection(request: Request) -> SmartCollectionSchema:
+async def add_smart_collection(
+    request: Request, is_public: bool | None = None
+) -> SmartCollectionSchema:
     """Create smart collection endpoint
 
     Args:
@@ -116,7 +122,7 @@ async def add_smart_collection(request: Request) -> SmartCollectionSchema:
         "name": str(data.get("name", "")),
         "description": str(data.get("description", "")),
         "filter_criteria": filter_criteria,
-        "is_public": str_to_bool(str(data.get("is_public", "false"))),
+        "is_public": is_public if is_public is not None else False,
         "user_id": request.user.id,
     }
 
@@ -208,6 +214,9 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
+    if collection.user_id != request.user.id and not collection.is_public:
+        raise CollectionPermissionError(id)
+    
     return CollectionSchema.model_validate(collection)
 
 
@@ -245,6 +254,9 @@ def get_smart_collection(request: Request, id: int) -> SmartCollectionSchema:
     smart_collection = db_collection_handler.get_smart_collection(id)
     if not smart_collection:
         raise CollectionNotFoundInDatabaseException(id)
+
+    if smart_collection.user_id != request.user.id and not smart_collection.is_public:
+        raise CollectionPermissionError(id)
 
     return SmartCollectionSchema.model_validate(smart_collection)
 
@@ -388,24 +400,23 @@ async def update_smart_collection(
     return SmartCollectionSchema.model_validate(smart_collection)
 
 
-@protected_route(router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])
-async def delete_collection(request: Request, id: int) -> None:
-    """Delete collections endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        {
-            "collections": List of rom's ids to delete
-        }
-
-    Raises:
-        HTTPException: Collection not found
-    """
-
+@protected_route(
+    router.delete,
+    "/{id}",
+    [Scope.COLLECTIONS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def delete_collection(
+    request: Request,
+    id: Annotated[int, PathVar(description="Collection internal id.", ge=1)],
+) -> None:
+    """Delete a collection by ID."""
     collection = db_collection_handler.get_collection(id)
-
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
+    
+    if collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
 
     log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)
@@ -418,17 +429,18 @@ async def delete_collection(request: Request, id: int) -> None:
         )
 
 
-@protected_route(router.delete, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
-async def delete_smart_collection(request: Request, id: int) -> None:
-    """Delete smart collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Smart collection id
-    """
-
+@protected_route(
+    router.delete,
+    "/smart/{id}",
+    [Scope.COLLECTIONS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def delete_smart_collection(
+    request: Request,
+    id: Annotated[int, PathVar(description="Smart collection internal id.", ge=1)],
+) -> None:
+    """Delete a smart collection by ID."""
     smart_collection = db_collection_handler.get_smart_collection(id)
-
     if not smart_collection:
         raise CollectionNotFoundInDatabaseException(id)
 

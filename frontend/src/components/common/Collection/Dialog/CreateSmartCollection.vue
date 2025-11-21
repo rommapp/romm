@@ -28,7 +28,7 @@ const {
   searchTerm,
   filterUnmatched,
   filterMatched,
-  filterFavourites,
+  filterFavorites,
   filterDuplicates,
   filterPlayables,
   filterRA,
@@ -68,7 +68,7 @@ const filterSummary = computed(() => {
     filters.push(`Platform: ${selectedPlatform.value.name}`);
   if (filterMatched.value) filters.push("Matched only");
   if (filterUnmatched.value) filters.push("Unmatched only");
-  if (filterFavourites.value) filters.push("Favourites");
+  if (filterFavorites.value) filters.push("Favorites");
   if (filterDuplicates.value) filters.push("Duplicates");
   if (filterPlayables.value) filters.push("Playable");
   if (filterRA.value) filters.push("Has RetroAchievements");
@@ -110,14 +110,14 @@ async function createSmartCollection() {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   try {
-    const filterCriteria: Record<string, any> = {};
+    const filterCriteria: Record<string, number | boolean | string | null> = {};
 
     if (searchTerm.value) filterCriteria.search_term = searchTerm.value;
     if (selectedPlatform.value)
       filterCriteria.platform_id = selectedPlatform.value.id;
     if (filterMatched.value) filterCriteria.matched = true;
     if (filterUnmatched.value) filterCriteria.matched = false;
-    if (filterFavourites.value) filterCriteria.favourite = true;
+    if (filterFavorites.value) filterCriteria.favorite = true;
     if (filterDuplicates.value) filterCriteria.duplicate = true;
     if (filterPlayables.value) filterCriteria.playable = true;
     if (filterRA.value) filterCriteria.has_ra = true;
@@ -161,10 +161,10 @@ async function createSmartCollection() {
       params: { collection: data.id },
     });
     closeDialog();
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to create smart collection:", error);
     emitter?.emit("snackbarShow", {
-      msg: error.response?.data?.detail || "Failed to create smart collection",
+      msg: "Failed to create smart collection",
       icon: "mdi-close-circle",
       color: "red",
     });
@@ -173,11 +173,11 @@ async function createSmartCollection() {
 </script>
 
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-playlist-plus"
     :width="mdAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-card-title>{{ t("collection.create-smart-collection") }}</v-card-title>
@@ -226,7 +226,7 @@ async function createSmartCollection() {
             <v-col class="filters-preview">
               <v-card variant="outlined" class="h-100">
                 <v-card-title class="text-subtitle-1">
-                  <v-icon class="mr-2">mdi-filter</v-icon>
+                  <v-icon class="mr-2"> mdi-filter </v-icon>
                   {{ t("collection.current-filters") }}
                 </v-card-title>
                 <v-card-text>
@@ -260,7 +260,7 @@ async function createSmartCollection() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>
 <style scoped>
 .filters-preview {

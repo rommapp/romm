@@ -14,6 +14,7 @@ from unidecode import unidecode
 from adapters.services.igdb_types import Game
 from config import IGDB_CLIENT_ID
 from logger.logger import log
+from utils import get_version
 from utils.context import ctx_aiohttp_session
 
 if TYPE_CHECKING:
@@ -95,6 +96,7 @@ class IGDBService:
             res = await aiohttp_session.post(
                 url,
                 data=content,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(self.auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )
@@ -142,6 +144,7 @@ class IGDBService:
             res = await aiohttp_session.post(
                 url,
                 data=content,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(self.auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )

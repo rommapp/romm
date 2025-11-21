@@ -1,7 +1,7 @@
 import socketio  # type: ignore
 
 from config import REDIS_URL
-from utils import json as json_module
+from utils import json_module
 
 
 class SocketHandler:
@@ -12,7 +12,7 @@ class SocketHandler:
             json=json_module,
             logger=False,
             engineio_logger=False,
-            client_manager=socketio.AsyncRedisManager(str(REDIS_URL)),
+            client_manager=socketio.AsyncRedisManager(REDIS_URL),
             ping_timeout=60,
             ping_interval=25,
             max_http_buffer_size=1e6,  # 1MB

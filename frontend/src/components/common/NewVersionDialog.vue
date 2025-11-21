@@ -38,6 +38,13 @@ async function fetchLatestVersion() {
   document.removeEventListener("network-quiesced", fetchLatestVersion);
 }
 
+function openNewVersion() {
+  window.open(
+    `https://github.com/rommapp/romm/releases/tag/${GITHUB_VERSION.value}`,
+    "_blank",
+  );
+}
+
 onMounted(async () => {
   document.addEventListener("network-quiesced", fetchLatestVersion);
 });
@@ -53,23 +60,34 @@ onMounted(async () => {
           !latestVersionDismissed
         "
         class="pa-1 border-selected mx-auto"
-        max-width="250"
+        max-width="fit-content"
       >
         <v-card-text class="text-center py-2 px-4">
-          <span class="text-white text-shadow">New version available</span>
-          <span class="text-primary ml-1">v{{ GITHUB_VERSION }}</span>
-          <v-row class="mt-1" no-gutters>
-            <v-col>
-              <span class="pointer text-grey" @click="dismissVersionBanner"
-                >Dismiss</span
-              ><span class="ml-4"
-                ><a
-                  target="_blank"
-                  :href="`https://github.com/rommapp/romm/releases/tag/${GITHUB_VERSION}`"
-                  >See what's new!</a
-                ></span
+          <span class="text-body-1">New version available:</span>
+          <span class="text-primary ml-1 text-body-1 font-weight-medium">{{
+            GITHUB_VERSION
+          }}</span>
+          <v-row class="mt-2 flex justify-center" no-gutters>
+            <v-btn-group>
+              <v-btn
+                density="compact"
+                variant="outlined"
+                class="pointer"
+                size="small"
+                @click="dismissVersionBanner"
               >
-            </v-col>
+                Dismiss
+              </v-btn>
+              <v-btn
+                density="compact"
+                variant="tonal"
+                color="primary"
+                size="small"
+                @click="openNewVersion"
+              >
+                See what's new!
+              </v-btn>
+            </v-btn-group>
           </v-row>
         </v-card-text>
       </v-card>

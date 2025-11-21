@@ -29,13 +29,35 @@ system:
 filesystem:
   roms_folder: "ROMS"
   firmware_folder: "BIOS"
+  skip_hash_calculation: true
+
+scan:
+  priority:
+    metadata:
+      - "ss" # Screenscraper
+      - "launchbox" # Launchbox
+    artwork:
+      - "igdb" # IGDB
+      - "ss" # Screenscraper
+    region:
+      - jp
+      - eu
+      - wor
+    language:
+      - jp
+      - es
+  media:
+    - box2d
+    - box3d
+    - physical
+    - miximage
 
 emulatorjs:
   debug: true
   cache_limit: 1000
   settings:
     parallel_n64:
-      vsync: disable
+      vsync: disabled
     snes9x:
       snes9x_region: ntsc
   controls:

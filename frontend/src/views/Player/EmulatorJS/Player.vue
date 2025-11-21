@@ -82,16 +82,16 @@ declare global {
     EJS_DEBUG_XX: boolean;
     EJS_CacheLimit: number;
     EJS_Buttons: Record<string, boolean>;
-    EJS_VirtualGamepadSettings: {};
+    EJS_VirtualGamepadSettings: Record<string, unknown>;
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: {
-      screenshot: Uint8Array;
-      state: Uint8Array;
+      screenshot: ArrayBuffer;
+      state: ArrayBuffer;
     }) => void;
     EJS_onLoadState: () => void;
     EJS_onSaveSave: (args: {
-      screenshot: Uint8Array;
-      save: Uint8Array;
+      screenshot: ArrayBuffer;
+      save: ArrayBuffer;
     }) => void;
     EJS_onLoadSave: () => void;
   }
@@ -116,7 +116,7 @@ window.EJS_player = "#game";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
-window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/emulatorjs.svg`;
+window.EJS_backgroundImage = `${window.location.origin}/assets/logos/romm_logo_xbox_one_circle_boot.svg`;
 window.EJS_backgroundColor = theme.current.value.colors.background;
 window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
@@ -392,6 +392,19 @@ onUnmounted(() => {
 
 <template>
   <div id="game" />
+  <div
+    v-if="rom.ss_metadata?.bezel_path"
+    class="pointer-events-none fixed inset-0 flex items-center justify-center z-20 overflow-hidden"
+    aria-hidden="true"
+  >
+    <img
+      :src="rom.ss_metadata.bezel_path"
+      alt=""
+      class="select-none"
+      draggable="false"
+      style="height: 100vh; max-height: 100%; width: auto; object-fit: cover"
+    />
+  </div>
 </template>
 
 <style>

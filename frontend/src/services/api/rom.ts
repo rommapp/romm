@@ -1,21 +1,20 @@
 import type { AxiosProgressEvent } from "axios";
 import type {
   BulkOperationResponse,
-  SearchRomSchema,
   RomUserSchema,
+  UserNoteSchema,
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
-import type { DetailedRom, SimpleRom } from "@/stores/roms";
+import type { DetailedRom, SimpleRom, SearchRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import { getDownloadPath, getStatusKeyForText } from "@/utils";
 
 export const romApi = api;
 
 const DOWNLOAD_CLEANUP_DELAY = 100;
-const DOWNLOAD_INTERVAL_DELAY = 300;
 
 async function uploadRoms({
   platformId,
@@ -73,7 +72,7 @@ export interface GetRomsParams {
   orderDir?: string | null;
   filterUnmatched?: boolean;
   filterMatched?: boolean;
-  filterFavourites?: boolean;
+  filterFavorites?: boolean;
   filterDuplicates?: boolean;
   filterPlayables?: boolean;
   filterRA?: boolean;
@@ -102,7 +101,7 @@ async function getRoms({
   orderDir = "asc",
   filterUnmatched = false,
   filterMatched = false,
-  filterFavourites = false,
+  filterFavorites = false,
   filterDuplicates = false,
   filterPlayables = false,
   filterRA = false,
@@ -140,7 +139,7 @@ async function getRoms({
       language: selectedLanguage,
       ...(filterUnmatched ? { matched: false } : {}),
       ...(filterMatched ? { matched: true } : {}),
-      ...(filterFavourites ? { favourite: true } : {}),
+      ...(filterFavorites ? { favorite: true } : {}),
       ...(filterDuplicates ? { duplicate: true } : {}),
       ...(filterPlayables ? { playable: true } : {}),
       ...(filterMissing ? { missing: true } : {}),
@@ -191,7 +190,7 @@ async function searchRom({
   romId: number;
   searchTerm: string;
   searchBy: string;
-}): Promise<{ data: SearchRomSchema[] }> {
+}): Promise<{ data: SearchRom[] }> {
   return api.get("/search/roms", {
     params: {
       rom_id: romId,
@@ -223,19 +222,47 @@ async function downloadRom({
   });
 }
 
-async function bulkDownloadRoms({ roms }: { roms: SimpleRom[] }) {
-  if (roms.length === 0) return;
+async function bulkDownloadRoms({
+  roms,
+  filename,
+}: {
+  roms: SimpleRom[];
+  filename?: string;
+}) {
+  return new Promise<void>((resolve) => {
+    if (roms.length === 0) return resolve();
 
-  for (let i = 0; i < roms.length; i++) {
-    await downloadRom({ rom: roms[i] });
-    await new Promise((resolve) =>
-      setTimeout(resolve, DOWNLOAD_INTERVAL_DELAY),
-    );
-  }
+    const romIds = roms.map((rom) => rom.id);
+
+    const queryParams = new URLSearchParams();
+    queryParams.append("rom_ids", romIds.join(","));
+    if (filename) queryParams.append("filename", filename);
+
+    const a = document.createElement("a");
+    a.href = `/api/roms/download?${queryParams.toString()}`;
+    a.style.display = "none";
+
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      document.body.removeChild(a);
+      resolve();
+    }, DOWNLOAD_CLEANUP_DELAY);
+  });
 }
 
 export type UpdateRom = SimpleRom & {
   artwork?: File;
+  raw_metadata?: {
+    igdb_metadata?: string;
+    moby_metadata?: string;
+    ss_metadata?: string;
+    launchbox_metadata?: string;
+    hasheous_metadata?: string;
+    flashpoint_metadata?: string;
+    hltb_metadata?: string;
+  };
 };
 
 async function updateRom({
@@ -248,16 +275,58 @@ async function updateRom({
   unmatch?: boolean;
 }): Promise<{ data: DetailedRom }> {
   const formData = new FormData();
-  if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
-  if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
-  if (rom.ss_id) formData.append("ss_id", rom.ss_id.toString());
-  if (rom.launchbox_id)
-    formData.append("launchbox_id", rom.launchbox_id.toString());
   formData.append("name", rom.name || "");
   formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");
-  formData.append("url_cover", rom.url_cover || "");
-  if (rom.artwork) formData.append("artwork", rom.artwork);
+
+  formData.append("igdb_id", rom.igdb_id?.toString() || "");
+  formData.append("sgdb_id", rom.sgdb_id?.toString() || "");
+  formData.append("moby_id", rom.moby_id?.toString() || "");
+  formData.append("ss_id", rom.ss_id?.toString() || "");
+  formData.append("launchbox_id", rom.launchbox_id?.toString() || "");
+  formData.append("ra_id", rom.ra_id?.toString() || "");
+  formData.append("flashpoint_id", rom.flashpoint_id?.toString() || "");
+  formData.append("hasheous_id", rom.hasheous_id?.toString() || "");
+  formData.append("tgdb_id", rom.tgdb_id?.toString() || "");
+  formData.append("hltb_id", rom.hltb_id?.toString() || "");
+
+  if (rom.raw_metadata?.igdb_metadata) {
+    formData.append("raw_igdb_metadata", rom.raw_metadata.igdb_metadata);
+  }
+  if (rom.raw_metadata?.moby_metadata) {
+    formData.append("raw_moby_metadata", rom.raw_metadata.moby_metadata);
+  }
+  if (rom.raw_metadata?.ss_metadata) {
+    formData.append("raw_ss_metadata", rom.raw_metadata.ss_metadata);
+  }
+  if (rom.raw_metadata?.launchbox_metadata) {
+    formData.append(
+      "raw_launchbox_metadata",
+      rom.raw_metadata.launchbox_metadata,
+    );
+  }
+  if (rom.raw_metadata?.hasheous_metadata) {
+    formData.append(
+      "raw_hasheous_metadata",
+      rom.raw_metadata.hasheous_metadata,
+    );
+  }
+  if (rom.raw_metadata?.flashpoint_metadata) {
+    formData.append(
+      "raw_flashpoint_metadata",
+      rom.raw_metadata.flashpoint_metadata,
+    );
+  }
+  if (rom.raw_metadata?.hltb_metadata) {
+    formData.append("raw_hltb_metadata", rom.raw_metadata.hltb_metadata);
+  }
+
+  // Don't set url_cover on manual artwork upload
+  if (rom.artwork) {
+    formData.append("artwork", rom.artwork);
+  } else {
+    formData.append("url_cover", rom.url_cover || "");
+  }
 
   return api.put(`/roms/${rom.id}`, formData, {
     params: {
@@ -277,7 +346,6 @@ async function uploadManuals({
   const heartbeat = storeHeartbeat();
   const uploadStore = storeUpload();
 
-  console.log(filesToUpload);
   const promises = filesToUpload.map((file) => {
     const formData = new FormData();
     formData.append(file.name, file);
@@ -305,6 +373,14 @@ async function uploadManuals({
   });
 
   return Promise.allSettled(promises);
+}
+
+async function removeManual({
+  romId,
+}: {
+  romId: number;
+}): Promise<{ data: DetailedRom }> {
+  return api.delete(`/roms/${romId}/manuals`);
 }
 
 async function updateUserRomProps({
@@ -338,6 +414,69 @@ async function deleteRoms({
   });
 }
 
+// Multi-note management functions
+async function createRomNote({
+  romId,
+  noteData,
+}: {
+  romId: number;
+  noteData: {
+    title: string;
+    content?: string;
+    is_public?: boolean;
+    tags?: string[];
+  };
+}): Promise<{ data: UserNoteSchema }> {
+  return api.post(`/roms/${romId}/notes`, noteData);
+}
+
+async function updateRomNote({
+  romId,
+  noteId,
+  noteData,
+}: {
+  romId: number;
+  noteId: number;
+  noteData: {
+    title?: string;
+    content?: string;
+    is_public?: boolean;
+    tags?: string[];
+  };
+}): Promise<{ data: UserNoteSchema }> {
+  return api.put(`/roms/${romId}/notes/${noteId}`, noteData);
+}
+
+async function deleteRomNote({
+  romId,
+  noteId,
+}: {
+  romId: number;
+  noteId: number;
+}): Promise<{ data: UserNoteSchema }> {
+  return api.delete(`/roms/${romId}/notes/${noteId}`);
+}
+
+async function getRomNotes({
+  romId,
+  publicOnly = false,
+  search,
+  tags,
+}: {
+  romId: number;
+  publicOnly?: boolean;
+  search?: string;
+  tags?: string[];
+}): Promise<{ data: UserNoteSchema[] }> {
+  return api.get(`/roms/${romId}/notes`, {
+    params: {
+      public_only: publicOnly,
+      search,
+      tags: tags?.join(","),
+    },
+  });
+}
+
 export default {
   uploadRoms,
   getRoms,
@@ -349,6 +488,11 @@ export default {
   searchRom,
   updateRom,
   uploadManuals,
+  removeManual,
   updateUserRomProps,
   deleteRoms,
+  createRomNote,
+  updateRomNote,
+  deleteRomNote,
+  getRomNotes,
 };

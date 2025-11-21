@@ -99,11 +99,11 @@ onMounted(() => {
 <template>
   <v-list-item class="pa-0 mt-2">
     <template #prepend>
-      <v-chip v-if="rom.merged_ra_metadata?.achievements" label rounded="0"
-        ><v-icon class="mr-2">mdi-trophy</v-icon
+      <v-chip v-if="rom.merged_ra_metadata?.achievements" label rounded="0">
+        <v-icon class="mr-2"> mdi-trophy </v-icon
         >{{ raUserAchivement?.earned_achievements.length ?? 0 }} /
-        {{ rom.merged_ra_metadata?.achievements.length }}</v-chip
-      >
+        {{ rom.merged_ra_metadata?.achievements.length }}
+      </v-chip>
     </template>
     <v-progress-linear
       bg-color="secondary"
@@ -127,8 +127,8 @@ onMounted(() => {
   <v-chip
     label
     :color="showEarned ? 'primary' : 'gray'"
-    @click="toggleShowEarned"
     class="mt-4"
+    @click="toggleShowEarned"
   >
     <template #prepend>
       <v-icon class="mr-2">
@@ -140,6 +140,7 @@ onMounted(() => {
   <v-list v-if="rom.merged_ra_metadata?.achievements" class="bg-background">
     <v-list-item
       v-for="achievement in filteredAchievements"
+      :key="achievement.ra_id || ''"
       :title="achievement.title?.toString()"
       class="mb-2 py-4 rounded bg-toplayer"
       :class="{
@@ -159,7 +160,8 @@ onMounted(() => {
           <a
             :href="`https://retroachievements.org/achievement/${achievement.ra_id}`"
             target="_blank"
-            style="height: 100%; width: 100%"
+            class="h-100 w-100"
+            :aria-label="achievement.badge_id || 'Achievement badge'"
           >
             <v-img
               :src="
@@ -167,14 +169,15 @@ onMounted(() => {
                   ? (achievement.badge_path ?? '')
                   : (achievement.badge_path_lock ?? '')
               "
+              :alt="achievement.badge_id || 'Achievement badge'"
             />
           </a>
         </v-avatar>
       </template>
       <template #subtitle>
-        <v-list-item-subtitle>{{
-          achievement.description?.toString()
-        }}</v-list-item-subtitle>
+        <v-list-item-subtitle>
+          {{ achievement.description?.toString() }}
+        </v-list-item-subtitle>
         <v-chip
           v-if="isAchievementEarned(achievement) && smAndDown"
           label

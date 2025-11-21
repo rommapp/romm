@@ -12,7 +12,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
-  is3DSCIARom,
+  isNintendoDSRom,
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
 } from "@/utils";
@@ -30,8 +30,8 @@ const computedSize = computed(() => {
   return props.sizeActionBar === 1 ? "small" : "x-small";
 });
 
-const is3DSRom = computed(() => {
-  return is3DSCIARom(props.rom);
+const isNDSRom = computed(() => {
+  return isNintendoDSRom(props.rom);
 });
 
 const isEmulationSupported = computed(() => {
@@ -66,32 +66,32 @@ watch(menuOpen, (val) => {
         icon="mdi-download"
         variant="text"
         rounded="0"
-        @click.prevent="romApi.downloadRom({ rom })"
         :aria-label="`${t('rom.download')} ${rom.name}`"
+        @click.prevent="romApi.downloadRom({ rom })"
       />
     </v-col>
     <v-col v-if="isEmulationSupported" class="d-flex">
-      <play-btn
+      <PlayBtn
         :rom="rom"
         icon-embedded
-        @click.prevent
         class="action-bar-btn-small flex-grow-1"
         :size="computedSize"
         variant="text"
         rounded="0"
+        @click.prevent
       />
     </v-col>
-    <v-col v-if="is3DSRom" class="d-flex">
+    <v-col v-if="isNDSRom" class="d-flex">
       <v-btn
-        @click.prevent
         :disabled="rom.missing_from_fs"
         class="action-bar-btn-small flex-grow-1"
         :size="computedSize"
-        @click="emitter?.emit('showQRCodeDialog', rom)"
         icon="mdi-qrcode"
         variant="text"
         rounded="0"
         :aria-label="`Show ${rom.name} QR code`"
+        @click.prevent
+        @click="emitter?.emit('showQRCodeDialog', rom)"
       />
     </v-col>
     <v-col
@@ -102,20 +102,20 @@ watch(menuOpen, (val) => {
       "
       class="d-flex"
     >
-      <v-menu location="bottom" v-model="menuOpen">
-        <template #activator="{ props }">
+      <v-menu v-model="menuOpen" location="bottom">
+        <template #activator="{ props: menuProps }">
           <v-btn
-            @click.prevent
             class="action-bar-btn-small flex-grow-1"
             :size="computedSize"
-            v-bind="props"
+            v-bind="menuProps"
             icon="mdi-dots-vertical"
             variant="text"
             rounded="0"
             :aria-label="`${rom.name} admin menu`"
+            @click.prevent
           />
         </template>
-        <admin-menu :rom="rom" />
+        <AdminMenu :rom="rom" />
       </v-menu>
     </v-col>
   </v-row>
