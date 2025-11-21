@@ -13,6 +13,7 @@ from fastapi_pagination import add_pagination
 from starlette.middleware.authentication import AuthenticationMiddleware
 from startup import main
 
+import endpoints.sockets.netplay  # noqa
 import endpoints.sockets.scan  # noqa
 from config import (
     DEV_HOST,
@@ -31,6 +32,7 @@ from endpoints import (
     firmware,
     gamelist,
     heartbeat,
+    netplay,
     platform,
     raw,
     rom,
@@ -133,8 +135,10 @@ app.include_router(screenshots.router, prefix="/api")
 app.include_router(firmware.router, prefix="/api")
 app.include_router(collections.router, prefix="/api")
 app.include_router(gamelist.router, prefix="/api")
+app.include_router(netplay.router)
 
 app.mount("/ws", socket_handler.socket_app)
+app.mount("/netplay", socket_handler.socket_app)
 
 add_pagination(app)
 
