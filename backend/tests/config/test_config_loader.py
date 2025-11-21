@@ -19,6 +19,7 @@ def test_config_loader():
     assert loader.config.PLATFORMS_VERSIONS == {"naomi": "arcade"}
     assert loader.config.ROMS_FOLDER_NAME == "ROMS"
     assert loader.config.FIRMWARE_FOLDER_NAME == "BIOS"
+    assert loader.config.SKIP_HASH_CALCULATION
     assert loader.config.EJS_DEBUG
     assert loader.config.EJS_CACHE_LIMIT == 1000
     assert loader.config.EJS_SETTINGS == {
@@ -56,6 +57,7 @@ def test_empty_config_loader():
     assert loader.config.PLATFORMS_VERSIONS == {}
     assert loader.config.ROMS_FOLDER_NAME == "roms"
     assert loader.config.FIRMWARE_FOLDER_NAME == "bios"
+    assert not loader.config.SKIP_HASH_CALCULATION
     assert not loader.config.EJS_DEBUG
     assert loader.config.EJS_CACHE_LIMIT is None
     assert loader.config.EJS_SETTINGS == {}
