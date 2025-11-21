@@ -52,5 +52,8 @@
   "upload-files-selected": "{count} Datei ausgewählt | {count} Dateien ausgewählt",
   "user-interface": "Benutzeroberfläche",
   "virtual-collection": "Autogenerierte Sammlung",
-  "virtual-collections": "Autogenerierte Sammlungen"
+  "virtual-collections": "Autogenerierte Sammlungen",
+  "last-updated": "Zuletzt aktualisiert",
+  "confirm-deletion": "Löschung bestätigen",
+  "delete": "Löschen"
 }

@@ -52,5 +52,8 @@
   "upload-files-selected": "{count}개 파일이 선택되었습니다",
   "user-interface": "사용자 인터페이스",
   "virtual-collection": "자동 생성된 모음집",
-  "virtual-collections": "자동 생성된 모음집"
+  "virtual-collections": "자동 생성된 모음집",
+  "last-updated": "마지막 업데이트",
+  "confirm-deletion": "삭제 확인",
+  "delete": "삭제"
 }

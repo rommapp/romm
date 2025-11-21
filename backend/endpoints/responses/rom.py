@@ -24,6 +24,22 @@ from .base import BaseModel
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
+
+class UserNoteSchema(BaseModel):
+    id: int
+    title: str
+    content: str
+    is_public: bool
+    tags: list[str] | None = None
+    created_at: datetime
+    updated_at: datetime
+    user_id: int
+    username: str
+
+    class Config:
+        from_attributes = True
+
+
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
     "RomIGDBMetadata",
     {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},  # type: ignore[misc]
@@ -80,8 +96,6 @@ def rom_user_schema_factory() -> RomUserSchema:
         created_at=now,
         updated_at=now,
         last_played=None,
-        note_raw_markdown="",
-        note_is_public=False,
         is_main_sibling=False,
         backlogged=False,
         now_playing=False,
@@ -101,8 +115,6 @@ class RomUserSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
     last_played: datetime | None
-    note_raw_markdown: str
-    note_is_public: bool
     is_main_sibling: bool
     backlogged: bool
     now_playing: bool
@@ -124,21 +136,6 @@ class RomUserSchema(BaseModel):
 
         # Return a dummy RomUserSchema if the user + rom combination doesn't exist
         return rom_user_schema_factory()
-
-    @classmethod
-    def notes_for_user(cls, user_id: int, db_rom: Rom) -> list[UserNotesSchema]:
-        return [
-            UserNotesSchema(
-                {
-                    "user_id": n.user_id,
-                    "username": n.user__username,
-                    "note_raw_markdown": n.note_raw_markdown,
-                }
-            )
-            for n in db_rom.rom_users
-            # This is what filters out private notes
-            if n.user_id == user_id or n.note_is_public
-        ]
 
 
 class RomFileSchema(BaseModel):
@@ -368,15 +365,14 @@ class DetailedRomSchema(RomSchema):
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
     user_screenshots: list[ScreenshotSchema]
-    user_notes: list[UserNotesSchema]
     user_collections: list[UserCollectionSchema]
+    all_user_notes: list[UserNoteSchema]
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
         user_id = request.user.id
         db_rom = cls.populate_properties(db_rom, request)
 
-        db_rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)  # type: ignore
         db_rom.user_saves = [  # type: ignore
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]
@@ -391,6 +387,32 @@ class DetailedRomSchema(RomSchema):
         db_rom.user_collections = UserCollectionSchema.for_user(  # type: ignore
             user_id, db_rom.collections
         )
+
+        # Load notes separately using the database handler to avoid lazy loading issues
+        from handler.database import db_rom_handler
+
+        notes = db_rom_handler.get_rom_notes(rom_id=db_rom.id, user_id=user_id)
+
+        # Convert notes to schema format
+        all_notes = []
+        for note in notes:
+            note_dict = {
+                "id": note.id,
+                "title": note.title,
+                "content": note.content,
+                "is_public": note.is_public,
+                "tags": note.tags,
+                "created_at": note.created_at,
+                "updated_at": note.updated_at,
+                "user_id": note.user_id,
+                "username": note.user.username,
+            }
+            all_notes.append(UserNoteSchema.model_validate(note_dict))
+
+        # Sort notes by updated_at (most recent first)
+        all_notes.sort(key=lambda x: x.updated_at, reverse=True)
+        db_rom.all_user_notes = all_notes  # type: ignore
+
         return cls.model_validate(db_rom)
 
     @field_validator("user_saves")
@@ -404,9 +426,3 @@ class DetailedRomSchema(RomSchema):
     @field_validator("user_screenshots")
     def sort_user_screenshots(cls, v: list[ScreenshotSchema]) -> list[ScreenshotSchema]:
         return sorted(v, key=lambda x: x.created_at, reverse=True)
-
-
-class UserNotesSchema(TypedDict):
-    user_id: int
-    username: str
-    note_raw_markdown: str

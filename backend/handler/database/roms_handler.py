@@ -28,7 +28,7 @@ from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomMetadata, RomUser
+from models.rom import Rom, RomFile, RomMetadata, RomNote, RomUser
 from utils.database import json_array_contains_value
 
 from .base_handler import DBBaseHandler
@@ -863,3 +863,117 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
         return purged_rom_files
+
+    # Note management methods
+    @begin_session
+    def get_rom_notes(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        search: str = "",
+        tags: list[str] | None = None,
+        session: Session = None,
+    ) -> Sequence[RomNote]:
+        query = session.query(RomNote).filter(RomNote.rom_id == rom_id)
+
+        if public_only:
+            query = query.filter(RomNote.is_public)
+        else:
+            # Include user's own notes (private + public) and public notes from others
+            query = query.filter(or_(RomNote.user_id == user_id, RomNote.is_public))
+
+        if search:
+            query = query.filter(
+                or_(RomNote.title.contains(search), RomNote.content.contains(search))
+            )
+
+        if tags:
+            for tag in tags:
+                query = query.filter(
+                    json_array_contains_value(RomNote.tags, tag, session=session)
+                )
+
+        return query.order_by(RomNote.updated_at.desc()).all()
+
+    @begin_session
+    def create_rom_note(
+        self,
+        rom_id: int,
+        user_id: int,
+        title: str,
+        content: str = "",
+        is_public: bool = False,
+        tags: list[str] | None = None,
+        session: Session = None,
+    ) -> dict:
+        note = RomNote(
+            rom_id=rom_id,
+            user_id=user_id,
+            title=title,
+            content=content,
+            is_public=is_public,
+            tags=tags or [],
+        )
+        session.add(note)
+        session.flush()  # To get the ID
+
+        # Return dict to avoid detached instance issues
+        return {
+            "id": note.id,
+            "title": note.title,
+            "content": note.content,
+            "is_public": note.is_public,
+            "tags": note.tags,
+            "created_at": note.created_at,
+            "updated_at": note.updated_at,
+            "rom_id": note.rom_id,
+            "user_id": note.user_id,
+        }
+
+    @begin_session
+    def update_rom_note(
+        self,
+        note_id: int,
+        user_id: int,
+        session: Session = None,
+        **fields,
+    ) -> dict | None:
+        note = (
+            session.query(RomNote)
+            .filter(RomNote.id == note_id, RomNote.user_id == user_id)
+            .first()
+        )
+
+        if not note:
+            return None
+
+        for field, value in fields.items():
+            if hasattr(note, field):
+                setattr(note, field, value)
+
+        session.flush()  # Ensure changes are committed
+
+        # Return dict to avoid detached instance issues
+        return {
+            "id": note.id,
+            "title": note.title,
+            "content": note.content,
+            "is_public": note.is_public,
+            "tags": note.tags,
+            "created_at": note.created_at,
+            "updated_at": note.updated_at,
+            "rom_id": note.rom_id,
+            "user_id": note.user_id,
+        }
+
+    @begin_session
+    def delete_rom_note(
+        self, note_id: int, user_id: int, session: Session = None
+    ) -> bool:
+        result = session.execute(
+            delete(RomNote).where(
+                and_(RomNote.id == note_id, RomNote.user_id == user_id)
+            )
+        )
+        return result.rowcount > 0

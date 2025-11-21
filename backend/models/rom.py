@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -255,6 +256,7 @@ class Rom(BaseModel):
         lazy="raise", back_populates="rom"
     )
     rom_users: Mapped[list[RomUser]] = relationship(lazy="raise", back_populates="rom")
+    notes: Mapped[list[RomNote]] = relationship(lazy="raise", back_populates="rom")
     metadatum: Mapped[RomMetadata] = relationship(
         lazy="joined", back_populates="rom", uselist=False
     )
@@ -421,6 +423,48 @@ class RomUserStatus(enum.StrEnum):
     NEVER_PLAYING = "never_playing"  # Will never play
 
 
+class RomNote(BaseModel):
+    __tablename__ = "rom_notes"
+    __table_args__ = (
+        UniqueConstraint(
+            "rom_id", "user_id", "title", name="unique_rom_user_note_title"
+        ),
+        Index("idx_rom_notes_public", "is_public"),
+        Index("idx_rom_notes_rom_user", "rom_id", "user_id"),
+        Index("idx_rom_notes_title", "title"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    # Core note fields
+    title: Mapped[str] = mapped_column(String(400))
+    content: Mapped[str] = mapped_column(Text)
+    is_public: Mapped[bool] = mapped_column(default=False)
+
+    # Future extensibility fields
+    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=list)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    # Foreign keys
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+
+    # Relationships
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="notes")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="notes")
+
+    @property
+    def user__username(self) -> str:
+        return self.user.username
+
+
 class RomUser(BaseModel):
     __tablename__ = "rom_user"
     __table_args__ = (
@@ -428,9 +472,6 @@ class RomUser(BaseModel):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-
-    note_raw_markdown: Mapped[str] = mapped_column(Text, default="")
-    note_is_public: Mapped[bool] = mapped_column(default=False)
 
     is_main_sibling: Mapped[bool] = mapped_column(default=False)
     last_played: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))

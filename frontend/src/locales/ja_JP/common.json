@@ -50,7 +50,10 @@
   "update": "アップデート",
   "upload": "アップロード",
   "upload-files-selected": "{count} ファイルが選択されました",
-  "user-interface": "ユーザーインターフェイス",
+  "user-interface": "ユーザーインターフェース",
   "virtual-collection": "自動生成コレクション",
-  "virtual-collections": "自動生成コレクション"
+  "virtual-collections": "自動生成コレクションズ",
+  "last-updated": "最終更新",
+  "confirm-deletion": "削除の確認",
+  "delete": "削除"
 }

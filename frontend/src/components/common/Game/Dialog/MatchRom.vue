@@ -326,6 +326,7 @@ onBeforeUnmount(() => {
     :empty-state-type="searched ? 'game' : undefined"
     scroll-content
     :width="lgAndUp ? '60vw' : '95vw'"
+    :height="xs ? '80vh' : '90vh'"
     @close="closeDialog"
   >
     <template #header>
@@ -484,6 +485,19 @@ onBeforeUnmount(() => {
           </v-avatar>
         </template>
       </v-tooltip>
+      <v-chip label class="ml-4 pr-0" size="small">
+        {{ t("rom.results-found") }}:
+        <v-chip color="primary" class="ml-2 px-2" label>
+          {{ !searching ? matchedRoms.length : "" }}
+          <v-progress-circular
+            v-if="searching"
+            :width="1"
+            :size="10"
+            color="primary"
+            indeterminate
+          />
+        </v-chip>
+      </v-chip>
     </template>
     <template #toolbar>
       <v-row class="align-center" no-gutters>
@@ -525,29 +539,32 @@ onBeforeUnmount(() => {
       </v-row>
     </template>
     <template #content>
-      <v-row v-show="!showSelectSource" class="align-content-start" no-gutters>
-        <v-col
-          v-for="matchedRom in filteredMatchedRoms"
-          v-show="!searching"
-          :key="matchedRom.name"
-          class="pa-1"
-          cols="4"
-          sm="3"
-          md="2"
-        >
-          <GameCard
-            v-if="rom"
-            :rom="matchedRom"
-            transform-scale
-            title-on-hover
-            pointer-on-hover
-            disable-view-transition
-            force-boxart="cover_path"
-            @click="showSources(matchedRom)"
-          />
-        </v-col>
-      </v-row>
-      <template v-if="showSelectSource">
+      <template v-if="!showSelectSource">
+        <v-row class="align-content-start" no-gutters>
+          <v-col
+            v-for="matchedRom in filteredMatchedRoms"
+            v-show="!searching"
+            :key="matchedRom.name"
+            class="pa-1"
+            cols="4"
+            sm="3"
+            md="2"
+          >
+            <GameCard
+              v-if="rom"
+              :rom="matchedRom"
+              transform-scale
+              title-on-hover
+              pointer-on-hover
+              disable-view-transition
+              :show-action-bar="false"
+              force-boxart="cover_path"
+              @click="showSources(matchedRom)"
+            />
+          </v-col>
+        </v-row>
+      </template>
+      <template v-else>
         <v-row no-gutters>
           <v-col cols="12">
             <v-card class="mx-auto bg-toplayer">
@@ -584,33 +601,30 @@ onBeforeUnmount(() => {
                 class="pa-1"
                 cols="auto"
               >
-                <v-card
-                  :width="xs ? 150 : 220"
-                  class="transform-scale mx-2"
-                  :class="{
-                    'border-selected border-lg':
-                      selectedCover?.name == source.name,
+                <GameCard
+                  :rom="{
+                    id: 0,
+                    name: source.name,
+                    platform_id: selectedMatchRom?.platform_id || 0,
+                    is_identified: true,
+                    is_unidentified: false,
                   }"
+                  :cover-src="source.url_cover"
+                  :width="xs ? 150 : 220"
+                  transform-scale
+                  pointer-on-hover
+                  disable-view-transition
+                  force-boxart="cover_path"
+                  :show-action-bar="false"
+                  :with-border-primary="selectedCover?.name == source.name"
                   @click="selectCover(source)"
                 >
-                  <v-img
-                    :src="source.url_cover || missingCoverImage"
-                    :aspect-ratio="computedAspectRatio"
-                    cover
-                  >
-                    <template #placeholder>
-                      <Skeleton type="image" />
-                    </template>
-                    <v-row no-gutters class="text-white pa-1">
-                      <v-avatar class="mr-1" size="30" rounded="1">
-                        <v-img :src="source.logo_path" />
-                      </v-avatar>
-                    </v-row>
-                    <template #error>
-                      <v-img :src="missingCoverImage" />
-                    </template>
-                  </v-img>
-                </v-card>
+                  <template #append-inner-right>
+                    <v-avatar class="mr-1 mb-1" size="30" rounded="1">
+                      <v-img :src="source.logo_path" />
+                    </v-avatar>
+                  </template>
+                </GameCard>
               </v-col>
             </v-row>
           </v-col>
@@ -653,10 +667,13 @@ onBeforeUnmount(() => {
         </v-row>
       </template>
     </template>
-    <template #append>
+    <template #empty-state>
+      <EmptyManualMatch />
+    </template>
+    <template #footer>
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="backToMatched">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
@@ -667,28 +684,6 @@ onBeforeUnmount(() => {
             {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
-      </v-row>
-    </template>
-    <template #empty-state>
-      <EmptyManualMatch />
-    </template>
-    <template #footer>
-      <v-row no-gutters class="text-center">
-        <v-col>
-          <v-chip label class="pr-0" size="small">
-            {{ t("rom.results-found") }}:
-            <v-chip color="primary" class="ml-2 px-2" label>
-              {{ !searching ? matchedRoms.length : "" }}
-              <v-progress-circular
-                v-if="searching"
-                :width="1"
-                :size="10"
-                color="primary"
-                indeterminate
-              />
-            </v-chip>
-          </v-chip>
-        </v-col>
       </v-row>
     </template>
   </RDialog>

@@ -1,5 +1,9 @@
 import type { AxiosProgressEvent } from "axios";
-import type { BulkOperationResponse, RomUserSchema } from "@/__generated__";
+import type {
+  BulkOperationResponse,
+  RomUserSchema,
+  UserNoteSchema,
+} from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
 import socket from "@/services/socket";
@@ -410,6 +414,69 @@ async function deleteRoms({
   });
 }
 
+// Multi-note management functions
+async function createRomNote({
+  romId,
+  noteData,
+}: {
+  romId: number;
+  noteData: {
+    title: string;
+    content?: string;
+    is_public?: boolean;
+    tags?: string[];
+  };
+}): Promise<{ data: UserNoteSchema }> {
+  return api.post(`/roms/${romId}/notes`, noteData);
+}
+
+async function updateRomNote({
+  romId,
+  noteId,
+  noteData,
+}: {
+  romId: number;
+  noteId: number;
+  noteData: {
+    title?: string;
+    content?: string;
+    is_public?: boolean;
+    tags?: string[];
+  };
+}): Promise<{ data: UserNoteSchema }> {
+  return api.put(`/roms/${romId}/notes/${noteId}`, noteData);
+}
+
+async function deleteRomNote({
+  romId,
+  noteId,
+}: {
+  romId: number;
+  noteId: number;
+}): Promise<{ data: UserNoteSchema }> {
+  return api.delete(`/roms/${romId}/notes/${noteId}`);
+}
+
+async function getRomNotes({
+  romId,
+  publicOnly = false,
+  search,
+  tags,
+}: {
+  romId: number;
+  publicOnly?: boolean;
+  search?: string;
+  tags?: string[];
+}): Promise<{ data: UserNoteSchema[] }> {
+  return api.get(`/roms/${romId}/notes`, {
+    params: {
+      public_only: publicOnly,
+      search,
+      tags: tags?.join(","),
+    },
+  });
+}
+
 export default {
   uploadRoms,
   getRoms,
@@ -424,4 +491,8 @@ export default {
   removeManual,
   updateUserRomProps,
   deleteRoms,
+  createRomNote,
+  updateRomNote,
+  deleteRomNote,
+  getRomNotes,
 };

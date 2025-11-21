@@ -155,11 +155,9 @@ const {
 });
 
 const hasNotes = computed(() => {
-  if (!romsStore.isSimpleRom(props.rom)) return false;
-  return (
-    props.rom.rom_user?.note_raw_markdown &&
-    props.rom.rom_user.note_raw_markdown.trim().length > 0
-  );
+  // TODO: Add note count to SimpleRom or check all_user_notes
+  // For now, return false until we implement proper note counting
+  return false;
 });
 
 const computedAspectRatio = computed(() => {

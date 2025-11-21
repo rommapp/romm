@@ -52,5 +52,8 @@
   "upload-files-selected": "{count} файл выбран | {count} файла выбрано | {count} файлов выбрано",
   "user-interface": "Пользовательский интерфейс",
   "virtual-collection": "Автосгенерированная коллекция",
-  "virtual-collections": "Автосгенерированные коллекции"
+  "virtual-collections": "Автосгенерированные коллекции",
+  "last-updated": "Последнее обновление",
+  "confirm-deletion": "Подтвердить удаление",
+  "delete": "Удалить"
 }

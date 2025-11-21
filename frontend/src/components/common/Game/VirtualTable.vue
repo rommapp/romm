@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed } from "vue";
+import { computed, inject } from "vue";
 import { useRouter } from "vue-router";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
@@ -15,6 +16,7 @@ import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 import { formatBytes, languageToEmoji, regionToEmoji } from "@/utils";
 
 withDefaults(
@@ -34,6 +36,7 @@ const { filteredRoms, selectedRoms, fetchingRoms, fetchTotalRoms } =
 const auth = storeAuth();
 const galleryFilterStore = storeGalleryFilter();
 const collectionsStore = storeCollections();
+const emitter = inject<Emitter<Events>>("emitter");
 
 const HEADERS = [
   {
@@ -87,6 +90,17 @@ const HEADERS = [
 ] as const;
 
 const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
+
+function hasNotes(item: SimpleRom): boolean {
+  // TODO: Add note count to SimpleRom or check all_user_notes
+  // For now, return false until we implement proper note counting
+  return false;
+}
+
+function showNoteDialog(event: MouseEvent | KeyboardEvent, item: SimpleRom) {
+  event.preventDefault();
+  emitter?.emit("showNoteDialog", item);
+}
 
 function rowClick(_: Event, row: { item: SimpleRom }) {
   router.push({ name: ROUTES.ROM, params: { rom: row.item.id } });
@@ -288,6 +302,16 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 :title="`${item.siblings.length} sibling(s)`"
               >
                 <v-icon>mdi-card-multiple-outline</v-icon>
+              </v-chip>
+              <v-chip
+                v-if="hasNotes(item)"
+                class="translucent text-white mr-1 px-1"
+                chip
+                size="x-small"
+                title="View notes"
+                @click.stop="showNoteDialog($event, item)"
+              >
+                <v-icon>mdi-notebook</v-icon>
               </v-chip>
               <MissingFromFSIcon
                 v-if="item.missing_from_fs"
