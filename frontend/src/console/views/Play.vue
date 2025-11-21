@@ -590,7 +590,7 @@ async function boot() {
   // Allow route transition animation to settle
   await new Promise((r) => setTimeout(r, 50));
 
-  const EMULATORJS_VERSION = "4.2.3";
+  const EMULATORJS_VERSION = "nightly";
   const LOCAL_PATH = "/assets/emulatorjs/data/";
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/`;
 
