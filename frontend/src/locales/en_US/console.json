@@ -23,7 +23,7 @@
     "game-exit-save-desc": "Save current state, then quit",
     "game-play": "Play",
     "game-saving": "SAVING…",
-    "games-n": "{n} Game | {n} Games",
+    "games-n": "{n} game | {n} games",
     "loading-platforms": "Loading Platforms…",
     "nav-back": "Back",
     "nav-delete": "Delete",
