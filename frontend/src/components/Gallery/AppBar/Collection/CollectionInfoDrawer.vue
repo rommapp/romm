@@ -130,10 +130,10 @@ async function updateCollection() {
 <template>
   <v-navigation-drawer
     v-if="currentCollection"
+    v-model="activeCollectionInfoDrawer"
     mobile
     floating
     width="500"
-    v-model="activeCollectionInfoDrawer"
     :class="{
       'ml-2': activeCollectionInfoDrawer,
       'drawer-mobile': smAndDown && activeCollectionInfoDrawer,
@@ -154,8 +154,8 @@ async function updateCollection() {
                 v-if="!isEditable"
                 :loading="updating"
                 class="bg-toplayer"
-                @click="showEditable"
                 size="small"
+                @click="showEditable"
               >
                 <template #loader>
                   <v-progress-circular
@@ -165,27 +165,28 @@ async function updateCollection() {
                     indeterminate
                   />
                 </template>
-                <v-icon>mdi-pencil</v-icon></v-btn
-              >
+                <v-icon>mdi-pencil</v-icon>
+              </v-btn>
               <template v-else>
-                <v-btn @click="closeEditable" size="small" class="bg-toplayer"
-                  ><v-icon color="romm-red">mdi-close</v-icon></v-btn
-                >
+                <v-btn size="small" class="bg-toplayer" @click="closeEditable">
+                  <v-icon color="romm-red"> mdi-close </v-icon>
+                </v-btn>
                 <v-btn
-                  @click="updateCollection"
                   size="small"
                   class="bg-toplayer ml-1"
-                  ><v-icon color="romm-green">mdi-check</v-icon></v-btn
+                  @click="updateCollection"
                 >
+                  <v-icon color="romm-green"> mdi-check </v-icon>
+                </v-btn>
               </template>
             </template>
           </div>
-          <collection-card
+          <CollectionCard
             :key="currentCollection.updated_at"
             :show-title="false"
             :with-link="false"
             :collection="currentCollection"
-            :coverSrc="imagePreviewUrl"
+            :cover-src="imagePreviewUrl"
           >
             <template v-if="isEditable" #append-inner>
               <v-btn-group rounded="0" divided density="compact">
@@ -198,12 +199,11 @@ async function updateCollection() {
                   class="translucent"
                   @click="
                     emitter?.emit('showSearchCoverDialog', {
-                      term: currentCollection.name as string,
-                      aspectRatio: null,
+                      term: currentCollection.name,
                     })
                   "
                 >
-                  <v-icon size="large">mdi-image-search-outline</v-icon>
+                  <v-icon size="large"> mdi-image-search-outline </v-icon>
                 </v-btn>
                 <v-btn
                   title="Upload custom cover"
@@ -211,7 +211,7 @@ async function updateCollection() {
                   class="translucent"
                   @click="triggerFileInput"
                 >
-                  <v-icon size="large">mdi-cloud-upload-outline</v-icon>
+                  <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
                   <v-file-input
                     id="file-input"
                     v-model="updatedCollection.artwork"
@@ -227,11 +227,13 @@ async function updateCollection() {
                   class="translucent"
                   @click="removeArtwork"
                 >
-                  <v-icon size="large" class="text-romm-red">mdi-delete</v-icon>
+                  <v-icon size="large" class="text-romm-red">
+                    mdi-delete
+                  </v-icon>
                 </v-btn>
               </v-btn-group>
             </template>
-          </collection-card>
+          </CollectionCard>
         </div>
       </v-col>
       <v-col cols="12">
@@ -251,20 +253,21 @@ async function updateCollection() {
               class="mt-4"
               size="small"
               :color="currentCollection.is_public ? 'primary' : ''"
-              ><v-icon class="mr-1">{{
-                currentCollection.is_public ? "mdi-lock-open" : "mdi-lock"
-              }}</v-icon
-              >{{
+            >
+              <v-icon class="mr-1">
+                {{ currentCollection.is_public ? "mdi-lock-open" : "mdi-lock" }}
+              </v-icon>
+              {{
                 currentCollection.is_public
                   ? t("collection.public")
                   : t("collection.private")
-              }}</v-chip
-            >
+              }}
+            </v-chip>
           </div>
-          <div class="text-center" v-else>
+          <div v-else class="text-center">
             <v-text-field
-              class="mt-2"
               v-model="updatedCollection.name"
+              class="mt-2"
               :label="t('collection.name')"
               variant="outlined"
               required
@@ -273,8 +276,8 @@ async function updateCollection() {
               @keyup.enter="updateCollection"
             />
             <v-text-field
-              class="mt-4"
               v-model="updatedCollection.description"
+              class="mt-4"
               :label="t('collection.description')"
               variant="outlined"
               required
@@ -283,8 +286,8 @@ async function updateCollection() {
               @keyup.enter="updateCollection"
             />
             <v-switch
-              class="mt-2"
               v-model="updatedCollection.is_public"
+              class="mt-2"
               color="primary"
               false-icon="mdi-lock"
               true-icon="mdi-lock-open"
@@ -305,7 +308,7 @@ async function updateCollection() {
             <template v-for="field in collectionInfoFields" :key="field.key">
               <div>
                 <v-chip size="small" class="mr-2 px-0" label>
-                  <v-chip label>{{ field.label }}</v-chip
+                  <v-chip label> {{ field.label }} </v-chip
                   ><span class="px-2">{{
                     currentCollection[
                       field.key as keyof typeof currentCollection
@@ -322,7 +325,7 @@ async function updateCollection() {
         </v-card>
       </v-col>
     </v-row>
-    <r-section
+    <RSection
       v-if="
         auth.scopes.includes('collections.write') &&
         currentCollection.user__username === auth.user?.username
@@ -331,8 +334,8 @@ async function updateCollection() {
       icon-color="red"
       :title="t('collection.danger-zone')"
       elevation="0"
-      titleDivider
-      bgColor="bg-toplayer"
+      title-divider
+      bg-color="bg-toplayer"
       class="mx-2"
     >
       <template #content>
@@ -344,16 +347,16 @@ async function updateCollection() {
               emitter?.emit('showDeleteCollectionDialog', currentCollection)
             "
           >
-            <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
+            <v-icon class="text-romm-red mr-2"> mdi-delete </v-icon>
             {{ t("collection.delete-collection") }}
           </v-btn>
         </div>
       </template>
-    </r-section>
+    </RSection>
   </v-navigation-drawer>
 
-  <delete-collection-dialog />
-  <delete-smart-collection-dialog />
+  <DeleteCollectionDialog />
+  <DeleteSmartCollectionDialog />
 </template>
 <style scoped>
 .append-top-right {

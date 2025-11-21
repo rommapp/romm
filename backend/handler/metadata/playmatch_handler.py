@@ -7,7 +7,7 @@ import yarl
 from fastapi import HTTPException, status
 
 from config import PLAYMATCH_API_ENABLED
-from handler.metadata.base_hander import MetadataHandler
+from handler.metadata.base_handler import MetadataHandler
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
@@ -48,10 +48,23 @@ class PlaymatchHandler(MetadataHandler):
     def __init__(self):
         self.base_url = "https://playmatch.retrorealm.dev/api"
         self.identify_url = f"{self.base_url}/identify/ids"
+        self.healthcheck_url = f"{self.base_url}/health"
 
     @classmethod
     def is_enabled(cls) -> bool:
         return PLAYMATCH_API_ENABLED
+
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        try:
+            response = await self._request(self.healthcheck_url, {})
+        except Exception as e:
+            log.error("Error checking Playmatch API: %s", e)
+            return False
+
+        return bool(response)
 
     async def _request(self, url: str, query: dict) -> dict:
         """
@@ -78,9 +91,7 @@ class PlaymatchHandler(MetadataHandler):
             60,
         )
 
-        headers = {
-            "user-agent": "RomM/" + get_version() + " (https://github.com/rommapp/romm)"
-        }
+        headers = {"user-agent": f"RomM/{get_version()}"}
 
         try:
             res = await httpx_client.get(
@@ -110,11 +121,7 @@ class PlaymatchHandler(MetadataHandler):
             return PlaymatchRomMatch(igdb_id=None)
 
         first_file = next(
-            (
-                file
-                for file in files
-                if file.file_size_bytes is not None and file.file_size_bytes > 0
-            ),
+            (file for file in files if file.file_size_bytes > 0),
             None,
         )
         if first_file is None:

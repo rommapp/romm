@@ -26,16 +26,17 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
 }
 </script>
 <template>
-  <r-section icon="mdi-controller" :title="t('common.platforms')">
+  <RSection icon="mdi-controller" :title="t('common.platforms')">
     <template #toolbar-append>
       <v-btn
         aria-label="Toggle platforms grid view"
         icon
         rounded="0"
         @click="toggleGridPlatforms"
-        ><v-icon>{{
-          gridPlatforms ? "mdi-view-comfy" : "mdi-view-column"
-        }}</v-icon>
+      >
+        <v-icon>
+          {{ gridPlatforms ? "mdi-view-comfy" : "mdi-view-column" }}
+        </v-icon>
       </v-btn>
     </template>
     <template #content>
@@ -54,17 +55,18 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
           :style="{
-            zIndex: isHovering && hoveringPlatformId === platform.id ? 1100 : 1,
+            zIndex: isHovering && hoveringPlatformId === platform.id ? 1000 : 1,
           }"
         >
-          <platform-card
+          <PlatformCard
             :key="platform.slug"
             :platform="platform"
-            :enable3DTilt="enable3DEffect"
+            :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
+            @focus="onHover"
           />
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

@@ -28,6 +28,10 @@ async function createCollection({
     headers: {
       "Content-Type": "multipart/form-data",
     },
+    params: {
+      is_public: collection.is_public || false,
+      is_favorite: collection.is_favorite || false,
+    },
   });
 }
 
@@ -44,11 +48,13 @@ async function createSmartCollection({
     "filter_criteria",
     JSON.stringify(smartCollection.filter_criteria),
   );
-  formData.append("is_public", String(smartCollection.is_public || false));
 
   return api.post("/collections/smart", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
+    },
+    params: {
+      is_public: smartCollection.is_public,
     },
   });
 }

@@ -23,13 +23,14 @@ function setVerified() {
     :color="filterVerified ? 'primary' : ''"
     @click="setVerified"
   >
-    <v-icon :color="filterVerified ? 'primary' : ''">mdi-check-decagram</v-icon
+    <v-icon :color="filterVerified ? 'primary' : ''">
+      mdi-check-decagram </v-icon
     ><span
       class="ml-2"
       :class="{
         'text-primary': filterVerified,
       }"
       >{{ t("platform.show-verified") }}</span
-    ></v-btn
-  >
+    >
+  </v-btn>
 </template>

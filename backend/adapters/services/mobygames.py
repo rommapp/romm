@@ -12,6 +12,7 @@ from fastapi import HTTPException, status
 from adapters.services.mobygames_types import MobyGame, MobyGameBrief, MobyOutputFormat
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
+from utils import get_version
 from utils.context import ctx_aiohttp_session
 
 
@@ -46,6 +47,7 @@ class MobyGamesService:
         try:
             res = await aiohttp_session.get(
                 url,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )
@@ -85,6 +87,7 @@ class MobyGamesService:
             )
             res = await aiohttp_session.get(
                 url,
+                headers={"user-agent": f"RomM/{get_version()}"},
                 middlewares=(auth_middleware,),
                 timeout=ClientTimeout(total=request_timeout),
             )
@@ -102,6 +105,19 @@ class MobyGamesService:
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
+
+    async def list_groups(self, limit: int | None = None) -> list[dict]:
+        """Retrieve a list of groups.
+
+        Reference: https://www.mobygames.com/info/api/#groups
+        """
+        params: dict[str, list[str]] = {}
+        if limit is not None:
+            params["limit"] = [str(limit)]
+
+        url = self.url.joinpath("groups").with_query(**params)
+        response = await self._request(str(url))
+        return response.get("groups", [])
 
     @overload
     async def list_games(

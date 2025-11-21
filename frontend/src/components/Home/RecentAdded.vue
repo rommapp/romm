@@ -38,16 +38,17 @@ function onClosedMenu() {
 }
 </script>
 <template>
-  <r-section icon="mdi-shimmer" :title="t('home.recently-added')">
+  <RSection icon="mdi-shimmer" :title="t('home.recently-added')">
     <template #toolbar-append>
       <v-btn
         aria-label="Toggle recently games added grid view"
         icon
         rounded="0"
         @click="toggleGridRecentRoms"
-        ><v-icon>{{
-          gridRecentRoms ? "mdi-view-comfy" : "mdi-view-column"
-        }}</v-icon>
+      >
+        <v-icon>
+          {{ gridRecentRoms ? "mdi-view-comfy" : "mdi-view-column" }}
+        </v-icon>
       </v-btn>
     </template>
     <template #content>
@@ -69,26 +70,28 @@ function onClosedMenu() {
             zIndex:
               (isHovering && hoveringRomId === rom.id) ||
               (openedMenu && openedMenuRomId === rom.id)
-                ? 1100
+                ? 1000
                 : 1,
           }"
         >
-          <game-card
+          <GameCard
             :key="rom.updated_at"
             :rom="rom"
-            titleOnHover
-            pointerOnHover
-            withLink
-            transformScale
-            showChips
-            showActionBar
-            :enable3DTilt="enable3DEffect"
+            title-on-hover
+            pointer-on-hover
+            with-link
+            transform-scale
+            show-chips
+            show-action-bar
+            :enable3-d-tilt="enable3DEffect"
+            force-boxart="cover_path"
             @hover="onHover"
+            @focus="onHover"
             @openedmenu="onOpenedMenu"
             @closedmenu="onClosedMenu"
           />
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

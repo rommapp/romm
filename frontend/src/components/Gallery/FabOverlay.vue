@@ -42,7 +42,7 @@ function scrollToTop() {
   });
 }
 async function onScan() {
-  scanningStore.set(true);
+  scanningStore.setScanning(true);
   const romCount = romsStore.selectedRoms.length;
   emitter?.emit("snackbarShow", {
     msg: `Scanning ${romCount} game${romCount > 1 ? "s" : ""}...`,
@@ -60,7 +60,7 @@ async function onScan() {
 }
 
 function selectAllRoms() {
-  romsStore.setSelection(romsStore.allRoms);
+  romsStore.setSelection(romsStore.filteredRoms);
 }
 
 function resetSelection() {
@@ -68,23 +68,23 @@ function resetSelection() {
   emitter?.emit("openFabMenu", false);
 }
 
-async function addToFavourites() {
+async function addToFavorites() {
   if (!favoriteCollection.value) return;
   favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.concat(
     selectedRoms.value.map((r) => r.id),
   );
   await collectionApi
     .updateCollection({ collection: favoriteCollection.value as Collection })
-    .then(({ data }) => {
+    .then(() => {
       emitter?.emit("snackbarShow", {
-        msg: "Roms added to favourites successfully!",
+        msg: "Roms added to favorites successfully!",
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
       });
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
@@ -97,19 +97,19 @@ async function addToFavourites() {
     });
 }
 
-async function removeFromFavourites() {
+async function removeFromFavorites() {
   if (!favoriteCollection.value) return;
   favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.filter(
     (value) => !selectedRoms.value.map((r) => r.id).includes(value),
   );
-  if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
+  if (romsStore.currentCollection?.is_favorite) {
     romsStore.remove(selectedRoms.value);
   }
   await collectionApi
     .updateCollection({ collection: favoriteCollection.value as Collection })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
-        msg: "Roms removed from favourites successfully!",
+        msg: "Roms removed from favorites successfully!",
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
@@ -118,7 +118,7 @@ async function removeFromFavourites() {
       collectionsStore.updateCollection(data);
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
@@ -146,9 +146,9 @@ async function onDownload() {
     }"
   >
     <v-speed-dial
+      v-model="fabMenu"
       location="left bottom"
       transition="fade-transition"
-      v-model="fabMenu"
     >
       <template #activator="{ props }">
         <v-fab-transition>
@@ -161,14 +161,15 @@ async function onDownload() {
             icon
             :size="40"
             rounded="0"
-            >{{ selectedRoms.length }}</v-btn
           >
+            {{ selectedRoms.length }}
+          </v-btn>
         </v-fab-transition>
       </template>
 
       <v-btn
-        :title="t('rom.unselect-all')"
         key="1"
+        :title="t('rom.unselect-all')"
         color="toplayer"
         elevation="8"
         icon="mdi-select"
@@ -178,8 +179,8 @@ async function onDownload() {
         @click.stop="resetSelection"
       />
       <v-btn
-        :title="t('rom.select-all')"
         key="2"
+        :title="t('rom.select-all')"
         color="toplayer"
         elevation="8"
         icon="mdi-select-all"
@@ -189,30 +190,30 @@ async function onDownload() {
         @click.stop="selectAllRoms"
       />
       <v-btn
-        :title="t('rom.add-to-fav')"
         key="3"
+        :title="t('rom.add-to-favorites')"
         color="toplayer"
         elevation="8"
         icon="mdi-star"
         class="rounded"
         :size="35"
         rounded="0"
-        @click="addToFavourites"
+        @click="addToFavorites"
       />
       <v-btn
-        :title="t('rom.remove-from-fav')"
         key="4"
+        :title="t('rom.remove-from-favorites')"
         color="toplayer"
         elevation="8"
         icon="mdi-star-remove-outline"
         class="rounded"
         :size="35"
         rounded="0"
-        @click="removeFromFavourites"
+        @click="removeFromFavorites"
       />
       <v-btn
-        :title="t('rom.add-to-collection')"
         key="5"
+        :title="t('rom.add-to-collection')"
         color="toplayer"
         elevation="8"
         icon="mdi-bookmark-plus"
@@ -224,8 +225,8 @@ async function onDownload() {
         "
       />
       <v-btn
-        :title="t('rom.remove-from-collection')"
         key="6"
+        :title="t('rom.remove-from-collection')"
         color="toplayer"
         elevation="8"
         icon="mdi-bookmark-remove-outline"
@@ -240,8 +241,8 @@ async function onDownload() {
         "
       />
       <v-btn
-        :title="t('rom.download')"
         key="7"
+        :title="t('rom.download')"
         color="toplayer"
         elevation="8"
         icon="mdi-download"
@@ -251,9 +252,9 @@ async function onDownload() {
         @click="onDownload"
       />
       <v-btn
-        :title="t('rom.refresh-metadata')"
-        key="8"
         v-if="auth.scopes.includes('roms.write')"
+        key="8"
+        :title="t('rom.refresh-metadata')"
         color="toplayer"
         elevation="8"
         icon="mdi-magnify-scan"
@@ -263,9 +264,9 @@ async function onDownload() {
         @click="onScan"
       />
       <v-btn
-        :title="t('rom.delete')"
-        key="9"
         v-if="auth.scopes.includes('roms.write')"
+        key="9"
+        :title="t('rom.delete')"
         color="toplayer"
         elevation="8"
         icon
@@ -291,16 +292,17 @@ async function onDownload() {
   >
     <v-scroll-y-reverse-transition>
       <v-btn
-        icon
         v-show="!scrolledToTop"
+        icon
         class="border-selected rounded ml-2"
         color="background"
         elevation="8"
         :size="40"
         rounded="0"
         @click="scrollToTop"
-        ><v-icon color="primary">mdi-chevron-up</v-icon></v-btn
       >
+        <v-icon color="primary"> mdi-chevron-up </v-icon>
+      </v-btn>
     </v-scroll-y-reverse-transition>
   </div>
 </template>

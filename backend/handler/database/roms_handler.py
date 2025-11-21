@@ -25,13 +25,14 @@ from sqlalchemy.sql.elements import KeyedColumnElement
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
-from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from utils.database import (
     json_array_contains_all,
     json_array_contains_any,
+    json_array_contains_value
 )
 
 from .base_handler import DBBaseHandler
@@ -172,6 +173,16 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Rom | None:
         return session.scalar(query.filter_by(id=id).limit(1))
 
+    @begin_session
+    @with_details
+    def get_roms_by_ids(
+        self, ids: list[int], *, query: Query = None, session: Session = None
+    ) -> Sequence[Rom]:
+        """Get multiple ROMs by their IDs."""
+        if not ids:
+            return []
+        return session.scalars(query.filter(Rom.id.in_(ids))).all()
+
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
 
@@ -231,32 +242,31 @@ class DBRomsHandler(DBBaseHandler):
             Rom.ra_id.isnot(None),
             Rom.launchbox_id.isnot(None),
             Rom.hasheous_id.isnot(None),
+            Rom.tgdb_id.isnot(None),
+            Rom.flashpoint_id.isnot(None),
         )
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def filter_by_favourite(
+    def filter_by_favorite(
         self, query: Query, session: Session, value: bool, user_id: int | None
     ) -> Query:
-        """Filter based on whether the rom is in the user's Favourites collection."""
+        """Filter based on whether the rom is in the user's favorites collection."""
         if not user_id:
             return query
 
         from . import db_collection_handler
 
-        favourites_collection = db_collection_handler.get_collection_by_name(
-            "favourites", user_id
-        )
-
-        if favourites_collection:
-            predicate = Rom.id.in_(favourites_collection.rom_ids)
+        favorites_collection = db_collection_handler.get_favorite_collection(user_id)
+        if favorites_collection:
+            predicate = Rom.id.in_(favorites_collection.rom_ids)
             if not value:
                 predicate = not_(predicate)
             return query.filter(predicate)
 
-        # If no Favourites collection exists, return the original query if non-favourites
-        # were requested, or an empty query if favourites were requested.
+        # If no favorites collection exists, return the original query if non-favorites
+        # were requested, or an empty query if favorites were requested.
         if not value:
             return query
         return query.filter(false())
@@ -297,6 +307,7 @@ class DBRomsHandler(DBBaseHandler):
             "whdload_match",
             "ra_match",
             "fbneo_match",
+            "puredos_match",
         ]
 
         if ROMM_DB_DRIVER == "postgresql":
@@ -410,7 +421,7 @@ class DBRomsHandler(DBBaseHandler):
         smart_collection_id: int | None = None,
         search_term: str | None = None,
         matched: bool | None = None,
-        favourite: bool | None = None,
+        favorite: bool | None = None,
         duplicate: bool | None = None,
         playable: bool | None = None,
         has_ra: bool | None = None,
@@ -428,6 +439,8 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int | None = None,
         session: Session = None,
     ) -> Query[Rom]:
+        from handler.scan_handler import MetadataSource
+
         if platform_id:
             query = self.filter_by_platform_id(query, platform_id)
 
@@ -450,9 +463,9 @@ class DBRomsHandler(DBBaseHandler):
         if matched is not None:
             query = self.filter_by_matched(query, value=matched)
 
-        if favourite is not None:
-            query = self.filter_by_favourite(
-                query, session=session, value=favourite, user_id=user_id
+        if favorite is not None:
+            query = self.filter_by_favorite(
+                query, session=session, value=favorite, user_id=user_id
             )
 
         if duplicate is not None:
@@ -497,6 +510,7 @@ class DBRomsHandler(DBBaseHandler):
                     base_subquery.c.hasheous_id,
                     base_subquery.c.launchbox_id,
                     base_subquery.c.tgdb_id,
+                    base_subquery.c.flashpoint_id,
                 )
                 .outerjoin(
                     RomUser,
@@ -509,40 +523,49 @@ class DBRomsHandler(DBBaseHandler):
                     .over(
                         partition_by=func.coalesce(
                             _create_metadata_id_case(
-                                "igdb",
+                                MetadataSource.IGDB,
                                 base_subquery.c.igdb_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "ss", base_subquery.c.ss_id, base_subquery.c.platform_id
+                                MetadataSource.SS,
+                                base_subquery.c.ss_id,
+                                base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "moby",
+                                MetadataSource.MOBY,
                                 base_subquery.c.moby_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "ra", base_subquery.c.ra_id, base_subquery.c.platform_id
+                                MetadataSource.RA,
+                                base_subquery.c.ra_id,
+                                base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "hasheous",
+                                MetadataSource.HASHEOUS,
                                 base_subquery.c.hasheous_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "launchbox",
+                                MetadataSource.LAUNCHBOX,
                                 base_subquery.c.launchbox_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "tgdb",
+                                MetadataSource.TGDB,
                                 base_subquery.c.tgdb_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
-                                "romm-",
+                                MetadataSource.FLASHPOINT,
+                                base_subquery.c.flashpoint_id,
                                 base_subquery.c.platform_id,
+                            ),
+                            _create_metadata_id_case(
+                                "romm",
                                 base_subquery.c.id,
+                                base_subquery.c.platform_id,
                             ),
                         ),
                         order_by=[
@@ -660,7 +683,7 @@ class DBRomsHandler(DBBaseHandler):
             virtual_collection_id=kwargs.get("virtual_collection_id", None),
             search_term=kwargs.get("search_term", None),
             matched=kwargs.get("matched", None),
-            favourite=kwargs.get("favourite", None),
+            favorite=kwargs.get("favorite", None),
             duplicate=kwargs.get("duplicate", None),
             playable=kwargs.get("playable", None),
             has_ra=kwargs.get("has_ra", None),
@@ -843,6 +866,10 @@ class DBRomsHandler(DBBaseHandler):
         return session.merge(rom_file)
 
     @begin_session
+    def get_rom_files(self, rom_id: int, session: Session = None) -> Sequence[RomFile]:
+        return session.scalars(select(RomFile).filter_by(rom_id=rom_id)).all()
+
+    @begin_session
     def get_rom_file_by_id(self, id: int, session: Session = None) -> RomFile | None:
         return session.scalar(select(RomFile).filter_by(id=id).limit(1))
 
@@ -870,3 +897,117 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
         return purged_rom_files
+
+    # Note management methods
+    @begin_session
+    def get_rom_notes(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        search: str = "",
+        tags: list[str] | None = None,
+        session: Session = None,
+    ) -> Sequence[RomNote]:
+        query = session.query(RomNote).filter(RomNote.rom_id == rom_id)
+
+        if public_only:
+            query = query.filter(RomNote.is_public)
+        else:
+            # Include user's own notes (private + public) and public notes from others
+            query = query.filter(or_(RomNote.user_id == user_id, RomNote.is_public))
+
+        if search:
+            query = query.filter(
+                or_(RomNote.title.contains(search), RomNote.content.contains(search))
+            )
+
+        if tags:
+            for tag in tags:
+                query = query.filter(
+                    json_array_contains_value(RomNote.tags, tag, session=session)
+                )
+
+        return query.order_by(RomNote.updated_at.desc()).all()
+
+    @begin_session
+    def create_rom_note(
+        self,
+        rom_id: int,
+        user_id: int,
+        title: str,
+        content: str = "",
+        is_public: bool = False,
+        tags: list[str] | None = None,
+        session: Session = None,
+    ) -> dict:
+        note = RomNote(
+            rom_id=rom_id,
+            user_id=user_id,
+            title=title,
+            content=content,
+            is_public=is_public,
+            tags=tags or [],
+        )
+        session.add(note)
+        session.flush()  # To get the ID
+
+        # Return dict to avoid detached instance issues
+        return {
+            "id": note.id,
+            "title": note.title,
+            "content": note.content,
+            "is_public": note.is_public,
+            "tags": note.tags,
+            "created_at": note.created_at,
+            "updated_at": note.updated_at,
+            "rom_id": note.rom_id,
+            "user_id": note.user_id,
+        }
+
+    @begin_session
+    def update_rom_note(
+        self,
+        note_id: int,
+        user_id: int,
+        session: Session = None,
+        **fields,
+    ) -> dict | None:
+        note = (
+            session.query(RomNote)
+            .filter(RomNote.id == note_id, RomNote.user_id == user_id)
+            .first()
+        )
+
+        if not note:
+            return None
+
+        for field, value in fields.items():
+            if hasattr(note, field):
+                setattr(note, field, value)
+
+        session.flush()  # Ensure changes are committed
+
+        # Return dict to avoid detached instance issues
+        return {
+            "id": note.id,
+            "title": note.title,
+            "content": note.content,
+            "is_public": note.is_public,
+            "tags": note.tags,
+            "created_at": note.created_at,
+            "updated_at": note.updated_at,
+            "rom_id": note.rom_id,
+            "user_id": note.user_id,
+        }
+
+    @begin_session
+    def delete_rom_note(
+        self, note_id: int, user_id: int, session: Session = None
+    ) -> bool:
+        result = session.execute(
+            delete(RomNote).where(
+                and_(RomNote.id == note_id, RomNote.user_id == user_id)
+            )
+        )
+        return result.rowcount > 0

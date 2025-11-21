@@ -64,7 +64,7 @@ onBeforeMount(() => {
             v-model="username"
             :label="t('settings.username')"
             type="text"
-            :rules="usersStore.nameRules"
+            :rules="usersStore.usernameRules"
             required
             variant="underlined"
             class="mt-4"
@@ -85,9 +85,9 @@ onBeforeMount(() => {
             :rules="usersStore.passwordRules"
             required
             :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
-            @click:append-inner="visiblePassword = !visiblePassword"
             variant="underlined"
             class="mt-4"
+            @click:append-inner="visiblePassword = !visiblePassword"
           />
           <v-btn
             type="submit"

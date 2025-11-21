@@ -5,14 +5,16 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { ref, onMounted, inject, onUnmounted, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import Excluded from "@/components/Settings/LibraryManagement/Config/Excluded.vue";
 import PlatformBinding from "@/components/Settings/LibraryManagement/Config/PlatformBinding.vue";
 import PlatformVersions from "@/components/Settings/LibraryManagement/Config/PlatformVersions.vue";
-import GameTable from "@/components/common/Game/Table.vue";
+import GameTable from "@/components/common/Game/VirtualTable.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import storeConfig from "@/stores/config";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
@@ -20,10 +22,22 @@ import storeRoms, { MAX_FETCH_LIMIT } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
-const tab = ref<"config" | "missing">("config");
+const route = useRoute();
+const router = useRouter();
+
+// Valid tab values
+const validTabs = ["config", "missing"] as const;
+
+// Initialize tab from query parameter or default to "config"
+const tab = ref<"config" | "missing">(
+  validTabs.includes(route.query.tab as any)
+    ? (route.query.tab as "config" | "missing")
+    : "config",
+);
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
 const romsStore = storeRoms();
-const { allRoms, fetchingRoms, fetchTotalRoms, filteredRoms } =
-  storeToRefs(romsStore);
+const { fetchingRoms, fetchTotalRoms, filteredRoms } = storeToRefs(romsStore);
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
@@ -35,7 +49,7 @@ let timeout: ReturnType<typeof setTimeout> = setTimeout(() => {}, 400);
 const allPlatforms = computed(() =>
   [
     ...new Map(
-      allRoms.value
+      filteredRoms.value
         .map((rom) => platformsStore.get(rom.platform_id))
         .filter((platform) => !!platform)
         .map((platform) => [platform!.id, platform]),
@@ -149,13 +163,36 @@ function resetMissingRoms() {
 
 const { y: documentY } = useScroll(document.body, { throttle: 500 });
 
+// Watch for tab changes and update URL
+watch(tab, (newTab) => {
+  router.replace({
+    path: route.path,
+    query: {
+      ...route.query,
+      tab: newTab,
+    },
+  });
+});
+
+// Watch for URL changes and update tab
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab && validTabs.includes(newTab as any) && tab.value !== newTab) {
+      tab.value = newTab as "config" | "missing";
+    }
+  },
+  { immediate: true },
+);
+
 watch(documentY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
     scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
+      documentY.value + window.innerHeight >=
+        document.body.scrollHeight - 300 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
@@ -165,7 +202,10 @@ watch(documentY, () => {
 
 onMounted(() => {
   resetMissingRoms();
-  fetchRoms();
+  // Only fetch ROMs if we're on the missing tab
+  if (tab.value === "missing") {
+    fetchRoms();
+  }
 });
 
 onUnmounted(() => {
@@ -195,18 +235,42 @@ onUnmounted(() => {
       </v-tabs>
     </v-col>
     <v-col>
+      <v-alert
+        v-if="!config.CONFIG_FILE_MOUNTED"
+        type="error"
+        variant="tonal"
+        class="my-2"
+      >
+        <template #title>Configuration file not mounted!</template>
+        <template #text>
+          The config.yml file has not been mounted. Any changes made to the
+          configuration will not persist after the application restarts.
+        </template>
+      </v-alert>
+      <v-alert
+        v-else-if="!config.CONFIG_FILE_WRITABLE"
+        type="warning"
+        variant="tonal"
+        class="my-2"
+      >
+        <template #title>Configuration file not writable!</template>
+        <template #text>
+          The config.yml file is not writable. Any changes made to the
+          configuration will not persist after the application restarts.
+        </template>
+      </v-alert>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="config">
-          <platform-binding class="mt-2" />
-          <platform-versions class="mt-4" />
-          <excluded class="mt-4" />
+          <PlatformBinding class="mt-2" />
+          <PlatformVersions class="mt-4" />
+          <Excluded class="mt-4" />
         </v-tabs-window-item>
         <v-tabs-window-item value="missing">
           <v-row class="mt-2 mr-2 align-center" no-gutters>
             <v-col>
               <v-select
-                class="mx-2"
                 v-model="selectedPlatform"
+                class="mx-2"
                 hide-details
                 prepend-inner-icon="mdi-controller"
                 clearable
@@ -224,7 +288,7 @@ onUnmounted(() => {
                     :subtitle="item.raw.fs_slug"
                   >
                     <template #prepend>
-                      <platform-icon
+                      <PlatformIcon
                         :key="item.raw.slug"
                         :size="35"
                         :slug="item.raw.slug"
@@ -233,12 +297,12 @@ onUnmounted(() => {
                       />
                     </template>
                     <template #append>
-                      <missing-from-f-s-icon
+                      <MissingFromFSIcon
                         v-if="item.raw.missing_from_fs"
                         text="Missing platform from filesystem"
                         chip
                         chip-label
-                        chipDensity="compact"
+                        chip-density="compact"
                         class="ml-2"
                       />
                       <v-chip class="ml-2" size="x-small" label>
@@ -248,7 +312,7 @@ onUnmounted(() => {
                   </v-list-item>
                 </template>
                 <template #chip="{ item }">
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
@@ -272,9 +336,9 @@ onUnmounted(() => {
               </v-btn>
             </v-col>
           </v-row>
-          <game-table class="mx-2 mt-2" show-platform-icon />
-          <load-more-btn :fetchRoms="fetchRoms" />
-          <fab-overlay />
+          <GameTable class="mx-2 mt-2" show-platform-icon />
+          <LoadMoreBtn :fetch-roms="fetchRoms" />
+          <FabOverlay />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>

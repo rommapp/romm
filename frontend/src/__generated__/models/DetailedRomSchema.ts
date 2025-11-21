@@ -3,7 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { RomFileSchema } from './RomFileSchema';
+import type { RomFlashpointMetadata } from './RomFlashpointMetadata';
+import type { RomGamelistMetadata } from './RomGamelistMetadata';
 import type { RomHasheousMetadata } from './RomHasheousMetadata';
+import type { RomHLTBMetadata } from './RomHLTBMetadata';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
@@ -16,7 +19,7 @@ import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { SiblingRomSchema } from './SiblingRomSchema';
 import type { StateSchema } from './StateSchema';
 import type { UserCollectionSchema } from './UserCollectionSchema';
-import type { UserNotesSchema } from './UserNotesSchema';
+import type { UserNoteSchema } from './UserNoteSchema';
 export type DetailedRomSchema = {
     id: number;
     igdb_id: (number | null);
@@ -27,10 +30,12 @@ export type DetailedRomSchema = {
     launchbox_id: (number | null);
     hasheous_id: (number | null);
     tgdb_id: (number | null);
+    flashpoint_id: (string | null);
+    hltb_id: (number | null);
+    gamelist_id: (string | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
-    platform_name: string;
     platform_custom_name: (string | null);
     platform_display_name: string;
     fs_name: string;
@@ -50,12 +55,16 @@ export type DetailedRomSchema = {
     ss_metadata: (RomSSMetadata | null);
     launchbox_metadata: (RomLaunchboxMetadata | null);
     hasheous_metadata: (RomHasheousMetadata | null);
+    flashpoint_metadata: (RomFlashpointMetadata | null);
+    hltb_metadata: (RomHLTBMetadata | null);
+    gamelist_metadata: (RomGamelistMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
     has_manual: boolean;
     path_manual: (string | null);
     url_manual: (string | null);
+    is_identifying?: boolean;
     is_unidentified: boolean;
     is_identified: boolean;
     revision: (string | null);
@@ -65,7 +74,13 @@ export type DetailedRomSchema = {
     crc_hash: (string | null);
     md5_hash: (string | null);
     sha1_hash: (string | null);
+    /**
+     * @deprecated
+     */
     multi: boolean;
+    has_simple_single_file: boolean;
+    has_nested_single_file: boolean;
+    has_multiple_files: boolean;
     files: Array<RomFileSchema>;
     full_path: string;
     created_at: string;
@@ -78,7 +93,7 @@ export type DetailedRomSchema = {
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;
     user_screenshots: Array<ScreenshotSchema>;
-    user_notes: Array<UserNotesSchema>;
     user_collections: Array<UserCollectionSchema>;
+    all_user_notes: Array<UserNoteSchema>;
 };
 

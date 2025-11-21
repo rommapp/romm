@@ -11,7 +11,7 @@ import Skeleton from "@/components/Gallery/Skeleton.vue";
 import EmptyCollection from "@/components/common/EmptyStates/EmptyCollection.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import GameTable from "@/components/common/Game/Table.vue";
+import GameTable from "@/components/common/Game/VirtualTable.vue";
 import { type CollectionType } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
@@ -30,7 +30,6 @@ const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const romsStore = storeRoms();
 const {
-  allRoms,
   filteredRoms,
   selectedRoms,
   currentPlatform,
@@ -145,8 +144,9 @@ watch(documentY, () => {
   window.setTimeout(async () => {
     scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
-      fetchTotalRoms.value > allRoms.value.length
+      documentY.value + window.innerHeight >=
+        document.body.scrollHeight - 300 &&
+      fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
     }
@@ -178,12 +178,12 @@ onMounted(async () => {
 
         if (
           (props.currentCollection?.id != routeCollectionId ||
-            allRoms.value.length === 0) &&
+            filteredRoms.value.length === 0) &&
           collection
         ) {
           resetGallery();
           props.setCurrentCollection(collection);
-          document.title = `${collection.name}`;
+          document.title = collection.name;
           await fetchRoms();
         }
       }
@@ -208,12 +208,12 @@ onBeforeRouteUpdate(async (to, from) => {
 
         if (
           (props.currentCollection?.id != routeCollectionId ||
-            allRoms.value.length === 0) &&
+            filteredRoms.value.length === 0) &&
           collection
         ) {
           resetGallery();
           props.setCurrentCollection(collection);
-          document.title = `${collection.name}`;
+          document.title = collection.name;
           await fetchRoms();
         }
       }
@@ -225,11 +225,11 @@ onBeforeRouteUpdate(async (to, from) => {
 
 <template>
   <template v-if="!noCollectionError">
-    <gallery-app-bar-collection />
+    <GalleryAppBarCollection />
     <template
       v-if="currentCollection && fetchingRoms && filteredRoms.length === 0"
     >
-      <skeleton :romCount="currentCollection.rom_count" />
+      <Skeleton :rom-count="currentCollection.rom_count" />
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">
@@ -248,26 +248,27 @@ onBeforeRouteUpdate(async (to, from) => {
               zIndex:
                 (isHovering && hoveringRomId === rom.id) ||
                 (openedMenu && openedMenuRomId === rom.id)
-                  ? 1100
+                  ? 1000
                   : 1,
             }"
           >
-            <game-card
+            <GameCard
               :key="rom.id"
               :rom="rom"
-              titleOnHover
-              pointerOnHover
-              withLink
-              transformScale
-              showActionBar
-              showChips
-              :withBorderPrimary="selectedRoms?.includes(rom)"
-              :sizeActionBar="currentView"
-              :enable3DTilt="enable3DEffect"
+              title-on-hover
+              pointer-on-hover
+              with-link
+              transform-scale
+              show-action-bar
+              show-chips
+              :with-border-primary="selectedRoms?.includes(rom)"
+              :size-action-bar="currentView"
+              :enable3-d-tilt="enable3DEffect"
               @click="onGameClick"
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"
               @hover="onHover"
+              @focus="onHover"
               @openedmenu="onOpenedMenu"
               @closedmenu="onClosedMenu"
             />
@@ -275,20 +276,20 @@ onBeforeRouteUpdate(async (to, from) => {
         </v-row>
 
         <!-- Gallery list view -->
-        <v-row class="mr-13" v-if="currentView == 2" no-gutters>
+        <v-row v-if="currentView == 2" class="mr-13" no-gutters>
           <v-col class="my-4">
-            <game-table show-platform-icon class="mx-2" />
+            <GameTable show-platform-icon class="mx-2" />
           </v-col>
         </v-row>
 
-        <load-more-btn :fetchRoms="fetchRoms" />
-        <fab-overlay />
+        <LoadMoreBtn :fetch-roms="fetchRoms" />
+        <FabOverlay />
       </template>
       <template v-else>
-        <empty-game v-if="props.collections.length > 0 && !fetchingRoms" />
+        <EmptyGame v-if="props.collections.length > 0 && !fetchingRoms" />
       </template>
     </template>
   </template>
 
-  <empty-collection v-else />
+  <EmptyCollection v-else />
 </template>

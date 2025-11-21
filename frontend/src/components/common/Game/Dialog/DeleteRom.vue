@@ -32,7 +32,7 @@ emitter?.on("showDeleteRomDialog", (romsToDelete) => {
 });
 const HEADERS = [
   {
-    title: "Name",
+    title: t("common.name"),
     align: "start",
     sortable: true,
     key: "name",
@@ -44,15 +44,20 @@ async function deleteRoms() {
     .deleteRoms({ roms: roms.value, deleteFromFs: romsToDeleteFromFs.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
-        msg: romsToDeleteFromFs.value
-          ? `${response.data.successful_items} roms deleted from filesystem`
-          : `${response.data.successful_items} roms deleted from RomM`,
+        msg:
+          romsToDeleteFromFs.value.length > 0
+            ? t("rom.deleted-from-filesystem", {
+                count: response.data.successful_items,
+              })
+            : t("rom.deleted-from-database", {
+                count: response.data.successful_items,
+              }),
         icon: "mdi-check-bold",
         color: "green",
       });
       if (excludeOnDelete.value) {
         for (const rom of roms.value) {
-          if (!rom.multi) {
+          if (rom.has_simple_single_file) {
             configApi.addExclusion({
               exclusionValue: rom.fs_name,
               exclusionType: "EXCLUDED_SINGLE_FILES",
@@ -89,7 +94,7 @@ async function deleteRoms() {
       }
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: error.response.data.detail,
         icon: "mdi-close-circle",
@@ -107,61 +112,58 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-delete"
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row no-gutters class="justify-center">
-        <span>Removing</span>
-        <span class="text-primary mx-1">{{ roms.length }}</span>
-        <span>games from RomM</span>
+        <span>{{ t("rom.removing-title", roms.length) }}</span>
       </v-row>
     </template>
     <template #prepend>
       <v-list-item class="text-caption text-center">
-        <span
-          >Select the games you want to remove from your filesystem, otherwise
-          they will only be deleted from RomM database.</span
-        >
+        <span>{{ t("rom.delete-select-instruction") }}</span>
       </v-list-item>
     </template>
     <template #content>
       <v-data-table-virtual
+        v-model="romsToDeleteFromFs"
         :item-value="(item) => item.id"
         :items="roms"
         :width="mdAndUp ? '60vw' : '95vw'"
         :headers="HEADERS"
-        v-model="romsToDeleteFromFs"
         show-select
       >
         <template #item.name="{ item }">
-          <rom-list-item :rom="item" with-filename with-size>
+          <RomListItem :rom="item" with-filename with-size>
             <template #append-body>
               <v-row v-if="romsToDeleteFromFs.includes(item.id)" no-gutters>
                 <v-col>
                   <v-chip label size="x-small" class="text-romm-red">
-                    Removing from filesystem
+                    {{ t("rom.removing-from-filesystem") }}
                   </v-chip>
                 </v-col>
               </v-row>
             </template>
-          </rom-list-item>
+          </RomListItem>
         </template>
       </v-data-table-virtual>
     </template>
     <template #append>
       <v-row class="justify-center text-center pa-2" no-gutters>
         <v-col>
-          <v-chip @click="excludeOnDelete = !excludeOnDelete" variant="text"
-            ><v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">{{
-              excludeOnDelete
-                ? "mdi-checkbox-outline"
-                : "mdi-checkbox-blank-outline"
-            }}</v-icon>
+          <v-chip variant="text" @click="excludeOnDelete = !excludeOnDelete">
+            <v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">
+              {{
+                excludeOnDelete
+                  ? "mdi-checkbox-outline"
+                  : "mdi-checkbox-blank-outline"
+              }}
+            </v-icon>
             {{ t("common.exclude-on-delete") }}
           </v-chip>
         </v-col>
@@ -169,31 +171,29 @@ function closeDialog() {
       <v-row v-if="romsToDeleteFromFs.length > 0" no-gutters>
         <v-col>
           <v-list-item class="text-center mt-2">
-            <span class="text-romm-red text-body-1">WARNING:</span>
-            <span class="text-body-2 ml-1">You are going to remove</span>
-            <span class="text-romm-red text-body-1 ml-1">{{
-              romsToDeleteFromFs.length
+            <span class="text-romm-red text-body-1">{{
+              t("rom.warning")
             }}</span>
-            <span class="text-body-2 ml-1"
-              >roms from your filesystem. This action can't be reverted!</span
-            >
+            <span class="text-body-2 ml-1">{{
+              t("rom.delete-filesystem-warning", romsToDeleteFromFs.length)
+            }}</span>
           </v-list-item>
         </v-col>
       </v-row>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
-            Cancel
+          <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
+            {{ t("common.cancel") }}
           </v-btn>
           <v-btn
             class="text-romm-red bg-toplayer"
             variant="flat"
             @click="deleteRoms"
           >
-            Confirm
+            {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

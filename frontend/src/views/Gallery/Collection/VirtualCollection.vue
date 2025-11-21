@@ -18,9 +18,9 @@ function setCurrentVirtualCollection(collection: CollectionType) {
 </script>
 
 <template>
-  <base-collection
+  <BaseCollection
     :collections="virtualCollections"
     :current-collection="currentVirtualCollection"
     :set-current-collection="setCurrentVirtualCollection"
-  ></base-collection>
+  />
 </template>

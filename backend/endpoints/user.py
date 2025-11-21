@@ -16,6 +16,12 @@ from handler.metadata.ra_handler import RAUserProgression
 from logger.logger import log
 from models.user import Role, User
 from utils.router import APIRouter
+from utils.validation import (
+    ValidationError,
+    validate_email,
+    validate_password,
+    validate_username,
+)
 
 router = APIRouter(
     prefix="/users",
@@ -58,6 +64,16 @@ def add_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
         )
+
+    try:
+        validate_username(username)
+        validate_password(password)
+        validate_email(email)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=exc.message,
+        ) from exc
 
     if db_user_handler.get_user_by_username(username):
         msg = f"Username {username} already exists"
@@ -144,22 +160,15 @@ def create_user_from_invite(
 
     jti, role = auth_handler.verify_invite_link_token(token)
 
-    # Validate username and password are not empty
-    if not username or not username.strip():
-        msg = "Username cannot be empty"
-        log.error(msg)
+    try:
+        validate_username(username)
+        validate_password(password)
+        validate_email(email)
+    except ValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg,
-        )
-
-    if not password or not password.strip():
-        msg = "Password cannot be empty"
-        log.error(msg)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=msg,
-        )
+            detail=exc.message,
+        ) from exc
 
     if db_user_handler.get_user_by_username(username):
         msg = f"Username {username} already exists"
@@ -269,6 +278,14 @@ async def update_user(
     cleaned_data: dict[str, Any] = {}
 
     if form_data.username and form_data.username != db_user.username:
+        try:
+            validate_username(form_data.username)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=exc.message,
+            ) from exc
+
         if db_user_handler.get_user_by_username(form_data.username):
             msg = f"Username {form_data.username} already exists"
             log.error(msg)
@@ -280,11 +297,26 @@ async def update_user(
         cleaned_data["username"] = form_data.username.lower()
 
     if form_data.password:
+        try:
+            validate_password(form_data.password)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=exc.message,
+            ) from exc
         cleaned_data["hashed_password"] = auth_handler.get_password_hash(
             form_data.password
         )
 
     if form_data.email is not None and form_data.email != db_user.email:
+        try:
+            validate_email(form_data.email)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=exc.message,
+            ) from exc
+
         if form_data.email and db_user_handler.get_user_by_email(form_data.email):
             msg = f"User with email {form_data.email} already exists"
             log.error(msg)
@@ -336,13 +368,20 @@ async def update_user(
     return UserSchema.model_validate(db_user)
 
 
-@protected_route(router.delete, "/{id}", [Scope.USERS_WRITE])
-async def delete_user(request: Request, id: int) -> None:
-    """Delete user endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        user_id (int): User internal id
+@protected_route(
+    router.delete,
+    "/{id}",
+    [Scope.USERS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {},
+        status.HTTP_404_NOT_FOUND: {},
+    },
+)
+async def delete_user(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+) -> None:
+    """Delete a user by ID.
 
     Raises:
         HTTPException: User is not found in database

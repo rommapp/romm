@@ -54,11 +54,11 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-account"
     :width="lgAndUp ? '60vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-form v-model="validForm">
@@ -68,7 +68,7 @@ function closeDialog() {
               v-model="user.username"
               variant="outlined"
               :label="t('settings.username')"
-              :rules="usersStore.nameRules"
+              :rules="usersStore.usernameRules"
               required
               clearable
               class="ma-2"
@@ -103,7 +103,9 @@ function closeDialog() {
             >
               <template #selection="{ item }">
                 <v-list-item class="pa-0">
-                  <v-icon class="mr-2">{{ getRoleIcon(item.title) }}</v-icon>
+                  <v-icon class="mr-2">
+                    {{ getRoleIcon(item.title) }}
+                  </v-icon>
                   {{ item.title }}
                 </v-list-item>
               </template>
@@ -137,5 +139,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

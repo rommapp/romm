@@ -8,26 +8,26 @@ import storePlatforms from "@/stores/platforms";
 import { formatBytes } from "@/utils";
 
 const props = defineProps<{
-  total_filesize: number;
+  totalFilesize: number;
 }>();
 const { t } = useI18n();
 const platformsStore = storePlatforms();
-const { filteredPlatforms } = storeToRefs(platformsStore);
+const { allPlatforms } = storeToRefs(platformsStore);
 const orderBy = ref<"name" | "size" | "count">("name");
 
 const sortedPlatforms = computed(() => {
-  const platforms = [...filteredPlatforms.value];
   if (orderBy.value === "size") {
-    return platforms.sort(
+    return allPlatforms.value.sort(
       (a, b) => Number(b.fs_size_bytes) - Number(a.fs_size_bytes),
     );
   }
   if (orderBy.value === "count") {
-    return platforms.sort((a, b) => b.rom_count - a.rom_count);
+    return allPlatforms.value.sort((a, b) => b.rom_count - a.rom_count);
   }
-  // Default to name
-  return platforms.sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  return allPlatforms.value.sort((a, b) =>
+    a.display_name.localeCompare(b.display_name, undefined, {
+      sensitivity: "base",
+    }),
   );
 });
 
@@ -42,12 +42,12 @@ function getPlatformPercentage(
 </script>
 
 <template>
-  <r-section
+  <RSection
     icon="mdi-harddisk"
     :title="t('common.platforms-size')"
     elevation="0"
-    titleDivider
-    bgColor="bg-background"
+    title-divider
+    bg-color="bg-background"
     class="mx-2"
   >
     <template #content>
@@ -67,13 +67,18 @@ function getPlatformPercentage(
         </v-col>
       </v-row>
       <v-row no-gutters>
-        <v-col v-for="platform in sortedPlatforms" cols="12" class="pa-4">
+        <v-col
+          v-for="platform in sortedPlatforms"
+          :key="platform.slug"
+          cols="12"
+          class="pa-4"
+        >
           <v-row no-gutters class="d-flex justify-space-between align-center">
             <v-col cols="6">
-              <platform-list-item
-                :platform="platform"
+              <PlatformListItem
                 :key="platform.slug"
-                :showRomCount="false"
+                :platform="platform"
+                :show-rom-count="false"
               />
             </v-col>
             <v-col cols="6" class="text-right">
@@ -83,7 +88,7 @@ function getPlatformPercentage(
                   ({{
                     getPlatformPercentage(
                       platform.fs_size_bytes,
-                      props.total_filesize,
+                      props.totalFilesize,
                     ).toFixed(1)
                   }}%)
                 </v-list-item-title>
@@ -95,10 +100,7 @@ function getPlatformPercentage(
           </v-row>
           <v-progress-linear
             :model-value="
-              getPlatformPercentage(
-                platform.fs_size_bytes,
-                props.total_filesize,
-              )
+              getPlatformPercentage(platform.fs_size_bytes, props.totalFilesize)
             "
             rounded
             color="primary"
@@ -107,5 +109,5 @@ function getPlatformPercentage(
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

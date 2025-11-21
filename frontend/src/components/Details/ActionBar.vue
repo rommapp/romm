@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
 import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
+import { useGameAnimation } from "@/composables/useGameAnimation";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getDownloadLink, is3DSCIARom } from "@/utils";
+import { getDownloadLink, isNintendoDSRom } from "@/utils";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
@@ -20,8 +20,12 @@ const qrCodeIcon = ref("mdi-qrcode");
 const auth = storeAuth();
 const { t } = useI18n();
 
-const is3DSRom = computed(() => {
-  return is3DSCIARom(props.rom);
+const isNDSRom = computed(() => {
+  return isNintendoDSRom(props.rom);
+});
+
+const { boxartStyle } = useGameAnimation({
+  rom: props.rom,
 });
 
 async function copyDownloadLink(rom: DetailedRom) {
@@ -45,25 +49,34 @@ async function copyDownloadLink(rom: DetailedRom) {
 
 <template>
   <div>
-    <v-btn-group divided density="compact" class="d-flex flex-row">
+    <v-btn-group
+      divided
+      density="compact"
+      class="d-flex flex-row"
+      :class="{
+        'mt-2':
+          boxartStyle !== 'physical_path' || !rom.ss_metadata?.physical_path,
+      }"
+    >
       <v-btn
         :disabled="downloadStore.value.includes(rom.id) || rom.missing_from_fs"
         class="flex-grow-1"
+        :aria-label="`Download ${rom.name}`"
         @click="
           romApi.downloadRom({
             rom,
             fileIDs: downloadStore.fileIDsToDownload,
           })
         "
-        :aria-label="`Download ${rom.name}`"
       >
         <v-tooltip
           activator="parent"
           location="top"
           transition="fade-transition"
           open-delay="1000"
-          >{{ t("rom.download") }} {{ rom.name }}</v-tooltip
         >
+          {{ t("rom.download") }} {{ rom.name }}
+        </v-tooltip>
         <v-icon icon="mdi-download" size="large" />
       </v-btn>
       <v-btn
@@ -77,17 +90,18 @@ async function copyDownloadLink(rom: DetailedRom) {
           location="top"
           transition="fade-transition"
           open-delay="1000"
-          >{{ t("rom.copy-link") }}</v-tooltip
         >
+          {{ t("rom.copy-link") }}
+        </v-tooltip>
         <v-icon icon="mdi-content-copy" />
       </v-btn>
-      <play-btn :rom="rom" class="flex-grow-1" />
+      <PlayBtn :rom="rom" class="flex-grow-1" />
       <v-btn
-        v-if="is3DSRom"
+        v-if="isNDSRom"
         :disabled="rom.missing_from_fs"
         class="flex-grow-1"
-        @click="emitter?.emit('showQRCodeDialog', rom)"
         :aria-label="`Show ${rom.name} QR code`"
+        @click="emitter?.emit('showQRCodeDialog', rom)"
       >
         <v-icon :icon="qrCodeIcon" />
       </v-btn>
@@ -108,10 +122,10 @@ async function copyDownloadLink(rom: DetailedRom) {
             <v-icon icon="mdi-dots-vertical" size="large" />
           </v-btn>
         </template>
-        <admin-menu :rom="rom" />
+        <AdminMenu :rom="rom" />
       </v-menu>
     </v-btn-group>
 
-    <copy-rom-download-link-dialog />
+    <CopyRomDownloadLinkDialog />
   </div>
 </template>

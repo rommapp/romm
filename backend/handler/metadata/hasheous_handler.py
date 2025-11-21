@@ -12,8 +12,8 @@ from models.rom import RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
 
-from .base_hander import BaseRom, MetadataHandler
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import BaseRom, MetadataHandler
+from .base_handler import UniversalPlatformSlug as UPS
 from .igdb_handler import (
     IGDB_AGE_RATINGS,
     IGDBMetadata,
@@ -31,6 +31,7 @@ class HasheousMetadata(TypedDict):
     whdload_match: bool
     ra_match: bool
     fbneo_match: bool
+    puredos_match: bool
 
 
 class HasheousPlatform(TypedDict):
@@ -53,7 +54,7 @@ class HasheousRom(BaseRom):
     hasheous_metadata: NotRequired[HasheousMetadata]
 
 
-ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {"dc": ["cue"]}
+ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {UPS.DC: ["cue", "bin"]}
 
 
 def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
@@ -113,6 +114,7 @@ class HasheousHandler(MetadataHandler):
             if DEV_MODE
             else "https://hasheous.org/api/v1"
         )
+        self.healthcheck_endpoint = f"{self.BASE_URL}/HealthCheck"
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
         self.proxy_igdb_game_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Game"
@@ -128,6 +130,20 @@ class HasheousHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         """Return whether this metadata handler is enabled."""
         return HASHEOUS_API_ENABLED
+
+    async def heartbeat(self) -> bool:
+        if not self.is_enabled():
+            return False
+
+        httpx_client = ctx_httpx_client.get()
+        try:
+            response = await httpx_client.get(self.healthcheck_endpoint)
+            response.raise_for_status()
+        except Exception as e:
+            log.error("Error checking Hasheous API: %s", e)
+            return False
+
+        return bool(response)
 
     async def _request(
         self,
@@ -168,9 +184,7 @@ class HasheousHandler(MetadataHandler):
             if method == "POST":
                 request_kwargs["json"] = data
 
-            # Make the request
             res = await httpx_client.request(method, **request_kwargs)
-
             res.raise_for_status()
             return res.json()
         except httpx.HTTPStatusError as exc:
@@ -225,18 +239,19 @@ class HasheousHandler(MetadataHandler):
         filtered_files = [
             file
             for file in files
-            if file.file_size_bytes is not None
-            and file.file_size_bytes > 0
+            if file.file_size_bytes > 0
+            and file.is_top_level
             and (
-                file.file_extension
-                in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[platform_slug]
-                if platform_slug in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
-                else True
+                UPS(platform_slug) not in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
+                or file.file_extension
+                in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[UPS(platform_slug)]
             )
         ]
 
+        # Select the largest file by size, as it is most likely to be the main ROM file.
+        # This increases the accuracy of metadata lookups, since the largest file is
+        # expected to have the correct and complete hash values for external services.
         first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
-
         if first_file is None:
             return fallback_rom
 
@@ -316,6 +331,7 @@ class HasheousHandler(MetadataHandler):
                 whdload_match="WHDLoad" in signatures,
                 ra_match="RetroAchievements" in signatures,
                 fbneo_match="FBNeo" in signatures,
+                puredos_match="PureDOS" in signatures,
             ),
         )
 
@@ -1044,7 +1060,7 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
+    UPS.ODYSSEY_2: {
         "id": 49,
         "igdb_id": 133,
         "igdb_slug": "odyssey-2-slash-videopac-g7000",

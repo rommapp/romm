@@ -47,23 +47,78 @@ system:
 # The folder name where your roms are located
 filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is /home/user/library/roms_folder
 
+# scan:
+#   # Metadata priority during scans
+#   priority:
+#     # Below are the default priority values used
+#     metadata: # Top-level metadata source priority
+#       - "igdb" # IGDB (highest priority)
+#       - "moby" # MobyGames
+#       - "ss" # Screenscraper
+#       - "ra" # RetroAchievements
+#       - "launchbox" # Launchbox
+#       - "gamelist" # ES-DE gamelist.xml
+#       - "hasheous" # Hasheous
+#       - "flashpoint" # Flashpoint Project
+#       - "hltb" # HowLongToBeat (lowest priority)
+#     artwork: # Cover art and screenshots
+#       - "igdb" # IGDB
+#       - "moby" # MobyGames
+#       - "ss" # Screenscraper
+#       - "ra" # RetroAchievements
+#       - "launchbox" # Launchbox
+#       - "gamelist" # ES-DE gamelist.xml
+#       - "hasheous" # Hasheous
+#       - "flashpoint" # Flashpoint Project
+#       - "hltb" # HowLongToBeat
+#     region: # Cover art and game title (only used by Screenscraper)
+#       - "us"
+#       - "wor"
+#       - "ss"
+#       - "eu"
+#       - "jp"
+#     language: # Cover art and game title (only used by Screenscraper)
+#       - "en"
+#       - "fr"
+#     # Media assets to download
+#     # Only used by Screenscraper and ES-DE gamelist.xml
+#   media:
+#     # Used as alternative cover art
+#     - box2d  # Normal cover art (always enabled)
+#     - box3d  # 3D box art
+#     - miximage  # Mixed image of multiple media
+#     - physical  # Disc, cartridge, etc.
+#     # Added to the screenshots carousel
+#     - screenshot  # Screenshot (enabled by default)
+#     - title_screen  # Title screen
+#     - fanart  # User uploaded artwork
+#     # Bezel displayed around the emulatorjs window
+#     - bezel
+#     # Manual in PDF format
+#     - manual # Manual (enabled by default)
+#     # Gameplay video
+#     - video  # Video (warning: large file size)
+#     # Other media assets (might be used in the future)
+#     - marquee  # Custom marquee
+#     - logo  # Transparent logo
+
 # EmulatorJS per-core options
-emulatorjs:
-  # debug: true # Available options will be logged to the browser console
-  # cache_limit: null # Cache limit per ROM (in bytes)
-  settings:
-    parallel_n64: # Use the exact core name
-    #   vsync: disable
-    snes9x:
-    #   snes9x_region: ntsc
-    default: # These settings apply to all cores
-    #   fps: show
-  controls: # https://emulatorjs.org/docs4devs/control-mapping/
-    snes9x:
-    #   0: # Player 1
-    #     0: # A MAPPING FOR EACH BUTTON MUST BE SET!
-    #       value: x # Mapping for keyboard
-    #       value2: BUTTON_2 # Mapping for connected controller
-    #   1: # Player 2
-    #   2: # Player 3
-    #   3: # Player 4
+# emulatorjs:
+#   debug: true # Available options will be logged to the browser console
+#   cache_limit: null # Cache limit per ROM (in bytes)
+#   settings:
+#     parallel_n64: # Use the exact core name
+#       vsync: disabled
+#     snes9x:
+#       snes9x_region: ntsc
+#     default: # These settings apply to all cores
+#       fps: show
+#   controls: # https://emulatorjs.org/docs4devs/control-mapping/
+#     snes9x:
+#       0: # Player 1
+#         0: # A MAPPING FOR EACH BUTTON MUST BE SET!
+#           value: x # Mapping for keyboard
+#           value2: BUTTON_2 # Mapping for connected controller
+#       1: # Player 2
+#       2: # Player 3
+#       3: # Player 4

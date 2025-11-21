@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import {
   computed,
   onMounted,
@@ -6,11 +7,9 @@ import {
   ref,
   nextTick,
   useTemplateRef,
+  watch,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
-import type { SmartCollectionSchema } from "@/__generated__/models/SmartCollectionSchema";
-import type { VirtualCollectionSchema } from "@/__generated__/models/VirtualCollectionSchema";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
 import BackButton from "@/console/components/BackButton.vue";
 import GameCard from "@/console/components/GameCard.vue";
@@ -22,65 +21,51 @@ import { useRovingDom } from "@/console/composables/useRovingDom";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
-import collectionApi from "@/services/api/collection";
-import romApi from "@/services/api/rom";
-import consoleStore from "@/stores/console";
-import type { SimpleRom } from "@/stores/roms";
+import storeCollections from "@/stores/collections";
+import storeConsole from "@/stores/console";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storePlatforms from "@/stores/platforms";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 
 const route = useRoute();
 const router = useRouter();
-const storeConsole = consoleStore();
+const consoleStore = storeConsole();
+const galleryFilterStore = storeGalleryFilter();
+const platformsStore = storePlatforms();
+const { allPlatforms } = storeToRefs(platformsStore);
+const collectionsStore = storeCollections();
+const { allCollections, smartCollections, virtualCollections } =
+  storeToRefs(collectionsStore);
+const romsStore = storeRoms();
+const {
+  filteredRoms,
+  fetchingRoms,
+  currentPlatform,
+  currentCollection,
+  currentSmartCollection,
+  currentVirtualCollection,
+} = storeToRefs(romsStore);
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 const { setSelectedBackgroundArt, clearSelectedBackgroundArt } =
   useBackgroundArt();
 
+const isPlatformRoute = route.name === ROUTES.CONSOLE_PLATFORM;
 const isCollectionRoute = route.name === ROUTES.CONSOLE_COLLECTION;
 const isSmartCollectionRoute = route.name === ROUTES.CONSOLE_SMART_COLLECTION;
 const isVirtualCollectionRoute =
   route.name === ROUTES.CONSOLE_VIRTUAL_COLLECTION;
 
-const platformId =
-  isCollectionRoute || isSmartCollectionRoute || isVirtualCollectionRoute
-    ? null
-    : Number(route.params.id);
-const collectionId = isCollectionRoute ? Number(route.params.id) : null;
-const smartCollectionId = isSmartCollectionRoute
-  ? Number(route.params.id)
-  : null;
-const virtualCollectionId = isVirtualCollectionRoute
-  ? String(route.params.id)
-  : null;
-
-const roms = ref<SimpleRom[]>([]);
-const collection = ref<CollectionSchema | null>(null);
-const smartCollection = ref<SmartCollectionSchema | null>(null);
-const virtualCollection = ref<VirtualCollectionSchema | null>(null);
-const loading = ref(true);
-const error = ref("");
 const selectedIndex = ref(0);
 const loadedMap = ref<Record<number, boolean>>({});
 const inAlphabet = ref(false);
 const alphaIndex = ref(0);
 const gridRef = useTemplateRef<HTMLDivElement>("game-grid-ref");
 
-// Initialize selection from store
-if (platformId != null) {
-  selectedIndex.value = storeConsole.getPlatformGameIndex(platformId);
-} else if (collectionId != null) {
-  selectedIndex.value = storeConsole.getCollectionGameIndex(collectionId);
-} else if (smartCollectionId != null) {
-  selectedIndex.value = storeConsole.getCollectionGameIndex(smartCollectionId);
-} else if (virtualCollectionId != null) {
-  selectedIndex.value = storeConsole.getCollectionGameIndex(
-    Number(virtualCollectionId),
-  );
-}
-
 // Generate alphabet letters dynamically based on available games
 const letters = computed(() => {
   const letterSet = new Set<string>();
 
-  roms.value.forEach(({ name }) => {
+  filteredRoms.value.forEach(({ name }) => {
     if (!name) return;
 
     const normalized = normalizeTitle(name);
@@ -105,15 +90,24 @@ const letters = computed(() => {
 });
 
 function persistIndex() {
-  if (platformId != null) {
-    storeConsole.setPlatformGameIndex(platformId, selectedIndex.value);
-  } else if (collectionId != null) {
-    storeConsole.setCollectionGameIndex(collectionId, selectedIndex.value);
-  } else if (smartCollectionId != null) {
-    storeConsole.setCollectionGameIndex(smartCollectionId, selectedIndex.value);
-  } else if (virtualCollectionId != null) {
-    storeConsole.setCollectionGameIndex(
-      Number(virtualCollectionId),
+  if (currentPlatform.value != null) {
+    consoleStore.setPlatformGameIndex(
+      currentPlatform.value.id,
+      selectedIndex.value,
+    );
+  } else if (currentCollection.value != null) {
+    consoleStore.setCollectionGameIndex(
+      currentCollection.value.id,
+      selectedIndex.value,
+    );
+  } else if (currentSmartCollection.value != null) {
+    consoleStore.setSmartCollectionGameIndex(
+      currentSmartCollection.value.id,
+      selectedIndex.value,
+    );
+  } else if (currentVirtualCollection.value != null) {
+    consoleStore.setVirtualCollectionGameIndex(
+      currentVirtualCollection.value.id,
       selectedIndex.value,
     );
   }
@@ -126,25 +120,20 @@ function navigateBack() {
 
 const headerTitle = computed(() => {
   if (isCollectionRoute) {
-    return collection.value?.name || "Collection";
+    return currentCollection.value?.name || "Collection";
   }
   if (isSmartCollectionRoute) {
-    return smartCollection.value?.name || "Smart Collection";
+    return currentSmartCollection.value?.name || "Smart Collection";
   }
   if (isVirtualCollectionRoute) {
-    return virtualCollection.value?.name || "Virtual Collection";
+    return currentVirtualCollection.value?.name || "Virtual Collection";
   }
 
   return (
-    current.value?.platform_name ||
-    current.value?.platform_slug?.toUpperCase() ||
-    "Platform"
+    currentPlatform.value?.display_name ||
+    currentPlatform.value?.slug.toUpperCase()
   );
 });
-
-const current = computed(
-  () => roms.value[selectedIndex.value] || roms.value[0],
-);
 
 function getCols(): number {
   if (!gridRef.value) return 4;
@@ -170,10 +159,10 @@ const {
   moveRight,
   moveUp,
   moveDown: moveDownBasic,
-} = useSpatialNav(selectedIndex, getCols, () => roms.value.length);
+} = useSpatialNav(selectedIndex, getCols, () => filteredRoms.value.length);
 
 function handleAction(action: InputAction): boolean {
-  if (!roms.value.length) return false;
+  if (!filteredRoms.value.length) return false;
   if (inAlphabet.value) {
     if (action === "moveLeft") {
       inAlphabet.value = false;
@@ -192,7 +181,7 @@ function handleAction(action: InputAction): boolean {
     }
     if (action === "confirm") {
       const L = Array.from(letters.value)[alphaIndex.value];
-      const idx = roms.value.findIndex((r) => {
+      const idx = filteredRoms.value.findIndex((r) => {
         const normalized = normalizeTitle(r.name || "");
         if (L === "#") {
           return /^[0-9]/.test(normalized);
@@ -239,7 +228,7 @@ function handleAction(action: InputAction): boolean {
       moveDownBasic();
       if (selectedIndex.value === before) {
         const cols = getCols();
-        const count = roms.value.length;
+        const count = filteredRoms.value.length;
         const totalRows = Math.ceil(count / cols);
         const currentRow = Math.floor(before / cols);
         if (totalRows > currentRow + 1) {
@@ -252,11 +241,14 @@ function handleAction(action: InputAction): boolean {
       navigateBack();
       return true;
     case "confirm": {
-      selectAndOpen(selectedIndex.value, roms.value[selectedIndex.value]);
+      selectAndOpen(
+        selectedIndex.value,
+        filteredRoms.value[selectedIndex.value],
+      );
       return true;
     }
     case "toggleFavorite": {
-      const rom = roms.value[selectedIndex.value];
+      const rom = filteredRoms.value[selectedIndex.value];
       if (rom) toggleFavoriteComposable(rom);
       return true;
     }
@@ -277,10 +269,14 @@ function selectAndOpen(i: number, rom: SimpleRom) {
   persistIndex();
 
   const query: Record<string, number | string> = {};
-  if (platformId != null) query.id = platformId;
-  if (isCollectionRoute) query.collection = collectionId!;
-  if (isSmartCollectionRoute) query.smartCollection = smartCollectionId!;
-  if (isVirtualCollectionRoute) query.virtualCollection = virtualCollectionId!;
+  if (isPlatformRoute && currentPlatform.value != null)
+    query.id = currentPlatform.value.id;
+  if (isCollectionRoute && currentCollection.value != null)
+    query.collection = currentCollection.value.id;
+  if (isSmartCollectionRoute && currentSmartCollection.value != null)
+    query.smartCollection = currentSmartCollection.value.id;
+  if (isVirtualCollectionRoute && currentVirtualCollection.value != null)
+    query.virtualCollection = currentVirtualCollection.value.id;
 
   router.push({
     name: ROUTES.CONSOLE_ROM,
@@ -290,7 +286,7 @@ function selectAndOpen(i: number, rom: SimpleRom) {
 }
 
 function jumpToLetter(L: string) {
-  const idx = roms.value.findIndex((r) => {
+  const idx = filteredRoms.value.findIndex((r) => {
     const normalized = normalizeTitle(r.name || "");
     if (L === "#") {
       return /^[0-9]/.test(normalized);
@@ -310,67 +306,150 @@ function normalizeTitle(name: string) {
 
 let off: (() => void) | null = null;
 
-onMounted(async () => {
-  try {
-    if (platformId != null) {
-      const { data } = await romApi.getRoms({
-        platformId: platformId,
-        limit: 500,
-        orderBy: "name",
-        orderDir: "asc",
-      });
-      roms.value = data.items ?? [];
-    } else if (collectionId != null) {
-      const { data } = await romApi.getRoms({
-        collectionId: collectionId,
-        limit: 500,
-        orderBy: "name",
-        orderDir: "asc",
-      });
-      roms.value = data.items ?? [];
-      const { data: col } = await collectionApi.getCollection(collectionId);
-      collection.value = col ?? null;
-    } else if (smartCollectionId != null) {
-      const { data } = await romApi.getRoms({
-        smartCollectionId: smartCollectionId,
-        limit: 500,
-        orderBy: "name",
-        orderDir: "asc",
-      });
-      roms.value = data.items ?? [];
-      const { data: smartCol } =
-        await collectionApi.getSmartCollection(smartCollectionId);
-      smartCollection.value = smartCol ?? null;
-    } else if (virtualCollectionId != null) {
-      const { data } = await romApi.getRoms({
-        virtualCollectionId: virtualCollectionId,
-        limit: 500,
-        orderBy: "name",
-        orderDir: "asc",
-      });
-      roms.value = data.items ?? [];
-      const { data: virtualCol } =
-        await collectionApi.getVirtualCollection(virtualCollectionId);
-      virtualCollection.value = virtualCol ?? null;
-    }
-    for (const r of roms.value) {
-      if (!r.url_cover && !r.path_cover_large && !r.path_cover_small) {
-        loadedMap.value[r.id] = true;
-      }
-    }
-  } catch (err: unknown) {
-    error.value = err instanceof Error ? err.message : "Failed to load roms";
-  } finally {
-    loading.value = false;
-  }
+function resetGallery() {
+  romsStore.reset();
+  galleryFilterStore.resetFilters();
+  galleryFilterStore.activeFilterDrawer = false;
+}
 
-  if (selectedIndex.value >= roms.value.length) selectedIndex.value = 0;
+async function fetchRoms() {
+  romsStore.setLimit(500);
+  romsStore.setOrderBy("name");
+  romsStore.setOrderDir("asc");
+  romsStore.resetPagination();
+
+  const fetchedRoms = await romsStore.fetchRoms({
+    galleryFilter: galleryFilterStore,
+    concat: false,
+  });
+
+  if (selectedIndex.value >= fetchedRoms.length) selectedIndex.value = 0;
   await nextTick();
+
   cardElementAt(selectedIndex.value)?.scrollIntoView({
     block: "center",
     inline: "nearest",
     behavior: "instant" as ScrollBehavior,
   });
+}
+
+onMounted(async () => {
+  const routePlatformId = isPlatformRoute ? Number(route.params.id) : null;
+  const routeCollectionId = isCollectionRoute ? Number(route.params.id) : null;
+  const routeSmartCollectionId = isSmartCollectionRoute
+    ? Number(route.params.id)
+    : null;
+  const routeVirtualCollectionId = isVirtualCollectionRoute
+    ? String(route.params.id)
+    : null;
+
+  watch(
+    () => allPlatforms.value,
+    async (platforms) => {
+      if (platforms.length > 0) {
+        const platform = platforms.find(
+          (platform) => platform.id === routePlatformId,
+        );
+
+        if (!platform) return;
+        // Check if the current platform is different or no ROMs have been loaded
+        if (
+          currentPlatform.value?.id !== routePlatformId ||
+          filteredRoms.value.length === 0
+        ) {
+          resetGallery();
+          romsStore.setCurrentPlatform(platform);
+          selectedIndex.value = consoleStore.getPlatformGameIndex(platform.id);
+          document.title = platform.display_name;
+          await fetchRoms();
+        }
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
+
+  watch(
+    () => allCollections.value,
+    async (collections) => {
+      if (collections.length > 0) {
+        const collection = collections.find(
+          (collection) => collection.id === routeCollectionId,
+        );
+
+        if (!collection) return;
+        // Check if the current collection is different or no ROMs have been loaded
+        if (
+          currentCollection.value?.id !== routeCollectionId ||
+          filteredRoms.value.length === 0
+        ) {
+          resetGallery();
+          romsStore.setCurrentCollection(collection);
+          selectedIndex.value = consoleStore.getCollectionGameIndex(
+            collection.id,
+          );
+          document.title = collection.name;
+          await fetchRoms();
+        }
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
+
+  watch(
+    () => smartCollections.value,
+    async (smartCollections) => {
+      if (smartCollections.length > 0) {
+        const smartCollection = smartCollections.find(
+          (smartCollection) => smartCollection.id === routeSmartCollectionId,
+        );
+
+        if (!smartCollection) return;
+        // Check if the current smartCollection is different or no ROMs have been loaded
+        if (
+          currentSmartCollection.value?.id !== routeSmartCollectionId ||
+          filteredRoms.value.length === 0
+        ) {
+          resetGallery();
+          romsStore.setCurrentSmartCollection(smartCollection);
+          selectedIndex.value = consoleStore.getSmartCollectionGameIndex(
+            smartCollection.id,
+          );
+          document.title = smartCollection.name;
+          await fetchRoms();
+        }
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
+
+  watch(
+    () => virtualCollections.value,
+    async (virtualCollections) => {
+      if (virtualCollections.length > 0) {
+        const virtualCollection = virtualCollections.find(
+          (virtualCollection) =>
+            virtualCollection.id === routeVirtualCollectionId,
+        );
+
+        if (!virtualCollection) return;
+        // Check if the current virtualCollection is different or no ROMs have been loaded
+        if (
+          currentVirtualCollection.value?.id !== routeVirtualCollectionId ||
+          filteredRoms.value.length === 0
+        ) {
+          resetGallery();
+          romsStore.setCurrentVirtualCollection(virtualCollection);
+          selectedIndex.value = consoleStore.getVirtualCollectionGameIndex(
+            virtualCollection.id,
+          );
+          document.title = virtualCollection.name;
+          await fetchRoms();
+        }
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
+
   off = subscribe(handleAction);
 });
 
@@ -404,21 +483,17 @@ function handleItemDeselected() {
       :style="{ width: 'calc(100vw - 40px)' }"
     >
       <div
-        v-if="loading"
+        v-if="fetchingRoms"
         class="text-center mt-8"
         :style="{ color: 'var(--console-loading-text)' }"
       >
         Loading games…
       </div>
-      <div
-        v-else-if="error"
-        class="text-center mt-8"
-        :style="{ color: 'var(--console-error-text)' }"
-      >
-        {{ error }}
-      </div>
       <div v-else>
-        <div v-if="roms.length === 0" class="text-center text-fgDim p-4">
+        <div
+          v-if="filteredRoms.length === 0"
+          class="text-center text-fgDim p-4"
+        >
           No games found.
         </div>
         <div
@@ -426,8 +501,8 @@ function handleItemDeselected() {
           class="grid grid-cols-[repeat(auto-fill,minmax(250px,250px))] justify-center my-12 gap-5 px-13 md:px-16 lg:px-20 xl:px-28 py-8 relative z-10 w-full box-border overflow-x-hidden"
           @wheel.prevent
         >
-          <game-card
-            v-for="(rom, i) in roms"
+          <GameCard
+            v-for="(rom, i) in filteredRoms"
             :key="rom.id"
             :rom="rom"
             :index="i"

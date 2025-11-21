@@ -4,6 +4,9 @@
   "administration": "유저 관리",
   "apply": "적용",
   "ascii-only": "ASCII 문자만",
+  "username-length": "사용자 이름은 3자에서 255자 사이여야 합니다",
+  "username-chars": "사용자 이름은 문자, 숫자, 밑줄, 하이픈만 포함할 수 있습니다",
+  "password-length": "비밀번호는 6자에서 255자 사이여야 합니다",
   "cancel": "취소",
   "collection": "모음집",
   "collections": "모음집",
@@ -49,5 +52,8 @@
   "upload-files-selected": "{count}개 파일이 선택되었습니다",
   "user-interface": "사용자 인터페이스",
   "virtual-collection": "자동 생성된 모음집",
-  "virtual-collections": "자동 생성된 모음집"
+  "virtual-collections": "자동 생성된 모음집",
+  "last-updated": "마지막 업데이트",
+  "confirm-deletion": "삭제 확인",
+  "delete": "삭제"
 }
