@@ -72,18 +72,18 @@ let pausedByPrompt = false;
 const exitOptions = computed(() => [
   {
     id: "save",
-    label: t("console.game-exit-save"),
-    desc: t("console.game-exit-save-desc"),
+    label: "console.game-exit-save",
+    desc: "console.game-exit-save-desc",
   },
   {
     id: "nosave",
-    label: t("console.game-exit-nosave"),
-    desc: t("console.game-exit-nosave-desc"),
+    label: "console.game-exit-nosave",
+    desc: "console.game-exit-nosave-desc",
   },
   {
     id: "cancel",
-    label: t("console.game-exit-cancel"),
-    desc: t("console.game-exit-cancel-desc"),
+    label: "console.game-exit-cancel",
+    desc: "console.game-exit-cancel-desc",
   },
 ]);
 
@@ -807,7 +807,7 @@ onBeforeUnmount(() => {
                   }"
                   class="font-semibold text-sm tracking-wide"
                 >
-                  {{ opt.label }}
+                  {{ t(opt.label) }}
                   <span
                     v-if="opt.id === 'save' && savingState"
                     :style="{ color: 'var(--console-play-save-status-text)' }"
@@ -821,7 +821,7 @@ onBeforeUnmount(() => {
                   :style="{ color: 'var(--console-modal-text-secondary)' }"
                   class="text-xs mt-0.5 opacity-50"
                 >
-                  {{ opt.desc }}
+                  {{ t(opt.desc) }}
                 </div>
               </div>
               <div
