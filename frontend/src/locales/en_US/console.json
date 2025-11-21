@@ -4,7 +4,7 @@
     "console-settings": "Console Settings",
     "default": "Default",
     "detail-file": "File",
-    "detail-size": "FileSize",
+    "detail-size": "File Size",
     "disabled": "Disabled",
     "emulator-cdn": "Loading emulator (CDN)…",
     "emulator-failed": "Failed to load emulator",
