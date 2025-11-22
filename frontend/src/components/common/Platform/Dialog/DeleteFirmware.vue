@@ -110,8 +110,8 @@ function closeDialog() {
           <v-list-item class="px-0">
             <v-row no-gutters>
               <v-col>
-                {{ item.file_name
-                }}<v-chip
+                {{ item.file_name }}
+                <v-chip
                   v-if="firmwaresToDeleteFromFs.includes(item.id) && smAndUp"
                   label
                   size="x-small"

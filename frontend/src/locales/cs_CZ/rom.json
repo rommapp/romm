@@ -62,7 +62,6 @@
   "remove-from-favorites": "Odebrat z oblíbených",
   "remove-from-playing": "Odebrat ze hraní",
   "removing-from-collection": "Odebírání {n} ROM z kolekce",
-  "removing-from-filesystem": "Odstraňování ze souborového systému",
   "removing-title": "Odstraňování {n} her z RomM | Odstraňování {n} hry z RomM | Odstraňování {n} her z RomM | Odstraňování {n} her z RomM",
   "rename-file-details": "Soubor bude přejmenován z {from} na {to}. Štítky souboru nebudou ovlivněny.",
   "rename-file-title": "Přejmenovat soubor, aby odpovídal názvu {source}",
