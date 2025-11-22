@@ -87,7 +87,9 @@ function closeDialog() {
       <v-row no-gutters class="justify-center">
         <span>{{ t("platform.firmware-removing-prefix") }}</span>
         <span class="text-primary mx-1">{{ firmwares.length }}</span>
-        <span>{{ t("platform.firmware-removing-suffix") }}</span>
+        <span>{{
+          t("platform.firmware-removing-suffix", firmwares.length)
+        }}</span>
       </v-row>
     </template>
     <template #prepend>
@@ -168,11 +170,16 @@ function closeDialog() {
               t("common.warning")
             }}</span>
             <span class="text-body-2 ml-1">
-              {{
-                t("platform.firmware-remove-warning", {
-                  count: firmwaresToDeleteFromFs.length,
-                })
-              }}
+              <i18n-t
+                keypath="platform.firmware-remove-warning"
+                :plural="firmwaresToDeleteFromFs.length"
+              >
+                <template #count>
+                  <span class="text-romm-red text-body-1 mx-1">{{
+                    firmwaresToDeleteFromFs.length
+                  }}</span>
+                </template>
+              </i18n-t>
             </span>
           </v-list-item>
         </v-col>
