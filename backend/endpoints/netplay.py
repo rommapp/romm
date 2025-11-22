@@ -13,10 +13,10 @@ router = APIRouter(
 
 
 class NetplayPlayerInfo(TypedDict):
-    socket_id: str
+    socketId: str
     player_name: str
-    user_id: str | None
-    player_id: str | None
+    userid: str | None
+    playerId: str | None
 
 
 class NetplayRoom(TypedDict):
@@ -56,7 +56,7 @@ def _get_owner_player_name(room: NetplayRoom) -> str:
         return "Unknown"
 
     for _pid, p in room["players"].items():
-        if p["socket_id"] == owner_sid:
+        if p["socketId"] == owner_sid:
             return p["player_name"]
 
     return "Unknown"

@@ -42,10 +42,10 @@ async def open_room(sid: str, data: RoomData):
         owner=sid,
         players={
             player_id: NetplayPlayerInfo(
-                socket_id=sid,
+                socketId=sid,
                 player_name=extra_data.get("player_name") or f"Player {player_id}",
-                user_id=extra_data.get("userid"),
-                player_id=extra_data.get("playerId"),
+                userid=extra_data.get("userid"),
+                playerId=extra_data.get("playerId"),
             )
         },
         peers=[],
@@ -92,10 +92,10 @@ async def join_room(sid: str, data: RoomData):
         return "Room is full"
 
     current_room["players"][player_id] = NetplayPlayerInfo(
-        socket_id=sid,
+        socketId=sid,
         player_name=extra_data.get("player_name") or f"Player {player_id}",
-        user_id=extra_data.get("userid"),
-        player_id=extra_data.get("playerId"),
+        userid=extra_data.get("userid"),
+        playerId=extra_data.get("playerId"),
     )
 
     await netplay_socket_handler.socket_server.enter_room(sid, session_id)
@@ -110,6 +110,8 @@ async def join_room(sid: str, data: RoomData):
         "users-updated", current_room["players"]
     )
 
+    return None, current_room["players"]
+
 
 async def _handle_leave(sid: str, session_id: str, player_id: str):
     current_room = netplay_rooms[session_id]
@@ -123,7 +125,7 @@ async def _handle_leave(sid: str, session_id: str, player_id: str):
     elif sid == current_room["owner"]:
         remaining = list(current_room["players"].keys())
         if remaining:
-            current_room["owner"] = current_room["players"][remaining[0]]["socket_id"]
+            current_room["owner"] = current_room["players"][remaining[0]]["socketId"]
             await netplay_socket_handler.socket_server.emit(
                 "users-updated", current_room["players"], room=session_id
             )
