@@ -42,7 +42,8 @@ class RedisSessionMiddleware:
             return
 
         connection = HTTPConnection(scope)
-        session_id = None  # Initialize session_id to None
+        session_id = None
+        initial_user_id = None
         session_cookie_from_request = connection.cookies.get(self.session_cookie)
 
         if session_cookie_from_request:
@@ -51,6 +52,7 @@ class RedisSessionMiddleware:
             if session_data:
                 scope["session"] = json.loads(session_data)
                 scope["session"]["session_id"] = session_id
+                initial_user_id = scope["session"].get("sub")
             else:
                 scope["session"] = {}
         else:
@@ -81,8 +83,10 @@ class RedisSessionMiddleware:
                 elif session_id:
                     await async_cache.delete(f"session:{session_id}")
                     # Remove session_id from user set of sessions
-                    if user_id:
-                        await async_cache.srem(f"user_sessions:{user_id}", session_id)
+                    if initial_user_id:
+                        await async_cache.srem(
+                            f"user_sessions:{initial_user_id}", session_id
+                        )
 
                     header_value = f"{self.session_cookie}=null; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; {self.security_flags}"
                     headers.append("Set-Cookie", header_value)
