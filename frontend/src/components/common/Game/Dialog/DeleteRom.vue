@@ -144,7 +144,7 @@ function closeDialog() {
               <v-row v-if="romsToDeleteFromFs.includes(item.id)" no-gutters>
                 <v-col>
                   <v-chip label size="x-small" class="text-romm-red">
-                    {{ t("rom.removing-from-filesystem") }}
+                    {{ t("common.removing-from-filesystem") }}
                   </v-chip>
                 </v-col>
               </v-row>
@@ -172,7 +172,7 @@ function closeDialog() {
         <v-col>
           <v-list-item class="text-center mt-2">
             <span class="text-romm-red text-body-1">{{
-              t("rom.warning")
+              t("common.warning")
             }}</span>
             <span class="text-body-2 ml-1">{{
               t("rom.delete-filesystem-warning", romsToDeleteFromFs.length)

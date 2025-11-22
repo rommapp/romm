@@ -55,5 +55,7 @@
   "virtual-collections": "자동 생성된 모음집",
   "last-updated": "마지막 업데이트",
   "confirm-deletion": "삭제 확인",
-  "delete": "삭제"
+  "delete": "삭제",
+  "warning": "경고:",
+  "removing-from-filesystem": "시스템에서 제거 중"
 }

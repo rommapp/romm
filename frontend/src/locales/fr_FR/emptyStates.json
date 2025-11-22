@@ -1,6 +1,8 @@
 {
   "404-subtitle": "La page que vous recherchez n'existe pas",
   "404-title": "Page introuvable",
+  "firmware-title": "Aucun firmware/BIOS",
+  "firmware-text": "Le firmware/BIOS recherché n'existe pas",
   "search-for-games": "Recherchez des jeux sur toutes les plateformes",
   "manual-match": "Recherchez des jeux auprès de tous les fournisseurs de métadonnées",
   "home-headline": "Aucun jeu dans votre bibliothèque",
