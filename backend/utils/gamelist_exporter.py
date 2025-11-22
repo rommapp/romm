@@ -41,9 +41,9 @@ class GamelistExporter:
             SubElement(game, "desc").text = rom.summary
 
         # Media files
-        if rom.path_cover_large:
-            SubElement(game, "cover").text = (
-                f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_large}"
+        if getattr(rom, "path_cover_l", None):
+            SubElement(game, "thumbnail").text = (
+                f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_l}"
             )
 
         if rom.youtube_video_id:
