@@ -55,5 +55,7 @@
   "virtual-collections": "Автосгенерированные коллекции",
   "last-updated": "Последнее обновление",
   "confirm-deletion": "Подтвердить удаление",
-  "delete": "Удалить"
+  "delete": "Удалить",
+  "warning": "ВНИМАНИЕ:",
+  "removing-from-filesystem": "Удаление из системы"
 }
