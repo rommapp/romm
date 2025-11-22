@@ -205,11 +205,13 @@ class AuthHandler:
 
     def consume_invite_link_token(self, token: str) -> str:
         """
-        Verify the invite link token.
+        Verify and consume the invite link token, which invalidates the token to prevent reuse.
+
         Args:
             token (str): The token to verify.
+
         Returns:
-            str: The JTI (JWT ID) of the token.
+            str: The role associated with the token.
         """
         try:
             payload = jwt.decode(
