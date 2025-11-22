@@ -203,13 +203,15 @@ class AuthHandler:
         )
         return token
 
-    def verify_invite_link_token(self, token: str) -> tuple[str, str]:
+    def consume_invite_link_token(self, token: str) -> str:
         """
-        Verify the invite link token.
+        Verify and consume the invite link token, which invalidates the token to prevent reuse.
+
         Args:
             token (str): The token to verify.
+
         Returns:
-            str: The JTI (JWT ID) of the token.
+            str: The role associated with the token.
         """
         try:
             payload = jwt.decode(
@@ -231,15 +233,11 @@ class AuthHandler:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invite token has already been used or is invalid.",
             )
-        return jti, role
 
-    def invalidate_invite_link_token(self, jti: str) -> None:
-        """
-        Invalidate the invite link token.
-        Args:
-            jti (str): The JTI (JWT ID) of the token to invalidate.
-        """
+        # Invalidate the token as soon as it's read
         redis_client.delete(f"invite-jti:{jti}")
+
+        return role
 
 
 class OAuthHandler:
