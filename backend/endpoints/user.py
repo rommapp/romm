@@ -184,9 +184,7 @@ def create_user_from_invite(
             detail=msg,
         )
 
-    jti, role = auth_handler.verify_invite_link_token(token)
-    auth_handler.invalidate_invite_link_token(jti)
-
+    role = auth_handler.consume_invite_link_token(token)
     user = User(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
