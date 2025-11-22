@@ -85,11 +85,7 @@ function closeDialog() {
   >
     <template #header>
       <v-row no-gutters class="justify-center">
-        <span>{{ t("platform.firmware-removing-prefix") }}</span>
-        <span class="text-primary mx-1">{{ firmwares.length }}</span>
-        <span>{{
-          t("platform.firmware-removing-suffix", firmwares.length)
-        }}</span>
+        <span>{{ t("platform.removing-firmware", firmwares.length) }}</span>
       </v-row>
     </template>
     <template #prepend>
