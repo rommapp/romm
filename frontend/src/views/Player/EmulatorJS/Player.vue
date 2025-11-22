@@ -400,8 +400,8 @@ window.EJS_onGameStart = async () => {
     immediateExit();
   });
 
+  // The netplay implementation is finnicky, these overrides make it work
   const { defineNetplayFunctions } = window.EJS_emulator;
-
   window.EJS_emulator.defineNetplayFunctions = () => {
     defineNetplayFunctions.bind(window.EJS_emulator)();
 
@@ -415,7 +415,6 @@ window.EJS_onGameStart = async () => {
           `/api/netplay/list?&game_id=${window.EJS_gameID}`,
         );
         const data = await response.text();
-        console.log("Fetched open rooms! ", data);
         return JSON.parse(data);
       } catch (error) {
         console.error("Error fetching open rooms:", error);
