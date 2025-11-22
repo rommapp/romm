@@ -1,6 +1,8 @@
 {
   "404-subtitle": "找不到页面",
   "404-title": "页面未找到",
+  "firmware-title": "无固件/BIOS",
+  "firmware-text": "您查找的固件/BIOS不存在",
   "search-for-games": "搜索游戏",
   "manual-match": "在所有元数据提供商中搜索游戏",
   "home-headline": "您的库中没有游戏",

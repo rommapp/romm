@@ -62,7 +62,6 @@
   "remove-from-favorites": "Remover dos favoritos",
   "remove-from-playing": "Remover de jogando",
   "removing-from-collection": "Removendo {n} ROMs da coleção",
-  "removing-from-filesystem": "Removendo do sistema de arquivos",
   "removing-title": "Removendo {n} jogo do RomM | Removendo {n} jogos do RomM",
   "rename-file-details": "O arquivo será renomeado de {from} para {to}. As tags do nome do arquivo não serão afetadas.",
   "rename-file-title": "Renomear arquivo para corresponder ao título {source}",

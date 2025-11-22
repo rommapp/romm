@@ -55,5 +55,7 @@
   "virtual-collections": "自動生成的收藏庫",
   "last-updated": "最後更新",
   "confirm-deletion": "確認刪除",
-  "delete": "刪除"
+  "delete": "刪除",
+  "warning": "警告：",
+  "removing-from-filesystem": "正在從系統移除"
 }

@@ -55,5 +55,7 @@
   "virtual-collections": "自动生成的集合",
   "last-updated": "最后更新",
   "confirm-deletion": "确认删除",
-  "delete": "删除"
+  "delete": "删除",
+  "warning": "警告：",
+  "removing-from-filesystem": "正在从系统删除"
 }

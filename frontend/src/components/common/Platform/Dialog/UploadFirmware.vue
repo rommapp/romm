@@ -2,6 +2,7 @@
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, nextTick, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import firmwareApi from "@/services/api/firmware";
@@ -9,6 +10,7 @@ import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 
+const { t } = useI18n();
 const { xs, mdAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();
@@ -21,7 +23,7 @@ emitter?.on("addFirmwareDialog", () => {
 });
 const HEADERS = [
   {
-    title: "Name",
+    title: t("common.name"),
     align: "start",
     sortable: true,
     key: "name",
@@ -45,7 +47,10 @@ function uploadFirmware() {
   if (!currentPlatform.value) return;
 
   emitter?.emit("snackbarShow", {
-    msg: `Uploading ${filesToUpload.value.length} states to ${currentPlatform.value.name}...`,
+    msg: t("platform.firmware-uploading", {
+      count: filesToUpload.value.length,
+      platform: currentPlatform.value.name,
+    }),
     icon: "mdi-loading mdi-spin",
     color: "primary",
   });
@@ -62,7 +67,7 @@ function uploadFirmware() {
       }
 
       emitter?.emit("snackbarShow", {
-        msg: `${uploaded} files uploaded successfully.`,
+        msg: t("platform.firmware-uploaded-successfully", { count: uploaded }),
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
@@ -145,7 +150,9 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center my-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-toplayer" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn
             class="bg-toplayer text-romm-green"
             :disabled="filesToUpload.length == 0 || !currentPlatform"
@@ -154,7 +161,7 @@ function closeDialog() {
             "
             @click="uploadFirmware"
           >
-            Upload
+            {{ t("common.upload") }}
           </v-btn>
         </v-btn-group>
       </v-row>
