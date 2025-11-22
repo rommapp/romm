@@ -62,7 +62,6 @@
   "remove-from-favorites": "즐겨찾기에서 제거",
   "remove-from-playing": "플레이 중지",
   "removing-from-collection": "{n} 개의 롬을 모음집에서 제거합니다",
-  "removing-from-filesystem": "파일 시스템에서 제거 중",
   "removing-title": "제거 중 {n} 개의 게임을 RomM에서",
   "rename-file-details": "파일 이름을 {from} 에서 다음으로 변경합니다: {to}. 파일 이름 태그에는 영향을 주지 않습니다.",
   "rename-file-title": "파일을 {source}에서의 이름과 동일하게 맞춥니다",

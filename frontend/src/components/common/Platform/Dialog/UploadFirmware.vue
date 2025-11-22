@@ -49,7 +49,7 @@ function uploadFirmware() {
   emitter?.emit("snackbarShow", {
     msg: t("platform.firmware-uploading", {
       count: filesToUpload.value.length,
-      platform: currentPlatform.value.name
+      platform: currentPlatform.value.name,
     }),
     icon: "mdi-loading mdi-spin",
     color: "primary",

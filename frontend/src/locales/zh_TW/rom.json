@@ -62,7 +62,6 @@
   "remove-from-favorites": "從喜好中移除",
   "remove-from-playing": "從正在遊玩中移除",
   "removing-from-collection": "從收藏庫中移除 {n} 個 ROM",
-  "removing-from-filesystem": "正在從檔案系統刪除",
   "removing-title": "正在刪除 {n} 個遊戲從 RomM",
   "rename-file-details": "檔案將被重命名 從 {from} 至 {to}. 檔案名稱標籤不會受到影響.",
   "rename-file-title": "重命名檔案以匹配 {source} 標題",
