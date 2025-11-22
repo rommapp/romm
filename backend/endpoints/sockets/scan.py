@@ -15,10 +15,10 @@ from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
 from exceptions.fs_exceptions import (
+    FOLDER_STRUCT_MSG,
     FirmwareNotFoundException,
     FolderStructureNotMatchException,
     RomsNotFoundException,
-    FOLDER_STRUCT_MSG
 )
 from exceptions.socket_exceptions import ScanStoppedException
 from handler.database import db_firmware_handler, db_platform_handler, db_rom_handler
