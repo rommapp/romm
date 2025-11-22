@@ -15,7 +15,7 @@
   "copy-link": "Kopírovat odkaz ke stažení",
   "default": "Nastavit jako výchozí",
   "delete": "Smazat",
-  "delete-filesystem-warning": "Chystáte se odstranit {n} ROMů ze souborového systému. Tuto akci nelze vrátit zpět! | Chystáte se odstranit {n} ROM z vašeho souborového systému. Tuto akci nelze vrátit zpět! | Chystáte se odstranit {n} ROMy z vašeho souborového systému. Tuto akci nelze vrátit zpět! | Chystáte se odstranit {n} ROMů z vašeho souborového systému. Tuto akci nelze vrátit zpět!",
+"delete-filesystem-warning": "Chystáte se odstranit {n} ROMů ze souborového systému. Akce je nevratná! | Chystáte se odstranit {n} ROM z vašeho souborového systému. Akce je nevratná! | Chystáte se odstranit {n} ROMy z vašeho souborového systému. Akce je nevratná! | Chystáte se odstranit {n} ROMů ze souborového systému. Akce je nevratná!",
   "delete-manual-button": "Smazat",
   "delete-manual-confirm-body": "Soubor manuálu bude trvale odstraněn ze souborového systému.",
   "delete-manual-confirm-title": "Opravdu chcete smazat manuál?",
