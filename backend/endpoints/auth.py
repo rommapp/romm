@@ -54,7 +54,8 @@ def login(
     if not user.enabled:
         raise UserDisabledException
 
-    request.session.update({"iss": "romm:auth", "sub": user.username})
+    request.session["iss"] = "romm:auth"
+    request.session["sub"] = user.username
 
     # Update last login and active times
     now = datetime.now(timezone.utc)
@@ -262,7 +263,8 @@ async def auth_openid(request: Request):
     if not potential_user.enabled:
         raise UserDisabledException
 
-    request.session.update({"iss": "romm:auth", "sub": potential_user.username})
+    request.session["iss"] = "romm:auth"
+    request.session["sub"] = potential_user.username
 
     # Update last login and active times
     now = datetime.now(timezone.utc)
@@ -293,7 +295,7 @@ def request_password_reset(username: str = Body(..., embed=True)) -> None:
 
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
-def reset_password(
+async def reset_password(
     token: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
 ) -> None:
@@ -308,7 +310,7 @@ def reset_password(
     """
     user = auth_handler.verify_password_reset_token(token)
 
-    auth_handler.set_user_new_password(user, new_password)
+    await auth_handler.set_user_new_password(user, new_password)
 
     log.info(
         f"Password was successfully reset for user {hl(user.username, color=CYAN)}."
