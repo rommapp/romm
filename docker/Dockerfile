@@ -50,11 +50,11 @@ FROM python-alias AS backend-build
 # libpq-dev is needed to build psycopg-c
 # mariadb-connector-c-dev is needed to build mariadb-connector
 RUN apk add --no-cache \
-  gcc \
-  git \
-  libpq-dev \
-  mariadb-connector-c-dev \
-  musl-dev
+    gcc \
+    git \
+    libpq-dev \
+    mariadb-connector-c-dev \
+    musl-dev
 
 COPY --from=uv-stage /usr/local/bin/uv /usr/local/bin/uvx /bin/
 
@@ -67,7 +67,7 @@ FROM backend-build AS backend-dev-build
 
 # linux-headers is needed to install psutil
 RUN apk add --no-cache \
-  linux-headers
+    linux-headers
 
 RUN uv sync --locked --no-cache --all-extras
 
@@ -75,11 +75,11 @@ RUN uv sync --locked --no-cache --all-extras
 # CUSTOM RAHASHER FOR RETROACHIEVEMENTS
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rahasher-build
 RUN apk add --no-cache \
-  g++ \
-  git \
-  linux-headers \
-  make \
-  zlib-dev
+    g++ \
+    git \
+    linux-headers \
+    make \
+    zlib-dev
 
 ARG RALIBRETRO_VERSION=1.8.1
 
@@ -87,42 +87,43 @@ ARG RALIBRETRO_VERSION=1.8.1
 # TODO: Remove `sed` command adding "unistd.h", when RAHasher can be compiled without it.
 #       Related pull request: https://github.com/madler/zlib/pull/1022
 RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
-  cd ./RALibretro && \
-  sed -i '22a #include <ctime>' ./src/Util.h && \
-  sed -i '6a #include <unistd.h>' \
-  ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
-  ./src/libchdr/deps/zlib-1.3.1/gzread.c \
-  ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
-  make HAVE_CHD=1 -f ./Makefile.RAHasher
+    cd ./RALibretro && \
+    sed -i '22a #include <ctime>' ./src/Util.h && \
+    sed -i '6a #include <unistd.h>' \
+      ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
+      ./src/libchdr/deps/zlib-1.3.1/gzread.c \
+      ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
+    make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 
 # FETCH EMULATORJS AND RUFFLE
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
 
 RUN apk add --no-cache \
-  wget \
-  ca-certificates
+    7zip \
+    wget \
+    ca-certificates
 
 ARG RUFFLE_VERSION=nightly-2025-08-14
 ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
 ARG RUFFLE_SHA256=178870c5e7dd825a8df35920dfc5328d83e53f3c4d5d95f70b1ea9cd13494151
 
 RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
-  echo "${RUFFLE_SHA256}  ${RUFFLE_FILE}" | sha256sum -c - && \
-  unzip -o "${RUFFLE_FILE}" -d /ruffle && \
-  rm -f "${RUFFLE_FILE}"
+    echo "${RUFFLE_SHA256}  ${RUFFLE_FILE}" | sha256sum -c - && \
+    unzip -o "${RUFFLE_FILE}" -d /ruffle && \
+    rm -f "${RUFFLE_FILE}"
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS nginx-build
 
 RUN apk add --no-cache \
-  gcc \
-  git \
-  libc-dev \
-  make \
-  pcre-dev \
-  zlib-dev
+    gcc \
+    git \
+    libc-dev \
+    make \
+    pcre-dev \
+    zlib-dev
 
 ARG NGINX_VERSION
 # The specified commit SHA is the latest commit on the `master` branch at the time of writing.
@@ -134,14 +135,14 @@ ARG NGINX_MOD_ZIP_COMMIT=a9f9afa441117831cc712a832c98408b3f0416f6
 # This is needed to be able to dinamically load it as a module in the final image. `nginx` Docker
 # images do not have a simple way to include third-party modules.
 RUN git clone https://github.com/evanmiller/mod_zip.git && \
-  cd ./mod_zip && \
-  git checkout "${NGINX_MOD_ZIP_COMMIT}" && \
-  cd ../ && \
-  git clone --branch "release-${NGINX_VERSION}" --depth 1 https://github.com/nginx/nginx.git && \
-  cd ./nginx && \
-  ./auto/configure --with-compat --add-dynamic-module=../mod_zip/ && \
-  make -f ./objs/Makefile modules && \
-  chmod 644 ./objs/ngx_http_zip_module.so
+    cd ./mod_zip && \
+    git checkout "${NGINX_MOD_ZIP_COMMIT}" && \
+    cd ../ && \
+    git clone --branch "release-${NGINX_VERSION}" --depth 1 https://github.com/nginx/nginx.git && \
+    cd ./nginx && \
+    ./auto/configure --with-compat --add-dynamic-module=../mod_zip/ && \
+    make -f ./objs/Makefile modules && \
+    chmod 644 ./objs/ngx_http_zip_module.so
 
 
 # PRODUCTION STAGE
@@ -149,13 +150,13 @@ FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}@sha256:${NGINX_SHA256} AS pr
 ARG WEBSERVER_FOLDER=/var/www/html
 
 RUN apk add --no-cache \
-  bash \
-  libmagic \
-  mariadb-connector-c \
-  libpq \
-  7zip \
-  tzdata \
-  valkey
+    bash \
+    libmagic \
+    mariadb-connector-c \
+    libpq \
+    7zip \
+    tzdata \
+    valkey
 
 # Add Python by copying it from the official Docker image. This way, we don't rely on Alpine's
 # Python version, which could not be the same as the one used in the backend build stage.
@@ -174,8 +175,8 @@ COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 
 COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
-  ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
-  ln -sf /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
+    ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
+    ln -sf /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
 COPY ./backend /backend
 
 # Setup init script and config files
@@ -190,10 +191,10 @@ COPY ./docker/gunicorn/logging.conf /etc/gunicorn/logging.conf
 # - Create base directories and make default user/group the owner.
 # - Make nginx configuration files writable by everyone for `envsubst` to work
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
-  mkdir /romm /redis-data && \
-  chown romm:romm /romm /redis-data && \
-  chmod 755 /romm /redis-data && \
-  chmod -R a+w /etc/nginx/conf.d
+    mkdir /romm /redis-data && \
+    chown romm:romm /romm /redis-data && \
+    chmod 755 /romm /redis-data && \
+    chmod -R a+w /etc/nginx/conf.d
 
 
 # SLIM IMAGE
