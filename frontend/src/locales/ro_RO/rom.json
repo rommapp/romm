@@ -62,7 +62,6 @@
   "remove-from-favorites": "Elimină din favorite",
   "remove-from-playing": "Elimină din secțiunea de joc",
   "removing-from-collection": "Eliminare a {n} ROM-urilor din colecție",
-  "removing-from-filesystem": "Se elimină din sistemul de fișiere",
   "removing-title": "Se elimină {n} joc din RomM | Se elimină {n} jocuri din RomM",
   "rename-file-details": "Fișierul va fi redenumit de la {from} la {to}. Etichetele din numele fișierului nu vor fi afectate.",
   "rename-file-title": "Redenumește fișierul pentru a corespunde titlului {source}",

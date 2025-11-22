@@ -62,7 +62,6 @@
   "remove-from-favorites": "Удалить из избранного",
   "remove-from-playing": "Удалить из играющих",
   "removing-from-collection": "Удаление {n} ромов из коллекции",
-  "removing-from-filesystem": "Удаление из файловой системы",
   "removing-title": "Удаление {n} игру из RomM | Удаление {n} игр из RomM",
   "rename-file-details": "Файл будет переименован из {from} в {to}. Теги имени файла не будут затронуты.",
   "rename-file-title": "Переименовать файл в соответствии с названием {source}",

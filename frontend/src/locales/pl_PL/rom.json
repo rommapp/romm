@@ -62,7 +62,6 @@
   "remove-from-favorites": "Usuń z ulubionych",
   "remove-from-playing": "Usuń z aktualnie granych",
   "removing-from-collection": "Usuwanie {n} ROM-ów z kolekcji",
-  "removing-from-filesystem": "Usuwanie z systemu plików",
   "removing-title": "Usuwanie {n} grę z RomM | Usuwanie {n} gier z RomM",
   "rename-file-details": "Plik zostanie przemianowany z {from} na {to}. Tagi w nazwie pliku nie zostaną zmienione.",
   "rename-file-title": "Zmień nazwę pliku, aby pasowała do tytułu źródłowego {source}",
