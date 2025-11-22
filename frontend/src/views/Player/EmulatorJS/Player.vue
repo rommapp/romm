@@ -145,7 +145,7 @@ window.EJS_gameName = romRef.value.fs_name_no_tags
 window.EJS_language = selectedLanguage.value.value.replace("_", "-");
 window.EJS_disableAutoLang = true;
 
-window.EJS_netplayServer = "/netplay";
+window.EJS_netplayServer = window.location.host;
 window.EJS_netplayICEServers = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
@@ -399,6 +399,30 @@ window.EJS_onGameStart = async () => {
     romsStore.update(romRef.value);
     immediateExit();
   });
+
+  const { defineNetplayFunctions } = window.EJS_emulator;
+
+  window.EJS_emulator.defineNetplayFunctions = () => {
+    defineNetplayFunctions.bind(window.EJS_emulator)();
+
+    window.EJS_emulator.netplay.url = {
+      path: "/netplay/socket.io",
+    };
+
+    window.EJS_emulator.netplayGetOpenRooms = async () => {
+      try {
+        const response = await fetch(
+          `/api/netplay/list?&game_id=${window.EJS_gameID}`,
+        );
+        const data = await response.text();
+        console.log("Fetched open rooms! ", data);
+        return JSON.parse(data);
+      } catch (error) {
+        console.error("Error fetching open rooms:", error);
+        return {};
+      }
+    };
+  };
 };
 
 function immediateExit() {

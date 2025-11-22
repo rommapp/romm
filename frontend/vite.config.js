@@ -128,6 +128,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: false,
           ws: true,
         },
+        "/netplay": {
+          target: `http://127.0.0.1:${backendPort}`,
+          changeOrigin: false,
+          ws: true,
+        },
         "/openapi.json": {
           target: `http://127.0.0.1:${backendPort}`,
           changeOrigin: false,

@@ -1,4 +1,4 @@
-from typing import Any, Dict, NotRequired, Optional, TypedDict
+from typing import Dict, Optional, TypedDict
 
 from fastapi import HTTPException, Request, status
 
@@ -30,7 +30,7 @@ class NetplayRoom(TypedDict):
     max_players: int
 
 
-netplay_rooms: dict[str, NetplayRoom]
+netplay_rooms: dict[str, NetplayRoom] = {}
 
 # # Background cleanup task to delete empty rooms periodically
 # async def cleanup_empty_rooms_loop():
@@ -78,7 +78,6 @@ class RoomsResponse(TypedDict):
 
 @protected_route(router.get, "/list", [Scope.ASSETS_READ])
 def get_rooms(request: Request, game_id: Optional[str]) -> Dict[str, RoomsResponse]:
-    """Return a mapping of session_id -> room metadata for open rooms of a game."""
     if not game_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

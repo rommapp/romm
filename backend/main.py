@@ -48,7 +48,7 @@ from handler.auth.constants import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.session_middleware import SessionMiddleware
-from handler.socket_handler import socket_handler
+from handler.socket_handler import netplay_socket_handler, socket_handler
 from logger.formatter import LOGGING_CONFIG
 from utils import get_version
 from utils.context import (
@@ -96,7 +96,11 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         CSRFMiddleware,
         cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
-        exempt_urls=[re.compile(r"^/api/token.*"), re.compile(r"^/ws")],
+        exempt_urls=[
+            re.compile(r"^/api/token.*"),
+            re.compile(r"^/ws"),
+            re.compile(r"^/netplay"),
+        ],
     )
 
 # Handles both basic and oauth authentication
@@ -135,10 +139,10 @@ app.include_router(screenshots.router, prefix="/api")
 app.include_router(firmware.router, prefix="/api")
 app.include_router(collections.router, prefix="/api")
 app.include_router(gamelist.router, prefix="/api")
-app.include_router(netplay.router)
+app.include_router(netplay.router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
-app.mount("/netplay", socket_handler.socket_app)
+app.mount("/netplay", netplay_socket_handler.socket_app)
 
 add_pagination(app)
 
