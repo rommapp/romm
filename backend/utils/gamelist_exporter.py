@@ -95,9 +95,9 @@ class GamelistExporter:
                 SubElement(game, "box3d").text = (
                     f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["box3d_path"]}"
                 )
-            if rom.ss_metadata.get("box2d_back"):
+            if rom.ss_metadata.get("box2d_back_path"):
                 SubElement(game, "boxback").text = (
-                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["box2d_back"]}"
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["box2d_back_path"]}"
                 )
             if rom.ss_metadata.get("fanart"):
                 SubElement(game, "fanart").text = (

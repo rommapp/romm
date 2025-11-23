@@ -38,6 +38,7 @@ class EjsControlsButton(TypedDict):
 class MetadataMediaType(enum.StrEnum):
     BEZEL = "bezel"
     BOX2D = "box2d"
+    BOX2D_BACK = "box2d_back"
     BOX3D = "box3d"
     MIXIMAGE = "miximage"
     PHYSICAL = "physical"
