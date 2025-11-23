@@ -91,26 +91,40 @@ class GamelistExporter:
 
         # Provider specific metadata
         if rom.ss_metadata:
-            if rom.ss_metadata.get("box3d"):
-                SubElement(game, "box3d").text = rom.ss_metadata["box3d"]
+            if rom.ss_metadata.get("box3d_path"):
+                SubElement(game, "box3d").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["box3d_path"]}"
+                )
             if rom.ss_metadata.get("box2d_back"):
-                SubElement(game, "backcover").text = rom.ss_metadata["box2d_back"]
+                SubElement(game, "boxback").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["box2d_back"]}"
+                )
             if rom.ss_metadata.get("fanart"):
-                SubElement(game, "fanart").text = rom.ss_metadata["fanart"]
-            if rom.ss_metadata.get("marquee"):
-                SubElement(game, "marquee").text = rom.ss_metadata["marquee"]
+                SubElement(game, "fanart").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["fanart"]}"
+                )
+            if rom.ss_metadata.get("marquee_path"):
+                SubElement(game, "marquee").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["marquee_path"]}"
+                )
             if rom.ss_metadata.get("miximage"):
-                SubElement(game, "miximage").text = rom.ss_metadata["miximage"]
+                SubElement(game, "miximage").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["miximage"]}"
+                )
             if rom.ss_metadata.get("physical"):
-                SubElement(game, "physicalmedia").text = rom.ss_metadata["physical"]
+                SubElement(game, "physicalmedia").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["physical"]}"
+                )
             if rom.ss_metadata.get("title_screen"):
-                SubElement(game, "title_screen").text = rom.ss_metadata["title_screen"]
+                SubElement(game, "title_screen").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["title_screen"]}"
+                )
 
         if rom.gamelist_metadata:
             if rom.gamelist_metadata.get("box3d"):
                 SubElement(game, "box3d").text = rom.gamelist_metadata["box3d"]
             if rom.gamelist_metadata.get("box2d_back"):
-                SubElement(game, "backcover").text = rom.gamelist_metadata["box2d_back"]
+                SubElement(game, "boxback").text = rom.gamelist_metadata["box2d_back"]
             if rom.gamelist_metadata.get("fanart"):
                 SubElement(game, "fanart").text = rom.gamelist_metadata["fanart"]
             if rom.gamelist_metadata.get("marquee"):
