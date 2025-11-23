@@ -171,6 +171,7 @@ class SSMetadataMedia(TypedDict):
     bezel_path: str | None
     box2d_back_path: str | None
     box3d_path: str | None
+    fanart_path: str | None
     miximage_path: str | None
     physical_path: str | None
     marquee_path: str | None
@@ -219,6 +220,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         bezel_path=None,
         box2d_back_path=None,
         box3d_path=None,
+        fanart_path=None,
         miximage_path=None,
         physical_path=None,
         marquee_path=None,
@@ -248,6 +250,10 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["box2d_url"] = media["url"]
             elif media.get("type") == "fanart" and not ss_media["fanart_url"]:
                 ss_media["fanart_url"] = media["url"]
+                if MetadataMediaType.FANART in preferred_media_types:
+                    ss_media["fanart_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.FANART)}/fanart.png"
+                    )
             elif media.get("type") == "box-texture" and not ss_media["fullbox_url"]:
                 ss_media["fullbox_url"] = media["url"]
             elif media.get("type") == "wheel-hd" and not ss_media["logo_url"]:
