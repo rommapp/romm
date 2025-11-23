@@ -1,6 +1,6 @@
 {
   "login": "Bejelentkezés",
-  "login-oidc": "Bejelentkezés evvel {oidc}",
+  "login-oidc": "Bejelentkezés ezzel {oidc}",
   "or": "vagy",
   "password": "Jelszó",
   "username": "Felhasználónév",
@@ -11,6 +11,6 @@
   "confirm-new-password": "Új jelszó megerősítése",
   "reset-password": "Jelszó visszaállítása",
   "back-to-login": "Vissza a bejelentkezéshez",
-  "setup-wizard": "Beállítás varázsló",
+  "setup-wizard": "Beállítási varázsló",
   "register": "Regisztráció"
 }
