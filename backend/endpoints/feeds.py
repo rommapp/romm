@@ -555,7 +555,9 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
 
     txt_lines = []
     txt_lines.append("1")  # Database version
-    txt_lines.append("\t")  # Delimiter (cannot use csv (coma) as kekatsu does not support " (double quotes) as a text delimiter)
+    txt_lines.append(
+        "\t"
+    )  # Delimiter (cannot use csv (coma) as kekatsu does not support " (double quotes) as a text delimiter)
 
     for rom in roms:
         download_url = generate_rom_download_url(request, rom)
@@ -581,7 +583,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
         )
 
         # Format: title	platform	region	version	author	download_url	filename	size	box_art_url
-        txt_line = f'{kekatsu_item.title}\t{kekatsu_item.platform}\t{kekatsu_item.region}\t{kekatsu_item.version}\t{kekatsu_item.author}\t{kekatsu_item.download_url}\t{kekatsu_item.filename}\t{kekatsu_item.size}\t{kekatsu_item.box_art_url}'
+        txt_line = f"{kekatsu_item.title}\t{kekatsu_item.platform}\t{kekatsu_item.region}\t{kekatsu_item.version}\t{kekatsu_item.author}\t{kekatsu_item.download_url}\t{kekatsu_item.filename}\t{kekatsu_item.size}\t{kekatsu_item.box_art_url}"
         txt_lines.append(txt_line)
 
     txt_content = "\n".join(txt_lines)
