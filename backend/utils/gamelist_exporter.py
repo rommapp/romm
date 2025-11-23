@@ -168,7 +168,7 @@ class GamelistExporter:
         root = Element("gameList")
 
         for rom in roms:
-            if rom and not rom.missing_from_fs:
+            if rom and not rom.missing_from_fs and rom.fs_name != "gamelist.xml":
                 game_element = self._create_game_element(rom, request=request)
                 root.append(game_element)
 
