@@ -15,7 +15,7 @@
   "core": "Mag",
   "create": "Létrehoz",
   "delete": "Törlés",
-  "dropzone-description": "Húzd ide a ROM fájljait, vagy kattins a böngészéshez",
+  "dropzone-description": "Húzd ide a ROM fájljait, vagy kattints a böngészéshez",
   "dropzone-drag-over": "Engedd el a feltöltéshez",
   "dropzone-title": "Fájlok ide helyezése",
   "edit": "Szerkesztés",
@@ -56,4 +56,6 @@
   "user-interface": "Felhasználói felület",
   "virtual-collection": "Automatikusan generált gyűjtemény",
   "virtual-collections": "Automatikusan generált gyűjtemények"
+  "warning": "FIGYELMEZTETÉS:",
+  "removing-from-filesystem": "Eltávolítás a fájlrendszerből"
 }
