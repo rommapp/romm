@@ -580,7 +580,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
             box_art_url=box_art_url,
         )
 
-        # Format: title,platform,region,version,author,download_url,filename,size,box_art_url
+        # Format: titleplatform	region	version	author	download_url	filename	size	box_art_url
         txt_line = f'{kekatsu_item.title}\t{kekatsu_item.platform}\t{kekatsu_item.region}\t{kekatsu_item.version}\t{kekatsu_item.author}\t{kekatsu_item.download_url}\t{kekatsu_item.filename}\t{kekatsu_item.size}\t{kekatsu_item.box_art_url}'
         txt_lines.append(txt_line)
 
