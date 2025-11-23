@@ -3,7 +3,7 @@
   "age-rating": "Korhatár",
   "category": "Kategória",
   "change-view": "Nézet módosítása",
-  "collection": "Gyüjtemény",
+  "collection": "Gyűjtemény",
   "company": "Cég",
   "cover-style": "Borító stílus",
   "danger-zone": "Veszély zóna",
@@ -38,7 +38,7 @@
   "show-playables": "Mutasd a játszhatókat",
   "show-ra": "Mutasd a Retroachievements",
   "show-unmatched": "Mutasd a nem egyezőket",
-  "show-verified": "Mutasd a ellenörzötteket",
+  "show-verified": "Mutasd az ellenőrzötteket",
   "status": "Állapot",
   "upload-roms": "ROM-ok Feltöltése"
 }
