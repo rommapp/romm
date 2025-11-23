@@ -11,10 +11,10 @@
   "save-and-quit": "Mentés és Kilépés",
   "select-save": "Mentés kiválasztása",
   "change-save": "Mentés cseréje",
-  "deselect-save": "Mentés kiválasztás törlése",
+  "deselect-save": "Mentés kiválasztásának törlése",
   "select-state": "Állás kiválasztása",
   "change-state": "Állás cseréje",
-  "deselect-state": "Állás kiválasztás törlése",
+  "deselect-state": "Állás kiválasztásának törlése",
   "background-color": "Háttérszín",
   "select-background-color": "Háttérszín kiválasztása"
 }
