@@ -39,20 +39,11 @@ def get_preferred_regions() -> list[str]:
 
 
 def get_preferred_languages() -> list[str]:
-    """Get preferred languages from config
+    """Get preferred languages from config.
 
-    Uses provider-specific locale if set, otherwise falls back to language priority list.
-    Always includes English as final fallback.
+    Returns language priority list with default fallbacks.
     """
     config = cm.get_config()
-
-    # Check for provider-specific locale first
-    provider_locale = config.METADATA_PROVIDER_LOCALES.get("ss")
-    if provider_locale:
-        # Use provider locale with English fallback
-        return list(dict.fromkeys([provider_locale, "en"]))
-
-    # Fall back to language priority list
     return list(dict.fromkeys(config.SCAN_LANGUAGE_PRIORITY + ["en", "fr"]))
 
 

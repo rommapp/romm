@@ -15,17 +15,12 @@
   "disabled-by-admin": "Zakázáno administrátorem",
   "hashes": "Přepočítat hashe",
   "hashes-desc": "Přepočítá hashe pro vybrané platformy",
-<<<<<<< HEAD
   "hashes-disabled-tooltip": "Výpočet hashů zakázán.<br><br>Hashe (MD5, SHA1, CRC32) jsou jedinečné otisky, které přesně identifikují soubory ROM.<br><br>Bez nich nemohou Hasheous a RetroAchievements porovnávat hry se svými databázemi, ale skenování bude rychlejší.",
   "hashes-enabled-tooltip": "Výpočet hashů povolen.<br><br>Budou vypočítány hashe (MD5, SHA1, CRC32) pro vytvoření jedinečných otisků každého souboru ROM.<br><br>To umožňuje Hasheous a RetroAchievements přesně identifikovat hry ve svých databázích.",
   "hash-calculation-disabled": "Výpočet hash je zakázán",
   "hasheous-requires-hashes": "Hasheous vyžaduje povolené počítání hashů",
   "retroachievements-requires-hashes": "RetroAchievements vyžaduje povolené počítání hashů",
   "manage-library": "Správa knihovny",
-=======
-  "locale-not-supported": "Nepodporováno",
-  "manage-library": "Spravovat knihovnu",
->>>>>>> da0735a29 (Add metadata locale selection for IGDB and ScreenScraper)
   "metadata-sources": "Zdroje metadat",
   "new-platforms": "Nové platformy",
   "new-platforms-desc": "Skenovat pouze nové platformy (nejrychlejší)",

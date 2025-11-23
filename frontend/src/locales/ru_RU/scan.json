@@ -14,16 +14,11 @@
   "connection-successful": "Соединение успешно установлено",
   "disabled-by-admin": "Отключено администратором",
   "hashes": "Пересчитать хеши",
-<<<<<<< HEAD
   "hashes-desc": "Пересчитывает хеши для выбранных платформ",
   "hashes-disabled-tooltip": "Вычисление хешей отключено.<br><br>Хеши (MD5, SHA1, CRC32) - это уникальные отпечатки, которые точно идентифицируют файлы ROM.<br><br>Без них Hasheous и RetroAchievements не могут сопоставить игры с своими базами данных, но сканирование будет быстрее.",
   "hashes-enabled-tooltip": "Вычисление хешей включено.<br><br>Будут вычислены хеши (MD5, SHA1, CRC32) для создания уникальных отпечатков каждого файла ROM.<br><br>Это позволяет Hasheous и RetroAchievements точно идентифицировать игры в своих базах данных.",
   "hash-calculation-disabled": "Вычисление хешей отключено",
   "hasheous-requires-hashes": "Hasheous требует хеши файлов",
-=======
-  "hashes-desc": "Пересчитать хеши для выбранных платформ",
-  "locale-not-supported": "Не поддерживается",
->>>>>>> da0735a29 (Add metadata locale selection for IGDB and ScreenScraper)
   "manage-library": "Управление библиотекой",
   "metadata-sources": "Источники мета��анных",
   "new-platforms": "Новые платформы",

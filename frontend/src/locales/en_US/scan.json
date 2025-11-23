@@ -15,15 +15,11 @@
   "disabled-by-admin": "Disabled by the administrator",
   "hashes": "Recalculate hashes",
   "hashes-desc": "Recalculates hashes for selected platforms",
-<<<<<<< HEAD
   "hashes-disabled-tooltip": "File hash calculation disabled.<br><br>Hashes (MD5, SHA1, CRC32) are unique fingerprints that identify ROM files precisely.<br><br>Without them, Hasheous and RetroAchievements cannot match games to their databases, but scanning will be faster.",
   "hashes-enabled-tooltip": "File hash calculation enabled.<br><br>Hashes (MD5, SHA1, CRC32) will be calculated to create unique fingerprints for each ROM file.<br><br>This enables Hasheous and RetroAchievements to accurately identify games in their databases.",
   "hash-calculation-disabled": "Hash calculation is disabled",
   "hasheous-requires-hashes": "Hasheous requires hash calculation to be enabled",
   "retroachievements-requires-hashes": "RetroAchievements requires hash calculation to be enabled",
-=======
-  "locale-not-supported": "Not supported",
->>>>>>> da0735a29 (Add metadata locale selection for IGDB and ScreenScraper)
   "manage-library": "Manage library",
   "metadata-sources": "Metadata sources",
   "new-platforms": "New platforms",

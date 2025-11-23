@@ -15,15 +15,11 @@
   "disabled-by-admin": "Désactivé par l'administrateur",
   "hashes": "Recalculer les hachages",
   "hashes-desc": "Recalculer les hachages des plateformes sélectionnées",
-<<<<<<< HEAD
   "hashes-disabled-tooltip": "Calcul de hachage désactivé.<br><br>Les hachages (MD5, SHA1, CRC32) sont des empreintes uniques qui identifient les fichiers ROM avec précision.<br><br>Sans eux, Hasheous et RetroAchievements ne peuvent pas faire correspondre les jeux à leurs bases de données, mais l'analyse sera plus rapide.",
   "hashes-enabled-tooltip": "Calcul de hachage de fichier activé.<br><br>Les hachages (MD5, SHA1, CRC32) seront calculés pour créer des empreintes uniques pour chaque fichier ROM.<br><br>Ceci permet à Hasheous et RetroAchievements d'identifier précisément les jeux dans leurs bases de données.",
   "hash-calculation-disabled": "Le calcul de hachage est désactivé",
   "hasheous-requires-hashes": "Hasheous nécessite que le calcul de hachage soit activé",
   "retroachievements-requires-hashes": "RetroAchievements nécessite que le calcul de hachage soit activé",
-=======
-  "locale-not-supported": "Non pris en charge",
->>>>>>> da0735a29 (Add metadata locale selection for IGDB and ScreenScraper)
   "manage-library": "Gérer la bibliothèque",
   "metadata-sources": "Sources de métadonnées",
   "new-platforms": "Nouvelles plateformes",
