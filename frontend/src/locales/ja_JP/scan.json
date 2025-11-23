@@ -15,14 +15,10 @@
   "disabled-by-admin": "管理者によって無効化されています",
   "hashes": "ハッシュ値の再計算",
   "hashes-desc": "選択されたプラットフォームのハッシュ値を再計算します",
-<<<<<<< HEAD
   "hashes-disabled-tooltip": "ファイルハッシュ計算が無効。<br><br>ハッシュ（MD5、SHA1、CRC32）はROMファイルを正確に識別するユニークな指紋です。<br><br>これがないと、HasheousやRetroAchievementsはゲームをデータベースとマッチングできませんが、スキャンは高速になります。",
   "hashes-enabled-tooltip": "ファイルハッシュ計算が有効です。<br><br>各ROMファイルの一意の指紋を作成するために、ハッシュ（MD5、SHA1、CRC32）が計算されます。<br><br>これにより、HasheousとRetroAchievementsがデータベース内のゲームを正確に識別できます。",
   "hash-calculation-disabled": "ハッシュ計算が無効になっています",
   "hasheous-requires-hashes": "Hasheousはファイルハッシュが必要です",
-=======
-  "locale-not-supported": "非対応",
->>>>>>> da0735a29 (Add metadata locale selection for IGDB and ScreenScraper)
   "manage-library": "ライブラリを編集",
   "metadata-sources": "メタデータ取得元",
   "new-platforms": "新規プラットフォーム",

@@ -53,14 +53,6 @@ async function deleteExclusion({
   return api.delete(`/config/exclude/${exclusionType}/${exclusionValue}`);
 }
 
-async function updateProviderLocales({
-  locales,
-}: {
-  locales: Record<string, string>;
-}) {
-  return api.put("/config/provider-locales", { locales });
-}
-
 export default {
   addPlatformBindConfig,
   deletePlatformBindConfig,
@@ -68,5 +60,4 @@ export default {
   deletePlatformVersionConfig,
   addExclusion,
   deleteExclusion,
-  updateProviderLocales,
 };

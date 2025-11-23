@@ -84,7 +84,6 @@ class Config:
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
-    METADATA_PROVIDER_LOCALES: dict[str, str]
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -272,11 +271,6 @@ class ConfigManager:
                     "screenshot",
                     "manual",
                 ],
-            ),
-            METADATA_PROVIDER_LOCALES=pydash.get(
-                self._raw_config,
-                "scan.provider_locales",
-                {},
             ),
         )
 
@@ -467,19 +461,6 @@ class ConfigManager:
                 )
                 sys.exit(3)
 
-        if not isinstance(self.config.METADATA_PROVIDER_LOCALES, dict):
-            log.critical(
-                "Invalid config.yml: scan.provider_locales must be a dictionary"
-            )
-            sys.exit(3)
-        else:
-            for provider, locale in self.config.METADATA_PROVIDER_LOCALES.items():
-                if not isinstance(locale, str):
-                    log.critical(
-                        f"Invalid config.yml: scan.provider_locales.{provider} must be a string"
-                    )
-                    sys.exit(3)
-
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
@@ -535,7 +516,6 @@ class ConfigManager:
                     "region": self.config.SCAN_REGION_PRIORITY,
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
-                "provider_locales": self.config.METADATA_PROVIDER_LOCALES,
             },
         }
 
@@ -612,10 +592,6 @@ class ConfigManager:
             pass
 
         self.config.__setattr__(exclusion_type, config_item)
-        self._update_config_file()
-
-    def update_provider_locales(self, locales: dict[str, str]) -> None:
-        self.config.METADATA_PROVIDER_LOCALES = locales
         self._update_config_file()
 
 

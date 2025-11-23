@@ -15,14 +15,10 @@
   "disabled-by-admin": "已被管理员禁用",
   "hashes": "哈希",
   "hashes-desc": "重新计算选定平台的哈希值",
-<<<<<<< HEAD
   "hashes-disabled-tooltip": "哈希计算已禁用。<br><br>哈希值（MD5、SHA1、CRC32）是精确识别 ROM 文件的唯一指纹。<br><br>没有它们，Hasheous 和 RetroAchievements 无法将游戏与其数据库进行匹配，但扫描速度会更快。",
   "hashes-enabled-tooltip": "文件哈希计算已启用。<br><br>将计算哈希值（MD5、SHA1、CRC32）为每个 ROM 文件创建唯一指纹。<br><br>这使得 Hasheous 和 RetroAchievements 能够在其数据库中准确识别游戏。",
   "hash-calculation-disabled": "哈希计算已禁用",
   "hasheous-requires-hashes": "Hasheous 需要文件哈希",
-=======
-  "locale-not-supported": "不支持",
->>>>>>> da0735a29 (Add metadata locale selection for IGDB and ScreenScraper)
   "manage-library": "管理游戏库",
   "metadata-sources": "元数据源",
   "new-platforms": "新平台",

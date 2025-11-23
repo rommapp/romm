@@ -14,16 +14,11 @@
   "connection-successful": "Conexiune reușită",
   "disabled-by-admin": "Dezactivat de administrator",
   "hashes": "Recalculează hash-urile",
-<<<<<<< HEAD
   "hashes-desc": "Recalculează hash-urile pentru platformele selectate",
   "hashes-disabled-tooltip": "Calculul hash-urilor dezactivat.<br><br>Hash-urile (MD5, SHA1, CRC32) sunt amprente digitale unice care identifică fișierele ROM cu precizie.<br><br>Fără ele, Hasheous și RetroAchievements nu pot potrivi jocurile cu bazele lor de date, dar scanarea va fi mai rapidă.",
   "hashes-enabled-tooltip": "Calculul hash-urilor activat.<br><br>Se vor calcula hash-uri (MD5, SHA1, CRC32) pentru a crea amprente digitale unice pentru fiecare fișier ROM.<br><br>Aceasta permite lui Hasheous și RetroAchievements să identifice cu precizie jocurile în bazele lor de date.",
   "hash-calculation-disabled": "Calculul hash-ului este dezactivat",
   "hasheous-requires-hashes": "Hasheous necesită hash-uri de fișiere",
-=======
-  "hashes-desc": "Recalculează hash-urile platformelor selectate",
-  "locale-not-supported": "Nesuportat",
->>>>>>> da0735a29 (Add metadata locale selection for IGDB and ScreenScraper)
   "manage-library": "Gestionează biblioteca",
   "metadata-sources": "Surse de metadate",
   "new-platforms": "Platforme noi",

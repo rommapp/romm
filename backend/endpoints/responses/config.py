@@ -23,4 +23,3 @@ class ConfigResponse(TypedDict):
     SCAN_ARTWORK_PRIORITY: list[str]
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
-    METADATA_PROVIDER_LOCALES: dict[str, str]
