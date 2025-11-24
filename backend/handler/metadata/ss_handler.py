@@ -155,7 +155,7 @@ class SSMetadataMedia(TypedDict):
     box3d_url: str | None  # box-3D
     fanart_url: str | None  # fanart
     fullbox_url: str | None  # box-texture
-    logo_url: str | None  # wheel-hd
+    logo_url: str | None  # wheel-hd or wheel
     manual_url: str | None  # manual
     marquee_url: str | None  # screenmarquee
     miximage_url: str | None  # mixrbv1 | mixrbv2
@@ -165,7 +165,6 @@ class SSMetadataMedia(TypedDict):
     title_screen_url: str | None  # sstitle
     video_url: str | None  # video
     video_normalized_url: str | None  # video-normalized
-    wheel_url: str | None  # wheel
 
     # Resources stored in filesystem
     bezel_path: str | None
@@ -177,7 +176,6 @@ class SSMetadataMedia(TypedDict):
     marquee_path: str | None
     logo_path: str | None
     video_path: str | None
-    wheel_path: str | None
 
 
 class SSMetadata(SSMetadataMedia):
@@ -216,7 +214,6 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         title_screen_url=None,
         video_url=None,
         video_normalized_url=None,
-        wheel_url=None,
         bezel_path=None,
         box2d_back_path=None,
         box3d_path=None,
@@ -226,7 +223,6 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         marquee_path=None,
         logo_path=None,
         video_path=None,
-        wheel_path=None,
     )
 
     for region in get_preferred_regions():
@@ -259,6 +255,12 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
             elif media.get("type") == "wheel-hd" and not ss_media["logo_url"]:
                 ss_media["logo_url"] = media["url"]
 
+                if MetadataMediaType.LOGO in preferred_media_types:
+                    ss_media["logo_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.LOGO)}/logo.png"
+                    )
+            elif media.get("type") == "wheel" and not ss_media["logo_url"]:
+                ss_media["logo_url"] = media["url"]
                 if MetadataMediaType.LOGO in preferred_media_types:
                     ss_media["logo_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.LOGO)}/logo.png"
@@ -313,12 +315,6 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 and not ss_media["video_normalized_url"]
             ):
                 ss_media["video_normalized_url"] = media["url"]
-            elif media.get("type") == "wheel" and not ss_media["wheel_url"]:
-                ss_media["wheel_url"] = media["url"]
-                if MetadataMediaType.WHEEL in preferred_media_types:
-                    ss_media["wheel_path"] = (
-                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.WHEEL)}/wheel.png"
-                    )
 
     return ss_media
 

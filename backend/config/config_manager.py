@@ -49,7 +49,6 @@ class MetadataMediaType(enum.StrEnum):
     FANART = "fanart"
     VIDEO = "video"
     MANUAL = "manual"
-    WHEEL = "wheel"
 
 
 class EjsControls(TypedDict):
