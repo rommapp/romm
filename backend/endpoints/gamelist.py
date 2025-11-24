@@ -23,7 +23,9 @@ async def export_gamelist(
     platform_ids: Annotated[
         List[int], Query(description="List of platform IDs to export")
     ],
-    local_path: Annotated[bool, Query(description="Use local paths instead of URLs")] = False,
+    local_path: Annotated[
+        bool, Query(description="Use local paths instead of URLs")
+    ] = False,
 ) -> Response:
     """Export platforms/ROMs to gamelist.xml format and write to platform directories"""
     if not platform_ids:
@@ -38,7 +40,9 @@ async def export_gamelist(
 
         # Export each platform to its respective directory
         for platform_id in platform_ids:
-            success = await exporter.export_platform_to_file(platform_id, request if not local_path else None)
+            success = await exporter.export_platform_to_file(
+                platform_id, request if not local_path else None
+            )
             if success:
                 files_written.append(f"gamelist_{platform_id}.xml")
             else:
