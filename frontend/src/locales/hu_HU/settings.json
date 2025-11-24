@@ -77,7 +77,7 @@
   "show-regions": "Régiók megjelenítése",
   "show-regions-desc": "Régiózászlók megjelenítése a galériában",
   "show-siblings": "Változatok megjelenítése",
-  "show-siblings-desc": "A változatok számának megjelenítése a galériában (ROM-ok csoportosítása esetén) \"Group roms\",
+  "show-siblings-desc": "A változatok számának megjelenítése a galériában (ROM-ok csoportosítása esetén)",
   "show-stats": "Statisztikák megjelenítése",
   "show-stats-desc": "Statisztikai összegzés megjelenítése a kezdőlapon",
   "show-status": "Állapot megjelenítése",
@@ -96,3 +96,4 @@
   "virtual-collection-type": "Virtuális gyűjtemény típusa (ROM csoportosítási mód)",
   "watcher": "Figyelő"
 }
+
