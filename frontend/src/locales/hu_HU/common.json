@@ -55,7 +55,7 @@
   "upload-files-selected": "{count} fájl kiválasztva | {count} fájlok kiválasztva",
   "user-interface": "Felhasználói felület",
   "virtual-collection": "Automatikusan generált gyűjtemény",
-  "virtual-collections": "Automatikusan generált gyűjtemények"
+  "virtual-collections": "Automatikusan generált gyűjtemények",
   "warning": "FIGYELMEZTETÉS:",
   "removing-from-filesystem": "Eltávolítás a fájlrendszerből"
 }
