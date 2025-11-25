@@ -22,6 +22,7 @@
   "game-exit-save": "Salva ed esci",
   "game-exit-save-desc": "Salva lo stato corrente, quindi esci",
   "game-play": "Gioca",
+  "game-saving": "RISPARMIO…",
   "games-n": "{n} gioco | {n} giochi",
   "loading-platforms": "Caricamento piattaforme...",
   "nav-back": "Indietro",

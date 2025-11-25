@@ -155,7 +155,7 @@ class SSMetadataMedia(TypedDict):
     box3d_url: str | None  # box-3D
     fanart_url: str | None  # fanart
     fullbox_url: str | None  # box-texture
-    logo_url: str | None  # wheel-hd
+    logo_url: str | None  # wheel-hd or wheel
     manual_url: str | None  # manual
     marquee_url: str | None  # screenmarquee
     miximage_url: str | None  # mixrbv1 | mixrbv2
@@ -168,7 +168,9 @@ class SSMetadataMedia(TypedDict):
 
     # Resources stored in filesystem
     bezel_path: str | None
+    box2d_back_path: str | None
     box3d_path: str | None
+    fanart_path: str | None
     miximage_path: str | None
     physical_path: str | None
     marquee_path: str | None
@@ -213,7 +215,9 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_url=None,
         video_normalized_url=None,
         bezel_path=None,
+        box2d_back_path=None,
         box3d_path=None,
+        fanart_path=None,
         miximage_path=None,
         physical_path=None,
         marquee_path=None,
@@ -228,6 +232,10 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
 
             if media.get("type") == "box-2D-back" and not ss_media["box2d_back_url"]:
                 ss_media["box2d_back_url"] = media["url"]
+                if MetadataMediaType.BOX2D_BACK in preferred_media_types:
+                    ss_media["box2d_back_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D_BACK)}/box2d_back.png"
+                    )
             elif media.get("type") == "bezel-16-9" and not ss_media["bezel_url"]:
                 ss_media["bezel_url"] = media["url"]
                 if MetadataMediaType.BEZEL in preferred_media_types:
@@ -238,11 +246,21 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["box2d_url"] = media["url"]
             elif media.get("type") == "fanart" and not ss_media["fanart_url"]:
                 ss_media["fanart_url"] = media["url"]
+                if MetadataMediaType.FANART in preferred_media_types:
+                    ss_media["fanart_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.FANART)}/fanart.png"
+                    )
             elif media.get("type") == "box-texture" and not ss_media["fullbox_url"]:
                 ss_media["fullbox_url"] = media["url"]
             elif media.get("type") == "wheel-hd" and not ss_media["logo_url"]:
                 ss_media["logo_url"] = media["url"]
 
+                if MetadataMediaType.LOGO in preferred_media_types:
+                    ss_media["logo_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.LOGO)}/logo.png"
+                    )
+            elif media.get("type") == "wheel" and not ss_media["logo_url"]:
+                ss_media["logo_url"] = media["url"]
                 if MetadataMediaType.LOGO in preferred_media_types:
                     ss_media["logo_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.LOGO)}/logo.png"
