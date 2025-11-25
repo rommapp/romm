@@ -55,5 +55,7 @@
   "virtual-collections": "Colecții autogenerate",
   "last-updated": "Ultima actualizare",
   "confirm-deletion": "Confirmă ștergerea",
-  "delete": "Șterge"
+  "delete": "Șterge",
+  "warning": "AVERTISMENT:",
+  "removing-from-filesystem": "Ștergere din sistem"
 }

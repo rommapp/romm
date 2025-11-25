@@ -98,9 +98,11 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #     - manual # Manual (enabled by default)
 #     # Gameplay video
 #     - video  # Video (warning: large file size)
+#     # Media used for batocera gamelist.xml export
+#     - box2d_back  # Back cover art
+#     - logo  # Transparent logo
 #     # Other media assets (might be used in the future)
 #     - marquee  # Custom marquee
-#     - logo  # Transparent logo
 
 # EmulatorJS per-core options
 # emulatorjs:

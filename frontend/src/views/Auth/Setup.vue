@@ -32,7 +32,7 @@ const metadataOptions = computed(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
   },
   {
-    name: "ScreenScrapper",
+    name: "ScreenScraper",
     value: "ss",
     logo_path: "/assets/scrappers/ss.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,

@@ -9,6 +9,7 @@ import {
   nextTick,
   useTemplateRef,
 } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
 import BackButton from "@/console/components/BackButton.vue";
@@ -43,6 +44,7 @@ const romsStore = storeRoms();
 const heartbeatStore = storeHeartbeat();
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 
 const rom = ref<DetailedRomSchema | null>(null);
 const playerState = ref<PlayerState>("loading");
@@ -632,7 +634,7 @@ onUnmounted(() => {
                     @click="play()"
                   >
                     <span class="text-lg md:text-xl">▶</span>
-                    Play
+                    {{ t("console.game-play") }}
                   </button>
                   <button
                     class="px-5 md:px-6 py-3 md:py-4 rounded-lg font-semibold transition-all"
@@ -649,7 +651,7 @@ onUnmounted(() => {
                     }"
                     @click="openDetails()"
                   >
-                    Details
+                    {{ t("console.game-detail") }}
                   </button>
                 </div>
 
@@ -658,7 +660,7 @@ onUnmounted(() => {
                     class="text-[10px] uppercase tracking-wider font-semibold mb-2"
                     :style="{ color: 'var(--console-game-section-header)' }"
                   >
-                    SAVE STATES
+                    {{ t("console.save-states") }}
                   </h3>
                   <div
                     ref="save-states-ref"
@@ -732,7 +734,7 @@ onUnmounted(() => {
                 class="text-xs md:text-sm font-semibold uppercase tracking-wide"
                 :style="{ color: 'var(--console-game-section-header)' }"
               >
-                Screenshots
+                {{ t("console.screenshots") }}
               </h3>
               <div
                 ref="screenshots-ref"
@@ -850,7 +852,7 @@ onUnmounted(() => {
         <template #default>
           <div class="lightbox-header">
             <h2 class="text-h6" :style="{ color: 'var(--console-modal-text)' }">
-              Details
+              {{ t("console.game-detail") }}
             </h2>
             <v-btn
               icon="mdi-close"
@@ -958,7 +960,7 @@ onUnmounted(() => {
                   class="text-xs font-semibold mb-1 uppercase tracking-wide"
                   :style="{ color: 'var(--console-modal-text-secondary)' }"
                 >
-                  File Size
+                  {{ t("console.detail-size") }}
                 </div>
                 <div
                   class="text-sm md:text-base leading-6 break-words"
@@ -979,7 +981,7 @@ onUnmounted(() => {
                   class="text-xs font-semibold mb-1 uppercase tracking-wide"
                   :style="{ color: 'var(--console-modal-text-secondary)' }"
                 >
-                  File
+                  {{ t("console.detail-file") }}
                 </div>
                 <div
                   class="text-sm md:text-base leading-6 break-words"

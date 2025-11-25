@@ -55,5 +55,7 @@
   "virtual-collections": "Automaticky vytvořené kolekce",
   "confirm-deletion": "Potvrdit smazání",
   "delete": "Smazat",
-  "last-updated": "Naposledy aktualizováno"
+  "last-updated": "Naposledy aktualizováno",
+  "warning": "VAROVÁNÍ:",
+  "removing-from-filesystem": "Odstraňování ze systému"
 }

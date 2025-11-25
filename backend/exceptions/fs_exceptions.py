@@ -1,12 +1,12 @@
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 
-folder_struct_msg = "Check RomM folder structure here: https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure"
+FOLDER_STRUCT_MSG = "Check RomM folder structure here: https://docs.romm.app/latest/Getting-Started/Folder-Structure/ for more details"
 
 
 class FolderStructureNotMatchException(Exception):
     def __init__(self):
-        self.message = f"Platforms not found. {folder_struct_msg}"
+        self.message = f"Platforms not found. {FOLDER_STRUCT_MSG }"
         super().__init__(self.message)
 
     def __repr__(self) -> str:
@@ -33,7 +33,7 @@ class PlatformAlreadyExistsException(Exception):
 
 class RomsNotFoundException(Exception):
     def __init__(self, platform: str):
-        self.message = f"Roms not found for platform {hl(platform, color=BLUE)}. {folder_struct_msg}"
+        self.message = f"Roms not found for platform {hl(platform, color=BLUE)}. {FOLDER_STRUCT_MSG }"
         super().__init__(self.message)
 
     def __repr__(self):
@@ -51,7 +51,7 @@ class RomAlreadyExistsException(Exception):
 
 class FirmwareNotFoundException(Exception):
     def __init__(self, platform: str):
-        self.message = f"Firmware not found for platform {hl(platform, color=BLUE)}. {folder_struct_msg}"
+        self.message = f"Firmware not found for platform {hl(platform, color=BLUE)}. {FOLDER_STRUCT_MSG }"
         super().__init__(self.message)
 
     def __repr__(self):

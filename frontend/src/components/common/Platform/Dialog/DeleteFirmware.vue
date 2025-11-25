@@ -2,6 +2,7 @@
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import type { FirmwareSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
@@ -10,6 +11,7 @@ import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 
+const { t } = useI18n();
 const { mdAndUp, lgAndUp, xs, smAndUp } = useDisplay();
 const show = ref(false);
 const firmwares = ref<FirmwareSchema[]>([]);
@@ -46,7 +48,9 @@ async function deleteFirmware() {
         );
       }
       emitter?.emit("snackbarShow", {
-        msg: "Firmware deleted successfully!",
+        msg: t("platform.firmware-deleted-successfully", {
+          count: firmwares.value.length,
+        }),
         icon: "mdi-check-circle",
         color: "green",
         timeout: 4000,
@@ -81,17 +85,12 @@ function closeDialog() {
   >
     <template #header>
       <v-row no-gutters class="justify-center">
-        <span>Removing</span>
-        <span class="text-primary mx-1">{{ firmwares.length }}</span>
-        <span>firmware files from RomM</span>
+        <span>{{ t("platform.removing-firmware", firmwares.length) }}</span>
       </v-row>
     </template>
     <template #prepend>
       <v-list-item class="text-caption text-center">
-        <span
-          >Select the firmware files you want to remove from your filesystem,
-          otherwise they will only be deleted from RomM database.</span
-        >
+        {{ t("platform.firmware-select-to-remove") }}
       </v-list-item>
     </template>
     <template #content>
@@ -107,14 +106,14 @@ function closeDialog() {
           <v-list-item class="px-0">
             <v-row no-gutters>
               <v-col>
-                {{ item.file_name
-                }}<v-chip
+                {{ item.file_name }}
+                <v-chip
                   v-if="firmwaresToDeleteFromFs.includes(item.id) && smAndUp"
                   label
                   size="x-small"
                   class="text-romm-red ml-1"
                 >
-                  Removing from filesystem
+                  {{ t("common.removing-from-filesystem") }}
                 </v-chip>
               </v-col>
             </v-row>
@@ -126,7 +125,7 @@ function closeDialog() {
                   size="x-small"
                   class="text-romm-red"
                 >
-                  Removing from filesystem
+                  {{ t("common.removing-from-filesystem") }}
                 </v-chip>
               </v-col>
             </v-row>
@@ -163,29 +162,35 @@ function closeDialog() {
       <v-row v-if="firmwaresToDeleteFromFs.length > 0" no-gutters>
         <v-col>
           <v-list-item class="text-center mt-2">
-            <span class="text-romm-red text-body-1">WARNING:</span>
-            <span class="text-body-2 ml-1">You are going to remove</span>
-            <span class="text-romm-red text-body-1 ml-1">{{
-              firmwaresToDeleteFromFs.length
+            <span class="text-romm-red text-body-1">{{
+              t("common.warning")
             }}</span>
-            <span class="text-body-2 ml-1"
-              >firmwares from your filesystem. This action can't be
-              reverted!</span
-            >
+            <span class="text-body-2 ml-1">
+              <i18n-t
+                keypath="platform.firmware-remove-warning"
+                :plural="firmwaresToDeleteFromFs.length"
+              >
+                <template #count>
+                  <span class="text-romm-red text-body-1 mx-1">{{
+                    firmwaresToDeleteFromFs.length
+                  }}</span>
+                </template>
+              </i18n-t>
+            </span>
           </v-list-item>
         </v-col>
       </v-row>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
-            Cancel
+            {{ t("common.cancel") }}
           </v-btn>
           <v-btn
             class="text-romm-red bg-toplayer"
             variant="flat"
             @click="deleteFirmware"
           >
-            Confirm
+            {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
       </v-row>

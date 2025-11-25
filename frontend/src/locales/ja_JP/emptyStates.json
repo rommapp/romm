@@ -1,6 +1,8 @@
 {
   "404-subtitle": "表示しようとしたページは見つかりませんでした",
   "404-title": "ページが見つかりませんでした",
+  "firmware-title": "ファームウェア/BIOSなし",
+  "firmware-text": "お探しのファームウェア/BIOSは存在しません",
   "search-for-games": "全てのプラットフォームから検索",
   "manual-match": "全てのメタデータプロバイダーから検索",
   "home-headline": "ライブラリにゲームがありません",
