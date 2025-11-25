@@ -234,7 +234,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["box2d_back_url"] = media["url"]
                 if MetadataMediaType.BOX2D_BACK in preferred_media_types:
                     ss_media["box2d_back_path"] = (
-                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D)}/box2d_back.png"
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D_BACK)}/box2d_back.png"
                     )
             elif media.get("type") == "bezel-16-9" and not ss_media["bezel_url"]:
                 ss_media["bezel_url"] = media["url"]
