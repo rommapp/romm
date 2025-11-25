@@ -91,6 +91,5 @@
   "unmatch": "検索結果無し",
   "unmatch-success": "ROMの関連付けが正常に解除されました",
   "unselect-all": "すべて選択解除",
-  "update-success": "ROMが正常に更新されました！",
-  "warning": "警告:"
+  "update-success": "ROMが正常に更新されました！"
 }

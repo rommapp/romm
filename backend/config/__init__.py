@@ -109,7 +109,7 @@ FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
 HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
 
 # AUTH
-ROMM_AUTH_SECRET_KEY: Final[str | None] = _get_env("ROMM_AUTH_SECRET_KEY")
+ROMM_AUTH_SECRET_KEY: Final[str] = _get_env("ROMM_AUTH_SECRET_KEY", "")
 if not ROMM_AUTH_SECRET_KEY:
     raise ValueError("ROMM_AUTH_SECRET_KEY environment variable is not set!")
 
