@@ -108,7 +108,9 @@ Here are a few projects that we think you might like:
 <div align="center">
   <br />
   <div dir="auto">
-    <a href="https://news.ycombinator.com/item?id=44247964" target="_blank"><img src=".github/resources/hackernews_badge.svg" width="250px" alt="hackernews badge"></a>
+    <a href="https://news.ycombinator.com/item?id=44247964" target="_blank"><img src=".github/resources/hackernews-badge.svg" width="250px" alt="hackernews badge"></a>
+    &nbsp;
+    <a href="https://selfh.st/survey/2025-results/" target="_blank"><img src=".github/resources/selfhst-badge.svg" width="250px" alt="selfh.st badge"></a>
     &nbsp;
     <span><img src=".github/resources/aikido-badge.png" alt="Aikido Security Audit Report" height="58" /></span>
   </div>

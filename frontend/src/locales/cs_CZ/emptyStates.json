@@ -1,6 +1,8 @@
 {
   "404-subtitle": "Stránka, kterou hledáte, neexistuje",
   "404-title": "Stránka nenalezena",
+  "firmware-title": "Žádné firmwary/BIOS",
+  "firmware-text": "Hledaný firmware/BIOS neexistuje",
   "search-for-games": "Hledat hry napříč všemi platformami",
   "manual-match": "Hledat hry napříč všemi poskytovateli metadat",
   "home-headline": "Ve vaší knihovně nejsou žádné hry",

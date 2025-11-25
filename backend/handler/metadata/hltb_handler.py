@@ -175,6 +175,7 @@ class HLTBHandler(MetadataHandler):
     def __init__(self) -> None:
         self.base_url = "https://howlongtobeat.com"
         self.user_endpoint = f"{self.base_url}/api/user"
+        self.stats_endpoint = f"{self.base_url}/api/stats/games?platform=1&year=2000"
         self.search_url = f"{self.base_url}/api/search"
         self.min_similarity_score: Final = 0.85
 
@@ -204,7 +205,7 @@ class HLTBHandler(MetadataHandler):
 
         httpx_client = ctx_httpx_client.get()
         try:
-            response = await httpx_client.get(self.user_endpoint)
+            response = await httpx_client.get(self.stats_endpoint)
             response.raise_for_status()
         except Exception as e:
             log.error("Error checking HLTB API: %s", e)

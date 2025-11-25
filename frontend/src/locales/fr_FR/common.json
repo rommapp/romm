@@ -55,5 +55,7 @@
   "virtual-collections": "Collections autogénérées",
   "last-updated": "Dernière mise à jour",
   "confirm-deletion": "Confirmer la suppression",
-  "delete": "Supprimer"
+  "delete": "Supprimer",
+  "warning": "ATTENTION :",
+  "removing-from-filesystem": "Suppression du système"
 }
