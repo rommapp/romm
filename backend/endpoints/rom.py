@@ -491,25 +491,20 @@ def get_rom_by_metadata(
     )
 
     if not rom:
-        metadata_info = []
-        if igdb:
-            metadata_info.append(f"igdb_id={igdb}")
-        if moby:
-            metadata_info.append(f"moby_id={moby}")
-        if ss:
-            metadata_info.append(f"ss_id={ss}")
-        if ra:
-            metadata_info.append(f"ra_id={ra}")
-        if launchbox:
-            metadata_info.append(f"launchbox_id={launchbox}")
-        if hasheous:
-            metadata_info.append(f"hasheous_id={hasheous}")
-        if tgdb:
-            metadata_info.append(f"tgdb_id={tgdb}")
-        if flashpoint:
-            metadata_info.append(f"flashpoint_id={flashpoint}")
-        if hltb:
-            metadata_info.append(f"hltb_id={hltb}")
+        provided_ids = {
+            "igdb_id": igdb,
+            "moby_id": moby,
+            "ss_id": ss,
+            "ra_id": ra,
+            "launchbox_id": launchbox,
+            "hasheous_id": hasheous,
+            "tgdb_id": tgdb,
+            "flashpoint_id": flashpoint,
+            "hltb_id": hltb,
+        }
+        metadata_info = [
+            f"{key}={value}" for key, value in provided_ids.items() if value is not None
+        ]
 
         if not metadata_info:
             raise HTTPException(
