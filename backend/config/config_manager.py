@@ -61,6 +61,12 @@ class EjsControls(TypedDict):
 EjsOption = dict[str, str]  # option_name -> option_value
 
 
+class NetplayICEServer(TypedDict):
+    urls: str
+    username: NotRequired[str]
+    credential: NotRequired[str]
+
+
 class Config:
     CONFIG_FILE_MOUNTED: bool
     CONFIG_FILE_WRITABLE: bool
@@ -78,6 +84,7 @@ class Config:
     HIGH_PRIO_STRUCTURE_PATH: str
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
+    EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
     SCAN_METADATA_PRIORITY: list[str]
@@ -219,6 +226,9 @@ class ConfigManager:
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
             EJS_CACHE_LIMIT=pydash.get(
                 self._raw_config, "emulatorjs.cache_limit", None
+            ),
+            EJS_NETPLAY_ICE_SERVERS=pydash.get(
+                self._raw_config, "emulatorjs.netplay.ice_servers", []
             ),
             EJS_SETTINGS=pydash.get(self._raw_config, "emulatorjs.settings", {}),
             EJS_CONTROLS=self._get_ejs_controls(),
@@ -399,6 +409,12 @@ class ConfigManager:
             )
             sys.exit(3)
 
+        if not isinstance(self.config.EJS_NETPLAY_ICE_SERVERS, list):
+            log.critical(
+                "Invalid config.yml: emulatorjs.netplay.ice_servers must be a list"
+            )
+            sys.exit(3)
+
         if not isinstance(self.config.EJS_SETTINGS, dict):
             log.critical("Invalid config.yml: emulatorjs.settings must be a dictionary")
             sys.exit(3)
@@ -507,6 +523,9 @@ class ConfigManager:
             "emulatorjs": {
                 "debug": self.config.EJS_DEBUG,
                 "cache_limit": self.config.EJS_CACHE_LIMIT,
+                "netplay": {
+                    "ice_servers": self.config.EJS_NETPLAY_ICE_SERVERS,
+                },
                 "settings": self.config.EJS_SETTINGS,
                 "controls": self._format_ejs_controls_for_yaml(),
             },
