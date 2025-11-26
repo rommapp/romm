@@ -189,8 +189,7 @@ async function getRomByMetadataProvider({
   provider: string;
   id: number;
 }): Promise<{ data: DetailedRom }> {
-  const params: Record<string, number> = {};
-  params[provider] = id;
+  const params = { [provider]: id };
   return api.get(`/roms/by-metadata-provider/`, {
     params,
   });
