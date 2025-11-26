@@ -997,25 +997,21 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Rom | None:
         """Get a ROM by any metadata ID."""
         filters = []
+        param_map = [
+            (igdb, Rom.igdb_id),
+            (moby, Rom.moby_id),
+            (ss, Rom.ss_id),
+            (ra, Rom.ra_id),
+            (launchbox, Rom.launchbox_id),
+            (hasheous, Rom.hasheous_id),
+            (tgdb, Rom.tgdb_id),
+            (flashpoint, Rom.flashpoint_id),
+            (hltb, Rom.hltb_id),
+        ]
 
-        if igdb is not None:
-            filters.append(Rom.igdb_id == igdb)
-        if moby is not None:
-            filters.append(Rom.moby_id == moby)
-        if ss is not None:
-            filters.append(Rom.ss_id == ss)
-        if ra is not None:
-            filters.append(Rom.ra_id == ra)
-        if launchbox is not None:
-            filters.append(Rom.launchbox_id == launchbox)
-        if hasheous is not None:
-            filters.append(Rom.hasheous_id == hasheous)
-        if tgdb is not None:
-            filters.append(Rom.tgdb_id == tgdb)
-        if flashpoint is not None:
-            filters.append(Rom.flashpoint_id == flashpoint)
-        if hltb is not None:
-            filters.append(Rom.hltb_id == hltb)
+        for value, column in param_map:
+            if value is not None:
+                filters.append(column == value)
 
         if not filters:
             return None
