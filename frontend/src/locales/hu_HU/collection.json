@@ -1,0 +1,21 @@
+{
+  "add-collection": "Gyűjtemény hozzáadása",
+  "create-collection": "Gyűjtemény létrehozása",
+  "create-smart-collection": "Intelligens Gyűjtemény létrehozása",
+  "current-filters": "Jelenlegi Szűrők",
+  "danger-zone": "Veszélyzóna",
+  "delete-collection": "Gyüjtemény törlése",
+  "description": "Leírás",
+  "edit-collection": "Gyüjtemény szerkesztése",
+  "name": "Név",
+  "owner": "Tulajdonos",
+  "private": "Privát",
+  "private-desc": "Privát (csak én láthatom)",
+  "public": "Publikus",
+  "public-desc": "Publikus (mindenki láthatja)",
+  "removing-collection-1": "Gyűjtemény eltávolítása",
+  "removing-collection-2": "a RomM-ból. Biztos?",
+  "removing-smart-collection-1": "Intelligens Gyűjtemény eltávolítása",
+  "removing-smart-collection-2": "a RomM-ból. Biztos?",
+  "search-collection": "Gyűjtemény keresése"
+}

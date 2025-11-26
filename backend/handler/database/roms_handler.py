@@ -977,3 +977,44 @@ class DBRomsHandler(DBBaseHandler):
             )
         )
         return result.rowcount > 0
+
+    @begin_session
+    @with_details
+    def get_rom_by_metadata_id(
+        self,
+        igdb: int | None = None,
+        moby: int | None = None,
+        ss: int | None = None,
+        ra: int | None = None,
+        launchbox: int | None = None,
+        hasheous: int | None = None,
+        tgdb: int | None = None,
+        flashpoint: str | None = None,
+        hltb: int | None = None,
+        *,
+        query: Query = None,
+        session: Session = None,
+    ) -> Rom | None:
+        """Get a ROM by any metadata ID."""
+        filters = []
+        param_map = [
+            (igdb, Rom.igdb_id),
+            (moby, Rom.moby_id),
+            (ss, Rom.ss_id),
+            (ra, Rom.ra_id),
+            (launchbox, Rom.launchbox_id),
+            (hasheous, Rom.hasheous_id),
+            (tgdb, Rom.tgdb_id),
+            (flashpoint, Rom.flashpoint_id),
+            (hltb, Rom.hltb_id),
+        ]
+
+        for value, column in param_map:
+            if value is not None:
+                filters.append(column == value)
+
+        if not filters:
+            return None
+
+        # Use OR to find ROM matching any of the provided metadata IDs
+        return session.scalar(query.filter(or_(*filters)).limit(1))
