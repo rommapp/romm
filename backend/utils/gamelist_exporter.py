@@ -6,6 +6,8 @@ from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
     tostring,
 )
 
+from fastapi import Request
+
 from config import FRONTEND_RESOURCES_PATH, YOUTUBE_BASE_URL
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler
@@ -16,16 +18,21 @@ from models.rom import Rom
 class GamelistExporter:
     """Export RomM collections to ES-DE gamelist.xml format"""
 
+    def __init__(self, local_export: bool = False):
+        self.local_export = local_export
+
     def _format_release_date(self, timestamp: int) -> str:
         """Format release date to YYYYMMDDTHHMMSS format"""
         return datetime.fromtimestamp(timestamp / 1000).strftime("%Y%m%dT%H%M%S")
 
-    def _create_game_element(self, rom: Rom, request=None) -> Element:
+    def _create_game_element(self, rom: Rom, request: Request) -> Element:
         """Create a <game> element for a ROM"""
         game = Element("game")
 
         # Basic game info
-        if request:
+        if self.local_export:
+            SubElement(game, "path").text = f"./{rom.fs_name}"
+        else:
             SubElement(game, "path").text = str(
                 request.url_for(
                     "get_rom_content",
@@ -33,17 +40,16 @@ class GamelistExporter:
                     file_name=rom.fs_name,
                 )
             )
-        else:
-            SubElement(game, "path").text = f"./{rom.fs_name}"
+
         SubElement(game, "name").text = rom.name or rom.fs_name
 
         if rom.summary:
             SubElement(game, "desc").text = rom.summary
 
         # Media files
-        if rom.path_cover_large:
-            SubElement(game, "cover").text = (
-                f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_large}"
+        if rom.path_cover_l:
+            SubElement(game, "thumbnail").text = (
+                f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_l}"
             )
 
         if rom.youtube_video_id:
@@ -91,26 +97,40 @@ class GamelistExporter:
 
         # Provider specific metadata
         if rom.ss_metadata:
-            if rom.ss_metadata.get("box3d"):
-                SubElement(game, "box3d").text = rom.ss_metadata["box3d"]
-            if rom.ss_metadata.get("box2d_back"):
-                SubElement(game, "backcover").text = rom.ss_metadata["box2d_back"]
-            if rom.ss_metadata.get("fanart"):
-                SubElement(game, "fanart").text = rom.ss_metadata["fanart"]
-            if rom.ss_metadata.get("marquee"):
-                SubElement(game, "marquee").text = rom.ss_metadata["marquee"]
-            if rom.ss_metadata.get("miximage"):
-                SubElement(game, "miximage").text = rom.ss_metadata["miximage"]
-            if rom.ss_metadata.get("physical"):
-                SubElement(game, "physicalmedia").text = rom.ss_metadata["physical"]
+            if rom.ss_metadata.get("box3d_path"):
+                SubElement(game, "box3d").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["box3d_path"]}"
+                )
+            if rom.ss_metadata.get("box2d_back_path"):
+                SubElement(game, "boxback").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["box2d_back_path"]}"
+                )
+            if rom.ss_metadata.get("fanart_path"):
+                SubElement(game, "fanart").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["fanart_path"]}"
+                )
+            if rom.ss_metadata.get("logo_path"):
+                SubElement(game, "marquee").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["logo_path"]}"
+                )
+            if rom.ss_metadata.get("miximage_path"):
+                SubElement(game, "miximage").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["miximage_path"]}"
+                )
+            if rom.ss_metadata.get("physical_path"):
+                SubElement(game, "physicalmedia").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["physical_path"]}"
+                )
             if rom.ss_metadata.get("title_screen"):
-                SubElement(game, "title_screen").text = rom.ss_metadata["title_screen"]
+                SubElement(game, "title_screen").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{rom.ss_metadata["title_screen"]}"
+                )
 
         if rom.gamelist_metadata:
             if rom.gamelist_metadata.get("box3d"):
                 SubElement(game, "box3d").text = rom.gamelist_metadata["box3d"]
             if rom.gamelist_metadata.get("box2d_back"):
-                SubElement(game, "backcover").text = rom.gamelist_metadata["box2d_back"]
+                SubElement(game, "boxback").text = rom.gamelist_metadata["box2d_back"]
             if rom.gamelist_metadata.get("fanart"):
                 SubElement(game, "fanart").text = rom.gamelist_metadata["fanart"]
             if rom.gamelist_metadata.get("marquee"):
@@ -135,7 +155,7 @@ class GamelistExporter:
 
         return game
 
-    def export_platform_to_xml(self, platform_id: int, request=None) -> str:
+    def export_platform_to_xml(self, platform_id: int, request: Request) -> str:
         """Export a platform's ROMs to gamelist.xml format
 
         Args:
@@ -154,7 +174,7 @@ class GamelistExporter:
         root = Element("gameList")
 
         for rom in roms:
-            if rom and not rom.missing_from_fs:
+            if rom and not rom.missing_from_fs and rom.fs_name != "gamelist.xml":
                 game_element = self._create_game_element(rom, request=request)
                 root.append(game_element)
 
@@ -168,7 +188,7 @@ class GamelistExporter:
     async def export_platform_to_file(
         self,
         platform_id: int,
-        request=None,
+        request: Request,
     ) -> bool:
         """Export platform ROMs to gamelist.xml file in the platform's directory
 

@@ -42,10 +42,9 @@ from endpoints import (
     tasks,
     user,
 )
-from handler.auth.constants import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
-from handler.auth.middleware.session_middleware import SessionMiddleware
+from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.socket_handler import socket_handler
 from logger.formatter import LOGGING_CONFIG
 from utils import get_version
@@ -105,12 +104,10 @@ app.add_middleware(
 
 # Enables support for sessions on requests
 app.add_middleware(
-    SessionMiddleware,
-    secret_key=ROMM_AUTH_SECRET_KEY,
+    RedisSessionMiddleware,
     session_cookie="romm_session",
     same_site="lax" if OIDC_ENABLED else "strict",
     https_only=False,
-    jwt_alg=ALGORITHM,
 )
 
 # Sets context vars in request-response cycle

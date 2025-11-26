@@ -19,6 +19,7 @@ const defaultLanguageState = {
     { value: "it_IT", name: "Italiano" },
     { value: "pl_PL", name: "Polski" },
     { value: "cs_CZ", name: "Česky" },
+    { value: "hu_HU", name: "Magyar" },
   ].sort((a, b) => a.name.localeCompare(b.name)),
 };
 

@@ -1,0 +1,20 @@
+{
+  "back-to-gallery": "Vissza a galériába",
+  "back-to-game-details": "Vissza a játék részleteihez",
+  "clear-cache": "EmulatorJS Gyorsítótár Törlése",
+  "clear-cache-description": "A szerveren tárolt mentések és állások nem változnak.",
+  "clear-cache-title": "Biztosan törölni akarod az EmulatorJS gyorsítótárat?",
+  "clear-cache-warning": "Ezzel a böngészőben tárolt összes mentés és állás törlődik.",
+  "full-screen": "Teljes képernyő",
+  "play": "Indítás",
+  "quit": "Kilépés",
+  "save-and-quit": "Mentés és Kilépés",
+  "select-save": "Mentés kiválasztása",
+  "change-save": "Mentés cseréje",
+  "deselect-save": "Mentés kiválasztásának törlése",
+  "select-state": "Állás kiválasztása",
+  "change-state": "Állás cseréje",
+  "deselect-state": "Állás kiválasztásának törlése",
+  "background-color": "Háttérszín",
+  "select-background-color": "Háttérszín kiválasztása"
+}
