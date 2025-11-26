@@ -2,10 +2,12 @@
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import RSection from "@/components/common/RSection.vue";
+import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 
 const { t } = useI18n();
 const heartbeat = storeHeartbeat();
+const configStore = storeConfig();
 
 const heartbeatStatus = ref<Record<string, boolean | undefined>>({
   igdb: undefined,
@@ -131,6 +133,7 @@ function getConnectionStatusTooltip(source: {
 }
 
 onMounted(() => {
+  configStore.fetchConfig();
   fetchAllHeartbeats();
 });
 </script>
