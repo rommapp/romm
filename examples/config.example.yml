@@ -71,13 +71,13 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #       - "hasheous" # Hasheous
 #       - "flashpoint" # Flashpoint Project
 #       - "hltb" # HowLongToBeat
-#     region: # Cover art and game title (only used by Screenscraper)
+#     region: # Used by IGDB and ScreenScraper for regional variants
 #       - "us"
 #       - "wor"
 #       - "ss"
 #       - "eu"
 #       - "jp"
-#     language: # Cover art and game title (only used by Screenscraper)
+#     language: # Used by ScreenScraper for descriptions
 #       - "en"
 #       - "fr"
 #     # Media assets to download
