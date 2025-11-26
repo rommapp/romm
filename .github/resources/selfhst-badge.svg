@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="288.99" height="67">
+  <g fill="none" fill-rule="evenodd">
+    <rect width="286.99" height="65" x="1" y="1" fill="#305dce" stroke="#305dce" stroke-width="2" rx="8" />
+    <rect width="40" height="40" x="14" y="14" fill="#fff" rx="8" />
+    <!--  -->
+    <circle cx="26" cy="35" r="7" fill="#305dce"/>
+    <circle cx="43" cy="35" r="7" fill="#305dce"/>
+    <!--  -->
+    <text fill="#fff" font-family="Arial" font-size="22" font-weight="bold">
+      <tspan x="66" y="51">Favorite App</tspan>
+    </text>
+    <text fill="#fff" font-family="Arial" font-size="25" font-weight="bold">
+      <tspan x="230" y="44">#13</tspan>
+    </text>
+    <text fill="#fff" font-family="Arial" font-size="12" font-weight="bold">
+      <tspan x="66" y="26">SELFH.ST 2025 SURVEY</tspan>
+    </text>
+  </g>
+</svg>

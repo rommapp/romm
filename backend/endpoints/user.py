@@ -158,8 +158,6 @@ def create_user_from_invite(
         UserSchema: Newly created user
     """
 
-    jti, role = auth_handler.verify_invite_link_token(token)
-
     try:
         validate_username(username)
         validate_password(password)
@@ -186,6 +184,7 @@ def create_user_from_invite(
             detail=msg,
         )
 
+    role = auth_handler.consume_invite_link_token(token)
     user = User(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
@@ -194,8 +193,6 @@ def create_user_from_invite(
     )
 
     created_user = db_user_handler.add_user(user)
-
-    auth_handler.invalidate_invite_link_token(jti)
 
     return UserSchema.model_validate(created_user)
 
