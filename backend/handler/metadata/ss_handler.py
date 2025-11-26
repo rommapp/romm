@@ -413,7 +413,9 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
 
     # Log warning if we had to fall back from the preferred locale
     if preferred_languages and used_lang and used_lang != preferred_languages[0]:
-        log.warning(f"ScreenScraper locale '{preferred_languages[0]}' not found for '{res_name}', using '{used_lang}'")
+        log.warning(
+            f"ScreenScraper locale '{preferred_languages[0]}' not found for '{res_name}', using '{used_lang}'"
+        )
 
     url_cover = ss_metadata["box2d_url"]
     url_manual = (

@@ -213,13 +213,13 @@ def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMeta
 # Mapping from scan.priority.region codes to IGDB game_localizations region identifiers
 # IGDB's game_localizations provides regional titles and cover art, but NOT localized descriptions
 REGION_TO_IGDB_LOCALE: dict[str, str | None] = {
-    "us": None,        # United States - use default (no localization needed)
-    "wor": None,       # World - use default
-    "eu": "EU",        # Europe region
-    "jp": "ja-JP",     # Japan
-    "kr": "ko-KR",     # Korea
-    "cn": "zh-CN",     # China (Simplified Chinese)
-    "tw": "zh-TW",     # Taiwan (Traditional Chinese)
+    "us": None,  # United States - use default (no localization needed)
+    "wor": None,  # World - use default
+    "eu": "EU",  # Europe region
+    "jp": "ja-JP",  # Japan
+    "kr": "ko-KR",  # Korea
+    "cn": "zh-CN",  # China (Simplified Chinese)
+    "tw": "zh-TW",  # Taiwan (Traditional Chinese)
 }
 
 
@@ -240,7 +240,7 @@ def get_igdb_preferred_locale() -> str | None:
         if igdb_locale is not None:
             return igdb_locale
 
-    return None  # Default - no localization
+    return None
 
 
 def extract_localized_data(rom: Game, preferred_locale: str | None) -> tuple[str, str]:
@@ -281,11 +281,15 @@ def extract_localized_data(rom: Game, preferred_locale: str | None) -> tuple[str
             return localized_name, cover_url
 
     # Locale not found, fall back to default
-    log.warning(f"IGDB locale '{preferred_locale}' not found for '{default_name}', using default")
+    log.warning(
+        f"IGDB locale '{preferred_locale}' not found for '{default_name}', using default"
+    )
     return default_name, default_cover
 
 
-def build_igdb_rom(handler: "IGDBHandler", rom: Game, preferred_locale: str | None) -> "IGDBRom":
+def build_igdb_rom(
+    handler: "IGDBHandler", rom: Game, preferred_locale: str | None
+) -> "IGDBRom":
     """Build an IGDBRom from IGDB game data with localization support.
 
     Args:

@@ -2,8 +2,8 @@
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import RSection from "@/components/common/RSection.vue";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 
 const { t } = useI18n();
 const heartbeat = storeHeartbeat();
