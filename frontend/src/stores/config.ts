@@ -25,6 +25,7 @@ const defaultConfig = {
   SKIP_HASH_CALCULATION: false,
   EJS_DEBUG: false,
   EJS_CACHE_LIMIT: null,
+  EJS_NETPLAY_ICE_SERVERS: [],
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
   SCAN_METADATA_PRIORITY: [],
