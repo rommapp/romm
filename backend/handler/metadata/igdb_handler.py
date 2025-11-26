@@ -13,6 +13,7 @@ from adapters.services.igdb_types import (
     mark_list_expanded,
 )
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
+from config.config_manager import config_manager as cm
 from handler.redis_handler import async_cache
 from logger.logger import log
 from utils.context import ctx_httpx_client
@@ -206,6 +207,117 @@ def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMeta
                 for r in similar_games
             ],
         }
+    )
+
+
+# Mapping from scan.priority.region codes to IGDB game_localizations region identifiers
+# IGDB's game_localizations provides regional titles and cover art, but NOT localized descriptions
+REGION_TO_IGDB_LOCALE: dict[str, str | None] = {
+    "us": None,  # United States - use default (no localization needed)
+    "wor": None,  # World - use default
+    "eu": "EU",  # Europe region
+    "jp": "ja-JP",  # Japan
+    "kr": "ko-KR",  # Korea
+    "cn": "zh-CN",  # China (Simplified Chinese)
+    "tw": "zh-TW",  # Taiwan (Traditional Chinese)
+}
+
+
+def get_igdb_preferred_locale() -> str | None:
+    """Get IGDB locale from scan.priority.region configuration.
+
+    Maps region priority codes to IGDB's game_localizations region identifiers.
+    Returns the first matching region from the priority list, or None for default.
+
+    Returns:
+        IGDB region identifier (e.g., "ja-JP", "EU") or None for default
+    """
+    config = cm.get_config()
+
+    # Check each region in priority order and return first match
+    for region in config.SCAN_REGION_PRIORITY:
+        igdb_locale = REGION_TO_IGDB_LOCALE.get(region.lower())
+        if igdb_locale is not None:
+            return igdb_locale
+
+    return None
+
+
+def extract_localized_data(rom: Game, preferred_locale: str | None) -> tuple[str, str]:
+    """Extract localized name and cover URL based on preferred locale.
+
+    Returns (name, cover_url) - falls back to default if locale not found.
+    """
+    default_name = rom.get("name", "")
+    default_cover = pydash.get(rom, "cover.url", "")
+
+    if not preferred_locale:
+        return default_name, default_cover
+
+    game_localizations = rom.get("game_localizations", [])
+    if not game_localizations:
+        return default_name, default_cover
+
+    assert mark_list_expanded(game_localizations)
+
+    for loc in game_localizations:
+        region = loc.get("region")
+        if not region:
+            continue
+
+        assert mark_expanded(region)
+
+        # Match locale by region identifier (e.g., "ja-JP", "ko-KR", "EU")
+        if region.get("identifier") == preferred_locale:
+            localized_name = loc.get("name") or default_name
+            localized_cover = loc.get("cover")
+
+            if localized_cover:
+                assert mark_expanded(localized_cover)
+                cover_url = localized_cover.get("url", "") or default_cover
+            else:
+                cover_url = default_cover
+
+            return localized_name, cover_url
+
+    # Locale not found, fall back to default
+    log.warning(
+        f"IGDB locale '{preferred_locale}' not found for '{default_name}', using default"
+    )
+    return default_name, default_cover
+
+
+def build_igdb_rom(
+    handler: "IGDBHandler", rom: Game, preferred_locale: str | None
+) -> "IGDBRom":
+    """Build an IGDBRom from IGDB game data with localization support.
+
+    Args:
+        handler: IGDBHandler instance for URL normalization
+        rom: Game data from IGDB API
+        preferred_locale: Locale code (e.g., "ja-JP") or None
+
+    Returns:
+        IGDBRom with localized name/cover if available
+    """
+    rom_screenshots = rom.get("screenshots", [])
+    assert mark_list_expanded(rom_screenshots)
+
+    localized_name, localized_cover = extract_localized_data(rom, preferred_locale)
+
+    return IGDBRom(
+        igdb_id=rom["id"],
+        slug=rom.get("slug", ""),
+        name=localized_name,
+        summary=rom.get("summary", ""),
+        url_cover=handler.normalize_cover_url(localized_cover).replace(
+            "t_thumb", "t_1080p"
+        ),
+        url_screenshots=[
+            handler.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
+            for s in rom_screenshots
+        ],
+        igdb_metadata=extract_metadata_from_igdb_rom(handler, rom),
     )
 
 
@@ -464,23 +576,7 @@ class IGDBHandler(MetadataHandler):
         if not rom:
             return fallback_rom
 
-        rom_screenshots = rom.get("screenshots", [])
-        assert mark_list_expanded(rom_screenshots)
-
-        return IGDBRom(
-            igdb_id=rom["id"],
-            slug=rom.get("slug", ""),
-            name=rom.get("name", ""),
-            summary=rom.get("summary", ""),
-            url_cover=self.normalize_cover_url(
-                pydash.get(rom, "cover.url", "")
-            ).replace("t_thumb", "t_1080p"),
-            url_screenshots=[
-                self.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
-                for s in rom_screenshots
-            ],
-            igdb_metadata=extract_metadata_from_igdb_rom(self, rom),
-        )
+        return build_igdb_rom(self, rom, get_igdb_preferred_locale())
 
     async def get_rom_by_id(self, igdb_id: int) -> IGDBRom:
         if not self.is_enabled():
@@ -494,24 +590,7 @@ class IGDBHandler(MetadataHandler):
         if not roms:
             return IGDBRom(igdb_id=None)
 
-        rom = roms[0]
-        rom_screenshots = rom.get("screenshots", [])
-        assert mark_list_expanded(rom_screenshots)
-
-        return IGDBRom(
-            igdb_id=rom["id"],
-            slug=rom.get("slug", ""),
-            name=rom.get("name", ""),
-            summary=rom.get("summary", ""),
-            url_cover=self.normalize_cover_url(
-                pydash.get(rom, "cover.url", "")
-            ).replace("t_thumb", "t_1080p"),
-            url_screenshots=[
-                self.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
-                for s in rom_screenshots
-            ],
-            igdb_metadata=extract_metadata_from_igdb_rom(self, rom),
-        )
+        return build_igdb_rom(self, roms[0], get_igdb_preferred_locale())
 
     async def get_matched_rom_by_id(self, igdb_id: int) -> IGDBRom | None:
         if not self.is_enabled():
@@ -572,33 +651,8 @@ class IGDBHandler(MetadataHandler):
             if rom["id"] not in unique_ids
         ]
 
-        return [
-            IGDBRom(
-                {  # type: ignore[misc]
-                    k: v
-                    for k, v in {
-                        "igdb_id": rom["id"],
-                        "slug": rom.get("slug", ""),
-                        "name": rom.get("name", ""),
-                        "summary": rom.get("summary", ""),
-                        "url_cover": self.normalize_cover_url(
-                            pydash.get(rom, "cover.url", "").replace(
-                                "t_thumb", "t_1080p"
-                            )
-                        ),
-                        "url_screenshots": [
-                            self.normalize_cover_url(s.get("url", "")).replace(  # type: ignore[attr-defined]
-                                "t_thumb", "t_720p"
-                            )
-                            for s in rom.get("screenshots", [])
-                        ],
-                        "igdb_metadata": extract_metadata_from_igdb_rom(self, rom),
-                    }.items()
-                    if v
-                }
-            )
-            for rom in matched_roms
-        ]
+        preferred_locale = get_igdb_preferred_locale()
+        return [build_igdb_rom(self, rom, preferred_locale) for rom in matched_roms]
 
 
 class TwitchAuth(MetadataHandler):
@@ -675,6 +729,8 @@ class TwitchAuth(MetadataHandler):
         return token
 
 
+SEARCH_FIELDS = ("game.id", "name")
+
 GAMES_FIELDS = (
     "id",
     "name",
@@ -725,9 +781,12 @@ GAMES_FIELDS = (
     "similar_games.cover.url",
     "age_ratings.rating_category",
     "videos.video_id",
+    "game_localizations.id",
+    "game_localizations.name",
+    "game_localizations.cover.url",
+    "game_localizations.region.identifier",
+    "game_localizations.region.category",
 )
-
-SEARCH_FIELDS = ("game.id", "name")
 
 
 IGDB_PLATFORM_CATEGORIES: dict[int, str] = {
