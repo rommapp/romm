@@ -2,7 +2,7 @@
 <!-- trunk-ignore-all(markdownlint/MD033) -->
 
 **Description**
-<sup>Explain the changes or enhancements you are proposing with this pull request.</sup>
+Explain the changes or enhancements you are proposing with this pull request.
 
 **Checklist**
 <sup>Please check all that apply.</sup>
@@ -12,4 +12,4 @@
 - [ ] I've assigned reviewers for this PR
 - [ ] I've added unit tests that cover the changes
 
-#### Screenshots
+#### Screenshots (if applicable)

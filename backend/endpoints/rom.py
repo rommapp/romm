@@ -450,6 +450,78 @@ async def download_roms(
 
 @protected_route(
     router.get,
+    "/by-metadata-provider",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+def get_rom_by_metadata(
+    request: Request,
+    igdb: Annotated[int | None, Query(description="IGDB ID to search by")] = None,
+    moby: Annotated[int | None, Query(description="MobyGames ID to search by")] = None,
+    ss: Annotated[
+        int | None, Query(description="ScreenScraper ID to search by")
+    ] = None,
+    ra: Annotated[
+        int | None, Query(description="RetroAchievements ID to search by")
+    ] = None,
+    launchbox: Annotated[
+        int | None, Query(description="LaunchBox ID to search by")
+    ] = None,
+    hasheous: Annotated[
+        int | None, Query(description="Hasheous ID to search by")
+    ] = None,
+    tgdb: Annotated[int | None, Query(description="TGDB ID to search by")] = None,
+    flashpoint: Annotated[
+        str | None, Query(description="Flashpoint ID to search by")
+    ] = None,
+    hltb: Annotated[int | None, Query(description="HLTB ID to search by")] = None,
+) -> DetailedRomSchema:
+    """Retrieve a rom by metadata ID."""
+
+    rom = db_rom_handler.get_rom_by_metadata_id(
+        igdb=igdb,
+        moby=moby,
+        ss=ss,
+        ra=ra,
+        launchbox=launchbox,
+        hasheous=hasheous,
+        tgdb=tgdb,
+        flashpoint=flashpoint,
+        hltb=hltb,
+    )
+
+    if not rom:
+        provided_ids = {
+            "igdb_id": igdb,
+            "moby_id": moby,
+            "ss_id": ss,
+            "ra_id": ra,
+            "launchbox_id": launchbox,
+            "hasheous_id": hasheous,
+            "tgdb_id": tgdb,
+            "flashpoint_id": flashpoint,
+            "hltb_id": hltb,
+        }
+        metadata_info = [
+            f"{key}={value}" for key, value in provided_ids.items() if value is not None
+        ]
+
+        if not metadata_info:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one metadata ID must be provided",
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ROM not found with metadata: {', '.join(metadata_info)}",
+        )
+
+    return DetailedRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(
+    router.get,
     "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
@@ -938,7 +1010,7 @@ async def update_rom(
         path_manual = await fs_resource_handler.get_manual(
             rom=rom,
             overwrite=True,
-            url_manual=url_manual,
+            url_manual=str(url_manual) if url_manual else None,
         )
         cleaned_data.update(
             {
