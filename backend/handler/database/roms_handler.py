@@ -977,3 +977,48 @@ class DBRomsHandler(DBBaseHandler):
             )
         )
         return result.rowcount > 0
+
+    @begin_session
+    @with_details
+    def get_rom_by_metadata_id(
+        self,
+        igdb: int | None = None,
+        moby: int | None = None,
+        ss: int | None = None,
+        ra: int | None = None,
+        launchbox: int | None = None,
+        hasheous: int | None = None,
+        tgdb: int | None = None,
+        flashpoint: str | None = None,
+        hltb: int | None = None,
+        *,
+        query: Query = None,
+        session: Session = None,
+    ) -> Rom | None:
+        """Get a ROM by any metadata ID."""
+        filters = []
+
+        if igdb is not None:
+            filters.append(Rom.igdb_id == igdb)
+        if moby is not None:
+            filters.append(Rom.moby_id == moby)
+        if ss is not None:
+            filters.append(Rom.ss_id == ss)
+        if ra is not None:
+            filters.append(Rom.ra_id == ra)
+        if launchbox is not None:
+            filters.append(Rom.launchbox_id == launchbox)
+        if hasheous is not None:
+            filters.append(Rom.hasheous_id == hasheous)
+        if tgdb is not None:
+            filters.append(Rom.tgdb_id == tgdb)
+        if flashpoint is not None:
+            filters.append(Rom.flashpoint_id == flashpoint)
+        if hltb is not None:
+            filters.append(Rom.hltb_id == hltb)
+
+        if not filters:
+            return None
+
+        # Use OR to find ROM matching any of the provided metadata IDs
+        return session.scalar(query.filter(or_(*filters)).limit(1))
