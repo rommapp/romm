@@ -187,20 +187,9 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(Rom.platform_id == platform_id)
 
     def filter_by_platform_ids(
-        self,
-        query: Query,
-        platform_ids: Sequence[int],
-        match_all: bool = False,
+        self, query: Query, platform_ids: Sequence[int]
     ) -> Query:
-        if match_all:
-            # AND logic: This doesn't make sense for platforms since a ROM belongs to exactly one platform
-            # But we'll implement it for completeness - will return no results
-            for pid in platform_ids:
-                query = query.filter(Rom.platform_id == pid)
-            return query
-        else:
-            # OR logic: ROM belongs to any of the specified platforms
-            return query.filter(Rom.platform_id.in_(platform_ids))
+        return query.filter(Rom.platform_id.in_(platform_ids))
 
     def filter_by_collection_id(
         self, query: Query, session: Session, collection_id: int
@@ -467,7 +456,7 @@ class DBRomsHandler(DBBaseHandler):
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
         if platform_ids:
-            query = self.filter_by_platform_ids(query, platform_ids, match_all=False)
+            query = self.filter_by_platform_ids(query, platform_ids)
 
         if collection_id:
             query = self.filter_by_collection_id(query, session, collection_id)
