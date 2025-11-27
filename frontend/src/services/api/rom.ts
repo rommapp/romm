@@ -72,12 +72,12 @@ export interface GetRomsParams {
   orderDir?: string | null;
   filterUnmatched?: boolean;
   filterMatched?: boolean;
-  filterFavorites?: boolean;
-  filterDuplicates?: boolean;
-  filterPlayables?: boolean;
-  filterRA?: boolean;
-  filterMissing?: boolean;
-  filterVerified?: boolean;
+  filterFavorites?: boolean | null;
+  filterDuplicates?: boolean | null;
+  filterPlayables?: boolean | null;
+  filterRA?: boolean | null;
+  filterMissing?: boolean | null;
+  filterVerified?: boolean | null;
   groupByMetaId?: boolean;
   selectedGenre?: string | null;
   selectedFranchise?: string | null;
@@ -139,12 +139,12 @@ async function getRoms({
       language: selectedLanguage,
       ...(filterUnmatched ? { matched: false } : {}),
       ...(filterMatched ? { matched: true } : {}),
-      ...(filterFavorites ? { favorite: true } : {}),
-      ...(filterDuplicates ? { duplicate: true } : {}),
-      ...(filterPlayables ? { playable: true } : {}),
-      ...(filterMissing ? { missing: true } : {}),
-      ...(filterRA ? { has_ra: true } : {}),
-      ...(filterVerified ? { verified: true } : {}),
+      ...(filterFavorites !== null ? { favorite: filterFavorites } : {}),
+      ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),
+      ...(filterPlayables !== null ? { playable: filterPlayables } : {}),
+      ...(filterMissing !== null ? { missing: filterMissing } : {}),
+      ...(filterRA !== null ? { has_ra: filterRA } : {}),
+      ...(filterVerified !== null ? { verified: filterVerified } : {}),
     },
   });
 }

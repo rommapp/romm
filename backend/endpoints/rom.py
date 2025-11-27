@@ -1,5 +1,6 @@
 import binascii
 import json
+import logging
 from base64 import b64encode
 from datetime import datetime, timezone
 from io import BytesIO
@@ -258,9 +259,10 @@ def get_roms(
             description=(
                 "Associated genre. Multiple values are allowed by repeating the"
                 " parameter, and results that match any of the values will be"
-                " returned."
+                " returned. Maximum 50 values allowed."
             ),
             alias="genre",
+            max_length=50,
         ),
     ] = None,
     franchises: Annotated[
@@ -269,9 +271,10 @@ def get_roms(
             description=(
                 "Associated franchise. Multiple values are allowed by repeating"
                 " the parameter, and results that match any of the values will"
-                " be returned."
+                " be returned. Maximum 50 values allowed."
             ),
             alias="franchise",
+            max_length=50,
         ),
     ] = None,
     collections: Annotated[
@@ -280,9 +283,10 @@ def get_roms(
             description=(
                 "Associated collection. Multiple values are allowed by"
                 " repeating the parameter, and results that match any of the"
-                " values will be returned."
+                " values will be returned. Maximum 50 values allowed."
             ),
             alias="collection",
+            max_length=50,
         ),
     ] = None,
     companies: Annotated[
@@ -291,9 +295,10 @@ def get_roms(
             description=(
                 "Associated company. Multiple values are allowed by repeating"
                 " the parameter, and results that match any of the values will"
-                " be returned."
+                " be returned. Maximum 50 values allowed."
             ),
             alias="company",
+            max_length=50,
         ),
     ] = None,
     age_ratings: Annotated[
@@ -302,9 +307,10 @@ def get_roms(
             description=(
                 "Associated age rating. Multiple values are allowed by"
                 " repeating the parameter, and results that match any of the"
-                " values will be returned."
+                " values will be returned. Maximum 20 values allowed."
             ),
             alias="age_rating",
+            max_length=20,
         ),
     ] = None,
     selected_status: Annotated[
@@ -317,9 +323,10 @@ def get_roms(
             description=(
                 "Associated region tag. Multiple values are allowed by"
                 " repeating the parameter, and results that match any of the"
-                " values will be returned."
+                " values will be returned. Maximum 30 values allowed."
             ),
             alias="region",
+            max_length=30,
         ),
     ] = None,
     languages: Annotated[
@@ -328,9 +335,10 @@ def get_roms(
             description=(
                 "Associated language tag. Multiple values are allowed by"
                 " repeating the parameter, and results that match any of the"
-                " values will be returned."
+                " values will be returned. Maximum 30 values allowed."
             ),
             alias="language",
+            max_length=30,
         ),
     ] = None,
     order_by: Annotated[
@@ -343,6 +351,43 @@ def get_roms(
     ] = "asc",
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
+
+    # Sanitize and validate filter arrays
+    def sanitize_filter_array(
+        values: list[str] | None, max_length: int = 50, filter_name: str = ""
+    ) -> list[str] | None:
+        """Sanitize filter array by removing empty strings and limiting size."""
+        if not values:
+            return None
+
+        try:
+            # Remove empty/whitespace-only values and strip whitespace
+            sanitized = [
+                v.strip() for v in values if v and isinstance(v, str) and v.strip()
+            ]
+            if not sanitized:
+                return None
+
+            # Limit array size to prevent abuse
+            if len(sanitized) > max_length:
+                logging.warning(
+                    f"Filter array '{filter_name}' truncated from {len(sanitized)} to {max_length} items"
+                )
+                sanitized = sanitized[:max_length]
+
+            return sanitized
+        except Exception as e:
+            logging.error(f"Error sanitizing filter array '{filter_name}': {e}")
+            return None
+
+    # Apply sanitization with specific limits and names
+    genres = sanitize_filter_array(genres, 50, "genres")
+    franchises = sanitize_filter_array(franchises, 50, "franchises")
+    collections = sanitize_filter_array(collections, 50, "collections")
+    companies = sanitize_filter_array(companies, 50, "companies")
+    age_ratings = sanitize_filter_array(age_ratings, 20, "age_ratings")
+    regions = sanitize_filter_array(regions, 30, "regions")
+    languages = sanitize_filter_array(languages, 30, "languages")
 
     # Get the base roms query
     query, order_by_attr = db_rom_handler.get_roms_query(

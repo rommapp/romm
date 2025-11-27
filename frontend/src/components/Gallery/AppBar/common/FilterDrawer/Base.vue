@@ -9,11 +9,10 @@ import { useDisplay } from "vuetify";
 import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
 import FilterFavoritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavoritesBtn.vue";
-import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchedBtn.vue";
+import FilterMatchStateBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchStateBtn.vue";
 import FilterMissingBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMissingBtn.vue";
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
-import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
 import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
@@ -317,7 +316,7 @@ onMounted(async () => {
     v-model="activeFilterDrawer"
     mobile
     floating
-    width="400"
+    width="500"
     :class="{
       'ml-2': activeFilterDrawer,
       'drawer-mobile': smAndDown && activeFilterDrawer,
@@ -331,11 +330,7 @@ onMounted(async () => {
         </v-list-item>
       </template>
       <v-list-item>
-        <FilterUnmatchedBtn :tabindex="activeFilterDrawer ? 0 : -1" />
-        <FilterMatchedBtn
-          class="mt-2"
-          :tabindex="activeFilterDrawer ? 0 : -1"
-        />
+        <FilterMatchStateBtn :tabindex="activeFilterDrawer ? 0 : -1" />
         <FilterFavoritesBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"

@@ -9,23 +9,30 @@ import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
-const { filterFavorites } = storeToRefs(galleryFilterStore);
+const { filterMatched, filterUnmatched } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 // Computed property to determine current state
-const currentState = computed(() => {
-  if (filterFavorites.value === true) return "favorites";
-  if (filterFavorites.value === false) return "not-favorites";
-  return "all"; // null
+const matchState = computed(() => {
+  if (filterMatched.value) return "matched";
+  if (filterUnmatched.value) return "unmatched";
+  return "all";
 });
 
 // Handler for state changes
-function setState(state: string | null) {
-  if (!state) return;
-
-  galleryFilterStore.setFilterFavoritesState(
-    state as "all" | "favorites" | "not-favorites",
-  );
+function setMatchState(state: string) {
+  switch (state) {
+    case "matched":
+      galleryFilterStore.setFilterMatched(true);
+      break;
+    case "unmatched":
+      galleryFilterStore.setFilterUnmatched(true);
+      break;
+    default: // "all"
+      galleryFilterStore.setFilterMatched(false);
+      galleryFilterStore.setFilterUnmatched(false);
+      break;
+  }
   emitter?.emit("filterRoms", null);
 }
 </script>
@@ -36,41 +43,41 @@ function setState(state: string | null) {
   >
     <div class="d-flex align-center">
       <v-icon
-        :color="currentState !== 'all' ? 'primary' : 'grey-lighten-1'"
+        :color="matchState !== 'all' ? 'primary' : 'grey-lighten-1'"
         class="mr-3"
       >
-        mdi-star
+        mdi-file-search-outline
       </v-icon>
       <span
         :class="
-          currentState !== 'all'
+          matchState !== 'all'
             ? 'text-primary font-weight-medium'
             : 'text-medium-emphasis'
         "
         class="text-body-1"
       >
-        {{ t("platform.show-favorites") }}
+        Match Status
       </span>
     </div>
     <v-btn-toggle
-      :model-value="currentState"
+      :model-value="matchState"
       color="primary"
       density="compact"
       variant="outlined"
-      @update:model-value="setState"
+      @update:model-value="setMatchState"
     >
-      <v-btn value="all" size="small">All</v-btn>
-      <v-tooltip text="Show favorite ROMs only" location="bottom">
+      <v-btn value="all" size="small"> All </v-btn>
+      <v-tooltip :text="t('platform.show-matched')" location="bottom">
         <template #activator="{ props }">
-          <v-btn value="favorites" size="small" v-bind="props">
-            <v-icon size="x-large">mdi-star</v-icon>
+          <v-btn value="matched" size="small" v-bind="props">
+            <v-icon size="x-large">mdi-file-find</v-icon>
           </v-btn>
         </template>
       </v-tooltip>
-      <v-tooltip text="Show non-favorite ROMs only" location="bottom">
+      <v-tooltip :text="t('platform.show-unmatched')" location="bottom">
         <template #activator="{ props }">
-          <v-btn value="not-favorites" size="small" v-bind="props">
-            <v-icon size="x-large">mdi-star-outline</v-icon>
+          <v-btn value="unmatched" size="small" v-bind="props">
+            <v-icon size="x-large">mdi-file-find-outline</v-icon>
           </v-btn>
         </template>
       </v-tooltip>
