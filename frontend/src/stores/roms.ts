@@ -99,9 +99,15 @@ export default defineStore("roms", {
       const params = {
         searchTerm: galleryFilter.searchTerm,
         platformId:
-          this.currentPlatform?.id ??
-          galleryFilter.selectedPlatform?.id ??
-          null,
+          galleryFilter.selectedPlatforms.length > 0
+            ? null
+            : (this.currentPlatform?.id ??
+              galleryFilter.selectedPlatform?.id ??
+              null),
+        platformIds:
+          galleryFilter.selectedPlatforms.length > 0
+            ? galleryFilter.selectedPlatforms.map((p) => p.id)
+            : null,
         collectionId: this.currentCollection?.id ?? null,
         virtualCollectionId: this.currentVirtualCollection?.id ?? null,
         smartCollectionId: this.currentSmartCollection?.id ?? null,
@@ -185,6 +191,7 @@ export default defineStore("roms", {
             ? galleryFilter.selectedStatuses
             : null,
         // Logic operators
+        platformsLogic: galleryFilter.platformsLogic,
         genresLogic: galleryFilter.genresLogic,
         franchisesLogic: galleryFilter.franchisesLogic,
         collectionsLogic: galleryFilter.collectionsLogic,

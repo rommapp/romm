@@ -47,6 +47,10 @@ class CachedApiService {
   ): Promise<AxiosResponse<GetRomsResponse>> {
     const config = this.createRequestConfig("GET", "/roms", {
       platform_id: params.platformId,
+      platform_ids:
+        params.platformIds && params.platformIds.length > 0
+          ? params.platformIds
+          : undefined,
       collection_id: params.collectionId,
       virtual_collection_id: params.virtualCollectionId,
       smart_collection_id: params.smartCollectionId,
@@ -83,6 +87,10 @@ class CachedApiService {
         params.selectedLanguages,
       ),
       // Logic operators
+      platforms_logic:
+        params.platformIds && params.platformIds.length > 1
+          ? params.platformsLogic || "any"
+          : undefined,
       genres_logic:
         params.selectedGenres && params.selectedGenres.length > 1
           ? params.genresLogic || "any"

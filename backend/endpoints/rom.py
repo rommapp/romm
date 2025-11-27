@@ -205,6 +205,17 @@ def get_roms(
         int | None,
         Query(description="Platform internal id.", ge=1),
     ] = None,
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Platform internal ids. Multiple values are allowed by repeating the"
+                " parameter, and results that match any of the values will be"
+                " returned. Maximum 20 values allowed."
+            ),
+            max_length=20,
+        ),
+    ] = None,
     collection_id: Annotated[
         int | None,
         Query(description="Collection internal id.", ge=1),
@@ -350,6 +361,13 @@ def get_roms(
         Query(description="Order direction, either 'asc' or 'desc'."),
     ] = "asc",
     # Logic operators for multi-value filters
+    platforms_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for platforms filter: 'any' (OR) or 'all' (AND).",
+            alias="platforms_logic",
+        ),
+    ] = "any",
     genres_logic: Annotated[
         str,
         Query(
@@ -431,6 +449,18 @@ def get_roms(
             return None
 
     # Apply sanitization with specific limits and names
+    platform_ids = sanitize_filter_array(
+        [str(pid) for pid in platform_ids] if platform_ids else None, 20, "platform_ids"
+    )
+    # Convert back to integers and validate >= 1
+    if platform_ids:
+        try:
+            platform_ids = [int(pid) for pid in platform_ids if int(pid) >= 1]
+            if not platform_ids:
+                platform_ids = None
+        except (ValueError, TypeError):
+            platform_ids = None
+
     genres = sanitize_filter_array(genres, 50, "genres")
     franchises = sanitize_filter_array(franchises, 50, "franchises")
     collections = sanitize_filter_array(collections, 50, "collections")
@@ -451,6 +481,7 @@ def get_roms(
         query=query,
         user_id=request.user.id,
         platform_id=platform_id,
+        platform_ids=platform_ids,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,
         smart_collection_id=smart_collection_id,
@@ -471,6 +502,7 @@ def get_roms(
         regions=regions,
         languages=languages,
         # Logic operators
+        platforms_logic=platforms_logic,
         genres_logic=genres_logic,
         franchises_logic=franchises_logic,
         collections_logic=collections_logic,

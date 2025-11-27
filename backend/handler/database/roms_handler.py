@@ -186,6 +186,22 @@ class DBRomsHandler(DBBaseHandler):
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
 
+    def filter_by_platform_ids(
+        self,
+        query: Query,
+        platform_ids: Sequence[int],
+        match_all: bool = False,
+    ) -> Query:
+        if match_all:
+            # AND logic: This doesn't make sense for platforms since a ROM belongs to exactly one platform
+            # But we'll implement it for completeness - will return no results
+            for pid in platform_ids:
+                query = query.filter(Rom.platform_id == pid)
+            return query
+        else:
+            # OR logic: ROM belongs to any of the specified platforms
+            return query.filter(Rom.platform_id.in_(platform_ids))
+
     def filter_by_collection_id(
         self, query: Query, session: Session, collection_id: int
     ):
@@ -416,6 +432,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         query: Query,
         platform_id: int | None = None,
+        platform_ids: Sequence[int] | None = None,
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
         smart_collection_id: int | None = None,
@@ -437,6 +454,7 @@ class DBRomsHandler(DBBaseHandler):
         regions: Sequence[str] | None = None,
         languages: Sequence[str] | None = None,
         # Logic operators for multi-value filters
+        platforms_logic: str = "any",
         genres_logic: str = "any",
         franchises_logic: str = "any",
         collections_logic: str = "any",
@@ -449,7 +467,12 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
 
-        if platform_id:
+        # Handle platform filtering with priority for multi-platform
+        if platform_ids:
+            query = self.filter_by_platform_ids(
+                query, platform_ids, match_all=(platforms_logic == "all")
+            )
+        elif platform_id:
             query = self.filter_by_platform_id(query, platform_id)
 
         if collection_id:
