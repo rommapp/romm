@@ -53,7 +53,6 @@ const defaultFilterState = {
   selectedStatus: null as string | null,
   selectedStatuses: [] as string[],
   // Logic operators for multi-select filters
-  platformsLogic: "any" as "any" | "all",
   genresLogic: "any" as "any" | "all",
   franchisesLogic: "any" as "any" | "all",
   collectionsLogic: "any" as "any" | "all",
@@ -102,9 +101,6 @@ export default defineStore("galleryFilter", {
     },
     setSelectedFilterPlatforms(platforms: Platform[]) {
       this.selectedPlatforms = platforms;
-    },
-    setPlatformsLogic(logic: "any" | "all") {
-      this.platformsLogic = logic;
     },
     setSelectedFilterGenre(genre: string) {
       this.selectedGenre = genre;
@@ -405,7 +401,6 @@ export default defineStore("galleryFilter", {
       this.filterMissing = null;
       this.filterVerified = null;
       // Reset logic operators to default
-      this.platformsLogic = "any";
       this.genresLogic = "any";
       this.franchisesLogic = "any";
       this.collectionsLogic = "any";

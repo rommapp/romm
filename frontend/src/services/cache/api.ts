@@ -87,10 +87,6 @@ class CachedApiService {
         params.selectedLanguages,
       ),
       // Logic operators
-      platforms_logic:
-        params.platformIds && params.platformIds.length > 1
-          ? params.platformsLogic || "any"
-          : undefined,
       genres_logic:
         params.selectedGenres && params.selectedGenres.length > 1
           ? params.genresLogic || "any"

@@ -96,18 +96,23 @@ export default defineStore("roms", {
     },
     // Fetching multiple roms
     _buildRequestParams(galleryFilter: GalleryFilterStore) {
+      // Determine platform IDs - use multiselect platforms if available, otherwise convert single platform to array
+      let platformIds: number[] | null = null;
+      if (galleryFilter.selectedPlatforms.length > 0) {
+        platformIds = galleryFilter.selectedPlatforms.map((p) => p.id);
+      } else {
+        const singlePlatformId =
+          this.currentPlatform?.id ??
+          galleryFilter.selectedPlatform?.id ??
+          null;
+        if (singlePlatformId) {
+          platformIds = [singlePlatformId];
+        }
+      }
+
       const params = {
         searchTerm: galleryFilter.searchTerm,
-        platformId:
-          galleryFilter.selectedPlatforms.length > 0
-            ? null
-            : (this.currentPlatform?.id ??
-              galleryFilter.selectedPlatform?.id ??
-              null),
-        platformIds:
-          galleryFilter.selectedPlatforms.length > 0
-            ? galleryFilter.selectedPlatforms.map((p) => p.id)
-            : null,
+        platformIds: platformIds,
         collectionId: this.currentCollection?.id ?? null,
         virtualCollectionId: this.currentVirtualCollection?.id ?? null,
         smartCollectionId: this.currentSmartCollection?.id ?? null,
@@ -191,7 +196,6 @@ export default defineStore("roms", {
             ? galleryFilter.selectedStatuses
             : null,
         // Logic operators
-        platformsLogic: galleryFilter.platformsLogic,
         genresLogic: galleryFilter.genresLogic,
         franchisesLogic: galleryFilter.franchisesLogic,
         collectionsLogic: galleryFilter.collectionsLogic,

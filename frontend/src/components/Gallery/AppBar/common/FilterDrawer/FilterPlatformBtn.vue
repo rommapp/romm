@@ -14,8 +14,7 @@ defineProps<{
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
-const { selectedPlatforms, filterPlatforms, platformsLogic } =
-  storeToRefs(galleryFilterStore);
+const { selectedPlatforms, filterPlatforms } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
 </script>
 
@@ -84,42 +83,5 @@ const emitter = inject<Emitter<Events>>("emitter");
         </v-chip>
       </template>
     </v-select>
-    <!-- AND/OR Logic Toggle - always visible -->
-    <v-btn-toggle
-      :model-value="platformsLogic"
-      mandatory
-      variant="outlined"
-      density="compact"
-      class="flex-shrink-0"
-      @update:model-value="
-        (value) => {
-          galleryFilterStore.setPlatformsLogic(value);
-          nextTick(() => emitter?.emit('filterRoms', null));
-        }
-      "
-    >
-      <v-tooltip
-        text="Match ANY of the selected platforms (OR logic)"
-        location="bottom"
-        open-delay="500"
-      >
-        <template #activator="{ props }">
-          <v-btn value="any" size="small" v-bind="props">
-            <v-icon size="x-large">mdi-set-none</v-icon>
-          </v-btn>
-        </template>
-      </v-tooltip>
-      <v-tooltip
-        text="Match ALL of the selected platforms (AND logic) - Note: Will return no results since a ROM belongs to only one platform"
-        location="bottom"
-        open-delay="500"
-      >
-        <template #activator="{ props }">
-          <v-btn value="all" size="small" v-bind="props">
-            <v-icon size="x-large">mdi-set-all</v-icon>
-          </v-btn>
-        </template>
-      </v-tooltip>
-    </v-btn-toggle>
   </div>
 </template>

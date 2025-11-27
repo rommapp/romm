@@ -201,10 +201,6 @@ def get_roms(
         str | None,
         Query(description="Search term to filter roms."),
     ] = None,
-    platform_id: Annotated[
-        int | None,
-        Query(description="Platform internal id.", ge=1),
-    ] = None,
     platform_ids: Annotated[
         list[int] | None,
         Query(
@@ -361,13 +357,6 @@ def get_roms(
         Query(description="Order direction, either 'asc' or 'desc'."),
     ] = "asc",
     # Logic operators for multi-value filters
-    platforms_logic: Annotated[
-        str,
-        Query(
-            description="Logic operator for platforms filter: 'any' (OR) or 'all' (AND).",
-            alias="platforms_logic",
-        ),
-    ] = "any",
     genres_logic: Annotated[
         str,
         Query(
@@ -480,7 +469,6 @@ def get_roms(
     query = db_rom_handler.filter_roms(
         query=query,
         user_id=request.user.id,
-        platform_id=platform_id,
         platform_ids=platform_ids,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,
@@ -502,7 +490,6 @@ def get_roms(
         regions=regions,
         languages=languages,
         # Logic operators
-        platforms_logic=platforms_logic,
         genres_logic=genres_logic,
         franchises_logic=franchises_logic,
         collections_logic=collections_logic,
