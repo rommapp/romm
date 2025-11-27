@@ -31,9 +31,7 @@ function setState(state: string | null) {
 </script>
 
 <template>
-  <div
-    class="d-flex align-center justify-space-between py-2 px-4 rounded-lg border"
-  >
+  <div class="d-flex align-center justify-space-between py-2">
     <div class="d-flex align-center">
       <v-icon
         :color="currentState !== 'all' ? 'primary' : 'grey-lighten-1'"
@@ -59,7 +57,9 @@ function setState(state: string | null) {
       variant="outlined"
       @update:model-value="setState"
     >
-      <v-btn value="all" size="small">All</v-btn>
+      <v-btn value="all" size="small"
+        ><v-icon size="x-large">mdi-cancel</v-icon>
+      </v-btn>
       <v-tooltip text="Show favorite ROMs only" location="bottom">
         <template #activator="{ props }">
           <v-btn value="favorites" size="small" v-bind="props">

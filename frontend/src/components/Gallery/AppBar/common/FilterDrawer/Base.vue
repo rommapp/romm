@@ -11,11 +11,10 @@ import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer
 import FilterFavoritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavoritesBtn.vue";
 import FilterMatchStateBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchStateBtn.vue";
 import FilterMissingBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMissingBtn.vue";
+import FilterPlatformBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlatformBtn.vue";
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
 import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
@@ -64,7 +63,6 @@ const {
   selectedStatus,
   filterStatuses,
   selectedPlatform,
-  filterPlatforms,
   selectedRegion,
   filterRegions,
   selectedLanguage,
@@ -324,11 +322,9 @@ onMounted(async () => {
     class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
     <v-list tabindex="-1">
-      <template v-if="showSearchBar && xs">
-        <v-list-item>
-          <SearchTextField :tabindex="activeFilterDrawer ? 0 : -1" />
-        </v-list-item>
-      </template>
+      <v-list-item v-if="showSearchBar && xs">
+        <SearchTextField :tabindex="activeFilterDrawer ? 0 : -1" />
+      </v-list-item>
       <v-list-item>
         <FilterMatchStateBtn :tabindex="activeFilterDrawer ? 0 : -1" />
         <FilterFavoritesBtn
@@ -354,82 +350,21 @@ onMounted(async () => {
         />
         <FilterRaBtn class="mt-2" :tabindex="activeFilterDrawer ? 0 : -1" />
       </v-list-item>
-      <v-list-item
-        v-if="showPlatformsFilter"
-        :tabindex="activeFilterDrawer ? 0 : -1"
-      >
-        <v-autocomplete
-          v-model="selectedPlatform"
-          :tabindex="activeFilterDrawer ? 0 : -1"
-          hide-details
-          prepend-inner-icon="mdi-controller"
-          clearable
-          :label="t('common.platform')"
-          variant="outlined"
-          density="comfortable"
-          :items="filterPlatforms"
-          @update:model-value="
-            nextTick(() => emitter?.emit('filterRoms', null))
-          "
-        >
-          <template #item="{ props, item }">
-            <v-list-item
-              v-bind="props"
-              class="py-4"
-              :title="item.raw.name ?? ''"
-              :subtitle="item.raw.fs_slug"
-            >
-              <template #prepend>
-                <PlatformIcon
-                  :key="item.raw.slug"
-                  :size="35"
-                  :slug="item.raw.slug"
-                  :name="item.raw.name"
-                  :fs-slug="item.raw.fs_slug"
-                />
-              </template>
-              <template #append>
-                <MissingFromFSIcon
-                  v-if="item.raw.missing_from_fs"
-                  text="Missing platform from filesystem"
-                  chip
-                  chip-label
-                  chip-density="compact"
-                  class="ml-2"
-                />
-                <v-chip class="ml-2" size="x-small" label>
-                  {{ item.raw.rom_count }}
-                </v-chip>
-              </template>
-            </v-list-item>
-          </template>
-          <template #chip="{ item }">
-            <v-chip>
-              <PlatformIcon
-                :key="item.raw.slug"
-                :slug="item.raw.slug"
-                :name="item.raw.name"
-                :fs-slug="item.raw.fs_slug"
-                :size="20"
-                class="mr-2"
-              />
-              {{ item.raw.name }}
-            </v-chip>
-          </template>
-        </v-autocomplete>
+      <v-list-item v-if="showPlatformsFilter">
+        <FilterPlatformBtn :tabindex="activeFilterDrawer ? 0 : -1" />
       </v-list-item>
       <v-list-item
         v-for="filter in filters"
         :key="filter.label"
         :tabindex="activeFilterDrawer ? 0 : -1"
       >
-        <v-autocomplete
+        <v-select
           v-model="filter.selected.value"
           :tabindex="activeFilterDrawer ? 0 : -1"
           hide-details
           clearable
           :label="filter.label"
-          variant="solo-filled"
+          variant="outlined"
           density="comfortable"
           :items="filter.items.value"
           @update:model-value="
