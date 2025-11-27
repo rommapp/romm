@@ -431,7 +431,6 @@ class DBRomsHandler(DBBaseHandler):
     def filter_roms(
         self,
         query: Query,
-        platform_id: int | None = None,
         platform_ids: Sequence[int] | None = None,
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
@@ -454,7 +453,6 @@ class DBRomsHandler(DBBaseHandler):
         regions: Sequence[str] | None = None,
         languages: Sequence[str] | None = None,
         # Logic operators for multi-value filters
-        platforms_logic: str = "any",
         genres_logic: str = "any",
         franchises_logic: str = "any",
         collections_logic: str = "any",
@@ -467,13 +465,9 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
 
-        # Handle platform filtering with priority for multi-platform
+        # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
         if platform_ids:
-            query = self.filter_by_platform_ids(
-                query, platform_ids, match_all=(platforms_logic == "all")
-            )
-        elif platform_id:
-            query = self.filter_by_platform_id(query, platform_id)
+            query = self.filter_by_platform_ids(query, platform_ids, match_all=False)
 
         if collection_id:
             query = self.filter_by_collection_id(query, session, collection_id)
