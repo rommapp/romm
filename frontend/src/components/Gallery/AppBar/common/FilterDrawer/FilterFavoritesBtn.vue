@@ -60,14 +60,22 @@ function setState(state: string | null) {
       <v-btn value="all" size="small"
         ><v-icon size="x-large">mdi-cancel</v-icon>
       </v-btn>
-      <v-tooltip text="Show favorite ROMs only" location="bottom">
+      <v-tooltip
+        text="Show favorite ROMs only"
+        location="bottom"
+        open-delay="500"
+      >
         <template #activator="{ props }">
           <v-btn value="favorites" size="small" v-bind="props">
             <v-icon size="x-large">mdi-star</v-icon>
           </v-btn>
         </template>
       </v-tooltip>
-      <v-tooltip text="Show non-favorite ROMs only" location="bottom">
+      <v-tooltip
+        text="Show non-favorite ROMs only"
+        location="bottom"
+        open-delay="500"
+      >
         <template #activator="{ props }">
           <v-btn value="not-favorites" size="small" v-bind="props">
             <v-icon size="x-large">mdi-star-outline</v-icon>

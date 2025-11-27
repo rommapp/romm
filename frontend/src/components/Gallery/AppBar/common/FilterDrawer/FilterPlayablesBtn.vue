@@ -67,7 +67,11 @@ function setState(state: string | null) {
       <v-btn value="all" size="small"
         ><v-icon size="x-large">mdi-cancel</v-icon>
       </v-btn>
-      <v-tooltip text="Show playable ROMs only" location="bottom">
+      <v-tooltip
+        text="Show playable ROMs only"
+        location="bottom"
+        open-delay="500"
+      >
         <template #activator="{ props }">
           <v-btn
             value="playables"
@@ -79,7 +83,11 @@ function setState(state: string | null) {
           </v-btn>
         </template>
       </v-tooltip>
-      <v-tooltip text="Show non-playable ROMs only" location="bottom">
+      <v-tooltip
+        text="Show non-playable ROMs only"
+        location="bottom"
+        open-delay="500"
+      >
         <template #activator="{ props }">
           <v-btn
             value="not-playables"

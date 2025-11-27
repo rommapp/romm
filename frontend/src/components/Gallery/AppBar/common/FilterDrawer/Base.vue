@@ -616,40 +616,62 @@ onMounted(async () => {
         :tabindex="activeFilterDrawer ? 0 : -1"
         class="py-2"
       >
-        <v-select
-          v-model="filter.selected.value"
-          :tabindex="activeFilterDrawer ? 0 : -1"
-          hide-details
-          clearable
-          multiple
-          chips
-          closable-chips
-          :label="filter.label"
-          variant="outlined"
-          density="comfortable"
-          :items="filter.items.value"
-          @update:model-value="
-            nextTick(() => emitter?.emit('filterRoms', null))
-          "
-        />
-        <!-- AND/OR Logic Toggle -->
-        <v-btn-toggle
-          v-if="filter.selected.value.length > 1"
-          :model-value="filter.logic.value"
-          mandatory
-          variant="outlined"
-          density="compact"
-          class="mt-2"
-          @update:model-value="
-            (value) => {
-              filter.setLogic(value);
-              nextTick(() => emitter?.emit('filterRoms', null));
-            }
-          "
-        >
-          <v-btn value="any" size="small">{{ t("common.filter.any") }}</v-btn>
-          <v-btn value="all" size="small">{{ t("common.filter.all") }}</v-btn>
-        </v-btn-toggle>
+        <div class="d-flex align-center ga-2 w-100">
+          <v-select
+            v-model="filter.selected.value"
+            :tabindex="activeFilterDrawer ? 0 : -1"
+            hide-details
+            clearable
+            multiple
+            chips
+            closable-chips
+            :label="filter.label"
+            variant="outlined"
+            density="comfortable"
+            :items="filter.items.value"
+            class="flex-grow-1"
+            @update:model-value="
+              nextTick(() => emitter?.emit('filterRoms', null))
+            "
+          />
+          <!-- AND/OR Logic Toggle - always visible -->
+          <v-btn-toggle
+            :model-value="filter.logic.value"
+            mandatory
+            variant="outlined"
+            density="compact"
+            class="flex-shrink-0"
+            @update:model-value="
+              (value) => {
+                filter.setLogic(value);
+                nextTick(() => emitter?.emit('filterRoms', null));
+              }
+            "
+          >
+            <v-tooltip
+              text="Match ANY of the selected values (OR logic)"
+              location="bottom"
+              open-delay="500"
+            >
+              <template #activator="{ props }">
+                <v-btn value="any" size="small" v-bind="props">
+                  <v-icon size="x-large">mdi-set-none</v-icon>
+                </v-btn>
+              </template>
+            </v-tooltip>
+            <v-tooltip
+              text="Match ALL of the selected values (AND logic)"
+              location="bottom"
+              open-delay="500"
+            >
+              <template #activator="{ props }">
+                <v-btn value="all" size="small" v-bind="props">
+                  <v-icon size="x-large">mdi-set-all</v-icon>
+                </v-btn>
+              </template>
+            </v-tooltip>
+          </v-btn-toggle>
+        </div>
       </v-list-item>
       <v-list-item
         class="justify-center d-flex"

@@ -67,14 +67,22 @@ function setMatchState(state: string) {
       <v-btn value="all" size="small"
         ><v-icon size="x-large">mdi-cancel</v-icon>
       </v-btn>
-      <v-tooltip :text="t('platform.show-matched')" location="bottom">
+      <v-tooltip
+        :text="t('platform.show-matched')"
+        location="bottom"
+        open-delay="500"
+      >
         <template #activator="{ props }">
           <v-btn value="matched" size="small" v-bind="props">
             <v-icon size="x-large">mdi-file-find</v-icon>
           </v-btn>
         </template>
       </v-tooltip>
-      <v-tooltip :text="t('platform.show-unmatched')" location="bottom">
+      <v-tooltip
+        :text="t('platform.show-unmatched')"
+        location="bottom"
+        open-delay="500"
+      >
         <template #activator="{ props }">
           <v-btn value="unmatched" size="small" v-bind="props">
             <v-icon size="x-large">mdi-file-find-outline</v-icon>

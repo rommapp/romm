@@ -60,14 +60,22 @@ function setState(state: string | null) {
       <v-btn value="all" size="small"
         ><v-icon size="x-large">mdi-cancel</v-icon>
       </v-btn>
-      <v-tooltip text="Show missing ROMs only" location="bottom">
+      <v-tooltip
+        text="Show missing ROMs only"
+        location="bottom"
+        open-delay="500"
+      >
         <template #activator="{ props }">
           <v-btn value="missing" size="small" v-bind="props">
-            <v-icon size="x-large">mdi-folder-question</v-icon>
+            <v-icon size="x-large">mdi-file-question</v-icon>
           </v-btn>
         </template>
       </v-tooltip>
-      <v-tooltip text="Show non-missing ROMs only" location="bottom">
+      <v-tooltip
+        text="Show non-missing ROMs only"
+        location="bottom"
+        open-delay="500"
+      >
         <template #activator="{ props }">
           <v-btn value="not-missing" size="small" v-bind="props">
             <v-icon size="x-large">mdi-folder-check</v-icon>
