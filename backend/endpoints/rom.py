@@ -349,6 +349,56 @@ def get_roms(
         str,
         Query(description="Order direction, either 'asc' or 'desc'."),
     ] = "asc",
+    # Logic operators for multi-value filters
+    genres_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for genres filter: 'any' (OR) or 'all' (AND).",
+            alias="genres_logic",
+        ),
+    ] = "any",
+    franchises_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for franchises filter: 'any' (OR) or 'all' (AND).",
+            alias="franchises_logic",
+        ),
+    ] = "any",
+    collections_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for collections filter: 'any' (OR) or 'all' (AND).",
+            alias="collections_logic",
+        ),
+    ] = "any",
+    companies_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for companies filter: 'any' (OR) or 'all' (AND).",
+            alias="companies_logic",
+        ),
+    ] = "any",
+    age_ratings_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for age ratings filter: 'any' (OR) or 'all' (AND).",
+            alias="age_ratings_logic",
+        ),
+    ] = "any",
+    regions_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for regions filter: 'any' (OR) or 'all' (AND).",
+            alias="regions_logic",
+        ),
+    ] = "any",
+    languages_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for languages filter: 'any' (OR) or 'all' (AND).",
+            alias="languages_logic",
+        ),
+    ] = "any",
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
 
@@ -420,6 +470,14 @@ def get_roms(
         selected_status=selected_status,
         regions=regions,
         languages=languages,
+        # Logic operators
+        genres_logic=genres_logic,
+        franchises_logic=franchises_logic,
+        collections_logic=collections_logic,
+        companies_logic=companies_logic,
+        age_ratings_logic=age_ratings_logic,
+        regions_logic=regions_logic,
+        languages_logic=languages_logic,
         group_by_meta_id=group_by_meta_id,
     )
 

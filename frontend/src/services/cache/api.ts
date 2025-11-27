@@ -11,6 +11,22 @@ import cacheService from "@/services/cache";
 import { getStatusKeyForText } from "@/utils";
 
 class CachedApiService {
+  // Helper function to handle single vs multi-value parameters
+  private getFilterArray(
+    single: string | null | undefined,
+    multi: string[] | null | undefined,
+  ): string[] | undefined {
+    const result = (() => {
+      if (multi && multi.length > 0) return multi;
+      if (single) return [single];
+      return undefined;
+    })();
+    // Only log non-empty results to reduce console noise
+    if (result) {
+      console.log("CachedApiService getFilterArray - result:", result);
+    }
+    return result;
+  }
   private createRequestConfig(
     method: Method,
     url: string,
@@ -40,20 +56,61 @@ class CachedApiService {
       order_by: params.orderBy,
       order_dir: params.orderDir,
       group_by_meta_id: params.groupByMetaId,
-      genre: params.selectedGenre ? [params.selectedGenre] : undefined,
-      franchise: params.selectedFranchise
-        ? [params.selectedFranchise]
-        : undefined,
-      collection: params.selectedCollection
-        ? [params.selectedCollection]
-        : undefined,
-      company: params.selectedCompany ? [params.selectedCompany] : undefined,
-      age_rating: params.selectedAgeRating
-        ? [params.selectedAgeRating]
-        : undefined,
+      genre: this.getFilterArray(params.selectedGenre, params.selectedGenres),
+      franchise: this.getFilterArray(
+        params.selectedFranchise,
+        params.selectedFranchises,
+      ),
+      collection: this.getFilterArray(
+        params.selectedCollection,
+        params.selectedCollections,
+      ),
+      company: this.getFilterArray(
+        params.selectedCompany,
+        params.selectedCompanies,
+      ),
+      age_rating: this.getFilterArray(
+        params.selectedAgeRating,
+        params.selectedAgeRatings,
+      ),
       selected_status: getStatusKeyForText(params.selectedStatus ?? null),
-      region: params.selectedRegion ? [params.selectedRegion] : undefined,
-      language: params.selectedLanguage ? [params.selectedLanguage] : undefined,
+      region: this.getFilterArray(
+        params.selectedRegion,
+        params.selectedRegions,
+      ),
+      language: this.getFilterArray(
+        params.selectedLanguage,
+        params.selectedLanguages,
+      ),
+      // Logic operators
+      genres_logic:
+        params.selectedGenres && params.selectedGenres.length > 1
+          ? params.genresLogic || "any"
+          : undefined,
+      franchises_logic:
+        params.selectedFranchises && params.selectedFranchises.length > 1
+          ? params.franchisesLogic || "any"
+          : undefined,
+      collections_logic:
+        params.selectedCollections && params.selectedCollections.length > 1
+          ? params.collectionsLogic || "any"
+          : undefined,
+      companies_logic:
+        params.selectedCompanies && params.selectedCompanies.length > 1
+          ? params.companiesLogic || "any"
+          : undefined,
+      age_ratings_logic:
+        params.selectedAgeRatings && params.selectedAgeRatings.length > 1
+          ? params.ageRatingsLogic || "any"
+          : undefined,
+      regions_logic:
+        params.selectedRegions && params.selectedRegions.length > 1
+          ? params.regionsLogic || "any"
+          : undefined,
+      languages_logic:
+        params.selectedLanguages && params.selectedLanguages.length > 1
+          ? params.languagesLogic || "any"
+          : undefined,
       ...(params.filterUnmatched ? { matched: false } : {}),
       ...(params.filterMatched ? { matched: true } : {}),
       ...(params.filterFavorites !== null

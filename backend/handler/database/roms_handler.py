@@ -436,6 +436,14 @@ class DBRomsHandler(DBBaseHandler):
         selected_status: str | None = None,
         regions: Sequence[str] | None = None,
         languages: Sequence[str] | None = None,
+        # Logic operators for multi-value filters
+        genres_logic: str = "any",
+        franchises_logic: str = "any",
+        collections_logic: str = "any",
+        companies_logic: str = "any",
+        age_ratings_logic: str = "any",
+        regions_logic: str = "any",
+        languages_logic: str = "any",
         user_id: int | None = None,
         session: Session = None,
     ) -> Query[Rom]:
@@ -597,25 +605,53 @@ class DBRomsHandler(DBBaseHandler):
 
         # Apply metadata filters efficiently
         if genres:
-            query = self.filter_by_genres(query, session=session, values=genres)
+            query = self.filter_by_genres(
+                query, session=session, values=genres, match_all=(genres_logic == "all")
+            )
         if franchises:
-            query = self.filter_by_franchises(query, session=session, values=franchises)
+            query = self.filter_by_franchises(
+                query,
+                session=session,
+                values=franchises,
+                match_all=(franchises_logic == "all"),
+            )
         if collections:
             query = self.filter_by_collections(
-                query, session=session, values=collections
+                query,
+                session=session,
+                values=collections,
+                match_all=(collections_logic == "all"),
             )
         if companies:
-            query = self.filter_by_companies(query, session=session, values=companies)
+            query = self.filter_by_companies(
+                query,
+                session=session,
+                values=companies,
+                match_all=(companies_logic == "all"),
+            )
         if age_ratings:
             query = self.filter_by_age_ratings(
-                query, session=session, values=age_ratings
+                query,
+                session=session,
+                values=age_ratings,
+                match_all=(age_ratings_logic == "all"),
             )
 
         # Apply rom-level filters
         if regions:
-            query = self.filter_by_regions(query, session=session, values=regions)
+            query = self.filter_by_regions(
+                query,
+                session=session,
+                values=regions,
+                match_all=(regions_logic == "all"),
+            )
         if languages:
-            query = self.filter_by_languages(query, session=session, values=languages)
+            query = self.filter_by_languages(
+                query,
+                session=session,
+                values=languages,
+                match_all=(languages_logic == "all"),
+            )
 
         # The RomUser table is already joined if user_id is set
         if selected_status and user_id:

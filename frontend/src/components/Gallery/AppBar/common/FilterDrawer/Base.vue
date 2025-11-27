@@ -53,21 +53,37 @@ const {
   filterVerified,
   selectedGenre,
   filterGenres,
+  selectedGenres,
+  genresLogic,
   selectedFranchise,
   filterFranchises,
+  selectedFranchises,
+  franchisesLogic,
   selectedCollection,
   filterCollections,
+  selectedCollections,
+  collectionsLogic,
   selectedCompany,
   filterCompanies,
+  selectedCompanies,
+  companiesLogic,
   selectedAgeRating,
   filterAgeRatings,
+  selectedAgeRatings,
+  ageRatingsLogic,
   selectedStatus,
   filterStatuses,
+  selectedStatuses,
+  statusesLogic,
   selectedPlatform,
   selectedRegion,
   filterRegions,
+  selectedRegions,
+  regionsLogic,
   selectedLanguage,
   filterLanguages,
+  selectedLanguages,
+  languagesLogic,
 } = storeToRefs(galleryFilterStore);
 const { filteredRoms } = storeToRefs(romsStore);
 const { allPlatforms } = storeToRefs(platformsStore);
@@ -94,13 +110,58 @@ const onFilterChange = debounce(
         ? String(selectedPlatform.value.id)
         : null,
       genre: selectedGenre.value,
+      genres:
+        selectedGenres.value.length > 0 ? selectedGenres.value.join(",") : null,
+      genresLogic: selectedGenres.value.length > 1 ? genresLogic.value : null,
       franchise: selectedFranchise.value,
+      franchises:
+        selectedFranchises.value.length > 0
+          ? selectedFranchises.value.join(",")
+          : null,
+      franchisesLogic:
+        selectedFranchises.value.length > 1 ? franchisesLogic.value : null,
       collection: selectedCollection.value,
+      collections:
+        selectedCollections.value.length > 0
+          ? selectedCollections.value.join(",")
+          : null,
+      collectionsLogic:
+        selectedCollections.value.length > 1 ? collectionsLogic.value : null,
       company: selectedCompany.value,
+      companies:
+        selectedCompanies.value.length > 0
+          ? selectedCompanies.value.join(",")
+          : null,
+      companiesLogic:
+        selectedCompanies.value.length > 1 ? companiesLogic.value : null,
       ageRating: selectedAgeRating.value,
+      ageRatings:
+        selectedAgeRatings.value.length > 0
+          ? selectedAgeRatings.value.join(",")
+          : null,
+      ageRatingsLogic:
+        selectedAgeRatings.value.length > 1 ? ageRatingsLogic.value : null,
       region: selectedRegion.value,
+      regions:
+        selectedRegions.value.length > 0
+          ? selectedRegions.value.join(",")
+          : null,
+      regionsLogic:
+        selectedRegions.value.length > 1 ? regionsLogic.value : null,
       language: selectedLanguage.value,
+      languages:
+        selectedLanguages.value.length > 0
+          ? selectedLanguages.value.join(",")
+          : null,
+      languagesLogic:
+        selectedLanguages.value.length > 1 ? languagesLogic.value : null,
       status: selectedStatus.value,
+      statuses:
+        selectedStatuses.value.length > 0
+          ? selectedStatuses.value.join(",")
+          : null,
+      statusesLogic:
+        selectedStatuses.value.length > 1 ? statusesLogic.value : null,
     }).forEach(([key, value]) => {
       if (value) {
         url.searchParams.set(key, value);
@@ -131,43 +192,67 @@ emitter?.on("filterRoms", onFilterChange);
 const filters = [
   {
     label: t("platform.genre"),
-    selected: selectedGenre,
+    selected: selectedGenres,
     items: filterGenres,
+    logic: genresLogic,
+    setLogic: (logic: "any" | "all") =>
+      galleryFilterStore.setGenresLogic(logic),
   },
   {
     label: t("platform.franchise"),
-    selected: selectedFranchise,
+    selected: selectedFranchises,
     items: filterFranchises,
+    logic: franchisesLogic,
+    setLogic: (logic: "any" | "all") =>
+      galleryFilterStore.setFranchisesLogic(logic),
   },
   {
     label: t("platform.collection"),
-    selected: selectedCollection,
+    selected: selectedCollections,
     items: filterCollections,
+    logic: collectionsLogic,
+    setLogic: (logic: "any" | "all") =>
+      galleryFilterStore.setCollectionsLogic(logic),
   },
   {
     label: t("platform.company"),
-    selected: selectedCompany,
+    selected: selectedCompanies,
     items: filterCompanies,
+    logic: companiesLogic,
+    setLogic: (logic: "any" | "all") =>
+      galleryFilterStore.setCompaniesLogic(logic),
   },
   {
     label: t("platform.age-rating"),
-    selected: selectedAgeRating,
+    selected: selectedAgeRatings,
     items: filterAgeRatings,
+    logic: ageRatingsLogic,
+    setLogic: (logic: "any" | "all") =>
+      galleryFilterStore.setAgeRatingsLogic(logic),
   },
   {
     label: t("platform.region"),
-    selected: selectedRegion,
+    selected: selectedRegions,
     items: filterRegions,
+    logic: regionsLogic,
+    setLogic: (logic: "any" | "all") =>
+      galleryFilterStore.setRegionsLogic(logic),
   },
   {
     label: t("platform.language"),
-    selected: selectedLanguage,
+    selected: selectedLanguages,
     items: filterLanguages,
+    logic: languagesLogic,
+    setLogic: (logic: "any" | "all") =>
+      galleryFilterStore.setLanguagesLogic(logic),
   },
   {
     label: t("platform.status"),
-    selected: selectedStatus,
+    selected: selectedStatuses,
     items: filterStatuses,
+    logic: statusesLogic,
+    setLogic: (logic: "any" | "all") =>
+      galleryFilterStore.setStatusesLogic(logic),
   },
 ];
 
@@ -185,38 +270,47 @@ let searchFilteredRoms = ref<SimpleRom[]>([]);
 
 async function fetchSearchFilteredRoms() {
   try {
+    const params = {
+      searchTerm: searchTerm.value,
+      platformId: romsStore.currentPlatform?.id ?? null,
+      collectionId: romsStore.currentCollection?.id ?? null,
+      virtualCollectionId: romsStore.currentVirtualCollection?.id ?? null,
+      smartCollectionId: romsStore.currentSmartCollection?.id ?? null,
+      limit: romsStore.fetchLimit,
+      offset: romsStore.fetchOffset,
+      orderBy: romsStore.orderBy,
+      orderDir: romsStore.orderDir,
+      // Exclude all other filters
+      filterUnmatched: false,
+      filterMatched: false,
+      filterFavorites: null,
+      filterDuplicates: null,
+      filterPlayables: null,
+      filterRA: null,
+      filterMissing: null,
+      filterVerified: null,
+      // Single value filters - exclude
+      selectedGenre: null,
+      selectedFranchise: null,
+      selectedCollection: null,
+      selectedCompany: null,
+      selectedAgeRating: null,
+      selectedRegion: null,
+      selectedLanguage: null,
+      selectedStatus: null,
+      // Multi-value filters - exclude
+      selectedGenres: null,
+      selectedFranchises: null,
+      selectedCollections: null,
+      selectedCompanies: null,
+      selectedAgeRatings: null,
+      selectedRegions: null,
+      selectedLanguages: null,
+    };
+
     // Fetch ROMs with only search term applied (and current platform/collection context)
-    const response = await cachedApiService.getRoms(
-      {
-        searchTerm: searchTerm.value,
-        platformId: romsStore.currentPlatform?.id ?? null,
-        collectionId: romsStore.currentCollection?.id ?? null,
-        virtualCollectionId: romsStore.currentVirtualCollection?.id ?? null,
-        smartCollectionId: romsStore.currentSmartCollection?.id ?? null,
-        limit: romsStore.fetchLimit,
-        offset: romsStore.fetchOffset,
-        orderBy: romsStore.orderBy,
-        orderDir: romsStore.orderDir,
-        // Exclude all other filters
-        filterUnmatched: false,
-        filterMatched: false,
-        filterFavorites: null,
-        filterDuplicates: null,
-        filterPlayables: null,
-        filterRA: null,
-        filterMissing: null,
-        filterVerified: null,
-        selectedGenre: null,
-        selectedFranchise: null,
-        selectedCollection: null,
-        selectedCompany: null,
-        selectedAgeRating: null,
-        selectedRegion: null,
-        selectedLanguage: null,
-        selectedStatus: null,
-      },
-      () => {}, // No background update callback needed
-    );
+    const response = await cachedApiService.getRoms(params, () => {}); // No background update callback needed
+
     searchFilteredRoms.value = response.data.items;
   } catch (error) {
     console.error("Failed to fetch search-filtered ROMs:", error);
@@ -280,6 +374,7 @@ onMounted(async () => {
     filterVerified: urlFilteredVerified,
     filterRA: urlFilteredRa,
     platform: urlPlatform,
+    // Single value URL params (backward compatibility)
     genre: urlGenre,
     franchise: urlFranchise,
     collection: urlCollection,
@@ -288,6 +383,23 @@ onMounted(async () => {
     region: urlRegion,
     language: urlLanguage,
     status: urlStatus,
+    // Multi-value URL params
+    genres: urlGenres,
+    genresLogic: urlGenresLogic,
+    franchises: urlFranchises,
+    franchisesLogic: urlFranchisesLogic,
+    collections: urlCollections,
+    collectionsLogic: urlCollectionsLogic,
+    companies: urlCompanies,
+    companiesLogic: urlCompaniesLogic,
+    ageRatings: urlAgeRatings,
+    ageRatingsLogic: urlAgeRatingsLogic,
+    regions: urlRegions,
+    regionsLogic: urlRegionsLogic,
+    languages: urlLanguages,
+    languagesLogic: urlLanguagesLogic,
+    statuses: urlStatuses,
+    statusesLogic: urlStatusesLogic,
   } = router.currentRoute.value.query;
 
   // Check for query params to set filters
@@ -319,29 +431,102 @@ onMounted(async () => {
     const platform = platformsStore.get(Number(urlPlatform));
     if (platform) galleryFilterStore.setSelectedFilterPlatform(platform);
   }
-  if (urlGenre !== undefined) {
-    galleryFilterStore.setSelectedFilterGenre(urlGenre as string);
+  // Check for query params to set multi-value filters (prioritize over single values)
+  if (urlGenres !== undefined) {
+    const genres = (urlGenres as string).split(",").filter((g) => g.trim());
+    galleryFilterStore.setSelectedFilterGenres(genres);
+    if (urlGenresLogic !== undefined) {
+      galleryFilterStore.setGenresLogic(urlGenresLogic as "any" | "all");
+    }
+  } else if (urlGenre !== undefined) {
+    // Backward compatibility: if single genre is set, convert to multiselect
+    galleryFilterStore.setSelectedFilterGenres([urlGenre as string]);
   }
-  if (urlFranchise !== undefined) {
-    galleryFilterStore.setSelectedFilterFranchise(urlFranchise as string);
+
+  if (urlFranchises !== undefined) {
+    const franchises = (urlFranchises as string)
+      .split(",")
+      .filter((f) => f.trim());
+    galleryFilterStore.setSelectedFilterFranchises(franchises);
+    if (urlFranchisesLogic !== undefined) {
+      galleryFilterStore.setFranchisesLogic(
+        urlFranchisesLogic as "any" | "all",
+      );
+    }
+  } else if (urlFranchise !== undefined) {
+    galleryFilterStore.setSelectedFilterFranchises([urlFranchise as string]);
   }
-  if (urlCollection !== undefined) {
-    galleryFilterStore.setSelectedFilterCollection(urlCollection as string);
+
+  if (urlCollections !== undefined) {
+    const collections = (urlCollections as string)
+      .split(",")
+      .filter((c) => c.trim());
+    galleryFilterStore.setSelectedFilterCollections(collections);
+    if (urlCollectionsLogic !== undefined) {
+      galleryFilterStore.setCollectionsLogic(
+        urlCollectionsLogic as "any" | "all",
+      );
+    }
+  } else if (urlCollection !== undefined) {
+    galleryFilterStore.setSelectedFilterCollections([urlCollection as string]);
   }
-  if (urlCompany !== undefined) {
-    galleryFilterStore.setSelectedFilterCompany(urlCompany as string);
+
+  if (urlCompanies !== undefined) {
+    const companies = (urlCompanies as string)
+      .split(",")
+      .filter((c) => c.trim());
+    galleryFilterStore.setSelectedFilterCompanies(companies);
+    if (urlCompaniesLogic !== undefined) {
+      galleryFilterStore.setCompaniesLogic(urlCompaniesLogic as "any" | "all");
+    }
+  } else if (urlCompany !== undefined) {
+    galleryFilterStore.setSelectedFilterCompanies([urlCompany as string]);
   }
-  if (urlAgeRating !== undefined) {
-    galleryFilterStore.setSelectedFilterAgeRating(urlAgeRating as string);
+
+  if (urlAgeRatings !== undefined) {
+    const ageRatings = (urlAgeRatings as string)
+      .split(",")
+      .filter((a) => a.trim());
+    galleryFilterStore.setSelectedFilterAgeRatings(ageRatings);
+    if (urlAgeRatingsLogic !== undefined) {
+      galleryFilterStore.setAgeRatingsLogic(
+        urlAgeRatingsLogic as "any" | "all",
+      );
+    }
+  } else if (urlAgeRating !== undefined) {
+    galleryFilterStore.setSelectedFilterAgeRatings([urlAgeRating as string]);
   }
-  if (urlRegion !== undefined) {
-    galleryFilterStore.setSelectedFilterRegion(urlRegion as string);
+
+  if (urlRegions !== undefined) {
+    const regions = (urlRegions as string).split(",").filter((r) => r.trim());
+    galleryFilterStore.setSelectedFilterRegions(regions);
+    if (urlRegionsLogic !== undefined) {
+      galleryFilterStore.setRegionsLogic(urlRegionsLogic as "any" | "all");
+    }
+  } else if (urlRegion !== undefined) {
+    galleryFilterStore.setSelectedFilterRegions([urlRegion as string]);
   }
-  if (urlLanguage !== undefined) {
-    galleryFilterStore.setSelectedFilterLanguage(urlLanguage as string);
+
+  if (urlLanguages !== undefined) {
+    const languages = (urlLanguages as string)
+      .split(",")
+      .filter((l) => l.trim());
+    galleryFilterStore.setSelectedFilterLanguages(languages);
+    if (urlLanguagesLogic !== undefined) {
+      galleryFilterStore.setLanguagesLogic(urlLanguagesLogic as "any" | "all");
+    }
+  } else if (urlLanguage !== undefined) {
+    galleryFilterStore.setSelectedFilterLanguages([urlLanguage as string]);
   }
-  if (urlStatus !== undefined) {
-    galleryFilterStore.setSelectedFilterStatus(urlStatus as string);
+
+  if (urlStatuses !== undefined) {
+    const statuses = (urlStatuses as string).split(",").filter((s) => s.trim());
+    galleryFilterStore.setSelectedFilterStatuses(statuses);
+    if (urlStatusesLogic !== undefined) {
+      galleryFilterStore.setStatusesLogic(urlStatusesLogic as "any" | "all");
+    }
+  } else if (urlStatus !== undefined) {
+    galleryFilterStore.setSelectedFilterStatuses([urlStatus as string]);
   }
 
   // Check if search term is set in the URL (empty string is ok)
@@ -429,12 +614,16 @@ onMounted(async () => {
         v-for="filter in filters"
         :key="filter.label"
         :tabindex="activeFilterDrawer ? 0 : -1"
+        class="py-2"
       >
         <v-select
           v-model="filter.selected.value"
           :tabindex="activeFilterDrawer ? 0 : -1"
           hide-details
           clearable
+          multiple
+          chips
+          closable-chips
           :label="filter.label"
           variant="outlined"
           density="comfortable"
@@ -443,6 +632,24 @@ onMounted(async () => {
             nextTick(() => emitter?.emit('filterRoms', null))
           "
         />
+        <!-- AND/OR Logic Toggle -->
+        <v-btn-toggle
+          v-if="filter.selected.value.length > 1"
+          :model-value="filter.logic.value"
+          mandatory
+          variant="outlined"
+          density="compact"
+          class="mt-2"
+          @update:model-value="
+            (value) => {
+              filter.setLogic(value);
+              nextTick(() => emitter?.emit('filterRoms', null));
+            }
+          "
+        >
+          <v-btn value="any" size="small">{{ t("common.filter.any") }}</v-btn>
+          <v-btn value="all" size="small">{{ t("common.filter.all") }}</v-btn>
+        </v-btn-toggle>
       </v-list-item>
       <v-list-item
         class="justify-center d-flex"

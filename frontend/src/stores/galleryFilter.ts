@@ -35,14 +35,33 @@ const defaultFilterState = {
   filterMissing: null as boolean | null, // null = all, true = missing, false = not missing
   filterVerified: null as boolean | null, // null = all, true = verified, false = not verified
   selectedPlatform: null as Platform | null,
+  selectedPlatforms: [] as Platform[],
   selectedGenre: null as string | null,
+  selectedGenres: [] as string[],
   selectedFranchise: null as string | null,
+  selectedFranchises: [] as string[],
   selectedCollection: null as string | null,
+  selectedCollections: [] as string[],
   selectedCompany: null as string | null,
+  selectedCompanies: [] as string[],
   selectedAgeRating: null as string | null,
+  selectedAgeRatings: [] as string[],
   selectedRegion: null as string | null,
+  selectedRegions: [] as string[],
   selectedLanguage: null as string | null,
+  selectedLanguages: [] as string[],
   selectedStatus: null as string | null,
+  selectedStatuses: [] as string[],
+  // Logic operators for multi-select filters
+  platformsLogic: "any" as "any" | "all",
+  genresLogic: "any" as "any" | "all",
+  franchisesLogic: "any" as "any" | "all",
+  collectionsLogic: "any" as "any" | "all",
+  companiesLogic: "any" as "any" | "all",
+  ageRatingsLogic: "any" as "any" | "all",
+  regionsLogic: "any" as "any" | "all",
+  languagesLogic: "any" as "any" | "all",
+  statusesLogic: "any" as "any" | "all",
 };
 
 export default defineStore("galleryFilter", {
@@ -81,29 +100,83 @@ export default defineStore("galleryFilter", {
         ? this.filterPlatforms.find((p) => p.id === platform.id) || null
         : null;
     },
+    setSelectedFilterPlatforms(platforms: Platform[]) {
+      this.selectedPlatforms = platforms;
+    },
+    setPlatformsLogic(logic: "any" | "all") {
+      this.platformsLogic = logic;
+    },
     setSelectedFilterGenre(genre: string) {
       this.selectedGenre = genre;
+    },
+    setSelectedFilterGenres(genres: string[]) {
+      this.selectedGenres = genres;
+    },
+    setGenresLogic(logic: "any" | "all") {
+      this.genresLogic = logic;
     },
     setSelectedFilterFranchise(franchise: string) {
       this.selectedFranchise = franchise;
     },
+    setSelectedFilterFranchises(franchises: string[]) {
+      this.selectedFranchises = franchises;
+    },
+    setFranchisesLogic(logic: "any" | "all") {
+      this.franchisesLogic = logic;
+    },
     setSelectedFilterCollection(collection: string) {
       this.selectedCollection = collection;
+    },
+    setSelectedFilterCollections(collections: string[]) {
+      this.selectedCollections = collections;
+    },
+    setCollectionsLogic(logic: "any" | "all") {
+      this.collectionsLogic = logic;
     },
     setSelectedFilterCompany(company: string) {
       this.selectedCompany = company;
     },
+    setSelectedFilterCompanies(companies: string[]) {
+      this.selectedCompanies = companies;
+    },
+    setCompaniesLogic(logic: "any" | "all") {
+      this.companiesLogic = logic;
+    },
     setSelectedFilterAgeRating(ageRating: string) {
       this.selectedAgeRating = ageRating;
+    },
+    setSelectedFilterAgeRatings(ageRatings: string[]) {
+      this.selectedAgeRatings = ageRatings;
+    },
+    setAgeRatingsLogic(logic: "any" | "all") {
+      this.ageRatingsLogic = logic;
     },
     setSelectedFilterRegion(region: string) {
       this.selectedRegion = region;
     },
+    setSelectedFilterRegions(regions: string[]) {
+      this.selectedRegions = regions;
+    },
+    setRegionsLogic(logic: "any" | "all") {
+      this.regionsLogic = logic;
+    },
     setSelectedFilterLanguage(language: string) {
       this.selectedLanguage = language;
     },
+    setSelectedFilterLanguages(languages: string[]) {
+      this.selectedLanguages = languages;
+    },
+    setLanguagesLogic(logic: "any" | "all") {
+      this.languagesLogic = logic;
+    },
     setSelectedFilterStatus(status: string) {
       this.selectedStatus = status;
+    },
+    setSelectedFilterStatuses(statuses: string[]) {
+      this.selectedStatuses = statuses;
+    },
+    setStatusesLogic(logic: "any" | "all") {
+      this.statusesLogic = logic;
     },
     setFilterUnmatched(value: boolean) {
       this.filterUnmatched = value;
@@ -282,14 +355,23 @@ export default defineStore("galleryFilter", {
           this.filterMissing !== null ||
           this.filterVerified !== null ||
           this.selectedPlatform ||
+          this.selectedPlatforms.length > 0 ||
           this.selectedGenre ||
+          this.selectedGenres.length > 0 ||
           this.selectedFranchise ||
+          this.selectedFranchises.length > 0 ||
           this.selectedCollection ||
+          this.selectedCollections.length > 0 ||
           this.selectedCompany ||
+          this.selectedCompanies.length > 0 ||
           this.selectedAgeRating ||
+          this.selectedAgeRatings.length > 0 ||
           this.selectedRegion ||
+          this.selectedRegions.length > 0 ||
           this.selectedLanguage ||
-          this.selectedStatus,
+          this.selectedLanguages.length > 0 ||
+          this.selectedStatus ||
+          this.selectedStatuses.length > 0,
       );
     },
     reset() {
@@ -297,14 +379,23 @@ export default defineStore("galleryFilter", {
     },
     resetFilters() {
       this.selectedPlatform = null;
+      this.selectedPlatforms = [];
       this.selectedGenre = null;
+      this.selectedGenres = [];
       this.selectedFranchise = null;
+      this.selectedFranchises = [];
       this.selectedCollection = null;
+      this.selectedCollections = [];
       this.selectedCompany = null;
+      this.selectedCompanies = [];
       this.selectedAgeRating = null;
+      this.selectedAgeRatings = [];
       this.selectedRegion = null;
+      this.selectedRegions = [];
       this.selectedLanguage = null;
+      this.selectedLanguages = [];
       this.selectedStatus = null;
+      this.selectedStatuses = [];
       this.filterUnmatched = false;
       this.filterMatched = false;
       this.filterFavorites = null;
@@ -313,6 +404,16 @@ export default defineStore("galleryFilter", {
       this.filterRA = null;
       this.filterMissing = null;
       this.filterVerified = null;
+      // Reset logic operators to default
+      this.platformsLogic = "any";
+      this.genresLogic = "any";
+      this.franchisesLogic = "any";
+      this.collectionsLogic = "any";
+      this.companiesLogic = "any";
+      this.ageRatingsLogic = "any";
+      this.regionsLogic = "any";
+      this.languagesLogic = "any";
+      this.statusesLogic = "any";
     },
   },
 });
