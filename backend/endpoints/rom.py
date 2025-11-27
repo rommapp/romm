@@ -209,7 +209,6 @@ def get_roms(
                 " parameter, and results that match any of the values will be"
                 " returned. Maximum 20 values allowed."
             ),
-            max_length=20,
         ),
     ] = None,
     collection_id: Annotated[
@@ -408,57 +407,6 @@ def get_roms(
     ] = "any",
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
-
-    # Sanitize and validate filter arrays
-    def sanitize_filter_array(
-        values: list[str] | None, max_length: int = 50, filter_name: str = ""
-    ) -> list[str] | None:
-        """Sanitize filter array by removing empty strings and limiting size."""
-        if not values:
-            return None
-
-        try:
-            # Remove empty/whitespace-only values and strip whitespace
-            sanitized = [
-                v.strip() for v in values if v and isinstance(v, str) and v.strip()
-            ]
-            if not sanitized:
-                return None
-
-            # Limit array size to prevent abuse
-            if len(sanitized) > max_length:
-                logging.warning(
-                    f"Filter array '{filter_name}' truncated from {len(sanitized)} to {max_length} items"
-                )
-                sanitized = sanitized[:max_length]
-
-            return sanitized
-        except Exception as e:
-            logging.error(f"Error sanitizing filter array '{filter_name}': {e}")
-            return None
-
-    # Apply sanitization with specific limits and names
-    platform_ids = sanitize_filter_array(
-        [str(pid) for pid in platform_ids] if platform_ids else None, 20, "platform_ids"
-    )
-    # Convert back to integers and validate >= 1
-    if platform_ids:
-        try:
-            platform_ids = [int(pid) for pid in platform_ids if int(pid) >= 1]
-            if not platform_ids:
-                platform_ids = None
-        except (ValueError, TypeError):
-            platform_ids = None
-
-    genres = sanitize_filter_array(genres, 50, "genres")
-    franchises = sanitize_filter_array(franchises, 50, "franchises")
-    collections = sanitize_filter_array(collections, 50, "collections")
-    companies = sanitize_filter_array(companies, 50, "companies")
-    age_ratings = sanitize_filter_array(age_ratings, 20, "age_ratings")
-    regions = sanitize_filter_array(regions, 30, "regions")
-    languages = sanitize_filter_array(languages, 30, "languages")
-
-    # Get the base roms query
     query, order_by_attr = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
