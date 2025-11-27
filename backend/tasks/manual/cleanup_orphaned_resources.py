@@ -68,7 +68,7 @@ class CleanupOrphanedResourcesTask(Task):
         existing_roms_by_platform: dict[int, set[int]] = {
             platform_id: {
                 rom.id
-                for rom in db_rom_handler.get_roms_scalar(platform_id=platform_id)
+                for rom in db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
             }
             for platform_id in existing_platforms
         }
