@@ -11,6 +11,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom, SimpleRom, SearchRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import { getDownloadPath, getStatusKeyForText } from "@/utils";
+import { getFilterArray } from "@/utils/apiHelpers";
 
 export const romApi = api;
 
@@ -151,16 +152,6 @@ async function getRoms({
   regionsLogic = null,
   languagesLogic = null,
 }: GetRomsParams): Promise<{ data: GetRomsResponse }> {
-  // Helper function to handle single vs multi-value parameters
-  const getFilterArray = (
-    single: string | null,
-    multi: string[] | null,
-  ): string[] | undefined => {
-    if (multi && multi.length > 0) return multi;
-    if (single) return [single];
-    return undefined;
-  };
-
   const params = {
     platform_ids:
       platformIds && platformIds.length > 0 ? platformIds : undefined,

@@ -9,24 +9,9 @@ import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "
 import type { GetRomsParams } from "@/services/api/rom";
 import cacheService from "@/services/cache";
 import { getStatusKeyForText } from "@/utils";
+import { getFilterArray } from "@/utils/apiHelpers";
 
 class CachedApiService {
-  // Helper function to handle single vs multi-value parameters
-  private getFilterArray(
-    single: string | null | undefined,
-    multi: string[] | null | undefined,
-  ): string[] | undefined {
-    const result = (() => {
-      if (multi && multi.length > 0) return multi;
-      if (single) return [single];
-      return undefined;
-    })();
-    // Only log non-empty results to reduce console noise
-    if (result) {
-      console.log("CachedApiService getFilterArray - result:", result);
-    }
-    return result;
-  }
   private createRequestConfig(
     method: Method,
     url: string,
@@ -59,29 +44,23 @@ class CachedApiService {
       order_by: params.orderBy,
       order_dir: params.orderDir,
       group_by_meta_id: params.groupByMetaId,
-      genre: this.getFilterArray(params.selectedGenre, params.selectedGenres),
-      franchise: this.getFilterArray(
+      genre: getFilterArray(params.selectedGenre, params.selectedGenres),
+      franchise: getFilterArray(
         params.selectedFranchise,
         params.selectedFranchises,
       ),
-      collection: this.getFilterArray(
+      collection: getFilterArray(
         params.selectedCollection,
         params.selectedCollections,
       ),
-      company: this.getFilterArray(
-        params.selectedCompany,
-        params.selectedCompanies,
-      ),
-      age_rating: this.getFilterArray(
+      company: getFilterArray(params.selectedCompany, params.selectedCompanies),
+      age_rating: getFilterArray(
         params.selectedAgeRating,
         params.selectedAgeRatings,
       ),
       selected_status: getStatusKeyForText(params.selectedStatus ?? null),
-      region: this.getFilterArray(
-        params.selectedRegion,
-        params.selectedRegions,
-      ),
-      language: this.getFilterArray(
+      region: getFilterArray(params.selectedRegion, params.selectedRegions),
+      language: getFilterArray(
         params.selectedLanguage,
         params.selectedLanguages,
       ),
