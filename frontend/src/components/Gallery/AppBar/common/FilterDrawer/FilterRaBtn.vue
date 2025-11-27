@@ -33,7 +33,7 @@ function setState(state: string | null) {
 
 <template>
   <div
-    class="d-flex align-center justify-space-between py-2 px-4 rounded-lg border"
+    class="d-flex align-center justify-space-between py-2"
     :class="{ 'opacity-50': fetchTotalRoms > 10000 }"
   >
     <div class="d-flex align-center">
@@ -62,7 +62,9 @@ function setState(state: string | null) {
       :disabled="fetchTotalRoms > 10000"
       @update:model-value="setState"
     >
-      <v-btn value="all" size="small">All</v-btn>
+      <v-btn value="all" size="small"
+        ><v-icon size="x-large">mdi-cancel</v-icon>
+      </v-btn>
       <v-tooltip text="Show ROMs with RetroAchievements only" location="bottom">
         <template #activator="{ props }">
           <v-btn

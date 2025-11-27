@@ -38,9 +38,7 @@ function setMatchState(state: string) {
 </script>
 
 <template>
-  <div
-    class="d-flex align-center justify-space-between py-2 px-4 rounded-lg border"
-  >
+  <div class="d-flex align-center justify-space-between py-2">
     <div class="d-flex align-center">
       <v-icon
         :color="matchState !== 'all' ? 'primary' : 'grey-lighten-1'"
@@ -66,7 +64,9 @@ function setMatchState(state: string) {
       variant="outlined"
       @update:model-value="setMatchState"
     >
-      <v-btn value="all" size="small"> All </v-btn>
+      <v-btn value="all" size="small"
+        ><v-icon size="x-large">mdi-cancel</v-icon>
+      </v-btn>
       <v-tooltip :text="t('platform.show-matched')" location="bottom">
         <template #activator="{ props }">
           <v-btn value="matched" size="small" v-bind="props">
