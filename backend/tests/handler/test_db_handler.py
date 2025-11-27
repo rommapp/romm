@@ -47,7 +47,7 @@ def test_roms(rom: Rom, platform: Platform):
         )
     )
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
     assert len(roms) == 2
 
     rom_1 = db_rom_handler.get_rom(roms[0].id)
@@ -61,12 +61,12 @@ def test_roms(rom: Rom, platform: Platform):
 
     db_rom_handler.delete_rom(rom.id)
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
     assert len(roms) == 1
 
     db_rom_handler.mark_missing_roms(rom_2.platform_id, [])
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
     assert len(roms) == 1
 
 

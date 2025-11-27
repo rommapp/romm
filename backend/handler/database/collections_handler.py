@@ -232,8 +232,11 @@ class DBCollectionsHandler(DBBaseHandler):
         languages = convert_legacy_filter("languages", "selected_language")
 
         # Use the existing filter_roms method with the stored criteria
+        platform_id = criteria.get("platform_id")
+        platform_ids = [platform_id] if platform_id is not None else None
+
         return db_rom_handler.get_roms_scalar(
-            platform_id=criteria.get("platform_id"),
+            platform_ids=platform_ids,
             collection_id=criteria.get("collection_id"),
             virtual_collection_id=criteria.get("virtual_collection_id"),
             search_term=criteria.get("search_term"),

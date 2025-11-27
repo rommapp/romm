@@ -739,7 +739,7 @@ class DBRomsHandler(DBBaseHandler):
         )
         roms = self.filter_roms(
             query=query,
-            platform_id=kwargs.get("platform_id", None),
+            platform_ids=kwargs.get("platform_ids", None),
             collection_id=kwargs.get("collection_id", None),
             virtual_collection_id=kwargs.get("virtual_collection_id", None),
             search_term=kwargs.get("search_term", None),
