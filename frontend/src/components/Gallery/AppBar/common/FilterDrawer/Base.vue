@@ -76,6 +76,7 @@ const {
   selectedStatuses,
   statusesLogic,
   selectedPlatform,
+  selectedPlatforms,
   selectedRegion,
   filterRegions,
   selectedRegions,
@@ -98,17 +99,48 @@ const onFilterChange = debounce(
     // Update URL with filters
     Object.entries({
       search: searchTerm.value,
-      filterMatched: filterMatched.value ? "1" : null,
-      filterUnmatched: filterUnmatched.value ? "1" : null,
-      filterFavorites: filterFavorites.value ? "1" : null,
-      filterDuplicates: filterDuplicates.value ? "1" : null,
-      filterPlayables: filterPlayables.value ? "1" : null,
-      filterMissing: filterMissing.value ? "1" : null,
-      filterVerified: filterVerified.value ? "1" : null,
-      filterRA: filterRA.value ? "1" : null,
-      platform: selectedPlatform.value
-        ? String(selectedPlatform.value.id)
-        : null,
+      matched:
+        filterMatched.value === true
+          ? "1"
+          : filterUnmatched.value === true
+            ? "2"
+            : null,
+      filterFavorites:
+        filterFavorites.value === true
+          ? "1"
+          : filterFavorites.value === false
+            ? "0"
+            : null,
+      filterDuplicates:
+        filterDuplicates.value === true
+          ? "1"
+          : filterDuplicates.value === false
+            ? "0"
+            : null,
+      filterPlayables:
+        filterPlayables.value === true
+          ? "1"
+          : filterPlayables.value === false
+            ? "0"
+            : null,
+      filterMissing:
+        filterMissing.value === true
+          ? "1"
+          : filterMissing.value === false
+            ? "0"
+            : null,
+      filterVerified:
+        filterVerified.value === true
+          ? "1"
+          : filterVerified.value === false
+            ? "0"
+            : null,
+      filterRA:
+        filterRA.value === true ? "1" : filterRA.value === false ? "0" : null,
+      platforms:
+        selectedPlatforms.value.length > 0
+          ? selectedPlatforms.value.map((p) => String(p.id)).join(",")
+          : null,
       genre: selectedGenre.value,
       genres:
         selectedGenres.value.length > 0 ? selectedGenres.value.join(",") : null,
@@ -365,8 +397,7 @@ function setFilters() {
 onMounted(async () => {
   const {
     search: urlSearch,
-    filterMatched: urlFilteredMatch,
-    filterUnmatched: urlFilteredUnmatched,
+    matched: urlMatched,
     filterFavorites: urlFilteredFavorites,
     filterDuplicates: urlFilteredDuplicates,
     filterPlayables: urlFilteredPlayables,
@@ -374,6 +405,7 @@ onMounted(async () => {
     filterVerified: urlFilteredVerified,
     filterRA: urlFilteredRa,
     platform: urlPlatform,
+    platforms: urlPlatforms,
     // Single value URL params (backward compatibility)
     genre: urlGenre,
     franchise: urlFranchise,
@@ -403,35 +435,81 @@ onMounted(async () => {
   } = router.currentRoute.value.query;
 
   // Check for query params to set filters
-  if (urlFilteredMatch !== undefined) {
-    galleryFilterStore.setFilterMatched(true);
-  }
-  if (urlFilteredUnmatched !== undefined) {
-    galleryFilterStore.setFilterUnmatched(true);
+  if (urlMatched !== undefined) {
+    if (urlMatched === "1") {
+      galleryFilterStore.setFilterMatched(true);
+    } else if (urlMatched === "2") {
+      galleryFilterStore.setFilterUnmatched(true);
+    }
+    // urlMatched === "0" or any other value means no filter (both remain null)
   }
   if (urlFilteredFavorites !== undefined) {
-    galleryFilterStore.setFilterFavorites(true);
+    galleryFilterStore.setFilterFavorites(
+      urlFilteredFavorites === "1"
+        ? true
+        : urlFilteredFavorites === "0"
+          ? false
+          : null,
+    );
   }
   if (urlFilteredDuplicates !== undefined) {
-    galleryFilterStore.setFilterDuplicates(true);
+    galleryFilterStore.setFilterDuplicates(
+      urlFilteredDuplicates === "1"
+        ? true
+        : urlFilteredDuplicates === "0"
+          ? false
+          : null,
+    );
   }
   if (urlFilteredPlayables !== undefined) {
-    galleryFilterStore.setFilterPlayables(true);
+    galleryFilterStore.setFilterPlayables(
+      urlFilteredPlayables === "1"
+        ? true
+        : urlFilteredPlayables === "0"
+          ? false
+          : null,
+    );
   }
   if (urlFilteredMissing !== undefined) {
-    galleryFilterStore.setFilterMissing(true);
+    galleryFilterStore.setFilterMissing(
+      urlFilteredMissing === "1"
+        ? true
+        : urlFilteredMissing === "0"
+          ? false
+          : null,
+    );
   }
   if (urlFilteredVerified !== undefined) {
-    galleryFilterStore.setFilterVerified(true);
+    galleryFilterStore.setFilterVerified(
+      urlFilteredVerified === "1"
+        ? true
+        : urlFilteredVerified === "0"
+          ? false
+          : null,
+    );
   }
   if (urlFilteredRa !== undefined) {
-    galleryFilterStore.setFilterRA(true);
-  }
-  if (urlPlatform !== undefined) {
-    const platform = platformsStore.get(Number(urlPlatform));
-    if (platform) galleryFilterStore.setSelectedFilterPlatform(platform);
+    galleryFilterStore.setFilterRA(
+      urlFilteredRa === "1" ? true : urlFilteredRa === "0" ? false : null,
+    );
   }
   // Check for query params to set multi-value filters (prioritize over single values)
+  if (urlPlatforms !== undefined) {
+    const platformIds = (urlPlatforms as string)
+      .split(",")
+      .filter((p) => p.trim())
+      .map(Number);
+    const platforms = platformIds
+      .map((id) => platformsStore.get(id))
+      .filter(Boolean);
+    if (platforms.length > 0) {
+      galleryFilterStore.setSelectedFilterPlatforms(platforms);
+    }
+  } else if (urlPlatform !== undefined) {
+    // Backward compatibility: if single platform is set, convert to multiselect
+    const platform = platformsStore.get(Number(urlPlatform));
+    if (platform) galleryFilterStore.setSelectedFilterPlatforms([platform]);
+  }
   if (urlGenres !== undefined) {
     const genres = (urlGenres as string).split(",").filter((g) => g.trim());
     galleryFilterStore.setSelectedFilterGenres(genres);

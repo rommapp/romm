@@ -101,6 +101,8 @@ export default defineStore("galleryFilter", {
     },
     setSelectedFilterPlatforms(platforms: Platform[]) {
       this.selectedPlatforms = platforms;
+      // Clear single platform selection to avoid conflicts
+      this.selectedPlatform = null;
     },
     setSelectedFilterGenre(genre: string) {
       this.selectedGenre = genre;
