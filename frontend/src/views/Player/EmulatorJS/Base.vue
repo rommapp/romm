@@ -21,7 +21,7 @@ import { getEmptyCoverImage } from "@/utils/covers";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 
-const EMULATORJS_VERSION = "4.2.3";
+const EMULATORJS_VERSION = "nightly";
 
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
