@@ -501,7 +501,7 @@ onMounted(async () => {
       .map(Number);
     const platforms = platformIds
       .map((id) => platformsStore.get(id))
-      .filter(Boolean);
+      .filter((p): p is NonNullable<typeof p> => p !== undefined);
     if (platforms.length > 0) {
       galleryFilterStore.setSelectedFilterPlatforms(platforms);
     }

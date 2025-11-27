@@ -46,7 +46,6 @@ class CachedApiService {
     onBackgroundUpdate: (data: GetRomsResponse) => void,
   ): Promise<AxiosResponse<GetRomsResponse>> {
     const config = this.createRequestConfig("GET", "/roms", {
-      platform_id: params.platformId,
       platform_ids:
         params.platformIds && params.platformIds.length > 0
           ? params.platformIds
