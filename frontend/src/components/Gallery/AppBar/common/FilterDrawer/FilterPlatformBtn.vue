@@ -69,8 +69,8 @@ const emitter = inject<Emitter<Events>>("emitter");
           </template>
         </v-list-item>
       </template>
-      <template #chip="{ item }">
-        <v-chip>
+      <template #chip="{ item, props }">
+        <v-chip v-bind="props">
           <PlatformIcon
             :key="item.raw.slug"
             :slug="item.raw.slug"
