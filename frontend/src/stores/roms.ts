@@ -96,8 +96,8 @@ export default defineStore("roms", {
     },
     // Fetching multiple roms
     _buildRequestParams(galleryFilter: GalleryFilterStore) {
-      return {
-        ...galleryFilter.$state,
+      const params = {
+        searchTerm: galleryFilter.searchTerm,
         platformId:
           this.currentPlatform?.id ??
           galleryFilter.selectedPlatform?.id ??
@@ -110,7 +110,90 @@ export default defineStore("roms", {
         orderBy: this.orderBy,
         orderDir: this.orderDir,
         groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
+        filterUnmatched: galleryFilter.filterUnmatched,
+        filterMatched: galleryFilter.filterMatched,
+        filterFavorites: galleryFilter.filterFavorites,
+        filterDuplicates: galleryFilter.filterDuplicates,
+        filterPlayables: galleryFilter.filterPlayables,
+        filterRA: galleryFilter.filterRA,
+        filterMissing: galleryFilter.filterMissing,
+        filterVerified: galleryFilter.filterVerified,
+        // Single value filters (backward compatibility - only use if multiselect is empty)
+        selectedGenre:
+          galleryFilter.selectedGenres.length > 0
+            ? null
+            : galleryFilter.selectedGenre,
+        selectedFranchise:
+          galleryFilter.selectedFranchises.length > 0
+            ? null
+            : galleryFilter.selectedFranchise,
+        selectedCollection:
+          galleryFilter.selectedCollections.length > 0
+            ? null
+            : galleryFilter.selectedCollection,
+        selectedCompany:
+          galleryFilter.selectedCompanies.length > 0
+            ? null
+            : galleryFilter.selectedCompany,
+        selectedAgeRating:
+          galleryFilter.selectedAgeRatings.length > 0
+            ? null
+            : galleryFilter.selectedAgeRating,
+        selectedStatus:
+          galleryFilter.selectedStatuses.length > 0
+            ? null
+            : galleryFilter.selectedStatus,
+        selectedRegion:
+          galleryFilter.selectedRegions.length > 0
+            ? null
+            : galleryFilter.selectedRegion,
+        selectedLanguage:
+          galleryFilter.selectedLanguages.length > 0
+            ? null
+            : galleryFilter.selectedLanguage,
+        // Multi-value filters
+        selectedGenres:
+          galleryFilter.selectedGenres.length > 0
+            ? galleryFilter.selectedGenres
+            : null,
+        selectedFranchises:
+          galleryFilter.selectedFranchises.length > 0
+            ? galleryFilter.selectedFranchises
+            : null,
+        selectedCollections:
+          galleryFilter.selectedCollections.length > 0
+            ? galleryFilter.selectedCollections
+            : null,
+        selectedCompanies:
+          galleryFilter.selectedCompanies.length > 0
+            ? galleryFilter.selectedCompanies
+            : null,
+        selectedAgeRatings:
+          galleryFilter.selectedAgeRatings.length > 0
+            ? galleryFilter.selectedAgeRatings
+            : null,
+        selectedRegions:
+          galleryFilter.selectedRegions.length > 0
+            ? galleryFilter.selectedRegions
+            : null,
+        selectedLanguages:
+          galleryFilter.selectedLanguages.length > 0
+            ? galleryFilter.selectedLanguages
+            : null,
+        selectedStatuses:
+          galleryFilter.selectedStatuses.length > 0
+            ? galleryFilter.selectedStatuses
+            : null,
+        // Logic operators
+        genresLogic: galleryFilter.genresLogic,
+        franchisesLogic: galleryFilter.franchisesLogic,
+        collectionsLogic: galleryFilter.collectionsLogic,
+        companiesLogic: galleryFilter.companiesLogic,
+        ageRatingsLogic: galleryFilter.ageRatingsLogic,
+        regionsLogic: galleryFilter.regionsLogic,
+        languagesLogic: galleryFilter.languagesLogic,
       };
+      return params;
     },
     _postFetchRoms(response: GetRomsResponse, concat: boolean) {
       const { items, offset, total, char_index, rom_id_index } = response;
