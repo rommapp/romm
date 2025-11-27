@@ -62,6 +62,7 @@ async function uploadRoms({
 
 export interface GetRomsParams {
   platformId?: number | null;
+  platformIds?: number[] | null;
   collectionId?: number | null;
   virtualCollectionId?: string | null;
   smartCollectionId?: number | null;
@@ -98,6 +99,7 @@ export interface GetRomsParams {
   selectedLanguages?: string[] | null;
   selectedStatuses?: string[] | null;
   // Logic operators for multi-value filters
+  platformsLogic?: string | null;
   genresLogic?: string | null;
   franchisesLogic?: string | null;
   collectionsLogic?: string | null;
@@ -109,6 +111,7 @@ export interface GetRomsParams {
 
 async function getRoms({
   platformId = null,
+  platformIds = null,
   collectionId = null,
   virtualCollectionId = null,
   smartCollectionId = null,
@@ -143,6 +146,7 @@ async function getRoms({
   selectedLanguages = null,
   selectedStatuses = null,
   // Logic operators
+  platformsLogic = null,
   genresLogic = null,
   franchisesLogic = null,
   collectionsLogic = null,
@@ -163,6 +167,8 @@ async function getRoms({
 
   const params = {
     platform_id: platformId,
+    platform_ids:
+      platformIds && platformIds.length > 0 ? platformIds : undefined,
     collection_id: collectionId,
     virtual_collection_id: virtualCollectionId,
     smart_collection_id: smartCollectionId,
@@ -181,6 +187,10 @@ async function getRoms({
     region: getFilterArray(selectedRegion, selectedRegions),
     language: getFilterArray(selectedLanguage, selectedLanguages),
     // Logic operators
+    platforms_logic:
+      platformIds && platformIds.length > 1
+        ? platformsLogic || "any"
+        : undefined,
     genres_logic:
       selectedGenres && selectedGenres.length > 1
         ? genresLogic || "any"
