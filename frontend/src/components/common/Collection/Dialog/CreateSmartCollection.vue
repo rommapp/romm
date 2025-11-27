@@ -114,7 +114,10 @@ async function createSmartCollection() {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   try {
-    const filterCriteria: Record<string, number | boolean | string | null> = {};
+    const filterCriteria: Record<
+      string,
+      number | boolean | string | string[] | null
+    > = {};
 
     if (searchTerm.value) filterCriteria.search_term = searchTerm.value;
     if (selectedPlatform.value)

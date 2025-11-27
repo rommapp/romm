@@ -40,14 +40,20 @@ class CachedApiService {
       order_by: params.orderBy,
       order_dir: params.orderDir,
       group_by_meta_id: params.groupByMetaId,
-      selected_genre: params.selectedGenre,
-      selected_franchise: params.selectedFranchise,
-      selected_collection: params.selectedCollection,
-      selected_company: params.selectedCompany,
-      selected_age_rating: params.selectedAgeRating,
+      genre: params.selectedGenre ? [params.selectedGenre] : undefined,
+      franchise: params.selectedFranchise
+        ? [params.selectedFranchise]
+        : undefined,
+      collection: params.selectedCollection
+        ? [params.selectedCollection]
+        : undefined,
+      company: params.selectedCompany ? [params.selectedCompany] : undefined,
+      age_rating: params.selectedAgeRating
+        ? [params.selectedAgeRating]
+        : undefined,
       selected_status: getStatusKeyForText(params.selectedStatus ?? null),
-      selected_region: params.selectedRegion,
-      selected_language: params.selectedLanguage,
+      region: params.selectedRegion ? [params.selectedRegion] : undefined,
+      language: params.selectedLanguage ? [params.selectedLanguage] : undefined,
       ...(params.filterUnmatched ? { matched: false } : {}),
       ...(params.filterMatched ? { matched: true } : {}),
       ...(params.filterFavorites !== null
