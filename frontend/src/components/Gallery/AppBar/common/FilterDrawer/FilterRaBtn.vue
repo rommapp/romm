@@ -65,7 +65,11 @@ function setState(state: string | null) {
       <v-btn value="all" size="small"
         ><v-icon size="x-large">mdi-cancel</v-icon>
       </v-btn>
-      <v-tooltip text="Show ROMs with RetroAchievements only" location="bottom">
+      <v-tooltip
+        text="Show ROMs with RetroAchievements only"
+        location="bottom"
+        open-delay="500"
+      >
         <template #activator="{ props }">
           <v-btn
             value="has-ra"
@@ -80,6 +84,7 @@ function setState(state: string | null) {
       <v-tooltip
         text="Show ROMs without RetroAchievements only"
         location="bottom"
+        open-delay="500"
       >
         <template #activator="{ props }">
           <v-btn
