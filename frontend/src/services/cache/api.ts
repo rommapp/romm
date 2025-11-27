@@ -50,12 +50,22 @@ class CachedApiService {
       selected_language: params.selectedLanguage,
       ...(params.filterUnmatched ? { matched: false } : {}),
       ...(params.filterMatched ? { matched: true } : {}),
-      ...(params.filterFavorites ? { favorite: true } : {}),
-      ...(params.filterDuplicates ? { duplicate: true } : {}),
-      ...(params.filterPlayables ? { playable: true } : {}),
-      ...(params.filterMissing ? { missing: true } : {}),
-      ...(params.filterRA ? { has_ra: true } : {}),
-      ...(params.filterVerified ? { verified: true } : {}),
+      ...(params.filterFavorites !== null
+        ? { favorite: params.filterFavorites }
+        : {}),
+      ...(params.filterDuplicates !== null
+        ? { duplicate: params.filterDuplicates }
+        : {}),
+      ...(params.filterPlayables !== null
+        ? { playable: params.filterPlayables }
+        : {}),
+      ...(params.filterMissing !== null
+        ? { missing: params.filterMissing }
+        : {}),
+      ...(params.filterRA !== null ? { has_ra: params.filterRA } : {}),
+      ...(params.filterVerified !== null
+        ? { verified: params.filterVerified }
+        : {}),
     });
 
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);

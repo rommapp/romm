@@ -587,9 +587,15 @@ class DBRomsHandler(DBBaseHandler):
                 )
             )
 
-        if genres or franchises or collections or companies or age_ratings:
+        # Optimize JOINs - only join tables when needed
+        needs_metadata_join = any(
+            [genres, franchises, collections, companies, age_ratings]
+        )
+
+        if needs_metadata_join:
             query = query.outerjoin(RomMetadata)
 
+        # Apply metadata filters efficiently
         if genres:
             query = self.filter_by_genres(query, session=session, values=genres)
         if franchises:
@@ -604,6 +610,8 @@ class DBRomsHandler(DBBaseHandler):
             query = self.filter_by_age_ratings(
                 query, session=session, values=age_ratings
             )
+
+        # Apply rom-level filters
         if regions:
             query = self.filter_by_regions(query, session=session, values=regions)
         if languages:
