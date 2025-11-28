@@ -1,6 +1,5 @@
 import binascii
 import json
-import logging
 from base64 import b64encode
 from datetime import datetime, timezone
 from io import BytesIO
