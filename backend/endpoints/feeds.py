@@ -436,7 +436,7 @@ def pkgi_psp_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=psp_platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[psp_platform.id])
     txt_lines = []
 
     for rom in roms:
@@ -505,7 +505,7 @@ def fpkgi_feed(request: Request, platform_slug: str) -> Response:
             status_code=404, detail=f"Platform {platform_slug} not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
     response_data = {}
 
     for rom in roms:
@@ -551,7 +551,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
             status_code=404, detail=f"Platform {platform_slug} not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
 
     txt_lines = []
     txt_lines.append("1")  # Database version
