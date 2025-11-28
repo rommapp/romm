@@ -121,7 +121,6 @@ export default defineStore("roms", {
         orderBy: this.orderBy,
         orderDir: this.orderDir,
         groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
-        filterUnmatched: galleryFilter.filterUnmatched,
         filterMatched: galleryFilter.filterMatched,
         filterFavorites: galleryFilter.filterFavorites,
         filterDuplicates: galleryFilter.filterDuplicates,

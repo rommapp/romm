@@ -71,8 +71,7 @@ export interface GetRomsParams {
   offset?: number;
   orderBy?: string | null;
   orderDir?: string | null;
-  filterUnmatched?: boolean;
-  filterMatched?: boolean;
+  filterMatched?: boolean | null;
   filterFavorites?: boolean | null;
   filterDuplicates?: boolean | null;
   filterPlayables?: boolean | null;
@@ -118,11 +117,10 @@ async function getRoms({
   offset = 0,
   orderBy = "name",
   orderDir = "asc",
-  filterUnmatched = false,
-  filterMatched = false,
-  filterFavorites = false,
-  filterDuplicates = false,
-  filterPlayables = false,
+  filterMatched = null,
+  filterFavorites = null,
+  filterDuplicates = null,
+  filterPlayables = null,
   filterRA = false,
   filterMissing = false,
   filterVerified = false,
@@ -200,8 +198,7 @@ async function getRoms({
       selectedLanguages && selectedLanguages.length > 1
         ? languagesLogic || "any"
         : undefined,
-    ...(filterUnmatched ? { matched: false } : {}),
-    ...(filterMatched ? { matched: true } : {}),
+    ...(filterMatched !== null ? { matched: filterMatched } : {}),
     ...(filterFavorites !== null ? { favorite: filterFavorites } : {}),
     ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),
     ...(filterPlayables !== null ? { playable: filterPlayables } : {}),

@@ -93,8 +93,9 @@ class CachedApiService {
         params.selectedLanguages && params.selectedLanguages.length > 1
           ? params.languagesLogic || "any"
           : undefined,
-      ...(params.filterUnmatched ? { matched: false } : {}),
-      ...(params.filterMatched ? { matched: true } : {}),
+      ...(params.filterMatched !== null
+        ? { matched: params.filterMatched }
+        : {}),
       ...(params.filterFavorites !== null
         ? { favorite: params.filterFavorites }
         : {}),

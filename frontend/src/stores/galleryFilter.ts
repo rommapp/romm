@@ -26,8 +26,7 @@ const defaultFilterState = {
   filterRegions: [] as string[],
   filterLanguages: [] as string[],
   filterStatuses: Object.values(romStatusMap).map((status) => status.text),
-  filterUnmatched: false,
-  filterMatched: false,
+  filterMatched: null as boolean | null, // null = all, true = matched, false = unmatched
   filterFavorites: null as boolean | null, // null = all, true = favorites, false = not favorites
   filterDuplicates: null as boolean | null, // null = all, true = duplicates, false = not duplicates
   filterPlayables: null as boolean | null, // null = all, true = playables, false = not playables
@@ -176,21 +175,30 @@ export default defineStore("galleryFilter", {
     setStatusesLogic(logic: "any" | "all") {
       this.statusesLogic = logic;
     },
-    setFilterUnmatched(value: boolean) {
-      this.filterUnmatched = value;
-      this.filterMatched = false;
-    },
-    switchFilterUnmatched() {
-      this.filterUnmatched = !this.filterUnmatched;
-      this.filterMatched = false;
-    },
-    setFilterMatched(value: boolean) {
+    setFilterMatched(value: boolean | null) {
       this.filterMatched = value;
-      this.filterUnmatched = false;
+    },
+    setFilterMatchedState(state: "all" | "matched" | "unmatched") {
+      switch (state) {
+        case "matched":
+          this.filterMatched = true;
+          break;
+        case "unmatched":
+          this.filterMatched = false;
+          break;
+        default: // "all"
+          this.filterMatched = null;
+          break;
+      }
     },
     switchFilterMatched() {
-      this.filterMatched = !this.filterMatched;
-      this.filterUnmatched = false;
+      if (this.filterMatched === null) {
+        this.filterMatched = true;
+      } else if (this.filterMatched === true) {
+        this.filterMatched = false;
+      } else {
+        this.filterMatched = null;
+      }
     },
     setFilterFavorites(value: boolean | null) {
       this.filterFavorites = value;
@@ -344,8 +352,7 @@ export default defineStore("galleryFilter", {
     },
     isFiltered() {
       return Boolean(
-        this.filterUnmatched ||
-          this.filterMatched ||
+        this.filterMatched !== null ||
           this.filterFavorites !== null ||
           this.filterDuplicates !== null ||
           this.filterPlayables !== null ||
@@ -394,8 +401,7 @@ export default defineStore("galleryFilter", {
       this.selectedLanguages = [];
       this.selectedStatus = null;
       this.selectedStatuses = [];
-      this.filterUnmatched = false;
-      this.filterMatched = false;
+      this.filterMatched = null;
       this.filterFavorites = null;
       this.filterDuplicates = null;
       this.filterPlayables = null;

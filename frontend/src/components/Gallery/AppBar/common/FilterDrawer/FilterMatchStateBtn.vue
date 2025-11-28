@@ -9,30 +9,23 @@ import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
-const { filterMatched, filterUnmatched } = storeToRefs(galleryFilterStore);
+const { filterMatched } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 // Computed property to determine current state
-const matchState = computed(() => {
-  if (filterMatched.value) return "matched";
-  if (filterUnmatched.value) return "unmatched";
-  return "all";
+const currentState = computed(() => {
+  if (filterMatched.value === true) return "matched";
+  if (filterMatched.value === false) return "unmatched";
+  return "all"; // null
 });
 
 // Handler for state changes
-function setMatchState(state: string) {
-  switch (state) {
-    case "matched":
-      galleryFilterStore.setFilterMatched(true);
-      break;
-    case "unmatched":
-      galleryFilterStore.setFilterUnmatched(true);
-      break;
-    default: // "all"
-      galleryFilterStore.setFilterMatched(false);
-      galleryFilterStore.setFilterUnmatched(false);
-      break;
-  }
+function setState(state: string | null) {
+  if (!state) return;
+
+  galleryFilterStore.setFilterMatchedState(
+    state as "all" | "matched" | "unmatched",
+  );
   emitter?.emit("filterRoms", null);
 }
 </script>
@@ -41,14 +34,14 @@ function setMatchState(state: string) {
   <div class="d-flex align-center justify-space-between py-2">
     <div class="d-flex align-center">
       <v-icon
-        :color="matchState !== 'all' ? 'primary' : 'grey-lighten-1'"
+        :color="currentState !== 'all' ? 'primary' : 'grey-lighten-1'"
         class="mr-3"
       >
         mdi-file-search-outline
       </v-icon>
       <span
         :class="
-          matchState !== 'all'
+          currentState !== 'all'
             ? 'text-primary font-weight-medium'
             : 'text-medium-emphasis'
         "
@@ -58,11 +51,11 @@ function setMatchState(state: string) {
       </span>
     </div>
     <v-btn-toggle
-      :model-value="matchState"
+      :model-value="currentState"
       color="primary"
       density="compact"
       variant="outlined"
-      @update:model-value="setMatchState"
+      @update:model-value="setState"
     >
       <v-btn value="all" size="small"
         ><v-icon size="x-large">mdi-cancel</v-icon>

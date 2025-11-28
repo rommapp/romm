@@ -43,7 +43,6 @@ const platformsStore = storePlatforms();
 const {
   searchTerm,
   activeFilterDrawer,
-  filterUnmatched,
   filterMatched,
   filterFavorites,
   filterDuplicates,
@@ -100,7 +99,7 @@ const onFilterChange = debounce(
       matched:
         filterMatched.value === true
           ? "true"
-          : filterUnmatched.value === true
+          : filterMatched.value === false
             ? "false"
             : null,
       filterFavorites:

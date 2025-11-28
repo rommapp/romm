@@ -24,7 +24,6 @@ const {
 
 const {
   searchTerm,
-  filterUnmatched,
   filterMatched,
   filterFavorites,
   filterDuplicates,
@@ -55,7 +54,6 @@ async function goToRandomGame() {
         searchTerm.value && searchTerm.value.trim()
           ? searchTerm.value.trim()
           : null,
-      filterUnmatched: filterUnmatched.value,
       filterMatched: filterMatched.value,
       filterFavorites: filterFavorites.value,
       filterDuplicates: filterDuplicates.value,
