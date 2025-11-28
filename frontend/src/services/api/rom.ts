@@ -142,7 +142,6 @@ async function getRoms({
   selectedAgeRatings = null,
   selectedRegions = null,
   selectedLanguages = null,
-  selectedStatuses = null,
   // Logic operators
   genresLogic = null,
   franchisesLogic = null,
