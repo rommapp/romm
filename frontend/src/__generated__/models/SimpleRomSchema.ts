@@ -5,6 +5,7 @@
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomFlashpointMetadata } from './RomFlashpointMetadata';
 import type { RomGamelistMetadata } from './RomGamelistMetadata';
+import type { RomGiantBombMetadata } from './RomGiantBombMetadata';
 import type { RomHasheousMetadata } from './RomHasheousMetadata';
 import type { RomHLTBMetadata } from './RomHLTBMetadata';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
@@ -27,6 +28,7 @@ export type SimpleRomSchema = {
     flashpoint_id: (string | null);
     hltb_id: (number | null);
     gamelist_id: (string | null);
+    giantbomb_id: (number | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -52,6 +54,7 @@ export type SimpleRomSchema = {
     flashpoint_metadata: (RomFlashpointMetadata | null);
     hltb_metadata: (RomHLTBMetadata | null);
     gamelist_metadata: (RomGamelistMetadata | null);
+    giantbomb_metadata: (RomGiantBombMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);

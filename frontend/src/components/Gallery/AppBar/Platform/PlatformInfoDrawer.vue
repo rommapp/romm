@@ -439,6 +439,20 @@ watch(
                 <v-img src="/assets/scrappers/hltb.png" />
               </v-avatar>
             </v-chip>
+            <a
+              v-if="currentPlatform.giantbomb_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://www.giantbomb.com/${currentPlatform.giantbomb_slug}/3045-${currentPlatform.giantbomb_id}`"
+              target="_blank"
+              class="ml-1"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar variant="text" class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/giantbomb.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.giantbomb_id }}</span>
+              </v-chip>
+            </a>
           </v-col>
         </v-row>
         <v-row

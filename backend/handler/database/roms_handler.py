@@ -240,6 +240,7 @@ class DBRomsHandler(DBBaseHandler):
             Rom.hasheous_id.isnot(None),
             Rom.tgdb_id.isnot(None),
             Rom.flashpoint_id.isnot(None),
+            Rom.giantbomb_id.isnot(None),
         )
         if not value:
             predicate = not_(predicate)
@@ -465,6 +466,7 @@ class DBRomsHandler(DBBaseHandler):
                     base_subquery.c.launchbox_id,
                     base_subquery.c.tgdb_id,
                     base_subquery.c.flashpoint_id,
+                    base_subquery.c.giantbomb_id,
                 )
                 .outerjoin(
                     RomUser,
@@ -514,6 +516,11 @@ class DBRomsHandler(DBBaseHandler):
                             _create_metadata_id_case(
                                 MetadataSource.FLASHPOINT,
                                 base_subquery.c.flashpoint_id,
+                                base_subquery.c.platform_id,
+                            ),
+                            _create_metadata_id_case(
+                                MetadataSource.GIANTBOMB,
+                                base_subquery.c.giantbomb_id,
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
