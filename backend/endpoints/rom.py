@@ -200,9 +200,15 @@ def get_roms(
         str | None,
         Query(description="Search term to filter roms."),
     ] = None,
-    platform_id: Annotated[
-        int | None,
-        Query(description="Platform internal id.", ge=1),
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Platform internal ids. Multiple values are allowed by repeating the"
+                " parameter, and results that match any of the values will be"
+                " returned. Maximum 20 values allowed."
+            ),
+        ),
     ] = None,
     collection_id: Annotated[
         int | None,
@@ -252,37 +258,86 @@ def get_roms(
             description="Whether to group roms by metadata ID (IGDB / Moby / ScreenScraper / RetroAchievements / LaunchBox)."
         ),
     ] = False,
-    selected_genre: Annotated[
-        str | None,
-        Query(description="Associated genre."),
+    genres: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated genre. Multiple values are allowed by repeating the"
+                " parameter, and results that match any of the values will be"
+                " returned. Maximum 50 values allowed."
+            ),
+            alias="genre",
+        ),
     ] = None,
-    selected_franchise: Annotated[
-        str | None,
-        Query(description="Associated franchise."),
+    franchises: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated franchise. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will"
+                " be returned. Maximum 50 values allowed."
+            ),
+            alias="franchise",
+        ),
     ] = None,
-    selected_collection: Annotated[
-        str | None,
-        Query(description="Associated collection."),
+    collections: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated collection. Multiple values are allowed by"
+                " repeating the parameter, and results that match any of the"
+                " values will be returned. Maximum 50 values allowed."
+            ),
+            alias="collection",
+        ),
     ] = None,
-    selected_company: Annotated[
-        str | None,
-        Query(description="Associated company."),
+    companies: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated company. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will"
+                " be returned. Maximum 50 values allowed."
+            ),
+            alias="company",
+        ),
     ] = None,
-    selected_age_rating: Annotated[
-        str | None,
-        Query(description="Associated age rating."),
+    age_ratings: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated age rating. Multiple values are allowed by"
+                " repeating the parameter, and results that match any of the"
+                " values will be returned. Maximum 20 values allowed."
+            ),
+            alias="age_rating",
+        ),
     ] = None,
     selected_status: Annotated[
         str | None,
         Query(description="Game status, set by the current user."),
     ] = None,
-    selected_region: Annotated[
-        str | None,
-        Query(description="Associated region tag."),
+    regions: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated region tag. Multiple values are allowed by"
+                " repeating the parameter, and results that match any of the"
+                " values will be returned. Maximum 30 values allowed."
+            ),
+            alias="region",
+        ),
     ] = None,
-    selected_language: Annotated[
-        str | None,
-        Query(description="Associated language tag."),
+    languages: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated language tag. Multiple values are allowed by"
+                " repeating the parameter, and results that match any of the"
+                " values will be returned. Maximum 30 values allowed."
+            ),
+            alias="language",
+        ),
     ] = None,
     order_by: Annotated[
         str,
@@ -292,10 +347,51 @@ def get_roms(
         str,
         Query(description="Order direction, either 'asc' or 'desc'."),
     ] = "asc",
+    # Logic operators for multi-value filters
+    genres_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for genres filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    franchises_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for franchises filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    collections_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for collections filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    companies_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for companies filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    age_ratings_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for age ratings filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    regions_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for regions filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    languages_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for languages filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
-
-    # Get the base roms query
     query, order_by_attr = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
@@ -306,7 +402,7 @@ def get_roms(
     query = db_rom_handler.filter_roms(
         query=query,
         user_id=request.user.id,
-        platform_id=platform_id,
+        platform_ids=platform_ids,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,
         smart_collection_id=smart_collection_id,
@@ -318,14 +414,22 @@ def get_roms(
         has_ra=has_ra,
         missing=missing,
         verified=verified,
-        selected_genre=selected_genre,
-        selected_franchise=selected_franchise,
-        selected_collection=selected_collection,
-        selected_company=selected_company,
-        selected_age_rating=selected_age_rating,
+        genres=genres,
+        franchises=franchises,
+        collections=collections,
+        companies=companies,
+        age_ratings=age_ratings,
         selected_status=selected_status,
-        selected_region=selected_region,
-        selected_language=selected_language,
+        regions=regions,
+        languages=languages,
+        # Logic operators
+        genres_logic=genres_logic,
+        franchises_logic=franchises_logic,
+        collections_logic=collections_logic,
+        companies_logic=companies_logic,
+        age_ratings_logic=age_ratings_logic,
+        regions_logic=regions_logic,
+        languages_logic=languages_logic,
         group_by_meta_id=group_by_meta_id,
     )
 

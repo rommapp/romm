@@ -11,6 +11,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom, SimpleRom, SearchRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import { getDownloadPath, getStatusKeyForText } from "@/utils";
+import { getFilterArray } from "@/utils/apiHelpers";
 
 export const romApi = api;
 
@@ -61,7 +62,7 @@ async function uploadRoms({
 }
 
 export interface GetRomsParams {
-  platformId?: number | null;
+  platformIds?: number[] | null;
   collectionId?: number | null;
   virtualCollectionId?: string | null;
   smartCollectionId?: number | null;
@@ -70,15 +71,15 @@ export interface GetRomsParams {
   offset?: number;
   orderBy?: string | null;
   orderDir?: string | null;
-  filterUnmatched?: boolean;
-  filterMatched?: boolean;
-  filterFavorites?: boolean;
-  filterDuplicates?: boolean;
-  filterPlayables?: boolean;
-  filterRA?: boolean;
-  filterMissing?: boolean;
-  filterVerified?: boolean;
+  filterMatched?: boolean | null;
+  filterFavorites?: boolean | null;
+  filterDuplicates?: boolean | null;
+  filterPlayables?: boolean | null;
+  filterRA?: boolean | null;
+  filterMissing?: boolean | null;
+  filterVerified?: boolean | null;
   groupByMetaId?: boolean;
+  // Single value filters (for backward compatibility)
   selectedGenre?: string | null;
   selectedFranchise?: string | null;
   selectedCollection?: string | null;
@@ -87,10 +88,27 @@ export interface GetRomsParams {
   selectedStatus?: string | null;
   selectedRegion?: string | null;
   selectedLanguage?: string | null;
+  // Multi-value filters
+  selectedGenres?: string[] | null;
+  selectedFranchises?: string[] | null;
+  selectedCollections?: string[] | null;
+  selectedCompanies?: string[] | null;
+  selectedAgeRatings?: string[] | null;
+  selectedRegions?: string[] | null;
+  selectedLanguages?: string[] | null;
+  selectedStatuses?: string[] | null;
+  // Logic operators for multi-value filters
+  genresLogic?: string | null;
+  franchisesLogic?: string | null;
+  collectionsLogic?: string | null;
+  companiesLogic?: string | null;
+  ageRatingsLogic?: string | null;
+  regionsLogic?: string | null;
+  languagesLogic?: string | null;
 }
 
 async function getRoms({
-  platformId = null,
+  platformIds = null,
   collectionId = null,
   virtualCollectionId = null,
   smartCollectionId = null,
@@ -99,11 +117,10 @@ async function getRoms({
   offset = 0,
   orderBy = "name",
   orderDir = "asc",
-  filterUnmatched = false,
-  filterMatched = false,
-  filterFavorites = false,
-  filterDuplicates = false,
-  filterPlayables = false,
+  filterMatched = null,
+  filterFavorites = null,
+  filterDuplicates = null,
+  filterPlayables = null,
   filterRA = false,
   filterMissing = false,
   filterVerified = false,
@@ -116,36 +133,82 @@ async function getRoms({
   selectedStatus = null,
   selectedRegion = null,
   selectedLanguage = null,
+  selectedGenres = null,
+  selectedFranchises = null,
+  selectedCollections = null,
+  selectedCompanies = null,
+  selectedAgeRatings = null,
+  selectedRegions = null,
+  selectedLanguages = null,
+  // Logic operators
+  genresLogic = null,
+  franchisesLogic = null,
+  collectionsLogic = null,
+  companiesLogic = null,
+  ageRatingsLogic = null,
+  regionsLogic = null,
+  languagesLogic = null,
 }: GetRomsParams): Promise<{ data: GetRomsResponse }> {
+  const params = {
+    platform_ids:
+      platformIds && platformIds.length > 0 ? platformIds : undefined,
+    collection_id: collectionId,
+    virtual_collection_id: virtualCollectionId,
+    smart_collection_id: smartCollectionId,
+    search_term: searchTerm,
+    limit: limit,
+    offset: offset,
+    order_by: orderBy,
+    order_dir: orderDir,
+    group_by_meta_id: groupByMetaId,
+    genre: getFilterArray(selectedGenre, selectedGenres),
+    franchise: getFilterArray(selectedFranchise, selectedFranchises),
+    collection: getFilterArray(selectedCollection, selectedCollections),
+    company: getFilterArray(selectedCompany, selectedCompanies),
+    age_rating: getFilterArray(selectedAgeRating, selectedAgeRatings),
+    selected_status: getStatusKeyForText(selectedStatus),
+    region: getFilterArray(selectedRegion, selectedRegions),
+    language: getFilterArray(selectedLanguage, selectedLanguages),
+    // Logic operators
+    genres_logic:
+      selectedGenres && selectedGenres.length > 1
+        ? genresLogic || "any"
+        : undefined,
+    franchises_logic:
+      selectedFranchises && selectedFranchises.length > 1
+        ? franchisesLogic || "any"
+        : undefined,
+    collections_logic:
+      selectedCollections && selectedCollections.length > 1
+        ? collectionsLogic || "any"
+        : undefined,
+    companies_logic:
+      selectedCompanies && selectedCompanies.length > 1
+        ? companiesLogic || "any"
+        : undefined,
+    age_ratings_logic:
+      selectedAgeRatings && selectedAgeRatings.length > 1
+        ? ageRatingsLogic || "any"
+        : undefined,
+    regions_logic:
+      selectedRegions && selectedRegions.length > 1
+        ? regionsLogic || "any"
+        : undefined,
+    languages_logic:
+      selectedLanguages && selectedLanguages.length > 1
+        ? languagesLogic || "any"
+        : undefined,
+    ...(filterMatched !== null ? { matched: filterMatched } : {}),
+    ...(filterFavorites !== null ? { favorite: filterFavorites } : {}),
+    ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),
+    ...(filterPlayables !== null ? { playable: filterPlayables } : {}),
+    ...(filterMissing !== null ? { missing: filterMissing } : {}),
+    ...(filterRA !== null ? { has_ra: filterRA } : {}),
+    ...(filterVerified !== null ? { verified: filterVerified } : {}),
+  };
+
   return api.get(`/roms`, {
-    params: {
-      platform_id: platformId,
-      collection_id: collectionId,
-      virtual_collection_id: virtualCollectionId,
-      smart_collection_id: smartCollectionId,
-      search_term: searchTerm,
-      limit: limit,
-      offset: offset,
-      order_by: orderBy,
-      order_dir: orderDir,
-      group_by_meta_id: groupByMetaId,
-      selected_genre: selectedGenre,
-      selected_franchise: selectedFranchise,
-      selected_collection: selectedCollection,
-      selected_company: selectedCompany,
-      selected_age_rating: selectedAgeRating,
-      selected_status: getStatusKeyForText(selectedStatus),
-      selected_region: selectedRegion,
-      selected_language: selectedLanguage,
-      ...(filterUnmatched ? { matched: false } : {}),
-      ...(filterMatched ? { matched: true } : {}),
-      ...(filterFavorites ? { favorite: true } : {}),
-      ...(filterDuplicates ? { duplicate: true } : {}),
-      ...(filterPlayables ? { playable: true } : {}),
-      ...(filterMissing ? { missing: true } : {}),
-      ...(filterRA ? { has_ra: true } : {}),
-      ...(filterVerified ? { verified: true } : {}),
-    },
+    params,
   });
 }
 

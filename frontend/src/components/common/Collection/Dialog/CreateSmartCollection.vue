@@ -26,7 +26,6 @@ const isPublic = ref(false);
 
 const {
   searchTerm,
-  filterUnmatched,
   filterMatched,
   filterFavorites,
   filterDuplicates,
@@ -67,7 +66,6 @@ const filterSummary = computed(() => {
   if (selectedPlatform.value)
     filters.push(`Platform: ${selectedPlatform.value.name}`);
   if (filterMatched.value) filters.push("Matched only");
-  if (filterUnmatched.value) filters.push("Unmatched only");
   if (filterFavorites.value) filters.push("Favorites");
   if (filterDuplicates.value) filters.push("Duplicates");
   if (filterPlayables.value) filters.push("Playable");
@@ -90,6 +88,10 @@ const filterSummary = computed(() => {
   return filters || ["No filters applied"];
 });
 
+function toggleCollectionVisibility() {
+  isPublic.value = !isPublic.value;
+}
+
 function closeDialog() {
   show.value = false;
   name.value = "";
@@ -110,37 +112,39 @@ async function createSmartCollection() {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   try {
-    const filterCriteria: Record<string, number | boolean | string | null> = {};
+    const filterCriteria: Record<
+      string,
+      number | boolean | string | string[] | null
+    > = {};
 
     if (searchTerm.value) filterCriteria.search_term = searchTerm.value;
     if (selectedPlatform.value)
       filterCriteria.platform_id = selectedPlatform.value.id;
     if (filterMatched.value) filterCriteria.matched = true;
-    if (filterUnmatched.value) filterCriteria.matched = false;
     if (filterFavorites.value) filterCriteria.favorite = true;
     if (filterDuplicates.value) filterCriteria.duplicate = true;
     if (filterPlayables.value) filterCriteria.playable = true;
     if (filterRA.value) filterCriteria.has_ra = true;
     if (filterMissing.value) filterCriteria.missing = true;
     if (filterVerified.value) filterCriteria.verified = true;
-    if (selectedGenre.value)
-      filterCriteria.selected_genre = selectedGenre.value;
-    if (selectedFranchise.value)
-      filterCriteria.selected_franchise = selectedFranchise.value;
-    if (selectedCollection.value)
-      filterCriteria.selected_collection = selectedCollection.value;
-    if (selectedCompany.value)
-      filterCriteria.selected_company = selectedCompany.value;
-    if (selectedAgeRating.value)
-      filterCriteria.selected_age_rating = selectedAgeRating.value;
-    if (selectedStatus.value)
-      filterCriteria.selected_status = getStatusKeyForText(
-        selectedStatus.value,
+    if (selectedGenre.value && selectedGenre.value.length > 0)
+      filterCriteria.genres = selectedGenre.value;
+    if (selectedFranchise.value && selectedFranchise.value.length > 0)
+      filterCriteria.franchises = selectedFranchise.value;
+    if (selectedCollection.value && selectedCollection.value.length > 0)
+      filterCriteria.collections = selectedCollection.value;
+    if (selectedCompany.value && selectedCompany.value.length > 0)
+      filterCriteria.companies = selectedCompany.value;
+    if (selectedAgeRating.value && selectedAgeRating.value.length > 0)
+      filterCriteria.age_ratings = selectedAgeRating.value;
+    if (selectedStatus.value && selectedStatus.value.length > 0)
+      filterCriteria.selected_status = selectedStatus.value.map((s) =>
+        getStatusKeyForText(s),
       );
-    if (selectedRegion.value)
-      filterCriteria.selected_region = selectedRegion.value;
-    if (selectedLanguage.value)
-      filterCriteria.selected_language = selectedLanguage.value;
+    if (selectedRegion.value && selectedRegion.value.length > 0)
+      filterCriteria.regions = selectedRegion.value;
+    if (selectedLanguage.value && selectedLanguage.value.length > 0)
+      filterCriteria.languages = selectedLanguage.value;
 
     const { data } = await collectionApi.createSmartCollection({
       smartCollection: {
@@ -214,12 +218,16 @@ async function createSmartCollection() {
           </v-row>
           <v-row class="pa-2" no-gutters>
             <v-col>
-              <v-switch
-                v-model="isPublic"
-                :label="t('collection.public-desc')"
-                color="primary"
-                hide-details
-              />
+              <v-btn
+                :color="isPublic ? 'romm-green' : 'accent'"
+                variant="outlined"
+                @click="toggleCollectionVisibility"
+              >
+                <v-icon class="mr-2">
+                  {{ isPublic ? "mdi-lock-open-variant" : "mdi-lock" }}
+                </v-icon>
+                {{ isPublic ? t("rom.public") : t("rom.private") }}
+              </v-btn>
             </v-col>
           </v-row>
         </v-col>
@@ -244,8 +252,7 @@ async function createSmartCollection() {
         </v-col>
       </v-row>
     </template>
-    <template #append>
-      <v-divider />
+    <template #footer>
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
