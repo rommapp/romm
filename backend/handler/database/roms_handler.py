@@ -239,7 +239,11 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     def filter_by_matched(self, query: Query, value: bool) -> Query:
-        """Filter based on whether the rom is matched to a metadata provider."""
+        """Filter based on whether the rom is matched to a metadata provider.
+
+        Args:
+            value: True for matched ROMs, False for unmatched ROMs
+        """
         predicate = or_(
             Rom.igdb_id.isnot(None),
             Rom.moby_id.isnot(None),

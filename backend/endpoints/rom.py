@@ -267,7 +267,6 @@ def get_roms(
                 " returned. Maximum 50 values allowed."
             ),
             alias="genre",
-            max_length=50,
         ),
     ] = None,
     franchises: Annotated[
@@ -279,7 +278,6 @@ def get_roms(
                 " be returned. Maximum 50 values allowed."
             ),
             alias="franchise",
-            max_length=50,
         ),
     ] = None,
     collections: Annotated[
@@ -291,7 +289,6 @@ def get_roms(
                 " values will be returned. Maximum 50 values allowed."
             ),
             alias="collection",
-            max_length=50,
         ),
     ] = None,
     companies: Annotated[
@@ -303,7 +300,6 @@ def get_roms(
                 " be returned. Maximum 50 values allowed."
             ),
             alias="company",
-            max_length=50,
         ),
     ] = None,
     age_ratings: Annotated[
@@ -315,7 +311,6 @@ def get_roms(
                 " values will be returned. Maximum 20 values allowed."
             ),
             alias="age_rating",
-            max_length=20,
         ),
     ] = None,
     selected_status: Annotated[
@@ -331,7 +326,6 @@ def get_roms(
                 " values will be returned. Maximum 30 values allowed."
             ),
             alias="region",
-            max_length=30,
         ),
     ] = None,
     languages: Annotated[
@@ -343,7 +337,6 @@ def get_roms(
                 " values will be returned. Maximum 30 values allowed."
             ),
             alias="language",
-            max_length=30,
         ),
     ] = None,
     order_by: Annotated[
@@ -359,49 +352,42 @@ def get_roms(
         str,
         Query(
             description="Logic operator for genres filter: 'any' (OR) or 'all' (AND).",
-            alias="genres_logic",
         ),
     ] = "any",
     franchises_logic: Annotated[
         str,
         Query(
             description="Logic operator for franchises filter: 'any' (OR) or 'all' (AND).",
-            alias="franchises_logic",
         ),
     ] = "any",
     collections_logic: Annotated[
         str,
         Query(
             description="Logic operator for collections filter: 'any' (OR) or 'all' (AND).",
-            alias="collections_logic",
         ),
     ] = "any",
     companies_logic: Annotated[
         str,
         Query(
             description="Logic operator for companies filter: 'any' (OR) or 'all' (AND).",
-            alias="companies_logic",
         ),
     ] = "any",
     age_ratings_logic: Annotated[
         str,
         Query(
             description="Logic operator for age ratings filter: 'any' (OR) or 'all' (AND).",
-            alias="age_ratings_logic",
         ),
     ] = "any",
     regions_logic: Annotated[
         str,
         Query(
             description="Logic operator for regions filter: 'any' (OR) or 'all' (AND).",
-            alias="regions_logic",
         ),
     ] = "any",
     languages_logic: Annotated[
         str,
         Query(
             description="Logic operator for languages filter: 'any' (OR) or 'all' (AND).",
-            alias="languages_logic",
         ),
     ] = "any",
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
