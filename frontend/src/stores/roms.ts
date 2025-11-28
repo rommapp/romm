@@ -129,72 +129,23 @@ export default defineStore("roms", {
         filterRA: galleryFilter.filterRA,
         filterMissing: galleryFilter.filterMissing,
         filterVerified: galleryFilter.filterVerified,
-        // Single value filters (backward compatibility - only use if multiselect is empty)
-        selectedGenre:
-          galleryFilter.selectedGenres.length > 0
-            ? null
-            : galleryFilter.selectedGenre,
-        selectedFranchise:
-          galleryFilter.selectedFranchises.length > 0
-            ? null
-            : galleryFilter.selectedFranchise,
-        selectedCollection:
-          galleryFilter.selectedCollections.length > 0
-            ? null
-            : galleryFilter.selectedCollection,
-        selectedCompany:
-          galleryFilter.selectedCompanies.length > 0
-            ? null
-            : galleryFilter.selectedCompany,
-        selectedAgeRating:
-          galleryFilter.selectedAgeRatings.length > 0
-            ? null
-            : galleryFilter.selectedAgeRating,
-        selectedStatus:
-          galleryFilter.selectedStatuses.length > 0
-            ? null
-            : galleryFilter.selectedStatus,
-        selectedRegion:
-          galleryFilter.selectedRegions.length > 0
-            ? null
-            : galleryFilter.selectedRegion,
-        selectedLanguage:
-          galleryFilter.selectedLanguages.length > 0
-            ? null
-            : galleryFilter.selectedLanguage,
-        // Multi-value filters
-        selectedGenres:
-          galleryFilter.selectedGenres.length > 0
-            ? galleryFilter.selectedGenres
-            : null,
-        selectedFranchises:
-          galleryFilter.selectedFranchises.length > 0
-            ? galleryFilter.selectedFranchises
-            : null,
-        selectedCollections:
-          galleryFilter.selectedCollections.length > 0
-            ? galleryFilter.selectedCollections
-            : null,
-        selectedCompanies:
-          galleryFilter.selectedCompanies.length > 0
-            ? galleryFilter.selectedCompanies
-            : null,
-        selectedAgeRatings:
-          galleryFilter.selectedAgeRatings.length > 0
-            ? galleryFilter.selectedAgeRatings
-            : null,
-        selectedRegions:
-          galleryFilter.selectedRegions.length > 0
-            ? galleryFilter.selectedRegions
-            : null,
-        selectedLanguages:
-          galleryFilter.selectedLanguages.length > 0
-            ? galleryFilter.selectedLanguages
-            : null,
-        selectedStatuses:
-          galleryFilter.selectedStatuses.length > 0
-            ? galleryFilter.selectedStatuses
-            : null,
+        // Single and multi-value filters are handled by the API layer
+        selectedGenre: galleryFilter.selectedGenre,
+        selectedFranchise: galleryFilter.selectedFranchise,
+        selectedCollection: galleryFilter.selectedCollection,
+        selectedCompany: galleryFilter.selectedCompany,
+        selectedAgeRating: galleryFilter.selectedAgeRating,
+        selectedStatus: galleryFilter.selectedStatus,
+        selectedRegion: galleryFilter.selectedRegion,
+        selectedLanguage: galleryFilter.selectedLanguage,
+        selectedGenres: galleryFilter.selectedGenres,
+        selectedFranchises: galleryFilter.selectedFranchises,
+        selectedCollections: galleryFilter.selectedCollections,
+        selectedCompanies: galleryFilter.selectedCompanies,
+        selectedAgeRatings: galleryFilter.selectedAgeRatings,
+        selectedRegions: galleryFilter.selectedRegions,
+        selectedLanguages: galleryFilter.selectedLanguages,
+        selectedStatuses: galleryFilter.selectedStatuses,
         // Logic operators
         genresLogic: galleryFilter.genresLogic,
         franchisesLogic: galleryFilter.franchisesLogic,

@@ -10,9 +10,5 @@ export function getFilterArray(
     if (single) return [single];
     return undefined;
   })();
-  // Only log non-empty results to reduce console noise
-  if (result) {
-    console.log("getFilterArray - result:", result);
-  }
   return result;
 }

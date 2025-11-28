@@ -609,55 +609,22 @@ class DBRomsHandler(DBBaseHandler):
         if needs_metadata_join:
             query = query.outerjoin(RomMetadata)
 
-        # Apply metadata filters efficiently
-        if genres:
-            query = self.filter_by_genres(
-                query, session=session, values=genres, match_all=(genres_logic == "all")
-            )
-        if franchises:
-            query = self.filter_by_franchises(
-                query,
-                session=session,
-                values=franchises,
-                match_all=(franchises_logic == "all"),
-            )
-        if collections:
-            query = self.filter_by_collections(
-                query,
-                session=session,
-                values=collections,
-                match_all=(collections_logic == "all"),
-            )
-        if companies:
-            query = self.filter_by_companies(
-                query,
-                session=session,
-                values=companies,
-                match_all=(companies_logic == "all"),
-            )
-        if age_ratings:
-            query = self.filter_by_age_ratings(
-                query,
-                session=session,
-                values=age_ratings,
-                match_all=(age_ratings_logic == "all"),
-            )
+        # Apply metadata and rom-level filters efficiently
+        filters_to_apply = [
+            (genres, genres_logic, self.filter_by_genres),
+            (franchises, franchises_logic, self.filter_by_franchises),
+            (collections, collections_logic, self.filter_by_collections),
+            (companies, companies_logic, self.filter_by_companies),
+            (age_ratings, age_ratings_logic, self.filter_by_age_ratings),
+            (regions, regions_logic, self.filter_by_regions),
+            (languages, languages_logic, self.filter_by_languages),
+        ]
 
-        # Apply rom-level filters
-        if regions:
-            query = self.filter_by_regions(
-                query,
-                session=session,
-                values=regions,
-                match_all=(regions_logic == "all"),
-            )
-        if languages:
-            query = self.filter_by_languages(
-                query,
-                session=session,
-                values=languages,
-                match_all=(languages_logic == "all"),
-            )
+        for values, logic, filter_func in filters_to_apply:
+            if values:
+                query = filter_func(
+                    query, session=session, values=values, match_all=(logic == "all")
+                )
 
         # The RomUser table is already joined if user_id is set
         if selected_status and user_id:

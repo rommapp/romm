@@ -75,7 +75,6 @@ const {
   filterStatuses,
   selectedStatuses,
   statusesLogic,
-  selectedPlatform,
   selectedPlatforms,
   selectedRegion,
   filterRegions,
@@ -86,7 +85,6 @@ const {
   selectedLanguages,
   languagesLogic,
 } = storeToRefs(galleryFilterStore);
-const { filteredRoms } = storeToRefs(romsStore);
 const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
@@ -304,12 +302,14 @@ async function fetchSearchFilteredRoms() {
   try {
     const params = {
       searchTerm: searchTerm.value,
-      platformId: romsStore.currentPlatform?.id ?? null,
+      platformIds: romsStore.currentPlatform
+        ? [romsStore.currentPlatform.id]
+        : null,
       collectionId: romsStore.currentCollection?.id ?? null,
       virtualCollectionId: romsStore.currentVirtualCollection?.id ?? null,
       smartCollectionId: romsStore.currentSmartCollection?.id ?? null,
-      limit: romsStore.fetchLimit,
-      offset: romsStore.fetchOffset,
+      limit: 10000, // Get enough ROMs to populate filters
+      offset: 0,
       orderBy: romsStore.orderBy,
       orderDir: romsStore.orderDir,
       // Exclude all other filters
