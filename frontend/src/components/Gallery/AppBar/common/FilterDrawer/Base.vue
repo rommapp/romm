@@ -99,42 +99,46 @@ const onFilterChange = debounce(
       search: searchTerm.value,
       matched:
         filterMatched.value === true
-          ? "1"
+          ? "true"
           : filterUnmatched.value === true
-            ? "2"
+            ? "false"
             : null,
       filterFavorites:
         filterFavorites.value === true
-          ? "1"
+          ? "true"
           : filterFavorites.value === false
-            ? "0"
+            ? "false"
             : null,
       filterDuplicates:
         filterDuplicates.value === true
-          ? "1"
+          ? "true"
           : filterDuplicates.value === false
-            ? "0"
+            ? "false"
             : null,
       filterPlayables:
         filterPlayables.value === true
-          ? "1"
+          ? "true"
           : filterPlayables.value === false
-            ? "0"
+            ? "false"
             : null,
       filterMissing:
         filterMissing.value === true
-          ? "1"
+          ? "true"
           : filterMissing.value === false
-            ? "0"
+            ? "false"
             : null,
       filterVerified:
         filterVerified.value === true
-          ? "1"
+          ? "true"
           : filterVerified.value === false
-            ? "0"
+            ? "false"
             : null,
       filterRA:
-        filterRA.value === true ? "1" : filterRA.value === false ? "0" : null,
+        filterRA.value === true
+          ? "true"
+          : filterRA.value === false
+            ? "false"
+            : null,
       platforms:
         selectedPlatforms.value.length > 0
           ? selectedPlatforms.value.map((p) => String(p.id)).join(",")
@@ -313,7 +317,6 @@ async function fetchSearchFilteredRoms() {
       orderBy: romsStore.orderBy,
       orderDir: romsStore.orderDir,
       // Exclude all other filters
-      filterUnmatched: false,
       filterMatched: false,
       filterFavorites: null,
       filterDuplicates: null,
@@ -436,62 +439,54 @@ onMounted(async () => {
 
   // Check for query params to set filters
   if (urlMatched !== undefined) {
-    if (urlMatched === "1") {
+    if (urlMatched) {
       galleryFilterStore.setFilterMatched(true);
-    } else if (urlMatched === "2") {
-      galleryFilterStore.setFilterUnmatched(true);
+    } else {
+      galleryFilterStore.setFilterMatched(false);
     }
-    // urlMatched === "0" or any other value means no filter (both remain null)
+    // Any other value means no filter (both remain null)
   }
   if (urlFilteredFavorites !== undefined) {
-    galleryFilterStore.setFilterFavorites(
-      urlFilteredFavorites === "1"
-        ? true
-        : urlFilteredFavorites === "0"
-          ? false
-          : null,
-    );
+    if (urlFilteredFavorites) {
+      galleryFilterStore.setFilterFavorites(true);
+    } else {
+      galleryFilterStore.setFilterFavorites(false);
+    }
   }
   if (urlFilteredDuplicates !== undefined) {
-    galleryFilterStore.setFilterDuplicates(
-      urlFilteredDuplicates === "1"
-        ? true
-        : urlFilteredDuplicates === "0"
-          ? false
-          : null,
-    );
+    if (urlFilteredDuplicates) {
+      galleryFilterStore.setFilterDuplicates(true);
+    } else {
+      galleryFilterStore.setFilterDuplicates(false);
+    }
   }
   if (urlFilteredPlayables !== undefined) {
-    galleryFilterStore.setFilterPlayables(
-      urlFilteredPlayables === "1"
-        ? true
-        : urlFilteredPlayables === "0"
-          ? false
-          : null,
-    );
+    if (urlFilteredPlayables) {
+      galleryFilterStore.setFilterPlayables(true);
+    } else {
+      galleryFilterStore.setFilterPlayables(false);
+    }
   }
   if (urlFilteredMissing !== undefined) {
-    galleryFilterStore.setFilterMissing(
-      urlFilteredMissing === "1"
-        ? true
-        : urlFilteredMissing === "0"
-          ? false
-          : null,
-    );
+    if (urlFilteredMissing) {
+      galleryFilterStore.setFilterMissing(true);
+    } else {
+      galleryFilterStore.setFilterMissing(false);
+    }
   }
   if (urlFilteredVerified !== undefined) {
-    galleryFilterStore.setFilterVerified(
-      urlFilteredVerified === "1"
-        ? true
-        : urlFilteredVerified === "0"
-          ? false
-          : null,
-    );
+    if (urlFilteredVerified) {
+      galleryFilterStore.setFilterVerified(true);
+    } else {
+      galleryFilterStore.setFilterVerified(false);
+    }
   }
   if (urlFilteredRa !== undefined) {
-    galleryFilterStore.setFilterRA(
-      urlFilteredRa === "1" ? true : urlFilteredRa === "0" ? false : null,
-    );
+    if (urlFilteredRa) {
+      galleryFilterStore.setFilterRA(true);
+    } else {
+      galleryFilterStore.setFilterRA(false);
+    }
   }
   // Check for query params to set multi-value filters (prioritize over single values)
   if (urlPlatforms !== undefined) {
