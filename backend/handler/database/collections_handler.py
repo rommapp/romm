@@ -214,25 +214,25 @@ class DBCollectionsHandler(DBBaseHandler):
         criteria = smart_collection.filter_criteria
 
         # Convert legacy single-value criteria to arrays for backward compatibility
-        def convert_legacy_filter(new_key: str, old_key: str) -> list[str] | None:
-            """Convert legacy single-value filter to array format."""
-            if new_value := criteria.get(new_key):
-                return new_value if isinstance(new_value, list) else [new_value]
-            if old_value := criteria.get(old_key):
-                return [old_value]
-            return None
+        # def convert_legacy_filter(new_key: str, old_key: str) -> list[str] | None:
+        #     """Convert legacy single-value filter to array format."""
+        #     if new_value := criteria.get(new_key):
+        #         return new_value if isinstance(new_value, list) else [new_value]
+        #     if old_value := criteria.get(old_key):
+        #         return [old_value]
+        #     return None
 
-        # Apply conversions
-        genres = convert_legacy_filter("genres", "selected_genre")
-        franchises = convert_legacy_filter("franchises", "selected_franchise")
-        collections = convert_legacy_filter("collections", "selected_collection")
-        companies = convert_legacy_filter("companies", "selected_company")
-        age_ratings = convert_legacy_filter("age_ratings", "selected_age_rating")
-        regions = convert_legacy_filter("regions", "selected_region")
-        languages = convert_legacy_filter("languages", "selected_language")
+        # # Apply conversions
+        # genres = convert_legacy_filter("genres", "selected_genre")
+        # franchises = convert_legacy_filter("franchises", "selected_franchise")
+        # collections = convert_legacy_filter("collections", "selected_collection")
+        # companies = convert_legacy_filter("companies", "selected_company")
+        # age_ratings = convert_legacy_filter("age_ratings", "selected_age_rating")
+        # regions = convert_legacy_filter("regions", "selected_region")
+        # languages = convert_legacy_filter("languages", "selected_language")
 
         # Use the existing filter_roms method with the stored criteria
-        platform_id = criteria.get("platform_id")
+        platform_id = criteria.get("platform_ids")
         platform_ids = [platform_id] if platform_id is not None else None
 
         return db_rom_handler.get_roms_scalar(
@@ -247,14 +247,14 @@ class DBCollectionsHandler(DBBaseHandler):
             has_ra=criteria.get("has_ra"),
             missing=criteria.get("missing"),
             verified=criteria.get("verified"),
-            genres=genres,
-            franchises=franchises,
-            collections=collections,
-            companies=companies,
-            age_ratings=age_ratings,
+            genres=criteria.get("genres"),
+            franchises=criteria.get("franchises"),
+            collections=criteria.get("collections"),
+            companies=criteria.get("companies"),
+            age_ratings=criteria.get("age_ratings"),
             selected_status=criteria.get("selected_status"),
-            regions=regions,
-            languages=languages,
+            regions=criteria.get("regions"),
+            languages=criteria.get("languages"),
             user_id=user_id,
             order_by=criteria.get("order_by", "name"),
             order_dir=criteria.get("order_dir", "asc"),
