@@ -26,7 +26,6 @@ const isPublic = ref(false);
 
 const {
   searchTerm,
-  filterUnmatched,
   filterMatched,
   filterFavorites,
   filterDuplicates,
@@ -67,7 +66,6 @@ const filterSummary = computed(() => {
   if (selectedPlatform.value)
     filters.push(`Platform: ${selectedPlatform.value.name}`);
   if (filterMatched.value) filters.push("Matched only");
-  if (filterUnmatched.value) filters.push("Unmatched only");
   if (filterFavorites.value) filters.push("Favorites");
   if (filterDuplicates.value) filters.push("Duplicates");
   if (filterPlayables.value) filters.push("Playable");
@@ -123,7 +121,6 @@ async function createSmartCollection() {
     if (selectedPlatform.value)
       filterCriteria.platform_id = selectedPlatform.value.id;
     if (filterMatched.value) filterCriteria.matched = true;
-    if (filterUnmatched.value) filterCriteria.matched = false;
     if (filterFavorites.value) filterCriteria.favorite = true;
     if (filterDuplicates.value) filterCriteria.duplicate = true;
     if (filterPlayables.value) filterCriteria.playable = true;
