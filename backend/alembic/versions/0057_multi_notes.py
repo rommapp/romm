@@ -53,14 +53,18 @@ def upgrade() -> None:
     # Create indexes for performance
     op.create_index("idx_rom_notes_public", "rom_notes", ["is_public"])
     op.create_index("idx_rom_notes_rom_user", "rom_notes", ["rom_id", "user_id"])
+    op.create_index("idx_rom_notes_title", "rom_notes", ["title"])
 
     # Get connection for manual index creation
     connection = op.get_bind()
+
     # For MariaDB compatibility, we limit the content index length
-    connection.execute(text("CREATE INDEX idx_rom_notes_title ON rom_notes (title)"))
-    connection.execute(
-        text("CREATE INDEX idx_rom_notes_content ON rom_notes (content(100))")
-    )
+    if connection.dialect.name in ("mysql", "mariadb"):
+        connection.execute(
+            text("CREATE INDEX idx_rom_notes_content ON rom_notes (content(100))")
+        )
+    else:
+        op.create_index("idx_rom_notes_content", "rom_notes", ["content"])
 
     # Add default values to old note columns to prevent insertion errors
     # This allows new rom_user records to be created without specifying note fields
@@ -117,7 +121,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop the rom_notes table and restore note columns to rom_user."""
-
+    
+    connection = op.get_bind()
+    
     # Add back the old columns to rom_user
     op.add_column(
         "rom_user",
@@ -131,7 +137,7 @@ def downgrade() -> None:
     )
 
     # Migrate notes back to rom_user (take first note per user/rom)
-    connection = op.get_bind()
+    
     result = connection.execute(
         text(
             """
@@ -161,9 +167,17 @@ def downgrade() -> None:
         )
 
     # Drop indexes and table
-    connection = op.get_bind()
-    connection.execute(text("DROP INDEX IF EXISTS idx_rom_notes_content ON rom_notes"))
-    connection.execute(text("DROP INDEX IF EXISTS idx_rom_notes_title ON rom_notes"))
+    if connection.dialect.name in ("mysql", "mariadb"):
+        # In case Mysql Can't be handled by Alembic    
+        connection.execute(text("DROP INDEX IF EXISTS idx_rom_notes_content ON rom_notes"))
+        connection.execute(text("DROP INDEX IF EXISTS idx_rom_notes_title ON rom_notes"))
+    else:
+        # The other DB's schould be able to use Alembic's drop_index
+        op.drop_index("idx_rom_notes_content", table_name="rom_notes")
+        op.drop_index("idx_rom_notes_title", table_name="rom_notes")
+    
     op.drop_index("idx_rom_notes_rom_user", table_name="rom_notes")
     op.drop_index("idx_rom_notes_public", table_name="rom_notes")
+    
+    # And its gone 
     op.drop_table("rom_notes")
