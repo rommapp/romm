@@ -44,7 +44,7 @@ const romsStore = storeRoms();
 const heartbeatStore = storeHeartbeat();
 const route = useRoute();
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const rom = ref<DetailedRomSchema | null>(null);
 const playerState = ref<PlayerState>("loading");
@@ -69,7 +69,7 @@ const releaseDate = computed(() => {
   if (!rom.value?.metadatum.first_release_date) return null;
   return new Date(
     Number(rom.value.metadatum.first_release_date),
-  ).toLocaleDateString("en-US", {
+  ).toLocaleDateString(locale.value.replace("_", "-"), {
     day: "2-digit",
     month: "short",
     year: "numeric",
