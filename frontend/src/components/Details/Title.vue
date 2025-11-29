@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
@@ -11,9 +12,10 @@ import type { DetailedRom } from "@/stores/roms";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { smAndDown } = useDisplay();
+const { locale } = useI18n();
 const releaseDate = new Date(
   Number(props.rom.metadatum.first_release_date),
-).toLocaleDateString("en-US", {
+).toLocaleDateString(locale.value.replace("_", "-"), {
   day: "2-digit",
   month: "short",
   year: "numeric",
