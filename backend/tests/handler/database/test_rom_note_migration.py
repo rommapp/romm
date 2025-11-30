@@ -176,7 +176,7 @@ def test_foreign_keys_and_constraints(alembic_config):
     assert len(foreign_keys) >= 2
     
     fk_columns = {fk["constrained_columns"][0] for fk in foreign_keys}
-    assert "rom_id" in fk_columns or "user_id" in fk_columns
+    assert "rom_id" in fk_columns and "user_id" in fk_columns
     
     # Check primary key
     pk = inspector.get_pk_constraint("rom_notes")
