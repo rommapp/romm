@@ -168,16 +168,16 @@ def downgrade() -> None:
 
     # Drop indexes and table
     if connection.dialect.name in ("mysql", "mariadb"):
-        # In case Mysql Can't be handled by Alembic    
+        # The content index was created with a specific length using raw SQL for MySQL/MariaDB,
+        # so we drop it with raw SQL as well.
         connection.execute(text("DROP INDEX IF EXISTS idx_rom_notes_content ON rom_notes"))
-        connection.execute(text("DROP INDEX IF EXISTS idx_rom_notes_title ON rom_notes"))
     else:
-        # The other DB's schould be able to use Alembic's drop_index
+        # For other databases, the content index was created with op.create_index.
         op.drop_index("idx_rom_notes_content", table_name="rom_notes")
-        op.drop_index("idx_rom_notes_title", table_name="rom_notes")
-    
+
+    # These indexes were created with op.create_index for all dialects.
+    op.drop_index("idx_rom_notes_title", table_name="rom_notes")
     op.drop_index("idx_rom_notes_rom_user", table_name="rom_notes")
     op.drop_index("idx_rom_notes_public", table_name="rom_notes")
-    
-    # And its gone 
+
     op.drop_table("rom_notes")
