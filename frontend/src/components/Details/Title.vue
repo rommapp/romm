@@ -9,13 +9,14 @@ import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import storePlatforms from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
+import { getBrowserCompatibleLocale } from "@/utils";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { smAndDown } = useDisplay();
 const { locale } = useI18n();
 const releaseDate = new Date(
   Number(props.rom.metadatum.first_release_date),
-).toLocaleDateString(locale.value.replace("_", "-"), {
+).toLocaleDateString(getBrowserCompatibleLocale(locale.value), {
   day: "2-digit",
   month: "short",
   year: "numeric",

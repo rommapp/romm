@@ -153,6 +153,16 @@ export function formatBytes(bytes: number, decimals = 2) {
 }
 
 /**
+ * Convert locale format from app format (fr_FR) to browser format (fr-FR).
+ *
+ * @param locale The locale string (e.g., "fr_FR" or "fr-FR").
+ * @returns The browser-compatible locale string (e.g., "fr-FR").
+ */
+export function getBrowserCompatibleLocale(locale: string): string {
+  return locale.replace("_", "-");
+}
+
+/**
  * Format a timestamp to a human-readable string.
  *
  * @param timestamp The timestamp to format.
@@ -163,9 +173,7 @@ export function formatTimestamp(timestamp: string | null, locale: string = "en-U
   if (!timestamp) return "-";
 
   const date = new Date(timestamp);
-  // Convert locale format from fr_FR to fr-FR for browser compatibility
-  const browserLocale = locale.replace("_", "-");
-  return date.toLocaleString(browserLocale);
+  return date.toLocaleString(getBrowserCompatibleLocale(locale));
 }
 
 /**
