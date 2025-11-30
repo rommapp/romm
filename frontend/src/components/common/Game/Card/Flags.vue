@@ -2,14 +2,16 @@
 import { useLocalStorage } from "@vueuse/core";
 import { identity } from "lodash";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { type SimpleRom } from "@/stores/roms";
 import {
   languageToEmoji,
   regionToEmoji,
   getEmojiForStatus,
-  getTextForStatus,
+  getI18nKeyForStatus,
 } from "@/utils";
 
+const { t } = useI18n();
 const props = defineProps<{ rom: SimpleRom }>();
 const showRegions = useLocalStorage("settings.showRegions", true);
 const showLanguages = useLocalStorage("settings.showLanguages", true);
@@ -54,7 +56,7 @@ const playingStatus = computed(() => {
     v-if="playingStatus && showStatus"
     class="translucent mr-1 mt-1 px-2"
     density="compact"
-    :title="getTextForStatus(playingStatus)"
+    :title="t(getI18nKeyForStatus(playingStatus) || '')"
   >
     {{ getEmojiForStatus(playingStatus) }}
   </v-chip>

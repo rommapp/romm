@@ -91,5 +91,15 @@
   "unmatch": "DB 대응 해제",
   "unmatch-success": "ROM 연결이 성공적으로 해제되었습니다",
   "unselect-all": "모두 선택 해제",
-  "update-success": "ROM이 성공적으로 업데이트되었습니다!"
+  "update-success": "ROM이 성공적으로 업데이트되었습니다!",
+  "save-data": "저장 데이터",
+  "status-backlogged": "나중에 플레이",
+  "status-now-playing": "현재 플레이 중",
+  "status-incomplete": "미완료",
+  "status-finished": "완료",
+  "status-completed-100": "100% 완료",
+  "status-retired": "중단",
+  "status-never-playing": "플레이 안 함",
+  "status-hidden": "숨김",
+  "updated": "업데이트"
 }

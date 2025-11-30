@@ -91,5 +91,15 @@
   "unmatch": "検索結果無し",
   "unmatch-success": "ROMの関連付けが正常に解除されました",
   "unselect-all": "すべて選択解除",
-  "update-success": "ROMが正常に更新されました！"
+  "update-success": "ROMが正常に更新されました！",
+  "save-data": "セーブデータ",
+  "status-backlogged": "未処理",
+  "status-now-playing": "プレイ中",
+  "status-incomplete": "未完了",
+  "status-finished": "クリア済み",
+  "status-completed-100": "100%完了",
+  "status-retired": "中断",
+  "status-never-playing": "プレイしない",
+  "status-hidden": "非表示",
+  "updated": "更新日時"
 }

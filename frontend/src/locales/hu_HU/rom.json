@@ -91,5 +91,15 @@
   "unmatch": "Nem egyező ROM",
   "unmatch-success": "A ROM sikeresen nem egyeztetettként lett jelölve",
   "unselect-all": "Minden kijelölés visszavonása",
-  "update-success": "A ROM frissítése sikeresen megtörtént!"
+  "update-success": "A ROM frissítése sikeresen megtörtént!",
+  "save-data": "Mentések",
+  "status-backlogged": "Függőben",
+  "status-now-playing": "Most játszom",
+  "status-incomplete": "Befejezetlen",
+  "status-finished": "Befejezett",
+  "status-completed-100": "100%-ban teljesített",
+  "status-retired": "Félretett",
+  "status-never-playing": "Soha nem játszom",
+  "status-hidden": "Rejtett",
+  "updated": "Frissítve"
 }

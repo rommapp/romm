@@ -2,6 +2,7 @@
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { SaveSchema } from "@/__generated__";
 import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
 import storeAuth from "@/stores/auth";
@@ -10,6 +11,7 @@ import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
 
+const { t, locale } = useI18n();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 const props = defineProps<{ rom: DetailedRom }>();
@@ -181,7 +183,7 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
               </v-col>
               <v-col cols="12">
                 <v-chip size="x-small" label>
-                  Updated: {{ formatTimestamp(save.updated_at) }}
+                  {{ t("rom.updated") }}: {{ formatTimestamp(save.updated_at, locale) }}
                 </v-chip>
               </v-col>
             </v-row>

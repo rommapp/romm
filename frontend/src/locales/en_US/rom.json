@@ -91,5 +91,15 @@
   "community-notes": "Community Notes",
   "confirm-delete-note": "Are you sure you want to delete the note \"{title}\"?",
   "unmatch-success": "ROM unmatched successfully",
-  "update-success": "ROM updated successfully!"
+  "update-success": "ROM updated successfully!",
+  "save-data": "Save data",
+  "status-backlogged": "Backlogged",
+  "status-now-playing": "Now Playing",
+  "status-incomplete": "Incomplete",
+  "status-finished": "Finished",
+  "status-completed-100": "Completed 100%",
+  "status-retired": "Retired",
+  "status-never-playing": "Never Playing",
+  "status-hidden": "Hidden",
+  "updated": "Updated"
 }
