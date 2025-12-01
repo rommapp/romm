@@ -315,24 +315,23 @@ async function fetchSearchFilteredRoms() {
       offset: 0,
       orderBy: romsStore.orderBy,
       orderDir: romsStore.orderDir,
-      // Exclude all other filters
-      filterMatched: false,
+      // Exclude all other filters to get comprehensive filter options
+      filterMatched: null,
       filterFavorites: null,
       filterDuplicates: null,
       filterPlayables: null,
       filterRA: null,
       filterMissing: null,
       filterVerified: null,
-      // Single value filters - exclude
+      // Exclude all single and multi-value filters to get all possible options
       selectedGenre: null,
       selectedFranchise: null,
       selectedCollection: null,
       selectedCompany: null,
       selectedAgeRating: null,
+      selectedStatus: null,
       selectedRegion: null,
       selectedLanguage: null,
-      selectedStatus: null,
-      // Multi-value filters - exclude
       selectedGenres: null,
       selectedFranchises: null,
       selectedCollections: null,
@@ -340,6 +339,7 @@ async function fetchSearchFilteredRoms() {
       selectedAgeRatings: null,
       selectedRegions: null,
       selectedLanguages: null,
+      selectedStatuses: null,
     };
 
     // Fetch ROMs with only search term applied (and current platform/collection context)
@@ -394,6 +394,7 @@ function setFilters() {
   galleryFilterStore.setFilterLanguages([
     ...new Set(romsForFilters.flatMap((rom) => rom.languages).sort()),
   ]);
+  // Note: filterStatuses is static and doesn't need to be set dynamically
 }
 
 onMounted(async () => {
@@ -438,53 +439,65 @@ onMounted(async () => {
 
   // Check for query params to set filters
   if (urlMatched !== undefined) {
-    if (urlMatched) {
+    if (urlMatched === "true") {
       galleryFilterStore.setFilterMatched(true);
-    } else {
-      galleryFilterStore.setFilterMatched(false);
+    } else if (urlMatched === "false") {
+      galleryFilterStore.setFilterUnmatched(true);
     }
     // Any other value means no filter (both remain null)
   }
   if (urlFilteredFavorites !== undefined) {
-    if (urlFilteredFavorites) {
+    if (urlFilteredFavorites === "true") {
       galleryFilterStore.setFilterFavorites(true);
-    } else {
+    } else if (urlFilteredFavorites === "false") {
       galleryFilterStore.setFilterFavorites(false);
+    } else {
+      galleryFilterStore.setFilterFavorites(null);
     }
   }
   if (urlFilteredDuplicates !== undefined) {
-    if (urlFilteredDuplicates) {
+    if (urlFilteredDuplicates === "true") {
       galleryFilterStore.setFilterDuplicates(true);
-    } else {
+    } else if (urlFilteredDuplicates === "false") {
       galleryFilterStore.setFilterDuplicates(false);
+    } else {
+      galleryFilterStore.setFilterDuplicates(null);
     }
   }
   if (urlFilteredPlayables !== undefined) {
-    if (urlFilteredPlayables) {
+    if (urlFilteredPlayables === "true") {
       galleryFilterStore.setFilterPlayables(true);
-    } else {
+    } else if (urlFilteredPlayables === "false") {
       galleryFilterStore.setFilterPlayables(false);
+    } else {
+      galleryFilterStore.setFilterPlayables(null);
     }
   }
   if (urlFilteredMissing !== undefined) {
-    if (urlFilteredMissing) {
+    if (urlFilteredMissing === "true") {
       galleryFilterStore.setFilterMissing(true);
-    } else {
+    } else if (urlFilteredMissing === "false") {
       galleryFilterStore.setFilterMissing(false);
+    } else {
+      galleryFilterStore.setFilterMissing(null);
     }
   }
   if (urlFilteredVerified !== undefined) {
-    if (urlFilteredVerified) {
+    if (urlFilteredVerified === "true") {
       galleryFilterStore.setFilterVerified(true);
-    } else {
+    } else if (urlFilteredVerified === "false") {
       galleryFilterStore.setFilterVerified(false);
+    } else {
+      galleryFilterStore.setFilterVerified(null);
     }
   }
   if (urlFilteredRa !== undefined) {
-    if (urlFilteredRa) {
+    if (urlFilteredRa === "true") {
       galleryFilterStore.setFilterRA(true);
-    } else {
+    } else if (urlFilteredRa === "false") {
       galleryFilterStore.setFilterRA(false);
+    } else {
+      galleryFilterStore.setFilterRA(null);
     }
   }
   // Check for query params to set multi-value filters (prioritize over single values)
