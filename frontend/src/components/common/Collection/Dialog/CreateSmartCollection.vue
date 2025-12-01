@@ -33,15 +33,15 @@ const {
   filterRA,
   filterMissing,
   filterVerified,
-  selectedGenre,
-  selectedFranchise,
-  selectedCollection,
-  selectedCompany,
-  selectedAgeRating,
-  selectedStatus,
-  selectedPlatform,
-  selectedRegion,
-  selectedLanguage,
+  selectedGenres,
+  selectedFranchises,
+  selectedCollections,
+  selectedCompanies,
+  selectedAgeRatings,
+  selectedStatuses,
+  selectedPlatforms,
+  selectedRegions,
+  selectedLanguages,
 } = storeToRefs(galleryFilterStore);
 
 const emitter = inject<Emitter<Events>>("emitter");
@@ -63,8 +63,10 @@ const filterSummary = computed(() => {
   const filters = [];
 
   if (searchTerm.value) filters.push(`Search: "${searchTerm.value}"`);
-  if (selectedPlatform.value)
-    filters.push(`Platform: ${selectedPlatform.value.name}`);
+  if (selectedPlatforms.value && selectedPlatforms.value.length > 0)
+    filters.push(
+      `Platforms: ${selectedPlatforms.value.map((p) => p.name).join(", ")}`,
+    );
   if (filterMatched.value) filters.push("Matched only");
   if (filterFavorites.value) filters.push("Favorites");
   if (filterDuplicates.value) filters.push("Duplicates");
@@ -72,18 +74,22 @@ const filterSummary = computed(() => {
   if (filterRA.value) filters.push("Has RetroAchievements");
   if (filterMissing.value) filters.push("Missing from filesystem");
   if (filterVerified.value) filters.push("Verified");
-  if (selectedGenre.value) filters.push(`Genre: ${selectedGenre.value}`);
-  if (selectedFranchise.value)
-    filters.push(`Franchise: ${selectedFranchise.value}`);
-  if (selectedCollection.value)
-    filters.push(`Collection: ${selectedCollection.value}`);
-  if (selectedCompany.value) filters.push(`Company: ${selectedCompany.value}`);
-  if (selectedAgeRating.value)
-    filters.push(`Age Rating: ${selectedAgeRating.value}`);
-  if (selectedStatus.value) filters.push(`Status: ${selectedStatus.value}`);
-  if (selectedRegion.value) filters.push(`Region: ${selectedRegion.value}`);
-  if (selectedLanguage.value)
-    filters.push(`Language: ${selectedLanguage.value}`);
+  if (selectedGenres.value && selectedGenres.value.length > 0)
+    filters.push(`Genres: ${selectedGenres.value.join(", ")}`);
+  if (selectedFranchises.value && selectedFranchises.value.length > 0)
+    filters.push(`Franchises: ${selectedFranchises.value.join(", ")}`);
+  if (selectedCollections.value && selectedCollections.value.length > 0)
+    filters.push(`Collections: ${selectedCollections.value.join(", ")}`);
+  if (selectedCompanies.value && selectedCompanies.value.length > 0)
+    filters.push(`Companies: ${selectedCompanies.value.join(", ")}`);
+  if (selectedAgeRatings.value && selectedAgeRatings.value.length > 0)
+    filters.push(`Age Ratings: ${selectedAgeRatings.value.join(", ")}`);
+  if (selectedStatuses.value && selectedStatuses.value.length > 0)
+    filters.push(`Statuses: ${selectedStatuses.value.join(", ")}`);
+  if (selectedRegions.value && selectedRegions.value.length > 0)
+    filters.push(`Regions: ${selectedRegions.value.join(", ")}`);
+  if (selectedLanguages.value && selectedLanguages.value.length > 0)
+    filters.push(`Languages: ${selectedLanguages.value.join(", ")}`);
 
   return filters || ["No filters applied"];
 });
@@ -114,12 +120,12 @@ async function createSmartCollection() {
   try {
     const filterCriteria: Record<
       string,
-      number | boolean | string | string[] | null
+      number | boolean | string | string[] | number[] | (string | null)[] | null
     > = {};
 
     if (searchTerm.value) filterCriteria.search_term = searchTerm.value;
-    if (selectedPlatform.value)
-      filterCriteria.platform_id = selectedPlatform.value.id;
+    if (selectedPlatforms.value && selectedPlatforms.value.length > 0)
+      filterCriteria.platform_ids = selectedPlatforms.value.map((p) => p.id);
     if (filterMatched.value) filterCriteria.matched = true;
     if (filterFavorites.value) filterCriteria.favorite = true;
     if (filterDuplicates.value) filterCriteria.duplicate = true;
@@ -127,24 +133,29 @@ async function createSmartCollection() {
     if (filterRA.value) filterCriteria.has_ra = true;
     if (filterMissing.value) filterCriteria.missing = true;
     if (filterVerified.value) filterCriteria.verified = true;
-    if (selectedGenre.value && selectedGenre.value.length > 0)
-      filterCriteria.genres = selectedGenre.value;
-    if (selectedFranchise.value && selectedFranchise.value.length > 0)
-      filterCriteria.franchises = selectedFranchise.value;
-    if (selectedCollection.value && selectedCollection.value.length > 0)
-      filterCriteria.collections = selectedCollection.value;
-    if (selectedCompany.value && selectedCompany.value.length > 0)
-      filterCriteria.companies = selectedCompany.value;
-    if (selectedAgeRating.value && selectedAgeRating.value.length > 0)
-      filterCriteria.age_ratings = selectedAgeRating.value;
-    if (selectedStatus.value && selectedStatus.value.length > 0)
-      filterCriteria.selected_status = selectedStatus.value.map((s) =>
-        getStatusKeyForText(s),
-      );
-    if (selectedRegion.value && selectedRegion.value.length > 0)
-      filterCriteria.regions = selectedRegion.value;
-    if (selectedLanguage.value && selectedLanguage.value.length > 0)
-      filterCriteria.languages = selectedLanguage.value;
+    if (selectedGenres.value && selectedGenres.value.length > 0)
+      filterCriteria.genres = selectedGenres.value;
+    if (selectedFranchises.value && selectedFranchises.value.length > 0)
+      filterCriteria.franchises = selectedFranchises.value;
+    if (selectedCollections.value && selectedCollections.value.length > 0)
+      filterCriteria.collections = selectedCollections.value;
+    if (selectedCompanies.value && selectedCompanies.value.length > 0)
+      filterCriteria.companies = selectedCompanies.value;
+    if (selectedAgeRatings.value && selectedAgeRatings.value.length > 0)
+      filterCriteria.age_ratings = selectedAgeRatings.value;
+    if (selectedStatuses.value && selectedStatuses.value.length > 0) {
+      const statusKeys = selectedStatuses.value
+        .filter((s): s is string => s !== null)
+        .map((s) => getStatusKeyForText(s))
+        .filter((key) => key !== null);
+      if (statusKeys.length > 0) {
+        filterCriteria.selected_status = statusKeys;
+      }
+    }
+    if (selectedRegions.value && selectedRegions.value.length > 0)
+      filterCriteria.regions = selectedRegions.value;
+    if (selectedLanguages.value && selectedLanguages.value.length > 0)
+      filterCriteria.languages = selectedLanguages.value;
 
     const { data } = await collectionApi.createSmartCollection({
       smartCollection: {
