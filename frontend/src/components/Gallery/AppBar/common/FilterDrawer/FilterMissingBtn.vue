@@ -78,7 +78,7 @@ function setState(state: string | null) {
       >
         <template #activator="{ props }">
           <v-btn value="not-missing" size="small" v-bind="props">
-            <v-icon size="x-large">mdi-folder-check</v-icon>
+            <v-icon size="x-large">mdi-file-check</v-icon>
           </v-btn>
         </template>
       </v-tooltip>
