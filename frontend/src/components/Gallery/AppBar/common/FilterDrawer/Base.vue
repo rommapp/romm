@@ -442,7 +442,7 @@ onMounted(async () => {
     if (urlMatched === "true") {
       galleryFilterStore.setFilterMatched(true);
     } else if (urlMatched === "false") {
-      galleryFilterStore.setFilterUnmatched(true);
+      galleryFilterStore.setFilterMatched(false);
     }
     // Any other value means no filter (both remain null)
   }
