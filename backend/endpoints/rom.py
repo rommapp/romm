@@ -205,8 +205,7 @@ def get_roms(
         Query(
             description=(
                 "Platform internal ids. Multiple values are allowed by repeating the"
-                " parameter, and results that match any of the values will be"
-                " returned. Maximum 20 values allowed."
+                " parameter, and results that match any of the values will be returned."
             ),
         ),
     ] = None,
@@ -224,7 +223,7 @@ def get_roms(
     ] = None,
     matched: Annotated[
         bool | None,
-        Query(description="Whether the rom matched a metadata source."),
+        Query(description="Whether the rom matched at least one metadata source."),
     ] = None,
     favorite: Annotated[
         bool | None,
@@ -248,9 +247,7 @@ def get_roms(
     ] = None,
     verified: Annotated[
         bool | None,
-        Query(
-            description="Whether the rom is verified by Hasheous from the filesystem."
-        ),
+        Query(description="Whether the rom is verified by Hasheous."),
     ] = None,
     group_by_meta_id: Annotated[
         bool,
@@ -263,8 +260,7 @@ def get_roms(
         Query(
             description=(
                 "Associated genre. Multiple values are allowed by repeating the"
-                " parameter, and results that match any of the values will be"
-                " returned. Maximum 50 values allowed."
+                " parameter, and results that match any of the values will be returned."
             ),
             alias="genre",
         ),
@@ -274,8 +270,7 @@ def get_roms(
         Query(
             description=(
                 "Associated franchise. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will"
-                " be returned. Maximum 50 values allowed."
+                " the parameter, and results that match any of the values will be returned."
             ),
             alias="franchise",
         ),
@@ -284,9 +279,8 @@ def get_roms(
         list[str] | None,
         Query(
             description=(
-                "Associated collection. Multiple values are allowed by"
-                " repeating the parameter, and results that match any of the"
-                " values will be returned. Maximum 50 values allowed."
+                "Associated collection. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
             ),
             alias="collection",
         ),
@@ -296,8 +290,7 @@ def get_roms(
         Query(
             description=(
                 "Associated company. Multiple values are allowed by repeating"
-                " the parameter, and results that match any of the values will"
-                " be returned. Maximum 50 values allowed."
+                " the parameter, and results that match any of the values will be returned."
             ),
             alias="company",
         ),
@@ -306,9 +299,8 @@ def get_roms(
         list[str] | None,
         Query(
             description=(
-                "Associated age rating. Multiple values are allowed by"
-                " repeating the parameter, and results that match any of the"
-                " values will be returned. Maximum 20 values allowed."
+                "Associated age rating. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
             ),
             alias="age_rating",
         ),
@@ -321,9 +313,8 @@ def get_roms(
         list[str] | None,
         Query(
             description=(
-                "Associated region tag. Multiple values are allowed by"
-                " repeating the parameter, and results that match any of the"
-                " values will be returned. Maximum 30 values allowed."
+                "Associated region tag. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
             ),
             alias="region",
         ),
@@ -332,21 +323,12 @@ def get_roms(
         list[str] | None,
         Query(
             description=(
-                "Associated language tag. Multiple values are allowed by"
-                " repeating the parameter, and results that match any of the"
-                " values will be returned. Maximum 30 values allowed."
+                "Associated language tag. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
             ),
             alias="language",
         ),
     ] = None,
-    order_by: Annotated[
-        str,
-        Query(description="Field to order results by."),
-    ] = "name",
-    order_dir: Annotated[
-        str,
-        Query(description="Order direction, either 'asc' or 'desc'."),
-    ] = "asc",
     # Logic operators for multi-value filters
     genres_logic: Annotated[
         str,
@@ -390,6 +372,14 @@ def get_roms(
             description="Logic operator for languages filter: 'any' (OR) or 'all' (AND).",
         ),
     ] = "any",
+    order_by: Annotated[
+        str,
+        Query(description="Field to order results by."),
+    ] = "name",
+    order_dir: Annotated[
+        str,
+        Query(description="Order direction, either 'asc' or 'desc'."),
+    ] = "asc",
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
     query, order_by_attr = db_rom_handler.get_roms_query(
