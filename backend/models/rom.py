@@ -303,11 +303,6 @@ class Rom(BaseModel):
 
         return []
 
-    # TODO: Remove this after 4.3 release
-    @cached_property
-    def multi(self) -> bool:
-        return self.has_nested_single_file or self.has_multiple_files
-
     @cached_property
     def has_simple_single_file(self) -> bool:
         return len(self.files) == 1 and not self.files[0].is_nested
