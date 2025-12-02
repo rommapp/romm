@@ -385,7 +385,7 @@ class Rom(BaseModel):
             or []
         )
 
-    @property
+    @cached_property
     def merged_ra_metadata(self) -> dict[str, list] | None:
         if self.ra_metadata and "achievements" in self.ra_metadata:
             for achievement in self.ra_metadata.get("achievements", []):
