@@ -10,7 +10,7 @@ import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
-import { getBrowserCompatibleLocale } from "@/utils";
+import { toBrowserLocale } from "@/utils";
 
 const { t, locale } = useI18n();
 const theme = useTheme();
@@ -382,7 +382,11 @@ watch(
                   class="text-caption mt-2 mb-2"
                 >
                   {{ t("common.last-updated") }}:
-                  {{ new Date(note.updated_at).toLocaleString(getBrowserCompatibleLocale(locale)) }}
+                  {{
+                    new Date(note.updated_at).toLocaleString(
+                      toBrowserLocale(locale),
+                    )
+                  }}
                 </v-card-subtitle>
               </v-expansion-panel-text>
             </v-expansion-panel>
@@ -443,7 +447,11 @@ watch(
                 class="text-caption mt-2 mb-2"
               >
                 {{ t("common.last-updated") }}:
-                {{ new Date(note.updated_at).toLocaleString(getBrowserCompatibleLocale(locale)) }}
+                {{
+                  new Date(note.updated_at).toLocaleString(
+                    toBrowserLocale(locale),
+                  )
+                }}
               </v-card-subtitle>
             </v-expansion-panel-text>
           </v-expansion-panel>

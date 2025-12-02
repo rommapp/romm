@@ -158,7 +158,7 @@ export function formatBytes(bytes: number, decimals = 2) {
  * @param locale The locale string (e.g., "fr_FR" or "fr-FR").
  * @returns The browser-compatible locale string (e.g., "fr-FR").
  */
-export function getBrowserCompatibleLocale(locale: string): string {
+export function toBrowserLocale(locale: string): string {
   return locale.replace("_", "-");
 }
 
@@ -169,11 +169,14 @@ export function getBrowserCompatibleLocale(locale: string): string {
  * @param locale The locale to use for formatting (e.g., "fr_FR" or "fr-FR"). Defaults to "en-US".
  * @returns The formatted timestamp.
  */
-export function formatTimestamp(timestamp: string | null, locale: string = "en-US") {
+export function formatTimestamp(
+  timestamp: string | null,
+  locale: string = "en-US",
+) {
   if (!timestamp) return "-";
 
   const date = new Date(timestamp);
-  return date.toLocaleString(getBrowserCompatibleLocale(locale));
+  return date.toLocaleString(toBrowserLocale(locale));
 }
 
 /**
@@ -623,13 +626,33 @@ export const romStatusMap: Record<
   PlayingStatus,
   { emoji: string; text: string; i18nKey: string }
 > = {
-  backlogged: { emoji: "🔜", text: "Backlogged", i18nKey: "rom.status-backlogged" },
-  now_playing: { emoji: "🕹️", text: "Now Playing", i18nKey: "rom.status-now-playing" },
-  incomplete: { emoji: "🚧", text: "Incomplete", i18nKey: "rom.status-incomplete" },
+  backlogged: {
+    emoji: "🔜",
+    text: "Backlogged",
+    i18nKey: "rom.status-backlogged",
+  },
+  now_playing: {
+    emoji: "🕹️",
+    text: "Now Playing",
+    i18nKey: "rom.status-now-playing",
+  },
+  incomplete: {
+    emoji: "🚧",
+    text: "Incomplete",
+    i18nKey: "rom.status-incomplete",
+  },
   finished: { emoji: "🏁", text: "Finished", i18nKey: "rom.status-finished" },
-  completed_100: { emoji: "💯", text: "Completed 100%", i18nKey: "rom.status-completed-100" },
+  completed_100: {
+    emoji: "💯",
+    text: "Completed 100%",
+    i18nKey: "rom.status-completed-100",
+  },
   retired: { emoji: "🏴", text: "Retired", i18nKey: "rom.status-retired" },
-  never_playing: { emoji: "🚫", text: "Never Playing", i18nKey: "rom.status-never-playing" },
+  never_playing: {
+    emoji: "🚫",
+    text: "Never Playing",
+    i18nKey: "rom.status-never-playing",
+  },
   hidden: { emoji: "👻", text: "Hidden", i18nKey: "rom.status-hidden" },
 };
 
@@ -660,12 +683,8 @@ export function getEmojiForStatus(status: PlayingStatus) {
  * @param status The ROM status.
  * @returns The corresponding text.
  */
-export function getTextForStatus(status: PlayingStatus) {
-  if (status) {
-    return romStatusMap[status].text;
-  } else {
-    return null;
-  }
+export function getTextForStatus(status: PlayingStatus): string | null {
+  return romStatusMap[status]?.text ?? null;
 }
 
 /**
@@ -674,12 +693,8 @@ export function getTextForStatus(status: PlayingStatus) {
  * @param status The ROM status.
  * @returns The corresponding i18n key (e.g., "rom.status-backlogged").
  */
-export function getI18nKeyForStatus(status: PlayingStatus) {
-  if (status) {
-    return romStatusMap[status].i18nKey;
-  } else {
-    return null;
-  }
+export function getI18nKeyForStatus(status: PlayingStatus): string | null {
+  return romStatusMap[status]?.i18nKey ?? null;
 }
 
 /**

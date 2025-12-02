@@ -23,7 +23,7 @@ import romApi from "@/services/api/rom";
 import stateApi from "@/services/api/state";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
-import { getSupportedEJSCores, getBrowserCompatibleLocale } from "@/utils";
+import { getSupportedEJSCores, toBrowserLocale } from "@/utils";
 import {
   getMissingCoverImage,
   getUnmatchedCoverImage,
@@ -69,7 +69,7 @@ const releaseDate = computed(() => {
   if (!rom.value?.metadatum.first_release_date) return null;
   return new Date(
     Number(rom.value.metadatum.first_release_date),
-  ).toLocaleDateString(getBrowserCompatibleLocale(locale.value), {
+  ).toLocaleDateString(toBrowserLocale(locale.value), {
     day: "2-digit",
     month: "short",
     year: "numeric",

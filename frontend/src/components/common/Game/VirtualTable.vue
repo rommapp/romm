@@ -18,7 +18,12 @@ import storeDownload from "@/stores/download";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { formatBytes, languageToEmoji, regionToEmoji, getBrowserCompatibleLocale } from "@/utils";
+import {
+  formatBytes,
+  languageToEmoji,
+  regionToEmoji,
+  toBrowserLocale,
+} from "@/utils";
 
 const { locale } = useI18n();
 
@@ -333,18 +338,21 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </div>
         <div class="game-list-table-cell d-table-cell px-4">
           <span v-if="item.created_at" class="text-no-wrap">{{
-            new Date(item.created_at).toLocaleDateString(getBrowserCompatibleLocale(locale), {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })
+            new Date(item.created_at).toLocaleDateString(
+              toBrowserLocale(locale),
+              {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              },
+            )
           }}</span>
           <span v-else>-</span>
         </div>
         <div class="game-list-table-cell d-table-cell px-4">
           <span v-if="item.metadatum.first_release_date" class="text-no-wrap">{{
             new Date(item.metadatum.first_release_date).toLocaleDateString(
-              getBrowserCompatibleLocale(locale),
+              toBrowserLocale(locale),
               {
                 day: "2-digit",
                 month: "short",
