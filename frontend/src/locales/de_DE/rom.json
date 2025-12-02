@@ -91,5 +91,15 @@
   "unmatch": "Zuweisung aufheben",
   "unmatch-success": "ROM-Zuweisung erfolgreich aufgehoben",
   "unselect-all": "Alles abwählen",
-  "update-success": "ROM erfolgreich aktualisiert!"
+  "update-success": "ROM erfolgreich aktualisiert!",
+  "save-data": "Speicherdaten",
+  "status-backlogged": "Vorgemerkt",
+  "status-now-playing": "Wird gespielt",
+  "status-incomplete": "Unvollständig",
+  "status-finished": "Beendet",
+  "status-completed-100": "100% abgeschlossen",
+  "status-retired": "Aufgegeben",
+  "status-never-playing": "Nie spielen",
+  "status-hidden": "Versteckt",
+  "updated": "Aktualisiert"
 }

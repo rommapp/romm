@@ -91,5 +91,15 @@
   "unmatch": "清除匹配資料",
   "unmatch-success": "ROM 取消匹配成功",
   "unselect-all": "取消選擇所有",
-  "update-success": "ROM 更新成功！"
+  "update-success": "ROM 更新成功！",
+  "save-data": "存檔資料",
+  "status-backlogged": "待遊玩",
+  "status-now-playing": "正在遊玩",
+  "status-incomplete": "未完成",
+  "status-finished": "已破關",
+  "status-completed-100": "100%完成",
+  "status-retired": "已擱置",
+  "status-never-playing": "不玩",
+  "status-hidden": "隱藏",
+  "updated": "更新時間"
 }
