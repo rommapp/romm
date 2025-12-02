@@ -11,6 +11,7 @@ import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
+import type { RomRAMetadata } from './RomRAMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
 import type { SiblingRomSchema } from './SiblingRomSchema';
@@ -68,10 +69,6 @@ export type SimpleRomSchema = {
     crc_hash: (string | null);
     md5_hash: (string | null);
     sha1_hash: (string | null);
-    /**
-     * @deprecated
-     */
-    multi: boolean;
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;
@@ -82,5 +79,7 @@ export type SimpleRomSchema = {
     missing_from_fs: boolean;
     siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
+    merged_ra_metadata: (RomRAMetadata | null);
+    merged_screenshots: Array<string>;
 };
 

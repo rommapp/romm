@@ -16,11 +16,6 @@ export type RomGamelistMetadata = {
     thumbnail_url?: (string | null);
     title_screen_url?: (string | null);
     video_url?: (string | null);
-    box3d_path?: (string | null);
-    miximage_path?: (string | null);
-    physical_path?: (string | null);
-    marquee_path?: (string | null);
-    video_path?: (string | null);
     rating?: (number | null);
     first_release_date?: (string | null);
     companies?: (Array<string> | null);
@@ -28,5 +23,10 @@ export type RomGamelistMetadata = {
     genres?: (Array<string> | null);
     player_count?: (string | null);
     md5_hash?: (string | null);
+    box3d_path?: (string | null);
+    miximage_path?: (string | null);
+    physical_path?: (string | null);
+    marquee_path?: (string | null);
+    video_path?: (string | null);
 };
 
