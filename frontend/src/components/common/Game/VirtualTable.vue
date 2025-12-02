@@ -3,6 +3,7 @@ import { useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
@@ -17,7 +18,14 @@ import storeDownload from "@/stores/download";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { formatBytes, languageToEmoji, regionToEmoji } from "@/utils";
+import {
+  formatBytes,
+  languageToEmoji,
+  regionToEmoji,
+  toBrowserLocale,
+} from "@/utils";
+
+const { locale } = useI18n();
 
 withDefaults(
   defineProps<{
@@ -330,18 +338,21 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </div>
         <div class="game-list-table-cell d-table-cell px-4">
           <span v-if="item.created_at" class="text-no-wrap">{{
-            new Date(item.created_at).toLocaleDateString("en-US", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })
+            new Date(item.created_at).toLocaleDateString(
+              toBrowserLocale(locale),
+              {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              },
+            )
           }}</span>
           <span v-else>-</span>
         </div>
         <div class="game-list-table-cell d-table-cell px-4">
           <span v-if="item.metadatum.first_release_date" class="text-no-wrap">{{
             new Date(item.metadatum.first_release_date).toLocaleDateString(
-              "en-US",
+              toBrowserLocale(locale),
               {
                 day: "2-digit",
                 month: "short",
