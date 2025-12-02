@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import TypedDict, get_type_hints
+from typing import NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
 from pydantic import computed_field, field_validator
