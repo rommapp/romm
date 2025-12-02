@@ -9,6 +9,7 @@ Create Date: 2025-09-29 14:20:28.990148
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import text
+
 from utils.database import is_mariadb, is_mysql
 
 # revision identifiers, used by Alembic.
@@ -60,7 +61,7 @@ def upgrade() -> None:
     connection = op.get_bind()
 
     # For MariaDB compatibility, we limit the content index length
-   if is_mysql(connection) or is_mariadb(connection):
+    if is_mysql(connection) or is_mariadb(connection):
         connection.execute(
             text("CREATE INDEX idx_rom_notes_content ON rom_notes (content(100))")
         )
@@ -86,7 +87,7 @@ def upgrade() -> None:
 
     # Migrate existing notes from rom_user to rom_notes table
     # Both note_raw_markdown and note_is_public columns exist from previous migrations
-    
+
     result = connection.execute(
         text(
             """
@@ -122,9 +123,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop the rom_notes table and restore note columns to rom_user."""
-    
+
     connection = op.get_bind()
-    
+
     # Add back the old columns to rom_user
     op.add_column(
         "rom_user",
@@ -138,7 +139,7 @@ def downgrade() -> None:
     )
 
     # Migrate notes back to rom_user (take first note per user/rom)
-    
+
     result = connection.execute(
         text(
             """
@@ -168,10 +169,12 @@ def downgrade() -> None:
         )
 
     # Drop indexes and table
-   if is_mysql(connection) or is_mariadb(connection):
+    if is_mysql(connection) or is_mariadb(connection):
         # The content index was created with a specific length using raw SQL for MySQL/MariaDB,
         # so we drop it with raw SQL as well.
-        connection.execute(text("DROP INDEX IF EXISTS idx_rom_notes_content ON rom_notes"))
+        connection.execute(
+            text("DROP INDEX IF EXISTS idx_rom_notes_content ON rom_notes")
+        )
     else:
         # For other databases, the content index was created with op.create_index.
         op.drop_index("idx_rom_notes_content", table_name="rom_notes")
