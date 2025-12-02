@@ -14,7 +14,11 @@ import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
-import { getTextForStatus, getEmojiForStatus, getI18nKeyForStatus } from "@/utils";
+import {
+  getTextForStatus,
+  getEmojiForStatus,
+  getI18nKeyForStatus,
+} from "@/utils";
 
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
@@ -301,7 +305,7 @@ watch(
                       getEmojiForStatus(item.raw as RomUserStatus)
                     }}</span
                     ><span class="ml-2">{{
-                      t(getI18nKeyForStatus(item.raw as RomUserStatus) || '')
+                      t(getI18nKeyForStatus(item.raw as RomUserStatus) || "")
                     }}</span>
                   </template>
                   <template #item="{ item }">
@@ -310,7 +314,7 @@ watch(
                         getEmojiForStatus(item.raw as RomUserStatus)
                       }}</span
                       ><span class="ml-2">{{
-                        t(getI18nKeyForStatus(item.raw as RomUserStatus) || '')
+                        t(getI18nKeyForStatus(item.raw as RomUserStatus) || "")
                       }}</span>
                     </v-list-item>
                   </template>

@@ -185,7 +185,8 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
               </v-col>
               <v-col cols="12">
                 <v-chip size="x-small" label>
-                  {{ t("rom.updated") }}: {{ formatTimestamp(state.updated_at, locale) }}
+                  {{ t("rom.updated") }}:
+                  {{ formatTimestamp(state.updated_at, locale) }}
                 </v-chip>
               </v-col>
             </v-row>

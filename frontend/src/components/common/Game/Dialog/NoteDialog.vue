@@ -9,7 +9,7 @@ import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getBrowserCompatibleLocale } from "@/utils";
+import { toBrowserLocale } from "@/utils";
 
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -116,7 +116,11 @@ function closeDialog() {
                   class="text-caption mt-2 mb-2"
                 >
                   {{ t("common.last-updated") }}:
-                  {{ new Date(note.updated_at).toLocaleString(getBrowserCompatibleLocale(locale)) }}
+                  {{
+                    new Date(note.updated_at).toLocaleString(
+                      toBrowserLocale(locale),
+                    )
+                  }}
                 </v-card-subtitle>
               </v-expansion-panel-text>
             </v-expansion-panel>
