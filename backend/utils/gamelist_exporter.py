@@ -168,7 +168,7 @@ class GamelistExporter:
         if not platform:
             raise ValueError(f"Platform with ID {platform_id} not found")
 
-        roms = db_rom_handler.get_roms_scalar(platform_id=platform_id)
+        roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
 
         # Create root element
         root = Element("gameList")

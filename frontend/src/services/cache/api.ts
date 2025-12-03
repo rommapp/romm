@@ -9,6 +9,7 @@ import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "
 import type { GetRomsParams } from "@/services/api/rom";
 import cacheService from "@/services/cache";
 import { getStatusKeyForText } from "@/utils";
+import { getFilterArray } from "@/utils/apiHelpers";
 
 class CachedApiService {
   private createRequestConfig(
@@ -30,7 +31,10 @@ class CachedApiService {
     onBackgroundUpdate: (data: GetRomsResponse) => void,
   ): Promise<AxiosResponse<GetRomsResponse>> {
     const config = this.createRequestConfig("GET", "/roms", {
-      platform_id: params.platformId,
+      platform_ids:
+        params.platformIds && params.platformIds.length > 0
+          ? params.platformIds
+          : undefined,
       collection_id: params.collectionId,
       virtual_collection_id: params.virtualCollectionId,
       smart_collection_id: params.smartCollectionId,
@@ -40,22 +44,74 @@ class CachedApiService {
       order_by: params.orderBy,
       order_dir: params.orderDir,
       group_by_meta_id: params.groupByMetaId,
-      selected_genre: params.selectedGenre,
-      selected_franchise: params.selectedFranchise,
-      selected_collection: params.selectedCollection,
-      selected_company: params.selectedCompany,
-      selected_age_rating: params.selectedAgeRating,
+      genre: getFilterArray(params.selectedGenre, params.selectedGenres),
+      franchise: getFilterArray(
+        params.selectedFranchise,
+        params.selectedFranchises,
+      ),
+      collection: getFilterArray(
+        params.selectedCollection,
+        params.selectedCollections,
+      ),
+      company: getFilterArray(params.selectedCompany, params.selectedCompanies),
+      age_rating: getFilterArray(
+        params.selectedAgeRating,
+        params.selectedAgeRatings,
+      ),
       selected_status: getStatusKeyForText(params.selectedStatus ?? null),
-      selected_region: params.selectedRegion,
-      selected_language: params.selectedLanguage,
-      ...(params.filterUnmatched ? { matched: false } : {}),
-      ...(params.filterMatched ? { matched: true } : {}),
-      ...(params.filterFavorites ? { favorite: true } : {}),
-      ...(params.filterDuplicates ? { duplicate: true } : {}),
-      ...(params.filterPlayables ? { playable: true } : {}),
-      ...(params.filterMissing ? { missing: true } : {}),
-      ...(params.filterRA ? { has_ra: true } : {}),
-      ...(params.filterVerified ? { verified: true } : {}),
+      region: getFilterArray(params.selectedRegion, params.selectedRegions),
+      language: getFilterArray(
+        params.selectedLanguage,
+        params.selectedLanguages,
+      ),
+      // Logic operators
+      genres_logic:
+        params.selectedGenres && params.selectedGenres.length > 1
+          ? params.genresLogic || "any"
+          : undefined,
+      franchises_logic:
+        params.selectedFranchises && params.selectedFranchises.length > 1
+          ? params.franchisesLogic || "any"
+          : undefined,
+      collections_logic:
+        params.selectedCollections && params.selectedCollections.length > 1
+          ? params.collectionsLogic || "any"
+          : undefined,
+      companies_logic:
+        params.selectedCompanies && params.selectedCompanies.length > 1
+          ? params.companiesLogic || "any"
+          : undefined,
+      age_ratings_logic:
+        params.selectedAgeRatings && params.selectedAgeRatings.length > 1
+          ? params.ageRatingsLogic || "any"
+          : undefined,
+      regions_logic:
+        params.selectedRegions && params.selectedRegions.length > 1
+          ? params.regionsLogic || "any"
+          : undefined,
+      languages_logic:
+        params.selectedLanguages && params.selectedLanguages.length > 1
+          ? params.languagesLogic || "any"
+          : undefined,
+      ...(params.filterMatched !== null
+        ? { matched: params.filterMatched }
+        : {}),
+      ...(params.filterFavorites !== null
+        ? { favorite: params.filterFavorites }
+        : {}),
+      ...(params.filterDuplicates !== null
+        ? { duplicate: params.filterDuplicates }
+        : {}),
+      ...(params.filterPlayables !== null
+        ? { playable: params.filterPlayables }
+        : {}),
+      ...(params.filterMissing !== null
+        ? { missing: params.filterMissing }
+        : {}),
+      ...(params.filterRA !== null ? { has_ra: params.filterRA } : {}),
+      ...(params.filterVerified !== null
+        ? { verified: params.filterVerified }
+        : {}),
     });
 
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
