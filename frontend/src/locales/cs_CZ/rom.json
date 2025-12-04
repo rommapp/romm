@@ -91,5 +91,15 @@
   "unmatch": "Odpojit ROM",
   "unmatch-success": "ROM úspěšně odpojena",
   "unselect-all": "Zrušit výběr všeho",
-  "update-success": "ROM úspěšně aktualizována!"
+  "update-success": "ROM úspěšně aktualizována!",
+  "save-data": "Uložená data",
+  "status-backlogged": "Odloženo",
+  "status-now-playing": "Právě hraji",
+  "status-incomplete": "Nedokončeno",
+  "status-finished": "Dokončeno",
+  "status-completed-100": "Dokončeno na 100%",
+  "status-retired": "Opuštěno",
+  "status-never-playing": "Nikdy nebudu hrát",
+  "status-hidden": "Skryté",
+  "updated": "Aktualizováno"
 }

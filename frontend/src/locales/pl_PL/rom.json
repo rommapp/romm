@@ -91,5 +91,15 @@
   "unmatch": "Odłącz ROM",
   "unmatch-success": "ROM został pomyślnie odłączony",
   "unselect-all": "Odznacz wszystkie",
-  "update-success": "ROM został pomyślnie zaktualizowany!"
+  "update-success": "ROM został pomyślnie zaktualizowany!",
+  "save-data": "Dane zapisu",
+  "status-backlogged": "Zaległe",
+  "status-now-playing": "Aktualnie grane",
+  "status-incomplete": "Nieukończone",
+  "status-finished": "Ukończone",
+  "status-completed-100": "Ukończone w 100%",
+  "status-retired": "Porzucone",
+  "status-never-playing": "Nigdy nie gram",
+  "status-hidden": "Ukryte",
+  "updated": "Zaktualizowano"
 }
