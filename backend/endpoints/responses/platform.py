@@ -17,6 +17,7 @@ class PlatformSchema(BaseModel):
     igdb_slug: str | None
     moby_slug: str | None
     hltb_slug: str | None
+    giantbomb_slug: str | None = None
     custom_name: str | None = None
     igdb_id: int | None = None
     sgdb_id: int | None = None
@@ -27,6 +28,7 @@ class PlatformSchema(BaseModel):
     hasheous_id: int | None = None
     tgdb_id: int | None = None
     flashpoint_id: int | None = None
+    giantbomb_id: int | None = None
     category: str | None = None
     generation: int | None = None
     family_name: str | None = None
