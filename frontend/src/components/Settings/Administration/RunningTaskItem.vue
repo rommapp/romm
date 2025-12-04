@@ -5,9 +5,12 @@ import {
   formatDuration,
 } from "date-fns";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { formatTimestamp } from "@/utils";
 import { TaskStatusItem, type TaskStatusResponse } from "@/utils/tasks";
 import TaskProgressDisplay from "./tasks/TaskProgressDisplay.vue";
+
+const { locale } = useI18n();
 
 const props = defineProps<{
   task: TaskStatusResponse;
@@ -89,6 +92,7 @@ const taskDistanceFromNow = computed(() => {
             :title="
               formatTimestamp(
                 task.started_at || task.enqueued_at || task.created_at,
+                locale,
               )
             "
           >

@@ -10,7 +10,7 @@ import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<DetailedRom | null>(null);
@@ -85,7 +85,8 @@ function closeDialog() {
                 {{ formatBytes(state.file_size_bytes) }}
               </v-chip>
               <v-chip size="x-small" label>
-                Updated: {{ formatTimestamp(state.updated_at) }}
+                {{ t("rom.updated") }}:
+                {{ formatTimestamp(state.updated_at, locale) }}
               </v-chip>
             </v-row>
           </v-card-text>

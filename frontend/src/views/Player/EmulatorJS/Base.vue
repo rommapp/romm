@@ -23,7 +23,7 @@ import Player from "@/views/Player/EmulatorJS/Player.vue";
 
 const EMULATORJS_VERSION = "nightly";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { smAndDown } = useDisplay();
 const route = useRoute();
 const auth = storeAuth();
@@ -330,8 +330,13 @@ onBeforeUnmount(async () => {
                           <v-row no-gutters>
                             <v-col cols="12">
                               <v-list-item rounded class="px-1 text-caption">
-                                Updated:
-                                {{ formatTimestamp(selectedState.updated_at) }}
+                                {{ t("rom.updated") }}:
+                                {{
+                                  formatTimestamp(
+                                    selectedState.updated_at,
+                                    locale,
+                                  )
+                                }}
                                 <span class="text-grey text-caption"
                                   >({{
                                     formatRelativeDate(
@@ -417,8 +422,13 @@ onBeforeUnmount(async () => {
                           <v-row no-gutters>
                             <v-col cols="12">
                               <v-list-item rounded class="px-1 text-caption">
-                                Updated:
-                                {{ formatTimestamp(selectedSave.updated_at) }}
+                                {{ t("rom.updated") }}:
+                                {{
+                                  formatTimestamp(
+                                    selectedSave.updated_at,
+                                    locale,
+                                  )
+                                }}
                                 <span class="text-grey text-caption"
                                   >({{
                                     formatRelativeDate(selectedSave.updated_at)
@@ -503,7 +513,8 @@ onBeforeUnmount(async () => {
                       <v-row class="ga-1" no-gutters>
                         <v-col cols="12">
                           <v-list-item rounded class="pa-1 text-caption">
-                            Updated: {{ formatTimestamp(state.updated_at) }}
+                            {{ t("rom.updated") }}:
+                            {{ formatTimestamp(state.updated_at, locale) }}
                             <span class="ml-1 text-grey text-caption"
                               >({{
                                 formatRelativeDate(state.updated_at)
@@ -574,7 +585,8 @@ onBeforeUnmount(async () => {
                       <v-row class="ga-1" no-gutters>
                         <v-col cols="12">
                           <v-list-item rounded class="pa-1 text-caption">
-                            Updated: {{ formatTimestamp(save.updated_at) }}
+                            {{ t("rom.updated") }}:
+                            {{ formatTimestamp(save.updated_at, locale) }}
                             <span class="ml-1 text-grey text-caption"
                               >({{ formatRelativeDate(save.updated_at) }})</span
                             >
