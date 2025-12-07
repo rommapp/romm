@@ -120,7 +120,6 @@ async def _handle_leave(sid: str, session_id: str, player_id: str):
 
     if not current_room["players"]:
         await netplay_handler.delete([session_id])
-        await netplay_handler.set(session_id, current_room)
         # Notify clients that the room is now empty
         await netplay_socket_handler.socket_server.emit(
             "users-updated", {}, room=session_id

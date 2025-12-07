@@ -48,17 +48,17 @@ class RoomsResponse(TypedDict):
 @protected_route(router.get, "/list", [Scope.ASSETS_READ])
 async def get_rooms(request: Request, game_id: str) -> Dict[str, RoomsResponse]:
     netplay_rooms = await netplay_handler.get_all()
-    open_rooms: Dict[str, RoomsResponse] = {}
-    for session_id, room in netplay_rooms.items():
-        if not _is_room_open(room, game_id):
-            continue
 
-        open_rooms[session_id] = RoomsResponse(
+    open_rooms: Dict[str, RoomsResponse] = {
+        session_id: RoomsResponse(
             room_name=room["room_name"],
             current=len(room["players"]),
             max=room["max_players"],
             player_name=_get_owner_player_name(room),
             hasPassword=bool(room["password"]),
         )
+        for session_id, room in netplay_rooms.items()
+        if _is_room_open(room, game_id)
+    }
 
     return open_rooms
