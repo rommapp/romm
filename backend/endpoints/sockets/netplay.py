@@ -181,6 +181,11 @@ async def webrtc_signal(sid: str, data: WebRTCSignalData):
         )
 
 
+@netplay_socket_handler.socket_server.on("webrtc-signal-error")  # type: ignore
+async def webrtc_signal_error(_sid: str, _error: str, _data: Any):
+    pass
+
+
 @netplay_socket_handler.socket_server.on("data-message")  # type: ignore
 async def data_message(sid: str, data: Any):
     stored_session = await netplay_socket_handler.socket_server.get_session(sid)
