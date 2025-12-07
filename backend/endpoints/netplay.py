@@ -1,6 +1,6 @@
-from typing import Dict, Optional, TypedDict
+from typing import Dict, TypedDict
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request
 
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
