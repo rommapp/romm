@@ -24,6 +24,7 @@ from handler.metadata.base_handler import (
 from handler.redis_handler import async_cache
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
+from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.sync_retroachievements_progress import (
@@ -46,6 +47,8 @@ async def main() -> None:
         log.info("Running startup tasks")
 
         # Initialize scheduled tasks
+        cleanup_netplay_task.init()
+
         if ENABLE_SCHEDULED_RESCAN:
             log.info("Starting scheduled rescan")
             scan_library_task.init()
