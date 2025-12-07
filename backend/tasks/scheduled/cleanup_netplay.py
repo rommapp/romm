@@ -26,8 +26,7 @@ class CleanupNetplayTask(PeriodicTask):
         ]
         if rooms_to_delete:
             log.info(f"Cleaning up {len(rooms_to_delete)} empty netplay rooms")
-            for sid in rooms_to_delete:
-                await netplay_handler.delete(sid)
+            await netplay_handler.delete(rooms_to_delete)
 
 
 cleanup_netplay_task = CleanupNetplayTask()

@@ -25,8 +25,8 @@ class RoomData(TypedDict):
 async def open_room(sid: str, data: RoomData):
     extra_data = data["extra"]
 
-    session_id = extra_data["sessionid"]
-    player_id = extra_data["userid"] or extra_data["playerId"]
+    session_id = extra_data.get("sessionid")
+    player_id = extra_data.get("userid") or extra_data.get("playerId")
 
     if not session_id or not player_id:
         return "Invalid data: sessionId and playerId required"
@@ -70,8 +70,8 @@ async def open_room(sid: str, data: RoomData):
 async def join_room(sid: str, data: RoomData):
     extra_data = data["extra"]
 
-    session_id = extra_data["sessionid"]
-    player_id = extra_data["userid"] or extra_data["playerId"]
+    session_id = extra_data.get("sessionid")
+    player_id = extra_data.get("userid") or extra_data.get("playerId")
 
     if not session_id or not player_id:
         return "Invalid data: sessionId and playerId required"
@@ -117,21 +117,26 @@ async def _handle_leave(sid: str, session_id: str, player_id: str):
         return
 
     current_room["players"].pop(player_id, None)
+
+    if not current_room["players"]:
+        await netplay_handler.delete([session_id])
+        await netplay_handler.set(session_id, current_room)
+        # Notify clients that the room is now empty
+        await netplay_socket_handler.socket_server.emit(
+            "users-updated", {}, room=session_id
+        )
+        return
+
+    if sid == current_room["owner"]:
+        # Owner left, assign a new one
+        remaining_players = list(current_room["players"].values())
+        if remaining_players:
+            current_room["owner"] = remaining_players[0]["socketId"]
+
     await netplay_handler.set(session_id, current_room)
     await netplay_socket_handler.socket_server.emit(
         "users-updated", current_room["players"], room=session_id
     )
-
-    if not current_room["players"]:
-        await netplay_handler.delete(session_id)
-    elif sid == current_room["owner"]:
-        remaining = list(current_room["players"].keys())
-        if remaining:
-            current_room["owner"] = current_room["players"][remaining[0]]["socketId"]
-            await netplay_handler.set(session_id, current_room)
-            await netplay_socket_handler.socket_server.emit(
-                "users-updated", current_room["players"], room=session_id
-            )
 
 
 @netplay_socket_handler.socket_server.on("leave-room")  # type: ignore
@@ -186,36 +191,6 @@ async def webrtc_signal_error(_sid: str, _error: str, _data: Any):
     pass
 
 
-@netplay_socket_handler.socket_server.on("data-message")  # type: ignore
-async def data_message(sid: str, data: Any):
-    stored_session = await netplay_socket_handler.socket_server.get_session(sid)
-    session_id = stored_session.get("session_id")
-    if session_id:
-        await netplay_socket_handler.socket_server.emit(
-            "data-message", data, room=session_id, skip_sid=sid
-        )
-
-
-@netplay_socket_handler.socket_server.on("snapshot")  # type: ignore
-async def snapshot(sid: str, data: Any):
-    stored_session = await netplay_socket_handler.socket_server.get_session(sid)
-    session_id = stored_session.get("session_id")
-    if session_id:
-        await netplay_socket_handler.socket_server.emit(
-            "snapshot", data, room=session_id, skip_sid=sid
-        )
-
-
-@netplay_socket_handler.socket_server.on("input")  # type: ignore
-async def input(sid: str, data: Any):
-    stored_session = await netplay_socket_handler.socket_server.get_session(sid)
-    session_id = stored_session.get("session_id")
-    if session_id:
-        await netplay_socket_handler.socket_server.emit(
-            "input", data, room=session_id, skip_sid=sid
-        )
-
-
 @netplay_socket_handler.socket_server.on("disconnect")  # type: ignore
 async def disconnect(sid: str):
     stored_session = await netplay_socket_handler.socket_server.get_session(sid)
@@ -224,3 +199,27 @@ async def disconnect(sid: str):
 
     if session_id and player_id:
         await _handle_leave(sid, session_id, player_id)
+
+
+async def _broadcast_to_room(sid: str, event: str, data: Any):
+    stored_session = await netplay_socket_handler.socket_server.get_session(sid)
+    session_id = stored_session.get("session_id")
+    if session_id:
+        await netplay_socket_handler.socket_server.emit(
+            event, data, room=session_id, skip_sid=sid
+        )
+
+
+@netplay_socket_handler.socket_server.on("data-message")  # type: ignore
+async def data_message(sid: str, data: Any):
+    await _broadcast_to_room(sid, "data-message", data)
+
+
+@netplay_socket_handler.socket_server.on("snapshot")  # type: ignore
+async def snapshot(sid: str, data: Any):
+    await _broadcast_to_room(sid, "snapshot", data)
+
+
+@netplay_socket_handler.socket_server.on("input")  # type: ignore
+async def input(sid: str, data: Any):
+    await _broadcast_to_room(sid, "input", data)
