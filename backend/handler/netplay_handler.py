@@ -33,13 +33,13 @@ class NetplayHandler:
         room = await async_cache.hget(self.hash_name, room_id)
         return json.loads(room) if room else None
 
-    def set(self, room_id: str, room_data: NetplayRoom):
+    async def set(self, room_id: str, room_data: NetplayRoom):
         """Set a room in Redis."""
-        return async_cache.hset(self.hash_name, room_id, json.dumps(room_data))
+        return await async_cache.hset(self.hash_name, room_id, json.dumps(room_data))
 
-    def delete(self, room_id: str):
+    async def delete(self, room_ids: list[str]):
         """Delete a room from Redis."""
-        return async_cache.hdel(self.hash_name, room_id)
+        return await async_cache.hdel(self.hash_name, *room_ids)
 
     async def get_all(self) -> dict[str, NetplayRoom]:
         """Get all rooms from Redis."""

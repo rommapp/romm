@@ -17,15 +17,18 @@ DEFAULT_MAX_PLAYERS = 4
 
 
 def _get_owner_player_name(room: NetplayRoom) -> str:
-    owner_sid = room["owner"]
+    owner_sid = room.get("owner")
     if not owner_sid:
         return "Unknown"
 
-    for _pid, p in room["players"].items():
-        if p["socketId"] == owner_sid:
-            return p["player_name"]
-
-    return "Unknown"
+    return next(
+        (
+            p["player_name"]
+            for p in room["players"].values()
+            if p["socketId"] == owner_sid
+        ),
+        "Unknown",
+    )
 
 
 def _is_room_open(room: NetplayRoom, game_id: str) -> bool:
@@ -43,15 +46,7 @@ class RoomsResponse(TypedDict):
 
 
 @protected_route(router.get, "/list", [Scope.ASSETS_READ])
-async def get_rooms(
-    request: Request, game_id: Optional[str]
-) -> Dict[str, RoomsResponse]:
-    if not game_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing game_id query parameter",
-        )
-
+async def get_rooms(request: Request, game_id: str) -> Dict[str, RoomsResponse]:
     netplay_rooms = await netplay_handler.get_all()
     open_rooms: Dict[str, RoomsResponse] = {}
     for session_id, room in netplay_rooms.items():

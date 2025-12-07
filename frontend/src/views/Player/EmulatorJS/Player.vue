@@ -399,8 +399,7 @@ window.EJS_onGameStart = async () => {
         const response = await fetch(
           `/api/netplay/list?&game_id=${window.EJS_gameID}`,
         );
-        const data = await response.text();
-        return JSON.parse(data);
+        return await response.json();
       } catch (error) {
         console.error("Error fetching open rooms:", error);
         return {};
