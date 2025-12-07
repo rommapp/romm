@@ -1,11 +1,7 @@
 from typing import Any, NotRequired, TypedDict
 
-from endpoints.netplay import (
-    DEFAULT_MAX_PLAYERS,
-    NetplayPlayerInfo,
-    NetplayRoom,
-    netplay_rooms,
-)
+from endpoints.netplay import DEFAULT_MAX_PLAYERS
+from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom, netplay_handler
 from handler.socket_handler import netplay_socket_handler
 
 
@@ -35,10 +31,10 @@ async def open_room(sid: str, data: RoomData):
     if not session_id or not player_id:
         return "Invalid data: sessionId and playerId required"
 
-    if session_id in netplay_rooms:
+    if await netplay_handler.get(session_id):
         return "Room already exists"
 
-    netplay_rooms[session_id] = NetplayRoom(
+    new_room = NetplayRoom(
         owner=sid,
         players={
             player_id: NetplayPlayerInfo(
@@ -55,6 +51,7 @@ async def open_room(sid: str, data: RoomData):
         password=extra_data.get("room_password", None),
         max_players=data.get("maxPlayers") or DEFAULT_MAX_PLAYERS,
     )
+    await netplay_handler.set(session_id, new_room)
 
     await netplay_socket_handler.socket_server.enter_room(sid, session_id)
     await netplay_socket_handler.socket_server.save_session(
@@ -65,7 +62,7 @@ async def open_room(sid: str, data: RoomData):
         },
     )
     await netplay_socket_handler.socket_server.emit(
-        "users-updated", netplay_rooms[session_id]["players"], room=session_id
+        "users-updated", new_room["players"], room=session_id
     )
 
 
@@ -79,10 +76,10 @@ async def join_room(sid: str, data: RoomData):
     if not session_id or not player_id:
         return "Invalid data: sessionId and playerId required"
 
-    if session_id not in netplay_rooms:
+    current_room = await netplay_handler.get(session_id)
+    if not current_room:
         return "Room not found"
 
-    current_room = netplay_rooms[session_id]
     if current_room["password"] and current_room["password"] != extra_data.get(
         "room_password"
     ):
@@ -97,6 +94,7 @@ async def join_room(sid: str, data: RoomData):
         userid=extra_data.get("userid"),
         playerId=extra_data.get("playerId"),
     )
+    await netplay_handler.set(session_id, current_room)
 
     await netplay_socket_handler.socket_server.enter_room(sid, session_id)
     await netplay_socket_handler.socket_server.save_session(
@@ -114,35 +112,37 @@ async def join_room(sid: str, data: RoomData):
 
 
 async def _handle_leave(sid: str, session_id: str, player_id: str):
-    current_room = netplay_rooms[session_id]
+    current_room = await netplay_handler.get(session_id)
+    if not current_room:
+        return
+
     current_room["players"].pop(player_id, None)
+    await netplay_handler.set(session_id, current_room)
     await netplay_socket_handler.socket_server.emit(
         "users-updated", current_room["players"], room=session_id
     )
 
     if not current_room["players"]:
-        netplay_rooms.pop(session_id, None)
+        await netplay_handler.delete(session_id)
     elif sid == current_room["owner"]:
         remaining = list(current_room["players"].keys())
         if remaining:
             current_room["owner"] = current_room["players"][remaining[0]]["socketId"]
+            await netplay_handler.set(session_id, current_room)
             await netplay_socket_handler.socket_server.emit(
                 "users-updated", current_room["players"], room=session_id
             )
 
 
 @netplay_socket_handler.socket_server.on("leave-room")  # type: ignore
-async def leave_room(sid: str, data: RoomData):
-    extra_data = data["extra"]
+async def leave_room(sid: str):
+    stored_session = await netplay_socket_handler.socket_server.get_session(sid)
+    session_id = stored_session.get("session_id")
+    player_id = stored_session.get("player_id")
 
-    session_id = extra_data["sessionid"]
-    player_id = extra_data["userid"] or extra_data["playerId"]
-
-    if not session_id or not player_id:
-        return
-
-    await _handle_leave(sid, session_id, player_id)
-    await netplay_socket_handler.socket_server.leave_room(sid, session_id)
+    if session_id and player_id:
+        await _handle_leave(sid, session_id, player_id)
+        await netplay_socket_handler.socket_server.leave_room(sid, session_id)
 
 
 class WebRTCSignalData(TypedDict, total=False):
@@ -222,5 +222,5 @@ async def disconnect(sid: str):
     session_id = stored_session.get("session_id")
     player_id = stored_session.get("player_id")
 
-    if session_id:
+    if session_id and player_id:
         await _handle_leave(sid, session_id, player_id)

@@ -123,12 +123,7 @@ export default defineConfig(({ mode }) => {
           changeOrigin: false,
           secure: false,
         },
-        "/ws": {
-          target: `http://127.0.0.1:${backendPort}`,
-          changeOrigin: false,
-          ws: true,
-        },
-        "/netplay": {
+        "^/(?:ws|netplay)": {
           target: `http://127.0.0.1:${backendPort}`,
           changeOrigin: false,
           ws: true,
