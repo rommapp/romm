@@ -31,7 +31,7 @@ def iter_directories(path: str, recursive: bool = False) -> Iterator[tuple[Path,
 
 
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")
-INVALID_CHARS_EMPTY = re.compile(r'[*?"<>]')
+INVALID_CHARS_EMPTY = re.compile(r'[*?"<>+]')
 
 
 def sanitize_filename(filename: str) -> str:
