@@ -397,7 +397,7 @@ window.EJS_onGameStart = async () => {
     window.EJS_emulator.netplayGetOpenRooms = async () => {
       try {
         const response = await fetch(
-          `/api/netplay/list?&game_id=${window.EJS_gameID}`,
+          `/api/netplay/list?game_id=${window.EJS_gameID}`,
         );
         return await response.json();
       } catch (error) {
