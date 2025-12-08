@@ -111,9 +111,7 @@ function closeDialog() {
               variant="outlined"
               :label="t('settings.password')"
               :placeholder="t('settings.password-placeholder')"
-              :rules="usersStore.passwordRules"
               type="password"
-              required
               clearable
               class="ma-2"
             />
