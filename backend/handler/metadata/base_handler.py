@@ -97,7 +97,7 @@ def _normalize_search_term(
 
 class MetadataHandler(abc.ABC):
     SEARCH_TERM_SPLIT_PATTERN = re.compile(r"[\:\-\/]")
-    SEARCH_TERM_NORMALIZER = re.compile(r"\s*[:-]\s*")
+    SEARCH_TERM_NORMALIZER = re.compile(r"\s*[:-]\s+")
 
     @classmethod
     @abc.abstractmethod
