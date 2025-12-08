@@ -15,6 +15,7 @@ from config import (
     OIDC_ROLE_ADMIN,
     OIDC_ROLE_EDITOR,
     OIDC_ROLE_VIEWER,
+    OIDC_USERNAME_ATTRIBUTE,
     ROMM_AUTH_SECRET_KEY,
     ROMM_BASE_URL,
 )
@@ -326,7 +327,7 @@ class OpenIDHandler:
                 detail="Email is not verified.",
             )
 
-        preferred_username = userinfo.get("preferred_username")
+        preferred_username = userinfo.get(OIDC_USERNAME_ATTRIBUTE)
 
         role = Role.VIEWER
         if OIDC_CLAIM_ROLES and OIDC_CLAIM_ROLES in userinfo:
