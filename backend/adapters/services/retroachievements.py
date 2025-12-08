@@ -29,7 +29,7 @@ async def auth_middleware(
 
     Reference: https://api-docs.retroachievements.org/getting-started.html#quick-start-http-requests
     """
-    req.url = req.url.update_query({"y": RETROACHIEVEMENTS_API_KEY})
+    req.url = req.url.update_query({"y": RETROACHIEVEMENTS_API_KEY})  # type: ignore
     return await handler(req)
 
 
