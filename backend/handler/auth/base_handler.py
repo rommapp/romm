@@ -328,6 +328,12 @@ class OpenIDHandler:
             )
 
         preferred_username = userinfo.get(OIDC_USERNAME_ATTRIBUTE)
+        if preferred_username is None:
+            log.error(f"'{OIDC_USERNAME_ATTRIBUTE}' attribute is missing from token.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"'{OIDC_USERNAME_ATTRIBUTE}' attribute is missing from token.",
+            )
 
         role = Role.VIEWER
         if OIDC_CLAIM_ROLES and OIDC_CLAIM_ROLES in userinfo:
