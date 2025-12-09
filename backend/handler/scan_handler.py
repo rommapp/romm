@@ -610,7 +610,7 @@ async def scan_rom(
                 )
             )
         ):
-            # Use Hasheous match to get the IGDB ID
+            # Use Hasheous match to get the RA ID
             h_ra_id = hasheous_rom.get("ra_id")
             if h_ra_id:
                 log.debug(

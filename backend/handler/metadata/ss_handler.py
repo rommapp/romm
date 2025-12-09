@@ -689,7 +689,7 @@ class SSHandler(MetadataHandler):
             search_term, remove_punctuation=False
         )
         res = await self._search_rom(
-            self.SEARCH_TERM_NORMALIZER.sub(" : ", normalized_search_term),
+            self.SEARCH_TERM_NORMALIZER.sub(" - ", normalized_search_term),
             platform_ss_id,
         )
 
