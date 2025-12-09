@@ -55,6 +55,13 @@ scan:
 emulatorjs:
   debug: true
   cache_limit: 1000
+  netplay:
+    enabled: true
+    ice_servers:
+      - urls: "stun:stun.relay.metered.ca:80"
+      - urls: "turn:global.relay.metered.ca:80"
+        username: "user"
+        credential: "password"
   settings:
     parallel_n64:
       vsync: disabled

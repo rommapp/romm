@@ -115,6 +115,13 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #       snes9x_region: ntsc
 #     default: # These settings apply to all cores
 #       fps: show
+# netplay:
+#   enabled: true
+#   ice_servers:
+#     - urls: "stun:stun.relay.metered.ca:80"
+#     - urls: "turn:global.relay.metered.ca:80"
+#       username: "<username>"
+#       credential: "<password>"
 #   controls: # https://emulatorjs.org/docs4devs/control-mapping/
 #     snes9x:
 #       0: # Player 1

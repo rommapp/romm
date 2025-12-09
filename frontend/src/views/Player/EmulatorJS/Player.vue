@@ -4,7 +4,12 @@ import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useTheme } from "vuetify";
-import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import type {
+  FirmwareSchema,
+  SaveSchema,
+  StateSchema,
+  NetplayICEServer,
+} from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import { saveApi as api } from "@/services/api/save";
 import storeConfig from "@/stores/config";
@@ -69,6 +74,7 @@ declare global {
     EJS_gameParentUrl: string;
     EJS_gamePatchUrl: string;
     EJS_netplayServer: string;
+    EJS_netplayICEServers: NetplayICEServer[];
     EJS_alignStartButton: "top" | "center" | "bottom";
     EJS_startOnLoaded: boolean;
     EJS_fullscreenOnLoaded: boolean;
@@ -138,7 +144,16 @@ window.EJS_gameName = romRef.value.fs_name_no_tags
 window.EJS_language = selectedLanguage.value.value.replace("_", "-");
 window.EJS_disableAutoLang = true;
 
-const { EJS_DEBUG, EJS_CACHE_LIMIT } = configStore.config;
+const {
+  EJS_DEBUG,
+  EJS_CACHE_LIMIT,
+  EJS_NETPLAY_ICE_SERVERS,
+  EJS_NETPLAY_ENABLED,
+} = configStore.config;
+window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.host : "";
+window.EJS_netplayICEServers = EJS_NETPLAY_ENABLED
+  ? EJS_NETPLAY_ICE_SERVERS
+  : [];
 if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
 window.EJS_DEBUG_XX = EJS_DEBUG;
 
@@ -374,6 +389,28 @@ window.EJS_onGameStart = async () => {
     romsStore.update(romRef.value);
     immediateExit();
   });
+
+  // The netplay implementation is finnicky, these overrides make it work
+  const { defineNetplayFunctions } = window.EJS_emulator;
+  window.EJS_emulator.defineNetplayFunctions = () => {
+    defineNetplayFunctions.bind(window.EJS_emulator)();
+
+    window.EJS_emulator.netplay.url = {
+      path: "/netplay/socket.io",
+    };
+
+    window.EJS_emulator.netplayGetOpenRooms = async () => {
+      try {
+        const response = await fetch(
+          `/api/netplay/list?game_id=${window.EJS_gameID}`,
+        );
+        return await response.json();
+      } catch (error) {
+        console.error("Error fetching open rooms:", error);
+        return {};
+      }
+    };
+  };
 };
 
 function immediateExit() {

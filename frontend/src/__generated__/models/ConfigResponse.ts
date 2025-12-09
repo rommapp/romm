@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { EjsControls } from './EjsControls';
+import type { NetplayICEServer } from './NetplayICEServer';
 export type ConfigResponse = {
     CONFIG_FILE_MOUNTED: boolean;
     CONFIG_FILE_WRITABLE: boolean;
@@ -17,6 +18,8 @@ export type ConfigResponse = {
     SKIP_HASH_CALCULATION: boolean;
     EJS_DEBUG: boolean;
     EJS_CACHE_LIMIT: (number | null);
+    EJS_NETPLAY_ENABLED: boolean;
+    EJS_NETPLAY_ICE_SERVERS: Array<NetplayICEServer>;
     EJS_SETTINGS: Record<string, Record<string, string>>;
     EJS_CONTROLS: Record<string, EjsControls>;
     SCAN_METADATA_PRIORITY: Array<string>;

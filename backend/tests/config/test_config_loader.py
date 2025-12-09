@@ -22,6 +22,15 @@ def test_config_loader():
     assert loader.config.SKIP_HASH_CALCULATION
     assert loader.config.EJS_DEBUG
     assert loader.config.EJS_CACHE_LIMIT == 1000
+    assert loader.config.EJS_NETPLAY_ENABLED
+    assert loader.config.EJS_NETPLAY_ICE_SERVERS == [
+        {"urls": "stun:stun.relay.metered.ca:80"},
+        {
+            "urls": "turn:global.relay.metered.ca:80",
+            "username": "user",
+            "credential": "password",
+        },
+    ]
     assert loader.config.EJS_SETTINGS == {
         "parallel_n64": {"vsync": "disabled"},
         "snes9x": {"snes9x_region": "ntsc"},
@@ -60,5 +69,7 @@ def test_empty_config_loader():
     assert not loader.config.SKIP_HASH_CALCULATION
     assert not loader.config.EJS_DEBUG
     assert loader.config.EJS_CACHE_LIMIT is None
+    assert not loader.config.EJS_NETPLAY_ENABLED
+    assert loader.config.EJS_NETPLAY_ICE_SERVERS == []
     assert loader.config.EJS_SETTINGS == {}
     assert loader.config.EJS_CONTROLS == {}

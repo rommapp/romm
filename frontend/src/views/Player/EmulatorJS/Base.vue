@@ -14,6 +14,7 @@ import { ROUTES } from "@/plugins/router";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import { type DetailedRom } from "@/stores/roms";
 import { formatTimestamp, getSupportedEJSCores } from "@/utils";
@@ -21,13 +22,12 @@ import { getEmptyCoverImage } from "@/utils/covers";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 
-const EMULATORJS_VERSION = "4.2.3";
-
 const { t, locale } = useI18n();
 const { smAndDown } = useDisplay();
 const route = useRoute();
 const auth = storeAuth();
 const playingStore = storePlaying();
+const configStore = storeConfig();
 const { playing, fullScreen } = storeToRefs(playingStore);
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
@@ -42,7 +42,7 @@ const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
 
-function onPlay() {
+async function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {
     romApi.updateUserRomProps({
       romId: rom.value.id,
@@ -56,33 +56,39 @@ function onPlay() {
   fullScreen.value = fullScreenOnPlay.value;
   playing.value = true;
 
-  const LOCAL_PATH = "/assets/emulatorjs/data/";
-  const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/`;
+  const { EJS_NETPLAY_ENABLED } = configStore.config;
+  const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
+  const LOCAL_PATH = "/assets/emulatorjs/data";
+  const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
 
-  // Try loading local loader.js via fetch to validate it's real JS
-  fetch(`${LOCAL_PATH}loader.js`)
-    .then((res) => {
-      const type = res.headers.get("content-type") || "";
-      if (!res.ok || !type.includes("javascript")) {
-        throw new Error("Invalid local loader.js");
-      }
-      window.EJS_pathtodata = LOCAL_PATH;
-      return res.text();
-    })
-    .then((jsCode) => {
-      playing.value = true;
-      fullScreen.value = fullScreenOnPlay.value;
-      const script = document.createElement("script");
-      script.textContent = jsCode;
-      document.body.appendChild(script);
-    })
-    .catch(() => {
-      console.warn("Local EmulatorJS failed, falling back to CDN");
-      window.EJS_pathtodata = CDN_PATH;
-      const fallbackScript = document.createElement("script");
-      fallbackScript.src = `${CDN_PATH}loader.js`;
-      document.body.appendChild(fallbackScript);
+  function loadScript(src: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("Failed loading " + src));
+      document.body.appendChild(s);
     });
+  }
+
+  async function attemptLoad(path: string) {
+    window.EJS_pathtodata = path;
+    await loadScript(`${path}/loader.js`);
+  }
+
+  try {
+    try {
+      await attemptLoad(EJS_NETPLAY_ENABLED ? CDN_PATH : LOCAL_PATH);
+    } catch (e) {
+      console.warn("[Play] Local loader failed, trying CDN", e);
+      await attemptLoad(EJS_NETPLAY_ENABLED ? LOCAL_PATH : CDN_PATH);
+    }
+    playing.value = true;
+    fullScreen.value = fullScreenOnPlay.value;
+  } catch (err) {
+    console.error("[Play] Emulator load failure:", err);
+  }
 }
 
 function onFullScreenChange() {
