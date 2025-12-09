@@ -116,6 +116,7 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #     default: # These settings apply to all cores
 #       fps: show
 # netplay:
+#   enabled: true
 #   ice_servers:
 #     - urls: "stun:stun.relay.metered.ca:80"
 #     - urls: "turn:global.relay.metered.ca:80"

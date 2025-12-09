@@ -18,6 +18,7 @@ export type ConfigResponse = {
     SKIP_HASH_CALCULATION: boolean;
     EJS_DEBUG: boolean;
     EJS_CACHE_LIMIT: (number | null);
+    EJS_NETPLAY_ENABLED: boolean;
     EJS_NETPLAY_ICE_SERVERS: Array<NetplayICEServer>;
     EJS_SETTINGS: Record<string, Record<string, string>>;
     EJS_CONTROLS: Record<string, EjsControls>;

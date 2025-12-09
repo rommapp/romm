@@ -144,11 +144,16 @@ window.EJS_gameName = romRef.value.fs_name_no_tags
 window.EJS_language = selectedLanguage.value.value.replace("_", "-");
 window.EJS_disableAutoLang = true;
 
-const { EJS_DEBUG, EJS_CACHE_LIMIT, EJS_NETPLAY_ICE_SERVERS } =
-  configStore.config;
-
-window.EJS_netplayServer = window.location.host;
-window.EJS_netplayICEServers = EJS_NETPLAY_ICE_SERVERS;
+const {
+  EJS_DEBUG,
+  EJS_CACHE_LIMIT,
+  EJS_NETPLAY_ICE_SERVERS,
+  EJS_NETPLAY_ENABLED,
+} = configStore.config;
+window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.host : "";
+window.EJS_netplayICEServers = EJS_NETPLAY_ENABLED
+  ? EJS_NETPLAY_ICE_SERVERS
+  : [];
 if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
 window.EJS_DEBUG_XX = EJS_DEBUG;
 

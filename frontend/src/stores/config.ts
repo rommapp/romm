@@ -24,6 +24,7 @@ const defaultConfig = {
   PLATFORMS_VERSIONS: {},
   SKIP_HASH_CALCULATION: false,
   EJS_DEBUG: false,
+  EJS_NETPLAY_ENABLED: false,
   EJS_CACHE_LIMIT: null,
   EJS_NETPLAY_ICE_SERVERS: [],
   EJS_SETTINGS: {},

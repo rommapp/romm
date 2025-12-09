@@ -104,6 +104,14 @@ RUN apk add --no-cache \
     wget \
     ca-certificates
 
+ARG EMULATORJS_VERSION=4.2.3
+ARG EMULATORJS_SHA256=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b
+
+RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
+    echo "${EMULATORJS_SHA256}  ${EMULATORJS_VERSION}.7z" | sha256sum -c - && \
+    7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
+    rm -f "${EMULATORJS_VERSION}.7z"
+
 ARG RUFFLE_VERSION=nightly-2025-08-14
 ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
 ARG RUFFLE_SHA256=178870c5e7dd825a8df35920dfc5328d83e53f3c4d5d95f70b1ea9cd13494151
@@ -225,6 +233,7 @@ CMD ["/init"]
 # FULL IMAGE
 FROM slim-image AS full-image
 ARG WEBSERVER_FOLDER=/var/www/html
+COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 
 
