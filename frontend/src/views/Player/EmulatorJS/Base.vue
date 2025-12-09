@@ -56,9 +56,8 @@ async function onPlay() {
   fullScreen.value = fullScreenOnPlay.value;
   playing.value = true;
 
-  const EMULATORJS_VERSION = configStore.config.EJS_NETPLAY_ENABLED
-    ? "nightly"
-    : "4.2.3";
+  const { EJS_NETPLAY_ENABLED } = configStore.config;
+  const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
   const LOCAL_PATH = "/assets/emulatorjs/data";
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
 
@@ -80,14 +79,10 @@ async function onPlay() {
 
   try {
     try {
-      await attemptLoad(
-        configStore.config.EJS_NETPLAY_ENABLED ? CDN_PATH : LOCAL_PATH,
-      );
+      await attemptLoad(EJS_NETPLAY_ENABLED ? CDN_PATH : LOCAL_PATH);
     } catch (e) {
       console.warn("[Play] Local loader failed, trying CDN", e);
-      await attemptLoad(
-        configStore.config.EJS_NETPLAY_ENABLED ? LOCAL_PATH : CDN_PATH,
-      );
+      await attemptLoad(EJS_NETPLAY_ENABLED ? LOCAL_PATH : CDN_PATH);
     }
     playing.value = true;
     fullScreen.value = fullScreenOnPlay.value;
