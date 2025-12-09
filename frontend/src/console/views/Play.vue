@@ -607,9 +607,10 @@ async function boot() {
   // Allow route transition animation to settle
   await new Promise((r) => setTimeout(r, 50));
 
-  const EMULATORJS_VERSION = "4.2.3";
-  const LOCAL_PATH = "/assets/emulatorjs/data/";
-  const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/`;
+  const { EJS_NETPLAY_ENABLED } = configStore.config;
+  const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
+  const LOCAL_PATH = "/assets/emulatorjs/data";
+  const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
 
   function loadScript(src: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -622,18 +623,20 @@ async function boot() {
     });
   }
 
-  async function attemptLoad(path: string, label: "local" | "cdn") {
+  async function attemptLoad(label: "local" | "cdn") {
+    const path = label === "local" ? LOCAL_PATH : CDN_PATH;
     loaderStatus.value = label === "local" ? "loading-local" : "loading-cdn";
+
     window.EJS_pathtodata = path;
-    await loadScript(`${path}loader.js`);
+    await loadScript(`${path}/loader.js`);
   }
 
   try {
     try {
-      await attemptLoad(LOCAL_PATH, "local");
+      await attemptLoad(EJS_NETPLAY_ENABLED ? "cdn" : "local");
     } catch (e) {
       console.warn("[Play] Local loader failed, trying CDN", e);
-      await attemptLoad(CDN_PATH, "cdn");
+      await attemptLoad(EJS_NETPLAY_ENABLED ? "local" : "cdn");
     }
     // Wait for emulator bootstrap
     const startDeadline = Date.now() + 8000; // 8s
