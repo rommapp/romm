@@ -621,8 +621,12 @@ async def scan_platforms(
     # Precalculate total platforms and ROMs
     total_roms = 0
     for platform_slug in fs_platforms:
-        fs_roms = await fs_rom_handler.get_roms(Platform(fs_slug=platform_slug))
-        total_roms += len(fs_roms)
+        try:
+            fs_roms = await fs_rom_handler.get_roms(Platform(fs_slug=platform_slug))
+            total_roms += len(fs_roms)
+        except RomsNotFoundException as e:
+            log.error(e)
+
     await scan_stats.update(
         socket_manager=socket_manager,
         total_platforms=len(fs_platforms),
