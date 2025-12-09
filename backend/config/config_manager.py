@@ -84,6 +84,7 @@ class Config:
     HIGH_PRIO_STRUCTURE_PATH: str
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
+    EJS_NETPLAY_ENABLED: bool
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
@@ -226,6 +227,9 @@ class ConfigManager:
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
             EJS_CACHE_LIMIT=pydash.get(
                 self._raw_config, "emulatorjs.cache_limit", None
+            ),
+            EJS_NETPLAY_ENABLED=pydash.get(
+                self._raw_config, "emulatorjs.netplay.enabled", None
             ),
             EJS_NETPLAY_ICE_SERVERS=pydash.get(
                 self._raw_config, "emulatorjs.netplay.ice_servers", []
@@ -401,6 +405,11 @@ class ConfigManager:
             log.critical("Invalid config.yml: emulatorjs.debug must be a boolean")
             sys.exit(3)
 
+        if not isinstance(self.config.EJS_NETPLAY_ENABLED, bool):
+            log.critical(
+                "Invalid config.yml: emulatorjs.netplay.enabled must be a boolean"
+            )
+
         if self.config.EJS_CACHE_LIMIT is not None and not isinstance(
             self.config.EJS_CACHE_LIMIT, int
         ):
@@ -524,6 +533,7 @@ class ConfigManager:
                 "debug": self.config.EJS_DEBUG,
                 "cache_limit": self.config.EJS_CACHE_LIMIT,
                 "netplay": {
+                    "enabled": self.config.EJS_NETPLAY_ENABLED,
                     "ice_servers": self.config.EJS_NETPLAY_ICE_SERVERS,
                 },
                 "settings": self.config.EJS_SETTINGS,
