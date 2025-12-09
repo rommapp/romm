@@ -229,7 +229,7 @@ class ConfigManager:
                 self._raw_config, "emulatorjs.cache_limit", None
             ),
             EJS_NETPLAY_ENABLED=pydash.get(
-                self._raw_config, "emulatorjs.netplay.enabled", None
+                self._raw_config, "emulatorjs.netplay.enabled", False
             ),
             EJS_NETPLAY_ICE_SERVERS=pydash.get(
                 self._raw_config, "emulatorjs.netplay.ice_servers", []
