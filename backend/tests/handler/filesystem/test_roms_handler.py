@@ -1140,6 +1140,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
+        assert result
         assert result == "0" * 40
         assert len(result) == 40
 
@@ -1157,5 +1158,6 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
+        assert result
         assert result == "f" * 40
         assert len(result) == 40
