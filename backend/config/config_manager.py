@@ -409,6 +409,7 @@ class ConfigManager:
             log.critical(
                 "Invalid config.yml: emulatorjs.netplay.enabled must be a boolean"
             )
+            sys.exit(3)
 
         if self.config.EJS_CACHE_LIMIT is not None and not isinstance(
             self.config.EJS_CACHE_LIMIT, int

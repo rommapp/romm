@@ -105,7 +105,7 @@ async def join_room(sid: str, data: RoomData):
         },
     )
     await netplay_socket_handler.socket_server.emit(
-        "users-updated", current_room["players"]
+        "users-updated", current_room["players"], room=session_id
     )
 
     return None, current_room["players"]
