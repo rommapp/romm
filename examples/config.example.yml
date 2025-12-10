@@ -44,8 +44,11 @@ system:
   # Asociate one platform to it's main version
   versions: {} # { naomi: 'arcade' }
 
+
 # The folder name where your roms are located
-filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is /home/user/library/roms_folder
+# filesystem:
+#   roms_folder: 'roms' # For example if your folder structure is /home/user/library/roms_folder
+#   skip_hash_calculation: false # Skip file hash calculations on low power devices (eg. Raspberry PI)
 
 # scan:
 #   # Metadata priority during scans
