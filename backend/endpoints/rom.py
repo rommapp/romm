@@ -564,7 +564,7 @@ async def head_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    files = list(db_rom_handler.get_rom_files(rom.id))
+    files = rom.files
     if file_ids:
         file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
         files = [f for f in files if f.id in file_id_values]
@@ -641,7 +641,7 @@ async def get_rom_content(
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
     hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
 
-    files = list(db_rom_handler.get_rom_files(rom.id))
+    files = rom.files
     if file_ids:
         file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
         files = [f for f in files if f.id in file_id_values]
