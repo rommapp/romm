@@ -120,7 +120,9 @@ def with_details(func):
             ),
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            selectinload(Rom.files).options(noload(RomFile.rom)),
+            selectinload(Rom.files).options(
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+            ),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform), noload(Rom.metadatum)
             ),
@@ -142,7 +144,9 @@ def with_simple(func):
             # Sort table by metadata (first_release_date)
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             # Required for multi-file ROM actions and 3DS QR code
-            selectinload(Rom.files).options(noload(RomFile.rom)),
+            selectinload(Rom.files).options(
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+            ),
             # Show sibling rom badges on cards
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform), noload(Rom.metadatum)
@@ -830,10 +834,6 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def add_rom_file(self, rom_file: RomFile, session: Session = None) -> RomFile:
         return session.merge(rom_file)
-
-    @begin_session
-    def get_rom_files(self, rom_id: int, session: Session = None) -> Sequence[RomFile]:
-        return session.scalars(select(RomFile).filter_by(rom_id=rom_id)).all()
 
     @begin_session
     def get_rom_file_by_id(self, id: int, session: Session = None) -> RomFile | None:
