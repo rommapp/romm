@@ -70,7 +70,7 @@ Here are a few projects maintained by members of our community. Please note that
 
 ### Handhelds
 
-- [Mortar][mortar]: Download client for NextUI by @UncleJunVIP
+- [Grout][grout]: Download client for muOS and NextUI by @UncleJunVIP
 - [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by @PeriBluGaming
 
 ### Other
@@ -163,5 +163,5 @@ Here are a few projects that we think you might like:
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
 [romm-android]: https://github.com/samwelnella/romm-android
-[mortar]: https://github.com/UncleJunVIP/Mortar
+[grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
