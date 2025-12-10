@@ -215,7 +215,7 @@ async def tinfoil_index_feed(
                 size=rom_file.file_size_bytes,
             )
             for rom in roms
-            for rom_file in db_rom_handler.get_rom_files(rom.id)
+            for rom_file in rom.files
             if rom_file.file_extension in ["xci", "nsp", "nsz", "xcz", "nro"]
         ],
         directories=[],
@@ -298,7 +298,7 @@ def pkgi_ps3_feed(
     txt_lines = []
 
     for rom in roms:
-        for file in db_rom_handler.get_rom_files(rom.id):
+        for file in rom.files:
             if not validate_pkgi_file(file, content_type_enum):
                 continue
 
@@ -369,7 +369,7 @@ def pkgi_psvita_feed(
     txt_lines = []
 
     for rom in roms:
-        for file in db_rom_handler.get_rom_files(rom.id):
+        for file in rom.files:
             if not validate_pkgi_file(file, content_type_enum):
                 continue
 
@@ -440,7 +440,7 @@ def pkgi_psp_feed(
     txt_lines = []
 
     for rom in roms:
-        for file in db_rom_handler.get_rom_files(rom.id):
+        for file in rom.files:
             if not validate_pkgi_file(file, content_type_enum):
                 continue
 
