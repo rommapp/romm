@@ -22,28 +22,28 @@ lint:
     - oxipng
     - pyright
   enabled:
-    - dotenv-linter@3.3.0
+    - dotenv-linter@4.0.0
     - hadolint@2.14.0
-    - markdownlint@0.45.0
+    - markdownlint@0.46.0
     - eslint@9.39.1
-    - actionlint@1.7.8
-    - bandit@1.8.6
-    - black@25.11.0
-    - checkov@3.2.492
+    - actionlint@1.7.9
+    - bandit@1.9.2
+    - black@25.12.0
+    - checkov@3.2.495
     - git-diff-check
     - isort@7.0.0
-    - mypy@1.18.2
-    - osv-scanner@2.2.4
-    - prettier@3.6.2:
+    - mypy@1.19.0
+    - osv-scanner@2.3.0
+    - prettier@3.7.4:
         packages:
           - "@trivago/prettier-plugin-sort-imports@6.0.0"
-          - "@vue/compiler-sfc@3.5.24"
-    - ruff@0.14.4
+          - "@vue/compiler-sfc@3.5.25"
+    - ruff@0.14.8
     - shellcheck@0.11.0
     - shfmt@3.6.0
     - taplo@0.10.0
-    - trivy@0.67.2
-    - trufflehog@3.90.13
+    - trivy@0.68.1
+    - trufflehog@3.92.1
     - yamllint@1.37.1
   ignore:
     - linters: [ALL]
