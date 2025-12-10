@@ -1039,7 +1039,16 @@ async def update_rom(
     # Handle special media files from Screenscraper when the ID has changed
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
         preferred_media_types = get_preferred_media_types()
+
         for media_type in preferred_media_types:
+            # Remove old media files if the ss_id is changing
+            if rom.ss_metadata and rom.ss_metadata.get(f"{media_type.value}_path"):
+                await fs_resource_handler.remove_media_resources_path(
+                    rom.platform_id,
+                    rom.id,
+                    media_type,
+                )
+
             if cleaned_data.get("ss_metadata", {}).get(f"{media_type.value}_path"):
                 await fs_resource_handler.store_media_file(
                     cleaned_data["ss_metadata"][f"{media_type.value}_url"],
