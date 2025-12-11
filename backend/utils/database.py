@@ -44,7 +44,7 @@ def is_mariadb(conn: sa.Connection, min_version: tuple[int, ...] | None = None) 
 
 
 def json_array_contains_value(
-    column: sa.Column, value: str | int, *, session: Session
+    column: sa.Column | Any, value: str | int, *, session: Session
 ) -> ColumnElement:
     """Check if a JSON array column contains the given value."""
     conn = session.get_bind()
@@ -66,11 +66,15 @@ def json_array_contains_value(
 
 
 def json_array_contains_any(
-    column: sa.Column, values: Sequence[str] | Sequence[int], *, session: Session
+    column: sa.Column | Any, values: Sequence[str] | Sequence[int], *, session: Session
 ) -> ColumnElement:
     """Check if a JSON array column contains any of the given values."""
     if not values:
         return sa.false()
+
+    # Optimize for single value case
+    if len(values) == 1:
+        return json_array_contains_value(column, values[0], session=session)
 
     conn = session.get_bind()
     if is_postgresql(conn):
@@ -98,7 +102,7 @@ def json_array_contains_any(
 
 
 def json_array_contains_all(
-    column: sa.Column, values: Sequence[Any], *, session: Session
+    column: sa.Column | Any, values: Sequence[Any], *, session: Session
 ) -> ColumnElement:
     """Check if a JSON array column contains all of the given values."""
     if not values:
