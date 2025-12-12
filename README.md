@@ -58,8 +58,9 @@ Here are a few projects maintained by members of our community. Please note that
 ### Mobile
 
 - [romm-mobile][romm-mobile]: Android (and soon iOS) app by @mattsays
+- [romm-ios-app][romm-ios-app]: Native iOS app by tmgast by @ilyas-hallak
 - [romm-android][romm-android]: Android app by @samwelnella
-- [romm-ios-app][romm-ios-app]: Native iOS app for RomM
+- [Argosy][argosy-launcher]: Native client for installing and launching games by @tmgast
 
 ### Desktop
 
@@ -165,3 +166,4 @@ Here are a few projects that we think you might like:
 [romm-android]: https://github.com/samwelnella/romm-android
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
+[argosy-launcher]: https://github.com/nendotools/argosy-launcher
