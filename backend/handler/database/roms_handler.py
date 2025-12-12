@@ -1115,5 +1115,5 @@ class DBRomsHandler(DBBaseHandler):
         if not filters:
             return None
 
-        # Return the first ROM matching any of the provided metadata IDs
+        # Return the first ROM matching any of the provided hash values
         return session.scalar(query.filter(or_(*filters)).limit(1))
