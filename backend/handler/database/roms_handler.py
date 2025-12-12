@@ -982,39 +982,79 @@ class DBRomsHandler(DBBaseHandler):
     @with_details
     def get_rom_by_metadata_id(
         self,
-        igdb: int | None = None,
-        moby: int | None = None,
-        ss: int | None = None,
-        ra: int | None = None,
-        launchbox: int | None = None,
-        hasheous: int | None = None,
-        tgdb: int | None = None,
-        flashpoint: str | None = None,
-        hltb: int | None = None,
+        igdb_id: int | None = None,
+        moby_id: int | None = None,
+        ss_id: int | None = None,
+        ra_id: int | None = None,
+        launchbox_id: int | None = None,
+        hasheous_id: int | None = None,
+        tgdb_id: int | None = None,
+        flashpoint_id: str | None = None,
+        hltb_id: int | None = None,
         *,
         query: Query = None,
         session: Session = None,
     ) -> Rom | None:
-        """Get a ROM by any metadata ID."""
-        filters = []
-        param_map = [
-            (igdb, Rom.igdb_id),
-            (moby, Rom.moby_id),
-            (ss, Rom.ss_id),
-            (ra, Rom.ra_id),
-            (launchbox, Rom.launchbox_id),
-            (hasheous, Rom.hasheous_id),
-            (tgdb, Rom.tgdb_id),
-            (flashpoint, Rom.flashpoint_id),
-            (hltb, Rom.hltb_id),
-        ]
+        """
+        Get a ROM by any metadata ID.
 
-        for value, column in param_map:
-            if value is not None:
-                filters.append(column == value)
+        Returns the first ROM that matches any of the provided metadata IDs.
+        """
+        # Build filters for non-nil IDs
+        filters = [
+            column == value
+            for value, column in [
+                (igdb_id, Rom.igdb_id),
+                (moby_id, Rom.moby_id),
+                (ss_id, Rom.ss_id),
+                (ra_id, Rom.ra_id),
+                (launchbox_id, Rom.launchbox_id),
+                (hasheous_id, Rom.hasheous_id),
+                (tgdb_id, Rom.tgdb_id),
+                (flashpoint_id, Rom.flashpoint_id),
+                (hltb_id, Rom.hltb_id),
+            ]
+            if value is not None
+        ]
 
         if not filters:
             return None
 
-        # Use OR to find ROM matching any of the provided metadata IDs
+        # Return the first ROM matching any of the provided metadata IDs
+        return session.scalar(query.filter(or_(*filters)).limit(1))
+
+    @begin_session
+    @with_details
+    def get_rom_by_hash(
+        self,
+        crc_hash: str | None,
+        md5_hash: str | None,
+        sha1_hash: str | None,
+        *,
+        query: Query = None,
+        session: Session = None,
+    ):
+        """
+        Get a ROM by calculated hash value.
+
+        Returns the first ROM that matches any of the provided hash values.
+        """
+        # Build filters for non-nil IDs
+        filters = [
+            column == value
+            for value, column in [
+                (crc_hash, Rom.crc_hash),
+                (md5_hash, Rom.md5_hash),
+                (sha1_hash, Rom.sha1_hash),
+                (crc_hash, RomFile.crc_hash),
+                (md5_hash, RomFile.md5_hash),
+                (sha1_hash, RomFile.sha1_hash),
+            ]
+            if value is not None
+        ]
+
+        if not filters:
+            return None
+
+        # Return the first ROM matching any of the provided metadata IDs
         return session.scalar(query.filter(or_(*filters)).limit(1))
