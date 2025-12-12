@@ -28,8 +28,8 @@ class DBPlatformsHandler(DBBaseHandler):
     def add_platform(
         self,
         platform: Platform,
-        query: Query = None,
-        session: Session = None,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Platform:
         platform = session.merge(platform)
         session.flush()
@@ -37,7 +37,12 @@ class DBPlatformsHandler(DBBaseHandler):
         return session.scalar(query.filter_by(id=platform.id).limit(1))
 
     @begin_session
-    def update_platform(self, id: int, data: dict, session: Session = None) -> Platform:
+    def update_platform(
+        self,
+        id: int,
+        data: dict,
+        session: Session = None,  # type: ignore
+    ) -> Platform:
         session.execute(
             update(Platform)
             .where(Platform.id == id)
@@ -49,26 +54,38 @@ class DBPlatformsHandler(DBBaseHandler):
     @begin_session
     @with_firmware
     def get_platform(
-        self, id: int, query: Query = None, session: Session = None
+        self,
+        id: int,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Platform | None:
         return session.scalar(query.filter_by(id=id).limit(1))
 
     @begin_session
     @with_firmware
     def get_platforms(
-        self, query: Query = None, session: Session = None
+        self,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Sequence[Platform]:
         return session.scalars(query.order_by(Platform.name.asc())).unique().all()
 
     @begin_session
     @with_firmware
     def get_platform_by_fs_slug(
-        self, fs_slug: str, query: Query = None, session: Session = None
+        self,
+        fs_slug: str,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Platform | None:
         return session.scalar(query.filter_by(fs_slug=fs_slug).limit(1))
 
     @begin_session
-    def delete_platform(self, id: int, session: Session = None) -> None:
+    def delete_platform(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
         # Remove all roms from that platforms first
         session.execute(
             delete(Rom)
@@ -86,8 +103,8 @@ class DBPlatformsHandler(DBBaseHandler):
     def mark_missing_platforms(
         self,
         fs_platforms_to_keep: list[str],
-        query: Query = None,
-        session: Session = None,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Sequence[Platform]:
         missing_platforms = (
             session.scalars(
