@@ -1033,7 +1033,7 @@ class DBRomsHandler(DBBaseHandler):
         *,
         query: Query = None,
         session: Session = None,
-    ):
+    ) -> Rom | None:
         """
         Get a ROM by calculated hash value.
 

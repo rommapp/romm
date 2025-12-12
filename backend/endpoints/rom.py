@@ -452,7 +452,7 @@ async def download_roms(
     router.get,
     "/by-metadata-provider",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={status.HTTP_404_NOT_FOUND: {}, status.HTTP_400_BAD_REQUEST: {}},
 )
 def get_rom_by_metadata_provider(
     request: Request,
@@ -521,14 +521,14 @@ def get_rom_by_metadata_provider(
     router.get,
     "/by-hash",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={status.HTTP_404_NOT_FOUND: {}, status.HTTP_400_BAD_REQUEST: {}},
 )
 def get_rom_by_hash(
     request: Request,
     crc_hash: Annotated[str | None, Query(description="CRC hash value")] = None,
     md5_hash: Annotated[str | None, Query(description="MD5 hash value")] = None,
     sha1_hash: Annotated[str | None, Query(description="SHA1 hash value")] = None,
-):
+) -> DetailedRomSchema:
     if not crc_hash and not md5_hash and not sha1_hash:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
