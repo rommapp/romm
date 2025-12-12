@@ -160,7 +160,12 @@ def with_simple(func):
 class DBRomsHandler(DBBaseHandler):
     @begin_session
     @with_details
-    def add_rom(self, rom: Rom, query: Query = None, session: Session = None) -> Rom:
+    def add_rom(
+        self,
+        rom: Rom,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
+    ) -> Rom:
         rom = session.merge(rom)
         session.flush()
 
@@ -169,14 +174,22 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     @with_details
     def get_rom(
-        self, id: int, *, query: Query = None, session: Session = None
+        self,
+        id: int,
+        *,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Rom | None:
         return session.scalar(query.filter_by(id=id).limit(1))
 
     @begin_session
     @with_details
     def get_roms_by_ids(
-        self, ids: list[int], *, query: Query = None, session: Session = None
+        self,
+        ids: list[int],
+        *,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Sequence[Rom]:
         """Get multiple ROMs by their IDs."""
         if not ids:
@@ -395,7 +408,7 @@ class DBRomsHandler(DBBaseHandler):
         selected_region: str | None = None,
         selected_language: str | None = None,
         user_id: int | None = None,
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
 
@@ -597,8 +610,8 @@ class DBRomsHandler(DBBaseHandler):
         order_by: str = "name",
         order_dir: str = "asc",
         user_id: int | None = None,
-        query: Query = None,
-        session: Session = None,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> tuple[Query[Rom], Any]:
         if user_id:
             query = query.outerjoin(
@@ -638,7 +651,7 @@ class DBRomsHandler(DBBaseHandler):
     def get_roms_scalar(
         self,
         *,
-        session: Session = None,
+        session: Session = None,  # type: ignore
         **kwargs,
     ) -> Sequence[Rom]:
         query, _ = self.get_roms_query(
@@ -673,7 +686,10 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def with_char_index(
-        self, query: Query, order_by_attr: Any, session: Session = None
+        self,
+        query: Query,
+        order_by_attr: Any,
+        session: Session = None,  # type: ignore
     ) -> list[Row[tuple[str, int]]]:
         if isinstance(order_by_attr.type, (String, Text)):
             # Remove any leading articles
@@ -715,8 +731,8 @@ class DBRomsHandler(DBBaseHandler):
         self,
         platform_id: int,
         fs_names: Iterable[str],
-        query: Query = None,
-        session: Session = None,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> dict[str, Rom]:
         """Retrieve a dictionary of roms by their filesystem names."""
         roms = (
@@ -731,7 +747,12 @@ class DBRomsHandler(DBBaseHandler):
         return {rom.fs_name: rom for rom in roms}
 
     @begin_session
-    def update_rom(self, id: int, data: dict, session: Session = None) -> Rom:
+    def update_rom(
+        self,
+        id: int,
+        data: dict,
+        session: Session = None,  # type: ignore
+    ) -> Rom:
         session.execute(
             update(Rom)
             .where(Rom.id == id)
@@ -741,7 +762,11 @@ class DBRomsHandler(DBBaseHandler):
         return session.query(Rom).filter_by(id=id).one()
 
     @begin_session
-    def delete_rom(self, id: int, session: Session = None) -> None:
+    def delete_rom(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
         session.execute(
             delete(Rom)
             .where(Rom.id == id)
@@ -750,7 +775,10 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def mark_missing_roms(
-        self, platform_id: int, fs_roms_to_keep: list[str], session: Session = None
+        self,
+        platform_id: int,
+        fs_roms_to_keep: list[str],
+        session: Session = None,  # type: ignore
     ) -> Sequence[Rom]:
         missing_roms = (
             session.scalars(
@@ -780,25 +808,38 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def add_rom_user(
-        self, rom_id: int, user_id: int, session: Session = None
+        self,
+        rom_id: int,
+        user_id: int,
+        session: Session = None,  # type: ignore
     ) -> RomUser:
         return session.merge(RomUser(rom_id=rom_id, user_id=user_id))
 
     @begin_session
     def get_rom_user(
-        self, rom_id: int, user_id: int, session: Session = None
+        self,
+        rom_id: int,
+        user_id: int,
+        session: Session = None,  # type: ignore
     ) -> RomUser | None:
         return session.scalar(
             select(RomUser).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
         )
 
     @begin_session
-    def get_rom_user_by_id(self, id: int, session: Session = None) -> RomUser | None:
+    def get_rom_user_by_id(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> RomUser | None:
         return session.scalar(select(RomUser).filter_by(id=id).limit(1))
 
     @begin_session
     def update_rom_user(
-        self, id: int, data: dict, session: Session = None
+        self,
+        id: int,
+        data: dict,
+        session: Session = None,  # type: ignore
     ) -> RomUser | None:
         session.execute(
             update(RomUser)
@@ -832,15 +873,28 @@ class DBRomsHandler(DBBaseHandler):
         return session.query(RomUser).filter_by(id=id).one()
 
     @begin_session
-    def add_rom_file(self, rom_file: RomFile, session: Session = None) -> RomFile:
+    def add_rom_file(
+        self,
+        rom_file: RomFile,
+        session: Session = None,  # type: ignore
+    ) -> RomFile:
         return session.merge(rom_file)
 
     @begin_session
-    def get_rom_file_by_id(self, id: int, session: Session = None) -> RomFile | None:
+    def get_rom_file_by_id(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> RomFile | None:
         return session.scalar(select(RomFile).filter_by(id=id).limit(1))
 
     @begin_session
-    def update_rom_file(self, id: int, data: dict, session: Session = None) -> RomFile:
+    def update_rom_file(
+        self,
+        id: int,
+        data: dict,
+        session: Session = None,  # type: ignore
+    ) -> RomFile:
         session.execute(
             update(RomFile)
             .where(RomFile.id == id)
@@ -852,7 +906,9 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def purge_rom_files(
-        self, rom_id: int, session: Session = None
+        self,
+        rom_id: int,
+        session: Session = None,  # type: ignore
     ) -> Sequence[RomFile]:
         purged_rom_files = (
             session.scalars(select(RomFile).filter_by(rom_id=rom_id)).unique().all()
@@ -873,7 +929,7 @@ class DBRomsHandler(DBBaseHandler):
         public_only: bool = False,
         search: str = "",
         tags: list[str] | None = None,
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> Sequence[RomNote]:
         query = session.query(RomNote).filter(RomNote.rom_id == rom_id)
 
@@ -905,7 +961,7 @@ class DBRomsHandler(DBBaseHandler):
         content: str = "",
         is_public: bool = False,
         tags: list[str] | None = None,
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> dict:
         note = RomNote(
             rom_id=rom_id,
@@ -936,7 +992,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         note_id: int,
         user_id: int,
-        session: Session = None,
+        session: Session = None,  # type: ignore
         **fields,
     ) -> dict | None:
         note = (
@@ -969,7 +1025,10 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def delete_rom_note(
-        self, note_id: int, user_id: int, session: Session = None
+        self,
+        note_id: int,
+        user_id: int,
+        session: Session = None,  # type: ignore
     ) -> bool:
         result = session.execute(
             delete(RomNote).where(
@@ -992,8 +1051,8 @@ class DBRomsHandler(DBBaseHandler):
         flashpoint_id: str | None = None,
         hltb_id: int | None = None,
         *,
-        query: Query = None,
-        session: Session = None,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Rom | None:
         """
         Get a ROM by any metadata ID.
@@ -1031,8 +1090,8 @@ class DBRomsHandler(DBBaseHandler):
         md5_hash: str | None,
         sha1_hash: str | None,
         *,
-        query: Query = None,
-        session: Session = None,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Rom | None:
         """
         Get a ROM by calculated hash value.
