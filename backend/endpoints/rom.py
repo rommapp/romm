@@ -511,7 +511,7 @@ def get_rom_by_metadata_provider(
     if not rom:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ROM not found with given metadata IDs",
+            detail="ROM not found with given metadata IDs",
         )
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
@@ -542,7 +542,7 @@ def get_rom_by_hash(
     if not rom:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No ROM or file found with given hash values",
+            detail="No ROM or file found with given hash values",
         )
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
