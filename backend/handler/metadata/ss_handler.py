@@ -822,6 +822,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.LINUX: {"id": 145, "name": "Linux"},
     UPS.LYNX: {"id": 28, "name": "Lynx"},
     UPS.MSX: {"id": 113, "name": "MSX"},
+    UPS.MSX2: {"id": 116, "name": "MSX2"},
     UPS.MSX_TURBO: {"id": 118, "name": "MSX Turbo R"},
     UPS.MAC: {"id": 146, "name": "Mac OS"},
     UPS.NGAGE: {"id": 30, "name": "N-Gage"},
