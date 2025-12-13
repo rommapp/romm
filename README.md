@@ -58,7 +58,7 @@ Here are a few projects maintained by members of our community. Please note that
 ### Mobile
 
 - [romm-mobile][romm-mobile]: Android (and soon iOS) app by @mattsays
-- [romm-ios-app][romm-ios-app]: Native iOS app by tmgast by @ilyas-hallak
+- [romm-ios-app][romm-ios-app]: Native iOS app by @ilyas-hallak
 - [romm-android][romm-android]: Android app by @samwelnella
 - [Argosy][argosy-launcher]: Native client for installing and launching games by @tmgast
 
