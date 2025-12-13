@@ -38,27 +38,46 @@ class DBUsersHandler(DBBaseHandler):
         return query
 
     @begin_session
-    def add_user(self, user: User, session: Session = None) -> User:
+    def add_user(
+        self,
+        user: User,
+        session: Session = None,  # type: ignore
+    ) -> User:
         return session.merge(user)
 
     @begin_session
     def get_user_by_username(
-        self, username: str, session: Session = None
+        self,
+        username: str,
+        session: Session = None,  # type: ignore
     ) -> User | None:
         query = self.filter(select(User), usernames=[username])
         return session.scalar(query.limit(1))
 
     @begin_session
-    def get_user_by_email(self, email: str, session: Session = None) -> User | None:
+    def get_user_by_email(
+        self,
+        email: str,
+        session: Session = None,  # type: ignore
+    ) -> User | None:
         query = self.filter(select(User), emails=[email])
         return session.scalar(query.limit(1))
 
     @begin_session
-    def get_user(self, id: int, session: Session = None) -> User | None:
+    def get_user(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> User | None:
         return session.get(User, id)
 
     @begin_session
-    def update_user(self, id: int, data: dict, session: Session = None) -> User:
+    def update_user(
+        self,
+        id: int,
+        data: dict,
+        session: Session = None,  # type: ignore
+    ) -> User:
         session.execute(
             update(User)
             .where(User.id == id)
@@ -75,7 +94,7 @@ class DBUsersHandler(DBBaseHandler):
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
         has_ra_username: bool | None = None,
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> Sequence[User]:
         query = self.filter(
             select(User),
@@ -87,7 +106,11 @@ class DBUsersHandler(DBBaseHandler):
         return session.scalars(query).all()
 
     @begin_session
-    def delete_user(self, id: int, session: Session = None):
+    def delete_user(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ):
         return session.execute(
             delete(User)
             .where(User.id == id)
@@ -95,6 +118,9 @@ class DBUsersHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_admin_users(self, session: Session = None) -> Sequence[User]:
+    def get_admin_users(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[User]:
         query = self.filter(select(User), roles=[Role.ADMIN])
         return session.scalars(query).all()

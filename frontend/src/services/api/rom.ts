@@ -183,15 +183,14 @@ async function getRom({
 }
 
 async function getRomByMetadataProvider({
-  provider,
+  field,
   id,
 }: {
-  provider: string;
+  field: Partial<keyof DetailedRom>;
   id: number;
 }): Promise<{ data: DetailedRom }> {
-  const params = { [provider]: id };
   return api.get(`/roms/by-metadata-provider/`, {
-    params,
+    params: { [field]: id },
   });
 }
 
