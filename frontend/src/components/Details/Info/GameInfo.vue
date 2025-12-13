@@ -77,6 +77,11 @@ const dataSources = computed(() => {
       condition: props.rom.hltb_id,
       url: `https://howlongtobeat.com/game/${props.rom.hltb_id}`,
     },
+    {
+      name: "Giant Bomb",
+      condition: props.rom.giantbomb_id,
+      url: props.rom.giantbomb_metadata?.site_url,
+    },
   ].filter((source) => source.condition);
 });
 
@@ -108,6 +113,7 @@ const coverImageSource = computed(() => {
     if (hostname === "hasheous.org") return "Hasheous";
     if (hostname === "infinity.unstable.life") return "Flashpoint";
     if (hostname === "howlongtobeat.com") return "HowLongToBeat";
+    if (hostname === "giantbomb") return "Giantbomb";
 
     return null;
   } catch {

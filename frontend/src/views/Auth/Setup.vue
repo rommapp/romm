@@ -73,6 +73,12 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/sgdb.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
   },
+  {
+    name: "Giant Bomb",
+    value: "giantbomb",
+    logo_path: "/assets/scrappers/giantbomb.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.GIANTBOMB_API_ENABLED,
+  },
 ]);
 const defaultAdminUser = ref({
   username: "",
