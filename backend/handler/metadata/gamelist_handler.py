@@ -1,3 +1,4 @@
+import glob
 import os
 import uuid
 from pathlib import Path
@@ -163,6 +164,37 @@ def extract_media_from_gamelist_rom(
             f"{platform_dir}/{video_elem.text.replace('./', '')}"
         )
         gamelist_media["video_url"] = f"file://{str(video_path_path)}"
+
+    media_map = {
+        "image_url": "images",
+        "box2d_url": "covers",
+        "box2d_back_url": "backcovers",
+        "box3d_url": "3dboxes",
+        "fanart_url": "fanart",
+        "manual_url": "manuals",
+        "marquee_url": "marquees",
+        "miximage_url": "miximages",
+        "physical_url": "physicalmedia",
+        "screenshot_url": "screenshots",
+        "title_screen_url": "titlescreens",
+        "thumbnail_url": "thumbnails",
+        "video_url": "videos",
+    }
+
+    path_elem = game.find("path")
+    if path_elem is not None and path_elem.text:
+        rom_basename = os.path.basename(path_elem.text)
+        for media_type, folder_name in media_map.items():
+            if gamelist_media[media_type]:
+                continue
+
+            search_path = os.path.join(
+                platform_dir, folder_name, f"{os.path.splitext(rom_basename)[0]}.*"
+            )
+            found_files = glob.glob(search_path)
+            print("found_files", search_path, found_files)
+            if found_files:
+                gamelist_media[media_type] = f"file://{str(found_files[0])}"
 
     return gamelist_media
 
@@ -376,8 +408,10 @@ class GamelistHandler(MetadataHandler):
 
                 # Choose which cover style to use
                 cover_url = rom_metadata["box2d_url"] or rom_metadata["image_url"]
+                print("URL_COVER", cover_url)
                 if cover_url:
                     rom_data["url_cover"] = cover_url
+                    print("URL_COVER", cover_url)
 
                 # Grab the manual
                 manual_url = rom_metadata["manual_url"]
@@ -433,7 +467,7 @@ class GamelistHandler(MetadataHandler):
             if gamelist_metadata:
                 rom_specific_paths = populate_rom_specific_paths(gamelist_metadata, rom)
                 # trunk-ignore(mypy/call-arg)
-                gamelist_metadata.update(**rom_specific_paths)
+                gamelist_metadata.update(**rom_specific_paths)  # type: ignore
                 matched_rom["gamelist_metadata"] = gamelist_metadata
 
             return matched_rom
