@@ -188,11 +188,12 @@ def extract_media_from_gamelist_rom(
             if gamelist_media[media_type]:
                 continue
 
-            search_path = os.path.join(
-                platform_dir, folder_name, f"{os.path.splitext(rom_basename)[0]}.*"
+            search_path = fs_platform_handler.validate_path(
+                os.path.join(
+                    platform_dir, folder_name, f"{os.path.splitext(rom_basename)[0]}.*"
+                )
             )
-            found_files = glob.glob(search_path)
-            print("found_files", search_path, found_files)
+            found_files = glob.glob(str(search_path))
             if found_files:
                 gamelist_media[media_type] = f"file://{str(found_files[0])}"
 
@@ -408,10 +409,8 @@ class GamelistHandler(MetadataHandler):
 
                 # Choose which cover style to use
                 cover_url = rom_metadata["box2d_url"] or rom_metadata["image_url"]
-                print("URL_COVER", cover_url)
                 if cover_url:
                     rom_data["url_cover"] = cover_url
-                    print("URL_COVER", cover_url)
 
                 # Grab the manual
                 manual_url = rom_metadata["manual_url"]
