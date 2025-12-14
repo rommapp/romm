@@ -64,12 +64,12 @@
 #   # [your custom platform folder name]: [RomM platform name]
 #   # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
 #   platforms:
-#     - gc: ngc
-#     - ps1: psx
+#     gc: ngc
+#     ps1: psx
 
 #   # Asociate one platform to it's main version (IGDB only)
 #   versions:
-#     - naomi: arcade
+#     naomi: arcade
 
 # The folder name where your roms are located
 # filesystem:
