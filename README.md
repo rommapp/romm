@@ -73,6 +73,7 @@ Here are a few projects maintained by members of our community. Please note that
 
 - [Grout][grout]: Download client for muOS and NextUI by @UncleJunVIP
 - [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by @PeriBluGaming
+- [SwitchRomM][switch-romm]: Homebrew NRO for Switch by @Shalasere
 
 ### Other
 
@@ -155,6 +156,7 @@ Here are a few projects that we think you might like:
 [retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
+[switch-romm]: https://github.com/Shalasere/SwitchRomM
 [romm-browser]: https://github.com/smurflabs/RommBrowser/
 [romm-mobile]: https://github.com/mattsays/romm-mobile
 [playnite-app]: https://github.com/rommapp/playnite-plugin
