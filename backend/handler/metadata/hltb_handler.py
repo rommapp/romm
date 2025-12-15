@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from typing import Final, NotRequired, TypedDict
 
 import httpx
@@ -177,16 +178,21 @@ class HLTBHandler(MetadataHandler):
         self.user_endpoint = f"{self.base_url}/api/user"
         self.stats_endpoint = f"{self.base_url}/api/stats/games?platform=1&year=2000"
         self.search_url = f"{self.base_url}/api/search"
+        self.search_init_url = f"{self.base_url}/api/search/init"
+        self.security_token = None
         self.min_similarity_score: Final = 0.85
 
         # HLTB rotates their search endpoint regularly
-        self.fetch_search_endpoint()
+        self._fetch_search_endpoint()
+
+        # HLTB now requires a security token
+        self._fetch_security_token()
 
     @classmethod
     def is_enabled(cls) -> bool:
         return HLTB_API_ENABLED
 
-    def fetch_search_endpoint(self):
+    def _fetch_search_endpoint(self):
         """Fetch the API endpoint URL from Github."""
         if not HLTB_API_ENABLED:
             return
@@ -198,6 +204,29 @@ class HLTBHandler(MetadataHandler):
                 self.search_url = response.text.strip()
         except Exception as e:
             log.warning("Unexpected error fetching HLTB endpoint from GitHub: %s", e)
+
+    def _fetch_security_token(self):
+        if not HLTB_API_ENABLED:
+            return
+
+        headers = {
+            "Referer": "https://howlongtobeat.com",
+            "User-Agent": f"RomM/{get_version()}",
+        }
+        params = {"t": int(time.time())}
+
+        try:
+            with httpx.Client() as client:
+                response = client.get(
+                    self.search_init_url,
+                    params=params,
+                    headers=headers,
+                    timeout=10,
+                )
+                response.raise_for_status()
+                self.security_token = response.json().get("token", None)
+        except Exception as e:
+            log.warning("Unexpected error fetching HLTB security token: %s", e)
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
@@ -222,13 +251,16 @@ class HLTBHandler(MetadataHandler):
         :return: A dictionary with the json result.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
+        if not self.security_token:
+            return {}
+
         httpx_client = ctx_httpx_client.get()
 
         headers = {
             "Content-Type": "application/json",
             "Referer": "https://howlongtobeat.com",
             "User-Agent": f"RomM/{get_version()}",
-            "Accept-Encoding": "gzip, deflate",
+            "X-Auth-Token": self.security_token,
         }
 
         log.debug(
