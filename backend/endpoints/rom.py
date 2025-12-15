@@ -204,6 +204,10 @@ def get_roms(
         int | None,
         Query(description="Platform internal id.", ge=1),
     ] = None,
+    fs_slug: Annotated[
+        str | None,
+        Query(description="Platform folder name."),
+    ] = None,
     collection_id: Annotated[
         int | None,
         Query(description="Collection internal id.", ge=1),
@@ -307,6 +311,7 @@ def get_roms(
         query=query,
         user_id=request.user.id,
         platform_id=platform_id,
+        fs_slug=fs_slug,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,
         smart_collection_id=smart_collection_id,

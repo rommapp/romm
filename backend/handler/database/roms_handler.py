@@ -186,6 +186,11 @@ class DBRomsHandler(DBBaseHandler):
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
 
+    def filter_by_platform_fs_slug(self, query: Query, fs_slug: str):
+        return query.filter(
+            func.substring_index(Rom.fs_path, '/', -1) == fs_slug
+        )
+
     def filter_by_collection_id(
         self, query: Query, session: Session, collection_id: int
     ):
@@ -374,6 +379,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         query: Query,
         platform_id: int | None = None,
+        fs_slug: str | None = None,
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
         smart_collection_id: int | None = None,
@@ -401,6 +407,9 @@ class DBRomsHandler(DBBaseHandler):
 
         if platform_id:
             query = self.filter_by_platform_id(query, platform_id)
+
+        if fs_slug:
+            query = self.filter_by_platform_fs_slug(query, fs_slug)
 
         if collection_id:
             query = self.filter_by_collection_id(query, session, collection_id)
