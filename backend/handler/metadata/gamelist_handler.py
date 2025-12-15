@@ -1,7 +1,8 @@
+import glob
 import os
 import uuid
 from pathlib import Path
-from typing import NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict
 from xml.etree.ElementTree import Element  # trunk-ignore(bandit/B405)
 
 import pydash
@@ -63,6 +64,47 @@ class GamelistRom(BaseRom):
     gamelist_metadata: NotRequired[GamelistMetadata]
 
 
+ESDE_MEDIA_MAP: Final = {
+    "image_url": "images",
+    "box2d_url": "covers",
+    "box2d_back_url": "backcovers",
+    "box3d_url": "3dboxes",
+    "fanart_url": "fanart",
+    "manual_url": "manuals",
+    "marquee_url": "marquees",
+    "miximage_url": "miximages",
+    "physical_url": "physicalmedia",
+    "screenshot_url": "screenshots",
+    "title_screen_url": "titlescreens",
+    "thumbnail_url": "thumbnails",
+    "video_url": "videos",
+}
+
+XML_TAG_MAP: Final = {
+    "image_url": "image",
+    "box2d_url": "cover",
+    "box2d_back_url": "backcover",
+    "box3d_url": "box3d",
+    "fanart_url": "fanart",
+    "manual_url": "manual",
+    "marquee_url": "marquee",
+    "miximage_url": "miximage",
+    "physical_url": "physicalmedia",
+    "screenshot_url": "screenshot",
+    "title_screen_url": "title_screen",
+    "thumbnail_url": "thumbnail",
+    "video_url": "video",
+}
+
+
+def _make_file_uri(platform_dir: str, raw_text: str) -> str:
+    cleaned_text = raw_text.replace("./", "")
+    validated_path = fs_platform_handler.validate_path(
+        os.path.join(platform_dir, cleaned_text)
+    )
+    return f"file://{str(validated_path)}"
+
+
 def extract_media_from_gamelist_rom(
     game: Element, platform: Platform
 ) -> GamelistMetadataMedia:
@@ -84,85 +126,29 @@ def extract_media_from_gamelist_rom(
         video_url=None,
     )
 
-    image_elem = game.find("image")
-    video_elem = game.find("video")
-    box3d_elem = game.find("box3d")
-    box2d_back_elem = game.find("backcover")
-    box2d_elem = game.find("cover")
-    fanart_elem = game.find("fanart")
-    manual_elem = game.find("manual")
-    marquee_elem = game.find("marquee")
-    miximage_elem = game.find("miximage")
-    physical_elem = game.find("physicalmedia")
-    screenshot_elem = game.find("screenshot")
-    title_screen_elem = game.find("title_screen")
-    thumbnail_elem = game.find("thumbnail")
+    # Check explicit XML elements defined in gamelist.xml
+    for media_key, xml_tag in XML_TAG_MAP.items():
+        elem = game.find(xml_tag)
+        if elem is not None and elem.text:
+            # trunk-ignore(mypy/literal-required)
+            gamelist_media[media_key] = _make_file_uri(platform_dir, elem.text)
 
-    if image_elem is not None and image_elem.text:
-        image_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{image_elem.text.replace('./', '')}"
-        )
-        gamelist_media["image_url"] = f"file://{str(image_path_path)}"
-    if box2d_elem is not None and box2d_elem.text:
-        box2d_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{box2d_elem.text.replace('./', '')}"
-        )
-        gamelist_media["box2d_url"] = f"file://{str(box2d_path_path)}"
-    if box2d_back_elem is not None and box2d_back_elem.text:
-        box2d_back_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{box2d_back_elem.text.replace('./', '')}"
-        )
-        gamelist_media["box2d_back_url"] = f"file://{str(box2d_back_path_path)}"
-    if box3d_elem is not None and box3d_elem.text:
-        box3d_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{box3d_elem.text.replace('./', '')}"
-        )
-        gamelist_media["box3d_url"] = f"file://{str(box3d_path_path)}"
-    if fanart_elem is not None and fanart_elem.text:
-        fanart_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{fanart_elem.text.replace('./', '')}"
-        )
-        gamelist_media["fanart_url"] = f"file://{str(fanart_path_path)}"
-    if manual_elem is not None and manual_elem.text:
-        manual_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{manual_elem.text.replace('./', '')}"
-        )
-        gamelist_media["manual_url"] = f"file://{str(manual_path_path)}"
-    if marquee_elem is not None and marquee_elem.text:
-        marquee_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{marquee_elem.text.replace('./', '')}"
-        )
-        gamelist_media["marquee_url"] = f"file://{str(marquee_path_path)}"
-    if miximage_elem is not None and miximage_elem.text:
-        miximage_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{miximage_elem.text.replace('./', '')}"
-        )
-        gamelist_media["miximage_url"] = f"file://{str(miximage_path_path)}"
-    if physical_elem is not None and physical_elem.text:
-        physical_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{physical_elem.text.replace('./', '')}"
-        )
-        gamelist_media["physical_url"] = f"file://{str(physical_path_path)}"
-    if screenshot_elem is not None and screenshot_elem.text:
-        screenshot_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{screenshot_elem.text.replace('./', '')}"
-        )
-        gamelist_media["screenshot_url"] = f"file://{str(screenshot_path_path)}"
-    if title_screen_elem is not None and title_screen_elem.text:
-        title_screen_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{title_screen_elem.text.replace('./', '')}"
-        )
-        gamelist_media["title_screen_url"] = f"file://{str(title_screen_path_path)}"
-    if thumbnail_elem is not None and thumbnail_elem.text:
-        thumbnail_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{thumbnail_elem.text.replace('./', '')}"
-        )
-        gamelist_media["thumbnail_url"] = f"file://{str(thumbnail_path_path)}"
-    if video_elem is not None and video_elem.text:
-        video_path_path = fs_platform_handler.validate_path(
-            f"{platform_dir}/{video_elem.text.replace('./', '')}"
-        )
-        gamelist_media["video_url"] = f"file://{str(video_path_path)}"
+    # Fallback to searching media folders by ROM basename
+    path_elem = game.find("path")
+    if path_elem is not None and path_elem.text:
+        rom_stem = os.path.splitext(os.path.basename(path_elem.text))[0]
+
+        for media_key, folder_name in ESDE_MEDIA_MAP.items():
+            # trunk-ignore(mypy/literal-required)
+            if gamelist_media[media_key]:
+                continue
+
+            search_pattern = os.path.join(platform_dir, folder_name, f"{rom_stem}.*")
+            search_path = fs_platform_handler.validate_path(search_pattern)
+            found_files = glob.glob(str(search_path))
+            if found_files:
+                # trunk-ignore(mypy/literal-required)
+                gamelist_media[media_key] = f"file://{str(found_files[0])}"
 
     return gamelist_media
 
@@ -432,8 +418,7 @@ class GamelistHandler(MetadataHandler):
             # Populate ROM-specific paths using the actual rom object
             if gamelist_metadata:
                 rom_specific_paths = populate_rom_specific_paths(gamelist_metadata, rom)
-                # trunk-ignore(mypy/call-arg)
-                gamelist_metadata.update(**rom_specific_paths)
+                gamelist_metadata.update(**rom_specific_paths)  # type: ignore
                 matched_rom["gamelist_metadata"] = gamelist_metadata
 
             return matched_rom
