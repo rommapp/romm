@@ -12,16 +12,29 @@ from .base_handler import DBBaseHandler
 
 class DBSavesHandler(DBBaseHandler):
     @begin_session
-    def add_save(self, save: Save, session: Session = None) -> Save:
+    def add_save(
+        self,
+        save: Save,
+        session: Session = None,  # type: ignore
+    ) -> Save:
         return session.merge(save)
 
     @begin_session
-    def get_save(self, user_id: int, id: int, session: Session = None) -> Save | None:
+    def get_save(
+        self,
+        user_id: int,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> Save | None:
         return session.scalar(select(Save).filter_by(user_id=user_id, id=id).limit(1))
 
     @begin_session
     def get_save_by_filename(
-        self, user_id: int, rom_id: int, file_name: str, session: Session = None
+        self,
+        user_id: int,
+        rom_id: int,
+        file_name: str,
+        session: Session = None,  # type: ignore
     ) -> Save | None:
         return session.scalars(
             select(Save)
@@ -35,7 +48,7 @@ class DBSavesHandler(DBBaseHandler):
         user_id: int,
         rom_id: int | None = None,
         platform_id: int | None = None,
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> Sequence[Save]:
         query = select(Save).filter_by(user_id=user_id)
 
@@ -50,7 +63,12 @@ class DBSavesHandler(DBBaseHandler):
         return session.scalars(query).all()
 
     @begin_session
-    def update_save(self, id: int, data: dict, session: Session = None) -> Save:
+    def update_save(
+        self,
+        id: int,
+        data: dict,
+        session: Session = None,  # type: ignore
+    ) -> Save:
         session.execute(
             update(Save)
             .where(Save.id == id)
@@ -60,7 +78,11 @@ class DBSavesHandler(DBBaseHandler):
         return session.query(Save).filter_by(id=id).one()
 
     @begin_session
-    def delete_save(self, id: int, session: Session = None) -> None:
+    def delete_save(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
         session.execute(
             delete(Save)
             .where(Save.id == id)
@@ -73,7 +95,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         saves_to_keep: list[str],
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> Sequence[Save]:
         missing_saves = session.scalars(
             select(Save).filter(
