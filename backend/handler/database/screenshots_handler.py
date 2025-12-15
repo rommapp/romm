@@ -41,7 +41,9 @@ class DBScreenshotsHandler(DBBaseHandler):
 
     @begin_session
     def add_screenshot(
-        self, screenshot: Screenshot, session: Session = None
+        self,
+        screenshot: Screenshot,
+        session: Session = None,  # type: ignore
     ) -> Screenshot:
         return session.merge(screenshot)
 
@@ -53,7 +55,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         filename_no_ext: str | None = None,
         rom_id: int | None = None,
         user_id: int | None = None,
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> Screenshot | None:
         query = self.filter(
             select(Screenshot),
@@ -65,12 +67,19 @@ class DBScreenshotsHandler(DBBaseHandler):
         return session.scalars(query.limit(1)).first()
 
     @begin_session
-    def get_screenshot_by_id(self, id, session: Session = None) -> Screenshot | None:
+    def get_screenshot_by_id(
+        self,
+        id,
+        session: Session = None,  # type: ignore
+    ) -> Screenshot | None:
         return session.get(Screenshot, id)
 
     @begin_session
     def update_screenshot(
-        self, id: int, data: dict, session: Session = None
+        self,
+        id: int,
+        data: dict,
+        session: Session = None,  # type: ignore
     ) -> Screenshot:
         session.execute(
             update(Screenshot)
@@ -81,7 +90,11 @@ class DBScreenshotsHandler(DBBaseHandler):
         return session.query(Screenshot).filter_by(id=id).one()
 
     @begin_session
-    def delete_screenshot(self, id: int, session: Session = None) -> None:
+    def delete_screenshot(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
         session.execute(
             delete(Screenshot)
             .where(Screenshot.id == id)
@@ -94,7 +107,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         screenshots_to_keep: list[str],
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> Sequence[Screenshot]:
         query_fn = partial(
             self.filter,

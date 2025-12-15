@@ -12,16 +12,29 @@ from .base_handler import DBBaseHandler
 
 class DBStatesHandler(DBBaseHandler):
     @begin_session
-    def add_state(self, state: State, session: Session = None) -> State:
+    def add_state(
+        self,
+        state: State,
+        session: Session = None,  # type: ignore
+    ) -> State:
         return session.merge(state)
 
     @begin_session
-    def get_state(self, user_id: int, id: int, session: Session = None) -> State | None:
+    def get_state(
+        self,
+        user_id: int,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> State | None:
         return session.scalar(select(State).filter_by(user_id=user_id, id=id).limit(1))
 
     @begin_session
     def get_state_by_filename(
-        self, user_id: int, rom_id: int, file_name: str, session: Session = None
+        self,
+        user_id: int,
+        rom_id: int,
+        file_name: str,
+        session: Session = None,  # type: ignore
     ) -> State | None:
         return session.scalar(
             select(State)
@@ -35,7 +48,7 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_id: int | None = None,
         platform_id: int | None = None,
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> Sequence[State]:
         query = select(State).filter_by(user_id=user_id)
 
@@ -50,7 +63,12 @@ class DBStatesHandler(DBBaseHandler):
         return session.scalars(query).all()
 
     @begin_session
-    def update_state(self, id: int, data: dict, session: Session = None) -> State:
+    def update_state(
+        self,
+        id: int,
+        data: dict,
+        session: Session = None,  # type: ignore
+    ) -> State:
         session.execute(
             update(State)
             .where(State.id == id)
@@ -60,7 +78,11 @@ class DBStatesHandler(DBBaseHandler):
         return session.query(State).filter_by(id=id).one()
 
     @begin_session
-    def delete_state(self, id: int, session: Session = None) -> None:
+    def delete_state(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
         session.execute(
             delete(State)
             .where(State.id == id)
@@ -73,7 +95,7 @@ class DBStatesHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         states_to_keep: list[str],
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> Sequence[State]:
         missing_states = session.scalars(
             select(State).filter(

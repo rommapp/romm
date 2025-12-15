@@ -38,7 +38,10 @@ class DBCollectionsHandler(DBBaseHandler):
     @begin_session
     @with_roms
     def add_collection(
-        self, collection: Collection, query: Query = None, session: Session = None
+        self,
+        collection: Collection,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Collection:
         collection = session.merge(collection)
         session.flush()
@@ -48,21 +51,31 @@ class DBCollectionsHandler(DBBaseHandler):
     @begin_session
     @with_roms
     def get_collection(
-        self, id: int, query: Query = None, session: Session = None
+        self,
+        id: int,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Collection | None:
         return session.scalar(query.filter_by(id=id).limit(1))
 
     @begin_session
     @with_roms
     def get_collection_by_name(
-        self, name: str, user_id: int, query: Query = None, session: Session = None
+        self,
+        name: str,
+        user_id: int,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Collection | None:
         return session.scalar(query.filter_by(name=name, user_id=user_id).limit(1))
 
     @begin_session
     @with_roms
     def get_favorite_collection(
-        self, user_id: int, query: Query = None, session: Session = None
+        self,
+        user_id: int,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Collection | None:
         return session.scalar(
             query.filter_by(is_favorite=True, user_id=user_id).limit(1)
@@ -71,7 +84,9 @@ class DBCollectionsHandler(DBBaseHandler):
     @begin_session
     @with_roms
     def get_collections(
-        self, query: Query = None, session: Session = None
+        self,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Sequence[Collection]:
         return session.scalars(query.order_by(Collection.name.asc())).unique().all()
 
@@ -82,8 +97,8 @@ class DBCollectionsHandler(DBBaseHandler):
         id: int,
         data: dict,
         rom_ids: list[int] | None = None,
-        query: Query = None,
-        session: Session = None,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
     ) -> Collection:
         session.execute(
             update(Collection)
@@ -110,7 +125,11 @@ class DBCollectionsHandler(DBBaseHandler):
         return session.scalar(query.filter_by(id=id).limit(1))
 
     @begin_session
-    def delete_collection(self, id: int, session: Session = None) -> None:
+    def delete_collection(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
         session.execute(
             delete(Collection)
             .where(Collection.id == id)
@@ -120,7 +139,9 @@ class DBCollectionsHandler(DBBaseHandler):
     # Virtual collections
     @begin_session
     def get_virtual_collection(
-        self, id: str, session: Session = None
+        self,
+        id: str,
+        session: Session = None,  # type: ignore
     ) -> VirtualCollection | None:
         name, type = VirtualCollection.from_id(id)
         return session.scalar(
@@ -129,7 +150,10 @@ class DBCollectionsHandler(DBBaseHandler):
 
     @begin_session
     def get_virtual_collections(
-        self, type: str, limit: int | None = None, session: Session = None
+        self,
+        type: str,
+        limit: int | None = None,
+        session: Session = None,  # type: ignore
     ) -> Sequence[VirtualCollection]:
         return (
             session.scalars(
@@ -145,7 +169,9 @@ class DBCollectionsHandler(DBBaseHandler):
     # Smart collections
     @begin_session
     def add_smart_collection(
-        self, smart_collection: SmartCollection, session: Session = None
+        self,
+        smart_collection: SmartCollection,
+        session: Session = None,  # type: ignore
     ) -> SmartCollection:
         smart_collection = session.merge(smart_collection)
         session.flush()
@@ -154,13 +180,18 @@ class DBCollectionsHandler(DBBaseHandler):
 
     @begin_session
     def get_smart_collection(
-        self, id: int, session: Session = None
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
     ) -> SmartCollection | None:
         return session.scalar(select(SmartCollection).filter_by(id=id).limit(1))
 
     @begin_session
     def get_smart_collection_by_name(
-        self, name: str, user_id: int, session: Session = None
+        self,
+        name: str,
+        user_id: int,
+        session: Session = None,  # type: ignore
     ) -> SmartCollection | None:
         return session.scalar(
             select(SmartCollection).filter_by(name=name, user_id=user_id).limit(1)
@@ -168,7 +199,9 @@ class DBCollectionsHandler(DBBaseHandler):
 
     @begin_session
     def get_smart_collections(
-        self, user_id: int | None = None, session: Session = None
+        self,
+        user_id: int | None = None,
+        session: Session = None,  # type: ignore
     ) -> Sequence[SmartCollection]:
         query = select(SmartCollection).order_by(SmartCollection.name.asc())
 
@@ -185,7 +218,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         id: int,
         data: dict[str, Any],
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> SmartCollection:
         session.execute(
             update(SmartCollection)
@@ -197,7 +230,11 @@ class DBCollectionsHandler(DBBaseHandler):
         return session.query(SmartCollection).filter_by(id=id).one()
 
     @begin_session
-    def delete_smart_collection(self, id: int, session: Session = None) -> None:
+    def delete_smart_collection(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
         session.execute(
             delete(SmartCollection)
             .where(SmartCollection.id == id)
