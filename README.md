@@ -2,20 +2,16 @@
 <!-- trunk-ignore(markdownlint/MD041) -->
 <div align="center">
   <img src=".github/resources/isotipo.png" height="180px" width="auto" alt="romm logo">
-  <br />
-  <img src=".github/resources/logotipo.png" height="45px" width="auto" alt="romm logotype">
 
   <h3 style="font-size: 25px;">
     A beautiful, powerful, self-hosted ROM manager and player.
   </h3>
-  <br/>
-
-[![license-badge-img]][license-badge]
-[![release-badge-img]][release-badge]
-[![docker-pulls-badge-img]][docker-pulls-badge]
 
 [![discord-badge-img]][discord-badge]
 [![docs-badge-img]][docs]
+[![license-badge-img]][license-badge]
+[![release-badge-img]][release-badge]
+[![docker-pulls-badge-img]][docker-pulls-badge]
 
   </div>
 </div>
@@ -88,7 +84,7 @@ Join us on Discord, where you can ask questions, submit ideas, get help, showcas
 
 If you have any issues with RomM, please [open an issue](https://github.com/rommapp/romm/issues/new) in this repository.
 
-## Project Support
+## Financial Support
 
 Consider supporting the development of this project on Open Collective. All funds will be used to cover the costs of hosting, development, and maintenance of RomM.
 
@@ -133,7 +129,7 @@ Here are a few projects that we think you might like:
 [license-badge-img]: https://img.shields.io/github/license/rommapp/romm?style=for-the-badge&color=a32d2a
 [license-badge]: LICENSE
 [release-badge-img]: https://img.shields.io/github/v/release/rommapp/romm?style=for-the-badge
-[release-badge]: https://github.com/rommapp/romm/releases
+[release-badge]: https://github.com/rommapp/romm/releases/latest
 [discord-badge-img]: https://img.shields.io/badge/discord-7289da?style=for-the-badge
 [discord-badge]: https://discord.gg/P5HtHnhUDH
 [docs-badge-img]: https://img.shields.io/badge/docs-736e9b?style=for-the-badge
