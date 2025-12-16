@@ -30,8 +30,8 @@ function applyTheme() {
   const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
   if (selectedTheme.value === autoThemeKey) {
     theme.change(mediaMatch.matches ? "dark" : "light");
-  } else if (isKeyof(selectedTheme.value, themes)) {
-    theme.change(themes[selectedTheme.value]);
+  } else if (isKeyof(selectedTheme.value as PropertyKey, themes)) {
+    theme.change(themes[selectedTheme.value as keyof typeof themes]);
   }
 }
 
