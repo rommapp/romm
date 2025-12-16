@@ -5,8 +5,6 @@ import { useTheme } from "vuetify";
 import ThemeOption from "@/components/Settings/UserInterface/ThemeOption.vue";
 import RSection from "@/components/common/RSection.vue";
 import { useUISettings } from "@/composables/useUISettings";
-import { autoThemeKey, themes } from "@/styles/themes";
-import { isKeyof } from "@/types";
 
 const { t } = useI18n();
 const theme = useTheme();
@@ -28,10 +26,12 @@ const themeOptions = computed(() => [
 
 function applyTheme() {
   const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
-  if (selectedTheme.value === autoThemeKey) {
+  const themeValue = selectedTheme.value;
+
+  if (themeValue === "auto") {
     theme.change(mediaMatch.matches ? "dark" : "light");
-  } else if (isKeyof(selectedTheme.value as PropertyKey, themes)) {
-    theme.change(themes[selectedTheme.value as keyof typeof themes]);
+  } else if (themeValue === "dark" || themeValue === "light") {
+    theme.change(themeValue);
   }
 }
 

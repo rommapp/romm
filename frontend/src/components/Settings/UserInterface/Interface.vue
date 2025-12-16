@@ -186,8 +186,8 @@ const boxartStyleOptions = computed(() => [
   { title: t("settings.boxart-miximage"), value: "miximage_path" },
 ]);
 
-const setPlatformDrawerGroupBy = (value: unknown) => {
-  platformsGroupByRef.value = value as string;
+const setPlatformDrawerGroupBy = (value: string | null) => {
+  platformsGroupByRef.value = value;
 };
 const toggleShowContinuePlaying = (value: boolean) => {
   showContinuePlayingRef.value = value;
@@ -201,11 +201,11 @@ const toggleShowCollections = (value: boolean) => {
 const toggleShowVirtualCollections = (value: boolean) => {
   showVirtualCollectionsRef.value = value;
 };
-const setVirtualCollectionType = async (value: unknown) => {
-  virtualCollectionTypeRef.value = value as string;
-  collectionsStore.fetchVirtualCollections(value as string);
+const setVirtualCollectionType = async (value: string) => {
+  virtualCollectionTypeRef.value = value;
+  collectionsStore.fetchVirtualCollections(value);
 };
-const setBoxartStyle = (value: unknown) => {
+const setBoxartStyle = (value: string) => {
   boxartStyleRef.value = value as BoxartStyleOption;
 };
 const toggleShowStats = (value: boolean) => {
@@ -265,7 +265,7 @@ const toggleDisableAnimations = (value: boolean) => {
           md="6"
         >
           <InterfaceOption
-            v-model="option.model.value as boolean"
+            v-model="option.model.value"
             class="ma-1"
             :title="option.title"
             :description="option.description"
@@ -325,7 +325,7 @@ const toggleDisableAnimations = (value: boolean) => {
           md="6"
         >
           <InterfaceOption
-            v-model="option.model.value as boolean"
+            v-model="option.model.value"
             class="ma-1"
             :disabled="option.disabled"
             :title="option.title"
@@ -360,7 +360,7 @@ const toggleDisableAnimations = (value: boolean) => {
       <v-row class="py-1 align-center" no-gutters>
         <v-col cols="12" md="6">
           <InterfaceOption
-            v-model="showVirtualCollectionsRef as boolean"
+            v-model="showVirtualCollectionsRef"
             class="mx-2"
             :title="t('settings.show-virtual-collections')"
             :description="t('settings.show-virtual-collections-desc')"
