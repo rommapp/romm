@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
-import { computed } from "vue";
+import { computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
 import ThemeOption from "@/components/Settings/UserInterface/ThemeOption.vue";
 import RSection from "@/components/common/RSection.vue";
+import { useUISettings } from "@/composables/useUISettings";
 import { autoThemeKey, themes } from "@/styles/themes";
 import { isKeyof } from "@/types";
 
 const { t } = useI18n();
 const theme = useTheme();
-const selectedTheme = useLocalStorage("settings.theme", autoThemeKey);
+const { theme: selectedTheme } = useUISettings();
 const themeOptions = computed(() => [
   {
     name: "dark",
@@ -26,23 +26,22 @@ const themeOptions = computed(() => [
   },
 ]);
 
-function toggleTheme() {
+function applyTheme() {
   const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
   if (selectedTheme.value === autoThemeKey) {
-    theme.global.name.value = mediaMatch.matches ? "dark" : "light";
+    theme.change(mediaMatch.matches ? "dark" : "light");
   } else if (isKeyof(selectedTheme.value, themes)) {
-    theme.global.name.value = themes[selectedTheme.value];
+    theme.change(themes[selectedTheme.value]);
   }
 }
+
+// Apply theme when it changes (including from backend sync)
+watch(selectedTheme, applyTheme, { immediate: true });
 </script>
 <template>
   <RSection icon="mdi-brush-variant" :title="t('settings.theme')" class="ma-2">
     <template #content>
-      <v-item-group
-        v-model="selectedTheme"
-        mandatory
-        @update:model-value="toggleTheme"
-      >
+      <v-item-group v-model="selectedTheme" mandatory>
         <v-row no-gutters>
           <v-col
             v-for="themeOption in themeOptions"
