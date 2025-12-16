@@ -1,40 +1,24 @@
 import { useLocalStorage } from "@vueuse/core";
+import type { RemovableRef } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, watch, ref } from "vue";
+import { watch, ref } from "vue";
 import type { UserSchema } from "@/__generated__";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 
-// Debounce utility
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number,
-): (...args: Parameters<T>) => void {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  return (...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}
-
-// UI Settings keys and their default values
 export const UI_SETTINGS_KEYS = {
+  // Language
+  locale: { key: "settings.locale", default: "" },
+
+  // Theme
+  theme: { key: "settings.theme", default: "auto" },
+
   // Home section
   showStats: { key: "settings.showStats", default: true },
   showRecentRoms: { key: "settings.showRecentRoms", default: true },
   showContinuePlaying: { key: "settings.showContinuePlaying", default: true },
   showPlatforms: { key: "settings.showPlatforms", default: true },
   showCollections: { key: "settings.showCollections", default: true },
-
-  // Virtual collections
-  showVirtualCollections: {
-    key: "settings.showVirtualCollections",
-    default: true,
-  },
-  virtualCollectionType: {
-    key: "settings.virtualCollectionType",
-    default: "collection",
-  },
 
   // Platforms drawer
   platformsGroupBy: { key: "settings.platformsGroupBy", default: null },
@@ -55,14 +39,39 @@ export const UI_SETTINGS_KEYS = {
   },
   boxartStyle: { key: "settings.boxartStyle", default: "cover_path" },
 
-  // Theme
-  theme: { key: "settings.theme", default: "auto" },
-
-  // Language
-  locale: { key: "settings.locale", default: "" },
+  // Virtual collections
+  showVirtualCollections: {
+    key: "settings.showVirtualCollections",
+    default: true,
+  },
+  virtualCollectionType: {
+    key: "settings.virtualCollectionType",
+    default: "collection",
+  },
 } as const;
 
 export type UISettingsKey = keyof typeof UI_SETTINGS_KEYS;
+
+// Helper type to extract the default value type for each setting
+// Widens literal types to their base types (e.g., true -> boolean, "auto" -> string)
+type WidenLiteral<T> = T extends string
+  ? string
+  : T extends number
+    ? number
+    : T extends boolean
+      ? boolean
+      : T extends null
+        ? string | null
+        : T;
+
+type UISettingDefaultType<K extends UISettingsKey> = WidenLiteral<
+  (typeof UI_SETTINGS_KEYS)[K]["default"]
+>;
+
+// Strongly-typed refs for each UI setting
+type UISettingsRefs = {
+  [K in UISettingsKey]: RemovableRef<UISettingDefaultType<K>>;
+};
 
 // Singleton state to prevent multiple instances
 let uiSettingsInstance: ReturnType<typeof createUISettings> | null = null;
@@ -78,10 +87,10 @@ function createUISettings() {
       name,
       useLocalStorage(config.key, config.default),
     ]),
-  ) as Record<UISettingsKey, ReturnType<typeof useLocalStorage>>;
+  ) as UISettingsRefs;
 
   // Initialize settings from backend user data
-  function initializeFromBackend() {
+  function initialize() {
     const userWithSettings = user.value as UserSchema | null;
     if (!userWithSettings?.ui_settings) return;
 
@@ -108,8 +117,7 @@ function createUISettings() {
     );
   }
 
-  // Debounced function to save settings to backend
-  const saveToBackend = debounce(async () => {
+  const saveUISettings = async () => {
     if (!user.value || isSyncing.value) return;
 
     const currentSettings = collectSettings();
@@ -132,13 +140,13 @@ function createUISettings() {
     } catch (error) {
       console.error("Failed to save UI settings to backend:", error);
     }
-  }, 500);
+  };
 
   // Watch all localStorage refs for changes (only set up once)
   Object.values(localStorageRefs).forEach((ref) => {
     watch(ref, () => {
       if (!isSyncing.value) {
-        saveToBackend();
+        saveUISettings();
       }
     });
   });
@@ -149,7 +157,7 @@ function createUISettings() {
     (newUser) => {
       const userWithSettings = newUser as UserSchema | null;
       if (userWithSettings?.ui_settings) {
-        initializeFromBackend();
+        initialize();
       }
     },
     { immediate: true },
@@ -157,8 +165,8 @@ function createUISettings() {
 
   return {
     ...localStorageRefs,
-    initializeFromBackend,
-    saveToBackend: () => saveToBackend(),
+    initialize: initialize,
+    saveUISettings: () => saveUISettings(),
   };
 }
 
