@@ -1,59 +1,38 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import InterfaceOption from "@/components/Settings/UserInterface/InterfaceOption.vue";
 import RSection from "@/components/common/RSection.vue";
+import { useUISettings } from "@/composables/useUISettings";
 import storeCollections from "@/stores/collections";
 
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
 
-// Home
-const showStatsRef = useLocalStorage("settings.showStats", true);
-const showRecentRomsRef = useLocalStorage("settings.showRecentRoms", true);
-const showContinuePlayingRef = useLocalStorage(
-  "settings.showContinuePlaying",
-  true,
-);
-const showPlatformsRef = useLocalStorage("settings.showPlatforms", true);
-const showCollectionsRef = useLocalStorage("settings.showCollections", true);
-
-// Virtual collections
-const showVirtualCollectionsRef = useLocalStorage(
-  "settings.showVirtualCollections",
-  true,
-);
-const virtualCollectionTypeRef = useLocalStorage(
-  "settings.virtualCollectionType",
-  "collection",
-);
-
-// Platforms drawer
-const platformsGroupByRef = useLocalStorage<string | null>(
-  "settings.platformsGroupBy",
-  null,
-);
-
-// Gallery
-const groupRomsRef = useLocalStorage("settings.groupRoms", true);
-const siblingsRef = useLocalStorage("settings.showSiblings", true);
-const regionsRef = useLocalStorage("settings.showRegions", true);
-const languagesRef = useLocalStorage("settings.showLanguages", true);
-const statusRef = useLocalStorage("settings.showStatus", true);
-const actionBarRef = useLocalStorage("settings.showActionBar", false);
-const gameTitleRef = useLocalStorage("settings.showGameTitle", false);
-const enable3DEffectRef = useLocalStorage("settings.enable3DEffect", false);
-const enableExperimentalCacheRef = useLocalStorage(
-  "settings.enableExperimentalCache",
-  false,
-);
-const disableAnimationsRef = useLocalStorage(
-  "settings.disableAnimations",
-  false,
-);
+// Get UI settings from the composable
+const {
+  showStats: showStatsRef,
+  showRecentRoms: showRecentRomsRef,
+  showContinuePlaying: showContinuePlayingRef,
+  showPlatforms: showPlatformsRef,
+  showCollections: showCollectionsRef,
+  showVirtualCollections: showVirtualCollectionsRef,
+  virtualCollectionType: virtualCollectionTypeRef,
+  platformsGroupBy: platformsGroupByRef,
+  groupRoms: groupRomsRef,
+  showSiblings: siblingsRef,
+  showRegions: regionsRef,
+  showLanguages: languagesRef,
+  showStatus: statusRef,
+  showActionBar: actionBarRef,
+  showGameTitle: gameTitleRef,
+  enable3DEffect: enable3DEffectRef,
+  enableExperimentalCache: enableExperimentalCacheRef,
+  disableAnimations: disableAnimationsRef,
+  boxartStyle: boxartStyleRef,
+} = useUISettings();
 
 // Boxart
 export type BoxartStyleOption =
@@ -61,10 +40,6 @@ export type BoxartStyleOption =
   | "box3d_path"
   | "physical_path"
   | "miximage_path";
-const boxartStyleRef = useLocalStorage<BoxartStyleOption>(
-  "settings.boxartStyle",
-  "cover_path",
-);
 
 const homeOptions = computed(() => [
   {
@@ -314,7 +289,8 @@ const toggleDisableAnimations = (value: boolean) => {
         <v-col
           v-for="option in platformsDrawerOptions"
           :key="option.title"
-          cols="6"
+          cols="12"
+          md="6"
         >
           <v-select
             v-model="platformsGroupByRef"
