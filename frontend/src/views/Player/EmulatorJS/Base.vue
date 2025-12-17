@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
-import { formatDistanceToNow } from "date-fns";
 import { storeToRefs } from "pinia";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -17,7 +16,11 @@ import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import { type DetailedRom } from "@/stores/roms";
-import { formatTimestamp, getSupportedEJSCores } from "@/utils";
+import {
+  formatTimestamp,
+  getSupportedEJSCores,
+  formatRelativeDate,
+} from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
@@ -133,10 +136,6 @@ function unselectState() {
   localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
 }
 
-function formatRelativeDate(date: string | Date) {
-  return formatDistanceToNow(new Date(date), { addSuffix: true });
-}
-
 watch(selectedCore, (newSelectedCore) => {
   if (
     selectedState.value &&
@@ -213,7 +212,7 @@ onBeforeUnmount(async () => {
         </v-col>
       </v-row>
 
-      <v-divider class="my-4" />
+      <v-divider class="my-4 mx-2" />
 
       <v-row no-gutters>
         <v-col>
@@ -221,7 +220,7 @@ onBeforeUnmount(async () => {
         </v-col>
       </v-row>
 
-      <v-row no-gutters>
+      <v-row class="mx-2" no-gutters>
         <v-col>
           <!-- disc selector -->
           <v-select
@@ -322,8 +321,12 @@ onBeforeUnmount(async () => {
                             rounded
                             :src="
                               selectedState.screenshot?.download_path ??
-                              getEmptyCoverImage(selectedState.file_name)
+                              getEmptyCoverImage(
+                                selectedState.file_name,
+                                16 / 9,
+                              )
                             "
+                            :aspect-ratio="16 / 9"
                           />
                         </v-col>
                         <v-col class="pl-2 d-flex flex-column" cols="6">
@@ -409,15 +412,6 @@ onBeforeUnmount(async () => {
                   >
                     <v-card-text class="px-2 pb-2 pt-4">
                       <v-row no-gutters>
-                        <v-col cols="6">
-                          <v-img
-                            rounded
-                            :src="
-                              selectedSave.screenshot?.download_path ??
-                              getEmptyCoverImage(selectedSave.file_name)
-                            "
-                          />
-                        </v-col>
                         <v-col class="pl-2 d-flex flex-column" cols="6">
                           <v-row
                             class="px-1 text-caption text-primary"
@@ -505,8 +499,9 @@ onBeforeUnmount(async () => {
                             rounded
                             :src="
                               state.screenshot?.download_path ??
-                              getEmptyCoverImage(state.file_name)
+                              getEmptyCoverImage(state.file_name, 16 / 9)
                             "
+                            :aspect-ratio="16 / 9"
                           />
                         </v-col>
                       </v-row>
@@ -571,17 +566,6 @@ onBeforeUnmount(async () => {
                     @click="selectSave(save)"
                   >
                     <v-card-text class="pa-2">
-                      <v-row no-gutters>
-                        <v-col cols="12">
-                          <v-img
-                            rounded
-                            :src="
-                              save.screenshot?.download_path ??
-                              getEmptyCoverImage(save.file_name)
-                            "
-                          />
-                        </v-col>
-                      </v-row>
                       <v-row
                         class="py-2 px-1 text-caption text-primary"
                         no-gutters
@@ -617,7 +601,7 @@ onBeforeUnmount(async () => {
       </v-row>
 
       <!-- Action buttons -->
-      <v-row class="align-center mt-4" no-gutters>
+      <v-row class="align-center mt-4 mx-2" no-gutters>
         <v-col :class="{ 'pr-1': !smAndDown }">
           <v-btn
             block
@@ -649,7 +633,7 @@ onBeforeUnmount(async () => {
           </v-btn>
         </v-col>
       </v-row>
-      <v-row class="align-center my-4" no-gutters>
+      <v-row class="align-center my-4 mx-2" no-gutters>
         <v-col
           :class="{ 'mt-2': smAndDown, 'pr-1': !smAndDown }"
           :cols="smAndDown ? 12 : 6"

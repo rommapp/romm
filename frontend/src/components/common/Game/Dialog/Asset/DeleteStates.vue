@@ -133,7 +133,7 @@ function closeDialog() {
       </v-data-table-virtual>
     </template>
     <template #append>
-      <v-row no-gutters>
+      <v-row class="bg-toplayer" no-gutters>
         <v-col>
           <v-list-item class="text-center mt-2">
             <span class="text-romm-red text-body-1">
@@ -143,7 +143,7 @@ function closeDialog() {
           </v-list-item>
         </v-col>
       </v-row>
-      <v-row class="justify-center my-2">
+      <v-row class="justify-center py-2 bg-toplayer" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
             Cancel

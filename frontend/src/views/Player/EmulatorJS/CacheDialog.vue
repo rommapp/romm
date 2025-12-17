@@ -21,15 +21,20 @@ function closeDialog() {
 </script>
 
 <template>
-  <v-btn
-    class="text-romm-red mt-6"
-    block
-    variant="flat"
-    prepend-icon="mdi-database-remove"
-    @click="show = true"
-  >
-    {{ t("play.clear-cache") }}
-  </v-btn>
+  <v-row class="align-center mt-4 mx-2" no-gutters>
+    <v-col>
+      <v-btn
+        block
+        class="text-romm-red mt-6"
+        variant="flat"
+        prepend-icon="mdi-database-remove"
+        @click="show = true"
+      >
+        {{ t("play.clear-cache") }}
+      </v-btn>
+    </v-col>
+  </v-row>
+
   <RDialog v-model="show" icon="mdi-database-remove" @close="closeDialog">
     <template #header>
       <v-row class="ml-2">
@@ -46,8 +51,8 @@ function closeDialog() {
         {{ t("play.clear-cache-description") }}
       </div>
     </template>
-    <template #append>
-      <v-row class="justify-center pa-2" no-gutters>
+    <template #footer>
+      <v-row class="justify-center my-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}

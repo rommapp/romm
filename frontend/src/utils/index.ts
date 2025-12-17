@@ -1,4 +1,5 @@
 import cronstrue from "cronstrue";
+import { formatDistanceToNow } from "date-fns";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
@@ -177,6 +178,15 @@ export function formatTimestamp(
 
   const date = new Date(timestamp);
   return date.toLocaleString(toBrowserLocale(locale));
+}
+
+/**
+ * Format a date to a relative time string (e.g., "3 days ago").
+ * @param date The date to format.
+ * @returns The relative time string.
+ */
+export function formatRelativeDate(date: string | Date) {
+  return formatDistanceToNow(new Date(date), { addSuffix: true });
 }
 
 /**
