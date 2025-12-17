@@ -8,8 +8,7 @@ import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
 import storeAuth from "@/stores/auth";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { formatBytes, formatTimestamp } from "@/utils";
-import { getEmptyCoverImage } from "@/utils/covers";
+import { formatBytes, formatTimestamp, formatRelativeDate } from "@/utils";
 
 const { t, locale } = useI18n();
 const auth = storeAuth();
@@ -165,10 +164,13 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
                 </v-chip>
               </v-col>
               <v-col cols="12">
-                <v-chip size="x-small" label>
+                <div class="mt-1">
                   {{ t("rom.updated") }}:
                   {{ formatTimestamp(save.updated_at, locale) }}
-                </v-chip>
+                  <span class="ml-1 text-grey text-caption"
+                    >({{ formatRelativeDate(save.updated_at) }})</span
+                  >
+                </div>
               </v-col>
             </v-row>
           </v-card-text>
