@@ -68,7 +68,7 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
 </script>
 
 <template>
-  <v-row class="ma-2" no-gutters>
+  <v-row class="my-2 mx-4" no-gutters>
     <v-col class="pa-1">
       <v-btn-group divided density="default">
         <v-btn
@@ -109,7 +109,7 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
       </v-btn-group>
     </v-col>
   </v-row>
-  <v-row v-if="rom.user_states.length > 0" class="ma-2" no-gutters>
+  <v-row v-if="rom.user_states.length > 0" class="my-2 mx-4" no-gutters>
     <v-col
       v-for="state in rom.user_states"
       :key="state.id"
@@ -133,8 +133,9 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
                   rounded
                   :src="
                     state.screenshot?.download_path ??
-                    getEmptyCoverImage(state.file_name)
+                    getEmptyCoverImage(state.file_name, 16 / 9)
                   "
+                  :aspect-ratio="16 / 9"
                 >
                   <v-slide-x-transition>
                     <v-btn-group
