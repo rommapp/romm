@@ -124,7 +124,7 @@ function closeDialog() {
       <v-card-title>{{ t("collection.create-collection") }}</v-card-title>
     </template>
     <template #content>
-      <v-row class="d-flex justify-center align-center pa-2" no-gutters>
+      <v-row class="align-center pa-2" no-gutters>
         <v-col cols="12" lg="7" xl="9">
           <v-row class="pa-2" no-gutters>
             <v-col>
@@ -172,55 +172,61 @@ function closeDialog() {
             </v-col>
           </v-row>
         </v-col>
-        <v-col class="pa-4" cols="auto">
-          <CollectionCard
-            :key="collection.updated_at"
-            :show-title="false"
-            :with-link="false"
-            :collection="collection"
-            :cover-src="imagePreviewUrl"
-            title-on-hover
-            width="240"
-          >
-            <template #append-inner>
-              <v-btn-group divided density="compact">
-                <v-btn
-                  :disabled="
-                    !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
-                  "
-                  size="small"
-                  class="translucent"
-                  @click="
-                    emitter?.emit('showSearchCoverDialog', {
-                      term: collection.name,
-                    })
-                  "
-                >
-                  <v-icon size="large"> mdi-image-search-outline </v-icon>
-                </v-btn>
-                <v-btn
-                  size="small"
-                  class="translucent"
-                  @click="triggerFileInput"
-                >
-                  <v-icon size="large"> mdi-pencil </v-icon>
-                  <v-file-input
-                    id="file-input"
-                    v-model="collection.artwork"
-                    accept="image/*"
-                    hide-details
-                    class="file-input"
-                    @change="previewImage"
-                  />
-                </v-btn>
-                <v-btn size="small" class="translucent" @click="removeArtwork">
-                  <v-icon size="large" class="text-romm-red">
-                    mdi-delete
-                  </v-icon>
-                </v-btn>
-              </v-btn-group>
-            </template>
-          </CollectionCard>
+        <v-col>
+          <v-row class="pa-2 justify-center" no-gutters>
+            <CollectionCard
+              :key="collection.updated_at"
+              :show-title="false"
+              :with-link="false"
+              :collection="collection"
+              :cover-src="imagePreviewUrl"
+              title-on-hover
+              width="240"
+            >
+              <template #append-inner>
+                <v-btn-group divided density="compact">
+                  <v-btn
+                    :disabled="
+                      !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
+                    "
+                    size="small"
+                    class="translucent"
+                    @click="
+                      emitter?.emit('showSearchCoverDialog', {
+                        term: collection.name,
+                      })
+                    "
+                  >
+                    <v-icon size="large"> mdi-image-search-outline </v-icon>
+                  </v-btn>
+                  <v-btn
+                    size="small"
+                    class="translucent"
+                    @click="triggerFileInput"
+                  >
+                    <v-icon size="large"> mdi-pencil </v-icon>
+                    <v-file-input
+                      id="file-input"
+                      v-model="collection.artwork"
+                      accept="image/*"
+                      hide-details
+                      class="file-input"
+                      @change="previewImage"
+                    />
+                  </v-btn>
+                  <v-btn
+                    size="small"
+                    class="translucent"
+                    @click="removeArtwork"
+                  >
+                    <v-icon size="large" class="text-romm-red">
+                      mdi-delete
+                    </v-icon>
+                  </v-btn>
+                </v-btn-group>
+              </template>
+            </CollectionCard>
+          </v-row>
         </v-col>
       </v-row>
     </template>
