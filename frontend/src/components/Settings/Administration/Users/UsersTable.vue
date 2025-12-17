@@ -3,7 +3,6 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { UserSchema } from "@/__generated__";
 import CreateUserDialog from "@/components/Settings/Administration/Users/Dialog/CreateUser.vue";
 import DeleteUserDialog from "@/components/Settings/Administration/Users/Dialog/DeleteUser.vue";
 import InviteLinkDialog from "@/components/Settings/Administration/Users/Dialog/InviteLink.vue";
@@ -62,14 +61,7 @@ const HEADERS = [
 ] as const;
 
 function disableUser(user: User) {
-  const userUpdate = {
-    ...user,
-    ui_settings: user.ui_settings
-      ? JSON.stringify(user.ui_settings)
-      : undefined,
-  } as Partial<UserSchema> & { ui_settings?: string };
-
-  userApi.updateUser(userUpdate).catch(({ response, message }) => {
+  userApi.updateUser(user).catch(({ response, message }) => {
     emitter?.emit("snackbarShow", {
       msg: `Unable to disable/enable user: ${
         response?.data?.detail || response?.statusText || message

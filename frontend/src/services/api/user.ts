@@ -54,7 +54,6 @@ async function updateUser({
 }: Partial<UserSchema> & {
   avatar?: File;
   password?: string;
-  ui_settings?: string;
 }): Promise<{ data: UserSchema }> {
   return api.put(
     `/users/${id}`,
