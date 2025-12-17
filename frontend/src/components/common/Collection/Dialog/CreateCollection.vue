@@ -231,18 +231,19 @@ function closeDialog() {
       </v-row>
     </template>
     <template #footer>
-      <v-spacer />
-      <v-btn class="bg-toplayer" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </v-btn>
-      <v-btn
-        class="bg-toplayer text-romm-green"
-        :disabled="!collection.name"
-        :variant="!collection.name ? 'plain' : 'flat'"
-        @click="createCollection"
-      >
-        {{ t("common.create") }}
-      </v-btn>
+      <v-row class="d-flex justify-center" no-gutters>
+        <v-btn class="bg-toplayer" @click="closeDialog">
+          {{ t("common.cancel") }}
+        </v-btn>
+        <v-btn
+          class="bg-toplayer text-romm-green"
+          :disabled="!collection.name"
+          :variant="!collection.name ? 'plain' : 'flat'"
+          @click="createCollection"
+        >
+          {{ t("common.create") }}
+        </v-btn>
+      </v-row>
     </template>
   </RDialog>
 </template>
