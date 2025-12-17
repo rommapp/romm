@@ -75,7 +75,7 @@ type UISettingsRefs = {
 
 // Singleton state to prevent multiple instances
 let uiSettingsInstance: ReturnType<typeof createUISettings> | null = null;
-let isSyncing = ref(false); // Global flag to prevent sync loops
+const isSyncing = ref(false); // Global flag to prevent sync loops
 
 function createUISettings() {
   const authStore = storeAuth();
@@ -111,7 +111,7 @@ function createUISettings() {
   }
 
   // Collect current settings from localStorage
-  function collectSettings(): Record<string, any> {
+  function collectSettings(): Record<string, unknown> {
     return Object.fromEntries(
       Object.entries(localStorageRefs).map(([key, ref]) => [key, ref.value]),
     );
@@ -126,7 +126,7 @@ function createUISettings() {
       const { data } = await userApi.updateUser({
         id: user.value.id,
         ui_settings: JSON.stringify(currentSettings),
-      } as any);
+      } as Partial<UserSchema> & { ui_settings: string });
 
       // Update the user in the store with the new settings (without triggering sync)
       isSyncing.value = true;
