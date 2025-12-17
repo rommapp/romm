@@ -252,17 +252,19 @@ async function createSmartCollection() {
     </template>
     <template #footer>
       <v-row class="d-flex justify-center" no-gutters>
-        <v-btn class="bg-toplayer" @click="closeDialog">
-          {{ t("common.cancel") }}
-        </v-btn>
-        <v-btn
-          class="bg-toplayer text-romm-green"
-          :disabled="!name.trim()"
-          :variant="!name.trim() ? 'plain' : 'flat'"
-          @click="createSmartCollection"
-        >
-          {{ t("common.create") }}
-        </v-btn>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-toplayer" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn
+            class="bg-toplayer text-romm-green"
+            :disabled="!name.trim()"
+            :variant="!name.trim() ? 'plain' : 'flat'"
+            @click="createSmartCollection"
+          >
+            {{ t("common.create") }}
+          </v-btn>
+        </v-btn-group>
       </v-row>
     </template>
   </RDialog>
