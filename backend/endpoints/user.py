@@ -340,7 +340,12 @@ async def update_user(
         try:
             ui_settings = json.loads(form_data.ui_settings)
             if not isinstance(ui_settings, dict):
-                raise ValueError("ui_settings must be a JSON object")
+                msg = f"Invalid ui_settings JSON: {ui_settings}"
+                log.error(msg)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=msg,
+                )
             cleaned_data["ui_settings"] = ui_settings  # type: ignore[assignment]
         except (json.JSONDecodeError, ValueError) as exc:
             msg = f"Invalid ui_settings JSON: {str(exc)}"
