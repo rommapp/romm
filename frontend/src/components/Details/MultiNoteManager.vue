@@ -508,15 +508,25 @@ watch(
         </div>
       </template>
       <template #footer>
-        <v-spacer />
-        <v-btn @click="closeAddNote">{{ t("common.cancel") }}</v-btn>
-        <v-btn
-          color="primary"
-          :disabled="!newNoteTitle.trim() || newNoteTitleErrors.length > 0"
-          @click="addNewNote"
-        >
-          {{ t("common.add") }}
-        </v-btn>
+        <v-row class="justify-center my-2" no-gutters>
+          <v-btn-group divided density="compact">
+            <v-btn class="bg-toplayer" @click="closeAddNote">
+              {{ t("common.cancel") }}
+            </v-btn>
+            <v-btn
+              class="bg-toplayer text-romm-green"
+              :disabled="!newNoteTitle.trim() || newNoteTitleErrors.length > 0"
+              :variant="
+                !newNoteTitle.trim() || newNoteTitleErrors.length > 0
+                  ? 'plain'
+                  : 'flat'
+              "
+              @click="addNewNote"
+            >
+              {{ t("common.add") }}
+            </v-btn>
+          </v-btn-group>
+        </v-row>
       </template>
     </RDialog>
 
@@ -536,13 +546,16 @@ watch(
         </div>
       </template>
       <template #footer>
-        <v-spacer />
-        <v-btn @click="showDeleteDialog = false">{{
-          t("common.cancel")
-        }}</v-btn>
-        <v-btn color="error" @click="deleteNote">{{
-          t("common.delete")
-        }}</v-btn>
+        <v-row class="justify-center my-2" no-gutters>
+          <v-btn-group divided density="compact">
+            <v-btn class="bg-toplayer" @click="showDeleteDialog = false">
+              {{ t("common.cancel") }}
+            </v-btn>
+            <v-btn class="bg-toplayer text-romm-red" @click="deleteNote">
+              {{ t("common.delete") }}
+            </v-btn>
+          </v-btn-group>
+        </v-row>
       </template>
     </RDialog>
   </div>

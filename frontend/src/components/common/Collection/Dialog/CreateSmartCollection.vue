@@ -251,7 +251,7 @@ async function createSmartCollection() {
       </v-row>
     </template>
     <template #footer>
-      <v-row class="d-flex justify-center" no-gutters>
+      <v-row class="justify-center my-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
