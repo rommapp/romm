@@ -212,7 +212,7 @@ onBeforeUnmount(async () => {
         </v-col>
       </v-row>
 
-      <v-divider class="my-4" />
+      <v-divider class="my-4 mx-2" />
 
       <v-row no-gutters>
         <v-col>
@@ -220,7 +220,7 @@ onBeforeUnmount(async () => {
         </v-col>
       </v-row>
 
-      <v-row no-gutters>
+      <v-row class="mx-2" no-gutters>
         <v-col>
           <!-- disc selector -->
           <v-select
@@ -601,7 +601,7 @@ onBeforeUnmount(async () => {
       </v-row>
 
       <!-- Action buttons -->
-      <v-row class="align-center mt-4" no-gutters>
+      <v-row class="align-center mt-4 mx-2" no-gutters>
         <v-col :class="{ 'pr-1': !smAndDown }">
           <v-btn
             block
@@ -633,7 +633,7 @@ onBeforeUnmount(async () => {
           </v-btn>
         </v-col>
       </v-row>
-      <v-row class="align-center my-4" no-gutters>
+      <v-row class="align-center my-4 mx-2" no-gutters>
         <v-col
           :class="{ 'mt-2': smAndDown, 'pr-1': !smAndDown }"
           :cols="smAndDown ? 12 : 6"
