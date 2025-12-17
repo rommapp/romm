@@ -104,11 +104,10 @@ async function createCollection() {
 
 function closeDialog() {
   show.value = false;
-  collection.value = {
-    name: "",
-    path_covers_large: [],
-    path_covers_small: [],
-  } as unknown as UpdatedCollection;
+  collection.value.name = "";
+  collection.value.description = "";
+  collection.value.path_covers_large = [];
+  collection.value.path_covers_small = [];
   imagePreviewUrl.value = "";
 }
 </script>
