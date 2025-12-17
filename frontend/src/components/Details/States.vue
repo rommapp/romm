@@ -8,7 +8,7 @@ import EmptySates from "@/components/common/EmptyStates/EmptyStates.vue";
 import storeAuth from "@/stores/auth";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { formatBytes, formatTimestamp } from "@/utils";
+import { formatBytes, formatTimestamp, formatRelativeDate } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
 
 const { t, locale } = useI18n();
@@ -68,7 +68,7 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
 </script>
 
 <template>
-  <v-row class="ma-2" no-gutters>
+  <v-row class="my-2 mx-4" no-gutters>
     <v-col class="pa-1">
       <v-btn-group divided density="default">
         <v-btn
@@ -109,7 +109,7 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
       </v-btn-group>
     </v-col>
   </v-row>
-  <v-row v-if="rom.user_states.length > 0" class="ma-2" no-gutters>
+  <v-row v-if="rom.user_states.length > 0" class="my-2 mx-4" no-gutters>
     <v-col
       v-for="state in rom.user_states"
       :key="state.id"
@@ -133,8 +133,9 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
                   rounded
                   :src="
                     state.screenshot?.download_path ??
-                    getEmptyCoverImage(state.file_name)
+                    getEmptyCoverImage(state.file_name, 16 / 9)
                   "
+                  :aspect-ratio="16 / 9"
                 >
                   <v-slide-x-transition>
                     <v-btn-group
@@ -184,10 +185,13 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
                 </v-chip>
               </v-col>
               <v-col cols="12">
-                <v-chip size="x-small" label>
+                <div class="mt-1">
                   {{ t("rom.updated") }}:
                   {{ formatTimestamp(state.updated_at, locale) }}
-                </v-chip>
+                  <span class="ml-1 text-grey text-caption"
+                    >({{ formatRelativeDate(state.updated_at) }})</span
+                  >
+                </div>
               </v-col>
             </v-row>
           </v-card-text>

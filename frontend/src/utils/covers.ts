@@ -67,11 +67,19 @@ export function getUnmatchedCoverImage(name: string): string {
   return strToObjUrl(svgString);
 }
 
-export function getEmptyCoverImage(name: string): string {
+export function getEmptyCoverImage(
+  name: string,
+  aspectRatio: number = 2 / 3,
+): string {
   const tbgs = translatedBGs(name);
   const bgr = bgRotation(name);
 
-  const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800"><g fill="none" mask="url(#a)"><path fill="#553E98" d="M0 0h600v800H0z"/><path fill="#371f69" d="M0 580c120 10 180-130 270-190s220-70 290-150c80-90 140-210 120-320S520-250 420-310C340 30 250 0 160-20S-10-50-90-20s-150 70-200 140-60 150-85 230c-30 100-130 200-90 290s190 70 270 130c45-340 85-200 195-190" style="transform-origin:center;transform:translate(${tbgs.left.x}px,${tbgs.left.y}px) rotate(${bgr}deg);"/><path fill="#FF9B85" d="M600 1060c100 30 230 40 310-40s30-210 70-310c35-90 130-150 140-240 10-100-10-220-90-290s-200-40-300-60c-90-20-180-60-270-30S310 200 240 260C170 330 50 380 40 480s110 160 170 240c50 70 90 130 150 180 70 60 140 140 230 160" style="transform-origin:center;transform:translate(${tbgs.right.x}px,${tbgs.right.y}px) rotate(${bgr}deg);"/></g><defs><mask id="a"><path fill="#fff" d="M0 0h600v800H0z"/></mask></defs></svg>`;
+  const width = 600;
+  const height = width / aspectRatio;
+  const designHeight = 800; // Original design height
+  const yOffset = (designHeight - height) / 2;
+
+  const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ${yOffset} ${width} ${height}"><g fill="none" mask="url(#a)"><path fill="#553E98" d="M0 0h${width}v${designHeight}H0z"/><path fill="#371f69" d="M0 580c120 10 180-130 270-190s220-70 290-150c80-90 140-210 120-320S520-250 420-310C340 30 250 0 160-20S-10-50-90-20s-150 70-200 140-60 150-85 230c-30 100-130 200-90 290s190 70 270 130c45-340 85-200 195-190" style="transform-origin:center;transform:translate(${tbgs.left.x}px,${tbgs.left.y}px) rotate(${bgr}deg);"/><path fill="#FF9B85" d="M600 1060c100 30 230 40 310-40s30-210 70-310c35-90 130-150 140-240 10-100-10-220-90-290s-200-40-300-60c-90-20-180-60-270-30S310 200 240 260C170 330 50 380 40 480s110 160 170 240c50 70 90 130 150 180 70 60 140 140 230 160" style="transform-origin:center;transform:translate(${tbgs.right.x}px,${tbgs.right.y}px) rotate(${bgr}deg);"/></g><defs><mask id="a"><path fill="#fff" d="M0 0h${width}v${designHeight}H0z"/></mask></defs></svg>`;
 
   return strToObjUrl(svgString);
 }
