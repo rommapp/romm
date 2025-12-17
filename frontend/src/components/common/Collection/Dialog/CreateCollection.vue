@@ -231,7 +231,7 @@ function closeDialog() {
       </v-row>
     </template>
     <template #footer>
-      <v-row class="d-flex justify-center" no-gutters>
+      <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
@@ -249,11 +249,3 @@ function closeDialog() {
     </template>
   </RDialog>
 </template>
-<style scoped>
-.cover {
-  min-width: 240px;
-  min-height: 330px;
-  max-width: 240px;
-  max-height: 330px;
-}
-</style>

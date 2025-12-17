@@ -80,8 +80,8 @@ function closeDialog() {
         <span class="ml-1">{{ t("collection.removing-collection-2") }}</span>
       </v-row>
     </template>
-    <template #append>
-      <v-row class="justify-center pa-2" no-gutters>
+    <template #footer>
+      <v-row class="justify-center my-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}

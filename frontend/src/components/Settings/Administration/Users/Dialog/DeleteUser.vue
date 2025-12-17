@@ -73,8 +73,8 @@ function closeDialog() {
         ><span class="ml-1">user. Do you confirm?</span>
       </v-row>
     </template>
-    <template #append>
-      <v-row class="justify-center mb-2" no-gutters>
+    <template #footer>
+      <v-row class="justify-center my-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog"> Cancel </v-btn>
           <v-btn class="bg-toplayer text-romm-red" @click="deleteUser">
