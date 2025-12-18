@@ -353,7 +353,7 @@ onMounted(() => {
         </div>
 
         <!-- Mobile title section -->
-        <div v-if="xs" class="flex-grow-0 text-center pb-6">
+        <div v-if="xs" class="flex-grow-0 text-center">
           <span class="text-white text-shadow text-subtitle-1">
             <span v-if="step === 1">Setup library structure</span>
             <span v-else-if="step === 2">Create an admin user</span>
@@ -362,13 +362,13 @@ onMounted(() => {
         </div>
 
         <v-stepper-window
-          class="flex-grow-1 my-0 mb-4 overflow-x-hidden overflow-y-hidden align-content-center"
+          class="flex-grow-1 mb-4 overflow-y-auto align-content-center"
         >
           <v-stepper-window-item :key="1" :value="1" class="h-100">
             <v-row no-gutters class="h-100">
-              <v-col class="d-flex flex-column h-100" style="min-height: 0">
+              <v-col class="h-100">
                 <!-- Fixed header section -->
-                <div class="flex-grow-0">
+                <div>
                   <!-- Loading state -->
                   <v-row
                     v-if="loadingLibraryInfo"
@@ -413,79 +413,56 @@ onMounted(() => {
                 </div>
 
                 <!-- Scrollable platform selection section -->
-                <div
-                  v-if="!loadingLibraryInfo"
-                  class="flex-grow-1 d-flex"
-                  style="min-height: 0"
-                >
-                  <v-row no-gutters class="flex-grow-1">
+                <div v-if="!loadingLibraryInfo">
+                  <v-row no-gutters>
                     <!-- Existing platforms column -->
-                    <v-col
-                      v-if="hasExistingPlatforms"
-                      cols="12"
-                      md="6"
-                      class="pr-2 d-flex flex-column"
-                      style="min-height: 0"
-                    >
-                      <div
-                        class="flex-grow-0 text-white text-center text-shadow mb-2"
-                      >
+                    <v-col v-if="hasExistingPlatforms" cols="12" md="6">
+                      <div class="text-white text-center text-shadow mb-2">
                         <strong>Detected Platforms</strong>
                       </div>
-                      <div
-                        class="flex-grow-1"
-                        style="overflow-y: auto; min-height: 0"
+                      <v-expansion-panels
+                        multiple
+                        class="bg-transparent"
+                        elevation="0"
+                        variant="accordion"
                       >
-                        <v-expansion-panels
-                          multiple
+                        <v-expansion-panel
+                          v-for="(
+                            [groupName, platforms], index
+                          ) in groupedExistingPlatforms"
+                          :key="`existing-${groupName}`"
+                          :value="index"
                           class="bg-transparent"
-                          elevation="0"
-                          variant="accordion"
                         >
-                          <v-expansion-panel
-                            v-for="(
-                              [groupName, platforms], index
-                            ) in groupedExistingPlatforms"
-                            :key="`existing-${groupName}`"
-                            :value="index"
-                            class="bg-transparent"
+                          <v-expansion-panel-title
+                            class="text-white text-shadow"
                           >
-                            <v-expansion-panel-title
-                              class="text-white text-shadow"
+                            <strong>{{ groupName }}</strong>
+                            <span class="ml-2 text-caption text-grey"
+                              >({{ platforms.length }})</span
                             >
-                              <strong>{{ groupName }}</strong>
-                              <span class="ml-2 text-caption text-grey"
-                                >({{ platforms.length }})</span
-                              >
-                            </v-expansion-panel-title>
-                            <v-expansion-panel-text>
-                              <v-list
-                                lines="two"
-                                class="py-1 px-0 bg-transparent"
-                              >
-                                <PlatformListItem
-                                  v-for="platform in platforms"
-                                  :key="platform.fs_slug"
-                                  :platform="platform"
-                                  :show-rom-count="false"
-                                />
-                              </v-list>
-                            </v-expansion-panel-text>
-                          </v-expansion-panel>
-                        </v-expansion-panels>
-                      </div>
+                          </v-expansion-panel-title>
+                          <v-expansion-panel-text>
+                            <v-list
+                              lines="two"
+                              class="py-1 px-0 bg-transparent"
+                            >
+                              <PlatformListItem
+                                v-for="platform in platforms"
+                                :key="platform.fs_slug"
+                                :platform="platform"
+                                :show-rom-count="false"
+                              />
+                            </v-list>
+                          </v-expansion-panel-text>
+                        </v-expansion-panel>
+                      </v-expansion-panels>
                     </v-col>
 
                     <!-- Available platforms to create column -->
-                    <v-col
-                      cols="12"
-                      :md="hasExistingPlatforms ? 6 : 12"
-                      :class="hasExistingPlatforms ? 'pl-2' : ''"
-                      class="d-flex flex-column"
-                      style="min-height: 0"
-                    >
+                    <v-col cols="12" :md="hasExistingPlatforms ? 6 : 12">
                       <div
-                        class="flex-grow-0 text-white text-center text-shadow mb-2"
+                        class="text-white text-center text-shadow mb-2"
                         :class="xs ? 'mt-8' : ''"
                       >
                         <strong>{{
@@ -494,66 +471,61 @@ onMounted(() => {
                             : "Select Platforms to Create"
                         }}</strong>
                       </div>
-                      <div
-                        class="flex-grow-1"
-                        style="overflow-y: auto; min-height: 0"
+                      <v-expansion-panels
+                        multiple
+                        class="bg-transparent"
+                        elevation="0"
+                        variant="accordion"
                       >
-                        <v-expansion-panels
-                          multiple
+                        <v-expansion-panel
+                          v-for="(
+                            [groupName, platforms], index
+                          ) in groupedAvailablePlatforms"
+                          :key="`available-${groupName}`"
+                          :value="index + groupedExistingPlatforms.length"
                           class="bg-transparent"
-                          elevation="0"
-                          variant="accordion"
                         >
-                          <v-expansion-panel
-                            v-for="(
-                              [groupName, platforms], index
-                            ) in groupedAvailablePlatforms"
-                            :key="`available-${groupName}`"
-                            :value="index + groupedExistingPlatforms.length"
-                            class="bg-transparent"
+                          <v-expansion-panel-title
+                            class="text-white text-shadow"
                           >
-                            <v-expansion-panel-title
-                              class="text-white text-shadow"
+                            <strong>{{ groupName }}</strong>
+                            <span class="ml-2 text-caption text-grey">
+                              ({{ platforms.length }})
+                            </span>
+                            <v-chip
+                              v-if="countSelectedInGroup(platforms) > 0"
+                              size="x-small"
+                              color="primary"
+                              class="ml-2"
                             >
-                              <strong>{{ groupName }}</strong>
-                              <span class="ml-2 text-caption text-grey">
-                                ({{ platforms.length }})
-                              </span>
-                              <v-chip
-                                v-if="countSelectedInGroup(platforms) > 0"
-                                size="x-small"
-                                color="primary"
-                                class="ml-2"
+                              {{ countSelectedInGroup(platforms) }} selected
+                            </v-chip>
+                          </v-expansion-panel-title>
+                          <v-expansion-panel-text>
+                            <v-list
+                              lines="two"
+                              class="py-1 px-0 bg-transparent"
+                            >
+                              <PlatformListItem
+                                v-for="platform in platforms"
+                                :key="platform.fs_slug"
+                                :platform="platform"
+                                :show-rom-count="false"
                               >
-                                {{ countSelectedInGroup(platforms) }} selected
-                              </v-chip>
-                            </v-expansion-panel-title>
-                            <v-expansion-panel-text>
-                              <v-list
-                                lines="two"
-                                class="py-1 px-0 bg-transparent"
-                              >
-                                <PlatformListItem
-                                  v-for="platform in platforms"
-                                  :key="platform.fs_slug"
-                                  :platform="platform"
-                                  :show-rom-count="false"
-                                >
-                                  <template #prepend>
-                                    <v-checkbox
-                                      v-model="selectedPlatforms"
-                                      :value="platform.fs_slug"
-                                      hide-details
-                                      density="compact"
-                                      class="mr-2"
-                                    />
-                                  </template>
-                                </PlatformListItem>
-                              </v-list>
-                            </v-expansion-panel-text>
-                          </v-expansion-panel>
-                        </v-expansion-panels>
-                      </div>
+                                <template #prepend>
+                                  <v-checkbox
+                                    v-model="selectedPlatforms"
+                                    :value="platform.fs_slug"
+                                    hide-details
+                                    density="compact"
+                                    class="mr-2"
+                                  />
+                                </template>
+                              </PlatformListItem>
+                            </v-list>
+                          </v-expansion-panel-text>
+                        </v-expansion-panel>
+                      </v-expansion-panels>
                     </v-col>
                   </v-row>
                 </div>
@@ -563,7 +535,7 @@ onMounted(() => {
 
           <v-stepper-window-item :key="2" :value="2" class="h-100">
             <v-row no-gutters class="h-100">
-              <v-col class="d-flex flex-column h-100" style="min-height: 0">
+              <v-col class="d-flex flex-column">
                 <v-row
                   class="justify-center align-center flex-grow-1"
                   no-gutters
@@ -635,7 +607,7 @@ onMounted(() => {
 
           <v-stepper-window-item :key="3" :value="3" class="h-100">
             <v-row no-gutters class="h-100">
-              <v-col class="d-flex flex-column h-100" style="min-height: 0">
+              <v-col class="d-flex flex-column">
                 <v-row
                   class="justify-center align-center flex-grow-1"
                   no-gutters
@@ -695,9 +667,3 @@ onMounted(() => {
     </v-stepper>
   </v-card>
 </template>
-<style lang="css">
-.v-window__container {
-  overflow-x: hidden !important;
-  overflow-y: hidden !important;
-}
-</style>
