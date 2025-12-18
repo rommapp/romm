@@ -91,9 +91,9 @@ const metadataOptions = computed(() => [
 ]);
 
 const defaultAdminUser = ref({
-  username: "admin",
-  password: "admin123",
-  email: "admin@admin.com",
+  username: "",
+  password: "",
+  email: "",
   role: "admin",
 });
 
@@ -417,7 +417,7 @@ onMounted(() => {
                       </div>
                       <div
                         class="overflow-y-auto pr-4"
-                        style="max-height: 45dvh"
+                        style="max-height: 500px"
                       >
                         <PlatformGroupList
                           :grouped-platforms="groupedExistingPlatforms"
@@ -437,7 +437,7 @@ onMounted(() => {
                       </div>
                       <div
                         class="overflow-y-auto pr-4"
-                        style="max-height: 45dvh"
+                        style="max-height: 500px"
                       >
                         <PlatformGroupList
                           :grouped-platforms="groupedAvailablePlatforms"
@@ -473,7 +473,7 @@ onMounted(() => {
                       <v-window-item v-if="hasExistingPlatforms" :value="0">
                         <div
                           class="overflow-y-auto pr-4"
-                          style="max-height: 50dvh"
+                          style="max-height: 400px"
                         >
                           <PlatformGroupList
                             :grouped-platforms="groupedExistingPlatforms"
@@ -486,7 +486,7 @@ onMounted(() => {
                       <v-window-item :value="hasExistingPlatforms ? 1 : 0">
                         <div
                           class="overflow-y-auto pr-4"
-                          style="max-height: 50dvh"
+                          style="max-height: 400px"
                         >
                           <PlatformGroupList
                             :grouped-platforms="groupedAvailablePlatforms"
