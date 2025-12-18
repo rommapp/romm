@@ -671,7 +671,7 @@ onMounted(() => {
         </v-stepper-window>
 
         <div class="flex-grow-0">
-          <v-stepper-actions :disabled="!filledAdminUser">
+          <v-stepper-actions :disabled="step == 2 && !filledAdminUser">
             <template #prev>
               <v-btn
                 class="text-white text-shadow"
@@ -701,5 +701,6 @@ onMounted(() => {
 <style lang="css">
 .v-window__container {
   overflow-x: hidden !important;
+  overflow-y: hidden !important;
 }
 </style>
