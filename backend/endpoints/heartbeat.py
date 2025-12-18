@@ -172,6 +172,7 @@ async def get_setup_library_info():
     Returns:
         - detected_structure: "A" (roms/{platform}), "B" ({platform}/roms), or None
         - existing_platforms: list of platform fs_slugs already in filesystem
+        - platform_game_counts: dict mapping platform fs_slug to game count
         - supported_platforms: list of all supported platforms with metadata
     """
 
@@ -190,12 +191,47 @@ async def get_setup_library_info():
     except Exception:
         existing_platforms = []
 
+    # Count games for each existing platform
+    platform_game_counts = {}
+    if detected_structure and existing_platforms:
+        cnfg = cm.get_config()
+        for fs_slug in existing_platforms:
+            try:
+                # Determine the roms directory based on structure
+                if detected_structure == "A":
+                    roms_path = os.path.join(
+                        LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME, fs_slug
+                    )
+                else:  # Structure B
+                    roms_path = os.path.join(
+                        LIBRARY_BASE_PATH, fs_slug, cnfg.ROMS_FOLDER_NAME
+                    )
+
+                # Count files and folders in the roms directory
+                if os.path.exists(roms_path):
+                    items = os.listdir(roms_path)
+                    # Filter out hidden files and system files
+                    game_count = len(
+                        [
+                            item
+                            for item in items
+                            if not item.startswith(".")
+                            and item not in ["_resources", "_cache"]
+                        ]
+                    )
+                    platform_game_counts[fs_slug] = game_count
+                else:
+                    platform_game_counts[fs_slug] = 0
+            except Exception:
+                platform_game_counts[fs_slug] = 0
+
     # Get all supported platforms with metadata
     supported_platforms = get_supported_platforms()
 
     return {
         "detected_structure": detected_structure,
         "existing_platforms": existing_platforms,
+        "platform_game_counts": platform_game_counts,
         "supported_platforms": supported_platforms,
     }
 

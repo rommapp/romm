@@ -86,9 +86,21 @@ class FSPlatformsHandler(FSHandler):
         Returns:
             List of platform slugs.
         """
+        cnfg = cm.get_config()
+
         try:
             platforms = await self.list_directories(path=self.get_platforms_directory())
         except FileNotFoundError as e:
             raise FolderStructureNotMatchException() from e
+
+        # For Structure B, only include directories that have a roms subfolder
+        if not os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH):
+            platforms = [
+                platform
+                for platform in platforms
+                if os.path.exists(
+                    os.path.join(LIBRARY_BASE_PATH, platform, cnfg.ROMS_FOLDER_NAME)
+                )
+            ]
 
         return self._exclude_platforms(platforms)
