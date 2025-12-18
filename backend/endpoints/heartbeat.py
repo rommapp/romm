@@ -1,5 +1,4 @@
 import os
-from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 
@@ -24,9 +23,8 @@ from config import (
 )
 from config.config_manager import config_manager as cm
 from endpoints.responses.heartbeat import HeartbeatResponse
-from endpoints.responses.platform import PlatformSchema
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
-from handler.database import db_platform_handler, db_user_handler
+from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata import (
     meta_flashpoint_handler,
@@ -42,10 +40,9 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import MetadataSource
-from models.platform import DEFAULT_COVER_ASPECT_RATIO, Platform
 from utils import get_version
+from utils.platforms import get_supported_platforms
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -182,28 +179,10 @@ async def get_setup_library_info():
     # This mimics the pattern in user.py for creating the first admin
     # If admin users exist, this would need authentication (but won't be called during setup)
 
-    # Auto-detect structure type by checking if HIGH_PRIO_STRUCTURE_PATH exists
+    # Auto-detect structure type
     # Structure A: /library/roms/{platform}
     # Structure B: /library/{platform}/roms
-    cnfg = cm.get_config()
-    detected_structure = None
-
-    # Check if the roms folder exists (Structure A indicator)
-    roms_path = os.path.join(LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME)
-    if os.path.exists(roms_path):
-        detected_structure = "A"
-    else:
-        # Check if any platform folders with roms subfolders exist (Structure B)
-        try:
-            library_contents = os.listdir(LIBRARY_BASE_PATH)
-            for item in library_contents:
-                item_path = os.path.join(LIBRARY_BASE_PATH, item)
-                roms_subfolder = os.path.join(item_path, cnfg.ROMS_FOLDER_NAME)
-                if os.path.isdir(item_path) and os.path.exists(roms_subfolder):
-                    detected_structure = "B"
-                    break
-        except (OSError, FileNotFoundError):
-            pass
+    detected_structure = fs_platform_handler.detect_library_structure()
 
     # Get existing platforms from filesystem
     try:
@@ -212,86 +191,7 @@ async def get_setup_library_info():
         existing_platforms = []
 
     # Get all supported platforms with metadata
-    db_platforms = db_platform_handler.get_platforms()
-    db_platforms_map = {p.slug: p for p in db_platforms}
-
-    now = datetime.now(timezone.utc)
-    supported_platforms = []
-    supported_slugs = set()
-
-    for upslug in UPS:
-        slug = upslug.value
-        supported_slugs.add(slug)
-
-        db_platform = db_platforms_map.get(slug, None)
-        if db_platform:
-            supported_platforms.append(
-                PlatformSchema.model_validate(db_platform).model_dump()
-            )
-            continue
-
-        igdb_platform = meta_igdb_handler.get_platform(slug)
-        moby_platform = meta_moby_handler.get_platform(slug)
-        ss_platform = meta_ss_handler.get_platform(slug)
-        ra_platform = meta_ra_handler.get_platform(slug)
-        launchbox_platform = meta_launchbox_handler.get_platform(slug)
-        hasheous_platform = meta_hasheous_handler.get_platform(slug)
-        tgdb_platform = meta_tgdb_handler.get_platform(slug)
-        flashpoint_platform = meta_flashpoint_handler.get_platform(slug)
-        hltb_platform = meta_hltb_handler.get_platform(slug)
-
-        platform_attrs = {
-            "id": -1,
-            "name": slug.replace("-", " ").title(),
-            "fs_slug": slug,
-            "slug": slug,
-            "roms": [],
-            "rom_count": 0,
-            "created_at": now,
-            "updated_at": now,
-            "fs_size_bytes": 0,
-            "missing_from_fs": False,
-            "aspect_ratio": DEFAULT_COVER_ASPECT_RATIO,
-        }
-
-        platform_attrs.update(
-            {
-                **hltb_platform,
-                **flashpoint_platform,
-                **hasheous_platform,
-                **tgdb_platform,
-                **launchbox_platform,
-                **ra_platform,
-                **moby_platform,
-                **ss_platform,
-                **igdb_platform,
-                "igdb_id": igdb_platform.get("igdb_id")
-                or hasheous_platform.get("igdb_id")
-                or None,
-                "ra_id": ra_platform.get("ra_id")
-                or hasheous_platform.get("ra_id")
-                or None,
-                "tgdb_id": moby_platform.get("tgdb_id")
-                or hasheous_platform.get("tgdb_id")
-                or None,
-                "name": igdb_platform.get("name")
-                or ss_platform.get("name")
-                or moby_platform.get("name")
-                or ra_platform.get("name")
-                or launchbox_platform.get("name")
-                or hasheous_platform.get("name")
-                or tgdb_platform.get("name")
-                or flashpoint_platform.get("name")
-                or hltb_platform.get("name")
-                or slug.replace("-", " ").title(),
-                "url_logo": igdb_platform.get("url_logo")
-                or tgdb_platform.get("url_logo")
-                or "",
-            }
-        )
-
-        platform = Platform(**platform_attrs)
-        supported_platforms.append(PlatformSchema.model_validate(platform).model_dump())
+    supported_platforms = get_supported_platforms()
 
     return {
         "detected_structure": detected_structure,
@@ -332,28 +232,12 @@ async def create_setup_platforms(platform_slugs: list[str]):
 
     try:
         # Detect structure type to determine if we need to create the roms folder
-        cnfg = cm.get_config()
-        roms_path = os.path.join(LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME)
-        detected_structure = None
-
-        # Check if the roms folder exists (Structure A indicator)
-        if os.path.exists(roms_path):
-            detected_structure = "A"
-        else:
-            # Check if any platform folders with roms subfolders exist (Structure B)
-            try:
-                library_contents = os.listdir(LIBRARY_BASE_PATH)
-                for item in library_contents:
-                    item_path = os.path.join(LIBRARY_BASE_PATH, item)
-                    roms_subfolder = os.path.join(item_path, cnfg.ROMS_FOLDER_NAME)
-                    if os.path.isdir(item_path) and os.path.exists(roms_subfolder):
-                        detected_structure = "B"
-                        break
-            except (OSError, FileNotFoundError):
-                pass
+        detected_structure = fs_platform_handler.detect_library_structure()
 
         # If no structure detected, create structure A (roms folder)
         if detected_structure is None:
+            cnfg = cm.get_config()
+            roms_path = os.path.join(LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME)
             os.makedirs(roms_path, exist_ok=True)
 
         # Create platform folders

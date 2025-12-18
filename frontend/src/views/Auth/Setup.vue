@@ -534,7 +534,6 @@ async function finishWizard() {
                               </v-expansion-panel-title>
                               <v-expansion-panel-text>
                                 <v-list
-                                  tabindex="-1"
                                   lines="two"
                                   class="py-1 px-0 bg-transparent"
                                 >
@@ -614,7 +613,27 @@ async function finishWizard() {
                                 </v-chip>
                               </v-expansion-panel-title>
                               <v-expansion-panel-text>
-                                <v-list class="bg-transparent">
+                                <v-list
+                                  lines="two"
+                                  class="py-1 px-0 bg-transparent"
+                                >
+                                  <PlatformListItem
+                                    v-for="platform in platforms"
+                                    :platform="platform"
+                                    :show-rom-count="false"
+                                  >
+                                    <template #prepend>
+                                      <v-checkbox
+                                        v-model="selectedPlatforms"
+                                        :value="platform.fs_slug"
+                                        hide-details
+                                        density="compact"
+                                        class="mr-2"
+                                      />
+                                    </template>
+                                  </PlatformListItem>
+                                </v-list>
+                                <!-- <v-list class="bg-transparent">
                                   <v-list-item
                                     v-for="platform in platforms"
                                     :key="platform.fs_slug"
@@ -636,7 +655,7 @@ async function finishWizard() {
                                       {{ platform.fs_slug }}
                                     </v-list-item-subtitle>
                                   </v-list-item>
-                                </v-list>
+                                </v-list> -->
                               </v-expansion-panel-text>
                             </v-expansion-panel>
                           </v-expansion-panels>
