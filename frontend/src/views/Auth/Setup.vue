@@ -313,7 +313,10 @@ function handleNext(nextCallback: () => void) {
 
   // Case 3: Structure is detected and user selected at least one platform to create
   if (hasStructure && platformsToCreate.length > 0) {
-    confirmDialogMessage.value = `RomM will create Structure A (roms/{platform}) with ${
+    const structureType = hasStructure === "A" ? "A" : "B";
+    const structurePattern =
+      hasStructure === "A" ? "roms/{platform}" : "{platform}/roms";
+    confirmDialogMessage.value = `RomM will create Structure ${structureType} (${structurePattern}) with ${
       platformsToCreate.length
     } platform${platformsToCreate.length > 1 ? "s" : ""}. Continue?`;
     confirmDialogAction.value = nextCallback;
