@@ -11,7 +11,6 @@ const props = defineProps<{
   baseIndex?: number;
   onToggleGroup?: (platforms: Platform[], checked: boolean) => void;
   isGroupFullySelected?: (platforms: Platform[]) => boolean;
-  platformGameCounts?: Record<string, number>;
 }>();
 
 const emit = defineEmits<{
