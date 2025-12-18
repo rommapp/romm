@@ -3,7 +3,7 @@ import type { Emitter } from "mitt";
 import { computed, inject, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
-import PlatformListItem from "@/components/common/Platform/ListItem.vue";
+import PlatformGroupList from "@/components/Setup/PlatformGroupList.vue";
 import router from "@/plugins/router";
 import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
@@ -188,12 +188,6 @@ const groupedAvailablePlatforms = computed(() => {
 const hasExistingPlatforms = computed(() => {
   return (libraryInfo.value?.existing_platforms.length ?? 0) > 0;
 });
-
-// Count selected platforms in a group
-const countSelectedInGroup = (platforms: Platform[]) => {
-  return platforms.filter((p) => selectedPlatforms.value.includes(p.fs_slug))
-    .length;
-};
 
 // Check if platform already exists
 const isPlatformExisting = (fsSlug: string) => {
@@ -425,43 +419,10 @@ onMounted(() => {
                         class="overflow-y-auto pr-4"
                         style="max-height: 45dvh"
                       >
-                        <v-expansion-panels
-                          multiple
-                          class="bg-transparent"
-                          elevation="0"
-                          variant="accordion"
-                        >
-                          <v-expansion-panel
-                            v-for="(
-                              [groupName, platforms], index
-                            ) in groupedExistingPlatforms"
-                            :key="`existing-${groupName}`"
-                            :value="index"
-                            class="bg-transparent"
-                          >
-                            <v-expansion-panel-title
-                              class="text-white text-shadow"
-                            >
-                              <strong>{{ groupName }}</strong>
-                              <span class="ml-2 text-caption text-grey"
-                                >({{ platforms.length }})</span
-                              >
-                            </v-expansion-panel-title>
-                            <v-expansion-panel-text>
-                              <v-list
-                                lines="two"
-                                class="py-1 px-0 bg-transparent"
-                              >
-                                <PlatformListItem
-                                  v-for="platform in platforms"
-                                  :key="platform.fs_slug"
-                                  :platform="platform"
-                                  :show-rom-count="false"
-                                />
-                              </v-list>
-                            </v-expansion-panel-text>
-                          </v-expansion-panel>
-                        </v-expansion-panels>
+                        <PlatformGroupList
+                          :grouped-platforms="groupedExistingPlatforms"
+                          key-prefix="existing"
+                        />
                       </div>
                     </v-col>
 
@@ -478,61 +439,13 @@ onMounted(() => {
                         class="overflow-y-auto pr-4"
                         style="max-height: 45dvh"
                       >
-                        <v-expansion-panels
-                          multiple
-                          class="bg-transparent"
-                          elevation="0"
-                          variant="accordion"
-                        >
-                          <v-expansion-panel
-                            v-for="(
-                              [groupName, platforms], index
-                            ) in groupedAvailablePlatforms"
-                            :key="`available-${groupName}`"
-                            :value="index + groupedExistingPlatforms.length"
-                            class="bg-transparent"
-                          >
-                            <v-expansion-panel-title
-                              class="text-white text-shadow"
-                            >
-                              <strong>{{ groupName }}</strong>
-                              <span class="ml-2 text-caption text-grey">
-                                ({{ platforms.length }})
-                              </span>
-                              <v-chip
-                                v-if="countSelectedInGroup(platforms) > 0"
-                                size="x-small"
-                                color="primary"
-                                class="ml-2"
-                              >
-                                {{ countSelectedInGroup(platforms) }} selected
-                              </v-chip>
-                            </v-expansion-panel-title>
-                            <v-expansion-panel-text>
-                              <v-list
-                                lines="two"
-                                class="py-1 px-0 bg-transparent"
-                              >
-                                <PlatformListItem
-                                  v-for="platform in platforms"
-                                  :key="platform.fs_slug"
-                                  :platform="platform"
-                                  :show-rom-count="false"
-                                >
-                                  <template #prepend>
-                                    <v-checkbox
-                                      v-model="selectedPlatforms"
-                                      :value="platform.fs_slug"
-                                      hide-details
-                                      density="compact"
-                                      class="mr-2"
-                                    />
-                                  </template>
-                                </PlatformListItem>
-                              </v-list>
-                            </v-expansion-panel-text>
-                          </v-expansion-panel>
-                        </v-expansion-panels>
+                        <PlatformGroupList
+                          :grouped-platforms="groupedAvailablePlatforms"
+                          v-model:selected-platforms="selectedPlatforms"
+                          :show-checkboxes="true"
+                          key-prefix="available"
+                          :base-index="groupedExistingPlatforms.length"
+                        />
                       </div>
                     </v-col>
                   </template>
@@ -562,43 +475,10 @@ onMounted(() => {
                           class="overflow-y-auto pr-4"
                           style="max-height: 50dvh"
                         >
-                          <v-expansion-panels
-                            multiple
-                            class="bg-transparent"
-                            elevation="0"
-                            variant="accordion"
-                          >
-                            <v-expansion-panel
-                              v-for="(
-                                [groupName, platforms], index
-                              ) in groupedExistingPlatforms"
-                              :key="`existing-${groupName}`"
-                              :value="index"
-                              class="bg-transparent"
-                            >
-                              <v-expansion-panel-title
-                                class="text-white text-shadow"
-                              >
-                                <strong>{{ groupName }}</strong>
-                                <span class="ml-2 text-caption text-grey"
-                                  >({{ platforms.length }})</span
-                                >
-                              </v-expansion-panel-title>
-                              <v-expansion-panel-text>
-                                <v-list
-                                  lines="two"
-                                  class="py-1 px-0 bg-transparent"
-                                >
-                                  <PlatformListItem
-                                    v-for="platform in platforms"
-                                    :key="platform.fs_slug"
-                                    :platform="platform"
-                                    :show-rom-count="false"
-                                  />
-                                </v-list>
-                              </v-expansion-panel-text>
-                            </v-expansion-panel>
-                          </v-expansion-panels>
+                          <PlatformGroupList
+                            :grouped-platforms="groupedExistingPlatforms"
+                            key-prefix="existing-mobile"
+                          />
                         </div>
                       </v-window-item>
 
@@ -608,61 +488,13 @@ onMounted(() => {
                           class="overflow-y-auto pr-4"
                           style="max-height: 50dvh"
                         >
-                          <v-expansion-panels
-                            multiple
-                            class="bg-transparent"
-                            elevation="0"
-                            variant="accordion"
-                          >
-                            <v-expansion-panel
-                              v-for="(
-                                [groupName, platforms], index
-                              ) in groupedAvailablePlatforms"
-                              :key="`available-${groupName}`"
-                              :value="index + groupedExistingPlatforms.length"
-                              class="bg-transparent"
-                            >
-                              <v-expansion-panel-title
-                                class="text-white text-shadow"
-                              >
-                                <strong>{{ groupName }}</strong>
-                                <span class="ml-2 text-caption text-grey">
-                                  ({{ platforms.length }})
-                                </span>
-                                <v-chip
-                                  v-if="countSelectedInGroup(platforms) > 0"
-                                  size="x-small"
-                                  color="primary"
-                                  class="ml-2"
-                                >
-                                  {{ countSelectedInGroup(platforms) }} selected
-                                </v-chip>
-                              </v-expansion-panel-title>
-                              <v-expansion-panel-text>
-                                <v-list
-                                  lines="two"
-                                  class="py-1 px-0 bg-transparent"
-                                >
-                                  <PlatformListItem
-                                    v-for="platform in platforms"
-                                    :key="platform.fs_slug"
-                                    :platform="platform"
-                                    :show-rom-count="false"
-                                  >
-                                    <template #prepend>
-                                      <v-checkbox
-                                        v-model="selectedPlatforms"
-                                        :value="platform.fs_slug"
-                                        hide-details
-                                        density="compact"
-                                        class="mr-2"
-                                      />
-                                    </template>
-                                  </PlatformListItem>
-                                </v-list>
-                              </v-expansion-panel-text>
-                            </v-expansion-panel>
-                          </v-expansion-panels>
+                          <PlatformGroupList
+                            :grouped-platforms="groupedAvailablePlatforms"
+                            v-model:selected-platforms="selectedPlatforms"
+                            :show-checkboxes="true"
+                            key-prefix="available-mobile"
+                            :base-index="groupedExistingPlatforms.length"
+                          />
                         </div>
                       </v-window-item>
                     </v-window>
