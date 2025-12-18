@@ -353,6 +353,15 @@ onMounted(() => {
           </v-stepper-header>
         </div>
 
+        <!-- Mobile title section -->
+        <div v-if="xs" class="flex-grow-0 text-center pb-6">
+          <span class="text-white text-shadow text-subtitle-1">
+            <span v-if="step === 1">Setup library structure</span>
+            <span v-else-if="step === 2">Create an admin user</span>
+            <span v-else-if="step === 3">Check metadata sources</span>
+          </span>
+        </div>
+
         <v-stepper-window
           class="flex-grow-1 my-0 mb-4 overflow-x-hidden overflow-y-hidden align-content-center"
         >
@@ -361,13 +370,6 @@ onMounted(() => {
               <v-col class="d-flex flex-column h-100" style="min-height: 0">
                 <!-- Fixed header section -->
                 <div class="flex-grow-0">
-                  <!-- Title sections -->
-                  <v-row v-if="xs" no-gutters class="text-center">
-                    <v-col>
-                      <span>Setup library structure</span>
-                    </v-col>
-                  </v-row>
-
                   <!-- Loading state -->
                   <v-row
                     v-if="loadingLibraryInfo"
@@ -563,11 +565,6 @@ onMounted(() => {
           <v-stepper-window-item :key="2" :value="2" class="h-100">
             <v-row no-gutters class="h-100">
               <v-col class="d-flex flex-column h-100" style="min-height: 0">
-                <v-row v-if="xs" no-gutters class="text-center">
-                  <v-col>
-                    <span>Create an admin user</span>
-                  </v-col>
-                </v-row>
                 <v-row
                   class="justify-center align-center flex-grow-1"
                   no-gutters
@@ -640,11 +637,6 @@ onMounted(() => {
           <v-stepper-window-item :key="3" :value="3" class="h-100">
             <v-row no-gutters class="h-100">
               <v-col class="d-flex flex-column h-100" style="min-height: 0">
-                <v-row v-if="xs" no-gutters class="text-center">
-                  <v-col>
-                    <span>Check metadata sources</span>
-                  </v-col>
-                </v-row>
                 <v-row
                   class="justify-center align-center flex-grow-1"
                   no-gutters
