@@ -4,6 +4,7 @@ import { computed, inject, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import PlatformGroupList from "@/components/Setup/PlatformGroupList.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import router from "@/plugins/router";
 import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
@@ -31,6 +32,9 @@ const selectedPlatforms = ref<string[]>([]);
 const creatingPlatforms = ref(false);
 const openPanels = ref<number[]>([]);
 const mobileTab = ref(0); // 0: Detected, 1: Available
+const showConfirmDialog = ref(false);
+const confirmDialogMessage = ref("");
+const confirmDialogAction = ref<(() => void) | null>(null);
 
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
@@ -146,15 +150,21 @@ const groupPlatformsByManufacturer = (platforms: Platform[]) => {
 const groupedExistingPlatforms = computed(() => {
   if (!libraryInfo.value) return [];
 
+  // Only show existing platforms if a structure was actually detected
+  if (!libraryInfo.value.detected_structure) return [];
+
   // Get supported platform slugs for quick lookup
   const supportedSlugs = new Set(
     libraryInfo.value.supported_platforms.map((p) => p.fs_slug),
   );
 
   // Get identified platforms (existing and in supported list)
-  const identified = libraryInfo.value.supported_platforms.filter((p) =>
-    libraryInfo.value?.existing_platforms.includes(p.fs_slug),
-  );
+  const identified = libraryInfo.value.supported_platforms
+    .filter((p) => libraryInfo.value?.existing_platforms.includes(p.fs_slug))
+    .map((p) => ({
+      ...p,
+      rom_count: libraryInfo.value?.platform_game_counts?.[p.fs_slug] || 0,
+    }));
 
   // Get unidentified platforms (existing but not in supported list)
   // Create Platform objects for them with family_name="Other"
@@ -168,6 +178,7 @@ const groupedExistingPlatforms = computed(() => {
           name: slug,
           family_name: "Other",
           generation: 999,
+          rom_count: libraryInfo.value?.platform_game_counts?.[slug] || 0,
         }) as Platform,
     );
 
@@ -178,14 +189,19 @@ const groupedExistingPlatforms = computed(() => {
 // Group available platforms (not existing)
 const groupedAvailablePlatforms = computed(() => {
   if (!libraryInfo.value) return [];
-  const available = libraryInfo.value.supported_platforms.filter(
-    (p) => !libraryInfo.value?.existing_platforms.includes(p.fs_slug),
-  );
+  const available = libraryInfo.value.supported_platforms
+    .filter((p) => !libraryInfo.value?.existing_platforms.includes(p.fs_slug))
+    .map((p) => ({
+      ...p,
+      rom_count: libraryInfo.value?.platform_game_counts?.[p.fs_slug] || 0,
+    }));
   return groupPlatformsByManufacturer(available);
 });
 
 // Check if there are existing platforms
 const hasExistingPlatforms = computed(() => {
+  // Only consider platforms as existing if a structure was detected
+  if (!libraryInfo.value?.detected_structure) return false;
   return (libraryInfo.value?.existing_platforms.length ?? 0) > 0;
 });
 
@@ -224,6 +240,98 @@ watch(selectAll, (newValue) => {
     selectedPlatforms.value = [...libraryInfo.value.existing_platforms];
   }
 });
+
+// Function to toggle all platforms in a group
+function toggleGroupSelection(platforms: Platform[], checked: boolean) {
+  const slugs = platforms.map((p) => p.fs_slug);
+  if (checked) {
+    // Add all platforms from this group
+    const newSlugs = slugs.filter(
+      (slug) => !selectedPlatforms.value.includes(slug),
+    );
+    selectedPlatforms.value = [...selectedPlatforms.value, ...newSlugs];
+  } else {
+    // Remove all platforms from this group
+    selectedPlatforms.value = selectedPlatforms.value.filter(
+      (slug) => !slugs.includes(slug),
+    );
+  }
+}
+
+// Check if all platforms in a group are selected
+function isGroupFullySelected(platforms: Platform[]) {
+  return platforms.every((p) => selectedPlatforms.value.includes(p.fs_slug));
+}
+
+// Compute the count of selected available platforms (excluding existing ones)
+const selectedAvailableCount = computed(() => {
+  const existingPlatforms = libraryInfo.value?.existing_platforms || [];
+  return selectedPlatforms.value.filter(
+    (slug) => !existingPlatforms.includes(slug),
+  ).length;
+});
+
+// Compute the total game count for detected platforms
+const totalDetectedGames = computed(() => {
+  if (!libraryInfo.value?.platform_game_counts) return 0;
+  return Object.values(libraryInfo.value.platform_game_counts).reduce(
+    (total, count) => total + count,
+    0,
+  );
+});
+
+// Function to handle next button with confirmation
+function handleNext(nextCallback: () => void) {
+  if (step.value !== 1) {
+    nextCallback();
+    return;
+  }
+
+  const hasStructure = libraryInfo.value?.detected_structure;
+  const platformsToCreate = selectedPlatforms.value.filter(
+    (slug) => !isPlatformExisting(slug),
+  );
+
+  // Case 1: No structure detected and user is creating platforms
+  if (!hasStructure && platformsToCreate.length > 0) {
+    confirmDialogMessage.value = `No folder structure detected. RomM will create Structure A (roms/{platform}) with ${
+      platformsToCreate.length
+    } platform${platformsToCreate.length > 1 ? "s" : ""}. Continue?`;
+    confirmDialogAction.value = nextCallback;
+    showConfirmDialog.value = true;
+    return;
+  }
+
+  // Case 2: No structure detected and user is not selecting anything
+  if (!hasStructure && platformsToCreate.length === 0) {
+    confirmDialogMessage.value =
+      "No folder structure detected and no platforms selected. You will need to create the folder structure manually. Continue?";
+    confirmDialogAction.value = nextCallback;
+    showConfirmDialog.value = true;
+    return;
+  }
+
+  // Case 3: Structure is detected and user selected at least one platform to create
+  if (hasStructure && platformsToCreate.length > 0) {
+    confirmDialogMessage.value = `RomM will create Structure A (roms/{platform}) with ${
+      platformsToCreate.length
+    } platform${platformsToCreate.length > 1 ? "s" : ""}. Continue?`;
+    confirmDialogAction.value = nextCallback;
+    showConfirmDialog.value = true;
+    return;
+  }
+
+  // Otherwise, proceed normally
+  nextCallback();
+}
+
+function handleConfirmDialog() {
+  showConfirmDialog.value = false;
+  if (confirmDialogAction.value) {
+    confirmDialogAction.value();
+    confirmDialogAction.value = null;
+  }
+}
 
 async function loadLibraryInfo() {
   loadingLibraryInfo.value = true;
@@ -358,7 +466,7 @@ onMounted(() => {
 
         <v-stepper-window
           class="flex-grow-1 mb-4"
-          :class="{ 'align-content-center': step != 1 }"
+          :class="{ 'align-content-center': step != 1 || loadingLibraryInfo }"
         >
           <v-stepper-window-item :key="1" :value="1" class="h-100">
             <v-row no-gutters class="h-100">
@@ -411,23 +519,41 @@ onMounted(() => {
                   <!-- Desktop: Two columns side by side -->
                   <template v-if="!xs">
                     <!-- Existing platforms column -->
-                    <v-col v-if="hasExistingPlatforms" cols="12" md="6">
+                    <v-col
+                      v-if="hasExistingPlatforms"
+                      cols="12"
+                      md="6"
+                      class="pr-2"
+                    >
                       <div class="text-white text-center text-shadow mb-2">
                         <strong>Detected Platforms</strong>
                       </div>
-                      <div
-                        class="overflow-y-auto pr-4"
-                        style="max-height: 500px"
-                      >
+                      <div class="mb-2 ml-4">
+                        <v-chip label>
+                          {{ libraryInfo?.existing_platforms.length }} platforms
+                        </v-chip>
+                        <v-chip class="ml-2" variant="tonal" label>
+                          {{ totalDetectedGames }} game{{
+                            totalDetectedGames !== 1 ? "s" : ""
+                          }}
+                        </v-chip>
+                      </div>
+                      <div class="overflow-y-auto" style="max-height: 500px">
                         <PlatformGroupList
                           :grouped-platforms="groupedExistingPlatforms"
-                          key-prefix="existing"
+                          :platform-game-counts="
+                            libraryInfo?.platform_game_counts
+                          "
                         />
                       </div>
                     </v-col>
 
                     <!-- Available platforms to create column -->
-                    <v-col cols="12" :md="hasExistingPlatforms ? 6 : 12">
+                    <v-col
+                      cols="12"
+                      :md="hasExistingPlatforms ? 6 : 12"
+                      class="pl-2"
+                    >
                       <div class="text-white text-center text-shadow mb-2">
                         <strong>{{
                           hasExistingPlatforms
@@ -435,16 +561,28 @@ onMounted(() => {
                             : "Select Platforms to Create"
                         }}</strong>
                       </div>
-                      <div
-                        class="overflow-y-auto pr-4"
-                        style="max-height: 500px"
-                      >
+                      <div class="mb-2 ml-4">
+                        <v-chip
+                          variant="tonal"
+                          color="primary"
+                          @click="selectAll = !selectAll"
+                          label
+                        >
+                          {{ selectAll ? "Deselect All" : "Select All" }}
+                        </v-chip>
+                        <v-chip class="ml-2" label
+                          >{{ selectedAvailableCount }} selected</v-chip
+                        >
+                      </div>
+                      <div class="overflow-y-auto" style="max-height: 500px">
                         <PlatformGroupList
                           :grouped-platforms="groupedAvailablePlatforms"
                           v-model:selected-platforms="selectedPlatforms"
                           :show-checkboxes="true"
                           key-prefix="available"
                           :base-index="groupedExistingPlatforms.length"
+                          :on-toggle-group="toggleGroupSelection"
+                          :is-group-fully-selected="isGroupFullySelected"
                         />
                       </div>
                     </v-col>
@@ -471,29 +609,52 @@ onMounted(() => {
                     <v-window v-model="mobileTab">
                       <!-- Detected platforms tab -->
                       <v-window-item v-if="hasExistingPlatforms" :value="0">
-                        <div
-                          class="overflow-y-auto pr-4"
-                          style="max-height: 400px"
-                        >
+                        <div class="mb-2 ml-4">
+                          <v-chip label>
+                            {{ libraryInfo?.existing_platforms.length }}
+                            platforms
+                          </v-chip>
+                          <v-chip class="ml-2" variant="tonal" label>
+                            {{ totalDetectedGames }} game{{
+                              totalDetectedGames !== 1 ? "s" : ""
+                            }}
+                          </v-chip>
+                        </div>
+                        <div class="overflow-y-auto" style="max-height: 400px">
                           <PlatformGroupList
                             :grouped-platforms="groupedExistingPlatforms"
                             key-prefix="existing-mobile"
+                            :platform-game-counts="
+                              libraryInfo?.platform_game_counts
+                            "
                           />
                         </div>
                       </v-window-item>
 
                       <!-- Available platforms tab -->
                       <v-window-item :value="hasExistingPlatforms ? 1 : 0">
-                        <div
-                          class="overflow-y-auto pr-4"
-                          style="max-height: 400px"
-                        >
+                        <div class="mb-2 ml-4">
+                          <v-chip
+                            variant="tonal"
+                            color="primary"
+                            @click="selectAll = !selectAll"
+                            label
+                          >
+                            {{ selectAll ? "Deselect All" : "Select All" }}
+                          </v-chip>
+                          <v-chip class="ml-2" label
+                            >{{ selectedAvailableCount }} selected</v-chip
+                          >
+                        </div>
+                        <div class="overflow-y-auto" style="max-height: 500px">
                           <PlatformGroupList
                             :grouped-platforms="groupedAvailablePlatforms"
                             v-model:selected-platforms="selectedPlatforms"
                             :show-checkboxes="true"
                             key-prefix="available-mobile"
                             :base-index="groupedExistingPlatforms.length"
+                            :on-toggle-group="toggleGroupSelection"
+                            :is-group-fully-selected="isGroupFullySelected"
                           />
                         </div>
                       </v-window-item>
@@ -626,8 +787,8 @@ onMounted(() => {
               <v-btn
                 class="text-white text-shadow"
                 :loading="isLastStep && creatingPlatforms"
-                @click="!isLastStep ? next() : finishWizard()"
-                @keydown.enter="!isLastStep ? next() : finishWizard()"
+                @click="!isLastStep ? handleNext(next) : finishWizard()"
+                @keydown.enter="!isLastStep ? handleNext(next) : finishWizard()"
               >
                 {{ !isLastStep ? "Next" : "Finish" }}
               </v-btn>
@@ -636,5 +797,42 @@ onMounted(() => {
         </div>
       </template>
     </v-stepper>
+
+    <!-- Confirmation Dialog -->
+    <RDialog
+      v-model="showConfirmDialog"
+      icon="mdi-alert"
+      width="500"
+      @close="showConfirmDialog = false"
+    >
+      <template #header>
+        <v-row class="ml-2">Confirm Action</v-row>
+      </template>
+      <template #content>
+        <div class="text-body-1 pa-4">
+          {{ confirmDialogMessage }}
+        </div>
+      </template>
+      <template #footer>
+        <v-row class="justify-center my-2" no-gutters>
+          <v-btn-group divided density="compact">
+            <v-btn class="bg-toplayer" @click="showConfirmDialog = false">
+              Cancel
+            </v-btn>
+            <v-btn
+              class="bg-toplayer text-primary"
+              @click="handleConfirmDialog"
+            >
+              Continue
+            </v-btn>
+          </v-btn-group>
+        </v-row>
+      </template>
+    </RDialog>
   </v-card>
 </template>
+<style lang="css">
+.v-expansion-panel-text__wrapper {
+  padding: 0px !important;
+}
+</style>

@@ -6,6 +6,7 @@ export type LibraryStructure = "A" | "B" | null;
 export interface SetupLibraryInfo {
   detected_structure: LibraryStructure;
   existing_platforms: string[];
+  platform_game_counts: Record<string, number>;
   supported_platforms: Platform[];
 }
 

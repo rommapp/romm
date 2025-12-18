@@ -9,6 +9,9 @@ const props = defineProps<{
   showCheckboxes?: boolean;
   keyPrefix?: string;
   baseIndex?: number;
+  onToggleGroup?: (platforms: Platform[], checked: boolean) => void;
+  isGroupFullySelected?: (platforms: Platform[]) => boolean;
+  platformGameCounts?: Record<string, number>;
 }>();
 
 const emit = defineEmits<{
@@ -42,18 +45,33 @@ const countSelectedInGroup = (platforms: Platform[]) => {
       class="bg-transparent"
     >
       <v-expansion-panel-title class="text-white text-shadow">
-        <strong>{{ groupName }}</strong>
-        <span class="ml-2 text-caption text-grey"
-          >({{ platforms.length }})</span
-        >
-        <v-chip
-          v-if="showCheckboxes && countSelectedInGroup(platforms) > 0"
-          size="x-small"
-          color="primary"
-          class="ml-2"
-        >
-          {{ countSelectedInGroup(platforms) }} selected
-        </v-chip>
+        <template #default>
+          <div class="d-flex align-center w-100">
+            <v-checkbox
+              v-if="showCheckboxes && onToggleGroup && isGroupFullySelected"
+              :model-value="isGroupFullySelected(platforms)"
+              hide-details
+              density="compact"
+              class="mr-2 flex-grow-0"
+              @click.stop
+              @update:model-value="onToggleGroup(platforms, $event as boolean)"
+            />
+            <div class="flex-grow-1">
+              <strong>{{ groupName }}</strong>
+              <span class="ml-2 text-caption text-grey"
+                >({{ platforms.length }})</span
+              >
+              <v-chip
+                v-if="showCheckboxes && countSelectedInGroup(platforms) > 0"
+                size="x-small"
+                color="primary"
+                class="ml-2"
+              >
+                {{ countSelectedInGroup(platforms) }} selected
+              </v-chip>
+            </div>
+          </div>
+        </template>
       </v-expansion-panel-title>
       <v-expansion-panel-text>
         <v-list lines="two" class="py-1 px-0 bg-transparent">
@@ -61,7 +79,6 @@ const countSelectedInGroup = (platforms: Platform[]) => {
             v-for="platform in platforms"
             :key="platform.fs_slug"
             :platform="platform"
-            :show-rom-count="false"
           >
             <template v-if="showCheckboxes" #prepend>
               <v-checkbox
