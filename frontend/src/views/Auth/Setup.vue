@@ -4,7 +4,6 @@ import { computed, inject, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import PlatformListItem from "@/components/common/Platform/ListItem.vue";
-import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import router from "@/plugins/router";
 import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
@@ -17,7 +16,7 @@ import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
-const { xs, smAndUp } = useDisplay();
+const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const usersStore = storeUsers();
