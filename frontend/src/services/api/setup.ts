@@ -3,10 +3,14 @@ import type { Platform } from "@/stores/platforms";
 
 export type LibraryStructure = "A" | "B" | null;
 
+export interface ExistingPlatform {
+  fs_slug: string;
+  rom_count: number;
+}
+
 export interface SetupLibraryInfo {
   detected_structure: LibraryStructure;
-  existing_platforms: string[];
-  platform_game_counts: Record<string, number>;
+  existing_platforms: ExistingPlatform[];
   supported_platforms: Platform[];
 }
 

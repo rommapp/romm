@@ -171,8 +171,7 @@ async def get_setup_library_info():
 
     Returns:
         - detected_structure: "A" (roms/{platform}), "B" ({platform}/roms), or None
-        - existing_platforms: list of platform fs_slugs already in filesystem
-        - platform_game_counts: dict mapping platform fs_slug to game count
+        - existing_platforms: list of objects with fs_slug and rom_count
         - supported_platforms: list of all supported platforms with metadata
     """
 
@@ -187,15 +186,16 @@ async def get_setup_library_info():
 
     # Get existing platforms from filesystem
     try:
-        existing_platforms = await fs_platform_handler.get_platforms()
+        existing_platform_slugs = await fs_platform_handler.get_platforms()
     except Exception:
-        existing_platforms = []
+        existing_platform_slugs = []
 
-    # Count games for each existing platform
-    platform_game_counts = {}
-    if detected_structure and existing_platforms:
+    # Build existing platforms with rom counts
+    existing_platforms = []
+    if detected_structure and existing_platform_slugs:
         cnfg = cm.get_config()
-        for fs_slug in existing_platforms:
+        for fs_slug in existing_platform_slugs:
+            rom_count = 0
             try:
                 # Determine the roms directory based on structure
                 if detected_structure == "A":
@@ -211,7 +211,7 @@ async def get_setup_library_info():
                 if os.path.exists(roms_path):
                     items = os.listdir(roms_path)
                     # Filter out hidden files and system files
-                    game_count = len(
+                    rom_count = len(
                         [
                             item
                             for item in items
@@ -219,11 +219,15 @@ async def get_setup_library_info():
                             and item not in ["_resources", "_cache"]
                         ]
                     )
-                    platform_game_counts[fs_slug] = game_count
-                else:
-                    platform_game_counts[fs_slug] = 0
             except Exception:
-                platform_game_counts[fs_slug] = 0
+                pass
+
+            existing_platforms.append(
+                {
+                    "fs_slug": fs_slug,
+                    "rom_count": rom_count,
+                }
+            )
 
     # Get all supported platforms with metadata
     supported_platforms = get_supported_platforms()
@@ -231,7 +235,6 @@ async def get_setup_library_info():
     return {
         "detected_structure": detected_structure,
         "existing_platforms": existing_platforms,
-        "platform_game_counts": platform_game_counts,
         "supported_platforms": supported_platforms,
     }
 

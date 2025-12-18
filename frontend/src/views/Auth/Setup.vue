@@ -158,27 +158,37 @@ const groupedExistingPlatforms = computed(() => {
     libraryInfo.value.supported_platforms.map((p) => p.fs_slug),
   );
 
+  // Get existing platform slugs
+  const existingSlugs = libraryInfo.value.existing_platforms.map(
+    (p) => p.fs_slug,
+  );
+
+  // Create a lookup map for rom counts
+  const romCountMap = new Map(
+    libraryInfo.value.existing_platforms.map((p) => [p.fs_slug, p.rom_count]),
+  );
+
   // Get identified platforms (existing and in supported list)
   const identified = libraryInfo.value.supported_platforms
-    .filter((p) => libraryInfo.value?.existing_platforms.includes(p.fs_slug))
+    .filter((p) => existingSlugs.includes(p.fs_slug))
     .map((p) => ({
       ...p,
-      rom_count: libraryInfo.value?.platform_game_counts?.[p.fs_slug] || 0,
+      rom_count: romCountMap.get(p.fs_slug) || 0,
     }));
 
   // Get unidentified platforms (existing but not in supported list)
   // Create Platform objects for them with family_name="Other"
   const unidentified = libraryInfo.value.existing_platforms
-    .filter((slug) => !supportedSlugs.has(slug))
+    .filter((ep) => !supportedSlugs.has(ep.fs_slug))
     .map(
-      (slug) =>
+      (ep) =>
         ({
-          fs_slug: slug,
-          slug: slug,
-          name: slug,
+          fs_slug: ep.fs_slug,
+          slug: ep.fs_slug,
+          name: ep.fs_slug,
           family_name: "Other",
           generation: 999,
-          rom_count: libraryInfo.value?.platform_game_counts?.[slug] || 0,
+          rom_count: ep.rom_count,
         }) as Platform,
     );
 
@@ -189,11 +199,14 @@ const groupedExistingPlatforms = computed(() => {
 // Group available platforms (not existing)
 const groupedAvailablePlatforms = computed(() => {
   if (!libraryInfo.value) return [];
+  const existingSlugs = libraryInfo.value.existing_platforms.map(
+    (p) => p.fs_slug,
+  );
   const available = libraryInfo.value.supported_platforms
-    .filter((p) => !libraryInfo.value?.existing_platforms.includes(p.fs_slug))
+    .filter((p) => !existingSlugs.includes(p.fs_slug))
     .map((p) => ({
       ...p,
-      rom_count: libraryInfo.value?.platform_game_counts?.[p.fs_slug] || 0,
+      rom_count: 0,
     }));
   return groupPlatformsByManufacturer(available);
 });
@@ -207,7 +220,10 @@ const hasExistingPlatforms = computed(() => {
 
 // Check if platform already exists
 const isPlatformExisting = (fsSlug: string) => {
-  return libraryInfo.value?.existing_platforms.includes(fsSlug) ?? false;
+  return (
+    libraryInfo.value?.existing_platforms.some((p) => p.fs_slug === fsSlug) ??
+    false
+  );
 };
 
 // Watch grouped existing and available platforms to open all panels
@@ -226,18 +242,19 @@ watch(
 watch(selectAll, (newValue) => {
   if (!libraryInfo.value) return;
 
+  const existingSlugs = libraryInfo.value.existing_platforms.map(
+    (p) => p.fs_slug,
+  );
+
   if (newValue) {
     // Select all available platforms (exclude existing ones)
     const allAvailable = libraryInfo.value.supported_platforms
-      .filter((p) => !isPlatformExisting(p.fs_slug))
+      .filter((p) => !existingSlugs.includes(p.fs_slug))
       .map((p) => p.fs_slug);
-    selectedPlatforms.value = [
-      ...libraryInfo.value.existing_platforms,
-      ...allAvailable,
-    ];
+    selectedPlatforms.value = [...existingSlugs, ...allAvailable];
   } else {
     // Keep only existing platforms selected
-    selectedPlatforms.value = [...libraryInfo.value.existing_platforms];
+    selectedPlatforms.value = [...existingSlugs];
   }
 });
 
@@ -265,17 +282,17 @@ function isGroupFullySelected(platforms: Platform[]) {
 
 // Compute the count of selected available platforms (excluding existing ones)
 const selectedAvailableCount = computed(() => {
-  const existingPlatforms = libraryInfo.value?.existing_platforms || [];
-  return selectedPlatforms.value.filter(
-    (slug) => !existingPlatforms.includes(slug),
-  ).length;
+  const existingSlugs =
+    libraryInfo.value?.existing_platforms.map((p) => p.fs_slug) || [];
+  return selectedPlatforms.value.filter((slug) => !existingSlugs.includes(slug))
+    .length;
 });
 
 // Compute the total game count for detected platforms
 const totalDetectedGames = computed(() => {
-  if (!libraryInfo.value?.platform_game_counts) return 0;
-  return Object.values(libraryInfo.value.platform_game_counts).reduce(
-    (total, count) => total + count,
+  if (!libraryInfo.value?.existing_platforms) return 0;
+  return libraryInfo.value.existing_platforms.reduce(
+    (total, p) => total + p.rom_count,
     0,
   );
 });
@@ -312,11 +329,12 @@ function handleNext(nextCallback: () => void) {
   }
 
   // Case 3: Structure is detected and user selected at least one platform to create
-  if (hasStructure && platformsToCreate.length > 0) {
-    const structureType = hasStructure === "A" ? "A" : "B";
+  if (hasStructure && platformsToCreate.length > 0 && libraryInfo.value) {
     const structurePattern =
-      hasStructure === "A" ? "roms/{platform}" : "{platform}/roms";
-    confirmDialogMessage.value = `RomM will create Structure ${structureType} (${structurePattern}) with ${
+      libraryInfo.value.detected_structure === "A"
+        ? "roms/{platform}"
+        : "{platform}/roms";
+    confirmDialogMessage.value = `RomM will create Structure ${libraryInfo.value.detected_structure} (${structurePattern}) with ${
       platformsToCreate.length
     } platform${platformsToCreate.length > 1 ? "s" : ""}. Continue?`;
     confirmDialogAction.value = nextCallback;
@@ -343,7 +361,9 @@ async function loadLibraryInfo() {
     libraryInfo.value = response.data;
 
     // Pre-check existing platforms
-    selectedPlatforms.value = [...(libraryInfo.value.existing_platforms || [])];
+    selectedPlatforms.value = [
+      ...(libraryInfo.value.existing_platforms.map((p) => p.fs_slug) || []),
+    ];
   } catch (error: any) {
     emitter?.emit("snackbarShow", {
       msg: `Failed to load library info: ${
@@ -541,9 +561,6 @@ onMounted(() => {
                       <div class="overflow-y-auto" style="max-height: 500px">
                         <PlatformGroupList
                           :grouped-platforms="groupedExistingPlatforms"
-                          :platform-game-counts="
-                            libraryInfo?.platform_game_counts
-                          "
                         />
                       </div>
                     </v-col>
@@ -624,9 +641,6 @@ onMounted(() => {
                           <PlatformGroupList
                             :grouped-platforms="groupedExistingPlatforms"
                             key-prefix="existing-mobile"
-                            :platform-game-counts="
-                              libraryInfo?.platform_game_counts
-                            "
                           />
                         </div>
                       </v-window-item>
@@ -805,9 +819,6 @@ onMounted(() => {
       width="500"
       @close="showConfirmDialog = false"
     >
-      <template #header>
-        <v-row class="ml-2">Confirm Action</v-row>
-      </template>
       <template #content>
         <div class="text-body-1 pa-4">
           {{ confirmDialogMessage }}
