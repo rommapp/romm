@@ -361,65 +361,61 @@ onMounted(() => {
           </span>
         </div>
 
-        <v-stepper-window
-          class="flex-grow-1 mb-4 overflow-y-auto align-content-center"
-        >
+        <v-stepper-window class="flex-grow-1 mb-4 align-content-center">
           <v-stepper-window-item :key="1" :value="1" class="h-100">
             <v-row no-gutters class="h-100">
               <v-col class="h-100">
                 <!-- Fixed header section -->
-                <div>
-                  <!-- Loading state -->
-                  <v-row
-                    v-if="loadingLibraryInfo"
-                    class="justify-center align-center"
-                    no-gutters
-                  >
-                    <v-col class="text-center py-8">
-                      <v-progress-circular
-                        indeterminate
-                        color="primary"
-                        size="64"
-                      />
-                      <p class="text-white text-shadow mt-4">
-                        Loading platforms...
-                      </p>
-                    </v-col>
-                  </v-row>
+                <!-- Loading state -->
+                <v-row
+                  v-if="loadingLibraryInfo"
+                  class="justify-center align-center"
+                  no-gutters
+                >
+                  <v-col class="text-center py-8">
+                    <v-progress-circular
+                      indeterminate
+                      color="primary"
+                      size="64"
+                    />
+                    <p class="text-white text-shadow mt-4">
+                      Loading platforms...
+                    </p>
+                  </v-col>
+                </v-row>
 
-                  <!-- Structure info -->
-                  <v-row v-if="!loadingLibraryInfo" no-gutters class="mb-3">
-                    <v-col class="text-center">
-                      <p class="text-white text-shadow">
-                        <strong>Folder structure:</strong>
-                        {{
-                          libraryInfo?.detected_structure === "A"
-                            ? "Structure A detected"
-                            : libraryInfo?.detected_structure === "B"
-                              ? "Structure B detected"
-                              : "No structure detected - Structure A will be created"
-                        }}
-                      </p>
-                      <p class="text-caption text-grey">
-                        {{
-                          libraryInfo?.detected_structure === "A" ||
-                          !libraryInfo?.detected_structure
-                            ? "roms/{platform}"
-                            : "{platform}/roms"
-                        }}
-                      </p>
-                    </v-col>
-                  </v-row>
-                </div>
+                <!-- Structure info -->
+                <v-row v-if="!loadingLibraryInfo" no-gutters class="mb-3">
+                  <v-col class="text-center">
+                    <p class="text-white text-shadow">
+                      <strong>Folder structure:</strong>
+                      {{
+                        libraryInfo?.detected_structure === "A"
+                          ? "Structure A detected"
+                          : libraryInfo?.detected_structure === "B"
+                            ? "Structure B detected"
+                            : "No structure detected - Structure A will be created"
+                      }}
+                    </p>
+                    <p class="text-caption text-grey">
+                      {{
+                        libraryInfo?.detected_structure === "A" ||
+                        !libraryInfo?.detected_structure
+                          ? "roms/{platform}"
+                          : "{platform}/roms"
+                      }}
+                    </p>
+                  </v-col>
+                </v-row>
 
                 <!-- Scrollable platform selection section -->
-                <div v-if="!loadingLibraryInfo">
-                  <v-row no-gutters>
-                    <!-- Existing platforms column -->
-                    <v-col v-if="hasExistingPlatforms" cols="12" md="6">
-                      <div class="text-white text-center text-shadow mb-2">
-                        <strong>Detected Platforms</strong>
-                      </div>
+                <v-row v-if="!loadingLibraryInfo" no-gutters>
+                  <!-- Existing platforms column -->
+                  <v-col v-if="hasExistingPlatforms" cols="12" md="6">
+                    <div class="text-white text-center text-shadow mb-2">
+                      <strong>Detected Platforms</strong>
+                    </div>
+                    <div class="overflow-y-auto pr-4" style="max-height: 45dvh">
                       <v-expansion-panels
                         multiple
                         class="bg-transparent"
@@ -457,20 +453,22 @@ onMounted(() => {
                           </v-expansion-panel-text>
                         </v-expansion-panel>
                       </v-expansion-panels>
-                    </v-col>
+                    </div>
+                  </v-col>
 
-                    <!-- Available platforms to create column -->
-                    <v-col cols="12" :md="hasExistingPlatforms ? 6 : 12">
-                      <div
-                        class="text-white text-center text-shadow mb-2"
-                        :class="xs ? 'mt-8' : ''"
-                      >
-                        <strong>{{
-                          hasExistingPlatforms
-                            ? "Available Platforms"
-                            : "Select Platforms to Create"
-                        }}</strong>
-                      </div>
+                  <!-- Available platforms to create column -->
+                  <v-col cols="12" :md="hasExistingPlatforms ? 6 : 12">
+                    <div
+                      class="text-white text-center text-shadow mb-2"
+                      :class="xs ? 'mt-8' : ''"
+                    >
+                      <strong>{{
+                        hasExistingPlatforms
+                          ? "Available Platforms"
+                          : "Select Platforms to Create"
+                      }}</strong>
+                    </div>
+                    <div class="overflow-y-auto pr-4" style="max-height: 45dvh">
                       <v-expansion-panels
                         multiple
                         class="bg-transparent"
@@ -526,9 +524,9 @@ onMounted(() => {
                           </v-expansion-panel-text>
                         </v-expansion-panel>
                       </v-expansion-panels>
-                    </v-col>
-                  </v-row>
-                </div>
+                    </div>
+                  </v-col>
+                </v-row>
               </v-col>
             </v-row>
           </v-stepper-window-item>
