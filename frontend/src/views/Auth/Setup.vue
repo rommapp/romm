@@ -560,15 +560,18 @@ onMounted(() => {
             </v-row>
           </v-stepper-window-item>
 
-          <v-stepper-window-item :key="2" :value="2">
-            <v-row no-gutters>
-              <v-col>
+          <v-stepper-window-item :key="2" :value="2" class="h-100">
+            <v-row no-gutters class="h-100">
+              <v-col class="d-flex flex-column h-100" style="min-height: 0">
                 <v-row v-if="xs" no-gutters class="text-center">
                   <v-col>
                     <span>Create an admin user</span>
                   </v-col>
                 </v-row>
-                <v-row class="justify-center align-center" no-gutters>
+                <v-row
+                  class="justify-center align-center flex-grow-1"
+                  no-gutters
+                >
                   <v-col cols="12" md="8">
                     <v-form @submit.prevent>
                       <v-text-field
@@ -634,15 +637,18 @@ onMounted(() => {
             </v-row>
           </v-stepper-window-item>
 
-          <v-stepper-window-item :key="3" :value="3">
-            <v-row no-gutters>
-              <v-col>
+          <v-stepper-window-item :key="3" :value="3" class="h-100">
+            <v-row no-gutters class="h-100">
+              <v-col class="d-flex flex-column h-100" style="min-height: 0">
                 <v-row v-if="xs" no-gutters class="text-center">
                   <v-col>
                     <span>Check metadata sources</span>
                   </v-col>
                 </v-row>
-                <v-row class="justify-center align-center" no-gutters>
+                <v-row
+                  class="justify-center align-center flex-grow-1"
+                  no-gutters
+                >
                   <v-col cols="12" sm="8">
                     <v-list-item
                       v-for="source in metadataOptions"
