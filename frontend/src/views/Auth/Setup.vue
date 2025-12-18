@@ -539,7 +539,7 @@ onMounted(() => {
 
                   <!-- Mobile: Tabs for each section -->
                   <v-col v-else cols="12">
-                    <v-tabs v-model="mobileTab" centered class="mb-3">
+                    <v-tabs v-model="mobileTab" centered grow class="mb-3">
                       <v-tab
                         v-if="hasExistingPlatforms"
                         :value="0"
