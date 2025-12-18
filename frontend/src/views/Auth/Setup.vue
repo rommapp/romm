@@ -484,9 +484,6 @@ onMounted(() => {
                       color="primary"
                       size="64"
                     />
-                    <p class="text-white text-shadow mt-4">
-                      Loading platforms...
-                    </p>
                   </v-col>
                 </v-row>
 
