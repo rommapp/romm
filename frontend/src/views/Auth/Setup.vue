@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { computed, inject, ref, watch } from "vue";
+import { computed, inject, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import PlatformListItem from "@/components/common/Platform/ListItem.vue";
@@ -97,7 +97,7 @@ const defaultAdminUser = ref({
   role: "admin",
 });
 
-const step = ref(1); // 1: Create admin user, 2: Library setup, 3: Check metadata sources
+const step = ref(1); // 1: Library setup, 2: Create admin user , 3: Check metadata sources
 const filledAdminUser = computed(
   () =>
     defaultAdminUser.value.username != "" &&
@@ -200,13 +200,6 @@ const isPlatformExisting = (fsSlug: string) => {
   return libraryInfo.value?.existing_platforms.includes(fsSlug) ?? false;
 };
 
-// Watch for step changes to load library info
-watch(step, async (newStep) => {
-  if (newStep === 2 && !libraryInfo.value) {
-    await loadLibraryInfo();
-  }
-});
-
 // Watch grouped existing and available platforms to open all panels
 watch(
   [groupedExistingPlatforms, groupedAvailablePlatforms],
@@ -308,27 +301,35 @@ async function finishWizard() {
       });
     });
 }
+
+onMounted(() => {
+  loadLibraryInfo();
+});
 </script>
 
 <template>
   <v-card
     class="translucent px-3 d-flex flex-column"
     width="900"
-    max-height="95dvh"
+    height="90dvh"
   >
-    <v-img src="/assets/isotipo.svg" class="mx-auto mt-6" width="70" />
+    <v-card-title>
+      <v-img src="/assets/isotipo.svg" class="mx-auto mt-6" width="70" />
+    </v-card-title>
     <v-stepper
       v-model="step"
       :mobile="xs"
-      class="bg-transparent flex-grow-1 d-flex flex-column"
+      class="bg-transparent d-flex flex-column flex-grow-1"
       flat
     >
       <template #default="{ prev, next }">
-        <div>
+        <div class="flex-grow-0">
           <v-stepper-header style="box-shadow: unset">
             <v-stepper-item :value="1">
               <template #title>
-                <span class="text-white text-shadow">Create an admin user</span>
+                <span class="text-white text-shadow"
+                  >Setup library structure</span
+                >
               </template>
             </v-stepper-item>
 
@@ -336,9 +337,7 @@ async function finishWizard() {
 
             <v-stepper-item :value="2">
               <template #title>
-                <span class="text-white text-shadow"
-                  >Setup library structure</span
-                >
+                <span class="text-white text-shadow">Create an admin user</span>
               </template>
             </v-stepper-item>
 
@@ -354,8 +353,214 @@ async function finishWizard() {
           </v-stepper-header>
         </div>
 
-        <v-stepper-window class="flex-grow-1 my-0 mb-4 scroll">
-          <v-stepper-window-item :key="1" :value="1">
+        <v-stepper-window
+          class="flex-grow-1 my-0 mb-4 overflow-x-hidden overflow-y-hidden align-content-center"
+        >
+          <v-stepper-window-item :key="1" :value="1" class="h-100">
+            <v-row no-gutters class="h-100">
+              <v-col class="d-flex flex-column h-100" style="min-height: 0">
+                <!-- Fixed header section -->
+                <div class="flex-grow-0">
+                  <!-- Title sections -->
+                  <v-row v-if="xs" no-gutters class="text-center">
+                    <v-col>
+                      <span>Setup library structure</span>
+                    </v-col>
+                  </v-row>
+
+                  <!-- Loading state -->
+                  <v-row
+                    v-if="loadingLibraryInfo"
+                    class="justify-center align-center"
+                    no-gutters
+                  >
+                    <v-col class="text-center py-8">
+                      <v-progress-circular
+                        indeterminate
+                        color="primary"
+                        size="64"
+                      />
+                      <p class="text-white text-shadow mt-4">
+                        Loading platforms...
+                      </p>
+                    </v-col>
+                  </v-row>
+
+                  <!-- Structure info -->
+                  <v-row v-if="!loadingLibraryInfo" no-gutters class="mb-3">
+                    <v-col class="text-center">
+                      <p class="text-white text-shadow">
+                        <strong>Folder structure:</strong>
+                        {{
+                          libraryInfo?.detected_structure === "A"
+                            ? "Structure A detected"
+                            : libraryInfo?.detected_structure === "B"
+                              ? "Structure B detected"
+                              : "No structure detected - Structure A will be created"
+                        }}
+                      </p>
+                      <p class="text-caption text-grey">
+                        {{
+                          libraryInfo?.detected_structure === "A" ||
+                          !libraryInfo?.detected_structure
+                            ? "roms/{platform}"
+                            : "{platform}/roms"
+                        }}
+                      </p>
+                    </v-col>
+                  </v-row>
+                </div>
+
+                <!-- Scrollable platform selection section -->
+                <div
+                  v-if="!loadingLibraryInfo"
+                  class="flex-grow-1 d-flex"
+                  style="min-height: 0"
+                >
+                  <v-row no-gutters class="flex-grow-1">
+                    <!-- Existing platforms column -->
+                    <v-col
+                      v-if="hasExistingPlatforms"
+                      cols="12"
+                      md="6"
+                      class="pr-2 d-flex flex-column"
+                      style="min-height: 0"
+                    >
+                      <div
+                        class="flex-grow-0 text-white text-center text-shadow mb-2"
+                      >
+                        <strong>Detected Platforms</strong>
+                      </div>
+                      <div
+                        class="flex-grow-1"
+                        style="overflow-y: auto; min-height: 0"
+                      >
+                        <v-expansion-panels
+                          multiple
+                          class="bg-transparent"
+                          elevation="0"
+                          variant="accordion"
+                        >
+                          <v-expansion-panel
+                            v-for="(
+                              [groupName, platforms], index
+                            ) in groupedExistingPlatforms"
+                            :key="`existing-${groupName}`"
+                            :value="index"
+                            class="bg-transparent"
+                          >
+                            <v-expansion-panel-title
+                              class="text-white text-shadow"
+                            >
+                              <strong>{{ groupName }}</strong>
+                              <span class="ml-2 text-caption text-grey"
+                                >({{ platforms.length }})</span
+                              >
+                            </v-expansion-panel-title>
+                            <v-expansion-panel-text>
+                              <v-list
+                                lines="two"
+                                class="py-1 px-0 bg-transparent"
+                              >
+                                <PlatformListItem
+                                  v-for="platform in platforms"
+                                  :key="platform.fs_slug"
+                                  :platform="platform"
+                                  :show-rom-count="false"
+                                />
+                              </v-list>
+                            </v-expansion-panel-text>
+                          </v-expansion-panel>
+                        </v-expansion-panels>
+                      </div>
+                    </v-col>
+
+                    <!-- Available platforms to create column -->
+                    <v-col
+                      cols="12"
+                      :md="hasExistingPlatforms ? 6 : 12"
+                      :class="hasExistingPlatforms ? 'pl-2' : ''"
+                      class="d-flex flex-column"
+                      style="min-height: 0"
+                    >
+                      <div
+                        class="flex-grow-0 text-white text-center text-shadow mb-2"
+                        :class="xs ? 'mt-8' : ''"
+                      >
+                        <strong>{{
+                          hasExistingPlatforms
+                            ? "Available Platforms"
+                            : "Select Platforms to Create"
+                        }}</strong>
+                      </div>
+                      <div
+                        class="flex-grow-1"
+                        style="overflow-y: auto; min-height: 0"
+                      >
+                        <v-expansion-panels
+                          multiple
+                          class="bg-transparent"
+                          elevation="0"
+                          variant="accordion"
+                        >
+                          <v-expansion-panel
+                            v-for="(
+                              [groupName, platforms], index
+                            ) in groupedAvailablePlatforms"
+                            :key="`available-${groupName}`"
+                            :value="index + groupedExistingPlatforms.length"
+                            class="bg-transparent"
+                          >
+                            <v-expansion-panel-title
+                              class="text-white text-shadow"
+                            >
+                              <strong>{{ groupName }}</strong>
+                              <span class="ml-2 text-caption text-grey">
+                                ({{ platforms.length }})
+                              </span>
+                              <v-chip
+                                v-if="countSelectedInGroup(platforms) > 0"
+                                size="x-small"
+                                color="primary"
+                                class="ml-2"
+                              >
+                                {{ countSelectedInGroup(platforms) }} selected
+                              </v-chip>
+                            </v-expansion-panel-title>
+                            <v-expansion-panel-text>
+                              <v-list
+                                lines="two"
+                                class="py-1 px-0 bg-transparent"
+                              >
+                                <PlatformListItem
+                                  v-for="platform in platforms"
+                                  :key="platform.fs_slug"
+                                  :platform="platform"
+                                  :show-rom-count="false"
+                                >
+                                  <template #prepend>
+                                    <v-checkbox
+                                      v-model="selectedPlatforms"
+                                      :value="platform.fs_slug"
+                                      hide-details
+                                      density="compact"
+                                      class="mr-2"
+                                    />
+                                  </template>
+                                </PlatformListItem>
+                              </v-list>
+                            </v-expansion-panel-text>
+                          </v-expansion-panel>
+                        </v-expansion-panels>
+                      </div>
+                    </v-col>
+                  </v-row>
+                </div>
+              </v-col>
+            </v-row>
+          </v-stepper-window-item>
+
+          <v-stepper-window-item :key="2" :value="2">
             <v-row no-gutters>
               <v-col>
                 <v-row v-if="xs" no-gutters class="text-center">
@@ -363,8 +568,8 @@ async function finishWizard() {
                     <span>Create an admin user</span>
                   </v-col>
                 </v-row>
-                <v-row class="text-white justify-center mt-3" no-gutters>
-                  <v-col cols="10" md="8">
+                <v-row class="justify-center align-center" no-gutters>
+                  <v-col cols="12" md="8">
                     <v-form @submit.prevent>
                       <v-text-field
                         v-model="defaultAdminUser.username"
@@ -429,249 +634,10 @@ async function finishWizard() {
             </v-row>
           </v-stepper-window-item>
 
-          <v-stepper-window-item :key="2" :value="2">
-            <v-row no-gutters>
-              <v-col>
-                <v-row v-if="xs" no-gutters class="text-center mb-3">
-                  <v-col>
-                    <span>Setup library structure</span>
-                  </v-col>
-                </v-row>
-
-                <!-- Loading state -->
-                <v-row
-                  v-if="loadingLibraryInfo"
-                  class="justify-center align-center"
-                  no-gutters
-                >
-                  <v-col class="text-center py-8">
-                    <v-progress-circular
-                      indeterminate
-                      color="primary"
-                      size="64"
-                    />
-                    <p class="text-white text-shadow mt-4">
-                      Loading platforms...
-                    </p>
-                  </v-col>
-                </v-row>
-
-                <!-- Loaded state -->
-                <v-row v-else class="justify-center" no-gutters>
-                  <v-col cols="12">
-                    <!-- Structure info -->
-                    <v-row no-gutters class="mb-3">
-                      <v-col class="text-center">
-                        <p class="text-white text-shadow">
-                          <strong>Folder structure:</strong>
-                          {{
-                            libraryInfo?.detected_structure === "A"
-                              ? "Structure A detected"
-                              : libraryInfo?.detected_structure === "B"
-                                ? "Structure B detected"
-                                : "No structure detected - Structure A will be created"
-                          }}
-                        </p>
-                        <p class="text-caption text-grey">
-                          {{
-                            libraryInfo?.detected_structure === "A" ||
-                            !libraryInfo?.detected_structure
-                              ? "roms/{platform}"
-                              : "{platform}/roms"
-                          }}
-                        </p>
-                      </v-col>
-                    </v-row>
-
-                    <!-- Warning alert -->
-                    <!-- <v-row v-if="showEmptyWarning" no-gutters class="mb-3">
-                      <v-col>
-                        <v-alert
-                          type="warning"
-                          variant="tonal"
-                          class="text-caption"
-                        >
-                          No platform folders will be created. You can add them
-                          later from the platform management page.
-                        </v-alert>
-                      </v-col>
-                    </v-row> -->
-
-                    <!-- Platform selection -->
-                    <v-row no-gutters>
-                      <!-- Existing platforms column -->
-                      <v-col
-                        v-if="hasExistingPlatforms"
-                        cols="12"
-                        md="6"
-                        class="pr-2"
-                      >
-                        <div class="text-white text-center text-shadow mb-2">
-                          <strong>Detected Platforms</strong>
-                        </div>
-                        <div style="max-height: 58dvh; overflow-y: auto">
-                          <v-expansion-panels
-                            multiple
-                            class="bg-transparent"
-                            elevation="0"
-                            variant="accordion"
-                          >
-                            <v-expansion-panel
-                              v-for="(
-                                [groupName, platforms], index
-                              ) in groupedExistingPlatforms"
-                              :key="`existing-${groupName}`"
-                              :value="index"
-                              class="bg-transparent"
-                            >
-                              <v-expansion-panel-title
-                                class="text-white text-shadow"
-                              >
-                                <strong>{{ groupName }}</strong>
-                                <span class="ml-2 text-caption text-grey"
-                                  >({{ platforms.length }})</span
-                                >
-                              </v-expansion-panel-title>
-                              <v-expansion-panel-text>
-                                <v-list
-                                  lines="two"
-                                  class="py-1 px-0 bg-transparent"
-                                >
-                                  <PlatformListItem
-                                    v-for="platform in platforms"
-                                    :platform="platform"
-                                    :show-rom-count="false"
-                                  />
-                                </v-list>
-                              </v-expansion-panel-text>
-                            </v-expansion-panel>
-                          </v-expansion-panels>
-                        </div>
-                      </v-col>
-
-                      <!-- Available platforms to create column -->
-                      <v-col
-                        cols="12"
-                        :md="hasExistingPlatforms ? 6 : 12"
-                        :class="hasExistingPlatforms ? 'pl-2' : ''"
-                      >
-                        <div
-                          class="text-white text-center text-shadow mb-2"
-                          :class="xs ? 'mt-8' : ''"
-                        >
-                          <strong>{{
-                            hasExistingPlatforms
-                              ? "Available Platforms"
-                              : "Select Platforms to Create"
-                          }}</strong>
-                        </div>
-                        <!-- <div class="d-flex align-center mb-3">
-                          <v-switch
-                            v-model="selectAll"
-                            color="primary"
-                            density="compact"
-                            hide-details
-                            inset
-                          >
-                            <template #label>
-                              <span class="text-white">Select All</span>
-                            </template>
-                          </v-switch>
-                        </div>
-                        <p class="text-caption text-grey mb-2">
-                          Check the platforms you want to create
-                        </p> -->
-                        <div style="max-height: 58dvh; overflow-y: auto">
-                          <v-expansion-panels
-                            multiple
-                            class="bg-transparent"
-                            elevation="0"
-                            variant="accordion"
-                          >
-                            <v-expansion-panel
-                              v-for="(
-                                [groupName, platforms], index
-                              ) in groupedAvailablePlatforms"
-                              :key="`available-${groupName}`"
-                              :value="index + groupedExistingPlatforms.length"
-                              class="bg-transparent"
-                            >
-                              <v-expansion-panel-title
-                                class="text-white text-shadow"
-                              >
-                                <strong>{{ groupName }}</strong>
-                                <span class="ml-2 text-caption text-grey">
-                                  ({{ platforms.length }})
-                                </span>
-                                <v-chip
-                                  v-if="countSelectedInGroup(platforms) > 0"
-                                  size="x-small"
-                                  color="primary"
-                                  class="ml-2"
-                                >
-                                  {{ countSelectedInGroup(platforms) }} selected
-                                </v-chip>
-                              </v-expansion-panel-title>
-                              <v-expansion-panel-text>
-                                <v-list
-                                  lines="two"
-                                  class="py-1 px-0 bg-transparent"
-                                >
-                                  <PlatformListItem
-                                    v-for="platform in platforms"
-                                    :platform="platform"
-                                    :show-rom-count="false"
-                                  >
-                                    <template #prepend>
-                                      <v-checkbox
-                                        v-model="selectedPlatforms"
-                                        :value="platform.fs_slug"
-                                        hide-details
-                                        density="compact"
-                                        class="mr-2"
-                                      />
-                                    </template>
-                                  </PlatformListItem>
-                                </v-list>
-                                <!-- <v-list class="bg-transparent">
-                                  <v-list-item
-                                    v-for="platform in platforms"
-                                    :key="platform.fs_slug"
-                                    class="text-white"
-                                    density="compact"
-                                  >
-                                    <template #prepend>
-                                      <v-checkbox
-                                        v-model="selectedPlatforms"
-                                        :value="platform.fs_slug"
-                                        hide-details
-                                        density="compact"
-                                      />
-                                    </template>
-                                    <v-list-item-title>
-                                      {{ platform.name }}
-                                    </v-list-item-title>
-                                    <v-list-item-subtitle class="text-grey">
-                                      {{ platform.fs_slug }}
-                                    </v-list-item-subtitle>
-                                  </v-list-item>
-                                </v-list> -->
-                              </v-expansion-panel-text>
-                            </v-expansion-panel>
-                          </v-expansion-panels>
-                        </div>
-                      </v-col>
-                    </v-row>
-                  </v-col>
-                </v-row>
-              </v-col>
-            </v-row>
-          </v-stepper-window-item>
-
           <v-stepper-window-item :key="3" :value="3">
             <v-row no-gutters>
               <v-col>
-                <v-row v-if="xs" no-gutters class="text-center mb-6">
+                <v-row v-if="xs" no-gutters class="text-center">
                   <v-col>
                     <span>Check metadata sources</span>
                   </v-col>
@@ -704,29 +670,36 @@ async function finishWizard() {
           </v-stepper-window-item>
         </v-stepper-window>
 
-        <v-stepper-actions class="flex-grow-1" :disabled="!filledAdminUser">
-          <template #prev>
-            <v-btn
-              class="text-white text-shadow"
-              :ripple="false"
-              :disabled="isFirstStep"
-              @click="prev"
-            >
-              {{ isFirstStep ? "" : "previous" }}
-            </v-btn>
-          </template>
-          <template #next>
-            <v-btn
-              class="text-white text-shadow"
-              :loading="isLastStep && creatingPlatforms"
-              @click="!isLastStep ? next() : finishWizard()"
-              @keydown.enter="!isLastStep ? next() : finishWizard()"
-            >
-              {{ !isLastStep ? "Next" : "Finish" }}
-            </v-btn>
-          </template>
-        </v-stepper-actions>
+        <div class="flex-grow-0">
+          <v-stepper-actions :disabled="!filledAdminUser">
+            <template #prev>
+              <v-btn
+                class="text-white text-shadow"
+                :ripple="false"
+                :disabled="isFirstStep"
+                @click="prev"
+              >
+                {{ isFirstStep ? "" : "previous" }}
+              </v-btn>
+            </template>
+            <template #next>
+              <v-btn
+                class="text-white text-shadow"
+                :loading="isLastStep && creatingPlatforms"
+                @click="!isLastStep ? next() : finishWizard()"
+                @keydown.enter="!isLastStep ? next() : finishWizard()"
+              >
+                {{ !isLastStep ? "Next" : "Finish" }}
+              </v-btn>
+            </template>
+          </v-stepper-actions>
+        </div>
       </template>
     </v-stepper>
   </v-card>
 </template>
+<style lang="css">
+.v-window__container {
+  overflow-x: hidden !important;
+}
+</style>
