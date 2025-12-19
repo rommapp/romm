@@ -54,14 +54,17 @@ function handleClose() {
 
 function handleDelete(event: Event) {
   event.stopPropagation();
+  if (!props.rom) {
+    return;
+  }
   if (props.type === "save") {
     emitter?.emit("showDeleteSavesDialog", {
-      rom: props.rom!,
+      rom: props.rom,
       saves: [props.asset as SaveSchema],
     });
   } else {
     emitter?.emit("showDeleteStatesDialog", {
-      rom: props.rom!,
+      rom: props.rom,
       states: [props.asset as StateSchema],
     });
   }

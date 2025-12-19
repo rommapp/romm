@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
+import { onBeforeUnmount } from "vue";
 import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import RDialog from "@/components/common/RDialog.vue";
@@ -9,8 +10,15 @@ const { t } = useI18n();
 const show = ref(false);
 
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("openEmulatorJSCacheDialog", () => {
+
+const openCacheDialogHandler = () => {
   show.value = true;
+};
+
+emitter?.on("openEmulatorJSCacheDialog", openCacheDialogHandler);
+
+onBeforeUnmount(() => {
+  emitter?.off("openEmulatorJSCacheDialog", openCacheDialogHandler);
 });
 
 function clearIndexDB() {
