@@ -7,7 +7,6 @@ import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import TitleInfo from "@/components/Details/Title.vue";
 import AssetCard from "@/components/common/Game/AssetCard.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import { ROUTES } from "@/plugins/router";
@@ -23,7 +22,7 @@ import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 
 const { t } = useI18n();
-const { smAndDown } = useDisplay();
+const { xs, mdAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const route = useRoute();
 const auth = storeAuth();
@@ -208,8 +207,12 @@ function openCacheDialog() {
 </script>
 
 <template>
-  <v-row v-if="rom" class="align-center justify-center scroll h-100" no-gutters>
-    <v-col v-if="!gameRunning" cols="12" sm="8">
+  <v-row
+    v-if="rom"
+    class="align-center justify-center scroll h-100 px-4"
+    no-gutters
+  >
+    <v-col v-if="!gameRunning" cols="12" lg="10">
       <!-- Header -->
       <v-row no-gutters>
         <v-col>
@@ -223,22 +226,23 @@ function openCacheDialog() {
 
       <v-row class="mt-4" no-gutters>
         <!-- Game Info -->
-        <v-col cols="12" sm="auto">
-          <v-container :width="220" class="pa-0 text-wrap text-center">
+        <v-col cols="12" md="auto">
+          <v-container :width="220" class="pa-0 text-wrap text-center mb-6">
             <GameCard
               :key="rom.updated_at"
               :rom="rom"
               :show-platform-icon="false"
               :show-action-bar="false"
             />
-            <p class="text-h6 mt-2 mb-6">{{ rom.name }}</p>
           </v-container>
         </v-col>
 
         <!-- Saves & States -->
         <v-col
-          :cols="smAndDown ? 12 : 5"
-          :class="{ 'pr-md-2 pl-md-4': !smAndDown }"
+          cols="12"
+          sm="6"
+          md="5"
+          :class="{ 'pr-2': !xs, 'mb-4': xs, 'pl-4': mdAndUp }"
         >
           <v-card variant="flat" rounded="lg">
             <v-tabs
@@ -373,10 +377,7 @@ function openCacheDialog() {
         </v-col>
 
         <!-- Settings & Actions -->
-        <v-col
-          :cols="smAndDown ? 12 : 4"
-          :class="{ 'mt-4': smAndDown, 'pl-md-2': !smAndDown }"
-        >
+        <v-col cols="12" sm="6" md="4" :class="{ 'pl-2': !xs }">
           <v-card variant="flat" rounded="lg" class="mb-6">
             <v-card-text class="pa-3">
               <!-- Configuration Section -->
