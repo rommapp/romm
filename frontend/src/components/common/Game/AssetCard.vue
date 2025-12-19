@@ -17,7 +17,7 @@ const props = withDefaults(
   defineProps<{
     asset: SaveSchema | StateSchema;
     type: AssetType;
-    selected: boolean;
+    selected?: boolean;
     rom?: DetailedRom;
     showHoverActions?: boolean;
     showCloseButton?: boolean;
@@ -26,6 +26,7 @@ const props = withDefaults(
     transformScale?: boolean;
   }>(),
   {
+    selected: false,
     showHoverActions: true,
     showCloseButton: false,
     scopes: () => [],
@@ -80,27 +81,6 @@ function handleDelete(event: Event) {
       @click="handleClick"
     >
       <v-card-text class="pa-2">
-        <v-slide-x-transition>
-          <v-btn-group
-            v-if="isHovering && showHoverActions"
-            class="position-absolute"
-            density="compact"
-            style="bottom: 4px; right: 4px"
-          >
-            <v-btn drawer :href="asset.download_path" download size="small">
-              <v-icon>mdi-download</v-icon>
-            </v-btn>
-            <v-btn
-              v-if="scopes.includes('assets.write')"
-              drawer
-              size="small"
-              @click="handleDelete"
-            >
-              <v-icon class="text-romm-red">mdi-delete</v-icon>
-            </v-btn>
-          </v-btn-group>
-        </v-slide-x-transition>
-
         <!-- Screenshot for states -->
         <v-row
           v-if="type === 'state' && isState(asset)"
@@ -155,20 +135,39 @@ function handleDelete(event: Event) {
           </v-col>
         </v-row>
 
-        <!-- Close button -->
-        <v-row v-if="showCloseButton" no-gutters>
-          <v-col class="text-right mt-auto pt-1">
-            <v-btn
-              variant="flat"
-              color="toplayer"
-              size="small"
-              icon
-              @click.stop="handleClose"
-            >
-              <v-icon>mdi-close-circle-outline</v-icon>
+        <!-- Action buttons -->
+        <v-slide-x-transition>
+          <v-btn-group
+            v-if="isHovering && showHoverActions"
+            class="position-absolute"
+            density="compact"
+            style="bottom: 4px; right: 4px"
+          >
+            <v-btn drawer :href="asset.download_path" download size="small">
+              <v-icon>mdi-download</v-icon>
             </v-btn>
-          </v-col>
-        </v-row>
+            <v-btn
+              v-if="scopes.includes('assets.write')"
+              drawer
+              size="small"
+              @click="handleDelete"
+            >
+              <v-icon class="text-romm-red">mdi-delete</v-icon>
+            </v-btn>
+          </v-btn-group>
+        </v-slide-x-transition>
+
+        <!-- Close button -->
+        <v-btn
+          v-if="showCloseButton"
+          variant="text"
+          size="small"
+          class="position-absolute"
+          style="bottom: 8px; right: 8px"
+          @click.stop="handleClose"
+        >
+          <v-icon>mdi-close-circle-outline</v-icon>
+        </v-btn>
       </v-card-text>
     </v-card>
   </v-hover>
