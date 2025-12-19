@@ -223,7 +223,7 @@ function openCacheDialog() {
 
       <v-row class="mx-2 mt-4" no-gutters>
         <!-- Game Info -->
-        <v-col cols="auto">
+        <v-col cols="12" sm="auto">
           <v-container :width="220" class="pa-0 text-wrap text-center">
             <GameCard
               :key="rom.updated_at"
@@ -231,13 +231,13 @@ function openCacheDialog() {
               :show-platform-icon="false"
               :show-action-bar="false"
             />
-            <p class="text-h6 mt-2">{{ rom.name }}</p>
+            <p class="text-h6 mt-2 mb-6">{{ rom.name }}</p>
           </v-container>
         </v-col>
 
         <!-- Saves & States -->
         <v-col
-          :cols="smAndDown ? 6 : 5"
+          :cols="smAndDown ? 12 : 5"
           :class="{ 'pr-md-2 pl-md-4': !smAndDown }"
         >
           <v-card variant="flat" rounded="lg">
@@ -377,7 +377,7 @@ function openCacheDialog() {
           :cols="smAndDown ? 12 : 4"
           :class="{ 'mt-4': smAndDown, 'pl-md-2': !smAndDown }"
         >
-          <v-card variant="flat" rounded="lg">
+          <v-card variant="flat" rounded="lg" class="mb-6">
             <v-card-text class="pa-3">
               <!-- Configuration Section -->
               <div class="mb-4">
