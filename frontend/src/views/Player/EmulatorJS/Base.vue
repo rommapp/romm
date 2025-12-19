@@ -32,12 +32,12 @@ const configStore = storeConfig();
 const { playing, fullScreen } = storeToRefs(playingStore);
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
-const selectedFirmware = ref<FirmwareSchema | null>(null);
 const selectedSave = ref<SaveSchema | null>(null);
 const openSaveSelector = ref(true);
 const selectedState = ref<StateSchema | null>(null);
-const selectedCore = ref<string | null>(null);
 const selectedDisc = ref<number | null>(null);
+const selectedCore = ref<string | null>(null);
+const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
@@ -157,13 +157,11 @@ onMounted(async () => {
   emitter?.on("saveSelected", selectSave);
   emitter?.on("stateSelected", selectState);
 
-  const storedBiosID = localStorage.getItem(
-    `player:${rom.value.platform_slug}:bios_id`,
-  );
-  if (storedBiosID) {
-    selectedFirmware.value =
-      firmwareOptions.value.find((f) => f.id === parseInt(storedBiosID)) ??
-      null;
+  const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
+  if (storedDisc) {
+    selectedDisc.value = parseInt(storedDisc);
+  } else {
+    selectedDisc.value = rom.value.files[0]?.id ?? null;
   }
 
   const storedCore = localStorage.getItem(
@@ -176,9 +174,13 @@ onMounted(async () => {
     selectedCore.value = supportedCores.value[0];
   }
 
-  const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
-  if (storedDisc) {
-    selectedDisc.value = parseInt(storedDisc);
+  const storedBiosID = localStorage.getItem(
+    `player:${rom.value.platform_slug}:bios_id`,
+  );
+  if (storedBiosID) {
+    selectedFirmware.value =
+      firmwareOptions.value.find((f) => f.id === parseInt(storedBiosID)) ??
+      null;
   }
 });
 
@@ -219,8 +221,8 @@ function openCacheDialog() {
         </v-col>
       </v-row>
 
-      <!-- Game Info -->
       <v-row class="mx-2 mt-4" no-gutters>
+        <!-- Game Info -->
         <v-col cols="auto">
           <v-container :width="220" class="pa-0 text-wrap text-center">
             <GameCard
