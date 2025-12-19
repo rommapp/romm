@@ -221,7 +221,7 @@ function openCacheDialog() {
         </v-col>
       </v-row>
 
-      <v-row class="mx-2 mt-4" no-gutters>
+      <v-row class="mt-4" no-gutters>
         <!-- Game Info -->
         <v-col cols="12" sm="auto">
           <v-container :width="220" class="pa-0 text-wrap text-center">
