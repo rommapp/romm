@@ -381,13 +381,6 @@ function openCacheDialog() {
             <v-card-text class="pa-3">
               <!-- Configuration Section -->
               <div class="mb-4">
-                <div
-                  class="text-subtitle-2 font-weight-bold mb-3 d-flex align-center"
-                >
-                  <v-icon size="small" class="mr-2">mdi-cog</v-icon>
-                  {{ t("common.settings") }}
-                </div>
-
                 <!-- Disc Selector -->
                 <v-select
                   v-model="selectedDisc"
@@ -445,94 +438,84 @@ function openCacheDialog() {
               <v-divider class="my-4" />
 
               <!-- Action Buttons -->
-              <div>
-                <div
-                  class="text-subtitle-2 font-weight-bold mb-3 d-flex align-center"
-                >
-                  <v-icon size="small" class="mr-2">mdi-play-box</v-icon>
-                  {{ t("common.actions") }}
-                </div>
 
-                <!-- Fullscreen Toggle -->
-                <v-btn
-                  block
-                  variant="tonal"
-                  class="mb-2"
-                  :color="fullScreenOnPlay ? 'primary' : ''"
-                  @click="onFullScreenChange"
-                >
-                  <v-icon class="mr-2">
-                    {{
-                      fullScreenOnPlay
-                        ? "mdi-checkbox-outline"
-                        : "mdi-checkbox-blank-outline"
-                    }}
-                  </v-icon>
-                  {{ t("play.full-screen") }}
-                  <v-icon class="ml-auto">
-                    {{
-                      fullScreenOnPlay
-                        ? "mdi-fullscreen"
-                        : "mdi-fullscreen-exit"
-                    }}
-                  </v-icon>
-                </v-btn>
+              <!-- Fullscreen Toggle -->
+              <v-btn
+                block
+                variant="tonal"
+                class="mb-2"
+                :color="fullScreenOnPlay ? 'primary' : ''"
+                @click="onFullScreenChange"
+              >
+                <v-icon class="mr-2">
+                  {{
+                    fullScreenOnPlay
+                      ? "mdi-checkbox-outline"
+                      : "mdi-checkbox-blank-outline"
+                  }}
+                </v-icon>
+                {{ t("play.full-screen") }}
+                <v-icon class="ml-auto">
+                  {{
+                    fullScreenOnPlay ? "mdi-fullscreen" : "mdi-fullscreen-exit"
+                  }}
+                </v-icon>
+              </v-btn>
 
-                <!-- Play Button -->
-                <v-btn
-                  block
-                  size="large"
-                  variant="flat"
-                  color="primary"
-                  class="mb-3 play-button"
-                  prepend-icon="mdi-play-circle"
-                  @click="onPlay"
-                >
-                  <span class="text-h6">{{ t("play.play") }}</span>
-                </v-btn>
+              <!-- Play Button -->
+              <v-btn
+                block
+                size="large"
+                variant="flat"
+                color="primary"
+                class="mb-3 play-button"
+                prepend-icon="mdi-play-circle"
+                @click="onPlay"
+              >
+                <span class="text-h6">{{ t("play.play") }}</span>
+              </v-btn>
 
-                <!-- Navigation Buttons -->
-                <v-btn
-                  block
-                  variant="text"
-                  size="small"
-                  class="mb-2"
-                  prepend-icon="mdi-arrow-left"
-                  @click="
-                    $router.push({
-                      name: ROUTES.ROM,
-                      params: { rom: rom?.id },
-                    })
-                  "
-                >
-                  {{ t("play.back-to-game-details") }}
-                </v-btn>
+              <!-- Navigation Buttons -->
+              <v-btn
+                block
+                variant="text"
+                size="small"
+                class="mb-2"
+                prepend-icon="mdi-arrow-left"
+                @click="
+                  $router.push({
+                    name: ROUTES.ROM,
+                    params: { rom: rom?.id },
+                  })
+                "
+              >
+                {{ t("play.back-to-game-details") }}
+              </v-btn>
 
-                <v-btn
-                  block
-                  variant="text"
-                  size="small"
-                  prepend-icon="mdi-arrow-left"
-                  @click="
-                    $router.push({
-                      name: ROUTES.PLATFORM,
-                      params: { platform: rom?.platform_id },
-                    })
-                  "
-                >
-                  {{ t("play.back-to-gallery") }}
-                </v-btn>
+              <v-btn
+                block
+                variant="text"
+                size="small"
+                prepend-icon="mdi-arrow-left"
+                @click="
+                  $router.push({
+                    name: ROUTES.PLATFORM,
+                    params: { platform: rom?.platform_id },
+                  })
+                "
+              >
+                {{ t("play.back-to-gallery") }}
+              </v-btn>
 
-                <v-btn
-                  block
-                  class="text-romm-red mt-6"
-                  variant="flat"
-                  prepend-icon="mdi-database-remove"
-                  @click="openCacheDialog"
-                >
-                  {{ t("play.clear-cache") }}
-                </v-btn>
-              </div>
+              <v-btn
+                block
+                class="text-romm-red mt-6"
+                variant="flat"
+                prepend-icon="mdi-database-remove"
+                @click="openCacheDialog"
+              >
+                {{ t("play.clear-cache") }}
+              </v-btn>
             </v-card-text>
           </v-card>
         </v-col>
