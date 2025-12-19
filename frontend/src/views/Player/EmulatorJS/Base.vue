@@ -8,6 +8,7 @@ import { useDisplay } from "vuetify";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
 import EmptyStates from "@/components/common/EmptyStates/EmptyStates.vue";
+import AssetCard from "@/components/common/Game/AssetCard.vue";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import { ROUTES } from "@/plugins/router";
 import firmwareApi from "@/services/api/firmware";
@@ -287,7 +288,7 @@ onBeforeUnmount(async () => {
                   'mt-2': smAndDown,
                   'pr-1': !smAndDown,
                 }"
-                :cols="smAndDown ? 12 : 6"
+                :cols="smAndDown ? 6 : 4"
               >
                 <v-btn
                   block
@@ -309,75 +310,19 @@ onBeforeUnmount(async () => {
                   }}
                 </v-btn>
                 <v-expand-transition>
-                  <v-card
+                  <AssetCard
                     v-if="selectedState"
-                    class="bg-toplayer transform-scale selected-card mx-1"
+                    :asset="selectedState"
+                    type="state"
+                    :selected="false"
+                    :show-hover-actions="false"
+                    :show-close-button="true"
+                    :card-style="{}"
+                    class="selected-card mx-1"
+                    :transform-scale="false"
                     :class="{ 'disabled-card': openSaveSelector }"
-                  >
-                    <v-card-text class="px-2 pb-2 pt-4">
-                      <v-row no-gutters>
-                        <v-col cols="6">
-                          <v-img
-                            rounded
-                            :src="
-                              selectedState.screenshot?.download_path ??
-                              getEmptyCoverImage(
-                                selectedState.file_name,
-                                16 / 9,
-                              )
-                            "
-                            :aspect-ratio="16 / 9"
-                          />
-                        </v-col>
-                        <v-col class="pl-2 d-flex flex-column" cols="6">
-                          <v-row
-                            class="px-1 text-caption text-primary"
-                            no-gutters
-                          >
-                            {{ selectedState.file_name }}
-                          </v-row>
-                          <v-row no-gutters>
-                            <v-col cols="12">
-                              <v-list-item rounded class="px-1 text-caption">
-                                {{ t("rom.updated") }}:
-                                {{
-                                  formatTimestamp(
-                                    selectedState.updated_at,
-                                    locale,
-                                  )
-                                }}
-                                <span class="text-grey text-caption"
-                                  >({{
-                                    formatRelativeDate(
-                                      selectedState.updated_at,
-                                    )
-                                  }})</span
-                                >
-                              </v-list-item>
-                            </v-col>
-                            <v-col v-if="selectedState.emulator" cols="12">
-                              <v-chip size="x-small" color="orange" label>
-                                {{ selectedState.emulator }}
-                              </v-chip>
-                            </v-col>
-                          </v-row>
-                          <v-row no-gutters>
-                            <v-col class="text-right mt-auto pt-1">
-                              <v-btn
-                                variant="flat"
-                                color="toplayer"
-                                size="small"
-                                icon
-                                @click="unselectState"
-                              >
-                                <v-icon>mdi-close-circle-outline</v-icon>
-                              </v-btn>
-                            </v-col>
-                          </v-row>
-                        </v-col>
-                      </v-row>
-                    </v-card-text>
-                  </v-card>
+                    @close="unselectState"
+                  />
                 </v-expand-transition>
               </v-col>
             </v-expand-transition>
@@ -390,7 +335,7 @@ onBeforeUnmount(async () => {
                   'mt-2': smAndDown,
                   'pl-1': !smAndDown,
                 }"
-                :cols="smAndDown ? 12 : 6"
+                :cols="smAndDown ? 6 : 4"
               >
                 <v-btn
                   block
@@ -405,60 +350,19 @@ onBeforeUnmount(async () => {
                   }}
                 </v-btn>
                 <v-expand-transition>
-                  <v-card
+                  <AssetCard
                     v-if="selectedSave"
-                    class="bg-toplayer transform-scale selected-card mx-1"
+                    :asset="selectedSave"
+                    type="save"
+                    :selected="false"
+                    :show-hover-actions="false"
+                    :show-close-button="true"
+                    :card-style="{}"
+                    class="selected-card mx-1"
+                    :transform-scale="false"
                     :class="{ 'disabled-card': openStateSelector }"
-                  >
-                    <v-card-text class="px-2 pb-2 pt-4">
-                      <v-row no-gutters>
-                        <v-col class="pl-2 d-flex flex-column" cols="6">
-                          <v-row
-                            class="px-1 text-caption text-primary"
-                            no-gutters
-                          >
-                            {{ selectedSave.file_name }}
-                          </v-row>
-                          <v-row no-gutters>
-                            <v-col cols="12">
-                              <v-list-item rounded class="px-1 text-caption">
-                                {{ t("rom.updated") }}:
-                                {{
-                                  formatTimestamp(
-                                    selectedSave.updated_at,
-                                    locale,
-                                  )
-                                }}
-                                <span class="text-grey text-caption"
-                                  >({{
-                                    formatRelativeDate(selectedSave.updated_at)
-                                  }})</span
-                                >
-                              </v-list-item>
-                            </v-col>
-                            <v-col v-if="selectedSave.emulator" cols="12">
-                              <v-chip size="x-small" color="orange" label>
-                                {{ selectedSave.emulator }}
-                              </v-chip>
-                            </v-col>
-                          </v-row>
-                          <v-row no-gutters>
-                            <v-col class="text-right mt-auto pt-2">
-                              <v-btn
-                                variant="flat"
-                                color="toplayer"
-                                size="small"
-                                icon
-                                @click="unselectSave"
-                              >
-                                <v-icon>mdi-close-circle-outline</v-icon>
-                              </v-btn>
-                            </v-col>
-                          </v-row>
-                        </v-col>
-                      </v-row>
-                    </v-card-text>
-                  </v-card>
+                    @close="unselectSave"
+                  />
                 </v-expand-transition>
               </v-col>
             </v-expand-transition>
@@ -480,57 +384,18 @@ onBeforeUnmount(async () => {
                   :key="state.id"
                   cols="6"
                   sm="4"
-                  class="pa-1"
+                  class="pa-1 align-self-end"
                 >
-                  <v-card
-                    :style="{
+                  <AssetCard
+                    :asset="state"
+                    type="state"
+                    :selected="selectedState?.id === state.id"
+                    :show-hover-actions="false"
+                    :card-style="{
                       zIndex: selectedState?.id === state.id ? 11 : undefined,
                     }"
-                    class="bg-toplayer transform-scale"
-                    :class="{
-                      'border-selected': selectedState?.id === state.id,
-                    }"
                     @click="selectState(state)"
-                  >
-                    <v-card-text class="pa-2">
-                      <v-row no-gutters>
-                        <v-col cols="12">
-                          <v-img
-                            rounded
-                            :src="
-                              state.screenshot?.download_path ??
-                              getEmptyCoverImage(state.file_name, 16 / 9)
-                            "
-                            :aspect-ratio="16 / 9"
-                          />
-                        </v-col>
-                      </v-row>
-                      <v-row
-                        class="py-2 px-1 text-caption text-primary"
-                        no-gutters
-                      >
-                        {{ state.file_name }}
-                      </v-row>
-                      <v-row class="ga-1" no-gutters>
-                        <v-col cols="12">
-                          <v-list-item rounded class="pa-1 text-caption">
-                            {{ t("rom.updated") }}:
-                            {{ formatTimestamp(state.updated_at, locale) }}
-                            <span class="ml-1 text-grey text-caption"
-                              >({{
-                                formatRelativeDate(state.updated_at)
-                              }})</span
-                            >
-                          </v-list-item>
-                        </v-col>
-                        <v-col v-if="state.emulator" cols="12" class="mt-1">
-                          <v-chip size="x-small" color="orange" label>
-                            {{ state.emulator }}
-                          </v-chip>
-                        </v-col>
-                      </v-row>
-                    </v-card-text>
-                  </v-card>
+                  />
                 </v-col>
               </template>
               <v-col v-else class="pa-1 mt-1">
@@ -553,43 +418,15 @@ onBeforeUnmount(async () => {
                   :key="save.id"
                   cols="6"
                   sm="4"
-                  class="pa-1"
+                  class="pa-1 align-self-end"
                 >
-                  <v-card
-                    :style="{
-                      zIndex: selectedSave?.id === save.id ? 11 : undefined,
-                    }"
-                    class="bg-toplayer transform-scale"
-                    :class="{
-                      'border-selected': selectedSave?.id === save.id,
-                    }"
+                  <AssetCard
+                    :asset="save"
+                    type="save"
+                    :selected="selectedSave?.id === save.id"
+                    :show-hover-actions="false"
                     @click="selectSave(save)"
-                  >
-                    <v-card-text class="pa-2">
-                      <v-row
-                        class="py-2 px-1 text-caption text-primary"
-                        no-gutters
-                      >
-                        {{ save.file_name }}
-                      </v-row>
-                      <v-row class="ga-1" no-gutters>
-                        <v-col cols="12">
-                          <v-list-item rounded class="pa-1 text-caption">
-                            {{ t("rom.updated") }}:
-                            {{ formatTimestamp(save.updated_at, locale) }}
-                            <span class="ml-1 text-grey text-caption"
-                              >({{ formatRelativeDate(save.updated_at) }})</span
-                            >
-                          </v-list-item>
-                        </v-col>
-                        <v-col v-if="save.emulator" cols="12" class="mt-1">
-                          <v-chip size="x-small" color="orange" label>
-                            {{ save.emulator }}
-                          </v-chip>
-                        </v-col>
-                      </v-row>
-                    </v-card-text>
-                  </v-card>
+                  />
                 </v-col>
               </template>
               <v-col v-else class="pa-1 mt-1">
