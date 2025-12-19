@@ -2,7 +2,7 @@
 import { useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -32,7 +32,7 @@ const { playing, fullScreen } = storeToRefs(playingStore);
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const selectedSave = ref<SaveSchema | null>(null);
-const openSaveSelector = ref(true);
+const isSavesTabSelected = ref(true);
 const selectedState = ref<StateSchema | null>(null);
 const selectedDisc = ref<number | null>(null);
 const selectedCore = ref<string | null>(null);
@@ -40,6 +40,13 @@ const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
+
+const compatibleStates = computed(
+  () =>
+    rom.value?.user_states.filter(
+      (s) => !s.emulator || s.emulator === selectedCore.value,
+    ) ?? [],
+);
 
 async function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {
@@ -96,10 +103,17 @@ function onFullScreenChange() {
 
 function selectSave(save: SaveSchema) {
   selectedSave.value = save;
+  // Deselect state when selecting a save (mutually exclusive)
+  if (selectedState.value) {
+    selectedState.value = null;
+    localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
+  }
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:save_id`,
     save.id.toString(),
   );
+  // Switch to saves tab
+  isSavesTabSelected.value = true;
 }
 
 function unselectSave() {
@@ -109,10 +123,17 @@ function unselectSave() {
 
 function selectState(state: StateSchema) {
   selectedState.value = state;
+  // Deselect save when selecting a state (mutually exclusive)
+  if (selectedSave.value) {
+    selectedSave.value = null;
+    localStorage.removeItem(`player:${rom.value?.platform_slug}:save_id`);
+  }
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:state_id`,
     state.id.toString(),
   );
+  // Switch to states tab
+  isSavesTabSelected.value = false;
 }
 
 function unselectState() {
@@ -148,13 +169,31 @@ onMounted(async () => {
 
   supportedCores.value = [...getSupportedEJSCores(rom.value.platform_slug)];
 
-  // Load stored bios, save, state, and core
-  selectedSave.value = rom.value.user_saves[0] ?? null;
-  selectedState.value = rom.value.user_states[0] ?? null;
-
   // Listen for save/state selection from dialogs
   emitter?.on("saveSelected", selectSave);
   emitter?.on("stateSelected", selectState);
+
+  // Determine default tab and selection (mutually exclusive)
+  const compatibleStates = rom.value.user_states.filter(
+    (s) => !s.emulator || s.emulator === supportedCores.value[0],
+  );
+
+  if (compatibleStates.length > 0) {
+    // If there are states, default to states tab with first state
+    isSavesTabSelected.value = false;
+    selectedState.value = compatibleStates[0];
+    selectedSave.value = null;
+  } else if (rom.value.user_saves.length > 0) {
+    // If no states but there are saves, default to saves tab with first save
+    isSavesTabSelected.value = true;
+    selectedSave.value = rom.value.user_saves[0];
+    selectedState.value = null;
+  } else {
+    // No saves or states, default to saves tab
+    isSavesTabSelected.value = true;
+    selectedSave.value = null;
+    selectedState.value = null;
+  }
 
   const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
   if (storedDisc) {
@@ -246,7 +285,7 @@ function openCacheDialog() {
         >
           <v-card variant="flat" rounded="lg">
             <v-tabs
-              v-model="openSaveSelector"
+              v-model="isSavesTabSelected"
               bg-color="transparent"
               color="primary"
               grow
@@ -266,16 +305,8 @@ function openCacheDialog() {
                 <v-icon start>mdi-file</v-icon>
                 {{ t("common.states") }}
                 <v-badge
-                  v-if="
-                    rom.user_states.filter(
-                      (s) => !s.emulator || s.emulator === selectedCore,
-                    ).length > 0
-                  "
-                  :content="
-                    rom.user_states.filter(
-                      (s) => !s.emulator || s.emulator === selectedCore,
-                    ).length
-                  "
+                  v-if="compatibleStates.length > 0"
+                  :content="compatibleStates.length"
                   color="primary"
                   inline
                   class="ml-2"
@@ -287,7 +318,7 @@ function openCacheDialog() {
 
             <v-card-text class="pa-4" style="min-height: 200px">
               <!-- States Tab Content -->
-              <div v-show="!openSaveSelector">
+              <div v-show="!isSavesTabSelected">
                 <!-- Selected State Preview -->
                 <div v-if="selectedState" class="mb-3">
                   <AssetCard
@@ -334,7 +365,7 @@ function openCacheDialog() {
               </div>
 
               <!-- Saves Tab Content -->
-              <div v-show="openSaveSelector">
+              <div v-show="isSavesTabSelected">
                 <!-- Selected Save Preview -->
                 <div v-if="selectedSave" class="mb-3">
                   <AssetCard
@@ -381,62 +412,70 @@ function openCacheDialog() {
           <v-card variant="flat" rounded="lg" class="mb-6">
             <v-card-text class="pa-3">
               <!-- Configuration Section -->
-              <div class="mb-4">
-                <!-- Disc Selector -->
-                <v-select
-                  v-model="selectedDisc"
-                  class="mb-3"
-                  hide-details
-                  variant="outlined"
-                  density="comfortable"
-                  prepend-inner-icon="mdi-disc"
-                  clearable
-                  :label="t('rom.file')"
-                  :items="
-                    rom.files.map((f) => ({
-                      title: f.file_name,
-                      value: f.id,
-                    }))
-                  "
-                />
+              <!-- Disc Selector -->
+              <v-select
+                v-if="rom.has_multiple_files"
+                v-model="selectedDisc"
+                class="mb-3"
+                hide-details
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-disc"
+                clearable
+                :label="t('rom.file')"
+                :items="
+                  rom.files.map((f) => ({
+                    title: f.file_name,
+                    value: f.id,
+                  }))
+                "
+              />
 
-                <!-- Core Selector -->
-                <v-select
-                  v-model="selectedCore"
-                  class="mb-3"
-                  hide-details
-                  variant="outlined"
-                  prepend-inner-icon="mdi-chip"
-                  density="comfortable"
-                  clearable
-                  :label="t('common.core')"
-                  :items="
-                    supportedCores.map((c) => ({
-                      title: c,
-                      value: c,
-                    }))
-                  "
-                />
+              <!-- Core Selector -->
+              <v-select
+                v-if="supportedCores.length > 1"
+                v-model="selectedCore"
+                class="mb-3"
+                hide-details
+                variant="outlined"
+                prepend-inner-icon="mdi-chip"
+                density="comfortable"
+                clearable
+                :label="t('common.core')"
+                :items="
+                  supportedCores.map((c) => ({
+                    title: c,
+                    value: c,
+                  }))
+                "
+              />
 
-                <!-- BIOS Selector -->
-                <v-select
-                  v-model="selectedFirmware"
-                  hide-details
-                  variant="outlined"
-                  density="comfortable"
-                  prepend-inner-icon="mdi-memory"
-                  clearable
-                  :label="t('common.firmware')"
-                  :items="
-                    firmwareOptions.map((f) => ({
-                      title: f.file_name,
-                      value: f,
-                    })) ?? []
-                  "
-                />
-              </div>
+              <!-- BIOS Selector -->
+              <v-select
+                v-if="firmwareOptions.length > 0"
+                v-model="selectedFirmware"
+                hide-details
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-memory"
+                clearable
+                :label="t('common.firmware')"
+                :items="
+                  firmwareOptions.map((f) => ({
+                    title: f.file_name,
+                    value: f,
+                  })) ?? []
+                "
+              />
 
-              <v-divider class="my-4" />
+              <v-divider
+                v-if="
+                  rom.has_multiple_files ||
+                  supportedCores.length > 1 ||
+                  firmwareOptions.length > 0
+                "
+                class="my-4"
+              />
 
               <!-- Action Buttons -->
 
@@ -551,24 +590,6 @@ function openCacheDialog() {
   }
 }
 
-.save-state-card:hover,
-.actions-card:hover {
-  border-color: rgba(var(--v-theme-primary), 0.25);
-  box-shadow: 0 4px 16px rgba(var(--v-theme-primary), 0.08);
-}
-
-.asset-card-selectable {
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 2px solid transparent;
-}
-
-.asset-card-selectable:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(var(--v-theme-primary), 0.2);
-  border-color: rgba(var(--v-theme-primary), 0.3);
-}
-
 .play-button {
   position: relative;
   overflow: hidden;
@@ -592,37 +613,12 @@ function openCacheDialog() {
 }
 
 .play-button:hover::before {
-  width: 300px;
+  width: 600px;
   height: 300px;
 }
 
 .play-button:hover {
   box-shadow: 0 6px 20px rgba(var(--v-theme-primary), 0.3);
-}
-
-/* Custom scrollbar for save/state content */
-.save-state-card :deep(.v-card-text) {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(var(--v-theme-primary), 0.3)
-    rgba(var(--v-theme-surface-variant), 0.2);
-}
-
-.save-state-card :deep(.v-card-text)::-webkit-scrollbar {
-  width: 6px;
-}
-
-.save-state-card :deep(.v-card-text)::-webkit-scrollbar-track {
-  background: rgba(var(--v-theme-surface-variant), 0.2);
-  border-radius: 3px;
-}
-
-.save-state-card :deep(.v-card-text)::-webkit-scrollbar-thumb {
-  background: rgba(var(--v-theme-primary), 0.3);
-  border-radius: 3px;
-}
-
-.save-state-card :deep(.v-card-text)::-webkit-scrollbar-thumb:hover {
-  background: rgba(var(--v-theme-primary), 0.5);
 }
 
 /* Tab styling improvements */

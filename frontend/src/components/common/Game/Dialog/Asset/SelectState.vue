@@ -37,7 +37,7 @@ function closeDialog() {
   <RDialog
     id="select-state-dialog"
     v-model="show"
-    icon="mdi-content-save-outline"
+    icon="mdi-file-outline"
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
     @close="closeDialog"
@@ -57,7 +57,8 @@ function closeDialog() {
           v-for="state in rom.user_states"
           class="pa-1 align-self-end"
           cols="6"
-          md="3"
+          md="4"
+          lg="3"
         >
           <AssetCard
             :asset="state"
