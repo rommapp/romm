@@ -56,7 +56,8 @@ function closeDialog() {
         <v-col
           v-for="save in rom.user_saves"
           class="pa-1 align-self-end"
-          cols="3"
+          cols="6"
+          md="3"
         >
           <AssetCard
             :asset="save"
