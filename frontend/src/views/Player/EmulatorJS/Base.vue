@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
-import EmptyStates from "@/components/common/EmptyStates/EmptyStates.vue";
 import AssetCard from "@/components/common/Game/AssetCard.vue";
-import RomListItem from "@/components/common/Game/ListItem.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
 import { ROUTES } from "@/plugins/router";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
@@ -17,17 +16,14 @@ import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import { type DetailedRom } from "@/stores/roms";
-import {
-  formatTimestamp,
-  getSupportedEJSCores,
-  formatRelativeDate,
-} from "@/utils";
-import { getEmptyCoverImage } from "@/utils/covers";
+import type { Events } from "@/types/emitter";
+import { getSupportedEJSCores } from "@/utils";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 const { smAndDown } = useDisplay();
+const emitter = inject<Emitter<Events>>("emitter");
 const route = useRoute();
 const auth = storeAuth();
 const playingStore = storePlaying();
@@ -37,9 +33,8 @@ const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const selectedSave = ref<SaveSchema | null>(null);
-const openSaveSelector = ref(false);
+const openSaveSelector = ref(true);
 const selectedState = ref<StateSchema | null>(null);
-const openStateSelector = ref(false);
 const selectedCore = ref<string | null>(null);
 const selectedDisc = ref<number | null>(null);
 const supportedCores = ref<string[]>([]);
@@ -99,28 +94,17 @@ function onFullScreenChange() {
   fullScreenOnPlay.value = !fullScreenOnPlay.value;
 }
 
-function switchSaveSelector() {
-  openSaveSelector.value = !openSaveSelector.value;
-  openStateSelector.value = false;
-}
-
 function selectSave(save: SaveSchema) {
   selectedSave.value = save;
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:save_id`,
     save.id.toString(),
   );
-  openSaveSelector.value = false;
 }
 
 function unselectSave() {
   selectedSave.value = null;
   localStorage.removeItem(`player:${rom.value?.platform_slug}:save_id`);
-}
-
-function switchStateSelector() {
-  openStateSelector.value = !openStateSelector.value;
-  openSaveSelector.value = false;
 }
 
 function selectState(state: StateSchema) {
@@ -129,7 +113,6 @@ function selectState(state: StateSchema) {
     `player:${rom.value?.platform_slug}:state_id`,
     state.id.toString(),
   );
-  openStateSelector.value = false;
 }
 
 function unselectState() {
@@ -169,6 +152,10 @@ onMounted(async () => {
   selectedSave.value = rom.value.user_saves[0] ?? null;
   selectedState.value = rom.value.user_states[0] ?? null;
 
+  // Listen for save/state selection from dialogs
+  emitter?.on("saveSelected", selectSave);
+  emitter?.on("stateSelected", selectState);
+
   const storedBiosID = localStorage.getItem(
     `player:${rom.value.platform_slug}:bios_id`,
   );
@@ -196,12 +183,30 @@ onMounted(async () => {
 
 onBeforeUnmount(async () => {
   window.EJS_emulator?.callEvent("exit");
+  emitter?.off("saveSelected", selectSave);
+  emitter?.off("stateSelected", selectState);
 });
+
+function openStateDialog() {
+  if (rom.value) {
+    emitter?.emit("selectStateDialog", rom.value);
+  }
+}
+
+function openSaveDialog() {
+  if (rom.value) {
+    emitter?.emit("selectSaveDialog", rom.value);
+  }
+}
+
+function openCacheDialog() {
+  emitter?.emit("openEmulatorJSCacheDialog", null);
+}
 </script>
 
 <template>
   <v-row v-if="rom" class="align-center justify-center scroll h-100" no-gutters>
-    <v-col v-if="!gameRunning" cols="12" sm="10" md="8" xl="6">
+    <v-col v-if="!gameRunning" cols="12" sm="8">
       <!-- Header -->
       <v-row no-gutters>
         <v-col>
@@ -213,95 +218,104 @@ onBeforeUnmount(async () => {
         </v-col>
       </v-row>
 
-      <v-divider class="my-4 mx-2" />
-
-      <v-row no-gutters>
-        <v-col>
-          <RomListItem :rom="rom" with-filename with-size />
+      <!-- Main Content: Two Column Layout -->
+      <v-row class="mx-2 mt-4" no-gutters>
+        <v-col cols="auto">
+          <v-container :width="220" class="pa-0">
+            <GameCard
+              :key="rom.updated_at"
+              :rom="rom"
+              :show-platform-icon="false"
+              :show-action-bar="false"
+            />
+          </v-container>
         </v-col>
-      </v-row>
 
-      <v-row class="mx-2" no-gutters>
-        <v-col>
-          <!-- disc selector -->
-          <v-select
-            v-if="rom.has_multiple_files"
-            v-model="selectedDisc"
-            class="mt-4"
-            hide-details
-            variant="outlined"
-            density="compact"
-            prepend-inner-icon="mdi-disc"
-            clearable
-            :label="t('rom.file')"
-            :items="
-              rom.files.map((f) => ({
-                title: f.file_name,
-                value: f.id,
-              }))
-            "
-          />
-          <!-- core selector -->
-          <v-select
-            v-if="supportedCores.length > 1"
-            v-model="selectedCore"
-            class="mt-4"
-            hide-details
-            variant="outlined"
-            prepend-inner-icon="mdi-chip"
-            density="compact"
-            clearable
-            :label="t('common.core')"
-            :items="
-              supportedCores.map((c) => ({
-                title: c,
-                value: c,
-              }))
-            "
-          />
-          <!-- bios selector -->
-          <v-select
-            v-if="firmwareOptions.length > 0"
-            v-model="selectedFirmware"
-            class="mt-4"
-            hide-details
-            variant="outlined"
-            density="compact"
-            prepend-inner-icon="mdi-memory"
-            clearable
-            :label="t('common.firmware')"
-            :items="
-              firmwareOptions.map((f) => ({
-                title: f.file_name,
-                value: f,
-              })) ?? []
-            "
-          />
+        <!-- Left Column: Saves & States with Tabs -->
+        <v-col
+          :cols="smAndDown ? 6 : 5"
+          :class="{ 'pr-md-2 pl-md-4': !smAndDown }"
+        >
+          <v-card variant="flat" rounded="lg">
+            <v-tabs
+              v-model="openSaveSelector"
+              bg-color="transparent"
+              color="primary"
+              grow
+            >
+              <v-tab :value="true">
+                <v-icon start>mdi-content-save</v-icon>
+                {{ t("common.saves") }}
+                <v-badge
+                  v-if="rom.user_saves.length > 0"
+                  :content="rom.user_saves.length"
+                  color="primary"
+                  inline
+                  class="ml-2"
+                />
+              </v-tab>
+              <v-tab :value="false">
+                <v-icon start>mdi-file</v-icon>
+                {{ t("common.states") }}
+                <v-badge
+                  v-if="
+                    rom.user_states.filter(
+                      (s) => !s.emulator || s.emulator === selectedCore,
+                    ).length > 0
+                  "
+                  :content="
+                    rom.user_states.filter(
+                      (s) => !s.emulator || s.emulator === selectedCore,
+                    ).length
+                  "
+                  color="primary"
+                  inline
+                  class="ml-2"
+                />
+              </v-tab>
+            </v-tabs>
 
-          <!-- save/satate selector -->
-          <v-row class="mt-4" no-gutters>
-            <!-- state selector -->
-            <v-expand-transition>
-              <v-col
-                v-show="!openSaveSelector || !smAndDown"
-                :class="{
-                  'mt-2': smAndDown,
-                  'pr-1': !smAndDown,
-                }"
-                :cols="smAndDown ? 6 : 4"
-              >
+            <v-divider />
+
+            <v-card-text class="pa-4" style="min-height: 200px">
+              <!-- States Tab Content -->
+              <div v-show="!openSaveSelector">
+                <!-- Selected State Preview -->
+                <div v-if="selectedState" class="mb-3">
+                  <AssetCard
+                    :asset="selectedState"
+                    type="state"
+                    :show-hover-actions="false"
+                    :show-close-button="true"
+                    :transform-scale="false"
+                    @close="unselectState"
+                  />
+                </div>
+
+                <!-- No State Selected Message -->
+                <div v-else class="text-center py-8">
+                  <v-icon size="48" color="medium-emphasis"
+                    >mdi-file-outline</v-icon
+                  >
+                  <p class="text-body-2 text-medium-emphasis mt-2">
+                    {{ t("play.no-state-selected") }}
+                  </p>
+                </div>
+
+                <!-- Select State Button -->
                 <v-btn
                   block
-                  variant="flat"
-                  class="asset-selector"
-                  prepend-icon="mdi-file"
-                  :color="openStateSelector ? 'primary' : ''"
+                  variant="tonal"
+                  color="primary"
+                  :prepend-icon="
+                    selectedState ? 'mdi-swap-horizontal' : 'mdi-plus'
+                  "
                   :disabled="
                     !rom.user_states.some(
                       (s) => !s.emulator || s.emulator === selectedCore,
                     )
                   "
-                  @click="switchStateSelector"
+                  @click="openStateDialog"
                 >
                   {{
                     selectedState
@@ -309,205 +323,214 @@ onBeforeUnmount(async () => {
                       : t("play.select-state")
                   }}
                 </v-btn>
-                <v-expand-transition>
+              </div>
+
+              <!-- Saves Tab Content -->
+              <div v-show="openSaveSelector">
+                <!-- Selected Save Preview -->
+                <div v-if="selectedSave" class="mb-3">
                   <AssetCard
-                    v-if="selectedState"
-                    :asset="selectedState"
-                    type="state"
-                    :selected="false"
+                    :asset="selectedSave"
+                    type="save"
                     :show-hover-actions="false"
                     :show-close-button="true"
-                    :card-style="{}"
-                    class="selected-card mx-1"
                     :transform-scale="false"
-                    :class="{ 'disabled-card': openSaveSelector }"
-                    @close="unselectState"
+                    @close="unselectSave"
                   />
-                </v-expand-transition>
-              </v-col>
-            </v-expand-transition>
+                </div>
 
-            <!-- save selector -->
-            <v-expand-transition>
-              <v-col
-                v-show="!openStateSelector || !smAndDown"
-                :class="{
-                  'mt-2': smAndDown,
-                  'pl-1': !smAndDown,
-                }"
-                :cols="smAndDown ? 6 : 4"
-              >
+                <!-- No Save Selected Message -->
+                <div v-else class="text-center py-8">
+                  <v-icon size="48" color="medium-emphasis"
+                    >mdi-content-save-outline</v-icon
+                  >
+                  <p class="text-body-2 text-medium-emphasis mt-2">
+                    {{ t("play.no-save-selected") }}
+                  </p>
+                </div>
+
+                <!-- Select Save Button -->
                 <v-btn
                   block
-                  variant="flat"
-                  class="asset-selector"
-                  prepend-icon="mdi-content-save"
-                  :color="openSaveSelector ? 'primary' : ''"
-                  @click="switchSaveSelector"
+                  variant="tonal"
+                  color="primary"
+                  :prepend-icon="
+                    selectedSave ? 'mdi-swap-horizontal' : 'mdi-plus'
+                  "
+                  @click="openSaveDialog"
                 >
                   {{
                     selectedSave ? t("play.change-save") : t("play.select-save")
                   }}
                 </v-btn>
-                <v-expand-transition>
-                  <AssetCard
-                    v-if="selectedSave"
-                    :asset="selectedSave"
-                    type="save"
-                    :selected="false"
-                    :show-hover-actions="false"
-                    :show-close-button="true"
-                    :card-style="{}"
-                    class="selected-card mx-1"
-                    :transform-scale="false"
-                    :class="{ 'disabled-card': openStateSelector }"
-                    @close="unselectSave"
-                  />
-                </v-expand-transition>
-              </v-col>
-            </v-expand-transition>
-          </v-row>
-
-          <!-- state display -->
-          <v-expand-transition>
-            <v-row v-if="openStateSelector" class="mt-2" no-gutters>
-              <template v-if="rom.user_states.length > 0">
-                <v-col
-                  v-for="state in rom.user_states
-                    .filter((s) => !s.emulator || s.emulator === selectedCore)
-                    .sort((a, b) => {
-                      return (
-                        new Date(b.updated_at).getTime() -
-                        new Date(a.updated_at).getTime()
-                      );
-                    })"
-                  :key="state.id"
-                  cols="6"
-                  sm="4"
-                  class="pa-1 align-self-end"
-                >
-                  <AssetCard
-                    :asset="state"
-                    type="state"
-                    :selected="selectedState?.id === state.id"
-                    :show-hover-actions="false"
-                    :card-style="{
-                      zIndex: selectedState?.id === state.id ? 11 : undefined,
-                    }"
-                    @click="selectState(state)"
-                  />
-                </v-col>
-              </template>
-              <v-col v-else class="pa-1 mt-1">
-                <EmptyStates />
-              </v-col>
-            </v-row>
-          </v-expand-transition>
-
-          <!-- save display -->
-          <v-expand-transition>
-            <v-row v-if="openSaveSelector" class="mt-2" no-gutters>
-              <template v-if="rom.user_saves.length > 0">
-                <v-col
-                  v-for="save in rom.user_saves.sort((a, b) => {
-                    return (
-                      new Date(b.updated_at).getTime() -
-                      new Date(a.updated_at).getTime()
-                    );
-                  })"
-                  :key="save.id"
-                  cols="6"
-                  sm="4"
-                  class="pa-1 align-self-end"
-                >
-                  <AssetCard
-                    :asset="save"
-                    type="save"
-                    :selected="selectedSave?.id === save.id"
-                    :show-hover-actions="false"
-                    @click="selectSave(save)"
-                  />
-                </v-col>
-              </template>
-              <v-col v-else class="pa-1 mt-1">
-                <EmptySaves />
-              </v-col>
-            </v-row>
-          </v-expand-transition>
+              </div>
+            </v-card-text>
+          </v-card>
         </v-col>
-      </v-row>
 
-      <!-- Action buttons -->
-      <v-row class="align-center mt-4 mx-2" no-gutters>
-        <v-col :class="{ 'pr-1': !smAndDown }">
-          <v-btn
-            block
-            variant="flat"
-            :append-icon="
-              fullScreenOnPlay ? 'mdi-fullscreen' : 'mdi-fullscreen-exit'
-            "
-            :color="fullScreenOnPlay ? 'primary' : ''"
-            @click="onFullScreenChange"
-          >
-            <v-icon class="mr-2">
-              {{
-                fullScreenOnPlay
-                  ? "mdi-checkbox-outline"
-                  : "mdi-checkbox-blank-outline"
-              }} </v-icon
-            >{{ t("play.full-screen") }}
-          </v-btn>
-        </v-col>
-        <v-col :cols="smAndDown ? 12 : 8" :class="smAndDown ? 'mt-2' : 'pl-1'">
-          <v-btn
-            block
-            variant="flat"
-            class="text-primary"
-            prepend-icon="mdi-play"
-            @click="onPlay"
-          >
-            {{ t("play.play") }}
-          </v-btn>
-        </v-col>
-      </v-row>
-      <v-row class="align-center my-4 mx-2" no-gutters>
+        <!-- Right Column: Settings & Actions -->
         <v-col
-          :class="{ 'mt-2': smAndDown, 'pr-1': !smAndDown }"
-          :cols="smAndDown ? 12 : 6"
+          :cols="smAndDown ? 12 : 4"
+          :class="{ 'mt-4': smAndDown, 'pl-md-2': !smAndDown }"
         >
-          <v-btn
-            block
-            variant="flat"
-            prepend-icon="mdi-arrow-left"
-            append-icon="mdi-details"
-            @click="
-              $router.push({
-                name: ROUTES.ROM,
-                params: { rom: rom?.id },
-              })
-            "
-          >
-            {{ t("play.back-to-game-details") }}
-          </v-btn>
-        </v-col>
-        <v-col
-          :class="{ 'mt-2': smAndDown, 'pl-1': !smAndDown }"
-          :cols="smAndDown ? 12 : 6"
-        >
-          <v-btn
-            block
-            variant="flat"
-            prepend-icon="mdi-arrow-left"
-            append-icon="mdi-apps"
-            @click="
-              $router.push({
-                name: ROUTES.PLATFORM,
-                params: { platform: rom?.platform_id },
-              })
-            "
-          >
-            {{ t("play.back-to-gallery") }}
-          </v-btn>
+          <v-card variant="flat" rounded="lg">
+            <v-card-text class="pa-3">
+              <!-- Configuration Section -->
+              <div class="mb-4">
+                <div
+                  class="text-subtitle-2 font-weight-bold mb-3 d-flex align-center"
+                >
+                  <v-icon size="small" class="mr-2">mdi-cog</v-icon>
+                  {{ t("common.settings") }}
+                </div>
+
+                <!-- Disc Selector -->
+                <v-select
+                  v-model="selectedDisc"
+                  class="mb-3"
+                  hide-details
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-disc"
+                  clearable
+                  :label="t('rom.file')"
+                  :items="
+                    rom.files.map((f) => ({
+                      title: f.file_name,
+                      value: f.id,
+                    }))
+                  "
+                />
+
+                <!-- Core Selector -->
+                <v-select
+                  v-model="selectedCore"
+                  class="mb-3"
+                  hide-details
+                  variant="outlined"
+                  prepend-inner-icon="mdi-chip"
+                  density="comfortable"
+                  clearable
+                  :label="t('common.core')"
+                  :items="
+                    supportedCores.map((c) => ({
+                      title: c,
+                      value: c,
+                    }))
+                  "
+                />
+
+                <!-- BIOS Selector -->
+                <v-select
+                  v-model="selectedFirmware"
+                  hide-details
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-memory"
+                  clearable
+                  :label="t('common.firmware')"
+                  :items="
+                    firmwareOptions.map((f) => ({
+                      title: f.file_name,
+                      value: f,
+                    })) ?? []
+                  "
+                />
+              </div>
+
+              <v-divider class="my-4" />
+
+              <!-- Action Buttons -->
+              <div>
+                <div
+                  class="text-subtitle-2 font-weight-bold mb-3 d-flex align-center"
+                >
+                  <v-icon size="small" class="mr-2">mdi-play-box</v-icon>
+                  {{ t("common.actions") }}
+                </div>
+
+                <!-- Fullscreen Toggle -->
+                <v-btn
+                  block
+                  variant="tonal"
+                  class="mb-2"
+                  :color="fullScreenOnPlay ? 'primary' : ''"
+                  @click="onFullScreenChange"
+                >
+                  <v-icon class="mr-2">
+                    {{
+                      fullScreenOnPlay
+                        ? "mdi-checkbox-outline"
+                        : "mdi-checkbox-blank-outline"
+                    }}
+                  </v-icon>
+                  {{ t("play.full-screen") }}
+                  <v-icon class="ml-auto">
+                    {{
+                      fullScreenOnPlay
+                        ? "mdi-fullscreen"
+                        : "mdi-fullscreen-exit"
+                    }}
+                  </v-icon>
+                </v-btn>
+
+                <!-- Play Button -->
+                <v-btn
+                  block
+                  size="large"
+                  variant="flat"
+                  color="primary"
+                  class="mb-3 play-button"
+                  prepend-icon="mdi-play-circle"
+                  @click="onPlay"
+                >
+                  <span class="text-h6">{{ t("play.play") }}</span>
+                </v-btn>
+
+                <!-- Navigation Buttons -->
+                <v-btn
+                  block
+                  variant="text"
+                  size="small"
+                  class="mb-2"
+                  prepend-icon="mdi-arrow-left"
+                  @click="
+                    $router.push({
+                      name: ROUTES.ROM,
+                      params: { rom: rom?.id },
+                    })
+                  "
+                >
+                  {{ t("play.back-to-game-details") }}
+                </v-btn>
+
+                <v-btn
+                  block
+                  variant="text"
+                  size="small"
+                  prepend-icon="mdi-arrow-left"
+                  @click="
+                    $router.push({
+                      name: ROUTES.PLATFORM,
+                      params: { platform: rom?.platform_id },
+                    })
+                  "
+                >
+                  {{ t("play.back-to-gallery") }}
+                </v-btn>
+
+                <v-btn
+                  block
+                  class="text-romm-red mt-6"
+                  variant="flat"
+                  prepend-icon="mdi-database-remove"
+                  @click="openCacheDialog"
+                >
+                  {{ t("play.clear-cache") }}
+                </v-btn>
+              </div>
+            </v-card-text>
+          </v-card>
         </v-col>
       </v-row>
 
@@ -540,15 +563,94 @@ onBeforeUnmount(async () => {
   }
 }
 
-.selected-card {
-  margin-top: -5px;
+.save-state-card:hover,
+.actions-card:hover {
+  border-color: rgba(var(--v-theme-primary), 0.25);
+  box-shadow: 0 4px 16px rgba(var(--v-theme-primary), 0.08);
 }
 
-.disabled-card {
-  opacity: 0.2;
+.asset-card-selectable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
 }
 
-.asset-selector {
-  z-index: 11;
+.asset-card-selectable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--v-theme-primary), 0.2);
+  border-color: rgba(var(--v-theme-primary), 0.3);
+}
+
+.play-button {
+  position: relative;
+  overflow: hidden;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.play-button::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  transform: translate(-50%, -50%);
+  transition:
+    width 0.5s,
+    height 0.5s;
+}
+
+.play-button:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.play-button:hover {
+  box-shadow: 0 6px 20px rgba(var(--v-theme-primary), 0.3);
+}
+
+/* Custom scrollbar for save/state content */
+.save-state-card :deep(.v-card-text) {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--v-theme-primary), 0.3)
+    rgba(var(--v-theme-surface-variant), 0.2);
+}
+
+.save-state-card :deep(.v-card-text)::-webkit-scrollbar {
+  width: 6px;
+}
+
+.save-state-card :deep(.v-card-text)::-webkit-scrollbar-track {
+  background: rgba(var(--v-theme-surface-variant), 0.2);
+  border-radius: 3px;
+}
+
+.save-state-card :deep(.v-card-text)::-webkit-scrollbar-thumb {
+  background: rgba(var(--v-theme-primary), 0.3);
+  border-radius: 3px;
+}
+
+.save-state-card :deep(.v-card-text)::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--v-theme-primary), 0.5);
+}
+
+/* Tab styling improvements */
+.v-tabs :deep(.v-tab) {
+  text-transform: none;
+  letter-spacing: 0.25px;
+  font-weight: 500;
+}
+
+.v-tabs :deep(.v-tab--selected) {
+  color: rgb(var(--v-theme-primary));
+}
+
+/* Smooth fade transitions */
+.v-expand-transition-enter-active,
+.v-expand-transition-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 </style>
