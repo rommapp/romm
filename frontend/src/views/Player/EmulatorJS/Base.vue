@@ -7,6 +7,7 @@ import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import TitleInfo from "@/components/Details/Title.vue";
 import AssetCard from "@/components/common/Game/AssetCard.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import { ROUTES } from "@/plugins/router";
@@ -218,20 +219,21 @@ function openCacheDialog() {
         </v-col>
       </v-row>
 
-      <!-- Main Content: Two Column Layout -->
+      <!-- Game Info -->
       <v-row class="mx-2 mt-4" no-gutters>
         <v-col cols="auto">
-          <v-container :width="220" class="pa-0">
+          <v-container :width="220" class="pa-0 text-wrap text-center">
             <GameCard
               :key="rom.updated_at"
               :rom="rom"
               :show-platform-icon="false"
               :show-action-bar="false"
             />
+            <p class="text-h6 mt-2">{{ rom.name }}</p>
           </v-container>
         </v-col>
 
-        <!-- Left Column: Saves & States with Tabs -->
+        <!-- Saves & States -->
         <v-col
           :cols="smAndDown ? 6 : 5"
           :class="{ 'pr-md-2 pl-md-4': !smAndDown }"
@@ -368,7 +370,7 @@ function openCacheDialog() {
           </v-card>
         </v-col>
 
-        <!-- Right Column: Settings & Actions -->
+        <!-- Settings & Actions -->
         <v-col
           :cols="smAndDown ? 12 : 4"
           :class="{ 'mt-4': smAndDown, 'pl-md-2': !smAndDown }"
