@@ -22,7 +22,7 @@ import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 
 const { t } = useI18n();
-const { xs, mdAndUp } = useDisplay();
+const { xs, mdAndUp, smAndDown } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const route = useRoute();
 const auth = storeAuth();
@@ -251,21 +251,10 @@ function openCacheDialog() {
     class="align-center justify-center scroll h-100 px-4"
     no-gutters
   >
-    <v-col v-if="!gameRunning" cols="12" lg="10">
-      <!-- Header -->
-      <v-row no-gutters>
-        <v-col>
-          <v-img
-            class="mx-auto"
-            width="150"
-            src="/assets/emulatorjs/emulatorjs.svg"
-          />
-        </v-col>
-      </v-row>
-
+    <v-col v-if="!gameRunning" cols="12" lg="8">
       <v-row class="mt-4" no-gutters>
         <!-- Game Info -->
-        <v-col cols="12" md="auto">
+        <v-col class="game-info-col">
           <v-container :width="220" class="pa-0 text-wrap text-center mb-6">
             <GameCard
               :key="rom.updated_at"
@@ -278,10 +267,8 @@ function openCacheDialog() {
 
         <!-- Saves & States -->
         <v-col
-          cols="12"
-          sm="6"
-          md="5"
-          :class="{ 'pr-2': !xs, 'mb-4': xs, 'pl-4': mdAndUp }"
+          class="flex-col"
+          :class="{ 'pr-2': !xs, 'mb-4': smAndDown, 'pl-4': mdAndUp }"
         >
           <v-card variant="flat" rounded="lg">
             <v-tabs
@@ -408,7 +395,7 @@ function openCacheDialog() {
         </v-col>
 
         <!-- Settings & Actions -->
-        <v-col cols="12" sm="6" md="4" :class="{ 'pl-2': !xs }">
+        <v-col class="flex-col" :class="{ 'pl-2': !smAndDown }">
           <v-card variant="flat" rounded="lg" class="mb-6">
             <v-card-text class="pa-3">
               <!-- Configuration Section -->
@@ -561,6 +548,17 @@ function openCacheDialog() {
         </v-col>
       </v-row>
 
+      <v-row class="mb-8" no-gutters>
+        <v-col class="text-right align-center">
+          <span class="text-medium-emphasis text-caption font-italic mr-2"
+            >Powered by</span
+          >
+          <v-avatar size="50" rounded="0">
+            <v-img src="/assets/emulatorjs/emulatorjs.svg" />
+          </v-avatar>
+        </v-col>
+      </v-row>
+
       <CacheDialog />
     </v-col>
 
@@ -595,6 +593,16 @@ function openCacheDialog() {
   overflow: hidden;
   font-weight: 600;
   letter-spacing: 0.5px;
+}
+
+.game-info-col {
+  flex: 0 0 220px;
+  max-width: 220px;
+}
+
+.flex-col {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .play-button::before {
@@ -636,5 +644,13 @@ function openCacheDialog() {
 .v-expand-transition-enter-active,
 .v-expand-transition-leave-active {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 960px) {
+  .game-info-col,
+  .flex-col {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
 }
 </style>
