@@ -23,52 +23,22 @@ const patchInputRef = ref<HTMLInputElement | null>(null);
 
 const applying = ref(false);
 
-// Local asset URLs for patcher core (Vite will copy these assets)
+// Load core scripts via absolute asset paths (mirrors emulator loader approach)
+const PATCHER_BASE_PATH = "/assets/patcherjs";
 const CORE_SCRIPTS = [
-  new URL("../../assets/patcherjs/modules/HashCalculator.js", import.meta.url)
-    .href,
-  new URL("../../assets/patcherjs/modules/BinFile.js", import.meta.url).href,
-  new URL(
-    "../../assets/patcherjs/modules/RomPatcher.format.ips.js",
-    import.meta.url,
-  ).href,
-  new URL(
-    "../../assets/patcherjs/modules/RomPatcher.format.ups.js",
-    import.meta.url,
-  ).href,
-  new URL(
-    "../../assets/patcherjs/modules/RomPatcher.format.aps_n64.js",
-    import.meta.url,
-  ).href,
-  new URL(
-    "../../assets/patcherjs/modules/RomPatcher.format.aps_gba.js",
-    import.meta.url,
-  ).href,
-  new URL(
-    "../../assets/patcherjs/modules/RomPatcher.format.bps.js",
-    import.meta.url,
-  ).href,
-  new URL(
-    "../../assets/patcherjs/modules/RomPatcher.format.rup.js",
-    import.meta.url,
-  ).href,
-  new URL(
-    "../../assets/patcherjs/modules/RomPatcher.format.ppf.js",
-    import.meta.url,
-  ).href,
-  new URL(
-    "../../assets/patcherjs/modules/RomPatcher.format.bdf.js",
-    import.meta.url,
-  ).href,
-  new URL(
-    "../../assets/patcherjs/modules/RomPatcher.format.pmsr.js",
-    import.meta.url,
-  ).href,
-  new URL(
-    "../../assets/patcherjs/modules/RomPatcher.format.vcdiff.js",
-    import.meta.url,
-  ).href,
-  new URL("../../assets/patcherjs/RomPatcher.js", import.meta.url).href,
+  `${PATCHER_BASE_PATH}/modules/HashCalculator.js`,
+  `${PATCHER_BASE_PATH}/modules/BinFile.js`,
+  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.ips.js`,
+  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.ups.js`,
+  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.aps_n64.js`,
+  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.aps_gba.js`,
+  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.bps.js`,
+  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.rup.js`,
+  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.ppf.js`,
+  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.bdf.js`,
+  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.pmsr.js`,
+  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.vcdiff.js`,
+  `${PATCHER_BASE_PATH}/RomPatcher.js`,
 ];
 
 function loadScriptSequentially(urls: string[]): Promise<void> {
