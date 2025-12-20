@@ -551,10 +551,10 @@ function openCacheDialog() {
       <v-row class="mb-8" no-gutters>
         <v-col class="text-right align-center">
           <span class="text-medium-emphasis text-caption font-italic mr-2"
-            >Powered by</span
+            >Powered by emulatorjs</span
           >
           <v-avatar size="50" rounded="0">
-            <v-img src="/assets/emulatorjs/emulatorjs.svg" />
+            <v-img src="/assets/emulatorjs/emulatorjs-logotype.svg" />
           </v-avatar>
         </v-col>
       </v-row>
