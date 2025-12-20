@@ -289,7 +289,7 @@ watch(
         "
         cols="auto"
       >
-        <v-container width="270px" class="pa-0">
+        <v-container class="pa-0">
           <AdditionalContent class="mt-2" :rom="currentRom" />
         </v-container>
       </v-col>
