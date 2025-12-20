@@ -286,11 +286,7 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
                       size="40"
                       color="primary"
                     >
-                      {{
-                        isOverRomDropZone
-                          ? "mdi-cloud-upload"
-                          : "mdi-cloud-upload-outline"
-                      }}
+                      {{ isOverRomDropZone ? "mdi-file" : "mdi-file-outline" }}
                     </v-icon>
                     <div class="text-subtitle-2 mt-3 mb-1">Drop ROM here</div>
                     <p class="text-body-2 text-medium-emphasis mb-3">
@@ -371,8 +367,8 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
                     >
                       {{
                         isOverPatchDropZone
-                          ? "mdi-cloud-upload"
-                          : "mdi-cloud-upload-outline"
+                          ? "mdi-file-cog"
+                          : "mdi-file-cog-outline"
                       }}
                     </v-icon>
                     <div class="text-subtitle-2 mt-3 mb-1">Drop patch here</div>
