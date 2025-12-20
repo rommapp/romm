@@ -231,27 +231,14 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
   <v-row class="align-center justify-center scroll h-100 px-4" no-gutters>
     <v-col cols="12" sm="10" md="8" xl="6">
       <v-card class="pa-4 bg-background" elevation="0">
-        <v-card-title class="pb-2">
-          <v-row no-gutters>
-            <v-col cols="auto">
-              <v-img
-                width="40"
-                src="/assets/patcherjs/assets/patcherjs.png"
-                class="mr-4"
-              />
-            </v-col>
-            <v-col>
-              <span>ROM Patcher</span>
-            </v-col>
-          </v-row>
-        </v-card-title>
-        <v-card-subtitle class="pb-2 text-body-2">
+        <v-card-title class="pb-2 px-0">ROM Patcher</v-card-title>
+        <v-card-subtitle class="pb-2 px-0 text-body-2">
           Choose a base ROM and a patch file, then apply to download the patched
           ROM.
         </v-card-subtitle>
-        <v-divider class="mb-4" />
+        <v-divider class="mt-2 mb-4" />
 
-        <v-card-text class="pb-0">
+        <v-card-text class="pa-0">
           <v-alert
             v-if="loadError"
             type="error"
@@ -466,6 +453,16 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
           </div>
         </v-card-text>
       </v-card>
+      <v-row class="mb-8 px-4" no-gutters>
+        <v-col class="text-right align-center">
+          <span class="text-medium-emphasis text-caption font-italic mr-2"
+            >Powered by patcherjs</span
+          >
+          <v-avatar rounded="0">
+            <v-img src="/assets/patcherjs/assets/patcherjs.png" />
+          </v-avatar>
+        </v-col>
+      </v-row>
     </v-col>
   </v-row>
 </template>
