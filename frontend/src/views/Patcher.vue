@@ -263,7 +263,7 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
           <v-row class="mb-2" dense>
             <v-col cols="12" md="6">
               <v-sheet class="pa-3" rounded="lg" border color="surface">
-                <div class="text-subtitle-2">ROM file</div>
+                <div class="text-subtitle-1">ROM file</div>
                 <div
                   ref="romDropZoneRef"
                   class="dropzone-container rounded-lg transition-all duration-300 ease-in-out mt-4"
@@ -339,11 +339,11 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
                   style="display: none"
                   @change="onRomChange"
                 />
-                <div class="text-caption text-medium-emphasis mt-4">
+                <div class="text-subtitle-2 text-medium-emphasis mt-4">
                   Supported rom formats<br />
                   <v-chip
                     v-for="format in supportedRomFormats"
-                    size="x-small"
+                    size="small"
                     class="mr-1 mt-1"
                     label
                     >{{ format }}</v-chip
@@ -354,7 +354,7 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
 
             <v-col cols="12" md="6">
               <v-sheet class="pa-3" rounded="lg" border color="surface">
-                <div class="text-subtitle-2">Patch file</div>
+                <div class="text-subtitle-1">Patch file</div>
                 <div
                   ref="patchDropZoneRef"
                   class="dropzone-container rounded-lg transition-all duration-300 ease-in-out mt-4"
@@ -436,11 +436,11 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
                   style="display: none"
                   @change="onPatchChange"
                 />
-                <div class="text-caption text-medium-emphasis mt-4">
+                <div class="text-subtitle-2 text-medium-emphasis mt-4">
                   Supported patch formats<br />
                   <v-chip
                     v-for="format in supportedPatchFormats"
-                    size="x-small"
+                    size="small"
                     class="mr-1 mt-1"
                     label
                     >{{ format }}</v-chip
