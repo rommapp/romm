@@ -41,6 +41,36 @@ const CORE_SCRIPTS = [
   `${PATCHER_BASE_PATH}/RomPatcher.js`,
 ];
 
+const supportedRomFormats = [
+  ".nes",
+  ".sfc",
+  ".smc",
+  ".fig",
+  ".gb",
+  ".gbc",
+  ".gba",
+  ".n64",
+  ".z64",
+  ".bin",
+  ".fds",
+  ".lnx",
+  ".rom",
+  ".img",
+  ".iso",
+];
+
+const supportedPatchFormats = [
+  ".ips",
+  ".ups",
+  ".bps",
+  ".ppf",
+  ".rup",
+  ".aps",
+  ".bdf",
+  ".pmsr",
+  ".vcdiff",
+];
+
 function loadScriptSequentially(urls: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     let i = 0;
@@ -200,7 +230,7 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
 <template>
   <v-row class="align-center justify-center scroll h-100 px-4" no-gutters>
     <v-col cols="12" sm="10" md="8" xl="6">
-      <v-card class="pa-4" elevation="2">
+      <v-card class="pa-4 bg-background" elevation="0">
         <v-card-title class="pb-2">
           <v-row no-gutters>
             <v-col cols="auto">
@@ -233,10 +263,10 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
           <v-row class="mb-2" dense>
             <v-col cols="12" md="6">
               <v-sheet class="pa-3" rounded="lg" border color="surface">
-                <div class="text-subtitle-2 mb-2">ROM file</div>
+                <div class="text-subtitle-2">ROM file</div>
                 <div
                   ref="romDropZoneRef"
-                  class="dropzone-container rounded-lg transition-all duration-300 ease-in-out"
+                  class="dropzone-container rounded-lg transition-all duration-300 ease-in-out mt-4"
                   :class="{
                     'dropzone-active': isOverRomDropZone,
                     'dropzone-has-files': !!romFile,
@@ -302,20 +332,32 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
                 <input
                   ref="romInputRef"
                   type="file"
-                  accept=".nes,.sfc,.smc,.fig,.gb,.gbc,.gba,.n64,.z64,.bin,.fds,.lnx,.rom,.img,.iso"
+                  :accept="
+                    supportedRomFormats.map((format) => '.' + format).join(',')
+                  "
                   class="sr-only"
                   style="display: none"
                   @change="onRomChange"
                 />
+                <div class="text-caption text-medium-emphasis mt-4">
+                  Supported rom formats<br />
+                  <v-chip
+                    v-for="format in supportedRomFormats"
+                    size="x-small"
+                    class="mr-1 mt-1"
+                    label
+                    >{{ format }}</v-chip
+                  >
+                </div>
               </v-sheet>
             </v-col>
 
             <v-col cols="12" md="6">
               <v-sheet class="pa-3" rounded="lg" border color="surface">
-                <div class="text-subtitle-2 mb-2">Patch file</div>
+                <div class="text-subtitle-2">Patch file</div>
                 <div
                   ref="patchDropZoneRef"
-                  class="dropzone-container rounded-lg transition-all duration-300 ease-in-out"
+                  class="dropzone-container rounded-lg transition-all duration-300 ease-in-out mt-4"
                   :class="{
                     'dropzone-active': isOverPatchDropZone,
                     'dropzone-has-files': !!patchFile,
@@ -385,21 +427,31 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
                 <input
                   ref="patchInputRef"
                   type="file"
-                  accept=".ips,.ups,.bps,.ppf,.rup,.aps,.aps.gba,.aps.n64,.bdf,.pmsr,.vcdiff"
+                  :accept="
+                    supportedPatchFormats
+                      .map((format) => '.' + format)
+                      .join(',')
+                  "
                   class="sr-only"
                   style="display: none"
                   @change="onPatchChange"
                 />
+                <div class="text-caption text-medium-emphasis mt-4">
+                  Supported patch formats<br />
+                  <v-chip
+                    v-for="format in supportedPatchFormats"
+                    size="x-small"
+                    class="mr-1 mt-1"
+                    label
+                    >{{ format }}</v-chip
+                  >
+                </div>
               </v-sheet>
             </v-col>
           </v-row>
 
-          <div class="d-flex align-center justify-space-between mt-4 mb-1">
-            <div class="text-caption text-medium-emphasis">
-              Supported patches: IPS, UPS, BPS, PPF, RUP, APS, BDF, PMSR,
-              VCDIFF.
-            </div>
-
+          <div class="d-flex align-right justify-space-left mt-4 mb-1">
+            <v-spacer />
             <v-btn
               class="bg-toplayer text-primary"
               :disabled="!romFile || !patchFile || applying"
