@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { formatBytes } from "@/utils";
 
 // Declare globals provided by local scripts
 declare const BinFile: any;
@@ -106,6 +107,18 @@ function onPatchChange(e: Event) {
   patchBin.value = null;
 }
 
+function onRomInput(files: File[] | File | null) {
+  const first = Array.isArray(files) ? (files[0] ?? null) : files;
+  romFile.value = first ?? null;
+  romBin.value = null;
+}
+
+function onPatchInput(files: File[] | File | null) {
+  const first = Array.isArray(files) ? (files[0] ?? null) : files;
+  patchFile.value = first ?? null;
+  patchBin.value = null;
+}
+
 async function patchRom() {
   loadError.value = null;
   if (!coreLoaded.value) await ensureCoreLoaded();
@@ -174,11 +187,30 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-row class="align-center justify-center scroll h-100" no-gutters>
+  <v-row class="align-center justify-center scroll h-100 px-4" no-gutters>
     <v-col cols="12" sm="10" md="8" xl="6">
       <v-card class="pa-4" elevation="2">
-        <v-card-title class="pb-2">ROM Patcher</v-card-title>
-        <v-card-text>
+        <v-card-title class="pb-2">
+          <v-row no-gutters>
+            <v-col cols="auto">
+              <v-img
+                width="40"
+                src="/assets/patcherjs/assets/patcherjs.png"
+                class="mr-4"
+              />
+            </v-col>
+            <v-col>
+              <span>ROM Patcher</span>
+            </v-col>
+          </v-row>
+        </v-card-title>
+        <v-card-subtitle class="pb-2 text-body-2">
+          Choose a base ROM and a patch file, then apply to download the patched
+          ROM.
+        </v-card-subtitle>
+        <v-divider class="mb-4" />
+
+        <v-card-text class="pb-0">
           <v-alert
             v-if="loadError"
             type="error"
@@ -187,19 +219,72 @@ onMounted(async () => {
             >{{ loadError }}</v-alert
           >
 
-          <div class="d-flex align-center mb-3">
-            <div class="mr-3">ROM file:</div>
-            <input type="file" @change="onRomChange" />
-          </div>
+          <v-row class="mb-2" dense>
+            <v-col cols="12" md="6">
+              <v-sheet class="pa-3" rounded="lg" border color="surface">
+                <div class="text-subtitle-2 mb-2">ROM file</div>
+                <v-file-input
+                  prepend-icon="mdi-file"
+                  accept=".nes,.sfc,.smc,.fig,.gb,.gbc,.gba,.n64,.z64,.bin,.fds,.lnx,.rom,.img,.iso"
+                  show-size
+                  density="comfortable"
+                  variant="outlined"
+                  clearable
+                  :model-value="romFile ? [romFile] : []"
+                  @update:model-value="onRomInput"
+                  hide-details
+                />
+                <div
+                  class="mt-2 text-caption text-medium-emphasis"
+                  v-if="romFile"
+                >
+                  {{ romFile.name }} ({{ formatBytes(romFile.size) }})
+                </div>
+              </v-sheet>
+            </v-col>
 
-          <div class="d-flex align-center mb-4">
-            <div class="mr-3">Patch file:</div>
-            <input type="file" @change="onPatchChange" />
-          </div>
+            <v-col cols="12" md="6">
+              <v-sheet class="pa-3" rounded="lg" border color="surface">
+                <div class="text-subtitle-2 mb-2">Patch file</div>
+                <v-file-input
+                  prepend-icon="mdi-file-cog"
+                  accept=".ips,.ups,.bps,.ppf,.rup,.aps,.aps.gba,.aps.n64,.bdf,.pmsr,.vcdiff"
+                  show-size
+                  density="comfortable"
+                  variant="outlined"
+                  clearable
+                  :model-value="patchFile ? [patchFile] : []"
+                  @update:model-value="onPatchInput"
+                  hide-details
+                />
+                <div
+                  class="mt-2 text-caption text-medium-emphasis"
+                  v-if="patchFile"
+                >
+                  {{ patchFile.name }} ({{ formatBytes(patchFile.size) }})
+                </div>
+              </v-sheet>
+            </v-col>
+          </v-row>
 
-          <v-btn :loading="applying" color="success" @click="patchRom"
-            >Apply patch</v-btn
-          >
+          <div class="d-flex align-center justify-space-between mt-4 mb-1">
+            <div class="text-caption text-medium-emphasis">
+              Supported patches: IPS, UPS, BPS, PPF, RUP, APS, BDF, PMSR,
+              VCDIFF.
+            </div>
+
+            <v-btn
+              class="bg-toplayer text-primary"
+              :disabled="!romFile || !patchFile || applying"
+              :loading="applying"
+              :variant="
+                !romFile || !patchFile || applying == null ? 'plain' : 'flat'
+              "
+              @click="patchRom"
+            >
+              Apply patch
+            </v-btn>
+          </div>
         </v-card-text>
       </v-card>
     </v-col>
