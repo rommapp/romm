@@ -47,7 +47,8 @@ function collapse() {
       </template>
 
       <template #append>
-        <RandomBtn />
+        <PatcherBtn class="mr-2" />
+        <RandomBtn class="mr-2" />
         <UploadBtn class="mr-2" />
         <UserBtn class="mr-1" />
       </template>
@@ -108,9 +109,9 @@ function collapse() {
     <CollectionsBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
     <ScanBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
     <ConsoleModeBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
-    <PatcherBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
 
     <template #append>
+      <PatcherBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
       <RandomBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
       <UploadBtn
         :with-tag="!mainBarCollapsed"
