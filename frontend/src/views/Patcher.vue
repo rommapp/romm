@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useDropZone } from "@vueuse/core";
 import { ref, onMounted } from "vue";
 import { formatBytes } from "@/utils";
 
@@ -14,6 +15,11 @@ const patchFile = ref<File | null>(null);
 
 const romBin = ref<any | null>(null);
 const patchBin = ref<any | null>(null);
+
+const romDropZoneRef = ref<HTMLDivElement | null>(null);
+const patchDropZoneRef = ref<HTMLDivElement | null>(null);
+const romInputRef = ref<HTMLInputElement | null>(null);
+const patchInputRef = ref<HTMLInputElement | null>(null);
 
 const applying = ref(false);
 
@@ -94,29 +100,52 @@ async function ensureCoreLoaded() {
   }
 }
 
-function onRomChange(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const f = input.files?.[0] || null;
-  romFile.value = f;
+function setRomFile(file: File | null) {
+  romFile.value = file;
   romBin.value = null;
 }
-function onPatchChange(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const f = input.files?.[0] || null;
-  patchFile.value = f;
+
+function setPatchFile(file: File | null) {
+  patchFile.value = file;
   patchBin.value = null;
 }
 
 function onRomInput(files: File[] | File | null) {
   const first = Array.isArray(files) ? (files[0] ?? null) : files;
-  romFile.value = first ?? null;
-  romBin.value = null;
+  setRomFile(first ?? null);
 }
 
 function onPatchInput(files: File[] | File | null) {
   const first = Array.isArray(files) ? (files[0] ?? null) : files;
-  patchFile.value = first ?? null;
-  patchBin.value = null;
+  setPatchFile(first ?? null);
+}
+
+function onRomChange(e: Event) {
+  const input = e.target as HTMLInputElement;
+  onRomInput(input.files ? Array.from(input.files) : null);
+  if (input) input.value = "";
+}
+
+function onPatchChange(e: Event) {
+  const input = e.target as HTMLInputElement;
+  onPatchInput(input.files ? Array.from(input.files) : null);
+  if (input) input.value = "";
+}
+
+function onRomDrop(files: File[] | null) {
+  onRomInput(files);
+}
+
+function onPatchDrop(files: File[] | null) {
+  onPatchInput(files);
+}
+
+function triggerRomInput() {
+  romInputRef.value?.click();
+}
+
+function triggerPatchInput() {
+  patchInputRef.value?.click();
 }
 
 async function patchRom() {
@@ -184,6 +213,18 @@ onMounted(async () => {
   // Preload core for faster interaction
   await ensureCoreLoaded();
 });
+
+const { isOverDropZone: isOverRomDropZone } = useDropZone(romDropZoneRef, {
+  onDrop: onRomDrop,
+  multiple: false,
+  preventDefaultForUnhandled: true,
+});
+
+const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
+  onDrop: onPatchDrop,
+  multiple: false,
+  preventDefaultForUnhandled: true,
+});
 </script>
 
 <template>
@@ -223,46 +264,166 @@ onMounted(async () => {
             <v-col cols="12" md="6">
               <v-sheet class="pa-3" rounded="lg" border color="surface">
                 <div class="text-subtitle-2 mb-2">ROM file</div>
-                <v-file-input
-                  prepend-icon="mdi-file"
-                  accept=".nes,.sfc,.smc,.fig,.gb,.gbc,.gba,.n64,.z64,.bin,.fds,.lnx,.rom,.img,.iso"
-                  show-size
-                  density="comfortable"
-                  variant="outlined"
-                  clearable
-                  :model-value="romFile ? [romFile] : []"
-                  @update:model-value="onRomInput"
-                  hide-details
-                />
                 <div
-                  class="mt-2 text-caption text-medium-emphasis"
-                  v-if="romFile"
+                  ref="romDropZoneRef"
+                  class="dropzone-container rounded-lg transition-all duration-300 ease-in-out"
+                  :class="{
+                    'dropzone-active': isOverRomDropZone,
+                    'dropzone-has-files': !!romFile,
+                  }"
+                  role="button"
+                  tabindex="0"
+                  @click="triggerRomInput"
+                  @keydown.enter.prevent="triggerRomInput"
+                  @keydown.space.prevent="triggerRomInput"
                 >
-                  {{ romFile.name }} ({{ formatBytes(romFile.size) }})
+                  <div
+                    v-if="!romFile"
+                    class="flex flex-col items-center justify-center h-full min-h-[180px] p-6 text-center transition-all duration-300 ease-in-out"
+                  >
+                    <v-icon
+                      :class="{ 'animate-pulse-glow': isOverRomDropZone }"
+                      size="40"
+                      color="primary"
+                    >
+                      {{
+                        isOverRomDropZone
+                          ? "mdi-cloud-upload"
+                          : "mdi-cloud-upload-outline"
+                      }}
+                    </v-icon>
+                    <div class="text-subtitle-2 mt-3 mb-1">Drop ROM here</div>
+                    <p class="text-body-2 text-medium-emphasis mb-3">
+                      Drag & drop a ROM file or click to browse.
+                    </p>
+                    <v-btn color="primary" variant="outlined" size="small">
+                      Choose ROM
+                    </v-btn>
+                  </div>
+
+                  <div
+                    v-else
+                    class="d-flex align-center justify-space-between h-full min-h-[120px] px-4"
+                  >
+                    <div>
+                      <div class="text-subtitle-2">{{ romFile.name }}</div>
+                      <div class="text-caption text-medium-emphasis">
+                        <v-chip label>
+                          {{ formatBytes(romFile.size) }}
+                        </v-chip>
+                      </div>
+                    </div>
+                    <div class="d-flex align-center">
+                      <v-btn
+                        color="primary"
+                        variant="outlined"
+                        size="small"
+                        class="mr-2"
+                        @click.stop="triggerRomInput"
+                      >
+                        Replace
+                      </v-btn>
+                      <v-btn
+                        icon
+                        variant="plain"
+                        @click.stop="onRomInput(null)"
+                      >
+                        <v-icon color="red"> mdi-close </v-icon>
+                      </v-btn>
+                    </div>
+                  </div>
                 </div>
+                <input
+                  ref="romInputRef"
+                  type="file"
+                  accept=".nes,.sfc,.smc,.fig,.gb,.gbc,.gba,.n64,.z64,.bin,.fds,.lnx,.rom,.img,.iso"
+                  class="sr-only"
+                  style="display: none"
+                  @change="onRomChange"
+                />
               </v-sheet>
             </v-col>
 
             <v-col cols="12" md="6">
               <v-sheet class="pa-3" rounded="lg" border color="surface">
                 <div class="text-subtitle-2 mb-2">Patch file</div>
-                <v-file-input
-                  prepend-icon="mdi-file-cog"
-                  accept=".ips,.ups,.bps,.ppf,.rup,.aps,.aps.gba,.aps.n64,.bdf,.pmsr,.vcdiff"
-                  show-size
-                  density="comfortable"
-                  variant="outlined"
-                  clearable
-                  :model-value="patchFile ? [patchFile] : []"
-                  @update:model-value="onPatchInput"
-                  hide-details
-                />
                 <div
-                  class="mt-2 text-caption text-medium-emphasis"
-                  v-if="patchFile"
+                  ref="patchDropZoneRef"
+                  class="dropzone-container rounded-lg transition-all duration-300 ease-in-out"
+                  :class="{
+                    'dropzone-active': isOverPatchDropZone,
+                    'dropzone-has-files': !!patchFile,
+                  }"
+                  role="button"
+                  tabindex="0"
+                  @click="triggerPatchInput"
+                  @keydown.enter.prevent="triggerPatchInput"
+                  @keydown.space.prevent="triggerPatchInput"
                 >
-                  {{ patchFile.name }} ({{ formatBytes(patchFile.size) }})
+                  <div
+                    v-if="!patchFile"
+                    class="flex flex-col items-center justify-center h-full min-h-[180px] p-6 text-center transition-all duration-300 ease-in-out"
+                  >
+                    <v-icon
+                      :class="{ 'animate-pulse-glow': isOverPatchDropZone }"
+                      size="40"
+                      color="primary"
+                    >
+                      {{
+                        isOverPatchDropZone
+                          ? "mdi-cloud-upload"
+                          : "mdi-cloud-upload-outline"
+                      }}
+                    </v-icon>
+                    <div class="text-subtitle-2 mt-3 mb-1">Drop patch here</div>
+                    <p class="text-body-2 text-medium-emphasis mb-3">
+                      Drag & drop a patch file or click to browse.
+                    </p>
+                    <v-btn color="primary" variant="outlined" size="small">
+                      Choose patch
+                    </v-btn>
+                  </div>
+
+                  <div
+                    v-else
+                    class="d-flex align-center justify-space-between h-full min-h-[120px] px-4"
+                  >
+                    <div>
+                      <div class="text-subtitle-2">{{ patchFile.name }}</div>
+                      <div class="text-caption text-medium-emphasis">
+                        <v-chip label>
+                          {{ formatBytes(patchFile.size) }}
+                        </v-chip>
+                      </div>
+                    </div>
+                    <div class="d-flex align-center">
+                      <v-btn
+                        color="primary"
+                        variant="outlined"
+                        size="small"
+                        class="mr-2"
+                        @click.stop="triggerPatchInput"
+                      >
+                        Replace
+                      </v-btn>
+                      <v-btn
+                        icon
+                        variant="plain"
+                        @click.stop="onPatchInput(null)"
+                      >
+                        <v-icon color="red"> mdi-close </v-icon>
+                      </v-btn>
+                    </div>
+                  </div>
                 </div>
+                <input
+                  ref="patchInputRef"
+                  type="file"
+                  accept=".ips,.ups,.bps,.ppf,.rup,.aps,.aps.gba,.aps.n64,.bdf,.pmsr,.vcdiff"
+                  class="sr-only"
+                  style="display: none"
+                  @change="onPatchChange"
+                />
               </v-sheet>
             </v-col>
           </v-row>
@@ -290,3 +451,39 @@ onMounted(async () => {
     </v-col>
   </v-row>
 </template>
+
+<style scoped>
+.dropzone-container {
+  border: 2px dashed rgba(var(--v-theme-primary), 0.3);
+}
+
+.dropzone-container.dropzone-active {
+  border: 2px dashed rgba(var(--v-theme-primary));
+  background-color: rgba(var(--v-theme-primary), 0.05);
+}
+
+.dropzone-container.dropzone-has-files {
+  border: none;
+  background-color: rgba(var(--v-theme-surface), 0.5);
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0% {
+    transform: scale(1);
+    filter: brightness(1) drop-shadow(0 0 0 rgba(var(--v-theme-primary), 0));
+  }
+  50% {
+    transform: scale(1.1);
+    filter: brightness(1.2)
+      drop-shadow(0 0 20px rgba(var(--v-theme-primary), 0.6));
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1) drop-shadow(0 0 0 rgba(var(--v-theme-primary), 0));
+  }
+}
+</style>
