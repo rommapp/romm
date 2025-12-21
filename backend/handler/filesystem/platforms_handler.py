@@ -53,14 +53,29 @@ class FSPlatformsHandler(FSHandler):
     def get_platforms_directory(self) -> str:
         cnfg = cm.get_config()
 
+        structure = self.detect_library_structure()
+        if structure == "A":
+            return cnfg.ROMS_FOLDER_NAME
+        if structure == "B":
+            return ""
+
+        # Fallback to config hint when detection is inconclusive
         return (
             cnfg.ROMS_FOLDER_NAME
             if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
             else ""
         )
 
-    def get_plaform_fs_structure(self, fs_slug: str) -> str:
+    def get_platform_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
+
+        structure = self.detect_library_structure()
+        if structure == "A":
+            return f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
+        if structure == "B":
+            return f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
+
+        # Fallback to config hint when detection is inconclusive
         return (
             f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
             if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
@@ -73,7 +88,7 @@ class FSPlatformsHandler(FSHandler):
         Args:
             fs_slug: platform slug
         """
-        platform_path = self.get_plaform_fs_structure(fs_slug)
+        platform_path = self.get_platform_fs_structure(fs_slug)
 
         try:
             await self.make_directory(platform_path)
@@ -94,7 +109,8 @@ class FSPlatformsHandler(FSHandler):
             raise FolderStructureNotMatchException() from e
 
         # For Structure B, only include directories that have a roms subfolder
-        if not os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH):
+        structure = self.detect_library_structure()
+        if structure == "B":
             platforms = [
                 platform
                 for platform in platforms
