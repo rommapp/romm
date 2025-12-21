@@ -2,15 +2,13 @@
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
 import type { SaveSchema } from "@/__generated__";
 import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
+import AssetCard from "@/components/common/Game/AssetCard.vue";
 import storeAuth from "@/stores/auth";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { formatBytes, formatTimestamp, formatRelativeDate } from "@/utils";
 
-const { t, locale } = useI18n();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 const props = defineProps<{ rom: DetailedRom }>();
@@ -112,70 +110,16 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
       :key="save.id"
       cols="6"
       sm="4"
-      class="pa-1"
+      class="pa-1 align-self-end"
     >
-      <v-hover v-slot="{ isHovering, props: saveProps }">
-        <v-card
-          v-bind="saveProps"
-          class="bg-toplayer transform-scale"
-          :class="{
-            'border-selected': selectedSaves.some((s) => s.id === save.id),
-          }"
-          @click="(e: MouseEvent) => onCardClick(save, e)"
-        >
-          <v-card-text class="pa-2">
-            <v-slide-x-transition>
-              <v-btn-group
-                v-if="isHovering"
-                class="position-absolute"
-                density="compact"
-                style="bottom: 4px; right: 4px"
-              >
-                <v-btn drawer :href="save.download_path" download size="small">
-                  <v-icon>mdi-download</v-icon>
-                </v-btn>
-                <v-btn
-                  v-if="scopes.includes('assets.write')"
-                  drawer
-                  size="small"
-                  @click="
-                    emitter?.emit('showDeleteSavesDialog', {
-                      rom: props.rom,
-                      saves: [save],
-                    })
-                  "
-                >
-                  <v-icon class="text-romm-red"> mdi-delete </v-icon>
-                </v-btn>
-              </v-btn-group>
-            </v-slide-x-transition>
-            <v-row class="pa-1 text-caption" no-gutters>
-              {{ save.file_name }}
-            </v-row>
-            <v-row class="ga-1 pa-1" no-gutters>
-              <v-col v-if="save.emulator" cols="12">
-                <v-chip size="x-small" color="orange" label>
-                  {{ save.emulator }}
-                </v-chip>
-              </v-col>
-              <v-col cols="12">
-                <v-chip size="x-small" label>
-                  {{ formatBytes(save.file_size_bytes) }}
-                </v-chip>
-              </v-col>
-              <v-col cols="12">
-                <div class="mt-1">
-                  {{ t("rom.updated") }}:
-                  {{ formatTimestamp(save.updated_at, locale) }}
-                  <span class="ml-1 text-grey text-caption"
-                    >({{ formatRelativeDate(save.updated_at) }})</span
-                  >
-                </div>
-              </v-col>
-            </v-row>
-          </v-card-text>
-        </v-card>
-      </v-hover>
+      <AssetCard
+        :asset="save"
+        type="save"
+        :selected="selectedSaves.some((s) => s.id === save.id)"
+        :rom="props.rom"
+        :scopes="scopes"
+        @click="(e: MouseEvent) => onCardClick(save, e)"
+      />
     </v-col>
   </v-row>
   <EmptySaves v-else />

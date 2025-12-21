@@ -1,10 +1,25 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import type { Emitter } from "mitt";
+import { onBeforeUnmount } from "vue";
+import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import RDialog from "@/components/common/RDialog.vue";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const show = ref(false);
+
+const emitter = inject<Emitter<Events>>("emitter");
+
+const openCacheDialogHandler = () => {
+  show.value = true;
+};
+
+emitter?.on("openEmulatorJSCacheDialog", openCacheDialogHandler);
+
+onBeforeUnmount(() => {
+  emitter?.off("openEmulatorJSCacheDialog", openCacheDialogHandler);
+});
 
 function clearIndexDB() {
   window.indexedDB.deleteDatabase("/data/saves");
@@ -21,20 +36,6 @@ function closeDialog() {
 </script>
 
 <template>
-  <v-row class="align-center mt-4 mx-2" no-gutters>
-    <v-col>
-      <v-btn
-        block
-        class="text-romm-red mt-6"
-        variant="flat"
-        prepend-icon="mdi-database-remove"
-        @click="show = true"
-      >
-        {{ t("play.clear-cache") }}
-      </v-btn>
-    </v-col>
-  </v-row>
-
   <RDialog v-model="show" icon="mdi-database-remove" @close="closeDialog">
     <template #header>
       <v-row class="ml-2">
