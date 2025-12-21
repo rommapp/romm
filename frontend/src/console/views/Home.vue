@@ -40,7 +40,7 @@ import type { SimpleRom } from "@/stores/roms";
 const { t } = useI18n();
 const router = useRouter();
 const platformsStore = storePlatforms();
-const { allPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
+const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
 const collectionsStore = storeCollections();
 const { allCollections, smartCollections, virtualCollections } =
   storeToRefs(collectionsStore);
@@ -105,8 +105,8 @@ const virtualCollectionElementAt = (i: number) =>
 // Spatial navigation
 const { moveLeft: moveSystemLeft, moveRight: moveSystemRight } = useSpatialNav(
   platformIndex,
-  () => allPlatforms.value.length || 1,
-  () => allPlatforms.value.length,
+  () => filledPlatforms.value.length || 1,
+  () => filledPlatforms.value.length,
 );
 const {
   moveLeft: moveContinuePlayingLeft,
@@ -223,7 +223,7 @@ const navigationFunctions = {
       const before = platformIndex.value;
       moveSystemLeft();
       if (platformIndex.value === before) {
-        platformIndex.value = Math.max(0, allPlatforms.value.length - 1);
+        platformIndex.value = Math.max(0, filledPlatforms.value.length - 1);
       }
     },
     next: () => {
@@ -234,10 +234,10 @@ const navigationFunctions = {
       }
     },
     confirm: () => {
-      if (!allPlatforms.value[platformIndex.value]) return false;
+      if (!filledPlatforms.value[platformIndex.value]) return false;
       router.push({
         name: ROUTES.CONSOLE_PLATFORM,
-        params: { id: allPlatforms.value[platformIndex.value].id },
+        params: { id: filledPlatforms.value[platformIndex.value].id },
       });
       return true;
     },
@@ -649,7 +649,7 @@ onBeforeMount(async () => {
 
 onMounted(async () => {
   // Restore indices within bounds
-  if (platformIndex.value >= allPlatforms.value.length) platformIndex.value = 0;
+  if (platformIndex.value >= filledPlatforms.value.length) platformIndex.value = 0;
   if (continuePlayingIndex.value >= continuePlayingRoms.value.length)
     continuePlayingIndex.value = 0;
   if (collectionsIndex.value >= allCollections.value.length)
@@ -770,7 +770,7 @@ onUnmounted(() => {
             >
               <div class="flex items-center gap-6 h-full px-12 min-w-max">
                 <SystemCard
-                  v-for="(p, i) in allPlatforms"
+                  v-for="(p, i) in filledPlatforms"
                   :key="p.id"
                   :platform="p"
                   :index="i"
