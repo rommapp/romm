@@ -649,7 +649,8 @@ onBeforeMount(async () => {
 
 onMounted(async () => {
   // Restore indices within bounds
-  if (platformIndex.value >= filledPlatforms.value.length) platformIndex.value = 0;
+  if (platformIndex.value >= filledPlatforms.value.length)
+    platformIndex.value = 0;
   if (continuePlayingIndex.value >= continuePlayingRoms.value.length)
     continuePlayingIndex.value = 0;
   if (collectionsIndex.value >= allCollections.value.length)
