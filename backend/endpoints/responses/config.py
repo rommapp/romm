@@ -17,6 +17,8 @@ class ConfigResponse(TypedDict):
     SKIP_HASH_CALCULATION: bool
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
+    EJS_DISABLE_AUTO_UNLOAD: bool
+    EJS_DISABLE_BATCH_BOOTUP: bool
     EJS_NETPLAY_ENABLED: bool
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
     EJS_SETTINGS: dict[str, dict[str, str]]
