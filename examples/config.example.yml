@@ -137,6 +137,8 @@
 # emulatorjs:
 #   debug: true # Available options will be logged to the browser console
 #   cache_limit: null # Cache limit per ROM (in bytes)
+#   disable_batch_bootup: false
+#   disable_auto_unload: false
 #   settings:
 #     parallel_n64: # Use the exact core name
 #       vsync: disabled
