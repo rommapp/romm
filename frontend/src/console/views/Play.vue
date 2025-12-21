@@ -435,9 +435,16 @@ async function boot() {
   window.EJS_language = selectedLanguage.value.value.replace("_", "-");
   window.EJS_disableAutoLang = true;
 
-  const { EJS_DEBUG, EJS_CACHE_LIMIT } = configStore.config;
-  if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
+  const {
+    EJS_DEBUG,
+    EJS_CACHE_LIMIT,
+    EJS_DISABLE_AUTO_UNLOAD,
+    EJS_DISABLE_BATCH_BOOTUP,
+  } = configStore.config;
   window.EJS_DEBUG_XX = EJS_DEBUG;
+  window.EJS_disableAutoUnload = EJS_DISABLE_AUTO_UNLOAD;
+  window.EJS_disableBatchBootup = EJS_DISABLE_BATCH_BOOTUP;
+  if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
 
   // Set a valid game name (affects per-game settings keys)
   window.EJS_gameName = rom.fs_name_no_tags
