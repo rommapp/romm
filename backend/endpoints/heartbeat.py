@@ -1,6 +1,6 @@
 import os
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Request, status
 
 from config import (
     DISABLE_EMULATOR_JS,
@@ -22,8 +22,10 @@ from config import (
     YOUTUBE_BASE_URL,
 )
 from config.config_manager import config_manager as cm
+from decorators.auth import protected_route
 from endpoints.responses.heartbeat import HeartbeatResponse
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata import (
@@ -41,6 +43,7 @@ from handler.metadata import (
     meta_tgdb_handler,
 )
 from handler.scan_handler import MetadataSource
+from logger.logger import log
 from utils import get_version
 from utils.platforms import get_supported_platforms
 from utils.router import APIRouter
@@ -163,8 +166,12 @@ async def metadata_heartbeat(source: str) -> bool:
             return False
 
 
-@router.get("/setup/library")
-async def get_setup_library_info():
+@protected_route(
+    router.get,
+    "/setup/library",
+    [Scope.PLATFORMS_WRITE] if len(db_user_handler.get_admin_users()) > 0 else [],
+)
+async def get_setup_library_info(request: Request):
     """Get library structure information for setup wizard.
 
     Only accessible during initial setup (no admin users) or with authentication.
@@ -176,7 +183,6 @@ async def get_setup_library_info():
     """
 
     # Check authentication - only allow public access if no admin users
-    # This mimics the pattern in user.py for creating the first admin
     # If admin users exist, this would need authentication (but won't be called during setup)
 
     # Auto-detect structure type
@@ -188,6 +194,7 @@ async def get_setup_library_info():
     try:
         existing_platform_slugs = await fs_platform_handler.get_platforms()
     except Exception:
+        log.warning("Error retrieving existing platforms", exc_info=True)
         existing_platform_slugs = []
 
     # Build existing platforms with rom counts
@@ -220,7 +227,9 @@ async def get_setup_library_info():
                         ]
                     )
             except Exception:
-                pass
+                log.warning(
+                    f"Error counting ROMs for platform {fs_slug}", exc_info=True
+                )
 
             existing_platforms.append(
                 {
@@ -239,8 +248,13 @@ async def get_setup_library_info():
     }
 
 
-@router.post("/setup/platforms")
-async def create_setup_platforms(platform_slugs: list[str]):
+@protected_route(
+    router.post,
+    "/setup/platforms",
+    [Scope.PLATFORMS_WRITE] if len(db_user_handler.get_admin_users()) > 0 else [],
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_setup_platforms(request: Request, platform_slugs: list[str]):
     """Create platform folders during setup wizard.
 
     Only accessible during initial setup (no admin users) or with authentication.

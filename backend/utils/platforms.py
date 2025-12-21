@@ -36,9 +36,7 @@ def get_supported_platforms() -> list[PlatformSchema]:
 
         db_platform = db_platforms_map.get(slug, None)
         if db_platform:
-            supported_platforms.append(
-                PlatformSchema.model_validate(db_platform).model_dump()
-            )
+            supported_platforms.append(PlatformSchema.model_validate(db_platform))
             continue
 
         igdb_platform = meta_igdb_handler.get_platform(slug)
