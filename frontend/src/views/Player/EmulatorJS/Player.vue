@@ -68,6 +68,7 @@ declare global {
     EJS_gameName: string;
     EJS_backgroundImage: string;
     EJS_backgroundColor: string;
+    EJS_backgroundBlur: boolean;
     EJS_gameUrl: string;
     EJS_loadStateURL: string | null;
     EJS_cheats: string;
@@ -89,6 +90,21 @@ declare global {
     EJS_CacheLimit: number;
     EJS_Buttons: Record<string, boolean>;
     EJS_VirtualGamepadSettings: Record<string, unknown>;
+    EJS_volume: number;
+    EJS_paths: Record<string, string>;
+    EJS_startButtonName: string;
+    EJS_softLoad: boolean;
+    EJS_screenCapture: object;
+    EJS_externalFiles: Record<string, string>;
+    EJS_videoRotation: number;
+    EJS_fixedSaveInterval: number;
+    EJS_disableCue: boolean;
+    EJS_dontExtractRom: boolean;
+    EJS_dontExtractBIOS: boolean;
+    EJS_disableDatabases: boolean;
+    EJS_disableLocalStorage: boolean;
+    EJS_disableAutoUnload: boolean;
+    EJS_disableBatchBootup: boolean;
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: {
       screenshot: ArrayBuffer;
@@ -147,6 +163,8 @@ window.EJS_disableAutoLang = true;
 const {
   EJS_DEBUG,
   EJS_CACHE_LIMIT,
+  EJS_DISABLE_AUTO_UNLOAD,
+  EJS_DISABLE_BATCH_BOOTUP,
   EJS_NETPLAY_ICE_SERVERS,
   EJS_NETPLAY_ENABLED,
 } = configStore.config;
@@ -154,8 +172,10 @@ window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.host : "";
 window.EJS_netplayICEServers = EJS_NETPLAY_ENABLED
   ? EJS_NETPLAY_ICE_SERVERS
   : [];
-if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
 window.EJS_DEBUG_XX = EJS_DEBUG;
+window.EJS_disableAutoUnload = EJS_DISABLE_AUTO_UNLOAD;
+window.EJS_disableBatchBootup = EJS_DISABLE_BATCH_BOOTUP;
+if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
 
 onMounted(() => {
   window.scrollTo(0, 0);
