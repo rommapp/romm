@@ -230,7 +230,9 @@ class LaunchboxHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, fs_name: str, platform_slug: str) -> LaunchboxRom:
+    async def get_rom(
+        self, fs_name: str, platform_slug: str, keep_tags: bool = False
+    ) -> LaunchboxRom:
         from handler.filesystem import fs_rom_handler
 
         fallback_rom = LaunchboxRom(launchbox_id=None)
@@ -253,12 +255,18 @@ class LaunchboxHandler(MetadataHandler):
                     f"LaunchBox ID {launchbox_id_from_tag} from filename tag not found in LaunchBox"
                 )
 
-        # We replace " - " with ": " to match Launchbox's naming convention
-        search_term = (
-            fs_rom_handler.get_file_name_with_no_tags(fs_name)
-            .replace(" - ", ": ")
-            .lower()
-        )
+        # `keep_tags` prevents stripping content that is considered a tag, e.g., anything between `()` or `[]`.
+        # By default, tags are still stripped to keep scan behavior consistent with previous versions.
+        # If `keep_tags` is True, the full `fs_name` is used for searching.
+        if not keep_tags:
+            # We replace " - " with ": " to match Launchbox's naming convention
+            search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
+                " - ", ": "
+            )
+        else:
+            search_term = fs_name
+
+        search_term = search_term.lower()
 
         index_entry = await self._get_rom_from_metadata(search_term, platform_slug)
 
@@ -332,7 +340,7 @@ class LaunchboxHandler(MetadataHandler):
         if not self.is_enabled():
             return []
 
-        rom = await self.get_rom(search_term, platform_slug)
+        rom = await self.get_rom(search_term, platform_slug, True)
         return [rom] if rom else []
 
 
