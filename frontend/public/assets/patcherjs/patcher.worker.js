@@ -35,7 +35,14 @@ async function loadScripts() {
 
 // Handle messages from main thread
 self.addEventListener("message", async (e) => {
-  const { type, romData, patchData, romFileName, patchFileName } = e.data;
+  const {
+    type,
+    romData,
+    patchData,
+    romFileName,
+    patchFileName,
+    customFileName,
+  } = e.data;
 
   if (type === "PATCH") {
     try {
@@ -113,14 +120,18 @@ self.addEventListener("message", async (e) => {
       // Create custom filename with patch name
       const romBaseName = romFileName.replace(/\.[^.]+$/, "");
       const romExtension = romFileName.match(/\.[^.]+$/)?.[0] || "";
-      const customFileName = `${romBaseName} (patched-${patchNameWithoutExt})${romExtension}`;
+      const defaultFileName = `${romBaseName} (patched-${patchNameWithoutExt})${romExtension}`;
+      const finalFileName =
+        customFileName && customFileName.trim()
+          ? customFileName
+          : defaultFileName;
 
       // Send back the result
       self.postMessage(
         {
           type: "SUCCESS",
           patchedData: patchedData.buffer,
-          fileName: customFileName,
+          fileName: finalFileName,
         },
         [patchedData.buffer],
       ); // Transfer ownership of ArrayBuffer
