@@ -453,8 +453,8 @@ onMounted(async () => {
                   >
                     <div>
                       <div class="text-subtitle-2">{{ romFile.name }}</div>
-                      <div class="text-caption text-medium-emphasis">
-                        <v-chip label>
+                      <div class="text-caption text-medium-emphasis mt-2">
+                        <v-chip size="small" label>
                           {{ formatBytes(romFile.size) }}
                         </v-chip>
                       </div>
@@ -535,8 +535,8 @@ onMounted(async () => {
                   >
                     <div>
                       <div class="text-subtitle-2">{{ patchFile.name }}</div>
-                      <div class="text-caption text-medium-emphasis">
-                        <v-chip label>
+                      <div class="text-caption text-medium-emphasis mt-2">
+                        <v-chip size="small" label>
                           {{ formatBytes(patchFile.size) }}
                         </v-chip>
                       </div>
@@ -573,7 +573,7 @@ onMounted(async () => {
                   Supported patch formats<br />
                   <v-chip
                     v-for="format in supportedPatchFormats"
-                    size="small"
+                    size="x-small"
                     class="mr-1 mt-1"
                     label
                     >{{ format }}</v-chip
@@ -598,11 +598,7 @@ onMounted(async () => {
               </div>
 
               <v-expand-transition>
-                <div
-                  v-if="saveIntoRomM"
-                  class="d-flex align-center justify-space-left mt-4"
-                >
-                  <v-spacer />
+                <div v-if="saveIntoRomM" class="mt-4">
                   <v-select
                     v-model="selectedPlatform"
                     :items="filteredPlatforms"
