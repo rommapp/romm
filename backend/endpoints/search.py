@@ -94,10 +94,11 @@ async def search_rom(
 
     if search_by.lower() == "id":
         try:
-            igdb_rom, moby_rom, ss_rom = await asyncio.gather(
+            igdb_rom, moby_rom, ss_rom, lb_rom = await asyncio.gather(
                 meta_igdb_handler.get_matched_rom_by_id(int(search_term)),
                 meta_moby_handler.get_matched_rom_by_id(int(search_term)),
                 meta_ss_handler.get_matched_rom_by_id(rom, int(search_term)),
+                meta_launchbox_handler.get_matched_rom_by_id(int(search_term)),
             )
         except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
@@ -109,6 +110,7 @@ async def search_rom(
             igdb_matched_roms = [igdb_rom] if igdb_rom else []
             moby_matched_roms = [moby_rom] if moby_rom else []
             ss_matched_roms = [ss_rom] if ss_rom else []
+            launchbox_matched_roms = [lb_rom] if lb_rom else []
     elif search_by.lower() == "name":
         (
             igdb_matched_roms,
