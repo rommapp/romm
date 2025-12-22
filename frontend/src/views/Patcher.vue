@@ -12,6 +12,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import { type Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 
@@ -37,6 +38,7 @@ const selectedPlatform = ref<Platform | null>(null);
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const scanningStore = storeScanning();
+const uploadStore = storeUpload();
 // Load core scripts via absolute asset paths (mirrors emulator loader approach)
 const PATCHER_BASE_PATH = "/assets/patcherjs";
 const CORE_SCRIPTS = [
@@ -286,6 +288,10 @@ async function uploadPatchedRom(patchedBin: any) {
         throw new Error(errorDetail);
       }
 
+      if (failedUploads.length === 0) {
+        uploadStore.reset();
+      }
+
       emitter?.emit("snackbarShow", {
         msg: `Patched ROM uploaded successfully${
           failedUploads.length > 0 ? " (with some errors)" : ""
@@ -294,6 +300,14 @@ async function uploadPatchedRom(patchedBin: any) {
         color: "green",
         timeout: 3000,
       });
+
+      // Clear form after successful upload
+      romFile.value = null;
+      patchFile.value = null;
+      romBin.value = null;
+      patchBin.value = null;
+      selectedPlatform.value = null;
+      saveIntoRomM.value = false;
 
       scanningStore.setScanning(true);
 
