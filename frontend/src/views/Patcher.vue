@@ -2,7 +2,7 @@
 import { useDropZone } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref, onMounted, watch } from "vue";
+import { inject, ref, onMounted, watch, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
@@ -79,13 +79,19 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
   preventDefaultForUnhandled: true,
 });
 
+// Computed property for ROM extension
+const romExtension = computed(() => {
+  if (!romFile.value) return "";
+  const match = romFile.value.name.match(/\.[^.]+$/);
+  return match ? match[0] : "";
+});
+
 // Update filename placeholder when files change
 watch([romFile, patchFile], ([rom, patch]) => {
   if (rom && patch) {
     const romBaseName = rom.name.replace(/\.[^.]+$/, "");
-    const romExtension = rom.name.match(/\.[^.]+$/)?.[0] || "";
     const patchNameWithoutExt = patch.name.replace(/\.[^.]+$/, "");
-    filenamePlaceholder.value = `${romBaseName} (patched-${patchNameWithoutExt})${romExtension}`;
+    filenamePlaceholder.value = `${romBaseName} (patched-${patchNameWithoutExt})`;
   } else {
     filenamePlaceholder.value = "";
   }
@@ -761,6 +767,7 @@ onMounted(async () => {
               <v-text-field
                 v-model="customFileName"
                 :placeholder="filenamePlaceholder"
+                :suffix="romExtension"
                 label="Output filename (optional)"
                 variant="outlined"
                 density="compact"
