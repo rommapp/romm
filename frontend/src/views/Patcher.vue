@@ -19,9 +19,6 @@ import { formatBytes } from "@/utils";
 const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
-// Declare globals provided by local scripts
-declare const BinFile: any;
-declare const RomPatcher: any;
 const loadError = ref<string | null>(null);
 const coreLoaded = ref(false);
 const romFile = ref<File | null>(null);
@@ -34,7 +31,8 @@ const romInputRef = ref<HTMLInputElement | null>(null);
 const patchInputRef = ref<HTMLInputElement | null>(null);
 const applying = ref(false);
 const statusMessage = ref<string | null>(null);
-const saveIntoRomM = ref(false);
+const downloadLocally = ref(true);
+const saveIntoRomM = ref(true);
 const selectedPlatform = ref<Platform | null>(null);
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
@@ -176,6 +174,11 @@ async function patchRom() {
     return;
   }
 
+  if (!downloadLocally.value && !saveIntoRomM.value) {
+    loadError.value = "Please select at least one action: download or upload.";
+    return;
+  }
+
   applying.value = true;
 
   try {
@@ -227,11 +230,9 @@ async function patchRom() {
     });
 
     // Handle the patched result
-    if (saveIntoRomM.value && selectedPlatform.value) {
-      statusMessage.value = "Uploading to RomM...";
-      await uploadPatchedRom(patchedResult.data, patchedResult.fileName);
-      statusMessage.value = null;
-    } else {
+    let actions = [];
+
+    if (downloadLocally.value) {
       statusMessage.value = "Downloading patched ROM...";
       // Create blob and trigger download
       const blob = new Blob([patchedResult.data], {
@@ -245,11 +246,24 @@ async function patchRom() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      actions.push("downloaded");
+    }
 
-      statusMessage.value = "Patched ROM downloaded successfully!";
+    if (saveIntoRomM.value && selectedPlatform.value) {
+      statusMessage.value = "Uploading to RomM...";
+      await uploadPatchedRom(patchedResult.data, patchedResult.fileName);
+      actions.push("uploaded");
+    }
+
+    if (actions.length > 0) {
+      statusMessage.value = `Patched ROM ${actions.join(
+        " and ",
+      )} successfully!`;
       setTimeout(() => {
         statusMessage.value = null;
       }, 3000);
+    } else {
+      statusMessage.value = null;
     }
   } catch (err: any) {
     loadError.value = err?.message || String(err);
@@ -545,14 +559,20 @@ onMounted(async () => {
                   >
                 </div>
               </v-sheet>
-              <div class="d-flex align-center justify-space-left mt-4">
-                <v-spacer />
+              <div class="d-flex align-center justify-space-between mt-4">
+                <v-switch
+                  v-model="downloadLocally"
+                  color="primary"
+                  inset
+                  hide-details
+                  label="Download patched ROM"
+                />
                 <v-switch
                   v-model="saveIntoRomM"
                   color="primary"
                   inset
                   hide-details
-                  label="Upload patched rom to RomM"
+                  label="Upload to RomM"
                 />
               </div>
 
@@ -731,6 +751,7 @@ onMounted(async () => {
                     !romFile ||
                     !patchFile ||
                     applying ||
+                    (!downloadLocally && !saveIntoRomM) ||
                     (saveIntoRomM && !selectedPlatform)
                   "
                   :loading="applying"
@@ -738,13 +759,20 @@ onMounted(async () => {
                     !romFile ||
                     !patchFile ||
                     applying == null ||
+                    (!downloadLocally && !saveIntoRomM) ||
                     (saveIntoRomM && !selectedPlatform)
                       ? 'plain'
                       : 'flat'
                   "
                   @click="patchRom"
                 >
-                  {{ saveIntoRomM ? "Apply & Upload" : "Apply patch" }}
+                  {{
+                    downloadLocally && saveIntoRomM
+                      ? "Apply, Download & Upload"
+                      : saveIntoRomM
+                        ? "Apply & Upload"
+                        : "Apply & Download"
+                  }}
                 </v-btn>
               </div>
             </v-col>

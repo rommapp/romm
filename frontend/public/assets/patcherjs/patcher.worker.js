@@ -46,6 +46,9 @@ self.addEventListener("message", async (e) => {
       });
       await loadScripts();
 
+      // Extract patch name without extension for custom suffix
+      const patchNameWithoutExt = patchFileName.replace(/\.[^.]+$/, "");
+
       // Try to create BinFile from Uint8Array
       self.postMessage({ type: "STATUS", message: "Reading ROM file..." });
       const romUint8 = new Uint8Array(romData);
@@ -98,7 +101,7 @@ self.addEventListener("message", async (e) => {
       const patched = RomPatcher.applyPatch(romBin, patch, {
         requireValidation: false,
         fixChecksum: false,
-        outputSuffix: true,
+        outputSuffix: false, // Don't add default suffix
       });
 
       // Extract the patched binary data
@@ -107,12 +110,17 @@ self.addEventListener("message", async (e) => {
         throw new Error("Failed to extract patched ROM data");
       }
 
+      // Create custom filename with patch name
+      const romBaseName = romFileName.replace(/\.[^.]+$/, "");
+      const romExtension = romFileName.match(/\.[^.]+$/)?.[0] || "";
+      const customFileName = `${romBaseName} (patched-${patchNameWithoutExt})${romExtension}`;
+
       // Send back the result
       self.postMessage(
         {
           type: "SUCCESS",
           patchedData: patchedData.buffer,
-          fileName: patched.fileName || patched.name || "patched_rom",
+          fileName: customFileName,
         },
         [patchedData.buffer],
       ); // Transfer ownership of ArrayBuffer
