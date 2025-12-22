@@ -2,7 +2,7 @@
 import { useDropZone } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref, onMounted } from "vue";
+import { inject, ref, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
@@ -34,6 +34,8 @@ const statusMessage = ref<string | null>(null);
 const downloadLocally = ref(true);
 const saveIntoRomM = ref(true);
 const selectedPlatform = ref<Platform | null>(null);
+const customFileName = ref("");
+const filenamePlaceholder = ref("");
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const scanningStore = storeScanning();
@@ -75,6 +77,18 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
   onDrop: onPatchDrop,
   multiple: false,
   preventDefaultForUnhandled: true,
+});
+
+// Update filename placeholder when files change
+watch([romFile, patchFile], ([rom, patch]) => {
+  if (rom && patch) {
+    const romBaseName = rom.name.replace(/\.[^.]+$/, "");
+    const romExtension = rom.name.match(/\.[^.]+$/)?.[0] || "";
+    const patchNameWithoutExt = patch.name.replace(/\.[^.]+$/, "");
+    filenamePlaceholder.value = `${romBaseName} (patched-${patchNameWithoutExt})${romExtension}`;
+  } else {
+    filenamePlaceholder.value = "";
+  }
 });
 
 function loadScriptSequentially(urls: string[]): Promise<void> {
@@ -224,6 +238,7 @@ async function patchRom() {
           patchData: patchArrayBuffer,
           romFileName: romFile.value.name,
           patchFileName: patchFile.value.name,
+          customFileName: customFileName.value || "",
         },
         [romArrayBuffer, patchArrayBuffer],
       ); // Transfer ownership
@@ -743,7 +758,18 @@ onMounted(async () => {
                 </div>
               </v-expand-transition>
 
-              <div class="d-flex align-right justify-space-left mt-8">
+              <v-text-field
+                v-model="customFileName"
+                :placeholder="filenamePlaceholder"
+                label="Output filename (optional)"
+                variant="outlined"
+                density="compact"
+                hide-details
+                class="mt-4"
+                clearable
+              />
+
+              <div class="d-flex align-right justify-space-left mt-4">
                 <v-spacer />
                 <v-btn
                   class="bg-toplayer text-primary"
