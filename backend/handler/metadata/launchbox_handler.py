@@ -254,9 +254,12 @@ class LaunchboxHandler(MetadataHandler):
                 )
 
         # We replace " - " with ": " to match Launchbox's naming convention
-        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
-            " - ", ": "
+        search_term = (
+            fs_rom_handler.get_file_name_with_no_tags(fs_name)
+            .replace(" - ", ": ")
+            .lower()
         )
+
         index_entry = await self._get_rom_from_metadata(search_term, platform_slug)
 
         if not index_entry:
