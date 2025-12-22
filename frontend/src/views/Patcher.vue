@@ -6,7 +6,6 @@ import { inject, ref, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
-import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -19,33 +18,25 @@ import { formatBytes } from "@/utils";
 const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
-
 // Declare globals provided by local scripts
 declare const BinFile: any;
 declare const RomPatcher: any;
-
 const loadError = ref<string | null>(null);
 const coreLoaded = ref(false);
-
 const romFile = ref<File | null>(null);
 const patchFile = ref<File | null>(null);
-
 const romBin = ref<any | null>(null);
 const patchBin = ref<any | null>(null);
-
 const romDropZoneRef = ref<HTMLDivElement | null>(null);
 const patchDropZoneRef = ref<HTMLDivElement | null>(null);
 const romInputRef = ref<HTMLInputElement | null>(null);
 const patchInputRef = ref<HTMLInputElement | null>(null);
-
 const applying = ref(false);
 const saveIntoRomM = ref(false);
 const selectedPlatform = ref<Platform | null>(null);
-
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const scanningStore = storeScanning();
-
 // Load core scripts via absolute asset paths (mirrors emulator loader approach)
 const PATCHER_BASE_PATH = "/assets/patcherjs";
 const CORE_SCRIPTS = [
@@ -63,7 +54,6 @@ const CORE_SCRIPTS = [
   `${PATCHER_BASE_PATH}/modules/RomPatcher.format.vcdiff.js`,
   `${PATCHER_BASE_PATH}/RomPatcher.js`,
 ];
-
 const supportedPatchFormats = [
   ".ips",
   ".ups",
@@ -75,6 +65,16 @@ const supportedPatchFormats = [
   ".pmsr",
   ".vcdiff",
 ];
+const { isOverDropZone: isOverRomDropZone } = useDropZone(romDropZoneRef, {
+  onDrop: onRomDrop,
+  multiple: false,
+  preventDefaultForUnhandled: true,
+});
+const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
+  onDrop: onPatchDrop,
+  multiple: false,
+  preventDefaultForUnhandled: true,
+});
 
 function loadScriptSequentially(urls: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -224,38 +224,14 @@ async function patchRom() {
 }
 
 async function uploadPatchedRom(patchedBin: any) {
-  if (!selectedPlatform.value) return;
-
-  // Create a platform if needed
-  if (selectedPlatform.value.id === -1) {
-    await platformApi
-      .uploadPlatform({ fsSlug: selectedPlatform.value.fs_slug })
-      .then(({ data }) => {
-        emitter?.emit("snackbarShow", {
-          msg: `Platform ${selectedPlatform.value?.name} created successfully!`,
-          icon: "mdi-check-bold",
-          color: "green",
-          timeout: 2000,
-        });
-        selectedPlatform.value = data;
-      })
-      .catch((error) => {
-        console.error(error);
-        emitter?.emit("snackbarShow", {
-          msg: error.response?.data?.detail || "Failed to create platform",
-          icon: "mdi-close-circle",
-          color: "red",
-        });
-        throw error;
-      });
+  if (!selectedPlatform.value) {
+    throw new Error("No platform selected.");
   }
-
   const platformId = selectedPlatform.value.id;
 
   // Convert the patched BinFile to a File object
   // Try to get binary data from various possible properties
   let binaryData: Uint8Array | ArrayBuffer | null = null;
-
   if (patchedBin._u8array instanceof Uint8Array) {
     binaryData = patchedBin._u8array;
   } else if (patchedBin.u8array instanceof Uint8Array) {
@@ -277,7 +253,13 @@ async function uploadPatchedRom(patchedBin: any) {
     throw new Error("Unable to extract binary data from patched ROM");
   }
 
-  const blob = new Blob([binaryData], { type: "application/octet-stream" });
+  // Ensure binaryData is a proper Uint8Array with ArrayBuffer backing
+  const uint8array =
+    binaryData instanceof Uint8Array
+      ? new Uint8Array(binaryData)
+      : new Uint8Array(binaryData);
+
+  const blob = new Blob([uint8array], { type: "application/octet-stream" });
   const fileName = patchedBin.fileName || patchedBin.name || "patched_rom";
   const file = new File([blob], fileName, { type: "application/octet-stream" });
 
@@ -294,7 +276,14 @@ async function uploadPatchedRom(patchedBin: any) {
       const failedUploads = responses.filter((d) => d.status === "rejected");
 
       if (successfulUploads.length === 0) {
-        throw new Error("Failed to upload patched ROM");
+        // Get detailed error message from the first failed upload
+        const firstFailure = failedUploads[0] as PromiseRejectedResult;
+        const errorDetail =
+          firstFailure?.reason?.response?.data?.detail ||
+          firstFailure?.reason?.message ||
+          "Upload failed with unknown error";
+        console.error("Upload failed:", firstFailure);
+        throw new Error(errorDetail);
       }
 
       emitter?.emit("snackbarShow", {
@@ -329,18 +318,6 @@ async function uploadPatchedRom(patchedBin: any) {
 onMounted(async () => {
   // Preload core for faster interaction
   await ensureCoreLoaded();
-});
-
-const { isOverDropZone: isOverRomDropZone } = useDropZone(romDropZoneRef, {
-  onDrop: onRomDrop,
-  multiple: false,
-  preventDefaultForUnhandled: true,
-});
-
-const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
-  onDrop: onPatchDrop,
-  multiple: false,
-  preventDefaultForUnhandled: true,
 });
 </script>
 
@@ -558,7 +535,7 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
                     :label="t('common.platforms')"
                     :disabled="!saveIntoRomM"
                     item-title="name"
-                    item-value="id"
+                    return-object
                     prepend-inner-icon="mdi-controller"
                     variant="outlined"
                     density="comfortable"
