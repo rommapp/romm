@@ -304,6 +304,47 @@ function openCacheDialog() {
             <v-divider />
 
             <v-card-text class="pa-4" style="min-height: 200px">
+              <!-- Saves Tab Content -->
+              <div v-show="isSavesTabSelected">
+                <!-- Selected Save Preview -->
+                <div v-if="selectedSave" class="mb-3">
+                  <AssetCard
+                    :asset="selectedSave"
+                    type="save"
+                    :show-hover-actions="false"
+                    :show-close-button="true"
+                    :transform-scale="false"
+                    @close="unselectSave"
+                  />
+                </div>
+
+                <!-- No Save Selected Message -->
+                <div v-else class="text-center py-8">
+                  <v-icon size="48" color="medium-emphasis"
+                    >mdi-content-save-outline</v-icon
+                  >
+                  <p class="text-body-2 text-medium-emphasis mt-2">
+                    {{ t("play.no-save-selected") }}
+                  </p>
+                </div>
+
+                <!-- Select Save Button -->
+                <v-btn
+                  block
+                  variant="tonal"
+                  color="primary"
+                  :prepend-icon="
+                    selectedSave ? 'mdi-swap-horizontal' : 'mdi-plus'
+                  "
+                  :disabled="rom.user_saves.length == 0"
+                  @click="openSaveDialog"
+                >
+                  {{
+                    selectedSave ? t("play.change-save") : t("play.select-save")
+                  }}
+                </v-btn>
+              </div>
+
               <!-- States Tab Content -->
               <div v-show="!isSavesTabSelected">
                 <!-- Selected State Preview -->
@@ -347,46 +388,6 @@ function openCacheDialog() {
                     selectedState
                       ? t("play.change-state")
                       : t("play.select-state")
-                  }}
-                </v-btn>
-              </div>
-
-              <!-- Saves Tab Content -->
-              <div v-show="isSavesTabSelected">
-                <!-- Selected Save Preview -->
-                <div v-if="selectedSave" class="mb-3">
-                  <AssetCard
-                    :asset="selectedSave"
-                    type="save"
-                    :show-hover-actions="false"
-                    :show-close-button="true"
-                    :transform-scale="false"
-                    @close="unselectSave"
-                  />
-                </div>
-
-                <!-- No Save Selected Message -->
-                <div v-else class="text-center py-8">
-                  <v-icon size="48" color="medium-emphasis"
-                    >mdi-content-save-outline</v-icon
-                  >
-                  <p class="text-body-2 text-medium-emphasis mt-2">
-                    {{ t("play.no-save-selected") }}
-                  </p>
-                </div>
-
-                <!-- Select Save Button -->
-                <v-btn
-                  block
-                  variant="tonal"
-                  color="primary"
-                  :prepend-icon="
-                    selectedSave ? 'mdi-swap-horizontal' : 'mdi-plus'
-                  "
-                  @click="openSaveDialog"
-                >
-                  {{
-                    selectedSave ? t("play.change-save") : t("play.select-save")
                   }}
                 </v-btn>
               </div>

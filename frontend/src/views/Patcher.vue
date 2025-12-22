@@ -41,24 +41,6 @@ const CORE_SCRIPTS = [
   `${PATCHER_BASE_PATH}/RomPatcher.js`,
 ];
 
-const supportedRomFormats = [
-  ".nes",
-  ".sfc",
-  ".smc",
-  ".fig",
-  ".gb",
-  ".gbc",
-  ".gba",
-  ".n64",
-  ".z64",
-  ".bin",
-  ".fds",
-  ".lnx",
-  ".rom",
-  ".img",
-  ".iso",
-];
-
 const supportedPatchFormats = [
   ".ips",
   ".ups",
@@ -319,23 +301,10 @@ const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
                 <input
                   ref="romInputRef"
                   type="file"
-                  :accept="
-                    supportedRomFormats.map((format) => '.' + format).join(',')
-                  "
                   class="sr-only"
                   style="display: none"
                   @change="onRomChange"
                 />
-                <div class="text-subtitle-2 text-medium-emphasis mt-4">
-                  Supported rom formats<br />
-                  <v-chip
-                    v-for="format in supportedRomFormats"
-                    size="small"
-                    class="mr-1 mt-1"
-                    label
-                    >{{ format }}</v-chip
-                  >
-                </div>
               </v-sheet>
             </v-col>
 
