@@ -33,6 +33,7 @@ const patchDropZoneRef = ref<HTMLDivElement | null>(null);
 const romInputRef = ref<HTMLInputElement | null>(null);
 const patchInputRef = ref<HTMLInputElement | null>(null);
 const applying = ref(false);
+const statusMessage = ref<string | null>(null);
 const saveIntoRomM = ref(false);
 const selectedPlatform = ref<Platform | null>(null);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -157,6 +158,7 @@ function triggerPatchInput() {
 
 async function patchRom() {
   loadError.value = null;
+  statusMessage.value = null;
   if (!coreLoaded.value) await ensureCoreLoaded();
   if (!coreLoaded.value) return; // bail on error
 
@@ -175,94 +177,96 @@ async function patchRom() {
   }
 
   applying.value = true;
+
   try {
-    // Build BinFile objects asynchronously
-    await new Promise<void>((resolve, reject) => {
-      try {
-        new BinFile(romFile.value, (bf: any) => {
-          romBin.value = bf;
-          resolve();
-        });
-      } catch (err) {
-        reject(err);
-      }
+    // Read files as ArrayBuffers
+    statusMessage.value = "Preparing files...";
+    const romArrayBuffer = await romFile.value.arrayBuffer();
+    const patchArrayBuffer = await patchFile.value.arrayBuffer();
+
+    // Create and use Web Worker for patching
+    const worker = new Worker("/assets/patcherjs/patcher.worker.js");
+
+    const patchedResult = await new Promise<{
+      data: Uint8Array;
+      fileName: string;
+    }>((resolve, reject) => {
+      worker.onmessage = (e) => {
+        const { type, message, patchedData, fileName, error } = e.data;
+
+        if (type === "STATUS") {
+          statusMessage.value = message;
+        } else if (type === "SUCCESS") {
+          worker.terminate();
+          resolve({
+            data: new Uint8Array(patchedData),
+            fileName: fileName,
+          });
+        } else if (type === "ERROR") {
+          worker.terminate();
+          reject(new Error(error));
+        }
+      };
+
+      worker.onerror = (error) => {
+        worker.terminate();
+        reject(new Error(`Worker error: ${error.message}`));
+      };
+
+      // Send data to worker
+      worker.postMessage(
+        {
+          type: "PATCH",
+          romData: romArrayBuffer,
+          patchData: patchArrayBuffer,
+          romFileName: romFile.value.name,
+          patchFileName: patchFile.value.name,
+        },
+        [romArrayBuffer, patchArrayBuffer],
+      ); // Transfer ownership
     });
-    await new Promise<void>((resolve, reject) => {
-      try {
-        new BinFile(patchFile.value, (bf: any) => {
-          patchBin.value = bf;
-          resolve();
-        });
-      } catch (err) {
-        reject(err);
-      }
-    });
 
-    if (!romBin.value || !patchBin.value) {
-      throw new Error("Failed to read selected files.");
-    }
-
-    const patch = RomPatcher.parsePatchFile(patchBin.value);
-    if (!patch) {
-      throw new Error("Unsupported or invalid patch format.");
-    }
-
-    const patched = RomPatcher.applyPatch(romBin.value, patch, {
-      requireValidation: false,
-      fixChecksum: false,
-      outputSuffix: true,
-    });
-
+    // Handle the patched result
     if (saveIntoRomM.value && selectedPlatform.value) {
-      await uploadPatchedRom(patched);
+      statusMessage.value = "Uploading to RomM...";
+      await uploadPatchedRom(patchedResult.data, patchedResult.fileName);
+      statusMessage.value = null;
     } else {
-      patched.save();
+      statusMessage.value = "Downloading patched ROM...";
+      // Create blob and trigger download
+      const blob = new Blob([patchedResult.data], {
+        type: "application/octet-stream",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = patchedResult.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      statusMessage.value = "Patched ROM downloaded successfully!";
+      setTimeout(() => {
+        statusMessage.value = null;
+      }, 3000);
     }
   } catch (err: any) {
     loadError.value = err?.message || String(err);
+    statusMessage.value = null;
   } finally {
     applying.value = false;
   }
 }
 
-async function uploadPatchedRom(patchedBin: any) {
+async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
   if (!selectedPlatform.value) {
     throw new Error("No platform selected.");
   }
   const platformId = selectedPlatform.value.id;
 
-  // Convert the patched BinFile to a File object
-  // Try to get binary data from various possible properties
-  let binaryData: Uint8Array | ArrayBuffer | null = null;
-  if (patchedBin._u8array instanceof Uint8Array) {
-    binaryData = patchedBin._u8array;
-  } else if (patchedBin.u8array instanceof Uint8Array) {
-    binaryData = patchedBin.u8array;
-  } else if (patchedBin.fileContent instanceof Uint8Array) {
-    binaryData = patchedBin.fileContent;
-  } else if (patchedBin.fileContent instanceof ArrayBuffer) {
-    binaryData = new Uint8Array(patchedBin.fileContent);
-  } else if (patchedBin.data instanceof Uint8Array) {
-    binaryData = patchedBin.data;
-  } else if (patchedBin instanceof Uint8Array) {
-    binaryData = patchedBin;
-  } else if (patchedBin.bytes instanceof Uint8Array) {
-    binaryData = patchedBin.bytes;
-  }
-
-  if (!binaryData) {
-    console.error("Patched BinFile structure:", patchedBin);
-    throw new Error("Unable to extract binary data from patched ROM");
-  }
-
-  // Ensure binaryData is a proper Uint8Array with ArrayBuffer backing
-  const uint8array =
-    binaryData instanceof Uint8Array
-      ? new Uint8Array(binaryData)
-      : new Uint8Array(binaryData);
-
-  const blob = new Blob([uint8array], { type: "application/octet-stream" });
-  const fileName = patchedBin.fileName || patchedBin.name || "patched_rom";
+  // Convert the binary data to a File object
+  const blob = new Blob([binaryData], { type: "application/octet-stream" });
   const file = new File([blob], fileName, { type: "application/octet-stream" });
 
   // Upload the patched ROM
@@ -354,6 +358,22 @@ onMounted(async () => {
             density="compact"
             >{{ loadError }}</v-alert
           >
+
+          <v-alert
+            v-if="statusMessage"
+            class="mb-4 bg-primary"
+            density="compact"
+          >
+            <div class="d-flex align-center">
+              <v-progress-circular
+                indeterminate
+                size="20"
+                width="2"
+                class="mr-3"
+              />
+              {{ statusMessage }}
+            </div>
+          </v-alert>
 
           <v-row class="mb-2" dense>
             <v-col cols="12" md="6">
