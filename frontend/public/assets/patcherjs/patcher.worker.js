@@ -121,10 +121,15 @@ self.addEventListener("message", async (e) => {
       const romBaseName = romFileName.replace(/\.[^.]+$/, "");
       const romExtension = romFileName.match(/\.[^.]+$/)?.[0] || "";
       const defaultFileName = `${romBaseName} (patched-${patchNameWithoutExt})${romExtension}`;
-      const finalFileName =
-        customFileName && customFileName.trim()
-          ? customFileName
-          : defaultFileName;
+
+      // If custom filename provided, strip any extension and add ROM extension
+      let finalFileName;
+      if (customFileName && customFileName.trim()) {
+        const customBase = customFileName.trim().replace(/\.[^.]+$/, "");
+        finalFileName = `${customBase}${romExtension}`;
+      } else {
+        finalFileName = defaultFileName;
+      }
 
       // Send back the result
       self.postMessage(
