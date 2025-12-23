@@ -750,7 +750,7 @@ onMounted(() => {
                       />
                       <v-text-field
                         v-model="repeatPassword"
-                        :label="`${t('settings.repeat_password')} *`"
+                        :label="`${t('settings.repeat-password')} *`"
                         :type="visibleRepeatPassword ? 'text' : 'password'"
                         :rules="[
                           (v: string) =>
