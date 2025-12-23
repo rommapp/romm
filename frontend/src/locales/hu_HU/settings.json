@@ -94,5 +94,8 @@
   "update": "Frissítés",
   "username": "Felhasználónév",
   "virtual-collection-type": "Virtuális gyűjtemény típusa (ROM csoportosítási mód)",
-  "watcher": "Figyelő"
+  "watcher": "Figyelő",
+  "passwords-must-match": "A jelszavaknak egyezniük kell",
+  "repeat-password": "Jelszó ismétlése",
+  "repeat-password-required": "A jelszó ismétlése kötelező"
 }
