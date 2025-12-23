@@ -8,7 +8,7 @@ const { t } = useI18n();
 <template>
   <RSection icon="mdi-translate" :title="t('settings.language')" class="ma-2">
     <template #content>
-      <LanguageSelector />
+      <LanguageSelector class="ma-2" />
     </template>
   </RSection>
 </template>

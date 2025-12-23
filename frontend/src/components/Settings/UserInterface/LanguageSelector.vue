@@ -11,7 +11,7 @@ const localeStorage = useLocalStorage("settings.locale", "");
 
 withDefaults(
   defineProps<{
-    density: "comfortable" | "compact" | "default";
+    density?: "comfortable" | "compact" | "default";
   }>(),
   {
     density: "default",
