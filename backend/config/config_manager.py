@@ -84,6 +84,8 @@ class Config:
     HIGH_PRIO_STRUCTURE_PATH: str
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
+    EJS_DISABLE_AUTO_UNLOAD: bool
+    EJS_DISABLE_BATCH_BOOTUP: bool
     EJS_NETPLAY_ENABLED: bool
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
@@ -227,6 +229,12 @@ class ConfigManager:
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
             EJS_CACHE_LIMIT=pydash.get(
                 self._raw_config, "emulatorjs.cache_limit", None
+            ),
+            EJS_DISABLE_AUTO_UNLOAD=pydash.get(
+                self._raw_config, "emulatorjs.disable_auto_unload", False
+            ),
+            EJS_DISABLE_BATCH_BOOTUP=pydash.get(
+                self._raw_config, "emulatorjs.disable_batch_bootup", False
             ),
             EJS_NETPLAY_ENABLED=pydash.get(
                 self._raw_config, "emulatorjs.netplay.enabled", False
@@ -419,6 +427,18 @@ class ConfigManager:
             )
             sys.exit(3)
 
+        if not isinstance(self.config.EJS_DISABLE_AUTO_UNLOAD, bool):
+            log.critical(
+                "Invalid config.yml: emulatorjs.disable_auto_unload must be a boolean"
+            )
+            sys.exit(3)
+
+        if not isinstance(self.config.EJS_DISABLE_BATCH_BOOTUP, bool):
+            log.critical(
+                "Invalid config.yml: emulatorjs.disable_batch_bootup must be a boolean"
+            )
+            sys.exit(3)
+
         if not isinstance(self.config.EJS_NETPLAY_ICE_SERVERS, list):
             log.critical(
                 "Invalid config.yml: emulatorjs.netplay.ice_servers must be a list"
@@ -533,6 +553,8 @@ class ConfigManager:
             "emulatorjs": {
                 "debug": self.config.EJS_DEBUG,
                 "cache_limit": self.config.EJS_CACHE_LIMIT,
+                "disable_auto_unload": self.config.EJS_DISABLE_AUTO_UNLOAD,
+                "disable_batch_bootup": self.config.EJS_DISABLE_BATCH_BOOTUP,
                 "netplay": {
                     "enabled": self.config.EJS_NETPLAY_ENABLED,
                     "ice_servers": self.config.EJS_NETPLAY_ICE_SERVERS,
