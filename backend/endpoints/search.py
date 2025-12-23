@@ -21,7 +21,11 @@ from handler.metadata.launchbox_handler import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSRom
-from handler.scan_handler import get_main_platform_igdb_id
+from handler.scan_handler import (
+    MetadataSource,
+    get_main_platform_igdb_id,
+    get_priority_ordered_metadata_sources,
+)
 from logger.formatter import BLUE, CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -79,7 +83,6 @@ async def search_rom(
     log.info(
         f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Searching metadata providers..."
     )
-    matched_roms: list = []
 
     log.info(f"Searching by {hl(search_by.lower(), color=CYAN)}:")
     log.info(
@@ -138,80 +141,56 @@ async def search_rom(
 
     merged_dict: dict[str, dict] = {}
 
-    for igdb_rom in igdb_matched_roms:
-        if igdb_rom["igdb_id"]:
-            igdb_name = meta_igdb_handler.normalize_search_term(
-                igdb_rom.get("name", ""),
-                remove_articles=False,
-            )
-            merged_dict[igdb_name] = {
-                **igdb_rom,
-                "is_identified": True,
-                "is_unidentified": False,
-                "platform_id": rom.platform_id,
-                "igdb_url_cover": igdb_rom.pop("url_cover", ""),
-                **merged_dict.get(igdb_name, {}),
-            }
+    source_configs = {
+        MetadataSource.IGDB: (
+            igdb_matched_roms,
+            meta_igdb_handler,
+            "igdb_id",
+            "igdb_url_cover",
+        ),
+        MetadataSource.MOBY: (
+            moby_matched_roms,
+            meta_moby_handler,
+            "moby_id",
+            "moby_url_cover",
+        ),
+        MetadataSource.FLASHPOINT: (
+            flashpoint_matched_roms,
+            meta_flashpoint_handler,
+            "flashpoint_id",
+            "flashpoint_url_cover",
+        ),
+        MetadataSource.LAUNCHBOX: (
+            launchbox_matched_roms,
+            meta_launchbox_handler,
+            "launchbox_id",
+            "launchbox_url_cover",
+        ),
+        MetadataSource.SS: (ss_matched_roms, meta_ss_handler, "ss_id", "ss_url_cover"),
+    }
 
-    for moby_rom in moby_matched_roms:
-        if moby_rom["moby_id"]:
-            moby_name = meta_moby_handler.normalize_search_term(
-                moby_rom.get("name", ""),
-                remove_articles=False,
-            )
-            merged_dict[moby_name] = {
-                **moby_rom,
-                "is_identified": True,
-                "is_unidentified": False,
-                "platform_id": rom.platform_id,
-                "moby_url_cover": moby_rom.pop("url_cover", ""),
-                **merged_dict.get(moby_name, {}),
-            }
+    ordered_sources = get_priority_ordered_metadata_sources(
+        metadata_sources=list(source_configs.keys()), priority_type="metadata"
+    )
 
-    for ss_rom in ss_matched_roms:
-        if ss_rom["ss_id"]:
-            ss_name = meta_ss_handler.normalize_search_term(
-                ss_rom.get("name", ""),
-                remove_articles=False,
-            )
-            merged_dict[ss_name] = {
-                **ss_rom,
-                "is_identified": True,
-                "is_unidentified": False,
-                "platform_id": rom.platform_id,
-                "ss_url_cover": ss_rom.pop("url_cover", ""),
-                **merged_dict.get(ss_name, {}),
-            }
-
-    for flashpoint_rom in flashpoint_matched_roms:
-        if flashpoint_rom["flashpoint_id"]:
-            flashpoint_name = meta_flashpoint_handler.normalize_search_term(
-                flashpoint_rom.get("name", ""),
-                remove_articles=False,
-            )
-            merged_dict[flashpoint_name] = {
-                **flashpoint_rom,
-                "is_identified": True,
-                "is_unidentified": False,
-                "platform_id": rom.platform_id,
-                "flashpoint_url_cover": flashpoint_rom.pop("url_cover", ""),
-                **merged_dict.get(flashpoint_name, {}),
-            }
-
-    for launchbox_rom in launchbox_matched_roms:
-        if launchbox_rom["launchbox_id"]:
-            launchbox_name = meta_launchbox_handler.normalize_search_term(
-                launchbox_rom.get("name", ""),
-                remove_articles=False,
-            )
-            merged_dict[launchbox_name] = {
-                **launchbox_rom,
-                "is_identified": True,
-                "is_unidentified": False,
-                "platform_id": rom.platform_id,
-                "launchbox_url_cover": launchbox_rom.pop("url_cover", ""),
-                **merged_dict.get(launchbox_name, {}),
-            }
+    for meta_source in ordered_sources:
+        source_matched_roms, meta_handler, id_key, cover_key = source_configs[
+            meta_source
+        ]
+        for source_rom in source_matched_roms:  # trunk-ignore(mypy/attr-defined)
+            if source_rom[id_key]:
+                normalized_name = meta_handler.normalize_search_term(
+                    source_rom.get("name", ""),
+                    remove_articles=False,
+                )
+                merged_dict[normalized_name] = {
+                    **source_rom,
+                    "is_identified": True,
+                    "is_unidentified": False,
+                    "platform_id": rom.platform_id,
+                    cover_key: source_rom.get("url_cover", ""),
+                    **merged_dict.get(normalized_name, {}),
+                }
 
     async def get_sgdb_rom(name: str) -> tuple[str, SGDBRom]:
         return name, await meta_sgdb_handler.get_details_by_names([name])
@@ -228,7 +207,7 @@ async def search_rom(
                 "sgdb_url_cover": sgdb_rom.get("url_cover", ""),
             }
 
-    matched_roms = list(merged_dict.values())
+    matched_roms: list = list(merged_dict.values())
 
     log.info("Results:")
     for m_rom in matched_roms:
