@@ -36,6 +36,9 @@
     },
     f = {};
   function h(t) {
+    if (typeof c[t.codecClass] !== 'function') {
+      throw new Error("Invalid codecClass");
+    }
     var e = c[t.codecClass],
       r = t.sn;
     if (f[r]) throw Error("duplicated sn");
