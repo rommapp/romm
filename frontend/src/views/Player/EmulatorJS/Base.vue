@@ -340,7 +340,11 @@ function openCacheDialog() {
                   @click="openSaveDialog"
                 >
                   {{
-                    selectedSave ? t("play.change-save") : t("play.select-save")
+                    rom.user_saves.length == 0
+                      ? t("play.no-saves-available")
+                      : selectedSave
+                        ? t("play.change-save")
+                        : t("play.select-save")
                   }}
                 </v-btn>
               </div>
@@ -385,9 +389,13 @@ function openCacheDialog() {
                   @click="openStateDialog"
                 >
                   {{
-                    selectedState
-                      ? t("play.change-state")
-                      : t("play.select-state")
+                    !rom.user_states.some(
+                      (s) => !s.emulator || s.emulator === selectedCore,
+                    )
+                      ? t("play.no-states-available")
+                      : selectedState
+                        ? t("play.change-state")
+                        : t("play.select-state")
                   }}
                 </v-btn>
               </div>
