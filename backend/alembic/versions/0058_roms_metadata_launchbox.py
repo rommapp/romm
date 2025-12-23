@@ -66,6 +66,7 @@ def upgrade():
                     COALESCE(
                         (r.igdb_metadata -> 'game_modes'),
                         (r.ss_metadata -> 'game_modes'),
+                        (r.flashpoint_metadata -> 'game_modes'),
                         '[]'::jsonb
                     ) AS game_modes,
 
@@ -117,13 +118,14 @@ def upgrade():
                             r.flashpoint_metadata ->> 'first_release_date' NOT IN ('null', 'None', '0', '0.0') AND
                             r.flashpoint_metadata ->> 'first_release_date' ~ '^[0-9]+$'
                         THEN (r.flashpoint_metadata ->> 'first_release_date')::bigint * 1000
-                        ELSE NULL
 
-                         WHEN r.gamelist_metadata IS NOT NULL
+                        WHEN r.gamelist_metadata IS NOT NULL
                             AND r.gamelist_metadata ? 'first_release_date'
                             AND r.gamelist_metadata ->> 'first_release_date' NOT IN ('null', 'None', '0', '0.0')
                             AND r.gamelist_metadata ->> 'first_release_date' ~ '^[0-9]{8}T[0-9]{6}$'
                         THEN (extract(epoch FROM to_timestamp(r.gamelist_metadata ->> 'first_release_date', 'YYYYMMDD"T"HH24MISS')) * 1000)::bigint
+
+                        ELSE NULL
                     END AS first_release_date,
 
                     CASE
@@ -145,7 +147,7 @@ def upgrade():
                         r.ra_metadata,
                         r.launchbox_metadata,
                         r.flashpoint_metadata,
-                        r.gamelist_metadata
+                        r.gamelist_metadata,
                         CASE
                             WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'total_rating' AND
                                 r.igdb_metadata ->> 'total_rating' NOT IN ('null', 'None', '0', '0.0') AND
@@ -284,7 +286,7 @@ def upgrade():
 
                             WHEN JSON_CONTAINS_PATH(r.gamelist_metadata, 'one', '$.first_release_date')
                                 AND JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')) NOT IN ('null', 'None', '0', '0.0')
-                                AND JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')) REGEXP '^[0-9]+T[0-9]+$'
+                                AND JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')) REGEXP '^[0-9]{8}T[0-9]{6}$$'
                             THEN UNIX_TIMESTAMP(
                                 STR_TO_DATE(
                                 JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')),
