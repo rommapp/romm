@@ -94,5 +94,8 @@
   "update": "Update",
   "username": "Username",
   "virtual-collection-type": "Virtual collection type (ROM grouping method)",
-  "watcher": "Watcher"
+  "watcher": "Watcher",
+  "passwords-must-match": "Passwords must match",
+  "repeat-password": "Repeat password",
+  "repeat-password-required": "Repeat password is required"
 }

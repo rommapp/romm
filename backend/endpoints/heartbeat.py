@@ -268,14 +268,6 @@ async def create_setup_platforms(request: Request, platform_slugs: list[str]):
         - message: success or error message
     """
 
-    # Check authentication - only allow public access if no admin users
-    admin_users = db_user_handler.get_admin_users()
-    if len(admin_users) > 0:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Setup endpoints only accessible during initial setup",
-        )
-
     if not platform_slugs:
         return {
             "success": True,
@@ -302,7 +294,6 @@ async def create_setup_platforms(request: Request, platform_slugs: list[str]):
                 await fs_platform_handler.add_platform(fs_slug=fs_slug)
                 created_count += 1
             except PlatformAlreadyExistsException:
-                # Platform already exists, skip
                 continue
             except (PermissionError, OSError) as e:
                 failed_platforms.append(f"{fs_slug}: {str(e)}")

@@ -311,9 +311,10 @@ function handleNext(nextCallback: () => void) {
 
   // Case 1: No structure detected and user is creating platforms
   if (!hasStructure && platformsToCreate.length > 0) {
-    confirmDialogMessage.value = `No folder structure detected. RomM will create Structure A (roms/{platform}) with ${
-      platformsToCreate.length
-    } platform${platformsToCreate.length > 1 ? "s" : ""}. Continue?`;
+    confirmDialogMessage.value = t("setup.confirm-no-structure", {
+      count: platformsToCreate.length,
+      plural: platformsToCreate.length > 1 ? "s" : "",
+    });
     confirmDialogAction.value = nextCallback;
     showConfirmDialog.value = true;
     return;
@@ -321,8 +322,7 @@ function handleNext(nextCallback: () => void) {
 
   // Case 2: No structure detected and user is not selecting anything
   if (!hasStructure && platformsToCreate.length === 0) {
-    confirmDialogMessage.value =
-      "No folder structure detected and no platforms selected. You will need to create the folder structure manually. Continue?";
+    confirmDialogMessage.value = t("setup.confirm-no-platforms");
     confirmDialogAction.value = nextCallback;
     showConfirmDialog.value = true;
     return;
@@ -334,9 +334,12 @@ function handleNext(nextCallback: () => void) {
       libraryInfo.value.detected_structure === "A"
         ? "roms/{platform}"
         : "{platform}/roms";
-    confirmDialogMessage.value = `RomM will create Structure ${libraryInfo.value.detected_structure} (${structurePattern}) with ${
-      platformsToCreate.length
-    } platform${platformsToCreate.length > 1 ? "s" : ""}. Continue?`;
+    confirmDialogMessage.value = t("setup.confirm-create-platforms", {
+      structure: libraryInfo.value.detected_structure,
+      pattern: structurePattern,
+      count: platformsToCreate.length,
+      plural: platformsToCreate.length > 1 ? "s" : "",
+    });
     confirmDialogAction.value = nextCallback;
     showConfirmDialog.value = true;
     return;
@@ -452,9 +455,9 @@ onMounted(() => {
           <v-stepper-header style="box-shadow: unset">
             <v-stepper-item :value="1">
               <template #title>
-                <span class="text-white text-shadow"
-                  >Setup library structure</span
-                >
+                <span class="text-white text-shadow">{{
+                  t("setup.library-structure-step")
+                }}</span>
               </template>
             </v-stepper-item>
 
@@ -462,7 +465,9 @@ onMounted(() => {
 
             <v-stepper-item :value="2">
               <template #title>
-                <span class="text-white text-shadow">Create an admin user</span>
+                <span class="text-white text-shadow">{{
+                  t("setup.admin-user-step")
+                }}</span>
               </template>
             </v-stepper-item>
 
@@ -470,9 +475,9 @@ onMounted(() => {
 
             <v-stepper-item :value="3">
               <template #title>
-                <span class="text-white text-shadow"
-                  >Check metadata sources</span
-                >
+                <span class="text-white text-shadow">{{
+                  t("setup.check-metadata-step")
+                }}</span>
               </template>
             </v-stepper-item>
           </v-stepper-header>
@@ -481,9 +486,13 @@ onMounted(() => {
         <!-- Mobile title section -->
         <div v-if="xs" class="flex-grow-0 text-center">
           <span class="text-white text-shadow text-subtitle-1">
-            <span v-if="step === 1">Setup library structure</span>
-            <span v-else-if="step === 2">Create an admin user</span>
-            <span v-else-if="step === 3">Check metadata sources</span>
+            <span v-if="step === 1">{{
+              t("setup.library-structure-step")
+            }}</span>
+            <span v-else-if="step === 2">{{ t("setup.admin-user-step") }}</span>
+            <span v-else-if="step === 3">{{
+              t("setup.check-metadata-step")
+            }}</span>
           </span>
         </div>
 
@@ -514,13 +523,13 @@ onMounted(() => {
                 <v-row v-if="!loadingLibraryInfo" no-gutters class="mb-3">
                   <v-col class="text-center">
                     <p class="text-white text-shadow">
-                      <strong>Folder structure:</strong>
+                      <strong>{{ t("setup.folder-structure") }}:</strong>
                       {{
                         libraryInfo?.detected_structure === "A"
-                          ? "Structure A detected"
+                          ? t("setup.structure-a-detected")
                           : libraryInfo?.detected_structure === "B"
-                            ? "Structure B detected"
-                            : "No structure detected - Structure A will be created"
+                            ? t("setup.structure-b-detected")
+                            : t("setup.no-structure-detected")
                       }}
                     </p>
                     <p class="text-caption text-grey">
@@ -546,15 +555,19 @@ onMounted(() => {
                       class="pr-2"
                     >
                       <div class="text-white text-center text-shadow mb-2">
-                        <strong>Detected Platforms</strong>
+                        <strong>{{ t("setup.detected-platforms") }}</strong>
                       </div>
                       <div class="mb-2 ml-4">
                         <v-chip label>
-                          {{ libraryInfo?.existing_platforms.length }} platforms
+                          {{ libraryInfo?.existing_platforms.length }}
+                          {{ t("setup.platforms") }}
                         </v-chip>
                         <v-chip class="ml-2" variant="tonal" label>
-                          {{ totalDetectedGames }} game{{
-                            totalDetectedGames !== 1 ? "s" : ""
+                          {{ totalDetectedGames }}
+                          {{
+                            totalDetectedGames !== 1
+                              ? t("setup.games")
+                              : t("setup.game")
                           }}
                         </v-chip>
                       </div>
@@ -574,8 +587,8 @@ onMounted(() => {
                       <div class="text-white text-center text-shadow mb-2">
                         <strong>{{
                           hasExistingPlatforms
-                            ? "Available Platforms"
-                            : "Select Platforms to Create"
+                            ? t("setup.available-platforms")
+                            : t("setup.select-platforms")
                         }}</strong>
                       </div>
                       <div class="mb-2 ml-4">
@@ -585,10 +598,15 @@ onMounted(() => {
                           @click="selectAll = !selectAll"
                           label
                         >
-                          {{ selectAll ? "Deselect All" : "Select All" }}
+                          {{
+                            selectAll
+                              ? t("setup.deselect-all")
+                              : t("setup.select-all")
+                          }}
                         </v-chip>
                         <v-chip class="ml-2" label
-                          >{{ selectedAvailableCount }} selected</v-chip
+                          >{{ selectedAvailableCount }}
+                          {{ t("setup.selected") }}</v-chip
                         >
                       </div>
                       <div class="overflow-y-auto" style="max-height: 500px">
@@ -613,13 +631,13 @@ onMounted(() => {
                         :value="0"
                         class="text-white text-shadow"
                       >
-                        Detected
+                        {{ t("setup.detected-platforms") }}
                       </v-tab>
                       <v-tab
                         :value="hasExistingPlatforms ? 1 : 0"
                         class="text-white text-shadow"
                       >
-                        Available
+                        {{ t("setup.available-platforms") }}
                       </v-tab>
                     </v-tabs>
 
@@ -629,11 +647,14 @@ onMounted(() => {
                         <div class="mb-2 ml-4">
                           <v-chip label>
                             {{ libraryInfo?.existing_platforms.length }}
-                            platforms
+                            {{ t("setup.platforms") }}
                           </v-chip>
                           <v-chip class="ml-2" variant="tonal" label>
-                            {{ totalDetectedGames }} game{{
-                              totalDetectedGames !== 1 ? "s" : ""
+                            {{ totalDetectedGames }}
+                            {{
+                              totalDetectedGames !== 1
+                                ? t("setup.games")
+                                : t("setup.game")
                             }}
                           </v-chip>
                         </div>
@@ -654,10 +675,15 @@ onMounted(() => {
                             @click="selectAll = !selectAll"
                             label
                           >
-                            {{ selectAll ? "Deselect All" : "Select All" }}
+                            {{
+                              selectAll
+                                ? t("setup.deselect-all")
+                                : t("setup.select-all")
+                            }}
                           </v-chip>
                           <v-chip class="ml-2" label
-                            >{{ selectedAvailableCount }} selected</v-chip
+                            >{{ selectedAvailableCount }}
+                            {{ t("setup.selected") }}</v-chip
                           >
                         </div>
                         <div class="overflow-y-auto" style="max-height: 500px">
@@ -727,10 +753,11 @@ onMounted(() => {
                         :label="`${t('settings.repeat_password')} *`"
                         :type="visibleRepeatPassword ? 'text' : 'password'"
                         :rules="[
-                          (v: string) => !!v || 'Repeat password is required',
+                          (v: string) =>
+                            !!v || t('settings.repeat-password-required'),
                           (v: string) =>
                             v === defaultAdminUser.password ||
-                            'Passwords must match',
+                            t('settings.passwords-must-match'),
                         ]"
                         required
                         autocomplete="on"
@@ -765,7 +792,7 @@ onMounted(() => {
                       class="text-white text-shadow"
                       :title="source.name"
                       :subtitle="
-                        source.disabled ? 'API key missing or invalid' : ''
+                        source.disabled ? t('setup.metadata-missing') : ''
                       "
                     >
                       <template #prepend>
@@ -794,7 +821,7 @@ onMounted(() => {
                 :disabled="isFirstStep"
                 @click="prev"
               >
-                {{ isFirstStep ? "" : "previous" }}
+                {{ isFirstStep ? "" : t("setup.previous") }}
               </v-btn>
             </template>
             <template #next>
@@ -804,7 +831,7 @@ onMounted(() => {
                 @click="!isLastStep ? handleNext(next) : finishWizard()"
                 @keydown.enter="!isLastStep ? handleNext(next) : finishWizard()"
               >
-                {{ !isLastStep ? "Next" : "Finish" }}
+                {{ !isLastStep ? t("setup.next") : t("setup.finish") }}
               </v-btn>
             </template>
           </v-stepper-actions>
@@ -828,13 +855,13 @@ onMounted(() => {
         <v-row class="justify-center my-2" no-gutters>
           <v-btn-group divided density="compact">
             <v-btn class="bg-toplayer" @click="showConfirmDialog = false">
-              Cancel
+              {{ t("setup.cancel") }}
             </v-btn>
             <v-btn
               class="bg-toplayer text-primary"
               @click="handleConfirmDialog"
             >
-              Continue
+              {{ t("setup.continue") }}
             </v-btn>
           </v-btn-group>
         </v-row>

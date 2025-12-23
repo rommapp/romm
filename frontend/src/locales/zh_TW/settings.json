@@ -94,5 +94,8 @@
   "update": "更新",
   "username": "用戶名",
   "virtual-collection-type": "自動生成收藏庫形式（Rom 分組方式）",
-  "watcher": "監視器"
+  "watcher": "監視器",
+  "passwords-must-match": "密碼必須相符",
+  "repeat-password": "重複密碼",
+  "repeat-password-required": "需要重複密碼"
 }
