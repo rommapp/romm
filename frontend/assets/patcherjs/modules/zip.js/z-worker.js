@@ -36,11 +36,21 @@
     },
     f = {};
   function h(t) {
-    if (typeof c[t.codecClass] !== 'function') {
+    // Whitelist of allowed codec classes to prevent code injection
+    var allowedCodecs = {
+      'Deflater': c.Deflater,
+      'Inflater': c.Inflater,
+      'NOOP': c.NOOP
+    };
+    
+    if (!allowedCodecs.hasOwnProperty(t.codecClass)) {
       throw new Error("Invalid codecClass");
     }
-    var e = c[t.codecClass],
-      r = t.sn;
+    var e = allowedCodecs[t.codecClass];
+    if (typeof e !== 'function') {
+      throw new Error("Invalid codecClass");
+    }
+    var r = t.sn;
     if (f[r]) throw Error("duplicated sn");
     ((f[r] = {
       codec: new e(t.options),
