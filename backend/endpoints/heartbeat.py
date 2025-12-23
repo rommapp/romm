@@ -169,7 +169,7 @@ async def metadata_heartbeat(source: str) -> bool:
 @protected_route(
     router.get,
     "/setup/library",
-    [Scope.PLATFORMS_WRITE] if len(db_user_handler.get_admin_users()) > 0 else [],
+    [],
 )
 async def get_setup_library_info(request: Request):
     """Get library structure information for setup wizard.
@@ -188,6 +188,16 @@ async def get_setup_library_info(request: Request):
     # Auto-detect structure type
     # Structure A: /library/roms/{platform}
     # Structure B: /library/{platform}/roms
+    # If there are admin users already, enforce the USERS_WRITE scope.
+    if (
+        Scope.PLATFORMS_READ not in request.auth.scopes
+        and len(db_user_handler.get_admin_users()) > 0
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
     detected_structure = fs_platform_handler.detect_library_structure()
 
     # Get existing platforms from filesystem
@@ -251,7 +261,7 @@ async def get_setup_library_info(request: Request):
 @protected_route(
     router.post,
     "/setup/platforms",
-    [Scope.PLATFORMS_WRITE] if len(db_user_handler.get_admin_users()) > 0 else [],
+    [],
     status_code=status.HTTP_201_CREATED,
 )
 async def create_setup_platforms(request: Request, platform_slugs: list[str]):
@@ -267,6 +277,16 @@ async def create_setup_platforms(request: Request, platform_slugs: list[str]):
         - created_count: number of platforms created
         - message: success or error message
     """
+
+    # If there are admin users already, enforce the USERS_WRITE scope.
+    if (
+        Scope.PLATFORMS_WRITE not in request.auth.scopes
+        and len(db_user_handler.get_admin_users()) > 0
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
 
     if not platform_slugs:
         return {
