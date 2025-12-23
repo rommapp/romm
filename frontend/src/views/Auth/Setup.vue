@@ -497,7 +497,7 @@ onMounted(() => {
         </div>
 
         <v-stepper-window
-          class="flex-grow-1 mb-4"
+          class="flex-grow-1 mb-4 scroll"
           :class="{ 'align-content-center': step != 1 || loadingLibraryInfo }"
         >
           <v-stepper-window-item :key="1" :value="1" class="h-100">
@@ -519,131 +519,45 @@ onMounted(() => {
                   </v-col>
                 </v-row>
 
-                <!-- Structure info -->
-                <v-row v-if="!loadingLibraryInfo" no-gutters class="mb-3">
-                  <v-col class="text-center">
-                    <p class="text-white text-shadow">
-                      <strong>{{ t("setup.folder-structure") }}:</strong>
-                      {{
-                        libraryInfo?.detected_structure === "A"
-                          ? t("setup.structure-a-detected")
-                          : libraryInfo?.detected_structure === "B"
-                            ? t("setup.structure-b-detected")
-                            : t("setup.no-structure-detected")
-                      }}
-                    </p>
-                    <p class="text-caption text-grey">
-                      {{
-                        libraryInfo?.detected_structure === "A" ||
-                        !libraryInfo?.detected_structure
-                          ? "roms/{platform}"
-                          : "{platform}/roms"
-                      }}
-                    </p>
-                  </v-col>
-                </v-row>
-
-                <!-- Scrollable platform selection section -->
-                <v-row v-if="!loadingLibraryInfo" no-gutters>
-                  <!-- Desktop: Two columns side by side -->
-                  <template v-if="!xs">
-                    <!-- Existing platforms column -->
-                    <v-col
-                      v-if="hasExistingPlatforms"
-                      cols="12"
-                      md="6"
-                      class="pr-2"
-                    >
-                      <div class="text-white text-center text-shadow mb-2">
-                        <strong>{{ t("setup.detected-platforms") }}</strong>
-                      </div>
-                      <div class="mb-2 ml-4">
-                        <v-chip label>
-                          {{ libraryInfo?.existing_platforms.length }}
-                          {{ t("setup.platforms") }}
-                        </v-chip>
-                        <v-chip class="ml-2" variant="tonal" label>
-                          {{ totalDetectedGames }}
-                          {{
-                            totalDetectedGames !== 1
-                              ? t("setup.games")
-                              : t("setup.game")
-                          }}
-                        </v-chip>
-                      </div>
-                      <div class="overflow-y-auto" style="max-height: 500px">
-                        <PlatformGroupList
-                          :grouped-platforms="groupedExistingPlatforms"
-                        />
-                      </div>
+                <template v-else>
+                  <!-- Structure info -->
+                  <v-row no-gutters class="mb-3">
+                    <v-col class="text-center">
+                      <p class="text-white text-shadow">
+                        <strong>{{ t("setup.folder-structure") }}:</strong>
+                        {{
+                          libraryInfo?.detected_structure === "A"
+                            ? t("setup.structure-a-detected")
+                            : libraryInfo?.detected_structure === "B"
+                              ? t("setup.structure-b-detected")
+                              : t("setup.no-structure-detected")
+                        }}
+                      </p>
+                      <p class="text-caption text-grey">
+                        {{
+                          libraryInfo?.detected_structure === "A" ||
+                          !libraryInfo?.detected_structure
+                            ? "roms/{platform}"
+                            : "{platform}/roms"
+                        }}
+                      </p>
                     </v-col>
+                  </v-row>
 
-                    <!-- Available platforms to create column -->
-                    <v-col
-                      cols="12"
-                      :md="hasExistingPlatforms ? 6 : 12"
-                      class="pl-2"
-                    >
-                      <div class="text-white text-center text-shadow mb-2">
-                        <strong>{{
-                          hasExistingPlatforms
-                            ? t("setup.available-platforms")
-                            : t("setup.select-platforms")
-                        }}</strong>
-                      </div>
-                      <div class="mb-2 ml-4">
-                        <v-chip
-                          variant="tonal"
-                          color="primary"
-                          @click="selectAll = !selectAll"
-                          label
-                        >
-                          {{
-                            selectAll
-                              ? t("setup.deselect-all")
-                              : t("setup.select-all")
-                          }}
-                        </v-chip>
-                        <v-chip class="ml-2" label
-                          >{{ selectedAvailableCount }}
-                          {{ t("setup.selected") }}</v-chip
-                        >
-                      </div>
-                      <div class="overflow-y-auto" style="max-height: 500px">
-                        <PlatformGroupList
-                          :grouped-platforms="groupedAvailablePlatforms"
-                          v-model:selected-platforms="selectedPlatforms"
-                          :show-checkboxes="true"
-                          key-prefix="available"
-                          :base-index="groupedExistingPlatforms.length"
-                          :on-toggle-group="toggleGroupSelection"
-                          :is-group-fully-selected="isGroupFullySelected"
-                        />
-                      </div>
-                    </v-col>
-                  </template>
-
-                  <!-- Mobile: Tabs for each section -->
-                  <v-col v-else cols="12">
-                    <v-tabs v-model="mobileTab" centered grow class="mb-3">
-                      <v-tab
+                  <!-- Scrollable platform selection section -->
+                  <v-row no-gutters>
+                    <!-- Desktop: Two columns side by side -->
+                    <template v-if="!xs">
+                      <!-- Existing platforms column -->
+                      <v-col
                         v-if="hasExistingPlatforms"
-                        :value="0"
-                        class="text-white text-shadow"
+                        cols="12"
+                        md="6"
+                        class="pr-2"
                       >
-                        {{ t("setup.detected-platforms") }}
-                      </v-tab>
-                      <v-tab
-                        :value="hasExistingPlatforms ? 1 : 0"
-                        class="text-white text-shadow"
-                      >
-                        {{ t("setup.available-platforms") }}
-                      </v-tab>
-                    </v-tabs>
-
-                    <v-window v-model="mobileTab">
-                      <!-- Detected platforms tab -->
-                      <v-window-item v-if="hasExistingPlatforms" :value="0">
+                        <div class="text-white text-center text-shadow mb-2">
+                          <strong>{{ t("setup.detected-platforms") }}</strong>
+                        </div>
                         <div class="mb-2 ml-4">
                           <v-chip label>
                             {{ libraryInfo?.existing_platforms.length }}
@@ -658,16 +572,24 @@ onMounted(() => {
                             }}
                           </v-chip>
                         </div>
-                        <div class="overflow-y-auto" style="max-height: 400px">
-                          <PlatformGroupList
-                            :grouped-platforms="groupedExistingPlatforms"
-                            key-prefix="existing-mobile"
-                          />
-                        </div>
-                      </v-window-item>
+                        <PlatformGroupList
+                          :grouped-platforms="groupedExistingPlatforms"
+                        />
+                      </v-col>
 
-                      <!-- Available platforms tab -->
-                      <v-window-item :value="hasExistingPlatforms ? 1 : 0">
+                      <!-- Available platforms to create column -->
+                      <v-col
+                        cols="12"
+                        :md="hasExistingPlatforms ? 6 : 12"
+                        class="pl-2"
+                      >
+                        <div class="text-white text-center text-shadow mb-2">
+                          <strong>{{
+                            hasExistingPlatforms
+                              ? t("setup.available-platforms")
+                              : t("setup.select-platforms")
+                          }}</strong>
+                        </div>
                         <div class="mb-2 ml-4">
                           <v-chip
                             variant="tonal"
@@ -686,7 +608,79 @@ onMounted(() => {
                             {{ t("setup.selected") }}</v-chip
                           >
                         </div>
-                        <div class="overflow-y-auto" style="max-height: 500px">
+                        <PlatformGroupList
+                          :grouped-platforms="groupedAvailablePlatforms"
+                          v-model:selected-platforms="selectedPlatforms"
+                          :show-checkboxes="true"
+                          key-prefix="available"
+                          :base-index="groupedExistingPlatforms.length"
+                          :on-toggle-group="toggleGroupSelection"
+                          :is-group-fully-selected="isGroupFullySelected"
+                        />
+                      </v-col>
+                    </template>
+
+                    <!-- Mobile: Tabs for each section -->
+                    <v-col v-else cols="12">
+                      <v-tabs v-model="mobileTab" centered grow class="mb-3">
+                        <v-tab
+                          v-if="hasExistingPlatforms"
+                          :value="0"
+                          class="text-white text-shadow"
+                        >
+                          {{ t("setup.detected-platforms") }}
+                        </v-tab>
+                        <v-tab
+                          :value="hasExistingPlatforms ? 1 : 0"
+                          class="text-white text-shadow"
+                        >
+                          {{ t("setup.available-platforms") }}
+                        </v-tab>
+                      </v-tabs>
+
+                      <v-window v-model="mobileTab">
+                        <!-- Detected platforms tab -->
+                        <v-window-item v-if="hasExistingPlatforms" :value="0">
+                          <div class="mb-2 ml-4">
+                            <v-chip label>
+                              {{ libraryInfo?.existing_platforms.length }}
+                              {{ t("setup.platforms") }}
+                            </v-chip>
+                            <v-chip class="ml-2" variant="tonal" label>
+                              {{ totalDetectedGames }}
+                              {{
+                                totalDetectedGames !== 1
+                                  ? t("setup.games")
+                                  : t("setup.game")
+                              }}
+                            </v-chip>
+                          </div>
+                          <PlatformGroupList
+                            :grouped-platforms="groupedExistingPlatforms"
+                            key-prefix="existing-mobile"
+                          />
+                        </v-window-item>
+
+                        <!-- Available platforms tab -->
+                        <v-window-item :value="hasExistingPlatforms ? 1 : 0">
+                          <div class="mb-2 ml-4">
+                            <v-chip
+                              variant="tonal"
+                              color="primary"
+                              @click="selectAll = !selectAll"
+                              label
+                            >
+                              {{
+                                selectAll
+                                  ? t("setup.deselect-all")
+                                  : t("setup.select-all")
+                              }}
+                            </v-chip>
+                            <v-chip class="ml-2" label
+                              >{{ selectedAvailableCount }}
+                              {{ t("setup.selected") }}</v-chip
+                            >
+                          </div>
                           <PlatformGroupList
                             :grouped-platforms="groupedAvailablePlatforms"
                             v-model:selected-platforms="selectedPlatforms"
@@ -696,11 +690,11 @@ onMounted(() => {
                             :on-toggle-group="toggleGroupSelection"
                             :is-group-fully-selected="isGroupFullySelected"
                           />
-                        </div>
-                      </v-window-item>
-                    </v-window>
-                  </v-col>
-                </v-row>
+                        </v-window-item>
+                      </v-window>
+                    </v-col>
+                  </v-row>
+                </template>
               </v-col>
             </v-row>
           </v-stepper-window-item>
