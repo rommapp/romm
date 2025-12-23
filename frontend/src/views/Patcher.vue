@@ -181,21 +181,21 @@ async function patchRom() {
   if (!coreLoaded.value) return; // bail on error
 
   if (!romFile.value) {
-    loadError.value = "Please select a ROM file.";
+    loadError.value = t("patcher.error-no-rom");
     return;
   }
   if (!patchFile.value) {
-    loadError.value = "Please select a patch file.";
+    loadError.value = t("patcher.error-no-patch");
     return;
   }
 
   if (saveIntoRomM.value && !selectedPlatform.value) {
-    loadError.value = "Please select a platform to upload to.";
+    loadError.value = t("patcher.error-no-platform");
     return;
   }
 
   if (!downloadLocally.value && !saveIntoRomM.value) {
-    loadError.value = "Please select at least one action: download or upload.";
+    loadError.value = t("patcher.error-no-action");
     return;
   }
 
@@ -203,7 +203,7 @@ async function patchRom() {
 
   try {
     // Read files as ArrayBuffers
-    statusMessage.value = "Preparing files...";
+    statusMessage.value = t("patcher.status-preparing");
     const romArrayBuffer = await romFile.value.arrayBuffer();
     const patchArrayBuffer = await patchFile.value.arrayBuffer();
 
@@ -254,7 +254,7 @@ async function patchRom() {
     let actions = [];
 
     if (downloadLocally.value) {
-      statusMessage.value = "Downloading patched ROM...";
+      statusMessage.value = t("patcher.status-downloading");
       // Create blob and trigger download
       const blob = new Blob([patchedResult.data], {
         type: "application/octet-stream",
@@ -267,19 +267,19 @@ async function patchRom() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      actions.push("downloaded");
+      actions.push(t("patcher.success-downloaded"));
     }
 
     if (saveIntoRomM.value && selectedPlatform.value) {
-      statusMessage.value = "Uploading to RomM...";
+      statusMessage.value = t("patcher.status-uploading");
       await uploadPatchedRom(patchedResult.data, patchedResult.fileName);
-      actions.push("uploaded");
+      actions.push(t("patcher.success-uploaded"));
     }
 
     if (actions.length > 0) {
-      statusMessage.value = `Patched ROM ${actions.join(
-        " and ",
-      )} successfully!`;
+      statusMessage.value = t("patcher.success-message", {
+        actions: actions.join(` ${t("common.and")} `),
+      });
       setTimeout(() => {
         statusMessage.value = null;
       }, 3000);
@@ -332,9 +332,9 @@ async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
       }
 
       emitter?.emit("snackbarShow", {
-        msg: `Patched ROM uploaded successfully${
-          failedUploads.length > 0 ? " (with some errors)" : ""
-        }. Starting scan...`,
+        msg: t("patcher.upload-success", {
+          errors: failedUploads.length > 0 ? t("patcher.upload-errors") : "",
+        }),
         icon: "mdi-check-bold",
         color: "green",
         timeout: 3000,
@@ -361,9 +361,9 @@ async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
     })
     .catch(({ response, message }) => {
       throw new Error(
-        `Unable to upload ROM: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
+        t("patcher.error-upload-failed", {
+          error: response?.data?.detail || response?.statusText || message,
+        }),
       );
     });
 }
@@ -378,10 +378,9 @@ onMounted(async () => {
   <v-row class="align-center justify-center scroll h-100 px-4" no-gutters>
     <v-col cols="12" sm="10" md="8" xl="6">
       <v-card class="pa-4 bg-background" elevation="0">
-        <v-card-title class="pb-2 px-0">ROM Patcher</v-card-title>
+        <v-card-title class="pb-2 px-0">{{ t("patcher.title") }}</v-card-title>
         <v-card-subtitle class="pb-2 px-0 text-body-2">
-          Choose a base ROM and a patch file, then apply to download the patched
-          ROM.
+          {{ t("patcher.subtitle") }}
         </v-card-subtitle>
         <v-divider class="mt-2 mb-4" />
 
@@ -413,7 +412,7 @@ onMounted(async () => {
           <v-row class="mb-2" dense>
             <v-col cols="12" md="6">
               <v-sheet class="pa-3" rounded="lg" border color="surface">
-                <div class="text-subtitle-1">ROM file</div>
+                <div class="text-subtitle-1">{{ t("patcher.rom-file") }}</div>
                 <div
                   ref="romDropZoneRef"
                   class="dropzone-container rounded-lg transition-all duration-300 ease-in-out mt-4"
@@ -438,12 +437,14 @@ onMounted(async () => {
                     >
                       {{ isOverRomDropZone ? "mdi-file" : "mdi-file-outline" }}
                     </v-icon>
-                    <div class="text-subtitle-2 mt-3 mb-1">Drop ROM here</div>
+                    <div class="text-subtitle-2 mt-3 mb-1">
+                      {{ t("patcher.drop-rom-here") }}
+                    </div>
                     <p class="text-body-2 text-medium-emphasis mb-3">
-                      Drag & drop a ROM file or click to browse.
+                      {{ t("patcher.drag-drop-rom") }}
                     </p>
                     <v-btn color="primary" variant="outlined" size="small">
-                      Choose ROM
+                      {{ t("patcher.choose-rom") }}
                     </v-btn>
                   </div>
 
@@ -467,7 +468,7 @@ onMounted(async () => {
                         class="mr-2"
                         @click.stop="triggerRomInput"
                       >
-                        Replace
+                        {{ t("patcher.replace") }}
                       </v-btn>
                       <v-btn
                         icon
@@ -491,7 +492,7 @@ onMounted(async () => {
 
             <v-col cols="12" md="6">
               <v-sheet class="pa-3" rounded="lg" border color="surface">
-                <div class="text-subtitle-1">Patch file</div>
+                <div class="text-subtitle-1">{{ t("patcher.patch-file") }}</div>
                 <div
                   ref="patchDropZoneRef"
                   class="dropzone-container rounded-lg transition-all duration-300 ease-in-out mt-4"
@@ -520,12 +521,14 @@ onMounted(async () => {
                           : "mdi-file-cog-outline"
                       }}
                     </v-icon>
-                    <div class="text-subtitle-2 mt-3 mb-1">Drop patch here</div>
+                    <div class="text-subtitle-2 mt-3 mb-1">
+                      {{ t("patcher.drop-patch-here") }}
+                    </div>
                     <p class="text-body-2 text-medium-emphasis mb-3">
-                      Drag & drop a patch file or click to browse.
+                      {{ t("patcher.drag-drop-patch") }}
                     </p>
                     <v-btn color="primary" variant="outlined" size="small">
-                      Choose patch
+                      {{ t("patcher.choose-patch") }}
                     </v-btn>
                   </div>
 
@@ -549,7 +552,7 @@ onMounted(async () => {
                         class="mr-2"
                         @click.stop="triggerPatchInput"
                       >
-                        Replace
+                        {{ t("patcher.replace") }}
                       </v-btn>
                       <v-btn
                         icon
@@ -570,7 +573,7 @@ onMounted(async () => {
                   @change="onPatchChange"
                 />
                 <div class="text-subtitle-2 text-medium-emphasis mt-4">
-                  Supported patch formats<br />
+                  {{ t("patcher.supported-formats") }}<br />
                   <v-chip
                     v-for="format in supportedPatchFormats"
                     size="x-small"
@@ -586,14 +589,14 @@ onMounted(async () => {
                   color="primary"
                   inset
                   hide-details
-                  label="Download patched ROM"
+                  :label="t('patcher.download-locally')"
                 />
                 <v-switch
                   v-model="saveIntoRomM"
                   color="primary"
                   inset
                   hide-details
-                  label="Upload to RomM"
+                  :label="t('patcher.upload-to-romm')"
                 />
               </div>
 
@@ -764,7 +767,7 @@ onMounted(async () => {
                 v-model="customFileName"
                 :placeholder="filenamePlaceholder"
                 :suffix="romExtension"
-                label="Output filename (optional)"
+                :label="t('patcher.output-filename')"
                 variant="outlined"
                 density="compact"
                 hide-details
@@ -797,10 +800,10 @@ onMounted(async () => {
                 >
                   {{
                     downloadLocally && saveIntoRomM
-                      ? "Apply, Download & Upload"
+                      ? t("patcher.apply-download-upload")
                       : saveIntoRomM
-                        ? "Apply & Upload"
-                        : "Apply & Download"
+                        ? t("patcher.apply-upload")
+                        : t("patcher.apply-download")
                   }}
                 </v-btn>
               </div>
@@ -811,9 +814,9 @@ onMounted(async () => {
 
       <v-row class="mb-8 px-4" no-gutters>
         <v-col class="text-right align-center">
-          <span class="text-medium-emphasis text-caption font-italic mr-2"
-            >Powered by patcherjs</span
-          >
+          <span class="text-medium-emphasis text-caption font-italic mr-2">{{
+            t("patcher.powered-by")
+          }}</span>
           <v-avatar rounded="0">
             <v-img src="/assets/patcherjs/assets/patcherjs.png" />
           </v-avatar>
