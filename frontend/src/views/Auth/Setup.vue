@@ -438,8 +438,8 @@ onMounted(() => {
 <template>
   <v-card
     class="translucent px-3 d-flex flex-column"
-    width="900"
-    height="90dvh"
+    width="1100"
+    height="85dvh"
   >
     <v-card-title>
       <v-img src="/assets/isotipo.svg" class="mx-auto mt-6" width="70" />
