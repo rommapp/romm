@@ -311,3 +311,85 @@ class TestFSPlatformsHandler:
             for platform in expected_filtered:
                 structure = handler.get_platform_fs_structure(platform)
                 assert structure == f"{platform}/{config.ROMS_FOLDER_NAME}"
+
+    def test_detect_library_structure_structure_a(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Test detect_library_structure detects Structure A (roms/{platform})"""
+        roms_path = f"{LIBRARY_BASE_PATH}/{config.ROMS_FOLDER_NAME}"
+
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.exists") as mock_exists:
+                mock_exists.return_value = True
+
+                result = handler.detect_library_structure()
+                assert result == "A"
+                mock_exists.assert_called_once_with(roms_path)
+
+    def test_detect_library_structure_structure_b(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Test detect_library_structure detects Structure B ({platform}/roms)"""
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.exists") as mock_exists:
+                # Roms folder doesn't exist at base level
+                mock_exists.return_value = False
+
+                with patch("os.listdir") as mock_listdir:
+                    mock_listdir.return_value = ["n64", "psx", "other_folder"]
+
+                    with patch("os.path.isdir") as mock_isdir:
+                        # n64 and psx are directories with roms subfolders
+                        def isdir_side_effect(path):
+                            return "n64" in path or "psx" in path
+
+                        def exists_side_effect(path):
+                            # n64/roms and psx/roms exist
+                            return (
+                                f"n64/{config.ROMS_FOLDER_NAME}" in path
+                                or f"psx/{config.ROMS_FOLDER_NAME}" in path
+                            )
+
+                        mock_isdir.side_effect = isdir_side_effect
+                        mock_exists.side_effect = exists_side_effect
+
+                        result = handler.detect_library_structure()
+                        assert result == "B"
+
+    def test_detect_library_structure_none(self, handler: FSPlatformsHandler, config):
+        """Test detect_library_structure returns None when no structure detected"""
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.exists", return_value=False):
+                with patch("os.listdir", return_value=[]):
+                    result = handler.detect_library_structure()
+                    assert result is None
+
+    def test_detect_library_structure_handles_os_errors(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Test detect_library_structure handles OS errors gracefully"""
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.exists", return_value=False):
+                with patch("os.listdir", side_effect=OSError("Permission denied")):
+                    result = handler.detect_library_structure()
+                    assert result is None
+
+    def test_detect_library_structure_empty_library(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Test detect_library_structure with empty library directory"""
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.exists", return_value=False):
+                with patch("os.listdir", return_value=[]):
+                    result = handler.detect_library_structure()
+                    assert result is None
