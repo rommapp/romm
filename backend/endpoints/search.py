@@ -21,9 +21,11 @@ from handler.metadata.launchbox_handler import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSRom
-from handler.scan_handler import get_main_platform_igdb_id
-from handler.scan_handler import get_priority_ordered_metadata_sources
-from handler.scan_handler import MetadataSource
+from handler.scan_handler import (
+    MetadataSource,
+    get_main_platform_igdb_id,
+    get_priority_ordered_metadata_sources,
+)
 from logger.formatter import BLUE, CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -81,7 +83,6 @@ async def search_rom(
     log.info(
         f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Searching metadata providers..."
     )
-    matched_roms: list = []
 
     log.info(f"Searching by {hl(search_by.lower(), color=CYAN)}:")
     log.info(
@@ -171,7 +172,9 @@ async def search_rom(
     )
 
     for meta_source in ordered_sources:
-        source_matched_roms, meta_handler, id_key, cover_key = source_configs[meta_source]
+        source_matched_roms, meta_handler, id_key, cover_key = source_configs[
+            meta_source
+        ]
         for source_rom in source_matched_roms:
             if source_rom[id_key]:
                 normalized_name = meta_handler.normalize_search_term(
@@ -202,7 +205,7 @@ async def search_rom(
                 "sgdb_url_cover": sgdb_rom.get("url_cover", ""),
             }
 
-    matched_roms = list(merged_dict.values())
+    matched_roms: list = list(merged_dict.values())
 
     log.info("Results:")
     for m_rom in matched_roms:
