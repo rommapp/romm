@@ -175,7 +175,7 @@ async def search_rom(
         source_matched_roms, meta_handler, id_key, cover_key = source_configs[
             meta_source
         ]
-        for source_rom in source_matched_roms:
+        for source_rom in source_matched_roms:  # trunk-ignore(mypy/attr-defined)
             if source_rom[id_key]:
                 normalized_name = meta_handler.normalize_search_term(
                     source_rom.get("name", ""),
@@ -186,7 +186,7 @@ async def search_rom(
                     "is_identified": True,
                     "is_unidentified": False,
                     "platform_id": rom.platform_id,
-                    cover_key: source_rom.pop("url_cover", ""),
+                    cover_key: source_rom.get("url_cover", ""),
                     **merged_dict.get(normalized_name, {}),
                 }
 
