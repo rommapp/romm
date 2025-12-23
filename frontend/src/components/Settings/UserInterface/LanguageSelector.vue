@@ -7,8 +7,16 @@ import storeLanguage from "@/stores/language";
 const { locale } = useI18n();
 const languageStore = storeLanguage();
 const { languages, selectedLanguage } = storeToRefs(languageStore);
+const localeStorage = useLocalStorage("settings.locale", "");
 
-const { locale: localeStorage } = useUISettings();
+withDefaults(
+  defineProps<{
+    density: "comfortable" | "compact" | "default";
+  }>(),
+  {
+    density: "default",
+  },
+);
 
 withDefaults(
   defineProps<{
