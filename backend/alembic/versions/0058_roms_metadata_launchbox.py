@@ -286,7 +286,7 @@ def upgrade():
 
                             WHEN JSON_CONTAINS_PATH(r.gamelist_metadata, 'one', '$.first_release_date')
                                 AND JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')) NOT IN ('null', 'None', '0', '0.0')
-                                AND JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')) REGEXP '^[0-9]{8}T[0-9]{6}$$'
+                                AND JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')) REGEXP '^[0-9]{8}T[0-9]{6}$'
                             THEN UNIX_TIMESTAMP(
                                 STR_TO_DATE(
                                 JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')),
