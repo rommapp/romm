@@ -343,7 +343,27 @@ async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
       // Clear form after successful upload
       romFile.value = null;
       patchFile.value = null;
-      romBin.value = null;
+      if (failedUploads.length === 0) {
+        uploadStore.reset();
+        // Clear form only on complete success
+        romFile.value = null;
+        patchFile.value = null;
+        romBin.value = null;
+        patchBin.value = null;
+        selectedPlatform.value = null;
+        saveIntoRomM.value = false;
+
+        scanningStore.setScanning(true);
+
+        if (!socket.connected) socket.connect();
+        setTimeout(() => {
+          socket.emit("scan", {
+            platforms: [platformId],
+            type: "quick",
+            apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
+          });
+        }, 2000);
+      }
       patchBin.value = null;
       selectedPlatform.value = null;
       saveIntoRomM.value = false;
@@ -790,7 +810,7 @@ onMounted(async () => {
                   :variant="
                     !romFile ||
                     !patchFile ||
-                    applying == null ||
+                    applying ||
                     (!downloadLocally && !saveIntoRomM) ||
                     (saveIntoRomM && !selectedPlatform)
                       ? 'plain'
