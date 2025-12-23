@@ -1,6 +1,6 @@
 {
   "admin-user-step": "建立管理員使用者",
-  "available-platforms": "可用平台",
+  "supported-platforms": "可用平台",
   "cancel": "取消",
   "check-metadata-step": "檢查詮釋資料來源",
   "confirm-create-platforms": "RomM 將建立結構 {structure}（{pattern}）包含 {count} 個平台{plural}。繼續嗎？",

@@ -1,6 +1,6 @@
 {
   "admin-user-step": "관리자 사용자 생성",
-  "available-platforms": "사용 가능한 플랫폼",
+  "supported-platforms": "사용 가능한 플랫폼",
   "cancel": "취소",
   "check-metadata-step": "메타데이터 소스 확인",
   "confirm-create-platforms": "RomM이 구조 {structure}({pattern})를 {count}개 플랫폼{plural}으로 생성합니다. 계속하시겠습니까?",

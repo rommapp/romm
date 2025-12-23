@@ -586,7 +586,7 @@ onMounted(() => {
                         <div class="text-white text-center text-shadow mb-2">
                           <strong>{{
                             hasExistingPlatforms
-                              ? t("setup.available-platforms")
+                              ? t("setup.supported-platforms")
                               : t("setup.select-platforms")
                           }}</strong>
                         </div>
@@ -634,7 +634,7 @@ onMounted(() => {
                           :value="hasExistingPlatforms ? 1 : 0"
                           class="text-white text-shadow"
                         >
-                          {{ t("setup.available-platforms") }}
+                          {{ t("setup.supported-platforms") }}
                         </v-tab>
                       </v-tabs>
 

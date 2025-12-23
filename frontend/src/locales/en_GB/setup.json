@@ -1,6 +1,6 @@
 {
   "admin-user-step": "Create an admin user",
-  "available-platforms": "Available Platforms",
+  "supported-platforms": "Supported Platforms",
   "cancel": "Cancel",
   "check-metadata-step": "Check metadata sources",
   "confirm-create-platforms": "RomM will create Structure {structure} ({pattern}) with {count} platform{plural}. Continue?",

@@ -1,6 +1,6 @@
 {
   "admin-user-step": "管理者ユーザーを作成",
-  "available-platforms": "利用可能なプラットフォーム",
+  "supported-platforms": "利用可能なプラットフォーム",
   "cancel": "キャンセル",
   "check-metadata-step": "メタデータソースを確認",
   "confirm-create-platforms": "RomMは構造{structure}（{pattern}）を{count}プラットフォーム{plural}で作成します。続行しますか？",
