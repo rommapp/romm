@@ -73,9 +73,7 @@ def test_heartbeat_metadata_unknown_source(client):
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-def test_get_setup_library_info_structure_a_detected(
-    self, client, admin_user, access_token
-):
+def test_get_setup_library_info_structure_a_detected(client, admin_user, access_token):
     """Test get_setup_library_info with Structure A detected"""
     with patch(
         "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
@@ -111,9 +109,7 @@ def test_get_setup_library_info_structure_a_detected(
                     assert "supported_platforms" in data
 
 
-def test_get_setup_library_info_structure_b_detected(
-    self, client, admin_user, access_token
-):
+def test_get_setup_library_info_structure_b_detected(client, admin_user, access_token):
     """Test get_setup_library_info with Structure B detected"""
     with patch(
         "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
@@ -143,9 +139,7 @@ def test_get_setup_library_info_structure_b_detected(
                     assert data["existing_platforms"][0]["rom_count"] == 3
 
 
-def test_get_setup_library_info_no_structure_detected(
-    self, client, admin_user, access_token
-):
+def test_get_setup_library_info_no_structure_detected(client, admin_user, access_token):
     """Test get_setup_library_info when no structure is detected"""
     with patch(
         "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
@@ -170,7 +164,7 @@ def test_get_setup_library_info_no_structure_detected(
             assert "supported_platforms" in data
 
 
-def test_get_setup_library_info_handles_errors(self, client, admin_user, access_token):
+def test_get_setup_library_info_handles_errors(client, admin_user, access_token):
     """Test get_setup_library_info handles filesystem errors gracefully"""
     with patch(
         "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
@@ -195,7 +189,7 @@ def test_get_setup_library_info_handles_errors(self, client, admin_user, access_
             assert data["existing_platforms"] == []
 
 
-def test_create_setup_platforms_success(self, client, admin_user, access_token):
+def test_create_setup_platforms_success(client, admin_user, access_token):
     """Test create_setup_platforms successfully creates platforms"""
     platform_slugs = ["n64", "psx", "gba"]
 
@@ -224,7 +218,7 @@ def test_create_setup_platforms_success(self, client, admin_user, access_token):
             assert mock_add_platform.call_count == 3
 
 
-def test_create_setup_platforms_empty_list(self, client, admin_user, access_token):
+def test_create_setup_platforms_empty_list(client, admin_user, access_token):
     """Test create_setup_platforms with empty platform list"""
     response = client.post(
         "/api/setup/platforms",
@@ -241,7 +235,7 @@ def test_create_setup_platforms_empty_list(self, client, admin_user, access_toke
 
 
 def test_create_setup_platforms_creates_structure_a_when_none_exists(
-    self, client, admin_user, access_token
+    client, admin_user, access_token
 ):
     """Test create_setup_platforms creates Structure A when no structure detected"""
     platform_slugs = ["n64"]
@@ -266,7 +260,7 @@ def test_create_setup_platforms_creates_structure_a_when_none_exists(
 
 
 def test_create_setup_platforms_skips_existing_platforms(
-    self, client, admin_user, access_token
+    client, admin_user, access_token
 ):
     """Test create_setup_platforms skips platforms that already exist"""
     platform_slugs = ["n64", "psx", "gba"]
@@ -301,7 +295,7 @@ def test_create_setup_platforms_skips_existing_platforms(
 
 
 def test_create_setup_platforms_handles_permission_errors(
-    self, client, admin_user, access_token
+    client, admin_user, access_token
 ):
     """Test create_setup_platforms handles permission errors"""
     platform_slugs = ["n64"]
