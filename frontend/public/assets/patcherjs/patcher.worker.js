@@ -1,3 +1,5 @@
+/// <reference lib="webworker" />
+
 // Web Worker for ROM patching
 const PATCHER_BASE_PATH = "/assets/patcherjs";
 const CORE_SCRIPTS = [
