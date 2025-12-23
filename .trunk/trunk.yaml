@@ -24,21 +24,21 @@ lint:
   enabled:
     - dotenv-linter@4.0.0
     - hadolint@2.14.0
-    - markdownlint@0.46.0
-    - eslint@9.39.1
+    - markdownlint@0.47.0
+    - eslint@9.39.2
     - actionlint@1.7.9
     - bandit@1.9.2
     - black@25.12.0
     - checkov@3.2.495
     - git-diff-check
     - isort@7.0.0
-    - mypy@1.19.0
-    - osv-scanner@2.3.0
+    - mypy@1.19.1
+    - osv-scanner@2.3.1
     - prettier@3.7.4:
         packages:
           - "@trivago/prettier-plugin-sort-imports@6.0.0"
-          - "@vue/compiler-sfc@3.5.25"
-    - ruff@0.14.8
+          - "@vue/compiler-sfc@3.5.26"
+    - ruff@0.14.10
     - shellcheck@0.11.0
     - shfmt@3.6.0
     - taplo@0.10.0
@@ -48,6 +48,7 @@ lint:
   ignore:
     - linters: [ALL]
       paths:
+        - frontend/assets/patcherjs/**
         - frontend/src/__generated__/**
         - docker/Dockerfile
         - docker/nginx/js/**
