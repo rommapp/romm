@@ -33,7 +33,6 @@ const navigationStore = storeNavigation();
   >
     <div class="d-flex flex-column align-center">
       <v-icon :color="$route.path.startsWith('/patcher') ? 'primary' : ''">
-        <!-- mdi-memory-arrow-down -->
         mdi-file-cog
       </v-icon>
       <v-expand-transition>
