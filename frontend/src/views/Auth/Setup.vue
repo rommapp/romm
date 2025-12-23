@@ -842,7 +842,7 @@ onMounted(() => {
     </RDialog>
   </v-card>
 </template>
-<style lang="css">
+<style lang="css" scoped>
 .v-expansion-panel-text__wrapper {
   padding: 0px !important;
 }
