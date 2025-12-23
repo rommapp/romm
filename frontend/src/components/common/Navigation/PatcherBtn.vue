@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import storeNavigation from "@/stores/navigation";
 
 withDefaults(
@@ -15,7 +16,7 @@ withDefaults(
     withTag: false,
   },
 );
-
+const { t } = useI18n();
 const navigationStore = storeNavigation();
 </script>
 
@@ -41,7 +42,7 @@ const navigationStore = storeNavigation();
           class="text-caption text-center"
           :class="{ 'text-primary': $route.path.startsWith('/patcher') }"
         >
-          Patcher
+          {{ t("common.patcher") }}
         </span>
       </v-expand-transition>
     </div>
