@@ -1,6 +1,6 @@
 {
   "admin-user-step": "Creează un utilizator administrator",
-  "available-platforms": "Platforme disponibile",
+  "supported-platforms": "Platforme disponibile",
   "cancel": "Anulează",
   "check-metadata-step": "Verifică sursele de metadate",
   "confirm-create-platforms": "RomM va crea structura {structure} ({pattern}) cu {count} platformă{plural}. Continuă?",

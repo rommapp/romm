@@ -1,6 +1,6 @@
 {
   "admin-user-step": "Crea un utente amministratore",
-  "available-platforms": "Piattaforme disponibili",
+  "supported-platforms": "Piattaforme disponibili",
   "cancel": "Annulla",
   "check-metadata-step": "Controlla le fonti dei metadati",
   "confirm-create-platforms": "RomM creerà la struttura {structure} ({pattern}) con {count} piattaforma{plural}. Continuare?",

@@ -1,6 +1,6 @@
 {
   "admin-user-step": "Vytvořit administrátorského uživatele",
-  "available-platforms": "Dostupné platformy",
+  "supported-platforms": "Dostupné platformy",
   "cancel": "Zrušit",
   "check-metadata-step": "Zkontrolovat zdroje metadat",
   "confirm-create-platforms": "RomM vytvoří strukturu {structure} ({pattern}) s {count} platforma{plural}. Pokračovat?",
