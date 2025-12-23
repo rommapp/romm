@@ -7,8 +7,16 @@ import storeLanguage from "@/stores/language";
 const { locale } = useI18n();
 const languageStore = storeLanguage();
 const { languages, selectedLanguage } = storeToRefs(languageStore);
-
 const localeStorage = useLocalStorage("settings.locale", "");
+
+withDefaults(
+  defineProps<{
+    density: "comfortable" | "compact" | "default";
+  }>(),
+  {
+    density: "default",
+  },
+);
 
 function changeLanguage() {
   locale.value = selectedLanguage.value.value;
@@ -16,16 +24,15 @@ function changeLanguage() {
 }
 </script>
 <template>
-  <v-autocomplete
+  <v-select
     v-model="selectedLanguage"
     :items="languages"
     variant="outlined"
-    class="ma-2"
+    :density="density"
     item-value="value"
     item-title="name"
     return-object
     hide-details
-    clearable
     @update:model-value="changeLanguage"
   />
 </template>
