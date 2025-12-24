@@ -734,7 +734,7 @@ onMounted(async () => {
             "
           >
             <v-tooltip
-              text="Match ANY of the selected values (OR logic)"
+              :text="t('platform.match-any-logic')"
               location="bottom"
               open-delay="500"
             >
@@ -745,7 +745,7 @@ onMounted(async () => {
               </template>
             </v-tooltip>
             <v-tooltip
-              text="Match ALL of the selected values (AND logic)"
+              :text="t('platform.match-all-logic')"
               location="bottom"
               open-delay="500"
             >

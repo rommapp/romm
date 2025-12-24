@@ -61,24 +61,24 @@ function setState(state: string | null) {
         ><v-icon size="x-large">mdi-cancel</v-icon>
       </v-btn>
       <v-tooltip
-        text="Show verified ROMs only"
+        :text="t('platform.show-verified-only')"
         location="bottom"
         open-delay="500"
       >
         <template #activator="{ props }">
           <v-btn value="verified" size="small" v-bind="props">
-            <v-icon size="x-large">mdi-check</v-icon>
+            <v-icon size="x-large">mdi-check-decagram-outline</v-icon>
           </v-btn>
         </template>
       </v-tooltip>
       <v-tooltip
-        text="Show non-verified ROMs only"
+        :text="t('platform.show-not-verified-only')"
         location="bottom"
         open-delay="500"
       >
         <template #activator="{ props }">
           <v-btn value="not-verified" size="small" v-bind="props">
-            <v-icon size="x-large">mdi-check-decagram-outline</v-icon>
+            <v-icon size="x-large">mdi-close-octagon-outline</v-icon>
           </v-btn>
         </template>
       </v-tooltip>
