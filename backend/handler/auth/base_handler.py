@@ -15,6 +15,7 @@ from config import (
     OIDC_ROLE_ADMIN,
     OIDC_ROLE_EDITOR,
     OIDC_ROLE_VIEWER,
+    OIDC_USERNAME_ATTRIBUTE,
     ROMM_AUTH_SECRET_KEY,
     ROMM_BASE_URL,
 )
@@ -309,7 +310,7 @@ class OpenIDHandler:
                 detail="Email is missing from token.",
             )
 
-        metadata = await oauth.openid.load_server_metadata()
+        metadata = await oauth.openid.load_server_metadata()  # type: ignore
         claims_supported = metadata.get("claims_supported")
         is_email_verified = userinfo.get("email_verified", None)
 
@@ -326,7 +327,13 @@ class OpenIDHandler:
                 detail="Email is not verified.",
             )
 
-        preferred_username = userinfo.get("preferred_username")
+        preferred_username = userinfo.get(OIDC_USERNAME_ATTRIBUTE)
+        if preferred_username is None:
+            log.error(f"'{OIDC_USERNAME_ATTRIBUTE}' attribute is missing from token.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"'{OIDC_USERNAME_ATTRIBUTE}' attribute is missing from token.",
+            )
 
         role = Role.VIEWER
         if OIDC_CLAIM_ROLES and OIDC_CLAIM_ROLES in userinfo:

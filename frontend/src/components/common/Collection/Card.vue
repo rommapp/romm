@@ -24,6 +24,7 @@ const props = withDefaults(
   defineProps<{
     collection: CollectionType;
     coverSrc?: string;
+    width?: string | number;
     transformScale?: boolean;
     showTitle?: boolean;
     titleOnHover?: boolean;
@@ -33,6 +34,7 @@ const props = withDefaults(
   }>(),
   {
     coverSrc: undefined,
+    width: undefined,
     transformScale: false,
     showTitle: true,
     titleOnHover: false,
@@ -204,6 +206,8 @@ onBeforeUnmount(() => {
           emit('hover', { isHovering: false, id: collection.id });
         }
       "
+      :min-width="width"
+      :max-width="width"
     >
       <v-row v-if="showTitle" class="pa-1 justify-center bg-surface">
         <div

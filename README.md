@@ -2,20 +2,16 @@
 <!-- trunk-ignore(markdownlint/MD041) -->
 <div align="center">
   <img src=".github/resources/isotipo.png" height="180px" width="auto" alt="romm logo">
-  <br />
-  <img src=".github/resources/logotipo.png" height="45px" width="auto" alt="romm logotype">
 
   <h3 style="font-size: 25px;">
     A beautiful, powerful, self-hosted ROM manager and player.
   </h3>
-  <br/>
-
-[![license-badge-img]][license-badge]
-[![release-badge-img]][release-badge]
-[![docker-pulls-badge-img]][docker-pulls-badge]
 
 [![discord-badge-img]][discord-badge]
 [![docs-badge-img]][docs]
+[![license-badge-img]][license-badge]
+[![release-badge-img]][release-badge]
+[![docker-pulls-badge-img]][docker-pulls-badge]
 
   </div>
 </div>
@@ -58,8 +54,9 @@ Here are a few projects maintained by members of our community. Please note that
 ### Mobile
 
 - [romm-mobile][romm-mobile]: Android (and soon iOS) app by @mattsays
+- [romm-ios-app][romm-ios-app]: Native iOS app by @ilyas-hallak
 - [romm-android][romm-android]: Android app by @samwelnella
-- [romm-ios-app][romm-ios-app]: Native iOS app for RomM
+- [Argosy][argosy-launcher]: Native client for installing and launching games by @tmgast
 
 ### Desktop
 
@@ -70,8 +67,9 @@ Here are a few projects maintained by members of our community. Please note that
 
 ### Handhelds
 
-- [Mortar][mortar]: Download client for NextUI by @UncleJunVIP
+- [Grout][grout]: Download client for muOS and NextUI by @UncleJunVIP
 - [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by @PeriBluGaming
+- [SwitchRomM][switch-romm]: Homebrew NRO for Switch by @Shalasere
 
 ### Other
 
@@ -86,7 +84,7 @@ Join us on Discord, where you can ask questions, submit ideas, get help, showcas
 
 If you have any issues with RomM, please [open an issue](https://github.com/rommapp/romm/issues/new) in this repository.
 
-## Project Support
+## Financial Support
 
 Consider supporting the development of this project on Open Collective. All funds will be used to cover the costs of hosting, development, and maintenance of RomM.
 
@@ -131,7 +129,7 @@ Here are a few projects that we think you might like:
 [license-badge-img]: https://img.shields.io/github/license/rommapp/romm?style=for-the-badge&color=a32d2a
 [license-badge]: LICENSE
 [release-badge-img]: https://img.shields.io/github/v/release/rommapp/romm?style=for-the-badge
-[release-badge]: https://github.com/rommapp/romm/releases
+[release-badge]: https://github.com/rommapp/romm/releases/latest
 [discord-badge-img]: https://img.shields.io/badge/discord-7289da?style=for-the-badge
 [discord-badge]: https://discord.gg/P5HtHnhUDH
 [docs-badge-img]: https://img.shields.io/badge/docs-736e9b?style=for-the-badge
@@ -154,6 +152,7 @@ Here are a few projects that we think you might like:
 [retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
+[switch-romm]: https://github.com/Shalasere/SwitchRomM
 [romm-browser]: https://github.com/smurflabs/RommBrowser/
 [romm-mobile]: https://github.com/mattsays/romm-mobile
 [playnite-app]: https://github.com/rommapp/playnite-plugin
@@ -163,5 +162,6 @@ Here are a few projects that we think you might like:
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
 [romm-android]: https://github.com/samwelnella/romm-android
-[mortar]: https://github.com/UncleJunVIP/Mortar
+[grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
+[argosy-launcher]: https://github.com/nendotools/argosy-launcher

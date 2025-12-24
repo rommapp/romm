@@ -1,4 +1,5 @@
 import cronstrue from "cronstrue";
+import { formatDistanceToNow } from "date-fns";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
@@ -153,16 +154,39 @@ export function formatBytes(bytes: number, decimals = 2) {
 }
 
 /**
+ * Convert locale format from app format (fr_FR) to browser format (fr-FR).
+ *
+ * @param locale The locale string (e.g., "fr_FR" or "fr-FR").
+ * @returns The browser-compatible locale string (e.g., "fr-FR").
+ */
+export function toBrowserLocale(locale: string): string {
+  return locale.replace("_", "-");
+}
+
+/**
  * Format a timestamp to a human-readable string.
  *
  * @param timestamp The timestamp to format.
+ * @param locale The locale to use for formatting (e.g., "fr_FR" or "fr-FR"). Defaults to "en-US".
  * @returns The formatted timestamp.
  */
-export function formatTimestamp(timestamp: string | null) {
+export function formatTimestamp(
+  timestamp: string | null,
+  locale: string = "en-US",
+) {
   if (!timestamp) return "-";
 
   const date = new Date(timestamp);
-  return date.toLocaleString("en-US");
+  return date.toLocaleString(toBrowserLocale(locale));
+}
+
+/**
+ * Format a date to a relative time string (e.g., "3 days ago").
+ * @param date The date to format.
+ * @returns The relative time string.
+ */
+export function formatRelativeDate(date: string | Date) {
+  return formatDistanceToNow(new Date(date), { addSuffix: true });
 }
 
 /**
@@ -606,20 +630,40 @@ export function isRuffleEmulationSupported(
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
 /**
- * Map of ROM statuses to their corresponding emoji and text.
+ * Map of ROM statuses to their corresponding emoji, text, and i18n key.
  */
 export const romStatusMap: Record<
   PlayingStatus,
-  { emoji: string; text: string }
+  { emoji: string; text: string; i18nKey: string }
 > = {
-  backlogged: { emoji: "🔜", text: "Backlogged" },
-  now_playing: { emoji: "🕹️", text: "Now Playing" },
-  incomplete: { emoji: "🚧", text: "Incomplete" },
-  finished: { emoji: "🏁", text: "Finished" },
-  completed_100: { emoji: "💯", text: "Completed 100%" },
-  retired: { emoji: "🏴", text: "Retired" },
-  never_playing: { emoji: "🚫", text: "Never Playing" },
-  hidden: { emoji: "👻", text: "Hidden" },
+  backlogged: {
+    emoji: "🔜",
+    text: "Backlogged",
+    i18nKey: "rom.status-backlogged",
+  },
+  now_playing: {
+    emoji: "🕹️",
+    text: "Now Playing",
+    i18nKey: "rom.status-now-playing",
+  },
+  incomplete: {
+    emoji: "🚧",
+    text: "Incomplete",
+    i18nKey: "rom.status-incomplete",
+  },
+  finished: { emoji: "🏁", text: "Finished", i18nKey: "rom.status-finished" },
+  completed_100: {
+    emoji: "💯",
+    text: "Completed 100%",
+    i18nKey: "rom.status-completed-100",
+  },
+  retired: { emoji: "🏴", text: "Retired", i18nKey: "rom.status-retired" },
+  never_playing: {
+    emoji: "🚫",
+    text: "Never Playing",
+    i18nKey: "rom.status-never-playing",
+  },
+  hidden: { emoji: "👻", text: "Hidden", i18nKey: "rom.status-hidden" },
 };
 
 /**
@@ -649,12 +693,18 @@ export function getEmojiForStatus(status: PlayingStatus) {
  * @param status The ROM status.
  * @returns The corresponding text.
  */
-export function getTextForStatus(status: PlayingStatus) {
-  if (status) {
-    return romStatusMap[status].text;
-  } else {
-    return null;
-  }
+export function getTextForStatus(status: PlayingStatus): string | null {
+  return romStatusMap[status]?.text ?? null;
+}
+
+/**
+ * Get the i18n key for a given ROM status.
+ *
+ * @param status The ROM status.
+ * @returns The corresponding i18n key (e.g., "rom.status-backlogged").
+ */
+export function getI18nKeyForStatus(status: PlayingStatus): string | null {
+  return romStatusMap[status]?.i18nKey ?? null;
 }
 
 /**

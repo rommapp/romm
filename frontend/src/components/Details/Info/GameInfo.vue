@@ -246,8 +246,10 @@ function onFilterClick(filter: FilterType, value: string) {
         </v-row>
       </template>
       <v-row v-if="rom.is_identified">
-        <v-col class="mt-4 text-right">
-          <div v-if="dataSources.length > 0" class="text-grey">
+        <v-col
+          class="mt-4 text-right text-medium-emphasis text-caption font-italic"
+        >
+          <div v-if="dataSources.length > 0">
             Data provided by
             <template v-for="(source, index) in dataSources" :key="source.name">
               <a
@@ -263,7 +265,7 @@ function onFilterClick(filter: FilterType, value: string) {
               </span> </template
             >.
           </div>
-          <div v-if="rom.url_cover && coverImageSource" class="text-grey mt-1">
+          <div v-if="rom.url_cover && coverImageSource" class="mt-1">
             Cover art provided by
             <a :href="rom.url_cover" target="_blank" style="color: inherit">
               {{ coverImageSource }}</a

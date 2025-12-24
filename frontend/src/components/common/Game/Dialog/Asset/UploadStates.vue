@@ -152,7 +152,7 @@ function closeDialog() {
       </v-row>
     </template>
 
-    <template #append>
+    <template #footer>
       <v-row class="justify-center my-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog"> Cancel </v-btn>

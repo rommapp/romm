@@ -52,7 +52,9 @@ emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
-        msg: `Unable to upload roms: ${response?.data?.detail || response?.statusText || message}`,
+        msg: `Unable to upload roms: ${
+          response?.data?.detail || response?.statusText || message
+        }`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
@@ -136,7 +138,9 @@ async function uploadRoms() {
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
-        msg: `Unable to upload roms: ${response?.data?.detail || response?.statusText || message}`,
+        msg: `Unable to upload roms: ${
+          response?.data?.detail || response?.statusText || message
+        }`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
@@ -364,8 +368,7 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
         />
       </div>
     </template>
-    <template #append>
-      <v-divider />
+    <template #footer>
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
