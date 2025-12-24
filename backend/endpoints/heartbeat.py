@@ -24,6 +24,7 @@ from handler.filesystem import fs_platform_handler
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_gamelist_handler,
+    meta_giantbomb_handler,
     meta_hasheous_handler,
     meta_hltb_handler,
     meta_igdb_handler,
@@ -62,6 +63,7 @@ async def heartbeat() -> HeartbeatResponse:
     playmatch_enabled = meta_playmatch_handler.is_enabled()
     hltb_enabled = meta_hltb_handler.is_enabled()
     tgdb_enabled = meta_tgdb_handler.is_enabled()
+    giantbomb_enabled = meta_giantbomb_handler.is_enabled()
 
     return {
         "SYSTEM": {
@@ -80,6 +82,7 @@ async def heartbeat() -> HeartbeatResponse:
                 or tgdb_enabled
                 or flashpoint_enabled
                 or hltb_enabled
+                or giantbomb_enabled
             ),
             "IGDB_API_ENABLED": igdb_enabled,
             "SS_API_ENABLED": ss_enabled,
@@ -92,6 +95,7 @@ async def heartbeat() -> HeartbeatResponse:
             "TGDB_API_ENABLED": tgdb_enabled,
             "FLASHPOINT_API_ENABLED": flashpoint_enabled,
             "HLTB_API_ENABLED": hltb_enabled,
+            "GIANTBOMB_API_ENABLED": giantbomb_enabled,
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
@@ -153,5 +157,7 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_hltb_handler.heartbeat()
         case MetadataSource.GAMELIST:
             return await meta_gamelist_handler.heartbeat()
+        case MetadataSource.GIANTBOMB:
+            return await meta_giantbomb_handler.heartbeat()
         case _:
             return False
