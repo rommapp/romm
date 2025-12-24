@@ -157,11 +157,18 @@ watch(
     <BackgroundHeader />
 
     <v-row
-      :class="{ 'justify-center px-6': smAndDown, 'd-flex px-16': mdAndUp }"
+      :class="{ 'justify-center px-6': mdAndDown, 'd-flex px-16': lgAndUp }"
       no-gutters
     >
-      <v-col v-if="mdAndUp" style="flex: 0 0 270px; width: 270px">
-        <v-container id="artwork-container" class="pa-0">
+      <v-col
+        :cols="mdAndDown ? 'auto' : undefined"
+        :style="mdAndUp ? 'flex: 0 0 270px; width: 270px' : undefined"
+      >
+        <v-container
+          id="artwork-container"
+          :width="mdAndDown ? 270 : undefined"
+          class="pa-0"
+        >
           <GameCard
             :key="currentRom.updated_at"
             :rom="currentRom"
@@ -169,19 +176,7 @@ watch(
             :show-action-bar="false"
           />
           <ActionBar :rom="currentRom" />
-          <RelatedGames class="mt-4" :rom="currentRom" />
-        </v-container>
-      </v-col>
-
-      <v-col v-else cols="auto">
-        <v-container id="artwork-container" :width="270" class="pa-0">
-          <GameCard
-            :key="currentRom.updated_at"
-            :rom="currentRom"
-            :show-platform-icon="false"
-            :show-action-bar="false"
-          />
-          <ActionBar :rom="currentRom" />
+          <RelatedGames v-if="mdAndUp" class="mt-4" :rom="currentRom" />
         </v-container>
       </v-col>
 
