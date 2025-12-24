@@ -42,6 +42,13 @@ const {
   selectedPlatforms,
   selectedRegions,
   selectedLanguages,
+  genresLogic,
+  franchisesLogic,
+  collectionsLogic,
+  companiesLogic,
+  ageRatingsLogic,
+  regionsLogic,
+  languagesLogic,
 } = storeToRefs(galleryFilterStore);
 
 const emitter = inject<Emitter<Events>>("emitter");
@@ -133,16 +140,31 @@ async function createSmartCollection() {
     if (filterRA.value) filterCriteria.has_ra = true;
     if (filterMissing.value) filterCriteria.missing = true;
     if (filterVerified.value) filterCriteria.verified = true;
-    if (selectedGenres.value && selectedGenres.value.length > 0)
+    if (selectedGenres.value && selectedGenres.value.length > 0) {
       filterCriteria.genres = selectedGenres.value;
-    if (selectedFranchises.value && selectedFranchises.value.length > 0)
+      if (selectedGenres.value.length > 1)
+        filterCriteria.genres_logic = genresLogic.value;
+    }
+    if (selectedFranchises.value && selectedFranchises.value.length > 0) {
       filterCriteria.franchises = selectedFranchises.value;
-    if (selectedCollections.value && selectedCollections.value.length > 0)
+      if (selectedFranchises.value.length > 1)
+        filterCriteria.franchises_logic = franchisesLogic.value;
+    }
+    if (selectedCollections.value && selectedCollections.value.length > 0) {
       filterCriteria.collections = selectedCollections.value;
-    if (selectedCompanies.value && selectedCompanies.value.length > 0)
+      if (selectedCollections.value.length > 1)
+        filterCriteria.collections_logic = collectionsLogic.value;
+    }
+    if (selectedCompanies.value && selectedCompanies.value.length > 0) {
       filterCriteria.companies = selectedCompanies.value;
-    if (selectedAgeRatings.value && selectedAgeRatings.value.length > 0)
+      if (selectedCompanies.value.length > 1)
+        filterCriteria.companies_logic = companiesLogic.value;
+    }
+    if (selectedAgeRatings.value && selectedAgeRatings.value.length > 0) {
       filterCriteria.age_ratings = selectedAgeRatings.value;
+      if (selectedAgeRatings.value.length > 1)
+        filterCriteria.age_ratings_logic = ageRatingsLogic.value;
+    }
     if (selectedStatuses.value && selectedStatuses.value.length > 0) {
       const statusKeys = selectedStatuses.value
         .filter((s): s is string => s !== null)
@@ -152,10 +174,16 @@ async function createSmartCollection() {
         filterCriteria.selected_status = statusKeys;
       }
     }
-    if (selectedRegions.value && selectedRegions.value.length > 0)
+    if (selectedRegions.value && selectedRegions.value.length > 0) {
       filterCriteria.regions = selectedRegions.value;
-    if (selectedLanguages.value && selectedLanguages.value.length > 0)
+      if (selectedRegions.value.length > 1)
+        filterCriteria.regions_logic = regionsLogic.value;
+    }
+    if (selectedLanguages.value && selectedLanguages.value.length > 0) {
       filterCriteria.languages = selectedLanguages.value;
+      if (selectedLanguages.value.length > 1)
+        filterCriteria.languages_logic = languagesLogic.value;
+    }
 
     const { data } = await collectionApi.createSmartCollection({
       smartCollection: {

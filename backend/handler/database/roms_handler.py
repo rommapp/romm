@@ -735,6 +735,14 @@ class DBRomsHandler(DBBaseHandler):
             selected_status=kwargs.get("selected_status", None),
             regions=kwargs.get("regions", None),
             languages=kwargs.get("languages", None),
+            # Logic operators for multi-value filters
+            genres_logic=kwargs.get("genres_logic", "any"),
+            franchises_logic=kwargs.get("franchises_logic", "any"),
+            collections_logic=kwargs.get("collections_logic", "any"),
+            companies_logic=kwargs.get("companies_logic", "any"),
+            age_ratings_logic=kwargs.get("age_ratings_logic", "any"),
+            regions_logic=kwargs.get("regions_logic", "any"),
+            languages_logic=kwargs.get("languages_logic", "any"),
             user_id=kwargs.get("user_id", None),
         )
         return session.scalars(roms).all()
