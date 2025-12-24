@@ -15,6 +15,10 @@ body {
   background: rgba(0, 0, 0, 0.5) !important;
   font-weight: 500 !important;
 }
+.translucent-light {
+  background: rgba(0, 0, 0, 0.2) !important;
+  font-weight: 500 !important;
+}
 .tooltip :deep(.v-overlay__content) {
   background: rgba(255, 255, 255, 1) !important;
   color: rgb(41, 41, 41) !important;
