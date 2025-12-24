@@ -2,50 +2,79 @@
 # Rename this file to `config.yml`, copy it to a `config` folder, and mount that folder as per the docker-compose.example.yml
 # Only uncomment the lines you want to use/modify, or add new ones where needed
 
-exclude:
-  # Exclude platforms to be scanned
-  platforms: [] # ['my_excluded_platform_1', 'my_excluded_platform_2']
+# exclude:
+#   # Exclude platforms to be scanned
+#   platforms:
+#     - excluded_folder_a
+#     - excluded_folder_b
 
-  # Exclude roms or parts of roms to be scanned
-  roms:
-    # Single file games section.
-    # Will not apply to files that are in sub-folders (multi-disc roms, games with updates, DLC, patches, etc.)
-    single_file:
-      # Exclude all files with certain extensions to be scanned
-      extensions: [] # ['xml', 'txt']
+#   # Exclude roms or parts of roms to be scanned
+#   roms:
+#     # Single file games section.
+#     # Will not apply to files that are in sub-folders (multi-disc roms, games with updates, DLC, patches, etc.)
+#     single_file:
+#       # Exclude all files with certain extensions to be scanned
+#       extensions:
+#         - xml
+#         - txt
 
-      # Exclude matched file names to be scanned.
-      # Supports unix filename pattern matching
-      # Can also exclude files by extension
-      names: [] # ['info.txt', '._*', '*.nfo']
+#       # Exclude matched file names to be scanned
+#       # Supports unix filename pattern matching
+#       names:
+#         - 'info.txt'
+#         - '._*'
+#         - '*.nfo'
 
-    # Multi files games section
-    # Will apply to files that are in sub-folders (multi-disc roms, games with updates, DLC, patches, etc.)
-    multi_file:
-      # Exclude matched 'folder' names to be scanned (RomM identifies folders as multi file games)
-      names: [] # ['my_multi_file_game', 'DLC']
+#     # Multi files games section
+#     # Will apply to files that are in sub-folders (multi-disc roms, games with updates, DLC, patches, etc.)
+#     multi_file:
+#       # Exclude matched 'folder' names to be scanned (RomM identifies folders as multi file games)
+#       # Common ES-DE media folders are listed below
+#       names:
+#         - 3dboxes
+#         - backcovers
+#         - covers
+#         - fanart
+#         - manuals
+#         - marquees
+#         - miximages
+#         - physicalmedia
+#         - screenshots
+#         - titlescreens
+#         - videos
+#         - downloaded_media
+#         - media
 
-      # Exclude files within sub-folders.
-      parts:
-        # Exclude matched file names to be scanned from multi file roms
-        # Keep in mind that RomM doesn't scan folders inside multi files games,
-        # so there is no need to exclude folders from inside of multi files games.
-        names: [] # ['data.xml', '._*'] # Supports unix filename pattern matching
+#       # Exclude files within sub-folders.
+#       parts:
+#         # Exclude matched file names to be scanned from multi file roms
+#         # Keep in mind that RomM doesn't scan folders inside multi files games,
+#         # so there is no need to exclude folders from inside of multi files games.
+#         names:
+#           - 'data.xml'
+#           - '._*' # Supports unix filename pattern matching
 
-        # Exclude all files with certain extensions to be scanned from multi file roms
-        extensions: [] # ['xml', 'txt']
+#         # Exclude all files with certain extensions to be scanned from multi file roms
+#         extensions:
+#           - xml
+#           - txt
 
-system:
-  # Asociate different platform names to your current file system platform names
-  # [your custom platform folder name]: [RomM platform name]
-  # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder and if you have a 'psx' folder, RomM will treat it like the 'ps' folder
-  platforms: {} # { gc: 'ngc', psx: 'ps' }
+# system:
+#   # Asociate different platform names to your current file system platform names
+#   # [your custom platform folder name]: [RomM platform name]
+#   # In this example if you have a 'gc' folder, RomM will treat it like the 'ngc' folder
+#   platforms:
+#     gc: ngc
+#     ps1: psx
 
-  # Asociate one platform to it's main version
-  versions: {} # { naomi: 'arcade' }
+#   # Asociate one platform to it's main version (IGDB only)
+#   versions:
+#     naomi: arcade
 
 # The folder name where your roms are located
-filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is /home/user/library/roms_folder
+# filesystem:
+#   roms_folder: 'roms' # For example if your folder structure is /home/user/library/roms_folder
+#   skip_hash_calculation: false # Skip file hash calculations on low power devices (eg. Raspberry PI)
 
 # scan:
 #   # Metadata priority during scans
@@ -108,6 +137,8 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 # emulatorjs:
 #   debug: true # Available options will be logged to the browser console
 #   cache_limit: null # Cache limit per ROM (in bytes)
+#   disable_batch_bootup: false
+#   disable_auto_unload: false
 #   settings:
 #     parallel_n64: # Use the exact core name
 #       vsync: disabled
@@ -115,6 +146,13 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 #       snes9x_region: ntsc
 #     default: # These settings apply to all cores
 #       fps: show
+# netplay:
+#   enabled: true
+#   ice_servers:
+#     - urls: "stun:stun.relay.metered.ca:80"
+#     - urls: "turn:global.relay.metered.ca:80"
+#       username: "<username>"
+#       credential: "<password>"
 #   controls: # https://emulatorjs.org/docs4devs/control-mapping/
 #     snes9x:
 #       0: # Player 1

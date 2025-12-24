@@ -11,7 +11,11 @@ from .base_handler import DBBaseHandler
 
 class DBFirmwareHandler(DBBaseHandler):
     @begin_session
-    def add_firmware(self, firmware: Firmware, session: Session = None) -> Firmware:
+    def add_firmware(
+        self,
+        firmware: Firmware,
+        session: Session = None,  # type: ignore
+    ) -> Firmware:
         return session.merge(firmware)
 
     @begin_session
@@ -19,7 +23,7 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         id: int,
         *,
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> Firmware | None:
         return session.scalar(select(Firmware).filter_by(id=id).limit(1))
 
@@ -28,7 +32,7 @@ class DBFirmwareHandler(DBBaseHandler):
         self,
         *,
         platform_id: int | None = None,
-        session: Session = None,
+        session: Session = None,  # type: ignore
     ) -> Sequence[Firmware]:
         query = select(Firmware).order_by(Firmware.file_name.asc())
 
@@ -39,7 +43,10 @@ class DBFirmwareHandler(DBBaseHandler):
 
     @begin_session
     def get_firmware_by_filename(
-        self, platform_id: int, file_name: str, session: Session = None
+        self,
+        platform_id: int,
+        file_name: str,
+        session: Session = None,  # type: ignore
     ):
         return session.scalar(
             select(Firmware)
@@ -48,7 +55,12 @@ class DBFirmwareHandler(DBBaseHandler):
         )
 
     @begin_session
-    def update_firmware(self, id: int, data: dict, session: Session = None) -> Firmware:
+    def update_firmware(
+        self,
+        id: int,
+        data: dict,
+        session: Session = None,  # type: ignore
+    ) -> Firmware:
         session.execute(
             update(Firmware)
             .where(Firmware.id == id)
@@ -58,7 +70,11 @@ class DBFirmwareHandler(DBBaseHandler):
         return session.query(Firmware).filter_by(id=id).one()
 
     @begin_session
-    def delete_firmware(self, id: int, session: Session = None) -> None:
+    def delete_firmware(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
         session.execute(
             delete(Firmware)
             .where(Firmware.id == id)
@@ -67,7 +83,10 @@ class DBFirmwareHandler(DBBaseHandler):
 
     @begin_session
     def mark_missing_firmware(
-        self, platform_id: int, fs_firmwares_to_keep: list[str], session: Session = None
+        self,
+        platform_id: int,
+        fs_firmwares_to_keep: list[str],
+        session: Session = None,  # type: ignore
     ) -> Sequence[Firmware]:
         missing_firmware = (
             session.scalars(

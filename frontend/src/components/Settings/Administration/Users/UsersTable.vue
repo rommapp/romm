@@ -13,7 +13,7 @@ import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath, formatTimestamp, getRoleIcon } from "@/utils";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const userSearch = ref("");
 const emitter = inject<Emitter<Events>>("emitter");
 const usersStore = storeUsers();
@@ -156,7 +156,7 @@ onMounted(() => {
           </v-list-item>
         </template>
         <template #item.last_active="{ item }">
-          {{ formatTimestamp(item.last_active) }}
+          {{ formatTimestamp(item.last_active, locale) }}
         </template>
         <template #item.enabled="{ item }">
           <v-switch

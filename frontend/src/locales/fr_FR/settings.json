@@ -81,7 +81,7 @@
   "show-stats": "Afficher les statistiques",
   "show-stats-desc": "Afficher le résumé des statistiques sur la page d'accueil",
   "show-status": "Afficher le statut",
-  "show-status-desc": "Afficher les icônes de statut dans la galerie (en attente, en cours de lecture, terminé, etc.)",
+  "show-status-desc": "Afficher les icônes de statut dans la galerie (en attente, en train de jouer, terminé, etc.)",
   "show-virtual-collections": "Afficher les collections générées automatiquement",
   "show-virtual-collections-desc": "Affiché sur la page d'accueil et dans la barre latérale des collections.",
   "stopped": "Arrêté",

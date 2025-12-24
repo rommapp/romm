@@ -546,69 +546,97 @@ async def download_roms(
     router.get,
     "/by-metadata-provider",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={status.HTTP_404_NOT_FOUND: {}, status.HTTP_400_BAD_REQUEST: {}},
 )
-def get_rom_by_metadata(
+def get_rom_by_metadata_provider(
     request: Request,
-    igdb: Annotated[int | None, Query(description="IGDB ID to search by")] = None,
-    moby: Annotated[int | None, Query(description="MobyGames ID to search by")] = None,
-    ss: Annotated[
+    igdb_id: Annotated[int | None, Query(description="IGDB ID to search by")] = None,
+    moby_id: Annotated[
+        int | None, Query(description="MobyGames ID to search by")
+    ] = None,
+    ss_id: Annotated[
         int | None, Query(description="ScreenScraper ID to search by")
     ] = None,
-    ra: Annotated[
+    ra_id: Annotated[
         int | None, Query(description="RetroAchievements ID to search by")
     ] = None,
-    launchbox: Annotated[
+    launchbox_id: Annotated[
         int | None, Query(description="LaunchBox ID to search by")
     ] = None,
-    hasheous: Annotated[
+    hasheous_id: Annotated[
         int | None, Query(description="Hasheous ID to search by")
     ] = None,
-    tgdb: Annotated[int | None, Query(description="TGDB ID to search by")] = None,
-    flashpoint: Annotated[
+    tgdb_id: Annotated[int | None, Query(description="TGDB ID to search by")] = None,
+    flashpoint_id: Annotated[
         str | None, Query(description="Flashpoint ID to search by")
     ] = None,
-    hltb: Annotated[int | None, Query(description="HLTB ID to search by")] = None,
+    hltb_id: Annotated[int | None, Query(description="HLTB ID to search by")] = None,
 ) -> DetailedRomSchema:
     """Retrieve a rom by metadata ID."""
 
+    if (
+        not igdb_id
+        and not moby_id
+        and not ss_id
+        and not ra_id
+        and not launchbox_id
+        and not hasheous_id
+        and not tgdb_id
+        and not flashpoint_id
+        and not hltb_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one metadata ID must be provided",
+        )
+
     rom = db_rom_handler.get_rom_by_metadata_id(
-        igdb=igdb,
-        moby=moby,
-        ss=ss,
-        ra=ra,
-        launchbox=launchbox,
-        hasheous=hasheous,
-        tgdb=tgdb,
-        flashpoint=flashpoint,
-        hltb=hltb,
+        igdb_id=igdb_id,
+        moby_id=moby_id,
+        ss_id=ss_id,
+        ra_id=ra_id,
+        launchbox_id=launchbox_id,
+        hasheous_id=hasheous_id,
+        tgdb_id=tgdb_id,
+        flashpoint_id=flashpoint_id,
+        hltb_id=hltb_id,
     )
 
     if not rom:
-        provided_ids = {
-            "igdb_id": igdb,
-            "moby_id": moby,
-            "ss_id": ss,
-            "ra_id": ra,
-            "launchbox_id": launchbox,
-            "hasheous_id": hasheous,
-            "tgdb_id": tgdb,
-            "flashpoint_id": flashpoint,
-            "hltb_id": hltb,
-        }
-        metadata_info = [
-            f"{key}={value}" for key, value in provided_ids.items() if value is not None
-        ]
-
-        if not metadata_info:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="At least one metadata ID must be provided",
-            )
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ROM not found with metadata: {', '.join(metadata_info)}",
+            detail="ROM not found with given metadata IDs",
+        )
+
+    return DetailedRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(
+    router.get,
+    "/by-hash",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}, status.HTTP_400_BAD_REQUEST: {}},
+)
+def get_rom_by_hash(
+    request: Request,
+    crc_hash: Annotated[str | None, Query(description="CRC hash value")] = None,
+    md5_hash: Annotated[str | None, Query(description="MD5 hash value")] = None,
+    sha1_hash: Annotated[str | None, Query(description="SHA1 hash value")] = None,
+) -> DetailedRomSchema:
+    if not crc_hash and not md5_hash and not sha1_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one metadata hash value must be provided",
+        )
+
+    rom = db_rom_handler.get_rom_by_hash(
+        crc_hash=crc_hash, md5_hash=md5_hash, sha1_hash=sha1_hash
+    )
+
+    if not rom:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No ROM or file found with given hash values",
         )
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
@@ -658,7 +686,7 @@ async def head_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    files = list(db_rom_handler.get_rom_files(rom.id))
+    files = rom.files
     if file_ids:
         file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
         files = [f for f in files if f.id in file_id_values]
@@ -735,7 +763,7 @@ async def get_rom_content(
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
     hidden_folder = safe_str_to_bool(request.query_params.get("hidden_folder", ""))
 
-    files = list(db_rom_handler.get_rom_files(rom.id))
+    files = rom.files
     if file_ids:
         file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
         files = [f for f in files if f.id in file_id_values]
@@ -1133,7 +1161,16 @@ async def update_rom(
     # Handle special media files from Screenscraper when the ID has changed
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
         preferred_media_types = get_preferred_media_types()
+
         for media_type in preferred_media_types:
+            # Remove old media files if the ss_id is changing
+            if rom.ss_metadata and rom.ss_metadata.get(f"{media_type.value}_path"):
+                await fs_resource_handler.remove_media_resources_path(
+                    rom.platform_id,
+                    rom.id,
+                    media_type,
+                )
+
             if cleaned_data.get("ss_metadata", {}).get(f"{media_type.value}_path"):
                 await fs_resource_handler.store_media_file(
                     cleaned_data["ss_metadata"][f"{media_type.value}_url"],

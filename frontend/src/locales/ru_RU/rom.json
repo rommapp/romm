@@ -91,5 +91,15 @@
   "unmatch": "Отменить совпадение",
   "unmatch-success": "Связь с ROM успешно отменена",
   "unselect-all": "Отменить выбор всех",
-  "update-success": "ROM успешно обновлён!"
+  "update-success": "ROM успешно обновлён!",
+  "save-data": "Сохранения",
+  "status-backlogged": "Отложено",
+  "status-now-playing": "Сейчас играю",
+  "status-incomplete": "Не завершено",
+  "status-finished": "Пройдено",
+  "status-completed-100": "Пройдено на 100%",
+  "status-retired": "Заброшено",
+  "status-never-playing": "Никогда не играть",
+  "status-hidden": "Скрыто",
+  "updated": "Обновлено"
 }

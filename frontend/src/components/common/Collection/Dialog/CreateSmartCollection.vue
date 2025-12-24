@@ -237,7 +237,9 @@ async function createSmartCollection() {
                 <v-icon class="mr-2">
                   {{ isPublic ? "mdi-lock-open-variant" : "mdi-lock" }}
                 </v-icon>
-                {{ isPublic ? t("rom.public") : t("rom.private") }}
+                {{
+                  isPublic ? t("collection.public") : t("collection.private")
+                }}
               </v-btn>
             </v-col>
           </v-row>

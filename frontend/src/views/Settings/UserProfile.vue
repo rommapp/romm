@@ -153,8 +153,6 @@ onUnmounted(() => {
           class="ma-4"
           variant="outlined"
           :label="t('settings.password')"
-          :rules="usersStore.passwordRules"
-          required
           clearable
         />
         <v-text-field

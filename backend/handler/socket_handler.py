@@ -5,7 +5,7 @@ from utils import json_module
 
 
 class SocketHandler:
-    def __init__(self) -> None:
+    def __init__(self, path: str) -> None:
         self.socket_server = socketio.AsyncServer(
             cors_allowed_origins="*",
             async_mode="asgi",
@@ -19,9 +19,8 @@ class SocketHandler:
             cors_credentials=True,
         )
 
-        self.socket_app = socketio.ASGIApp(
-            self.socket_server, socketio_path="/ws/socket.io"
-        )
+        self.socket_app = socketio.ASGIApp(self.socket_server, socketio_path=path)
 
 
-socket_handler = SocketHandler()
+socket_handler = SocketHandler(path="/ws/socket.io")
+netplay_socket_handler = SocketHandler(path="/netplay/socket.io")

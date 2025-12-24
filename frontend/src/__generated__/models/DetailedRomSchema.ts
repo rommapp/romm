@@ -74,10 +74,6 @@ export type DetailedRomSchema = {
     crc_hash: (string | null);
     md5_hash: (string | null);
     sha1_hash: (string | null);
-    /**
-     * @deprecated
-     */
-    multi: boolean;
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;
@@ -88,8 +84,8 @@ export type DetailedRomSchema = {
     missing_from_fs: boolean;
     siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
-    merged_ra_metadata: (RomRAMetadata | null);
     merged_screenshots: Array<string>;
+    merged_ra_metadata: (RomRAMetadata | null);
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;
     user_screenshots: Array<ScreenshotSchema>;

@@ -157,12 +157,18 @@ watch(
     <BackgroundHeader />
 
     <v-row
-      class="px-6 mb-6"
+      :class="{ 'justify-center px-6': mdAndDown, 'd-flex px-16': lgAndUp }"
       no-gutters
-      :class="{ 'justify-center': smAndDown }"
     >
-      <v-col cols="auto">
-        <v-container id="artwork-container" :width="270" class="pa-0">
+      <v-col
+        :cols="mdAndDown ? 'auto' : undefined"
+        :style="mdAndUp ? 'flex: 0 0 270px; width: 270px' : undefined"
+      >
+        <v-container
+          id="artwork-container"
+          :width="mdAndDown ? 270 : undefined"
+          class="pa-0"
+        >
           <GameCard
             :key="currentRom.updated_at"
             :rom="currentRom"
@@ -174,17 +180,7 @@ watch(
         </v-container>
       </v-col>
 
-      <v-col
-        :md="
-          !(
-            lgAndUp &&
-            (currentRom.igdb_metadata?.expansions?.length ||
-              currentRom.igdb_metadata?.dlcs?.length)
-          )
-            ? 8
-            : 7
-        "
-      >
+      <v-col class="flex-grow-1">
         <div :class="{ 'position-absolute title-desktop pl-4': mdAndUp }">
           <TitleInfo :rom="currentRom" />
         </div>
@@ -204,7 +200,7 @@ watch(
             <v-tab v-if="currentRom.has_manual" value="manual">
               {{ t("rom.manual") }}
             </v-tab>
-            <v-tab value="gamedata"> Game data </v-tab>
+            <v-tab value="gamedata">{{ t("rom.save-data") }}</v-tab>
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
@@ -287,9 +283,9 @@ watch(
           (currentRom.igdb_metadata?.expansions?.length ||
             currentRom.igdb_metadata?.dlcs?.length)
         "
-        cols="auto"
+        style="flex: 0 0 270px; width: 270px"
       >
-        <v-container width="270px" class="pa-0">
+        <v-container class="pa-0">
           <AdditionalContent class="mt-2" :rom="currentRom" />
         </v-container>
       </v-col>

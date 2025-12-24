@@ -30,7 +30,7 @@ const linkTarget = computed(() => {
 
 onMounted(async () => {
   await romApi
-    .getRomByMetadataProvider({ provider: "igdb", id: props.game.id })
+    .getRomByMetadataProvider({ field: "igdb_id", id: props.game.id })
     .then((response) => {
       console.log("Fetched ROM by metadata provider:", response.data);
       romId.value = response.data.id;

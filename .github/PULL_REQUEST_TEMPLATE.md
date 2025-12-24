@@ -2,7 +2,7 @@
 <!-- trunk-ignore-all(markdownlint/MD033) -->
 
 **Description**
-Explain the changes or enhancements you are proposing with this pull request.
+<sup>Explain the changes or enhancements you are proposing with this pull request.</sup>
 
 **Checklist**
 <sup>Please check all that apply.</sup>

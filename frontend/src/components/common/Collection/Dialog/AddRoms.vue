@@ -126,10 +126,10 @@ function closeDialog() {
         </template>
       </v-data-table-virtual>
     </template>
-    <template #append>
+    <template #footer>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn

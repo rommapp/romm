@@ -91,5 +91,15 @@
   "unmatch": "Dissociază ROM-ul",
   "unmatch-success": "ROM-ul a fost disociat cu succes",
   "unselect-all": "Deselectează toate",
-  "update-success": "ROM-ul a fost actualizat cu succes!"
+  "update-success": "ROM-ul a fost actualizat cu succes!",
+  "save-data": "Date salvate",
+  "status-backlogged": "În așteptare",
+  "status-now-playing": "Joc acum",
+  "status-incomplete": "Incomplet",
+  "status-finished": "Terminat",
+  "status-completed-100": "Completat 100%",
+  "status-retired": "Abandonat",
+  "status-never-playing": "Nu voi juca niciodată",
+  "status-hidden": "Ascuns",
+  "updated": "Actualizat"
 }

@@ -91,5 +91,15 @@
   "unmatch": "Rimuovi associazione rom",
   "unmatch-success": "Associazione ROM rimossa con successo",
   "unselect-all": "Deseleziona tutto",
-  "update-success": "ROM aggiornata con successo!"
+  "update-success": "ROM aggiornata con successo!",
+  "save-data": "Dati di salvataggio",
+  "status-backlogged": "In attesa",
+  "status-now-playing": "In gioco",
+  "status-incomplete": "Incompleto",
+  "status-finished": "Finito",
+  "status-completed-100": "Completato 100%",
+  "status-retired": "Abbandonato",
+  "status-never-playing": "Mai giocare",
+  "status-hidden": "Nascosto",
+  "updated": "Aggiornato"
 }
