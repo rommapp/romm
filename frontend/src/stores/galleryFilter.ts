@@ -353,30 +353,30 @@ export default defineStore("galleryFilter", {
     isFiltered() {
       return Boolean(
         this.filterMatched !== null ||
-          this.filterFavorites !== null ||
-          this.filterDuplicates !== null ||
-          this.filterPlayables !== null ||
-          this.filterRA !== null ||
-          this.filterMissing !== null ||
-          this.filterVerified !== null ||
-          this.selectedPlatform ||
-          this.selectedPlatforms.length > 0 ||
-          this.selectedGenre ||
-          this.selectedGenres.length > 0 ||
-          this.selectedFranchise ||
-          this.selectedFranchises.length > 0 ||
-          this.selectedCollection ||
-          this.selectedCollections.length > 0 ||
-          this.selectedCompany ||
-          this.selectedCompanies.length > 0 ||
-          this.selectedAgeRating ||
-          this.selectedAgeRatings.length > 0 ||
-          this.selectedRegion ||
-          this.selectedRegions.length > 0 ||
-          this.selectedLanguage ||
-          this.selectedLanguages.length > 0 ||
-          this.selectedStatus ||
-          this.selectedStatuses.length > 0,
+        this.filterFavorites !== null ||
+        this.filterDuplicates !== null ||
+        this.filterPlayables !== null ||
+        this.filterRA !== null ||
+        this.filterMissing !== null ||
+        this.filterVerified !== null ||
+        this.selectedPlatform ||
+        this.selectedPlatforms.length > 0 ||
+        this.selectedGenre ||
+        this.selectedGenres.length > 0 ||
+        this.selectedFranchise ||
+        this.selectedFranchises.length > 0 ||
+        this.selectedCollection ||
+        this.selectedCollections.length > 0 ||
+        this.selectedCompany ||
+        this.selectedCompanies.length > 0 ||
+        this.selectedAgeRating ||
+        this.selectedAgeRatings.length > 0 ||
+        this.selectedRegion ||
+        this.selectedRegions.length > 0 ||
+        this.selectedLanguage ||
+        this.selectedLanguages.length > 0 ||
+        this.selectedStatus ||
+        this.selectedStatuses.length > 0,
       );
     },
     reset() {
