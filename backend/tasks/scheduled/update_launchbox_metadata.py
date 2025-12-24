@@ -126,7 +126,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             await pipe.hset(
                                                 LAUNCHBOX_METADATA_NAME_KEY,
                                                 mapping={
-                                                    f"{name_elem.text}:{platform_elem.text}": json.dumps(
+                                                    f"{name_elem.text.lower()}:{platform_elem.text}": json.dumps(
                                                         {
                                                             child.tag: child.text
                                                             for child in elem
@@ -145,7 +145,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             await pipe.hset(
                                                 LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
                                                 mapping={
-                                                    alternate_name_elem.text: json.dumps(
+                                                    alternate_name_elem.text.lower(): json.dumps(
                                                         {
                                                             child.tag: child.text
                                                             for child in elem

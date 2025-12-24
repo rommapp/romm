@@ -1116,4 +1116,4 @@ class DBRomsHandler(DBBaseHandler):
             return None
 
         # Return the first ROM matching any of the provided hash values
-        return session.scalar(query.filter(or_(*filters)).limit(1))
+        return session.scalar(query.outerjoin(Rom.files).filter(or_(*filters)).limit(1))

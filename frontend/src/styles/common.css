@@ -1,7 +1,6 @@
 html,
 body {
   background-color: rgba(var(--v-theme-background)) !important;
-  overflow-y: auto;
   margin: 0 !important;
 }
 .main-layout {
@@ -14,6 +13,10 @@ body {
 }
 .translucent {
   background: rgba(0, 0, 0, 0.5) !important;
+  font-weight: 500 !important;
+}
+.translucent-light {
+  background: rgba(0, 0, 0, 0.2) !important;
   font-weight: 500 !important;
 }
 .transparent {
@@ -51,14 +54,14 @@ body {
 }
 .transform-scale:hover,
 .transform-scale:focus {
-  transform: scale(1.05) !important;
+  transform: scale(1.07) !important;
 }
 .pointer {
   cursor: pointer !important;
 }
 .border-selected {
   border: 1px solid rgba(var(--v-theme-primary)) !important;
-  transform: scale(1.1);
+  transform: scale(1.04);
 }
 .greyscale {
   filter: grayscale(100%);

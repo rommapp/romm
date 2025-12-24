@@ -81,6 +81,7 @@ export type Events = {
   selectSaveDialog: DetailedRom;
   selectStateDialog: DetailedRom;
   saveSelected: SaveSchema;
+  openEmulatorJSCacheDialog: null;
   stateSelected: StateSchema;
   showAboutDialog: null;
   showNoteDialog: SimpleRom;
