@@ -160,7 +160,7 @@ watch(
       :class="{ 'justify-center px-6': smAndDown, 'd-flex px-16': mdAndUp }"
       no-gutters
     >
-      <v-col v-if="mdAndUp" style="flex: 0 0 270px; width: 270px; width: 270px">
+      <v-col v-if="mdAndUp" style="flex: 0 0 270px; width: 270px">
         <v-container id="artwork-container" class="pa-0">
           <GameCard
             :key="currentRom.updated_at"
