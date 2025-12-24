@@ -277,15 +277,14 @@ watch(
         </v-row>
       </v-col>
 
-      <v-col
-        v-if="
-          lgAndUp &&
-          (currentRom.igdb_metadata?.expansions?.length ||
-            currentRom.igdb_metadata?.dlcs?.length)
-        "
-        style="flex: 0 0 270px; width: 270px"
-      >
-        <v-container class="pa-0">
+      <v-col v-if="lgAndUp" style="flex: 0 0 270px; width: 270px">
+        <v-container
+          v-if="
+            currentRom.igdb_metadata?.expansions?.length ||
+            currentRom.igdb_metadata?.dlcs?.length
+          "
+          class="pa-0"
+        >
           <AdditionalContent class="mt-2" :rom="currentRom" />
         </v-container>
       </v-col>

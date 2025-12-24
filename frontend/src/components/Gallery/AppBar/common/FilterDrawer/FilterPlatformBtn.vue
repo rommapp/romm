@@ -57,7 +57,7 @@ const emitter = inject<Emitter<Events>>("emitter");
           <template #append>
             <MissingFromFSIcon
               v-if="item.raw.missing_from_fs"
-              text="Missing platform from filesystem"
+              :text="t('platform.missing-from-filesystem')"
               chip
               chip-label
               chip-density="compact"

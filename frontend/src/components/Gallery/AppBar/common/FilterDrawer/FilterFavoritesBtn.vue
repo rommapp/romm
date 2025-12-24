@@ -61,7 +61,7 @@ function setState(state: string | null) {
         ><v-icon size="x-large">mdi-cancel</v-icon>
       </v-btn>
       <v-tooltip
-        text="Show favorite ROMs only"
+        :text="t('platform.show-favorites-only')"
         location="bottom"
         open-delay="500"
       >
@@ -72,7 +72,7 @@ function setState(state: string | null) {
         </template>
       </v-tooltip>
       <v-tooltip
-        text="Show non-favorite ROMs only"
+        :text="t('platform.show-not-favorites-only')"
         location="bottom"
         open-delay="500"
       >
