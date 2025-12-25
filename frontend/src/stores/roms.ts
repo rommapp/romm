@@ -153,6 +153,7 @@ export default defineStore("roms", {
         ageRatingsLogic: galleryFilter.ageRatingsLogic,
         regionsLogic: galleryFilter.regionsLogic,
         languagesLogic: galleryFilter.languagesLogic,
+        statusesLogic: galleryFilter.statusesLogic,
       };
       return params;
     },

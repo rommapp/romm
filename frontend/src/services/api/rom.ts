@@ -10,8 +10,7 @@ import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom, SimpleRom, SearchRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
-import { getDownloadPath, getStatusKeyForText } from "@/utils";
-import { getFilterArray } from "@/utils/apiHelpers";
+import { getDownloadPath } from "@/utils";
 
 export const romApi = api;
 
@@ -79,15 +78,6 @@ export interface GetRomsParams {
   filterMissing?: boolean | null;
   filterVerified?: boolean | null;
   groupByMetaId?: boolean;
-  // Single value filters (for backward compatibility)
-  selectedGenre?: string | null;
-  selectedFranchise?: string | null;
-  selectedCollection?: string | null;
-  selectedCompany?: string | null;
-  selectedAgeRating?: string | null;
-  selectedStatus?: string | null;
-  selectedRegion?: string | null;
-  selectedLanguage?: string | null;
   // Multi-value filters
   selectedGenres?: string[] | null;
   selectedFranchises?: string[] | null;
@@ -105,6 +95,7 @@ export interface GetRomsParams {
   ageRatingsLogic?: string | null;
   regionsLogic?: string | null;
   languagesLogic?: string | null;
+  statusesLogic?: string | null;
 }
 
 async function getRoms({
@@ -125,14 +116,6 @@ async function getRoms({
   filterMissing = false,
   filterVerified = false,
   groupByMetaId = false,
-  selectedGenre = null,
-  selectedFranchise = null,
-  selectedCollection = null,
-  selectedCompany = null,
-  selectedAgeRating = null,
-  selectedStatus = null,
-  selectedRegion = null,
-  selectedLanguage = null,
   selectedGenres = null,
   selectedFranchises = null,
   selectedCollections = null,
@@ -140,6 +123,7 @@ async function getRoms({
   selectedAgeRatings = null,
   selectedRegions = null,
   selectedLanguages = null,
+  selectedStatuses = null,
   // Logic operators
   genresLogic = null,
   franchisesLogic = null,
@@ -148,6 +132,7 @@ async function getRoms({
   ageRatingsLogic = null,
   regionsLogic = null,
   languagesLogic = null,
+  statusesLogic = null,
 }: GetRomsParams): Promise<{ data: GetRomsResponse }> {
   const params = {
     platform_ids:
@@ -161,14 +146,36 @@ async function getRoms({
     order_by: orderBy,
     order_dir: orderDir,
     group_by_meta_id: groupByMetaId,
-    genre: getFilterArray(selectedGenre, selectedGenres),
-    franchise: getFilterArray(selectedFranchise, selectedFranchises),
-    collection: getFilterArray(selectedCollection, selectedCollections),
-    company: getFilterArray(selectedCompany, selectedCompanies),
-    age_rating: getFilterArray(selectedAgeRating, selectedAgeRatings),
-    selected_status: getStatusKeyForText(selectedStatus),
-    region: getFilterArray(selectedRegion, selectedRegions),
-    language: getFilterArray(selectedLanguage, selectedLanguages),
+    genres:
+      selectedGenres && selectedGenres.length > 0 ? selectedGenres : undefined,
+    franchises:
+      selectedFranchises && selectedFranchises.length > 0
+        ? selectedFranchises
+        : undefined,
+    collections:
+      selectedCollections && selectedCollections.length > 0
+        ? selectedCollections
+        : undefined,
+    companies:
+      selectedCompanies && selectedCompanies.length > 0
+        ? selectedCompanies
+        : undefined,
+    age_ratings:
+      selectedAgeRatings && selectedAgeRatings.length > 0
+        ? selectedAgeRatings
+        : undefined,
+    selected_statuses:
+      selectedStatuses && selectedStatuses.length > 0
+        ? selectedStatuses
+        : undefined,
+    regions:
+      selectedRegions && selectedRegions.length > 0
+        ? selectedRegions
+        : undefined,
+    languages:
+      selectedLanguages && selectedLanguages.length > 0
+        ? selectedLanguages
+        : undefined,
     // Logic operators
     genres_logic:
       selectedGenres && selectedGenres.length > 1
@@ -197,6 +204,10 @@ async function getRoms({
     languages_logic:
       selectedLanguages && selectedLanguages.length > 1
         ? languagesLogic || "any"
+        : undefined,
+    statuses_logic:
+      selectedStatuses && selectedStatuses.length > 1
+        ? statusesLogic || "any"
         : undefined,
     ...(filterMatched !== null ? { matched: filterMatched } : {}),
     ...(filterFavorites !== null ? { favorite: filterFavorites } : {}),

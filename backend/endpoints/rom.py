@@ -262,7 +262,6 @@ def get_roms(
                 "Associated genre. Multiple values are allowed by repeating the"
                 " parameter, and results that match any of the values will be returned."
             ),
-            alias="genre",
         ),
     ] = None,
     franchises: Annotated[
@@ -272,7 +271,6 @@ def get_roms(
                 "Associated franchise. Multiple values are allowed by repeating"
                 " the parameter, and results that match any of the values will be returned."
             ),
-            alias="franchise",
         ),
     ] = None,
     collections: Annotated[
@@ -282,7 +280,6 @@ def get_roms(
                 "Associated collection. Multiple values are allowed by repeating"
                 " the parameter, and results that match any of the values will be returned."
             ),
-            alias="collection",
         ),
     ] = None,
     companies: Annotated[
@@ -292,7 +289,6 @@ def get_roms(
                 "Associated company. Multiple values are allowed by repeating"
                 " the parameter, and results that match any of the values will be returned."
             ),
-            alias="company",
         ),
     ] = None,
     age_ratings: Annotated[
@@ -302,12 +298,16 @@ def get_roms(
                 "Associated age rating. Multiple values are allowed by repeating"
                 " the parameter, and results that match any of the values will be returned."
             ),
-            alias="age_rating",
         ),
     ] = None,
-    selected_status: Annotated[
-        str | None,
-        Query(description="Game status, set by the current user."),
+    selected_statuses: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Game status, set by the current user. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
     regions: Annotated[
         list[str] | None,
@@ -316,7 +316,6 @@ def get_roms(
                 "Associated region tag. Multiple values are allowed by repeating"
                 " the parameter, and results that match any of the values will be returned."
             ),
-            alias="region",
         ),
     ] = None,
     languages: Annotated[
@@ -326,7 +325,6 @@ def get_roms(
                 "Associated language tag. Multiple values are allowed by repeating"
                 " the parameter, and results that match any of the values will be returned."
             ),
-            alias="language",
         ),
     ] = None,
     # Logic operators for multi-value filters
@@ -372,6 +370,12 @@ def get_roms(
             description="Logic operator for languages filter: 'any' (OR) or 'all' (AND).",
         ),
     ] = "any",
+    statuses_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for statuses filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
     order_by: Annotated[
         str,
         Query(description="Field to order results by."),
@@ -409,7 +413,7 @@ def get_roms(
         collections=collections,
         companies=companies,
         age_ratings=age_ratings,
-        selected_status=selected_status,
+        selected_statuses=selected_statuses,
         regions=regions,
         languages=languages,
         # Logic operators
@@ -420,6 +424,7 @@ def get_roms(
         age_ratings_logic=age_ratings_logic,
         regions_logic=regions_logic,
         languages_logic=languages_logic,
+        statuses_logic=statuses_logic,
         group_by_meta_id=group_by_meta_id,
     )
 
