@@ -8,8 +8,6 @@ import type {
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import type { GetRomsParams } from "@/services/api/rom";
 import cacheService from "@/services/cache";
-import { getStatusKeyForText } from "@/utils";
-import { getFilterArray } from "@/utils/apiHelpers";
 
 class CachedApiService {
   private createRequestConfig(
@@ -44,26 +42,38 @@ class CachedApiService {
       order_by: params.orderBy,
       order_dir: params.orderDir,
       group_by_meta_id: params.groupByMetaId,
-      genre: getFilterArray(params.selectedGenre, params.selectedGenres),
-      franchise: getFilterArray(
-        params.selectedFranchise,
-        params.selectedFranchises,
-      ),
-      collection: getFilterArray(
-        params.selectedCollection,
-        params.selectedCollections,
-      ),
-      company: getFilterArray(params.selectedCompany, params.selectedCompanies),
-      age_rating: getFilterArray(
-        params.selectedAgeRating,
-        params.selectedAgeRatings,
-      ),
-      selected_status: getStatusKeyForText(params.selectedStatus ?? null),
-      region: getFilterArray(params.selectedRegion, params.selectedRegions),
-      language: getFilterArray(
-        params.selectedLanguage,
-        params.selectedLanguages,
-      ),
+      genres:
+        params.selectedGenres && params.selectedGenres.length > 0
+          ? params.selectedGenres
+          : undefined,
+      franchises:
+        params.selectedFranchises && params.selectedFranchises.length > 0
+          ? params.selectedFranchises
+          : undefined,
+      collections:
+        params.selectedCollections && params.selectedCollections.length > 0
+          ? params.selectedCollections
+          : undefined,
+      companies:
+        params.selectedCompanies && params.selectedCompanies.length > 0
+          ? params.selectedCompanies
+          : undefined,
+      age_ratings:
+        params.selectedAgeRatings && params.selectedAgeRatings.length > 0
+          ? params.selectedAgeRatings
+          : undefined,
+      selected_statuses:
+        params.selectedStatuses && params.selectedStatuses.length > 0
+          ? params.selectedStatuses
+          : undefined,
+      regions:
+        params.selectedRegions && params.selectedRegions.length > 0
+          ? params.selectedRegions
+          : undefined,
+      languages:
+        params.selectedLanguages && params.selectedLanguages.length > 0
+          ? params.selectedLanguages
+          : undefined,
       // Logic operators
       genres_logic:
         params.selectedGenres && params.selectedGenres.length > 1
@@ -92,6 +102,10 @@ class CachedApiService {
       languages_logic:
         params.selectedLanguages && params.selectedLanguages.length > 1
           ? params.languagesLogic || "any"
+          : undefined,
+      statuses_logic:
+        params.selectedStatuses && params.selectedStatuses.length > 1
+          ? params.statusesLogic || "any"
           : undefined,
       ...(params.filterMatched !== null
         ? { matched: params.filterMatched }

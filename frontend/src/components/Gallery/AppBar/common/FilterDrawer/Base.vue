@@ -50,36 +50,28 @@ const {
   filterRA,
   filterMissing,
   filterVerified,
-  selectedGenre,
   filterGenres,
   selectedGenres,
   genresLogic,
-  selectedFranchise,
   filterFranchises,
   selectedFranchises,
   franchisesLogic,
-  selectedCollection,
   filterCollections,
   selectedCollections,
   collectionsLogic,
-  selectedCompany,
   filterCompanies,
   selectedCompanies,
   companiesLogic,
-  selectedAgeRating,
   filterAgeRatings,
   selectedAgeRatings,
   ageRatingsLogic,
-  selectedStatus,
   filterStatuses,
   selectedStatuses,
   statusesLogic,
   selectedPlatforms,
-  selectedRegion,
   filterRegions,
   selectedRegions,
   regionsLogic,
-  selectedLanguage,
   filterLanguages,
   selectedLanguages,
   languagesLogic,
@@ -97,98 +89,61 @@ const onFilterChange = debounce(
     Object.entries({
       search: searchTerm.value,
       matched:
-        filterMatched.value === true
-          ? "true"
-          : filterMatched.value === false
-            ? "false"
-            : null,
+        filterMatched.value === null ? null : String(filterMatched.value),
       filterFavorites:
-        filterFavorites.value === true
-          ? "true"
-          : filterFavorites.value === false
-            ? "false"
-            : null,
+        filterFavorites.value === null ? null : String(filterFavorites.value),
       filterDuplicates:
-        filterDuplicates.value === true
-          ? "true"
-          : filterDuplicates.value === false
-            ? "false"
-            : null,
+        filterDuplicates.value === null ? null : String(filterDuplicates.value),
       filterPlayables:
-        filterPlayables.value === true
-          ? "true"
-          : filterPlayables.value === false
-            ? "false"
-            : null,
+        filterPlayables.value === null ? null : String(filterPlayables.value),
       filterMissing:
-        filterMissing.value === true
-          ? "true"
-          : filterMissing.value === false
-            ? "false"
-            : null,
+        filterMissing.value === null ? null : String(filterMissing.value),
       filterVerified:
-        filterVerified.value === true
-          ? "true"
-          : filterVerified.value === false
-            ? "false"
-            : null,
-      filterRA:
-        filterRA.value === true
-          ? "true"
-          : filterRA.value === false
-            ? "false"
-            : null,
+        filterVerified.value === null ? null : String(filterVerified.value),
+      filterRA: filterRA.value === null ? null : String(filterRA.value),
       platforms:
         selectedPlatforms.value.length > 0
           ? selectedPlatforms.value.map((p) => String(p.id)).join(",")
           : null,
-      genre: selectedGenre.value,
       genres:
         selectedGenres.value.length > 0 ? selectedGenres.value.join(",") : null,
       genresLogic: selectedGenres.value.length > 1 ? genresLogic.value : null,
-      franchise: selectedFranchise.value,
       franchises:
         selectedFranchises.value.length > 0
           ? selectedFranchises.value.join(",")
           : null,
       franchisesLogic:
         selectedFranchises.value.length > 1 ? franchisesLogic.value : null,
-      collection: selectedCollection.value,
       collections:
         selectedCollections.value.length > 0
           ? selectedCollections.value.join(",")
           : null,
       collectionsLogic:
         selectedCollections.value.length > 1 ? collectionsLogic.value : null,
-      company: selectedCompany.value,
       companies:
         selectedCompanies.value.length > 0
           ? selectedCompanies.value.join(",")
           : null,
       companiesLogic:
         selectedCompanies.value.length > 1 ? companiesLogic.value : null,
-      ageRating: selectedAgeRating.value,
       ageRatings:
         selectedAgeRatings.value.length > 0
           ? selectedAgeRatings.value.join(",")
           : null,
       ageRatingsLogic:
         selectedAgeRatings.value.length > 1 ? ageRatingsLogic.value : null,
-      region: selectedRegion.value,
       regions:
         selectedRegions.value.length > 0
           ? selectedRegions.value.join(",")
           : null,
       regionsLogic:
         selectedRegions.value.length > 1 ? regionsLogic.value : null,
-      language: selectedLanguage.value,
       languages:
         selectedLanguages.value.length > 0
           ? selectedLanguages.value.join(",")
           : null,
       languagesLogic:
         selectedLanguages.value.length > 1 ? languagesLogic.value : null,
-      status: selectedStatus.value,
       statuses:
         selectedStatuses.value.length > 0
           ? selectedStatuses.value.join(",")
@@ -409,15 +364,6 @@ onMounted(async () => {
     filterRA: urlFilteredRa,
     platform: urlPlatform,
     platforms: urlPlatforms,
-    // Single value URL params (backward compatibility)
-    genre: urlGenre,
-    franchise: urlFranchise,
-    collection: urlCollection,
-    company: urlCompany,
-    ageRating: urlAgeRating,
-    region: urlRegion,
-    language: urlLanguage,
-    status: urlStatus,
     // Multi-value URL params
     genres: urlGenres,
     genresLogic: urlGenresLogic,
@@ -523,9 +469,6 @@ onMounted(async () => {
     if (urlGenresLogic !== undefined) {
       galleryFilterStore.setGenresLogic(urlGenresLogic as "any" | "all");
     }
-  } else if (urlGenre !== undefined) {
-    // Backward compatibility: if single genre is set, convert to multiselect
-    galleryFilterStore.setSelectedFilterGenres([urlGenre as string]);
   }
 
   if (urlFranchises !== undefined) {
@@ -538,8 +481,6 @@ onMounted(async () => {
         urlFranchisesLogic as "any" | "all",
       );
     }
-  } else if (urlFranchise !== undefined) {
-    galleryFilterStore.setSelectedFilterFranchises([urlFranchise as string]);
   }
 
   if (urlCollections !== undefined) {
@@ -552,8 +493,6 @@ onMounted(async () => {
         urlCollectionsLogic as "any" | "all",
       );
     }
-  } else if (urlCollection !== undefined) {
-    galleryFilterStore.setSelectedFilterCollections([urlCollection as string]);
   }
 
   if (urlCompanies !== undefined) {
@@ -564,8 +503,6 @@ onMounted(async () => {
     if (urlCompaniesLogic !== undefined) {
       galleryFilterStore.setCompaniesLogic(urlCompaniesLogic as "any" | "all");
     }
-  } else if (urlCompany !== undefined) {
-    galleryFilterStore.setSelectedFilterCompanies([urlCompany as string]);
   }
 
   if (urlAgeRatings !== undefined) {
@@ -578,8 +515,6 @@ onMounted(async () => {
         urlAgeRatingsLogic as "any" | "all",
       );
     }
-  } else if (urlAgeRating !== undefined) {
-    galleryFilterStore.setSelectedFilterAgeRatings([urlAgeRating as string]);
   }
 
   if (urlRegions !== undefined) {
@@ -588,8 +523,6 @@ onMounted(async () => {
     if (urlRegionsLogic !== undefined) {
       galleryFilterStore.setRegionsLogic(urlRegionsLogic as "any" | "all");
     }
-  } else if (urlRegion !== undefined) {
-    galleryFilterStore.setSelectedFilterRegions([urlRegion as string]);
   }
 
   if (urlLanguages !== undefined) {
@@ -600,8 +533,6 @@ onMounted(async () => {
     if (urlLanguagesLogic !== undefined) {
       galleryFilterStore.setLanguagesLogic(urlLanguagesLogic as "any" | "all");
     }
-  } else if (urlLanguage !== undefined) {
-    galleryFilterStore.setSelectedFilterLanguages([urlLanguage as string]);
   }
 
   if (urlStatuses !== undefined) {
@@ -610,8 +541,6 @@ onMounted(async () => {
     if (urlStatusesLogic !== undefined) {
       galleryFilterStore.setStatusesLogic(urlStatusesLogic as "any" | "all");
     }
-  } else if (urlStatus !== undefined) {
-    galleryFilterStore.setSelectedFilterStatuses([urlStatus as string]);
   }
 
   // Check if search term is set in the URL (empty string is ok)

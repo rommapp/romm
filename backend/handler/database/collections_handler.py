@@ -291,7 +291,7 @@ class DBCollectionsHandler(DBBaseHandler):
             collections=collections,
             companies=companies,
             age_ratings=age_ratings,
-            selected_status=criteria.get("selected_status"),
+            selected_statuses=criteria.get("selected_statuses"),
             regions=regions,
             languages=languages,
             # Logic operators for multi-value filters
@@ -302,6 +302,7 @@ class DBCollectionsHandler(DBBaseHandler):
             age_ratings_logic=criteria.get("age_ratings_logic", "any"),
             regions_logic=criteria.get("regions_logic", "any"),
             languages_logic=criteria.get("languages_logic", "any"),
+            statuses_logic=criteria.get("statuses_logic", "any"),
             user_id=user_id,
             order_by=criteria.get("order_by", "name"),
             order_dir=criteria.get("order_dir", "asc"),
