@@ -15,6 +15,10 @@
   "select-state": "Speicherstand auswählen",
   "change-state": "Speicherstand ändern",
   "deselect-state": "Speicherstand abwählen",
+  "no-save-selected": "Kein Speicherstand ausgewählt",
+  "no-state-selected": "Kein Zustand ausgewählt",
+  "no-saves-available": "Keine Speicherstände verfügbar",
+  "no-states-available": "Keine Zustände verfügbar",
   "background-color": "Hintergrundfarbe",
   "select-background-color": "Hintergrundfarbe auswählen"
 }

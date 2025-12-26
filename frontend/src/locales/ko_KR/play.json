@@ -15,6 +15,10 @@
   "select-state": "상태 선택",
   "change-state": "상태 변경",
   "deselect-state": "상태 선택 해제",
+  "no-save-selected": "선택된 세이브 없음",
+  "no-state-selected": "선택된 상태 없음",
+  "no-saves-available": "사용 가능한 세이브 없음",
+  "no-states-available": "사용 가능한 상태 없음",
   "background-color": "배경색",
   "select-background-color": "배경색 선택"
 }

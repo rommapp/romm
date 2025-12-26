@@ -15,6 +15,10 @@
   "select-state": "Vybrat stav",
   "change-state": "Změnit stav",
   "deselect-state": "Zrušit výběr stavu",
+  "no-save-selected": "Není vybrána žádná uložená pozice",
+  "no-state-selected": "Není vybrán žádný stav",
+  "no-saves-available": "Nejsou k dispozici žádné uložené pozice",
+  "no-states-available": "Nejsou k dispozici žádné stavy",
   "background-color": "Barva pozadí",
   "select-background-color": "Vybrat barvu pozadí"
 }

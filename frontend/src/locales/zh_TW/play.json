@@ -15,6 +15,10 @@
   "select-state": "選擇即時存檔",
   "change-state": "更改即時存檔",
   "deselect-state": "取消選擇即時存檔",
+  "no-save-selected": "未選擇存檔",
+  "no-state-selected": "未選擇即時存檔",
+  "no-saves-available": "無可用存檔",
+  "no-states-available": "無可用即時存檔",
   "background-color": "背景顏色",
   "select-background-color": "選擇背景顏色"
 }

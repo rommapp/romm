@@ -15,6 +15,10 @@
   "select-state": "Selecionar estado",
   "change-state": "Alterar estado",
   "deselect-state": "Desmarcar estado",
+  "no-save-selected": "Nenhum save selecionado",
+  "no-state-selected": "Nenhum estado selecionado",
+  "no-saves-available": "Nenhum save disponível",
+  "no-states-available": "Nenhum estado disponível",
   "background-color": "Cor de fundo",
   "select-background-color": "Selecionar cor de fundo"
 }
