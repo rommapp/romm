@@ -54,13 +54,13 @@ function closeDialog() {
         <v-col cols="12">
           <v-card-text class="text-center align-center pa-4">
             <p class="text-sm text-romm-gray mb-4">
-              <v-icon :icon="exclusionIcon" class="mr-1 text-primary" /> Add a
-              new exclusion for {{ exclusionTitle }}
+              <v-icon :icon="exclusionIcon" class="mr-1 text-primary" />
+              {{ t("settings.add-exclusion-for") }} {{ exclusionTitle }}
             </p>
             <v-text-field
               v-model="exclusionValue"
-              label="Exclusion value"
-              placeholder="e.g., *.tmp or test_file.rom"
+              :label="t('settings.exclusion-value')"
+              :placeholder="t('settings.exclusion-placeholder')"
               variant="outlined"
               required
               hide-details
