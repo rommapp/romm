@@ -45,25 +45,17 @@ function closeDialog() {
 <template>
   <RDialog
     v-model="show"
-    icon="mdi-plus-circle"
+    icon="mdi-cancel"
     :width="mdAndUp ? '45vw' : '95vw'"
     @close="closeDialog"
   >
-    <template #header>
-      <v-row class="align-center" no-gutters>
-        <v-col cols="10">
-          <v-icon icon="mdi-cancel" class="ml-5" />
-          <v-icon icon="mdi-menu-right" class="ml-1 text-romm-gray" />
-          <v-icon :icon="exclusionIcon" class="ml-1 text-primary" />
-        </v-col>
-      </v-row>
-    </template>
     <template #content>
-      <v-row class="px-4 pt-4 align-center" no-gutters>
+      <v-row class="align-center" no-gutters>
         <v-col cols="12">
-          <v-card-text class="pa-0">
-            <p class="text-sm text-romm-gray mb-3">
-              Add a new exclusion for {{ exclusionTitle }}
+          <v-card-text class="text-center align-center pa-4">
+            <p class="text-sm text-romm-gray mb-4">
+              <v-icon :icon="exclusionIcon" class="mr-1 text-primary" /> Add a
+              new exclusion for {{ exclusionTitle }}
             </p>
             <v-text-field
               v-model="exclusionValue"
