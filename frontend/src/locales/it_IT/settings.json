@@ -94,5 +94,8 @@
   "update": "Aggiorna",
   "username": "Nome utente",
   "virtual-collection-type": "Tipo di collezione virtuale (Metodo di raggruppamento delle rom)",
-  "watcher": "Monitor"
+  "watcher": "Monitor",
+  "passwords-must-match": "Le password devono corrispondere",
+  "repeat-password": "Ripeti password",
+  "repeat-password-required": "È richiesta la ripetizione della password"
 }

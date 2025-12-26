@@ -94,5 +94,8 @@
   "update": "Aktualisieren",
   "username": "Benutzername",
   "virtual-collection-type": "Typ der automatisch generierten Sammlung (ROM-Gruppierungsmethode)",
-  "watcher": "Überwacher"
+  "watcher": "Überwacher",
+  "passwords-must-match": "Passwörter müssen übereinstimmen",
+  "repeat-password": "Passwort wiederholen",
+  "repeat-password-required": "Passwortwiederholung erforderlich"
 }

@@ -94,5 +94,8 @@
   "update": "Aktualizovat",
   "username": "Uživatelské jméno",
   "virtual-collection-type": "Typ virtuální kolekce (způsob seskupování ROM)",
-  "watcher": "Sledovač"
+  "watcher": "Sledovač",
+  "passwords-must-match": "Hesla se musí shodovat",
+  "repeat-password": "Opakujte heslo",
+  "repeat-password-required": "Je vyžadováno opakování hesla"
 }

@@ -94,5 +94,8 @@
   "update": "Actualizează",
   "username": "Nume de utilizator",
   "virtual-collection-type": "Tip de colecție virtuală (metoda de grupare a rom-urilor)",
-  "watcher": "Monitor"
+  "watcher": "Monitor",
+  "passwords-must-match": "Parolele trebuie să se potrivească",
+  "repeat-password": "Repetă parola",
+  "repeat-password-required": "Este necesar să repetați parola"
 }

@@ -314,7 +314,8 @@ const toggleDisableAnimations = (value: boolean) => {
         <v-col
           v-for="option in platformsDrawerOptions"
           :key="option.title"
-          cols="6"
+          cols="12"
+          md="6"
         >
           <v-select
             v-model="platformsGroupByRef"

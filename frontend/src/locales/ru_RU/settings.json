@@ -94,5 +94,8 @@
   "update": "Обновить",
   "username": "Имя пользователя",
   "virtual-collection-type": "Тип виртуальной коллекции (метод группировки ромов)",
-  "watcher": "Наблюдатель"
+  "watcher": "Наблюдатель",
+  "passwords-must-match": "Пароли должны совпадать",
+  "repeat-password": "Повторите пароль",
+  "repeat-password-required": "Требуется повторить пароль"
 }

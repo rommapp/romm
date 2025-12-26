@@ -108,42 +108,42 @@ class TestFSPlatformsHandler:
                 result = handler.get_platforms_directory()
                 assert result == ""
 
-    def test_get_plaform_fs_structure_high_priority(
+    def test_get_platform_fs_structure_high_priority(
         self, handler: FSPlatformsHandler, config
     ):
-        """Test get_plaform_fs_structure with high priority structure"""
+        """Test get_platform_fs_structure with high priority structure"""
         fs_slug = "n64"
 
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
             with patch("os.path.exists", return_value=True):
-                result = handler.get_plaform_fs_structure(fs_slug)
+                result = handler.get_platform_fs_structure(fs_slug)
                 assert result == f"{config.ROMS_FOLDER_NAME}/{fs_slug}"
 
-    def test_get_plaform_fs_structure_normal_structure(
+    def test_get_platform_fs_structure_normal_structure(
         self, handler: FSPlatformsHandler, config
     ):
-        """Test get_plaform_fs_structure with normal structure"""
+        """Test get_platform_fs_structure with normal structure"""
         fs_slug = "n64"
 
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            result = handler.get_plaform_fs_structure(fs_slug)
+            result = handler.get_platform_fs_structure(fs_slug)
             assert result == f"{fs_slug}/{config.ROMS_FOLDER_NAME}"
 
-    def test_get_plaform_fs_structure_custom_folder_name(
+    def test_get_platform_fs_structure_custom_folder_name(
         self, handler: FSPlatformsHandler, config_custom_folder
     ):
-        """Test get_plaform_fs_structure with custom folder name"""
+        """Test get_platform_fs_structure with custom folder name"""
         fs_slug = "psx"
 
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config",
             return_value=config_custom_folder,
         ):
-            result = handler.get_plaform_fs_structure(fs_slug)
+            result = handler.get_platform_fs_structure(fs_slug)
             assert result == f"{fs_slug}/{config_custom_folder.ROMS_FOLDER_NAME}"
 
     async def test_add_platform_creates_directory(
@@ -246,7 +246,7 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            result = handler.get_plaform_fs_structure(fs_slug)
+            result = handler.get_platform_fs_structure(fs_slug)
             assert result == f"{fs_slug}/{config.ROMS_FOLDER_NAME}"
 
     async def test_path_construction_consistency(
@@ -259,7 +259,7 @@ class TestFSPlatformsHandler:
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
             # Test both methods return consistent paths
-            structure_path = handler.get_plaform_fs_structure(fs_slug)
+            structure_path = handler.get_platform_fs_structure(fs_slug)
 
             with patch.object(handler, "make_directory") as mock_make_directory:
                 await handler.add_platform(fs_slug)
@@ -275,7 +275,7 @@ class TestFSPlatformsHandler:
         ):
             for platform in existing_platforms:
                 expected_path = f"{platform}/{config.ROMS_FOLDER_NAME}"
-                result = handler.get_plaform_fs_structure(platform)
+                result = handler.get_platform_fs_structure(platform)
                 assert result == expected_path
 
     async def test_edge_cases_and_error_handling(
@@ -286,7 +286,7 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            result = handler.get_plaform_fs_structure("")
+            result = handler.get_platform_fs_structure("")
             assert result == f"/{config.ROMS_FOLDER_NAME}"
 
             # Test adding empty platform
@@ -309,5 +309,87 @@ class TestFSPlatformsHandler:
 
             # Test that each platform gets correct structure
             for platform in expected_filtered:
-                structure = handler.get_plaform_fs_structure(platform)
+                structure = handler.get_platform_fs_structure(platform)
                 assert structure == f"{platform}/{config.ROMS_FOLDER_NAME}"
+
+    def test_detect_library_structure_structure_a(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Test detect_library_structure detects Structure A (roms/{platform})"""
+        roms_path = f"{LIBRARY_BASE_PATH}/{config.ROMS_FOLDER_NAME}"
+
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.exists") as mock_exists:
+                mock_exists.return_value = True
+
+                result = handler.detect_library_structure()
+                assert result == "A"
+                mock_exists.assert_called_once_with(roms_path)
+
+    def test_detect_library_structure_structure_b(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Test detect_library_structure detects Structure B ({platform}/roms)"""
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.exists") as mock_exists:
+                # Roms folder doesn't exist at base level
+                mock_exists.return_value = False
+
+                with patch("os.listdir") as mock_listdir:
+                    mock_listdir.return_value = ["n64", "psx", "other_folder"]
+
+                    with patch("os.path.isdir") as mock_isdir:
+                        # n64 and psx are directories with roms subfolders
+                        def isdir_side_effect(path):
+                            return "n64" in path or "psx" in path
+
+                        def exists_side_effect(path):
+                            # n64/roms and psx/roms exist
+                            return (
+                                f"n64/{config.ROMS_FOLDER_NAME}" in path
+                                or f"psx/{config.ROMS_FOLDER_NAME}" in path
+                            )
+
+                        mock_isdir.side_effect = isdir_side_effect
+                        mock_exists.side_effect = exists_side_effect
+
+                        result = handler.detect_library_structure()
+                        assert result == "B"
+
+    def test_detect_library_structure_none(self, handler: FSPlatformsHandler, config):
+        """Test detect_library_structure returns None when no structure detected"""
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.exists", return_value=False):
+                with patch("os.listdir", return_value=[]):
+                    result = handler.detect_library_structure()
+                    assert result is None
+
+    def test_detect_library_structure_handles_os_errors(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Test detect_library_structure handles OS errors gracefully"""
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.exists", return_value=False):
+                with patch("os.listdir", side_effect=OSError("Permission denied")):
+                    result = handler.detect_library_structure()
+                    assert result is None
+
+    def test_detect_library_structure_empty_library(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Test detect_library_structure with empty library directory"""
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.exists", return_value=False):
+                with patch("os.listdir", return_value=[]):
+                    result = handler.detect_library_structure()
+                    assert result is None
