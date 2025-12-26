@@ -30,21 +30,15 @@ export type Events = {
   showDeleteFirmwareDialog: FirmwareSchema[];
   addFirmwareDialog: null;
   showAddPlatformDialog: null;
-  showCreatePlatformBindingDialog: {
+  showCreateFolderMappingDialog: null | {
     fsSlug: string;
     slug: string;
+    type: "alias" | "variant";
   };
-  showDeletePlatformBindingDialog: {
+  showDeleteFolderMappingDialog: {
     fsSlug: string;
     slug: string;
-  };
-  showCreatePlatformVersionDialog: {
-    fsSlug: string;
-    slug: string;
-  };
-  showDeletePlatformVersionDialog: {
-    fsSlug: string;
-    slug: string;
+    type: "alias" | "variant";
   };
   showCreateExclusionDialog: {
     type: string;
