@@ -9,8 +9,7 @@ import { useRoute, useRouter } from "vue-router";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import Excluded from "@/components/Settings/LibraryManagement/Config/Excluded.vue";
-import PlatformBinding from "@/components/Settings/LibraryManagement/Config/PlatformBinding.vue";
-import PlatformVersions from "@/components/Settings/LibraryManagement/Config/PlatformVersions.vue";
+import FolderMappings from "@/components/Settings/LibraryManagement/Config/FolderMappings.vue";
 import GameTable from "@/components/common/Game/VirtualTable.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
@@ -261,8 +260,7 @@ onUnmounted(() => {
       </v-alert>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="config">
-          <PlatformBinding class="mt-2" />
-          <PlatformVersions class="mt-4" />
+          <FolderMappings class="mt-2" />
           <Excluded class="mt-4" />
         </v-tabs-window-item>
         <v-tabs-window-item value="missing">
