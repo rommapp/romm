@@ -160,7 +160,7 @@ function addExclusion(type: string, icon: string, title: string) {
               </v-row>
             </template>
           </v-expansion-panel-title>
-          <v-expansion-panel-text class="pa-1">
+          <v-expansion-panel-text class="pa-1 bg-surface">
             <div v-if="exclusion.set.length === 0" class="text-center py-8">
               <v-icon
                 :icon="exclusion.icon"
