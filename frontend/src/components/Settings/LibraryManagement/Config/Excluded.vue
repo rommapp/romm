@@ -23,42 +23,42 @@ const exclusions = computed(() => [
     title: t("common.platform"),
     icon: "mdi-gamepad-variant-outline",
     type: "EXCLUDED_PLATFORMS",
-    description: "Platforms to exclude from scanning",
+    description: t("settings.exclusions-platforms-desc"),
   },
   {
     set: config.value.EXCLUDED_SINGLE_FILES,
     title: t("settings.excluded-single-rom-files"),
     icon: "mdi-file-remove-outline",
     type: "EXCLUDED_SINGLE_FILES",
-    description: "File names to exclude from single ROM scanning",
+    description: t("settings.exclusions-single-files-desc"),
   },
   {
     set: config.value.EXCLUDED_SINGLE_EXT,
     title: t("settings.excluded-single-rom-extensions"),
     icon: "mdi-file-code-outline",
     type: "EXCLUDED_SINGLE_EXT",
-    description: "File extensions to exclude from single ROM scanning",
+    description: t("settings.exclusions-single-ext-desc"),
   },
   {
     set: config.value.EXCLUDED_MULTI_FILES,
     title: t("settings.excluded-multi-rom-files"),
     icon: "mdi-file-multiple-outline",
     type: "EXCLUDED_MULTI_FILES",
-    description: "File names to exclude from multi-file ROM scanning",
+    description: t("settings.exclusions-multi-files-desc"),
   },
   {
     set: config.value.EXCLUDED_MULTI_PARTS_FILES,
     title: t("settings.excluded-multi-rom-parts-files"),
     icon: "mdi-folder-multiple-outline",
     type: "EXCLUDED_MULTI_PARTS_FILES",
-    description: "File names to exclude from multi-part ROM scanning",
+    description: t("settings.exclusions-multi-parts-files-desc"),
   },
   {
     set: config.value.EXCLUDED_MULTI_PARTS_EXT,
     title: t("settings.excluded-multi-rom-parts-extensions"),
     icon: "mdi-file-cog-outline",
     type: "EXCLUDED_MULTI_PARTS_EXT",
-    description: "File extensions to exclude from multi-part ROM scanning",
+    description: t("settings.exclusions-multi-parts-ext-desc"),
   },
 ]);
 
@@ -96,9 +96,7 @@ function addExclusion(type: string, icon: string, title: string) {
         </template>
         <div>
           <p>
-            Configure which files, extensions, and platforms should be excluded
-            during library scanning. Items added here will be ignored when RomM
-            scans your library.
+            {{ t("settings.exclusions-tooltip") }}
           </p>
         </div>
       </v-tooltip>
@@ -152,10 +150,14 @@ function addExclusion(type: string, icon: string, title: string) {
                   >
                     {{ t("common.add") }}
                   </v-btn>
-                  <v-chip size="small" label>
-                    {{ exclusion.set.length }}
-                    {{ exclusion.set.length === 1 ? "item" : "items" }}
-                  </v-chip>
+                  <v-chip size="small" label
+                    >{{ exclusion.set.length }}
+                    {{
+                      exclusion.set.length === 1
+                        ? t("settings.exclusions-item")
+                        : t("settings.exclusions-items")
+                    }}</v-chip
+                  >
                 </v-col>
               </v-row>
             </template>
@@ -168,7 +170,7 @@ function addExclusion(type: string, icon: string, title: string) {
                 class="mb-2 opacity-50"
               />
               <div class="text-body-2 text-romm-gray">
-                No exclusions configured
+                {{ t("settings.exclusions-none") }}
               </div>
             </div>
             <div v-else class="d-flex flex-wrap">
