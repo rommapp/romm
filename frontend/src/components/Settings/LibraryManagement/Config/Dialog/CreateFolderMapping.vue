@@ -35,17 +35,14 @@ const availableFolders = computed(() => {
       return true;
     }
 
-    if (mappingType.value === "alias") {
-      // For alias, exclude folders already in PLATFORMS_VERSIONS
-      return !Object.keys(configStore.config.PLATFORMS_VERSIONS).includes(
-        folder,
-      );
-    } else {
-      // For variant, exclude folders already in PLATFORMS_BINDING
-      return !Object.keys(configStore.config.PLATFORMS_BINDING).includes(
-        folder,
-      );
-    }
+    // Exclude folders that are already mapped as either an alias or a variant.
+    const isBound = Object.keys(configStore.config.PLATFORMS_BINDING).includes(
+      folder,
+    );
+    const isVersion = Object.keys(
+      configStore.config.PLATFORMS_VERSIONS,
+    ).includes(folder);
+    return !isBound && !isVersion;
   });
 });
 
@@ -154,53 +151,32 @@ function createMapping() {
       });
   } else {
     // Create mode
-    if (mappingType.value === "alias") {
-      configApi
-        .addPlatformBindConfig({
-          fsSlug: fsSlugToCreate.value,
-          slug: selectedPlatform.value.slug,
-        })
-        .then(() => {
-          if (selectedPlatform.value) {
-            configStore.addPlatformBinding(
-              fsSlugToCreate.value,
-              selectedPlatform.value.slug,
-            );
-          }
-          closeDialog();
-        })
-        .catch(({ response, message }) => {
-          emitter?.emit("snackbarShow", {
-            msg: `${response?.data?.detail || response?.statusText || message}`,
-            icon: "mdi-close-circle",
-            color: "red",
-            timeout: 4000,
-          });
+    const isAlias = mappingType.value === "alias";
+    const addConfigApi = isAlias
+      ? configApi.addPlatformBindConfig
+      : configApi.addPlatformVersionConfig;
+    const addConfigStore = isAlias
+      ? configStore.addPlatformBinding
+      : configStore.addPlatformVersion;
+
+    addConfigApi({
+      fsSlug: fsSlugToCreate.value,
+      slug: selectedPlatform.value!.slug,
+    })
+      .then(() => {
+        if (selectedPlatform.value) {
+          addConfigStore(fsSlugToCreate.value, selectedPlatform.value.slug);
+        }
+        closeDialog();
+      })
+      .catch(({ response, message }) => {
+        emitter?.emit("snackbarShow", {
+          msg: `${response?.data?.detail || response?.statusText || message}`,
+          icon: "mdi-close-circle",
+          color: "red",
+          timeout: 4000,
         });
-    } else {
-      configApi
-        .addPlatformVersionConfig({
-          fsSlug: fsSlugToCreate.value,
-          slug: selectedPlatform.value.slug,
-        })
-        .then(() => {
-          if (selectedPlatform.value) {
-            configStore.addPlatformVersion(
-              fsSlugToCreate.value,
-              selectedPlatform.value.slug,
-            );
-          }
-          closeDialog();
-        })
-        .catch(({ response, message }) => {
-          emitter?.emit("snackbarShow", {
-            msg: `${response?.data?.detail || response?.statusText || message}`,
-            icon: "mdi-close-circle",
-            color: "red",
-            timeout: 4000,
-          });
-        });
-    }
+      });
   }
 }
 
@@ -353,12 +329,8 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
           </v-btn>
           <v-btn
             class="bg-toplayer text-romm-green"
-            :disabled="fsSlugToCreate === '' || selectedPlatform?.slug === ''"
-            :variant="
-              fsSlugToCreate === '' || selectedPlatform?.slug === ''
-                ? 'plain'
-                : 'flat'
-            "
+            :disabled="!fsSlugToCreate || !selectedPlatform"
+            :variant="!fsSlugToCreate || !selectedPlatform ? 'plain' : 'flat'"
             @click="createMapping"
           >
             {{ t("common.confirm") }}

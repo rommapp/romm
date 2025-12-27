@@ -114,7 +114,7 @@
   "exclusions-multi-parts-ext-desc": "Fájlkiterjesztések kizárása a többrészes ROM szkennelésből",
   "exclusions-none": "Nincs konfigurált kizárás",
   "exclusions-item": "elem",
-  "exclusions-items": "elem",
+  "exclusions-items": "elemek",
   "add-exclusion-for": "Új kizárás hozzáadása:",
   "exclusion-value": "Kizárás értéke",
   "exclusion-placeholder": "pl: *.tmp vagy test_file.rom",

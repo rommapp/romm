@@ -49,8 +49,11 @@ const allMappings = computed(() => {
   }> = [];
 
   // Add all bindings (aliases)
+  // Note: PLATFORMS_BINDING and PLATFORMS_VERSIONS should not have overlapping fsSlug keys
   Object.entries(config.value.PLATFORMS_BINDING).forEach(([fsSlug, slug]) => {
-    mappings.push({ fsSlug, slug, type: "alias" });
+    if (!Object.keys(config.value.PLATFORMS_VERSIONS).includes(fsSlug)) {
+      mappings.push({ fsSlug, slug, type: "alias" });
+    }
   });
 
   // Add all versions (variants)
