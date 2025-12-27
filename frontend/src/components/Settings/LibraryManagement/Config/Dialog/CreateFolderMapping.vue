@@ -218,7 +218,7 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
       <v-row class="px-4 pt-4 align-center" no-gutters>
         <v-col cols="12">
           <v-card-text class="pa-0">
-            <p class="text-sm text-romm-gray mb-3">
+            <p class="text-romm-gray mb-3">
               {{ t("settings.add-mapping-type") }}
             </p>
             <v-radio-group v-model="mappingType" class="mt-2">
@@ -228,7 +228,7 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
                     <div class="font-weight-medium">
                       {{ t("settings.folder-alias") }}
                     </div>
-                    <div class="text-xs text-romm-gray">
+                    <div class="text-caption text-romm-gray">
                       {{ getMappingTypeDescription("alias") }}
                     </div>
                   </div>
@@ -240,7 +240,7 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
                     <div class="font-weight-medium">
                       {{ t("settings.platform-variant") }}
                     </div>
-                    <div class="text-xs text-romm-gray">
+                    <div class="text-caption text-romm-gray">
                       {{ getMappingTypeDescription("variant") }}
                     </div>
                   </div>
@@ -265,7 +265,7 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
             hide-details
           >
             <template #append>
-              <v-icon icon="mdi-menu-right" class="mr-4 text-romm-gray" />
+              <v-icon icon="mdi-menu-right" class="mr-2 text-romm-gray" />
             </template>
           </v-select>
         </v-col>
