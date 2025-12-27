@@ -206,17 +206,3 @@ function addExclusion(type: string, icon: string, title: string) {
     </template>
   </RSection>
 </template>
-
-<style scoped>
-.gap-2 {
-  gap: 0.5rem;
-}
-
-.cursor-pointer {
-  cursor: pointer;
-}
-
-.opacity-50 {
-  opacity: 0.5;
-}
-</style>
