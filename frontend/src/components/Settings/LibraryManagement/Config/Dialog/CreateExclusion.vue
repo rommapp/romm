@@ -50,31 +50,28 @@ function closeDialog() {
     @close="closeDialog"
   >
     <template #content>
-      <v-row v-if="smAndDown" no-gutters>
-        <v-col class="mt-2 py-2 text-center">
-          <v-icon :icon="exclusionIcon" />
-          <span class="ml-2">{{ exclusionTitle }}</span>
-        </v-col>
-      </v-row>
-      <v-row class="align-center py-2 px-4" no-gutters>
-        <v-col v-if="mdAndUp" class="text-center" cols="2">
-          <div>
-            <v-icon :icon="exclusionIcon" />
-          </div>
-          <div class="mt-2">
-            <span class="ml-2">{{ exclusionTitle }}</span>
-          </div>
-        </v-col>
-        <v-col>
-          <v-text-field
-            v-model="exclusionValue"
-            class="py-2"
-            :class="{ 'ml-4': mdAndUp }"
-            variant="outlined"
-            required
-            hide-details
-            @keyup.enter="addExclusion"
-          />
+      <v-row class="align-center" no-gutters>
+        <v-col cols="12">
+          <v-card-text class="text-center align-center pa-4">
+            <p class="text-sm text-romm-gray mb-4">
+              <v-icon :icon="exclusionIcon" class="mr-1 text-primary" />
+              {{ t("settings.add-exclusion-for") }} {{ exclusionTitle }}
+            </p>
+            <v-text-field
+              v-model="exclusionValue"
+              :label="t('settings.exclusion-value')"
+              :placeholder="t('settings.exclusion-placeholder')"
+              variant="outlined"
+              required
+              hide-details
+              autofocus
+              @keyup.enter="addExclusion"
+            >
+              <template #prepend-inner>
+                <v-icon :icon="exclusionIcon" class="mr-2" />
+              </template>
+            </v-text-field>
+          </v-card-text>
         </v-col>
       </v-row>
     </template>

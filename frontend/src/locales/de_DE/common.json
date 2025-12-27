@@ -49,6 +49,7 @@
   "states": "Spielstände",
   "states-n": "{n} Spielstand | {n} Spielstände",
   "sync": "Synchronisieren",
+  "type": "Typ",
   "update": "Update",
   "upload": "Hochladen",
   "upload-files-selected": "{count} Datei ausgewählt | {count} Dateien ausgewählt",
