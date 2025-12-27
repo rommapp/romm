@@ -96,12 +96,23 @@ export default defineStore("roms", {
     },
     // Fetching multiple roms
     _buildRequestParams(galleryFilter: GalleryFilterStore) {
-      return {
-        ...galleryFilter.$state,
-        platformId:
+      // Determine platform IDs - use multiselect platforms if available, otherwise convert single platform to array
+      let platformIds: number[] | null = null;
+      if (galleryFilter.selectedPlatforms.length > 0) {
+        platformIds = galleryFilter.selectedPlatforms.map((p) => p.id);
+      } else {
+        const singlePlatformId =
           this.currentPlatform?.id ??
           galleryFilter.selectedPlatform?.id ??
-          null,
+          null;
+        if (singlePlatformId) {
+          platformIds = [singlePlatformId];
+        }
+      }
+
+      const params = {
+        searchTerm: galleryFilter.searchTerm,
+        platformIds: platformIds,
         collectionId: this.currentCollection?.id ?? null,
         virtualCollectionId: this.currentVirtualCollection?.id ?? null,
         smartCollectionId: this.currentSmartCollection?.id ?? null,
@@ -110,7 +121,32 @@ export default defineStore("roms", {
         orderBy: this.orderBy,
         orderDir: this.orderDir,
         groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
+        filterMatched: galleryFilter.filterMatched,
+        filterFavorites: galleryFilter.filterFavorites,
+        filterDuplicates: galleryFilter.filterDuplicates,
+        filterPlayables: galleryFilter.filterPlayables,
+        filterRA: galleryFilter.filterRA,
+        filterMissing: galleryFilter.filterMissing,
+        filterVerified: galleryFilter.filterVerified,
+        selectedGenres: galleryFilter.selectedGenres,
+        selectedFranchises: galleryFilter.selectedFranchises,
+        selectedCollections: galleryFilter.selectedCollections,
+        selectedCompanies: galleryFilter.selectedCompanies,
+        selectedAgeRatings: galleryFilter.selectedAgeRatings,
+        selectedRegions: galleryFilter.selectedRegions,
+        selectedLanguages: galleryFilter.selectedLanguages,
+        selectedStatuses: galleryFilter.selectedStatuses,
+        // Logic operators
+        genresLogic: galleryFilter.genresLogic,
+        franchisesLogic: galleryFilter.franchisesLogic,
+        collectionsLogic: galleryFilter.collectionsLogic,
+        companiesLogic: galleryFilter.companiesLogic,
+        ageRatingsLogic: galleryFilter.ageRatingsLogic,
+        regionsLogic: galleryFilter.regionsLogic,
+        languagesLogic: galleryFilter.languagesLogic,
+        statusesLogic: galleryFilter.statusesLogic,
       };
+      return params;
     },
     _postFetchRoms(response: GetRomsResponse, concat: boolean) {
       const { items, offset, total, char_index, rom_id_index } = response;

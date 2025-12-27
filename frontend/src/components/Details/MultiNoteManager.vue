@@ -508,11 +508,11 @@ watch(
         </div>
       </template>
       <template #footer>
-        <v-row class="justify-center my-2" no-gutters>
+        <v-row class="justify-center pa-2" no-gutters>
           <v-btn-group divided density="compact">
-            <v-btn class="bg-toplayer" @click="closeAddNote">
-              {{ t("common.cancel") }}
-            </v-btn>
+            <v-btn class="bg-toplayer" @click="closeAddNote">{{
+              t("common.cancel")
+            }}</v-btn>
             <v-btn
               class="bg-toplayer text-romm-green"
               :disabled="!newNoteTitle.trim() || newNoteTitleErrors.length > 0"
