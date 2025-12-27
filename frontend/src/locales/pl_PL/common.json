@@ -49,6 +49,7 @@
   "states": "Stany",
   "states-n": "{n} Stan | {n} Stany | {n} Stanów",
   "sync": "Synchronizuj",
+  "type": "Typ",
   "update": "Aktualizuj",
   "upload": "Prześlij",
   "upload-files-selected": "{count} plik wybrany | {count} pliki wybrane | {count} plików wybranych",

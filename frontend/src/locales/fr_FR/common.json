@@ -49,6 +49,7 @@
   "states": "États",
   "states-n": "{n} État | {n} États",
   "sync": "Synchroniser",
+  "type": "Type",
   "update": "Mettre à jour",
   "upload": "Téléverser",
   "upload-files-selected": "{count} fichier sélectionné | {count} fichiers sélectionnés",
