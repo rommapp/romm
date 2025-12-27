@@ -60,7 +60,7 @@ const allMappings = computed(() => {
 
   // Add all versions (variants)
   Object.entries(config.value.PLATFORMS_VERSIONS).forEach(([fsSlug, slug]) => {
-    // Additional validation: skip if fsSlug somehow exists in both configs
+    // Additional validation: skip if fsSlug exists in seenFolders
     if (!seenFolders.has(fsSlug)) {
       mappings.push({ fsSlug, slug, type: "variant" });
       seenFolders.add(fsSlug);
