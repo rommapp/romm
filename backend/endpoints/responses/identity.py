@@ -25,6 +25,7 @@ class UserSchema(BaseModel):
     last_active: datetime | None
     ra_username: str | None = None
     ra_progression: RAProgression | None = None
+    ui_settings: dict | None = None
 
     created_at: datetime
     updated_at: datetime

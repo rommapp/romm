@@ -62,6 +62,9 @@ class User(BaseModel, SimpleUser):
     ra_progression: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
+    ui_settings: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
 
     saves: Mapped[list[Save]] = relationship(lazy="raise", back_populates="user")
     states: Mapped[list[State]] = relationship(lazy="raise", back_populates="user")
