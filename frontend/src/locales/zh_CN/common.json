@@ -49,6 +49,7 @@
   "states": "状态",
   "states-n": "{n} 状态 | {n} 状态",
   "sync": "同步",
+  "type": "类型",
   "update": "更新",
   "upload": "上传",
   "upload-files-selected": "已选择 {count} 个文件",

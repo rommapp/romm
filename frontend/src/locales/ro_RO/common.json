@@ -49,6 +49,7 @@
   "states": "Stări",
   "states-n": "{n} Stare | {n} Stări",
   "sync": "Sincronizează",
+  "type": "Tip",
   "update": "Actualizează",
   "upload": "Încarcă",
   "upload-files-selected": "{count} fișier selectat | {count} fișiere selectate",
