@@ -353,9 +353,9 @@ function getMappingTypeDescription(type: "alias" | "variant"): string {
           </v-btn>
           <v-btn
             class="bg-toplayer text-romm-green"
-            :disabled="fsSlugToCreate == '' || selectedPlatform?.slug == ''"
+            :disabled="fsSlugToCreate === '' || selectedPlatform?.slug === ''"
             :variant="
-              fsSlugToCreate == '' || selectedPlatform?.slug == ''
+              fsSlugToCreate === '' || selectedPlatform?.slug === ''
                 ? 'plain'
                 : 'flat'
             "
