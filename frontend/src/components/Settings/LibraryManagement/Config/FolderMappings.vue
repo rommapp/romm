@@ -47,18 +47,24 @@ const allMappings = computed(() => {
     slug: string;
     type: "alias" | "variant";
   }> = [];
+  const seenFolders = new Set<string>();
 
   // Add all bindings (aliases)
   // Note: PLATFORMS_BINDING and PLATFORMS_VERSIONS should not have overlapping fsSlug keys
   Object.entries(config.value.PLATFORMS_BINDING).forEach(([fsSlug, slug]) => {
     if (!Object.keys(config.value.PLATFORMS_VERSIONS).includes(fsSlug)) {
       mappings.push({ fsSlug, slug, type: "alias" });
+      seenFolders.add(fsSlug);
     }
   });
 
   // Add all versions (variants)
   Object.entries(config.value.PLATFORMS_VERSIONS).forEach(([fsSlug, slug]) => {
-    mappings.push({ fsSlug, slug, type: "variant" });
+    // Additional validation: skip if fsSlug somehow exists in both configs
+    if (!seenFolders.has(fsSlug)) {
+      mappings.push({ fsSlug, slug, type: "variant" });
+      seenFolders.add(fsSlug);
+    }
   });
 
   return mappings.sort((a, b) => a.fsSlug.localeCompare(b.fsSlug));

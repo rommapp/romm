@@ -106,7 +106,7 @@ function createMapping() {
           });
 
     deletePromise
-      .then(() => {
+      .then(async () => {
         // Remove from store
         if (originalMappingType.value === "alias") {
           configStore.removePlatformBinding(originalFsSlug.value);
@@ -114,18 +114,18 @@ function createMapping() {
           configStore.removePlatformVersion(originalFsSlug.value);
         }
 
-        // Now add the new one
-        return mappingType.value === "alias"
-          ? configApi.addPlatformBindConfig({
-              fsSlug: fsSlugToCreate.value,
-              slug: selectedPlatform.value!.slug,
-            })
-          : configApi.addPlatformVersionConfig({
-              fsSlug: fsSlugToCreate.value,
-              slug: selectedPlatform.value!.slug,
-            });
-      })
-      .then(() => {
+        // Add the new mapping
+        const addApi =
+          mappingType.value === "alias"
+            ? configApi.addPlatformBindConfig
+            : configApi.addPlatformVersionConfig;
+
+        await addApi({
+          fsSlug: fsSlugToCreate.value,
+          slug: selectedPlatform.value!.slug,
+        });
+
+        // Update store and close dialog
         if (selectedPlatform.value) {
           if (mappingType.value === "alias") {
             configStore.addPlatformBinding(
