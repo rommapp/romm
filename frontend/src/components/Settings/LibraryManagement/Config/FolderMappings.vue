@@ -121,11 +121,7 @@ function deleteMapping(row: Row) {
 </script>
 
 <template>
-  <RSection
-    icon="mdi-folder-cog"
-    :title="t('settings.folder-mappings')"
-    class="mt-2"
-  >
+  <RSection icon="mdi-folder-cog" :title="t('settings.folder-mappings')">
     <template #toolbar-title-append>
       <v-tooltip bottom max-width="500">
         <template #activator="{ props }">
@@ -285,9 +281,8 @@ function deleteMapping(row: Row) {
           </v-btn-group>
         </template>
       </v-data-table-virtual>
+      <CreateFolderMappingDialog />
+      <DeleteFolderMappingDialog />
     </template>
   </RSection>
-
-  <CreateFolderMappingDialog />
-  <DeleteFolderMappingDialog />
 </template>
