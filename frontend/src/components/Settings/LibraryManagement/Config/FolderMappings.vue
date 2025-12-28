@@ -1,88 +1,121 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, ref } from "vue";
+import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import CreateFolderMappingDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreateFolderMapping.vue";
 import DeleteFolderMappingDialog from "@/components/Settings/LibraryManagement/Config/Dialog/DeleteFolderMapping.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import RSection from "@/components/common/RSection.vue";
+import platformApi from "@/services/api/platform";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
+import type { Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
-const mappingSearch = ref("");
 const emitter = inject<Emitter<Events>>("emitter");
 const authStore = storeAuth();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
+const heartbeat = storeHeartbeat();
+const supportedPlatforms = ref<Platform[]>([]);
+const search = ref("");
+
+onMounted(async () => {
+  try {
+    const { data } = await platformApi.getSupportedPlatforms();
+    supportedPlatforms.value = (data || []).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  } catch (e: any) {
+    const { response, message } = e || {};
+    emitter?.emit("snackbarShow", {
+      msg: `Unable to get supported platforms: ${
+        response?.data?.detail || response?.statusText || message
+      }`,
+      icon: "mdi-close-circle",
+      color: "red",
+      timeout: 4000,
+    });
+  }
+});
+
+type Row = {
+  fsSlug: string;
+  slug?: string;
+  type: "alias" | "variant" | "auto" | null;
+};
 
 const HEADERS = [
-  {
-    title: t("settings.folder-name-header"),
-    align: "start",
-    sortable: true,
-    key: "fsSlug",
-  },
-  {
-    title: t("settings.romm-platform-header"),
-    align: "start",
-    sortable: true,
-    key: "slug",
-  },
-  {
-    title: t("settings.type-header"),
-    align: "center",
-    sortable: true,
-    key: "type",
-  },
+  { title: t("settings.folder-name-header"), align: "start", key: "fsSlug" },
+  { title: t("settings.romm-platform-header"), align: "start", key: "slug" },
+  { title: t("settings.type-header"), align: "center", key: "type" },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 
-// Combine both bindings and versions into a single mapping list
-const allMappings = computed(() => {
-  const mappings: Array<{
-    fsSlug: string;
-    slug: string;
-    type: "alias" | "variant";
-  }> = [];
-  const seenFolders = new Set<string>();
+const rows = computed<Row[]>(() => {
+  const folders = heartbeat.value?.FILESYSTEM?.FS_PLATFORMS || [];
+  const result: Row[] = [];
 
-  // Add all bindings (aliases)
-  // Note: PLATFORMS_BINDING and PLATFORMS_VERSIONS should not have overlapping fsSlug keys
-  Object.entries(config.value.PLATFORMS_BINDING).forEach(([fsSlug, slug]) => {
-    if (!Object.keys(config.value.PLATFORMS_VERSIONS).includes(fsSlug)) {
-      mappings.push({ fsSlug, slug, type: "alias" });
-      seenFolders.add(fsSlug);
+  const bindings = config.value.PLATFORMS_BINDING || {};
+  const versions = config.value.PLATFORMS_VERSIONS || {};
+
+  const autoSlugByFs: Record<string, string | undefined> = {};
+  for (const p of supportedPlatforms.value) {
+    if (p?.fs_slug) autoSlugByFs[p.fs_slug] = p.slug;
+    // some setups might name folders directly as slug
+    autoSlugByFs[p.slug] = p.slug;
+  }
+
+  for (const fs of folders) {
+    if (bindings[fs]) {
+      result.push({ fsSlug: fs, slug: bindings[fs], type: "alias" });
+      continue;
     }
-  });
-
-  // Add all versions (variants)
-  Object.entries(config.value.PLATFORMS_VERSIONS).forEach(([fsSlug, slug]) => {
-    // Additional validation: skip if fsSlug exists in seenFolders
-    if (!seenFolders.has(fsSlug)) {
-      mappings.push({ fsSlug, slug, type: "variant" });
-      seenFolders.add(fsSlug);
+    if (versions[fs]) {
+      result.push({ fsSlug: fs, slug: versions[fs], type: "variant" });
+      continue;
     }
-  });
+    const auto = autoSlugByFs[fs];
+    result.push({ fsSlug: fs, slug: auto, type: auto ? "auto" : null });
+  }
 
-  return mappings.sort((a, b) => a.fsSlug.localeCompare(b.fsSlug));
+  return result.sort((a, b) => a.fsSlug.localeCompare(b.fsSlug));
 });
 
-function editMapping(mapping: (typeof allMappings.value)[0]) {
+function addAlias(fsSlug: string) {
   emitter?.emit("showCreateFolderMappingDialog", {
-    fsSlug: mapping.fsSlug,
-    slug: mapping.slug,
-    type: mapping.type,
+    fsSlug,
+    slug: "",
+    type: "alias",
   });
 }
 
-function deleteMapping(mapping: (typeof allMappings.value)[0]) {
+function addVariant(fsSlug: string) {
+  emitter?.emit("showCreateFolderMappingDialog", {
+    fsSlug,
+    slug: "",
+    type: "variant",
+  });
+}
+
+function editMapping(row: Row) {
+  if (!row.slug || !row.type || row.type === "auto") return;
+  emitter?.emit("showCreateFolderMappingDialog", {
+    fsSlug: row.fsSlug,
+    slug: row.slug,
+    type: row.type,
+  });
+}
+
+function deleteMapping(row: Row) {
+  if (!row.slug || !row.type || row.type === "auto") return;
   emitter?.emit("showDeleteFolderMappingDialog", {
-    fsSlug: mapping.fsSlug,
-    slug: mapping.slug,
-    type: mapping.type,
+    fsSlug: row.fsSlug,
+    slug: row.slug,
+    type: row.type,
   });
 }
 </script>
@@ -112,12 +145,15 @@ function deleteMapping(mapping: (typeof allMappings.value)[0]) {
             <strong>{{ t("settings.platform-variant") }}:</strong>
             {{ t("settings.folder-mappings-tooltip-variants") }}
           </p>
+          <p class="text-caption mt-2">
+            Note: a folder cannot be both an alias and a variant.
+          </p>
         </div>
       </v-tooltip>
     </template>
     <template #content>
       <v-text-field
-        v-model="mappingSearch"
+        v-model="search"
         prepend-inner-icon="mdi-magnify"
         :label="t('common.search')"
         single-line
@@ -128,13 +164,12 @@ function deleteMapping(mapping: (typeof allMappings.value)[0]) {
         class="bg-surface"
       />
       <v-data-table-virtual
-        :style="{ 'max-height': '40dvh' }"
-        :search="mappingSearch"
+        :style="{ 'max-height': '45dvh' }"
+        :search="search"
         :headers="HEADERS"
-        :items="allMappings"
+        :items="rows"
         :sort-by="[{ key: 'fsSlug', order: 'asc' }]"
         fixed-header
-        fixed-footer
         density="comfortable"
         class="rounded bg-background"
         hide-default-footer
@@ -156,31 +191,78 @@ function deleteMapping(mapping: (typeof allMappings.value)[0]) {
           </v-list-item>
         </template>
         <template #item.slug="{ item }">
-          <v-list-item class="pa-0" min-width="120px">
-            <template #prepend>
-              <PlatformIcon :size="30" :slug="item.slug" class="mr-2" />
+          <v-list-item class="pa-0" min-width="160px">
+            <template v-if="item.slug" #prepend>
+              <PlatformIcon :size="28" :slug="item.slug" class="mr-2" />
             </template>
-            {{ item.slug }}
+            <span v-if="item.slug">{{ item.slug }}</span>
+            <span v-else class="text-romm-gray">—</span>
           </v-list-item>
         </template>
         <template #item.type="{ item }">
-          <v-chip
-            :color="item.type === 'alias' ? 'primary' : 'accent'"
-            size="small"
-            label
-            density="compact"
-          >
-            {{
-              item.type === "alias"
-                ? t("settings.folder-alias")
-                : t("settings.platform-variant")
-            }}
-          </v-chip>
+          <div class="d-flex align-center justify-center">
+            <v-chip
+              v-if="item.type === 'alias'"
+              color="primary"
+              size="small"
+              label
+            >
+              {{ t("settings.folder-alias") }}
+            </v-chip>
+            <v-chip
+              v-else-if="item.type === 'variant'"
+              color="accent"
+              size="small"
+              label
+            >
+              {{ t("settings.platform-variant") }}
+            </v-chip>
+            <v-chip
+              v-else-if="item.type === 'auto'"
+              color="success"
+              variant="tonal"
+              size="small"
+              label
+            >
+              Auto-detected
+            </v-chip>
+            <span v-else class="text-romm-gray">—</span>
+          </div>
         </template>
         <template #item.actions="{ item }">
           <v-btn-group divided density="compact" variant="text">
             <v-btn
-              v-if="authStore.scopes.includes('platforms.write')"
+              v-if="
+                authStore.scopes.includes('platforms.write') &&
+                !item.type &&
+                config.CONFIG_FILE_WRITABLE
+              "
+              size="small"
+              class="text-primary"
+              :title="t('settings.add-folder-alias')"
+              @click="addAlias(item.fsSlug)"
+            >
+              <v-icon>mdi-link-variant</v-icon>
+            </v-btn>
+            <v-btn
+              v-if="
+                authStore.scopes.includes('platforms.write') &&
+                !item.type &&
+                config.CONFIG_FILE_WRITABLE
+              "
+              size="small"
+              class="text-accent"
+              :title="t('settings.add-platform-variant')"
+              @click="addVariant(item.fsSlug)"
+            >
+              <v-icon>mdi-family-tree</v-icon>
+            </v-btn>
+            <v-btn
+              v-if="
+                authStore.scopes.includes('platforms.write') &&
+                (item.type === 'alias' || item.type === 'variant') &&
+                config.CONFIG_FILE_WRITABLE
+              "
               size="small"
               :title="t('common.edit')"
               @click="editMapping(item)"
@@ -188,9 +270,14 @@ function deleteMapping(mapping: (typeof allMappings.value)[0]) {
               <v-icon>mdi-pencil</v-icon>
             </v-btn>
             <v-btn
-              v-if="authStore.scopes.includes('platforms.write')"
+              v-if="
+                authStore.scopes.includes('platforms.write') &&
+                (item.type === 'alias' || item.type === 'variant') &&
+                config.CONFIG_FILE_WRITABLE
+              "
               class="text-romm-red"
               size="small"
+              :title="t('common.delete')"
               @click="deleteMapping(item)"
             >
               <v-icon>mdi-delete</v-icon>
