@@ -160,7 +160,7 @@ function deleteMapping(row: Row) {
         class="bg-surface"
       />
       <v-data-table-virtual
-        :style="{ 'max-height': '50dvh' }"
+        :style="{ 'max-height': '100%' }"
         :search="search"
         :headers="HEADERS"
         :items="rows"

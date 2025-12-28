@@ -261,7 +261,7 @@ onUnmounted(() => {
         </template>
       </v-alert>
       <v-tabs-window v-model="tab">
-        <v-tabs-window-item value="config">
+        <v-tabs-window-item class="h-100" value="config">
           <FolderMappings class="mt-2" />
           <Excluded class="mt-4" />
         </v-tabs-window-item>
