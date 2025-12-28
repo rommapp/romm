@@ -222,14 +222,14 @@ onUnmounted(() => {
         selected-class="bg-toplayer"
       >
         <v-tab prepend-icon="mdi-cog" class="rounded" value="config">
-          Config
+          {{ t("settings.config-tab") }}
         </v-tab>
         <v-tab
           prepend-icon="mdi-folder-question"
           class="rounded"
           value="missing"
         >
-          Missing games
+          {{ t("settings.missing-games-tab") }}
         </v-tab>
       </v-tabs>
     </v-col>
@@ -240,10 +240,11 @@ onUnmounted(() => {
         variant="tonal"
         class="my-2"
       >
-        <template #title>Configuration file not mounted!</template>
+        <template #title>{{
+          t("settings.config-file-not-mounted-title")
+        }}</template>
         <template #text>
-          The config.yml file has not been mounted. Any changes made to the
-          configuration will not persist after the application restarts.
+          {{ t("settings.config-file-not-mounted-desc") }}
         </template>
       </v-alert>
       <v-alert
@@ -252,10 +253,11 @@ onUnmounted(() => {
         variant="tonal"
         class="my-2"
       >
-        <template #title>Configuration file not writable!</template>
+        <template #title>{{
+          t("settings.config-file-not-writable-title")
+        }}</template>
         <template #text>
-          The config.yml file is not writable. Any changes made to the
-          configuration will not persist after the application restarts.
+          {{ t("settings.config-file-not-writable-desc") }}
         </template>
       </v-alert>
       <v-tabs-window v-model="tab">
@@ -297,7 +299,7 @@ onUnmounted(() => {
                     <template #append>
                       <MissingFromFSIcon
                         v-if="item.raw.missing_from_fs"
-                        text="Missing platform from filesystem"
+                        :text="t('settings.missing-platform-from-fs')"
                         chip
                         chip-label
                         chip-density="compact"
@@ -330,7 +332,7 @@ onUnmounted(() => {
                 variant="flat"
                 @click="cleanupAll"
               >
-                Clean up all
+                {{ t("settings.cleanup-all") }}
               </v-btn>
             </v-col>
           </v-row>
