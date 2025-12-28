@@ -75,7 +75,7 @@ function closeDialog() {
           :key="slugToDelete"
           class="mx-2"
           :slug="slugToDelete"
-          :fs-slug="fsSlugToDelete"
+          :fs-slug="slugToDelete"
         />
         <span>[</span>
         <span class="text-primary ml-1">{{ fsSlugToDelete }}</span>
