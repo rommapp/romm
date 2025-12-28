@@ -15,52 +15,82 @@ const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
-const expandedPanels = ref<number[]>([]);
+const search = ref("");
 
-const exclusions = computed(() => [
-  {
-    set: config.value.EXCLUDED_PLATFORMS,
-    title: t("common.platform"),
-    icon: "mdi-gamepad-variant-outline",
-    type: "EXCLUDED_PLATFORMS",
-    description: t("settings.exclusions-platforms-desc"),
-  },
-  {
-    set: config.value.EXCLUDED_SINGLE_FILES,
-    title: t("settings.excluded-single-rom-files"),
-    icon: "mdi-file-remove-outline",
-    type: "EXCLUDED_SINGLE_FILES",
-    description: t("settings.exclusions-single-files-desc"),
-  },
-  {
-    set: config.value.EXCLUDED_SINGLE_EXT,
-    title: t("settings.excluded-single-rom-extensions"),
-    icon: "mdi-file-code-outline",
-    type: "EXCLUDED_SINGLE_EXT",
-    description: t("settings.exclusions-single-ext-desc"),
-  },
-  {
-    set: config.value.EXCLUDED_MULTI_FILES,
-    title: t("settings.excluded-multi-rom-files"),
-    icon: "mdi-file-multiple-outline",
-    type: "EXCLUDED_MULTI_FILES",
-    description: t("settings.exclusions-multi-files-desc"),
-  },
-  {
-    set: config.value.EXCLUDED_MULTI_PARTS_FILES,
-    title: t("settings.excluded-multi-rom-parts-files"),
-    icon: "mdi-folder-multiple-outline",
-    type: "EXCLUDED_MULTI_PARTS_FILES",
-    description: t("settings.exclusions-multi-parts-files-desc"),
-  },
-  {
-    set: config.value.EXCLUDED_MULTI_PARTS_EXT,
-    title: t("settings.excluded-multi-rom-parts-extensions"),
-    icon: "mdi-file-cog-outline",
-    type: "EXCLUDED_MULTI_PARTS_EXT",
-    description: t("settings.exclusions-multi-parts-ext-desc"),
-  },
-]);
+type Row = {
+  type: string;
+  title: string;
+  icon: string;
+  value: string;
+};
+
+const HEADERS = [
+  { title: t("common.name"), align: "start", key: "value" },
+  { title: t("common.type"), align: "start", key: "type" },
+  { title: "", align: "end", key: "actions", sortable: false },
+] as const;
+
+const rows = computed<Row[]>(() => {
+  const defs = [
+    {
+      set: config.value.EXCLUDED_PLATFORMS || [],
+      title: t("common.platform"),
+      icon: "mdi-gamepad-variant-outline",
+      type: "EXCLUDED_PLATFORMS",
+      description: t("settings.exclusions-platforms-desc"),
+    },
+    {
+      set: config.value.EXCLUDED_SINGLE_FILES || [],
+      title: t("settings.excluded-single-rom-files"),
+      icon: "mdi-file-remove-outline",
+      type: "EXCLUDED_SINGLE_FILES",
+      description: t("settings.exclusions-single-files-desc"),
+    },
+    {
+      set: config.value.EXCLUDED_SINGLE_EXT || [],
+      title: t("settings.excluded-single-rom-extensions"),
+      icon: "mdi-file-code-outline",
+      type: "EXCLUDED_SINGLE_EXT",
+      description: t("settings.exclusions-single-ext-desc"),
+    },
+    {
+      set: config.value.EXCLUDED_MULTI_FILES || [],
+      title: t("settings.excluded-multi-rom-files"),
+      icon: "mdi-file-multiple-outline",
+      type: "EXCLUDED_MULTI_FILES",
+      description: t("settings.exclusions-multi-files-desc"),
+    },
+    {
+      set: config.value.EXCLUDED_MULTI_PARTS_FILES || [],
+      title: t("settings.excluded-multi-rom-parts-files"),
+      icon: "mdi-folder-multiple-outline",
+      type: "EXCLUDED_MULTI_PARTS_FILES",
+      description: t("settings.exclusions-multi-parts-files-desc"),
+    },
+    {
+      set: config.value.EXCLUDED_MULTI_PARTS_EXT || [],
+      title: t("settings.excluded-multi-rom-parts-extensions"),
+      icon: "mdi-file-cog-outline",
+      type: "EXCLUDED_MULTI_PARTS_EXT",
+      description: t("settings.exclusions-multi-parts-ext-desc"),
+    },
+  ];
+
+  const result: Row[] = [];
+  for (const def of defs) {
+    for (const v of def.set) {
+      result.push({
+        type: def.type,
+        title: def.title,
+        icon: def.icon,
+        value: v,
+      });
+    }
+  }
+  return result.sort(
+    (a, b) => a.title.localeCompare(b.title) || a.value.localeCompare(b.value),
+  );
+});
 
 function removeExclusion(exclusionValue: string, exclusionType: string) {
   if (configStore.isExclusionType(exclusionType)) {
@@ -73,13 +103,12 @@ function removeExclusion(exclusionValue: string, exclusionType: string) {
     console.error(`Invalid exclusion type '${exclusionType}'`);
   }
 }
-
-function addExclusion(type: string, icon: string, title: string) {
-  emitter?.emit("showCreateExclusionDialog", {
-    type: type,
-    icon: icon,
-    title: title,
-  });
+function addExclusion(type?: string, icon?: string, title?: string) {
+  if (type && icon && title) {
+    emitter?.emit("showCreateExclusionDialog", { type, icon, title });
+  } else {
+    emitter?.emit("showCreateExclusionDialog", null);
+  }
 }
 </script>
 <template>
@@ -102,106 +131,87 @@ function addExclusion(type: string, icon: string, title: string) {
       </v-tooltip>
     </template>
     <template #content>
-      <v-expansion-panels
-        v-model="expandedPanels"
-        multiple
+      <v-text-field
+        v-model="search"
+        prepend-inner-icon="mdi-magnify"
+        :label="t('common.search')"
+        single-line
+        hide-details
+        clearable
         rounded="0"
-        variant="accordion"
+        density="comfortable"
+        class="bg-surface"
+      />
+      <div v-if="rows.length === 0" class="text-center py-8">
+        <v-icon
+          icon="mdi-format-list-bulleted"
+          size="48"
+          class="mb-2 opacity-50"
+        />
+        <div class="text-body-2 text-romm-gray">
+          {{ t("settings.exclusions-none") }}
+        </div>
+      </div>
+      <v-data-table-virtual
+        v-else
+        :style="{ 'max-height': '100%' }"
+        :search="search"
+        :headers="HEADERS"
+        :items="rows"
+        :sort-by="[{ key: 'type', order: 'asc' }]"
+        fixed-header
+        density="comfortable"
+        class="rounded bg-background"
+        hide-default-footer
       >
-        <v-expansion-panel
-          v-for="(exclusion, index) in exclusions"
-          :key="exclusion.type"
-          :value="index"
-          elevation="0"
-          class="bg-toplayer"
-        >
-          <v-expansion-panel-title class="px-4">
-            <template #default="{ expanded }">
-              <v-row no-gutters align="center">
-                <v-col cols="auto">
-                  <v-icon :icon="exclusion.icon" class="mr-4" size="large" />
-                </v-col>
-                <v-col>
-                  <div class="text-body-1 font-weight-medium">
-                    {{ exclusion.title }}
-                  </div>
-                  <div class="text-caption text-romm-gray">
-                    {{ exclusion.description }}
-                  </div>
-                </v-col>
-                <v-col cols="auto" class="mr-4">
-                  <v-btn
-                    v-if="
-                      authStore.scopes.includes('platforms.write') &&
-                      config.CONFIG_FILE_WRITABLE &&
-                      expanded
-                    "
-                    prepend-icon="mdi-plus"
-                    variant="outlined"
-                    class="text-primary mr-2"
-                    size="small"
-                    @click.stop="
-                      addExclusion(
-                        exclusion.type,
-                        exclusion.icon,
-                        exclusion.title,
-                      )
-                    "
-                  >
-                    {{ t("common.add") }}
-                  </v-btn>
-                  <v-chip size="small" label
-                    >{{ exclusion.set.length }}
-                    {{
-                      exclusion.set.length === 1
-                        ? t("settings.exclusions-item")
-                        : t("settings.exclusions-items")
-                    }}</v-chip
-                  >
-                </v-col>
-              </v-row>
+        <template #header.actions>
+          <v-btn
+            v-if="
+              authStore.scopes.includes('platforms.write') &&
+              config.CONFIG_FILE_WRITABLE
+            "
+            prepend-icon="mdi-plus"
+            variant="outlined"
+            class="text-primary"
+            @click="addExclusion()"
+          >
+            {{ t("common.add") }}
+          </v-btn>
+        </template>
+        <template #item.type="{ item }">
+          <v-list-item class="pa-0" min-width="240px">
+            <template #prepend>
+              <v-icon :icon="item.icon" size="26" class="mr-3" />
             </template>
-          </v-expansion-panel-title>
-          <v-expansion-panel-text class="pa-1 bg-surface">
-            <div v-if="exclusion.set.length === 0" class="text-center py-8">
-              <v-icon
-                :icon="exclusion.icon"
-                size="48"
-                class="mb-2 opacity-50"
-              />
-              <div class="text-body-2 text-romm-gray">
-                {{ t("settings.exclusions-none") }}
-              </div>
-            </div>
-            <div v-else class="d-flex flex-wrap">
-              <v-chip
-                v-for="exclusionValue in exclusion.set"
-                :key="exclusionValue"
-                variant="tonal"
-                label
-                size="default"
-                class="ma-1"
-              >
-                <span class="font-weight-medium">{{ exclusionValue }}</span>
-                <template
-                  v-if="
-                    authStore.scopes.includes('platforms.write') &&
-                    config.CONFIG_FILE_WRITABLE
-                  "
-                  #append
-                >
-                  <v-icon
-                    icon="mdi-close-circle"
-                    size="18"
-                    class="ml-2 cursor-pointer"
-                    @click="removeExclusion(exclusionValue, exclusion.type)"
-                  />
-                </template>
-              </v-chip>
-            </div>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
+            <span class="font-weight-medium">{{ item.title }}</span>
+          </v-list-item>
+        </template>
+        <template #item.value="{ item }">
+          <v-list-item class="pa-0" min-width="160px">
+            <span class="font-weight-medium">{{ item.value }}</span>
+          </v-list-item>
+        </template>
+        <template #item.actions="{ item }">
+          <v-btn-group
+            v-if="
+              authStore.scopes.includes('platforms.write') &&
+              config.CONFIG_FILE_WRITABLE
+            "
+            divided
+            density="compact"
+            variant="text"
+          >
+            <v-btn
+              class="text-romm-red"
+              size="small"
+              :title="t('common.delete')"
+              @click="removeExclusion(item.value, item.type)"
+            >
+              <v-icon>mdi-delete</v-icon>
+            </v-btn>
+          </v-btn-group>
+        </template>
+      </v-data-table-virtual>
       <CreateExclusionDialog />
     </template>
   </RSection>
