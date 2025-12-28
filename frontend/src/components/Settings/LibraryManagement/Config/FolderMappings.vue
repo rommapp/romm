@@ -146,7 +146,7 @@ function deleteMapping(row: Row) {
             {{ t("settings.folder-mappings-tooltip-variants") }}
           </p>
           <p class="text-caption mt-2">
-            Note: a folder cannot be both an alias and a variant.
+            {{ t("settings.folder-mappings-mutually-exclusive") }}
           </p>
         </div>
       </v-tooltip>
@@ -224,7 +224,7 @@ function deleteMapping(row: Row) {
               size="small"
               label
             >
-              Auto-detected
+              {{ t("settings.auto-detected") }}
             </v-chip>
             <span v-else class="text-romm-gray">—</span>
           </div>
