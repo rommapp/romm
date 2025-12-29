@@ -161,7 +161,7 @@ function resetMissingRoms() {
   galleryFilterStore.resetFilters();
 }
 
-const { y: documentY } = useScroll(document.body, { throttle: 500 });
+const { y: documentY } = useScroll(window, { throttle: 500 });
 
 // Watch for tab changes and update URL
 watch(tab, (newTab) => {

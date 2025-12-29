@@ -114,7 +114,7 @@ function fetchRoms() {
     });
 }
 
-const { y: documentY } = useScroll(document.body, { throttle: 500 });
+const { y: documentY } = useScroll(window, { throttle: 500 });
 
 watch(documentY, () => {
   clearTimeout(timeout);
