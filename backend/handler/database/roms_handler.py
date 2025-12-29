@@ -106,7 +106,7 @@ def with_details(func):
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
             # Ensure platform is loaded for main ROM objects
-            joinedload(Rom.platform),
+            selectinload(Rom.platform),
             selectinload(Rom.saves).options(
                 noload(Save.rom),
                 noload(Save.user),
@@ -138,7 +138,7 @@ def with_simple(func):
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
             # Ensure platform is loaded for main ROM objects
-            joinedload(Rom.platform),
+            selectinload(Rom.platform),
             # Display properties for the current user (last_played)
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             # Sort table by metadata (first_release_date)
