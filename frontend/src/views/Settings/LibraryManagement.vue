@@ -100,13 +100,13 @@ watch(
       </v-alert>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="mapping">
-          <FolderMappings class="mt-2" />
+          <FolderMappings />
         </v-tabs-window-item>
         <v-tabs-window-item value="excluded">
-          <Excluded class="mt-4" />
+          <Excluded />
         </v-tabs-window-item>
         <v-tabs-window-item value="missing">
-          <MissingGames class="mt-2" />
+          <MissingGames />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>
