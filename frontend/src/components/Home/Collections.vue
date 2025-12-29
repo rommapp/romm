@@ -30,7 +30,7 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
   hoveringCollectionId.value = emitData.id;
 }
 
-const { y: documentY } = useScroll(document.body, { throttle: 100 });
+const { y: documentY } = useScroll(window, { throttle: 100 });
 
 // Watch for scroll changes and trigger the throttled function
 watch(documentY, () => {
