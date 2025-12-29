@@ -102,13 +102,6 @@ function removeExclusion(exclusionValue: string, exclusionType: string) {
     console.error(`Invalid exclusion type '${exclusionType}'`);
   }
 }
-function addExclusion(type?: string, icon?: string, title?: string) {
-  if (type && icon && title) {
-    emitter?.emit("showCreateExclusionDialog", { type, icon, title });
-  } else {
-    emitter?.emit("showCreateExclusionDialog", null);
-  }
-}
 </script>
 <template>
   <div v-if="rows.length === 0" class="text-center py-8">
@@ -127,7 +120,7 @@ function addExclusion(type?: string, icon?: string, title?: string) {
         prepend-icon="mdi-plus"
         variant="outlined"
         class="text-primary"
-        @click="addExclusion()"
+        @click="emitter?.emit('showCreateExclusionDialog', null)"
       >
         {{ t("common.add") }}
       </v-btn>
@@ -180,7 +173,7 @@ function addExclusion(type?: string, icon?: string, title?: string) {
             prepend-icon="mdi-plus"
             variant="outlined"
             class="text-primary"
-            @click="addExclusion()"
+            @click="emitter?.emit('showCreateExclusionDialog', null)"
           >
             {{ t("common.add") }}
           </v-btn>
