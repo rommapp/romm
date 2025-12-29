@@ -149,38 +149,40 @@ function deleteMapping(row: Row) {
     hide-default-footer
   >
     <template #header.actions>
-      <v-tooltip bottom max-width="500">
-        <template #activator="{ props }">
-          <v-btn
-            v-bind="props"
-            size="small"
-            variant="text"
-            icon="mdi-information-outline"
-          />
-        </template>
-        <div>
-          <p class="mb-2">
-            <strong>{{ t("settings.folder-alias") }}:</strong>
-            {{ t("settings.folder-mappings-tooltip-aliases") }}
-          </p>
-          <p>
-            <strong>{{ t("settings.platform-variant") }}:</strong>
-            {{ t("settings.folder-mappings-tooltip-variants") }}
-          </p>
-          <p class="text-caption mt-2">
-            {{ t("settings.folder-mappings-mutually-exclusive") }}
-          </p>
-        </div>
-      </v-tooltip>
-      <v-btn
-        v-if="authStore.scopes.includes('platforms.write')"
-        prepend-icon="mdi-plus"
-        variant="outlined"
-        class="text-primary"
-        @click="emitter?.emit('showCreateFolderMappingDialog', null)"
-      >
-        {{ t("common.add") }}
-      </v-btn>
+      <div class="d-flex align-center flex-nowrap justify-end">
+        <v-tooltip bottom max-width="500">
+          <template #activator="{ props }">
+            <v-btn
+              v-bind="props"
+              size="small"
+              variant="text"
+              icon="mdi-information-outline"
+            />
+          </template>
+          <div>
+            <p class="mb-2">
+              <strong>{{ t("settings.folder-alias") }}:</strong>
+              {{ t("settings.folder-mappings-tooltip-aliases") }}
+            </p>
+            <p>
+              <strong>{{ t("settings.platform-variant") }}:</strong>
+              {{ t("settings.folder-mappings-tooltip-variants") }}
+            </p>
+            <p class="text-caption mt-2">
+              {{ t("settings.folder-mappings-mutually-exclusive") }}
+            </p>
+          </div>
+        </v-tooltip>
+        <v-btn
+          v-if="authStore.scopes.includes('platforms.write')"
+          prepend-icon="mdi-plus"
+          variant="outlined"
+          class="text-primary"
+          @click="emitter?.emit('showCreateFolderMappingDialog', null)"
+        >
+          {{ t("common.add") }}
+        </v-btn>
+      </div>
     </template>
     <template #item.fsSlug="{ item }">
       <v-list-item class="pa-0 font-weight-medium" min-width="120px">
