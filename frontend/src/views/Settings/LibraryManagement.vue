@@ -25,13 +25,13 @@ const route = useRoute();
 const router = useRouter();
 
 // Valid tab values
-const validTabs = ["config", "missing"] as const;
+const validTabs = ["mapping", "excluded", "missing"] as const;
 
 // Initialize tab from query parameter or default to "config"
-const tab = ref<"config" | "missing">(
+const tab = ref<"mapping" | "excluded" | "missing">(
   validTabs.includes(route.query.tab as any)
-    ? (route.query.tab as "config" | "missing")
-    : "config",
+    ? (route.query.tab as "mapping" | "excluded" | "missing")
+    : "mapping",
 );
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
@@ -178,7 +178,7 @@ watch(
   () => route.query.tab,
   (newTab) => {
     if (newTab && validTabs.includes(newTab as any) && tab.value !== newTab) {
-      tab.value = newTab as "config" | "missing";
+      tab.value = newTab as "mapping" | "excluded" | "missing";
     }
   },
   { immediate: true },
@@ -221,8 +221,11 @@ onUnmounted(() => {
         slider-color="secondary"
         selected-class="bg-toplayer"
       >
-        <v-tab prepend-icon="mdi-cog" class="rounded" value="config">
-          {{ t("settings.config-tab") }}
+        <v-tab prepend-icon="mdi-folder-cog" class="rounded" value="mapping">
+          {{ t("settings.folder-mappings") }}
+        </v-tab>
+        <v-tab prepend-icon="mdi-cancel" class="rounded" value="excluded">
+          {{ t("settings.excluded") }}
         </v-tab>
         <v-tab
           prepend-icon="mdi-folder-question"
@@ -261,8 +264,10 @@ onUnmounted(() => {
         </template>
       </v-alert>
       <v-tabs-window v-model="tab">
-        <v-tabs-window-item class="h-100" value="config">
+        <v-tabs-window-item value="mapping">
           <FolderMappings class="mt-2" />
+        </v-tabs-window-item>
+        <v-tabs-window-item value="excluded">
           <Excluded class="mt-4" />
         </v-tabs-window-item>
         <v-tabs-window-item value="missing">

@@ -121,8 +121,29 @@ function deleteMapping(row: Row) {
 </script>
 
 <template>
-  <RSection icon="mdi-folder-cog" :title="t('settings.folder-mappings')">
-    <template #toolbar-title-append>
+  <v-text-field
+    v-model="search"
+    prepend-inner-icon="mdi-magnify"
+    :label="t('common.search')"
+    single-line
+    hide-details
+    clearable
+    rounded="0"
+    density="comfortable"
+    class="bg-surface"
+  />
+  <v-data-table-virtual
+    :style="{ 'max-height': '100%' }"
+    :search="search"
+    :headers="HEADERS"
+    :items="rows"
+    :sort-by="[{ key: 'fsSlug', order: 'asc' }]"
+    fixed-header
+    density="comfortable"
+    class="rounded bg-background"
+    hide-default-footer
+  >
+    <template #header.actions>
       <v-tooltip bottom max-width="500">
         <template #activator="{ props }">
           <v-btn
@@ -146,143 +167,111 @@ function deleteMapping(row: Row) {
           </p>
         </div>
       </v-tooltip>
-    </template>
-    <template #content>
-      <v-text-field
-        v-model="search"
-        prepend-inner-icon="mdi-magnify"
-        :label="t('common.search')"
-        single-line
-        hide-details
-        clearable
-        rounded="0"
-        density="comfortable"
-        class="bg-surface"
-      />
-      <v-data-table-virtual
-        :style="{ 'max-height': '100%' }"
-        :search="search"
-        :headers="HEADERS"
-        :items="rows"
-        :sort-by="[{ key: 'fsSlug', order: 'asc' }]"
-        fixed-header
-        density="comfortable"
-        class="rounded bg-background"
-        hide-default-footer
+      <v-btn
+        v-if="authStore.scopes.includes('platforms.write')"
+        prepend-icon="mdi-plus"
+        variant="outlined"
+        class="text-primary mr-1"
+        @click="emitter?.emit('showCreateFolderMappingDialog', null)"
       >
-        <template #header.actions>
-          <v-btn
-            v-if="authStore.scopes.includes('platforms.write')"
-            prepend-icon="mdi-plus"
-            variant="outlined"
-            class="text-primary"
-            @click="emitter?.emit('showCreateFolderMappingDialog', null)"
-          >
-            {{ t("common.add") }}
-          </v-btn>
-        </template>
-        <template #item.fsSlug="{ item }">
-          <v-list-item class="pa-0 font-weight-medium" min-width="120px">
-            {{ item.fsSlug }}
-          </v-list-item>
-        </template>
-        <template #item.slug="{ item }">
-          <v-list-item class="pa-0" min-width="160px">
-            <template v-if="item.slug" #prepend>
-              <PlatformIcon :size="28" :slug="item.slug" class="mr-2" />
-            </template>
-            <span v-if="item.slug">{{ item.slug }}</span>
-            <span v-else class="text-romm-gray">—</span>
-          </v-list-item>
-        </template>
-        <template #item.type="{ item }">
-          <div class="d-flex align-center justify-center">
-            <v-chip
-              v-if="item.type === 'alias'"
-              color="primary"
-              size="small"
-              label
-            >
-              {{ t("settings.folder-alias") }}
-            </v-chip>
-            <v-chip
-              v-else-if="item.type === 'variant'"
-              color="accent"
-              size="small"
-              label
-            >
-              {{ t("settings.platform-variant") }}
-            </v-chip>
-            <v-chip
-              v-else-if="item.type === 'auto'"
-              color="success"
-              variant="tonal"
-              size="small"
-              label
-            >
-              {{ t("settings.auto-detected") }}
-            </v-chip>
-            <span v-else class="text-romm-gray">—</span>
-          </div>
-        </template>
-        <template #item.actions="{ item }">
-          <v-btn-group divided density="compact" variant="text">
-            <v-btn
-              v-if="
-                authStore.scopes.includes('platforms.write') &&
-                !item.type &&
-                config.CONFIG_FILE_WRITABLE
-              "
-              size="small"
-              class="text-primary"
-              :title="t('settings.add-folder-alias')"
-              @click="addAlias(item.fsSlug)"
-            >
-              <v-icon>mdi-link-variant</v-icon>
-            </v-btn>
-            <v-btn
-              v-if="
-                authStore.scopes.includes('platforms.write') &&
-                !item.type &&
-                config.CONFIG_FILE_WRITABLE
-              "
-              size="small"
-              class="text-accent"
-              :title="t('settings.add-platform-variant')"
-              @click="addVariant(item.fsSlug)"
-            >
-              <v-icon>mdi-family-tree</v-icon>
-            </v-btn>
-            <v-btn
-              v-if="
-                authStore.scopes.includes('platforms.write') &&
-                (item.type === 'alias' || item.type === 'variant') &&
-                config.CONFIG_FILE_WRITABLE
-              "
-              size="small"
-              :title="t('common.edit')"
-              @click="editMapping(item)"
-            >
-              <v-icon>mdi-pencil</v-icon>
-            </v-btn>
-            <v-btn
-              v-if="
-                authStore.scopes.includes('platforms.write') &&
-                (item.type === 'alias' || item.type === 'variant') &&
-                config.CONFIG_FILE_WRITABLE
-              "
-              class="text-romm-red"
-              size="small"
-              :title="t('common.delete')"
-              @click="deleteMapping(item)"
-            >
-              <v-icon>mdi-delete</v-icon>
-            </v-btn>
-          </v-btn-group>
-        </template>
-      </v-data-table-virtual>
-      <CreateFolderMappingDialog />
-      <DeleteFolderMappingDialog />
+        {{ t("common.add") }}
+      </v-btn>
     </template>
-  </RSection>
+    <template #item.fsSlug="{ item }">
+      <v-list-item class="pa-0 font-weight-medium" min-width="120px">
+        {{ item.fsSlug }}
+      </v-list-item>
+    </template>
+    <template #item.slug="{ item }">
+      <v-list-item class="pa-0" min-width="160px">
+        <template v-if="item.slug" #prepend>
+          <PlatformIcon :size="28" :slug="item.slug" class="mr-2" />
+        </template>
+        <span v-if="item.slug">{{ item.slug }}</span>
+        <span v-else class="text-romm-gray">—</span>
+      </v-list-item>
+    </template>
+    <template #item.type="{ item }">
+      <div class="d-flex align-center justify-center">
+        <v-chip v-if="item.type === 'alias'" color="primary" size="small" label>
+          {{ t("settings.folder-alias") }}
+        </v-chip>
+        <v-chip
+          v-else-if="item.type === 'variant'"
+          color="accent"
+          size="small"
+          label
+        >
+          {{ t("settings.platform-variant") }}
+        </v-chip>
+        <v-chip
+          v-else-if="item.type === 'auto'"
+          color="success"
+          variant="tonal"
+          size="small"
+          label
+        >
+          {{ t("settings.auto-detected") }}
+        </v-chip>
+        <span v-else class="text-romm-gray">—</span>
+      </div>
+    </template>
+    <template #item.actions="{ item }">
+      <v-btn-group divided density="compact" variant="text">
+        <v-btn
+          v-if="
+            authStore.scopes.includes('platforms.write') &&
+            !item.type &&
+            config.CONFIG_FILE_WRITABLE
+          "
+          size="small"
+          class="text-primary"
+          :title="t('settings.add-folder-alias')"
+          @click="addAlias(item.fsSlug)"
+        >
+          <v-icon>mdi-link-variant</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="
+            authStore.scopes.includes('platforms.write') &&
+            !item.type &&
+            config.CONFIG_FILE_WRITABLE
+          "
+          size="small"
+          class="text-accent"
+          :title="t('settings.add-platform-variant')"
+          @click="addVariant(item.fsSlug)"
+        >
+          <v-icon>mdi-family-tree</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="
+            authStore.scopes.includes('platforms.write') &&
+            (item.type === 'alias' || item.type === 'variant') &&
+            config.CONFIG_FILE_WRITABLE
+          "
+          size="small"
+          :title="t('common.edit')"
+          @click="editMapping(item)"
+        >
+          <v-icon>mdi-pencil</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="
+            authStore.scopes.includes('platforms.write') &&
+            (item.type === 'alias' || item.type === 'variant') &&
+            config.CONFIG_FILE_WRITABLE
+          "
+          class="text-romm-red"
+          size="small"
+          :title="t('common.delete')"
+          @click="deleteMapping(item)"
+        >
+          <v-icon>mdi-delete</v-icon>
+        </v-btn>
+      </v-btn-group>
+    </template>
+  </v-data-table-virtual>
+  <CreateFolderMappingDialog />
+  <DeleteFolderMappingDialog />
 </template>
