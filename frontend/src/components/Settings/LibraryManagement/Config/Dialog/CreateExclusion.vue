@@ -157,12 +157,13 @@ function closeDialog() {
             </v-row>
 
             <!-- Value Input -->
-            <div v-if="exclusionType" class="text-center">
+            <div class="text-center">
               <p class="text-sm text-romm-gray mb-4">
                 <v-icon :icon="exclusionIcon" class="mr-1 text-primary" />
                 {{ t("settings.add-exclusion-for") }} {{ exclusionTitle }}
               </p>
               <v-text-field
+                :disabled="!exclusionType"
                 v-model="exclusionValue"
                 :label="t('settings.exclusion-value')"
                 :placeholder="t('settings.exclusion-placeholder')"
