@@ -63,9 +63,16 @@ const rows = computed<Row[]>(() => {
 
   const autoSlugByFs: Record<string, string | undefined> = {};
   for (const p of supportedPlatforms.value) {
-    if (p?.fs_slug) autoSlugByFs[p.fs_slug] = p.slug;
-    // some setups might name folders directly as slug
-    autoSlugByFs[p.slug] = p.slug;
+    if (p.id === -1) {
+      // Platform not in database yet - use canonical fs_slug and slug
+      if (p?.fs_slug) autoSlugByFs[p.fs_slug] = p.slug;
+      autoSlugByFs[p.slug] = p.slug;
+    } else {
+      // Platform in database - only auto-detect by slug, not by custom fs_slug
+      // This prevents aliases from appearing as auto-detected after removal
+      // (e.g., folder "ps" with alias to "psx" shouldn't auto-detect after alias deletion)
+      autoSlugByFs[p.slug] = p.slug;
+    }
   }
 
   for (const fs of folders) {
