@@ -6,7 +6,6 @@ import { useI18n } from "vue-i18n";
 import CreateFolderMappingDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreateFolderMapping.vue";
 import DeleteFolderMappingDialog from "@/components/Settings/LibraryManagement/Config/Dialog/DeleteFolderMapping.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
-import RSection from "@/components/common/RSection.vue";
 import platformApi from "@/services/api/platform";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
@@ -32,9 +31,9 @@ onMounted(async () => {
   } catch (e: any) {
     const { response, message } = e || {};
     emitter?.emit("snackbarShow", {
-      msg: `Unable to get supported platforms: ${
-        response?.data?.detail || response?.statusText || message
-      }`,
+      msg: t("settings.unable-to-get-supported-platforms", {
+        detail: response?.data?.detail || response?.statusText || message,
+      }),
       icon: "mdi-close-circle",
       color: "red",
       timeout: 4000,
@@ -133,7 +132,6 @@ function deleteMapping(row: Row) {
     class="bg-surface"
   />
   <v-data-table-virtual
-    :style="{ 'max-height': '100%' }"
     :search="search"
     :headers="HEADERS"
     :items="rows"
@@ -171,7 +169,7 @@ function deleteMapping(row: Row) {
         v-if="authStore.scopes.includes('platforms.write')"
         prepend-icon="mdi-plus"
         variant="outlined"
-        class="text-primary mr-1"
+        class="text-primary"
         @click="emitter?.emit('showCreateFolderMappingDialog', null)"
       >
         {{ t("common.add") }}
