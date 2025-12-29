@@ -114,16 +114,15 @@ function fetchRoms() {
     });
 }
 
-const { y: documentY } = useScroll(window, { throttle: 500 });
+const { y: windowY } = useScroll(window, { throttle: 500 });
 
-watch(documentY, () => {
+watch(windowY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = documentY.value === 0;
+    scrolledToTop.value = windowY.value === 0;
     if (
-      documentY.value + window.innerHeight >=
-        document.body.scrollHeight - 300 &&
+      windowY.value + window.innerHeight >= document.body.scrollHeight - 300 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
