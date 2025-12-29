@@ -4,7 +4,6 @@ import { storeToRefs } from "pinia";
 import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import CreateExclusionDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreateExclusion.vue";
-import RSection from "@/components/common/RSection.vue";
 import configApi from "@/services/api/config";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
@@ -112,56 +111,19 @@ function addExclusion(type?: string, icon?: string, title?: string) {
 }
 </script>
 <template>
-  <v-text-field
-    v-model="search"
-    prepend-inner-icon="mdi-magnify"
-    :label="t('common.search')"
-    single-line
-    hide-details
-    clearable
-    rounded="0"
-    density="comfortable"
-    class="bg-surface"
-  />
   <div v-if="rows.length === 0" class="text-center py-8">
     <v-icon icon="mdi-format-list-bulleted" size="48" class="mb-2 opacity-50" />
     <div class="text-body-2 text-romm-gray">
       {{ t("settings.exclusions-none") }}
     </div>
-  </div>
-  <v-data-table-virtual
-    v-else
-    :style="{ 'max-height': '100%' }"
-    :search="search"
-    :headers="HEADERS"
-    :items="rows"
-    :sort-by="[{ key: 'type', order: 'asc' }]"
-    fixed-header
-    density="comfortable"
-    class="rounded bg-background"
-    hide-default-footer
-  >
-    <template #header.actions>
-      <v-tooltip bottom max-width="400">
-        <template #activator="{ props }">
-          <v-btn
-            v-bind="props"
-            size="small"
-            variant="text"
-            icon="mdi-information-outline"
-          />
-        </template>
-        <div>
-          <p>
-            {{ t("settings.exclusions-tooltip") }}
-          </p>
-        </div>
-      </v-tooltip>
+    <div
+      v-if="
+        authStore.scopes.includes('platforms.write') &&
+        config.CONFIG_FILE_WRITABLE
+      "
+      class="mt-6"
+    >
       <v-btn
-        v-if="
-          authStore.scopes.includes('platforms.write') &&
-          config.CONFIG_FILE_WRITABLE
-        "
         prepend-icon="mdi-plus"
         variant="outlined"
         class="text-primary"
@@ -169,40 +131,93 @@ function addExclusion(type?: string, icon?: string, title?: string) {
       >
         {{ t("common.add") }}
       </v-btn>
-    </template>
-    <template #item.type="{ item }">
-      <v-list-item class="pa-0" min-width="240px">
-        <template #prepend>
-          <v-icon :icon="item.icon" size="26" class="mr-3" />
-        </template>
-        <span class="font-weight-medium">{{ item.title }}</span>
-      </v-list-item>
-    </template>
-    <template #item.value="{ item }">
-      <v-list-item class="pa-0" min-width="160px">
-        <span class="font-weight-medium">{{ item.value }}</span>
-      </v-list-item>
-    </template>
-    <template #item.actions="{ item }">
-      <v-btn-group
-        v-if="
-          authStore.scopes.includes('platforms.write') &&
-          config.CONFIG_FILE_WRITABLE
-        "
-        divided
-        density="compact"
-        variant="text"
-      >
+    </div>
+  </div>
+  <template v-else>
+    <v-text-field
+      v-model="search"
+      prepend-inner-icon="mdi-magnify"
+      :label="t('common.search')"
+      single-line
+      hide-details
+      clearable
+      rounded="0"
+      density="comfortable"
+      class="bg-surface"
+    />
+    <v-data-table-virtual
+      :search="search"
+      :headers="HEADERS"
+      :items="rows"
+      :sort-by="[{ key: 'type', order: 'asc' }]"
+      fixed-header
+      density="comfortable"
+      class="rounded bg-background"
+      hide-default-footer
+    >
+      <template #header.actions>
+        <v-tooltip bottom max-width="400">
+          <template #activator="{ props }">
+            <v-btn
+              v-bind="props"
+              size="small"
+              variant="text"
+              icon="mdi-information-outline"
+            />
+          </template>
+          <div>
+            <p>
+              {{ t("settings.exclusions-tooltip") }}
+            </p>
+          </div>
+        </v-tooltip>
         <v-btn
-          class="text-romm-red"
-          size="small"
-          :title="t('common.delete')"
-          @click="removeExclusion(item.value, item.type)"
+          v-if="
+            authStore.scopes.includes('platforms.write') &&
+            config.CONFIG_FILE_WRITABLE
+          "
+          prepend-icon="mdi-plus"
+          variant="outlined"
+          class="text-primary"
+          @click="addExclusion()"
         >
-          <v-icon>mdi-delete</v-icon>
+          {{ t("common.add") }}
         </v-btn>
-      </v-btn-group>
-    </template>
-  </v-data-table-virtual>
+      </template>
+      <template #item.type="{ item }">
+        <v-list-item class="pa-0" min-width="240px">
+          <template #prepend>
+            <v-icon :icon="item.icon" size="26" class="mr-3" />
+          </template>
+          <span class="font-weight-medium">{{ item.title }}</span>
+        </v-list-item>
+      </template>
+      <template #item.value="{ item }">
+        <v-list-item class="pa-0" min-width="160px">
+          <span class="font-weight-medium">{{ item.value }}</span>
+        </v-list-item>
+      </template>
+      <template #item.actions="{ item }">
+        <v-btn-group
+          v-if="
+            authStore.scopes.includes('platforms.write') &&
+            config.CONFIG_FILE_WRITABLE
+          "
+          divided
+          density="compact"
+          variant="text"
+        >
+          <v-btn
+            class="text-romm-red"
+            size="small"
+            :title="t('common.delete')"
+            @click="removeExclusion(item.value, item.type)"
+          >
+            <v-icon>mdi-delete</v-icon>
+          </v-btn>
+        </v-btn-group>
+      </template>
+    </v-data-table-virtual>
+  </template>
   <CreateExclusionDialog />
 </template>
