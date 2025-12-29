@@ -17,7 +17,6 @@ const exclusionValue = ref();
 const exclusionType = ref();
 const exclusionIcon = ref();
 const exclusionTitle = ref();
-const preSelected = ref(false);
 
 const exclusionTypes = computed(() => [
   {
@@ -58,18 +57,10 @@ const exclusionTypes = computed(() => [
   },
 ]);
 
-emitter?.on("showCreateExclusionDialog", (payload) => {
-  if (payload) {
-    exclusionType.value = payload.type;
-    exclusionIcon.value = payload.icon;
-    exclusionTitle.value = payload.title;
-    preSelected.value = true;
-  } else {
-    exclusionType.value = null;
-    exclusionIcon.value = null;
-    exclusionTitle.value = null;
-    preSelected.value = false;
-  }
+emitter?.on("showCreateExclusionDialog", () => {
+  exclusionType.value = null;
+  exclusionIcon.value = null;
+  exclusionTitle.value = null;
   exclusionValue.value = "";
   show.value = true;
 });
@@ -78,20 +69,15 @@ function selectExclusionType(type: string, icon: string, title: string) {
   exclusionType.value = type;
   exclusionIcon.value = icon;
   exclusionTitle.value = title;
-  preSelected.value = true;
 }
 
 function addExclusion() {
-  if (configStore.isExclusionType(exclusionType.value)) {
-    configApi.addExclusion({
-      exclusionValue: exclusionValue.value,
-      exclusionType: exclusionType.value,
-    });
-    configStore.addExclusion(exclusionType.value, exclusionValue.value);
-    closeDialog();
-  } else {
-    console.error(`Invalid exclusion type '${exclusionType.value}'`);
-  }
+  configApi.addExclusion({
+    exclusionValue: exclusionValue.value,
+    exclusionType: exclusionType.value,
+  });
+  configStore.addExclusion(exclusionType.value, exclusionValue.value);
+  closeDialog();
 }
 
 function closeDialog() {
@@ -100,7 +86,6 @@ function closeDialog() {
   exclusionType.value = null;
   exclusionIcon.value = null;
   exclusionTitle.value = null;
-  preSelected.value = false;
 }
 </script>
 <template>
@@ -115,43 +100,64 @@ function closeDialog() {
       <v-row class="align-center" no-gutters>
         <v-col cols="12">
           <v-card-text class="pa-4">
-            <!-- Type Selection Step -->
-            <div v-if="!preSelected">
-              <p class="text-center text-sm text-romm-gray mb-6">
-                {{ t("settings.select-exclusion-type") }}
-              </p>
-              <v-row no-gutters>
-                <v-col
-                  v-for="item in exclusionTypes"
-                  :key="item.type"
-                  class="pa-1"
-                  cols="12"
-                  sm="6"
+            <!-- Type Selection -->
+            <p class="text-center text-sm text-romm-gray mb-6">
+              {{ t("settings.select-exclusion-type") }}
+            </p>
+            <v-row no-gutters class="mb-6">
+              <v-col
+                v-for="item in exclusionTypes"
+                :key="item.type"
+                class="pa-1"
+                cols="12"
+                sm="6"
+              >
+                <v-card
+                  :variant="
+                    exclusionType === item.type ? 'elevated' : 'outlined'
+                  "
+                  :class="[
+                    'cursor-pointer pa-4 text-center h-100 transition',
+                    exclusionType === item.type
+                      ? 'bg-primary'
+                      : 'hover:bg-surface',
+                  ]"
+                  @click="selectExclusionType(item.type, item.icon, item.title)"
                 >
-                  <v-card
-                    variant="outlined"
-                    class="cursor-pointer pa-4 text-center h-100 hover:bg-surface transition"
-                    @click="
-                      selectExclusionType(item.type, item.icon, item.title)
-                    "
+                  <v-icon
+                    :icon="item.icon"
+                    size="32"
+                    :class="[
+                      'mb-2',
+                      exclusionType === item.type
+                        ? 'text-white'
+                        : 'text-primary',
+                    ]"
+                  />
+                  <div
+                    :class="[
+                      'text-sm font-weight-medium',
+                      exclusionType === item.type ? 'text-white' : '',
+                    ]"
                   >
-                    <v-icon
-                      :icon="item.icon"
-                      size="32"
-                      class="text-primary mb-2"
-                    />
-                    <div class="text-sm font-weight-medium">
-                      {{ item.title }}
-                    </div>
-                    <div class="text-xs text-romm-gray mt-1">
-                      {{ item.description }}
-                    </div>
-                  </v-card>
-                </v-col>
-              </v-row>
-            </div>
-            <!-- Value Input Step -->
-            <div v-else class="text-center">
+                    {{ item.title }}
+                  </div>
+                  <div
+                    :class="[
+                      'text-xs mt-1',
+                      exclusionType === item.type
+                        ? 'text-white opacity-90'
+                        : 'text-romm-gray',
+                    ]"
+                  >
+                    {{ item.description }}
+                  </div>
+                </v-card>
+              </v-col>
+            </v-row>
+
+            <!-- Value Input -->
+            <div v-if="exclusionType" class="text-center">
               <p class="text-sm text-romm-gray mb-4">
                 <v-icon :icon="exclusionIcon" class="mr-1 text-primary" />
                 {{ t("settings.add-exclusion-for") }} {{ exclusionTitle }}
@@ -182,10 +188,11 @@ function closeDialog() {
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
-            v-if="preSelected"
             class="bg-toplayer text-romm-green"
-            :disabled="exclusionValue == ''"
-            :variant="exclusionValue == '' ? 'plain' : 'flat'"
+            :disabled="!exclusionType || exclusionValue === ''"
+            :variant="
+              !exclusionType || exclusionValue === '' ? 'plain' : 'flat'
+            "
             @click="addExclusion"
           >
             {{ t("common.confirm") }}

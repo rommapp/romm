@@ -40,11 +40,7 @@ export type Events = {
     slug: string;
     type: "alias" | "variant";
   };
-  showCreateExclusionDialog: null | {
-    type: string;
-    icon: string;
-    title: string;
-  };
+  showCreateExclusionDialog: null;
   showCreateUserDialog: null;
   showCreateInviteLinkDialog: void;
   showEditUserDialog: User;
