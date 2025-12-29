@@ -464,6 +464,7 @@ watch(
       v-model="showAddNoteDialog"
       icon="mdi-note-plus"
       width="800"
+      scroll-content
       @close="closeAddNote"
     >
       <template #header>
@@ -535,6 +536,7 @@ watch(
       v-model="showDeleteDialog"
       icon="mdi-delete"
       width="400"
+      scroll-content
       @close="showDeleteDialog = false"
     >
       <template #header>
