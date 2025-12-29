@@ -156,33 +156,35 @@ function addExclusion(type?: string, icon?: string, title?: string) {
       hide-default-footer
     >
       <template #header.actions>
-        <v-tooltip bottom max-width="400">
-          <template #activator="{ props }">
-            <v-btn
-              v-bind="props"
-              size="small"
-              variant="text"
-              icon="mdi-information-outline"
-            />
-          </template>
-          <div>
-            <p>
-              {{ t("settings.exclusions-tooltip") }}
-            </p>
-          </div>
-        </v-tooltip>
-        <v-btn
-          v-if="
-            authStore.scopes.includes('platforms.write') &&
-            config.CONFIG_FILE_WRITABLE
-          "
-          prepend-icon="mdi-plus"
-          variant="outlined"
-          class="text-primary"
-          @click="addExclusion()"
-        >
-          {{ t("common.add") }}
-        </v-btn>
+        <div class="d-flex align-center flex-nowrap justify-end">
+          <v-tooltip bottom max-width="400">
+            <template #activator="{ props }">
+              <v-btn
+                v-bind="props"
+                size="small"
+                variant="text"
+                icon="mdi-information-outline"
+              />
+            </template>
+            <div>
+              <p>
+                {{ t("settings.exclusions-tooltip") }}
+              </p>
+            </div>
+          </v-tooltip>
+          <v-btn
+            v-if="
+              authStore.scopes.includes('platforms.write') &&
+              config.CONFIG_FILE_WRITABLE
+            "
+            prepend-icon="mdi-plus"
+            variant="outlined"
+            class="text-primary"
+            @click="addExclusion()"
+          >
+            {{ t("common.add") }}
+          </v-btn>
+        </div>
       </template>
       <template #item.type="{ item }">
         <v-list-item class="pa-0" min-width="240px">
