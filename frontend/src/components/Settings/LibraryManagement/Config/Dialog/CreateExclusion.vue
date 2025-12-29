@@ -163,7 +163,10 @@ function closeDialog() {
                 {{ t("settings.add-exclusion-for") }} {{ exclusionTitle }}
               </p>
               <v-text-field
+<<<<<<< HEAD
                 :disabled="!exclusionType"
+=======
+>>>>>>> b2f995ec7 (feat: Refactor Library Management settings and add Missing Games component)
                 v-model="exclusionValue"
                 :label="t('settings.exclusion-value')"
                 :placeholder="t('settings.exclusion-placeholder')"
@@ -189,6 +192,7 @@ function closeDialog() {
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
+            v-if="preSelected"
             class="bg-toplayer text-romm-green"
             :disabled="!exclusionType || exclusionValue === ''"
             :variant="
