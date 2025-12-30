@@ -110,7 +110,7 @@ def with_details(func):
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
             # Ensure platform is loaded for main ROM objects
-            joinedload(Rom.platform),
+            selectinload(Rom.platform),
             selectinload(Rom.saves).options(
                 noload(Save.rom),
                 noload(Save.user),
@@ -142,7 +142,7 @@ def with_simple(func):
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
             # Ensure platform is loaded for main ROM objects
-            joinedload(Rom.platform),
+            selectinload(Rom.platform),
             # Display properties for the current user (last_played)
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             # Sort table by metadata (first_release_date)
@@ -684,12 +684,10 @@ class DBRomsHandler(DBBaseHandler):
 
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomUser, order_by)
-            query = query.filter(RomUser.user_id == user_id, order_attr.isnot(None))
+            query = query.filter(RomUser.user_id == user_id)
         elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomMetadata, order_by)
-            query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id).filter(
-                order_attr.isnot(None)
-            )
+            query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
         elif hasattr(Rom, order_by):
             order_attr = getattr(Rom, order_by)
         else:
