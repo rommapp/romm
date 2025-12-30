@@ -81,6 +81,6 @@ export type SimpleRomSchema = {
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
-    has_notes: boolean;
+    has_notes?: boolean;
 };
 
