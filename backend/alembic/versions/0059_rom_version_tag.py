@@ -1,4 +1,4 @@
-"""empty message
+"""Adds version column to roms table
 
 Revision ID: 0059_rom_version_tag
 Revises: 0058_roms_metadata_launchbox
@@ -8,7 +8,6 @@ Create Date: 2025-12-30 10:48:45.025990
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = "0059_rom_version_tag"

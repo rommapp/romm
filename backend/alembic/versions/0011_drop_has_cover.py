@@ -1,4 +1,4 @@
-"""empty message
+"""Remove has_cover column from roms table
 
 Revision ID: 0011_drop_has_cover
 Revises: 0010_igdb_id_integerr

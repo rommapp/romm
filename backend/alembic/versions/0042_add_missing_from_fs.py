@@ -1,4 +1,4 @@
-"""empty message
+"""Add missing from filesystem to paltform, roms and files
 
 Revision ID: 0042_add_missing_from_fs
 Revises: 0041_assets_t_thumb_cleanup

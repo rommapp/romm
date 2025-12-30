@@ -1,4 +1,4 @@
-"""empty message
+"""Add created_at and updated_at columns
 
 Revision ID: 0020_created_and_updated
 Revises: 0019_resources_refactor

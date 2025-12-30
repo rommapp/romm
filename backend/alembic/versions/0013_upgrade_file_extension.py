@@ -1,4 +1,4 @@
-"""empty message
+"""Increase length of file_extension column
 
 Revision ID: 0013_upgrade_file_extension
 Revises: 0012_add_regions_languages

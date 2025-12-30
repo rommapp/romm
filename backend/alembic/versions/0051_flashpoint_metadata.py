@@ -1,4 +1,4 @@
-"""empty message
+"""Add Flashpoint metadata
 
 Revision ID: 0051_flashpoint_metadata
 Revises: 0050_firmware_add_is_verified
