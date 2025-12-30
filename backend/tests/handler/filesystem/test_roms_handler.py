@@ -355,10 +355,10 @@ class TestFSRomsHandler:
             assert parsed_rom_files.rom_files[0].file_path == "n64/roms"
             assert parsed_rom_files.rom_files[0].file_size_bytes > 0
 
-            assert parsed_rom_files.crc_hash == "13263b35"
-            assert parsed_rom_files.md5_hash == "f1c2e022870405e373720e14fa6ab4a0"
+            assert parsed_rom_files.crc_hash == "efb5af2e"
+            assert parsed_rom_files.md5_hash == "0f343b0931126a20f133d67c2b018a3b"
             assert (
-                parsed_rom_files.sha1_hash == "91fe2e94ca7d01531002e99199bd8943c9d6e992"
+                parsed_rom_files.sha1_hash == "60cacbf3d72e1e7834203da608037b1bf83b40e8"
             )
 
     @pytest.mark.asyncio
