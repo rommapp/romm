@@ -1,4 +1,4 @@
-"""empty message
+"""Create or update roms_metadata view with consolidated metadata
 
 Revision ID: 0037_virtual_rom_columns
 Revises: 0036_screenscraper_platforms_id

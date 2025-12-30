@@ -1,4 +1,4 @@
-"""empty message
+"""Add Hasheous and TGDB data
 
 Revision ID: 0044_hasheous_id
 Revises: 0043_launchbox_id

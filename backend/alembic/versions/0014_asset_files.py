@@ -1,4 +1,4 @@
-"""empty message
+"""Introduce saves, screenshots, and states tables and refactor database schema
 
 Revision ID: 0014_asset_files
 Revises: 0013_upgrade_file_extension

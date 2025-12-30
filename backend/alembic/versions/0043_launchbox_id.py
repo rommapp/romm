@@ -1,4 +1,4 @@
-"""empty message
+"""Add Launchbox data and remove RetroAchievements metadata from rom_user
 
 Revision ID: 0043_launchbox_id
 Revises: 0042_add_missing_from_fs
