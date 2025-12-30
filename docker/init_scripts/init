@@ -6,6 +6,9 @@ set -o pipefail          # treat errors in pipes as fatal
 shopt -s inherit_errexit # inherit errexit
 
 LOGLEVEL="${LOGLEVEL:="INFO"}"
+PROCESS_RESTART_LIMIT="${PROCESS_RESTART_LIMIT:-10}"
+GUNICORN_RESTART_BACKOFF_SECONDS="${GUNICORN_RESTART_BACKOFF_SECONDS:-2}"
+GUNICORN_RESTART_COUNT=0
 
 # make it possible to disable the inotify watcher process
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="false"}"
@@ -113,6 +116,28 @@ start_bin_gunicorn() {
 		--error-logfile - \
 		--log-config /etc/gunicorn/logging.conf \
 		main:app &
+
+	GUNICORN_CHILD_PID=$!
+
+	# gunicorn writes the pid file itself; wait briefly to ensure it comes up
+	local retries=20
+	while [[ $retries -gt 0 ]]; do
+		if [[ -f /tmp/gunicorn.pid ]]; then
+			return 0
+		fi
+
+		# if the process died before writing the pid file, abort early
+		if ! kill -0 "${GUNICORN_CHILD_PID}" 2>/dev/null; then
+			warn_log "gunicorn exited before creating pid file"
+			return 1
+		fi
+
+		sleep 0.25
+		((retries--))
+	done
+
+	warn_log "gunicorn failed to create pid file within 5s"
+	return 1
 }
 
 # Commands to start nginx (handling PID creation internally)
@@ -307,7 +332,19 @@ run_startup
 
 # main loop
 while ! ((exited)); do
-	watchdog_process_pid gunicorn
+	if watchdog_process_pid gunicorn; then
+		GUNICORN_RESTART_COUNT=0
+	else
+		((GUNICORN_RESTART_COUNT++))
+		if ((GUNICORN_RESTART_COUNT >= PROCESS_RESTART_LIMIT)); then
+			error_log "gunicorn failed to start after ${PROCESS_RESTART_LIMIT} attempts; giving up"
+		fi
+
+		local_backoff=$((GUNICORN_RESTART_BACKOFF_SECONDS * GUNICORN_RESTART_COUNT))
+		warn_log "gunicorn restart #${GUNICORN_RESTART_COUNT}, backing off for ${local_backoff}s"
+		sleep "${local_backoff}"
+		continue
+	fi
 
 	# only start the scheduler if enabled
 	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" || ${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA} == "true" ]]; then
