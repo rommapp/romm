@@ -22,25 +22,6 @@ const supportedPlatforms = ref<Platform[]>([]);
 const search = ref("");
 const isLoading = ref(false);
 
-onMounted(async () => {
-  try {
-    const { data } = await platformApi.getSupportedPlatforms();
-    supportedPlatforms.value = (data || []).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
-  } catch (e: any) {
-    const { response, message } = e || {};
-    emitter?.emit("snackbarShow", {
-      msg: t("settings.unable-to-get-supported-platforms", {
-        detail: response?.data?.detail || response?.statusText || message,
-      }),
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 4000,
-    });
-  }
-});
-
 type Row = {
   fsSlug: string;
   slug?: string;
@@ -193,6 +174,58 @@ async function updatePlatformMapping(
     } finally {
       isLoading.value = false;
     }
+  } else if (currentType === "alias") {
+    // Update existing alias mapping to different platform
+    try {
+      isLoading.value = true;
+      await configApi.deletePlatformBindConfig({ fsSlug });
+      await configApi.addPlatformBindConfig({ fsSlug, slug: newSlug });
+      await configStore.fetchConfig();
+      emitter?.emit("snackbarShow", {
+        msg: t("settings.platform-mapping-updated"),
+        icon: "mdi-check-circle",
+        color: "green",
+        timeout: 2000,
+      });
+    } catch (e: any) {
+      const { response, message } = e || {};
+      emitter?.emit("snackbarShow", {
+        msg: t("settings.unable-to-update-platform-mapping", {
+          detail: response?.data?.detail || response?.statusText || message,
+        }),
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    } finally {
+      isLoading.value = false;
+    }
+  } else if (currentType === "variant") {
+    // Update existing variant mapping to different platform
+    try {
+      isLoading.value = true;
+      await configApi.deletePlatformVersionConfig({ fsSlug });
+      await configApi.addPlatformVersionConfig({ fsSlug, slug: newSlug });
+      await configStore.fetchConfig();
+      emitter?.emit("snackbarShow", {
+        msg: t("settings.platform-mapping-updated"),
+        icon: "mdi-check-circle",
+        color: "green",
+        timeout: 2000,
+      });
+    } catch (e: any) {
+      const { response, message } = e || {};
+      emitter?.emit("snackbarShow", {
+        msg: t("settings.unable-to-update-platform-mapping", {
+          detail: response?.data?.detail || response?.statusText || message,
+        }),
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    } finally {
+      isLoading.value = false;
+    }
   }
 }
 
@@ -243,23 +276,16 @@ async function updateMappingType(
   }
 }
 
-async function addPlatformAlias(fsSlug: string, platformSlug: string) {
+onMounted(async () => {
   try {
-    await configApi.addPlatformBindConfig({
-      fsSlug,
-      slug: platformSlug,
-    });
-    await configStore.fetchConfig();
-    emitter?.emit("snackbarShow", {
-      msg: t("settings.platform-mapping-created"),
-      icon: "mdi-check-circle",
-      color: "green",
-      timeout: 2000,
-    });
+    const { data } = await platformApi.getSupportedPlatforms();
+    supportedPlatforms.value = (data || []).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
   } catch (e: any) {
     const { response, message } = e || {};
     emitter?.emit("snackbarShow", {
-      msg: t("settings.unable-to-create-platform-mapping", {
+      msg: t("settings.unable-to-get-supported-platforms", {
         detail: response?.data?.detail || response?.statusText || message,
       }),
       icon: "mdi-close-circle",
@@ -267,33 +293,7 @@ async function addPlatformAlias(fsSlug: string, platformSlug: string) {
       timeout: 4000,
     });
   }
-}
-
-async function addPlatformVariant(fsSlug: string, platformSlug: string) {
-  try {
-    await configApi.addPlatformVersionConfig({
-      fsSlug,
-      slug: platformSlug,
-    });
-    await configStore.fetchConfig();
-    emitter?.emit("snackbarShow", {
-      msg: t("settings.platform-mapping-created"),
-      icon: "mdi-check-circle",
-      color: "green",
-      timeout: 2000,
-    });
-  } catch (e: any) {
-    const { response, message } = e || {};
-    emitter?.emit("snackbarShow", {
-      msg: t("settings.unable-to-create-platform-mapping", {
-        detail: response?.data?.detail || response?.statusText || message,
-      }),
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 4000,
-    });
-  }
-}
+});
 </script>
 
 <template>
