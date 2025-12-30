@@ -29,7 +29,7 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 
-const rows = computed<Row[]>(() => {
+const exclusions = computed<Row[]>(() => {
   const defs = [
     {
       set: config.value.EXCLUDED_PLATFORMS || [],
@@ -104,7 +104,7 @@ function removeExclusion(exclusionValue: string, exclusionType: string) {
 }
 </script>
 <template>
-  <div v-if="rows.length === 0" class="text-center py-8">
+  <div v-if="exclusions.length === 0" class="text-center py-8">
     <v-icon icon="mdi-format-list-bulleted" size="48" class="mb-2 opacity-50" />
     <div class="text-body-2 text-romm-gray">
       {{ t("settings.exclusions-none") }}
@@ -141,7 +141,7 @@ function removeExclusion(exclusionValue: string, exclusionType: string) {
     <v-data-table-virtual
       :search="search"
       :headers="HEADERS"
-      :items="rows"
+      :items="exclusions"
       :sort-by="[{ key: 'type', order: 'asc' }]"
       fixed-header
       density="comfortable"
