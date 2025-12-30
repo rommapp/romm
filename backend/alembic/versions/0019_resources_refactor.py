@@ -1,4 +1,4 @@
-"""empty message
+"""Refactor resource storage
 
 Revision ID: 0019_resources_refactor
 Revises: 0018_firmware

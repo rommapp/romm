@@ -1,4 +1,4 @@
-"""empty message
+"""Add email to users table
 
 Revision ID: 0028_user_email
 Revises: 0027_platforms_data
