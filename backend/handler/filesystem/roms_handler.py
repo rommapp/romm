@@ -303,6 +303,15 @@ class ParsedTags:
     other_tags: list[str]
 
 
+@dataclass(frozen=True)
+class ParsedRomFiles:
+    rom_files: list[RomFile]
+    crc_hash: str
+    md5_hash: str
+    sha1_hash: str
+    ra_hash: str
+
+
 class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=LIBRARY_BASE_PATH)
@@ -415,7 +424,7 @@ class FSRomsHandler(FSHandler):
 
     async def get_rom_files(
         self, rom: Rom, calculate_hashes: bool = True
-    ) -> tuple[list[RomFile], str, str, str, str]:
+    ) -> ParsedRomFiles:
         from adapters.services.rahasher import RAHasherService
         from handler.metadata import meta_ra_handler
 
@@ -574,20 +583,20 @@ class FSRomsHandler(FSHandler):
                 )
             )
 
-        return (
-            rom_files,
-            crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else "",
-            (
+        return ParsedRomFiles(
+            rom_files=rom_files,
+            crc_hash=crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else "",
+            md5_hash=(
                 rom_md5_h.hexdigest()
                 if rom_md5_h and rom_md5_h.digest() != DEFAULT_MD5_H_DIGEST
                 else ""
             ),
-            (
+            sha1_hash=(
                 rom_sha1_h.hexdigest()
                 if rom_sha1_h and rom_sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
                 else ""
             ),
-            rom_ra_h,
+            ra_hash=rom_ra_h,
         )
 
     def _calculate_rom_hashes(

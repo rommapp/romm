@@ -347,19 +347,19 @@ class TestFSRomsHandler:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
             m.setattr("os.path.exists", lambda x: False)  # Normal structure
 
-            rom_files, crc_hash, md5_hash, sha1_hash, ra_hash = (
-                await handler.get_rom_files(rom_single)
+            parsed_rom_files = await handler.get_rom_files(rom_single)
+
+            assert len(parsed_rom_files.rom_files) == 1
+            assert isinstance(parsed_rom_files.rom_files[0], RomFile)
+            assert parsed_rom_files.rom_files[0].file_name == "Paper Mario (USA).z64"
+            assert parsed_rom_files.rom_files[0].file_path == "n64/roms"
+            assert parsed_rom_files.rom_files[0].file_size_bytes > 0
+
+            assert parsed_rom_files.crc_hash == "13263b35"
+            assert parsed_rom_files.md5_hash == "f1c2e022870405e373720e14fa6ab4a0"
+            assert (
+                parsed_rom_files.sha1_hash == "91fe2e94ca7d01531002e99199bd8943c9d6e992"
             )
-
-            assert len(rom_files) == 1
-            assert isinstance(rom_files[0], RomFile)
-            assert rom_files[0].file_name == "Paper Mario (USA).z64"
-            assert rom_files[0].file_path == "n64/roms"
-            assert rom_files[0].file_size_bytes > 0
-
-            assert crc_hash == "13263b35"
-            assert md5_hash == "f1c2e022870405e373720e14fa6ab4a0"
-            assert sha1_hash == "91fe2e94ca7d01531002e99199bd8943c9d6e992"
 
     @pytest.mark.asyncio
     async def test_get_rom_files_multi_rom(
@@ -370,17 +370,15 @@ class TestFSRomsHandler:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
             m.setattr("os.path.exists", lambda x: False)  # Normal structure
 
-            rom_files, crc_hash, md5_hash, sha1_hash, ra_hash = (
-                await handler.get_rom_files(rom_multi)
-            )
+            parsed_rom_files = await handler.get_rom_files(rom_multi)
 
-            assert len(rom_files) >= 2  # Should have multiple parts
+            assert len(parsed_rom_files.rom_files) >= 2  # Should have multiple parts
 
-            file_names = [rf.file_name for rf in rom_files]
+            file_names = [rf.file_name for rf in parsed_rom_files.rom_files]
             assert "Super Mario 64 (J) (Rev A) [Part 1].z64" in file_names
             assert "Super Mario 64 (J) (Rev A) [Part 2].z64" in file_names
 
-            for rom_file in rom_files:
+            for rom_file in parsed_rom_files.rom_files:
                 assert isinstance(rom_file, RomFile)
                 assert rom_file.file_size_bytes > 0
                 assert rom_file.last_modified is not None
@@ -616,17 +614,15 @@ class TestFSRomsHandler:
         self, handler: FSRomsHandler, rom_single_nested
     ):
         """Test that only top-level files contribute to main ROM hash calculation"""
-        rom_files, rom_crc, rom_md5, rom_sha1, rom_ra = await handler.get_rom_files(
-            rom_single_nested
-        )
+        parsed_rom_files = await handler.get_rom_files(rom_single_nested)
 
         # Verify we have multiple files (base game + translation)
-        assert len(rom_files) == 2
+        assert len(parsed_rom_files.rom_files) == 2
 
         base_game_rom_file = None
         translation_rom_file = None
 
-        for rom_file in rom_files:
+        for rom_file in parsed_rom_files.rom_files:
             if rom_file.file_name == "Sonic (EU) [T].n64":
                 base_game_rom_file = rom_file
             elif rom_file.file_name == "Sonic (EU) [T-En].z64":
@@ -643,17 +639,17 @@ class TestFSRomsHandler:
         # (this verifies that the translation is not included in the main hash)
 
         assert (
-            rom_md5 == base_game_rom_file.md5_hash
+            parsed_rom_files.md5_hash == base_game_rom_file.md5_hash
         ), "Main ROM hash should include base game file"
         assert (
-            rom_md5 != translation_rom_file.md5_hash
+            parsed_rom_files.md5_hash != translation_rom_file.md5_hash
         ), "Main ROM hash should not include translation file"
 
         assert (
-            rom_sha1 == base_game_rom_file.sha1_hash
+            parsed_rom_files.sha1_hash == base_game_rom_file.sha1_hash
         ), "Main ROM hash should include base game file"
         assert (
-            rom_sha1 != translation_rom_file.sha1_hash
+            parsed_rom_files.sha1_hash != translation_rom_file.sha1_hash
         ), "Main ROM hash should not include translation file"
 
     @pytest.mark.asyncio
@@ -696,20 +692,24 @@ class TestFSRomsHandler:
         )
 
         # Run the hashing process
-        rom_files, crc_hash, md5_hash, sha1_hash, _ = await test_handler.get_rom_files(
-            rom
-        )
+        parsed_rom_files = await test_handler.get_rom_files(rom)
 
         # Assert that only SHA1 is populated, and it's from the header
-        assert len(rom_files) == 1
-        assert sha1_hash == internal_sha1, "SHA1 should be from CHD v5 header"
-        assert rom_files[0].sha1_hash == internal_sha1
+        assert len(parsed_rom_files.rom_files) == 1
+        assert (
+            parsed_rom_files.sha1_hash == internal_sha1
+        ), "SHA1 should be from CHD v5 header"
+        assert parsed_rom_files.rom_files[0].sha1_hash == internal_sha1
 
         # CRC32 and MD5 should be empty/zero (not calculated)
-        assert crc_hash == "", f"CRC hash should be empty, got: {crc_hash}"
-        assert md5_hash == "", f"MD5 hash should be empty, got: {md5_hash}"
-        assert rom_files[0].crc_hash == ""
-        assert rom_files[0].md5_hash == ""
+        assert (
+            parsed_rom_files.crc_hash == ""
+        ), f"CRC hash should be empty, got: {parsed_rom_files.crc_hash}"
+        assert (
+            parsed_rom_files.md5_hash == ""
+        ), f"MD5 hash should be empty, got: {parsed_rom_files.md5_hash}"
+        assert parsed_rom_files.rom_files[0].crc_hash == ""
+        assert parsed_rom_files.rom_files[0].md5_hash == ""
 
     @pytest.mark.asyncio
     async def test_get_rom_files_with_non_v5_chd_fallback_to_std_hashing(
@@ -747,20 +747,24 @@ class TestFSRomsHandler:
         )
 
         # Run the hashing process
-        rom_files, crc_hash, md5_hash, sha1_hash, _ = await test_handler.get_rom_files(
-            rom
-        )
+        parsed_rom_files = await test_handler.get_rom_files(rom)
 
         # All hashes should be populated (calculated from file content)
-        assert len(rom_files) == 1
-        assert crc_hash != "", "CRC hash should be calculated for non-v5 CHD"
-        assert md5_hash != "", "MD5 hash should be calculated for non-v5 CHD"
-        assert sha1_hash != "", "SHA1 hash should be calculated for non-v5 CHD"
+        assert len(parsed_rom_files.rom_files) == 1
+        assert (
+            parsed_rom_files.crc_hash != ""
+        ), "CRC hash should be calculated for non-v5 CHD"
+        assert (
+            parsed_rom_files.md5_hash != ""
+        ), "MD5 hash should be calculated for non-v5 CHD"
+        assert (
+            parsed_rom_files.sha1_hash != ""
+        ), "SHA1 hash should be calculated for non-v5 CHD"
 
         # Verify they're actual hash values (not from an internal header)
-        assert rom_files[0].crc_hash == crc_hash
-        assert rom_files[0].md5_hash == md5_hash
-        assert rom_files[0].sha1_hash == sha1_hash
+        assert parsed_rom_files.rom_files[0].crc_hash == parsed_rom_files.crc_hash
+        assert parsed_rom_files.rom_files[0].md5_hash == parsed_rom_files.md5_hash
+        assert parsed_rom_files.rom_files[0].sha1_hash == parsed_rom_files.sha1_hash
 
 
 class TestExtractCHDHash:
