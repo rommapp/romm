@@ -92,6 +92,7 @@ wait_for_gunicorn_socket() {
 start_bin_gunicorn() {
 	# cleanup potentially leftover socket
 	rm /tmp/gunicorn.sock -f
+	rm /tmp/gunicorn_startup.log -f
 
 	# commands to start our main application and store its PID to check for crashes
 	info_log "Starting backend"
@@ -115,7 +116,7 @@ start_bin_gunicorn() {
 		--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
 		--error-logfile - \
 		--log-config /etc/gunicorn/logging.conf \
-		main:app &
+		main:app >/tmp/gunicorn_startup.log 2>&1 &
 
 	GUNICORN_CHILD_PID=$!
 
@@ -128,7 +129,11 @@ start_bin_gunicorn() {
 
 		# if the process died before writing the pid file, abort early
 		if ! kill -0 "${GUNICORN_CHILD_PID}" 2>/dev/null; then
-			warn_log "gunicorn exited before creating pid file"
+			error_log "gunicorn (PID ${GUNICORN_CHILD_PID}) exited before creating pid file"
+			if [[ -f /tmp/gunicorn_startup.log ]]; then
+				error_log "Last 50 lines from gunicorn startup log:"
+				tail -n 50 /tmp/gunicorn_startup.log >&2
+			fi
 			return 1
 		fi
 
@@ -136,7 +141,13 @@ start_bin_gunicorn() {
 		((retries--))
 	done
 
-	warn_log "gunicorn failed to create pid file within 5s"
+	error_log "gunicorn failed to create pid file within 5s (still running as PID ${GUNICORN_CHILD_PID})"
+	if [[ -f /tmp/gunicorn_startup.log ]]; then
+		error_log "Last 50 lines from gunicorn startup log:"
+		tail -n 50 /tmp/gunicorn_startup.log >&2
+	fi
+	# Kill the hung process
+	kill "${GUNICORN_CHILD_PID}" 2>/dev/null || true
 	return 1
 }
 
