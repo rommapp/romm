@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.exc import IntegrityError
 
 from handler.auth import auth_handler
@@ -68,6 +70,39 @@ def test_roms(rom: Rom, platform: Platform):
 
     roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
     assert len(roms) == 1
+
+
+def test_filter_last_played(rom: Rom, platform: Platform, admin_user: User):
+    second_rom = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="test_rom_unplayed",
+            slug="test_rom_unplayed_slug",
+            fs_name="test_rom_unplayed.zip",
+            fs_name_no_tags="test_rom_unplayed",
+            fs_name_no_ext="test_rom_unplayed",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+    db_rom_handler.add_rom_user(rom_id=second_rom.id, user_id=admin_user.id)
+
+    rom_user = db_rom_handler.get_rom_user(rom.id, admin_user.id)
+    assert rom_user is not None
+
+    db_rom_handler.update_rom_user(
+        rom_user.id, {"last_played": datetime(2024, 1, 1, tzinfo=timezone.utc)}
+    )
+
+    played_roms = db_rom_handler.get_roms_scalar(
+        user_id=admin_user.id, last_played=True
+    )
+    assert {r.id for r in played_roms} == {rom.id}
+
+    unplayed_roms = db_rom_handler.get_roms_scalar(
+        user_id=admin_user.id, last_played=False
+    )
+    assert {r.id for r in unplayed_roms} == {second_rom.id}
 
 
 def test_users(admin_user):

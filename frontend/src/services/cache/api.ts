@@ -152,6 +152,7 @@ class CachedApiService {
       order_dir: "desc",
       limit: 15,
       with_char_index: false,
+      last_played: true,
     });
 
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
@@ -177,6 +178,7 @@ class CachedApiService {
       order_dir: "desc",
       limit: 15,
       with_char_index: false,
+      last_played: true,
     });
   }
 

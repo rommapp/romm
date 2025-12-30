@@ -233,6 +233,12 @@ def get_roms(
         bool | None,
         Query(description="Whether the rom is marked as duplicate."),
     ] = None,
+    last_played: Annotated[
+        bool | None,
+        Query(
+            description="Whether the rom has a last played value for the current user."
+        ),
+    ] = None,
     playable: Annotated[
         bool | None,
         Query(description="Whether the rom is playable from the browser."),
@@ -404,6 +410,7 @@ def get_roms(
         matched=matched,
         favorite=favorite,
         duplicate=duplicate,
+        last_played=last_played,
         playable=playable,
         has_ra=has_ra,
         missing=missing,

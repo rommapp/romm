@@ -311,6 +311,18 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.join(Platform).filter(predicate)
 
+    def filter_by_last_played(
+        self, query: Query, value: bool, user_id: int | None = None
+    ) -> Query:
+        """Filter based on whether the rom has a last played value for the user."""
+        if not user_id:
+            return query
+
+        predicate = RomUser.last_played.isnot(None)
+        if not value:
+            predicate = RomUser.last_played.is_(None)
+        return query.filter(predicate)
+
     def filter_by_has_ra(self, query: Query, value: bool) -> Query:
         predicate = Rom.ra_id.isnot(None)
         if not value:
@@ -457,6 +469,7 @@ class DBRomsHandler(DBBaseHandler):
         matched: bool | None = None,
         favorite: bool | None = None,
         duplicate: bool | None = None,
+        last_played: bool | None = None,
         playable: bool | None = None,
         has_ra: bool | None = None,
         missing: bool | None = None,
@@ -514,6 +527,11 @@ class DBRomsHandler(DBBaseHandler):
 
         if duplicate is not None:
             query = self.filter_by_duplicate(query, value=duplicate)
+
+        if last_played is not None:
+            query = self.filter_by_last_played(
+                query, value=last_played, user_id=user_id
+            )
 
         if playable is not None:
             query = self.filter_by_playable(query, value=playable)
@@ -730,6 +748,7 @@ class DBRomsHandler(DBBaseHandler):
             matched=kwargs.get("matched", None),
             favorite=kwargs.get("favorite", None),
             duplicate=kwargs.get("duplicate", None),
+            last_played=kwargs.get("last_played", None),
             playable=kwargs.get("playable", None),
             has_ra=kwargs.get("has_ra", None),
             missing=kwargs.get("missing", None),
