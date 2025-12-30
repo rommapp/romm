@@ -1,4 +1,4 @@
-"""empty message
+"""Populate ScreenScraper platform IDs
 
 Revision ID: 0036_screenscraper_platforms_id
 Revises: 0035_screenscraper

@@ -1,4 +1,4 @@
-"""empty message
+"""Rename rom_notes to rom_user and add is_main_sibling column
 
 Revision ID: 0021_rom_user
 Revises: 0020_created_and_updated
