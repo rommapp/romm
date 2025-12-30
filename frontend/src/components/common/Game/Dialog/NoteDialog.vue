@@ -13,11 +13,9 @@ const { t } = useI18n();
 
 const rom = ref<DetailedRom | null>(null);
 const show = ref(false);
-const loading = ref(false);
 
 emitter?.on("showNoteDialog", async (romToShow) => {
   show.value = true;
-  loading.value = true;
 
   if (romToShow.id) {
     try {
@@ -26,8 +24,6 @@ emitter?.on("showNoteDialog", async (romToShow) => {
     } catch (error) {
       console.error("Failed to fetch ROM details:", error);
       rom.value = null;
-    } finally {
-      loading.value = false;
     }
   }
 });

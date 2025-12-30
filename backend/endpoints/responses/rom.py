@@ -333,14 +333,15 @@ class SimpleRomSchema(RomSchema):
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
-        from handler.database import db_rom_handler
-
         user_id = request.user.id
         db_rom = cls.populate_properties(db_rom, request)
 
-        # Check if user has any notes for this ROM
-        notes = db_rom_handler.get_rom_notes(rom_id=db_rom.id, user_id=user_id)
-        db_rom.has_notes = len(notes) > 0  # type: ignore
+        # Calculate has_notes from already-loaded notes relationship
+        # Check if there are any notes for this ROM (public or user's own)
+        notes = getattr(db_rom, "notes", [])
+        db_rom.has_notes = any(  # type: ignore
+            note.is_public or note.user_id == user_id for note in notes
+        )
 
         return cls.model_validate(db_rom)
 
