@@ -621,6 +621,10 @@ class DBRomsHandler(DBBaseHandler):
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomUser, order_by)
             query = query.filter(RomUser.user_id == user_id)
+            # When ordering by last_played, exclude NULL values
+            # TODO: revisit this to make a more elegant solution
+            if order_by == "last_played":
+                query = query.filter(RomUser.last_played.isnot(None))
         elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
             order_attr = getattr(RomMetadata, order_by)
             query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
