@@ -309,15 +309,16 @@ class Rom(BaseModel):
         return len(self.files) == 1 and not self.files[0].is_nested
 
     @cached_property
+    def _top_level_files(self) -> list[RomFile]:
+        return [f for f in self.files if f.is_top_level]
+
+    @cached_property
     def has_nested_single_file(self) -> bool:
-        return (
-            not self.has_simple_single_file
-            and len([f for f in self.files if f.is_top_level]) == 1
-        )
+        return not self.has_simple_single_file and len(self._top_level_files) == 1
 
     @cached_property
     def has_multiple_files(self) -> bool:
-        return len([f for f in self.files if f.is_top_level]) > 1
+        return len(self._top_level_files) > 1
 
     @property
     def fs_resources_path(self) -> str:
