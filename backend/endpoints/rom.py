@@ -1483,7 +1483,22 @@ async def get_rom_notes(
         tags=tags,
     )
 
-    return [UserNoteSchema.model_validate(note) for note in notes]
+    result = []
+    for note in notes:
+        note_dict = {
+            "id": note.id,
+            "title": note.title,
+            "content": note.content,
+            "is_public": note.is_public,
+            "tags": note.tags,
+            "created_at": note.created_at,
+            "updated_at": note.updated_at,
+            "user_id": note.user_id,
+            "username": note.user.username,
+        }
+        result.append(UserNoteSchema.model_validate(note_dict))
+
+    return result
 
 
 @protected_route(
