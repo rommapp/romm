@@ -244,6 +244,7 @@ async function getRecentPlayedRoms(): Promise<{ data: GetRomsResponse }> {
       order_dir: "desc",
       limit: RECENT_PLAYED_ROMS_LIMIT,
       with_char_index: false,
+      last_played: true,
     },
   });
 }
