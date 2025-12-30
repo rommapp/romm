@@ -30,12 +30,12 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
   hoveringCollectionId.value = emitData.id;
 }
 
-const { y: documentY } = useScroll(document.body, { throttle: 100 });
+const { y: windowY } = useScroll(window, { throttle: 100 });
 
 // Watch for scroll changes and trigger the throttled function
-watch(documentY, () => {
+watch(windowY, () => {
   if (
-    documentY.value + window.innerHeight >= document.body.scrollHeight - 300 &&
+    windowY.value + window.innerHeight >= document.body.scrollHeight - 300 &&
     visibleCollections.value < props.collections.length
   ) {
     visibleCollections.value += 72;
