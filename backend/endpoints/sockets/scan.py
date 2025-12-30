@@ -295,20 +295,17 @@ async def _identify_rom(
         calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
-        (
-            rom_files,
-            rom_crc_c,
-            rom_md5_h,
-            rom_sha1_h,
-            rom_ra_h,
-        ) = await fs_rom_handler.get_rom_files(rom, calculate_hashes=calculate_hashes)
+
+        parsed_rom_files = await fs_rom_handler.get_rom_files(
+            rom, calculate_hashes=calculate_hashes
+        )
         fs_rom.update(
             {
-                "files": rom_files,
-                "crc_hash": rom_crc_c,
-                "md5_hash": rom_md5_h,
-                "sha1_hash": rom_sha1_h,
-                "ra_hash": rom_ra_h,
+                "files": parsed_rom_files.rom_files,
+                "crc_hash": parsed_rom_files.crc_hash,
+                "md5_hash": parsed_rom_files.md5_hash,
+                "sha1_hash": parsed_rom_files.sha1_hash,
+                "ra_hash": parsed_rom_files.ra_hash,
             }
         )
 
