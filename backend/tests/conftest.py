@@ -1,3 +1,7 @@
+import os
+import shutil
+from pathlib import Path
+
 import alembic.config
 import pytest
 from sqlalchemy import create_engine
@@ -23,8 +27,80 @@ session = sessionmaker(bind=engine, expire_on_commit=False)
 
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_database():
-    alembic.config.main(argv=["upgrade", "head"])
+def setup_database(request):
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(
+            os.path.join(os.path.dirname(__file__), "..")
+        )  # Change to backend directory
+        alembic.config.main(argv=["-c", "alembic.ini", "upgrade", "head"])
+    finally:
+        os.chdir(original_cwd)  # Restore original cwd
+
+    # Setup dummy library files for tests
+    library_base_path = Path(os.getcwd()) / "romm_test" / "library"
+
+    # Create necessary directories
+    (library_base_path / "n64" / "roms").mkdir(parents=True, exist_ok=True)
+    (library_base_path / "psx" / "roms").mkdir(parents=True, exist_ok=True)
+    (library_base_path / "n64" / "roms" / "Super Mario 64 (J) (Rev A)").mkdir(
+        parents=True, exist_ok=True
+    )
+    (library_base_path / "n64" / "roms" / "Test Multi Rom [USA]").mkdir(
+        parents=True, exist_ok=True
+    )
+    (library_base_path / "n64" / "roms" / "Sonic (EU) [T]" / "translation").mkdir(
+        parents=True, exist_ok=True
+    )
+
+    # Create dummy files
+    (library_base_path / "n64" / "roms" / "Paper Mario (USA).z64").write_bytes(
+        b"Paper Mario content"
+    )
+    (
+        library_base_path / "n64" / "roms" / "Zelda (USA) (Rev 1) [En,Fr] [Test].n64"
+    ).write_bytes(b"Zelda content")
+    (library_base_path / "n64" / "roms" / "test_game.n64").write_bytes(b"Test N64 ROM")
+    (library_base_path / "n64" / "roms" / "hash_test.n64").write_bytes(
+        b"Test ROM content for hashing"
+    )
+    (library_base_path / "n64" / "roms" / "excluded_test.tmp").write_bytes(
+        b"Excluded content"
+    )
+    (library_base_path / "psx" / "roms" / "PaRappa the Rapper.zip").write_bytes(
+        b"Zip content"
+    )
+    (
+        library_base_path
+        / "n64"
+        / "roms"
+        / "Super Mario 64 (J) (Rev A)"
+        / "Super Mario 64 (J) (Rev A) [Part 1].z64"
+    ).write_bytes(b"Part 1 content")
+    (
+        library_base_path
+        / "n64"
+        / "roms"
+        / "Super Mario 64 (J) (Rev A)"
+        / "Super Mario 64 (J) (Rev A) [Part 2].z64"
+    ).write_bytes(b"Part 2 content")
+    (
+        library_base_path / "n64" / "roms" / "Sonic (EU) [T]" / "Sonic (EU) [T].n64"
+    ).write_bytes(b"Sonic content")
+    (
+        library_base_path
+        / "n64"
+        / "roms"
+        / "Sonic (EU) [T]"
+        / "translation"
+        / "Sonic (EU) [T-En].z64"
+    ).write_bytes(b"Sonic translation content")
+
+    # Clean up dummy files after tests are done
+    def teardown_dummy_files():
+        shutil.rmtree(library_base_path, ignore_errors=True)
+
+    request.addfinalizer(teardown_dummy_files)
 
 
 @pytest.fixture(autouse=True)

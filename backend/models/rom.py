@@ -227,6 +227,7 @@ class Rom(BaseModel):
     )
 
     revision: Mapped[str | None] = mapped_column(String(length=100))
+    version: Mapped[str | None] = mapped_column(String(length=100))
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
