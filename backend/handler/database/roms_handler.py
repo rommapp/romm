@@ -151,7 +151,7 @@ def with_simple(func):
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform), noload(Rom.metadatum)
             ),
-            # Load notes to avoid N+1 queries when checking for has_notes
+            # Show notes indicator on cards
             selectinload(Rom.notes),
         )
         return func(*args, **kwargs)

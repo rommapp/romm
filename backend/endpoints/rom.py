@@ -1483,20 +1483,7 @@ async def get_rom_notes(
         tags=tags,
     )
 
-    return [
-        UserNoteSchema.model_validate({
-            "id": note.id,
-            "title": note.title,
-            "content": note.content,
-            "is_public": note.is_public,
-            "tags": note.tags,
-            "created_at": note.created_at,
-            "updated_at": note.updated_at,
-            "user_id": note.user_id,
-            "username": note.user.username,
-        })
-        for note in notes
-    ]
+    return [UserNoteSchema.model_validate(note) for note in notes]
 
 
 @protected_route(
