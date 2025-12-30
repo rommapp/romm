@@ -253,9 +253,7 @@ async def _identify_rom(
         return
 
     # Update properties that don't require metadata
-    fs_regions, fs_revisions, fs_languages, fs_other_tags = fs_rom_handler.parse_tags(
-        fs_rom["fs_name"]
-    )
+    parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
     # Create the entry early so we have the ID
@@ -272,10 +270,11 @@ async def _identify_rom(
                     fs_rom["fs_name"]
                 ),
                 fs_extension=fs_rom_handler.parse_file_extension(fs_rom["fs_name"]),
-                regions=fs_regions,
-                revision=fs_revisions,
-                languages=fs_languages,
-                tags=fs_other_tags,
+                regions=parsed_tags.regions,
+                revision=parsed_tags.revision,
+                version=parsed_tags.version,
+                languages=parsed_tags.languages,
+                tags=parsed_tags.other_tags,
                 platform_id=platform.id,
                 name=fs_rom["fs_name"],
                 url_cover="",

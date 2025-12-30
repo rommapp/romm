@@ -8,6 +8,7 @@ import tarfile
 import zipfile
 import zlib
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Any, Final, Literal, TypedDict, cast
 
@@ -288,6 +289,19 @@ DEFAULT_CRC_C = 0
 DEFAULT_MD5_H_DIGEST = hashlib.md5(usedforsecurity=False).digest()
 DEFAULT_SHA1_H_DIGEST = hashlib.sha1(usedforsecurity=False).digest()
 
+VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)[\s_-]?(.*)", re.I)
+REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
+REVISION_TAG_REGEX = re.compile(r"^rev[\s|-](.*)$", re.I)
+
+
+@dataclass(frozen=True)
+class ParsedTags:
+    version: str
+    revision: str
+    regions: list[str]
+    languages: list[str]
+    other_tags: list[str]
+
 
 class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
@@ -301,50 +315,64 @@ class FSRomsHandler(FSHandler):
             else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
         )
 
-    def parse_tags(self, fs_name: str) -> tuple:
-        rev = ""
-        regs = []
-        langs = []
-        other_tags = []
-        tags = [tag[0] or tag[1] for tag in TAG_REGEX.findall(fs_name)]
-        tags = [tag for subtags in tags for tag in subtags.split(",")]
-        tags = [tag.strip() for tag in tags]
+    def parse_tags(self, fs_name: str) -> ParsedTags:
+        tags = [
+            chunk.strip()
+            for tag in (m[0] or m[1] for m in TAG_REGEX.findall(fs_name))
+            for chunk in tag.split(",")
+        ]
 
-        for tag in tags:
-            if tag.lower() in REGIONS_BY_SHORTCODE.keys():
-                regs.append(REGIONS_BY_SHORTCODE[tag.lower()])
+        regions, languages, other_tags = [], [], []
+        version = revision = ""
+
+        for raw in tags:
+            tag = raw.lower()
+
+            # Region by code
+            if tag in REGIONS_BY_SHORTCODE.keys():
+                regions.append(REGIONS_BY_SHORTCODE[tag])
+                continue
+            if tag in REGIONS_NAME_KEYS:
+                regions.append(raw)
                 continue
 
-            if tag.lower() in REGIONS_NAME_KEYS:
-                regs.append(tag)
+            # Language by code
+            if tag in LANGUAGES_BY_SHORTCODE.keys():
+                languages.append(LANGUAGES_BY_SHORTCODE[tag])
+                continue
+            if tag in LANGUAGES_NAME_KEYS:
+                languages.append(raw)
                 continue
 
-            if tag.lower() in LANGUAGES_BY_SHORTCODE.keys():
-                langs.append(LANGUAGES_BY_SHORTCODE[tag.lower()])
+            # Version
+            version_match = VERSION_TAG_REGEX.match(raw)
+            if version_match:
+                version = version_match[1]
                 continue
 
-            if tag.lower() in LANGUAGES_NAME_KEYS:
-                langs.append(tag)
+            # Region prefix
+            region_match = REGION_TAG_REGEX.match(raw)
+            if region_match:
+                key = region_match[1].lower()
+                regions.append(REGIONS_BY_SHORTCODE.get(key, region_match[1]))
                 continue
 
-            if "reg" in tag.lower():
-                match = re.match(r"^reg[\s|-](.*)$", tag, re.IGNORECASE)
-                if match:
-                    regs.append(
-                        REGIONS_BY_SHORTCODE[match.group(1).lower()]
-                        if match.group(1).lower() in REGIONS_BY_SHORTCODE.keys()
-                        else match.group(1)
-                    )
-                    continue
+            # Revision prefix
+            revision_match = REVISION_TAG_REGEX.match(raw)
+            if revision_match:
+                revision = revision_match[1]
+                continue
 
-            if "rev" in tag.lower():
-                match = re.match(r"^rev[\s|-](.*)$", tag, re.IGNORECASE)
-                if match:
-                    rev = match.group(1)
-                    continue
+            # Anything else
+            other_tags.append(raw)
 
-            other_tags.append(tag)
-        return regs, rev, langs, other_tags
+        return ParsedTags(
+            version=version,
+            regions=regions,
+            languages=languages,
+            revision=revision,
+            other_tags=other_tags,
+        )
 
     def exclude_multi_roms(self, roms: list[str]) -> list[str]:
         excluded_names = cm.get_config().EXCLUDED_MULTI_FILES

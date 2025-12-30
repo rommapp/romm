@@ -157,40 +157,69 @@ class TestFSRomsHandler:
         """Test parse_tags method with regions and languages"""
         fs_name = "Zelda (USA) (Rev 1) [En,Fr] [Test].n64"
 
-        regions, revision, languages, other_tags = handler.parse_tags(fs_name)
+        parsed_tags = handler.parse_tags(fs_name)
 
-        assert "USA" in regions
-        assert revision == "1"
-        assert "English" in languages
-        assert "French" in languages
-        assert "Test" in other_tags
+        assert "USA" in parsed_tags.regions
+        assert parsed_tags.revision == "1"
+        assert parsed_tags.version == ""
+        assert "English" in parsed_tags.languages
+        assert "French" in parsed_tags.languages
+        assert "Test" in parsed_tags.other_tags
 
     def test_parse_tags_complex_tags(self, handler: FSRomsHandler):
         """Test parse_tags with complex tag structures"""
         fs_name = "Game (Europe) (En,De,Fr,Es,It) (Rev A) [Reg-PAL] [Beta].rom"
 
-        regions, revision, languages, other_tags = handler.parse_tags(fs_name)
+        parsed_tags = handler.parse_tags(fs_name)
 
-        assert "Europe" in regions
-        assert "PAL" in regions
-        assert revision == "A"
-        assert "English" in languages
-        assert "German" in languages
-        assert "French" in languages
-        assert "Spanish" in languages
-        assert "Italian" in languages
-        assert "Beta" in other_tags
+        assert "Europe" in parsed_tags.regions
+        assert "PAL" in parsed_tags.regions
+        assert parsed_tags.revision == "A"
+        assert parsed_tags.version == ""
+        assert "English" in parsed_tags.languages
+        assert "German" in parsed_tags.languages
+        assert "French" in parsed_tags.languages
+        assert "Spanish" in parsed_tags.languages
+        assert "Italian" in parsed_tags.languages
+        assert "Beta" in parsed_tags.other_tags
 
     def test_parse_tags_no_tags(self, handler: FSRomsHandler):
         """Test parse_tags with no tags"""
         fs_name = "Simple Game.rom"
 
-        regions, revision, languages, other_tags = handler.parse_tags(fs_name)
+        parsed_tags = handler.parse_tags(fs_name)
 
-        assert regions == []
-        assert revision == ""
-        assert languages == []
-        assert other_tags == []
+        assert parsed_tags.regions == []
+        assert parsed_tags.revision == ""
+        assert parsed_tags.version == ""
+        assert parsed_tags.languages == []
+        assert parsed_tags.other_tags == []
+
+    def test_parse_tags_version(self, handler: FSRomsHandler):
+        """Test parse_tags method with version tags"""
+        fs_name = "stardew_valley(v1.5.6.1988831614)(53038).exe"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.5.6.1988831614"
+        assert "53038" in parsed_tags.other_tags
+        assert parsed_tags.regions == []
+        assert parsed_tags.revision == ""
+        assert parsed_tags.languages == []
+
+        fs_name = "My Game (Version 1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
+
+        fs_name = "My Game (Ver-1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
+
+        fs_name = "My Game (v_1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
+
+        fs_name = "My Game (v 1.2.3).rom"
+        parsed_tags = handler.parse_tags(fs_name)
+        assert parsed_tags.version == "1.2.3"
 
     def test_exclude_multi_roms_filters_excluded(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms filters out excluded multi-file ROMs"""
@@ -328,9 +357,9 @@ class TestFSRomsHandler:
             assert rom_files[0].file_path == "n64/roms"
             assert rom_files[0].file_size_bytes > 0
 
-            assert crc_hash == "efb5af2e"
-            assert md5_hash == "0f343b0931126a20f133d67c2b018a3b"
-            assert sha1_hash == "60cacbf3d72e1e7834203da608037b1bf83b40e8"
+            assert crc_hash == "13263b35"
+            assert md5_hash == "f1c2e022870405e373720e14fa6ab4a0"
+            assert sha1_hash == "91fe2e94ca7d01531002e99199bd8943c9d6e992"
 
     @pytest.mark.asyncio
     async def test_get_rom_files_multi_rom(
@@ -462,26 +491,23 @@ class TestFSRomsHandler:
     def test_tag_parsing_edge_cases(self, handler: FSRomsHandler):
         """Test tag parsing with edge cases"""
         # Test with comma-separated tags
-        regions, revision, languages, other_tags = handler.parse_tags(
-            "Game (USA,Europe) [En,Fr,De].rom"
-        )
-        assert "USA" in regions
-        assert "Europe" in regions
-        assert "English" in languages
-        assert "French" in languages
-        assert "German" in languages
+        parsed_tags = handler.parse_tags("Game (USA,Europe) [En,Fr,De].rom")
+        assert "USA" in parsed_tags.regions
+        assert "Europe" in parsed_tags.regions
+        assert "English" in parsed_tags.languages
+        assert "French" in parsed_tags.languages
+        assert "German" in parsed_tags.languages
+        assert parsed_tags.version == ""
 
         # Test with reg- prefix
-        regions, revision, languages, other_tags = handler.parse_tags(
-            "Game [Reg-NTSC].rom"
-        )
-        assert "NTSC" in regions
+        parsed_tags = handler.parse_tags("Game [Reg-NTSC].rom")
+        assert "NTSC" in parsed_tags.regions
+        assert parsed_tags.version == ""
 
         # Test with rev- prefix
-        regions, revision, languages, other_tags = handler.parse_tags(
-            "Game [Rev-B].rom"
-        )
-        assert revision == "B"
+        parsed_tags = handler.parse_tags("Game [Rev-B].rom")
+        assert parsed_tags.revision == "B"
+        assert parsed_tags.version == ""
 
     def test_platform_specific_behavior(self, handler: FSRomsHandler):
         """Test platform-specific behavior differences"""
