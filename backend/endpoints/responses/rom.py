@@ -329,15 +329,26 @@ class SiblingRomSchema(BaseModel):
 
 
 class SimpleRomSchema(RomSchema):
+    has_notes: bool = False
+
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
+        from handler.database import db_rom_handler
+
+        user_id = request.user.id
         db_rom = cls.populate_properties(db_rom, request)
+
+        # Check if user has any notes for this ROM
+        notes = db_rom_handler.get_rom_notes(rom_id=db_rom.id, user_id=user_id)
+        db_rom.has_notes = len(notes) > 0  # type: ignore
+
         return cls.model_validate(db_rom)
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
         db_rom.siblings = []  # type: ignore
+        db_rom.has_notes = False  # type: ignore
         return cls.model_validate(db_rom)
 
 

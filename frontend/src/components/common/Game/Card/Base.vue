@@ -154,12 +154,6 @@ const {
   forceBoxart: props.forceBoxart,
 });
 
-const hasNotes = computed(() => {
-  // TODO: Add note count to SimpleRom or check all_user_notes
-  // For now, return false until we implement proper note counting
-  return false;
-});
-
 const computedAspectRatio = computed(() => {
   return galleryViewStore.getAspectRatio({
     platformId: props.rom.platform_id,
@@ -389,7 +383,7 @@ onBeforeUnmount(() => {
                     <v-icon>mdi-star</v-icon>
                   </v-chip>
                   <v-chip
-                    v-if="hasNotes && showChips"
+                    v-if="rom.has_notes && showChips"
                     class="translucent text-white mr-1 mb-1 px-1"
                     density="compact"
                     title="View notes"
