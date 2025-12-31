@@ -62,6 +62,10 @@ PS2_SS_ID: Final = 58
 PSP_SS_ID: Final = 61
 SWITCH_SS_ID: Final = 225
 ARCADE_SS_ID: Final = 75
+CPS1_SS_ID: Final = 6
+CPS2_SS_ID: Final = 7
+CPS3_SS_ID: Final = 8
+ARCADES_SS_IDS: Final = [ARCADE_SS_ID, CPS1_SS_ID, CPS2_SS_ID, CPS3_SS_ID]
 
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
 SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
@@ -651,7 +655,7 @@ class SSHandler(MetadataHandler):
                 )
 
         # Support for MAME arcade filename format
-        if platform_ss_id == ARCADE_SS_ID:
+        if platform_ss_id in ARCADES_SS_IDS:
             search_term = await self._mame_format(search_term)
             fallback_rom = SSRom(ss_id=None, name=search_term)
 
@@ -746,6 +750,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.ATARI_ST: {"id": 42, "name": "Atari ST"},
     UPS.ATOM: {"id": 36, "name": "Atom"},
     UPS.BBCMICRO: {"id": 37, "name": "BBC Micro"},
+    UPS.BK: {"id": 93, "name": "Elektronika BK"},
     UPS.ASTROCADE: {"id": 44, "name": "Astrocade"},
     UPS.PHILIPS_CD_I: {"id": 133, "name": "CD-i"},
     UPS.COMMODORE_CDTV: {"id": 129, "name": "Amiga CDTV"},
@@ -760,6 +765,9 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.C_PLUS_4: {"id": 99, "name": "Plus/4"},
     UPS.C16: {"id": 99, "name": "Plus/4"},
     UPS.C64: {"id": 66, "name": "Commodore 64"},
+    UPS.CPS1: {"id": CPS1_SS_ID, "name": "Capcom Play System"},
+    UPS.CPS2: {"id": CPS2_SS_ID, "name": "Capcom Play System 2"},
+    UPS.CPS3: {"id": CPS3_SS_ID, "name": "Capcom Play System 3"},
     UPS.CPET: {"id": 240, "name": "PET"},
     UPS.CREATIVISION: {"id": 241, "name": "CreatiVision"},
     UPS.DOS: {"id": 135, "name": "PC Dos"},
@@ -783,6 +791,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.GB: {"id": 9, "name": "Game Boy"},
     UPS.GBA: {"id": 12, "name": "Game Boy Advance"},
     UPS.GBC: {"id": 10, "name": "Game Boy Color"},
+    UPS.GAMATE: {"id": 266, "name": "Gamate"},
     UPS.GAMEGEAR: {"id": 21, "name": "Game Gear"},
     UPS.GAME_DOT_COM: {"id": 121, "name": "Game.com"},
     UPS.NGC: {"id": 13, "name": "GameCube"},
@@ -821,6 +830,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.PC_8800_SERIES: {"id": 221, "name": "NEC PC-8801"},
     UPS.PC_9800_SERIES: {"id": 208, "name": "NEC PC-9801"},
     UPS.PC_FX: {"id": 72, "name": "PC-FX"},
+    UPS.PEGASUS: {"id": 83, "name": "Aamber Pegasus"},
     UPS.PICO: {"id": 234, "name": "Pico-8"},
     UPS.PSVITA: {"id": 62, "name": "PS Vita"},
     UPS.PSP: {"id": PSP_SS_ID, "name": "PSP"},
@@ -833,6 +843,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.PS5: {"id": 284, "name": "Playstation 5"},
     UPS.POKEMON_MINI: {"id": 211, "name": "Pokémon mini"},
     UPS.SAM_COUPE: {"id": 213, "name": "MGT SAM Coupé"},
+    UPS.SCUMMVM: {"id": 123, "name": "ScummVM"},
     UPS.SEGA32: {"id": 19, "name": "Megadrive 32X"},
     UPS.SEGACD: {"id": 20, "name": "Mega-CD"},
     UPS.SMS: {"id": 2, "name": "Master System"},
@@ -849,6 +860,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.SUPERGRAFX: {"id": 105, "name": "PC Engine SuperGrafx"},
     UPS.SUPERVISION: {"id": 207, "name": "Watara Supervision"},
     UPS.TI_99: {"id": 205, "name": "TI-99/4A"},
+    UPS.TIC_80: {"id": 222, "name": "TIC-80"},
     UPS.TRS_80_COLOR_COMPUTER: {
         "id": 144,
         "name": "TRS-80 Color Computer",
