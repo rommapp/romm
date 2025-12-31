@@ -10,5 +10,6 @@ export type UserForm = {
     enabled?: (boolean | null);
     ra_username?: (string | null);
     avatar?: (Blob | null);
+    ui_settings?: (string | null);
 };
 

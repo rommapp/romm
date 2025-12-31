@@ -7,7 +7,7 @@ import { isKeyof } from "@/types";
 
 const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
 mediaMatch.addEventListener("change", (event) => {
-  instance.theme.global.name.value = event.matches ? "dark" : "light";
+  instance.theme.change(event.matches ? "dark" : "light");
 });
 
 function getTheme() {

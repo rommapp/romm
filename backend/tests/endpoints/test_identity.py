@@ -1,4 +1,5 @@
 import base64
+import json
 from datetime import timedelta
 from http import HTTPStatus
 from unittest import mock
@@ -247,3 +248,108 @@ async def test_logout_invalidates_session(client, admin_user: User):
     assert response.status_code in [HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN]
 
     await RedisSessionMiddleware.clear_user_sessions(admin_user.username)
+
+
+def test_update_user_with_valid_ui_settings(
+    client, access_token: str, editor_user: User
+):
+    """Test updating a user with valid ui_settings JSON object."""
+    valid_ui_settings = {
+        "theme": "dark",
+        "language": "en",
+        "notifications_enabled": True,
+        "items_per_page": 50,
+    }
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"ui_settings": json.dumps(valid_ui_settings)},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    user = response.json()
+    assert user["ui_settings"] == valid_ui_settings
+
+    # Verify settings are properly stored by retrieving the user again
+    response = client.get(
+        f"/api/users/{editor_user.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+    user = response.json()
+    assert user["ui_settings"] == valid_ui_settings
+
+
+def test_update_user_with_invalid_ui_settings_json(
+    client, access_token: str, editor_user: User
+):
+    """Test that updating ui_settings with invalid JSON returns 400."""
+    invalid_json = '{"theme": "dark", "language": "en"'  # Missing closing brace
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"ui_settings": invalid_json},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Invalid ui_settings JSON" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "non_object_value",
+    [
+        '["array", "value"]',  # Array
+        '"string_value"',  # String
+        "123",  # Number
+        "true",  # Boolean
+        "null",  # Null
+    ],
+)
+def test_update_user_with_non_object_ui_settings(
+    client, access_token: str, editor_user: User, non_object_value: str
+):
+    """Test that updating ui_settings with non-object JSON returns 400."""
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"ui_settings": non_object_value},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert "Invalid ui_settings JSON" in response.json()["detail"]
+
+
+def test_update_user_ui_settings_empty_object(
+    client, access_token: str, editor_user: User
+):
+    """Test that updating ui_settings with an empty object is valid."""
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"ui_settings": "{}"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    user = response.json()
+    assert user["ui_settings"] == {}
+
+
+def test_update_user_ui_settings_nested_object(
+    client, access_token: str, editor_user: User
+):
+    """Test that nested objects in ui_settings are properly handled."""
+    nested_settings = {
+        "theme": {"mode": "dark", "accent": "blue"},
+        "layout": {"sidebar": {"collapsed": False, "width": 250}},
+        "preferences": {"autoSave": True, "confirmDelete": True},
+    }
+
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        data={"ui_settings": json.dumps(nested_settings)},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    user = response.json()
+    assert user["ui_settings"] == nested_settings
