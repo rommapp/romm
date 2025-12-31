@@ -1,7 +1,7 @@
 """user_ui_settings
 
 Revision ID: 0058_user_ui_settings
-Revises: 0057_multi_notes
+Revises: 0059_rom_version_tag
 Create Date: 2025-12-16 21:02:52.394533
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0058_user_ui_settings"
-down_revision = "0057_multi_notes"
+down_revision = "0059_rom_version_tag"
 branch_labels = None
 depends_on = None
 
