@@ -1,4 +1,4 @@
-"""empty message
+"""Add ScreenScraper ID to sibling_roms view
 
 Revision ID: 0038_add_ssid_to_sibling_roms
 Revises: 0037_virtual_rom_columns

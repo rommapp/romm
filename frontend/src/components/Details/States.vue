@@ -2,16 +2,13 @@
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
 import type { StateSchema } from "@/__generated__";
 import EmptySates from "@/components/common/EmptyStates/EmptyStates.vue";
+import AssetCard from "@/components/common/Game/AssetCard.vue";
 import storeAuth from "@/stores/auth";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { formatBytes, formatTimestamp } from "@/utils";
-import { getEmptyCoverImage } from "@/utils/covers";
 
-const { t, locale } = useI18n();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 const props = defineProps<{ rom: DetailedRom }>();
@@ -68,7 +65,7 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
 </script>
 
 <template>
-  <v-row class="ma-2" no-gutters>
+  <v-row class="my-2 mx-4" no-gutters>
     <v-col class="pa-1">
       <v-btn-group divided density="default">
         <v-btn
@@ -109,90 +106,22 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
       </v-btn-group>
     </v-col>
   </v-row>
-  <v-row v-if="rom.user_states.length > 0" class="ma-2" no-gutters>
+  <v-row v-if="rom.user_states.length > 0" class="my-2 mx-4" no-gutters>
     <v-col
       v-for="state in rom.user_states"
       :key="state.id"
       cols="6"
       sm="4"
-      class="pa-1"
+      class="pa-1 align-self-end"
     >
-      <v-hover v-slot="{ isHovering, props: stateProps }">
-        <v-card
-          v-bind="stateProps"
-          class="bg-toplayer transform-scale"
-          :class="{
-            'border-selected': selectedStates.some((s) => s.id === state.id),
-          }"
-          @click="(e: MouseEvent) => onCardClick(state, e)"
-        >
-          <v-card-text class="pa-2">
-            <v-row no-gutters>
-              <v-col cols="12">
-                <v-img
-                  rounded
-                  :src="
-                    state.screenshot?.download_path ??
-                    getEmptyCoverImage(state.file_name)
-                  "
-                >
-                  <v-slide-x-transition>
-                    <v-btn-group
-                      v-if="isHovering"
-                      class="position-absolute"
-                      density="compact"
-                      style="bottom: 4px; right: 4px"
-                    >
-                      <v-btn
-                        drawer
-                        :href="state.download_path"
-                        download
-                        size="small"
-                      >
-                        <v-icon>mdi-download</v-icon>
-                      </v-btn>
-                      <v-btn
-                        v-if="scopes.includes('assets.write')"
-                        drawer
-                        size="small"
-                        @click="
-                          emitter?.emit('showDeleteStatesDialog', {
-                            rom: props.rom,
-                            states: [state],
-                          })
-                        "
-                      >
-                        <v-icon class="text-romm-red"> mdi-delete </v-icon>
-                      </v-btn>
-                    </v-btn-group>
-                  </v-slide-x-transition>
-                </v-img>
-              </v-col>
-            </v-row>
-            <v-row class="py-2 text-caption" no-gutters>
-              {{ state.file_name }}
-            </v-row>
-            <v-row class="ga-1" no-gutters>
-              <v-col v-if="state.emulator" cols="12">
-                <v-chip size="x-small" color="orange" label>
-                  {{ state.emulator }}
-                </v-chip>
-              </v-col>
-              <v-col cols="12">
-                <v-chip size="x-small" label>
-                  {{ formatBytes(state.file_size_bytes) }}
-                </v-chip>
-              </v-col>
-              <v-col cols="12">
-                <v-chip size="x-small" label>
-                  {{ t("rom.updated") }}:
-                  {{ formatTimestamp(state.updated_at, locale) }}
-                </v-chip>
-              </v-col>
-            </v-row>
-          </v-card-text>
-        </v-card>
-      </v-hover>
+      <AssetCard
+        :asset="state"
+        type="state"
+        :selected="selectedStates.some((s) => s.id === state.id)"
+        :rom="props.rom"
+        :scopes="scopes"
+        @click="(e: MouseEvent) => onCardClick(state, e)"
+      />
     </v-col>
   </v-row>
   <EmptySates v-else />

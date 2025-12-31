@@ -1,4 +1,4 @@
-"""empty message
+"""Introduce rom_files table and refactor roms table
 
 Revision ID: 0033_rom_file_and_hashes
 Revises: 0032_longer_fs_fields

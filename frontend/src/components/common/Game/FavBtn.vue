@@ -21,7 +21,7 @@ async function switchFromFavorites() {
 <template>
   <v-btn
     v-if="auth.scopes.includes('roms.user.write')"
-    class="translucent text-shadow"
+    class="translucent-light text-shadow"
     rouded="0"
     size="small"
     variant="text"

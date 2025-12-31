@@ -1,4 +1,4 @@
-"""empty message
+"""Add metadata slugs to platform
 
 Revision ID: 0054_add_platform_metadata_slugs
 Revises: 0053_add_hltb_metadata

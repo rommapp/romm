@@ -1,4 +1,4 @@
-"""empty message
+"""Track user last login and active times
 
 Revision ID: 0016_user_last_login_active
 Revises: 0015_mobygames_data

@@ -25,9 +25,13 @@ from .base_handler import (
     MetadataHandler,
 )
 from .base_handler import UniversalPlatformSlug as UPS
+from .base_handler import (
+    strip_sensitive_query_params,
+)
 
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
+SENSITIVE_KEYS = {"ssid", "sspassword"}
 
 
 def get_preferred_regions() -> list[str]:
@@ -57,76 +61,7 @@ PS1_SS_ID: Final = 57
 PS2_SS_ID: Final = 58
 PSP_SS_ID: Final = 61
 SWITCH_SS_ID: Final = 225
-ARCADE_SS_IDS: Final = [
-    6,
-    7,
-    8,
-    47,
-    49,
-    52,
-    53,
-    54,
-    55,
-    56,
-    68,
-    69,
-    75,
-    112,
-    142,
-    147,
-    148,
-    149,
-    150,
-    151,
-    152,
-    153,
-    154,
-    155,
-    156,
-    157,
-    158,
-    159,
-    160,
-    161,
-    162,
-    163,
-    164,
-    165,
-    166,
-    167,
-    168,
-    169,
-    170,
-    173,
-    174,
-    175,
-    176,
-    177,
-    178,
-    179,
-    180,
-    181,
-    182,
-    183,
-    184,
-    185,
-    186,
-    187,
-    188,
-    189,
-    190,
-    191,
-    192,
-    193,
-    194,
-    195,
-    196,
-    209,
-    227,
-    130,
-    158,
-    269,
-]
+ARCADE_SS_ID: Final = 75
 
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
 SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
@@ -234,44 +169,62 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 continue
 
             if media.get("type") == "box-2D-back" and not ss_media["box2d_back_url"]:
-                ss_media["box2d_back_url"] = media["url"]
+                ss_media["box2d_back_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
                 if MetadataMediaType.BOX2D_BACK in preferred_media_types:
                     ss_media["box2d_back_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX2D_BACK)}/box2d_back.png"
                     )
             elif media.get("type") == "bezel-16-9" and not ss_media["bezel_url"]:
-                ss_media["bezel_url"] = media["url"]
+                ss_media["bezel_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
                 if MetadataMediaType.BEZEL in preferred_media_types:
                     ss_media["bezel_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BEZEL)}/bezel.png"
                     )
             elif media.get("type") == "box-2D" and not ss_media["box2d_url"]:
-                ss_media["box2d_url"] = media["url"]
+                ss_media["box2d_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
             elif media.get("type") == "fanart" and not ss_media["fanart_url"]:
-                ss_media["fanart_url"] = media["url"]
+                ss_media["fanart_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
                 if MetadataMediaType.FANART in preferred_media_types:
                     ss_media["fanart_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.FANART)}/fanart.png"
                     )
             elif media.get("type") == "box-texture" and not ss_media["fullbox_url"]:
-                ss_media["fullbox_url"] = media["url"]
+                ss_media["fullbox_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
             elif media.get("type") == "wheel-hd" and not ss_media["logo_url"]:
-                ss_media["logo_url"] = media["url"]
+                ss_media["logo_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
 
                 if MetadataMediaType.LOGO in preferred_media_types:
                     ss_media["logo_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.LOGO)}/logo.png"
                     )
             elif media.get("type") == "wheel" and not ss_media["logo_url"]:
-                ss_media["logo_url"] = media["url"]
+                ss_media["logo_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
                 if MetadataMediaType.LOGO in preferred_media_types:
                     ss_media["logo_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.LOGO)}/logo.png"
                     )
             elif media.get("type") == "manuel" and not ss_media["manual_url"]:
-                ss_media["manual_url"] = media["url"]
+                ss_media["manual_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
             elif media.get("type") == "screenmarquee" and not ss_media["marquee_url"]:
-                ss_media["marquee_url"] = media["url"]
+                ss_media["marquee_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
                 if MetadataMediaType.MARQUEE in preferred_media_types:
                     ss_media["marquee_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MARQUEE)}/marquee.png"
@@ -282,33 +235,49 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 or media.get("type") == "mixrbv1"
                 or media.get("type") == "mixrbv2"
             ) and not ss_media["miximage_url"]:
-                ss_media["miximage_url"] = media["url"]
+                ss_media["miximage_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
                 if MetadataMediaType.MIXIMAGE in preferred_media_types:
                     ss_media["miximage_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
                     )
             elif media.get("type") == "support-2D" and not ss_media["physical_url"]:
-                ss_media["physical_url"] = media["url"]
+                ss_media["physical_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
                 if MetadataMediaType.PHYSICAL in preferred_media_types:
                     ss_media["physical_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.PHYSICAL)}/physical.png"
                     )
             elif media.get("type") == "ss" and not ss_media["screenshot_url"]:
-                ss_media["screenshot_url"] = media["url"]
+                ss_media["screenshot_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
             elif media.get("type") == "box-2D-side" and not ss_media["box2d_side_url"]:
-                ss_media["box2d_side_url"] = media["url"]
+                ss_media["box2d_side_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
             elif media.get("type") == "steamgrid" and not ss_media["steamgrid_url"]:
-                ss_media["steamgrid_url"] = media["url"]
+                ss_media["steamgrid_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
             elif media.get("type") == "box-3D" and not ss_media["box3d_url"]:
-                ss_media["box3d_url"] = media["url"]
+                ss_media["box3d_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
                 if MetadataMediaType.BOX3D in preferred_media_types:
                     ss_media["box3d_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX3D)}/box3d.png"
                     )
             elif media.get("type") == "sstitle" and not ss_media["title_screen_url"]:
-                ss_media["title_screen_url"] = media["url"]
+                ss_media["title_screen_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
             elif media.get("type") == "video" and not ss_media["video_url"]:
-                ss_media["video_url"] = media["url"]
+                ss_media["video_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
                 if MetadataMediaType.VIDEO in preferred_media_types:
                     ss_media["video_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.VIDEO)}/video.mp4"
@@ -317,7 +286,9 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 media.get("type") == "video-normalized"
                 and not ss_media["video_normalized_url"]
             ):
-                ss_media["video_normalized_url"] = media["url"]
+                ss_media["video_normalized_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
 
     return ss_media
 
@@ -680,7 +651,7 @@ class SSHandler(MetadataHandler):
                 )
 
         # Support for MAME arcade filename format
-        if platform_ss_id in ARCADE_SS_IDS:
+        if platform_ss_id == ARCADE_SS_ID:
             search_term = await self._mame_format(search_term)
             fallback_rom = SSRom(ss_id=None, name=search_term)
 
@@ -765,6 +736,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.ANDROID: {"id": 63, "name": "Android"},
     UPS.APPLEII: {"id": 86, "name": "Apple II"},
     UPS.APPLE_IIGS: {"id": 51, "name": "Apple IIGS"},
+    UPS.ARCADE: {"id": ARCADE_SS_ID, "name": "Arcade"},
     UPS.ARCADIA_2001: {"id": 94, "name": "Arcadia 2001"},
     UPS.ARDUBOY: {"id": 263, "name": "Arduboy"},
     UPS.ATARI2600: {"id": 26, "name": "Atari 2600"},
@@ -842,7 +814,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.N64DD: {"id": 122, "name": "Nintendo 64DD"},
     UPS.NDS: {"id": 15, "name": "Nintendo DS"},
     UPS.NINTENDO_DSI: {"id": 15, "name": "Nintendo DS"},
-    UPS.SWITCH: {"id": 225, "name": "Switch"},
+    UPS.SWITCH: {"id": SWITCH_SS_ID, "name": "Switch"},
     UPS.ODYSSEY_2: {"id": 104, "name": "Videopac G7000"},
     UPS.OPENBOR: {"id": 214, "name": "OpenBOR"},
     UPS.ORIC: {"id": 131, "name": "Oric 1 / Atmos"},
@@ -851,11 +823,11 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.PC_FX: {"id": 72, "name": "PC-FX"},
     UPS.PICO: {"id": 234, "name": "Pico-8"},
     UPS.PSVITA: {"id": 62, "name": "PS Vita"},
-    UPS.PSP: {"id": 61, "name": "PSP"},
+    UPS.PSP: {"id": PSP_SS_ID, "name": "PSP"},
     UPS.PALM_OS: {"id": 219, "name": "Palm OS"},
     UPS.PHILIPS_VG_5000: {"id": 261, "name": "Philips VG 5000"},
-    UPS.PSX: {"id": 57, "name": "Playstation"},
-    UPS.PS2: {"id": 58, "name": "Playstation 2"},
+    UPS.PSX: {"id": PS1_SS_ID, "name": "Playstation"},
+    UPS.PS2: {"id": PS2_SS_ID, "name": "Playstation 2"},
     UPS.PS3: {"id": 59, "name": "Playstation 3"},
     UPS.PS4: {"id": 60, "name": "Playstation 4"},
     UPS.PS5: {"id": 284, "name": "Playstation 5"},
