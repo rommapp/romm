@@ -278,15 +278,7 @@ async function fetchSearchFilteredRoms() {
       filterRA: null,
       filterMissing: null,
       filterVerified: null,
-      // Exclude all single and multi-value filters to get all possible options
-      selectedGenre: null,
-      selectedFranchise: null,
-      selectedCollection: null,
-      selectedCompany: null,
-      selectedAgeRating: null,
-      selectedStatus: null,
-      selectedRegion: null,
-      selectedLanguage: null,
+      // Exclude all multi-value filters to get all possible options
       selectedGenres: null,
       selectedFranchises: null,
       selectedCollections: null,
