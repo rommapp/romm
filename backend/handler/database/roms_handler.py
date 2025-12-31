@@ -127,6 +127,7 @@ def with_details(func):
                 noload(Rom.platform), noload(Rom.metadatum)
             ),
             selectinload(Rom.collections),
+            selectinload(Rom.notes),
         )
         return func(*args, **kwargs)
 
