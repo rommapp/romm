@@ -16,6 +16,7 @@ from .base_handler import BaseRom, MetadataHandler
 
 # Regex to detect HLTB ID tags in filenames like (hltb-12345)
 HLTB_TAG_REGEX = re.compile(r"\(hltb-(\d+)\)", re.IGNORECASE)
+DASH_COLON_REGEX = re.compile(r"\s?-\s")
 
 
 class HLTBPlatform(TypedDict):
@@ -411,10 +412,9 @@ class HLTBHandler(MetadataHandler):
         if not HLTB_API_ENABLED:
             return HLTBRom(hltb_id=None)
 
-        # We replace " - " with ": " to match HowLongToBeat's naming convention
-        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
-            " - ", ": "
-        )
+        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+        # We replace " - "/"- " with ": " to match HowLongToBeat's naming convention
+        search_term = re.sub(DASH_COLON_REGEX, ": ", search_term)
         search_term = self.normalize_search_term(search_term, remove_punctuation=False)
 
         # Search for games
