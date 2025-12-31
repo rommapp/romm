@@ -16,8 +16,7 @@ interactions:
       uri: https://playmatch.retrorealm.dev/api/identify/ids?fileName=Paper+Mario+(USA).z64&fileSize=1024
     response:
       body:
-        string: !!binary |
-          CxKAeyJnYW1lTWF0Y2hUeXBlIjoiTm9NYXRjaCIsImlkIjpudWxsfQM=
+        string: '{"gameMatchType":"NoMatch","id":null}'
       headers:
         Age:
           - "81"
@@ -29,8 +28,6 @@ interactions:
           - HIT
         Connection:
           - keep-alive
-        Content-Encoding:
-          - br
         Content-Type:
           - application/json
         Date:
@@ -43,8 +40,6 @@ interactions:
           - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=mjZ4A7YtYFmLhvxBpW6QPl821crHqZZvQpN%2B8KgRa1zLBnsoeewii%2FWWpbQC7wKBCHw7a818u5WLZOYV60b7as%2Far6YDNSodkqsgt%2BNs4w9z%2F2bhZL22Sw%3D%3D"}]}'
         Server:
           - cloudflare
-        Transfer-Encoding:
-          - chunked
         Vary:
           - accept-encoding
         X-Ratelimit-Limit:
@@ -101,7 +96,7 @@ interactions:
         message: OK
   - request:
       body:
-        search "paper mario"; fields id,name,slug,summary,total_rating,aggregated_rating,first_release_date,artworks.url,cover.url,screenshots.url,platforms.id,platforms.name,alternative_names.name,genres.name,franchise.name,franchises.name,collections.name,game_modes.name,involved_companies.company.name,expansions.id,expansions.slug,expansions.name,expansions.cover.url,expanded_games.id,expanded_games.slug,expanded_games.name,expanded_games.cover.url,dlcs.id,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.id,remakes.slug,remakes.name,remakes.cover.url,remasters.id,remasters.slug,remasters.name,remasters.cover.url,ports.id,ports.slug,ports.name,ports.cover.url,similar_games.id,similar_games.slug,similar_games.name,similar_games.cover.url,age_ratings.rating_category,videos.video_id;
+        search "paper mario"; fields id,name,slug,summary,total_rating,aggregated_rating,first_release_date,artworks.url,cover.url,screenshots.url,platforms.id,platforms.name,alternative_names.name,genres.name,franchise.name,franchises.name,collections.name,game_modes.name,involved_companies.company.name,expansions.id,expansions.slug,expansions.name,expansions.cover.url,expanded_games.id,expanded_games.slug,expanded_games.name,expanded_games.cover.url,dlcs.id,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.id,remakes.slug,remakes.name,remakes.cover.url,remasters.id,remasters.slug,remasters.name,remasters.cover.url,ports.id,ports.slug,ports.name,ports.cover.url,similar_games.id,similar_games.slug,similar_games.name,similar_games.cover.url,age_ratings.rating_category,videos.video_id,game_localizations.id,game_localizations.name,game_localizations.cover.url,game_localizations.region.identifier,game_localizations.region.category;
         where platforms=[4] & game_type=(10,0,11,8,9); limit 200;
       headers:
         accept:
