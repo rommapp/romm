@@ -51,6 +51,7 @@
   "states": "Állások",
   "states-n": "{n} Állás | {n} Állások",
   "sync": "Szinkronizálás",
+  "type": "Típus",
   "update": "Frissítés",
   "upload": "Feltöltés",
   "upload-files-selected": "{count} fájl kiválasztva | {count} fájlok kiválasztva",

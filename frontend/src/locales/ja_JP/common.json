@@ -51,6 +51,7 @@
   "states": "ステートセーブ",
   "states-n": "{n} ステートセーブ | {n} ステートセーブ",
   "sync": "同期",
+  "type": "タイプ",
   "update": "アップデート",
   "upload": "アップロード",
   "upload-files-selected": "{count} ファイルが選択されました",

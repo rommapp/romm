@@ -51,6 +51,7 @@
   "states": "即時存檔",
   "states-n": "{n} 即時存檔 | {n} 即時存檔",
   "sync": "同步",
+  "type": "類型",
   "update": "更新",
   "upload": "上傳",
   "upload-files-selected": "已選擇 {count} 個檔案",

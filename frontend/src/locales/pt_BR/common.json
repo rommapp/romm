@@ -51,6 +51,7 @@
   "states": "Estados",
   "states-n": "{n} Estado | {n} Estados",
   "sync": "Sincronizar",
+  "type": "Tipo",
   "update": "Atualizar",
   "upload": "Carregar",
   "upload-files-selected": "{count} arquivo selecionado | {count} arquivos selecionados",
