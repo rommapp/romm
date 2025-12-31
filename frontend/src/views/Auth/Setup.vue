@@ -4,6 +4,7 @@ import { computed, inject, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import PlatformGroupList from "@/components/Setup/PlatformGroupList.vue";
+import RTextField from "@/components/common/Form/RTextField.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import router from "@/plugins/router";
 import { ROUTES } from "@/plugins/router";
@@ -21,8 +22,6 @@ const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const usersStore = storeUsers();
-const visiblePassword = ref(false);
-const visibleRepeatPassword = ref(false);
 const repeatPassword = ref("");
 
 // Library setup state
@@ -708,44 +707,37 @@ onMounted(() => {
                 >
                   <v-col cols="12" md="8">
                     <v-form @submit.prevent>
-                      <v-text-field
+                      <r-text-field
                         v-model="defaultAdminUser.username"
                         :label="`${t('settings.username')} *`"
-                        type="text"
                         :rules="usersStore.usernameRules"
-                        required
                         autocomplete="on"
                         prepend-inner-icon="mdi-account"
-                        variant="underlined"
+                        required
+                        class="mt-2"
                       />
-                      <v-text-field
+                      <r-text-field
                         v-model="defaultAdminUser.email"
                         :label="`${t('settings.email')} *`"
-                        type="text"
                         :rules="usersStore.emailRules"
-                        required
                         autocomplete="on"
                         prepend-inner-icon="mdi-account"
-                        variant="underlined"
+                        required
+                        class="mt-2"
                       />
-                      <v-text-field
+                      <r-text-field
                         v-model="defaultAdminUser.password"
                         :label="`${t('settings.password')} *`"
-                        :type="visiblePassword ? 'text' : 'password'"
                         :rules="usersStore.passwordRules"
-                        required
                         autocomplete="on"
                         prepend-inner-icon="mdi-lock"
-                        :append-inner-icon="
-                          visiblePassword ? 'mdi-eye-off' : 'mdi-eye'
-                        "
-                        variant="underlined"
-                        @click:append-inner="visiblePassword = !visiblePassword"
+                        required
+                        toggleable
+                        class="mt-2"
                       />
-                      <v-text-field
+                      <r-text-field
                         v-model="repeatPassword"
                         :label="`${t('settings.repeat-password')} *`"
-                        :type="visibleRepeatPassword ? 'text' : 'password'"
                         :rules="[
                           (v: string) =>
                             !!v || t('settings.repeat-password-required'),
@@ -753,17 +745,12 @@ onMounted(() => {
                             v === defaultAdminUser.password ||
                             t('settings.passwords-must-match'),
                         ]"
-                        required
                         autocomplete="on"
                         prepend-inner-icon="mdi-lock"
-                        :append-inner-icon="
-                          visibleRepeatPassword ? 'mdi-eye-off' : 'mdi-eye'
-                        "
-                        variant="underlined"
-                        @click:append-inner="
-                          visibleRepeatPassword = !visibleRepeatPassword
-                        "
                         @keydown.enter="filledAdminUser && next()"
+                        required
+                        toggleable
+                        class="mt-2"
                       />
                     </v-form>
                   </v-col>

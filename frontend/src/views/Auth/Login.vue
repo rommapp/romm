@@ -3,6 +3,7 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import RTextField from "@/components/common/Form/RTextField.vue";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
@@ -16,7 +17,6 @@ const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
 const username = ref("");
 const password = ref("");
-const visiblePassword = ref(false);
 const loggingIn = ref(false);
 const loggingInOIDC = ref(false);
 const {
@@ -108,27 +108,23 @@ async function loginOIDC() {
             v-model="validForm"
             @submit.prevent="login"
           >
-            <v-text-field
+            <r-text-field
               v-model="username"
               :label="t('login.username')"
-              type="text"
-              :rules="[(value: string) => !!value || t('common.required')]"
               autocomplete="username"
               name="username"
               prepend-inner-icon="mdi-account"
-              variant="underlined"
+              required
             />
-            <v-text-field
+            <r-text-field
               v-model="password"
               :label="t('login.password')"
-              :type="visiblePassword ? 'text' : 'password'"
-              :rules="[(value: string) => !!value || t('common.required')]"
               autocomplete="current-password"
               name="password"
               prepend-inner-icon="mdi-lock"
-              :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
-              variant="underlined"
-              @click:append-inner="visiblePassword = !visiblePassword"
+              required
+              toggleable
+              class="mt-2"
             />
             <v-btn
               type="submit"
@@ -215,13 +211,11 @@ async function loginOIDC() {
       >
         <v-col cols="10">
           <v-form @submit.prevent="sendReset">
-            <v-text-field
+            <RTextField
               v-model="forgotUser"
               :label="t('login.username')"
-              type="text"
-              required
               prepend-inner-icon="mdi-account"
-              variant="underlined"
+              required
             />
             <v-btn
               type="submit"

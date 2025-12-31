@@ -3,6 +3,7 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter, useRoute } from "vue-router";
+import RTextField from "@/components/common/Form/RTextField.vue";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
@@ -16,8 +17,6 @@ const router = useRouter();
 const token = route.query.token as string;
 const newPassword = ref("");
 const confirmPassword = ref("");
-const visibleNewPassword = ref(false);
-const visibleConfirmNewPassword = ref(false);
 
 async function resetPassword() {
   await identityApi
@@ -56,27 +55,18 @@ async function resetPassword() {
     <v-row class="text-white justify-center mt-2" no-gutters>
       <v-col cols="10">
         <v-form @submit.prevent="resetPassword">
-          <v-text-field
+          <r-text-field
             v-model="newPassword"
             :label="t('login.new-password')"
-            :type="visibleNewPassword ? 'text' : 'password'"
+            toggleable
             required
-            :append-inner-icon="visibleNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
-            variant="underlined"
-            @click:append-inner="visibleNewPassword = !visibleNewPassword"
           />
-          <v-text-field
+          <r-text-field
             v-model="confirmPassword"
             :label="t('login.confirm-new-password')"
-            :type="visibleConfirmNewPassword ? 'text' : 'password'"
+            toggleable
             required
-            :append-inner-icon="
-              visibleConfirmNewPassword ? 'mdi-eye-off' : 'mdi-eye'
-            "
-            variant="underlined"
-            @click:append-inner="
-              visibleConfirmNewPassword = !visibleConfirmNewPassword
-            "
+            class="mt-2"
           />
           <span
             v-if="newPassword !== confirmPassword && newPassword.length > 0"
