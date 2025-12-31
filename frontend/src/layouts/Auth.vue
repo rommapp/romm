@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LanguageSelector from "@/components/Settings/UserInterface/LanguageSelector.vue";
 import Notification from "@/components/common/Notifications/Notification.vue";
 import storeHeartbeat from "@/stores/heartbeat";
 
@@ -10,26 +11,30 @@ const heartbeatStore = storeHeartbeat();
   <v-container id="container" class="fill-height justify-center">
     <router-view />
   </v-container>
-  <div id="version" class="position-absolute">
-    <span class="text-white text-shadow">{{
-      heartbeatStore.value.SYSTEM.VERSION
-    }}</span>
+  <div id="language-selector">
+    <LanguageSelector density="compact" />
   </div>
+  <span id="version" class="text-white text-subtitle-1 text-shadow">
+    {{ heartbeatStore.value.SYSTEM.VERSION }}
+  </span>
 </template>
 
 <style scoped>
-#version {
-  text-shadow:
-    1px 1px 1px #000000,
-    0 0 1px #000000;
-  bottom: 0.3rem;
-  right: 0.5rem;
-}
-
 #container {
   background-image: url("/assets/auth_background.svg");
   background-size: cover;
   background-position: center;
   max-width: 100vw;
+  /* align-items: unset !important; */
+}
+#version {
+  position: absolute !important;
+  right: 15px !important;
+  bottom: 10px !important;
+}
+#language-selector {
+  position: absolute !important;
+  left: 10px !important;
+  bottom: 10px !important;
 }
 </style>
