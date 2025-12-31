@@ -6,6 +6,7 @@ import unicodedata
 from functools import lru_cache
 from pathlib import Path
 from typing import Final, NotRequired, TypedDict
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from strsimpy.jaro_winkler import JaroWinkler
 
@@ -93,6 +94,19 @@ def _normalize_search_term(
         name = "".join(c for c in normalized if not unicodedata.combining(c))
 
     return name.strip()
+
+
+def strip_sensitive_query_params(
+    url: str, sensitive_keys: set[str] = SENSITIVE_KEYS
+) -> str:
+    parsed = urlparse(url)
+    qsl = parse_qsl(parsed.query, keep_blank_values=True)
+
+    keys_lower = {k.lower() for k in sensitive_keys}
+    keep = [(k, v) for k, v in qsl if k.lower() not in keys_lower]
+
+    new_query = urlencode(keep, doseq=True)
+    return urlunparse(parsed._replace(query=new_query))
 
 
 class MetadataHandler(abc.ABC):

@@ -1,4 +1,4 @@
-"""empty message
+"""Add hashes to roms
 
 Revision ID: 0025_roms_hashes
 Revises: 0024_sibling_roms_db_view

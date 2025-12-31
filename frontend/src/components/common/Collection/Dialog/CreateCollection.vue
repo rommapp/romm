@@ -104,7 +104,10 @@ async function createCollection() {
 
 function closeDialog() {
   show.value = false;
-  collection.value = {} as UpdatedCollection;
+  collection.value.name = "";
+  collection.value.description = "";
+  collection.value.path_covers_large = [];
+  collection.value.path_covers_small = [];
   imagePreviewUrl.value = "";
 }
 </script>
@@ -149,78 +152,85 @@ function closeDialog() {
           </v-row>
           <v-row class="pa-2" no-gutters>
             <v-col>
-              <v-switch
-                v-model="collection.is_public"
-                :label="t('collection.public-desc')"
-                color="primary"
-                hide-details
-              />
+              <v-btn
+                :color="collection.is_public ? 'romm-green' : 'accent'"
+                variant="outlined"
+                @click="collection.is_public = !collection.is_public"
+              >
+                <v-icon class="mr-2">
+                  {{
+                    collection.is_public ? "mdi-lock-open-variant" : "mdi-lock"
+                  }}
+                </v-icon>
+                {{
+                  collection.is_public
+                    ? t("collection.public")
+                    : t("collection.private")
+                }}
+              </v-btn>
             </v-col>
           </v-row>
         </v-col>
         <v-col>
           <v-row class="pa-2 justify-center" no-gutters>
-            <v-col class="cover">
-              <CollectionCard
-                :key="collection.updated_at"
-                :show-title="false"
-                :with-link="false"
-                :collection="collection"
-                :cover-src="imagePreviewUrl"
-                title-on-hover
-              >
-                <template #append-inner>
-                  <v-btn-group divided density="compact">
-                    <v-btn
-                      :disabled="
-                        !heartbeat.value.METADATA_SOURCES
-                          ?.STEAMGRIDDB_API_ENABLED
-                      "
-                      size="small"
-                      class="translucent"
-                      @click="
-                        emitter?.emit('showSearchCoverDialog', {
-                          term: collection.name,
-                        })
-                      "
-                    >
-                      <v-icon size="large"> mdi-image-search-outline </v-icon>
-                    </v-btn>
-                    <v-btn
-                      size="small"
-                      class="translucent"
-                      @click="triggerFileInput"
-                    >
-                      <v-icon size="large"> mdi-pencil </v-icon>
-                      <v-file-input
-                        id="file-input"
-                        v-model="collection.artwork"
-                        accept="image/*"
-                        hide-details
-                        class="file-input"
-                        @change="previewImage"
-                      />
-                    </v-btn>
-                    <v-btn
-                      size="small"
-                      class="translucent"
-                      @click="removeArtwork"
-                    >
-                      <v-icon size="large" class="text-romm-red">
-                        mdi-delete
-                      </v-icon>
-                    </v-btn>
-                  </v-btn-group>
-                </template>
-              </CollectionCard>
-            </v-col>
+            <CollectionCard
+              :key="collection.updated_at"
+              :show-title="false"
+              :with-link="false"
+              :collection="collection"
+              :cover-src="imagePreviewUrl"
+              title-on-hover
+              width="240"
+            >
+              <template #append-inner>
+                <v-btn-group divided density="compact">
+                  <v-btn
+                    :disabled="
+                      !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
+                    "
+                    size="small"
+                    class="translucent"
+                    @click="
+                      emitter?.emit('showSearchCoverDialog', {
+                        term: collection.name,
+                      })
+                    "
+                  >
+                    <v-icon size="large"> mdi-image-search-outline </v-icon>
+                  </v-btn>
+                  <v-btn
+                    size="small"
+                    class="translucent"
+                    @click="triggerFileInput"
+                  >
+                    <v-icon size="large"> mdi-pencil </v-icon>
+                    <v-file-input
+                      id="file-input"
+                      v-model="collection.artwork"
+                      accept="image/*"
+                      hide-details
+                      class="file-input"
+                      @change="previewImage"
+                    />
+                  </v-btn>
+                  <v-btn
+                    size="small"
+                    class="translucent"
+                    @click="removeArtwork"
+                  >
+                    <v-icon size="large" class="text-romm-red">
+                      mdi-delete
+                    </v-icon>
+                  </v-btn>
+                </v-btn-group>
+              </template>
+            </CollectionCard>
           </v-row>
         </v-col>
       </v-row>
     </template>
-    <template #append>
-      <v-divider />
-      <v-row class="justify-center pa-2" no-gutters>
+    <template #footer>
+      <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
@@ -238,11 +248,3 @@ function closeDialog() {
     </template>
   </RDialog>
 </template>
-<style scoped>
-.cover {
-  min-width: 240px;
-  min-height: 330px;
-  max-width: 240px;
-  max-height: 330px;
-}
-</style>

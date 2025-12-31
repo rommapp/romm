@@ -1,4 +1,4 @@
-"""empty message
+"""Standardize platform slugs
 
 Revision ID: 0046_migrate_platform_slugs
 Revises: 0045_roms_metadata_update

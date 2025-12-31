@@ -63,7 +63,7 @@ class ScanLibraryTask(PeriodicTask):
         scan_stats = await scan_platforms(
             platform_ids=[],
             metadata_sources=metadata_sources,
-            scan_type=ScanType.UPDATE,
+            scan_type=ScanType.QUICK,
         )
         log.info("Scheduled library scan done")
 

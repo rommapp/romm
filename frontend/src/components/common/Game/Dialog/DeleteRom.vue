@@ -154,7 +154,7 @@ function closeDialog() {
       </v-data-table-virtual>
     </template>
     <template #append>
-      <v-row class="justify-center text-center pa-2" no-gutters>
+      <v-row class="justify-center text-center pa-2 bg-toplayer" no-gutters>
         <v-col>
           <v-chip variant="text" @click="excludeOnDelete = !excludeOnDelete">
             <v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">
@@ -168,9 +168,13 @@ function closeDialog() {
           </v-chip>
         </v-col>
       </v-row>
-      <v-row v-if="romsToDeleteFromFs.length > 0" no-gutters>
+      <v-row
+        v-if="romsToDeleteFromFs.length > 0"
+        class="bg-toplayer"
+        no-gutters
+      >
         <v-col>
-          <v-list-item class="text-center mt-2">
+          <v-list-item class="text-center">
             <span class="text-romm-red text-body-1">{{
               t("common.warning")
             }}</span>
@@ -180,7 +184,7 @@ function closeDialog() {
           </v-list-item>
         </v-col>
       </v-row>
-      <v-row class="justify-center my-2">
+      <v-row class="justify-center py-2 bg-toplayer" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
             {{ t("common.cancel") }}

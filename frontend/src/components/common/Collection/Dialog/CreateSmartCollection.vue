@@ -214,12 +214,18 @@ async function createSmartCollection() {
           </v-row>
           <v-row class="pa-2" no-gutters>
             <v-col>
-              <v-switch
-                v-model="isPublic"
-                :label="t('collection.public-desc')"
-                color="primary"
-                hide-details
-              />
+              <v-btn
+                :color="isPublic ? 'romm-green' : 'accent'"
+                variant="outlined"
+                @click="isPublic = !isPublic"
+              >
+                <v-icon class="mr-2">
+                  {{ isPublic ? "mdi-lock-open-variant" : "mdi-lock" }}
+                </v-icon>
+                {{
+                  isPublic ? t("collection.public") : t("collection.private")
+                }}
+              </v-btn>
             </v-col>
           </v-row>
         </v-col>
@@ -244,9 +250,8 @@ async function createSmartCollection() {
         </v-col>
       </v-row>
     </template>
-    <template #append>
-      <v-divider />
-      <v-row class="justify-center pa-2" no-gutters>
+    <template #footer>
+      <v-row class="justify-center my-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}

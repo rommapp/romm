@@ -308,7 +308,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               v-model="rom.fs_name"
               :rules="[(value: string) => !!value || t('common.required')]"
               :label="
-                rom.has_multiple_files
+                rom.has_nested_single_file || rom.has_multiple_files
                   ? t('rom.folder-name')
                   : t('rom.filename')
               "
@@ -447,9 +447,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         </p>
       </div>
     </template>
-    <template #append>
-      <v-divider />
-      <v-row class="justify-center pa-2" no-gutters>
+    <template #footer>
+      <v-row class="justify-center my-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="showConfirmDeleteManual = false">
             {{ t("common.cancel") }}

@@ -1,8 +1,8 @@
-"""Update roms_metadata view to include flashpoint metadata
+"""Add launchbox to roms_metadata view
 
-Revision ID: 0052_roms_metadata_flashpoint
-Revises: 0051_flashpoint_metadata
-Create Date: 2025-03-17 00:00:00.000000
+Revision ID: 0058_roms_metadata_launchbox
+Revises: 0057_multi_notes
+Create Date: 2025-12-22 00:00:00.000000
 
 """
 
@@ -12,8 +12,8 @@ from alembic import op
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0052_roms_metadata_flashpoint"
-down_revision = "0051_flashpoint_metadata"
+revision = "0058_roms_metadata_launchbox"
+down_revision = "0057_multi_notes"
 branch_labels = None
 depends_on = None
 
@@ -36,6 +36,7 @@ def upgrade():
                         (r.launchbox_metadata -> 'genres'),
                         (r.ra_metadata -> 'genres'),
                         (r.flashpoint_metadata -> 'genres'),
+                        (r.gamelist_metadata -> 'genres'),
                         '[]'::jsonb
                     ) AS genres,
 
@@ -43,6 +44,7 @@ def upgrade():
                         (r.igdb_metadata -> 'franchises'),
                         (r.ss_metadata -> 'franchises'),
                         (r.flashpoint_metadata -> 'franchises'),
+                        (r.gamelist_metadata -> 'franchises'),
                         '[]'::jsonb
                     ) AS franchises,
 
@@ -57,12 +59,14 @@ def upgrade():
                         (r.ra_metadata -> 'companies'),
                         (r.launchbox_metadata -> 'companies'),
                         (r.flashpoint_metadata -> 'companies'),
+                        (r.gamelist_metadata -> 'companies'),
                         '[]'::jsonb
                     ) AS companies,
 
                     COALESCE(
                         (r.igdb_metadata -> 'game_modes'),
                         (r.ss_metadata -> 'game_modes'),
+                        (r.flashpoint_metadata -> 'game_modes'),
                         '[]'::jsonb
                     ) AS game_modes,
 
@@ -114,16 +118,24 @@ def upgrade():
                             r.flashpoint_metadata ->> 'first_release_date' NOT IN ('null', 'None', '0', '0.0') AND
                             r.flashpoint_metadata ->> 'first_release_date' ~ '^[0-9]+$'
                         THEN (r.flashpoint_metadata ->> 'first_release_date')::bigint * 1000
+
+                        WHEN r.gamelist_metadata IS NOT NULL
+                            AND r.gamelist_metadata ? 'first_release_date'
+                            AND r.gamelist_metadata ->> 'first_release_date' NOT IN ('null', 'None', '0', '0.0')
+                            AND r.gamelist_metadata ->> 'first_release_date' ~ '^[0-9]{8}T[0-9]{6}$'
+                        THEN (extract(epoch FROM to_timestamp(r.gamelist_metadata ->> 'first_release_date', 'YYYYMMDD"T"HH24MISS')) * 1000)::bigint
+
                         ELSE NULL
                     END AS first_release_date,
 
                     CASE
-                        WHEN (igdb_rating IS NOT NULL OR moby_rating IS NOT NULL OR ss_rating IS NOT NULL OR launchbox_rating IS NOT NULL) THEN
-                            (COALESCE(igdb_rating, 0) + COALESCE(moby_rating, 0) + COALESCE(ss_rating, 0) + COALESCE(launchbox_rating, 0)) /
+                        WHEN (igdb_rating IS NOT NULL OR moby_rating IS NOT NULL OR ss_rating IS NOT NULL OR launchbox_rating IS NOT NULL OR gamelist_rating IS NOT NULL) THEN
+                            (COALESCE(igdb_rating, 0) + COALESCE(moby_rating, 0) + COALESCE(ss_rating, 0) + COALESCE(launchbox_rating, 0) + COALESCE(gamelist_rating, 0)) /
                             (CASE WHEN igdb_rating IS NOT NULL THEN 1 ELSE 0 END +
                             CASE WHEN moby_rating IS NOT NULL THEN 1 ELSE 0 END +
                             CASE WHEN ss_rating IS NOT NULL THEN 1 ELSE 0 END +
-                            CASE WHEN launchbox_rating IS NOT NULL THEN 1 ELSE 0 END)
+                            CASE WHEN launchbox_rating IS NOT NULL THEN 1 ELSE 0 END +
+                            CASE WHEN gamelist_rating IS NOT NULL THEN 1 ELSE 0 END)
                         ELSE NULL
                     END AS average_rating
                 FROM (
@@ -135,6 +147,7 @@ def upgrade():
                         r.ra_metadata,
                         r.launchbox_metadata,
                         r.flashpoint_metadata,
+                        r.gamelist_metadata,
                         CASE
                             WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'total_rating' AND
                                 r.igdb_metadata ->> 'total_rating' NOT IN ('null', 'None', '0', '0.0') AND
@@ -162,7 +175,14 @@ def upgrade():
                                 r.launchbox_metadata ->> 'community_rating' ~ '^[0-9]+(\\.[0-9]+)?$'
                             THEN (r.launchbox_metadata ->> 'community_rating')::float * 20
                             ELSE NULL
-                        END AS launchbox_rating
+                        END AS launchbox_rating,
+                        CASE
+                            WHEN r.gamelist_metadata IS NOT NULL AND r.gamelist_metadata ? 'rating' AND
+                                r.gamelist_metadata ->> 'rating' NOT IN ('null', 'None', '0', '0.0') AND
+                                r.gamelist_metadata ->> 'rating' ~ '^[0-9]+(\\.[0-9]+)?$'
+                            THEN (r.gamelist_metadata ->> 'rating')::float * 100
+                            ELSE NULL
+                        END AS gamelist_rating
                     FROM roms r
                 ) AS r;
                 """
@@ -183,6 +203,7 @@ def upgrade():
                             JSON_EXTRACT(r.launchbox_metadata, '$.genres'),
                             JSON_EXTRACT(r.ra_metadata, '$.genres'),
                             JSON_EXTRACT(r.flashpoint_metadata, '$.genres'),
+                            JSON_EXTRACT(r.gamelist_metadata, '$.genres'),
                             JSON_ARRAY()
                         ) AS genres,
 
@@ -190,6 +211,7 @@ def upgrade():
                             JSON_EXTRACT(r.igdb_metadata, '$.franchises'),
                             JSON_EXTRACT(r.ss_metadata, '$.franchises'),
                             JSON_EXTRACT(r.flashpoint_metadata, '$.franchises'),
+                            JSON_EXTRACT(r.gamelist_metadata, '$.franchises'),
                             JSON_ARRAY()
                         ) AS franchises,
 
@@ -204,6 +226,7 @@ def upgrade():
                             JSON_EXTRACT(r.ra_metadata, '$.companies'),
                             JSON_EXTRACT(r.launchbox_metadata, '$.companies'),
                             JSON_EXTRACT(r.flashpoint_metadata, '$.companies'),
+                            JSON_EXTRACT(r.gamelist_metadata, '$.companies'),
                             JSON_ARRAY()
                         ) AS companies,
 
@@ -261,16 +284,27 @@ def upgrade():
                                 JSON_UNQUOTE(JSON_EXTRACT(r.flashpoint_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
                             THEN CAST(JSON_EXTRACT(r.flashpoint_metadata, '$.first_release_date') AS SIGNED) * 1000
 
+                            WHEN JSON_CONTAINS_PATH(r.gamelist_metadata, 'one', '$.first_release_date')
+                                AND JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')) NOT IN ('null', 'None', '0', '0.0')
+                                AND JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')) REGEXP '^[0-9]{8}T[0-9]{6}$'
+                            THEN UNIX_TIMESTAMP(
+                                STR_TO_DATE(
+                                JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')),
+                                '%Y%m%dT%H%i%S'
+                                )
+                            ) * 1000
+
                             ELSE NULL
                         END AS first_release_date,
 
                         CASE
-                            WHEN (igdb_rating IS NOT NULL OR moby_rating IS NOT NULL OR ss_rating IS NOT NULL OR launchbox_rating IS NOT NULL) THEN
-                                (COALESCE(igdb_rating, 0) + COALESCE(moby_rating, 0) + COALESCE(ss_rating, 0) + COALESCE(launchbox_rating, 0)) /
+                            WHEN (igdb_rating IS NOT NULL OR moby_rating IS NOT NULL OR ss_rating IS NOT NULL OR launchbox_rating IS NOT NULL OR gamelist_rating IS NOT NULL) THEN
+                                (COALESCE(igdb_rating, 0) + COALESCE(moby_rating, 0) + COALESCE(ss_rating, 0) + COALESCE(launchbox_rating, 0) + COALESCE(gamelist_rating, 0)) /
                                 (CASE WHEN igdb_rating IS NOT NULL THEN 1 ELSE 0 END +
                                 CASE WHEN moby_rating IS NOT NULL THEN 1 ELSE 0 END +
                                 CASE WHEN ss_rating IS NOT NULL THEN 1 ELSE 0 END +
-                                CASE WHEN launchbox_rating IS NOT NULL THEN 1 ELSE 0 END)
+                                CASE WHEN launchbox_rating IS NOT NULL THEN 1 ELSE 0 END +
+                                CASE WHEN gamelist_rating IS NOT NULL THEN 1 ELSE 0 END)
                             ELSE NULL
                         END AS average_rating
                     FROM (
@@ -282,6 +316,7 @@ def upgrade():
                             ra_metadata,
                             launchbox_metadata,
                             flashpoint_metadata,
+                            gamelist_metadata,
                             CASE
                                 WHEN JSON_CONTAINS_PATH(igdb_metadata, 'one', '$.total_rating') AND
                                     JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '0', '0.0') AND
@@ -309,7 +344,14 @@ def upgrade():
                                     JSON_UNQUOTE(JSON_EXTRACT(launchbox_metadata, '$.community_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
                                 THEN CAST(JSON_EXTRACT(launchbox_metadata, '$.community_rating') AS DECIMAL(10,2)) * 20
                                 ELSE NULL
-                            END AS launchbox_rating
+                            END AS launchbox_rating,
+                            CASE
+                                WHEN JSON_CONTAINS_PATH(gamelist_metadata, 'one', '$.rating') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(gamelist_metadata, '$.rating')) NOT IN ('null', 'None', '0', '0.0') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(gamelist_metadata, '$.rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
+                                THEN CAST(JSON_EXTRACT(gamelist_metadata, '$.rating') AS DECIMAL(10,2)) * 100
+                                ELSE NULL
+                            END AS gamelist_rating
                         FROM roms
                     ) AS r;
                 """

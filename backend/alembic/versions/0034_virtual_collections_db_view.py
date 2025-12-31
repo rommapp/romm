@@ -1,4 +1,4 @@
-"""empty message
+"""Introduce collections_roms table and virtual_collections view
 
 Revision ID: 0034_virtual_collections_db_view
 Revises: 0033_rom_file_and_hashes
