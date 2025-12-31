@@ -318,10 +318,12 @@ class DBRomsHandler(DBBaseHandler):
         if not user_id:
             return query
 
-        predicate = RomUser.last_played.isnot(None)
-        if not value:
-            predicate = RomUser.last_played.is_(None)
-        return query.filter(predicate)
+        has_last_played = (
+            RomUser.last_played.is_(None)
+            if not value
+            else RomUser.last_played.isnot(None)
+        )
+        return query.filter(has_last_played)
 
     def filter_by_has_ra(self, query: Query, value: bool) -> Query:
         predicate = Rom.ra_id.isnot(None)
