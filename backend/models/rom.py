@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import enum
 from datetime import datetime
 from functools import cached_property
@@ -393,13 +394,18 @@ class Rom(BaseModel):
     @cached_property
     def merged_ra_metadata(self) -> dict[str, list] | None:
         if self.ra_metadata and "achievements" in self.ra_metadata:
-            for achievement in self.ra_metadata.get("achievements", []):
+            # Create a deep copy to avoid mutating the original metadata
+            # This ensures that badge paths remain relative for filesystem operations
+            # while the frontend receives absolute paths
+            metadata_copy = copy.deepcopy(self.ra_metadata)
+            for achievement in metadata_copy.get("achievements", []):
                 achievement["badge_path_lock"] = (
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}"
                 )
                 achievement["badge_path"] = (
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
                 )
+            return metadata_copy
         return self.ra_metadata
 
     # Used only during scan process
