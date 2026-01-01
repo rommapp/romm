@@ -48,11 +48,10 @@ lint:
   ignore:
     - linters: [ALL]
       paths:
-        - frontend/assets/patcherjs/**
-        - frontend/public/assets/patcherjs/patcher.worker.js
-        - frontend/src/__generated__/**
         - docker/Dockerfile
         - docker/nginx/js/**
+        - frontend/src/__generated__/**
+        - frontend/public/assets/patcherjs/**
   files:
     - name: vue
       extensions: [vue]

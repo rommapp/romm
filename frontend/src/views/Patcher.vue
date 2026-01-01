@@ -1,7 +1,21 @@
 <script setup lang="ts">
 import { useDropZone } from "@vueuse/core";
+import workletURL from "extra-scalloped-border/worklet.js?url";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
+// import "rom-patcher/rom-patcher-js/RomPatcher.js?url";
+import "rom-patcher/rom-patcher-js/modules/BinFile.js?url";
+import "rom-patcher/rom-patcher-js/modules/HashCalculator.js";
+import "rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_gba.js";
+import "rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_n64.js";
+import "rom-patcher/rom-patcher-js/modules/RomPatcher.format.bdf.js";
+import "rom-patcher/rom-patcher-js/modules/RomPatcher.format.bps.js";
+import "rom-patcher/rom-patcher-js/modules/RomPatcher.format.ips.js";
+import "rom-patcher/rom-patcher-js/modules/RomPatcher.format.pmsr.js";
+import "rom-patcher/rom-patcher-js/modules/RomPatcher.format.ppf.js";
+import "rom-patcher/rom-patcher-js/modules/RomPatcher.format.rup.js";
+import "rom-patcher/rom-patcher-js/modules/RomPatcher.format.ups.js";
+import "rom-patcher/rom-patcher-js/modules/RomPatcher.format.vcdiff.js";
 import { inject, ref, onMounted, watch, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
@@ -41,7 +55,7 @@ const heartbeat = storeHeartbeat();
 const scanningStore = storeScanning();
 const uploadStore = storeUpload();
 // Load core scripts via absolute asset paths (mirrors emulator loader approach)
-const PATCHER_BASE_PATH = "/assets/patcherjs";
+const PATCHER_BASE_PATH = "/node_modules/rom-patcher/rom-patcher-js";
 const CORE_SCRIPTS = [
   `${PATCHER_BASE_PATH}/modules/HashCalculator.js`,
   `${PATCHER_BASE_PATH}/modules/BinFile.js`,
@@ -119,7 +133,7 @@ function loadScriptSequentially(urls: string[]): Promise<void> {
 async function ensureCoreLoaded() {
   if (coreLoaded.value) return;
   try {
-    await loadScriptSequentially(CORE_SCRIPTS);
+    // await loadScriptSequentially(CORE_SCRIPTS);
     coreLoaded.value = true;
   } catch (e: any) {
     loadError.value = e?.message || String(e);
@@ -838,7 +852,7 @@ onMounted(async () => {
             t("patcher.powered-by")
           }}</span>
           <v-avatar rounded="0">
-            <v-img src="/assets/patcherjs/assets/patcherjs.png" />
+            <v-img src="/assets/patcherjs/patcherjs.png" />
           </v-avatar>
         </v-col>
       </v-row>

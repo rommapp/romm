@@ -160,22 +160,22 @@ export default defineStore("galleryFilter", {
     isFiltered() {
       return Boolean(
         this.filterUnmatched ||
-          this.filterMatched ||
-          this.filterFavorites ||
-          this.filterDuplicates ||
-          this.filterPlayables ||
-          this.filterRA ||
-          this.filterMissing ||
-          this.filterVerified ||
-          this.selectedPlatform ||
-          this.selectedGenre ||
-          this.selectedFranchise ||
-          this.selectedCollection ||
-          this.selectedCompany ||
-          this.selectedAgeRating ||
-          this.selectedRegion ||
-          this.selectedLanguage ||
-          this.selectedStatus,
+        this.filterMatched ||
+        this.filterFavorites ||
+        this.filterDuplicates ||
+        this.filterPlayables ||
+        this.filterRA ||
+        this.filterMissing ||
+        this.filterVerified ||
+        this.selectedPlatform ||
+        this.selectedGenre ||
+        this.selectedFranchise ||
+        this.selectedCollection ||
+        this.selectedCompany ||
+        this.selectedAgeRating ||
+        this.selectedRegion ||
+        this.selectedLanguage ||
+        this.selectedStatus,
       );
     },
     reset() {
