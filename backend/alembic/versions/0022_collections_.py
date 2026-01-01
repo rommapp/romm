@@ -1,4 +1,4 @@
-"""empty message
+"""Migrate resources and create collections table
 
 Revision ID: 0022_collections
 Revises: 0021_rom_user
