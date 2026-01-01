@@ -250,9 +250,32 @@ class DBCollectionsHandler(DBBaseHandler):
         # Extract filter criteria
         criteria = smart_collection.filter_criteria
 
+        # Convert legacy single-value criteria to arrays for backward compatibility
+        def convert_legacy_filter(new_key: str, old_key: str) -> list[str] | None:
+            """Convert legacy single-value filter to array format."""
+            if new_value := criteria.get(new_key):
+                return new_value if isinstance(new_value, list) else [new_value]
+            if old_value := criteria.get(old_key):
+                return [old_value]
+            return None
+
+        # Apply conversions
+        genres = convert_legacy_filter("genres", "selected_genre")
+        franchises = convert_legacy_filter("franchises", "selected_franchise")
+        collections = convert_legacy_filter("collections", "selected_collection")
+        companies = convert_legacy_filter("companies", "selected_company")
+        age_ratings = convert_legacy_filter("age_ratings", "selected_age_rating")
+        regions = convert_legacy_filter("regions", "selected_region")
+        languages = convert_legacy_filter("languages", "selected_language")
+
         # Use the existing filter_roms method with the stored criteria
+        platform_ids = criteria.get("platform_ids")
+        if platform_ids is None:
+            if platform_id := criteria.get("platform_id"):
+                platform_ids = [platform_id]
+
         return db_rom_handler.get_roms_scalar(
-            platform_id=criteria.get("platform_id"),
+            platform_ids=platform_ids,
             collection_id=criteria.get("collection_id"),
             virtual_collection_id=criteria.get("virtual_collection_id"),
             search_term=criteria.get("search_term"),
@@ -263,14 +286,23 @@ class DBCollectionsHandler(DBBaseHandler):
             has_ra=criteria.get("has_ra"),
             missing=criteria.get("missing"),
             verified=criteria.get("verified"),
-            selected_genre=criteria.get("selected_genre"),
-            selected_franchise=criteria.get("selected_franchise"),
-            selected_collection=criteria.get("selected_collection"),
-            selected_company=criteria.get("selected_company"),
-            selected_age_rating=criteria.get("selected_age_rating"),
-            selected_status=criteria.get("selected_status"),
-            selected_region=criteria.get("selected_region"),
-            selected_language=criteria.get("selected_language"),
+            genres=genres,
+            franchises=franchises,
+            collections=collections,
+            companies=companies,
+            age_ratings=age_ratings,
+            selected_statuses=criteria.get("selected_statuses"),
+            regions=regions,
+            languages=languages,
+            # Logic operators for multi-value filters
+            genres_logic=criteria.get("genres_logic", "any"),
+            franchises_logic=criteria.get("franchises_logic", "any"),
+            collections_logic=criteria.get("collections_logic", "any"),
+            companies_logic=criteria.get("companies_logic", "any"),
+            age_ratings_logic=criteria.get("age_ratings_logic", "any"),
+            regions_logic=criteria.get("regions_logic", "any"),
+            languages_logic=criteria.get("languages_logic", "any"),
+            statuses_logic=criteria.get("statuses_logic", "any"),
             user_id=user_id,
             order_by=criteria.get("order_by", "name"),
             order_dir=criteria.get("order_dir", "asc"),

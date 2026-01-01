@@ -1,4 +1,4 @@
-"""empty message
+"""Create sibling_roms view
 
 Revision ID: 0024_sibling_roms_db_view
 Revises: 0023_make_columns_non_nullable

@@ -200,9 +200,14 @@ def get_roms(
         str | None,
         Query(description="Search term to filter roms."),
     ] = None,
-    platform_id: Annotated[
-        int | None,
-        Query(description="Platform internal id.", ge=1),
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Platform internal ids. Multiple values are allowed by repeating the"
+                " parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
     collection_id: Annotated[
         int | None,
@@ -218,7 +223,7 @@ def get_roms(
     ] = None,
     matched: Annotated[
         bool | None,
-        Query(description="Whether the rom matched a metadata source."),
+        Query(description="Whether the rom matched at least one metadata source."),
     ] = None,
     favorite: Annotated[
         bool | None,
@@ -227,6 +232,12 @@ def get_roms(
     duplicate: Annotated[
         bool | None,
         Query(description="Whether the rom is marked as duplicate."),
+    ] = None,
+    last_played: Annotated[
+        bool | None,
+        Query(
+            description="Whether the rom has a last played value for the current user."
+        ),
     ] = None,
     playable: Annotated[
         bool | None,
@@ -242,9 +253,7 @@ def get_roms(
     ] = None,
     verified: Annotated[
         bool | None,
-        Query(
-            description="Whether the rom is verified by Hasheous from the filesystem."
-        ),
+        Query(description="Whether the rom is verified by Hasheous."),
     ] = None,
     group_by_meta_id: Annotated[
         bool,
@@ -252,38 +261,127 @@ def get_roms(
             description="Whether to group roms by metadata ID (IGDB / Moby / ScreenScraper / RetroAchievements / LaunchBox)."
         ),
     ] = False,
-    selected_genre: Annotated[
-        str | None,
-        Query(description="Associated genre."),
+    genres: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated genre. Multiple values are allowed by repeating the"
+                " parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_franchise: Annotated[
-        str | None,
-        Query(description="Associated franchise."),
+    franchises: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated franchise. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_collection: Annotated[
-        str | None,
-        Query(description="Associated collection."),
+    collections: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated collection. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_company: Annotated[
-        str | None,
-        Query(description="Associated company."),
+    companies: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated company. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_age_rating: Annotated[
-        str | None,
-        Query(description="Associated age rating."),
+    age_ratings: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated age rating. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_status: Annotated[
-        str | None,
-        Query(description="Game status, set by the current user."),
+    selected_statuses: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Game status, set by the current user. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_region: Annotated[
-        str | None,
-        Query(description="Associated region tag."),
+    regions: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated region tag. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_language: Annotated[
-        str | None,
-        Query(description="Associated language tag."),
+    languages: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated language tag. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
+    # Logic operators for multi-value filters
+    genres_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for genres filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    franchises_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for franchises filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    collections_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for collections filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    companies_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for companies filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    age_ratings_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for age ratings filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    regions_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for regions filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    languages_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for languages filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
+    statuses_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for statuses filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
     order_by: Annotated[
         str,
         Query(description="Field to order results by."),
@@ -294,8 +392,6 @@ def get_roms(
     ] = "asc",
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
-
-    # Get the base roms query
     query, order_by_attr = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
@@ -306,7 +402,7 @@ def get_roms(
     query = db_rom_handler.filter_roms(
         query=query,
         user_id=request.user.id,
-        platform_id=platform_id,
+        platform_ids=platform_ids,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,
         smart_collection_id=smart_collection_id,
@@ -314,18 +410,28 @@ def get_roms(
         matched=matched,
         favorite=favorite,
         duplicate=duplicate,
+        last_played=last_played,
         playable=playable,
         has_ra=has_ra,
         missing=missing,
         verified=verified,
-        selected_genre=selected_genre,
-        selected_franchise=selected_franchise,
-        selected_collection=selected_collection,
-        selected_company=selected_company,
-        selected_age_rating=selected_age_rating,
-        selected_status=selected_status,
-        selected_region=selected_region,
-        selected_language=selected_language,
+        genres=genres,
+        franchises=franchises,
+        collections=collections,
+        companies=companies,
+        age_ratings=age_ratings,
+        selected_statuses=selected_statuses,
+        regions=regions,
+        languages=languages,
+        # Logic operators
+        genres_logic=genres_logic,
+        franchises_logic=franchises_logic,
+        collections_logic=collections_logic,
+        companies_logic=companies_logic,
+        age_ratings_logic=age_ratings_logic,
+        regions_logic=regions_logic,
+        languages_logic=languages_logic,
+        statuses_logic=statuses_logic,
         group_by_meta_id=group_by_meta_id,
     )
 

@@ -1,4 +1,4 @@
-"""empty message
+"""Refactor platforms and roms tables
 
 Revision ID: 0009_models_refactor
 Revises: 2.0.0

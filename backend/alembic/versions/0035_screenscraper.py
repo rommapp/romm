@@ -1,4 +1,4 @@
-"""empty message
+"""Add ScreenScraper data
 
 Revision ID: 0035_screenscraper
 Revises: 0034_virtual_collections_db_view
