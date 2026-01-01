@@ -1,3 +1,5 @@
+/* eslint-disable no-undef */
+
 /// <reference lib="webworker" />
 
 // Load all patcher scripts
