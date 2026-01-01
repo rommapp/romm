@@ -1,33 +1,40 @@
 /// <reference lib="webworker" />
 
-// Web Worker for ROM patching
-const PATCHER_BASE_PATH = "/assets/patcherjs";
-const CORE_SCRIPTS = [
-  `${PATCHER_BASE_PATH}/modules/HashCalculator.js`,
-  `${PATCHER_BASE_PATH}/modules/BinFile.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.ips.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.ups.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.aps_n64.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.aps_gba.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.bps.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.rup.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.ppf.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.bdf.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.pmsr.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.vcdiff.js`,
-  `${PATCHER_BASE_PATH}/RomPatcher.js`,
-];
-
 // Load all patcher scripts
 let scriptsLoaded = false;
 
 async function loadScripts() {
   if (scriptsLoaded) return;
 
+  self.BinFile =
+    self.IPS =
+    self.UPS =
+    self.APS =
+    self.APSGBA =
+    self.BPS =
+    self.RUP =
+    self.PPF =
+    self.BDF =
+    self.PMSR =
+    self.VCDIFF =
+      null;
+
   try {
-    for (const script of CORE_SCRIPTS) {
-      importScripts(script);
-    }
+    importScripts(
+      "/node_modules/rom-patcher/rom-patcher-js/modules/BinFile.js",
+      "/node_modules/rom-patcher/rom-patcher-js/modules/HashCalculator.js",
+      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_gba.js",
+      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_n64.js",
+      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.bdf.js",
+      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.bps.js",
+      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.ips.js",
+      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.pmsr.js",
+      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.ppf.js",
+      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.rup.js",
+      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.ups.js",
+      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.vcdiff.js",
+      "/node_modules/rom-patcher/rom-patcher-js/RomPatcher.js",
+    );
     scriptsLoaded = true;
     return true;
   } catch (error) {

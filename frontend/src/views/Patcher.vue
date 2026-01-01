@@ -217,7 +217,7 @@ async function patchRom() {
     const romArrayBuffer = await romFile.value.arrayBuffer();
     const patchArrayBuffer = await patchFile.value.arrayBuffer();
 
-    // Create and use Web Worker for patching
+    // Create and use web worker for patching
     const worker = new Worker("/assets/patcherjs/patcher.worker.js");
 
     const patchedResult = await new Promise<{
