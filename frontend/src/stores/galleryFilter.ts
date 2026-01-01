@@ -26,23 +26,32 @@ const defaultFilterState = {
   filterRegions: [] as string[],
   filterLanguages: [] as string[],
   filterStatuses: Object.values(romStatusMap).map((status) => status.text),
-  filterUnmatched: false,
-  filterMatched: false,
-  filterFavorites: false,
-  filterDuplicates: false,
-  filterPlayables: false,
-  filterRA: false,
-  filterMissing: false,
-  filterVerified: false,
+  filterMatched: null as boolean | null, // null = all, true = matched, false = unmatched
+  filterFavorites: null as boolean | null, // null = all, true = favorites, false = not favorites
+  filterDuplicates: null as boolean | null, // null = all, true = duplicates, false = not duplicates
+  filterPlayables: null as boolean | null, // null = all, true = playables, false = not playables
+  filterRA: null as boolean | null, // null = all, true = has RA, false = no RA
+  filterMissing: null as boolean | null, // null = all, true = missing, false = not missing
+  filterVerified: null as boolean | null, // null = all, true = verified, false = not verified
   selectedPlatform: null as Platform | null,
-  selectedGenre: null as string | null,
-  selectedFranchise: null as string | null,
-  selectedCollection: null as string | null,
-  selectedCompany: null as string | null,
-  selectedAgeRating: null as string | null,
-  selectedRegion: null as string | null,
-  selectedLanguage: null as string | null,
-  selectedStatus: null as string | null,
+  selectedPlatforms: [] as Platform[],
+  selectedGenres: [] as string[],
+  selectedFranchises: [] as string[],
+  selectedCollections: [] as string[],
+  selectedCompanies: [] as string[],
+  selectedAgeRatings: [] as string[],
+  selectedRegions: [] as string[],
+  selectedLanguages: [] as string[],
+  selectedStatuses: [] as string[],
+  // Logic operators for multi-select filters
+  genresLogic: "any" as "any" | "all",
+  franchisesLogic: "any" as "any" | "all",
+  collectionsLogic: "any" as "any" | "all",
+  companiesLogic: "any" as "any" | "all",
+  ageRatingsLogic: "any" as "any" | "all",
+  regionsLogic: "any" as "any" | "all",
+  languagesLogic: "any" as "any" | "all",
+  statusesLogic: "any" as "any" | "all",
 };
 
 export default defineStore("galleryFilter", {
@@ -81,101 +90,253 @@ export default defineStore("galleryFilter", {
         ? this.filterPlatforms.find((p) => p.id === platform.id) || null
         : null;
     },
-    setSelectedFilterGenre(genre: string) {
-      this.selectedGenre = genre;
+    setSelectedFilterPlatforms(platforms: Platform[]) {
+      this.selectedPlatforms = platforms;
+      // Clear single platform selection to avoid conflicts
+      this.selectedPlatform = null;
     },
-    setSelectedFilterFranchise(franchise: string) {
-      this.selectedFranchise = franchise;
+    setSelectedFilterGenres(genres: string[]) {
+      this.selectedGenres = genres;
     },
-    setSelectedFilterCollection(collection: string) {
-      this.selectedCollection = collection;
+    setGenresLogic(logic: "any" | "all") {
+      this.genresLogic = logic;
     },
-    setSelectedFilterCompany(company: string) {
-      this.selectedCompany = company;
+    setSelectedFilterFranchises(franchises: string[]) {
+      this.selectedFranchises = franchises;
     },
-    setSelectedFilterAgeRating(ageRating: string) {
-      this.selectedAgeRating = ageRating;
+    setFranchisesLogic(logic: "any" | "all") {
+      this.franchisesLogic = logic;
     },
-    setSelectedFilterRegion(region: string) {
-      this.selectedRegion = region;
+    setSelectedFilterCollections(collections: string[]) {
+      this.selectedCollections = collections;
     },
-    setSelectedFilterLanguage(language: string) {
-      this.selectedLanguage = language;
+    setCollectionsLogic(logic: "any" | "all") {
+      this.collectionsLogic = logic;
     },
-    setSelectedFilterStatus(status: string) {
-      this.selectedStatus = status;
+    setSelectedFilterCompanies(companies: string[]) {
+      this.selectedCompanies = companies;
     },
-    setFilterUnmatched(value: boolean) {
-      this.filterUnmatched = value;
-      this.filterMatched = false;
+    setCompaniesLogic(logic: "any" | "all") {
+      this.companiesLogic = logic;
     },
-    switchFilterUnmatched() {
-      this.filterUnmatched = !this.filterUnmatched;
-      this.filterMatched = false;
+    setSelectedFilterAgeRatings(ageRatings: string[]) {
+      this.selectedAgeRatings = ageRatings;
     },
-    setFilterMatched(value: boolean) {
+    setAgeRatingsLogic(logic: "any" | "all") {
+      this.ageRatingsLogic = logic;
+    },
+    setSelectedFilterRegions(regions: string[]) {
+      this.selectedRegions = regions;
+    },
+    setRegionsLogic(logic: "any" | "all") {
+      this.regionsLogic = logic;
+    },
+    setSelectedFilterLanguages(languages: string[]) {
+      this.selectedLanguages = languages;
+    },
+    setLanguagesLogic(logic: "any" | "all") {
+      this.languagesLogic = logic;
+    },
+    setSelectedFilterStatuses(statuses: string[]) {
+      this.selectedStatuses = statuses;
+    },
+    setStatusesLogic(logic: "any" | "all") {
+      this.statusesLogic = logic;
+    },
+    setFilterMatched(value: boolean | null) {
       this.filterMatched = value;
-      this.filterUnmatched = false;
+    },
+    setFilterMatchedState(state: "all" | "matched" | "unmatched") {
+      switch (state) {
+        case "matched":
+          this.filterMatched = true;
+          break;
+        case "unmatched":
+          this.filterMatched = false;
+          break;
+        default: // "all"
+          this.filterMatched = null;
+          break;
+      }
     },
     switchFilterMatched() {
-      this.filterMatched = !this.filterMatched;
-      this.filterUnmatched = false;
+      if (this.filterMatched === null) {
+        this.filterMatched = true;
+      } else if (this.filterMatched === true) {
+        this.filterMatched = false;
+      } else {
+        this.filterMatched = null;
+      }
     },
-    setFilterFavorites(value: boolean) {
+    setFilterFavorites(value: boolean | null) {
       this.filterFavorites = value;
     },
-    switchFilterFavorites() {
-      this.filterFavorites = !this.filterFavorites;
+    setFilterFavoritesState(state: "all" | "favorites" | "not-favorites") {
+      switch (state) {
+        case "favorites":
+          this.filterFavorites = true;
+          break;
+        case "not-favorites":
+          this.filterFavorites = false;
+          break;
+        default: // "all"
+          this.filterFavorites = null;
+          break;
+      }
     },
-    setFilterDuplicates(value: boolean) {
+    switchFilterFavorites() {
+      if (this.filterFavorites === null) {
+        this.filterFavorites = true;
+      } else if (this.filterFavorites === true) {
+        this.filterFavorites = false;
+      } else {
+        this.filterFavorites = null;
+      }
+    },
+    setFilterDuplicates(value: boolean | null) {
       this.filterDuplicates = value;
     },
-    switchFilterDuplicates() {
-      this.filterDuplicates = !this.filterDuplicates;
+    setFilterDuplicatesState(state: "all" | "duplicates" | "not-duplicates") {
+      switch (state) {
+        case "duplicates":
+          this.filterDuplicates = true;
+          break;
+        case "not-duplicates":
+          this.filterDuplicates = false;
+          break;
+        default: // "all"
+          this.filterDuplicates = null;
+          break;
+      }
     },
-    setFilterPlayables(value: boolean) {
+    switchFilterDuplicates() {
+      if (this.filterDuplicates === null) {
+        this.filterDuplicates = true;
+      } else if (this.filterDuplicates === true) {
+        this.filterDuplicates = false;
+      } else {
+        this.filterDuplicates = null;
+      }
+    },
+    setFilterPlayables(value: boolean | null) {
       this.filterPlayables = value;
     },
-    switchFilterPlayables() {
-      this.filterPlayables = !this.filterPlayables;
+    setFilterPlayablesState(state: "all" | "playables" | "not-playables") {
+      switch (state) {
+        case "playables":
+          this.filterPlayables = true;
+          break;
+        case "not-playables":
+          this.filterPlayables = false;
+          break;
+        default: // "all"
+          this.filterPlayables = null;
+          break;
+      }
     },
-    setFilterRA(value: boolean) {
+    switchFilterPlayables() {
+      if (this.filterPlayables === null) {
+        this.filterPlayables = true;
+      } else if (this.filterPlayables === true) {
+        this.filterPlayables = false;
+      } else {
+        this.filterPlayables = null;
+      }
+    },
+    setFilterRA(value: boolean | null) {
       this.filterRA = value;
     },
-    switchFilterRA() {
-      this.filterRA = !this.filterRA;
+    setFilterRAState(state: "all" | "has-ra" | "no-ra") {
+      switch (state) {
+        case "has-ra":
+          this.filterRA = true;
+          break;
+        case "no-ra":
+          this.filterRA = false;
+          break;
+        default: // "all"
+          this.filterRA = null;
+          break;
+      }
     },
-    setFilterMissing(value: boolean) {
+    switchFilterRA() {
+      if (this.filterRA === null) {
+        this.filterRA = true;
+      } else if (this.filterRA === true) {
+        this.filterRA = false;
+      } else {
+        this.filterRA = null;
+      }
+    },
+    setFilterMissing(value: boolean | null) {
       this.filterMissing = value;
     },
-    switchFilterMissing() {
-      this.filterMissing = !this.filterMissing;
+    setFilterMissingState(state: "all" | "missing" | "not-missing") {
+      switch (state) {
+        case "missing":
+          this.filterMissing = true;
+          break;
+        case "not-missing":
+          this.filterMissing = false;
+          break;
+        default: // "all"
+          this.filterMissing = null;
+          break;
+      }
     },
-    setFilterVerified(value: boolean) {
+    switchFilterMissing() {
+      if (this.filterMissing === null) {
+        this.filterMissing = true;
+      } else if (this.filterMissing === true) {
+        this.filterMissing = false;
+      } else {
+        this.filterMissing = null;
+      }
+    },
+    setFilterVerified(value: boolean | null) {
       this.filterVerified = value;
     },
+    setFilterVerifiedState(state: "all" | "verified" | "not-verified") {
+      switch (state) {
+        case "verified":
+          this.filterVerified = true;
+          break;
+        case "not-verified":
+          this.filterVerified = false;
+          break;
+        default: // "all"
+          this.filterVerified = null;
+          break;
+      }
+    },
     switchFilterVerified() {
-      this.filterVerified = !this.filterVerified;
+      if (this.filterVerified === null) {
+        this.filterVerified = true;
+      } else if (this.filterVerified === true) {
+        this.filterVerified = false;
+      } else {
+        this.filterVerified = null;
+      }
     },
     isFiltered() {
       return Boolean(
-        this.filterUnmatched ||
-        this.filterMatched ||
-        this.filterFavorites ||
-        this.filterDuplicates ||
-        this.filterPlayables ||
-        this.filterRA ||
-        this.filterMissing ||
-        this.filterVerified ||
+        this.filterMatched !== null ||
+        this.filterFavorites !== null ||
+        this.filterDuplicates !== null ||
+        this.filterPlayables !== null ||
+        this.filterRA !== null ||
+        this.filterMissing !== null ||
+        this.filterVerified !== null ||
         this.selectedPlatform ||
-        this.selectedGenre ||
-        this.selectedFranchise ||
-        this.selectedCollection ||
-        this.selectedCompany ||
-        this.selectedAgeRating ||
-        this.selectedRegion ||
-        this.selectedLanguage ||
-        this.selectedStatus,
+        this.selectedPlatforms.length > 0 ||
+        this.selectedGenres.length > 0 ||
+        this.selectedFranchises.length > 0 ||
+        this.selectedCollections.length > 0 ||
+        this.selectedCompanies.length > 0 ||
+        this.selectedAgeRatings.length > 0 ||
+        this.selectedRegions.length > 0 ||
+        this.selectedLanguages.length > 0 ||
+        this.selectedStatuses.length > 0,
       );
     },
     reset() {
@@ -183,22 +344,31 @@ export default defineStore("galleryFilter", {
     },
     resetFilters() {
       this.selectedPlatform = null;
-      this.selectedGenre = null;
-      this.selectedFranchise = null;
-      this.selectedCollection = null;
-      this.selectedCompany = null;
-      this.selectedAgeRating = null;
-      this.selectedRegion = null;
-      this.selectedLanguage = null;
-      this.selectedStatus = null;
-      this.filterUnmatched = false;
-      this.filterMatched = false;
-      this.filterFavorites = false;
-      this.filterDuplicates = false;
-      this.filterPlayables = false;
-      this.filterRA = false;
-      this.filterMissing = false;
-      this.filterVerified = false;
+      this.selectedPlatforms = [];
+      this.selectedGenres = [];
+      this.selectedFranchises = [];
+      this.selectedCollections = [];
+      this.selectedCompanies = [];
+      this.selectedAgeRatings = [];
+      this.selectedRegions = [];
+      this.selectedLanguages = [];
+      this.selectedStatuses = [];
+      this.filterMatched = null;
+      this.filterFavorites = null;
+      this.filterDuplicates = null;
+      this.filterPlayables = null;
+      this.filterRA = null;
+      this.filterMissing = null;
+      this.filterVerified = null;
+      // Reset logic operators to default
+      this.genresLogic = "any";
+      this.franchisesLogic = "any";
+      this.collectionsLogic = "any";
+      this.companiesLogic = "any";
+      this.ageRatingsLogic = "any";
+      this.regionsLogic = "any";
+      this.languagesLogic = "any";
+      this.statusesLogic = "any";
     },
   },
 });

@@ -1,4 +1,4 @@
-"""empty message
+"""Add status fields to rom_user table
 
 Revision ID: 0026_romuser_status_fields
 Revises: 0025_roms_hashes

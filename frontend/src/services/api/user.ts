@@ -65,6 +65,7 @@ async function updateUser({
       enabled: attrs.enabled,
       role: attrs.role,
       ra_username: attrs.ra_username,
+      ui_settings: attrs.ui_settings,
     },
     {
       headers: {

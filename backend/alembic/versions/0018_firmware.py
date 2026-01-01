@@ -1,4 +1,4 @@
-"""empty message
+"""Create firmware table
 
 Revision ID: 0018_firmware
 Revises: 0017_rom_notes
