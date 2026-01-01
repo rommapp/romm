@@ -116,19 +116,21 @@ async function ensureCoreLoaded() {
       window.VCDIFF =
         null;
 
-    import("rom-patcher/rom-patcher-js/modules/BinFile.js");
-    import("rom-patcher/rom-patcher-js/modules/HashCalculator.js");
-    import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_gba.js");
-    import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_n64.js");
-    import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.bdf.js");
-    import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.bps.js");
-    import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ips.js");
-    import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.pmsr.js");
-    import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ppf.js");
-    import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.rup.js");
-    import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ups.js");
-    import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.vcdiff.js");
-    import("rom-patcher/rom-patcher-js/RomPatcher.js");
+    await Promise.all([
+      import("rom-patcher/rom-patcher-js/modules/BinFile.js"),
+      import("rom-patcher/rom-patcher-js/modules/HashCalculator.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_gba.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_n64.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.bdf.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.bps.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ips.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.pmsr.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ppf.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.rup.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ups.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.vcdiff.js"),
+      import("rom-patcher/rom-patcher-js/RomPatcher.js"),
+    ]);
 
     coreLoaded.value = true;
   } catch (e: any) {
