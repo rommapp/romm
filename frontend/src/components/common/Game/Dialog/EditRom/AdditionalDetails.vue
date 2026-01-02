@@ -45,7 +45,7 @@ const emit = defineEmits<{
 
 const udpateManualMetadata = (
   field: keyof UpdateRom["manual_metadata"],
-  value: string | number | null,
+  value: string | number | string[] | null,
 ) => {
   emit("update:rom", {
     ...props.rom,
@@ -56,7 +56,7 @@ const udpateManualMetadata = (
   });
 };
 
-const manualMetadata = props.rom.manual_metadata || {};
+const manualMetadata = computed(() => props.rom.manual_metadata || {});
 </script>
 
 <template>
