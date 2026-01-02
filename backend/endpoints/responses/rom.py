@@ -85,6 +85,21 @@ RomGamelistMetadata = TypedDict(  # type: ignore[misc]
     {k: NotRequired[v] for k, v in get_type_hints(GamelistMetadata).items()},  # type: ignore[misc]
     total=False,
 )
+ManualMetadata = TypedDict(
+    "ManualMetadata",
+    {
+        "genres": list[str] | None,
+        "franchises": list[str] | None,
+        "collections": list[str] | None,
+        "companies": list[str] | None,
+        "game_modes": list[str] | None,
+        "age_ratings": list[str] | None,
+        "first_release_date": int | None,
+        "average_rating": float | None,
+        "youtube_video_id": str | None,
+    },
+    total=False,
+)
 
 
 def rom_user_schema_factory() -> RomUserSchema:
@@ -239,6 +254,7 @@ class RomSchema(BaseModel):
     flashpoint_metadata: RomFlashpointMetadata | None
     hltb_metadata: RomHLTBMetadata | None
     gamelist_metadata: RomGamelistMetadata | None
+    manual_metadata: ManualMetadata | None
 
     path_cover_small: str | None
     path_cover_large: str | None

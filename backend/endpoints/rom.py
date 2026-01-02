@@ -956,6 +956,7 @@ async def update_rom(
                 "flashpoint_metadata": {},
                 "hltb_metadata": {},
                 "revision": "",
+                "gamelist_metadata": {},
             },
         )
 
@@ -1006,7 +1007,9 @@ async def update_rom(
     raw_hasheous_metadata = parse_raw_metadata(data, "raw_hasheous_metadata")
     raw_flashpoint_metadata = parse_raw_metadata(data, "raw_flashpoint_metadata")
     raw_hltb_metadata = parse_raw_metadata(data, "raw_hltb_metadata")
-
+    raw_manual_metadata = parse_raw_metadata(data, "raw_manual_metadata")
+    if raw_manual_metadata is None:
+        raw_manual_metadata = parse_raw_metadata(data, "raw_metadatum")
     if cleaned_data["igdb_id"] and raw_igdb_metadata is not None:
         cleaned_data["igdb_metadata"] = raw_igdb_metadata
     if cleaned_data["moby_id"] and raw_moby_metadata is not None:
@@ -1021,6 +1024,8 @@ async def update_rom(
         cleaned_data["flashpoint_metadata"] = raw_flashpoint_metadata
     if cleaned_data["hltb_id"] and raw_hltb_metadata is not None:
         cleaned_data["hltb_metadata"] = raw_hltb_metadata
+    if raw_manual_metadata is not None:
+        cleaned_data["manual_metadata"] = raw_manual_metadata
 
     # Fetch metadata from external sources
     if (
