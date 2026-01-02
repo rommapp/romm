@@ -49,6 +49,7 @@ export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
 export type { InviteLinkSchema } from './models/InviteLinkSchema';
 export type { JobStatus } from './models/JobStatus';
 export type { LaunchboxImage } from './models/LaunchboxImage';
+export type { ManualMetadata } from './models/ManualMetadata';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';
 export type { NetplayICEServer } from './models/NetplayICEServer';

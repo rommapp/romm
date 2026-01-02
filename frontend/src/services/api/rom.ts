@@ -1,6 +1,7 @@
 import type { AxiosProgressEvent } from "axios";
 import type {
   BulkOperationResponse,
+  ManualMetadata,
   RomUserSchema,
   UserNoteSchema,
 } from "@/__generated__";
@@ -341,15 +342,7 @@ async function bulkDownloadRoms({
 
 export type UpdateRom = SimpleRom & {
   artwork?: File;
-  manual_metadata?: {
-    genres?: string[];
-    franchises?: string[];
-    companies?: string[];
-    game_modes?: string[];
-    age_ratings?: string[];
-    first_release_date?: number | null;
-    youtube_video_id?: string;
-  };
+  manual_metadata?: ManualMetadata | null;
   raw_metadata?: {
     igdb_metadata?: string;
     moby_metadata?: string;
