@@ -15,6 +15,10 @@
   "select-state": "Select state",
   "change-state": "Change state",
   "deselect-state": "Deselect state",
+  "no-save-selected": "No save selected",
+  "no-state-selected": "No state selected",
+  "no-saves-available": "No saves available",
+  "no-states-available": "No states available",
   "background-color": "Background color",
   "select-background-color": "Select background color"
 }
