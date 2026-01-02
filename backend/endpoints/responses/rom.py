@@ -90,7 +90,6 @@ ManualMetadata = TypedDict(
     {
         "genres": list[str] | None,
         "franchises": list[str] | None,
-        "collections": list[str] | None,
         "companies": list[str] | None,
         "game_modes": list[str] | None,
         "age_ratings": list[str] | None,

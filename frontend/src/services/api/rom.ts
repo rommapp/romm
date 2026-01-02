@@ -344,7 +344,6 @@ export type UpdateRom = SimpleRom & {
   manual_metadata?: {
     genres?: string[];
     franchises?: string[];
-    collections?: string[];
     companies?: string[];
     game_modes?: string[];
     age_ratings?: string[];
