@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import RDialog from "@/components/common/RDialog.vue";
@@ -8,23 +9,35 @@ import configApi from "@/services/api/config";
 import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
 
+const { t } = useI18n();
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
 const fsSlugToDelete = ref("");
 const slugToDelete = ref("");
-emitter?.on("showDeletePlatformVersionDialog", ({ fsSlug, slug }) => {
+const typeToDelete = ref<"alias" | "variant">("alias");
+
+emitter?.on("showDeleteFolderMappingDialog", ({ fsSlug, slug, type }) => {
   fsSlugToDelete.value = fsSlug;
   slugToDelete.value = slug;
+  typeToDelete.value = type;
   show.value = true;
 });
 
-function deleteVersionPlatform() {
-  configApi
-    .deletePlatformVersionConfig({ fsSlug: fsSlugToDelete.value })
+function deleteMapping() {
+  const deletePromise =
+    typeToDelete.value === "alias"
+      ? configApi.deletePlatformBindConfig({ fsSlug: fsSlugToDelete.value })
+      : configApi.deletePlatformVersionConfig({ fsSlug: fsSlugToDelete.value });
+
+  deletePromise
     .then(() => {
-      configStore.removePlatformVersion(fsSlugToDelete.value);
+      if (typeToDelete.value === "alias") {
+        configStore.removePlatformBinding(fsSlugToDelete.value);
+      } else {
+        configStore.removePlatformVersion(fsSlugToDelete.value);
+      }
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
@@ -50,30 +63,36 @@ function closeDialog() {
   >
     <template #content>
       <v-row class="justify-center pa-2 align-center" no-gutters>
-        <span class="mr-1">Deleting platform binding</span>
+        <span class="mr-1">{{ t("settings.deleting-mapping") }}</span>
+        <span class="text-primary mx-1">
+          {{
+            typeToDelete === "alias"
+              ? t("settings.folder-alias")
+              : t("settings.platform-variant")
+          }}
+        </span>
         <PlatformIcon
           :key="slugToDelete"
           class="mx-2"
           :slug="slugToDelete"
-          :fs-slug="fsSlugToDelete"
+          :fs-slug="slugToDelete"
         />
         <span>[</span>
-        <span class="text-primary ml-1"> {{ fsSlugToDelete }}</span>
+        <span class="text-primary ml-1">{{ fsSlugToDelete }}</span>
         <span class="mx-1">:</span>
         <span class="text-primary">{{ slugToDelete }}</span>
         <span class="ml-1">].</span>
-        <span class="ml-1">Do you confirm?</span>
+        <span class="ml-1">{{ t("settings.confirm-delete-mapping") }}</span>
       </v-row>
     </template>
     <template #footer>
       <v-row class="justify-center my-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog"> Cancel </v-btn>
-          <v-btn
-            class="bg-toplayer text-romm-red"
-            @click="deleteVersionPlatform"
-          >
-            Confirm
+          <v-btn class="bg-toplayer" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn class="bg-toplayer text-romm-red" @click="deleteMapping">
+            {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
       </v-row>

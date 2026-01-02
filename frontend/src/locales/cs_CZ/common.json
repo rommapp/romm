@@ -49,6 +49,7 @@
   "states": "Stavy",
   "states-n": "{n} stavů | {n} stav | {n} stavy | {n} stavů",
   "sync": "Synchronizovat",
+  "type": "Typ",
   "update": "Aktualizovat",
   "upload": "Nahrát",
   "upload-files-selected": "{count} vybraných souborů | {count} vybraný soubor | {count} vybrané soubory | {count} vybraných souborů",
