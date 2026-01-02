@@ -20,7 +20,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const youtubeVideoId = computed(
   () =>
-    props.rom.youtube_video_id || props.rom.manual_metadata?.youtube_video_id,
+    props.rom.manual_metadata?.youtube_video_id || props.rom.youtube_video_id,
 );
 
 const localVideoPath = computed(() => {
