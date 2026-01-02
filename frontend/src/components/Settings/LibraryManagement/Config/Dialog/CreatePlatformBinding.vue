@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
@@ -21,15 +21,25 @@ const supportedPlatforms = ref<Platform[]>();
 const heartbeat = storeHeartbeat();
 const fsSlugToCreate = ref<string>("");
 const selectedPlatform = ref<Platform>();
+
+const sortedFsPlatforms = computed(() => {
+  return heartbeat.value.FILESYSTEM.FS_PLATFORMS?.slice().sort((a, b) =>
+    a.localeCompare(b),
+  ) ?? [];
+});
+
+const sortedSupportedPlatforms = computed(() => {
+  return supportedPlatforms.value?.slice().sort((a, b) =>
+    a.name.localeCompare(b.name),
+  ) ?? [];
+});
 emitter?.on(
   "showCreatePlatformBindingDialog",
   async ({ fsSlug = "", slug = "" }) => {
     await platformApi
       .getSupportedPlatforms()
       .then(({ data }) => {
-        supportedPlatforms.value = data.sort((a, b) => {
-          return a.name.localeCompare(b.name);
-        });
+        supportedPlatforms.value = data;
       })
       .catch(({ response, message }) => {
         emitter?.emit("snackbarShow", {
@@ -100,7 +110,7 @@ function closeDialog() {
         <v-col cols="6">
           <v-select
             v-model="fsSlugToCreate"
-            :items="heartbeat.value.FILESYSTEM.FS_PLATFORMS"
+            :items="sortedFsPlatforms"
             :label="t('settings.folder-name')"
             variant="outlined"
             required
@@ -116,7 +126,7 @@ function closeDialog() {
             v-model="selectedPlatform"
             class="text-primary"
             :label="t('settings.romm-platform')"
-            :items="supportedPlatforms"
+            :items="sortedSupportedPlatforms"
             color="primary"
             base-color="primary"
             variant="outlined"
