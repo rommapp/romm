@@ -236,9 +236,8 @@ def get_igdb_preferred_locale() -> str | None:
 
     # Check each region in priority order and return first match
     for region in config.SCAN_REGION_PRIORITY:
-        igdb_locale = REGION_TO_IGDB_LOCALE.get(region.lower())
-        if igdb_locale is not None:
-            return igdb_locale
+        if region.lower() in REGION_TO_IGDB_LOCALE:
+            return REGION_TO_IGDB_LOCALE[region.lower()]
 
     return None
 
