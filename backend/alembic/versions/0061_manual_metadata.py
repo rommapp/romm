@@ -64,12 +64,6 @@ def upgrade():
                     ) AS franchises,
 
                     COALESCE(
-                        (r.manual_metadata -> 'collections'),
-                        (r.igdb_metadata -> 'collections'),
-                        '[]'::jsonb
-                    ) AS collections,
-
-                    COALESCE(
                         (r.manual_metadata -> 'companies'),
                         (r.igdb_metadata -> 'companies'),
                         (r.ss_metadata -> 'companies'),
@@ -249,12 +243,6 @@ def upgrade():
                             JSON_EXTRACT(r.gamelist_metadata, '$.franchises'),
                             JSON_ARRAY()
                         ) AS franchises,
-
-                        COALESCE(
-                            JSON_EXTRACT(r.manual_metadata, '$.collections'),
-                            JSON_EXTRACT(r.igdb_metadata, '$.collections'),
-                            JSON_ARRAY()
-                        ) AS collections,
 
                         COALESCE(
                             JSON_EXTRACT(r.manual_metadata, '$.companies'),
@@ -448,11 +436,6 @@ def downgrade():
                     ) AS franchises,
 
                     COALESCE(
-                        (r.igdb_metadata -> 'collections'),
-                        '[]'::jsonb
-                    ) AS collections,
-
-                    COALESCE(
                         (r.igdb_metadata -> 'companies'),
                         (r.ss_metadata -> 'companies'),
                         (r.ra_metadata -> 'companies'),
@@ -613,11 +596,6 @@ def downgrade():
                             JSON_EXTRACT(r.gamelist_metadata, '$.franchises'),
                             JSON_ARRAY()
                         ) AS franchises,
-
-                        COALESCE(
-                            JSON_EXTRACT(r.igdb_metadata, '$.collections'),
-                            JSON_ARRAY()
-                        ) AS collections,
 
                         COALESCE(
                             JSON_EXTRACT(r.igdb_metadata, '$.companies'),
