@@ -8,6 +8,7 @@ from typing import Annotated, Any
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
+import pydash
 from anyio import Path, open_file
 from fastapi import (
     Body,
@@ -52,7 +53,6 @@ from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
-from handler.filesystem.base_handler import CoverSize
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
@@ -1074,10 +1074,12 @@ async def update_rom(
     elif rom.igdb_id and not cleaned_data["igdb_id"]:
         cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
 
-    if cleaned_data.get("url_screenshots", []):
+    url_screenshots = cleaned_data.get("url_screenshots", [])
+    screenshots_changed = pydash.xor(url_screenshots, rom.url_screenshots or [])
+    if url_screenshots:
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
-            overwrite=True,
+            overwrite=bool(screenshots_changed),
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
         cleaned_data.update(
@@ -1124,39 +1126,31 @@ async def update_rom(
             )
         else:
             url_cover = data.get("url_cover", rom.url_cover)
-            if url_cover != rom.url_cover or not fs_resource_handler.cover_exists(
-                rom, CoverSize.BIG
-            ):
-                path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-                    entity=rom,
-                    overwrite=True,
-                    url_cover=str(url_cover),
-                )
-                cleaned_data.update(
-                    {
-                        "url_cover": url_cover,
-                        "path_cover_s": path_cover_s,
-                        "path_cover_l": path_cover_l,
-                    }
-                )
-            else:
-                cleaned_data.update({"url_cover": rom.url_cover})
+            path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
+                entity=rom,
+                overwrite=url_cover != rom.url_cover,
+                url_cover=str(url_cover),
+            )
+            cleaned_data.update(
+                {
+                    "url_cover": url_cover,
+                    "path_cover_s": path_cover_s,
+                    "path_cover_l": path_cover_l,
+                }
+            )
 
     url_manual = data.get("url_manual", rom.url_manual)
-    if url_manual != rom.url_manual or not fs_resource_handler.manual_exists(rom):
-        path_manual = await fs_resource_handler.get_manual(
-            rom=rom,
-            overwrite=True,
-            url_manual=str(url_manual) if url_manual else None,
-        )
-        cleaned_data.update(
-            {
-                "url_manual": url_manual,
-                "path_manual": path_manual,
-            }
-        )
-    else:
-        cleaned_data.update({"url_manual": rom.url_manual})
+    path_manual = await fs_resource_handler.get_manual(
+        rom=rom,
+        overwrite=url_manual != rom.url_manual,
+        url_manual=str(url_manual) if url_manual else None,
+    )
+    cleaned_data.update(
+        {
+            "url_manual": url_manual,
+            "path_manual": path_manual,
+        }
+    )
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:

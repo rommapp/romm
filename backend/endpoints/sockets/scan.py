@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
 
+import pydash
 import socketio  # type: ignore
 from rq import Worker
 from rq.job import Job
@@ -366,19 +367,22 @@ async def _identify_rom(
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
-        overwrite=True,
+        overwrite=_added_rom.url_cover != rom.url_cover,
         url_cover=_added_rom.url_cover,
     )
 
     path_manual = await fs_resource_handler.get_manual(
         rom=_added_rom,
-        overwrite=True,
+        overwrite=_added_rom.url_manual != rom.url_manual,
         url_manual=_added_rom.url_manual,
     )
 
+    screenshots_changed = pydash.xor(
+        _added_rom.url_screenshots or [], rom.url_screenshots or []
+    )
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
         rom=_added_rom,
-        overwrite=True,
+        overwrite=bool(screenshots_changed),
         url_screenshots=_added_rom.url_screenshots,
     )
 
