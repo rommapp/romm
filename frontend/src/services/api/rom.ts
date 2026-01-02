@@ -348,7 +348,6 @@ export type UpdateRom = SimpleRom & {
     game_modes?: string[];
     age_ratings?: string[];
     first_release_date?: number | null;
-    average_rating?: number | null;
     youtube_video_id?: string;
   };
   raw_metadata?: {
