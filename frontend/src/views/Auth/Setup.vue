@@ -331,7 +331,7 @@ function handleNext(nextCallback: () => void) {
   // Case 3: Structure is detected and user selected at least one platform to create
   if (hasStructure && platformsToCreate.length > 0 && libraryInfo.value) {
     const structurePattern =
-      libraryInfo.value.detected_structure === "A"
+      libraryInfo.value.detected_structure === "struct_a"
         ? "roms/{platform}"
         : "{platform}/roms";
     confirmDialogMessage.value = t("setup.confirm-create-platforms", {
@@ -526,16 +526,16 @@ onMounted(() => {
                       <p class="text-white text-shadow">
                         <strong>{{ t("setup.folder-structure") }}:</strong>
                         {{
-                          libraryInfo?.detected_structure === "A"
+                          libraryInfo?.detected_structure === "struct_a"
                             ? t("setup.structure-a-detected")
-                            : libraryInfo?.detected_structure === "B"
+                            : libraryInfo?.detected_structure === "struct_b"
                               ? t("setup.structure-b-detected")
                               : t("setup.no-structure-detected")
                         }}
                       </p>
                       <p class="text-caption text-grey">
                         {{
-                          libraryInfo?.detected_structure === "A" ||
+                          libraryInfo?.detected_structure === "struct_a" ||
                           !libraryInfo?.detected_structure
                             ? "roms/{platform}"
                             : "{platform}/roms"

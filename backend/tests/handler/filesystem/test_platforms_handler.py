@@ -325,7 +325,7 @@ class TestFSPlatformsHandler:
                 mock_exists.return_value = True
 
                 result = handler.detect_library_structure()
-                assert result == "A"
+                assert result == "struct_a"
                 mock_exists.assert_called_once_with(roms_path)
 
     def test_detect_library_structure_structure_b(

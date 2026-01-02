@@ -73,12 +73,12 @@ def test_heartbeat_metadata_unknown_source(client):
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-def test_get_setup_library_info_structure_a_detected(client, admin_user, access_token):
+def test_get_setup_library_info_structure_a_detected(client, access_token):
     """Test get_setup_library_info with Structure A detected"""
     with patch(
         "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
     ) as mock_detect:
-        mock_detect.return_value = "A"
+        mock_detect.return_value = "struct_a"
 
         with patch(
             "endpoints.heartbeat.fs_platform_handler.get_platforms"
@@ -100,7 +100,7 @@ def test_get_setup_library_info_structure_a_detected(client, admin_user, access_
                     assert response.status_code == status.HTTP_200_OK
                     data = response.json()
 
-                    assert data["detected_structure"] == "A"
+                    assert data["detected_structure"] == "struct_a"
                     assert len(data["existing_platforms"]) == 2
                     assert data["existing_platforms"][0]["fs_slug"] == "n64"
                     assert data["existing_platforms"][0]["rom_count"] == 2
@@ -169,7 +169,7 @@ def test_get_setup_library_info_handles_errors(client, admin_user, access_token)
     with patch(
         "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
     ) as mock_detect:
-        mock_detect.return_value = "A"
+        mock_detect.return_value = "struct_a"
 
         with patch(
             "endpoints.heartbeat.fs_platform_handler.get_platforms"
@@ -196,7 +196,7 @@ def test_create_setup_platforms_success(client, admin_user, access_token):
     with patch(
         "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
     ) as mock_detect:
-        mock_detect.return_value = "A"
+        mock_detect.return_value = "struct_a"
 
         with patch(
             "endpoints.heartbeat.fs_platform_handler.add_platform"
@@ -268,7 +268,7 @@ def test_create_setup_platforms_skips_existing_platforms(
     with patch(
         "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
     ) as mock_detect:
-        mock_detect.return_value = "A"
+        mock_detect.return_value = "struct_a"
 
         with patch(
             "endpoints.heartbeat.fs_platform_handler.add_platform"
@@ -303,7 +303,7 @@ def test_create_setup_platforms_handles_permission_errors(
     with patch(
         "endpoints.heartbeat.fs_platform_handler.detect_library_structure"
     ) as mock_detect:
-        mock_detect.return_value = "A"
+        mock_detect.return_value = "struct_a"
 
         with patch(
             "endpoints.heartbeat.fs_platform_handler.add_platform"

@@ -177,7 +177,7 @@ async def get_setup_library_info(request: Request):
     Only accessible during initial setup (no admin users) or with authentication.
 
     Returns:
-        - detected_structure: "A" (roms/{platform}), "B" ({platform}/roms), or None
+        - detected_structure: "struct_a" (roms/{platform}), "struct_b" ({platform}/roms), or None
         - existing_platforms: list of objects with fs_slug and rom_count
         - supported_platforms: list of all supported platforms with metadata
     """
@@ -215,7 +215,7 @@ async def get_setup_library_info(request: Request):
             rom_count = 0
             try:
                 # Determine the roms directory based on structure
-                if detected_structure == "A":
+                if detected_structure == "struct_a":
                     roms_path = os.path.join(
                         LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME, fs_slug
                     )
@@ -299,11 +299,9 @@ async def create_setup_platforms(request: Request, platform_slugs: list[str]):
         # Detect structure type to determine if we need to create the roms folder
         detected_structure = fs_platform_handler.detect_library_structure()
 
-        # If no structure detected, create structure A (roms folder)
+        # If no structure detected, create structure A
         if detected_structure is None:
-            cnfg = cm.get_config()
-            roms_path = os.path.join(LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME)
-            os.makedirs(roms_path, exist_ok=True)
+            fs_platform_handler.create_library_structure()
 
         # Create platform folders
         created_count = 0
