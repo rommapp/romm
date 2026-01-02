@@ -1,4 +1,4 @@
-"""empty message
+"""Add support for multiple regions and languages
 
 Revision ID: 0012_add_regions_languages
 Revises: 0011_drop_has_cover

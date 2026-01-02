@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
+import { useUISettings } from "@/composables/useUISettings";
 import storeLanguage from "@/stores/language";
 
 const { locale } = useI18n();
 const languageStore = storeLanguage();
 const { languages, selectedLanguage } = storeToRefs(languageStore);
-const localeStorage = useLocalStorage("settings.locale", "");
+
+const { locale: localeStorage } = useUISettings();
 
 withDefaults(
   defineProps<{

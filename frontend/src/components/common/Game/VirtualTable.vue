@@ -99,12 +99,6 @@ const HEADERS = [
 
 const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 
-function hasNotes(item: SimpleRom): boolean {
-  // TODO: Add note count to SimpleRom or check all_user_notes
-  // For now, return false until we implement proper note counting
-  return false;
-}
-
 function showNoteDialog(event: MouseEvent | KeyboardEvent, item: SimpleRom) {
   event.preventDefault();
   emitter?.emit("showNoteDialog", item);
@@ -312,7 +306,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 <v-icon>mdi-card-multiple-outline</v-icon>
               </v-chip>
               <v-chip
-                v-if="hasNotes(item)"
+                v-if="item.has_notes"
                 class="translucent text-white mr-1 px-1"
                 chip
                 size="x-small"
@@ -326,7 +320,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
                 class="mr-1 px-1 item-chip"
                 chip
-                chip-size="x-small"
+                chip-size="small"
               />
             </template>
           </v-list-item>

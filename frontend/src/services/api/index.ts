@@ -4,7 +4,32 @@ import { debounce } from "lodash";
 import router from "@/plugins/router";
 import { ROUTES } from "@/plugins/router";
 
-const api = axios.create({ baseURL: "/api", timeout: 120000 });
+const api = axios.create({
+  // This will keep the url query params on refresh
+  baseURL: "/api",
+  timeout: 120000,
+  paramsSerializer: {
+    serialize: (params) => {
+      const searchParams = new URLSearchParams();
+
+      Object.keys(params).forEach((key) => {
+        const value = params[key];
+        if (Array.isArray(value)) {
+          // Handle arrays by repeating the parameter name (not adding [])
+          value.forEach((item) => {
+            if (item !== undefined && item !== null) {
+              searchParams.append(key, String(item));
+            }
+          });
+        } else if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value));
+        }
+      });
+
+      return searchParams.toString();
+    },
+  },
+});
 
 const inflightRequests = new Set();
 

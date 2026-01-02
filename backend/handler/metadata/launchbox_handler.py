@@ -25,6 +25,7 @@ LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
 
 # Regex to detect LaunchBox ID tags in filenames like (launchbox-12345)
 LAUNCHBOX_TAG_REGEX = re.compile(r"\(launchbox-(\d+)\)", re.IGNORECASE)
+DASH_COLON_REGEX = re.compile(r"\s?-\s")
 
 
 class LaunchboxPlatform(TypedDict):
@@ -259,10 +260,9 @@ class LaunchboxHandler(MetadataHandler):
         # By default, tags are still stripped to keep scan behavior consistent with previous versions.
         # If `keep_tags` is True, the full `fs_name` is used for searching.
         if not keep_tags:
-            # We replace " - " with ": " to match Launchbox's naming convention
-            search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
-                " - ", ": "
-            )
+            search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+            # We replace " - "/"- " with ": " to match Launchbox's naming convention
+            search_term = re.sub(DASH_COLON_REGEX, ": ", search_term)
         else:
             search_term = fs_name
 
