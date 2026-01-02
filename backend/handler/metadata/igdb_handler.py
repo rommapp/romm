@@ -625,9 +625,9 @@ class IGDBHandler(MetadataHandler):
                 list(
                     map(
                         lambda rom: (
-                            f'id={pydash.get(rom, "game.id", "")}'
+                            f"id={pydash.get(rom, 'game.id', '')}"
                             if "game" in rom.keys()
-                            else f'id={rom.get("id", "")}'
+                            else f"id={rom.get('id', '')}"
                         ),
                         alternative_matched_roms,
                     )
@@ -1274,7 +1274,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/astrocade",
         "url_logo": "",
     },
-    UPS.ATARI_JAGUAR_CD: {
+    UPS.JAGUAR_CD: {
         "category": "Console",
         "family_name": "Atari",
         "family_slug": "atari",
