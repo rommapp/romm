@@ -377,12 +377,12 @@ async def _identify_rom(
         url_manual=_added_rom.url_manual,
     )
 
-    different_screenshots = pydash.difference(
+    screenshots_changed = pydash.xor(
         _added_rom.url_screenshots or [], rom.url_screenshots or []
     )
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
         rom=_added_rom,
-        overwrite=len(different_screenshots) > 0,
+        overwrite=bool(screenshots_changed),
         url_screenshots=_added_rom.url_screenshots,
     )
 
