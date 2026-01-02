@@ -1,7 +1,7 @@
 import api from "@/services/api";
 import type { Platform } from "@/stores/platforms";
 
-export type LibraryStructure = "A" | "B" | null;
+export type LibraryStructure = "struct_a" | "struct_b" | null;
 
 export interface ExistingPlatform {
   fs_slug: string;

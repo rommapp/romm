@@ -7,7 +7,7 @@ from exceptions.fs_exceptions import (
     PlatformAlreadyExistsException,
 )
 
-from .base_handler import FSHandler
+from .base_handler import FSHandler, LibraryStructure
 
 
 class FSPlatformsHandler(FSHandler):
@@ -22,12 +22,18 @@ class FSPlatformsHandler(FSHandler):
             if platform not in cnfg.EXCLUDED_PLATFORMS
         ]
 
-    def detect_library_structure(self) -> str | None:
+    def create_library_structure(self) -> None:
+        """Creates the library structure with a roms folder."""
+        cnfg = cm.get_config()
+        roms_path = os.path.join(LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME)
+        os.makedirs(roms_path, exist_ok=True)
+
+    def detect_library_structure(self) -> LibraryStructure | None:
         """Detects the library structure type.
 
         Returns:
-            "A" for Structure A (roms/{platform})
-            "B" for Structure B ({platform}/roms)
+            "LibraryStructure.A" for Structure A (roms/{platform})
+            "LibraryStructure.B" for Structure B ({platform}/roms)
             None if no structure detected
         """
         cnfg = cm.get_config()
@@ -35,7 +41,7 @@ class FSPlatformsHandler(FSHandler):
         # Check if the roms folder exists (Structure A indicator)
         roms_path = os.path.join(LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME)
         if os.path.exists(roms_path):
-            return "A"
+            return LibraryStructure.A
 
         # Check if any platform folders with roms subfolders exist (Structure B)
         try:
@@ -44,7 +50,7 @@ class FSPlatformsHandler(FSHandler):
                 item_path = os.path.join(LIBRARY_BASE_PATH, item)
                 roms_subfolder = os.path.join(item_path, cnfg.ROMS_FOLDER_NAME)
                 if os.path.isdir(item_path) and os.path.exists(roms_subfolder):
-                    return "B"
+                    return LibraryStructure.B
         except (OSError, FileNotFoundError):
             pass
 
@@ -52,12 +58,6 @@ class FSPlatformsHandler(FSHandler):
 
     def get_platforms_directory(self) -> str:
         cnfg = cm.get_config()
-
-        structure = self.detect_library_structure()
-        if structure == "A":
-            return cnfg.ROMS_FOLDER_NAME
-        if structure == "B":
-            return ""
 
         # Fallback to config hint when detection is inconclusive
         return (
@@ -68,12 +68,6 @@ class FSPlatformsHandler(FSHandler):
 
     def get_platform_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
-
-        structure = self.detect_library_structure()
-        if structure == "A":
-            return f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
-        if structure == "B":
-            return f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
 
         # Fallback to config hint when detection is inconclusive
         return (
@@ -110,7 +104,7 @@ class FSPlatformsHandler(FSHandler):
 
         # For Structure B, only include directories that have a roms subfolder
         structure = self.detect_library_structure()
-        if structure == "B":
+        if structure == LibraryStructure.B:
             platforms = [
                 platform
                 for platform in platforms
