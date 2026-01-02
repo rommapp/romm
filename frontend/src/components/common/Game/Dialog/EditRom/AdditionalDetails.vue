@@ -55,6 +55,8 @@ const udpateManualMetadata = (
     },
   });
 };
+
+const manualMetadata = props.rom.manual_metadata || {};
 </script>
 
 <template>
@@ -67,7 +69,7 @@ const udpateManualMetadata = (
       <v-row no-gutters class="my-2">
         <v-col cols="12" md="6" xl="4" class="pa-2">
           <v-combobox
-            :model-value="rom.manual_metadata?.companies || []"
+            :model-value="manualMetadata.companies || []"
             chips
             multiple
             label="Companies"
@@ -79,7 +81,7 @@ const udpateManualMetadata = (
         </v-col>
         <v-col cols="12" md="6" xl="4" class="pa-2">
           <v-combobox
-            :model-value="rom.manual_metadata?.genres || []"
+            :model-value="manualMetadata.genres || []"
             chips
             multiple
             label="Genres"
@@ -91,7 +93,7 @@ const udpateManualMetadata = (
         </v-col>
         <v-col cols="12" md="6" xl="4" class="pa-2">
           <v-combobox
-            :model-value="rom.manual_metadata?.franchises || []"
+            :model-value="manualMetadata.franchises || []"
             chips
             multiple
             label="Franchises"
@@ -107,7 +109,7 @@ const udpateManualMetadata = (
             variant="outlined"
             prepend-icon=""
             :model-value="
-              rom.manual_metadata?.first_release_date
+              manualMetadata.first_release_date
                 ? new Date(rom.manual_metadata.first_release_date)
                 : null
             "
@@ -124,7 +126,7 @@ const udpateManualMetadata = (
         </v-col>
         <v-col cols="12" md="6" xl="4" class="pa-2">
           <v-combobox
-            :model-value="rom.manual_metadata?.game_modes || []"
+            :model-value="manualMetadata.game_modes || []"
             chips
             multiple
             :items="[
@@ -144,7 +146,7 @@ const udpateManualMetadata = (
           <v-text-field
             hide-details
             clearable
-            :model-value="rom.manual_metadata?.youtube_video_id || ''"
+            :model-value="manualMetadata.youtube_video_id || ''"
             label="Youtube Video ID"
             variant="outlined"
             @update:model-value="
@@ -154,7 +156,7 @@ const udpateManualMetadata = (
         </v-col>
         <v-col cols="12" md="6" xl="4" class="pa-2">
           <v-combobox
-            :model-value="rom.manual_metadata?.age_ratings || []"
+            :model-value="manualMetadata.age_ratings || []"
             chips
             multiple
             :items="AGE_RATINGS"
