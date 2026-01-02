@@ -15,6 +15,10 @@
   "select-state": "Выбрать состояние",
   "change-state": "Изменить состояние",
   "deselect-state": "Снять выбор состояния",
+  "no-save-selected": "Сохранение не выбрано",
+  "no-state-selected": "Состояние не выбрано",
+  "no-saves-available": "Нет доступных сохранений",
+  "no-states-available": "Нет доступных состояний",
   "background-color": "Цвет фона",
   "select-background-color": "Выбрать цвет фона"
 }

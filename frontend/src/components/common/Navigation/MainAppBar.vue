@@ -8,6 +8,7 @@ import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import ConsoleModeBtn from "@/components/common/Navigation/ConsoleModeBtn.vue";
 import HomeBtn from "@/components/common/Navigation/HomeBtn.vue";
+import PatcherBtn from "@/components/common/Navigation/PatcherBtn.vue";
 import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
 import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
 import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
@@ -46,7 +47,8 @@ function collapse() {
       </template>
 
       <template #append>
-        <RandomBtn />
+        <PatcherBtn class="mr-2" />
+        <RandomBtn class="mr-2" />
         <UploadBtn class="mr-2" />
         <UserBtn class="mr-1" />
       </template>
@@ -109,6 +111,7 @@ function collapse() {
     <ConsoleModeBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
 
     <template #append>
+      <PatcherBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
       <RandomBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
       <UploadBtn
         :with-tag="!mainBarCollapsed"
