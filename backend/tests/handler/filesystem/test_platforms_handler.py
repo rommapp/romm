@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
-from handler.filesystem.platforms_handler import FSPlatformsHandler
+from handler.filesystem.platforms_handler import FSPlatformsHandler, LibraryStructure
 
 
 class TestFSPlatformsHandler:
@@ -325,7 +325,7 @@ class TestFSPlatformsHandler:
                 mock_exists.return_value = True
 
                 result = handler.detect_library_structure()
-                assert result == "struct_a"
+                assert result == LibraryStructure.A
                 mock_exists.assert_called_once_with(roms_path)
 
     def test_detect_library_structure_structure_b(
@@ -358,7 +358,7 @@ class TestFSPlatformsHandler:
                         mock_exists.side_effect = exists_side_effect
 
                         result = handler.detect_library_structure()
-                        assert result == "B"
+                        assert result == LibraryStructure.B
 
     def test_detect_library_structure_none(self, handler: FSPlatformsHandler, config):
         """Test detect_library_structure returns None when no structure detected"""
