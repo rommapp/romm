@@ -389,12 +389,7 @@ async function updateRom({
   formData.append("hltb_id", rom.hltb_id?.toString() || "");
 
   if (rom.manual_metadata) {
-    const manualMetadata = { ...rom.manual_metadata };
-    const frd = manualMetadata.first_release_date;
-    if (frd instanceof Date) {
-      manualMetadata.first_release_date = frd.getTime();
-    }
-    formData.append("raw_manual_metadata", JSON.stringify(manualMetadata));
+    formData.append("raw_manual_metadata", JSON.stringify(rom.manual_metadata));
   }
 
   if (rom.raw_metadata?.igdb_metadata) {
