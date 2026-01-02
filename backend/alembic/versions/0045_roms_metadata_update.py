@@ -1,4 +1,4 @@
-"""empty message
+"""Create or update roms_metadata view
 
 Revision ID: 0045_roms_metadata_update
 Revises: 0044_hasheous_id

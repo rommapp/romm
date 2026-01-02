@@ -1,4 +1,4 @@
-"""empty message
+"""Add launchbox to roms_metadata view
 
 Revision ID: 0058_roms_metadata_launchbox
 Revises: 0057_multi_notes

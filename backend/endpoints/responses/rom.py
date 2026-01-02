@@ -269,6 +269,7 @@ class RomSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
     missing_from_fs: bool
+    has_notes: bool
 
     siblings: list[SiblingRomSchema]
     rom_user: RomUserSchema
@@ -290,6 +291,9 @@ class RomSchema(BaseModel):
             )
             for s in db_rom.sibling_roms
         ]
+        db_rom.has_notes = any(  # type: ignore
+            note.is_public or note.user_id == request.user.id for note in db_rom.notes
+        )
         return db_rom
 
     @classmethod
@@ -338,6 +342,7 @@ class SimpleRomSchema(RomSchema):
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
         db_rom.siblings = []  # type: ignore
+        db_rom.has_notes = False  # type: ignore
         return cls.model_validate(db_rom)
 
 

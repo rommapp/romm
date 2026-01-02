@@ -1,4 +1,4 @@
-"""empty message
+"""Change DateTime columns to TIMESTAMP
 
 Revision ID: 0031_datetime_to_timestamp
 Revises: 0030_user_email_null

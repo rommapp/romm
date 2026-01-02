@@ -308,7 +308,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               v-model="rom.fs_name"
               :rules="[(value: string) => !!value || t('common.required')]"
               :label="
-                rom.has_multiple_files
+                rom.has_nested_single_file || rom.has_multiple_files
                   ? t('rom.folder-name')
                   : t('rom.filename')
               "

@@ -1,4 +1,4 @@
-"""empty message
+"""Add is_favorite to collections
 
 Revision ID: 0055_collection_is_favorite
 Revises: 0054_add_platform_metadata_slugs
