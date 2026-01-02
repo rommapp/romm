@@ -16,6 +16,23 @@ import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 
+// Declare global variables for RomPatcher
+declare global {
+  interface Window {
+    BinFile: any;
+    IPS: any;
+    UPS: any;
+    APS: any;
+    APSGBA: any;
+    BPS: any;
+    RUP: any;
+    PPF: any;
+    BDF: any;
+    PMSR: any;
+    VCDIFF: any;
+  }
+}
+
 const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
@@ -40,23 +57,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const scanningStore = storeScanning();
 const uploadStore = storeUpload();
-// Load core scripts via absolute asset paths (mirrors emulator loader approach)
-const PATCHER_BASE_PATH = "/assets/patcherjs";
-const CORE_SCRIPTS = [
-  `${PATCHER_BASE_PATH}/modules/HashCalculator.js`,
-  `${PATCHER_BASE_PATH}/modules/BinFile.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.ips.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.ups.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.aps_n64.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.aps_gba.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.bps.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.rup.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.ppf.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.bdf.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.pmsr.js`,
-  `${PATCHER_BASE_PATH}/modules/RomPatcher.format.vcdiff.js`,
-  `${PATCHER_BASE_PATH}/RomPatcher.js`,
-];
+
 const supportedPatchFormats = [
   ".ips",
   ".ups",
@@ -68,11 +69,13 @@ const supportedPatchFormats = [
   ".pmsr",
   ".vcdiff",
 ];
+
 const { isOverDropZone: isOverRomDropZone } = useDropZone(romDropZoneRef, {
   onDrop: onRomDrop,
   multiple: false,
   preventDefaultForUnhandled: true,
 });
+
 const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
   onDrop: onPatchDrop,
   multiple: false,
@@ -97,29 +100,38 @@ watch([romFile, patchFile], ([rom, patch]) => {
   }
 });
 
-function loadScriptSequentially(urls: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    let i = 0;
-    const next = () => {
-      if (i >= urls.length) {
-        resolve();
-        return;
-      }
-      const s = document.createElement("script");
-      s.src = urls[i++];
-      s.type = "text/javascript";
-      s.onload = () => next();
-      s.onerror = () => reject(new Error("Failed to load script: " + s.src));
-      document.head.appendChild(s);
-    };
-    next();
-  });
-}
-
 async function ensureCoreLoaded() {
   if (coreLoaded.value) return;
   try {
-    await loadScriptSequentially(CORE_SCRIPTS);
+    window.BinFile =
+      window.IPS =
+      window.UPS =
+      window.APS =
+      window.APSGBA =
+      window.BPS =
+      window.RUP =
+      window.PPF =
+      window.BDF =
+      window.PMSR =
+      window.VCDIFF =
+        null;
+
+    await Promise.all([
+      import("rom-patcher/rom-patcher-js/modules/BinFile.js"),
+      import("rom-patcher/rom-patcher-js/modules/HashCalculator.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_gba.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_n64.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.bdf.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.bps.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ips.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.pmsr.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ppf.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.rup.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ups.js"),
+      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.vcdiff.js"),
+      import("rom-patcher/rom-patcher-js/RomPatcher.js"),
+    ]);
+
     coreLoaded.value = true;
   } catch (e: any) {
     loadError.value = e?.message || String(e);
@@ -207,7 +219,7 @@ async function patchRom() {
     const romArrayBuffer = await romFile.value.arrayBuffer();
     const patchArrayBuffer = await patchFile.value.arrayBuffer();
 
-    // Create and use Web Worker for patching
+    // Create and use web worker for patching
     const worker = new Worker("/assets/patcherjs/patcher.worker.js");
 
     const patchedResult = await new Promise<{
@@ -256,9 +268,8 @@ async function patchRom() {
     if (downloadLocally.value) {
       statusMessage.value = t("patcher.status-downloading");
       // Create blob and trigger download
-      const blob = new Blob([patchedResult.data], {
-        type: "application/octet-stream",
-      });
+      const copy = new Uint8Array(patchedResult.data);
+      const blob = new Blob([copy], { type: "application/octet-stream" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -301,8 +312,8 @@ async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
   const platformId = selectedPlatform.value.id;
 
   // Convert the binary data to a File object
-  const blob = new Blob([binaryData], { type: "application/octet-stream" });
-  const file = new File([blob], fileName, { type: "application/octet-stream" });
+  const copy = new Uint8Array(binaryData);
+  const file = new File([copy], fileName, { type: "application/octet-stream" });
 
   // Upload the patched ROM
   await romApi
@@ -838,7 +849,7 @@ onMounted(async () => {
             t("patcher.powered-by")
           }}</span>
           <v-avatar rounded="0">
-            <v-img src="/assets/patcherjs/assets/patcherjs.png" />
+            <v-img src="/assets/patcherjs/patcherjs.png" />
           </v-avatar>
         </v-col>
       </v-row>

@@ -48,8 +48,6 @@ lint:
   ignore:
     - linters: [ALL]
       paths:
-        - frontend/assets/patcherjs/**
-        - frontend/public/assets/patcherjs/patcher.worker.js
         - frontend/src/__generated__/**
         - docker/Dockerfile
         - docker/nginx/js/**

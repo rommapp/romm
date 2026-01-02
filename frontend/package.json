@@ -39,6 +39,7 @@
     "mitt": "^3.0.1",
     "pinia": "^3.0.1",
     "qrcode": "^1.5.4",
+    "rom-patcher": "github:marcrobledo/RomPatcher.js#v3.2.1",
     "semver": "^7.6.2",
     "socket.io-client": "^4.7.5",
     "tailwindcss": "^4.0.0",
