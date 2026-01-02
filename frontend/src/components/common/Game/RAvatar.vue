@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, useTemplateRef } from "vue";
+import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
 import { useGameAnimation } from "@/composables/useGameAnimation";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
@@ -15,7 +16,7 @@ const props = withDefaults(defineProps<{ rom: SimpleRom; size?: number }>(), {
 });
 
 const heartbeatStore = storeHeartbeat();
-const coverRef = useTemplateRef("game-image-ref");
+const coverRef = useTemplateRef<VImg>("game-image-ref");
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -47,6 +48,7 @@ const fallbackCoverImage = computed(() =>
   <v-avatar variant="text" :width="size" rounded="0">
     <v-img
       eager
+      ref="game-image-ref"
       :src="smallCover || fallbackCoverImage"
       :cover="!boxartStyleCover"
       :contain="boxartStyleCover"
