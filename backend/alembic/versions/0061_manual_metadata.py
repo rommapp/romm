@@ -64,6 +64,11 @@ def upgrade():
                     ) AS franchises,
 
                     COALESCE(
+                        (r.igdb_metadata -> 'collections'),
+                        '[]'::jsonb
+                    ) AS collections,
+
+                    COALESCE(
                         (r.manual_metadata -> 'companies'),
                         (r.igdb_metadata -> 'companies'),
                         (r.ss_metadata -> 'companies'),
@@ -237,6 +242,11 @@ def upgrade():
                         ) AS franchises,
 
                         COALESCE(
+                            JSON_EXTRACT(r.igdb_metadata, '$.collections'),
+                            JSON_ARRAY()
+                        ) AS collections,
+
+                        COALESCE(
                             JSON_EXTRACT(r.manual_metadata, '$.companies'),
                             JSON_EXTRACT(r.igdb_metadata, '$.companies'),
                             JSON_EXTRACT(r.ss_metadata, '$.companies'),
@@ -311,15 +321,12 @@ def upgrade():
                             WHEN JSON_CONTAINS_PATH(r.gamelist_metadata, 'one', '$.first_release_date')
                                 AND JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')) NOT IN ('null', 'None', '0', '0.0')
                                 AND JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')) REGEXP '^[0-9]{8}T[0-9]{6}$'
-                            THEN
-                                CAST(
-                                    UNIX_TIMESTAMP(
-                                        STR_TO_DATE(
-                                            JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')),
-                                            '%Y%m%dT%H%i%s'
-                                        )
-                                    ) * 1000 AS SIGNED
+                            THEN UNIX_TIMESTAMP(
+                                STR_TO_DATE(
+                                JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.first_release_date')),
+                                '%Y%m%dT%H%i%S'
                                 )
+                            ) * 1000
 
                             ELSE NULL
                         END AS first_release_date,
@@ -334,7 +341,6 @@ def upgrade():
                                 CASE WHEN gamelist_rating IS NOT NULL THEN 1 ELSE 0 END)
                             ELSE NULL
                         END AS average_rating
-
                     FROM (
                         SELECT
                             id,
@@ -346,10 +352,10 @@ def upgrade():
                             launchbox_metadata,
                             flashpoint_metadata,
                             gamelist_metadata,
-                        CASE
-                            WHEN JSON_CONTAINS_PATH(igdb_metadata, 'one', '$.total_rating') AND
-                                JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '0', '0.0') AND
-                                JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
+                            CASE
+                                WHEN JSON_CONTAINS_PATH(igdb_metadata, 'one', '$.total_rating') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '0', '0.0') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
                                 THEN CAST(JSON_EXTRACT(igdb_metadata, '$.total_rating') AS DECIMAL(10,2))
                                 ELSE NULL
                             END AS igdb_rating,
