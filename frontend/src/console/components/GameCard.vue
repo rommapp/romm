@@ -6,6 +6,7 @@ import {
   useTemplateRef,
   watch,
 } from "vue";
+import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { useGameAnimation } from "@/composables/useGameAnimation";
 import {
@@ -33,7 +34,7 @@ const props = defineProps<{
 
 const heartbeatStore = storeHeartbeat();
 const gameCardRef = useTemplateRef<HTMLButtonElement>("game-card-ref");
-const coverRef = useTemplateRef("game-image-ref");
+const coverRef = useTemplateRef<VImg>("game-image-ref");
 const videoRef = useTemplateRef<HTMLVideoElement>("hover-video-ref");
 
 const isWebpEnabled = computed(
