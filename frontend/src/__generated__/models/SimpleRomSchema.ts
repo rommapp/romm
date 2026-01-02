@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ManualMetadata } from './ManualMetadata';
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomFlashpointMetadata } from './RomFlashpointMetadata';
 import type { RomGamelistMetadata } from './RomGamelistMetadata';
@@ -53,6 +54,7 @@ export type SimpleRomSchema = {
     flashpoint_metadata: (RomFlashpointMetadata | null);
     hltb_metadata: (RomHLTBMetadata | null);
     gamelist_metadata: (RomGamelistMetadata | null);
+    manual_metadata: (ManualMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
@@ -77,10 +79,10 @@ export type SimpleRomSchema = {
     created_at: string;
     updated_at: string;
     missing_from_fs: boolean;
+    has_notes: boolean;
     siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
-    has_notes?: boolean;
 };
 
