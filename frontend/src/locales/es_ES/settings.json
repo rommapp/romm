@@ -146,5 +146,8 @@
   "update": "Actualizar",
   "username": "Nombre de usuario",
   "virtual-collection-type": "Tipo de colección virtual (método de agrupación de ROM)",
-  "watcher": "Vigilante"
+  "watcher": "Vigilante",
+  "passwords-must-match": "Las contraseñas deben coincidir",
+  "repeat-password": "Repetir contraseña",
+  "repeat-password-required": "Se requiere repetir la contraseña"
 }

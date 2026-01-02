@@ -146,5 +146,8 @@
   "update": "Mettre à jour",
   "username": "Nom d'utilisateur",
   "virtual-collection-type": "Type de collection virtuelle (méthode de regroupement des roms)",
-  "watcher": "Surveilleur"
+  "watcher": "Surveilleur",
+  "passwords-must-match": "Les mots de passe doivent correspondre",
+  "repeat-password": "Répéter le mot de passe",
+  "repeat-password-required": "La répétition du mot de passe est requise"
 }

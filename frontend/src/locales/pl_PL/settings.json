@@ -146,5 +146,8 @@
   "update": "Aktualizuj",
   "username": "Nazwa użytkownika",
   "virtual-collection-type": "Typ automatycznej kolekcji (metoda grupowania ROM-ów)",
-  "watcher": "Monitor"
+  "watcher": "Monitor",
+  "passwords-must-match": "Hasła muszą się zgadzać",
+  "repeat-password": "Powtórz hasło",
+  "repeat-password-required": "Wymagane jest powtórzenie hasła"
 }
