@@ -147,7 +147,6 @@ def upgrade():
                     END AS first_release_date,
 
                     CASE
-                        WHEN manual_rating IS NOT NULL THEN manual_rating
                         WHEN (igdb_rating IS NOT NULL OR moby_rating IS NOT NULL OR ss_rating IS NOT NULL OR launchbox_rating IS NOT NULL OR gamelist_rating IS NOT NULL) THEN
                             (COALESCE(igdb_rating, 0) + COALESCE(moby_rating, 0) + COALESCE(ss_rating, 0) + COALESCE(launchbox_rating, 0) + COALESCE(gamelist_rating, 0)) /
                             (CASE WHEN igdb_rating IS NOT NULL THEN 1 ELSE 0 END +
@@ -168,13 +167,6 @@ def upgrade():
                         r.launchbox_metadata,
                         r.flashpoint_metadata,
                         r.gamelist_metadata,
-                        CASE
-                            WHEN r.manual_metadata IS NOT NULL AND r.manual_metadata ? 'average_rating' AND
-                                r.manual_metadata ->> 'average_rating' NOT IN ('null', 'None', '0', '0.0') AND
-                                r.manual_metadata ->> 'average_rating' ~ '^[0-9]+(\\.[0-9]+)?$'
-                            THEN (r.manual_metadata ->> 'average_rating')::float
-                            ELSE NULL
-                        END AS manual_rating,
                         CASE
                             WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'total_rating' AND
                                 r.igdb_metadata ->> 'total_rating' NOT IN ('null', 'None', '0', '0.0') AND
@@ -355,17 +347,10 @@ def upgrade():
                             launchbox_metadata,
                             flashpoint_metadata,
                             gamelist_metadata,
-                            CASE
-                                WHEN JSON_CONTAINS_PATH(manual_metadata, 'one', '$.average_rating') AND
-                                    JSON_UNQUOTE(JSON_EXTRACT(manual_metadata, '$.average_rating')) NOT IN ('null', 'None', '0', '0.0') AND
-                                    JSON_UNQUOTE(JSON_EXTRACT(manual_metadata, '$.average_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
-                                THEN CAST(JSON_EXTRACT(manual_metadata, '$.average_rating') AS DECIMAL(10,2))
-                                ELSE NULL
-                            END AS manual_rating,
-                            CASE
-                                WHEN JSON_CONTAINS_PATH(igdb_metadata, 'one', '$.total_rating') AND
-                                    JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '0', '0.0') AND
-                                    JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
+                        CASE
+                            WHEN JSON_CONTAINS_PATH(igdb_metadata, 'one', '$.total_rating') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '0', '0.0') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
                                 THEN CAST(JSON_EXTRACT(igdb_metadata, '$.total_rating') AS DECIMAL(10,2))
                                 ELSE NULL
                             END AS igdb_rating,

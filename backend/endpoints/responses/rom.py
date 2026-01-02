@@ -94,7 +94,6 @@ ManualMetadata = TypedDict(
         "game_modes": list[str] | None,
         "age_ratings": list[str] | None,
         "first_release_date": int | None,
-        "average_rating": float | None,
         "youtube_video_id": str | None,
     },
     total=False,
