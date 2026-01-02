@@ -18,7 +18,11 @@ const props = withDefaults(defineProps<Props>(), {
   enableClick: false,
 });
 
-const youtubeVideoId = computed(() => props.rom.youtube_video_id);
+const youtubeVideoId = computed(
+  () =>
+    props.rom.youtube_video_id || props.rom.manual_metadata?.youtube_video_id,
+);
+
 const localVideoPath = computed(() => {
   return (
     props.rom.ss_metadata?.video_path || props.rom.gamelist_metadata?.video_path
