@@ -12,6 +12,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage } from "@/utils/covers";
+import AdditionalDetails from "./EditRom/AdditionalDetails.vue";
 import MetadataIdSection from "./EditRom/MetadataIdSection.vue";
 import MetadataSections from "./EditRom/MetadataSections.vue";
 
@@ -83,7 +84,6 @@ async function handleRomUpdate(
   successMessage: string,
 ) {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
-
   await romApi
     .updateRom(options)
     .then(({ data }) => {
@@ -106,7 +106,10 @@ async function handleRomUpdate(
       });
     })
     .finally(() => {
-      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      emitter?.emit("showLoadingDialog", {
+        loading: false,
+        scrim: false,
+      });
       closeDialog();
     });
 }
@@ -402,6 +405,10 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           </v-col>
         </v-row>
         <v-expansion-panels class="mt-6">
+          <AdditionalDetails
+            :rom="rom"
+            @update:rom="handleRomUpdateFromMetadata"
+          />
           <MetadataIdSection
             :rom="rom"
             @update:rom="handleRomUpdateFromMetadata"

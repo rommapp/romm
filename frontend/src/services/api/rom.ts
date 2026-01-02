@@ -1,6 +1,7 @@
 import type { AxiosProgressEvent } from "axios";
 import type {
   BulkOperationResponse,
+  ManualMetadata,
   RomUserSchema,
   UserNoteSchema,
 } from "@/__generated__";
@@ -341,6 +342,7 @@ async function bulkDownloadRoms({
 
 export type UpdateRom = SimpleRom & {
   artwork?: File;
+  manual_metadata?: ManualMetadata | null;
   raw_metadata?: {
     igdb_metadata?: string;
     moby_metadata?: string;
@@ -376,6 +378,10 @@ async function updateRom({
   formData.append("hasheous_id", rom.hasheous_id?.toString() || "");
   formData.append("tgdb_id", rom.tgdb_id?.toString() || "");
   formData.append("hltb_id", rom.hltb_id?.toString() || "");
+
+  if (rom.manual_metadata) {
+    formData.append("raw_manual_metadata", JSON.stringify(rom.manual_metadata));
+  }
 
   if (rom.raw_metadata?.igdb_metadata) {
     formData.append("raw_igdb_metadata", rom.raw_metadata.igdb_metadata);

@@ -1,6 +1,7 @@
 import "@mdi/font/css/materialdesignicons.css";
 import { useLocalStorage } from "@vueuse/core";
 import { createVuetify } from "vuetify";
+import { VDateInput } from "vuetify/labs/VDateInput";
 import "vuetify/styles";
 import { themes, dark, light, autoThemeKey } from "@/styles/themes";
 import { isKeyof } from "@/types";
@@ -24,6 +25,9 @@ function getTheme() {
 }
 
 const instance = createVuetify({
+  components: {
+    VDateInput,
+  },
   icons: {
     defaultSet: "mdi",
   },
