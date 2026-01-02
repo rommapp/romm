@@ -53,7 +53,6 @@ from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
-from handler.filesystem.base_handler import CoverSize
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
@@ -1076,13 +1075,11 @@ async def update_rom(
         cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
 
     url_screenshots = cleaned_data.get("url_screenshots", [])
-    different_screenshots = pydash.difference(
-        url_screenshots, rom.url_screenshots or []
-    )
+    screenshots_changed = pydash.xor(url_screenshots, rom.url_screenshots or [])
     if url_screenshots:
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
-            overwrite=len(different_screenshots) > 0,
+            overwrite=bool(screenshots_changed),
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
         cleaned_data.update(
