@@ -146,5 +146,8 @@
   "update": "업데이트",
   "username": "아이디",
   "virtual-collection-type": "자동 생성된 모음집 유형(롬 그룹화 방법)",
-  "watcher": "감시자"
+  "watcher": "감시자",
+  "passwords-must-match": "비밀번호가 일치해야 합니다",
+  "repeat-password": "비밀번호 재입력",
+  "repeat-password-required": "비밀번호 재입력이 필요합니다"
 }

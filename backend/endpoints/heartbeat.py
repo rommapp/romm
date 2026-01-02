@@ -1,4 +1,6 @@
-from fastapi import HTTPException
+import os
+
+from fastapi import HTTPException, Request, status
 
 from config import (
     DISABLE_EMULATOR_JS,
@@ -9,6 +11,7 @@ from config import (
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+    LIBRARY_BASE_PATH,
     OIDC_ENABLED,
     OIDC_PROVIDER,
     SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
@@ -18,7 +21,11 @@ from config import (
     UPLOAD_TIMEOUT,
     YOUTUBE_BASE_URL,
 )
+from config.config_manager import config_manager as cm
+from decorators.auth import protected_route
 from endpoints.responses.heartbeat import HeartbeatResponse
+from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata import (
@@ -36,7 +43,9 @@ from handler.metadata import (
     meta_tgdb_handler,
 )
 from handler.scan_handler import MetadataSource
+from logger.logger import log
 from utils import get_version
+from utils.platforms import get_supported_platforms
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -155,3 +164,174 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_gamelist_handler.heartbeat()
         case _:
             return False
+
+
+@protected_route(
+    router.get,
+    "/setup/library",
+    [],
+)
+async def get_setup_library_info(request: Request):
+    """Get library structure information for setup wizard.
+
+    Only accessible during initial setup (no admin users) or with authentication.
+
+    Returns:
+        - detected_structure: "struct_a" (roms/{platform}), "struct_b" ({platform}/roms), or None
+        - existing_platforms: list of objects with fs_slug and rom_count
+        - supported_platforms: list of all supported platforms with metadata
+    """
+
+    # Check authentication - only allow public access if no admin users
+    # If admin users exist, this would need authentication (but won't be called during setup)
+
+    # Auto-detect structure type
+    # Structure A: /library/roms/{platform}
+    # Structure B: /library/{platform}/roms
+    # If there are admin users already, enforce the USERS_WRITE scope.
+    if (
+        Scope.PLATFORMS_READ not in request.auth.scopes
+        and len(db_user_handler.get_admin_users()) > 0
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+    detected_structure = fs_platform_handler.detect_library_structure()
+
+    # Get existing platforms from filesystem
+    try:
+        existing_platform_slugs = await fs_platform_handler.get_platforms()
+    except Exception:
+        log.warning("Error retrieving existing platforms", exc_info=True)
+        existing_platform_slugs = []
+
+    # Build existing platforms with rom counts
+    existing_platforms = []
+    if detected_structure and existing_platform_slugs:
+        cnfg = cm.get_config()
+        for fs_slug in existing_platform_slugs:
+            rom_count = 0
+            try:
+                # Determine the roms directory based on structure
+                if detected_structure == "struct_a":
+                    roms_path = os.path.join(
+                        LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME, fs_slug
+                    )
+                else:  # Structure B
+                    roms_path = os.path.join(
+                        LIBRARY_BASE_PATH, fs_slug, cnfg.ROMS_FOLDER_NAME
+                    )
+
+                # Count files and folders in the roms directory
+                if os.path.exists(roms_path):
+                    items = os.listdir(roms_path)
+                    # Filter out hidden files and system files
+                    rom_count = len(
+                        [
+                            item
+                            for item in items
+                            if not item.startswith(".")
+                            and item not in ["_resources", "_cache"]
+                        ]
+                    )
+            except Exception:
+                log.warning(
+                    f"Error counting ROMs for platform {fs_slug}", exc_info=True
+                )
+
+            existing_platforms.append(
+                {
+                    "fs_slug": fs_slug,
+                    "rom_count": rom_count,
+                }
+            )
+
+    # Get all supported platforms with metadata
+    supported_platforms = get_supported_platforms()
+
+    return {
+        "detected_structure": detected_structure,
+        "existing_platforms": existing_platforms,
+        "supported_platforms": supported_platforms,
+    }
+
+
+@protected_route(
+    router.post,
+    "/setup/platforms",
+    [],
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_setup_platforms(request: Request, platform_slugs: list[str]):
+    """Create platform folders during setup wizard.
+
+    Only accessible during initial setup (no admin users) or with authentication.
+
+    Args:
+        platform_slugs: List of platform fs_slugs to create
+
+    Returns:
+        - success: bool
+        - created_count: number of platforms created
+        - message: success or error message
+    """
+
+    # If there are admin users already, enforce the USERS_WRITE scope.
+    if (
+        Scope.PLATFORMS_WRITE not in request.auth.scopes
+        and len(db_user_handler.get_admin_users()) > 0
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+    if not platform_slugs:
+        return {
+            "success": True,
+            "created_count": 0,
+            "message": "No platforms selected",
+        }
+
+    try:
+        # Detect structure type to determine if we need to create the roms folder
+        detected_structure = fs_platform_handler.detect_library_structure()
+
+        # If no structure detected, create structure A
+        if detected_structure is None:
+            fs_platform_handler.create_library_structure()
+
+        # Create platform folders
+        created_count = 0
+        failed_platforms = []
+
+        for fs_slug in platform_slugs:
+            try:
+                await fs_platform_handler.add_platform(fs_slug=fs_slug)
+                created_count += 1
+            except PlatformAlreadyExistsException:
+                continue
+            except (PermissionError, OSError) as e:
+                failed_platforms.append(f"{fs_slug}: {str(e)}")
+
+        if failed_platforms:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create some platform folders: {', '.join(failed_platforms)}",
+            )
+
+        return {
+            "success": True,
+            "created_count": created_count,
+            "message": f"Successfully created {created_count} platform folder(s)",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating platform folders: {str(e)}",
+        ) from e

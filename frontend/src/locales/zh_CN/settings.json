@@ -146,5 +146,8 @@
   "update": "更新",
   "username": "用户名",
   "virtual-collection-type": "虚拟收藏类型（Rom 文件分组方法）",
-  "watcher": "监视器"
+  "watcher": "监视器",
+  "passwords-must-match": "密码必须匹配",
+  "repeat-password": "重复密码",
+  "repeat-password-required": "需要重复密码"
 }
