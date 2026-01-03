@@ -73,6 +73,7 @@ const manualMetadata = computed(() => props.rom.manual_metadata || {});
             :model-value="manualMetadata.companies || []"
             chips
             multiple
+            closable-chips
             label="Companies"
             variant="outlined"
             @update:model-value="
@@ -85,6 +86,7 @@ const manualMetadata = computed(() => props.rom.manual_metadata || {});
             :model-value="manualMetadata.genres || []"
             chips
             multiple
+            closable-chips
             label="Genres"
             variant="outlined"
             @update:model-value="
@@ -97,6 +99,7 @@ const manualMetadata = computed(() => props.rom.manual_metadata || {});
             :model-value="manualMetadata.franchises || []"
             chips
             multiple
+            closable-chips
             label="Franchises"
             variant="outlined"
             @update:model-value="
@@ -130,6 +133,7 @@ const manualMetadata = computed(() => props.rom.manual_metadata || {});
             :model-value="manualMetadata.game_modes || []"
             chips
             multiple
+            closable-chips
             :items="[
               'Single player',
               'Multiplayer',
@@ -160,6 +164,7 @@ const manualMetadata = computed(() => props.rom.manual_metadata || {});
             :model-value="manualMetadata.age_ratings || []"
             chips
             multiple
+            closable-chips
             :items="AGE_RATINGS"
             label="Age Ratings"
             variant="outlined"
