@@ -4,7 +4,7 @@
 /* eslint-disable */
 import type { MobyMetadataPlatform } from './MobyMetadataPlatform';
 export type RomMobyMetadata = {
-    moby_score?: string;
+    moby_score?: (string | null);
     genres?: Array<string>;
     alternate_titles?: Array<string>;
     platforms?: Array<MobyMetadataPlatform>;
