@@ -37,7 +37,7 @@ def upgrade() -> None:
             name="romfilecategory",
             create_type=False,
         )
-        rom_file_category_enum.create(connection, checkfirst=False)
+        rom_file_category_enum.create(connection, checkfirst=True)
     else:
         rom_file_category_enum = sa.Enum(
             "GAME",
@@ -54,9 +54,7 @@ def upgrade() -> None:
         )
 
     with op.batch_alter_table("rom_files", schema=None) as batch_op:
-        batch_op.alter_column(
-            "category", existing_type=rom_file_category_enum, nullable=True
-        )
+        batch_op.alter_column("category", type_=rom_file_category_enum, nullable=True)
 
 
 def downgrade() -> None:
