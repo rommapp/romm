@@ -71,8 +71,8 @@ class IGDBRelatedGame(TypedDict):
 
 
 class IGDBMetadata(TypedDict):
-    total_rating: str
-    aggregated_rating: str
+    total_rating: str | None
+    aggregated_rating: str | None
     first_release_date: int | None
     youtube_video_id: str | None
     genres: list[str]
