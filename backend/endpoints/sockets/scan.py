@@ -34,6 +34,7 @@ from handler.metadata import meta_gamelist_handler
 from handler.metadata.ss_handler import get_preferred_media_types
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
+    MetadataSource,
     ScanType,
     scan_firmware,
     scan_platform,
@@ -476,7 +477,8 @@ async def _identify_platform(
     platform = db_platform_handler.add_platform(scanned_platform)
 
     # Preparse the platform's gamelist.xml file and cache it
-    await meta_gamelist_handler.populate_cache(platform)
+    if MetadataSource.GAMELIST in metadata_sources:
+        await meta_gamelist_handler.populate_cache(platform)
 
     await socket_manager.emit(
         "scan:scanning_platform",
