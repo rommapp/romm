@@ -162,7 +162,7 @@ async def tinfoil_index_feed(
     Returns:
         TinfoilFeedSchema: Tinfoil feed object schema
     """
-    switch = db_platform_handler.get_platform_by_fs_slug(slug)
+    switch = db_platform_handler.get_platform_by_slug(slug)
     if not switch:
         return TinfoilFeedSchema(
             files=[],
@@ -282,7 +282,7 @@ def pkgi_ps3_feed(
     Returns:
         Response: txt file with PKGi PS3 database format
     """
-    ps3_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PS3)
+    ps3_platform = db_platform_handler.get_platform_by_slug(UPS.PS3)
     if not ps3_platform:
         raise HTTPException(status_code=404, detail="PlayStation 3 platform not found")
 
@@ -352,7 +352,7 @@ def pkgi_psvita_feed(
     Returns:
         Response: txt file with PKGi PS Vita database format
     """
-    psvita_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PSVITA)
+    psvita_platform = db_platform_handler.get_platform_by_slug(UPS.PSVITA)
     if not psvita_platform:
         raise HTTPException(
             status_code=404, detail="PlayStation Vita platform not found"
@@ -422,7 +422,7 @@ def pkgi_psp_feed(
     Returns:
         Response: txt file with PKGi PSP database format
     """
-    psp_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PSP)
+    psp_platform = db_platform_handler.get_platform_by_slug(UPS.PSP)
     if not psp_platform:
         raise HTTPException(
             status_code=404, detail="PlayStation Portable platform not found"
@@ -499,7 +499,7 @@ def fpkgi_feed(request: Request, platform_slug: str) -> Response:
     Returns:
         Response: JSON file in FPKGi format
     """
-    platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+    platform = db_platform_handler.get_platform_by_slug(platform_slug)
     if not platform:
         raise HTTPException(
             status_code=404, detail=f"Platform {platform_slug} not found"
@@ -545,7 +545,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
     Returns:
         Response: Text file with Kekatsu DS database format
     """
-    platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+    platform = db_platform_handler.get_platform_by_slug(platform_slug)
     if not platform:
         raise HTTPException(
             status_code=404, detail=f"Platform {platform_slug} not found"
