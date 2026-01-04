@@ -54,7 +54,7 @@ class HasheousRom(BaseRom):
     hasheous_metadata: NotRequired[HasheousMetadata]
 
 
-ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {UPS.DC: ["cue", "bin"]}
+ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {UPS.DC: ["bin", "chd", "cue"]}
 
 
 def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
