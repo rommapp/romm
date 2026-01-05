@@ -389,23 +389,15 @@ async function boot() {
       platformId: rom.platform_id,
     });
 
-    function getFirmware(): FirmwareSchema | null {
-      // Check for last-used bios file
-      const firmwareFromStorage = playerStorage.biosId.value
-        ? firmware.find((f) => f.id === parseInt(playerStorage.biosId.value!))
-        : null;
+    const biosFromStorage = playerStorage.biosId.value
+      ? firmware.find((f) => f.id === parseInt(playerStorage.biosId.value!))
+      : undefined;
 
-      if (firmwareFromStorage) return firmwareFromStorage;
+    const biosFromConfig = coreOptions["bios_file"]
+      ? firmware.find((f) => f.file_name === coreOptions["bios_file"])
+      : undefined;
 
-      // Use default bios file if set in config.yml
-      if (!coreOptions["bios_file"]) return null;
-      const firmwareFromConfig =
-        firmware.find((f) => f.file_name === coreOptions["bios_file"]) ?? null;
-
-      return firmwareFromConfig;
-    }
-
-    const bios = getFirmware();
+    const bios = biosFromStorage ?? biosFromConfig ?? null;
     window.EJS_biosUrl = bios
       ? `/api/firmware/${bios.id}/content/${bios.file_name}`
       : "";
