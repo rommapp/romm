@@ -74,6 +74,10 @@ class CachedApiService {
         params.selectedLanguages && params.selectedLanguages.length > 0
           ? params.selectedLanguages
           : undefined,
+      player_counts:
+        params.selectedPlayerCounts && params.selectedPlayerCounts.length > 0
+          ? params.selectedPlayerCounts
+          : undefined,
       // Logic operators
       genres_logic:
         params.selectedGenres && params.selectedGenres.length > 1
@@ -106,6 +110,10 @@ class CachedApiService {
       statuses_logic:
         params.selectedStatuses && params.selectedStatuses.length > 1
           ? params.statusesLogic || "any"
+          : undefined,
+      player_counts_logic:
+        params.selectedPlayerCounts && params.selectedPlayerCounts.length > 1
+          ? params.playerCountsLogic || "any"
           : undefined,
       ...(params.filterMatched !== null
         ? { matched: params.filterMatched }

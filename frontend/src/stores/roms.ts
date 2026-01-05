@@ -135,6 +135,7 @@ export default defineStore("roms", {
         selectedAgeRatings: galleryFilter.selectedAgeRatings,
         selectedRegions: galleryFilter.selectedRegions,
         selectedLanguages: galleryFilter.selectedLanguages,
+        selectedPlayerCounts: galleryFilter.selectedPlayerCounts,
         selectedStatuses: galleryFilter.selectedStatuses,
         // Logic operators
         genresLogic: galleryFilter.genresLogic,
@@ -145,6 +146,7 @@ export default defineStore("roms", {
         regionsLogic: galleryFilter.regionsLogic,
         languagesLogic: galleryFilter.languagesLogic,
         statusesLogic: galleryFilter.statusesLogic,
+        playerCountsLogic: galleryFilter.playerCountsLogic,
       };
       return params;
     },
