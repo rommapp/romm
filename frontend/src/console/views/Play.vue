@@ -11,6 +11,7 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
+import type { FirmwareSchema } from "@/__generated__";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
@@ -359,6 +360,7 @@ async function boot() {
       ? playerStorage.core.value
       : supported[0];
 
+  const coreOptions = configStore.getEJSCoreOptions(core);
   window.EJS_core = core;
   window.EJS_controlScheme = getControlSchemeForPlatform(rom.platform_slug);
   window.EJS_threads = areThreadsRequiredForEJSCore(core);
@@ -386,10 +388,24 @@ async function boot() {
     const { data: firmware } = await firmwareApi.getFirmware({
       platformId: rom.platform_id,
     });
-    const bios = playerStorage.biosId.value
-      ? firmware.find((f) => f.id === parseInt(playerStorage.biosId.value!))
-      : null;
 
+    function getFirmware(): FirmwareSchema | null {
+      // Check for last-used bios file
+      const firmwareFromStorage = playerStorage.biosId.value
+        ? firmware.find((f) => f.id === parseInt(playerStorage.biosId.value!))
+        : null;
+
+      if (firmwareFromStorage) return firmwareFromStorage;
+
+      // Use default bios file if set in config.yml
+      if (!coreOptions["bios_file"]) return null;
+      const firmwareFromConfig =
+        firmware.find((f) => f.file_name === coreOptions["bios_file"]) ?? null;
+
+      return firmwareFromConfig;
+    }
+
+    const bios = getFirmware();
     window.EJS_biosUrl = bios
       ? `/api/firmware/${bios.id}/content/${bios.file_name}`
       : "";
@@ -424,7 +440,6 @@ async function boot() {
   //   window.EJS_fullscreenOnLoaded = true;
   window.EJS_backgroundImage = `${window.location.origin}/assets/logos/romm_logo_xbox_one_circle_boot.svg`;
   window.EJS_backgroundColor = "#000000"; // Match original which uses theme colors, but #000000 should work fine
-  const coreOptions = configStore.getEJSCoreOptions(core);
   window.EJS_defaultOptions = {
     "save-state-location": "browser",
     rewindEnabled: "enabled",
