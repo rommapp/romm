@@ -212,6 +212,7 @@ onMounted(async () => {
     selectedCore.value = supportedCores.value[0];
   }
 
+  // Use default bios file if set in config.yml
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   if (coreOptions["bios_file"]) {
     selectedFirmware.value =
