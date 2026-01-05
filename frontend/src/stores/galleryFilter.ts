@@ -12,7 +12,8 @@ export type FilterType =
   | "ageRating"
   | "status"
   | "region"
-  | "language";
+  | "language"
+  | "playerCount";
 
 const defaultFilterState = {
   activeFilterDrawer: false,
@@ -25,6 +26,7 @@ const defaultFilterState = {
   filterAgeRatings: [] as string[],
   filterRegions: [] as string[],
   filterLanguages: [] as string[],
+  filterPlayerCounts: [] as string[],
   filterStatuses: Object.values(romStatusMap).map((status) => status.text),
   filterMatched: null as boolean | null, // null = all, true = matched, false = unmatched
   filterFavorites: null as boolean | null, // null = all, true = favorites, false = not favorites
@@ -42,6 +44,7 @@ const defaultFilterState = {
   selectedAgeRatings: [] as string[],
   selectedRegions: [] as string[],
   selectedLanguages: [] as string[],
+  selectedPlayerCounts: [] as string[],
   selectedStatuses: [] as string[],
   // Logic operators for multi-select filters
   genresLogic: "any" as "any" | "all",
@@ -52,6 +55,7 @@ const defaultFilterState = {
   regionsLogic: "any" as "any" | "all",
   languagesLogic: "any" as "any" | "all",
   statusesLogic: "any" as "any" | "all",
+  playerCountsLogic: "any" as "any" | "all",
 };
 
 export default defineStore("galleryFilter", {
@@ -84,6 +88,9 @@ export default defineStore("galleryFilter", {
     },
     setFilterLanguages(languages: string[]) {
       this.filterLanguages = languages;
+    },
+    setFilterPlayerCounts(playerCounts: string[]) {
+      this.filterPlayerCounts = playerCounts;
     },
     setSelectedFilterPlatform(platform: Platform) {
       this.selectedPlatform = platform
@@ -136,6 +143,12 @@ export default defineStore("galleryFilter", {
     },
     setLanguagesLogic(logic: "any" | "all") {
       this.languagesLogic = logic;
+    },
+    setSelectedFilterPlayerCounts(playerCounts: string[]) {
+      this.selectedPlayerCounts = playerCounts;
+    },
+    setPlayerCountsLogic(logic: "any" | "all") {
+      this.playerCountsLogic = logic;
     },
     setSelectedFilterStatuses(statuses: string[]) {
       this.selectedStatuses = statuses;
@@ -336,6 +349,7 @@ export default defineStore("galleryFilter", {
         this.selectedAgeRatings.length > 0 ||
         this.selectedRegions.length > 0 ||
         this.selectedLanguages.length > 0 ||
+        this.selectedPlayerCounts.length > 0 ||
         this.selectedStatuses.length > 0,
       );
     },
@@ -352,6 +366,7 @@ export default defineStore("galleryFilter", {
       this.selectedAgeRatings = [];
       this.selectedRegions = [];
       this.selectedLanguages = [];
+      this.selectedPlayerCounts = [];
       this.selectedStatuses = [];
       this.filterMatched = null;
       this.filterFavorites = null;
@@ -369,6 +384,7 @@ export default defineStore("galleryFilter", {
       this.regionsLogic = "any";
       this.languagesLogic = "any";
       this.statusesLogic = "any";
+      this.playerCountsLogic = "any";
     },
   },
 });

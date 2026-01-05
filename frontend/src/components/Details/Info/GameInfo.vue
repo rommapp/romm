@@ -33,6 +33,11 @@ const filters = [
     name: t("rom.collections"),
   },
   { key: "company", path: "metadatum.companies", name: t("rom.companies") },
+  {
+    key: "players",
+    path: "metadatum.player_count",
+    name: t("rom.player-count"),
+  },
 ] as const;
 
 const dataSources = computed(() => {
@@ -217,17 +222,30 @@ function onFilterClick(filter: FilterType, value: string) {
             <span>{{ filter.name }}</span>
           </v-col>
           <v-col>
-            <v-chip
-              v-for="value in get(rom, filter.path)"
-              :key="value"
-              size="small"
-              variant="outlined"
-              class="my-1 mr-2"
-              label
-              @click="onFilterClick(filter.key, value)"
-            >
-              {{ value }}
-            </v-chip>
+            <template v-if="Array.isArray(get(rom, filter.path))">
+              <v-chip
+                v-for="value in get(rom, filter.path).filter((v: string) => !!v)"
+                :key="value"
+                size="small"
+                variant="outlined"
+                class="my-1 mr-2"
+                label
+                @click="onFilterClick(filter.key, value)"
+              >
+                {{ value }}
+              </v-chip>
+            </template>
+            <template v-else-if="get(rom, filter.path)">
+              <v-chip
+                size="small"
+                variant="outlined"
+                class="my-1 mr-2"
+                label
+                @click="onFilterClick(filter.key, get(rom, filter.path))"
+              >
+                {{ get(rom, filter.path) }}
+              </v-chip>
+            </template>
           </v-col>
         </v-row>
       </template>

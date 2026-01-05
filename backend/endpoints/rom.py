@@ -333,6 +333,15 @@ def get_roms(
             ),
         ),
     ] = None,
+    player_counts: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated player count. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
+    ] = None,
     # Logic operators for multi-value filters
     genres_logic: Annotated[
         str,
@@ -382,6 +391,12 @@ def get_roms(
             description="Logic operator for statuses filter: 'any' (OR) or 'all' (AND).",
         ),
     ] = "any",
+    player_counts_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for player counts filter: 'any' (OR) or 'all' (AND).",
+        ),
+    ] = "any",
     order_by: Annotated[
         str,
         Query(description="Field to order results by."),
@@ -423,6 +438,7 @@ def get_roms(
         selected_statuses=selected_statuses,
         regions=regions,
         languages=languages,
+        player_counts=player_counts,
         # Logic operators
         genres_logic=genres_logic,
         franchises_logic=franchises_logic,
@@ -432,6 +448,7 @@ def get_roms(
         regions_logic=regions_logic,
         languages_logic=languages_logic,
         statuses_logic=statuses_logic,
+        player_counts_logic=player_counts_logic,
         group_by_meta_id=group_by_meta_id,
     )
 

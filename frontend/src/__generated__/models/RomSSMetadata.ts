@@ -36,5 +36,6 @@ export type RomSSMetadata = {
     franchises?: Array<string>;
     game_modes?: Array<string>;
     genres?: Array<string>;
+    player_count?: (string | null);
 };
 

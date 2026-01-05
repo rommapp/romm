@@ -87,6 +87,7 @@ export interface GetRomsParams {
   selectedAgeRatings?: string[] | null;
   selectedRegions?: string[] | null;
   selectedLanguages?: string[] | null;
+  selectedPlayerCounts?: string[] | null;
   selectedStatuses?: string[] | null;
   // Logic operators for multi-value filters
   genresLogic?: string | null;
@@ -97,6 +98,7 @@ export interface GetRomsParams {
   regionsLogic?: string | null;
   languagesLogic?: string | null;
   statusesLogic?: string | null;
+  playerCountsLogic?: string | null;
 }
 
 async function getRoms({
@@ -124,6 +126,7 @@ async function getRoms({
   selectedAgeRatings = null,
   selectedRegions = null,
   selectedLanguages = null,
+  selectedPlayerCounts = null,
   selectedStatuses = null,
   // Logic operators
   genresLogic = null,
@@ -134,6 +137,7 @@ async function getRoms({
   regionsLogic = null,
   languagesLogic = null,
   statusesLogic = null,
+  playerCountsLogic = null,
 }: GetRomsParams): Promise<{ data: GetRomsResponse }> {
   const params = {
     platform_ids:
@@ -177,6 +181,10 @@ async function getRoms({
       selectedLanguages && selectedLanguages.length > 0
         ? selectedLanguages
         : undefined,
+    player_counts:
+      selectedPlayerCounts && selectedPlayerCounts.length > 0
+        ? selectedPlayerCounts
+        : undefined,
     // Logic operators
     genres_logic:
       selectedGenres && selectedGenres.length > 1
@@ -209,6 +217,10 @@ async function getRoms({
     statuses_logic:
       selectedStatuses && selectedStatuses.length > 1
         ? statusesLogic || "any"
+        : undefined,
+    player_counts_logic:
+      selectedPlayerCounts && selectedPlayerCounts.length > 1
+        ? playerCountsLogic || "any"
         : undefined,
     ...(filterMatched !== null ? { matched: filterMatched } : {}),
     ...(filterFavorites !== null ? { favorite: filterFavorites } : {}),

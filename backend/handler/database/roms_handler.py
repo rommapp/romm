@@ -462,6 +462,16 @@ class DBRomsHandler(DBBaseHandler):
         op = json_array_contains_all if match_all else json_array_contains_any
         return query.filter(op(Rom.languages, values, session=session))
 
+    def filter_by_player_counts(
+            self,
+            query: Query,
+            *,
+            session: Session,
+            values: Sequence[str],
+            match_all: bool = False,
+    ) -> Query:
+        return query.filter(RomMetadata.player_count.in_(values))
+
     @begin_session
     def filter_roms(
         self,
@@ -488,6 +498,7 @@ class DBRomsHandler(DBBaseHandler):
         selected_statuses: Sequence[str] | None = None,
         regions: Sequence[str] | None = None,
         languages: Sequence[str] | None = None,
+        player_counts: Sequence[str] | None = None,
         # Logic operators for multi-value filters
         genres_logic: str = "any",
         franchises_logic: str = "any",
@@ -497,6 +508,7 @@ class DBRomsHandler(DBBaseHandler):
         regions_logic: str = "any",
         languages_logic: str = "any",
         statuses_logic: str = "any",
+        player_counts_logic: str = "any",
         user_id: int | None = None,
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
@@ -656,7 +668,7 @@ class DBRomsHandler(DBBaseHandler):
 
         # Optimize JOINs - only join tables when needed
         needs_metadata_join = any(
-            [genres, franchises, collections, companies, age_ratings]
+            [genres, franchises, collections, companies, age_ratings, player_counts]
         )
 
         if needs_metadata_join:
@@ -671,6 +683,7 @@ class DBRomsHandler(DBBaseHandler):
             (age_ratings, age_ratings_logic, self.filter_by_age_ratings),
             (regions, regions_logic, self.filter_by_regions),
             (languages, languages_logic, self.filter_by_languages),
+            (player_counts, player_counts_logic, self.filter_by_player_counts),
         ]
 
         for values, logic, filter_func in filters_to_apply:
@@ -766,6 +779,7 @@ class DBRomsHandler(DBBaseHandler):
             selected_statuses=kwargs.get("selected_statuses", None),
             regions=kwargs.get("regions", None),
             languages=kwargs.get("languages", None),
+            player_counts=kwargs.get("player_counts", None),
             # Logic operators for multi-value filters
             genres_logic=kwargs.get("genres_logic", "any"),
             franchises_logic=kwargs.get("franchises_logic", "any"),
@@ -775,6 +789,7 @@ class DBRomsHandler(DBBaseHandler):
             regions_logic=kwargs.get("regions_logic", "any"),
             languages_logic=kwargs.get("languages_logic", "any"),
             statuses_logic=kwargs.get("statuses_logic", "any"),
+            player_counts_logic=kwargs.get("player_counts_logic", "any"),
             user_id=kwargs.get("user_id", None),
         )
         return session.scalars(roms).all()
