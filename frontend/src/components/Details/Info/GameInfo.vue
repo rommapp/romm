@@ -224,7 +224,9 @@ function onFilterClick(filter: FilterType, value: string) {
           <v-col>
             <template v-if="Array.isArray(get(rom, filter.path))">
               <v-chip
-                v-for="value in get(rom, filter.path).filter((v: string) => !!v)"
+                v-for="value in get(rom, filter.path).filter(
+                  (v: string) => !!v,
+                )"
                 :key="value"
                 size="small"
                 variant="outlined"

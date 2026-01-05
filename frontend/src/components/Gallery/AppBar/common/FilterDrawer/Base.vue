@@ -359,9 +359,13 @@ function setFilters() {
     ...new Set(romsForFilters.flatMap((rom) => rom.languages).sort()),
   ]);
   galleryFilterStore.setFilterPlayerCounts([
-    ...new Set(romsForFilters.map((rom) => rom.metadatum.player_count).filter(Boolean).sort(),
-  ),
-]);
+    ...new Set(
+      romsForFilters
+        .map((rom) => rom.metadatum.player_count)
+        .filter(Boolean)
+        .sort(),
+    ),
+  ]);
   // Note: filterStatuses is static and doesn't need to be set dynamically
 }
 
@@ -559,10 +563,14 @@ onMounted(async () => {
   }
 
   if (urlPlayerCounts !== undefined) {
-    const playerCounts = (urlPlayerCounts as string).split(",").filter((pc) => pc.trim());
+    const playerCounts = (urlPlayerCounts as string)
+      .split(",")
+      .filter((pc) => pc.trim());
     galleryFilterStore.setSelectedFilterPlayerCounts(playerCounts);
     if (urlPlayerCountsLogic !== undefined) {
-      galleryFilterStore.setPlayerCountsLogic(urlPlayerCountsLogic as "any" | "all");
+      galleryFilterStore.setPlayerCountsLogic(
+        urlPlayerCountsLogic as "any" | "all",
+      );
     }
   }
 
