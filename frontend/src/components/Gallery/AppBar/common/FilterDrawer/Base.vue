@@ -156,9 +156,9 @@ const onFilterChange = debounce(
       playerCounts:
         selectedPlayerCounts.value.length > 0
           ? selectedPlayerCounts.value.join(",")
-          : 1,
+          : null,
       playerCountsLogic:
-        selectedPlayerCounts.value.length > 0 ? playerCountsLogic.value : 1,
+        selectedPlayerCounts.value.length > 0 ? playerCountsLogic.value : null,
     }).forEach(([key, value]) => {
       if (value) {
         url.searchParams.set(key, value);
@@ -359,7 +359,7 @@ function setFilters() {
     ...new Set(romsForFilters.flatMap((rom) => rom.languages).sort()),
   ]);
   galleryFilterStore.setFilterPlayerCounts([
-    ...new Set(romsForFilters.flatMap((rom) => rom.metadatum.player_count).sort(),
+    ...new Set(romsForFilters.map((rom) => rom.metadatum.player_count).filter(Boolean).sort(),
   ),
 ]);
   // Note: filterStatuses is static and doesn't need to be set dynamically
