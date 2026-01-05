@@ -212,6 +212,14 @@ onMounted(async () => {
     selectedCore.value = supportedCores.value[0];
   }
 
+  const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
+  if (coreOptions["bios_file"]) {
+    selectedFirmware.value =
+      firmwareOptions.value.find(
+        (f) => f.file_name === coreOptions["bios_file"],
+      ) ?? null;
+  }
+
   const storedBiosID = localStorage.getItem(
     `player:${rom.value.platform_slug}:bios_id`,
   );
