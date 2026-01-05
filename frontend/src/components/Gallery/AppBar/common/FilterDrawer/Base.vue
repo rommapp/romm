@@ -362,7 +362,7 @@ function setFilters() {
     ...new Set(
       romsForFilters
         .map((rom) => rom.metadatum.player_count)
-        .filter(Boolean)
+        .filter((playerCount): playerCount is string => !!playerCount)
         .sort(),
     ),
   ]);

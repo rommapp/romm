@@ -34,7 +34,7 @@ const filters = [
   },
   { key: "company", path: "metadatum.companies", name: t("rom.companies") },
   {
-    key: "players",
+    key: "playerCount",
     path: "metadatum.player_count",
     name: t("rom.player-count"),
   },
@@ -177,6 +177,14 @@ function onFilterClick(filter: FilterType, value: string) {
     query: { [filter]: value },
   });
 }
+
+function getFilterValues(path: string): string[] {
+  const value = get(props.rom, path);
+  if (Array.isArray(value)) {
+    return value.filter((v: unknown): v is string => !!v);
+  }
+  return value ? [String(value)] : [];
+}
 </script>
 <template>
   <v-row no-gutters>
@@ -212,9 +220,9 @@ function onFilterClick(filter: FilterType, value: string) {
           </v-row>
         </v-col>
       </v-row>
-      <template v-for="filter in filters" :key="filter">
+      <template v-for="filter in filters" :key="filter.key">
         <v-row
-          v-if="get(rom, filter.path).length > 0"
+          v-if="getFilterValues(filter.path).length > 0"
           class="align-center my-3"
           no-gutters
         >
@@ -222,32 +230,17 @@ function onFilterClick(filter: FilterType, value: string) {
             <span>{{ filter.name }}</span>
           </v-col>
           <v-col>
-            <template v-if="Array.isArray(get(rom, filter.path))">
-              <v-chip
-                v-for="value in get(rom, filter.path).filter(
-                  (v: string) => !!v,
-                )"
-                :key="value"
-                size="small"
-                variant="outlined"
-                class="my-1 mr-2"
-                label
-                @click="onFilterClick(filter.key, value)"
-              >
-                {{ value }}
-              </v-chip>
-            </template>
-            <template v-else-if="get(rom, filter.path)">
-              <v-chip
-                size="small"
-                variant="outlined"
-                class="my-1 mr-2"
-                label
-                @click="onFilterClick(filter.key, get(rom, filter.path))"
-              >
-                {{ get(rom, filter.path) }}
-              </v-chip>
-            </template>
+            <v-chip
+              v-for="value in getFilterValues(filter.path)"
+              :key="value"
+              size="small"
+              variant="outlined"
+              class="my-1 mr-2"
+              label
+              @click="onFilterClick(filter.key, value)"
+            >
+              {{ value }}
+            </v-chip>
           </v-col>
         </v-row>
       </template>
