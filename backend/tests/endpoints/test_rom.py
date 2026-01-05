@@ -88,7 +88,7 @@ def test_update_rom(
             "genres": '[{"id": 5, "name": "Shooter"}, {"id": 8, "name": "Platform"}, {"id": 31, "name": "Adventure"}]',
             "franchises": '[{"id": 756, "name": "Metroid"}]',
             "collections": '[{"id": 243, "name": "Metroid"}, {"id": 6240, "name": "Metroid Prime"}]',
-            "player_count": '1',
+            "player_count": "1",
             "expansions": "[]",
             "dlcs": "[]",
             "companies": '[{"id": 203227, "company": {"id": 70, "name": "Nintendo"}}, {"id": 203307, "company": {"id": 766, "name": "Retro Studios"}}]',

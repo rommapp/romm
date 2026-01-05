@@ -463,12 +463,12 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(op(Rom.languages, values, session=session))
 
     def filter_by_player_counts(
-            self,
-            query: Query,
-            *,
-            session: Session,
-            values: Sequence[str],
-            match_all: bool = False,
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
     ) -> Query:
         return query.filter(RomMetadata.player_count.in_(values))
 
