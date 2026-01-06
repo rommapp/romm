@@ -120,6 +120,7 @@ class Config:
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
     EJS_DISABLE_BATCH_BOOTUP: bool
+    EJS_DATA_PATH: str
     EJS_NETPLAY_ENABLED: bool
     EJS_NETPLAY_ICE_SERVERS: list[NetplayICEServer]
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
@@ -284,6 +285,9 @@ class ConfigManager:
             ),
             EJS_DISABLE_BATCH_BOOTUP=pydash.get(
                 self._raw_config, "emulatorjs.disable_batch_bootup", False
+            ),
+            EJS_DATA_PATH=pydash.get(
+                self._raw_config, "emulatorjs.data_path", "/assets/emulatorjs/data"
             ),
             EJS_NETPLAY_ENABLED=pydash.get(
                 self._raw_config, "emulatorjs.netplay.enabled", False
@@ -491,6 +495,16 @@ class ConfigManager:
             )
             sys.exit(3)
 
+        if not isinstance(self.config.EJS_DATA_PATH, str):
+            log.critical("Invalid config.yml: emulatorjs.data_path must be a string")
+            sys.exit(3)
+
+        if self.config.EJS_DATA_PATH == "":
+            log.critical(
+                "Invalid config.yml: emulatorjs.data_path cannot be an empty string"
+            )
+            sys.exit(3)
+
         if not isinstance(self.config.EJS_NETPLAY_ICE_SERVERS, list):
             log.critical(
                 "Invalid config.yml: emulatorjs.netplay.ice_servers must be a list"
@@ -607,6 +621,7 @@ class ConfigManager:
                 "cache_limit": self.config.EJS_CACHE_LIMIT,
                 "disable_auto_unload": self.config.EJS_DISABLE_AUTO_UNLOAD,
                 "disable_batch_bootup": self.config.EJS_DISABLE_BATCH_BOOTUP,
+                "data_path": self.config.EJS_DATA_PATH,
                 "netplay": {
                     "enabled": self.config.EJS_NETPLAY_ENABLED,
                     "ice_servers": self.config.EJS_NETPLAY_ICE_SERVERS,

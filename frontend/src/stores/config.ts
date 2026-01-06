@@ -28,6 +28,7 @@ const defaultConfig = {
   EJS_CACHE_LIMIT: null,
   EJS_DISABLE_AUTO_UNLOAD: false,
   EJS_DISABLE_BATCH_BOOTUP: false,
+  EJS_DATA_PATH: "/assets/emulatorjs/data",
   EJS_NETPLAY_ICE_SERVERS: [],
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
@@ -75,7 +76,7 @@ export default defineStore("config", {
         this.config[exclusionType].splice(index, 1);
       } else {
         console.error(
-          `Value '${exclusionValue}' not found in exclusion type '${exclusionType}'`,
+          `Value '${exclusionValue}' not found in exclusion type '${exclusionType}'`
         );
       }
     },
@@ -91,7 +92,7 @@ export default defineStore("config", {
       };
     },
     getEJSControls(
-      core: string | null,
+      core: string | null
     ): Record<number, Record<number, EjsControlsButton>> | null {
       const defaultControls = this.config.EJS_CONTROLS["default"];
       if (!core) {

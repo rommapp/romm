@@ -137,6 +137,13 @@
 
 # EmulatorJS per-core options
 # emulatorjs:
+#   # Where RomM should load EmulatorJS web assets from (the folder that contains loader.js).
+#   # Default: /assets/emulatorjs/data (served by RomM).
+#   # You can point this at a custom EmulatorJS build you host yourself.
+#   # Examples:
+#   #   data_path: "/assets/emulatorjs/data"                 # RomM-served
+#   #   data_path: "http://192.168.66.3:8086/data"           # external host
+#   data_path: "/assets/emulatorjs/data"
 #   debug: true # Available options will be logged to the browser console
 #   cache_limit: null # Cache limit per ROM (in bytes)
 #   disable_batch_bootup: false

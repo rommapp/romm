@@ -50,6 +50,7 @@ def get_config(request: Request) -> ConfigResponse:
         EJS_CACHE_LIMIT=cfg.EJS_CACHE_LIMIT,
         EJS_DISABLE_AUTO_UNLOAD=cfg.EJS_DISABLE_AUTO_UNLOAD,
         EJS_DISABLE_BATCH_BOOTUP=cfg.EJS_DISABLE_BATCH_BOOTUP,
+        EJS_DATA_PATH=cfg.EJS_DATA_PATH,
         EJS_NETPLAY_ENABLED=cfg.EJS_NETPLAY_ENABLED,
         # Contains credentials, so only send when authenticated
         EJS_NETPLAY_ICE_SERVERS=(

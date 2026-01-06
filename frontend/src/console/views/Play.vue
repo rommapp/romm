@@ -664,9 +664,15 @@ async function boot() {
     });
   }
 
-  async function attemptLoad(label: "local" | "cdn") {
-    const path = label === "local" ? LOCAL_PATH : CDN_PATH;
-    loaderStatus.value = label === "local" ? "loading-local" : "loading-cdn";
+  async function attemptLoad(label: "configured" | "default-local" | "cdn") {
+    const path =
+      label === "configured"
+        ? CONFIGURED_LOCAL_PATH
+        : label === "default-local"
+          ? DEFAULT_LOCAL_PATH
+          : CDN_PATH;
+
+    loaderStatus.value = label === "cdn" ? "loading-cdn" : "loading-local";
 
     window.EJS_pathtodata = path;
 
@@ -762,7 +768,7 @@ async function boot() {
 
   async function tryFetchPreferredIceServers() {
     const debugEnabled = Boolean(
-      (window as any).EJS_DEBUG_XX || (window as any).EJS_DEBUG
+      (window as any).EJS_DEBUG_XX || (window as any).EJS_DEBUG,
     );
     try {
       const baseUrl = String(window.EJS_netplayUrl || "").replace(/\/+$/, "");
@@ -806,7 +812,7 @@ async function boot() {
       if (debugEnabled) {
         console.warn(
           "[ConsolePlay] Failed to fetch SFU /ice; using config.yml ICE servers only",
-          err
+          err,
         );
       }
     }

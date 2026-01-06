@@ -56,8 +56,8 @@ declare global {
 const compatibleStates = computed(
   () =>
     rom.value?.user_states.filter(
-      (s) => !s.emulator || s.emulator === selectedCore.value
-    ) ?? []
+      (s) => !s.emulator || s.emulator === selectedCore.value,
+    ) ?? [],
 );
 
 async function onPlay() {
@@ -80,7 +80,7 @@ async function onPlay() {
   // /assets/emulatorjs (logos, etc) to avoid clobbering.
   const { EJS_NETPLAY_ENABLED, EJS_DEBUG } = configStore.config;
   const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
-  const LOCAL_PATH = "/assets/emulatorjs-sfu/data";
+  const LOCAL_PATH = "/assets/emulatorjs/data";
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
 
   // Hard-pin the CDN cores folder used by EmulatorJS core fallback downloads.
@@ -108,7 +108,7 @@ async function onPlay() {
       // the handshake headers on the same domain.
       const secure = window.location.protocol === "https:" ? "; Secure" : "";
       const cookieValue = `romm_sfu_token=${encodeURIComponent(
-        token
+        token,
       )}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
       console.log(`[Play] Setting cookie: ${cookieValue}`);
 
@@ -124,7 +124,7 @@ async function onPlay() {
   }
 
   async function ensureValidSfuToken(
-    tokenType: "read" | "write" = "read"
+    tokenType: "read" | "write" = "read",
   ): Promise<string> {
     const now = Date.now();
     const bufferTime = 60000; // refresh token 1 minute before expiry.
@@ -140,14 +140,14 @@ async function onPlay() {
   // handles write tokens by default, but can be called with "read" explicitly.
   function handleSfuAuthError(tokenType: "read" | "write" = "write") {
     console.warn(
-      `[Play] SFU auth failed, attempting ${tokenType}token refresh`
+      `[Play] SFU auth failed, attempting ${tokenType}token refresh`,
     );
     console.log(`[Play] Calling ensureSfuToken for ${tokenType} token`);
     // Force refresh token of requested type.
     ensureSfuToken(tokenType)
       .then((token) => {
         console.log(
-          `[Play] Successfully refreshed ${tokenType} token, cookie should be set`
+          `[Play] Successfully refreshed ${tokenType} token, cookie should be set`,
         );
       })
       .catch((err) => {
@@ -191,7 +191,7 @@ async function onPlay() {
 
   async function tryFetchPreferredIceServers() {
     const debugEnabled = Boolean(
-      EJS_DEBUG || (window as any).EJS_DEBUG_XX || (window as any).EJS_DEBUG
+      EJS_DEBUG || (window as any).EJS_DEBUG_XX || (window as any).EJS_DEBUG,
     );
     try {
       const token = (window as any).EJS_netplayToken;
@@ -234,7 +234,7 @@ async function onPlay() {
       if (debugEnabled) {
         console.warn(
           "[Play] Failed to fetch SFU /ice; using config.yml ICE servers only",
-          err
+          err,
         );
       }
     }
@@ -285,14 +285,14 @@ async function onPlay() {
         // Verify it loaded correctly, in case of a bad file or interrupted download.
         if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
           console.warn(
-            "[Play] mediasoup-client script loaded but global not found; SFU netplay may fail"
+            "[Play] mediasoup-client script loaded but global not found; SFU netplay may fail",
           );
         }
       } catch (e) {
         // Keep this as a warning (not fatal) so non-netplay sessions still work.
         console.warn(
           "[Play] mediasoup-client bundle missing; SFU netplay may fail",
-          e
+          e,
         );
       }
     } else {
@@ -304,27 +304,11 @@ async function onPlay() {
   }
 
   try {
-    if (EJS_NETPLAY_ENABLED) {
-      // Fetch read token on-demand (will be fetched when SFU returns 401)
-      // No periodic refresh - tokens are fetched only when needed
-      await ensureSfuToken("read").catch(() => {
-        // Silently fail - token will be fetched on-demand when SFU requires it
-      });
-      // Fetch ICE servers from RomM backend API for intialization of WebRTC with SFU nodes.
-      await tryFetchPreferredIceServers();
-    }
-    if (EJS_NETPLAY_ENABLED) {
-      // Netplay depends on our locally mounted EmulatorJS + SFU proxies.
-      // **************  TODO:  Review this code later  *******************
-      // We can review removing this code later as romm now downloads the appropriate EmulatorJS-SFU bundle
-      await attemptLoad(LOCAL_PATH);
-    } else {
-      try {
-        await attemptLoad(LOCAL_PATH);
-      } catch (e) {
-        console.warn("[Play] Local loader failed, trying CDN", e);
-        await attemptLoad(CDN_PATH);
-      }
+    try {
+      await attemptLoad(EJS_NETPLAY_ENABLED ? CDN_PATH : LOCAL_PATH);
+    } catch (e) {
+      console.warn("[Play] Local loader failed, trying CDN", e);
+      await attemptLoad(EJS_NETPLAY_ENABLED ? LOCAL_PATH : CDN_PATH);
     }
     playing.value = true;
     fullScreen.value = fullScreenOnPlay.value;
@@ -346,7 +330,7 @@ function selectSave(save: SaveSchema) {
   }
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:save_id`,
-    save.id.toString()
+    save.id.toString(),
   );
   // Switch to saves tab
   isSavesTabSelected.value = true;
@@ -366,7 +350,7 @@ function selectState(state: StateSchema) {
   }
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:state_id`,
-    state.id.toString()
+    state.id.toString(),
   );
   // Switch to states tab
   isSavesTabSelected.value = false;
@@ -423,7 +407,7 @@ onMounted(async () => {
 
   // Determine default tab and selection (mutually exclusive)
   const compatibleStates = rom.value.user_states.filter(
-    (s) => !s.emulator || s.emulator === supportedCores.value[0]
+    (s) => !s.emulator || s.emulator === supportedCores.value[0],
   );
 
   if (compatibleStates.length > 0) {
@@ -451,7 +435,7 @@ onMounted(async () => {
   }
 
   const storedCore = localStorage.getItem(
-    `player:${rom.value.platform_slug}:core`
+    `player:${rom.value.platform_slug}:core`,
   );
   if (storedCore) {
     selectedCore.value = storedCore;
@@ -462,7 +446,7 @@ onMounted(async () => {
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   const storedBiosID = localStorage.getItem(
-    `player:${rom.value.platform_slug}:bios_id`
+    `player:${rom.value.platform_slug}:bios_id`,
   );
 
   const biosFromStorage = storedBiosID
@@ -601,8 +585,8 @@ function openCacheDialog() {
                     rom.user_saves.length == 0
                       ? t("play.no-saves-available")
                       : selectedSave
-                      ? t("play.change-save")
-                      : t("play.select-save")
+                        ? t("play.change-save")
+                        : t("play.select-save")
                   }}
                 </v-btn>
               </div>
@@ -641,19 +625,19 @@ function openCacheDialog() {
                   "
                   :disabled="
                     !rom.user_states.some(
-                      (s) => !s.emulator || s.emulator === selectedCore
+                      (s) => !s.emulator || s.emulator === selectedCore,
                     )
                   "
                   @click="openStateDialog"
                 >
                   {{
                     !rom.user_states.some(
-                      (s) => !s.emulator || s.emulator === selectedCore
+                      (s) => !s.emulator || s.emulator === selectedCore,
                     )
                       ? t("play.no-states-available")
                       : selectedState
-                      ? t("play.change-state")
-                      : t("play.select-state")
+                        ? t("play.change-state")
+                        : t("play.select-state")
                   }}
                 </v-btn>
               </div>
@@ -882,7 +866,9 @@ function openCacheDialog() {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.15);
   transform: translate(-50%, -50%);
-  transition: width 0.5s, height 0.5s;
+  transition:
+    width 0.5s,
+    height 0.5s;
 }
 
 .play-button:hover::before {

@@ -13,8 +13,6 @@ services:
     image: rommapp/romm:latest
     container_name: romm
     restart: unless-stopped
-    # extra_hosts: # Enable if hosting SFU elsewhere
-    #  - "host.docker.internal:host-gateway" # Required on Linux so the container can reach services running on the host
     environment:
       # When running the SFU as part of this compose stack, use the service name.
       # If hosting SFU elsewhere, change this to that host.
