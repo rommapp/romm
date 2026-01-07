@@ -70,6 +70,21 @@ class IGDBRelatedGame(TypedDict):
     cover_url: str
 
 
+class IGDBMetadataMultiplayerMode(TypedDict):
+    campaigncoop: bool
+    dropin: bool
+    lancoop: bool
+    offlinecoop: bool
+    offlinecoopmax: int
+    offlinemax: int
+    onlinecoop: int
+    onlinecoopmax: int
+    onlinemax: int
+    splitscreen: bool
+    splitscreenonline: bool
+    platform: IGDBMetadataPlatform
+
+
 class IGDBMetadata(TypedDict):
     total_rating: str
     aggregated_rating: str
@@ -83,6 +98,8 @@ class IGDBMetadata(TypedDict):
     game_modes: list[str]
     age_ratings: list[IGDBAgeRating]
     platforms: list[IGDBMetadataPlatform]
+    multiplayer_modes: list[IGDBMetadataMultiplayerMode]
+    player_count: str
     expansions: list[IGDBRelatedGame]
     dlcs: list[IGDBRelatedGame]
     remasters: list[IGDBRelatedGame]
@@ -114,7 +131,9 @@ def build_related_game(
     )
 
 
-def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMetadata:
+def extract_metadata_from_igdb_rom(
+    self: MetadataHandler, rom: Game, platform_igdb_id: int | None
+) -> IGDBMetadata:
     age_ratings = rom.get("age_ratings", [])
     alternative_names = rom.get("alternative_names", [])
     collections = rom.get("collections", [])
@@ -127,13 +146,13 @@ def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMeta
     genres = rom.get("genres", [])
     involved_companies = rom.get("involved_companies", [])
     platforms = rom.get("platforms", [])
+    multiplayer_modes = rom.get("multiplayer_modes", [])
     ports = rom.get("ports", [])
     remakes = rom.get("remakes", [])
     remasters = rom.get("remasters", [])
     similar_games = rom.get("similar_games", [])
     videos = rom.get("videos", [])
 
-    # Narrow types for expandable fields we requested IGDB to be expanded.
     assert mark_expanded(franchise)
     assert mark_list_expanded(age_ratings)
     assert mark_list_expanded(alternative_names)
@@ -146,11 +165,47 @@ def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMeta
     assert mark_list_expanded(genres)
     assert mark_list_expanded(involved_companies)
     assert mark_list_expanded(platforms)
+    assert mark_list_expanded(multiplayer_modes)
     assert mark_list_expanded(ports)
     assert mark_list_expanded(remakes)
     assert mark_list_expanded(remasters)
     assert mark_list_expanded(similar_games)
     assert mark_list_expanded(videos)
+
+    multiplayer_modes_metadata = []
+
+    for mm in multiplayer_modes:
+        platform_data = mm.get("platform")
+
+        if isinstance(platform_data, dict):
+            igdb_id = platform_data.get("id", 0)
+            name = platform_data.get("name", "")
+        elif isinstance(platform_data, int):
+            igdb_id = platform_data
+            name = ""
+        else:
+            igdb_id = 0
+            name = ""
+
+        multiplayer_modes_metadata.append(
+            IGDBMetadataMultiplayerMode(
+                campaigncoop=mm.get("campaigncoop", False),
+                dropin=mm.get("dropin", False),
+                lancoop=mm.get("lancoop", False),
+                offlinecoop=mm.get("offlinecoop", False),
+                offlinecoopmax=mm.get("offlinecoopmax", 0),
+                offlinemax=mm.get("offlinemax", 0),
+                onlinecoop=mm.get("onlinecoop", False),
+                onlinecoopmax=mm.get("onlinecoopmax", 0),
+                onlinemax=mm.get("onlinemax", 0),
+                splitscreen=mm.get("splitscreen", False),
+                splitscreenonline=mm.get("splitscreenonline", False),
+                platform=IGDBMetadataPlatform(
+                    igdb_id=igdb_id,
+                    name=name,
+                ),
+            )
+        )
 
     return IGDBMetadata(
         {
@@ -175,6 +230,10 @@ def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMeta
                 IGDBMetadataPlatform(igdb_id=p["id"], name=p.get("name", ""))
                 for p in platforms
             ],
+            "multiplayer_modes": multiplayer_modes_metadata,
+            "player_count": derive_player_count(
+                multiplayer_modes_metadata, platform_igdb_id
+            ),
             "age_ratings": [
                 IGDB_AGE_RATINGS[rating_category]
                 for r in age_ratings
@@ -208,6 +267,53 @@ def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMeta
             ],
         }
     )
+
+
+def derive_player_count(
+    multiplayer_modes: list[IGDBMetadataMultiplayerMode],
+    platform_igdb_id: int | None = None,
+) -> str:
+    if not multiplayer_modes:
+        return "1"
+
+    relevant_modes = [
+        mm
+        for mm in multiplayer_modes
+        if not platform_igdb_id
+        or (mm.get("platform") and mm["platform"].get("igdb_id") == platform_igdb_id)
+    ]
+
+    if not relevant_modes:
+        return "1"
+
+    max_players = 1
+
+    for mm in relevant_modes:
+        if any(
+            mm.get(key, False)
+            for key in (
+                "campaigncoop",
+                "lancoop",
+                "offlinecoop",
+                "onlinecoop",
+                "dropin",
+            )
+        ):
+            max_players = max(max_players, 2)
+
+        max_players = max(
+            max_players,
+            mm.get("offlinecoopmax", 0),
+            mm.get("onlinecoopmax", 0),
+        )
+
+        max_players = max(
+            max_players,
+            mm.get("offlinemax", 0),
+            mm.get("onlinemax", 0),
+        )
+
+    return f"1-{max_players}" if max_players > 1 else "1"
 
 
 # Mapping from scan.priority.region codes to IGDB game_localizations region identifiers
@@ -287,7 +393,10 @@ def extract_localized_data(rom: Game, preferred_locale: str | None) -> tuple[str
 
 
 def build_igdb_rom(
-    handler: "IGDBHandler", rom: Game, preferred_locale: str | None
+    handler: "IGDBHandler",
+    rom: Game,
+    preferred_locale: str | None,
+    platform_igdb_id: int | None,
 ) -> "IGDBRom":
     """Build an IGDBRom from IGDB game data with localization support.
 
@@ -295,6 +404,7 @@ def build_igdb_rom(
         handler: IGDBHandler instance for URL normalization
         rom: Game data from IGDB API
         preferred_locale: Locale code (e.g., "ja-JP") or None
+        platform_igdb_id: IGDB platform identifier
 
     Returns:
         IGDBRom with localized name/cover if available
@@ -316,7 +426,7 @@ def build_igdb_rom(
             handler.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
             for s in rom_screenshots
         ],
-        igdb_metadata=extract_metadata_from_igdb_rom(handler, rom),
+        igdb_metadata=extract_metadata_from_igdb_rom(handler, rom, platform_igdb_id),
     )
 
 
@@ -575,7 +685,7 @@ class IGDBHandler(MetadataHandler):
         if not rom:
             return fallback_rom
 
-        return build_igdb_rom(self, rom, get_igdb_preferred_locale())
+        return build_igdb_rom(self, rom, get_igdb_preferred_locale(), platform_igdb_id)
 
     async def get_rom_by_id(self, igdb_id: int) -> IGDBRom:
         if not self.is_enabled():
@@ -589,7 +699,7 @@ class IGDBHandler(MetadataHandler):
         if not roms:
             return IGDBRom(igdb_id=None)
 
-        return build_igdb_rom(self, roms[0], get_igdb_preferred_locale())
+        return build_igdb_rom(self, roms[0], get_igdb_preferred_locale(), None)
 
     async def get_matched_rom_by_id(self, igdb_id: int) -> IGDBRom | None:
         if not self.is_enabled():
@@ -651,7 +761,10 @@ class IGDBHandler(MetadataHandler):
         ]
 
         preferred_locale = get_igdb_preferred_locale()
-        return [build_igdb_rom(self, rom, preferred_locale) for rom in matched_roms]
+        return [
+            build_igdb_rom(self, rom, preferred_locale, platform_igdb_id)
+            for rom in matched_roms
+        ]
 
 
 class TwitchAuth(MetadataHandler):
@@ -785,6 +898,20 @@ GAMES_FIELDS = (
     "game_localizations.cover.url",
     "game_localizations.region.identifier",
     "game_localizations.region.category",
+    "multiplayer_modes.campaigncoop",
+    "multiplayer_modes.checksum",
+    "multiplayer_modes.dropin",
+    "multiplayer_modes.lancoop",
+    "multiplayer_modes.offlinecoop",
+    "multiplayer_modes.offlinecoopmax",
+    "multiplayer_modes.offlinemax",
+    "multiplayer_modes.onlinecoop",
+    "multiplayer_modes.onlinecoopmax",
+    "multiplayer_modes.onlinemax",
+    "multiplayer_modes.splitscreen",
+    "multiplayer_modes.splitscreenonline",
+    "multiplayer_modes.platform.id",
+    "multiplayer_modes.platform.name",
 )
 
 

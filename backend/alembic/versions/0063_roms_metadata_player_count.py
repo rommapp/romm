@@ -98,7 +98,12 @@ def upgrade():
                         '[]'::jsonb
                     ) AS age_ratings,
 
-                    COALESCE(r.ss_metadata ->> 'player_count', '1') AS player_count,
+                    COALESCE(
+                        NULLIF(r.manual_metadata ->> 'player_count', '1'),
+                        NULLIF(r.ss_metadata ->> 'player_count', '1'),
+                        NULLIF(r.igdb_metadata ->> 'player_count', '1'),
+                        '1'
+                    ) AS player_count,
 
                     CASE
                         WHEN r.manual_metadata IS NOT NULL AND r.manual_metadata ? 'first_release_date' AND
@@ -277,7 +282,12 @@ def upgrade():
                             JSON_ARRAY()
                         ) AS age_ratings,
 
-                        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.player_count')), '1') AS player_count,
+                        COALESCE(
+                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.manual_metadata, '$.player_count')), '1'),
+                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.player_count')), '1'),
+                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.player_count')), '1'),
+                            '1'
+                        ) AS player_count,
 
                         CASE
                             WHEN JSON_CONTAINS_PATH(r.manual_metadata, 'one', '$.first_release_date') AND
