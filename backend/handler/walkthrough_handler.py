@@ -11,7 +11,6 @@ from utils.context import ctx_httpx_client
 
 class WalkthroughSource(enum.StrEnum):
     GAMEFAQS = "GAMEFAQS"
-    STEAM = "STEAM"
     UPLOAD = "UPLOAD"
 
 

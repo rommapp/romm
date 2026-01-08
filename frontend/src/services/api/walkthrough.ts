@@ -6,7 +6,7 @@ export interface WalkthroughResponse {
   url: string;
   title?: string | null;
   author?: string | null;
-  source: "GAMEFAQS" | "STEAM" | "UPLOAD";
+  source: "GAMEFAQS" | "UPLOAD";
   format: WalkthroughFormat;
   file_path?: string | null;
   content: string;
@@ -18,7 +18,7 @@ export interface StoredWalkthrough {
   url: string;
   title: string | null;
   author: string | null;
-  source: "GAMEFAQS" | "STEAM" | "UPLOAD";
+  source: "GAMEFAQS" | "UPLOAD";
   format: WalkthroughFormat;
   file_path: string | null;
   content: string;

@@ -30,14 +30,15 @@ def upgrade() -> None:
         sa.Column("author", sa.String(length=250), nullable=True),
         sa.Column(
             "source",
-            sa.Enum("GAMEFAQS", "STEAM", name="walkthroughsource"),
+            sa.Enum("GAMEFAQS", "UPLOAD", name="walkthroughsource"),
             nullable=False,
         ),
         sa.Column(
             "format",
-            sa.Enum("html", "text", name="walkthroughformat"),
+            sa.Enum("html", "text", "pdf", name="walkthroughformat"),
             nullable=False,
         ),
+        sa.Column("file_path", sa.String(length=1000), nullable=True),
         sa.Column(
             "content",
             sa.Text().with_variant(mysql.MEDIUMTEXT(), "mysql"),
