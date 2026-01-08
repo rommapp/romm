@@ -3,9 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 export type WalkthroughRequest = {
-    /**
-     * Walkthrough URL from GameFAQs or Steam
-     */
-    url: string;
+  /**
+   * Walkthrough URL from GameFAQs
+   */
+  url: string;
 };
-

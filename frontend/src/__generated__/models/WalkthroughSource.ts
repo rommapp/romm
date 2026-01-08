@@ -2,4 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type WalkthroughSource = 'GAMEFAQS' | 'STEAM';
+export type WalkthroughSource = "GAMEFAQS" | "UPLOAD";
