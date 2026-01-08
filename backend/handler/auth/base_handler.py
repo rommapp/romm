@@ -19,7 +19,6 @@ from config import (
     ROMM_AUTH_SECRET_KEY,
     ROMM_BASE_URL,
 )
-from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
@@ -288,6 +287,7 @@ class OAuthHandler:
 
 class OpenIDHandler:
     async def get_current_active_user_from_openid_token(self, token: Any):
+        from decorators.auth import oauth
         from handler.database import db_user_handler
         from models.user import Role, User
 

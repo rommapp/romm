@@ -15,6 +15,7 @@ import { getMissingCoverImage } from "@/utils/covers";
 import AdditionalDetails from "./EditRom/AdditionalDetails.vue";
 import MetadataIdSection from "./EditRom/MetadataIdSection.vue";
 import MetadataSections from "./EditRom/MetadataSections.vue";
+import WalkthroughPanel from "./EditRom/WalkthroughPanel.vue";
 
 const { t } = useI18n();
 const { lgAndUp } = useDisplay();
@@ -416,6 +417,10 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           <MetadataSections
             :rom="rom"
             @update:rom="handleRomUpdateFromMetadata"
+          />
+          <WalkthroughPanel
+            :rom-id="rom.id"
+            :initial-walkthroughs="(rom as any).walkthroughs || []"
           />
         </v-expansion-panels>
       </v-form>

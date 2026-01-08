@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from models.collection import Collection
     from models.platform import Platform
     from models.user import User
+    from models.walkthrough import Walkthrough
 
 
 class RomFileCategory(enum.StrEnum):
@@ -263,6 +264,9 @@ class Rom(BaseModel):
         lazy="raise", back_populates="rom"
     )
     rom_users: Mapped[list[RomUser]] = relationship(lazy="raise", back_populates="rom")
+    walkthroughs: Mapped[list["Walkthrough"]] = relationship(
+        "Walkthrough", lazy="raise", back_populates="rom", cascade="all, delete-orphan"
+    )
     notes: Mapped[list[RomNote]] = relationship(lazy="raise", back_populates="rom")
     metadatum: Mapped[RomMetadata] = relationship(
         lazy="joined", back_populates="rom", uselist=False

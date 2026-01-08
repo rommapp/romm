@@ -7,6 +7,7 @@ from .screenshots_handler import DBScreenshotsHandler
 from .states_handler import DBStatesHandler
 from .stats_handler import DBStatsHandler
 from .users_handler import DBUsersHandler
+from .walkthroughs_handler import DBWalkthroughsHandler
 
 db_firmware_handler = DBFirmwareHandler()
 db_platform_handler = DBPlatformsHandler()
@@ -17,3 +18,4 @@ db_state_handler = DBStatesHandler()
 db_stats_handler = DBStatsHandler()
 db_user_handler = DBUsersHandler()
 db_collection_handler = DBCollectionsHandler()
+db_walkthrough_handler = DBWalkthroughsHandler()
