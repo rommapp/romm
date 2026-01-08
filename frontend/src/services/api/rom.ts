@@ -364,6 +364,7 @@ export type UpdateRom = SimpleRom & {
     flashpoint_metadata?: string;
     hltb_metadata?: string;
   };
+  walkthroughs?: unknown;
 };
 
 async function updateRom({
