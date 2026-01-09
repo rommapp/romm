@@ -11,22 +11,22 @@ services:
     container_name: romm
     restart: unless-stopped
     environment:
-      - DB_HOST=romm-db
-      - DB_NAME=romm # Should match MARIADB_DATABASE in mariadb
-      - DB_USER=romm-user # Should match MARIADB_USER in mariadb
-      - DB_PASSWD= # Should match MARIADB_PASSWORD in mariadb
-      - ROMM_AUTH_SECRET_KEY= # Generate a key with `openssl rand -hex 32`
-      - SCREENSCRAPER_USER= # These are the recommended metadata providers
-      - SCREENSCRAPER_PASSWORD= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#screenscraper
-      - RETROACHIEVEMENTS_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
+      - DB_HOST= romm-db
+      - DB_NAME= NoiseBox
+      - DB_USER= RenyNoise
+      - DB_PASSWD= RockMan9!!
+      - ROMM_AUTH_SECRET_KEY= 03a054b6ca27e0107c5eed552ea66becd9f3a2a8a91e7595cd462a593f9ecd09
+      - SCREENSCRAPER_USER= renynoise@gmail.com
+      - SCREENSCRAPER_PASSWORD= RockMan9
+      - RETROACHIEVEMENTS_API_KEY= ooVBM8mcpXRtzv8psvNz34PTa3KuBXfv
       - STEAMGRIDDB_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
       - HASHEOUS_API_ENABLED=true # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#hasheous
     volumes:
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
       - romm_redis_data:/redis-data # Cached data for background tasks
-      - /path/to/library:/romm/library # Your game library. Check https://docs.romm.app/latest/Getting-Started/Folder-Structure/ for more details.
-      - /path/to/assets:/romm/assets # Uploaded saves, states, etc.
-      - /path/to/config:/romm/config # (Optional) Path where config.yml is stored
+      - /path/to/library:/romm/library G:\roms
+      - /path/to/assets:/romm/assets G:\saves
+      - /path/to/config:/romm/config G:\
     ports:
       - 80:8080
     depends_on:
@@ -39,10 +39,10 @@ services:
     container_name: romm-db
     restart: unless-stopped
     environment:
-      - MARIADB_ROOT_PASSWORD= # Use a unique, secure password
-      - MARIADB_DATABASE=romm
-      - MARIADB_USER=romm-user
-      - MARIADB_PASSWORD=
+      - MARIADB_ROOT_PASSWORD= RockMan9!!
+      - MARIADB_DATABASE= NoiseBox
+      - MARIADB_USER= RenyNoise
+      - MARIADB_PASSWORD= RockMan9!!
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
