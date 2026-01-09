@@ -77,7 +77,9 @@ class PeriodicTask(Task, ABC):
         self.func = func
 
     def _get_existing_job(self) -> Job | None:
-        existing_jobs = tasks_scheduler.get_jobs()
+        existing_jobs = list(tasks_scheduler.get_jobs()) + list(
+            low_prio_queue.get_jobs()
+        )
         for job in existing_jobs:
             if isinstance(job, Job) and get_job_func_name(job) == self.func:
                 return job
