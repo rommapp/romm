@@ -11,7 +11,7 @@ class CleanupNetplayTask(PeriodicTask):
             task_type=TaskType.CLEANUP,
             enabled=True,
             manual_run=False,
-            cron_string="*/5 * * * *",  # Every 5 minutes
+            cron_string="*/30 * * * *",  # Every 30 minutes
             func="tasks.scheduled.cleanup_netplay.cleanup_netplay_task.run",
         )
 
