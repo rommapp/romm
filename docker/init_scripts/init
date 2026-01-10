@@ -72,17 +72,17 @@ run_startup() {
 
 wait_for_gunicorn_socket() {
 	debug_log "Waiting for gunicorn socket file..."
-	local retries=${WEB_SERVER_GUNICORN_RETRIES:=60}
+	local retries=${WEB_SERVER_GUNICORN_WAIT:=30}
 
 	while [[ ! -S /tmp/gunicorn.sock && retries -gt 0 ]]; do
-		sleep 0.5
+		sleep 1
 		((retries--))
 	done
 
 	if [[ -S /tmp/gunicorn.sock ]]; then
 		debug_log "Gunicorn socket file found"
 	else
-		warn_log "Gunicorn socket file not found after waiting!"
+		warn_log "Gunicorn socket file not found after waiting ${WEB_SERVER_GUNICORN_WAIT:=30} seconds!"
 	fi
 }
 
