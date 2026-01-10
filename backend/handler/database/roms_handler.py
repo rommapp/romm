@@ -24,6 +24,7 @@ from sqlalchemy.orm import Query, Session, joinedload, noload, selectinload
 from sqlalchemy.sql.elements import KeyedColumnElement
 
 from config import ROMM_DB_DRIVER
+from config.config_manager import config_manager
 from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.assets import Save, Screenshot, State
@@ -86,6 +87,31 @@ EJS_SUPPORTED_PLATFORMS = [
 ]
 
 STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+"
+CONFIG_REGION_TO_FS_REGION: dict[str, str] = {
+    # Starting with the big 5
+    "jp": "Japan",
+    "us": "USA",
+    "wor": "World",
+    "a": "Asia",
+    "eu": "Europe",
+    # Adding more obscure tags (most unsupported)
+    "as": "Australia",
+    "br": "Brazil",
+    "cn": "China",
+    "de": "Germany",
+    "es": "Spain",
+    "fn": "Finland",
+    "fr": "France",
+    "gr": "Greece",
+    "it": "Italy",
+    "hk": "Hong Kong",
+    "kr": "Korea",
+    "no": "Norway",
+    "ru": "Russia",
+    "sw": "Sweden",
+    "tw": "China",
+    "uk": "England",
+}
 
 
 def _create_metadata_id_case(
@@ -560,6 +586,23 @@ class DBRomsHandler(DBBaseHandler):
                 else literal(1)
             )
 
+            scan_region_priority = config_manager.get_config().SCAN_REGION_PRIORITY
+            region_priority_order = case(
+                *[
+                    (
+                        json_array_contains_value(
+                            Rom.regions,
+                            CONFIG_REGION_TO_FS_REGION[region.lower()],
+                            session=session,
+                        ),
+                        priority,
+                    )
+                    for priority, region in enumerate(scan_region_priority)
+                    if region.lower() in CONFIG_REGION_TO_FS_REGION
+                ],
+                else_=len(scan_region_priority),
+            ).asc()
+
             # Create a subquery that identifies the primary ROM in each group
             # Priority order: is_main_sibling (desc), then by fs_name_no_ext (asc)
             base_subquery = query.subquery()
@@ -578,6 +621,7 @@ class DBRomsHandler(DBBaseHandler):
                     base_subquery.c.launchbox_id,
                     base_subquery.c.tgdb_id,
                     base_subquery.c.flashpoint_id,
+                    base_subquery.c.regions,
                 )
                 .outerjoin(
                     RomUser,
@@ -637,6 +681,7 @@ class DBRomsHandler(DBBaseHandler):
                         ),
                         order_by=[
                             is_main_sibling_order,
+                            region_priority_order,
                             base_subquery.c.fs_name_no_ext.asc(),
                         ],
                     )
