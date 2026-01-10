@@ -43,7 +43,7 @@ class MobyMetadataPlatform(TypedDict):
 
 
 class MobyMetadata(TypedDict):
-    moby_score: str
+    moby_score: str | None
     genres: list[str]
     alternate_titles: list[str]
     platforms: list[MobyMetadataPlatform]

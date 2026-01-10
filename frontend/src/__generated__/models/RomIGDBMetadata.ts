@@ -6,8 +6,8 @@ import type { IGDBAgeRating } from './IGDBAgeRating';
 import type { IGDBMetadataPlatform } from './IGDBMetadataPlatform';
 import type { IGDBRelatedGame } from './IGDBRelatedGame';
 export type RomIGDBMetadata = {
-    total_rating?: string;
-    aggregated_rating?: string;
+    total_rating?: (string | null);
+    aggregated_rating?: (string | null);
     first_release_date?: (number | null);
     youtube_video_id?: (string | null);
     genres?: Array<string>;

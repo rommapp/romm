@@ -121,7 +121,7 @@ class SSMetadataMedia(TypedDict):
 
 
 class SSMetadata(SSMetadataMedia):
-    ss_score: str
+    ss_score: str | None
     first_release_date: int | None
     alternative_names: list[str]
     companies: list[str]
