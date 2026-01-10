@@ -81,6 +81,16 @@ class DBPlatformsHandler(DBBaseHandler):
         return session.scalar(query.filter_by(fs_slug=fs_slug).limit(1))
 
     @begin_session
+    @with_firmware
+    def get_platform_by_slug(
+        self,
+        slug: str,
+        query: Query = None,  # type: ignore
+        session: Session = None,  # type: ignore
+    ) -> Platform | None:
+        return session.scalar(query.filter_by(slug=slug).limit(1))
+
+    @begin_session
     def delete_platform(
         self,
         id: int,
