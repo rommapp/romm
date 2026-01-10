@@ -212,14 +212,23 @@ onMounted(async () => {
     selectedCore.value = supportedCores.value[0];
   }
 
+  const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   const storedBiosID = localStorage.getItem(
     `player:${rom.value.platform_slug}:bios_id`,
   );
-  if (storedBiosID) {
-    selectedFirmware.value =
-      firmwareOptions.value.find((f) => f.id === parseInt(storedBiosID)) ??
-      null;
-  }
+
+  const biosFromStorage = storedBiosID
+    ? firmwareOptions.value.find((f) => f.id === parseInt(storedBiosID))
+    : undefined;
+
+  // Use default bios file if set in config.yml
+  const biosFromConfig = coreOptions["bios_file"]
+    ? firmwareOptions.value.find(
+        (f) => f.file_name === coreOptions["bios_file"],
+      )
+    : undefined;
+
+  selectedFirmware.value = biosFromStorage ?? biosFromConfig ?? null;
 });
 
 onBeforeUnmount(async () => {
