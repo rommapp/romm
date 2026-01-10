@@ -172,7 +172,7 @@ class FlashpointHandler(MetadataHandler):
                 self.search_url,
                 {
                     "smartSearch": search_term,
-                    "filter": "true",
+                    "filter": "false",
                 },
             )
 
@@ -348,7 +348,7 @@ class FlashpointHandler(MetadataHandler):
                 self.search_url,
                 {
                     "id": flashpoint_id,
-                    "filter": "true",
+                    "filter": "false",
                 },
             )
 
