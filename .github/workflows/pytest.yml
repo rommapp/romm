@@ -29,6 +29,12 @@ jobs:
           MYSQL_DATABASE: romm_test
           MYSQL_ROOT_PASSWORD: passwd
         options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+      valkey:
+        image: valkey/valkey:7.2
+        ports:
+          - 6379
+        options: >-
+          --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=2s --health-retries=3
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.3.0
@@ -57,6 +63,8 @@ jobs:
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: ${{ job.services.mariadb.ports['3306'] }}
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: ${{ job.services.valkey.ports['6379'] }}
         run: |
           cd backend
           uv run pytest -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
