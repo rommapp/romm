@@ -1,216 +1,27 @@
 <script setup lang="ts">
-import type { Emitter } from "mitt";
-import { computed, inject, onMounted, ref, watch } from "vue";
+import { ref } from "vue";
 import { useDisplay } from "vuetify";
-import {
-  createWalkthroughForRom,
-  deleteWalkthrough,
-  fetchWalkthrough,
-  listWalkthroughsForRom,
-  uploadWalkthroughForRom,
-  type StoredWalkthrough,
-} from "@/services/api/walkthrough";
-import type { Events } from "@/types/emitter";
+import { useUploadWalkthrough } from "@/composables/useUploadWalkthrough";
+import { type StoredWalkthrough } from "@/services/api/walkthrough";
 
 const props = defineProps<{
   romId: number;
   initialWalkthroughs?: StoredWalkthrough[];
 }>();
 
-const emitter = inject<Emitter<Events>>("emitter");
-const { mdAndUp } = useDisplay();
-
-const url = ref("");
-const loading = ref(false);
-const saving = ref(false);
-const removingId = ref<number | null>(null);
-const error = ref<string | null>(null);
-const content = ref("");
-const title = ref<string | null>(null);
-const author = ref<string | null>(null);
-const source = ref<string | null>(null);
-const walkthroughs = ref<StoredWalkthrough[]>(props.initialWalkthroughs || []);
+const {
+  url,
+  loading,
+  walkthroughs,
+  uploadFile,
+  uploading,
+  removingId,
+  runFetch,
+  uploadFileToRom,
+  removeSavedWalkthrough,
+} = useUploadWalkthrough(props);
 const savedOpenPanels = ref<number[]>([]);
-const uploadFile = ref<File | null>(null);
-const uploading = ref(false);
-
-const hasResult = computed(
-  () => !!content.value && !loading.value && !error.value,
-);
-const hasRom = computed(() => !!props.romId);
-
-watch(
-  () => props.initialWalkthroughs,
-  (next) => {
-    if (next) walkthroughs.value = next;
-  },
-);
-
-watch(
-  () => props.romId,
-  () => {
-    void loadWalkthroughs();
-  },
-);
-
-async function loadWalkthroughs() {
-  if (!hasRom.value) return;
-  try {
-    const { data } = await listWalkthroughsForRom(props.romId);
-    walkthroughs.value = data;
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-onMounted(() => {
-  void loadWalkthroughs();
-});
-
-async function runFetch() {
-  if (!url.value) {
-    emitter?.emit("snackbarShow", {
-      msg: "Walkthrough URL is required",
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-    return;
-  }
-
-  loading.value = true;
-  error.value = null;
-  content.value = "";
-  title.value = null;
-  author.value = null;
-  source.value = null;
-
-  try {
-    const { data } = await fetchWalkthrough({
-      url: url.value.trim(),
-    });
-    content.value = data.content;
-    source.value = data.source;
-    title.value = data.title ?? null;
-    author.value = data.author ?? null;
-  } catch (err: any) {
-    const detail =
-      err?.response?.data?.detail ||
-      err?.message ||
-      "Failed to fetch walkthrough. Please verify the URL.";
-    error.value = detail;
-    emitter?.emit("snackbarShow", {
-      msg: detail,
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 4000,
-    });
-  } finally {
-    loading.value = false;
-  }
-}
-
-async function saveToRom() {
-  if (!hasRom.value) return;
-  if (!url.value) {
-    emitter?.emit("snackbarShow", {
-      msg: "Walkthrough URL is required",
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-    return;
-  }
-  saving.value = true;
-  try {
-    await createWalkthroughForRom({
-      romId: props.romId,
-      url: url.value.trim(),
-    });
-    await loadWalkthroughs();
-    emitter?.emit("snackbarShow", {
-      msg: "Walkthrough added to ROM",
-      icon: "mdi-check-bold",
-      color: "green",
-    });
-  } catch (err: any) {
-    const detail =
-      err?.response?.data?.detail ||
-      err?.message ||
-      "Failed to add walkthrough to ROM.";
-    emitter?.emit("snackbarShow", {
-      msg: detail,
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function uploadFileToRom() {
-  if (!hasRom.value) return;
-  if (!uploadFile.value) {
-    emitter?.emit("snackbarShow", {
-      msg: "Choose a walkthrough file (PDF, HTML, or TXT)",
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-    return;
-  }
-
-  uploading.value = true;
-  try {
-    await uploadWalkthroughForRom({
-      romId: props.romId,
-      file: uploadFile.value,
-      title: title.value || undefined,
-      author: author.value || undefined,
-    });
-    uploadFile.value = null;
-    await loadWalkthroughs();
-    emitter?.emit("snackbarShow", {
-      msg: "Walkthrough uploaded",
-      icon: "mdi-check-bold",
-      color: "green",
-    });
-  } catch (err: any) {
-    const detail =
-      err?.response?.data?.detail ||
-      err?.message ||
-      "Failed to upload walkthrough.";
-    emitter?.emit("snackbarShow", {
-      msg: detail,
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-  } finally {
-    uploading.value = false;
-  }
-}
-
-async function removeSavedWalkthrough(id: number) {
-  removingId.value = id;
-  try {
-    await deleteWalkthrough(id);
-    walkthroughs.value = walkthroughs.value.filter((w) => w.id !== id);
-    emitter?.emit("snackbarShow", {
-      msg: "Walkthrough removed",
-      icon: "mdi-check-bold",
-      color: "green",
-    });
-  } catch (err: any) {
-    const detail =
-      err?.response?.data?.detail ||
-      err?.message ||
-      "Failed to remove walkthrough.";
-    emitter?.emit("snackbarShow", {
-      msg: detail,
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-  } finally {
-    removingId.value = null;
-  }
-}
+const { mdAndUp } = useDisplay();
 </script>
 
 <template>
@@ -239,38 +50,10 @@ async function removeSavedWalkthrough(id: number) {
             block
             @click="runFetch"
           >
-            Fetch
+            Add Walkthrough
           </v-btn>
         </v-col>
       </v-row>
-
-      <v-alert
-        v-if="error"
-        type="error"
-        density="comfortable"
-        class="mb-3"
-        :text="error"
-      />
-
-      <v-skeleton-loader
-        v-if="loading"
-        type="paragraph, paragraph, paragraph"
-        class="mt-2"
-      />
-
-      <div v-else-if="hasResult" class="bg-toplayer rounded pa-3 border">
-        <div class="flex items-center justify-between">
-          <v-btn
-            class="mt-3"
-            color="primary"
-            variant="flat"
-            :loading="saving"
-            @click="saveToRom"
-          >
-            Add Walkthrough to Rom
-          </v-btn>
-        </div>
-      </div>
 
       <v-divider class="my-4" />
 
