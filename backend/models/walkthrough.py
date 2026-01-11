@@ -23,8 +23,6 @@ class Walkthrough(BaseModel):
         Enum(WalkthroughFormat, values_callable=lambda e: [item.value for item in e])
     )
     file_path: Mapped[str | None] = mapped_column(String(length=1000), default=None)
-    content: Mapped[str] = mapped_column(
-        Text().with_variant(mysql.MEDIUMTEXT(), "mysql")
-    )
+    content: Mapped[str] = mapped_column(Text().with_variant(mysql.LONGTEXT(), "mysql"))
 
     rom: Mapped["Rom"] = relationship(back_populates="walkthroughs")
