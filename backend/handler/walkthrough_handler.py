@@ -93,6 +93,7 @@ ALLOWED_MIME_TYPES: Final[set[str]] = {
     "text/html",
     "application/pdf",
     "application/xhtml+xml",
+    "text/markdown",
 }
 
 
