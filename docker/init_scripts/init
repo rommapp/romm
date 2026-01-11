@@ -209,22 +209,44 @@ start_bin_valkey-server() {
 		export REDIS_PORT="${port}"
 
 		if [[ -f ${acl_file} ]]; then
+			# Valkey is strict about ACL file contents. Keep it to only `user ...` lines.
+			# If we detect any non-user lines (comments/blank lines), regenerate a clean file.
+			if grep -qvE '^user\s+\S+' "${acl_file}"; then
+				warn_log "Detected invalid lines in internal Valkey ACL file; regenerating" "(${acl_file})"
+				rm -f "${acl_file}" || true
+			else
 			# Existing deployments may have an ACL file that is missing entries.
+			# When updating an existing user, DO NOT append a second `user <name> ...` line
+			# because Valkey/Redis ACL lines behave like `ACL SETUSER` commands and can
+			# accumulate key/channel patterns (e.g. a legacy `~*` would remain). Instead,
+			# rewrite the user's line.
+			rewrite_acl_user_line() {
+				local user_name="${1:-}"
+				shift || true
+				local new_line="$*"
+				if [[ -z ${user_name} || -z ${new_line} ]]; then
+					return 1
+				fi
+				local tmp
+				tmp="$(mktemp)"
+				# Keep file strict: only `user ...` lines.
+				grep -vE "^user\\s+${user_name}\\b" "${acl_file}" >"${tmp}" 2>/dev/null || true
+				echo "${new_line}" >>"${tmp}" || true
+				mv "${tmp}" "${acl_file}" || true
+				chmod 600 "${acl_file}" || true
+			}
 			# Do not fail here; instead, ensure at least the security-critical
 			# defaults are present and let runtime verification handle rotations.
 			umask 077
 			if ! grep -qE '^user\s+default\s+off\b' "${acl_file}"; then
-				echo "" >>"${acl_file}" || true
 				echo "user default off" >>"${acl_file}" || true
 			fi
 			# If the SFU user is missing, add it now (does not affect existing users).
 			if ! grep -qE '^user\s+sfu\b' "${acl_file}"; then
-				echo "" >>"${acl_file}" || true
-				echo "# EmulatorJS-SFU (restricted)" >>"${acl_file}" || true
-				echo "user sfu on >${sfu_pw} ~sfu:* &* +ping +get +set +del +mget +scan +hgetall +hset +expire +ttl +setnx +eval +select" >>"${acl_file}" || true
+				rewrite_acl_user_line sfu "user sfu resetpass resetkeys resetchannels on >${sfu_pw} ~sfu:* &* -@all +ping +get +set +del +mget +scan +hgetall +hset +expire +ttl +setnx +eval +select"
 			fi
-			chmod 600 "${acl_file}" || true
 			return 0
+			fi
 		fi
 
 		info_log "Generating internal Valkey ACL file" "(${acl_file})"
@@ -232,27 +254,27 @@ start_bin_valkey-server() {
 		umask 077
 		cat >"${acl_file}" <<EOF
 user default off
-
-# RomM (full access)
 user romm on >${romm_pw} ~* &* +@all
-
-# EmulatorJS-SFU (restricted)
-# - keyspace limited to sfu:* (covers sfu:auth:* and sfu:room:*)
-# - commands limited to those needed for token allowlist + room registry
-user sfu on >${sfu_pw} ~sfu:* &* +ping +get +set +del +mget +scan +hgetall +hset +expire +ttl +setnx +eval +select
+user sfu resetpass resetkeys resetchannels on >${sfu_pw} ~sfu:* &* -@all +ping +get +set +del +mget +scan +hgetall +hset +expire +ttl +setnx +eval +select
 EOF
 		chmod 600 "${acl_file}" || true
 	}
 
 	verify_internal_valkey_acl_runtime() {
-		# Runtime auth verification using valkey-cli (if present).
+		# Runtime auth verification using valkey-cli/redis-cli (if present).
 		local desired_romm_pw="${VALKEY_ROMM_PASSWORD:-}"
 		local romm_pw="${VALKEY_ROMM_PASSWORD:-${REDIS_PASSWORD:-${ROMM_AUTH_SECRET_KEY:-}}}"
 		local legacy_romm_pw="${ROMM_AUTH_SECRET_KEY:-}"
 		local sfu_pw="${VALKEY_SFU_PASSWORD:-}"
 		local legacy_sfu_pw="${ROMM_AUTH_SECRET_KEY:-}"
-		if ! command -v valkey-cli >/dev/null 2>&1; then
-			warn_log "valkey-cli not found; skipping ACL runtime verification"
+
+		local cli_bin=""
+		if command -v valkey-cli >/dev/null 2>&1; then
+			cli_bin="valkey-cli"
+		elif command -v redis-cli >/dev/null 2>&1; then
+			cli_bin="redis-cli"
+		else
+			warn_log "valkey-cli/redis-cli not found; skipping ACL runtime verification"
 			return 0
 		fi
 
@@ -262,7 +284,25 @@ EOF
 			if [[ -z ${user} || -z ${pass} ]]; then
 				return 1
 			fi
-			valkey-cli -h 127.0.0.1 -p "${port}" --user "${user}" -a "${pass}" ping >/dev/null 2>&1
+			"${cli_bin}" -h 127.0.0.1 -p "${port}" --user "${user}" -a "${pass}" ping >/dev/null 2>&1
+		}
+
+		rewrite_acl_user_line() {
+			local user_name="${1:-}"
+			shift || true
+			local new_line="$*"
+			if [[ -z ${user_name} || -z ${new_line} ]]; then
+				return 1
+			fi
+			if [[ ! -f ${acl_file} ]]; then
+				return 1
+			fi
+			local tmp
+			tmp="$(mktemp)"
+			grep -vE "^user\\s+${user_name}\\b" "${acl_file}" >"${tmp}" 2>/dev/null || true
+			echo "${new_line}" >>"${tmp}" || true
+			mv "${tmp}" "${acl_file}" || true
+			chmod 600 "${acl_file}" || true
 		}
 
 		wait_for_internal_valkey_ready() {
@@ -281,6 +321,7 @@ EOF
 
 		restart_internal_valkey() {
 			info_log "Restarting internal valkey to apply ACL changes"
+			local log_file="${ROMM_INTERNAL_VALKEY_LOG_FILE:-/tmp/valkey-server.log}"
 			if [[ -n ${VALKEY_PID-} ]]; then
 				kill "${VALKEY_PID}" >/dev/null 2>&1 || true
 				# wait for process exit
@@ -291,11 +332,8 @@ EOF
 				done
 			fi
 
-			if [[ ${LOGLEVEL} == "DEBUG" ]]; then
-				"${cmd[@]}" &
-			else
-				"${cmd[@]}" >/dev/null 2>&1 &
-			fi
+			touch "${log_file}" >/dev/null 2>&1 || true
+			"${cmd[@]}" >>"${log_file}" 2>&1 &
 			VALKEY_PID=$!
 			echo "${VALKEY_PID}" >/tmp/valkey-server.pid
 			wait_for_internal_valkey_ready || error_log "Internal valkey did not become ready after restart"
@@ -330,13 +368,9 @@ EOF
 			# Upsert by appending a new user definition (last one wins).
 			umask 077
 			if ! grep -qE '^user\s+default\s+off\b' "${acl_file}"; then
-				echo "" >>"${acl_file}" || true
 				echo "user default off" >>"${acl_file}" || true
 			fi
-			echo "" >>"${acl_file}" || true
-			echo "# RomM (full access)" >>"${acl_file}" || true
-			echo "user romm on >${desired_romm_pw} ~* &* +@all" >>"${acl_file}" || true
-			chmod 600 "${acl_file}" || true
+			rewrite_acl_user_line romm "user romm resetpass resetkeys resetchannels on >${desired_romm_pw} ~* &* +@all"
 
 			restart_internal_valkey
 			export REDIS_PASSWORD="${desired_romm_pw}"
@@ -367,13 +401,9 @@ EOF
 
 			umask 077
 			if ! grep -qE '^user\s+default\s+off\b' "${acl_file}"; then
-				echo "" >>"${acl_file}" || true
 				echo "user default off" >>"${acl_file}" || true
 			fi
-			echo "" >>"${acl_file}" || true
-			echo "# EmulatorJS-SFU (restricted)" >>"${acl_file}" || true
-			echo "user sfu on >${sfu_pw} ~sfu:* &* +ping +get +set +del +mget +scan +hgetall +hset +expire +ttl +setnx +eval +select" >>"${acl_file}" || true
-			chmod 600 "${acl_file}" || true
+			rewrite_acl_user_line sfu "user sfu resetpass resetkeys resetchannels on >${sfu_pw} ~sfu:* &* -@all +ping +get +set +del +mget +scan +hgetall +hset +expire +ttl +setnx +eval +select"
 
 			restart_internal_valkey
 			valkey_cli_ping sfu "${sfu_pw}" || error_log "Internal Valkey ACL verification failed for user 'sfu' after upsert"
@@ -390,7 +420,7 @@ EOF
 		valkey_cli_ping sfu "${sfu_pw}" || error_log "Internal Valkey ACL verification failed for user 'sfu'"
 
 		# Verify sfu keyspace restriction (attempt write outside sfu:* should fail).
-		if valkey-cli -h 127.0.0.1 -p "${port}" --user sfu -a "${sfu_pw}" set romm:acl:test 1 >/dev/null 2>&1; then
+		if "${cli_bin}" -h 127.0.0.1 -p "${port}" --user sfu -a "${sfu_pw}" set romm:acl:test 1 >/dev/null 2>&1; then
 			error_log "Internal Valkey ACL verification failed: user 'sfu' can write outside sfu:*"
 		fi
 	}
@@ -402,6 +432,7 @@ EOF
 	# If a custom config exists, we respect it unless ACL is explicitly enabled.
 	# (ACL needs --aclfile so we can ensure it uses /redis-data/users.acl.)
 	local cmd=(valkey-server)
+	local log_file="${ROMM_INTERNAL_VALKEY_LOG_FILE:-/tmp/valkey-server.log}"
 	if is_truthy "${enable_acl}"; then
 		cmd+=(--dir "${data_dir}" --aclfile "${acl_file}" --bind "${bind_addr}" --protected-mode "${protected_mode}" --port "${port}")
 	else
@@ -412,11 +443,12 @@ EOF
 		fi
 	fi
 
-	if [[ ${LOGLEVEL} == "DEBUG" ]]; then
-		"${cmd[@]}" &
-	else
-		"${cmd[@]}" >/dev/null 2>&1 &
-	fi
+	# Always log Valkey stdout/stderr to a file to aid debugging. Do not print
+	# the log contents automatically (it may include sensitive config/ACL lines).
+	# Set LOGLEVEL=DEBUG to see additional RomM init logs.
+	touch "${log_file}" >/dev/null 2>&1 || true
+
+	"${cmd[@]}" >>"${log_file}" 2>&1 &
 
 	VALKEY_PID=$!
 	echo "${VALKEY_PID}" >/tmp/valkey-server.pid
@@ -431,6 +463,11 @@ EOF
 	set +o errexit
 
 	while ((retry < max_retries)); do
+		# If the process exited early, surface a clear error.
+		if ! kill -0 "${VALKEY_PID}" >/dev/null 2>&1; then
+			error_log "Internal valkey exited before becoming ready. Check ${log_file} for details"
+		fi
+
 		# Attempt to check if valkey TCP port is open
 		if (echo >/dev/tcp/"${host}"/"${port}") 2>/dev/null; then
 			debug_log "Internal valkey is ready and accepting connections"
@@ -445,7 +482,7 @@ EOF
 		((retry++))
 	done
 
-	error_log "Internal valkey did not become ready after $((max_retries * 500))ms"
+	error_log "Internal valkey did not become ready after $((max_retries * 500))ms. Check ${log_file} for details"
 }
 
 # Commands to start RQ scheduler

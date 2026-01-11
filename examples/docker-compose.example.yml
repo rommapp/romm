@@ -14,7 +14,7 @@ volumes:
 
 services:
   romm:
-    image: docker.io/rommapp/romm-sfu:latest
+    image: docker.io/rommapp/romm:latest
     container_name: romm-sfu
     restart: unless-stopped
     # extra_hosts: # Enable if hosting SFU elsewhere

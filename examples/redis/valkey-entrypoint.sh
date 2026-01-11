@@ -18,13 +18,23 @@ fi
 
 mkdir -p "$(dirname "$ACL_FILE")"
 
-if [ ! -f "$ACL_FILE" ]; then
+regenerate_acl=false
+if [ -f "$ACL_FILE" ]; then
+  # Valkey is strict about ACL file contents. Keep it to only `user ...` lines.
+  if grep -qvE '^user[[:space:]]+[^[:space:]]+' "$ACL_FILE"; then
+    echo "WARN: Detected invalid lines in ACL file; regenerating: $ACL_FILE" >&2
+    rm -f "$ACL_FILE" || true
+    regenerate_acl=true
+  fi
+else
+  regenerate_acl=true
+fi
+
+if [ "$regenerate_acl" = true ]; then
   umask 077
   cat >"$ACL_FILE" <<EOF
 user default off
-
 user romm on >$VALKEY_ROMM_PASSWORD ~* &* +@all
-
 user sfu on >$VALKEY_SFU_PASSWORD ~sfu:* &* -@all +ping +get +set +setnx +del +exists +expire +ttl +pttl +hget +hgetall +hexists +eval +evalsha
 EOF
   chmod 600 "$ACL_FILE" || true

@@ -128,17 +128,19 @@ FROM docker.io/library/alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emula
 
 RUN apk add --no-cache \
     7zip \
+    git \
     wget \
     ca-certificates
 
-# Code to fetch and extract EmulatorJS (Currently fetches traditional EmulatorJS build, without SFU)
-ARG EMULATORJS_VERSION=4.2.3
-ARG EMULATORJS_SHA256=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b
+# Fetch EmulatorJS-SFU (TechnicallyComputers fork) so RomM serves the SFU-enabled build.
+# Default to main branch; override EMULATORJS_SFU_REF to pin a tag/commit.
+ARG EMULATORJS_SFU_REPO=https://github.com/TechnicallyComputers/EmulatorJS-SFU.git
+ARG EMULATORJS_SFU_REF=main
 
-RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
-    echo "${EMULATORJS_SHA256}  ${EMULATORJS_VERSION}.7z" | sha256sum -c - && \
-    7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
-    rm -f "${EMULATORJS_VERSION}.7z"
+RUN git clone --depth 1 --branch "${EMULATORJS_SFU_REF}" "${EMULATORJS_SFU_REPO}" /tmp/emulatorjs-sfu && \
+    mkdir -p /emulatorjs && \
+    cp -a /tmp/emulatorjs-sfu/data /emulatorjs/data && \
+    rm -rf /tmp/emulatorjs-sfu
 
 RUN mkdir -p /emulatorjs/data/vendor
 COPY --from=mediasoup-client-umd-build /out/mediasoup-client-umd.js /emulatorjs/data/vendor/mediasoup-client-umd.js
@@ -196,7 +198,17 @@ RUN apk add --no-cache \
     libpq \
     7zip \
     tzdata \
-    valkey
+    valkey \
+    redis
+
+# Provide `valkey-cli` for init-time ACL verification.
+# Alpine packaging can vary; if a dedicated `valkey-cli` binary is not present,
+# fall back to a shim pointing at `redis-cli` (protocol-compatible).
+RUN if ! command -v valkey-cli >/dev/null 2>&1; then \
+            if command -v redis-cli >/dev/null 2>&1; then \
+                ln -sf "$(command -v redis-cli)" /usr/bin/valkey-cli; \
+            fi; \
+        fi
 
 # Add Python by copying it from the official Docker image. This way, we don't rely on Alpine's
 # Python version, which could not be the same as the one used in the backend build stage.
