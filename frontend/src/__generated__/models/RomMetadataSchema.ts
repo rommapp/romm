@@ -10,6 +10,7 @@ export type RomMetadataSchema = {
     companies: Array<string>;
     game_modes: Array<string>;
     age_ratings: Array<string>;
+    player_count: (string | null);
     first_release_date: (number | null);
     average_rating: (number | null);
 };

@@ -88,6 +88,7 @@ def test_update_rom(
             "genres": '[{"id": 5, "name": "Shooter"}, {"id": 8, "name": "Platform"}, {"id": 31, "name": "Adventure"}]',
             "franchises": '[{"id": 756, "name": "Metroid"}]',
             "collections": '[{"id": 243, "name": "Metroid"}, {"id": 6240, "name": "Metroid Prime"}]',
+            "player_count": "1",
             "expansions": "[]",
             "dlcs": "[]",
             "companies": '[{"id": 203227, "company": {"id": 70, "name": "Nintendo"}}, {"id": 203307, "company": {"id": 766, "name": "Retro Studios"}}]',
@@ -380,6 +381,7 @@ class TestUpdateRawMetadata:
         raw_metadata = {
             "ss_score": "85",
             "alternative_names": ["Test SS Game"],
+            "player_count": "1-4",
         }
 
         response = client.put(
@@ -396,6 +398,7 @@ class TestUpdateRawMetadata:
         assert body["ss_metadata"] is not None
         assert body["ss_metadata"]["ss_score"] == "85"
         assert body["ss_metadata"]["alternative_names"] == ["Test SS Game"]
+        assert body["ss_metadata"]["player_count"] == "1-4"
 
     @patch.object(
         LaunchboxHandler,
