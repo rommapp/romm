@@ -15,9 +15,11 @@ class DBWalkthroughsHandler(DBBaseHandler):
         *,
         session=None,  # type: ignore
     ) -> Walkthrough:
-        walkthrough = session.merge(walkthrough)
+        # Use merge to handle both insert and update operations efficiently
+        merged_walkthrough = session.merge(walkthrough)
         session.flush()
-        return walkthrough
+        session.refresh(merged_walkthrough)  # Ensure we have the latest state
+        return merged_walkthrough
 
     @begin_session
     def get_walkthroughs_for_rom(

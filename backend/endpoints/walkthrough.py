@@ -31,6 +31,30 @@ router = APIRouter(
 )
 
 
+async def _fetch_walkthrough_with_error_handling(url: str) -> WalkthroughResult:
+    """Helper function to fetch walkthrough with consistent error handling."""
+    try:
+        return await fetch_walkthrough(url)
+    except WalkthroughFetchFailed as exc:
+        log.error("Walkthrough fetch failed", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+        ) from exc
+    except InvalidWalkthroughURLError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    except WalkthroughContentNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    except WalkthroughError as exc:
+        log.error("Walkthrough fetch failed", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+        ) from exc
+
+
 class WalkthroughRequest(BaseModel):
     url: str = Field(..., description="Walkthrough URL from GameFAQs")
 
@@ -76,26 +100,7 @@ async def get_walkthrough(
     request: Request,  # noqa: ARG001 - required for authentication decorator
     payload: WalkthroughRequest,
 ) -> WalkthroughResponse:
-    try:
-        result: WalkthroughResult = await fetch_walkthrough(payload.url)
-    except WalkthroughFetchFailed as exc:
-        log.error("Walkthrough fetch failed", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
-        ) from exc
-    except InvalidWalkthroughURLError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
-    except WalkthroughContentNotFound as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
-    except WalkthroughError as exc:
-        log.error("Walkthrough fetch failed", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
-        ) from exc
+    result = await _fetch_walkthrough_with_error_handling(payload.url)
     return WalkthroughResponse(**result)
 
 
@@ -143,26 +148,7 @@ async def create_walkthrough_for_rom(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Rom not found"
         )
-    try:
-        result: WalkthroughResult = await fetch_walkthrough(payload.url)
-    except WalkthroughFetchFailed as exc:
-        log.error("Walkthrough fetch failed", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
-        ) from exc
-    except InvalidWalkthroughURLError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
-    except WalkthroughContentNotFound as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
-    except WalkthroughError as exc:
-        log.error("Walkthrough fetch failed", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
-        ) from exc
+    result = await _fetch_walkthrough_with_error_handling(payload.url)
 
     walkthrough = Walkthrough(
         rom_id=rom_id,
@@ -249,6 +235,7 @@ async def upload_walkthrough_for_rom(
         content=content,
         file_path=None,
     )
+
     saved = db_walkthrough_handler.add_walkthrough(walkthrough)
 
     if fmt == WalkthroughFormat.PDF:
