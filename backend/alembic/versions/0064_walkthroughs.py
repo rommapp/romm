@@ -1,7 +1,7 @@
 """Add walkthroughs table
 
 Revision ID: 0063_walkthroughs
-Revises: 0062_rom_file_category_enum
+Revises: 0063_roms_metadata_player_count
 Create Date: 2026-01-04 18:40:00.000000
 """
 
@@ -12,8 +12,8 @@ from alembic import op
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision: str = "0063_walkthroughs"
-down_revision: Union[str, None] = "0062_rom_file_category_enum"
+revision: str = "0064_walkthroughs"
+down_revision: Union[str, None] = "0063_roms_metadata_player_count"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
