@@ -21,7 +21,7 @@ interface WalkthroughProgress {
 }
 
 interface UseWalkthroughOptions {
-  openPanels: Ref<number[]>;
+  openPanels?: Ref<number[]>;
 }
 
 // Constants
@@ -76,7 +76,9 @@ function buildPdfUrl(walkthrough: Walkthrough): string {
 /**
  * Enhanced walkthrough composable with better organization and type safety
  */
-export function useWalkthrough({ openPanels }: UseWalkthroughOptions) {
+export function useWalkthrough({
+  openPanels = ref<number[]>([]),
+}: UseWalkthroughOptions) {
   const visibleLines = ref<Record<number, number>>({});
   const contentRefs = new Map<number, HTMLElement>();
   const lineCache = new Map<number, string[]>();

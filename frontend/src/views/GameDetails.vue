@@ -15,7 +15,7 @@ import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import TitleInfo from "@/components/Details/Title.vue";
-import Walkthroughs from "@/components/Details/Walkthroughs.vue";
+import Walkthroughs from "@/components/Details/Walkthroughs/Walkthroughs.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import romApi from "@/services/api/rom";
