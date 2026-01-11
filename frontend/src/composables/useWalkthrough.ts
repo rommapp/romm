@@ -77,20 +77,13 @@ function buildPdfUrl(walkthrough: Walkthrough): string {
  * Enhanced walkthrough composable with better organization and type safety
  */
 export function useWalkthrough({ openPanels }: UseWalkthroughOptions) {
-  // Reactive state
   const visibleLines = ref<Record<number, number>>({});
-
-  // Non-reactive state
   const contentRefs = new Map<number, HTMLElement>();
   const lineCache = new Map<number, string[]>();
-
-  // Persistent storage
   const storedProgress = useLocalStorage<Record<number, WalkthroughProgress>>(
     "walkthrough.progress",
     {},
   );
-
-  // Computed values
   const progressData = computed(() => storedProgress.value);
 
   // Core functionality
@@ -277,7 +270,6 @@ export function useWalkthrough({ openPanels }: UseWalkthroughOptions) {
     },
   );
 
-  // Public API
   return {
     getVisibleText,
     canShowMore,
