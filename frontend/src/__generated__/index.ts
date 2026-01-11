@@ -21,6 +21,7 @@ export type { Body_update_collection_api_collections__id__put } from './models/B
 export type { Body_update_platform_api_platforms__id__put } from './models/Body_update_platform_api_platforms__id__put';
 export type { Body_update_rom_api_roms__id__put } from './models/Body_update_rom_api_roms__id__put';
 export type { Body_update_rom_user_api_roms__id__props_put } from './models/Body_update_rom_user_api_roms__id__props_put';
+export type { Body_upload_walkthrough_for_rom_api_walkthroughs_roms__rom_id__upload_post } from './models/Body_upload_walkthrough_for_rom_api_walkthroughs_roms__rom_id__upload_post';
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
 export type { CleanupStats } from './models/CleanupStats';
 export type { CleanupTaskMeta } from './models/CleanupTaskMeta';
