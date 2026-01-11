@@ -4,6 +4,7 @@ import type {
   ManualMetadata,
   RomUserSchema,
   UserNoteSchema,
+  WalkthroughSchema,
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
@@ -364,7 +365,7 @@ export type UpdateRom = SimpleRom & {
     flashpoint_metadata?: string;
     hltb_metadata?: string;
   };
-  walkthroughs?: unknown;
+  walkthroughs?: Array<WalkthroughSchema>;
 };
 
 async function updateRom({

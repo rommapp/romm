@@ -231,14 +231,7 @@ def _parse_gamefaqs(
     if author_tag:
         author = author_tag.get_text(strip=True)
 
-    if fmt == WalkthroughFormat.HTML:
-        serialized = []
-        for pre in pre_tags:
-            clean_pre = soup.new_tag("pre")
-            clean_pre.string = pre.get_text()
-            serialized.append(str(clean_pre))
-        return title, author, "\n\n".join(serialized).strip()
-
+    # GameFAQs content is always converted to clean text format
     return title, author, "\n\n".join(pre.get_text() for pre in pre_tags).strip()
 
 
