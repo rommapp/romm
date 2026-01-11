@@ -41,7 +41,7 @@ def upgrade() -> None:
         sa.Column("file_path", sa.String(length=1000), nullable=True),
         sa.Column(
             "content",
-            sa.Text().with_variant(mysql.MEDIUMTEXT(), "mysql"),
+            sa.Text().with_variant(mysql.LONGTEXT(), "mysql"),
             nullable=False,
         ),
         sa.ForeignKeyConstraint(
