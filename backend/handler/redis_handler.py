@@ -18,7 +18,13 @@ class QueuePrio(Enum):
     LOW = "low"
 
 
-redis_client = Redis.from_url(REDIS_URL)
+if IS_PYTEST_RUN:
+    # Only import fakeredis when running tests, as it is a test dependency.
+    from fakeredis import FakeRedis
+
+    redis_client = FakeRedis(version=7)
+else:
+    redis_client = Redis.from_url(REDIS_URL)
 
 high_prio_queue = Queue(name=QueuePrio.HIGH.value, connection=redis_client)
 default_queue = Queue(name=QueuePrio.DEFAULT.value, connection=redis_client)

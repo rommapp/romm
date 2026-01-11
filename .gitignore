@@ -38,6 +38,9 @@ __pycache__
 # secrets
 .env
 
+# Redis/Valkey ACL (users should copy users.acl.example -> users.acl)
+examples/redis/users.acl
+
 # database
 mariadb
 *.sqlite

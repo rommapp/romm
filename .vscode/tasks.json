@@ -17,7 +17,7 @@
     {
       "label": "Execute tests",
       "type": "shell",
-      "command": "cd backend && uv run pytest -vv",
+      "command": "cd backend && uv run --extra test pytest -vv",
       "problemMatcher": []
     },
     {

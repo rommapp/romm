@@ -74,8 +74,10 @@ declare global {
     EJS_cheats: string;
     EJS_gameParentUrl: string;
     EJS_gamePatchUrl: string;
+    EJS_netplayUrl: string;
     EJS_netplayServer: string;
     EJS_netplayICEServers: NetplayICEServer[];
+    EJS_netplayToken?: string;
     EJS_alignStartButton: "top" | "center" | "bottom";
     EJS_startOnLoaded: boolean;
     EJS_fullscreenOnLoaded: boolean;
@@ -123,7 +125,7 @@ const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
 window.EJS_controlScheme = getControlSchemeForPlatform(
-  romRef.value.platform_slug,
+  romRef.value.platform_slug
 );
 window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
 window.EJS_gameID = romRef.value.id;
@@ -168,7 +170,15 @@ const {
   EJS_NETPLAY_ICE_SERVERS,
   EJS_NETPLAY_ENABLED,
 } = configStore.config;
-window.EJS_netplayServer = EJS_NETPLAY_ENABLED ? window.location.host : "";
+// EmulatorJS-SFU expects `window.EJS_netplayUrl`.
+// This value is used as both:
+// - Socket.IO URL (io(netplayUrl))
+// - HTTP room listing base (netplayUrl + "/list")
+// If the URL contains a path (e.g. /netplay), Socket.IO treats it as a namespace.
+// Our SFU serves the default namespace, so we keep this at the origin.
+window.EJS_netplayUrl = EJS_NETPLAY_ENABLED ? window.location.origin : "";
+// Compatibility with other EmulatorJS builds, potentially compatbile with an ICE fallback build.
+window.EJS_netplayServer = window.EJS_netplayUrl;
 window.EJS_netplayICEServers = EJS_NETPLAY_ENABLED
   ? EJS_NETPLAY_ICE_SERVERS
   : [];
@@ -182,7 +192,7 @@ onMounted(() => {
   if (props.bios) {
     localStorage.setItem(
       `player:${romRef.value.platform_slug}:bios_id`,
-      props.bios.id.toString(),
+      props.bios.id.toString()
     );
   } else {
     localStorage.removeItem(`player:${romRef.value.platform_slug}:bios_id`);
@@ -191,7 +201,7 @@ onMounted(() => {
   if (props.core) {
     localStorage.setItem(
       `player:${romRef.value.platform_slug}:core`,
-      props.core,
+      props.core
     );
   } else {
     localStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
@@ -200,7 +210,7 @@ onMounted(() => {
   if (props.disc) {
     localStorage.setItem(
       `player:${romRef.value.id}:disc`,
-      props.disc.toString(),
+      props.disc.toString()
     );
   } else {
     localStorage.removeItem(`player:${romRef.value.id}:disc`);
@@ -228,7 +238,7 @@ function displayMessage(
     duration: number;
     className?: "msg-info" | "msg-error" | "msg-success";
     icon?: string;
-  },
+  }
 ) {
   window.EJS_emulator.displayMessage(message, duration);
   const element = document.querySelector("#game .ejs_message");
@@ -328,7 +338,7 @@ window.EJS_onSaveState = async function ({
   });
   window.EJS_emulator.storage.states.put(
     window.EJS_emulator.getBaseFileName() + ".state",
-    stateFile,
+    stateFile
   );
 
   romsStore.update(romRef.value);
@@ -409,28 +419,6 @@ window.EJS_onGameStart = async () => {
     romsStore.update(romRef.value);
     immediateExit();
   });
-
-  // The netplay implementation is finnicky, these overrides make it work
-  const { defineNetplayFunctions } = window.EJS_emulator;
-  window.EJS_emulator.defineNetplayFunctions = () => {
-    defineNetplayFunctions.bind(window.EJS_emulator)();
-
-    window.EJS_emulator.netplay.url = {
-      path: "/netplay/socket.io",
-    };
-
-    window.EJS_emulator.netplayGetOpenRooms = async () => {
-      try {
-        const response = await fetch(
-          `/api/netplay/list?game_id=${window.EJS_gameID}`,
-        );
-        return await response.json();
-      } catch (error) {
-        console.error("Error fetching open rooms:", error);
-        return {};
-      }
-    };
-  };
 };
 
 function immediateExit() {

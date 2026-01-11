@@ -17,6 +17,9 @@ from config import (
     DB_QUERY_JSON,
     DB_USER,
     LIBRARY_BASE_PATH,
+    REDIS_PASSWORD,
+    REDIS_USERNAME,
+    IS_PYTEST_RUN,
     ROMM_BASE_PATH,
     ROMM_DB_DRIVER,
 )
@@ -467,6 +470,21 @@ class ConfigManager:
                 "Invalid config.yml: emulatorjs.netplay.enabled must be a boolean"
             )
             sys.exit(3)
+
+        # Netplay SFU authentication requires Redis ACL users so the SFU can be
+        # restricted to the `sfu:*` keyspace while RomM retains full access.
+        # Enforce that RomM is configured with an explicit, non-default username.
+        if self.config.EJS_NETPLAY_ENABLED and not IS_PYTEST_RUN:
+            if not REDIS_USERNAME or REDIS_USERNAME.strip().lower() == "default":
+                log.critical(
+                    "Netplay requires Redis ACL users: set REDIS_USERNAME to a non-default user (e.g. 'romm')"
+                )
+                sys.exit(3)
+            if not REDIS_PASSWORD:
+                log.critical(
+                    "Netplay requires Redis ACL users: set REDIS_PASSWORD for REDIS_USERNAME (e.g. 'romm')"
+                )
+                sys.exit(3)
 
         if self.config.EJS_CACHE_LIMIT is not None and not isinstance(
             self.config.EJS_CACHE_LIMIT, int

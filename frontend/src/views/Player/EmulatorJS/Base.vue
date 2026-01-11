@@ -20,6 +20,7 @@ import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
+import api from "@/services/api";
 
 const { t } = useI18n();
 const { xs, mdAndUp, smAndDown } = useDisplay();
@@ -40,6 +41,7 @@ const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
+let sfuTokenRefreshTimer: number | null = null;
 
 declare global {
   interface Navigator {
@@ -53,8 +55,8 @@ declare global {
 const compatibleStates = computed(
   () =>
     rom.value?.user_states.filter(
-      (s) => !s.emulator || s.emulator === selectedCore.value,
-    ) ?? [],
+      (s) => !s.emulator || s.emulator === selectedCore.value
+    ) ?? []
 );
 
 async function onPlay() {
@@ -71,10 +73,38 @@ async function onPlay() {
   fullScreen.value = fullScreenOnPlay.value;
   playing.value = true;
 
+  // TODO: Modify checks and paths to accomodate EmulatorJS-SFU
   const { EJS_NETPLAY_ENABLED } = configStore.config;
   const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
   const LOCAL_PATH = "/assets/emulatorjs/data";
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
+
+  async function ensureSfuToken() {
+    try {
+      const { data } = await api.post("/sfu/token");
+      const token = data?.token;
+      if (typeof token !== "string" || token.length === 0) {
+        throw new Error("Missing token in /api/sfu/token response");
+      }
+
+      window.EJS_netplayToken = token;
+
+      // Do NOT place the token into `EJS_netplayServer` URL: EmulatorJS builds
+      // commonly build the room list endpoint via string concatenation
+      // (netplayUrl + "/list"), which breaks when a query string is present.
+      // Instead, store the token in a cookie; Socket.IO will send it in
+      // the handshake headers on the same domain.
+      const secure = window.location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = `romm_sfu_token=${encodeURIComponent(
+        token
+      )}; Max-Age=30; Path=/; SameSite=Lax${secure}`;
+    } catch (err) {
+      console.warn(
+        "[Play] Failed to mint SFU token; authenticated netplay may fail",
+        err
+      );
+    }
+  }
 
   function loadScript(src: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -89,15 +119,55 @@ async function onPlay() {
 
   async function attemptLoad(path: string) {
     window.EJS_pathtodata = path;
+
+    // EmulatorJS-SFU requires a browser mediasoup-client bundle.
+    // Don't rely on RomM's netplay flag here; if a hybrid-only loader is used, it
+    // will fail SFU init unless this is present.
+    if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
+      try {
+        // Always prefer the locally mounted bundle.
+        const mediasoupPath = `${LOCAL_PATH}/vendor/mediasoup-client-umd.js`;
+        console.info("[Play] Preloading mediasoup-client:", mediasoupPath);
+        await loadScript(mediasoupPath);
+        // Verify it loaded correctly, in case of a bad file or interrupted download.
+        if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
+          console.warn(
+            "[Play] mediasoup-client script loaded but global not found; SFU netplay may fail"
+          );
+        }
+      } catch (e) {
+        // Keep this as a warning (not fatal) so non-netplay sessions still work.
+        console.warn(
+          "[Play] mediasoup-client bundle missing; SFU netplay may fail",
+          e
+        );
+      }
+    }
+
     await loadScript(`${path}/loader.js`);
   }
 
   try {
-    try {
-      await attemptLoad(EJS_NETPLAY_ENABLED ? CDN_PATH : LOCAL_PATH);
-    } catch (e) {
-      console.warn("[Play] Local loader failed, trying CDN", e);
-      await attemptLoad(EJS_NETPLAY_ENABLED ? LOCAL_PATH : CDN_PATH);
+    if (EJS_NETPLAY_ENABLED) {
+      await ensureSfuToken();
+      if (sfuTokenRefreshTimer !== null) {
+        window.clearInterval(sfuTokenRefreshTimer);
+      }
+      // Refresh slightly before TTL to keep reconnects working.
+      sfuTokenRefreshTimer = window.setInterval(() => {
+        ensureSfuToken();
+      }, 20000);
+    }
+    if (EJS_NETPLAY_ENABLED) {
+      // Netplay depends on our locally mounted EmulatorJS + SFU proxies.
+      await attemptLoad(LOCAL_PATH);
+    } else {
+      try {
+        await attemptLoad(LOCAL_PATH);
+      } catch (e) {
+        console.warn("[Play] Local loader failed, trying CDN", e);
+        await attemptLoad(CDN_PATH);
+      }
     }
     playing.value = true;
     fullScreen.value = fullScreenOnPlay.value;
@@ -119,7 +189,7 @@ function selectSave(save: SaveSchema) {
   }
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:save_id`,
-    save.id.toString(),
+    save.id.toString()
   );
   // Switch to saves tab
   isSavesTabSelected.value = true;
@@ -139,7 +209,7 @@ function selectState(state: StateSchema) {
   }
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:state_id`,
-    state.id.toString(),
+    state.id.toString()
   );
   // Switch to states tab
   isSavesTabSelected.value = false;
@@ -196,7 +266,7 @@ onMounted(async () => {
 
   // Determine default tab and selection (mutually exclusive)
   const compatibleStates = rom.value.user_states.filter(
-    (s) => !s.emulator || s.emulator === supportedCores.value[0],
+    (s) => !s.emulator || s.emulator === supportedCores.value[0]
   );
 
   if (compatibleStates.length > 0) {
@@ -224,7 +294,7 @@ onMounted(async () => {
   }
 
   const storedCore = localStorage.getItem(
-    `player:${rom.value.platform_slug}:core`,
+    `player:${rom.value.platform_slug}:core`
   );
   if (storedCore) {
     selectedCore.value = storedCore;
@@ -235,7 +305,7 @@ onMounted(async () => {
 
   const coreOptions = configStore.getEJSCoreOptions(selectedCore.value);
   const storedBiosID = localStorage.getItem(
-    `player:${rom.value.platform_slug}:bios_id`,
+    `player:${rom.value.platform_slug}:bios_id`
   );
 
   const biosFromStorage = storedBiosID
@@ -253,6 +323,10 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(async () => {
+  if (sfuTokenRefreshTimer !== null) {
+    window.clearInterval(sfuTokenRefreshTimer);
+    sfuTokenRefreshTimer = null;
+  }
   window.EJS_emulator?.callEvent("exit");
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);
@@ -373,8 +447,8 @@ function openCacheDialog() {
                     rom.user_saves.length == 0
                       ? t("play.no-saves-available")
                       : selectedSave
-                        ? t("play.change-save")
-                        : t("play.select-save")
+                      ? t("play.change-save")
+                      : t("play.select-save")
                   }}
                 </v-btn>
               </div>
@@ -413,19 +487,19 @@ function openCacheDialog() {
                   "
                   :disabled="
                     !rom.user_states.some(
-                      (s) => !s.emulator || s.emulator === selectedCore,
+                      (s) => !s.emulator || s.emulator === selectedCore
                     )
                   "
                   @click="openStateDialog"
                 >
                   {{
                     !rom.user_states.some(
-                      (s) => !s.emulator || s.emulator === selectedCore,
+                      (s) => !s.emulator || s.emulator === selectedCore
                     )
                       ? t("play.no-states-available")
                       : selectedState
-                        ? t("play.change-state")
-                        : t("play.select-state")
+                      ? t("play.change-state")
+                      : t("play.select-state")
                   }}
                 </v-btn>
               </div>
@@ -654,9 +728,7 @@ function openCacheDialog() {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.15);
   transform: translate(-50%, -50%);
-  transition:
-    width 0.5s,
-    height 0.5s;
+  transition: width 0.5s, height 0.5s;
 }
 
 .play-button:hover::before {

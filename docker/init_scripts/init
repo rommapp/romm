@@ -16,6 +16,15 @@ ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB
 # if REDIS_HOST is set, we assume that an external redis is used
 REDIS_HOST="${REDIS_HOST:=""}"
 
+is_truthy() {
+	local v="${1:-}"
+	v="$(echo "${v}" | tr '[:upper:]' '[:lower:]' | xargs)"
+	case "${v}" in
+	1|true|yes|on) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
 # logger colors
 RED='\033[0;31m'
 LIGHTMAGENTA='\033[0;95m'
@@ -137,25 +146,282 @@ start_bin_nginx() {
 start_bin_valkey-server() {
 	info_log "Starting internal valkey"
 
-	if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
-		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
-			valkey-server /usr/local/etc/valkey/valkey.conf &
+	# Internal Valkey defaults to loopback-only (safe). To allow other containers
+	# (e.g. EmulatorJS-SFU) to connect, opt-in by setting:
+	#   ROMM_INTERNAL_VALKEY_EXPOSE=true
+	# When exposed, ACL is REQUIRED and Valkey will be started with a generated
+	# ACL file in /redis-data.
+	local expose="${ROMM_INTERNAL_VALKEY_EXPOSE:-false}"
+	local enable_acl="${ROMM_INTERNAL_VALKEY_ENABLE_ACL:-}"
+	local bind_addr="${ROMM_INTERNAL_VALKEY_BIND:-}"
+	local protected_mode="${ROMM_INTERNAL_VALKEY_PROTECTED_MODE:-}"
+	local port="${REDIS_PORT:-6379}"
+	local data_dir="${ROMM_INTERNAL_VALKEY_DATA_DIR:-/redis-data}"
+	local acl_file="${ROMM_INTERNAL_VALKEY_ACL_FILE:-${data_dir}/users.acl}"
+
+	if [[ -z ${bind_addr} ]]; then
+		if is_truthy "${expose}"; then
+			bind_addr="0.0.0.0"
 		else
-			valkey-server /usr/local/etc/valkey/valkey.conf >/dev/null 2>&1 &
+			bind_addr="127.0.0.1"
 		fi
+	fi
+
+	# Auto-enable ACL when exposing, or when SFU password is provided.
+	if [[ -z ${enable_acl} ]]; then
+		if is_truthy "${expose}" || [[ -n ${VALKEY_SFU_PASSWORD-} ]]; then
+			enable_acl="true"
+		else
+			enable_acl="false"
+		fi
+	fi
+
+	if [[ -z ${protected_mode} ]]; then
+		# Protected-mode should be off when binding non-loopback.
+		if [[ ${bind_addr} == "127.0.0.1" || ${bind_addr} == "::1" ]]; then
+			protected_mode="yes"
+		else
+			protected_mode="no"
+		fi
+	fi
+
+	# If exposing internal Valkey, require ACL (fail closed).
+	if is_truthy "${expose}" && ! is_truthy "${enable_acl}"; then
+		error_log "ROMM_INTERNAL_VALKEY_EXPOSE is enabled but ROMM_INTERNAL_VALKEY_ENABLE_ACL is false. Refusing to expose Valkey without ACL."
+	fi
+
+	ensure_internal_valkey_acl_file() {
+		# Generate an ACL file inside the writable /redis-data volume.
+		# Two users:
+		# - romm: full access (RomM backend + workers)
+		# - sfu: restricted to sfu:* keyspace
+		local romm_pw="${VALKEY_ROMM_PASSWORD:-${REDIS_PASSWORD:-${ROMM_AUTH_SECRET_KEY:-}}}"
+		local sfu_pw="${VALKEY_SFU_PASSWORD:-}"
+
+		if [[ -z ${romm_pw} || -z ${sfu_pw} ]]; then
+			error_log "Internal Valkey ACL enabled but missing romm password (VALKEY_ROMM_PASSWORD/REDIS_PASSWORD/ROMM_AUTH_SECRET_KEY) and/or VALKEY_SFU_PASSWORD"
+		fi
+
+		# Ensure RomM itself uses the ACL user by default when internal Valkey is used.
+		export REDIS_USERNAME="${REDIS_USERNAME:-romm}"
+		export REDIS_PASSWORD="${romm_pw}"
+		export REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
+		export REDIS_PORT="${port}"
+
+		if [[ -f ${acl_file} ]]; then
+			# Existing deployments may have an ACL file that is missing entries.
+			# Do not fail here; instead, ensure at least the security-critical
+			# defaults are present and let runtime verification handle rotations.
+			umask 077
+			if ! grep -qE '^user\s+default\s+off\b' "${acl_file}"; then
+				echo "" >>"${acl_file}" || true
+				echo "user default off" >>"${acl_file}" || true
+			fi
+			# If the SFU user is missing, add it now (does not affect existing users).
+			if ! grep -qE '^user\s+sfu\b' "${acl_file}"; then
+				echo "" >>"${acl_file}" || true
+				echo "# EmulatorJS-SFU (restricted)" >>"${acl_file}" || true
+				echo "user sfu on >${sfu_pw} ~sfu:* &* +ping +get +set +del +mget +scan +hgetall +hset +expire +ttl +setnx +eval +select" >>"${acl_file}" || true
+			fi
+			chmod 600 "${acl_file}" || true
+			return 0
+		fi
+
+		info_log "Generating internal Valkey ACL file" "(${acl_file})"
+		mkdir -p "$(dirname "${acl_file}")"
+		umask 077
+		cat >"${acl_file}" <<EOF
+user default off
+
+# RomM (full access)
+user romm on >${romm_pw} ~* &* +@all
+
+# EmulatorJS-SFU (restricted)
+# - keyspace limited to sfu:* (covers sfu:auth:* and sfu:room:*)
+# - commands limited to those needed for token allowlist + room registry
+user sfu on >${sfu_pw} ~sfu:* &* +ping +get +set +del +mget +scan +hgetall +hset +expire +ttl +setnx +eval +select
+EOF
+		chmod 600 "${acl_file}" || true
+	}
+
+	verify_internal_valkey_acl_runtime() {
+		# Runtime auth verification using valkey-cli (if present).
+		local desired_romm_pw="${VALKEY_ROMM_PASSWORD:-}"
+		local romm_pw="${VALKEY_ROMM_PASSWORD:-${REDIS_PASSWORD:-${ROMM_AUTH_SECRET_KEY:-}}}"
+		local legacy_romm_pw="${ROMM_AUTH_SECRET_KEY:-}"
+		local sfu_pw="${VALKEY_SFU_PASSWORD:-}"
+		local legacy_sfu_pw="${ROMM_AUTH_SECRET_KEY:-}"
+		if ! command -v valkey-cli >/dev/null 2>&1; then
+			warn_log "valkey-cli not found; skipping ACL runtime verification"
+			return 0
+		fi
+
+		valkey_cli_ping() {
+			local user="${1:-}"
+			local pass="${2:-}"
+			if [[ -z ${user} || -z ${pass} ]]; then
+				return 1
+			fi
+			valkey-cli -h 127.0.0.1 -p "${port}" --user "${user}" -a "${pass}" ping >/dev/null 2>&1
+		}
+
+		wait_for_internal_valkey_ready() {
+			local host="127.0.0.1"
+			local max_retries=120
+			local retry=0
+			while ((retry < max_retries)); do
+				if (echo >/dev/tcp/"${host}"/"${port}") 2>/dev/null; then
+					return 0
+				fi
+				sleep 0.5
+				((retry++))
+			done
+			return 1
+		}
+
+		restart_internal_valkey() {
+			info_log "Restarting internal valkey to apply ACL changes"
+			if [[ -n ${VALKEY_PID-} ]]; then
+				kill "${VALKEY_PID}" >/dev/null 2>&1 || true
+				# wait for process exit
+				local tries=200
+				while [[ -e "/proc/${VALKEY_PID}" && tries -gt 0 ]]; do
+					sleep 0.05
+					((tries--))
+				done
+			fi
+
+			if [[ ${LOGLEVEL} == "DEBUG" ]]; then
+				"${cmd[@]}" &
+			else
+				"${cmd[@]}" >/dev/null 2>&1 &
+			fi
+			VALKEY_PID=$!
+			echo "${VALKEY_PID}" >/tmp/valkey-server.pid
+			wait_for_internal_valkey_ready || error_log "Internal valkey did not become ready after restart"
+		}
+
+		rotate_romm_acl_password_if_needed() {
+			# Upgrade path:
+			# If VALKEY_ROMM_PASSWORD is set but the existing ACL still uses the old
+			# ROMM_AUTH_SECRET_KEY, automatically rotate the 'romm' user's password.
+			if [[ -z ${desired_romm_pw} ]]; then
+				return 0
+			fi
+			if [[ ! -f ${acl_file} ]]; then
+				return 0
+			fi
+
+			# If the desired password already works, we're done.
+			if valkey_cli_ping romm "${desired_romm_pw}"; then
+				return 0
+			fi
+
+			# Otherwise, attempt legacy password.
+			if [[ -z ${legacy_romm_pw} ]]; then
+				error_log "VALKEY_ROMM_PASSWORD auth failed for 'romm', and ROMM_AUTH_SECRET_KEY is not set for upgrade fallback"
+			fi
+			if ! valkey_cli_ping romm "${legacy_romm_pw}"; then
+				error_log "VALKEY_ROMM_PASSWORD auth failed for 'romm', and legacy ROMM_AUTH_SECRET_KEY auth also failed"
+			fi
+
+			info_log "Detected legacy Valkey ACL password for 'romm'; rotating to VALKEY_ROMM_PASSWORD"
+
+			# Upsert by appending a new user definition (last one wins).
+			umask 077
+			if ! grep -qE '^user\s+default\s+off\b' "${acl_file}"; then
+				echo "" >>"${acl_file}" || true
+				echo "user default off" >>"${acl_file}" || true
+			fi
+			echo "" >>"${acl_file}" || true
+			echo "# RomM (full access)" >>"${acl_file}" || true
+			echo "user romm on >${desired_romm_pw} ~* &* +@all" >>"${acl_file}" || true
+			chmod 600 "${acl_file}" || true
+
+			restart_internal_valkey
+			export REDIS_PASSWORD="${desired_romm_pw}"
+			romm_pw="${desired_romm_pw}"
+
+			# Verify new password works after restart.
+			valkey_cli_ping romm "${desired_romm_pw}" || error_log "Internal Valkey password rotation failed: VALKEY_ROMM_PASSWORD still does not work for 'romm'"
+		}
+
+		ensure_sfu_acl_user_if_needed() {
+			# Always validate the SFU user when ACL is enabled.
+			if [[ -z ${sfu_pw} ]]; then
+				error_log "Internal Valkey ACL enabled but VALKEY_SFU_PASSWORD is not set"
+			fi
+			if valkey_cli_ping sfu "${sfu_pw}"; then
+				return 0
+			fi
+
+			# Upgrade/fallback path:
+			# Some deployments historically used ROMM_AUTH_SECRET_KEY as the Valkey password.
+			# If the desired SFU password fails, try the secret key; if it works, rotate to
+			# VALKEY_SFU_PASSWORD so future starts are consistent.
+			if [[ -n ${legacy_sfu_pw} ]] && valkey_cli_ping sfu "${legacy_sfu_pw}"; then
+				info_log "Detected legacy Valkey ACL password for 'sfu'; rotating to VALKEY_SFU_PASSWORD"
+			else
+				info_log "SFU Redis ACL user is missing or password mismatch; upserting 'sfu' user"
+			fi
+
+			umask 077
+			if ! grep -qE '^user\s+default\s+off\b' "${acl_file}"; then
+				echo "" >>"${acl_file}" || true
+				echo "user default off" >>"${acl_file}" || true
+			fi
+			echo "" >>"${acl_file}" || true
+			echo "# EmulatorJS-SFU (restricted)" >>"${acl_file}" || true
+			echo "user sfu on >${sfu_pw} ~sfu:* &* +ping +get +set +del +mget +scan +hgetall +hset +expire +ttl +setnx +eval +select" >>"${acl_file}" || true
+			chmod 600 "${acl_file}" || true
+
+			restart_internal_valkey
+			valkey_cli_ping sfu "${sfu_pw}" || error_log "Internal Valkey ACL verification failed for user 'sfu' after upsert"
+		}
+
+		# If a new romm password is provided, rotate from legacy if needed.
+		rotate_romm_acl_password_if_needed
+
+		# Ensure the SFU user is present and correct.
+		ensure_sfu_acl_user_if_needed
+
+		# Verify that each user can authenticate.
+		valkey_cli_ping romm "${romm_pw}" || error_log "Internal Valkey ACL verification failed for user 'romm'"
+		valkey_cli_ping sfu "${sfu_pw}" || error_log "Internal Valkey ACL verification failed for user 'sfu'"
+
+		# Verify sfu keyspace restriction (attempt write outside sfu:* should fail).
+		if valkey-cli -h 127.0.0.1 -p "${port}" --user sfu -a "${sfu_pw}" set romm:acl:test 1 >/dev/null 2>&1; then
+			error_log "Internal Valkey ACL verification failed: user 'sfu' can write outside sfu:*"
+		fi
+	}
+
+	if is_truthy "${enable_acl}"; then
+		ensure_internal_valkey_acl_file
+	fi
+
+	# If a custom config exists, we respect it unless ACL is explicitly enabled.
+	# (ACL needs --aclfile so we can ensure it uses /redis-data/users.acl.)
+	local cmd=(valkey-server)
+	if is_truthy "${enable_acl}"; then
+		cmd+=(--dir "${data_dir}" --aclfile "${acl_file}" --bind "${bind_addr}" --protected-mode "${protected_mode}" --port "${port}")
 	else
-		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
-			valkey-server --dir /redis-data &
+		if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
+			cmd+=(/usr/local/etc/valkey/valkey.conf)
 		else
-			valkey-server --dir /redis-data >/dev/null 2>&1 &
+			cmd+=(--dir "${data_dir}")
 		fi
+	fi
+
+	if [[ ${LOGLEVEL} == "DEBUG" ]]; then
+		"${cmd[@]}" &
+	else
+		"${cmd[@]}" >/dev/null 2>&1 &
 	fi
 
 	VALKEY_PID=$!
 	echo "${VALKEY_PID}" >/tmp/valkey-server.pid
 
 	local host="127.0.0.1"
-	local port="6379"
 	local max_retries=120
 	local retry=0
 
@@ -168,6 +434,9 @@ start_bin_valkey-server() {
 		# Attempt to check if valkey TCP port is open
 		if (echo >/dev/tcp/"${host}"/"${port}") 2>/dev/null; then
 			debug_log "Internal valkey is ready and accepting connections"
+			if is_truthy "${enable_acl}"; then
+				verify_internal_valkey_acl_runtime
+			fi
 			set -o errexit # Re-enable errexit after success
 			return 0
 		fi
@@ -198,15 +467,55 @@ start_bin_rq_scheduler() {
 start_bin_rq_worker() {
 	info_log "Starting RQ worker"
 
-	# Build Redis URL properly
+	# Build Redis URL safely.
+	# - Avoid bash "${VAR:+s}" gotcha (treats REDIS_SSL=false as truthy)
+	# - URL-encode username/password (passwords may contain '@', ':', etc)
+	# - Validate port/db are integers (prevents errors like port='eYQ')
 	local redis_url
-	if [[ -n ${REDIS_PASSWORD-} ]]; then
-		redis_url="redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-	elif [[ -n ${REDIS_USERNAME-} ]]; then
-		redis_url="redis${REDIS_SSL:+s}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-	else
-		redis_url="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-	fi
+	redis_url=$(
+		python3 - <<'PY'
+import os
+from urllib.parse import quote
+
+def is_truthy(v: str | None) -> bool:
+    if v is None:
+        return False
+    v = v.strip().lower()
+    return v in {"1", "true", "yes", "on"}
+
+host = (os.environ.get("REDIS_HOST") or "127.0.0.1").strip()
+port_raw = (os.environ.get("REDIS_PORT") or "6379").strip()
+db_raw = (os.environ.get("REDIS_DB") or "0").strip()
+user = (os.environ.get("REDIS_USERNAME") or "").strip()
+password = os.environ.get("REDIS_PASSWORD") or ""
+
+# Treat the common requirepass setup as password-only (no username in URL).
+if user.lower() == "default":
+    user = ""
+
+try:
+    port = int(port_raw)
+except ValueError as e:
+    raise SystemExit(f"REDIS_PORT must be an integer, got {port_raw!r}") from e
+
+try:
+    db = int(db_raw)
+except ValueError as e:
+    raise SystemExit(f"REDIS_DB must be an integer, got {db_raw!r}") from e
+
+scheme = "rediss" if is_truthy(os.environ.get("REDIS_SSL")) else "redis"
+
+userinfo = ""
+if user or password:
+    if user:
+        userinfo += quote(user, safe="")
+    if password:
+        userinfo += ":" + quote(password, safe="")
+    userinfo += "@"
+
+print(f"{scheme}://{userinfo}{host}:{port}/{db}")
+PY
+	) || error_log "Failed to build Redis URL for RQ worker (check REDIS_* env vars)"
 
 	# Set PYTHONPATH so RQ can find the tasks module
 	PYTHONPATH="/backend:${PYTHONPATH-}" rq worker \

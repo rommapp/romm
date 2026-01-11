@@ -25,18 +25,45 @@ ARG UV_VERSION=0.8.24
 ARG UV_SHA256=779f3d612539b4696a1b228724cd79b6e8b8604075a9ac7d15378bccf4053373
 
 
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
+FROM docker.io/library/python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
 
 
 # FRONTEND BUILD
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS frontend-build
+FROM docker.io/library/node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS frontend-build
 WORKDIR /front
 
 COPY ./frontend/package*.json ./
+RUN npm config set engine-strict false
 RUN npm ci --ignore-scripts --no-audit --no-fund
 
 COPY ./frontend ./
 RUN npm run build
+
+
+# BUILD BROWSER mediasoup-client UMD BUNDLE
+# EmulatorJS-SFU expects a browser bundle that exposes `window.mediasoupClient`.
+FROM docker.io/library/node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS mediasoup-client-umd-build
+WORKDIR /build
+
+# NOTE: Setting this to `latest` keeps the browser client current, but makes image builds non-reproducible.
+ARG MEDIASOUP_CLIENT_VERSION=latest
+
+RUN npm init -y >/dev/null 2>&1 && \
+    npm install --no-audit --no-fund --silent mediasoup-client@${MEDIASOUP_CLIENT_VERSION} esbuild@0.24.2
+
+RUN mkdir -p /out && \
+    cat > /build/entry.js <<'EOF'
+import * as mediasoupClient from "mediasoup-client";
+export default mediasoupClient;
+EOF
+
+RUN npx esbuild /build/entry.js \
+      --bundle \
+      --format=iife \
+      --global-name=mediasoupClient \
+      --define:process.env.NODE_ENV='"production"' \
+      --minify \
+      --outfile=/out/mediasoup-client-umd.js
 
 
 # https://github.com/astral-sh/uv/pkgs/container/uv/452595714
@@ -73,7 +100,7 @@ RUN uv sync --locked --no-cache --all-extras
 
 
 # CUSTOM RAHASHER FOR RETROACHIEVEMENTS
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rahasher-build
+FROM docker.io/library/alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rahasher-build
 RUN apk add --no-cache \
     g++ \
     git \
@@ -97,13 +124,14 @@ RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://git
 
 
 # FETCH EMULATORJS AND RUFFLE
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
+FROM docker.io/library/alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
 
 RUN apk add --no-cache \
     7zip \
     wget \
     ca-certificates
 
+# Code to fetch and extract EmulatorJS (Currently fetches traditional EmulatorJS build, without SFU)
 ARG EMULATORJS_VERSION=4.2.3
 ARG EMULATORJS_SHA256=07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b
 
@@ -112,6 +140,10 @@ RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATOR
     7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
     rm -f "${EMULATORJS_VERSION}.7z"
 
+RUN mkdir -p /emulatorjs/data/vendor
+COPY --from=mediasoup-client-umd-build /out/mediasoup-client-umd.js /emulatorjs/data/vendor/mediasoup-client-umd.js
+
+# Code to fetch and extract Ruffle (Flash player emulator)
 ARG RUFFLE_VERSION=nightly-2025-08-14
 ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
 ARG RUFFLE_SHA256=178870c5e7dd825a8df35920dfc5328d83e53f3c4d5d95f70b1ea9cd13494151
@@ -123,7 +155,7 @@ RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS nginx-build
+FROM docker.io/library/alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS nginx-build
 
 RUN apk add --no-cache \
     gcc \
@@ -154,7 +186,7 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
 
 
 # PRODUCTION STAGE
-FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}@sha256:${NGINX_SHA256} AS production-stage
+FROM docker.io/library/nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}@sha256:${NGINX_SHA256} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
 RUN apk add --no-cache \

@@ -16,6 +16,7 @@ services:
       - "5173:5173" # Vite dev server (default)
       - "8443:8443" # HTTPS dev server
       - "${DEV_PORT:-5000}:5000" # Backend API
+      - "3001:3001" # EmulatorJS-SFU mediasoup port (custom set to 3001 to avoid conflict with Vite)
     volumes:
       - ./backend:/app/backend
       - /app/backend/romm_mock # Empty directory
@@ -33,7 +34,7 @@ services:
     tty: true
 
   romm-db-dev:
-    image: mariadb:11.3.2
+    image: docker.io/library/mariadb:11.3.2
     container_name: romm-db-dev
     restart: unless-stopped
     env_file: .env
@@ -48,16 +49,29 @@ services:
       - "3306:3306"
 
   romm-valkey-dev:
-    image: valkey/valkey:8
+    image: docker.io/valkey/valkey:8
     container_name: romm-valkey-dev
     restart: unless-stopped
     env_file: .env
+    command:
+      - valkey-server
+      - --bind
+      - 0.0.0.0
+      - --protected-mode
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:-rommredis}
+      # Optional: use an ACL file instead of requirepass by adding a users.acl
+      # and replacing the command with `--aclfile /etc/valkey/users.acl`.
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    # Optional: mount an ACL folder (copy from examples/redis/)
+    # volumes:
+    #   - ./examples/redis:/etc/valkey:ro
 
   romm-postgres-dev:
-    image: postgres:16-alpine
-    container_name: romm-postgresql-dev
+    image: docker.io/library/postgres:16-alpine
+    container_name: romm-postgres-dev
     restart: unless-stopped
     env_file: .env
     environment:

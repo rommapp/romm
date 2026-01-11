@@ -38,6 +38,9 @@ done
 # support the default value syntax `${VAR:-default}`.
 export ROMM_BASE_PATH=${ROMM_BASE_PATH:-/romm}
 export ROMM_PORT=${ROMM_PORT:-8080}
+# mediasoup SFU server host and port for netplay audio/video communication, default to containerized SFU server
+export EMULATORJS_SFU_HOST=${EMULATORJS_SFU_HOST:-localhost}
+export EMULATORJS_SFU_PORT=${EMULATORJS_SFU_PORT:-3001} # Traditional mediasoup default port 3000 in use by Vite
 
 # Set IPV6_LISTEN based on IPV4_ONLY
 if [[ ${IPV4_ONLY} == "true" ]]; then

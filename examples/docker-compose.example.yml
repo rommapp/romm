@@ -1,5 +1,12 @@
 version: "3"
 
+# Required `.env` values for this example:
+# - ROMM_AUTH_SECRET_KEY=...            (used for RomM <-> SFU auth)
+# - VALKEY_SFU_PASSWORD=...            (ACL user for the SFU)
+#
+# Valkey will auto-generate its ACL file inside the persistent volume on first start
+# (no host-mounted users.acl), avoiding common permission issues.
+
 volumes:
   mysql_data:
   romm_resources:
@@ -7,15 +14,31 @@ volumes:
 
 services:
   romm:
-    image: rommapp/romm:latest
-    container_name: romm
+    image: docker.io/rommapp/romm-sfu:latest
+    container_name: romm-sfu
     restart: unless-stopped
+    # extra_hosts: # Enable if hosting SFU elsewhere
+    #  - "host.docker.internal:host-gateway" # Required on Linux so the container can reach services running on the host
     environment:
+      - EMULATORJS_SFU_HOST=127.0.0.1 # Change if mediasoup is hosted elsewhere
+      - EMULATORJS_SFU_PORT=3001 # mediasoup SFU port for netplay
       - DB_HOST=romm-db
       - DB_NAME=romm # Should match MARIADB_DATABASE in mariadb
       - DB_USER=romm-user # Should match MARIADB_USER in mariadb
       - DB_PASSWD= # Should match MARIADB_PASSWORD in mariadb
-      - ROMM_AUTH_SECRET_KEY= # Generate a key with `openssl rand -hex 32`
+      # Valkey / Redis (recommended: run Valkey as a separate service and use ACL users)
+      - REDIS_HOST=romm-valkey
+      - REDIS_PORT=6379
+      - REDIS_USERNAME=${REDIS_USERNAME:-romm}
+      # If you want separate secrets, set REDIS_PASSWORD explicitly.
+      # Otherwise, this example reuses ROMM_AUTH_SECRET_KEY as the `romm` ACL password.
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-${ROMM_AUTH_SECRET_KEY:?set ROMM_AUTH_SECRET_KEY}}
+      - ROMM_AUTH_SECRET_KEY=${ROMM_AUTH_SECRET_KEY:?set ROMM_AUTH_SECRET_KEY} # Generate with `openssl rand -hex 32`
+      # IMPORTANT (SFU):
+      # Run the SFU with a restricted Redis user limited to the `sfu:*` keyspace.
+      # Example env vars for the SFU container:
+      #   ROMM_AUTH_SECRET_KEY=<same as above>
+      #   SFU_AUTH_REDIS_URL=redis://sfu:<VALKEY_SFU_PASSWORD>@romm-valkey:6379/0
       - SCREENSCRAPER_USER= # These are the recommended metadata providers
       - SCREENSCRAPER_PASSWORD= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#screenscraper
       - RETROACHIEVEMENTS_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
@@ -28,14 +51,38 @@ services:
       - /path/to/assets:/romm/assets # Uploaded saves, states, etc.
       - /path/to/config:/romm/config # (Optional) Path where config.yml is stored
     ports:
-      - 80:8080
+      - 80:8080 # hostport:containerport
     depends_on:
+      romm-valkey:
+        condition: service_started
       romm-db:
         condition: service_healthy
         restart: true
 
+  # Valkey / Redis
+  # - Uses ACL users so you can give RomM broad access while restricting the SFU.
+  romm-valkey:
+    image: docker.io/valkey/valkey:8
+    container_name: romm-valkey
+    restart: unless-stopped
+    environment:
+      # Passwords for the two ACL users. These are required.
+      - VALKEY_SFU_PASSWORD=${VALKEY_SFU_PASSWORD:?set VALKEY_SFU_PASSWORD}
+      # RomM password defaults to ROMM_AUTH_SECRET_KEY (optional override: VALKEY_ROMM_PASSWORD).
+      - ROMM_AUTH_SECRET_KEY=${ROMM_AUTH_SECRET_KEY:?set ROMM_AUTH_SECRET_KEY}
+
+      # Where to store the generated ACL file (inside the persistent volume).
+      - VALKEY_DATA_DIR=/data
+      - VALKEY_ACL_FILE=/data/users.acl
+
+    command: ["/bin/sh", "/etc/valkey/valkey-entrypoint.sh"]
+    volumes:
+      - romm_redis_data:/data
+      # This script auto-generates /data/users.acl if missing.
+      - ./redis/valkey-entrypoint.sh:/etc/valkey/valkey-entrypoint.sh:ro
+
   romm-db:
-    image: mariadb:latest
+    image: docker.io/mariadb:latest
     container_name: romm-db
     restart: unless-stopped
     environment:

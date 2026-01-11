@@ -9,15 +9,24 @@ map $http_x_forwarded_proto $forwardscheme {
 }
 
 # COEP and COOP headers for cross-origin isolation, which are set only for the
-# EmulatorJS player path, to enable SharedArrayBuffer support, which is needed
-# for multi-threaded cores.
+# EmulatorJS player paths, to enable SharedArrayBuffer support (needed for multi-threaded cores).
+# Use $request_uri (not $uri) because SPA routes fall back to /index.html via try_files.
 map $request_uri $coep_header {
     default        "";
-    ~^/rom/.*/ejs$ "require-corp";
+    ~^/rom/.*/ejs(?:\?.*)?$ "require-corp";
+    ~^/console/rom/.*/play(?:\?.*)?$ "require-corp";
 }
 map $request_uri $coop_header {
     default        "";
-    ~^/rom/.*/ejs$ "same-origin";
+    ~^/rom/.*/ejs(?:\?.*)?$ "same-origin";
+    ~^/console/rom/.*/play(?:\?.*)?$ "same-origin";
+}
+
+# enable communication with SFU server for EmulatorJS netplay audio, video, and session management.
+# This must be included in the http block, but it is passed in the template file to use a workaround
+# in order to include environment varibales in NGINX configuration.
+upstream emulatorjs_sfu {
+    server ${EMULATORJS_SFU_HOST}:${EMULATORJS_SFU_PORT};
 }
 
 server {
@@ -57,12 +66,35 @@ server {
         proxy_request_buffering off;
         proxy_buffering off;
         proxy_read_timeout 300s;
+        client_max_body_size 0;   # Allows files of any size
     }
-    location ~ ^/(ws|netplay) {
+    # Gunicorn web socket path for romm
+    location ~ ^/ws {
         proxy_pass http://wsgi_server;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+    }
+
+    # EmulatorJS-SFU resolution of room list endpoint
+    location = /list {
+        proxy_pass http://emulatorjs_sfu/list;
+    }
+
+    # EmulatorJS-SFU resolution of netplay endpoint
+    location ^~ /netplay/ {
+        proxy_pass http://emulatorjs_sfu/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+    # EmulatorJS-SFU resolution of web socket to connect to mediasoup
+    location ~ ^/socket\.io {
+        proxy_pass http://emulatorjs_sfu;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        add_header Cache-Control "public, max-age=31536000";
     }
 
     # Internally redirect download requests

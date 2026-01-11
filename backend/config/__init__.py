@@ -9,6 +9,15 @@ from utils.database import safe_int, safe_str_to_bool
 load_dotenv()
 
 
+# Detect pytest runs as early as possible.
+# We use this to:
+# - avoid requiring production secrets during tests
+# - switch Redis handlers to fakeredis
+_PYTEST_CURRENT_TEST = os.environ.get("PYTEST_CURRENT_TEST")
+_PYTEST_VERSION = os.environ.get("PYTEST_VERSION")
+IS_PYTEST_RUN: Final[bool] = bool(_PYTEST_CURRENT_TEST or _PYTEST_VERSION)
+
+
 # Supplying a string literal for fallback guarantees a `str` result
 @overload
 def _get_env(var: str, fallback: str) -> str: ...
@@ -57,10 +66,20 @@ REDIS_PASSWORD: Final[str | None] = _get_env("REDIS_PASSWORD")
 REDIS_USERNAME: Final[str | None] = _get_env("REDIS_USERNAME")
 REDIS_DB: Final[int] = safe_int(_get_env("REDIS_DB"), 0)
 REDIS_SSL: Final[bool] = safe_str_to_bool(_get_env("REDIS_SSL"))
+
+# Redis 6+ supports ACL usernames. For the common "requirepass" setup, the
+# default user is used and sending an explicit username can fail if the server
+# doesn't have that ACL user configured. Treat "default" (or empty) as
+# password-only auth to maximize compatibility.
+_REDIS_URL_USERNAME = (
+    None
+    if not REDIS_USERNAME or REDIS_USERNAME.strip().lower() == "default"
+    else REDIS_USERNAME
+)
 REDIS_URL: Final[str] = str(
     yarl.URL.build(
         scheme="rediss" if REDIS_SSL else "redis",
-        user=REDIS_USERNAME or None,
+        user=_REDIS_URL_USERNAME,
         password=REDIS_PASSWORD or None,
         host=REDIS_HOST or "127.0.0.1",
         port=REDIS_PORT,
@@ -109,8 +128,10 @@ FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
 HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
 
 # AUTH
-ROMM_AUTH_SECRET_KEY: Final[str] = _get_env("ROMM_AUTH_SECRET_KEY", "")
-if not ROMM_AUTH_SECRET_KEY:
+ROMM_AUTH_SECRET_KEY: Final[str] = _get_env(
+    "ROMM_AUTH_SECRET_KEY", "test" if IS_PYTEST_RUN else ""
+)
+if not ROMM_AUTH_SECRET_KEY and not IS_PYTEST_RUN:
     raise ValueError("ROMM_AUTH_SECRET_KEY environment variable is not set!")
 
 OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS: Final[int] = safe_int(
@@ -238,4 +259,4 @@ TINFOIL_WELCOME_MESSAGE: Final[str] = _get_env(
 SENTRY_DSN: Final[str | None] = _get_env("SENTRY_DSN")
 
 # TESTING
-IS_PYTEST_RUN: Final = bool(_get_env("PYTEST_VERSION"))
+
