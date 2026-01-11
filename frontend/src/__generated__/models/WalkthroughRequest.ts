@@ -3,8 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export type WalkthroughRequest = {
-  /**
-   * Walkthrough URL from GameFAQs
-   */
-  url: string;
+    /**
+     * Walkthrough URL from GameFAQs
+     */
+    url: string;
 };
+

@@ -12,6 +12,7 @@ export type WalkthroughSchema = {
     author: (string | null);
     source: WalkthroughSource;
     format: WalkthroughFormat;
+    file_path: (string | null);
     content: string;
     created_at: string;
     updated_at: string;

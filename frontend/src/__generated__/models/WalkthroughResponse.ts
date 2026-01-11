@@ -10,6 +10,7 @@ export type WalkthroughResponse = {
     author?: (string | null);
     source: WalkthroughSource;
     format: WalkthroughFormat;
+    file_path?: (string | null);
     content: string;
 };
 
