@@ -3269,7 +3269,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf1.jpg",
     },
     UPS.TURBOGRAFX_CD: {
-        "category": "Computer",
+        "category": "Console",
         "family_name": "NEC",
         "family_slug": "nec",
         "generation": -1,
