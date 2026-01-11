@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { useWalkThrough } from "@/composables/useWalkThrough";
-import type { Walkthrough } from "@/composables/useWalkThrough";
+import { useWalkthrough } from "@/composables/useWalkthrough";
+import type { Walkthrough } from "@/composables/useWalkthrough";
 import type { DetailedRom } from "@/stores/roms";
 
 const props = defineProps<{
@@ -16,13 +16,13 @@ const openPanels = ref<number[]>([]);
 const {
   handleScroll,
   storeHtmlProgress,
-  progressLabel,
+  getProgressLabel,
   getVisibleText,
   canShowMore,
   showAll,
-  pdfUrl,
+  getPdfUrl,
   setContentRef,
-} = useWalkThrough({ openPanels });
+} = useWalkthrough({ openPanels });
 
 const isOpen = (id: number) => openPanels.value.includes(id);
 </script>
@@ -57,7 +57,7 @@ const isOpen = (id: number) => openPanels.value.includes(id);
           </div>
         </div>
         <v-chip size="x-small" color="primary" variant="tonal" class="ml-2">
-          {{ progressLabel(wt) }}
+          {{ getProgressLabel(wt) }}
         </v-chip>
         <template #actions>
           <v-btn
@@ -81,8 +81,8 @@ const isOpen = (id: number) => openPanels.value.includes(id);
           />
           <div v-else-if="wt.format === 'pdf'" class="walkthrough-pdf">
             <iframe
-              v-if="pdfUrl(wt)"
-              :src="pdfUrl(wt)"
+              v-if="getPdfUrl(wt)"
+              :src="getPdfUrl(wt)"
               class="w-full min-h-[600px] rounded-lg mt-4"
               title="Walkthrough PDF"
             />

@@ -27,6 +27,10 @@ const loading = ref(false);
 const saving = ref(false);
 const removingId = ref<number | null>(null);
 const error = ref<string | null>(null);
+const content = ref("");
+const title = ref<string | null>(null);
+const author = ref<string | null>(null);
+const source = ref<string | null>(null);
 const walkthroughs = ref<StoredWalkthrough[]>(props.initialWalkthroughs || []);
 const savedOpenPanels = ref<number[]>([]);
 const uploadFile = ref<File | null>(null);
@@ -77,11 +81,19 @@ async function runFetch() {
 
   loading.value = true;
   error.value = null;
+  content.value = "";
+  title.value = null;
+  author.value = null;
+  source.value = null;
 
   try {
     const { data } = await fetchWalkthrough({
       url: url.value.trim(),
     });
+    content.value = data.content;
+    source.value = data.source;
+    title.value = data.title ?? null;
+    author.value = data.author ?? null;
   } catch (err: any) {
     const detail =
       err?.response?.data?.detail ||
@@ -207,7 +219,7 @@ async function removeSavedWalkthrough(id: number) {
   <v-expansion-panel elevation="0">
     <v-expansion-panel-title class="bg-toplayer">
       <v-icon class="mr-2"> mdi-file-document-outline </v-icon>
-      Walkthroughs
+      Walkthrough
     </v-expansion-panel-title>
     <v-expansion-panel-text class="mt-4 px-2">
       <v-row no-gutters class="mb-3" :class="{ 'flex-column': !mdAndUp }">
@@ -250,15 +262,6 @@ async function removeSavedWalkthrough(id: number) {
 
       <div v-else-if="hasResult" class="bg-toplayer rounded pa-3 border">
         <div class="flex items-center justify-between">
-          <v-btn
-            class="mt-3"
-            :href="url"
-            target="_blank"
-            color="primary"
-            variant="outlined"
-          >
-            Open Walkthrough in Browser
-          </v-btn>
           <v-btn
             class="mt-3"
             color="primary"
@@ -368,47 +371,3 @@ async function removeSavedWalkthrough(id: number) {
     </v-expansion-panel-text>
   </v-expansion-panel>
 </template>
-
-<style scoped>
-.walkthrough-text {
-  background: #0f1115;
-  color: #e5e7eb;
-  padding: 12px;
-  border-radius: 8px;
-  white-space: pre-wrap;
-}
-
-.walkthrough-html {
-  background: #0f1115;
-  color: #e5e7eb;
-  padding: 12px;
-  border-radius: 8px;
-  max-height: 360px;
-  overflow-y: auto;
-}
-
-.walkthrough-virtual {
-  background: #0f1115;
-  border-radius: 8px;
-  padding: 8px;
-  max-height: 360px;
-  overflow-y: auto;
-}
-
-.walkthrough-iframe {
-  width: 100%;
-  height: 360px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-}
-
-.walkthrough-line {
-  color: #e5e7eb;
-  font-family:
-    "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
-    monospace;
-  white-space: pre;
-  line-height: 1.35;
-  overflow-x: auto;
-}
-</style>
