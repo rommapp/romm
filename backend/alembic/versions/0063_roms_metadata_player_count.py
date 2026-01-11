@@ -102,6 +102,7 @@ def upgrade():
                         NULLIF(r.manual_metadata ->> 'player_count', '1'),
                         NULLIF(r.ss_metadata ->> 'player_count', '1'),
                         NULLIF(r.igdb_metadata ->> 'player_count', '1'),
+                        NULLIF(r.gamelist_metadata ->> 'player_count', '1'),
                         '1'
                     ) AS player_count,
 
@@ -286,6 +287,7 @@ def upgrade():
                             NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.manual_metadata, '$.player_count')), '1'),
                             NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.player_count')), '1'),
                             NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.player_count')), '1'),
+                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.player_count')), '1'),
                             '1'
                         ) AS player_count,
 

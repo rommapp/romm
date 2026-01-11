@@ -177,15 +177,11 @@ def extract_metadata_from_igdb_rom(
     for mm in multiplayer_modes:
         platform_data = mm.get("platform")
 
+        igdb_id = -1
+        name = ""
         if isinstance(platform_data, dict):
-            igdb_id = platform_data.get("id", 0)
+            igdb_id = platform_data.get("id", -1)
             name = platform_data.get("name", "")
-        elif isinstance(platform_data, int):
-            igdb_id = platform_data
-            name = ""
-        else:
-            igdb_id = 0
-            name = ""
 
         multiplayer_modes_metadata.append(
             IGDBMetadataMultiplayerMode(
