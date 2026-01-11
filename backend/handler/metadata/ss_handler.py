@@ -128,6 +128,7 @@ class SSMetadata(SSMetadataMedia):
     franchises: list[str]
     game_modes: list[str]
     genres: list[str]
+    player_count: str
 
 
 class SSRom(BaseRom):
@@ -352,6 +353,12 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
                 return modes
         return []
 
+    def _get_player_count(game: SSGame) -> str:
+        player_count = game.get("joueurs", {}).get("text")
+        if not player_count or str(player_count).lower() in ("null", "none"):
+            return "1"
+        return str(player_count)
+
     return SSMetadata(
         {
             "ss_score": _normalize_score(game.get("note", {}).get("text", "")),
@@ -366,6 +373,7 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             "first_release_date": _get_lowest_date(game.get("dates", [])),
             "franchises": _get_franchises(game),
             "game_modes": _get_game_modes(game),
+            "player_count": _get_player_count(game),
             **extract_media_from_ss_game(rom, game),
         }
     )

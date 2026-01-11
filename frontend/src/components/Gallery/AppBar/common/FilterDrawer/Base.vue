@@ -75,6 +75,9 @@ const {
   filterLanguages,
   selectedLanguages,
   languagesLogic,
+  filterPlayerCounts,
+  selectedPlayerCounts,
+  playerCountsLogic,
 } = storeToRefs(galleryFilterStore);
 const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -150,6 +153,12 @@ const onFilterChange = debounce(
           : null,
       statusesLogic:
         selectedStatuses.value.length > 1 ? statusesLogic.value : null,
+      playerCounts:
+        selectedPlayerCounts.value.length > 0
+          ? selectedPlayerCounts.value.join(",")
+          : null,
+      playerCountsLogic:
+        selectedPlayerCounts.value.length > 0 ? playerCountsLogic.value : null,
     }).forEach(([key, value]) => {
       if (value) {
         url.searchParams.set(key, value);
@@ -233,6 +242,14 @@ const filters = [
     logic: languagesLogic,
     setLogic: (logic: "any" | "all") =>
       galleryFilterStore.setLanguagesLogic(logic),
+  },
+  {
+    label: t("platform.player-count"),
+    selected: selectedPlayerCounts,
+    items: filterPlayerCounts,
+    logic: playerCountsLogic,
+    setLogic: (logic: "any" | "all") =>
+      galleryFilterStore.setPlayerCountsLogic(logic),
   },
   {
     label: t("platform.status"),
@@ -341,6 +358,14 @@ function setFilters() {
   galleryFilterStore.setFilterLanguages([
     ...new Set(romsForFilters.flatMap((rom) => rom.languages).sort()),
   ]);
+  galleryFilterStore.setFilterPlayerCounts([
+    ...new Set(
+      romsForFilters
+        .map((rom) => rom.metadatum.player_count)
+        .filter((playerCount): playerCount is string => !!playerCount)
+        .sort(),
+    ),
+  ]);
   // Note: filterStatuses is static and doesn't need to be set dynamically
 }
 
@@ -373,6 +398,8 @@ onMounted(async () => {
     languagesLogic: urlLanguagesLogic,
     statuses: urlStatuses,
     statusesLogic: urlStatusesLogic,
+    playerCounts: urlPlayerCounts,
+    playerCountsLogic: urlPlayerCountsLogic,
   } = router.currentRoute.value.query;
 
   // Check for query params to set filters
@@ -532,6 +559,18 @@ onMounted(async () => {
     galleryFilterStore.setSelectedFilterStatuses(statuses);
     if (urlStatusesLogic !== undefined) {
       galleryFilterStore.setStatusesLogic(urlStatusesLogic as "any" | "all");
+    }
+  }
+
+  if (urlPlayerCounts !== undefined) {
+    const playerCounts = (urlPlayerCounts as string)
+      .split(",")
+      .filter((pc) => pc.trim());
+    galleryFilterStore.setSelectedFilterPlayerCounts(playerCounts);
+    if (urlPlayerCountsLogic !== undefined) {
+      galleryFilterStore.setPlayerCountsLogic(
+        urlPlayerCountsLogic as "any" | "all",
+      );
     }
   }
 

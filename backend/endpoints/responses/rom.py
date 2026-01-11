@@ -178,6 +178,7 @@ class RomMetadataSchema(BaseModel):
     companies: list[str]
     game_modes: list[str]
     age_ratings: list[str]
+    player_count: str
     first_release_date: int | None
     average_rating: float | None
 
