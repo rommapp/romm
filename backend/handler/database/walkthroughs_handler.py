@@ -9,7 +9,7 @@ from models.walkthrough import Walkthrough
 
 class DBWalkthroughsHandler(DBBaseHandler):
     @begin_session
-    def add_walkthrough(
+    def add_or_update_walkthrough(
         self,
         walkthrough: Walkthrough,
         *,

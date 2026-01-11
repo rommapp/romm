@@ -160,7 +160,7 @@ async def create_walkthrough_for_rom(
         file_path=None,
         content=result["content"],
     )
-    saved = db_walkthrough_handler.add_walkthrough(walkthrough)
+    saved = db_walkthrough_handler.add_or_update_walkthrough(walkthrough)
     return StoredWalkthroughResponse.model_validate(saved)
 
 
@@ -236,17 +236,28 @@ async def upload_walkthrough_for_rom(
         file_path=None,
     )
 
-    saved = db_walkthrough_handler.add_walkthrough(walkthrough)
+    saved = db_walkthrough_handler.add_or_update_walkthrough(walkthrough)
 
     if fmt == WalkthroughFormat.PDF:
-        stored_path = await fs_resource_handler.store_walkthrough_file(
-            rom=rom,
-            walkthrough_id=saved.id,
-            data=raw_bytes,
-            extension="pdf",
-        )
-        saved.file_path = stored_path
-        saved = db_walkthrough_handler.add_walkthrough(saved)
+        try:
+            stored_path = await fs_resource_handler.store_walkthrough_file(
+                rom=rom,
+                walkthrough_id=saved.id,
+                data=raw_bytes,
+                extension="pdf",
+            )
+            saved.file_path = stored_path
+            saved = db_walkthrough_handler.add_or_update_walkthrough(saved)
+        except Exception as e:
+            log.error(
+                f"Failed to store PDF file for walkthrough {saved.id}, rolling back database entry.",
+                exc_info=True,
+            )
+            db_walkthrough_handler.delete_walkthrough(saved.id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to store walkthrough file.",
+            ) from e
 
     return StoredWalkthroughResponse.model_validate(saved)
 

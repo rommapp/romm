@@ -212,9 +212,7 @@ async def _fetch_html(url: str, client: httpx.AsyncClient | None = None) -> str:
     return response.text
 
 
-def _parse_gamefaqs(
-    html: str, fmt: WalkthroughFormat
-) -> tuple[str | None, str | None, str]:
+def _parse_gamefaqs(html: str) -> tuple[str | None, str | None, str]:
     soup = BeautifulSoup(html, "html.parser")
     pre_tags = soup.select("#faqtext pre")
     if not pre_tags:
@@ -247,14 +245,13 @@ async def fetch_walkthrough(
 
     html = await _fetch_html(url, client)
 
-    title, author, content = _parse_gamefaqs(html, WalkthroughFormat.TEXT)
-    fmt = WalkthroughFormat.TEXT
+    title, author, content = _parse_gamefaqs(html)
 
     return WalkthroughResult(
         url=url,
         title=title,
         author=author,
         source=source,
-        format=fmt,
+        format=WalkthroughFormat.TEXT,
         content=content,
     )

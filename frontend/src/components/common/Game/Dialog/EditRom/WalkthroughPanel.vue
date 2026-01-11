@@ -9,10 +9,8 @@ import {
   listWalkthroughsForRom,
   uploadWalkthroughForRom,
   type StoredWalkthrough,
-  type WalkthroughFormat,
 } from "@/services/api/walkthrough";
 import type { Events } from "@/types/emitter";
-import { FRONTEND_RESOURCES_PATH } from "@/utils";
 
 const props = defineProps<{
   romId: number;
