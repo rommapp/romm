@@ -1,6 +1,6 @@
 """Add walkthroughs table
 
-Revision ID: 0063_walkthroughs
+Revision ID: 0064_walkthroughs
 Revises: 0063_roms_metadata_player_count
 Create Date: 2026-01-04 18:40:00.000000
 """
