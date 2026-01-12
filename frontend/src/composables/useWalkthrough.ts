@@ -35,6 +35,7 @@ const CONFIG = {
 // Utility functions
 /**
  * Splits walkthrough content into lines and caches the result
+ * Reformats text by preserving paragraph breaks but removing arbitrary line breaks
  */
 function getWalkthroughLines(
   walkthrough: Walkthrough,
@@ -44,7 +45,31 @@ function getWalkthroughLines(
     return cache.get(walkthrough.id)!;
   }
 
-  const lines = walkthrough.content ? walkthrough.content.split(/\r?\n/) : [];
+  if (!walkthrough.content) {
+    const emptyLines: string[] = [];
+    cache.set(walkthrough.id, emptyLines);
+    return emptyLines;
+  }
+
+  let lines: string[];
+
+  if (walkthrough.format === "text") {
+    // For text files, reformat to improve readability
+    // Split into paragraphs (double line breaks)
+    const paragraphs = walkthrough.content.split(/\r?\n\s*\r?\n/);
+
+    lines = paragraphs
+      .map((paragraph) => {
+        // Within each paragraph, replace single line breaks with spaces
+        // but preserve the paragraph structure
+        return paragraph.replace(/\r?\n/g, " ").trim();
+      })
+      .filter((paragraph) => paragraph.length > 0); // Remove empty paragraphs
+  } else {
+    // For HTML and other formats, keep original line splitting
+    lines = walkthrough.content.split(/\r?\n/);
+  }
+
   cache.set(walkthrough.id, lines);
   return lines;
 }
@@ -62,15 +87,6 @@ function calculateVisibleLineCount(
   const fallback = Math.min(totalLines, CONFIG.LINE_CHUNK);
 
   return currentVisible ?? savedLines ?? fallback;
-}
-
-/**
- * Builds PDF URL from walkthrough file path
- */
-function buildPdfUrl(walkthrough: Walkthrough): string {
-  return walkthrough.file_path
-    ? `${FRONTEND_RESOURCES_PATH}/${walkthrough.file_path}`
-    : "";
 }
 
 /**
@@ -119,9 +135,6 @@ export function useWalkthrough({
     return currentVisible < totalLines;
   }
 
-  /**
-   * Shows more content by incrementing visible lines
-   */
   function showMore(walkthrough: Walkthrough): void {
     const totalLines = getWalkthroughLines(walkthrough, lineCache).length;
     const currentVisible =
@@ -134,53 +147,52 @@ export function useWalkthrough({
     visibleLines.value[walkthrough.id] = nextVisible;
   }
 
-  /**
-   * Shows all content at once
-   */
-  function showAll(walkthrough: Walkthrough): void {
-    const totalLines = getWalkthroughLines(walkthrough, lineCache).length;
-    visibleLines.value[walkthrough.id] = totalLines;
-  }
-
-  /**
-   * Gets PDF URL for the walkthrough
-   */
   function getPdfUrl(walkthrough: Walkthrough): string {
-    return buildPdfUrl(walkthrough);
+    return walkthrough.file_path
+      ? `${FRONTEND_RESOURCES_PATH}/${walkthrough.file_path}`
+      : "";
   }
 
   // Progress tracking
-  /**
-   * Calculates progress percentage for a walkthrough
-   */
   function getProgressPercent(walkthrough: Walkthrough): number {
+    const storedProgress = progressData.value[walkthrough.id];
+    if (storedProgress?.percent !== undefined) {
+      return storedProgress.percent;
+    }
+
     if (walkthrough.format === "text") {
       const totalLines =
         getWalkthroughLines(walkthrough, lineCache).length || 1;
-      const currentVisible = visibleLines.value[walkthrough.id] ?? 0;
+      // Use stored lines progress or current visible lines, fallback to 0
+      const savedLines = storedProgress?.lines ?? 0;
+      const currentVisible = visibleLines.value[walkthrough.id] ?? savedLines;
       return Math.min(
         CONFIG.MAX_PROGRESS_PERCENT,
         Math.round((currentVisible / totalLines) * CONFIG.MAX_PROGRESS_PERCENT),
       );
     }
 
-    // For HTML and PDF formats, use stored percentage
-    return progressData.value[walkthrough.id]?.percent ?? 0;
+    // For HTML and PDF formats without stored data, return 0
+    return 0;
   }
 
-  /**
-   * Gets formatted progress label
-   */
-  function getProgressLabel(walkthrough: Walkthrough): string {
+  const getProgressDisplay = (walkthrough: Walkthrough) => {
     const percent = getProgressPercent(walkthrough);
-    return percent >= CONFIG.COMPLETION_THRESHOLD
-      ? "Completed"
-      : `${percent}% read`;
-  }
 
-  /**
-   * Updates stored progress for a walkthrough
-   */
+    return {
+      text: percent >= CONFIG.COMPLETION_THRESHOLD ? "Completed" : percent,
+      value: percent,
+      color:
+        percent === 0
+          ? "grey"
+          : percent < 50
+            ? "orange"
+            : percent < 100
+              ? "blue"
+              : "success",
+    };
+  };
+
   function updateProgress(
     walkthroughId: number,
     updates: Partial<WalkthroughProgress>,
@@ -195,9 +207,7 @@ export function useWalkthrough({
   }
 
   // Event handlers
-  /**
-   * Handles scroll events for text walkthroughs
-   */
+
   function handleScroll(walkthrough: Walkthrough, event: Event): void {
     const target = event.target as HTMLElement;
     if (!target) return;
@@ -221,9 +231,6 @@ export function useWalkthrough({
     });
   }
 
-  /**
-   * Stores HTML scroll progress
-   */
   function storeHtmlProgress(walkthrough: Walkthrough, event: Event): void {
     const target = event.target as HTMLElement;
     if (!target) return;
@@ -244,9 +251,6 @@ export function useWalkthrough({
   }
 
   // Element reference management
-  /**
-   * Sets or removes content element reference
-   */
   function setContentRef(id: number, element: HTMLElement | null): void {
     if (element) {
       contentRefs.set(id, element);
@@ -274,11 +278,8 @@ export function useWalkthrough({
 
   return {
     getVisibleText,
-    canShowMore,
-    showMore,
-    showAll,
     getPdfUrl,
-    getProgressLabel,
+    getProgressDisplay,
     handleScroll,
     storeHtmlProgress,
     setContentRef,

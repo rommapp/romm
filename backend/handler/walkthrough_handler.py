@@ -171,8 +171,32 @@ def _serialize_html(nodes: list[Tag]) -> str:
 
 
 def sanitize_html_fragment(html: str) -> str:
-    """Clean arbitrary HTML input to avoid XSS."""
+    """Clean arbitrary HTML input to avoid XSS and extract walkthrough content."""
     soup = BeautifulSoup(html, "html.parser")
+
+    # First, try to extract only the body content if it exists
+    body = soup.find("body")
+    if body:
+        soup = body
+
+    # For GameFAQs pages, try to extract just the walkthrough content from <pre> tags
+    pre_tags = soup.find_all("pre")
+    if (
+        pre_tags and len(pre_tags) > 3
+    ):  # Likely a GameFAQs page with multiple content blocks
+        # Extract content from all pre tags and join them
+        walkthrough_content = []
+        for pre in pre_tags:
+            content = pre.get_text().strip()
+            if content:  # Only include non-empty pre tags
+                walkthrough_content.append(content)
+
+        if walkthrough_content:
+            # Join all content and wrap in a single pre tag
+            combined_content = "\n\n".join(walkthrough_content)
+            return f"<pre>{combined_content}</pre>"
+
+    # For other HTML, use the standard sanitization on the body content
     _sanitize_node(soup)
     return _serialize_html([soup])
 

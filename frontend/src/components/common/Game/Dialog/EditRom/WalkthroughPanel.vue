@@ -31,7 +31,7 @@ const { mdAndUp } = useDisplay();
       Walkthrough
     </v-expansion-panel-title>
     <v-expansion-panel-text class="mt-4 px-2">
-      <v-row no-gutters class="mb-3" :class="{ 'flex-column': !mdAndUp }">
+      <v-row no-gutters :class="{ 'flex-column': !mdAndUp }">
         <v-col class="pa-2" :cols="mdAndUp ? 10 : 12">
           <v-text-field
             v-model="url"
@@ -55,9 +55,13 @@ const { mdAndUp } = useDisplay();
         </v-col>
       </v-row>
 
-      <v-divider class="my-4" />
+      <div class="w-full d-flex mb-4">
+        <v-divider class="my-2" />
+        <span class="mx-4 text-caption text-medium-emphasis"> OR </span>
+        <v-divider class="my-2" />
+      </div>
 
-      <div class="bg-toplayer rounded pa-3 border mb-4">
+      <div class="mb-4">
         <div class="d-flex align-center justify-space-between mb-3">
           <div>
             <div class="text-subtitle-2 font-weight-medium">
