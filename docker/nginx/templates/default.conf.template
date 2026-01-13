@@ -69,23 +69,30 @@ server {
         client_max_body_size 0;   # Allows files of any size
     }
 
-    # Some upstream reverse proxies (or user configs) rewrite WebSocket traffic under /ws.
-    # Support Socket.IO at /ws/socket.io as an alias for /socket.io, routing to the SFU.
-    location ^~ /ws/socket.io {
-        # Map /ws/socket.io/* -> /socket.io/* on the SFU
-        proxy_pass http://romm_sfu/socket.io;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        add_header Cache-Control "public, max-age=31536000";
-    }
-
     # Gunicorn web socket path for romm
     location ~ ^/ws {
         proxy_pass http://wsgi_server;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+    }
+
+    # RomM uses Socket.IO under /ws (mounted by the backend at /ws), so /ws/socket.io
+    # must be routed to the backend (not the SFU).
+    location ^~ /ws/socket.io {
+        proxy_pass http://wsgi_server;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Emulator resolution of web socket to connect to mediasoup
+    location ~ ^/socket\.io {
+        proxy_pass http://romm_sfu;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        add_header Cache-Control "public, max-age=31536000";
     }
 
     # Emulator SFU helper endpoints
@@ -100,14 +107,6 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-    }
-    # Emulator resolution of web socket to connect to mediasoup
-    location ~ ^/socket\.io {
-        proxy_pass http://romm_sfu;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        add_header Cache-Control "public, max-age=31536000";
     }
 
     # Internally redirect download requests
