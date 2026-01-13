@@ -134,14 +134,6 @@ ROMM_AUTH_SECRET_KEY: Final[str] = _get_env(
 if not ROMM_AUTH_SECRET_KEY and not IS_PYTEST_RUN:
     raise ValueError("ROMM_AUTH_SECRET_KEY environment variable is not set!")
 
-OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS: Final[int] = safe_int(
-    _get_env("OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS"), 30 * 60
-)  # 30 minutes, in seconds
-
-OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS: Final[int] = safe_int(
-    _get_env("OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS"), 7 * 24 * 60 * 60
-)  # 7 days, in seconds
-
 SESSION_MAX_AGE_SECONDS: Final[int] = safe_int(
     _get_env("SESSION_MAX_AGE_SECONDS"), 14 * 24 * 60 * 60
 )  # 14 days, in seconds

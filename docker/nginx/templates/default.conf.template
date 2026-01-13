@@ -22,11 +22,11 @@ map $request_uri $coop_header {
     ~^/console/rom/.*/play(?:\?.*)?$ "same-origin";
 }
 
-# enable communication with SFU server for EmulatorJS netplay audio, video, and session management.
+# enable communication with SFU server for Emulators netplay audio, video, and session management.
 # This must be included in the http block, but it is passed in the template file to use a workaround
 # in order to include environment varibales in NGINX configuration.
-upstream emulatorjs_sfu {
-    server ${EMULATORJS_SFU_HOST}:${EMULATORJS_SFU_PORT};
+upstream romm_sfu {
+    server ${SFU_HOST}:${SFU_PORT};
 }
 
 server {
@@ -68,6 +68,18 @@ server {
         proxy_read_timeout 300s;
         client_max_body_size 0;   # Allows files of any size
     }
+
+    # Some upstream reverse proxies (or user configs) rewrite WebSocket traffic under /ws.
+    # Support Socket.IO at /ws/socket.io as an alias for /socket.io, routing to the SFU.
+    location ^~ /ws/socket.io {
+        # Map /ws/socket.io/* -> /socket.io/* on the SFU
+        proxy_pass http://romm_sfu/socket.io;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        add_header Cache-Control "public, max-age=31536000";
+    }
+
     # Gunicorn web socket path for romm
     location ~ ^/ws {
         proxy_pass http://wsgi_server;
@@ -76,21 +88,22 @@ server {
         proxy_set_header Connection "upgrade";
     }
 
-    # EmulatorJS-SFU resolution of room list endpoint
-    location = /list {
-        proxy_pass http://emulatorjs_sfu/list;
+    # Emulator SFU helper endpoints
+    # Use a regex location + proxy_pass without URI so the original URI is preserved.
+    location ~ ^/(?:list|ice)$ {
+        proxy_pass http://romm_sfu;
     }
 
-    # EmulatorJS-SFU resolution of netplay endpoint
+    # Emulator resolution of netplay endpoint on SFU, strips 
     location ^~ /netplay/ {
-        proxy_pass http://emulatorjs_sfu/;
+        proxy_pass http://romm_sfu/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }
-    # EmulatorJS-SFU resolution of web socket to connect to mediasoup
+    # Emulator resolution of web socket to connect to mediasoup
     location ~ ^/socket\.io {
-        proxy_pass http://emulatorjs_sfu;
+        proxy_pass http://romm_sfu;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";

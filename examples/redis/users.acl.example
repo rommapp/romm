@@ -1,3 +1,0 @@
-user default off
-user romm on >CHANGEME_ROMM_REDIS_PASSWORD ~* &* +@all
-user sfu on >CHANGEME_SFU_REDIS_PASSWORD ~sfu:* &* -@all +ping +get +set +setnx +del +exists +expire +ttl +pttl +hget +hgetall +hexists +eval +evalsha

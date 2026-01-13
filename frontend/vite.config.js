@@ -66,9 +66,9 @@ export default defineConfig(({ mode }) => {
   };
 
   const backendPort = env.DEV_PORT ?? "5000";
-  
-  const emulatorJsSfuUrl =
-    env.DEV_EMULATORJS_SFU_URL ?? "http://127.0.0.1:3001";
+
+  const sfuUrl =
+    env.DEV_SFU_URL ?? env.DEV_EMULATORJS_SFU_URL ?? "http://127.0.0.1:3001";
   // const devMode = env.DEV_MODE === "true";
   const httpsMode = env.DEV_HTTPS === "true";
 
@@ -141,18 +141,23 @@ export default defineConfig(({ mode }) => {
           ws: true,
         },
         "^/netplay": {
-          target: emulatorJsSfuUrl,
+          target: sfuUrl,
           changeOrigin: false,
           ws: true,
           rewrite: (path) => path.replace(/^\/netplay/, ""),
         },
         "/list": {
-          target: emulatorJsSfuUrl,
+          target: sfuUrl,
+          changeOrigin: false,
+          secure: false,
+        },
+        "/ice": {
+          target: sfuUrl,
           changeOrigin: false,
           secure: false,
         },
         "^/socket\\.io": {
-          target: emulatorJsSfuUrl,
+          target: sfuUrl,
           changeOrigin: false,
           ws: true,
         },

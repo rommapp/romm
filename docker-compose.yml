@@ -61,13 +61,13 @@ services:
       - "yes"
       - --requirepass
       - ${REDIS_PASSWORD:-rommredis}
-      # Optional: use an ACL file instead of requirepass by adding a users.acl
-      # and replacing the command with `--aclfile /etc/valkey/users.acl`.
+      # Optional: use an ACL file instead of requirepass by mounting your own
+      # users.acl and replacing the command with `--aclfile /etc/valkey/users.acl`.
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
-    # Optional: mount an ACL folder (copy from examples/redis/)
+    # Optional: mount your own ACL file
     # volumes:
-    #   - ./examples/redis:/etc/valkey:ro
+    #   - ./path/to/users.acl:/etc/valkey/users.acl:ro
 
   romm-postgres-dev:
     image: docker.io/library/postgres:16-alpine

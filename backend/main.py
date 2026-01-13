@@ -98,8 +98,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         secret=ROMM_AUTH_SECRET_KEY,
         exempt_urls=[
             re.compile(r"^/api/token.*"),
-            re.compile(r"^/api/client-tokens/exchange"),
-            re.compile(r"^/api/client-tokens/pair/.+/status"),
+            re.compile(r"^/api/sfu/token.*"),
             re.compile(r"^/ws"),
             re.compile(r"^/netplay"),
         ],

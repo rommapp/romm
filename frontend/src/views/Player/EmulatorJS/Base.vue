@@ -73,11 +73,16 @@ async function onPlay() {
   fullScreen.value = fullScreenOnPlay.value;
   playing.value = true;
 
-  // TODO: Modify checks and paths to accomodate EmulatorJS-SFU
-  const { EJS_NETPLAY_ENABLED } = configStore.config;
+  // EmulatorJS-SFU static assets are bundled separately from RomM's own
+  // /assets/emulatorjs (logos, etc) to avoid clobbering.
+  const { EJS_NETPLAY_ENABLED, EJS_DEBUG } = configStore.config;
   const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
-  const LOCAL_PATH = "/assets/emulatorjs/data";
+  const LOCAL_PATH = "/assets/emulatorjs-sfu/data";
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
+
+  // Hard-pin the CDN cores folder used by EmulatorJS core fallback downloads.
+  // This is intentionally independent from the SFU fork's internal version.
+  (window as any).EJS_CDN_CORES_VERSION = "nightly";
 
   async function ensureSfuToken() {
     try {
@@ -106,6 +111,90 @@ async function onPlay() {
     }
   }
 
+  function normalizeIceServerUrls(urls: any): string[] {
+    if (typeof urls === "string") return [urls];
+    if (Array.isArray(urls)) return urls.filter((u) => typeof u === "string");
+    return [];
+  }
+
+  function iceServerKey(server: any): string {
+    const urls = normalizeIceServerUrls(server?.urls)
+      .map((u) => u.trim())
+      .filter(Boolean)
+      .sort();
+    const username =
+      typeof server?.username === "string" ? server.username : "";
+    const credential =
+      typeof server?.credential === "string" ? server.credential : "";
+    return JSON.stringify({ urls, username, credential });
+  }
+
+  function mergeIceServers(preferred: any[], fallback: any[]): any[] {
+    const out: any[] = [];
+    const seen = new Set<string>();
+    for (const list of [preferred, fallback]) {
+      for (const s of Array.isArray(list) ? list : []) {
+        const urls = normalizeIceServerUrls(s?.urls);
+        if (urls.length === 0) continue;
+        const key = iceServerKey(s);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(s);
+      }
+    }
+    return out;
+  }
+
+  async function tryFetchPreferredIceServers() {
+    const debugEnabled = Boolean(
+      EJS_DEBUG || (window as any).EJS_DEBUG_XX || (window as any).EJS_DEBUG
+    );
+    try {
+      const token = (window as any).EJS_netplayToken;
+      if (typeof token !== "string" || token.length === 0) return;
+
+      // Prefer relative URL so it works in both dev proxy and prod nginx.
+      const resp = await fetch(`/ice`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!resp.ok) {
+        throw new Error(`GET /ice failed (${resp.status})`);
+      }
+
+      const data = await resp.json();
+      const preferred = Array.isArray(data?.iceServers) ? data.iceServers : [];
+      const fallback = Array.isArray(configStore.config.EJS_NETPLAY_ICE_SERVERS)
+        ? configStore.config.EJS_NETPLAY_ICE_SERVERS
+        : [];
+
+      // Preferred first (node-local), config.yml list appended as fallback.
+      const merged = mergeIceServers(preferred, fallback);
+      if (merged.length > 0) {
+        (window as any).EJS_netplayICEServers = merged;
+        if (debugEnabled) {
+          console.info("[Play] ICE servers merged", {
+            preferred: preferred.length,
+            fallback: fallback.length,
+            merged: merged.length,
+            nodeId: data?.nodeId,
+            sfuUrl: data?.url,
+          });
+        }
+      }
+    } catch (err) {
+      if (debugEnabled) {
+        console.warn(
+          "[Play] Failed to fetch SFU /ice; using config.yml ICE servers only",
+          err
+        );
+      }
+    }
+  }
+
   function loadScript(src: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const s = document.createElement("script");
@@ -115,6 +204,24 @@ async function onPlay() {
       s.onerror = () => reject(new Error("Failed loading " + src));
       document.body.appendChild(s);
     });
+  }
+
+  function normalizeMediasoupClientGlobal() {
+    const w = window as any;
+    const mc = w.mediasoupClient || w.mediasoup || null;
+    if (!mc) return;
+
+    // Some bundles expose the API under `default` (ESM interop). Normalize to the object
+    // that actually contains `Device` so EmulatorJS-SFU can do `new mediasoupClient.Device()`.
+    if (!mc.Device && mc.default && mc.default.Device) {
+      w.mediasoupClient = mc.default;
+      return;
+    }
+
+    // Prefer `window.mediasoupClient` when available.
+    if (!w.mediasoupClient && mc.Device) {
+      w.mediasoupClient = mc;
+    }
   }
 
   async function attemptLoad(path: string) {
@@ -129,6 +236,7 @@ async function onPlay() {
         const mediasoupPath = `${LOCAL_PATH}/vendor/mediasoup-client-umd.js`;
         console.info("[Play] Preloading mediasoup-client:", mediasoupPath);
         await loadScript(mediasoupPath);
+        normalizeMediasoupClientGlobal();
         // Verify it loaded correctly, in case of a bad file or interrupted download.
         if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
           console.warn(
@@ -142,6 +250,9 @@ async function onPlay() {
           e
         );
       }
+    } else {
+      // If a bundle was already present, still normalize its shape.
+      normalizeMediasoupClientGlobal();
     }
 
     await loadScript(`${path}/loader.js`);
@@ -150,6 +261,7 @@ async function onPlay() {
   try {
     if (EJS_NETPLAY_ENABLED) {
       await ensureSfuToken();
+      await tryFetchPreferredIceServers();
       if (sfuTokenRefreshTimer !== null) {
         window.clearInterval(sfuTokenRefreshTimer);
       }

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from joserfc import jwt
 from main import app
 
+from config import ROMM_SFU_INTERNAL_SECRET
 from handler.auth.base_handler import oct_key
 from handler.database import db_user_handler
 from handler.redis_handler import sync_cache
@@ -73,3 +74,104 @@ class TestSFUToken:
         ttl = sync_cache.ttl(key)
         assert ttl <= 30
         assert ttl > 0
+
+
+class TestSFUInternal:
+    def _mint_token(self, client: TestClient, access_token: str) -> str:
+        resp = client.post(
+            "/api/sfu/token", headers={"Authorization": f"Bearer {access_token}"}
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        return resp.json()["token"]
+
+    def test_internal_verify_requires_secret(self, client, access_token):
+        token = self._mint_token(client, access_token)
+        resp = client.post("/api/sfu/internal/verify", json={"token": token})
+        assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_internal_verify_consume_marks_used(self, client, access_token, admin_user):
+        token = self._mint_token(client, access_token)
+
+        resp = client.post(
+            "/api/sfu/internal/verify",
+            headers={"x-romm-sfu-secret": ROMM_SFU_INTERNAL_SECRET},
+            json={"token": token, "consume": True},
+        )
+        assert resp.status_code == status.HTTP_200_OK
+        body = resp.json()
+        assert body["sub"] == admin_user.username
+
+        # Second consume should fail.
+        resp2 = client.post(
+            "/api/sfu/internal/verify",
+            headers={"x-romm-sfu-secret": ROMM_SFU_INTERNAL_SECRET},
+            json={"token": token, "consume": True},
+        )
+        assert resp2.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_internal_verify_non_consuming_is_repeatable(self, client, access_token, admin_user):
+        token = self._mint_token(client, access_token)
+
+        for _ in range(2):
+            resp = client.post(
+                "/api/sfu/internal/verify",
+                headers={"x-romm-sfu-secret": ROMM_SFU_INTERNAL_SECRET},
+                json={"token": token, "consume": False},
+            )
+            assert resp.status_code == status.HTTP_200_OK
+            assert resp.json()["sub"] == admin_user.username
+
+    def test_internal_room_registry_lifecycle(self, client):
+        room_name = "test-room-registry"
+        # Ensure isolation across runs.
+        sync_cache.delete(f"sfu:room:{room_name}")
+
+        upsert = client.post(
+            "/api/sfu/internal/rooms/upsert",
+            headers={"x-romm-sfu-secret": ROMM_SFU_INTERNAL_SECRET},
+            json={
+                "room_name": room_name,
+                "current": 1,
+                "max": 4,
+                "hasPassword": True,
+                "nodeId": "node-a",
+                "url": "https://sfu.example.com",
+            },
+        )
+        assert upsert.status_code == status.HTTP_200_OK
+        assert upsert.json().get("ok") is True
+
+        resolved = client.get(
+            f"/api/sfu/internal/rooms/resolve?room={room_name}",
+            headers={"x-romm-sfu-secret": ROMM_SFU_INTERNAL_SECRET},
+        )
+        assert resolved.status_code == status.HTTP_200_OK
+        resolved_body = resolved.json()
+        assert resolved_body["room_name"] == room_name
+        assert resolved_body["current"] == 1
+        assert resolved_body["max"] == 4
+        assert resolved_body["hasPassword"] is True
+        assert resolved_body["nodeId"] == "node-a"
+        assert resolved_body["url"] == "https://sfu.example.com"
+
+        listed = client.get(
+            "/api/sfu/internal/rooms/list",
+            headers={"x-romm-sfu-secret": ROMM_SFU_INTERNAL_SECRET},
+        )
+        assert listed.status_code == status.HTTP_200_OK
+        listed_body = listed.json()
+        assert room_name in listed_body
+
+        deleted = client.post(
+            "/api/sfu/internal/rooms/delete",
+            headers={"x-romm-sfu-secret": ROMM_SFU_INTERNAL_SECRET},
+            json={"room_name": room_name},
+        )
+        assert deleted.status_code == status.HTTP_200_OK
+        assert deleted.json().get("ok") is True
+
+        resolved2 = client.get(
+            f"/api/sfu/internal/rooms/resolve?room={room_name}",
+            headers={"x-romm-sfu-secret": ROMM_SFU_INTERNAL_SECRET},
+        )
+        assert resolved2.status_code == status.HTTP_404_NOT_FOUND

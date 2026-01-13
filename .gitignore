@@ -38,16 +38,13 @@ __pycache__
 # secrets
 .env
 
-# Redis/Valkey ACL (users should copy users.acl.example -> users.acl)
-examples/redis/users.acl
-
 # database
 mariadb
 *.sqlite
 
 # used to mock the library/config/mounts/etc while testing
 frontend/assets/romm
-frontend/assets/emulatorjs/cores
+frontend/assets/emulatorjs-sfu/cores
 romm_mock
 
 # virtualenv

@@ -9,12 +9,15 @@ We want a mediasoup-based SFU service (Node.js) to:
 1. **Authorize** a client to connect.
 2. **Authenticate** the client as a specific RoMM user.
 3. Retrieve a stable **Netplay Username** for that user to avoid client-side name prompts and prevent impersonation.
-4. Maintain SFU-owned state (rooms, banlists, room behaviors, ROM/core metadata) in Redis.
+4. Maintain SFU-owned state (rooms, banlists, room behaviors, ROM/core metadata).
 5. Support future federation via **Trusted Sites** using public/private keys.
 
-Key constraint: SFU should **not** have broad access to RoMM’s Redis data (sessions, user data, etc.). It should only read/write what it needs.
+Key constraint: SFU should **not** have access to RoMM’s Redis/Valkey at all.
 
-The recommended approach is to expose only a **dedicated Redis keyspace** to SFU (`sfu:*`) and place user identity + authorization material there.
+The recommended approach is:
+
+- RoMM owns Redis/Valkey state.
+- SFU talks to RoMM via **internal HTTP APIs** for token verification and room metadata.
 
 ---
 
@@ -78,48 +81,21 @@ Mitigations:
 
 ---
 
-## 5) Redis Access Control (Least Privilege)
+## 5) RoMM Internal API (Least Privilege)
 
-### 5.1 Separate Redis user for SFU
+### 5.1 Shared secret for SFU -> RoMM calls
 
-Create a Redis ACL user dedicated to the SFU process.
+SFU calls RoMM internal endpoints and authenticates using a shared secret header:
 
-Practical shortcut: this repo includes a ready-to-copy ACL example with a
-`romm` admin user and an `sfu` least-privilege user in
-[examples/redis/users.acl.example](examples/redis/users.acl.example).
+- Header: `x-romm-sfu-secret: <secret>`
+- Secret: `ROMM_SFU_INTERNAL_SECRET`
 
-Note: RoMM background workers (RQ) use Redis Pub/Sub channels (e.g. `rq:pubsub:*`).
-In Redis ACL, channel permissions are controlled by `&` patterns, separate from key
-patterns (`~`). The `romm` user must be granted channel access (the example uses `&*`).
-
-Netplay/SFU deployments in RomM require Redis ACL users (no unauthenticated
-default user). RomM runs with the `romm` user, while the SFU uses a dedicated
-restricted user via `SFU_AUTH_REDIS_URL`.
-
-Principles:
-
-- Restrict keys: `~sfu:*` only.
-- Restrict commands: only what’s needed for the chosen data structures.
-- Prefer disabling broad discovery commands (`KEYS`), scripting (`EVAL`), config (`CONFIG`), flush (`FLUSH*`).
-
-Example (adjust per Redis version and your command choices):
-
-- Enable: `GET`, `SET`, `SETEX`, `DEL`, `EXISTS`, `EXPIRE`, `TTL`
-- Hash: `HGET`, `HSET`, `HGETALL`, `HEXISTS`, `HDEL`
-- Set: `SADD`, `SREM`, `SMEMBERS`, `SISMEMBER`
-
-If you need scanning:
-
-- Prefer a maintained index key (e.g. `sfu:rooms:index`) over `SCAN`.
+This keeps Redis/Valkey fully private and removes the need to manage Redis ACL users for SFU nodes.
 
 ### 5.2 Data segregation
 
-All SFU-owned state must live under `sfu:*`. SFU must not access:
-
-- `session:*`
-- `user_sessions:*`
-- `netplay:rooms`
-- any DB credentials or other config keys
+RoMM still stores SFU-related material in Redis under `sfu:*`, but SFU never accesses
+Redis/Valkey directly. SFU can only access SFU-scoped data through explicit endpoints.
 
 ---
 

@@ -132,18 +132,33 @@ RUN apk add --no-cache \
     wget \
     ca-certificates
 
-# Fetch EmulatorJS-SFU (TechnicallyComputers fork) so RomM serves the SFU-enabled build.
-# Default to main branch; override EMULATORJS_SFU_REF to pin a tag/commit.
-ARG EMULATORJS_SFU_REPO=https://github.com/TechnicallyComputers/EmulatorJS-SFU.git
-ARG EMULATORJS_SFU_REF=main
+# Fetch the SFU-enabled EmulatorJS build.
+# Preferred build args: SFU_REPO / SFU_REF
+# Backwards-compatible build args: EMULATORJS_SFU_REPO / EMULATORJS_SFU_REF
+ARG SFU_REPO=https://github.com/TechnicallyComputers/EmulatorJS-SFU.git
+ARG SFU_REF=main
+ARG EMULATORJS_SFU_REPO=
+ARG EMULATORJS_SFU_REF=
 
-RUN git clone --depth 1 --branch "${EMULATORJS_SFU_REF}" "${EMULATORJS_SFU_REPO}" /tmp/emulatorjs-sfu && \
-    mkdir -p /emulatorjs && \
-    cp -a /tmp/emulatorjs-sfu/data /emulatorjs/data && \
+RUN repo="${SFU_REPO}" && ref="${SFU_REF}" && \
+    if [ -n "${EMULATORJS_SFU_REPO}" ]; then repo="${EMULATORJS_SFU_REPO}"; fi && \
+    if [ -n "${EMULATORJS_SFU_REF}" ]; then ref="${EMULATORJS_SFU_REF}"; fi && \
+    mkdir -p /tmp/emulatorjs-sfu && \
+    git init /tmp/emulatorjs-sfu >/dev/null && \
+    cd /tmp/emulatorjs-sfu && \
+    git remote add origin "${repo}" && \
+    (git fetch --depth 1 origin "${ref}" || \
+     git fetch --depth 1 origin "refs/heads/${ref}" || \
+     git fetch --depth 1 origin "refs/tags/${ref}") && \
+    git checkout --detach FETCH_HEAD >/dev/null && \
+    echo "Fetched EmulatorJS-SFU ref=${ref} commit=$(git rev-parse HEAD)" && \
+    test -f data/loader.js && \
+    mkdir -p /emulatorjs-sfu && \
+    cp -a data /emulatorjs-sfu/data && \
     rm -rf /tmp/emulatorjs-sfu
 
-RUN mkdir -p /emulatorjs/data/vendor
-COPY --from=mediasoup-client-umd-build /out/mediasoup-client-umd.js /emulatorjs/data/vendor/mediasoup-client-umd.js
+RUN mkdir -p /emulatorjs-sfu/data/vendor
+COPY --from=mediasoup-client-umd-build /out/mediasoup-client-umd.js /emulatorjs-sfu/data/vendor/mediasoup-client-umd.js
 
 # Code to fetch and extract Ruffle (Flash player emulator)
 ARG RUFFLE_VERSION=nightly-2025-08-14
@@ -201,14 +216,9 @@ RUN apk add --no-cache \
     valkey \
     redis
 
-# Provide `valkey-cli` for init-time ACL verification.
-# Alpine packaging can vary; if a dedicated `valkey-cli` binary is not present,
-# fall back to a shim pointing at `redis-cli` (protocol-compatible).
-RUN if ! command -v valkey-cli >/dev/null 2>&1; then \
-            if command -v redis-cli >/dev/null 2>&1; then \
-                ln -sf "$(command -v redis-cli)" /usr/bin/valkey-cli; \
-            fi; \
-        fi
+# Note: we install both `valkey` and `redis` packages.
+# - `valkey` provides the server used by the all-in-one container image.
+# - `redis` provides `redis-cli` which can be useful for debugging.
 
 # Add Python by copying it from the official Docker image. This way, we don't rely on Alpine's
 # Python version, which could not be the same as the one used in the backend build stage.
@@ -277,7 +287,7 @@ CMD ["/init"]
 # FULL IMAGE
 FROM slim-image AS full-image
 ARG WEBSERVER_FOLDER=/var/www/html
-COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
+COPY --from=emulator-stage /emulatorjs-sfu ${WEBSERVER_FOLDER}/assets/emulatorjs-sfu
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 
 
