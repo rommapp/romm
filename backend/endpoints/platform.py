@@ -54,7 +54,7 @@ def get_platforms(
     updated_after: Annotated[
         datetime | None,
         Query(
-            description="Filter platforms updated after this datetime (ISO 8601 format)."
+            description="Filter platforms updated after this datetime (ISO 8601 format with timezone information)."
         ),
     ] = None,
 ) -> list[PlatformSchema]:
