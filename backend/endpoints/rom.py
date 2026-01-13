@@ -407,7 +407,9 @@ def get_roms(
     ] = "asc",
     updated_after: Annotated[
         datetime | None,
-        Query(description="Filter roms updated after this datetime (ISO 8601 format with timezone information)."),
+        Query(
+            description="Filter roms updated after this datetime (ISO 8601 format with timezone information)."
+        ),
     ] = None,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
