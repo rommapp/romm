@@ -1,8 +1,9 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import Body
 from fastapi import Path as PathVar
-from fastapi import Request, status
+from fastapi import Query, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.platform import PlatformSchema
@@ -48,11 +49,20 @@ async def add_platform(
 
 
 @protected_route(router.get, "", [Scope.PLATFORMS_READ])
-def get_platforms(request: Request) -> list[PlatformSchema]:
+def get_platforms(
+    request: Request,
+    updated_after: Annotated[
+        datetime | None,
+        Query(
+            description="Filter platforms updated after this datetime (ISO 8601 format)."
+        ),
+    ] = None,
+) -> list[PlatformSchema]:
     """Retrieve platforms."""
 
     return [
-        PlatformSchema.model_validate(p) for p in db_platform_handler.get_platforms()
+        PlatformSchema.model_validate(p)
+        for p in db_platform_handler.get_platforms(updated_after=updated_after)
     ]
 
 

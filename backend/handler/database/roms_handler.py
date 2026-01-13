@@ -1,5 +1,6 @@
 import functools
 from collections.abc import Iterable, Sequence
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -510,6 +511,7 @@ class DBRomsHandler(DBBaseHandler):
         statuses_logic: str = "any",
         player_counts_logic: str = "any",
         user_id: int | None = None,
+        updated_after: datetime | None = None,
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
@@ -562,6 +564,9 @@ class DBRomsHandler(DBBaseHandler):
         # TODO: Correctly support true/false values.
         if verified:
             query = self.filter_by_verified(query)
+
+        if updated_after:
+            query = query.filter(Rom.updated_at > updated_after)
 
         # BEWARE YE WHO ENTERS HERE 💀
         if group_by_meta_id:
