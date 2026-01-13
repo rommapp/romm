@@ -1,0 +1,30 @@
+listening-port=3478
+tls-listening-port=5349  # we will forward traffic from 443 on nginx.conf, optional, to provide TURN relay access to clients behind corporate/school/hospital firewalls.
+
+listening-ip=
+listening-ip=::
+
+external-ip=<my-public-ip>/<my-private/lan-ip>  # announce public IP to wider internet, local IP to optimize LAN WebRTC.
+
+min-port=64000
+max-port=64500
+
+fingerprint
+lt-cred-mech
+
+user=romm:<generate_random_credential_here_for_TURN_Access>
+
+realm=turn.mydomain.com
+
+cert=/etc/turnserver/certs/fullchain.pem   # must have valid certs copied into a directory that has 'turnserver' owner and rw privilege for TLS
+pkey=/etc/turnserver/certs/privkey.pem
+
+allow-loopback-peers  # must be enabled for host machine running emulator clients on same machine as coturn
+
+allowed-peer-ip=127.0.0.1
+allowed-peer-ip=192.168.0.1-192.168.0.255 # replace with your lan subnet range
+allowed-peer-ip=10.200.0.0-10.200.0.255 # replace with your VPN subnet range
+
+cli-ip=127.0.0.1
+cli-port=5766
+cli-password=<generate_some_other_random_key_here>  # must be enabled to allow loopback for browser client running on host machine running coturn.

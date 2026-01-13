@@ -1,0 +1,86 @@
+# These are both required to enable multithreading performance in emulatorjs, but not on the rest of romm's site,
+# where it would break other features, like YouTube's embedded players.
+
+map $request_uri $coep_header {
+        default "";
+        ~^/rom/.*/ejs(?:\?.*)?$ "require-corp";
+        ~^/console/rom/.*/play(?:\?.*)?$ "require-corp";
+}
+map $request_uri $coop_header {
+        default "";
+        ~^/rom/.*/ejs(?:\?.*)?$ "same-origin";
+        ~^/console/rom/.*/play(?:\?.*)?$ "same-origin";
+}
+
+server {
+    listen         80;
+    listen      [::]:80;
+    http2 on;
+    server_name romm.mydomain.com;   # change me
+    return 301 https://$host$request_uri;
+}
+server {
+    listen         4443 ssl;
+    listen      [::]:4443 ssl;
+    http2 on;
+    server_name    romm.mydomain.com;   # change me
+
+    # SSL certification settings
+    ssl_certificate /etc/letsencrypt/live/mydomain.com/fullchain.pem;    # change me
+    ssl_certificate_key /etc/letsencrypt/live/mydomain.com/privkey.pem;   # change me
+    ssl_protocols TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        # Required to proxy the connection to Cockpit
+        proxy_pass http://127.0.0.1:8083;     # I must match port for romm docker container webgui access.
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_max_temp_file_size 0;
+
+        # Required for web sockets to function
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+
+        server_tokens off;
+
+        add_header Referrer-Policy "strict-origin-when-cross-origin";
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Referrer-Policy "no-referrer-when-downgrade" always;
+        add_header Access-Control-Allow-Origin *;
+    }
+    location ~ ^/api/roms/.*/content/ {
+            proxy_pass http://127.0.0.1:8083;           # I must also match port for romm docker container webgui access.
+
+            # Disable buffering to allow direct streaming from backend to client
+            proxy_buffering off;
+            proxy_request_buffering off;
+            proxy_max_temp_file_size 0;
+
+            # Ensure large files aren't cut off by timeouts
+            proxy_read_timeout 600;
+            proxy_send_timeout 600;
+
+            # Standard proxy headers
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+            add_header Referrer-Policy "strict-origin-when-cross-origin";
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+            add_header Referrer-Policy "no-referrer-when-downgrade" always;
+            add_header Access-Control-Allow-Origin *;
+
+        }
+
+}

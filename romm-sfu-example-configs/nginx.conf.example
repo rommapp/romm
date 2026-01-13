@@ -1,0 +1,39 @@
+include modules.d/*.conf
+...
+...
+
+
+# this code is necessary if you want to enable TURN relay access on port 443 to allow users to bypass strict firewalls in corporate/hospital/school networks.
+# This feature is not in vanilla nginx and must be added via new package.  Install `nginx-mod-stream` (arch) or libnginx-mod-stream (deb) or similar, just google.
+# this code will catch 443 traffic and route it without unpacking it and mishandling on the TURN server.
+
+stream {
+	map $ssl_preread_server_name $backend_name {
+	turn.mydomain.com	turn_server;      # if server is turn.mydomain.com, pass to upstream.
+	.mydomain.com	web_servers;          # if server matches wildcard of literally anything other than turn. on mydomain.com, pass to web_servers upstream.
+	default				web_servers;      # and anything else not caught by the wildcard.
+	}
+
+	upstream web_servers {
+		server 127.0.0.1:4443;    # pass all web server traffic to 4443 or any arbitrary port.
+	}
+
+	upstream turn_server {
+		server 127.0.0.1:5349;     # pass TURN traffic to standard TLS port for TURN as configured in coturn.
+	}
+
+	server {
+		listen 443;
+		proxy_pass $backend_name;
+		ssl_preread on;
+	}
+}
+
+# This code MUST be included in the nginx conf folder near the top.
+# you MUST go into the mysiteA.conf and mysiteB.conf files for each of your subdomains in the NGINX conf.d/ and change ALL of them to "listen 4443" instead of "listen 443"
+# Doing this will avoid port conflicts on the host, and allow NGINX to safely proxy TLS traffic for TURN without breaking the packets expected formats, while keeping websites working.
+
+
+http {
+    ....
+}

@@ -1,0 +1,129 @@
+version: "3"
+
+volumes:
+  mysql_data:
+  romm_resources:
+  romm_redis_data:
+
+networks:
+  romm:
+    name: romm
+
+services:
+  romm:
+    image: technicallyalex/romm:latest
+    container_name: romm
+    restart: unless-stopped
+    extra_hosts:
+        - "host.docker.internal:host-gateway"
+    environment:
+      - SFU_HOST=host.docker.internal # Set to host.docker.internal or host.containers.internal (docker or podman) for host machine local IP access
+      - SFU_PORT=3001
+      - BASE_URL=https://romm.mydomain.com
+
+      - DB_HOST=romm-db
+      - DB_PORT=3306
+      - DB_NAME=romm # Should match MARIADB_DATABASE in mariadb
+      - DB_USER=romm-user # Should match MARIADB_USER in mariadb
+      - DB_PASSWD=y_(9kwL=&HLn # Should match MARIADB_PASSWORD in mariadb
+
+      - ROMM_AUTH_SECRET_KEY=___RANDOM_OPENSSL_STUFF_HERE___
+      - ROMM_SFU_INTERNAL_SECRET=insert-ANOTHER-OPENSSL-rand-string-same-method-pls  #This MUST be explicitly passed to both romm and romm-sfu
+
+      - IGDB_CLIENT_ID=secret
+      - IGDB_CLIENT_SECRET=secret
+      - SCREENSCRAPER_USER=username # These are the recommended metadata providers
+      - SCREENSCRAPER_PASSWORD="secret" # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#screenscraper
+      - RETROACHIEVEMENTS_API_KEY=secret # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
+      - STEAMGRIDDB_API_KEY=secret # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
+      - HASHEOUS_API_ENABLED=true # https://docis.romm.app/latest/Getting-Started/Metadata-Providers/#hasheous
+      - LAUNCHBOX_API_ENABLED=true
+      - PLAYMATCH_API_ENABLED=true
+      - FLASHPOINT_API_ENABLED=true
+      - HLTB_API_ENABLED=true
+      - ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true
+
+    volumes:
+      - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
+      - romm_redis_data_new:/redis-data # Cached data for background tasks
+      - /home/alex/Emulation:/romm/library # Your game library.
+      - /home/alex/.romm/assets:/romm/assets # Uploaded saves, states, etc.
+      - /home/alex/.romm/config:/romm/config # (Optional) Path where config.yml is stored
+ of emulatorjs-sfu
+    ports:
+      - 8083:8080
+    depends_on:
+      romm-db:
+        condition: service_healthy
+        restart: true
+    networks:
+      - romm
+  romm-db:
+    image: docker.io/mariadb:latest
+    container_name: romm-db
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=secret-db-pass # Use a unique, secure password
+      - MARIADB_DATABASE=romm
+      - MARIADB_USER=romm-user
+      - MARIADB_PASSWORD=secret-db-other-pass
+    volumes:
+      - mysql_data_new:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      start_interval: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - romm
+  romm-sfu:
+    image: technicallyalex/romm-sfu:latest
+    container_name: romm-sfu
+    restart: unless-stopped
+    cpuset: "6,7,14,15" # BIND CPU cores to the SFU server, completely optional.  Use kernel parameters to lock CPUs to SFU "...splash isolcpus=6,7,14,15"
+    network_mode: host  # HIGHLY RECCOMENDED  BASICALLY REQUIRED.  STUN has issues connecting clients to the relay, and opening hundreds of ports is not viable on docker.
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0' # this option limits the number of logical cores exposed to docker.  Line above explicitly selects which ones they are.
+    environment: 
+      - USE_WEBRTC_SERVER=1  # combine 500 ports into one port on WEBRTC_PORT.  Required for SFU_WORKER_COUNT= anything greater than 1.
+      - SFU_WORKER_COUNT=4  # Set number of 'workers' on SFU server, server binds 1 worker per core, and uses load balancing.
+      # SFU binds one port to each worker, so however many workers you have, you need those ports open, binds incrementally starting at WEBRTC_PORT
+      # for example, in default config of WEBRTC_PORT=20000, 4 workers means 20000, 20001, 20002, 20003 all must be open and forwarded on UDP.
+      - SFU_FANOUT_ENABLED=1
+      - ENABLE_WEBRTC_TCP=1
+      - PORT=3001
+      - WEBRTC_PORT=20000
+      - LISTEN_IP=0.0.0.0
+      - ANNOUNCED_IP=sfu.mydomain.com  # Set IP to share with SFU clients, set to URL for compatibility with "Dual Horizon" netowork configurations
+      - PUBLIC_URL=https://sfu.mydomain.com
+      - ROMM_API_BASE_URL=https://romm.mydomain.com
+      - ROMM_SFU_INTERNAL_SECRET=insert-ANOTHER-OPENSSL-rand-string-same-method-pls  # considering replacing with public/private key later
+      # maintain two separate sources for STUN servers.  TURN via TLS is used by clients behind strict firewalls that enforce only common ports like 443.
+      # They use TURN to connect to the SFU, but the SFU can provide them a more optimal preferred TURN that is closer to the SFU through this method.
+      # Client uses their own logic to set SFU provided servers as preferred and use their own servers as fallbacks.
+      - SFU_STUN_SERVERS=turn.mydomain.com:3478 # URL:PORT only, assumes stun protocol already.  Comma deliminated.
+      - SFU_TURN_SERVERS=[
+        {
+          "urls":["turn:turn.mydomain.com:3478?transport=udp"],
+          "username":"usergoeshere",
+          "credential":"passwordhere"
+        },
+        {
+          "urls":["turns:turn.mydomain.com:443?transport=tcp"],
+          "username":"usergoeshere"
+          "credential":"passwordhere"
+        ]
+      - LOG_LEVEL=debug
+      # YOU NEED PORTS:  3001=tcp, 20000-2000X=UDP
+#    ports:
+#      - 3001:3001
+#      - 20000:20000
+#      - 20001:20001
+#      - 20002:20002
+#      - 20003:20003
+#    networks:
+#      - romm

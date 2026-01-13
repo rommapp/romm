@@ -1,0 +1,109 @@
+emulatorjs:
+  cache_limit: null
+  controls: {}
+  debug: false
+  disable_auto_unload: false
+  disable_batch_bootup: false
+  netplay:
+    enabled: true
+    ice_servers:
+    # EDIT TURN SERVERS OR DELETE THEM - Optional only for strict firewalls
+    # STUN is still required to function and negotiate P2P for user-user or user-sfu
+      - urls: stun:stun:stun.l.google.com:19302
+      - urls: turn:turn.domain.com:3478
+        username: username
+        credential: secretpass
+      - urls: turns:turn.domain.com:443
+        username: username
+        credential: secretpass
+  settings:
+    parallel_n64:
+      vsync: disabled
+    snes9x:
+      snes9x_region: ntsc
+exclude:
+  platforms: []
+  roms:
+    multi_file:
+      names:
+      - cloud
+      - remoteplay
+      - generic-applications
+      - shortcuts
+      - InstalledGames
+      - roms
+      - 3dboxes
+      - backcovers
+      - covers
+      - fanart
+      - manuals
+      - marquees
+      - miximages
+      - physicalmedia
+      - screenshots
+      - titlescreens
+      - videos
+      parts:
+        extensions: []
+        names: []
+    single_file:
+      extensions: []
+      names:
+      - azahar.sh
+      - cemu.sh
+      - dolphin-emu.sh
+      - duckstation.sh
+      - melonds.sh
+      - mgba.sh
+      - pcsx2-qt.sh
+      - ppsspp.sh
+      - primehack.sh
+      - retroarch.sh
+      - rpcs3.sh
+      - ryujinx.sh
+      - vita3k.sh
+      - cloud.conf
+      - systeminfo.txt
+filesystem:
+  firmware_folder: bios
+  roms_folder: roms
+scan:
+  priority:
+    artwork:
+    - igdb
+    - moby
+    - ss
+    - ra
+    - launchbox
+    - gamelist
+    - hasheous
+    - tgdb
+    - flashpoint
+    - hltb
+    language:
+    - en
+    - fr
+    metadata:
+    - igdb
+    - moby
+    - ss
+    - ra
+    - launchbox
+    - gamelist
+    - hasheous
+    - tgdb
+    - flashpoint
+    - hltb
+    region:
+    - us
+    - wor
+    - ss
+    - eu
+    - jp
+system:
+  platforms:
+    gc: ngc
+    mastersystem: sms
+    n3ds: 3ds
+    ps: psx
+  versions: {}
