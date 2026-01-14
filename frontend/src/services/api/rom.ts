@@ -169,7 +169,7 @@ async function getRoms({
       selectedAgeRatings && selectedAgeRatings.length > 0
         ? selectedAgeRatings
         : undefined,
-    selected_statuses:
+    statuses:
       selectedStatuses && selectedStatuses.length > 0
         ? selectedStatuses
         : undefined,

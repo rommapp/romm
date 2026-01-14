@@ -306,7 +306,7 @@ def get_roms(
             ),
         ),
     ] = None,
-    selected_statuses: Annotated[
+    statuses: Annotated[
         list[str] | None,
         Query(
             description=(
@@ -435,7 +435,7 @@ def get_roms(
         collections=collections,
         companies=companies,
         age_ratings=age_ratings,
-        selected_statuses=selected_statuses,
+        statuses=statuses,
         regions=regions,
         languages=languages,
         player_counts=player_counts,

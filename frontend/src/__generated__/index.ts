@@ -44,6 +44,7 @@ export type { GenericTaskStatusResponse } from './models/GenericTaskStatusRespon
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBAgeRating } from './models/IGDBAgeRating';
+export type { IGDBMetadataMultiplayerMode } from './models/IGDBMetadataMultiplayerMode';
 export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
 export type { InviteLinkSchema } from './models/InviteLinkSchema';
