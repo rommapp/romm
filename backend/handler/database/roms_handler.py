@@ -418,13 +418,13 @@ class DBRomsHandler(DBBaseHandler):
         op = json_array_contains_all if match_all else json_array_contains_any
         return query.filter(op(RomMetadata.age_ratings, values, session=session))
 
-    def filter_by_status(self, query: Query, selected_statuses: Sequence[str]):
+    def filter_by_status(self, query: Query, statuses: Sequence[str]):
         """Filter by one or more user statuses using OR logic."""
-        if not selected_statuses:
+        if not statuses:
             return query
 
         status_filters = []
-        for selected_status in selected_statuses:
+        for selected_status in statuses:
             if selected_status == "now_playing":
                 status_filters.append(RomUser.now_playing.is_(True))
             elif selected_status == "backlogged":
@@ -435,7 +435,7 @@ class DBRomsHandler(DBBaseHandler):
                 status_filters.append(RomUser.status == selected_status)
 
         # If hidden is in the list, don't apply the hidden filter at the end
-        if "hidden" in selected_statuses:
+        if "hidden" in statuses:
             return query.filter(or_(*status_filters))
 
         return query.filter(or_(*status_filters), RomUser.hidden.is_(False))
@@ -495,7 +495,7 @@ class DBRomsHandler(DBBaseHandler):
         collections: Sequence[str] | None = None,
         companies: Sequence[str] | None = None,
         age_ratings: Sequence[str] | None = None,
-        selected_statuses: Sequence[str] | None = None,
+        statuses: Sequence[str] | None = None,
         regions: Sequence[str] | None = None,
         languages: Sequence[str] | None = None,
         player_counts: Sequence[str] | None = None,
@@ -693,8 +693,8 @@ class DBRomsHandler(DBBaseHandler):
                 )
 
         # The RomUser table is already joined if user_id is set
-        if selected_statuses and user_id:
-            query = self.filter_by_status(query, selected_statuses)
+        if statuses and user_id:
+            query = self.filter_by_status(query, statuses)
         elif user_id:
             query = query.filter(
                 or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
@@ -776,7 +776,7 @@ class DBRomsHandler(DBBaseHandler):
             collections=kwargs.get("collections", None),
             companies=kwargs.get("companies", None),
             age_ratings=kwargs.get("age_ratings", None),
-            selected_statuses=kwargs.get("selected_statuses", None),
+            statuses=kwargs.get("statuses", None),
             regions=kwargs.get("regions", None),
             languages=kwargs.get("languages", None),
             player_counts=kwargs.get("player_counts", None),
