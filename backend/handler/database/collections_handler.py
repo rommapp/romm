@@ -267,6 +267,7 @@ class DBCollectionsHandler(DBBaseHandler):
         age_ratings = convert_legacy_filter("age_ratings", "selected_age_rating")
         regions = convert_legacy_filter("regions", "selected_region")
         languages = convert_legacy_filter("languages", "selected_language")
+        statuses = convert_legacy_filter("statuses", "selected_status")
 
         # Use the existing filter_roms method with the stored criteria
         platform_ids = criteria.get("platform_ids")
@@ -291,7 +292,7 @@ class DBCollectionsHandler(DBBaseHandler):
             collections=collections,
             companies=companies,
             age_ratings=age_ratings,
-            statuses=criteria.get("statuses"),
+            statuses=statuses,
             regions=regions,
             languages=languages,
             # Logic operators for multi-value filters
