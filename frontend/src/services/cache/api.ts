@@ -62,7 +62,7 @@ class CachedApiService {
         params.selectedAgeRatings && params.selectedAgeRatings.length > 0
           ? params.selectedAgeRatings
           : undefined,
-      selected_statuses:
+      statuses:
         params.selectedStatuses && params.selectedStatuses.length > 0
           ? params.selectedStatuses
           : undefined,

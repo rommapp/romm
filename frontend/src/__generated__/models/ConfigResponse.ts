@@ -28,5 +28,6 @@ export type ConfigResponse = {
     SCAN_ARTWORK_PRIORITY: Array<string>;
     SCAN_REGION_PRIORITY: Array<string>;
     SCAN_LANGUAGE_PRIORITY: Array<string>;
+    SCAN_MEDIA: Array<string>;
 };
 
