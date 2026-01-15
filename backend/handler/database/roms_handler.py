@@ -836,6 +836,65 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def with_filter_values(
+        self,
+        query: Query,
+        session: Session = None,  # type: ignore
+    ) -> dict:
+        ids_subq = query.with_only_columns(Rom.id).scalar_subquery()  # type: ignore
+
+        statement = (
+            select(
+                RomMetadata.genres,
+                RomMetadata.franchises,
+                RomMetadata.collections,
+                RomMetadata.companies,
+                RomMetadata.game_modes,
+                RomMetadata.age_ratings,
+                RomMetadata.player_count,
+                Rom.regions,
+                Rom.languages,
+            )
+            .select_from(Rom)
+            .join(RomMetadata, Rom.id == RomMetadata.rom_id)
+            .where(Rom.id.in_(ids_subq))
+        )
+
+        genres = set()
+        franchises = set()
+        collections = set()
+        companies = set()
+        game_modes = set()
+        age_ratings = set()
+        player_counts = set()
+        regions = set()
+        languages = set()
+
+        for row in session.execute(statement):
+            g, f, cl, co, gm, ar, pc, rg, lg = row
+            genres.update(g)
+            franchises.update(f)
+            collections.update(cl)
+            companies.update(co)
+            game_modes.update(gm)
+            age_ratings.update(ar)
+            player_counts.update(pc)
+            regions.update(rg)
+            languages.update(lg)
+
+        return {
+            "genres": sorted(genres),
+            "franchises": sorted(franchises),
+            "collections": sorted(collections),
+            "companies": sorted(companies),
+            "game_modes": sorted(game_modes),
+            "age_ratings": sorted(age_ratings),
+            "player_counts": sorted(player_counts),
+            "regions": sorted(regions),
+            "languages": sorted(languages),
+        }
+
+    @begin_session
     @with_details
     def get_roms_by_fs_name(
         self,
@@ -1236,6 +1295,7 @@ class DBRomsHandler(DBBaseHandler):
         statement = select(
             RomMetadata.genres,
             RomMetadata.franchises,
+            RomMetadata.collections,
             RomMetadata.companies,
             RomMetadata.game_modes,
             RomMetadata.age_ratings,
@@ -1243,8 +1303,10 @@ class DBRomsHandler(DBBaseHandler):
             Rom.regions,
             Rom.languages,
         )
+
         genres = set()
         franchises = set()
+        collections = set()
         companies = set()
         game_modes = set()
         age_ratings = set()
@@ -1253,10 +1315,11 @@ class DBRomsHandler(DBBaseHandler):
         languages = set()
 
         for row in session.execute(statement):
-            g, f, c, gm, ar, pc, rg, lg = row
+            g, f, cl, co, gm, ar, pc, rg, lg = row
             genres.update(g)
             franchises.update(f)
-            companies.update(c)
+            collections.update(cl)
+            companies.update(co)
             game_modes.update(gm)
             age_ratings.update(ar)
             player_counts.update(pc)
@@ -1266,61 +1329,7 @@ class DBRomsHandler(DBBaseHandler):
         return {
             "genres": sorted(genres),
             "franchises": sorted(franchises),
-            "companies": sorted(companies),
-            "game_modes": sorted(game_modes),
-            "age_ratings": sorted(age_ratings),
-            "player_counts": sorted(player_counts),
-            "regions": sorted(regions),
-            "languages": sorted(languages),
-        }
-
-    @begin_session
-    def with_filter_values(
-        self,
-        query: Query,
-        session: Session = None,  # type: ignore
-    ) -> dict:
-        ids_subq = query.with_only_columns(Rom.id).scalar_subquery()  # type: ignore
-
-        statement = (
-            select(
-                RomMetadata.genres,
-                RomMetadata.franchises,
-                RomMetadata.companies,
-                RomMetadata.game_modes,
-                RomMetadata.age_ratings,
-                RomMetadata.player_count,
-                Rom.regions,
-                Rom.languages,
-            )
-            .select_from(Rom)
-            .join(RomMetadata, Rom.id == RomMetadata.rom_id)
-            .where(Rom.id.in_(ids_subq))
-        )
-
-        genres = set()
-        franchises = set()
-        companies = set()
-        game_modes = set()
-        age_ratings = set()
-        player_counts = set()
-        regions = set()
-        languages = set()
-
-        for row in session.execute(statement):
-            g, f, c, gm, ar, pc, rg, lg = row
-            genres.update(g)
-            franchises.update(f)
-            companies.update(c)
-            game_modes.update(gm)
-            age_ratings.update(ar)
-            player_counts.update(pc)
-            regions.update(rg)
-            languages.update(lg)
-
-        return {
-            "genres": sorted(genres),
-            "franchises": sorted(franchises),
+            "collections": sorted(collections),
             "companies": sorted(companies),
             "game_modes": sorted(game_modes),
             "age_ratings": sorted(age_ratings),

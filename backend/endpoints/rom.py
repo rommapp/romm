@@ -468,6 +468,7 @@ def get_roms(
     filter_values = RomFiltersDict(
         genres=[],
         franchises=[],
+        collections=[],
         companies=[],
         game_modes=[],
         age_ratings=[],
@@ -480,6 +481,7 @@ def get_roms(
         filter_values = RomFiltersDict(
             genres=query_filters["genres"],
             franchises=query_filters["franchises"],
+            collections=query_filters["collections"],
             companies=query_filters["companies"],
             game_modes=query_filters["game_modes"],
             age_ratings=query_filters["age_ratings"],
@@ -709,6 +711,7 @@ async def get_rom_filters(request: Request) -> RomFiltersDict:
     return RomFiltersDict(
         genres=filters["genres"],
         franchises=filters["franchises"],
+        collections=filters["collections"],
         companies=filters["companies"],
         game_modes=filters["game_modes"],
         age_ratings=filters["age_ratings"],
