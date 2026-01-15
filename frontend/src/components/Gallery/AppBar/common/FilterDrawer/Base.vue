@@ -268,17 +268,16 @@ function resetFilters() {
 }
 
 async function fetchSearchFilters() {
-  const { data } = await romApi.getRomFilters();
-
-  galleryFilterStore.setFilterPlatforms([]);
-  galleryFilterStore.setFilterGenres(data.genres);
-  galleryFilterStore.setFilterFranchises(data.franchises);
-  galleryFilterStore.setFilterCompanies(data.companies);
-  galleryFilterStore.setFilterCollections([]);
-  galleryFilterStore.setFilterAgeRatings(data.age_ratings);
-  galleryFilterStore.setFilterRegions(data.regions);
-  galleryFilterStore.setFilterLanguages(data.languages);
-  galleryFilterStore.setFilterPlayerCounts(data.player_counts);
+  // const { data } = await romApi.getRomFilters();
+  // galleryFilterStore.setFilterPlatforms([]);
+  // galleryFilterStore.setFilterGenres(data.genres);
+  // galleryFilterStore.setFilterFranchises(data.franchises);
+  // galleryFilterStore.setFilterCompanies(data.companies);
+  // galleryFilterStore.setFilterCollections([]);
+  // galleryFilterStore.setFilterAgeRatings(data.age_ratings);
+  // galleryFilterStore.setFilterRegions(data.regions);
+  // galleryFilterStore.setFilterLanguages(data.languages);
+  // galleryFilterStore.setFilterPlayerCounts(data.player_counts);
 }
 
 onMounted(async () => {
