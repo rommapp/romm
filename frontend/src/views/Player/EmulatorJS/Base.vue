@@ -41,7 +41,7 @@ const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
-let sfuTokenRefreshTimer: number | null = null;
+// Token refresh timer removed - tokens are now fetched on-demand
 
 declare global {
   interface Navigator {
@@ -84,9 +84,9 @@ async function onPlay() {
   // This is intentionally independent from the SFU fork's internal version.
   (window as any).EJS_CDN_CORES_VERSION = "nightly";
 
-  async function ensureSfuToken() {
+  async function ensureSfuToken(tokenType: "read" | "write" = "read") {
     try {
-      const { data } = await api.post("/sfu/token");
+      const { data } = await api.post("/sfu/token", { token_type: tokenType });
       const token = data?.token;
       if (typeof token !== "string" || token.length === 0) {
         throw new Error("Missing token in /api/sfu/token response");
@@ -100,14 +100,18 @@ async function onPlay() {
       // Instead, store the token in a cookie; Socket.IO will send it in
       // the handshake headers on the same domain.
       const secure = window.location.protocol === "https:" ? "; Secure" : "";
+      // Read tokens: 15 minutes (900 seconds), Write tokens: 30 seconds
+      const maxAge = tokenType === "read" ? 900 : 30;
       document.cookie = `romm_sfu_token=${encodeURIComponent(
         token
-      )}; Max-Age=30; Path=/; SameSite=Lax${secure}`;
+      )}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
+      return token;
     } catch (err) {
       console.warn(
-        "[Play] Failed to mint SFU token; authenticated netplay may fail",
+        `[Play] Failed to mint SFU ${tokenType} token; authenticated netplay may fail`,
         err
       );
+      throw err;
     }
   }
 
@@ -260,15 +264,12 @@ async function onPlay() {
 
   try {
     if (EJS_NETPLAY_ENABLED) {
-      await ensureSfuToken();
+      // Fetch read token on-demand (will be fetched when SFU returns 401)
+      // No periodic refresh - tokens are fetched only when needed
+      await ensureSfuToken("read").catch(() => {
+        // Silently fail - token will be fetched on-demand when SFU requires it
+      });
       await tryFetchPreferredIceServers();
-      if (sfuTokenRefreshTimer !== null) {
-        window.clearInterval(sfuTokenRefreshTimer);
-      }
-      // Refresh slightly before TTL to keep reconnects working.
-      sfuTokenRefreshTimer = window.setInterval(() => {
-        ensureSfuToken();
-      }, 20000);
     }
     if (EJS_NETPLAY_ENABLED) {
       // Netplay depends on our locally mounted EmulatorJS + SFU proxies.
@@ -435,10 +436,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(async () => {
-  if (sfuTokenRefreshTimer !== null) {
-    window.clearInterval(sfuTokenRefreshTimer);
-    sfuTokenRefreshTimer = null;
-  }
+  // Token refresh timer removed - tokens are now fetched on-demand
   window.EJS_emulator?.callEvent("exit");
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);

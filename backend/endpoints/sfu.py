@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Final
 from uuid import uuid4
 
-from fastapi import HTTPException, Request, status
+from fastapi import Body, HTTPException, Request, status
 from joserfc import jwt
 from joserfc.errors import BadSignatureError, DecodeError
 
@@ -19,7 +19,9 @@ from handler.redis_handler import sync_cache
 from utils.router import APIRouter
 
 # Declarations to configure JWT tokens for SFU authentication.
-SFU_TOKEN_TTL_SECONDS: Final[int] = 30
+SFU_TOKEN_TTL_SECONDS: Final[int] = 30  # Write token TTL (deprecated, use SFU_WRITE_TOKEN_TTL_SECONDS)
+SFU_READ_TOKEN_TTL_SECONDS: Final[int] = 900  # 15 minutes for read tokens
+SFU_WRITE_TOKEN_TTL_SECONDS: Final[int] = 30  # 30 seconds for write tokens
 SFU_TOKEN_ISSUER: Final[str] = "romm:sfu"
 SFU_JTI_REDIS_KEY_PREFIX: Final[str] = "sfu:auth:jti:"
 SFU_TOKEN_CLOCK_SKEW_SECONDS: Final[int] = 5
@@ -94,12 +96,17 @@ def _decode_and_validate_sfu_jwt(token: str) -> dict[str, Any]:
 
     if claims.get("iss") != SFU_TOKEN_ISSUER:
         raise HTTPException(status_code=401, detail="invalid issuer")
-    if claims.get("type") != "sfu":
+    # Support both old "sfu" type and new "sfu:read"/"sfu:write" types
+    token_type = claims.get("type")
+    if token_type not in ("sfu", "sfu:read", "sfu:write"):
         raise HTTPException(status_code=401, detail="invalid token type")
     if not claims.get("sub") or not isinstance(claims.get("sub"), str):
         raise HTTPException(status_code=401, detail="missing sub")
-    if not claims.get("jti") or not isinstance(claims.get("jti"), str):
-        raise HTTPException(status_code=401, detail="missing jti")
+    # JTI is only required for write tokens (which need Redis lookup)
+    # Read tokens don't need JTI since they're validated by signature only
+    if token_type == "sfu:write" or token_type == "sfu":
+        if not claims.get("jti") or not isinstance(claims.get("jti"), str):
+            raise HTTPException(status_code=401, detail="missing jti")
     return claims
 
 
@@ -119,8 +126,19 @@ def sfu_internal_verify(request: Request, body: SFUVerifyRequest) -> SFUVerifyRe
     _require_sfu_internal_secret(request)
 
     claims = _decode_and_validate_sfu_jwt(body.token)
-    jti = str(claims["jti"])
+    token_type = claims.get("type", "sfu")
     sub = str(claims["sub"])
+
+    # Read tokens (sfu:read) don't need Redis lookup - validated by JWT signature only
+    if token_type == "sfu:read":
+        # For read tokens, we can extract netplay_username from user settings if needed
+        # For now, return without netplay_username for read tokens
+        return SFUVerifyResponse(sub=sub, netplay_username=None)
+
+    # Write tokens (sfu:write) and legacy tokens (sfu) require Redis lookup
+    jti = str(claims.get("jti", ""))
+    if not jti:
+        raise HTTPException(status_code=401, detail="missing jti for write token")
 
     allow_key = f"{SFU_JTI_REDIS_KEY_PREFIX}{jti}"
     data = _decode_redis_hash(sync_cache.hgetall(allow_key))
@@ -270,45 +288,83 @@ def _get_netplay_username_from_ui_settings(ui_settings: dict | None) -> str | No
 
 # Endpoint to mint SFU authentication tokens.
 @protected_route(router.post, "/sfu/token", [Scope.ME_READ])
-def mint_sfu_token(request: Request) -> SFUTokenResponse:
+def mint_sfu_token(
+    request: Request,
+    token_type: str = Body("read", embed=True)
+) -> SFUTokenResponse:
+    """Mint SFU authentication tokens.
+    
+    Args:
+        request: FastAPI request object
+        token_type: "read" for room listings (15min), "write" for creating/joining rooms (30s)
+    
+    Returns:
+        SFUTokenResponse with token, token_type, and expires
+    """
     user = request.user
 
+    # Validate token_type parameter
+    if token_type not in ("read", "write"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="token_type must be 'read' or 'write'"
+        )
+
     now = datetime.now(timezone.utc)
-    expires_delta = timedelta(seconds=SFU_TOKEN_TTL_SECONDS)
+    
+    # Set expiry based on token type
+    if token_type == "read":
+        expires_delta = timedelta(seconds=SFU_READ_TOKEN_TTL_SECONDS)
+        token_type_claim = "sfu:read"
+        expires_seconds = SFU_READ_TOKEN_TTL_SECONDS
+    else:  # write
+        expires_delta = timedelta(seconds=SFU_WRITE_TOKEN_TTL_SECONDS)
+        token_type_claim = "sfu:write"
+        expires_seconds = SFU_WRITE_TOKEN_TTL_SECONDS
+    
     exp = now + expires_delta
     jti = uuid4().hex
 
     netplay_username = _get_netplay_username_from_ui_settings(getattr(user, "ui_settings", None))
 
+    # Build token claims
+    token_data = {
+        "sub": user.username,
+        "iss": SFU_TOKEN_ISSUER,
+        "type": token_type_claim,
+        "iat": int(now.timestamp()),
+    }
+    
+    # Only include JTI for write tokens (read tokens don't need Redis lookup)
+    if token_type == "write":
+        token_data["jti"] = jti
+
     token = oauth_handler.create_oauth_token(
-        data={
-            "sub": user.username,
-            "iss": SFU_TOKEN_ISSUER,
-            "type": "sfu",
-            "jti": jti,
-            "iat": int(now.timestamp()),
-        },
+        data=token_data,
         expires_delta=expires_delta,
     )
 
-    key = f"{SFU_JTI_REDIS_KEY_PREFIX}{jti}"
-    payload: dict[str, str] = {
-        "sub": user.username,
-        "iss": SFU_TOKEN_ISSUER,
-        "jti": jti,
-        "iat": str(int(now.timestamp())),
-        "exp": str(int(exp.timestamp())),
-    }
-    if netplay_username:
-        payload["netplay_username"] = netplay_username
+    # Only store write tokens in Redis
+    if token_type == "write":
+        key = f"{SFU_JTI_REDIS_KEY_PREFIX}{jti}"
+        payload: dict[str, str] = {
+            "sub": user.username,
+            "iss": SFU_TOKEN_ISSUER,
+            "jti": jti,
+            "iat": str(int(now.timestamp())),
+            "exp": str(int(exp.timestamp())),
+        }
+        if netplay_username:
+            payload["netplay_username"] = netplay_username
 
-    with sync_cache.pipeline() as pipe:
-        pipe.hset(key, mapping=payload)
-        pipe.expire(key, SFU_TOKEN_TTL_SECONDS)
-        pipe.execute()
+        # Store with value 0 (unused), will be set to 1 when consumed
+        with sync_cache.pipeline() as pipe:
+            pipe.hset(key, mapping=payload)
+            pipe.expire(key, SFU_WRITE_TOKEN_TTL_SECONDS)
+            pipe.execute()
 
     return {
         "token": token,
         "token_type": "bearer",
-        "expires": SFU_TOKEN_TTL_SECONDS,
+        "expires": expires_seconds,
     }
