@@ -1247,15 +1247,24 @@ class DBRomsHandler(DBBaseHandler):
 
         for row in session.execute(statement):
             g, f, cl, co, gm, ar, pc, rg, lg, pid = row
-            genres.update(g)
-            franchises.update(f)
-            collections.update(cl)
-            companies.update(co)
-            game_modes.update(gm)
-            age_ratings.update(ar)
-            player_counts.update(pc)
-            regions.update(rg)
-            languages.update(lg)
+            if g:
+                genres.update(g)
+            if f:
+                franchises.update(f)
+            if cl:
+                collections.update(cl)
+            if co:
+                companies.update(co)
+            if gm:
+                game_modes.update(gm)
+            if ar:
+                age_ratings.update(ar)
+            if pc:
+                player_counts.add(pc)
+            if rg:
+                regions.update(rg)
+            if lg:
+                languages.update(lg)
             platforms.add(pid)
 
         return {
