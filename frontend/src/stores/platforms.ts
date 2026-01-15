@@ -2,11 +2,8 @@ import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 import type { PlatformSchema } from "@/__generated__";
 import platformApi from "@/services/api/platform";
-import storeGalleryFilter from "@/stores/galleryFilter";
-import type { ExtractPiniaStoreType } from "@/types";
 
 export type Platform = PlatformSchema;
-type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 export default defineStore("platforms", {
   state: () => ({
