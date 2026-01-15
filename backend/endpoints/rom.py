@@ -481,24 +481,14 @@ def get_roms(
         filter_query = db_rom_handler.filter_roms(
             query=unfiltered_query,
             user_id=request.user.id,
+            platform_ids=platform_ids,
             collection_id=collection_id,
             virtual_collection_id=virtual_collection_id,
             smart_collection_id=smart_collection_id,
             search_term=search_term,
         )
         query_filters = db_rom_handler.with_filter_values(query=filter_query)
-        filter_values = RomFiltersDict(
-            genres=query_filters["genres"],
-            franchises=query_filters["franchises"],
-            collections=query_filters["collections"],
-            companies=query_filters["companies"],
-            game_modes=query_filters["game_modes"],
-            age_ratings=query_filters["age_ratings"],
-            player_counts=query_filters["player_counts"],
-            regions=query_filters["regions"],
-            languages=query_filters["languages"],
-            platforms=query_filters["platforms"],
-        )
+        filter_values = RomFiltersDict(**query_filters)
 
     # Get all ROM IDs in order for the additional data
     with sync_session.begin() as session:
@@ -718,18 +708,7 @@ async def get_rom_filters(request: Request) -> RomFiltersDict:
 
     filters = db_rom_handler.get_rom_filters()
 
-    return RomFiltersDict(
-        genres=filters["genres"],
-        franchises=filters["franchises"],
-        collections=filters["collections"],
-        companies=filters["companies"],
-        game_modes=filters["game_modes"],
-        age_ratings=filters["age_ratings"],
-        player_counts=filters["player_counts"],
-        regions=filters["regions"],
-        languages=filters["languages"],
-        platforms=filters["platforms"],
-    )
+    return RomFiltersDict(**filters)
 
 
 @protected_route(
