@@ -22,7 +22,6 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 export type SimpleRom = SimpleRomSchema;
 export type SearchRom = SearchRomSchema;
 export type DetailedRom = DetailedRomSchema;
-export const MAX_FETCH_LIMIT = 10000;
 
 const orderByStorage = useLocalStorage("roms.orderBy", "name");
 const orderDirStorage = useLocalStorage("roms.orderDir", "asc");
