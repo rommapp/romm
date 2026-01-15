@@ -22,6 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Query, Session, joinedload, noload, selectinload
 from sqlalchemy.sql.elements import KeyedColumnElement
+from sqlalchemy.sql.selectable import Select
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
@@ -836,69 +837,6 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def with_filter_values(
-        self,
-        query: Query,
-        session: Session = None,  # type: ignore
-    ) -> dict:
-        ids_subq = query.with_only_columns(Rom.id).scalar_subquery()  # type: ignore
-
-        statement = (
-            select(
-                RomMetadata.genres,
-                RomMetadata.franchises,
-                RomMetadata.collections,
-                RomMetadata.companies,
-                RomMetadata.game_modes,
-                RomMetadata.age_ratings,
-                RomMetadata.player_count,
-                Rom.regions,
-                Rom.languages,
-                Rom.platform_id,
-            )
-            .select_from(Rom)
-            .join(RomMetadata, Rom.id == RomMetadata.rom_id)
-            .where(Rom.id.in_(ids_subq))
-        )
-
-        genres = set()
-        franchises = set()
-        collections = set()
-        companies = set()
-        game_modes = set()
-        age_ratings = set()
-        player_counts = set()
-        regions = set()
-        languages = set()
-        platforms = set()
-
-        for row in session.execute(statement):
-            g, f, cl, co, gm, ar, pc, rg, lg, pid = row
-            genres.update(g)
-            franchises.update(f)
-            collections.update(cl)
-            companies.update(co)
-            game_modes.update(gm)
-            age_ratings.update(ar)
-            player_counts.update(pc)
-            regions.update(rg)
-            languages.update(lg)
-            platforms.add(pid)
-
-        return {
-            "genres": sorted(genres),
-            "franchises": sorted(franchises),
-            "collections": sorted(collections),
-            "companies": sorted(companies),
-            "game_modes": sorted(game_modes),
-            "age_ratings": sorted(age_ratings),
-            "player_counts": sorted(player_counts),
-            "regions": sorted(regions),
-            "languages": sorted(languages),
-            "platforms": sorted(platforms),
-        }
-
-    @begin_session
     @with_details
     def get_roms_by_fs_name(
         self,
@@ -1291,24 +1229,11 @@ class DBRomsHandler(DBBaseHandler):
         # Return the first ROM matching any of the provided hash values
         return session.scalar(query.outerjoin(Rom.files).filter(or_(*filters)).limit(1))
 
-    @begin_session
-    def get_rom_filters(
+    def _collect_filter_values(
         self,
-        session: Session = None,  # type: ignore
+        session: Session,
+        statement: Select,
     ) -> dict:
-        statement = select(
-            RomMetadata.genres,
-            RomMetadata.franchises,
-            RomMetadata.collections,
-            RomMetadata.companies,
-            RomMetadata.game_modes,
-            RomMetadata.age_ratings,
-            RomMetadata.player_count,
-            Rom.regions,
-            Rom.languages,
-            Rom.platform_id,
-        )
-
         genres = set()
         franchises = set()
         collections = set()
@@ -1345,3 +1270,51 @@ class DBRomsHandler(DBBaseHandler):
             "languages": sorted(languages),
             "platforms": sorted(platforms),
         }
+
+    @begin_session
+    def with_filter_values(
+        self,
+        query: Query,
+        session: Session = None,  # type: ignore
+    ) -> dict:
+        ids_subq = query.with_only_columns(Rom.id).scalar_subquery()  # type: ignore
+
+        statement = (
+            select(
+                RomMetadata.genres,
+                RomMetadata.franchises,
+                RomMetadata.collections,
+                RomMetadata.companies,
+                RomMetadata.game_modes,
+                RomMetadata.age_ratings,
+                RomMetadata.player_count,
+                Rom.regions,
+                Rom.languages,
+                Rom.platform_id,
+            )
+            .select_from(Rom)
+            .join(RomMetadata, Rom.id == RomMetadata.rom_id)
+            .where(Rom.id.in_(ids_subq))
+        )
+
+        return self._collect_filter_values(session, statement)
+
+    @begin_session
+    def get_rom_filters(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> dict:
+        statement = select(
+            RomMetadata.genres,
+            RomMetadata.franchises,
+            RomMetadata.collections,
+            RomMetadata.companies,
+            RomMetadata.game_modes,
+            RomMetadata.age_ratings,
+            RomMetadata.player_count,
+            Rom.regions,
+            Rom.languages,
+            Rom.platform_id,
+        )
+
+        return self._collect_filter_values(session, statement)
