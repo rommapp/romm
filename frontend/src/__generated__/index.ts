@@ -62,6 +62,7 @@ export type { RAUserGameProgression } from './models/RAUserGameProgression';
 export type { Role } from './models/Role';
 export type { RomFileCategory } from './models/RomFileCategory';
 export type { RomFileSchema } from './models/RomFileSchema';
+export type { RomFiltersDict } from './models/RomFiltersDict';
 export type { RomFlashpointMetadata } from './models/RomFlashpointMetadata';
 export type { RomGamelistMetadata } from './models/RomGamelistMetadata';
 export type { RomHasheousMetadata } from './models/RomHasheousMetadata';

@@ -206,12 +206,12 @@ class DBRomsHandler(DBBaseHandler):
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
 
-    def filter_by_platform_ids(
+    def _filter_by_platform_ids(
         self, query: Query, platform_ids: Sequence[int]
     ) -> Query:
         return query.filter(Rom.platform_id.in_(platform_ids))
 
-    def filter_by_collection_id(
+    def _filter_by_collection_id(
         self, query: Query, session: Session, collection_id: int
     ):
         from . import db_collection_handler
@@ -222,7 +222,7 @@ class DBRomsHandler(DBBaseHandler):
             return query.filter(Rom.id.in_(collection.rom_ids))
         return query
 
-    def filter_by_virtual_collection_id(
+    def _filter_by_virtual_collection_id(
         self, query: Query, session: Session, virtual_collection_id: str
     ):
         from . import db_collection_handler
@@ -235,7 +235,7 @@ class DBRomsHandler(DBBaseHandler):
             return query.filter(Rom.id.in_(v_collection.rom_ids))
         return query
 
-    def filter_by_smart_collection_id(
+    def _filter_by_smart_collection_id(
         self, query: Query, session: Session, smart_collection_id: int, user_id: int
     ):
         from . import db_collection_handler
@@ -250,7 +250,7 @@ class DBRomsHandler(DBBaseHandler):
             return query.filter(Rom.id.in_(smart_collection.rom_ids))
         return query
 
-    def filter_by_search_term(self, query: Query, search_term: str):
+    def _filter_by_search_term(self, query: Query, search_term: str):
         return query.filter(
             or_(
                 Rom.fs_name.ilike(f"%{search_term}%"),
@@ -258,7 +258,7 @@ class DBRomsHandler(DBBaseHandler):
             )
         )
 
-    def filter_by_matched(self, query: Query, value: bool) -> Query:
+    def _filter_by_matched(self, query: Query, value: bool) -> Query:
         """Filter based on whether the rom is matched to a metadata provider.
 
         Args:
@@ -278,7 +278,7 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def filter_by_favorite(
+    def _filter_by_favorite(
         self, query: Query, session: Session, value: bool, user_id: int | None
     ) -> Query:
         """Filter based on whether the rom is in the user's favorites collection."""
@@ -300,21 +300,21 @@ class DBRomsHandler(DBBaseHandler):
             return query
         return query.filter(false())
 
-    def filter_by_duplicate(self, query: Query, value: bool) -> Query:
+    def _filter_by_duplicate(self, query: Query, value: bool) -> Query:
         """Filter based on whether the rom has duplicates."""
         predicate = Rom.sibling_roms.any()
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def filter_by_playable(self, query: Query, value: bool) -> Query:
+    def _filter_by_playable(self, query: Query, value: bool) -> Query:
         """Filter based on whether the rom is playable on supported platforms."""
         predicate = Platform.slug.in_(EJS_SUPPORTED_PLATFORMS)
         if not value:
             predicate = not_(predicate)
         return query.join(Platform).filter(predicate)
 
-    def filter_by_last_played(
+    def _filter_by_last_played(
         self, query: Query, value: bool, user_id: int | None = None
     ) -> Query:
         """Filter based on whether the rom has a last played value for the user."""
@@ -328,19 +328,19 @@ class DBRomsHandler(DBBaseHandler):
         )
         return query.filter(has_last_played)
 
-    def filter_by_has_ra(self, query: Query, value: bool) -> Query:
+    def _filter_by_has_ra(self, query: Query, value: bool) -> Query:
         predicate = Rom.ra_id.isnot(None)
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def filter_by_missing_from_fs(self, query: Query, value: bool) -> Query:
+    def _filter_by_missing_from_fs(self, query: Query, value: bool) -> Query:
         predicate = Rom.missing_from_fs.isnot(False)
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def filter_by_verified(self, query: Query):
+    def _filter_by_verified(self, query: Query):
         keys_to_check = [
             "tosec_match",
             "mame_arcade_match",
@@ -363,7 +363,7 @@ class DBRomsHandler(DBBaseHandler):
                 or_(*(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check))
             )
 
-    def filter_by_genres(
+    def _filter_by_genres(
         self,
         query: Query,
         *,
@@ -374,7 +374,7 @@ class DBRomsHandler(DBBaseHandler):
         op = json_array_contains_all if match_all else json_array_contains_any
         return query.filter(op(RomMetadata.genres, values, session=session))
 
-    def filter_by_franchises(
+    def _filter_by_franchises(
         self,
         query: Query,
         *,
@@ -385,7 +385,7 @@ class DBRomsHandler(DBBaseHandler):
         op = json_array_contains_all if match_all else json_array_contains_any
         return query.filter(op(RomMetadata.franchises, values, session=session))
 
-    def filter_by_collections(
+    def _filter_by_collections(
         self,
         query: Query,
         *,
@@ -396,7 +396,7 @@ class DBRomsHandler(DBBaseHandler):
         op = json_array_contains_all if match_all else json_array_contains_any
         return query.filter(op(RomMetadata.collections, values, session=session))
 
-    def filter_by_companies(
+    def _filter_by_companies(
         self,
         query: Query,
         *,
@@ -407,7 +407,7 @@ class DBRomsHandler(DBBaseHandler):
         op = json_array_contains_all if match_all else json_array_contains_any
         return query.filter(op(RomMetadata.companies, values, session=session))
 
-    def filter_by_age_ratings(
+    def _filter_by_age_ratings(
         self,
         query: Query,
         *,
@@ -418,7 +418,7 @@ class DBRomsHandler(DBBaseHandler):
         op = json_array_contains_all if match_all else json_array_contains_any
         return query.filter(op(RomMetadata.age_ratings, values, session=session))
 
-    def filter_by_status(self, query: Query, statuses: Sequence[str]):
+    def _filter_by_status(self, query: Query, statuses: Sequence[str]):
         """Filter by one or more user statuses using OR logic."""
         if not statuses:
             return query
@@ -440,7 +440,7 @@ class DBRomsHandler(DBBaseHandler):
 
         return query.filter(or_(*status_filters), RomUser.hidden.is_(False))
 
-    def filter_by_regions(
+    def _filter_by_regions(
         self,
         query: Query,
         *,
@@ -451,7 +451,7 @@ class DBRomsHandler(DBBaseHandler):
         op = json_array_contains_all if match_all else json_array_contains_any
         return query.filter(op(Rom.regions, values, session=session))
 
-    def filter_by_languages(
+    def _filter_by_languages(
         self,
         query: Query,
         *,
@@ -462,7 +462,7 @@ class DBRomsHandler(DBBaseHandler):
         op = json_array_contains_all if match_all else json_array_contains_any
         return query.filter(op(Rom.languages, values, session=session))
 
-    def filter_by_player_counts(
+    def _filter_by_player_counts(
         self,
         query: Query,
         *,
@@ -516,52 +516,52 @@ class DBRomsHandler(DBBaseHandler):
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
         if platform_ids:
-            query = self.filter_by_platform_ids(query, platform_ids)
+            query = self._filter_by_platform_ids(query, platform_ids)
 
         if collection_id:
-            query = self.filter_by_collection_id(query, session, collection_id)
+            query = self._filter_by_collection_id(query, session, collection_id)
 
         if virtual_collection_id:
-            query = self.filter_by_virtual_collection_id(
+            query = self._filter_by_virtual_collection_id(
                 query, session, virtual_collection_id
             )
 
         if smart_collection_id and user_id:
-            query = self.filter_by_smart_collection_id(
+            query = self._filter_by_smart_collection_id(
                 query, session, smart_collection_id, user_id
             )
 
         if search_term:
-            query = self.filter_by_search_term(query, search_term)
+            query = self._filter_by_search_term(query, search_term)
 
         if matched is not None:
-            query = self.filter_by_matched(query, value=matched)
+            query = self._filter_by_matched(query, value=matched)
 
         if favorite is not None:
-            query = self.filter_by_favorite(
+            query = self._filter_by_favorite(
                 query, session=session, value=favorite, user_id=user_id
             )
 
         if duplicate is not None:
-            query = self.filter_by_duplicate(query, value=duplicate)
+            query = self._filter_by_duplicate(query, value=duplicate)
 
         if last_played is not None:
-            query = self.filter_by_last_played(
+            query = self._filter_by_last_played(
                 query, value=last_played, user_id=user_id
             )
 
         if playable is not None:
-            query = self.filter_by_playable(query, value=playable)
+            query = self._filter_by_playable(query, value=playable)
 
         if has_ra is not None:
-            query = self.filter_by_has_ra(query, value=has_ra)
+            query = self._filter_by_has_ra(query, value=has_ra)
 
         if missing is not None:
-            query = self.filter_by_missing_from_fs(query, value=missing)
+            query = self._filter_by_missing_from_fs(query, value=missing)
 
         # TODO: Correctly support true/false values.
         if verified:
-            query = self.filter_by_verified(query)
+            query = self._filter_by_verified(query)
 
         # BEWARE YE WHO ENTERS HERE 💀
         if group_by_meta_id:
@@ -676,14 +676,14 @@ class DBRomsHandler(DBBaseHandler):
 
         # Apply metadata and rom-level filters efficiently
         filters_to_apply = [
-            (genres, genres_logic, self.filter_by_genres),
-            (franchises, franchises_logic, self.filter_by_franchises),
-            (collections, collections_logic, self.filter_by_collections),
-            (companies, companies_logic, self.filter_by_companies),
-            (age_ratings, age_ratings_logic, self.filter_by_age_ratings),
-            (regions, regions_logic, self.filter_by_regions),
-            (languages, languages_logic, self.filter_by_languages),
-            (player_counts, player_counts_logic, self.filter_by_player_counts),
+            (genres, genres_logic, self._filter_by_genres),
+            (franchises, franchises_logic, self._filter_by_franchises),
+            (collections, collections_logic, self._filter_by_collections),
+            (companies, companies_logic, self._filter_by_companies),
+            (age_ratings, age_ratings_logic, self._filter_by_age_ratings),
+            (regions, regions_logic, self._filter_by_regions),
+            (languages, languages_logic, self._filter_by_languages),
+            (player_counts, player_counts_logic, self._filter_by_player_counts),
         ]
 
         for values, logic, filter_func in filters_to_apply:
@@ -694,7 +694,7 @@ class DBRomsHandler(DBBaseHandler):
 
         # The RomUser table is already joined if user_id is set
         if statuses and user_id:
-            query = self.filter_by_status(query, statuses)
+            query = self._filter_by_status(query, statuses)
         elif user_id:
             query = query.filter(
                 or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
@@ -1227,3 +1227,49 @@ class DBRomsHandler(DBBaseHandler):
 
         # Return the first ROM matching any of the provided hash values
         return session.scalar(query.outerjoin(Rom.files).filter(or_(*filters)).limit(1))
+
+    @begin_session
+    def get_rom_filters(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> dict:
+        statement = select(
+            RomMetadata.genres,
+            RomMetadata.franchises,
+            RomMetadata.companies,
+            RomMetadata.game_modes,
+            RomMetadata.age_ratings,
+            RomMetadata.player_count,
+            Rom.regions,
+            Rom.languages,
+        )
+        genres = set()
+        franchises = set()
+        companies = set()
+        game_modes = set()
+        age_ratings = set()
+        player_counts = set()
+        regions = set()
+        languages = set()
+
+        for row in session.execute(statement):
+            g, f, c, gm, ar, pc, rg, lg = row
+            genres.update(g)
+            franchises.update(f)
+            companies.update(c)
+            game_modes.update(gm)
+            age_ratings.update(ar)
+            player_counts.update(pc)
+            regions.update(rg)
+            languages.update(lg)
+
+        return {
+            "genres": sorted(genres),
+            "franchises": sorted(franchises),
+            "companies": sorted(companies),
+            "game_modes": sorted(game_modes),
+            "age_ratings": sorted(age_ratings),
+            "player_counts": sorted(player_counts),
+            "regions": sorted(regions),
+            "languages": sorted(languages),
+        }

@@ -4,6 +4,7 @@ import type {
   ManualMetadata,
   RomUserSchema,
   UserNoteSchema,
+  RomFiltersDict,
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
@@ -582,6 +583,10 @@ async function getRomNotes({
   });
 }
 
+async function getRomFilters(): Promise<{ data: RomFiltersDict }> {
+  return api.get("/roms/filters");
+}
+
 export default {
   uploadRoms,
   getRoms,
@@ -601,4 +606,5 @@ export default {
   updateRomNote,
   deleteRomNote,
   getRomNotes,
+  getRomFilters,
 };

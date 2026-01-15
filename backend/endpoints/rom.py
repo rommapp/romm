@@ -43,6 +43,7 @@ from endpoints.responses import BulkOperationResponse
 from endpoints.responses.rom import (
     DetailedRomSchema,
     RomFileSchema,
+    RomFiltersDict,
     RomUserSchema,
     SimpleRomSchema,
     UserNoteSchema,
@@ -669,6 +670,24 @@ def get_rom_by_hash(
         )
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(router.get, "/filters", [Scope.ROMS_READ])
+async def get_rom_filters(request: Request) -> RomFiltersDict:
+    from handler.database import db_rom_handler
+
+    filters = db_rom_handler.get_rom_filters()
+
+    return RomFiltersDict(
+        genres=filters["genres"],
+        franchises=filters["franchises"],
+        companies=filters["companies"],
+        game_modes=filters["game_modes"],
+        age_ratings=filters["age_ratings"],
+        player_counts=filters["player_counts"],
+        regions=filters["regions"],
+        languages=filters["languages"],
+    )
 
 
 @protected_route(
@@ -1502,7 +1521,7 @@ async def update_rom_user(
 
 @protected_route(
     router.get,
-    "files/{id}",
+    "/files/{id}",
     [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
