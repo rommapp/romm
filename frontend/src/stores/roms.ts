@@ -149,8 +149,13 @@ export default defineStore("roms", {
       };
       return params;
     },
-    _postFetchRoms(response: GetRomsResponse, concat: boolean) {
-      const { items, offset, total, char_index, rom_id_index } = response;
+    _postFetchRoms(
+      response: GetRomsResponse,
+      galleryFilter: GalleryFilterStore,
+      concat: boolean,
+    ) {
+      const { items, offset, total, char_index, rom_id_index, filter_values } =
+        response;
       if (!concat || this.fetchOffset === 0) {
         this._allRoms = items;
       } else {
@@ -164,6 +169,18 @@ export default defineStore("roms", {
       // Set the character index for the current platform
       this.characterIndex = char_index;
       this.romIdIndex = rom_id_index;
+
+      if (filter_values) {
+        galleryFilter.setFilterPlatforms([]);
+        galleryFilter.setFilterCollections([]);
+        galleryFilter.setFilterGenres(filter_values.genres);
+        galleryFilter.setFilterFranchises(filter_values.franchises);
+        galleryFilter.setFilterCompanies(filter_values.companies);
+        galleryFilter.setFilterAgeRatings(filter_values.age_ratings);
+        galleryFilter.setFilterRegions(filter_values.regions);
+        galleryFilter.setFilterLanguages(filter_values.languages);
+        galleryFilter.setFilterPlayerCounts(filter_values.player_counts);
+      }
     },
     async fetchRoms({
       galleryFilter,
@@ -189,10 +206,10 @@ export default defineStore("roms", {
               JSON.stringify(currentParams) !==
               JSON.stringify(currentRequestParams);
             if (paramsChanged) return;
-            this._postFetchRoms(response, concat);
+            this._postFetchRoms(response, galleryFilter, concat);
           })
           .then((response) => {
-            this._postFetchRoms(response.data, concat);
+            this._postFetchRoms(response.data, galleryFilter, concat);
             resolve(response.data.items);
           })
           .catch((error) => {

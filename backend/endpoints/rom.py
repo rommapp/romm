@@ -187,6 +187,7 @@ class CustomLimitOffsetParams(LimitOffsetParams):
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     char_index: dict[str, int]
     rom_id_index: list[int]
+    filter_values: RomFiltersDict
     __params_type__ = CustomLimitOffsetParams
 
 
@@ -196,6 +197,9 @@ def get_roms(
     with_char_index: Annotated[
         bool,
         Query(description="Whether to get the char index."),
+    ] = True,
+    with_filter_values: Annotated[
+        bool, Query(description="Whether to return filter values.")
     ] = True,
     search_term: Annotated[
         str | None,
@@ -461,6 +465,29 @@ def get_roms(
         )
         char_index_dict = {char: index for (char, index) in char_index}
 
+    filter_values = RomFiltersDict(
+        genres=[],
+        franchises=[],
+        companies=[],
+        game_modes=[],
+        age_ratings=[],
+        player_counts=[],
+        regions=[],
+        languages=[],
+    )
+    if with_filter_values:
+        query_filters = db_rom_handler.with_filter_values(query=query)
+        filter_values = RomFiltersDict(
+            genres=query_filters["genres"],
+            franchises=query_filters["franchises"],
+            companies=query_filters["companies"],
+            game_modes=query_filters["game_modes"],
+            age_ratings=query_filters["age_ratings"],
+            player_counts=query_filters["player_counts"],
+            regions=query_filters["regions"],
+            languages=query_filters["languages"],
+        )
+
     # Get all ROM IDs in order for the additional data
     with sync_session.begin() as session:
         rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
@@ -474,6 +501,7 @@ def get_roms(
             additional_data={
                 "char_index": char_index_dict,
                 "rom_id_index": rom_id_index,
+                "filter_values": filter_values,
             },
         )
 
