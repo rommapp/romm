@@ -1,0 +1,36 @@
+# Federated Netplay Framework Rules (2026 Standards)
+
+## Architecture Overview
+
+- **System Role**: A multi-emulator netplay framework (EmulatorJS, native Android/PC).
+- **Core Components**: RomM (Identity Provider/Metadata), SFU Mesh (mediasoup), Redis (Session State).
+- **Identity Model**: Asymmetric RSA (RS256) with JWKS endpoints. No shared secrets.
+
+## Token Strategy
+
+- **JTI-Read**: 15m expiry. Validated via JWT signature + `iss` check. **NEVER** store in Redis.
+- **JTI-Write**: 30s expiry. **MUST** store in Redis (`sfu:auth:jti:<token>`).
+- **Atomic Operations**: Always use `GETSET` or Lua scripts when marking a JTI as "used" (0 -> 1) to prevent replay attacks.
+
+## Redis Schema Standards
+
+- **Naming**: Use colon-delimited hierarchy: `sfu:room:{id}:meta` or `sfu:auth:jti:{token}`.
+- **Data Types**: Use `HSET` for room metadata. Use `SET` with `EX` for JTI tokens.
+- **Room Metadata**: Must include `netplay_mode` (0:Stream, 1:Rollback), `host_domain`, and `ai_profile`.
+
+## Federation & Security
+
+- **Domain Verification**: Always verify `iss` (issuer) against the local ACL.
+- **JWKS**: SFU must fetch public keys from `{iss}/.well-known/jwks.json` and cache them.
+- **mTLS**: Preferred for internal mesh communication between RomM and SFU nodes.
+
+## Coding Preferences
+
+- **Backend (Python/RomM)**: Use asynchronous handlers. Enforce type hinting.
+- **SFU (Node.js)**: Use `mediasoup` for low-level RTC. Keep the auth layer middleware-based.
+- **Frontend (Vue/JS)**: Implement on-demand token fetching. No background refresh loops for JTIs.
+
+## AI Prediction (Future-Proofing)
+
+- Ensure all rollback-related code supports an `input_history` buffer of 60 frames.
+- Prepare hooks for `ai_profile` loading based on RomM genre metadata.
