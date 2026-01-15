@@ -173,12 +173,14 @@ export default defineStore("roms", {
       this.characterIndex = char_index;
       this.romIdIndex = rom_id_index;
 
-      // Set the list of platforms in the filter
-      galleryFilter.setFilterPlatforms(
-        platformsStore.allPlatforms.filter((p) =>
-          filter_values.platforms.includes(p.id),
-        ),
-      );
+      // Only set the list of platforms on first fetch
+      if (galleryFilter.filterPlatforms.length === 0) {
+        galleryFilter.setFilterPlatforms(
+          platformsStore.allPlatforms.filter((p) =>
+            filter_values.platforms.includes(p.id),
+          ),
+        );
+      }
 
       if (filter_values) {
         galleryFilter.setFilterCollections(filter_values.collections);
