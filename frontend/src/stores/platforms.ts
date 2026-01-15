@@ -38,11 +38,7 @@ export default defineStore("platforms", {
         return a.name.localeCompare(b.name);
       });
     },
-    fetchPlatforms({
-      galleryFilter,
-    }: {
-      galleryFilter: GalleryFilterStore;
-    }): Promise<Platform[]> {
+    fetchPlatforms(): Promise<Platform[]> {
       if (this.fetchingPlatforms) return Promise.resolve([]);
       this.fetchingPlatforms = true;
 
@@ -51,7 +47,6 @@ export default defineStore("platforms", {
           .getPlatforms()
           .then(({ data: platforms }) => {
             this.allPlatforms = platforms;
-            galleryFilter.setFilterPlatforms(platforms);
             resolve(platforms);
           })
           .catch((error) => {

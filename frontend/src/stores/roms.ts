@@ -14,10 +14,12 @@ import {
   type SmartCollection,
 } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storePlatforms from "@/stores/platforms";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
+type PlatformsStore = ExtractPiniaStoreType<typeof storePlatforms>;
 
 export type SimpleRom = SimpleRomSchema;
 export type SearchRom = SearchRomSchema;
@@ -152,6 +154,7 @@ export default defineStore("roms", {
     _postFetchRoms(
       response: GetRomsResponse,
       galleryFilter: GalleryFilterStore,
+      platformsStore: PlatformsStore,
       concat: boolean,
     ) {
       const { items, offset, total, char_index, rom_id_index, filter_values } =
@@ -170,6 +173,13 @@ export default defineStore("roms", {
       this.characterIndex = char_index;
       this.romIdIndex = rom_id_index;
 
+      // Set the list of platforms in the filter
+      galleryFilter.setFilterPlatforms(
+        platformsStore.allPlatforms.filter((p) =>
+          filter_values.platforms.includes(p.id),
+        ),
+      );
+
       if (filter_values) {
         galleryFilter.setFilterCollections(filter_values.collections);
         galleryFilter.setFilterGenres(filter_values.genres);
@@ -183,9 +193,11 @@ export default defineStore("roms", {
     },
     async fetchRoms({
       galleryFilter,
+      platformsStore,
       concat = true,
     }: {
       galleryFilter: GalleryFilterStore;
+      platformsStore: PlatformsStore;
       concat?: boolean;
     }): Promise<SimpleRom[]> {
       if (this.fetchingRoms) return Promise.resolve([]);
@@ -205,10 +217,20 @@ export default defineStore("roms", {
               JSON.stringify(currentParams) !==
               JSON.stringify(currentRequestParams);
             if (paramsChanged) return;
-            this._postFetchRoms(response, galleryFilter, concat);
+            this._postFetchRoms(
+              response,
+              galleryFilter,
+              platformsStore,
+              concat,
+            );
           })
           .then((response) => {
-            this._postFetchRoms(response.data, galleryFilter, concat);
+            this._postFetchRoms(
+              response.data,
+              galleryFilter,
+              platformsStore,
+              concat,
+            );
             resolve(response.data.items);
           })
           .catch((error) => {

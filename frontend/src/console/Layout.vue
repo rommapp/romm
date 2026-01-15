@@ -9,7 +9,6 @@ import { attachGamepad } from "@/console/input/gamepad";
 import { attachKeyboard } from "@/console/input/keyboard";
 import { ROUTES } from "@/plugins/router";
 import storeCollections from "@/stores/collections";
-import storeGalleryFilter from "@/stores/galleryFilter";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 
@@ -21,7 +20,6 @@ provide(InputBusSymbol, bus);
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
-const galleryFilterStore = storeGalleryFilter();
 
 const showVirtualCollections = useLocalStorage(
   "settings.showVirtualCollections",
@@ -72,7 +70,7 @@ let detachKeyboard: (() => void) | null = null;
 let detachGamepad: (() => void) | null = null;
 
 onBeforeMount(() => {
-  platformsStore.fetchPlatforms({ galleryFilter: galleryFilterStore });
+  platformsStore.fetchPlatforms();
   collectionsStore.fetchCollections();
   collectionsStore.fetchSmartCollections();
   if (showVirtualCollections) {

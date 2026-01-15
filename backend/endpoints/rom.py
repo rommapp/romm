@@ -412,7 +412,7 @@ def get_roms(
     ] = "asc",
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
-    query, order_by_attr = db_rom_handler.get_roms_query(
+    unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
@@ -420,7 +420,7 @@ def get_roms(
 
     # Filter down the query
     query = db_rom_handler.filter_roms(
-        query=query,
+        query=unfiltered_query,
         user_id=request.user.id,
         platform_ids=platform_ids,
         collection_id=collection_id,
@@ -475,9 +475,18 @@ def get_roms(
         player_counts=[],
         regions=[],
         languages=[],
+        platforms=[],
     )
     if with_filter_values:
-        query_filters = db_rom_handler.with_filter_values(query=query)
+        filter_query = db_rom_handler.filter_roms(
+            query=unfiltered_query,
+            user_id=request.user.id,
+            collection_id=collection_id,
+            virtual_collection_id=virtual_collection_id,
+            smart_collection_id=smart_collection_id,
+            search_term=search_term,
+        )
+        query_filters = db_rom_handler.with_filter_values(query=filter_query)
         filter_values = RomFiltersDict(
             genres=query_filters["genres"],
             franchises=query_filters["franchises"],
@@ -488,6 +497,7 @@ def get_roms(
             player_counts=query_filters["player_counts"],
             regions=query_filters["regions"],
             languages=query_filters["languages"],
+            platforms=query_filters["platforms"],
         )
 
     # Get all ROM IDs in order for the additional data
@@ -718,6 +728,7 @@ async def get_rom_filters(request: Request) -> RomFiltersDict:
         player_counts=filters["player_counts"],
         regions=filters["regions"],
         languages=filters["languages"],
+        platforms=filters["platforms"],
     )
 
 
