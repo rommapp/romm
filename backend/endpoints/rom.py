@@ -488,6 +488,7 @@ def get_roms(
             search_term=search_term,
         )
         query_filters = db_rom_handler.with_filter_values(query=filter_query)
+        # trunk-ignore(mypy/typeddict-item)
         filter_values = RomFiltersDict(**query_filters)
 
     # Get all ROM IDs in order for the additional data
@@ -707,7 +708,7 @@ async def get_rom_filters(request: Request) -> RomFiltersDict:
     from handler.database import db_rom_handler
 
     filters = db_rom_handler.get_rom_filters()
-
+    # trunk-ignore(mypy/typeddict-item)
     return RomFiltersDict(**filters)
 
 

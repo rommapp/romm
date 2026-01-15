@@ -113,9 +113,6 @@ function fetchRoms() {
         color: "red",
         timeout: 4000,
       });
-    })
-    .finally(() => {
-      galleryFilterStore.activeFilterDrawer = false;
     });
 }
 
