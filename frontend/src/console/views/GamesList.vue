@@ -320,6 +320,7 @@ async function fetchRoms() {
 
   const fetchedRoms = await romsStore.fetchRoms({
     galleryFilter: galleryFilterStore,
+    platformsStore: platformsStore,
     concat: false,
   });
 

@@ -854,6 +854,7 @@ class DBRomsHandler(DBBaseHandler):
                 RomMetadata.player_count,
                 Rom.regions,
                 Rom.languages,
+                Rom.platform_id,
             )
             .select_from(Rom)
             .join(RomMetadata, Rom.id == RomMetadata.rom_id)
@@ -869,9 +870,10 @@ class DBRomsHandler(DBBaseHandler):
         player_counts = set()
         regions = set()
         languages = set()
+        platforms = set()
 
         for row in session.execute(statement):
-            g, f, cl, co, gm, ar, pc, rg, lg = row
+            g, f, cl, co, gm, ar, pc, rg, lg, pid = row
             genres.update(g)
             franchises.update(f)
             collections.update(cl)
@@ -881,6 +883,7 @@ class DBRomsHandler(DBBaseHandler):
             player_counts.update(pc)
             regions.update(rg)
             languages.update(lg)
+            platforms.add(pid)
 
         return {
             "genres": sorted(genres),
@@ -892,6 +895,7 @@ class DBRomsHandler(DBBaseHandler):
             "player_counts": sorted(player_counts),
             "regions": sorted(regions),
             "languages": sorted(languages),
+            "platforms": sorted(platforms),
         }
 
     @begin_session
@@ -1302,6 +1306,7 @@ class DBRomsHandler(DBBaseHandler):
             RomMetadata.player_count,
             Rom.regions,
             Rom.languages,
+            Rom.platform_id,
         )
 
         genres = set()
@@ -1313,9 +1318,10 @@ class DBRomsHandler(DBBaseHandler):
         player_counts = set()
         regions = set()
         languages = set()
+        platforms = set()
 
         for row in session.execute(statement):
-            g, f, cl, co, gm, ar, pc, rg, lg = row
+            g, f, cl, co, gm, ar, pc, rg, lg, pid = row
             genres.update(g)
             franchises.update(f)
             collections.update(cl)
@@ -1325,6 +1331,7 @@ class DBRomsHandler(DBBaseHandler):
             player_counts.update(pc)
             regions.update(rg)
             languages.update(lg)
+            platforms.add(pid)
 
         return {
             "genres": sorted(genres),
@@ -1336,4 +1343,5 @@ class DBRomsHandler(DBBaseHandler):
             "player_counts": sorted(player_counts),
             "regions": sorted(regions),
             "languages": sorted(languages),
+            "platforms": sorted(platforms),
         }

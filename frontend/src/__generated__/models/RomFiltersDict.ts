@@ -12,5 +12,6 @@ export type RomFiltersDict = {
     player_counts: Array<string>;
     regions: Array<string>;
     languages: Array<string>;
+    platforms: Array<number>;
 };
 
