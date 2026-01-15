@@ -171,8 +171,7 @@ export default defineStore("roms", {
       this.romIdIndex = rom_id_index;
 
       if (filter_values) {
-        galleryFilter.setFilterPlatforms([]);
-        galleryFilter.setFilterCollections([]);
+        galleryFilter.setFilterCollections(filter_values.collections);
         galleryFilter.setFilterGenres(filter_values.genres);
         galleryFilter.setFilterFranchises(filter_values.franchises);
         galleryFilter.setFilterCompanies(filter_values.companies);

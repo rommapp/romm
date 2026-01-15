@@ -2,7 +2,7 @@
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, nextTick, onMounted, watch } from "vue";
+import { inject, nextTick, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -15,7 +15,6 @@ import FilterPlatformBtn from "@/components/Gallery/AppBar/common/FilterDrawer/F
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
 import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
-import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
@@ -79,7 +78,6 @@ const {
   selectedPlayerCounts,
   playerCountsLogic,
 } = storeToRefs(galleryFilterStore);
-const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const onFilterChange = debounce(
@@ -174,15 +172,6 @@ const onFilterChange = debounce(
   { leading: false, trailing: true },
 );
 
-// Separate debounced function for search term changes
-const onSearchChange = debounce(
-  async () => {
-    await fetchSearchFilters();
-  },
-  500,
-  { leading: false, trailing: true },
-);
-
 emitter?.on("filterRoms", onFilterChange);
 
 const filters = [
@@ -265,19 +254,6 @@ function resetFilters() {
   nextTick(async () => {
     emitter?.emit("filterRoms", null);
   });
-}
-
-async function fetchSearchFilters() {
-  // const { data } = await romApi.getRomFilters();
-  // galleryFilterStore.setFilterPlatforms([]);
-  // galleryFilterStore.setFilterGenres(data.genres);
-  // galleryFilterStore.setFilterFranchises(data.franchises);
-  // galleryFilterStore.setFilterCompanies(data.companies);
-  // galleryFilterStore.setFilterCollections([]);
-  // galleryFilterStore.setFilterAgeRatings(data.age_ratings);
-  // galleryFilterStore.setFilterRegions(data.regions);
-  // galleryFilterStore.setFilterLanguages(data.languages);
-  // galleryFilterStore.setFilterPlayerCounts(data.player_counts);
 }
 
 onMounted(async () => {
@@ -492,31 +468,10 @@ onMounted(async () => {
     romsStore.resetPagination();
   }
 
-  // Initial fetch of search-filtered ROMs for filter options
-  await fetchSearchFilters();
-
   // Fire off search if URL state prepopulated
   if (freshSearch || galleryFilterStore.isFiltered()) {
     emitter?.emit("filterRoms", null);
   }
-
-  // Watch for search term changes to update filter options
-  watch(
-    () => searchTerm.value,
-    async () => {
-      await onSearchChange();
-    },
-    { immediate: false },
-  );
-
-  // Watch for platform changes to update filter options
-  watch(
-    () => allPlatforms.value,
-    async () => {
-      await fetchSearchFilters();
-    },
-    { immediate: false },
-  );
 });
 </script>
 
