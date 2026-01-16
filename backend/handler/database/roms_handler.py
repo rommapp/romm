@@ -1286,6 +1286,9 @@ class DBRomsHandler(DBBaseHandler):
         query: Query,
         session: Session = None,  # type: ignore
     ) -> dict:
+        """
+        Returns the list of filters given the current subset of ROMs in the query
+        """
         ids_subq = query.with_only_columns(Rom.id).scalar_subquery()  # type: ignore
 
         statement = (
@@ -1313,6 +1316,9 @@ class DBRomsHandler(DBBaseHandler):
         self,
         session: Session = None,  # type: ignore
     ) -> dict:
+        """
+        Returns all filter values across all ROM metadata
+        """
         statement = select(
             RomMetadata.genres,
             RomMetadata.franchises,
