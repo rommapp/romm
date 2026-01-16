@@ -67,12 +67,9 @@ class TestSFUToken:
         jti = claims["jti"]
         key = f"sfu:auth:jti:{jti}"
 
-        data = sync_cache.hgetall(key)
+        stored_value = sync_cache.get(key)
         # fakeredis returns bytes for keys/values
-        assert data.get(b"sub") == admin_user.username.encode()
-        assert data.get(b"iss") == b"romm:sfu"
-        assert data.get(b"jti") == jti.encode()
-        assert data.get(b"netplay_username") == b"TestNetplayName"
+        assert stored_value == b"0"
 
         ttl = sync_cache.ttl(key)
         assert ttl <= 30
