@@ -405,6 +405,12 @@ def get_roms(
         str,
         Query(description="Order direction, either 'asc' or 'desc'."),
     ] = "asc",
+    updated_after: Annotated[
+        datetime | None,
+        Query(
+            description="Filter roms updated after this datetime (ISO 8601 format with timezone information)."
+        ),
+    ] = None,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
     query, order_by_attr = db_rom_handler.get_roms_query(
@@ -450,6 +456,7 @@ def get_roms(
         statuses_logic=statuses_logic,
         player_counts_logic=player_counts_logic,
         group_by_meta_id=group_by_meta_id,
+        updated_after=updated_after,
     )
 
     # Get the char index for the roms
