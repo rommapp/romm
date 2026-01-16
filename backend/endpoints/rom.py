@@ -478,6 +478,7 @@ def get_roms(
         platforms=[],
     )
     if with_filter_values:
+        # We use the unfiltered query so applied filters don't affect the list
         filter_query = db_rom_handler.filter_roms(
             query=unfiltered_query,
             user_id=request.user.id,
