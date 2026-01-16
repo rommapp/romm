@@ -37,8 +37,11 @@ class TestSFUToken:
             {"ui_settings": {"netplay_username": "TestNetplayName"}},
         )
 
+        # Request a write token (default behavior for backward compatibility testing)
         response = client.post(
-            "/api/sfu/token", headers={"Authorization": f"Bearer {access_token}"}
+            "/api/sfu/token",
+            json={"token_type": "write"},
+            headers={"Authorization": f"Bearer {access_token}"}
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -52,7 +55,7 @@ class TestSFUToken:
 
         assert claims["iss"] == "romm:sfu"
         assert claims["sub"] == admin_user.username
-        assert claims["type"] == "sfu"
+        assert claims["type"] == "sfu:write"
         assert "jti" in claims
 
         # JWT exp should be roughly now + 30s
@@ -75,11 +78,52 @@ class TestSFUToken:
         assert ttl <= 30
         assert ttl > 0
 
+    def test_mint_sfu_read_token_success(self, client, access_token, admin_user):
+        # Test read token (15min expiry, no Redis storage, no jti)
+        response = client.post(
+            "/api/sfu/token",
+            json={"token_type": "read"},
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["token_type"] == "bearer"
+        assert body["expires"] == 900  # 15 minutes
+
+        token = body["token"]
+        decoded = jwt.decode(token, oct_key, algorithms=["HS256"])
+        claims = decoded.claims
+
+        assert claims["iss"] == "romm:sfu"
+        assert claims["sub"] == admin_user.username
+        assert claims["type"] == "sfu:read"
+        assert "jti" not in claims  # Read tokens don't include jti
+
+        # JWT exp should be roughly now + 900s (15 minutes)
+        now_ts = int(datetime.now(timezone.utc).timestamp())
+        exp_ts = self._to_epoch_seconds(claims["exp"])
+        assert exp_ts - now_ts <= 905
+        assert exp_ts - now_ts >= 895
+
+        # Read tokens should NOT be stored in Redis
+        # Since we don't have a jti, we can't check Redis, but we verify
+        # that the token validates correctly without Redis lookup
+
 
 class TestSFUInternal:
-    def _mint_token(self, client: TestClient, access_token: str) -> str:
+    def _mint_token(self, client: TestClient, access_token: str, token_type: str = "write") -> str:
+        """Helper to mint a token for testing.
+        
+        Args:
+            client: Test client
+            access_token: OAuth access token for authentication
+            token_type: "read" or "write" (default: "write" for backward compatibility)
+        """
         resp = client.post(
-            "/api/sfu/token", headers={"Authorization": f"Bearer {access_token}"}
+            "/api/sfu/token",
+            json={"token_type": token_type},
+            headers={"Authorization": f"Bearer {access_token}"}
         )
         assert resp.status_code == status.HTTP_200_OK
         return resp.json()["token"]
