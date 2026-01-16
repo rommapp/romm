@@ -41,6 +41,7 @@ const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
+const sfuTokenExpiry = ref<number | null>(null);
 // Token refresh timer removed - tokens are now fetched on-demand
 
 declare global {
@@ -70,6 +71,8 @@ async function onPlay() {
 
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
+  // make SFU auth error handling available globally to EmulatorJS-SFU
+  window.handleSfuAuthError = handleSfuAuthError;
   fullScreen.value = fullScreenOnPlay.value;
   playing.value = true;
 
@@ -85,23 +88,26 @@ async function onPlay() {
   (window as any).EJS_CDN_CORES_VERSION = "nightly";
 
   async function ensureSfuToken(tokenType: "read" | "write" = "read") {
+    // SFU token fetching logic for either read or write tokens.
     try {
+      // Token requests to the RomM backend API
       const { data } = await api.post("/sfu/token", { token_type: tokenType });
       const token = data?.token;
       if (typeof token !== "string" || token.length === 0) {
         throw new Error("Missing token in /api/sfu/token response");
       }
-
+      // Store the token in the global window object (cookie) for EmulatorJS-SFU to use.
       window.EJS_netplayToken = token;
 
-      // Do NOT place the token into `EJS_netplayServer` URL: EmulatorJS builds
-      // commonly build the room list endpoint via string concatenation
-      // (netplayUrl + "/list"), which breaks when a query string is present.
-      // Instead, store the token in a cookie; Socket.IO will send it in
+      //track token expiry for refresh logic
+      const maxAge = tokenType === "read" ? 900 : 30;
+      sfuTokenExpiry.value = Date.now() + maxAge * 1000;
+
+      // Store the token in a cookie; Socket.IO will send it in
       // the handshake headers on the same domain.
       const secure = window.location.protocol === "https:" ? "; Secure" : "";
-      // Read tokens: 15 minutes (900 seconds), Write tokens: 30 seconds
-      const maxAge = tokenType === "read" ? 900 : 30;
+
+      // Cookie storage for socket.io authentication
       document.cookie = `romm_sfu_token=${encodeURIComponent(
         token
       )}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
@@ -113,6 +119,31 @@ async function onPlay() {
       );
       throw err;
     }
+  }
+
+  async function ensureValidSfuToken(
+    tokenType: "read" | "write" = "read"
+  ): Promise<string> {
+    const now = Date.now();
+    const bufferTime = 60000; // refresh token 1 minute before expiry.
+
+    if (!sfuTokenExpiry.value || sfuTokenExpiry.value - bufferTime <= now) {
+      await ensureSfuToken(tokenType);
+    }
+
+    return window.EJS_netplayToken;
+  }
+
+  // error handling for SFU auth failures used to trigger token refresh
+  // handles write tokens by default, but can be called with "read" explicitly.
+  function handleSfuAuthError(tokenType: "read" | "write" = "write") {
+    console.warn(
+      `[Play] SFU auth failed, attempting $(tokenType)token refresh`
+    );
+    // Force refresh token of requested type.
+    ensureSfuToken(tokenType).catch((err) => {
+      console.error(`[Play] Failed to refresh SFU $(tokenType) token:`, err);
+    });
   }
 
   function normalizeIceServerUrls(urls: any): string[] {
@@ -157,7 +188,7 @@ async function onPlay() {
       const token = (window as any).EJS_netplayToken;
       if (typeof token !== "string" || token.length === 0) return;
 
-      // Prefer relative URL so it works in both dev proxy and prod nginx.
+      // Fetching ICE servers from RomM backend API
       const resp = await fetch(`/ice`, {
         method: "GET",
         headers: {
@@ -175,9 +206,10 @@ async function onPlay() {
         ? configStore.config.EJS_NETPLAY_ICE_SERVERS
         : [];
 
-      // Preferred first (node-local), config.yml list appended as fallback.
+      // Set SFU node provided ICE servers as preferred for optimized routing, with host RomM config fallback
       const merged = mergeIceServers(preferred, fallback);
       if (merged.length > 0) {
+        // Setting ICE servers for WebRTC connections
         (window as any).EJS_netplayICEServers = merged;
         if (debugEnabled) {
           console.info("[Play] ICE servers merged", {
@@ -269,10 +301,13 @@ async function onPlay() {
       await ensureSfuToken("read").catch(() => {
         // Silently fail - token will be fetched on-demand when SFU requires it
       });
+      // Fetch ICE servers from RomM backend API for intialization of WebRTC with SFU nodes.
       await tryFetchPreferredIceServers();
     }
     if (EJS_NETPLAY_ENABLED) {
       // Netplay depends on our locally mounted EmulatorJS + SFU proxies.
+      // **************  TODO:  Review this code later  *******************
+      // We can review removing this code later as romm now downloads the appropriate EmulatorJS-SFU bundle
       await attemptLoad(LOCAL_PATH);
     } else {
       try {

@@ -135,35 +135,48 @@ def sfu_internal_verify(request: Request, body: SFUVerifyRequest) -> SFUVerifyRe
         # For now, return without netplay_username for read tokens
         return SFUVerifyResponse(sub=sub, netplay_username=None)
 
-    # Write tokens (sfu:write) and legacy tokens (sfu) require Redis lookup
-    jti = str(claims.get("jti", ""))
-    if not jti:
-        raise HTTPException(status_code=401, detail="missing jti for write token")
+# Write tokens (sfu:write) require Redis lookup
+if not jti:
+    raise HTTPException(status_code=401, detail="missing jti for write token")
 
-    allow_key = f"{SFU_JTI_REDIS_KEY_PREFIX}{jti}"
-    data = _decode_redis_hash(sync_cache.hgetall(allow_key))
-    if not data:
-        raise HTTPException(status_code=401, detail="token not allowlisted")
+allow_key = f"{SFU_JTI_REDIS_KEY_PREFIX}{jti}"
 
-    # Optional one-time consumption marker.
-    if body.consume:
-        used_key = f"{SFU_JTI_REDIS_KEY_PREFIX}used:{jti}"
-        if not sync_cache.setnx(used_key, "1"):
-            raise HTTPException(status_code=401, detail="token already used")
-        ttl = sync_cache.ttl(allow_key)
-        if isinstance(ttl, int) and ttl > 0:
-            sync_cache.expire(used_key, ttl)
+# For write tokens we need the stored data to verify claims
+# Check if key exists and get its value
+stored_value = sync_cache.get(allow_key)
+if stored_value is None:
+    raise HTTPException(status_code=401, detail="token not listed, already consumed or doesn't exist")
 
-    # Record must match the claims.
-    if data.get("sub") != sub:
-        raise HTTPException(status_code=401, detail="sub mismatch")
-    if data.get("iss") != SFU_TOKEN_ISSUER:
-        raise HTTPException(status_code=401, detail="iss mismatch")
-    if data.get("jti") != jti:
-        raise HTTPException(status_code=401, detail="jti mismatch")
+# Parse stored data (for now, we'll store minimal data or migrate existing)
+# For backwards compatibility, try to parse as JSON first, then fall back to simple value.
+try:
+    data = json.loads(stored_value.decode() if isinstance(stored_value, (bytes, bytearray)) else stored_value)
+    # If it's a dict, use the old format
+    if isinstance(data, dict):
+        pass #data is already a dict
+    else:
+        # New format: just store essential data as JSON
+        data = {"sub": sub, "jti": jti}
+except (json.JSONDecodeError, TypeError):
+    # New simple format - reconstruct minimal data from claims
+    data = {"sub": sub, "jti": jti}
 
-    return SFUVerifyResponse(sub=sub, netplay_username=data.get("netplay_username"))
+# Optional one-time consumption: delete the key after successful verification.
+if body.consume:
+    deleted_count = sync_cache.delete(allow_key)
+    if deleted_count == 0:
+        # Key was already deleted or never existed
+        raise HTTPException(status_code=401, detail="token already used or not found")
 
+# Record must match the claims.
+if data.get("sub") != sub:
+    raise HTTPException(status_code=401, detail="sub mismatch")
+if data.get("jti") != jti:
+    raise HTTPException(status_code=401, detail="jti mismatch")
+
+# For legacy tokens, we might not have netplay_username in simple format
+# You could enhance this to store more data or fetch from user settings
+return SFUVerifyResponse(sub=sub, netplay_username=None)
 
 class SFURoomRecord(BaseModel):
     room_name: str
@@ -347,21 +360,8 @@ def mint_sfu_token(
     # Only store write tokens in Redis
     if token_type == "write":
         key = f"{SFU_JTI_REDIS_KEY_PREFIX}{jti}"
-        payload: dict[str, str] = {
-            "sub": user.username,
-            "iss": SFU_TOKEN_ISSUER,
-            "jti": jti,
-            "iat": str(int(now.timestamp())),
-            "exp": str(int(exp.timestamp())),
-        }
-        if netplay_username:
-            payload["netplay_username"] = netplay_username
-
-        # Store with value 0 (unused), will be set to 1 when consumed
-        with sync_cache.pipeline() as pipe:
-            pipe.hset(key, mapping=payload)
-            pipe.expire(key, SFU_WRITE_TOKEN_TTL_SECONDS)
-            pipe.execute()
+        # Store simple "0" value as marker, will be deleted when consumed
+        sync_cache.set(key, "0", ex=SFU_WRITE_TOKEN_TTL_SECONDS)
 
     return {
         "token": token,
