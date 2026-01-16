@@ -98,6 +98,7 @@ async function onPlay() {
       }
       // Store the token in the global window object (cookie) for EmulatorJS-SFU to use.
       window.EJS_netplayToken = token;
+      console.log(`[Play] Set window.EJS_netplayToken`);
 
       //track token expiry for refresh logic
       const maxAge = tokenType === "read" ? 900 : 30;
@@ -106,17 +107,18 @@ async function onPlay() {
       // Store the token in a cookie; Socket.IO will send it in
       // the handshake headers on the same domain.
       const secure = window.location.protocol === "https:" ? "; Secure" : "";
-
-      // Cookie storage for socket.io authentication
-      document.cookie = `romm_sfu_token=${encodeURIComponent(
+      const cookieValue = `romm_sfu_token=${encodeURIComponent(
         token
       )}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
+      console.log(`[Play] Setting cookie: ${cookieValue}`);
+
+      // Cookie storage for socket.io authentication
+      document.cookie = cookieValue;
+
+      console.log(`[Play] Cookie set successfully`);
       return token;
     } catch (err) {
-      console.warn(
-        `[Play] Failed to mint SFU ${tokenType} token; authenticated netplay may fail`,
-        err
-      );
+      console.error(`[Play] ensureSfuToken failed:`, err);
       throw err;
     }
   }
@@ -138,12 +140,19 @@ async function onPlay() {
   // handles write tokens by default, but can be called with "read" explicitly.
   function handleSfuAuthError(tokenType: "read" | "write" = "write") {
     console.warn(
-      `[Play] SFU auth failed, attempting $(tokenType)token refresh`
+      `[Play] SFU auth failed, attempting ${tokenType}token refresh`
     );
+    console.log(`[Play] Calling ensureSfuToken for ${tokenType} token`);
     // Force refresh token of requested type.
-    ensureSfuToken(tokenType).catch((err) => {
-      console.error(`[Play] Failed to refresh SFU $(tokenType) token:`, err);
-    });
+    ensureSfuToken(tokenType)
+      .then((token) => {
+        console.log(
+          `[Play] Successfully refreshed ${tokenType} token, cookie should be set`
+        );
+      })
+      .catch((err) => {
+        console.error(`[Play] Failed to refresh SFU ${tokenType} token:`, err);
+      });
   }
 
   function normalizeIceServerUrls(urls: any): string[] {
