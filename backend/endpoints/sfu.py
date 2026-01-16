@@ -135,48 +135,49 @@ def sfu_internal_verify(request: Request, body: SFUVerifyRequest) -> SFUVerifyRe
         # For now, return without netplay_username for read tokens
         return SFUVerifyResponse(sub=sub, netplay_username=None)
 
-# Write tokens (sfu:write) require Redis lookup
-if not jti:
-    raise HTTPException(status_code=401, detail="missing jti for write token")
+    # Write tokens (sfu:write) require Redis lookup
+    jti = str(claims.get("jti", ""))
+    if not jti:
+        raise HTTPException(status_code=401, detail="missing jti for write token")
 
-allow_key = f"{SFU_JTI_REDIS_KEY_PREFIX}{jti}"
+    allow_key = f"{SFU_JTI_REDIS_KEY_PREFIX}{jti}"
 
-# For write tokens we need the stored data to verify claims
-# Check if key exists and get its value
-stored_value = sync_cache.get(allow_key)
-if stored_value is None:
-    raise HTTPException(status_code=401, detail="token not listed, already consumed or doesn't exist")
+    # For write tokens we need the stored data to verify claims
+    # Check if key exists and get its value
+    stored_value = sync_cache.get(allow_key)
+    if stored_value is None:
+        raise HTTPException(status_code=401, detail="token not listed, already consumed or doesn't exist")
 
-# Parse stored data (for now, we'll store minimal data or migrate existing)
-# For backwards compatibility, try to parse as JSON first, then fall back to simple value.
-try:
-    data = json.loads(stored_value.decode() if isinstance(stored_value, (bytes, bytearray)) else stored_value)
-    # If it's a dict, use the old format
-    if isinstance(data, dict):
-        pass #data is already a dict
-    else:
-        # New format: just store essential data as JSON
+    # Parse stored data (for now, we'll store minimal data or migrate existing)
+    # For backwards compatibility, try to parse as JSON first, then fall back to simple value.
+    try:
+        data = json.loads(stored_value.decode() if isinstance(stored_value, (bytes, bytearray)) else stored_value)
+        # If it's a dict, use the old format
+        if isinstance(data, dict):
+            pass #data is already a dict
+        else:
+            # New format: just store essential data as JSON
+            data = {"sub": sub, "jti": jti}
+    except (json.JSONDecodeError, TypeError):
+        # New simple format - reconstruct minimal data from claims
         data = {"sub": sub, "jti": jti}
-except (json.JSONDecodeError, TypeError):
-    # New simple format - reconstruct minimal data from claims
-    data = {"sub": sub, "jti": jti}
 
-# Optional one-time consumption: delete the key after successful verification.
-if body.consume:
-    deleted_count = sync_cache.delete(allow_key)
-    if deleted_count == 0:
-        # Key was already deleted or never existed
-        raise HTTPException(status_code=401, detail="token already used or not found")
+    # Optional one-time consumption: delete the key after successful verification.
+    if body.consume:
+        deleted_count = sync_cache.delete(allow_key)
+        if deleted_count == 0:
+            # Key was already deleted or never existed
+            raise HTTPException(status_code=401, detail="token already used or not found")
 
-# Record must match the claims.
-if data.get("sub") != sub:
-    raise HTTPException(status_code=401, detail="sub mismatch")
-if data.get("jti") != jti:
-    raise HTTPException(status_code=401, detail="jti mismatch")
+    # Record must match the claims.
+    if data.get("sub") != sub:
+        raise HTTPException(status_code=401, detail="sub mismatch")
+    if data.get("jti") != jti:
+        raise HTTPException(status_code=401, detail="jti mismatch")
 
-# For legacy tokens, we might not have netplay_username in simple format
-# You could enhance this to store more data or fetch from user settings
-return SFUVerifyResponse(sub=sub, netplay_username=None)
+    # For legacy tokens, we might not have netplay_username in simple format
+    # You could enhance this to store more data or fetch from user settings
+    return SFUVerifyResponse(sub=sub, netplay_username=None)
 
 class SFURoomRecord(BaseModel):
     room_name: str
