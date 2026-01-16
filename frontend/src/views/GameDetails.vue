@@ -15,6 +15,7 @@ import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import TitleInfo from "@/components/Details/Title.vue";
+import Walkthroughs from "@/components/Details/Walkthroughs/Walkthroughs.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import romApi from "@/services/api/rom";
@@ -42,6 +43,7 @@ const validTabs = [
   "additionalcontent",
   "screenshots",
   "relatedgames",
+  "walkthroughs",
 ] as const;
 
 // Initialize tab from query parameter or default to "details"
@@ -54,6 +56,7 @@ const tab = ref<
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
+  | "walkthroughs"
 >(
   validTabs.includes(route.query.tab as any)
     ? (route.query.tab as
@@ -64,7 +67,8 @@ const tab = ref<
         | "timetobeat"
         | "additionalcontent"
         | "screenshots"
-        | "relatedgames")
+        | "relatedgames"
+        | "walkthroughs")
     : "details",
 );
 const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
@@ -86,7 +90,10 @@ async function fetchDetails() {
       noRomError.value = true;
     })
     .finally(() => {
-      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      emitter?.emit("showLoadingDialog", {
+        loading: false,
+        scrim: false,
+      });
       fetchingRoms.value = false;
     });
 }
@@ -157,7 +164,10 @@ watch(
     <BackgroundHeader />
 
     <v-row
-      :class="{ 'justify-center px-6': mdAndDown, 'd-flex px-16': lgAndUp }"
+      :class="{
+        'justify-center px-6': mdAndDown,
+        'd-flex px-16': lgAndUp,
+      }"
       no-gutters
     >
       <v-col
@@ -204,6 +214,12 @@ watch(
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
+            <v-tab
+              v-if="(currentRom as any).walkthroughs?.length"
+              value="walkthroughs"
+            >
+              Walkthroughs
+            </v-tab>
             <v-tab v-if="currentRom.hltb_id" value="timetobeat">
               {{ t("rom.how-long-to-beat") }}
             </v-tab>
@@ -247,6 +263,12 @@ watch(
               </v-window-item>
               <v-window-item value="personal">
                 <Personal :rom="currentRom" />
+              </v-window-item>
+              <v-window-item
+                v-if="(currentRom as any).walkthroughs?.length"
+                value="walkthroughs"
+              >
+                <Walkthroughs :rom="currentRom as any" />
               </v-window-item>
               <v-window-item v-if="currentRom.hltb_metadata" value="timetobeat">
                 <HowLongToBeat :rom="currentRom" />

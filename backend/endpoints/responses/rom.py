@@ -17,6 +17,7 @@ from handler.metadata.launchbox_handler import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
+from handler.walkthrough_handler import WalkthroughFormat, WalkthroughSource
 from models.collection import Collection
 from models.rom import Rom, RomFileCategory, RomUserStatus
 
@@ -98,6 +99,24 @@ ManualMetadata = TypedDict(
     },
     total=False,
 )
+
+
+class WalkthroughSchema(BaseModel):
+    id: int
+    rom_id: int
+    url: str
+    title: str | None
+    author: str | None
+    source: WalkthroughSource
+    format: WalkthroughFormat
+    file_path: str | None
+    content: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+        use_enum_values = True
 
 
 def rom_user_schema_factory() -> RomUserSchema:
@@ -290,6 +309,7 @@ class RomSchema(BaseModel):
     rom_user: RomUserSchema
     merged_screenshots: list[str]
     merged_ra_metadata: RomRAMetadata | None
+    walkthroughs: list[WalkthroughSchema]
 
     class Config:
         from_attributes = True

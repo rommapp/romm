@@ -510,3 +510,31 @@ class FSResourcesHandler(FSHandler):
         await self.remove_directory(
             self.get_media_resources_path(platform_id, rom_id, media_type)
         )
+
+    # Walkthrough uploads
+    async def store_walkthrough_file(
+        self, rom: Rom, walkthrough_id: int, data: bytes, extension: str
+    ) -> str:
+        base_path = f"{rom.fs_resources_path}/walkthroughs"
+        await self.make_directory(base_path)
+
+        filename = f"{walkthrough_id}.{extension}"
+        async with await self.write_file_streamed(
+            path=base_path, filename=filename
+        ) as f:
+            await f.write(data)
+
+        stored = self.validate_path(f"{base_path}/{filename}")
+        return str(stored.relative_to(self.base_path))
+
+    async def remove_walkthrough_file(self, file_path: str) -> None:
+        full_path = self.validate_path(file_path)
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
+            if full_path.exists():
+                full_path.unlink(missing_ok=True)
+
+    def remove_walkthrough_file_sync(self, file_path: str) -> None:
+        full_path = self.validate_path(file_path)
+        if full_path.exists():
+            full_path.unlink(missing_ok=True)

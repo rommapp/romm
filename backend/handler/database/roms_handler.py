@@ -128,6 +128,7 @@ def with_details(func):
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
             ),
+            selectinload(Rom.walkthroughs),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform), noload(Rom.metadatum)
             ),
@@ -153,6 +154,7 @@ def with_simple(func):
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
             ),
+            selectinload(Rom.walkthroughs),
             # Show sibling rom badges on cards
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform), noload(Rom.metadatum)
