@@ -16,6 +16,7 @@ import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
@@ -44,6 +45,7 @@ const { filteredRoms, selectedRoms, fetchingRoms, fetchTotalRoms } =
 const auth = storeAuth();
 const galleryFilterStore = storeGalleryFilter();
 const collectionsStore = storeCollections();
+const platformsStore = storePlatforms();
 const emitter = inject<Emitter<Events>>("emitter");
 
 const HEADERS = [
@@ -134,7 +136,10 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
   romsStore.resetPagination();
   romsStore.setOrderBy(key);
   romsStore.setOrderDir(order);
-  romsStore.fetchRoms({ galleryFilter: galleryFilterStore });
+  romsStore.fetchRoms({
+    galleryFilter: galleryFilterStore,
+    platformsStore: platformsStore,
+  });
 }
 </script>
 

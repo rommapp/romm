@@ -2,7 +2,7 @@
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, nextTick, onMounted, ref, watch } from "vue";
+import { inject, nextTick, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -15,10 +15,9 @@ import FilterPlatformBtn from "@/components/Gallery/AppBar/common/FilterDrawer/F
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
 import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
-import cachedApiService from "@/services/cache/api";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 
 withDefaults(
@@ -79,13 +78,16 @@ const {
   selectedPlayerCounts,
   playerCountsLogic,
 } = storeToRefs(galleryFilterStore);
-const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const onFilterChange = debounce(
   () => {
     romsStore.resetPagination();
-    romsStore.fetchRoms({ galleryFilter: galleryFilterStore, concat: false });
+    romsStore.fetchRoms({
+      galleryFilter: galleryFilterStore,
+      platformsStore: platformsStore,
+      concat: false,
+    });
 
     const url = new URL(window.location.href);
     // Update URL with filters
@@ -174,16 +176,6 @@ const onFilterChange = debounce(
   { leading: false, trailing: true },
 );
 
-// Separate debounced function for search term changes
-const onSearchChange = debounce(
-  async () => {
-    await fetchSearchFilteredRoms();
-    setFilters();
-  },
-  500,
-  { leading: false, trailing: true },
-);
-
 emitter?.on("filterRoms", onFilterChange);
 
 const filters = [
@@ -264,109 +256,8 @@ const filters = [
 function resetFilters() {
   galleryFilterStore.resetFilters();
   nextTick(async () => {
-    await fetchSearchFilteredRoms();
-    setFilters();
     emitter?.emit("filterRoms", null);
   });
-}
-
-// Store search-filtered ROMs for populating filter options
-let searchFilteredRoms = ref<SimpleRom[]>([]);
-
-async function fetchSearchFilteredRoms() {
-  try {
-    const params = {
-      searchTerm: searchTerm.value,
-      platformIds: romsStore.currentPlatform
-        ? [romsStore.currentPlatform.id]
-        : null,
-      collectionId: romsStore.currentCollection?.id ?? null,
-      virtualCollectionId: romsStore.currentVirtualCollection?.id ?? null,
-      smartCollectionId: romsStore.currentSmartCollection?.id ?? null,
-      limit: 10000, // Get enough ROMs to populate filters
-      offset: 0,
-      orderBy: romsStore.orderBy,
-      orderDir: romsStore.orderDir,
-      // Exclude all other filters to get comprehensive filter options
-      filterMatched: null,
-      filterFavorites: null,
-      filterDuplicates: null,
-      filterPlayables: null,
-      filterRA: null,
-      filterMissing: null,
-      filterVerified: null,
-      // Exclude all multi-value filters to get all possible options
-      selectedGenres: null,
-      selectedFranchises: null,
-      selectedCollections: null,
-      selectedCompanies: null,
-      selectedAgeRatings: null,
-      selectedRegions: null,
-      selectedLanguages: null,
-      selectedStatuses: null,
-    };
-
-    // Fetch ROMs with only search term applied (and current platform/collection context)
-    const response = await cachedApiService.getRoms(params, () => {}); // No background update callback needed
-
-    searchFilteredRoms.value = response.data.items;
-  } catch (error) {
-    console.error("Failed to fetch search-filtered ROMs:", error);
-    // Fall back to current filtered ROMs if search-only fetch fails
-    searchFilteredRoms.value = romsStore.filteredRoms;
-  }
-}
-
-function setFilters() {
-  const romsForFilters =
-    searchFilteredRoms.value.length > 0
-      ? searchFilteredRoms.value
-      : romsStore.filteredRoms;
-
-  galleryFilterStore.setFilterPlatforms([
-    ...new Set(
-      romsForFilters
-        .flatMap((rom) => platformsStore.get(rom.platform_id))
-        .filter((platform) => !!platform)
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterGenres([
-    ...new Set(romsForFilters.flatMap((rom) => rom.metadatum.genres).sort()),
-  ]);
-  galleryFilterStore.setFilterFranchises([
-    ...new Set(
-      romsForFilters.flatMap((rom) => rom.metadatum.franchises).sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCompanies([
-    ...new Set(romsForFilters.flatMap((rom) => rom.metadatum.companies).sort()),
-  ]);
-  galleryFilterStore.setFilterCollections([
-    ...new Set(
-      romsForFilters.flatMap((rom) => rom.metadatum.collections).sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterAgeRatings([
-    ...new Set(
-      romsForFilters.flatMap((rom) => rom.metadatum.age_ratings).sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterRegions([
-    ...new Set(romsForFilters.flatMap((rom) => rom.regions).sort()),
-  ]);
-  galleryFilterStore.setFilterLanguages([
-    ...new Set(romsForFilters.flatMap((rom) => rom.languages).sort()),
-  ]);
-  galleryFilterStore.setFilterPlayerCounts([
-    ...new Set(
-      romsForFilters
-        .map((rom) => rom.metadatum.player_count)
-        .filter((playerCount): playerCount is string => !!playerCount)
-        .sort(),
-    ),
-  ]);
-  // Note: filterStatuses is static and doesn't need to be set dynamically
 }
 
 onMounted(async () => {
@@ -581,33 +472,10 @@ onMounted(async () => {
     romsStore.resetPagination();
   }
 
-  // Initial fetch of search-filtered ROMs for filter options
-  await fetchSearchFilteredRoms();
-  setFilters();
-
   // Fire off search if URL state prepopulated
   if (freshSearch || galleryFilterStore.isFiltered()) {
     emitter?.emit("filterRoms", null);
   }
-
-  // Watch for search term changes to update filter options
-  watch(
-    () => searchTerm.value,
-    async () => {
-      await onSearchChange();
-    },
-    { immediate: false },
-  );
-
-  // Watch for platform changes to update filter options
-  watch(
-    () => allPlatforms.value,
-    async () => {
-      await fetchSearchFilteredRoms();
-      setFilters();
-    },
-    { immediate: false },
-  );
 });
 </script>
 

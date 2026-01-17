@@ -5,11 +5,13 @@ import { inject, watch, computed } from "vue";
 import { useDisplay } from "vuetify";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
+import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 
 const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
+const platformsStore = storePlatforms();
 const galleryFilterStore = storeGalleryFilter();
 const galleryViewStore = storeGalleryView();
 const { selectedRoms } = storeToRefs(romsStore);
@@ -29,7 +31,11 @@ async function fetchRoms() {
   });
 
   romsStore
-    .fetchRoms({ galleryFilter: galleryFilterStore, concat: false })
+    .fetchRoms({
+      galleryFilter: galleryFilterStore,
+      platformsStore: platformsStore,
+      concat: false,
+    })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,

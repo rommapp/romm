@@ -43,6 +43,7 @@ from endpoints.responses import BulkOperationResponse
 from endpoints.responses.rom import (
     DetailedRomSchema,
     RomFileSchema,
+    RomFiltersDict,
     RomUserSchema,
     SimpleRomSchema,
     UserNoteSchema,
@@ -186,6 +187,7 @@ class CustomLimitOffsetParams(LimitOffsetParams):
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     char_index: dict[str, int]
     rom_id_index: list[int]
+    filter_values: RomFiltersDict
     __params_type__ = CustomLimitOffsetParams
 
 
@@ -195,6 +197,9 @@ def get_roms(
     with_char_index: Annotated[
         bool,
         Query(description="Whether to get the char index."),
+    ] = True,
+    with_filter_values: Annotated[
+        bool, Query(description="Whether to return filter values.")
     ] = True,
     search_term: Annotated[
         str | None,
@@ -413,7 +418,7 @@ def get_roms(
     ] = None,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
-    query, order_by_attr = db_rom_handler.get_roms_query(
+    unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
@@ -421,7 +426,7 @@ def get_roms(
 
     # Filter down the query
     query = db_rom_handler.filter_roms(
-        query=query,
+        query=unfiltered_query,
         user_id=request.user.id,
         platform_ids=platform_ids,
         collection_id=collection_id,
@@ -467,6 +472,33 @@ def get_roms(
         )
         char_index_dict = {char: index for (char, index) in char_index}
 
+    filter_values = RomFiltersDict(
+        genres=[],
+        franchises=[],
+        collections=[],
+        companies=[],
+        game_modes=[],
+        age_ratings=[],
+        player_counts=[],
+        regions=[],
+        languages=[],
+        platforms=[],
+    )
+    if with_filter_values:
+        # We use the unfiltered query so applied filters don't affect the list
+        filter_query = db_rom_handler.filter_roms(
+            query=unfiltered_query,
+            user_id=request.user.id,
+            platform_ids=platform_ids,
+            collection_id=collection_id,
+            virtual_collection_id=virtual_collection_id,
+            smart_collection_id=smart_collection_id,
+            search_term=search_term,
+        )
+        query_filters = db_rom_handler.with_filter_values(query=filter_query)
+        # trunk-ignore(mypy/typeddict-item)
+        filter_values = RomFiltersDict(**query_filters)
+
     # Get all ROM IDs in order for the additional data
     with sync_session.begin() as session:
         rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
@@ -480,6 +512,7 @@ def get_roms(
             additional_data={
                 "char_index": char_index_dict,
                 "rom_id_index": rom_id_index,
+                "filter_values": filter_values,
             },
         )
 
@@ -676,6 +709,15 @@ def get_rom_by_hash(
         )
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(router.get, "/filters", [Scope.ROMS_READ])
+async def get_rom_filters(request: Request) -> RomFiltersDict:
+    from handler.database import db_rom_handler
+
+    filters = db_rom_handler.get_rom_filters()
+    # trunk-ignore(mypy/typeddict-item)
+    return RomFiltersDict(**filters)
 
 
 @protected_route(
@@ -1509,7 +1551,7 @@ async def update_rom_user(
 
 @protected_route(
     router.get,
-    "files/{id}",
+    "/files/{id}",
     [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
