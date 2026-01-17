@@ -48,7 +48,10 @@ async function fetchRoms() {
   });
 
   romsStore
-    .fetchRoms({ galleryFilter: galleryFilterStore })
+    .fetchRoms({
+      galleryFilter: galleryFilterStore,
+      platformsStore: platformsStore,
+    })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,

@@ -4,6 +4,7 @@ import type {
   ManualMetadata,
   RomUserSchema,
   UserNoteSchema,
+  RomFiltersDict,
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
@@ -246,6 +247,7 @@ async function getRecentRoms(): Promise<{ data: GetRomsResponse }> {
       order_dir: "desc",
       limit: RECENT_ROMS_LIMIT,
       with_char_index: false,
+      with_filter_values: false,
     },
   });
 }
@@ -257,6 +259,7 @@ async function getRecentPlayedRoms(): Promise<{ data: GetRomsResponse }> {
       order_dir: "desc",
       limit: RECENT_PLAYED_ROMS_LIMIT,
       with_char_index: false,
+      with_filter_values: false,
       last_played: true,
     },
   });
@@ -582,6 +585,10 @@ async function getRomNotes({
   });
 }
 
+async function getRomFilters(): Promise<{ data: RomFiltersDict }> {
+  return api.get("/roms/filters");
+}
+
 export default {
   uploadRoms,
   getRoms,
@@ -601,4 +608,5 @@ export default {
   updateRomNote,
   deleteRomNote,
   getRomNotes,
+  getRomFilters,
 };
