@@ -259,7 +259,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                       !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
                     "
                     size="small"
-                    class="translucent"
+                    class="translucent text-white"
                     @click="
                       emitter?.emit('showSearchCoverDialog', {
                         term: rom.name || rom.fs_name,
@@ -271,7 +271,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                   </v-btn>
                   <v-btn
                     size="small"
-                    class="translucent"
+                    class="translucent text-white"
                     @click="triggerFileInput('cover-file-input')"
                   >
                     <v-icon size="large"> mdi-pencil </v-icon>
