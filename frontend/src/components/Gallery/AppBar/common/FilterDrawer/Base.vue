@@ -482,7 +482,7 @@ onMounted(async () => {
 <template>
   <v-navigation-drawer
     v-model="activeFilterDrawer"
-    :mobile="smAndDown"
+    mobile
     floating
     width="500"
     :class="{
