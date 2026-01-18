@@ -338,14 +338,12 @@ def download_save(
     return FileResponse(path=str(file_path), filename=save.file_name)
 
 
-@protected_route(router.post, "/{id}/downloaded", [Scope.ASSETS_READ])
+@protected_route(router.post, "/{id}/downloaded", [Scope.DEVICES_WRITE])
 def confirm_download(
     request: Request,
     id: int,
     device_id: str = Body(..., embed=True),
 ) -> SaveSchema:
-    if Scope.DEVICES_WRITE not in request.auth.scopes:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     save = db_save_handler.get_save(user_id=request.user.id, id=id)
     if not save:
@@ -489,14 +487,12 @@ async def delete_saves(
     return saves
 
 
-@protected_route(router.post, "/{id}/track", [Scope.ASSETS_WRITE])
+@protected_route(router.post, "/{id}/track", [Scope.DEVICES_WRITE])
 def track_save(
     request: Request,
     id: int,
     device_id: str = Body(..., embed=True),
 ) -> SaveSchema:
-    if Scope.DEVICES_WRITE not in request.auth.scopes:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     save = db_save_handler.get_save(user_id=request.user.id, id=id)
     if not save:
@@ -519,14 +515,12 @@ def track_save(
     return _build_save_schema(save, device, sync)
 
 
-@protected_route(router.post, "/{id}/untrack", [Scope.ASSETS_WRITE])
+@protected_route(router.post, "/{id}/untrack", [Scope.DEVICES_WRITE])
 def untrack_save(
     request: Request,
     id: int,
     device_id: str = Body(..., embed=True),
 ) -> SaveSchema:
-    if Scope.DEVICES_WRITE not in request.auth.scopes:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     save = db_save_handler.get_save(user_id=request.user.id, id=id)
     if not save:
