@@ -158,7 +158,7 @@ def get_collections(
 
     Args:
         request (Request): Fastapi Request object
-        updated_after: Filter smart collections updated after this datetime
+        updated_after: Filter collections updated after this datetime
 
     Returns:
         list[CollectionSchema]: List of collections
