@@ -216,7 +216,7 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
 
     if collection.user_id != request.user.id and not collection.is_public:
         raise CollectionPermissionError(id)
-    
+
     return CollectionSchema.model_validate(collection)
 
 
@@ -414,7 +414,7 @@ async def delete_collection(
     collection = db_collection_handler.get_collection(id)
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
-    
+
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
