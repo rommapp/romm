@@ -27,10 +27,10 @@ from models.device_save_sync import DeviceSaveSync
 from utils.router import APIRouter
 
 
-def _normalize_datetime(dt: datetime) -> datetime:
-    if dt.tzinfo is not None:
-        return dt.replace(tzinfo=None)
-    return dt
+def _to_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def _build_save_schema(
@@ -42,9 +42,7 @@ def _build_save_schema(
 
     if device:
         last_synced = sync.last_synced_at if sync else save.updated_at
-        is_current = _normalize_datetime(last_synced) >= _normalize_datetime(
-            save.updated_at
-        )
+        is_current = _to_utc(last_synced) >= _to_utc(save.updated_at)
         device_syncs.append(
             DeviceSyncSchema(
                 device_id=device.id,
