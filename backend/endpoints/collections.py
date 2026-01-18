@@ -1,9 +1,10 @@
 import json
+from datetime import datetime
 from io import BytesIO
 from typing import Annotated
 
 from fastapi import Path as PathVar
-from fastapi import Request, UploadFile, status
+from fastapi import Query, Request, UploadFile, status
 
 from decorators.auth import protected_route
 from endpoints.responses.collection import (
@@ -144,18 +145,26 @@ async def add_smart_collection(
 
 
 @protected_route(router.get, "", [Scope.COLLECTIONS_READ])
-def get_collections(request: Request) -> list[CollectionSchema]:
+def get_collections(
+    request: Request,
+    updated_after: Annotated[
+        datetime | None,
+        Query(
+            description="Filter collections updated after this datetime (ISO 8601 format with timezone information)."
+        ),
+    ] = None,
+) -> list[CollectionSchema]:
     """Get collections endpoint
 
     Args:
         request (Request): Fastapi Request object
-        id (int, optional): Collection id. Defaults to None.
+        updated_after: Filter smart collections updated after this datetime
 
     Returns:
         list[CollectionSchema]: List of collections
     """
 
-    collections = db_collection_handler.get_collections()
+    collections = db_collection_handler.get_collections(updated_after=updated_after)
 
     return CollectionSchema.for_user(request.user.id, [c for c in collections])
 
@@ -181,17 +190,28 @@ def get_virtual_collections(
 
 
 @protected_route(router.get, "/smart", [Scope.COLLECTIONS_READ])
-def get_smart_collections(request: Request) -> list[SmartCollectionSchema]:
+def get_smart_collections(
+    request: Request,
+    updated_after: Annotated[
+        datetime | None,
+        Query(
+            description="Filter smart collections updated after this datetime (ISO 8601 format with timezone information)."
+        ),
+    ] = None,
+) -> list[SmartCollectionSchema]:
     """Get smart collections endpoint
 
     Args:
         request (Request): Fastapi Request object
+        updated_after: Filter smart collections updated after this datetime
 
     Returns:
         list[SmartCollectionSchema]: List of smart collections
     """
 
-    smart_collections = db_collection_handler.get_smart_collections(request.user.id)
+    smart_collections = db_collection_handler.get_smart_collections(
+        request.user.id, updated_after=updated_after
+    )
 
     return SmartCollectionSchema.for_user(
         request.user.id, [s for s in smart_collections]
@@ -216,7 +236,7 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
 
     if collection.user_id != request.user.id and not collection.is_public:
         raise CollectionPermissionError(id)
-    
+
     return CollectionSchema.model_validate(collection)
 
 
@@ -414,7 +434,7 @@ async def delete_collection(
     collection = db_collection_handler.get_collection(id)
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
-    
+
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
 
