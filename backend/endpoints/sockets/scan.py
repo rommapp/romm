@@ -335,7 +335,13 @@ async def _identify_rom(
         await socket_manager.emit(
             "scan:scanning_rom",
             SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                exclude={"created_at", "updated_at", "rom_user"}
+                exclude={
+                    "created_at",
+                    "updated_at",
+                    "rom_user",
+                    "last_modified",
+                    "files",
+                }
             ),
         )
 
@@ -440,7 +446,7 @@ async def _identify_rom(
     await socket_manager.emit(
         "scan:scanning_rom",
         SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-            exclude={"created_at", "updated_at", "rom_user"}
+            exclude={"created_at", "updated_at", "rom_user", "last_modified", "files"}
         ),
     )
 
