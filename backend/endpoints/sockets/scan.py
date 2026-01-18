@@ -212,7 +212,7 @@ def _should_get_rom_files(
         return False
 
     return bool(
-        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and newly_added)
+        newly_added
         or (scan_type == ScanType.COMPLETE)
         or (scan_type == ScanType.HASHES)
         or (rom and rom.id in roms_ids)
