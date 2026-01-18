@@ -1058,7 +1058,9 @@ async def update_rom(
             safe_int_or_none(data["tgdb_id"]) if "tgdb_id" in data else rom.tgdb_id
         ),
         "flashpoint_id": (
-            data["flashpoint_id"] if "flashpoint_id" in data else rom.flashpoint_id
+            data["flashpoint_id"] or None
+            if "flashpoint_id" in data
+            else rom.flashpoint_id
         ),
         "hltb_id": (
             safe_int_or_none(data["hltb_id"]) if "hltb_id" in data else rom.hltb_id
