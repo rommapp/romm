@@ -17,6 +17,8 @@ class Scope(enum.StrEnum):
     PLATFORMS_WRITE = "platforms.write"
     ASSETS_READ = "assets.read"
     ASSETS_WRITE = "assets.write"
+    DEVICES_READ = "devices.read"
+    DEVICES_WRITE = "devices.write"
     FIRMWARE_READ = "firmware.read"
     FIRMWARE_WRITE = "firmware.write"
     COLLECTIONS_READ = "collections.read"
@@ -31,6 +33,7 @@ READ_SCOPES_MAP: Final = {
     Scope.ROMS_READ: "View ROMs",
     Scope.PLATFORMS_READ: "View platforms",
     Scope.ASSETS_READ: "View assets",
+    Scope.DEVICES_READ: "View devices",
     Scope.FIRMWARE_READ: "View firmware",
     Scope.ROMS_USER_READ: "View user-rom properties",
     Scope.COLLECTIONS_READ: "View collections",
@@ -39,6 +42,7 @@ READ_SCOPES_MAP: Final = {
 WRITE_SCOPES_MAP: Final = {
     Scope.ME_WRITE: "Modify your profile",
     Scope.ASSETS_WRITE: "Modify assets",
+    Scope.DEVICES_WRITE: "Modify devices",
     Scope.ROMS_USER_WRITE: "Modify user-rom properties",
     Scope.COLLECTIONS_WRITE: "Modify collections",
 }
