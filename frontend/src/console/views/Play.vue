@@ -453,6 +453,8 @@ async function boot() {
     EJS_DISABLE_BATCH_BOOTUP,
     EJS_NETPLAY_ENABLED,
     EJS_NETPLAY_ICE_SERVERS,
+    SFU_HOST,
+    SFU_PORT,
   } = configStore.config;
   window.EJS_DEBUG_XX = EJS_DEBUG;
   window.EJS_disableAutoUnload = EJS_DISABLE_AUTO_UNLOAD;
@@ -460,13 +462,10 @@ async function boot() {
   if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
 
   // EmulatorJS-SFU expects `window.EJS_netplayUrl`.
-  // Keep this at the origin so Socket.IO uses the default namespace.
+  // Nginx handles routing from RomM domain to SFU, so use the current origin.
   window.EJS_netplayUrl = EJS_NETPLAY_ENABLED ? window.location.origin : "";
   // Compatibility with other EmulatorJS builds
   window.EJS_netplayServer = window.EJS_netplayUrl;
-  window.EJS_netplayICEServers = EJS_NETPLAY_ENABLED
-    ? EJS_NETPLAY_ICE_SERVERS
-    : [];
 
   // Set a valid game name (affects per-game settings keys)
   window.EJS_gameName = rom.fs_name_no_tags

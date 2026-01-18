@@ -8,6 +8,7 @@ from exceptions.config_exceptions import ConfigNotWritableException
 from handler.auth.constants import Scope
 from logger.logger import log
 from utils.router import APIRouter
+from os import getenv
 
 router = APIRouter(
     prefix="/config",

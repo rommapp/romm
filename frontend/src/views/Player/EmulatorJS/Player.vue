@@ -169,13 +169,12 @@ const {
   EJS_DISABLE_BATCH_BOOTUP,
   EJS_NETPLAY_ICE_SERVERS,
   EJS_NETPLAY_ENABLED,
+  SFU_HOST,
+  SFU_PORT,
 } = configStore.config;
+
 // EmulatorJS-SFU expects `window.EJS_netplayUrl`.
-// This value is used as both:
-// - Socket.IO URL (io(netplayUrl))
-// - HTTP room listing base (netplayUrl + "/list")
-// If the URL contains a path (e.g. /netplay), Socket.IO treats it as a namespace.
-// Our SFU serves the default namespace, so we keep this at the origin.
+// Nginx handles routing from RomM domain to SFU, so use the current origin.
 window.EJS_netplayUrl = EJS_NETPLAY_ENABLED ? window.location.origin : "";
 // Compatibility with other EmulatorJS builds, potentially compatbile with an ICE fallback build.
 window.EJS_netplayServer = window.EJS_netplayUrl;
@@ -424,7 +423,7 @@ window.EJS_onGameStart = async () => {
 function immediateExit() {
   router
     .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
-    .catch((error) => {
+    .catch((error: any) => {
       console.error("Error navigating to console rom", error);
     });
 }

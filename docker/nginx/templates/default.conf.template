@@ -40,6 +40,35 @@ server {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $forwardscheme;
 
+    # Emulator SFU helper endpoints
+    # Use regex locations + proxy_pass without URI so the original URI is preserved.
+    # These must come BEFORE the default location block.
+    location ~ ^/(?:list|ice|create)$ {
+        proxy_pass http://romm_sfu;
+    }
+
+    # Room management endpoints (join, leave)
+    location ~ ^/(?:join|leave)/ {
+        proxy_pass http://romm_sfu;
+    }
+
+    # Emulator resolution of web socket to connect to mediasoup
+    location ~ ^/socket\.io {
+        proxy_pass http://romm_sfu;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        add_header Cache-Control "public, max-age=31536000";
+    }
+
+    # Emulator resolution of netplay endpoint on SFU
+    location ^~ /netplay/ {
+        proxy_pass http://romm_sfu/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
         proxy_redirect off;
@@ -81,29 +110,6 @@ server {
     # must be routed to the backend (not the SFU).
     location ^~ /ws/socket.io {
         proxy_pass http://wsgi_server;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-
-    # Emulator resolution of web socket to connect to mediasoup
-    location ~ ^/socket\.io {
-        proxy_pass http://romm_sfu;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        add_header Cache-Control "public, max-age=31536000";
-    }
-
-    # Emulator SFU helper endpoints
-    # Use a regex location + proxy_pass without URI so the original URI is preserved.
-    location ~ ^/(?:list|ice)$ {
-        proxy_pass http://romm_sfu;
-    }
-
-    # Emulator resolution of netplay endpoint on SFU, strips 
-    location ^~ /netplay/ {
-        proxy_pass http://romm_sfu/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";

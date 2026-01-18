@@ -1,3 +1,4 @@
+from typing import Optional
 from typing import TypedDict
 
 from config.config_manager import EjsControls, NetplayICEServer

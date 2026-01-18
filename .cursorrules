@@ -30,7 +30,21 @@
 - **SFU (Node.js)**: Use `mediasoup` for low-level RTC. Keep the auth layer middleware-based.
 - **Frontend (Vue/JS)**: Implement on-demand token fetching. No background refresh loops for JTIs.
 
-## AI Prediction (Future-Proofing)
+## Rollback Netcode
 
-- Ensure all rollback-related code supports an `input_history` buffer of 60 frames.
-- Prepare hooks for `ai_profile` loading based on RomM genre metadata.
+- **Naive Prediction (Current Implementation)**: Default rollback uses naive prediction (last known input or neutral input).
+- **Input History Buffer**: All rollback-related code must support an `input_history` buffer of 60 frames per player.
+- **State Snapshots**: Implement circular buffer for state snapshots (save every N frames, configurable).
+- **Deterministic Requirement**: Rollback requires deterministic emulation (same ROM, same emulator core/version).
+
+## AI Prediction (Long-Term Future)
+
+- **AI implementation deferred**: AI prediction will be added later, after public adoption.
+- **Opt-in data collection**: AI training will require opt-in replay data collection from users.
+- **Legal considerations**: Replay data collection from copyrighted ROM gameplay requires legal review before implementation.
+- **Hooks preparation**: Prepare hooks for `ai_profile` loading based on RomM genre metadata (for future use).
+- **Do not implement AI prediction yet**: Current focus is naive prediction only.
+
+## Container management
+
+- **Podman/Docker build and run commands**: AI is not allowed to run docker or podman build commands or run commands.  You must instead ask the user to manually rebuild or run, and the user will be responsible for making sure environment variables are correct.
