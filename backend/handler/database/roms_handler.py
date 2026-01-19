@@ -148,32 +148,6 @@ def with_details(func):
     return wrapper
 
 
-def with_simple(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        kwargs["query"] = select(Rom).options(
-            # Ensure platform is loaded for main ROM objects
-            selectinload(Rom.platform),
-            # Display properties for the current user (last_played)
-            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
-            # Sort table by metadata (first_release_date)
-            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            # Required for multi-file ROM actions and 3DS QR code
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-            ),
-            # Show sibling rom badges on cards
-            selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform), noload(Rom.metadatum)
-            ),
-            # Show notes indicator on cards
-            selectinload(Rom.notes),
-        )
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
 class DBRomsHandler(DBBaseHandler):
     @begin_session
     @with_details
@@ -525,6 +499,25 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
 
+        query = query.options(
+            # Ensure platform is loaded for main ROM objects
+            selectinload(Rom.platform),
+            # Display properties for the current user (last_played)
+            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+            # Sort table by metadata (first_release_date)
+            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
+            # Required for multi-file ROM actions and 3DS QR code
+            selectinload(Rom.files).options(
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+            ),
+            # Show sibling rom badges on cards
+            selectinload(Rom.sibling_roms).options(
+                noload(Rom.platform), noload(Rom.metadatum)
+            ),
+            # Show notes indicator on cards
+            selectinload(Rom.notes),
+        )
+
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
         if platform_ids:
             query = self._filter_by_platform_ids(query, platform_ids)
@@ -716,7 +709,6 @@ class DBRomsHandler(DBBaseHandler):
 
         return query
 
-    @with_simple
     @begin_session
     def get_roms_query(
         self,
@@ -724,9 +716,10 @@ class DBRomsHandler(DBBaseHandler):
         order_by: str = "name",
         order_dir: str = "asc",
         user_id: int | None = None,
-        query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> tuple[Query[Rom], Any]:
+        query = select(Rom)
+
         if user_id:
             query = query.outerjoin(
                 RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
@@ -757,7 +750,7 @@ class DBRomsHandler(DBBaseHandler):
         else:
             order_attr = order_attr.asc()
 
-        return query.order_by(order_attr), order_attr_column
+        return query.order_by(order_attr), order_attr_column  # type: ignore
 
     @begin_session
     def get_roms_scalar(

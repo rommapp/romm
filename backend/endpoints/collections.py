@@ -170,7 +170,7 @@ def get_collections(
 
     collections = db_collection_handler.get_collections(updated_after=updated_after)
 
-    return CollectionSchema.for_user(request.user.id, [c for c in collections])
+    return CollectionSchema.for_user(request.user.id, collections)
 
 
 @protected_route(router.get, "/identifiers", [Scope.COLLECTIONS_READ])
@@ -195,7 +195,7 @@ def get_collection_identifiers(
         ],
     )
 
-    return [c.id for c in collections if c.user_id == request.user.id or c.is_public]
+    return [c.id for c in CollectionSchema.for_user(request.user.id, collections)]
 
 
 @protected_route(router.get, "/virtual", [Scope.COLLECTIONS_READ])
@@ -265,9 +265,7 @@ def get_smart_collections(
         request.user.id, updated_after=updated_after
     )
 
-    return SmartCollectionSchema.for_user(
-        request.user.id, [s for s in smart_collections]
-    )
+    return SmartCollectionSchema.for_user(request.user.id, smart_collections)
 
 
 @protected_route(router.get, "/smart/identifiers", [Scope.COLLECTIONS_READ])
