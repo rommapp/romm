@@ -231,8 +231,10 @@ def get_collection_ids(request: Request) -> list[int]:
 def get_virtual_collection_ids(request: Request) -> list[str]:
     """Retrieve all virtual collection IDs in the system."""
     with sync_session.begin() as session:
-        virtual_collections = session.scalars(select(VirtualCollection)).all()
-        return [vc.id for vc in virtual_collections]
+        results = session.execute(
+            select(VirtualCollection.name, VirtualCollection.type)
+        ).all()
+        return [VirtualCollection(name=name, type=type).id for name, type in results]
 
 
 @protected_route(router.get, "/smart/ids", [Scope.COLLECTIONS_READ])
