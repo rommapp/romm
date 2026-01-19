@@ -21,6 +21,7 @@
   "hasheous-requires-hashes": "Hasheous nécessite que le calcul de hachage soit activé",
   "retroachievements-requires-hashes": "RetroAchievements nécessite que le calcul de hachage soit activé",
   "manage-library": "Gérer la bibliothèque",
+  "launchbox-remote": "LaunchBox remote (enrichir le local avec le remote)",
   "metadata-sources": "Sources de métadonnées",
   "new-platforms": "Nouvelles plateformes",
   "new-platforms-desc": "Scanner uniquement les plateformes récemment ajoutées (plus rapide)",

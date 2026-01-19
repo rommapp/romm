@@ -230,6 +230,7 @@ async def _identify_rom(
     scan_type: ScanType,
     roms_ids: list[int],
     metadata_sources: list[str],
+    launchbox_remote_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     calculate_hashes: bool = True,
@@ -321,6 +322,7 @@ async def _identify_rom(
         fs_rom=fs_rom,
         metadata_sources=metadata_sources,
         newly_added=newly_added,
+        launchbox_remote_enabled=launchbox_remote_enabled,
         socket_manager=socket_manager,
     )
 
@@ -450,6 +452,7 @@ async def _identify_platform(
     fs_platforms: list[str],
     roms_ids: list[int],
     metadata_sources: list[str],
+    launchbox_remote_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
     calculate_hashes: bool = True,
@@ -539,6 +542,7 @@ async def _identify_platform(
                 scan_type=scan_type,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
+                launchbox_remote_enabled=launchbox_remote_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
                 calculate_hashes=calculate_hashes,
@@ -589,6 +593,7 @@ async def scan_platforms(
     metadata_sources: list[str],
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[int] | None = None,
+    launchbox_remote_enabled: bool = True,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -663,6 +668,7 @@ async def scan_platforms(
                 fs_platforms=fs_platforms,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
+                launchbox_remote_enabled=launchbox_remote_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
                 calculate_hashes=calculate_hashes,
@@ -702,6 +708,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
+    launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
 
     if DEV_MODE:
         return await scan_platforms(
@@ -709,6 +716,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
             metadata_sources=metadata_sources,
             scan_type=scan_type,
             roms_ids=roms_ids,
+            launchbox_remote_enabled=launchbox_remote_enabled,
         )
 
     return high_prio_queue.enqueue(
@@ -717,6 +725,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
         metadata_sources=metadata_sources,
         scan_type=scan_type,
         roms_ids=roms_ids,
+        launchbox_remote_enabled=launchbox_remote_enabled,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={

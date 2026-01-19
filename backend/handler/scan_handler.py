@@ -287,6 +287,7 @@ async def scan_rom(
     fs_rom: FSRom,
     metadata_sources: list[str],
     newly_added: bool,
+    launchbox_remote_enabled: bool = True,
     socket_manager: socketio.AsyncRedisManager | None = None,
 ) -> Rom:
     rom_attrs = {
@@ -585,12 +586,16 @@ async def scan_rom(
                 and rom.platform_slug in LAUNCHBOX_PLATFORM_LIST
             )
         ):
-            if scan_type == ScanType.UPDATE and rom.launchbox_id:
-                return await meta_launchbox_handler.get_rom_by_id(rom.launchbox_id)
-            else:
-                return await meta_launchbox_handler.get_rom(
-                    rom_attrs["fs_name"], platform_slug
+            if scan_type == ScanType.UPDATE and rom.launchbox_id and launchbox_remote_enabled:
+                return await meta_launchbox_handler.get_rom_by_id(
+                    rom.launchbox_id, remote_enabled=True
                 )
+
+            return await meta_launchbox_handler.get_rom(
+                rom_attrs["fs_name"],
+                platform_slug,
+                remote_enabled=launchbox_remote_enabled,
+            )
 
         return LaunchboxRom(launchbox_id=None)
 

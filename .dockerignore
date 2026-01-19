@@ -1,0 +1,50 @@
+# Local secrets / env
+.env
+**/.env
+
+# Git / editor / OS
+.git
+.gitignore
+.gitattributes
+**/.DS_Store
+
+# IDE / dev containers
+.vscode/
+.devcontainer/
+
+# Python virtualenvs & caches
+.venv/
+**/.venv/
+**/venv/
+**/__pycache__/
+**/.mypy_cache/
+**/.pytest_cache/
+**/.ruff_cache/
+
+# Node caches
+**/node_modules/
+**/.npm/
+**/.vite/
+
+# CI / metadata not needed in image
+.github/
+
+# Mock & test data (requested)
+romm_mock/
+**/romm_mock/
+backend/tests/
+**/romm_test/
+
+# Local-only docker compose files/examples (not needed in image)
+docker-compose.yml
+examples/
+
+# Local tools / docs not required for runtime
+**/*.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+DEVELOPER_SETUP.md
+SECURITY.md
+
+# Note: we intentionally do NOT ignore `docker/` because `docker/Dockerfile`
+# copies init scripts and nginx/gunicorn configs from that folder.
