@@ -169,19 +169,16 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         type: str,
         limit: int | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[VirtualCollection]:
-        return (
-            session.scalars(
-                select(VirtualCollection)
-                .filter(or_(VirtualCollection.type == type, literal(type == "all")))
-                .limit(limit)
-                .order_by(VirtualCollection.name.asc())
-            )
-            .unique()
-            .all()
+        query = (
+            select(VirtualCollection)
+            .filter(or_(VirtualCollection.type == type, literal(type == "all")))
+            .limit(limit)
+            .order_by(VirtualCollection.name.asc())
         )
+
+        return session.scalars(query).unique().all()
 
     # Smart collections
     @begin_session
@@ -232,6 +229,9 @@ class DBCollectionsHandler(DBBaseHandler):
 
         if updated_after:
             query = query.filter(SmartCollection.updated_at > updated_after)
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
 
         return session.scalars(query).unique().all()
 

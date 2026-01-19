@@ -1061,7 +1061,7 @@ class DBRomsHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         public_only: bool = False,
-        search: str = "",
+        search: str | None = "",
         tags: list[str] | None = None,
         only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Body, File, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
@@ -119,10 +119,28 @@ def get_platform_firmware(
     Returns:
         list[FirmwareSchema]: Firmware stored in the database
     """
-    return [
-        FirmwareSchema.model_validate(f)
-        for f in db_firmware_handler.list_firmware(platform_id=platform_id)
-    ]
+    firmware = db_firmware_handler.list_firmware(
+        platform_id=platform_id,
+    )
+    return [FirmwareSchema.model_validate(f) for f in firmware]
+
+
+@protected_route(router.get, "/identifiers", [Scope.FIRMWARE_READ])
+def get_firmware_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get firmware identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of firmware ids
+    """
+    firmware = db_firmware_handler.list_firmware(
+        only_fields=[Firmware.id],
+    )
+    return [f.id for f in firmware]
 
 
 @protected_route(

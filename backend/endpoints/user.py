@@ -3,7 +3,7 @@ from typing import Annotated, Any, cast
 
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
-from fastapi import Request, status
+from fastapi import Query, Request, status
 
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
@@ -199,7 +199,9 @@ def create_user_from_invite(
 
 
 @protected_route(router.get, "", [Scope.USERS_READ])
-def get_users(request: Request) -> list[UserSchema]:
+def get_users(
+    request: Request,
+) -> list[UserSchema]:
     """Get all users endpoint
 
     Args:
@@ -209,7 +211,27 @@ def get_users(request: Request) -> list[UserSchema]:
         list[UserSchema]: All users stored in the RomM's database
     """
 
-    return [UserSchema.model_validate(u) for u in db_user_handler.get_users()]
+    users = db_user_handler.get_users()
+    return [UserSchema.model_validate(u) for u in users]
+
+
+@protected_route(router.get, "/identifiers", [Scope.USERS_READ])
+def get_user_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get all user identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: All user ids stored in the RomM's database
+    """
+
+    users = db_user_handler.get_users(
+        only_fields=[User.id],
+    )
+    return [u.id for u in users]
 
 
 @protected_route(router.get, "/me", [Scope.ME_READ])
