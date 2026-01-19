@@ -97,6 +97,7 @@
   "no-tasks-in-history": "No hay tareas en el historial",
   "parent-platform": "Plataforma padre",
   "password": "Contraseña",
+  "password-hint": "La contraseña debe tener al menos 6 caracteres",
   "password-placeholder": "Dejar vacío para mantener la contraseña actual",
   "passwords-must-match": "Las contraseñas deben coincidir",
   "platform-mapping-created": "Asignación de plataforma creada",
@@ -165,6 +166,10 @@
   "unable-to-update-platform-mapping": "No se puede actualizar la asignación de plataforma: {detail}",
   "update": "Actualizar",
   "username": "Nombre de usuario",
+  "netplay-id": "ID de Netplay",
+  "netplay-id-length": "El ID de Netplay debe tener entre 3 y 32 caracteres",
+  "netplay-id-chars": "El ID de Netplay puede contener solo letras, números, guiones bajos, guiones y emojis",
+  "netplay-id-hint": "Debe crear un ID de Netplay único para usar Netplay.",
   "variant-folder": "Carpeta variante",
   "virtual-collection-type": "Tipo de colección virtual (método de agrupación de ROM)",
   "watcher": "Vigilante"

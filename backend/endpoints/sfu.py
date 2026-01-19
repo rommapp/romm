@@ -15,6 +15,7 @@ from endpoints.responses.sfu import SFUTokenResponse
 from handler.auth import oauth_handler
 from handler.auth.base_handler import oct_key
 from handler.auth.constants import Scope
+from handler.database import db_user_handler
 from handler.redis_handler import sync_cache
 from utils.router import APIRouter
 
@@ -131,9 +132,14 @@ def sfu_internal_verify(request: Request, body: SFUVerifyRequest) -> SFUVerifyRe
 
     # Read tokens (sfu:read) don't need Redis lookup - validated by JWT signature only
     if token_type == "sfu:read":
-        # For read tokens, we can extract netplay_username from user settings if needed
-        # For now, return without netplay_username for read tokens
-        return SFUVerifyResponse(sub=sub, netplay_username=None)
+        # Look up user by netplayid or username for read tokens too
+        user = db_user_handler.get_user_by_netplayid(sub)
+        if not user:
+            # Fallback to username lookup for backwards compatibility
+            user = db_user_handler.get_user_by_username(sub)
+
+        netplay_username = user.netplayid if user else None
+        return SFUVerifyResponse(sub=sub, netplay_username=netplay_username)
 
     # Write tokens (sfu:write) require Redis lookup
     jti = str(claims.get("jti", ""))
@@ -175,9 +181,14 @@ def sfu_internal_verify(request: Request, body: SFUVerifyRequest) -> SFUVerifyRe
     if data.get("jti") != jti:
         raise HTTPException(status_code=401, detail="jti mismatch")
 
-    # For legacy tokens, we might not have netplay_username in simple format
-    # You could enhance this to store more data or fetch from user settings
-    return SFUVerifyResponse(sub=sub, netplay_username=None)
+    # Look up user by netplayid or username to get current netplayid
+    user = db_user_handler.get_user_by_netplayid(sub)
+    if not user:
+        # Fallback to username lookup for backwards compatibility
+        user = db_user_handler.get_user_by_username(sub)
+
+    netplay_username = user.netplayid if user else None
+    return SFUVerifyResponse(sub=sub, netplay_username=netplay_username)
 
 class SFURoomRecord(BaseModel):
     room_name: str
@@ -341,9 +352,12 @@ def mint_sfu_token(
 
     netplay_username = _get_netplay_username_from_ui_settings(getattr(user, "ui_settings", None))
 
+    # Use netplayid for SFU authentication, fallback to username for backwards compatibility
+    sfu_identifier = user.netplayid or user.username
+
     # Build token claims
     token_data = {
-        "sub": user.username,
+        "sub": sfu_identifier,
         "iss": SFU_TOKEN_ISSUER,
         "type": token_type_claim,
         "iat": int(now.timestamp()),

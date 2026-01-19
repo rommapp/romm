@@ -97,6 +97,7 @@
   "no-tasks-in-history": "歷史記錄中無任務",
   "parent-platform": "父平台",
   "password": "密碼",
+  "password-hint": "密碼必須至少6個字符",
   "password-placeholder": "留空以保持當前密碼",
   "passwords-must-match": "密碼必須相符",
   "platform-mapping-created": "平台對應已建立",
@@ -165,6 +166,10 @@
   "unable-to-update-platform-mapping": "無法更新平台對應：{detail}",
   "update": "更新",
   "username": "用戶名",
+  "netplay-id": "Netplay ID",
+  "netplay-id-length": "Netplay ID 必須介於 3 和 32 個字符之間",
+  "netplay-id-chars": "Netplay ID 只能包含字母、數字、表情符號、符號、下劃線和連字符",
+  "netplay-id-hint": "您必須創建一個唯一的 Netplay ID 才能使用 Netplay。",
   "variant-folder": "變體資料夾",
   "virtual-collection-type": "自動生成收藏庫形式（Rom 分組方式）",
   "watcher": "監視器"

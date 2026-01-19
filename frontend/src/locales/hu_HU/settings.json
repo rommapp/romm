@@ -97,6 +97,7 @@
   "no-tasks-in-history": "Nincsenek feladatok az előzményekben",
   "parent-platform": "Szülő platform",
   "password": "Jelszó",
+  "password-hint": "A jelszónak legalább 6 karakter hosszúnak kell lennie",
   "password-placeholder": "Hagyd üresen, ha meg akarod tartani a jelenlegi jelszót",
   "passwords-must-match": "A jelszavaknak egyezniük kell",
   "platform-mapping-created": "Platformleképezés létrehozva",
@@ -165,6 +166,10 @@
   "unable-to-update-platform-mapping": "A platformleképezés frissítése sikertelen: {detail}",
   "update": "Frissítés",
   "username": "Felhasználónév",
+  "netplay-id": "Netplay ID",
+  "netplay-id-length": "Netplay ID hossza 3-32 karakter között kell legyen",
+  "netplay-id-chars": "Netplay ID csak betűk, számok, aláhúzások, kötőjelek és emojiket tartalmazhat",
+  "netplay-id-hint": "Netplay ID-t kell létrehoznod a Netplay használatához.",
   "variant-folder": "Változat mappa",
   "virtual-collection-type": "Virtuális gyűjtemény típusa (ROM csoportosítási mód)",
   "watcher": "Figyelő"

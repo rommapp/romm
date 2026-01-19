@@ -97,6 +97,7 @@
   "no-tasks-in-history": "Aucune tâche dans l'historique",
   "parent-platform": "Plateforme parente",
   "password": "Mot de passe",
+  "password-hint": "Le mot de passe doit contenir au moins 6 caractères",
   "password-placeholder": "Laisser vide pour conserver le mot de passe actuel",
   "passwords-must-match": "Les mots de passe doivent correspondre",
   "platform-mapping-created": "Mappage de plateforme créé",
@@ -165,6 +166,10 @@
   "unable-to-update-platform-mapping": "Impossible de mettre à jour le mappage de plateforme : {detail}",
   "update": "Mettre à jour",
   "username": "Nom d'utilisateur",
+  "netplay-id": "ID de Netplay",
+  "netplay-id-length": "L'ID de Netplay doit contenir entre 3 et 32 caractères",
+  "netplay-id-chars": "L'ID de Netplay peut contenir uniquement des lettres, des nombres, des underscores, des tirets et des emojis",
+  "netplay-id-hint": "Vous devez créer un ID de Netplay unique pour utiliser Netplay.",
   "variant-folder": "Dossier variante",
   "virtual-collection-type": "Type de collection virtuelle (méthode de regroupement des roms)",
   "watcher": "Surveilleur"

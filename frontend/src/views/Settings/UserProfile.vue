@@ -7,6 +7,7 @@ import RetroAchievements from "@/components/Settings/UserProfile/RetroAchievemen
 import RSection from "@/components/common/RSection.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
@@ -15,6 +16,8 @@ import { defaultAvatarPath, getRoleIcon } from "@/utils";
 const { t } = useI18n();
 const auth = storeAuth();
 const { user } = storeToRefs(auth);
+const config = storeConfig();
+const { config: configData } = storeToRefs(config);
 const userToEdit = ref<UserItem | null>(null);
 const usersStore = storeUsers();
 const imagePreviewUrl = ref<string | undefined>("");
@@ -153,6 +156,17 @@ onUnmounted(() => {
           class="ma-4"
           variant="outlined"
           :label="t('settings.password')"
+          :hint="t('settings.password-hint')"
+          clearable
+        />
+        <v-text-field
+          v-if="configData.EJS_NETPLAY_ENABLED"
+          v-model="userToEdit.netplayid"
+          class="ma-4"
+          variant="outlined"
+          :label="t('settings.netplay-id')"
+          :rules="usersStore.netplayIdRules"
+          :hint="t('settings.netplay-id-hint')"
           clearable
         />
         <v-text-field

@@ -1,4 +1,5 @@
 import json
+import unicodedata
 from typing import Annotated, Any, cast
 
 from fastapi import Body, Form, HTTPException
@@ -366,6 +367,55 @@ async def update_user(
 
     if form_data.ra_username:
         cleaned_data["ra_username"] = form_data.ra_username  # type: ignore[assignment]
+
+    if form_data.netplayid is not None and form_data.netplayid != db_user.netplayid:  # Allow empty string to clear netplayid
+        # Only validate if there's a non-empty value to set
+        if form_data.netplayid:
+            # Unicode-aware validation - allow letters, marks, symbols, numbers, emojis
+            for char in form_data.netplayid:
+                if char in '_-':  # Allow underscores and dashes
+                    continue
+                
+                # Check Unicode category
+                category = unicodedata.category(char)
+                if category[0] in ['C', 'Z']:  # Control, format, or separator characters
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Netplay ID contains invalid characters"
+                    )
+                # Allow: Letters (L), Marks (M), Symbols (S), Numbers (N), Punctuation (P)
+                if category[0] not in ['L', 'M', 'S', 'N', 'P']:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Netplay ID can only contain letters, numbers, emojis, symbols, underscores, and dashes"
+                    )
+            
+            if len(form_data.netplayid) < 3 or len(form_data.netplayid) > 32:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Netplay ID must be between 3 and 32 characters"
+                )
+            
+            # Check uniqueness against other netplay IDs
+            existing_user = db_user_handler.get_user_by_netplayid(form_data.netplayid)
+            if existing_user and existing_user.id != id:
+                msg = f"Netplay ID {form_data.netplayid} already exists"
+                log.error(msg)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=msg,
+                )
+            
+            # Prevent netplay ID from matching any existing username
+            username_collision = db_user_handler.get_user_by_username(form_data.netplayid)
+            if username_collision:
+                msg = f"Netplay ID cannot match an existing username: {form_data.netplayid}"
+                log.error(msg)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=msg,
+                )
+            cleaned_data["netplayid"] = form_data.netplayid or None
 
     if form_data.ui_settings is not None:
         try:

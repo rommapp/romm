@@ -97,6 +97,7 @@
   "no-tasks-in-history": "历史记录中无任务",
   "parent-platform": "父平台",
   "password": "密码",
+  "password-hint": "密码必须至少6个字符",
   "password-placeholder": "留空以保持当前密码",
   "passwords-must-match": "密码必须匹配",
   "platform-mapping-created": "平台映射已创建",
@@ -165,6 +166,10 @@
   "unable-to-update-platform-mapping": "无法更新平台映射：{detail}",
   "update": "更新",
   "username": "用户名",
+  "netplay-id": "Netplay ID",
+  "netplay-id-length": "Netplay ID 必须介于 3 和 32 个字符之间",
+  "netplay-id-chars": "Netplay ID 只能包含字母、数字、表情符号、符号、下划线和连字符",
+  "netplay-id-hint": "您必须创建一个唯一的 Netplay ID 才能使用 Netplay。",
   "variant-folder": "变体文件夹",
   "virtual-collection-type": "虚拟收藏类型（Rom 文件分组方法）",
   "watcher": "监视器"

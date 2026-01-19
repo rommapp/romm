@@ -16,6 +16,7 @@ export type UserSchema = {
     last_active: (string | null);
     ra_username?: (string | null);
     ra_progression?: (RAProgression | null);
+    netplayid?: (string | null);
     ui_settings?: (Record<string, any> | null);
     created_at: string;
     updated_at: string;

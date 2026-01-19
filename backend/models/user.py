@@ -67,6 +67,9 @@ class User(BaseModel, SimpleUser):
     ui_settings: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
+    netplayid: Mapped[str | None] = mapped_column(
+        String(length=TEXT_FIELD_LENGTH), nullable=True, unique=True, index=True
+    )
 
     saves: Mapped[list[Save]] = relationship(lazy="raise", back_populates="user")
     states: Mapped[list[State]] = relationship(lazy="raise", back_populates="user")
@@ -94,6 +97,7 @@ class User(BaseModel, SimpleUser):
         return cls(
             id=-1,
             username="kiosk",
+            netplayid="kiosk",
             role=Role.VIEWER,
             enabled=True,
             avatar_path="",

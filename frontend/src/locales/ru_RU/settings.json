@@ -97,6 +97,7 @@
   "no-tasks-in-history": "Нет задач в истории",
   "parent-platform": "Родительская платформа",
   "password": "Пароль",
+  "password-hint": "Пароль должен быть не менее 6 символов",
   "password-placeholder": "Оставьте пустым, чтобы сохранить текущий пароль",
   "passwords-must-match": "Пароли должны совпадать",
   "platform-mapping-created": "Сопоставление платформы создано",
@@ -165,6 +166,10 @@
   "unable-to-update-platform-mapping": "Не удалось обновить сопоставление платформы: {detail}",
   "update": "Обновить",
   "username": "Имя пользователя",
+  "netplay-id": "ID Netplay",
+  "netplay-id-length": "ID Netplay должен быть между 3 и 32 символами",
+  "netplay-id-chars": "ID Netplay может содержать только буквы, цифры, эмодзи, символы, подчеркивания и дефисы",
+  "netplay-id-hint": "Вы должны создать уникальный ID Netplay для использования Netplay.",
   "variant-folder": "Папка варианта",
   "virtual-collection-type": "Тип виртуальной коллекции (метод группировки ромов)",
   "watcher": "Наблюдатель"

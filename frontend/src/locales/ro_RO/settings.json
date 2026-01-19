@@ -97,6 +97,7 @@
   "no-tasks-in-history": "Nu există sarcini în istoric",
   "parent-platform": "Platformă părinte",
   "password": "Parolă",
+  "password-hint": "Parola trebuie să aibă cel puțin 6 caractere",
   "password-placeholder": "Lasă gol pentru a păstra parola actuală",
   "passwords-must-match": "Parolele trebuie să se potrivească",
   "platform-mapping-created": "Maparea platformei a fost creată",
@@ -165,6 +166,10 @@
   "unable-to-update-platform-mapping": "Nu se poate actualiza maparea platformei: {detail}",
   "update": "Actualizează",
   "username": "Nume de utilizator",
+  "netplay-id": "ID Netplay",
+  "netplay-id-length": "ID Netplay trebuie să aibă între 3 și 32 caractere",
+  "netplay-id-chars": "ID Netplay poate conține doar litere, numere, emoji, simboluri, underscore și hifen",
+  "netplay-id-hint": "Trebuie să creați un ID Netplay unic pentru a utiliza Netplay.",
   "variant-folder": "Dosar variantă",
   "virtual-collection-type": "Tip de colecție virtuală (metoda de grupare a rom-urilor)",
   "watcher": "Monitor"

@@ -17,6 +17,15 @@ const usernameChars = (v: string) =>
 const passwordLength = (v: string) =>
   (v.length >= 6 && v.length <= 255) || i18n.global.t("common.password-length");
 
+const netplayIdLength = (v: string) =>
+  (v.length >= 3 && v.length <= 32) || i18n.global.t("settings.netplay-id-length");
+
+const netplayIdChars = (v: string) => {
+  // Allow unicode letters, marks, symbols, numbers, underscores, and dashes
+  return /^[\p{L}\p{M}\p{S}\p{N}_-]*$/u.test(v) || i18n.global.t("settings.netplay-id-chars");
+};
+  
+
 export default defineStore("users", {
   state: () => ({
     allUsers: [] as User[],
@@ -36,6 +45,10 @@ export default defineStore("users", {
       (v: string) =>
         /.+@.+\..+/.test(v) || i18n.global.t("common.invalid-email"),
       asciiOnly,
+    ],
+    netplayIdRules: [
+      (v: string) => !v || netplayIdLength(v), // Optional field
+      (v: string) => !v || netplayIdChars(v),  // Only validate if not empty
     ],
   }),
 

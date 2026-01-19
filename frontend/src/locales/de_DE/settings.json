@@ -97,6 +97,7 @@
   "no-tasks-in-history": "Keine Aufgaben in der Historie",
   "parent-platform": "Übergeordnete Plattform",
   "password": "Passwort",
+  "password-hint": "Passwort muss mindestens 6 Zeichen lang sein",
   "password-placeholder": "Leer lassen, um das aktuelle Passwort beizubehalten",
   "passwords-must-match": "Passwörter müssen übereinstimmen",
   "platform-mapping-created": "Plattform-Zuordnung erstellt",
@@ -165,6 +166,10 @@
   "unable-to-update-platform-mapping": "Plattform-Zuordnung konnte nicht aktualisiert werden: {detail}",
   "update": "Aktualisieren",
   "username": "Benutzername",
+  "netplay-id": "Netplay ID",
+  "netplay-id-length": "Netplay ID muss zwischen 3 und 32 Zeichen lang sein",
+  "netplay-id-chars": "Netplay ID kann nur Buchstaben, Zahlen, Unterstriche, Bindestriche und Emojis enthalten",
+  "netplay-id-hint": "Sie müssen eine eindeutige Netplay ID erstellen, um Netplay zu verwenden.",
   "variant-folder": "Variantenordner",
   "virtual-collection-type": "Typ der automatisch generierten Sammlung (ROM-Gruppierungsmethode)",
   "watcher": "Überwacher"

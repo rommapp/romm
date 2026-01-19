@@ -10,6 +10,7 @@ class UserForm(BaseModel):
     role: str | None = None
     enabled: bool | None = None
     ra_username: str | None = None
+    netplayid: str | None = None
     avatar: UploadFile | None = None
     ui_settings: str | None = None
 

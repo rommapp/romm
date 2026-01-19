@@ -64,6 +64,15 @@ class DBUsersHandler(DBBaseHandler):
         return session.scalar(query.limit(1))
 
     @begin_session
+    def get_user_by_netplayid(
+        self,
+        netplayid: str,
+        session: Session = None,  # type: ignore
+    ) -> User | None:
+        query = select(User).filter(User.netplayid == netplayid)
+        return session.scalar(query.limit(1))
+
+    @begin_session
     def get_user(
         self,
         id: int,

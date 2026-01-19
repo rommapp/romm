@@ -97,6 +97,7 @@
   "no-tasks-in-history": "V historii nejsou žádné úlohy",
   "parent-platform": "Nadřazená platforma",
   "password": "Heslo",
+  "password-hint": "Heslo musí mít alespoň 6 znaků",
   "password-placeholder": "Nechte prázdné, chcete-li ponechat aktuální heslo",
   "passwords-must-match": "Hesla se musí shodovat",
   "platform-mapping-created": "Mapování platformy bylo vytvořeno",
@@ -165,6 +166,10 @@
   "unable-to-update-platform-mapping": "Nelze aktualizovat mapování platformy: {detail}",
   "update": "Aktualizovat",
   "username": "Uživatelské jméno",
+  "netplay-id": "Netplay ID",
+  "netplay-id-length": "Netplay ID musí mít mezi 3 a 32 znaky",
+  "netplay-id-chars": "Netplay ID může obsahovat pouze písmena, číslice, podtržítka, pomlčky a emojis",
+  "netplay-id-hint": "Musíte vytvořit jedinečné Netplay ID pro použití Netplay.",
   "variant-folder": "Varianta složky",
   "virtual-collection-type": "Typ virtuální kolekce (způsob seskupování ROM)",
   "watcher": "Sledovač"
