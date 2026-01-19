@@ -213,7 +213,9 @@ def get_virtual_collections(
         list[VirtualCollectionSchema]: List of virtual collections
     """
 
-    virtual_collections = db_collection_handler.get_virtual_collections(type, limit)
+    virtual_collections = db_collection_handler.get_virtual_collections(
+        type=type, limit=limit
+    )
 
     return [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections]
 
@@ -228,11 +230,11 @@ def get_virtual_collection_identifiers(
         request (Request): Fastapi Request object
 
     Returns:
-        list[int]: List of virtual collection IDs
+        list[str]: List of generated virtual collection IDs
     """
 
     virtual_collections = db_collection_handler.get_virtual_collections(
-        request.user.id,
+        type="all",
         only_fields=[VirtualCollection.name, VirtualCollection.type],
     )
 

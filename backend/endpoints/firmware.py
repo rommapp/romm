@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Body, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
