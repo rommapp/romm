@@ -21,7 +21,15 @@ from sqlalchemy import (
     text,
     update,
 )
-from sqlalchemy.orm import Query, Session, joinedload, noload, selectinload
+from sqlalchemy.orm import (
+    Query,
+    QueryableAttribute,
+    Session,
+    joinedload,
+    load_only,
+    noload,
+    selectinload,
+)
 from sqlalchemy.sql.elements import KeyedColumnElement
 from sqlalchemy.sql.selectable import Select
 
@@ -716,6 +724,7 @@ class DBRomsHandler(DBBaseHandler):
         order_by: str = "name",
         order_dir: str = "asc",
         user_id: int | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> tuple[Query[Rom], Any]:
@@ -749,12 +758,16 @@ class DBRomsHandler(DBBaseHandler):
         else:
             order_attr = order_attr.asc()
 
+        if only_fields:
+            query = query.options(load_only(*only_fields))
+
         return query.order_by(order_attr), order_attr_column
 
     @begin_session
     def get_roms_scalar(
         self,
         *,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
         **kwargs,
     ) -> Sequence[Rom]:
@@ -763,6 +776,10 @@ class DBRomsHandler(DBBaseHandler):
             order_dir=kwargs.get("order_dir", "asc"),
             user_id=kwargs.get("user_id", None),
         )
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
+
         roms = self.filter_roms(
             query=query,
             platform_ids=kwargs.get("platform_ids", None),
@@ -847,19 +864,20 @@ class DBRomsHandler(DBBaseHandler):
         self,
         platform_id: int,
         fs_names: Iterable[str],
+        only_fields: Sequence[QueryableAttribute] | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> dict[str, Rom]:
         """Retrieve a dictionary of roms by their filesystem names."""
-        roms = (
-            session.scalars(
-                query.filter(Rom.fs_name.in_(fs_names)).filter_by(
-                    platform_id=platform_id
-                )
-            )
-            .unique()
-            .all()
+        query = query.filter(Rom.fs_name.in_(fs_names)).filter_by(
+            platform_id=platform_id
         )
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
+
+        roms = session.scalars(query).unique().all()
+
         return {rom.fs_name: rom for rom in roms}
 
     @begin_session
@@ -1045,6 +1063,7 @@ class DBRomsHandler(DBBaseHandler):
         public_only: bool = False,
         search: str = "",
         tags: list[str] | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[RomNote]:
         query = session.query(RomNote).filter(RomNote.rom_id == rom_id)
@@ -1065,6 +1084,9 @@ class DBRomsHandler(DBBaseHandler):
                 query = query.filter(
                     json_array_contains_value(RomNote.tags, tag, session=session)
                 )
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
 
         return query.order_by(RomNote.updated_at.desc()).all()
 

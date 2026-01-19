@@ -4,7 +4,14 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, insert, literal, or_, select, update
-from sqlalchemy.orm import Query, Session, noload, selectinload
+from sqlalchemy.orm import (
+    Query,
+    QueryableAttribute,
+    Session,
+    load_only,
+    noload,
+    selectinload,
+)
 
 from decorators.database import begin_session
 from models.collection import (
@@ -87,11 +94,16 @@ class DBCollectionsHandler(DBBaseHandler):
     def get_collections(
         self,
         updated_after: datetime | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Sequence[Collection]:
         if updated_after:
             query = query.filter(Collection.updated_at > updated_after)
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
+
         return session.scalars(query.order_by(Collection.name.asc())).unique().all()
 
     @begin_session
@@ -157,6 +169,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         type: str,
         limit: int | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[VirtualCollection]:
         return (
@@ -206,6 +219,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         user_id: int | None = None,
         updated_after: datetime | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[SmartCollection]:
         query = select(SmartCollection).order_by(SmartCollection.name.asc())
@@ -250,7 +264,10 @@ class DBCollectionsHandler(DBBaseHandler):
         )
 
     def get_smart_collection_roms(
-        self, smart_collection: SmartCollection, user_id: int | None = None
+        self,
+        smart_collection: SmartCollection,
+        user_id: int | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
     ) -> Sequence["Rom"]:
         """Get ROMs that match the smart collection's filter criteria."""
         from handler.database import db_rom_handler

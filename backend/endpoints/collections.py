@@ -153,6 +153,9 @@ def get_collections(
             description="Filter collections updated after this datetime (ISO 8601 format with timezone information)."
         ),
     ] = None,
+    only_ids: Annotated[
+        bool | None, Query(description="Only return list of IDs")
+    ] = None,
 ) -> list[CollectionSchema]:
     """Get collections endpoint
 
@@ -164,7 +167,9 @@ def get_collections(
         list[CollectionSchema]: List of collections
     """
 
-    collections = db_collection_handler.get_collections(updated_after=updated_after)
+    collections = db_collection_handler.get_collections(
+        updated_after=updated_after, only_fields=[Collection.id] if only_ids else None
+    )
 
     return CollectionSchema.for_user(request.user.id, [c for c in collections])
 
