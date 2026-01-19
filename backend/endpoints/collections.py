@@ -187,7 +187,12 @@ def get_collection_identifiers(
     """
 
     collections = db_collection_handler.get_collections(
-        only_fields=[Collection.id, Collection.user_id, Collection.is_public],
+        only_fields=[
+            Collection.id,
+            Collection.name,
+            Collection.user_id,
+            Collection.is_public,
+        ],
     )
 
     return [c.id for c in collections if c.user_id == request.user.id or c.is_public]
