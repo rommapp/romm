@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, HTTPException, Query, Request, UploadFile, status
+from fastapi import Body, HTTPException, Request, UploadFile, status
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema

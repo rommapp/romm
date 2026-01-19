@@ -3,7 +3,7 @@ from typing import Annotated, Any, cast
 
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
-from fastapi import Query, Request, status
+from fastapi import Request, status
 
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
