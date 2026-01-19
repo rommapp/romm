@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, HTTPException, Request, UploadFile, status
+from fastapi import Body, HTTPException, Query, Request, UploadFile, status
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import SaveSchema
@@ -13,6 +13,7 @@ from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.assets import Save
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -142,13 +143,37 @@ async def add_save(
 
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_saves(
-    request: Request, rom_id: int | None = None, platform_id: int | None = None
+    request: Request,
+    rom_id: int | None = None,
+    platform_id: int | None = None,
 ) -> list[SaveSchema]:
     saves = db_save_handler.get_saves(
-        user_id=request.user.id, rom_id=rom_id, platform_id=platform_id
+        user_id=request.user.id,
+        rom_id=rom_id,
+        platform_id=platform_id,
     )
 
     return [SaveSchema.model_validate(save) for save in saves]
+
+
+@protected_route(router.get, "/identifiers", [Scope.ASSETS_READ])
+def get_save_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get save identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of save ids
+    """
+    saves = db_save_handler.get_saves(
+        user_id=request.user.id,
+        only_fields=[Save.id],
+    )
+
+    return [save.id for save in saves]
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])

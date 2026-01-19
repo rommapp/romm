@@ -24,7 +24,11 @@ from handler.filesystem.base_handler import CoverSize
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.collection import Collection, SmartCollection
+from models.collection import (
+    Collection,
+    SmartCollection,
+    VirtualCollection,
+)
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -153,9 +157,6 @@ def get_collections(
             description="Filter collections updated after this datetime (ISO 8601 format with timezone information)."
         ),
     ] = None,
-    only_ids: Annotated[
-        bool | None, Query(description="Only return list of IDs")
-    ] = None,
 ) -> list[CollectionSchema]:
     """Get collections endpoint
 
@@ -168,10 +169,30 @@ def get_collections(
     """
 
     collections = db_collection_handler.get_collections(
-        updated_after=updated_after, only_fields=[Collection.id] if only_ids else None
+        updated_after=updated_after,
     )
 
     return CollectionSchema.for_user(request.user.id, [c for c in collections])
+
+
+@protected_route(router.get, "/identifiers", [Scope.COLLECTIONS_READ])
+def get_collection_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get collections identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of collection ids
+    """
+
+    collections = db_collection_handler.get_collections(
+        only_fields=[Collection.id, Collection.user_id, Collection.is_public],
+    )
+
+    return [c.id for c in collections if c.user_id == request.user.id or c.is_public]
 
 
 @protected_route(router.get, "/virtual", [Scope.COLLECTIONS_READ])
@@ -215,12 +236,34 @@ def get_smart_collections(
     """
 
     smart_collections = db_collection_handler.get_smart_collections(
-        request.user.id, updated_after=updated_after
+        request.user.id,
+        updated_after=updated_after,
     )
 
     return SmartCollectionSchema.for_user(
         request.user.id, [s for s in smart_collections]
     )
+
+
+@protected_route(router.get, "/smart/identifiers", [Scope.COLLECTIONS_READ])
+def get_smart_collection_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get smart collections identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of smart collection ids
+    """
+
+    smart_collections = db_collection_handler.get_smart_collections(
+        request.user.id,
+        only_fields=[SmartCollection.id],
+    )
+
+    return [s.id for s in smart_collections]
 
 
 @protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])

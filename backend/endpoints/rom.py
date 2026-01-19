@@ -66,7 +66,7 @@ from handler.metadata.ss_handler import get_preferred_media_types
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom
+from models.rom import Rom, RomNote
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
@@ -515,6 +515,19 @@ def get_roms(
                 "filter_values": filter_values,
             },
         )
+
+
+@protected_route(router.get, "/identifiers", [Scope.ROMS_READ])
+def get_rom_identifiers(
+    request: Request,
+) -> list[int]:
+    """Retrieve rom identifiers."""
+    db_roms = db_rom_handler.get_roms_scalar(
+        user_id=request.user.id,
+        only_fields=[Rom.id],
+    )
+
+    return [r.id for r in db_roms]
 
 
 @protected_route(
@@ -1633,8 +1646,8 @@ async def get_rom_notes(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     public_only: bool = DEFAULT_PUBLIC_ONLY,
-    search: str = DEFAULT_SEARCH,
-    tags: list[str] = DEFAULT_TAGS,
+    search: str | None = DEFAULT_SEARCH,
+    tags: list[str] | None = DEFAULT_TAGS,
 ) -> list[UserNoteSchema]:
     """Get all notes for a ROM."""
     from handler.database import db_rom_handler
@@ -1655,6 +1668,32 @@ async def get_rom_notes(
     )
 
     return [UserNoteSchema.model_validate(note) for note in notes]
+
+
+@protected_route(
+    router.get,
+    "/{id}/notes/identifiers",
+    [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def get_rom_note_identifiers(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> list[int]:
+    """Get all note identifiers for a ROM."""
+    from handler.database import db_rom_handler
+
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    notes = db_rom_handler.get_rom_notes(
+        rom_id=id,
+        user_id=request.user.id,
+        only_fields=[RomNote.id],
+    )
+
+    return [note.id for note in notes]
 
 
 @protected_route(

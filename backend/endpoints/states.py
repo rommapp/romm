@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, HTTPException, Request, UploadFile, status
+from fastapi import Body, HTTPException, Query, Request, UploadFile, status
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema
@@ -13,6 +13,7 @@ from handler.scan_handler import scan_screenshot, scan_state
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.assets import State
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -144,13 +145,37 @@ async def add_state(
 
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_states(
-    request: Request, rom_id: int | None = None, platform_id: int | None = None
+    request: Request,
+    rom_id: int | None = None,
+    platform_id: int | None = None,
 ) -> list[StateSchema]:
     states = db_state_handler.get_states(
-        user_id=request.user.id, rom_id=rom_id, platform_id=platform_id
+        user_id=request.user.id,
+        rom_id=rom_id,
+        platform_id=platform_id,
     )
 
     return [StateSchema.model_validate(state) for state in states]
+
+
+@protected_route(router.get, "/identifiers", [Scope.ASSETS_READ])
+def get_state_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get state identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of state ids
+    """
+    states = db_state_handler.get_states(
+        user_id=request.user.id,
+        only_fields=[State.id],
+    )
+
+    return [state.id for state in states]
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
