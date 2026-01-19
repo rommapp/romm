@@ -61,8 +61,10 @@ def get_platforms(
 ) -> list[PlatformSchema]:
     """Retrieve platforms."""
 
-    platforms = db_platform_handler.get_platforms(updated_after=updated_after)
-    return [PlatformSchema.model_validate(p) for p in platforms]
+    return [
+        PlatformSchema.model_validate(p)
+        for p in db_platform_handler.get_platforms(updated_after=updated_after)
+    ]
 
 
 @protected_route(router.get, "/identifiers", [Scope.PLATFORMS_READ])

@@ -1646,8 +1646,8 @@ async def get_rom_notes(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
     public_only: bool = DEFAULT_PUBLIC_ONLY,
-    search: str | None = DEFAULT_SEARCH,
-    tags: list[str] | None = DEFAULT_TAGS,
+    search: str = DEFAULT_SEARCH,
+    tags: list[str] = DEFAULT_TAGS,
 ) -> list[UserNoteSchema]:
     """Get all notes for a ROM."""
     from handler.database import db_rom_handler

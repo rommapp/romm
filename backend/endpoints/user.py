@@ -199,9 +199,7 @@ def create_user_from_invite(
 
 
 @protected_route(router.get, "", [Scope.USERS_READ])
-def get_users(
-    request: Request,
-) -> list[UserSchema]:
+def get_users(request: Request) -> list[UserSchema]:
     """Get all users endpoint
 
     Args:
@@ -211,8 +209,7 @@ def get_users(
         list[UserSchema]: All users stored in the RomM's database
     """
 
-    users = db_user_handler.get_users()
-    return [UserSchema.model_validate(u) for u in users]
+    return [UserSchema.model_validate(u) for u in db_user_handler.get_users()]
 
 
 @protected_route(router.get, "/identifiers", [Scope.USERS_READ])
@@ -228,9 +225,7 @@ def get_user_identifiers(
         list[int]: All user ids stored in the RomM's database
     """
 
-    users = db_user_handler.get_users(
-        only_fields=[User.id],
-    )
+    users = db_user_handler.get_users(only_fields=[User.id])
     return [u.id for u in users]
 
 

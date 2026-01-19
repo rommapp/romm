@@ -168,9 +168,7 @@ def get_collections(
         list[CollectionSchema]: List of collections
     """
 
-    collections = db_collection_handler.get_collections(
-        updated_after=updated_after,
-    )
+    collections = db_collection_handler.get_collections(updated_after=updated_after)
 
     return CollectionSchema.for_user(request.user.id, [c for c in collections])
 
@@ -185,7 +183,7 @@ def get_collection_identifiers(
         request (Request): Fastapi Request object
 
     Returns:
-        list[int]: List of collection ids
+        list[int]: List of collection IDs
     """
 
     collections = db_collection_handler.get_collections(
@@ -215,6 +213,27 @@ def get_virtual_collections(
     return [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections]
 
 
+@protected_route(router.get, "/virtual/identifiers", [Scope.COLLECTIONS_READ])
+def get_virtual_collection_identifiers(
+    request: Request,
+) -> list[str]:
+    """Get virtual collections identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of virtual collection IDs
+    """
+
+    virtual_collections = db_collection_handler.get_virtual_collections(
+        request.user.id,
+        only_fields=[VirtualCollection.name, VirtualCollection.type],
+    )
+
+    return [s.id for s in virtual_collections]
+
+
 @protected_route(router.get, "/smart", [Scope.COLLECTIONS_READ])
 def get_smart_collections(
     request: Request,
@@ -236,8 +255,7 @@ def get_smart_collections(
     """
 
     smart_collections = db_collection_handler.get_smart_collections(
-        request.user.id,
-        updated_after=updated_after,
+        request.user.id, updated_after=updated_after
     )
 
     return SmartCollectionSchema.for_user(
@@ -255,7 +273,7 @@ def get_smart_collection_identifiers(
         request (Request): Fastapi Request object
 
     Returns:
-        list[int]: List of smart collection ids
+        list[int]: List of smart collection IDs
     """
 
     smart_collections = db_collection_handler.get_smart_collections(

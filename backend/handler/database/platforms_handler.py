@@ -73,8 +73,10 @@ class DBPlatformsHandler(DBBaseHandler):
     ) -> Sequence[Platform]:
         if updated_after:
             query = query.filter(Platform.updated_at > updated_after)
+
         if only_fields:
             query = query.options(load_only(*only_fields))
+
         return session.scalars(query.order_by(Platform.name.asc())).unique().all()
 
     @begin_session

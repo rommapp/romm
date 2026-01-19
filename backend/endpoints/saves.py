@@ -143,14 +143,10 @@ async def add_save(
 
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_saves(
-    request: Request,
-    rom_id: int | None = None,
-    platform_id: int | None = None,
+    request: Request, rom_id: int | None = None, platform_id: int | None = None
 ) -> list[SaveSchema]:
     saves = db_save_handler.get_saves(
-        user_id=request.user.id,
-        rom_id=rom_id,
-        platform_id=platform_id,
+        user_id=request.user.id, rom_id=rom_id, platform_id=platform_id
     )
 
     return [SaveSchema.model_validate(save) for save in saves]
@@ -166,7 +162,7 @@ def get_save_identifiers(
         request (Request): Fastapi Request object
 
     Returns:
-        list[int]: List of save ids
+        list[int]: List of save IDs
     """
     saves = db_save_handler.get_saves(
         user_id=request.user.id,
