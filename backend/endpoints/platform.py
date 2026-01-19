@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import Body
 from fastapi import Path as PathVar
 from fastapi import Query, Request, status
+from sqlalchemy import select
 
 from decorators.auth import protected_route
 from endpoints.responses.platform import PlatformSchema
@@ -11,11 +12,13 @@ from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler
+from handler.database.base_handler import sync_session
 from handler.filesystem import fs_platform_handler
 from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.platform import Platform
 from utils.platforms import get_supported_platforms
 from utils.router import APIRouter
 
@@ -71,6 +74,13 @@ def get_supported_platforms_endpoint(request: Request) -> list[PlatformSchema]:
     """Retrieve the list of supported platforms."""
 
     return get_supported_platforms()
+
+
+@protected_route(router.get, "/ids", [Scope.PLATFORMS_READ])
+def get_platform_ids(request: Request) -> list[int]:
+    """Retrieve all platform IDs in the system."""
+    with sync_session.begin() as session:
+        return list(session.scalars(select(Platform.id)).all())
 
 
 @protected_route(

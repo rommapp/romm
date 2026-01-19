@@ -28,6 +28,7 @@ from fastapi.responses import Response
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from pydantic import BaseModel
+from sqlalchemy import select
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
@@ -718,6 +719,13 @@ async def get_rom_filters(request: Request) -> RomFiltersDict:
     filters = db_rom_handler.get_rom_filters()
     # trunk-ignore(mypy/typeddict-item)
     return RomFiltersDict(**filters)
+
+
+@protected_route(router.get, "/ids", [Scope.ROMS_READ])
+def get_rom_ids(request: Request) -> list[int]:
+    """Retrieve all rom IDs in the system."""
+    with sync_session.begin() as session:
+        return list(session.scalars(select(Rom.id)).all())
 
 
 @protected_route(

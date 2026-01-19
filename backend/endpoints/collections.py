@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
+from sqlalchemy import select
 
 from decorators.auth import protected_route
 from endpoints.responses.collection import (
@@ -19,12 +20,13 @@ from exceptions.endpoint_exceptions import (
 )
 from handler.auth.constants import Scope
 from handler.database import db_collection_handler
+from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import CoverSize
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.collection import Collection, SmartCollection
+from models.collection import Collection, SmartCollection, VirtualCollection
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -216,6 +218,28 @@ def get_smart_collections(
     return SmartCollectionSchema.for_user(
         request.user.id, [s for s in smart_collections]
     )
+
+
+@protected_route(router.get, "/ids", [Scope.COLLECTIONS_READ])
+def get_collection_ids(request: Request) -> list[int]:
+    """Retrieve all collection IDs in the system."""
+    with sync_session.begin() as session:
+        return list(session.scalars(select(Collection.id)).all())
+
+
+@protected_route(router.get, "/virtual/ids", [Scope.COLLECTIONS_READ])
+def get_virtual_collection_ids(request: Request) -> list[str]:
+    """Retrieve all virtual collection IDs in the system."""
+    with sync_session.begin() as session:
+        virtual_collections = session.scalars(select(VirtualCollection)).all()
+        return [vc.id for vc in virtual_collections]
+
+
+@protected_route(router.get, "/smart/ids", [Scope.COLLECTIONS_READ])
+def get_smart_collection_ids(request: Request) -> list[int]:
+    """Retrieve all smart collection IDs in the system."""
+    with sync_session.begin() as session:
+        return list(session.scalars(select(SmartCollection.id)).all())
 
 
 @protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])
