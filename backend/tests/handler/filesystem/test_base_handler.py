@@ -119,7 +119,9 @@ class TestFSHandler:
         absolute_paths = ["/etc/passwd", "/tmp/test.txt", "/home/user/file.txt"]
 
         for path in absolute_paths:
-            with pytest.raises(ValueError, match="Path must be relative, not absolute"):
+            with pytest.raises(
+                ValueError, match="Path .* must be relative, not absolute"
+            ):
                 handler.validate_path(path)
 
     def test_get_file_name_with_no_extension(self, handler: FSHandler):
