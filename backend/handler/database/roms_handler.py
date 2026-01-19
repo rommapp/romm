@@ -724,7 +724,6 @@ class DBRomsHandler(DBBaseHandler):
         order_by: str = "name",
         order_dir: str = "asc",
         user_id: int | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> tuple[Query[Rom], Any]:
@@ -757,9 +756,6 @@ class DBRomsHandler(DBBaseHandler):
             order_attr = order_attr.desc()
         else:
             order_attr = order_attr.asc()
-
-        if only_fields:
-            query = query.options(load_only(*only_fields))
 
         return query.order_by(order_attr), order_attr_column
 
@@ -864,7 +860,6 @@ class DBRomsHandler(DBBaseHandler):
         self,
         platform_id: int,
         fs_names: Iterable[str],
-        only_fields: Sequence[QueryableAttribute] | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> dict[str, Rom]:
@@ -872,9 +867,6 @@ class DBRomsHandler(DBBaseHandler):
         query = query.filter(Rom.fs_name.in_(fs_names)).filter_by(
             platform_id=platform_id
         )
-
-        if only_fields:
-            query = query.options(load_only(*only_fields))
 
         roms = session.scalars(query).unique().all()
 
