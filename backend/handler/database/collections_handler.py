@@ -169,6 +169,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         type: str,
         limit: int | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[VirtualCollection]:
         query = (
@@ -177,6 +178,9 @@ class DBCollectionsHandler(DBBaseHandler):
             .limit(limit)
             .order_by(VirtualCollection.name.asc())
         )
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
 
         return session.scalars(query).unique().all()
 
@@ -264,10 +268,7 @@ class DBCollectionsHandler(DBBaseHandler):
         )
 
     def get_smart_collection_roms(
-        self,
-        smart_collection: SmartCollection,
-        user_id: int | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
+        self, smart_collection: SmartCollection, user_id: int | None = None
     ) -> Sequence["Rom"]:
         """Get ROMs that match the smart collection's filter criteria."""
         from handler.database import db_rom_handler

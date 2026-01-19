@@ -145,14 +145,10 @@ async def add_state(
 
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_states(
-    request: Request,
-    rom_id: int | None = None,
-    platform_id: int | None = None,
+    request: Request, rom_id: int | None = None, platform_id: int | None = None
 ) -> list[StateSchema]:
     states = db_state_handler.get_states(
-        user_id=request.user.id,
-        rom_id=rom_id,
-        platform_id=platform_id,
+        user_id=request.user.id, rom_id=rom_id, platform_id=platform_id
     )
 
     return [StateSchema.model_validate(state) for state in states]
@@ -168,7 +164,7 @@ def get_state_identifiers(
         request (Request): Fastapi Request object
 
     Returns:
-        list[int]: List of state ids
+        list[int]: List of state IDs
     """
     states = db_state_handler.get_states(
         user_id=request.user.id,

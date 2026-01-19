@@ -119,10 +119,10 @@ def get_platform_firmware(
     Returns:
         list[FirmwareSchema]: Firmware stored in the database
     """
-    firmware = db_firmware_handler.list_firmware(
-        platform_id=platform_id,
-    )
-    return [FirmwareSchema.model_validate(f) for f in firmware]
+    return [
+        FirmwareSchema.model_validate(f)
+        for f in db_firmware_handler.list_firmware(platform_id=platform_id)
+    ]
 
 
 @protected_route(router.get, "/identifiers", [Scope.FIRMWARE_READ])
@@ -135,7 +135,7 @@ def get_firmware_identifiers(
         request (Request): Fastapi Request object
 
     Returns:
-        list[int]: List of firmware ids
+        list[int]: List of firmware IDs
     """
     firmware = db_firmware_handler.list_firmware(
         only_fields=[Firmware.id],
