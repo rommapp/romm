@@ -195,7 +195,7 @@ def get_collection_identifiers(
         ],
     )
 
-    return [c.id for c in CollectionSchema.for_user(request.user.id, collections)]
+    return [c.id for c in collections if c.user_id == request.user.id or c.is_public]
 
 
 @protected_route(router.get, "/virtual", [Scope.COLLECTIONS_READ])
