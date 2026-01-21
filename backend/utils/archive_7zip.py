@@ -44,7 +44,7 @@ def process_file_7z(
         for line in lines:
             line = line.lstrip()
             if line.startswith("Path = "):
-                current_file = line.split(" = ", 1)[1].strip()
+                current_file = line.split(" = ", 1)[1]
                 current_size = 0
             elif line.startswith("Size = "):
                 try:
