@@ -351,55 +351,55 @@ def get_roms(
     genres_logic: Annotated[
         str,
         Query(
-            description="Logic operator for genres filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for genres filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     franchises_logic: Annotated[
         str,
         Query(
-            description="Logic operator for franchises filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for franchises filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     collections_logic: Annotated[
         str,
         Query(
-            description="Logic operator for collections filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for collections filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     companies_logic: Annotated[
         str,
         Query(
-            description="Logic operator for companies filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for companies filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     age_ratings_logic: Annotated[
         str,
         Query(
-            description="Logic operator for age ratings filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for age ratings filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     regions_logic: Annotated[
         str,
         Query(
-            description="Logic operator for regions filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for regions filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     languages_logic: Annotated[
         str,
         Query(
-            description="Logic operator for languages filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for languages filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     statuses_logic: Annotated[
         str,
         Query(
-            description="Logic operator for statuses filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for statuses filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     player_counts_logic: Annotated[
         str,
         Query(
-            description="Logic operator for player counts filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for player counts filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     order_by: Annotated[

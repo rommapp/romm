@@ -372,9 +372,12 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         values: Sequence[str],
         match_all: bool = False,
+        match_none: bool = False,
     ) -> Query:
+        print("GENRES", match_all, match_none)
         op = json_array_contains_all if match_all else json_array_contains_any
-        return query.filter(op(RomMetadata.genres, values, session=session))
+        condition = op(RomMetadata.genres, values, session=session)
+        return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_franchises(
         self,
@@ -383,9 +386,11 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         values: Sequence[str],
         match_all: bool = False,
+        match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        return query.filter(op(RomMetadata.franchises, values, session=session))
+        condition = op(RomMetadata.franchises, values, session=session)
+        return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_collections(
         self,
@@ -394,9 +399,11 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         values: Sequence[str],
         match_all: bool = False,
+        match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        return query.filter(op(RomMetadata.collections, values, session=session))
+        condition = op(RomMetadata.collections, values, session=session)
+        return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_companies(
         self,
@@ -405,9 +412,11 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         values: Sequence[str],
         match_all: bool = False,
+        match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        return query.filter(op(RomMetadata.companies, values, session=session))
+        condition = op(RomMetadata.companies, values, session=session)
+        return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_age_ratings(
         self,
@@ -416,9 +425,11 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         values: Sequence[str],
         match_all: bool = False,
+        match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        return query.filter(op(RomMetadata.age_ratings, values, session=session))
+        condition = op(RomMetadata.age_ratings, values, session=session)
+        return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_status(self, query: Query, statuses: Sequence[str]):
         """Filter by one or more user statuses using OR logic."""
@@ -449,9 +460,11 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         values: Sequence[str],
         match_all: bool = False,
+        match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        return query.filter(op(Rom.regions, values, session=session))
+        condition = op(Rom.regions, values, session=session)
+        return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_languages(
         self,
@@ -460,9 +473,11 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         values: Sequence[str],
         match_all: bool = False,
+        match_none: bool = False,
     ) -> Query:
         op = json_array_contains_all if match_all else json_array_contains_any
-        return query.filter(op(Rom.languages, values, session=session))
+        condition = op(Rom.languages, values, session=session)
+        return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_player_counts(
         self,
@@ -471,6 +486,7 @@ class DBRomsHandler(DBBaseHandler):
         session: Session,
         values: Sequence[str],
         match_all: bool = False,
+        match_none: bool = False,
     ) -> Query:
         return query.filter(RomMetadata.player_count.in_(values))
 
@@ -695,7 +711,11 @@ class DBRomsHandler(DBBaseHandler):
         for values, logic, filter_func in filters_to_apply:
             if values:
                 query = filter_func(
-                    query, session=session, values=values, match_all=(logic == "all")
+                    query,
+                    session=session,
+                    values=values,
+                    match_all=(logic == "all"),
+                    match_none=(logic == "none"),
                 )
 
         # The RomUser table is already joined if user_id is set
