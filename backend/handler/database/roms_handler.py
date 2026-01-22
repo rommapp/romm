@@ -374,7 +374,6 @@ class DBRomsHandler(DBBaseHandler):
         match_all: bool = False,
         match_none: bool = False,
     ) -> Query:
-        print("GENRES", match_all, match_none)
         op = json_array_contains_all if match_all else json_array_contains_any
         condition = op(RomMetadata.genres, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
@@ -488,7 +487,10 @@ class DBRomsHandler(DBBaseHandler):
         match_all: bool = False,
         match_none: bool = False,
     ) -> Query:
-        return query.filter(RomMetadata.player_count.in_(values))
+        condition = RomMetadata.player_count.in_(values)
+        if match_none:
+            return query.filter(not_(condition))
+        return query.filter(condition)
 
     @begin_session
     def filter_roms(
