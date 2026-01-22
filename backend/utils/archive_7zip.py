@@ -69,17 +69,18 @@ def process_file_7z(
             [SEVEN_ZIP_PATH, "e", str(file_path), largest_file, "-so", "-y"],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            shell=False,
+            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
         ) as process:
-            while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
-                elapsed_time = time.monotonic() - start_decompression_time
+            if process.stdout:
+                while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
+                    elapsed_time = time.monotonic() - start_decompression_time
 
-                if elapsed_time > SEVEN_ZIP_TIMEOUT:
-                    process.terminate()
-                    log.error("7z extraction timed out")
-                    return False
+                    if elapsed_time > SEVEN_ZIP_TIMEOUT:
+                        process.terminate()
+                        log.error("7z extraction timed out")
+                        return False
 
-                fn_hash_update(chunk)
+                    fn_hash_update(chunk)
 
         if process.returncode != 0:
             log.error(f"7z extraction failed with return code {process.returncode}")
