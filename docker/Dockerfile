@@ -14,22 +14,17 @@
 
 # ARGUMENT DECLARATIONS
 ARG ALPINE_VERSION=3.22
-ARG ALPINE_SHA256=4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412
 ARG PYTHON_VERSION=3.13
-ARG PYTHON_ALPINE_SHA256=e5fa639e49b85986c4481e28faa2564b45aa8021413f31026c3856e5911618b1
 ARG NODE_VERSION=20.19
-ARG NODE_ALPINE_SHA256=96ee26670a085b1a61231a468db85ae7e493ddfbd8c35797bfa0b99b634665fe
-ARG NGINX_VERSION=1.29.2
-ARG NGINX_SHA256=61e01287e546aac28a3f56839c136b31f590273f3b41187a36f46f6a03bbfe22
+ARG NGINX_VERSION=1.29
 ARG UV_VERSION=0.8.24
-ARG UV_SHA256=779f3d612539b4696a1b228724cd79b6e8b8604075a9ac7d15378bccf4053373
 
 
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
+FROM dhi.io/python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}-dev AS python-alias
 
 
 # FRONTEND BUILD
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS frontend-build
+FROM dhi.io/node:${NODE_VERSION}-alpine${ALPINE_VERSION}-dev AS frontend-build
 WORKDIR /front
 
 COPY ./frontend/package*.json ./
@@ -40,7 +35,7 @@ RUN npm run build
 
 
 # https://github.com/astral-sh/uv/pkgs/container/uv/452595714
-FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${UV_SHA256} AS uv-stage
+FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine AS uv-stage
 
 
 # BACKEND PYTHON BUILD
@@ -73,7 +68,7 @@ RUN uv sync --locked --no-cache --all-extras
 
 
 # CUSTOM RAHASHER FOR RETROACHIEVEMENTS
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rahasher-build
+FROM dhi.io/alpine-base:${ALPINE_VERSION}-dev AS rahasher-build
 RUN apk add --no-cache \
     g++ \
     git \
@@ -97,7 +92,7 @@ RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://git
 
 
 # FETCH EMULATORJS AND RUFFLE
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
+FROM dhi.io/alpine-base:${ALPINE_VERSION}-dev AS emulator-stage
 
 RUN apk add --no-cache \
     7zip \
@@ -123,7 +118,7 @@ RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS nginx-build
+FROM dhi.io/alpine-base:${ALPINE_VERSION}-dev AS nginx-build
 
 RUN apk add --no-cache \
     gcc \
@@ -154,7 +149,7 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
 
 
 # PRODUCTION STAGE
-FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION}@sha256:${NGINX_SHA256} AS production-stage
+FROM dhi.io/nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
 RUN apk add --no-cache \
