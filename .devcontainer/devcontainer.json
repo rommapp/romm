@@ -34,7 +34,8 @@
         "ms-python.pylint",
         "ms-python.black-formatter",
         "vue.volar",
-        "ms-vscode.vscode-typescript-next"
+        "ms-vscode.vscode-typescript-next",
+        "Continue.continue"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
