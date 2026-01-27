@@ -47,6 +47,7 @@ jobs:
           DB_USER: user
           DB_PASSWD: password
           DB_NAME: testdb
+          ROMM_AUTH_SECRET_KEY: xxxxxxxxxxxxxxxxx
         run: uv run alembic upgrade head
 
   migrate-mariadb:
@@ -94,4 +95,5 @@ jobs:
           DB_USER: user
           DB_PASSWD: password
           DB_NAME: testdb
+          ROMM_AUTH_SECRET_KEY: xxxxxxxxxxxxxxxxx
         run: uv run alembic upgrade head
