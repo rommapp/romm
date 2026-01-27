@@ -55,6 +55,7 @@
   "show-not-ra-only": "僅顯示無RetroAchievements的ROM",
   "match-any-logic": "匹配任何選定值（或邏輯）",
   "match-all-logic": "匹配所有選定值（與邏輯）",
+  "match-none-logic": "與所選值均不相符 (非邏輯)",
   "status": "狀態",
   "upload-roms": "上傳 Rom"
 }
