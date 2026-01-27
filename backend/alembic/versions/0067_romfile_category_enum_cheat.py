@@ -1,4 +1,4 @@
-"""Update rom_file.category column enum
+"""Update rom_file.category column enum to include cheats
 
 Revision ID: 0067_romfile_category_enum_cheat
 Revises: 0066_fix_empty_flashpoint_id

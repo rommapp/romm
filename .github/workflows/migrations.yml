@@ -5,6 +5,8 @@ on:
     paths:
       - "backend/alembic/versions/**"
 
+permissions: read-all
+
 jobs:
   migrate-postgres:
     runs-on: ubuntu-latest
