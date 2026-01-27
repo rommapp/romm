@@ -55,6 +55,7 @@
   "show-not-ra-only": "Csak RetroAchievements nélküli ROM-ok mutatása",
   "match-any-logic": "Megfelel BÁRMELYIK kiválasztott értéknek (VAGY logika)",
   "match-all-logic": "Megfelel MINDEN kiválasztott értéknek (ÉS logika)",
+  "match-none-logic": "NEM egyezik a kiválasztott értékek egyikével sem (NEM logika)",
   "status": "Állapot",
   "upload-roms": "ROM-ok Feltöltése"
 }
