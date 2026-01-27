@@ -10,6 +10,9 @@ permissions: read-all
 jobs:
   migrate-postgres:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
     services:
       postgres:
         image: postgres:15
@@ -24,7 +27,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -47,11 +49,15 @@ jobs:
           DB_USER: user
           DB_PASSWD: password
           DB_NAME: testdb
-          ROMM_AUTH_SECRET_KEY: xxxxxxxxxxxxxxxxx
+          ROMM_AUTH_SECRET_KEY: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          ROMM_BASE_PATH: romm_test
         run: uv run alembic upgrade head
 
   migrate-mariadb:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
     services:
       mariadb:
         image: mariadb:10.11
@@ -67,10 +73,9 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4.3.0
 
       - name: Install mariadb connectors
         run: |
@@ -95,5 +100,6 @@ jobs:
           DB_USER: user
           DB_PASSWD: password
           DB_NAME: testdb
-          ROMM_AUTH_SECRET_KEY: xxxxxxxxxxxxxxxxx
+          ROMM_AUTH_SECRET_KEY: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          ROMM_BASE_PATH: romm_test
         run: uv run alembic upgrade head
