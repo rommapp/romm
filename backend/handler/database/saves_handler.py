@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from sqlalchemy import and_, delete, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import QueryableAttribute, Session, load_only
 
 from decorators.database import begin_session
 from models.assets import Save
@@ -48,6 +48,7 @@ class DBSavesHandler(DBBaseHandler):
         user_id: int,
         rom_id: int | None = None,
         platform_id: int | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[Save]:
         query = select(Save).filter_by(user_id=user_id)
@@ -59,6 +60,9 @@ class DBSavesHandler(DBBaseHandler):
             query = query.join(Rom, Save.rom_id == Rom.id).filter(
                 Rom.platform_id == platform_id
             )
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
 
         return session.scalars(query).all()
 

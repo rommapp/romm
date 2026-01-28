@@ -4,7 +4,14 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, insert, literal, or_, select, update
-from sqlalchemy.orm import Query, Session, noload, selectinload
+from sqlalchemy.orm import (
+    Query,
+    QueryableAttribute,
+    Session,
+    load_only,
+    noload,
+    selectinload,
+)
 
 from decorators.database import begin_session
 from models.collection import (
@@ -87,11 +94,16 @@ class DBCollectionsHandler(DBBaseHandler):
     def get_collections(
         self,
         updated_after: datetime | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Sequence[Collection]:
         if updated_after:
             query = query.filter(Collection.updated_at > updated_after)
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
+
         return session.scalars(query.order_by(Collection.name.asc())).unique().all()
 
     @begin_session
@@ -157,18 +169,20 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         type: str,
         limit: int | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[VirtualCollection]:
-        return (
-            session.scalars(
-                select(VirtualCollection)
-                .filter(or_(VirtualCollection.type == type, literal(type == "all")))
-                .limit(limit)
-                .order_by(VirtualCollection.name.asc())
-            )
-            .unique()
-            .all()
+        query = (
+            select(VirtualCollection)
+            .filter(or_(VirtualCollection.type == type, literal(type == "all")))
+            .limit(limit)
+            .order_by(VirtualCollection.name.asc())
         )
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
+
+        return session.scalars(query).unique().all()
 
     # Smart collections
     @begin_session
@@ -206,6 +220,7 @@ class DBCollectionsHandler(DBBaseHandler):
         self,
         user_id: int | None = None,
         updated_after: datetime | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[SmartCollection]:
         query = select(SmartCollection).order_by(SmartCollection.name.asc())
@@ -218,6 +233,9 @@ class DBCollectionsHandler(DBBaseHandler):
 
         if updated_after:
             query = query.filter(SmartCollection.updated_at > updated_after)
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
 
         return session.scalars(query).unique().all()
 

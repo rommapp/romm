@@ -21,7 +21,15 @@ from sqlalchemy import (
     text,
     update,
 )
-from sqlalchemy.orm import Query, Session, joinedload, noload, selectinload
+from sqlalchemy.orm import (
+    Query,
+    QueryableAttribute,
+    Session,
+    joinedload,
+    load_only,
+    noload,
+    selectinload,
+)
 from sqlalchemy.sql.elements import KeyedColumnElement
 from sqlalchemy.sql.selectable import Select
 
@@ -133,32 +141,6 @@ def with_details(func):
                 noload(Rom.platform), noload(Rom.metadatum)
             ),
             selectinload(Rom.collections),
-            selectinload(Rom.notes),
-        )
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
-def with_simple(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        kwargs["query"] = select(Rom).options(
-            # Ensure platform is loaded for main ROM objects
-            selectinload(Rom.platform),
-            # Display properties for the current user (last_played)
-            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
-            # Sort table by metadata (first_release_date)
-            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            # Required for multi-file ROM actions and 3DS QR code
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-            ),
-            # Show sibling rom badges on cards
-            selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform), noload(Rom.metadatum)
-            ),
-            # Show notes indicator on cards
             selectinload(Rom.notes),
         )
         return func(*args, **kwargs)
@@ -535,6 +517,25 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
 
+        query = query.options(
+            # Ensure platform is loaded for main ROM objects
+            selectinload(Rom.platform),
+            # Display properties for the current user (last_played)
+            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+            # Sort table by metadata (first_release_date)
+            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
+            # Required for multi-file ROM actions and 3DS QR code
+            selectinload(Rom.files).options(
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+            ),
+            # Show sibling rom badges on cards
+            selectinload(Rom.sibling_roms).options(
+                noload(Rom.platform), noload(Rom.metadatum)
+            ),
+            # Show notes indicator on cards
+            selectinload(Rom.notes),
+        )
+
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
         if platform_ids:
             query = self._filter_by_platform_ids(query, platform_ids)
@@ -730,7 +731,6 @@ class DBRomsHandler(DBBaseHandler):
 
         return query
 
-    @with_simple
     @begin_session
     def get_roms_query(
         self,
@@ -738,9 +738,10 @@ class DBRomsHandler(DBBaseHandler):
         order_by: str = "name",
         order_dir: str = "asc",
         user_id: int | None = None,
-        query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> tuple[Query[Rom], Any]:
+        query = select(Rom)
+
         if user_id:
             query = query.outerjoin(
                 RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
@@ -771,12 +772,13 @@ class DBRomsHandler(DBBaseHandler):
         else:
             order_attr = order_attr.asc()
 
-        return query.order_by(order_attr), order_attr_column
+        return query.order_by(order_attr), order_attr_column  # type: ignore
 
     @begin_session
     def get_roms_scalar(
         self,
         *,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
         **kwargs,
     ) -> Sequence[Rom]:
@@ -785,6 +787,10 @@ class DBRomsHandler(DBBaseHandler):
             order_dir=kwargs.get("order_dir", "asc"),
             user_id=kwargs.get("user_id", None),
         )
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
+
         roms = self.filter_roms(
             query=query,
             platform_ids=kwargs.get("platform_ids", None),
@@ -873,15 +879,12 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> dict[str, Rom]:
         """Retrieve a dictionary of roms by their filesystem names."""
-        roms = (
-            session.scalars(
-                query.filter(Rom.fs_name.in_(fs_names)).filter_by(
-                    platform_id=platform_id
-                )
-            )
-            .unique()
-            .all()
+        query = query.filter(Rom.fs_name.in_(fs_names)).filter_by(
+            platform_id=platform_id
         )
+
+        roms = session.scalars(query).unique().all()
+
         return {rom.fs_name: rom for rom in roms}
 
     @begin_session
@@ -1065,8 +1068,9 @@ class DBRomsHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         public_only: bool = False,
-        search: str = "",
+        search: str | None = "",
         tags: list[str] | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[RomNote]:
         query = session.query(RomNote).filter(RomNote.rom_id == rom_id)
@@ -1087,6 +1091,9 @@ class DBRomsHandler(DBBaseHandler):
                 query = query.filter(
                     json_array_contains_value(RomNote.tags, tag, session=session)
                 )
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
 
         return query.order_by(RomNote.updated_at.desc()).all()
 

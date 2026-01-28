@@ -66,7 +66,7 @@ from handler.metadata.ss_handler import get_preferred_media_types
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom
+from models.rom import Rom, RomNote
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
@@ -515,6 +515,19 @@ def get_roms(
                 "filter_values": filter_values,
             },
         )
+
+
+@protected_route(router.get, "/identifiers", [Scope.ROMS_READ])
+def get_rom_identifiers(
+    request: Request,
+) -> list[int]:
+    """Retrieve rom identifiers."""
+    db_roms = db_rom_handler.get_roms_scalar(
+        user_id=request.user.id,
+        only_fields=[Rom.id],
+    )
+
+    return [r.id for r in db_roms]
 
 
 @protected_route(
@@ -1637,8 +1650,6 @@ async def get_rom_notes(
     tags: list[str] = DEFAULT_TAGS,
 ) -> list[UserNoteSchema]:
     """Get all notes for a ROM."""
-    from handler.database import db_rom_handler
-
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -1658,6 +1669,30 @@ async def get_rom_notes(
 
 
 @protected_route(
+    router.get,
+    "/{id}/notes/identifiers",
+    [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def get_rom_note_identifiers(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> list[int]:
+    """Get all note identifiers for a ROM."""
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    notes = db_rom_handler.get_rom_notes(
+        rom_id=id,
+        user_id=request.user.id,
+        only_fields=[RomNote.id],
+    )
+
+    return [note.id for note in notes]
+
+
+@protected_route(
     router.post,
     "/{id}/notes",
     [Scope.ROMS_USER_WRITE],
@@ -1669,8 +1704,6 @@ async def create_rom_note(
     note_data: Annotated[dict, Body()],
 ) -> UserNoteSchema:
     """Create a new note for a ROM."""
-    from handler.database import db_rom_handler
-
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -1702,8 +1735,6 @@ async def update_rom_note(
     note_data: Annotated[dict, Body()],
 ) -> UserNoteSchema:
     """Update a ROM note."""
-    from handler.database import db_rom_handler
-
     note = db_rom_handler.update_rom_note(
         note_id=note_id,
         user_id=request.user.id,
@@ -1736,8 +1767,6 @@ async def delete_rom_note(
     note_id: Annotated[int, PathVar(description="Note id.", ge=1)],
 ) -> dict:
     """Delete a ROM note."""
-    from handler.database import db_rom_handler
-
     success = db_rom_handler.delete_rom_note(note_id=note_id, user_id=request.user.id)
 
     if not success:
