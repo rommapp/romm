@@ -109,7 +109,7 @@ def _parse_list(value: str | None) -> list[str]:
 
 def _dedupe_words(values):
     seen = {}
-    out = []
+    out: list[str] = []
 
     for v in pydash.compact(pydash.map_(values, str.strip)):
         key = v.lower()
@@ -642,12 +642,12 @@ def _get_images(req: _MediaRequest) -> list[LaunchboxImage]:
         if local_images:
             images = local_images
 
-    seen_urls: set[str] = set()
-    return [
-        img
-        for img in images
-        if not (img["url"] in seen_urls or seen_urls.add(img["url"]))
-    ]
+    seen_images: dict[str, LaunchboxImage] = {}
+    for img in images:
+        if img["url"] not in seen_images:
+            seen_images[img["url"]] = img
+
+    return list(seen_images.values())
 
 
 def build_rom(
@@ -685,20 +685,6 @@ def build_rom(
         )
         or ""
     ).strip()
-
-    rom = {
-        "launchbox_id": launchbox_id,
-        "name": name,
-        "summary": summary,
-        "url_cover": url_cover,
-        "url_screenshots": url_screenshots,
-        "url_manual": url_manual,
-        "launchbox_metadata": build_launchbox_metadata(
-            local=local,
-            remote=remote,
-            images=images,
-        ),
-    }
 
     return LaunchboxRom(
         launchbox_id=launchbox_id,
