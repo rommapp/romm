@@ -17,7 +17,8 @@ import storeScanning from "@/stores/scanning";
 import { platformCategoryToIcon } from "@/utils";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
-const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY = "scan.launchboxRemoteEnabled";
+const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
+  "scan.launchboxRemoteEnabled";
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
@@ -374,7 +375,7 @@ async function stopScan() {
                   </v-avatar>
                 </template>
 
-                  <template #append v-if="item.raw.value === 'launchbox'">
+                <template #append v-if="item.raw.value === 'launchbox'">
                   <div class="d-flex align-center">
                     <span class="text-caption text-medium-emphasis mr-4">
                       Remote
@@ -390,7 +391,7 @@ async function stopScan() {
                       @mousedown.stop
                     />
                   </div>
-                  </template>
+                </template>
               </v-list-item>
             </template>
             <template #chip="{ item }">

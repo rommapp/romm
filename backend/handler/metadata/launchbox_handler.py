@@ -26,17 +26,15 @@ LAUNCHBOX_METADATA_IMAGE_KEY: Final[str] = "romm:launchbox_metadata_image"
 LAUNCHBOX_MAME_KEY: Final[str] = "romm:launchbox_mame"
 LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
 
-<<<<<<< HEAD
 LAUNCHBOX_LOCAL_DIR: Final[Path] = Path(ROMM_BASE_PATH) / "temp"
 LAUNCHBOX_PLATFORMS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Data" / "Platforms"
 LAUNCHBOX_IMAGES_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Images"
 LAUNCHBOX_MANUALS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Manuals"
 LAUNCHBOX_VIDEOS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Videos"
-=======
+
 # Regex to detect LaunchBox ID tags in filenames like (launchbox-12345)
 LAUNCHBOX_TAG_REGEX = re.compile(r"\(launchbox-(\d+)\)", re.IGNORECASE)
 DASH_COLON_REGEX = re.compile(r"\s?-\s")
->>>>>>> master
 
 LOCAL_XML_INDEX_CACHE: dict[str, tuple[int, dict[str, dict[str, str]]]] = {}
 
@@ -209,10 +207,13 @@ def build_launchbox_metadata(
     except (TypeError, ValueError):
         max_players = 0
 
-    release_type = _coalesce(
-        local.get("ReleaseType") if local else None,
-        remote.get("ReleaseType") if remote else None,
-    ) or ""
+    release_type = (
+        _coalesce(
+            local.get("ReleaseType") if local else None,
+            remote.get("ReleaseType") if remote else None,
+        )
+        or ""
+    )
 
     if local and _coalesce(local.get("PlayMode")):
         cooperative = _parse_playmode(local.get("PlayMode"))
@@ -244,10 +245,13 @@ def build_launchbox_metadata(
     except (TypeError, ValueError):
         community_rating_count = 0
 
-    wikipedia_url = _coalesce(
-        local.get("WikipediaURL") if local else None,
-        remote.get("WikipediaURL") if remote else None,
-    ) or ""
+    wikipedia_url = (
+        _coalesce(
+            local.get("WikipediaURL") if local else None,
+            remote.get("WikipediaURL") if remote else None,
+        )
+        or ""
+    )
 
     esrb_raw = _coalesce(
         (local.get("Rating") if local else None),
@@ -315,7 +319,7 @@ def _local_media_req(
     remote_enabled: bool,
 ) -> _MediaRequest:
     title = ((local or {}).get("Title") or "").strip()
-    region_hint = (((local or {}).get("Region") or "").strip() or None)
+    region_hint = ((local or {}).get("Region") or "").strip() or None
     return _MediaRequest(
         platform_name,
         fs_name,
@@ -449,7 +453,9 @@ def _find_local_media_candidates(
             indexed.sort(key=lambda t: (t[0], t[1].name.lower()))
             if indexed_preference:
                 indexed_by_num: dict[int, Path] = {n: p for n, p in indexed}
-                preferred_hits = [indexed_by_num[n] for n in indexed_preference if n in indexed_by_num]
+                preferred_hits = [
+                    indexed_by_num[n] for n in indexed_preference if n in indexed_by_num
+                ]
                 if preferred_hits:
                     return preferred_hits
                 if indexed_only_preferred:
@@ -497,7 +503,9 @@ def _get_cover(req: _MediaRequest) -> str | None:
         if best_cover and best_cover.get("FileName"):
             cover = f"https://images.launchbox-app.com/{best_cover.get('FileName')}"
 
-    ctx = _build_local_media_context(req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True)
+    ctx = _build_local_media_context(
+        req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True
+    )
     if ctx is not None:
         for category in cover_priority_types:
             candidate_files, _region = _find_local_media_candidates(
@@ -529,7 +537,9 @@ def _get_screenshots(req: _MediaRequest) -> list[str]:
             if image.get("FileName") and "Screenshot" in image.get("Type", "")
         ]
 
-    ctx = _build_local_media_context(req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True)
+    ctx = _build_local_media_context(
+        req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True
+    )
     if ctx is not None:
         local_screens: list[str] = []
         seen: set[str] = set()
@@ -561,14 +571,14 @@ def _get_screenshots(req: _MediaRequest) -> list[str]:
 def _get_manuals(req: _MediaRequest) -> str | None:
     manual: str | None = None
 
-    ctx = _build_local_media_context(req, LAUNCHBOX_MANUALS_DIR, include_region_hints=False)
+    ctx = _build_local_media_context(
+        req, LAUNCHBOX_MANUALS_DIR, include_region_hints=False
+    )
     if ctx is None:
         return manual
 
     pdfs: list[Path] = [
-        p
-        for p in ctx["base"].iterdir()
-        if p.is_file() and p.suffix.lower() == ".pdf"
+        p for p in ctx["base"].iterdir() if p.is_file() and p.suffix.lower() == ".pdf"
     ]
     if not pdfs:
         return manual
@@ -614,7 +624,9 @@ def _get_images(req: _MediaRequest) -> list[LaunchboxImage]:
             if image.get("FileName")
         ]
 
-    ctx = _build_local_media_context(req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True)
+    ctx = _build_local_media_context(
+        req, LAUNCHBOX_IMAGES_DIR, include_region_hints=True
+    )
     if ctx is not None:
         local_images: list[LaunchboxImage] = []
         for dir_name in (
@@ -628,11 +640,11 @@ def _get_images(req: _MediaRequest) -> list[LaunchboxImage]:
             "Cart - 3D",
             "Clear Logo",
             "Fanart - Box - Back",
-            "Fanart - Background", # Later separate in new category for rom header
-            "Amazon Background", # Later separate in new category for rom header
-            "Epic Games Background", # Later separate in new category for rom header
-            "Origin Background", # Later separate in new category for rom header
-            "Uplay Background", # Later separate in new category for rom header
+            "Fanart - Background",  # Later separate in new category for rom header
+            "Amazon Background",  # Later separate in new category for rom header
+            "Epic Games Background",  # Later separate in new category for rom header
+            "Origin Background",  # Later separate in new category for rom header
+            "Uplay Background",  # Later separate in new category for rom header
         ):
             candidate_files, region = _find_local_media_candidates(ctx, dir_name)
             for p in candidate_files:
@@ -667,7 +679,9 @@ def build_rom(
     launchbox_id: int | None,
     media_req: _MediaRequest | None = None,
 ) -> LaunchboxRom:
-    images: list[LaunchboxImage] = _get_images(media_req) if media_req is not None else []
+    images: list[LaunchboxImage] = (
+        _get_images(media_req) if media_req is not None else []
+    )
 
     url_cover: str | None = None
     url_screenshots: list[str] = []
@@ -715,10 +729,9 @@ class LaunchboxHandler(MetadataHandler):
     @classmethod
     def is_enabled(cls) -> bool:
         return LAUNCHBOX_API_ENABLED or LAUNCHBOX_PLATFORMS_DIR.exists()
-        
+
     async def heartbeat(self) -> bool:
         return self.is_enabled()
-
 
     async def _fetch_remote_images(
         self,
@@ -776,7 +789,6 @@ class LaunchboxHandler(MetadataHandler):
             name=platform["name"],
         )
 
-
     async def _get_local_rom(
         self, fs_name: str, platform_slug: str
     ) -> dict[str, str] | None:
@@ -784,7 +796,9 @@ class LaunchboxHandler(MetadataHandler):
             return None
 
         platform_name = self.get_platform(platform_slug).get("name")
-        xml_path = LAUNCHBOX_PLATFORMS_DIR / f"{platform_name}.xml" if platform_name else None
+        xml_path = (
+            LAUNCHBOX_PLATFORMS_DIR / f"{platform_name}.xml" if platform_name else None
+        )
         if not xml_path or not xml_path.exists():
             return None
 
@@ -844,7 +858,6 @@ class LaunchboxHandler(MetadataHandler):
                 return by_title
 
         return index.get(f"title:{fs_key}")
-
 
     async def _get_remote_rom(
         self,
@@ -964,7 +977,7 @@ class LaunchboxHandler(MetadataHandler):
 
         match = re.search(r"\(launchbox-(\d+)\)", fs_name, flags=re.IGNORECASE)
         launchbox_id_from_tag = int(match.group(1)) if match else None
-        
+
         if launchbox_id_from_tag is not None:
             log.debug(f"Found LaunchBox ID tag in filename: {launchbox_id_from_tag}")
             rom_by_id = await self.get_rom_by_id(
