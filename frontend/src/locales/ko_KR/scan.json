@@ -20,6 +20,7 @@
   "hash-calculation-disabled": "해시 계산이 비활성화되어 있습니다",
   "hasheous-requires-hashes": "Hasheous는 파일 해시가 필요합니다",
   "manage-library": "라이브러리 관리",
+  "launchbox-remote": "Launchbox",
   "metadata-sources": "메타데이터 DB",
   "new-platforms": "새 플랫폼",
   "new-platforms-desc": "새 플랫폼에서만 스캔 (가장 빠름)",

@@ -20,6 +20,7 @@
   "hash-calculation-disabled": "哈希计算已禁用",
   "hasheous-requires-hashes": "Hasheous 需要文件哈希",
   "manage-library": "管理游戏库",
+  "launchbox-remote": "Launchbox",
   "metadata-sources": "元数据源",
   "new-platforms": "新平台",
   "new-platforms-desc": "仅扫描新平台（最快）",

@@ -20,6 +20,7 @@
   "hash-calculation-disabled": "Hash calculation is disabled",
   "hasheous-requires-hashes": "Hasheous requires hash calculation to be enabled",
   "manage-library": "Manage library",
+  "launchbox-remote": "Launchbox",
   "metadata-sources": "Metadata sources",
   "new-platforms": "New platforms",
   "new-platforms-desc": "Scan new platforms only (fastest)",

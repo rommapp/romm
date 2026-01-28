@@ -11,7 +11,7 @@ from defusedxml import ElementTree as ET
 from config import LAUNCHBOX_API_ENABLED, ROMM_BASE_PATH
 from handler.redis_handler import async_cache
 from logger.logger import log
-from utils.database import safe_str_to_bool
+from utils.database import safe_int, safe_str_to_bool
 
 from .base_handler import BaseRom, MetadataHandler
 from .base_handler import UniversalPlatformSlug as UPS
@@ -90,20 +90,6 @@ def _file_uri_for_local_path(path: Path) -> str | None:
     return f"file://{str(path)}"
 
 
-def _safe_int(value: object) -> int | None:
-    if value is None:
-        return None
-
-    try:
-        as_str = str(value).strip()
-        if not as_str:
-            return None
-        parsed = int(as_str)
-        return parsed or None
-    except (TypeError, ValueError):
-        return None
-
-
 def _coalesce(*values: object | None) -> str | None:
     for v in values:
         if v is None:
@@ -121,27 +107,19 @@ def _parse_list(value: str | None) -> list[str]:
     return [p.strip() for p in parts if p and p.strip()]
 
 
-def _dedupe_words(values: list[str]) -> list[str]:
-    seen: dict[str, int] = {}
-    out: list[str] = []
+def _dedupe_words(values):
+    seen = {}
+    out = []
 
-    for v in values:
-        cleaned = v.strip()
-        key = cleaned.lower()
-        if not key:
-            continue
-
+    for v in pydash.compact(pydash.map_(values, str.strip)):
+        key = v.lower()
         if key not in seen:
             seen[key] = len(out)
-            out.append(cleaned)
-            continue
-
-        # Prefer the best-cased representation when duplicates differ only by case.
-        idx = seen[key]
-        current = out[idx]
-        if current.islower() and not cleaned.islower():
-            out[idx] = cleaned
-
+            out.append(v)
+        else:
+            idx = seen[key]
+            if out[idx].islower() and not v.islower():
+                out[idx] = v
     return out
 
 
@@ -273,7 +251,7 @@ def build_launchbox_metadata(
         local.get("Developer") if local else None,
         remote.get("Developer") if remote else None,
     )
-    companies = _dedupe_words(pydash.compact([publisher, developer]))
+    companies = _dedupe_words([publisher, developer])
 
     return LaunchboxMetadata(
         {
@@ -957,10 +935,10 @@ class LaunchboxHandler(MetadataHandler):
         )
 
         if local is not None:
-            launchbox_id_local = _safe_int(local.get("DatabaseID"))
+            launchbox_id_local = safe_int(local.get("DatabaseID"))
             remote: dict | None = None
             if remote_available:
-                if launchbox_id_local is not None:
+                if launchbox_id_local:
                     metadata_database_index_entry = await async_cache.hget(
                         LAUNCHBOX_METADATA_DATABASE_ID_KEY, str(launchbox_id_local)
                     )
