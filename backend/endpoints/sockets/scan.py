@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
 
+import pydash
 import socketio  # type: ignore
 from rq import Worker
 from rq.job import Job
@@ -33,6 +34,7 @@ from handler.metadata import meta_gamelist_handler
 from handler.metadata.ss_handler import get_preferred_media_types
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
+    MetadataSource,
     ScanType,
     scan_firmware,
     scan_platform,
@@ -210,7 +212,7 @@ def _should_get_rom_files(
         return False
 
     return bool(
-        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and newly_added)
+        newly_added
         or (scan_type == ScanType.COMPLETE)
         or (scan_type == ScanType.HASHES)
         or (rom and rom.id in roms_ids)
@@ -254,9 +256,7 @@ async def _identify_rom(
         return
 
     # Update properties that don't require metadata
-    fs_regions, fs_revisions, fs_languages, fs_other_tags = fs_rom_handler.parse_tags(
-        fs_rom["fs_name"]
-    )
+    parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
     # Create the entry early so we have the ID
@@ -273,10 +273,11 @@ async def _identify_rom(
                     fs_rom["fs_name"]
                 ),
                 fs_extension=fs_rom_handler.parse_file_extension(fs_rom["fs_name"]),
-                regions=fs_regions,
-                revision=fs_revisions,
-                languages=fs_languages,
-                tags=fs_other_tags,
+                regions=parsed_tags.regions,
+                revision=parsed_tags.revision,
+                version=parsed_tags.version,
+                languages=parsed_tags.languages,
+                tags=parsed_tags.other_tags,
                 platform_id=platform.id,
                 name=fs_rom["fs_name"],
                 url_cover="",
@@ -297,20 +298,17 @@ async def _identify_rom(
         calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
-        (
-            rom_files,
-            rom_crc_c,
-            rom_md5_h,
-            rom_sha1_h,
-            rom_ra_h,
-        ) = await fs_rom_handler.get_rom_files(rom, calculate_hashes=calculate_hashes)
+
+        parsed_rom_files = await fs_rom_handler.get_rom_files(
+            rom, calculate_hashes=calculate_hashes
+        )
         fs_rom.update(
             {
-                "files": rom_files,
-                "crc_hash": rom_crc_c,
-                "md5_hash": rom_md5_h,
-                "sha1_hash": rom_sha1_h,
-                "ra_hash": rom_ra_h,
+                "files": parsed_rom_files.rom_files,
+                "crc_hash": parsed_rom_files.crc_hash,
+                "md5_hash": parsed_rom_files.md5_hash,
+                "sha1_hash": parsed_rom_files.sha1_hash,
+                "ra_hash": parsed_rom_files.ra_hash,
             }
         )
 
@@ -339,7 +337,13 @@ async def _identify_rom(
         await socket_manager.emit(
             "scan:scanning_rom",
             SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                exclude={"created_at", "updated_at", "rom_user"}
+                exclude={
+                    "created_at",
+                    "updated_at",
+                    "rom_user",
+                    "last_modified",
+                    "files",
+                }
             ),
         )
 
@@ -372,19 +376,22 @@ async def _identify_rom(
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
-        overwrite=True,
+        overwrite=_added_rom.url_cover != rom.url_cover,
         url_cover=_added_rom.url_cover,
     )
 
     path_manual = await fs_resource_handler.get_manual(
         rom=_added_rom,
-        overwrite=True,
+        overwrite=_added_rom.url_manual != rom.url_manual,
         url_manual=_added_rom.url_manual,
     )
 
+    screenshots_changed = pydash.xor(
+        _added_rom.url_screenshots or [], rom.url_screenshots or []
+    )
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
         rom=_added_rom,
-        overwrite=True,
+        overwrite=bool(screenshots_changed),
         url_screenshots=_added_rom.url_screenshots,
     )
 
@@ -441,7 +448,7 @@ async def _identify_rom(
     await socket_manager.emit(
         "scan:scanning_rom",
         SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-            exclude={"created_at", "updated_at", "rom_user"}
+            exclude={"created_at", "updated_at", "rom_user", "last_modified", "files"}
         ),
     )
 
@@ -479,7 +486,8 @@ async def _identify_platform(
     platform = db_platform_handler.add_platform(scanned_platform)
 
     # Preparse the platform's gamelist.xml file and cache it
-    await meta_gamelist_handler.populate_cache(platform)
+    if MetadataSource.GAMELIST in metadata_sources:
+        await meta_gamelist_handler.populate_cache(platform)
 
     await socket_manager.emit(
         "scan:scanning_platform",

@@ -11,12 +11,14 @@ import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getStatusKeyForText } from "@/utils";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
 const collectionsStore = storeCollections();
+const romsStore = storeRoms();
 const { mdAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
@@ -24,9 +26,9 @@ const name = ref("");
 const description = ref("");
 const isPublic = ref(false);
 
+const { currentPlatform } = storeToRefs(romsStore);
 const {
   searchTerm,
-  filterUnmatched,
   filterMatched,
   filterFavorites,
   filterDuplicates,
@@ -34,15 +36,22 @@ const {
   filterRA,
   filterMissing,
   filterVerified,
-  selectedGenre,
-  selectedFranchise,
-  selectedCollection,
-  selectedCompany,
-  selectedAgeRating,
-  selectedStatus,
-  selectedPlatform,
-  selectedRegion,
-  selectedLanguage,
+  selectedGenres,
+  selectedFranchises,
+  selectedCollections,
+  selectedCompanies,
+  selectedAgeRatings,
+  selectedStatuses,
+  selectedPlatforms,
+  selectedRegions,
+  selectedLanguages,
+  genresLogic,
+  franchisesLogic,
+  collectionsLogic,
+  companiesLogic,
+  ageRatingsLogic,
+  regionsLogic,
+  languagesLogic,
 } = storeToRefs(galleryFilterStore);
 
 const emitter = inject<Emitter<Events>>("emitter");
@@ -64,31 +73,43 @@ const filterSummary = computed(() => {
   const filters = [];
 
   if (searchTerm.value) filters.push(`Search: "${searchTerm.value}"`);
-  if (selectedPlatform.value)
-    filters.push(`Platform: ${selectedPlatform.value.name}`);
+  if (selectedPlatforms.value && selectedPlatforms.value.length > 0) {
+    filters.push(
+      `Platforms: ${selectedPlatforms.value.map((p) => p.display_name).join(", ")}`,
+    );
+  } else if (currentPlatform.value) {
+    filters.push(`Platform: ${currentPlatform.value.display_name}`);
+  }
   if (filterMatched.value) filters.push("Matched only");
-  if (filterUnmatched.value) filters.push("Unmatched only");
   if (filterFavorites.value) filters.push("Favorites");
   if (filterDuplicates.value) filters.push("Duplicates");
   if (filterPlayables.value) filters.push("Playable");
   if (filterRA.value) filters.push("Has RetroAchievements");
   if (filterMissing.value) filters.push("Missing from filesystem");
   if (filterVerified.value) filters.push("Verified");
-  if (selectedGenre.value) filters.push(`Genre: ${selectedGenre.value}`);
-  if (selectedFranchise.value)
-    filters.push(`Franchise: ${selectedFranchise.value}`);
-  if (selectedCollection.value)
-    filters.push(`Collection: ${selectedCollection.value}`);
-  if (selectedCompany.value) filters.push(`Company: ${selectedCompany.value}`);
-  if (selectedAgeRating.value)
-    filters.push(`Age Rating: ${selectedAgeRating.value}`);
-  if (selectedStatus.value) filters.push(`Status: ${selectedStatus.value}`);
-  if (selectedRegion.value) filters.push(`Region: ${selectedRegion.value}`);
-  if (selectedLanguage.value)
-    filters.push(`Language: ${selectedLanguage.value}`);
+  if (selectedGenres.value && selectedGenres.value.length > 0)
+    filters.push(`Genres: ${selectedGenres.value.join(", ")}`);
+  if (selectedFranchises.value && selectedFranchises.value.length > 0)
+    filters.push(`Franchises: ${selectedFranchises.value.join(", ")}`);
+  if (selectedCollections.value && selectedCollections.value.length > 0)
+    filters.push(`Collections: ${selectedCollections.value.join(", ")}`);
+  if (selectedCompanies.value && selectedCompanies.value.length > 0)
+    filters.push(`Companies: ${selectedCompanies.value.join(", ")}`);
+  if (selectedAgeRatings.value && selectedAgeRatings.value.length > 0)
+    filters.push(`Age Ratings: ${selectedAgeRatings.value.join(", ")}`);
+  if (selectedStatuses.value && selectedStatuses.value.length > 0)
+    filters.push(`Statuses: ${selectedStatuses.value.join(", ")}`);
+  if (selectedRegions.value && selectedRegions.value.length > 0)
+    filters.push(`Regions: ${selectedRegions.value.join(", ")}`);
+  if (selectedLanguages.value && selectedLanguages.value.length > 0)
+    filters.push(`Languages: ${selectedLanguages.value.join(", ")}`);
 
   return filters || ["No filters applied"];
 });
+
+function toggleCollectionVisibility() {
+  isPublic.value = !isPublic.value;
+}
 
 function closeDialog() {
   show.value = false;
@@ -110,37 +131,65 @@ async function createSmartCollection() {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   try {
-    const filterCriteria: Record<string, number | boolean | string | null> = {};
+    const filterCriteria: Record<string, any> = {};
 
     if (searchTerm.value) filterCriteria.search_term = searchTerm.value;
-    if (selectedPlatform.value)
-      filterCriteria.platform_id = selectedPlatform.value.id;
+    if (selectedPlatforms.value && selectedPlatforms.value.length > 0) {
+      filterCriteria.platform_ids = selectedPlatforms.value.map((p) => p.id);
+    } else if (currentPlatform.value) {
+      filterCriteria.platform_ids = [currentPlatform.value.id];
+    }
     if (filterMatched.value) filterCriteria.matched = true;
-    if (filterUnmatched.value) filterCriteria.matched = false;
     if (filterFavorites.value) filterCriteria.favorite = true;
     if (filterDuplicates.value) filterCriteria.duplicate = true;
     if (filterPlayables.value) filterCriteria.playable = true;
     if (filterRA.value) filterCriteria.has_ra = true;
     if (filterMissing.value) filterCriteria.missing = true;
     if (filterVerified.value) filterCriteria.verified = true;
-    if (selectedGenre.value)
-      filterCriteria.selected_genre = selectedGenre.value;
-    if (selectedFranchise.value)
-      filterCriteria.selected_franchise = selectedFranchise.value;
-    if (selectedCollection.value)
-      filterCriteria.selected_collection = selectedCollection.value;
-    if (selectedCompany.value)
-      filterCriteria.selected_company = selectedCompany.value;
-    if (selectedAgeRating.value)
-      filterCriteria.selected_age_rating = selectedAgeRating.value;
-    if (selectedStatus.value)
-      filterCriteria.selected_status = getStatusKeyForText(
-        selectedStatus.value,
-      );
-    if (selectedRegion.value)
-      filterCriteria.selected_region = selectedRegion.value;
-    if (selectedLanguage.value)
-      filterCriteria.selected_language = selectedLanguage.value;
+    if (selectedGenres.value && selectedGenres.value.length > 0) {
+      filterCriteria.genres = selectedGenres.value;
+      if (selectedGenres.value.length > 0)
+        filterCriteria.genres_logic = genresLogic.value;
+    }
+    if (selectedFranchises.value && selectedFranchises.value.length > 0) {
+      filterCriteria.franchises = selectedFranchises.value;
+      if (selectedFranchises.value.length > 0)
+        filterCriteria.franchises_logic = franchisesLogic.value;
+    }
+    if (selectedCollections.value && selectedCollections.value.length > 0) {
+      filterCriteria.collections = selectedCollections.value;
+      if (selectedCollections.value.length > 0)
+        filterCriteria.collections_logic = collectionsLogic.value;
+    }
+    if (selectedCompanies.value && selectedCompanies.value.length > 0) {
+      filterCriteria.companies = selectedCompanies.value;
+      if (selectedCompanies.value.length > 0)
+        filterCriteria.companies_logic = companiesLogic.value;
+    }
+    if (selectedAgeRatings.value && selectedAgeRatings.value.length > 0) {
+      filterCriteria.age_ratings = selectedAgeRatings.value;
+      if (selectedAgeRatings.value.length > 0)
+        filterCriteria.age_ratings_logic = ageRatingsLogic.value;
+    }
+    if (selectedStatuses.value && selectedStatuses.value.length > 0) {
+      const statusKeys = selectedStatuses.value
+        .filter((s): s is string => s !== null)
+        .map((s) => getStatusKeyForText(s))
+        .filter((key) => key !== null);
+      if (statusKeys.length > 0) {
+        filterCriteria.selected_status = statusKeys;
+      }
+    }
+    if (selectedRegions.value && selectedRegions.value.length > 0) {
+      filterCriteria.regions = selectedRegions.value;
+      if (selectedRegions.value.length > 0)
+        filterCriteria.regions_logic = regionsLogic.value;
+    }
+    if (selectedLanguages.value && selectedLanguages.value.length > 0) {
+      filterCriteria.languages = selectedLanguages.value;
+      if (selectedLanguages.value.length > 0)
+        filterCriteria.languages_logic = languagesLogic.value;
+    }
 
     const { data } = await collectionApi.createSmartCollection({
       smartCollection: {
@@ -217,7 +266,7 @@ async function createSmartCollection() {
               <v-btn
                 :color="isPublic ? 'romm-green' : 'accent'"
                 variant="outlined"
-                @click="isPublic = !isPublic"
+                @click="toggleCollectionVisibility"
               >
                 <v-icon class="mr-2">
                   {{ isPublic ? "mdi-lock-open-variant" : "mdi-lock" }}
@@ -251,7 +300,7 @@ async function createSmartCollection() {
       </v-row>
     </template>
     <template #footer>
-      <v-row class="justify-center my-2" no-gutters>
+      <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}

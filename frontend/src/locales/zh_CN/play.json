@@ -15,6 +15,10 @@
   "select-state": "选择状态",
   "change-state": "更改状态",
   "deselect-state": "取消选择状态",
+  "no-save-selected": "未选择存档",
+  "no-state-selected": "未选择状态",
+  "no-saves-available": "无可用存档",
+  "no-states-available": "无可用状态",
   "background-color": "背景颜色",
   "select-background-color": "选择背景颜色"
 }

@@ -1,4 +1,4 @@
-"""empty message
+"""Add MobyGames data
 
 Revision ID: 0015_mobygames_data
 Revises: 0014_asset_files

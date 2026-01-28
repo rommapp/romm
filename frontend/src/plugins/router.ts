@@ -28,6 +28,7 @@ export const ROUTES = {
   EMULATORJS: "emulatorjs",
   RUFFLE: "ruffle",
   SCAN: "scan",
+  PATCHER: "patcher",
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
@@ -187,6 +188,14 @@ const routes = [
           title: i18n.global.t("scan.scan"),
         },
         component: () => import("@/views/Scan.vue"),
+      },
+      {
+        path: "patcher",
+        name: ROUTES.PATCHER,
+        meta: {
+          title: i18n.global.t("common.patcher"),
+        },
+        component: () => import("@/views/Patcher.vue"),
       },
       {
         path: "user/:user",

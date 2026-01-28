@@ -18,7 +18,11 @@ const props = withDefaults(defineProps<Props>(), {
   enableClick: false,
 });
 
-const youtubeVideoId = computed(() => props.rom.youtube_video_id);
+const youtubeVideoId = computed(
+  () =>
+    props.rom.manual_metadata?.youtube_video_id || props.rom.youtube_video_id,
+);
+
 const localVideoPath = computed(() => {
   return (
     props.rom.ss_metadata?.video_path || props.rom.gamelist_metadata?.video_path
@@ -70,11 +74,7 @@ const carouselHeight = computed(() => {
     :height="carouselHeight"
   >
     <template #prev="{ props: prevProps }">
-      <v-btn
-        icon="mdi-chevron-left"
-        class="translucent"
-        @click="prevProps.onClick"
-      />
+      <v-btn icon="mdi-chevron-left" @click="prevProps.onClick" />
     </template>
     <v-carousel-item
       v-if="youtubeVideoId"
@@ -87,7 +87,15 @@ const carouselHeight = computed(() => {
         :src="`${heartbeat.FRONTEND.YOUTUBE_BASE_URL}/embed/${youtubeVideoId}`"
         title="YouTube video player"
         frameborder="0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allow="
+          accelerometer;
+          autoplay;
+          clipboard-write;
+          encrypted-media;
+          gyroscope;
+          picture-in-picture;
+          web-share;
+        "
         referrerpolicy="strict-origin-when-cross-origin"
         allowfullscreen
       />
@@ -120,11 +128,7 @@ const carouselHeight = computed(() => {
       />
     </template>
     <template #next="{ props: nextProps }">
-      <v-btn
-        icon="mdi-chevron-right"
-        class="translucent"
-        @click="nextProps.onClick"
-      />
+      <v-btn icon="mdi-chevron-right" @click="nextProps.onClick" />
     </template>
   </v-carousel>
 </template>

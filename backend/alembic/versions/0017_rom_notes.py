@@ -1,4 +1,4 @@
-"""empty message
+"""Create rom_notes table
 
 Revision ID: 0017_rom_notes
 Revises: 0016_user_last_login_active

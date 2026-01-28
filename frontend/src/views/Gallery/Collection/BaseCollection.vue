@@ -15,6 +15,7 @@ import GameTable from "@/components/common/Game/VirtualTable.vue";
 import { type CollectionType } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
+import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
@@ -29,6 +30,7 @@ const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const romsStore = storeRoms();
+const platformsStore = storePlatforms();
 const {
   filteredRoms,
   selectedRoms,
@@ -53,7 +55,10 @@ async function fetchRoms() {
   });
 
   romsStore
-    .fetchRoms({ galleryFilter: galleryFilterStore })
+    .fetchRoms({
+      galleryFilter: galleryFilterStore,
+      platformsStore: platformsStore,
+    })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
@@ -136,16 +141,15 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
-const { y: documentY } = useScroll(document.body, { throttle: 500 });
+const { y: windowY } = useScroll(window, { throttle: 500 });
 
-watch(documentY, () => {
+watch(windowY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = documentY.value === 0;
+    scrolledToTop.value = windowY.value === 0;
     if (
-      documentY.value + window.innerHeight >=
-        document.body.scrollHeight - 300 &&
+      windowY.value + window.innerHeight >= document.body.scrollHeight - 300 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();

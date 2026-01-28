@@ -15,6 +15,10 @@
   "select-state": "Állás kiválasztása",
   "change-state": "Állás cseréje",
   "deselect-state": "Állás kiválasztásának törlése",
+  "no-save-selected": "Nincs kiválasztott mentés",
+  "no-state-selected": "Nincs kiválasztott állás",
+  "no-saves-available": "Nincs elérhető mentés",
+  "no-states-available": "Nincs elérhető állás",
   "background-color": "Háttérszín",
   "select-background-color": "Háttérszín kiválasztása"
 }

@@ -95,7 +95,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             continue
 
         category_items = []
-        roms = db_rom_handler.get_roms_scalar(platform_id=p.id)
+        roms = db_rom_handler.get_roms_scalar(platform_ids=[p.id])
         for rom in roms:
             download_url = generate_rom_download_url(request, rom)
             category_item = WebrcadeFeedItemSchema(
@@ -162,7 +162,7 @@ async def tinfoil_index_feed(
     Returns:
         TinfoilFeedSchema: Tinfoil feed object schema
     """
-    switch = db_platform_handler.get_platform_by_fs_slug(slug)
+    switch = db_platform_handler.get_platform_by_slug(slug)
     if not switch:
         return TinfoilFeedSchema(
             files=[],
@@ -206,7 +206,7 @@ async def tinfoil_index_feed(
 
         return titledb
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=switch.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[switch.id])
 
     return TinfoilFeedSchema(
         files=[
@@ -282,7 +282,7 @@ def pkgi_ps3_feed(
     Returns:
         Response: txt file with PKGi PS3 database format
     """
-    ps3_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PS3)
+    ps3_platform = db_platform_handler.get_platform_by_slug(UPS.PS3)
     if not ps3_platform:
         raise HTTPException(status_code=404, detail="PlayStation 3 platform not found")
 
@@ -294,7 +294,7 @@ def pkgi_ps3_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=ps3_platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[ps3_platform.id])
     txt_lines = []
 
     for rom in roms:
@@ -352,7 +352,7 @@ def pkgi_psvita_feed(
     Returns:
         Response: txt file with PKGi PS Vita database format
     """
-    psvita_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PSVITA)
+    psvita_platform = db_platform_handler.get_platform_by_slug(UPS.PSVITA)
     if not psvita_platform:
         raise HTTPException(
             status_code=404, detail="PlayStation Vita platform not found"
@@ -365,7 +365,7 @@ def pkgi_psvita_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=psvita_platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[psvita_platform.id])
     txt_lines = []
 
     for rom in roms:
@@ -422,7 +422,7 @@ def pkgi_psp_feed(
     Returns:
         Response: txt file with PKGi PSP database format
     """
-    psp_platform = db_platform_handler.get_platform_by_fs_slug(UPS.PSP)
+    psp_platform = db_platform_handler.get_platform_by_slug(UPS.PSP)
     if not psp_platform:
         raise HTTPException(
             status_code=404, detail="PlayStation Portable platform not found"
@@ -436,7 +436,7 @@ def pkgi_psp_feed(
             status_code=400, detail=f"Invalid content type: {content_type}"
         ) from e
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=psp_platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[psp_platform.id])
     txt_lines = []
 
     for rom in roms:
@@ -499,13 +499,13 @@ def fpkgi_feed(request: Request, platform_slug: str) -> Response:
     Returns:
         Response: JSON file in FPKGi format
     """
-    platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+    platform = db_platform_handler.get_platform_by_slug(platform_slug)
     if not platform:
         raise HTTPException(
             status_code=404, detail=f"Platform {platform_slug} not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
     response_data = {}
 
     for rom in roms:
@@ -545,13 +545,13 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
     Returns:
         Response: Text file with Kekatsu DS database format
     """
-    platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+    platform = db_platform_handler.get_platform_by_slug(platform_slug)
     if not platform:
         raise HTTPException(
             status_code=404, detail=f"Platform {platform_slug} not found"
         )
 
-    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
 
     txt_lines = []
     txt_lines.append("1")  # Database version

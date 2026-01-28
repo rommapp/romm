@@ -29,12 +29,13 @@ export type RomSSMetadata = {
     marquee_path?: (string | null);
     logo_path?: (string | null);
     video_path?: (string | null);
-    ss_score?: string;
+    ss_score?: (string | null);
     first_release_date?: (number | null);
     alternative_names?: Array<string>;
     companies?: Array<string>;
     franchises?: Array<string>;
     game_modes?: Array<string>;
     genres?: Array<string>;
+    player_count?: string;
 };
 

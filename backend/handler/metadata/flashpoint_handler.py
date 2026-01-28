@@ -46,14 +46,14 @@ class FlashpointGame(TypedDict):
 class FlashpointMetadata(TypedDict):
     franchises: list[str]
     companies: list[str]
-    source: str
+    source: str | None
     genres: list[str]
     first_release_date: str
     game_modes: list[str]
-    status: str
-    version: str
-    language: str
-    notes: str
+    status: str | None
+    version: str | None
+    language: str | None
+    notes: str | None
 
 
 class FlashpointRom(TypedDict):
@@ -172,7 +172,7 @@ class FlashpointHandler(MetadataHandler):
                 self.search_url,
                 {
                     "smartSearch": search_term,
-                    "filter": "true",
+                    "filter": "false",
                 },
             )
 
@@ -348,7 +348,7 @@ class FlashpointHandler(MetadataHandler):
                 self.search_url,
                 {
                     "id": flashpoint_id,
-                    "filter": "true",
+                    "filter": "false",
                 },
             )
 

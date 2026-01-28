@@ -14,6 +14,7 @@ import storeConfig from "@/stores/config";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import { platformCategoryToIcon } from "@/utils";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY = "scan.launchboxRemoteEnabled";
@@ -170,7 +171,7 @@ async function stopScan() {
             :items="sortedPlatforms"
             :menu-props="{ maxHeight: 650 }"
             :label="t('common.platforms')"
-            item-title="name"
+            item-title="display_name"
             item-value="id"
             prepend-inner-icon="mdi-controller"
             variant="outlined"
@@ -181,12 +182,7 @@ async function stopScan() {
             chips
           >
             <template #item="{ props, item }">
-              <v-list-item
-                v-bind="props"
-                class="py-4"
-                :title="item.raw.name ?? ''"
-                :subtitle="item.raw.fs_slug"
-              >
+              <v-list-item v-bind="props" class="py-4">
                 <template #prepend>
                   <PlatformIcon
                     :key="item.raw.slug"
@@ -196,6 +192,23 @@ async function stopScan() {
                     :fs-slug="item.raw.fs_slug"
                   />
                 </template>
+                <v-row no-gutters>
+                  <v-col>
+                    <v-chip size="x-small" label class="text-grey">{{
+                      item.raw.fs_slug
+                    }}</v-chip>
+                    <v-icon
+                      :icon="platformCategoryToIcon(item.raw.category || '')"
+                      class="ml-2 text-caption text-grey"
+                      :title="item.raw.category"
+                    />
+                    <span
+                      v-if="item.raw.family_name"
+                      class="ml-1 text-caption text-grey"
+                      >{{ item.raw.family_name }}</span
+                    >
+                  </v-col>
+                </v-row>
                 <template #append>
                   <MissingFromFSIcon
                     v-if="item.raw.missing_from_fs"
@@ -319,7 +332,7 @@ async function stopScan() {
                   :size="20"
                 />
                 <div class="ml-1">
-                  {{ item.raw.name }}
+                  {{ item.raw.display_name }}
                 </div>
               </v-chip>
             </template>

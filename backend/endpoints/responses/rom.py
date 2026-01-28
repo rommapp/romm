@@ -85,6 +85,19 @@ RomGamelistMetadata = TypedDict(  # type: ignore[misc]
     {k: NotRequired[v] for k, v in get_type_hints(GamelistMetadata).items()},  # type: ignore[misc]
     total=False,
 )
+ManualMetadata = TypedDict(
+    "ManualMetadata",
+    {
+        "genres": list[str] | None,
+        "franchises": list[str] | None,
+        "companies": list[str] | None,
+        "game_modes": list[str] | None,
+        "age_ratings": list[str] | None,
+        "first_release_date": int | None,
+        "youtube_video_id": str | None,
+    },
+    total=False,
+)
 
 
 def rom_user_schema_factory() -> RomUserSchema:
@@ -165,6 +178,7 @@ class RomMetadataSchema(BaseModel):
     companies: list[str]
     game_modes: list[str]
     age_ratings: list[str]
+    player_count: str
     first_release_date: int | None
     average_rating: float | None
 
@@ -239,6 +253,7 @@ class RomSchema(BaseModel):
     flashpoint_metadata: RomFlashpointMetadata | None
     hltb_metadata: RomHLTBMetadata | None
     gamelist_metadata: RomGamelistMetadata | None
+    manual_metadata: ManualMetadata | None
 
     path_cover_small: str | None
     path_cover_large: str | None
@@ -269,6 +284,7 @@ class RomSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
     missing_from_fs: bool
+    has_notes: bool
 
     siblings: list[SiblingRomSchema]
     rom_user: RomUserSchema
@@ -290,6 +306,9 @@ class RomSchema(BaseModel):
             )
             for s in db_rom.sibling_roms
         ]
+        db_rom.has_notes = any(  # type: ignore
+            note.is_public or note.user_id == request.user.id for note in db_rom.notes
+        )
         return db_rom
 
     @classmethod
@@ -338,6 +357,7 @@ class SimpleRomSchema(RomSchema):
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
         db_rom.siblings = []  # type: ignore
+        db_rom.has_notes = False  # type: ignore
         return cls.model_validate(db_rom)
 
 
@@ -424,3 +444,16 @@ class DetailedRomSchema(RomSchema):
     @field_validator("user_screenshots")
     def sort_user_screenshots(cls, v: list[ScreenshotSchema]) -> list[ScreenshotSchema]:
         return sorted(v, key=lambda x: x.created_at, reverse=True)
+
+
+class RomFiltersDict(TypedDict):
+    genres: list[str]
+    franchises: list[str]
+    collections: list[str]
+    companies: list[str]
+    game_modes: list[str]
+    age_ratings: list[str]
+    player_counts: list[str]
+    regions: list[str]
+    languages: list[str]
+    platforms: list[int]

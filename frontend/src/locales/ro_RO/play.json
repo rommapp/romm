@@ -15,6 +15,10 @@
   "select-state": "Selectează stare",
   "change-state": "Schimbă stare",
   "deselect-state": "Deselectează stare",
+  "no-save-selected": "Nicio salvare selectată",
+  "no-state-selected": "Nicio stare selectată",
+  "no-saves-available": "Nicio salvare disponibilă",
+  "no-states-available": "Nicio stare disponibilă",
   "background-color": "Culoare de fundal",
   "select-background-color": "Selectează culoarea de fundal"
 }

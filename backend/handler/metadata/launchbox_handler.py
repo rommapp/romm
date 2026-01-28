@@ -26,11 +26,17 @@ LAUNCHBOX_METADATA_IMAGE_KEY: Final[str] = "romm:launchbox_metadata_image"
 LAUNCHBOX_MAME_KEY: Final[str] = "romm:launchbox_mame"
 LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
 
+<<<<<<< HEAD
 LAUNCHBOX_LOCAL_DIR: Final[Path] = Path(ROMM_BASE_PATH) / "temp"
 LAUNCHBOX_PLATFORMS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Data" / "Platforms"
 LAUNCHBOX_IMAGES_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Images"
 LAUNCHBOX_MANUALS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Manuals"
 LAUNCHBOX_VIDEOS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Videos"
+=======
+# Regex to detect LaunchBox ID tags in filenames like (launchbox-12345)
+LAUNCHBOX_TAG_REGEX = re.compile(r"\(launchbox-(\d+)\)", re.IGNORECASE)
+DASH_COLON_REGEX = re.compile(r"\s?-\s")
+>>>>>>> master
 
 LOCAL_XML_INDEX_CACHE: dict[str, tuple[int, dict[str, dict[str, str]]]] = {}
 
@@ -740,10 +746,8 @@ class LaunchboxHandler(MetadataHandler):
 
         return json.loads(metadata_image_index_entry)
 
-
     def get_platform(self, slug: str) -> LaunchboxPlatform:
-        slug_clean = (slug or "").strip().lower()
-
+        slug_clean = slug.strip().lower()
         resolved: UPS | None = None
         for candidate in (
             slug_clean,
@@ -895,7 +899,6 @@ class LaunchboxHandler(MetadataHandler):
 
         return None
 
-
     async def get_rom(
         self,
         fs_name: str,
@@ -977,12 +980,18 @@ class LaunchboxHandler(MetadataHandler):
                     f"LaunchBox ID {launchbox_id_from_tag} from filename tag not found in LaunchBox"
                 )
 
-        if keep_tags:
-            search_term = fs_name
+        # `keep_tags` prevents stripping content that is considered a tag, e.g., anything between `()` or `[]`.
+        # By default, tags are still stripped to keep scan behavior consistent with previous versions.
+        # If `keep_tags` is True, the full `fs_name` is used for searching.
+        if not keep_tags:
+            search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+            # We replace " - "/"- " with ": " to match Launchbox's naming convention
+            search_term = re.sub(DASH_COLON_REGEX, ": ", search_term)
         else:
-            search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
-                " - ", ": "
-            )
+            search_term = fs_name
+
+        search_term = search_term.lower()
+
         index_entry = await self._get_remote_rom(
             search_term,
             platform_slug,
@@ -1047,8 +1056,8 @@ class LaunchboxHandler(MetadataHandler):
         if not self.is_enabled():
             return []
 
-        rom = await self.get_rom(search_term, platform_slug, True, remote_enabled=True)
-        return [rom] if rom.get("launchbox_id") else []
+        rom = await self.get_rom(search_term, platform_slug, True)
+        return [rom] if rom else []
 
     async def get_matched_rom_by_id(self, database_id: int) -> LaunchboxRom | None:
         if not self.is_enabled():

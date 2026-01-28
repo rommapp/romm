@@ -61,9 +61,9 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      POSTGRES_PASSWORD: ${DB_PASSWD:-postgres}
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_DB: ${DB_NAME:-authentik}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-authentik}
+      POSTGRES_USER: ${POSTGRES_USER:-romm}
+      POSTGRES_DB: ${POSTGRES_DB:-authentik}
     volumes:
       - postgres-db:/var/lib/postgresql/data
     ports:
@@ -78,9 +78,9 @@ services:
     environment:
       AUTHENTIK_REDIS__HOST: romm-valkey-dev
       AUTHENTIK_POSTGRESQL__HOST: romm-postgres-dev
-      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER:-postgres}
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER:-romm}
       AUTHENTIK_POSTGRESQL__NAME: ${POSTGRES_DB:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:-authentik}
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-secret-key-default}
       AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-password}
     volumes:
@@ -102,9 +102,9 @@ services:
     environment:
       AUTHENTIK_REDIS__HOST: romm-valkey-dev
       AUTHENTIK_POSTGRESQL__HOST: romm-postgres-dev
-      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER:-postgres}
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER:-romm}
       AUTHENTIK_POSTGRESQL__NAME: ${POSTGRES_DB:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:-authentik}
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-secret-key-default}
       AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-password}
     volumes:

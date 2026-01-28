@@ -37,6 +37,7 @@ const categoryIcon = computed(() =>
     class="my-1 py-2"
   >
     <template #prepend>
+      <slot name="prepend" />
       <PlatformIcon
         :slug="platform.slug"
         :name="platform.name"

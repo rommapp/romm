@@ -14,15 +14,16 @@ import {
   type SmartCollection,
 } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storePlatforms from "@/stores/platforms";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
+type PlatformsStore = ExtractPiniaStoreType<typeof storePlatforms>;
 
 export type SimpleRom = SimpleRomSchema;
 export type SearchRom = SearchRomSchema;
 export type DetailedRom = DetailedRomSchema;
-export const MAX_FETCH_LIMIT = 10000;
 
 const orderByStorage = useLocalStorage("roms.orderBy", "name");
 const orderDirStorage = useLocalStorage("roms.orderDir", "asc");
@@ -96,12 +97,23 @@ export default defineStore("roms", {
     },
     // Fetching multiple roms
     _buildRequestParams(galleryFilter: GalleryFilterStore) {
-      return {
-        ...galleryFilter.$state,
-        platformId:
-          this.currentPlatform?.id ??
-          galleryFilter.selectedPlatform?.id ??
-          null,
+      // Determine platform IDs
+      let platformIds: number[] | null = null;
+
+      // Prioritize currentPlatform if set, as it indicates a single platform view
+      if (this.currentPlatform) {
+        platformIds = [this.currentPlatform.id];
+      } else if (galleryFilter.selectedPlatforms.length > 0) {
+        // Otherwise, use multi-select platforms from filter
+        platformIds = galleryFilter.selectedPlatforms.map((p) => p.id);
+      } else if (galleryFilter.selectedPlatform) {
+        // Fallback to single selected platform from filter
+        platformIds = [galleryFilter.selectedPlatform.id];
+      }
+
+      const params = {
+        searchTerm: galleryFilter.searchTerm,
+        platformIds: platformIds,
         collectionId: this.currentCollection?.id ?? null,
         virtualCollectionId: this.currentVirtualCollection?.id ?? null,
         smartCollectionId: this.currentSmartCollection?.id ?? null,
@@ -110,10 +122,43 @@ export default defineStore("roms", {
         orderBy: this.orderBy,
         orderDir: this.orderDir,
         groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
+        filterMatched: galleryFilter.filterMatched,
+        filterFavorites: galleryFilter.filterFavorites,
+        filterDuplicates: galleryFilter.filterDuplicates,
+        filterPlayables: galleryFilter.filterPlayables,
+        filterRA: galleryFilter.filterRA,
+        filterMissing: galleryFilter.filterMissing,
+        filterVerified: galleryFilter.filterVerified,
+        selectedGenres: galleryFilter.selectedGenres,
+        selectedFranchises: galleryFilter.selectedFranchises,
+        selectedCollections: galleryFilter.selectedCollections,
+        selectedCompanies: galleryFilter.selectedCompanies,
+        selectedAgeRatings: galleryFilter.selectedAgeRatings,
+        selectedRegions: galleryFilter.selectedRegions,
+        selectedLanguages: galleryFilter.selectedLanguages,
+        selectedPlayerCounts: galleryFilter.selectedPlayerCounts,
+        selectedStatuses: galleryFilter.selectedStatuses,
+        // Logic operators
+        genresLogic: galleryFilter.genresLogic,
+        franchisesLogic: galleryFilter.franchisesLogic,
+        collectionsLogic: galleryFilter.collectionsLogic,
+        companiesLogic: galleryFilter.companiesLogic,
+        ageRatingsLogic: galleryFilter.ageRatingsLogic,
+        regionsLogic: galleryFilter.regionsLogic,
+        languagesLogic: galleryFilter.languagesLogic,
+        statusesLogic: galleryFilter.statusesLogic,
+        playerCountsLogic: galleryFilter.playerCountsLogic,
       };
+      return params;
     },
-    _postFetchRoms(response: GetRomsResponse, concat: boolean) {
-      const { items, offset, total, char_index, rom_id_index } = response;
+    _postFetchRoms(
+      response: GetRomsResponse,
+      galleryFilter: GalleryFilterStore,
+      platformsStore: PlatformsStore,
+      concat: boolean,
+    ) {
+      const { items, offset, total, char_index, rom_id_index, filter_values } =
+        response;
       if (!concat || this.fetchOffset === 0) {
         this._allRoms = items;
       } else {
@@ -127,12 +172,34 @@ export default defineStore("roms", {
       // Set the character index for the current platform
       this.characterIndex = char_index;
       this.romIdIndex = rom_id_index;
+
+      // Only set the list of platforms on first fetch
+      if (galleryFilter.filterPlatforms.length === 0) {
+        galleryFilter.setFilterPlatforms(
+          platformsStore.allPlatforms.filter((p) =>
+            filter_values.platforms.includes(p.id),
+          ),
+        );
+      }
+
+      if (filter_values) {
+        galleryFilter.setFilterCollections(filter_values.collections);
+        galleryFilter.setFilterGenres(filter_values.genres);
+        galleryFilter.setFilterFranchises(filter_values.franchises);
+        galleryFilter.setFilterCompanies(filter_values.companies);
+        galleryFilter.setFilterAgeRatings(filter_values.age_ratings);
+        galleryFilter.setFilterRegions(filter_values.regions);
+        galleryFilter.setFilterLanguages(filter_values.languages);
+        galleryFilter.setFilterPlayerCounts(filter_values.player_counts);
+      }
     },
     async fetchRoms({
       galleryFilter,
+      platformsStore,
       concat = true,
     }: {
       galleryFilter: GalleryFilterStore;
+      platformsStore: PlatformsStore;
       concat?: boolean;
     }): Promise<SimpleRom[]> {
       if (this.fetchingRoms) return Promise.resolve([]);
@@ -152,10 +219,20 @@ export default defineStore("roms", {
               JSON.stringify(currentParams) !==
               JSON.stringify(currentRequestParams);
             if (paramsChanged) return;
-            this._postFetchRoms(response, concat);
+            this._postFetchRoms(
+              response,
+              galleryFilter,
+              platformsStore,
+              concat,
+            );
           })
           .then((response) => {
-            this._postFetchRoms(response.data, concat);
+            this._postFetchRoms(
+              response.data,
+              galleryFilter,
+              platformsStore,
+              concat,
+            );
             resolve(response.data.items);
           })
           .catch((error) => {

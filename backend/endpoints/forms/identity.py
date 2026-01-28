@@ -11,6 +11,7 @@ class UserForm(BaseModel):
     enabled: bool | None = None
     ra_username: str | None = None
     avatar: UploadFile | None = None
+    ui_settings: str | None = None
 
 
 class OAuth2RequestForm:

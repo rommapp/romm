@@ -12,6 +12,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage } from "@/utils/covers";
+import AdditionalDetails from "./EditRom/AdditionalDetails.vue";
 import MetadataIdSection from "./EditRom/MetadataIdSection.vue";
 import MetadataSections from "./EditRom/MetadataSections.vue";
 
@@ -83,7 +84,6 @@ async function handleRomUpdate(
   successMessage: string,
 ) {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
-
   await romApi
     .updateRom(options)
     .then(({ data }) => {
@@ -106,7 +106,10 @@ async function handleRomUpdate(
       });
     })
     .finally(() => {
-      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+      emitter?.emit("showLoadingDialog", {
+        loading: false,
+        scrim: false,
+      });
       closeDialog();
     });
 }
@@ -256,7 +259,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                       !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
                     "
                     size="small"
-                    class="translucent"
+                    class="translucent text-white"
                     @click="
                       emitter?.emit('showSearchCoverDialog', {
                         term: rom.name || rom.fs_name,
@@ -268,7 +271,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                   </v-btn>
                   <v-btn
                     size="small"
-                    class="translucent"
+                    class="translucent text-white"
                     @click="triggerFileInput('cover-file-input')"
                   >
                     <v-icon size="large"> mdi-pencil </v-icon>
@@ -308,7 +311,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               v-model="rom.fs_name"
               :rules="[(value: string) => !!value || t('common.required')]"
               :label="
-                rom.has_multiple_files
+                rom.has_nested_single_file || rom.has_multiple_files
                   ? t('rom.folder-name')
                   : t('rom.filename')
               "
@@ -402,6 +405,10 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           </v-col>
         </v-row>
         <v-expansion-panels class="mt-6">
+          <AdditionalDetails
+            :rom="rom"
+            @update:rom="handleRomUpdateFromMetadata"
+          />
           <MetadataIdSection
             :rom="rom"
             @update:rom="handleRomUpdateFromMetadata"

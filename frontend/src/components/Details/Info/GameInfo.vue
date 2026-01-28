@@ -33,6 +33,11 @@ const filters = [
     name: t("rom.collections"),
   },
   { key: "company", path: "metadatum.companies", name: t("rom.companies") },
+  {
+    key: "playerCount",
+    path: "metadatum.player_count",
+    name: t("rom.player-count"),
+  },
 ] as const;
 
 const dataSources = computed(() => {
@@ -115,11 +120,70 @@ const coverImageSource = computed(() => {
   }
 });
 
+const ageRatingBadges = computed(() => {
+  const ratings = props.rom.metadatum?.age_ratings || [];
+  const igdbRatings = (props.rom.igdb_metadata as any)?.age_ratings || [];
+  const igdbByRating = new Map(
+    igdbRatings.map((r: any) => [String(r?.rating || "").trim(), r]),
+  );
+  const categorySlug: Record<string, string> = {
+    ESRB: "esrb",
+    PEGI: "pegi",
+    CERO: "cero",
+    USK: "usk",
+    GRAC: "grac",
+    CLASS_IND: "class_ind",
+    ACB: "acb",
+  };
+  const normalizeRatingCode = (rating: string) =>
+    rating.toString().toLowerCase().replace("+", "");
+
+  return ratings.map((entry: any) => {
+    if (typeof entry === "object" && entry?.rating) {
+      return entry;
+    }
+
+    const raw = String(entry);
+    if (raw.includes(":")) {
+      const [categoryRaw, ratingRaw] = raw.split(":");
+      const category = categoryRaw?.trim() || "";
+      const rating = ratingRaw?.trim() || "";
+      const slug = categorySlug[category];
+
+      const rating_cover_url =
+        slug && rating
+          ? `https://www.igdb.com/icons/rating_icons/${slug}/${slug}_${normalizeRatingCode(rating)}.png`
+          : undefined;
+
+      return {
+        rating,
+        category,
+        rating_cover_url,
+      };
+    }
+
+    const igdbMatch = igdbByRating.get(raw.trim());
+    if (igdbMatch) {
+      return igdbMatch;
+    }
+
+    return { rating: raw, category: "", rating_cover_url: undefined };
+  });
+});
+
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
     name: "search",
     query: { [filter]: value },
   });
+}
+
+function getFilterValues(path: string): string[] {
+  const value = get(props.rom, path);
+  if (Array.isArray(value)) {
+    return value.filter((v: unknown): v is string => !!v);
+  }
+  return value ? [String(value)] : [];
 }
 </script>
 <template>
@@ -156,9 +220,9 @@ function onFilterClick(filter: FilterType, value: string) {
           </v-row>
         </v-col>
       </v-row>
-      <template v-for="filter in filters" :key="filter">
+      <template v-for="filter in filters" :key="filter.key">
         <v-row
-          v-if="get(rom, filter.path).length > 0"
+          v-if="getFilterValues(filter.path).length > 0"
           class="align-center my-3"
           no-gutters
         >
@@ -167,7 +231,7 @@ function onFilterClick(filter: FilterType, value: string) {
           </v-col>
           <v-col>
             <v-chip
-              v-for="value in get(rom, filter.path)"
+              v-for="value in getFilterValues(filter.path)"
               :key="value"
               size="small"
               variant="outlined"
@@ -181,20 +245,15 @@ function onFilterClick(filter: FilterType, value: string) {
         </v-row>
       </template>
       <!-- Manually add age ratings to display logos -->
-      <template
-        v-if="
-          rom.igdb_metadata?.age_ratings &&
-          rom.igdb_metadata.age_ratings.length > 0
-        "
-      >
+      <template v-if="ageRatingBadges.length > 0">
         <v-row no-gutters class="mt-5">
           <v-col cols="3" xl="2" class="text-capitalize">
             <span>{{ t("rom.age-rating") }}</span>
           </v-col>
           <div class="d-flex" :class="{ 'my-2': xs }">
             <v-img
-              v-for="value in rom.igdb_metadata.age_ratings"
-              :key="value.rating"
+              v-for="value in ageRatingBadges"
+              :key="`${value.category}:${value.rating}`"
               :src="value.rating_cover_url"
               height="50"
               width="50"
@@ -223,7 +282,11 @@ function onFilterClick(filter: FilterType, value: string) {
         </v-row>
       </template>
       <template
-        v-if="rom.merged_screenshots.length > 0 || rom.youtube_video_id"
+        v-if="
+          rom.merged_screenshots.length > 0 ||
+          rom.youtube_video_id ||
+          rom.manual_metadata?.youtube_video_id
+        "
       >
         <v-row no-gutters class="mt-4">
           <v-col>

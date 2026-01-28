@@ -15,6 +15,10 @@
   "select-state": "ステートを選択",
   "change-state": "ステートを変更",
   "deselect-state": "ステートを解除",
+  "no-save-selected": "セーブデータが選択されていません",
+  "no-state-selected": "ステートが選択されていません",
+  "no-saves-available": "利用可能なセーブデータがありません",
+  "no-states-available": "利用可能なステートがありません",
   "background-color": "背景色",
   "select-background-color": "背景色を選択"
 }

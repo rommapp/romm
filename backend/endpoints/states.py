@@ -13,6 +13,7 @@ from handler.scan_handler import scan_screenshot, scan_state
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.assets import State
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -151,6 +152,26 @@ def get_states(
     )
 
     return [StateSchema.model_validate(state) for state in states]
+
+
+@protected_route(router.get, "/identifiers", [Scope.ASSETS_READ])
+def get_state_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get state identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of state IDs
+    """
+    states = db_state_handler.get_states(
+        user_id=request.user.id,
+        only_fields=[State.id],
+    )
+
+    return [state.id for state in states]
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])

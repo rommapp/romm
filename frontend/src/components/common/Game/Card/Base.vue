@@ -11,6 +11,7 @@ import {
   useTemplateRef,
 } from "vue";
 import { useDisplay } from "vuetify";
+import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
 import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import Flags from "@/components/common/Game/Card/Flags.vue";
@@ -130,7 +131,7 @@ const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
 const showGameTitleAlways = useLocalStorage("settings.showGameTitle", false);
 const showSiblings = useLocalStorage("settings.showSiblings", true);
 const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
-const coverRef = useTemplateRef("game-image-ref");
+const coverRef = useTemplateRef<VImg>("game-image-ref");
 const videoRef = useTemplateRef<HTMLVideoElement>("hover-video-ref");
 
 const {
@@ -152,12 +153,6 @@ const {
   coverRef: coverRef,
   videoRef: videoRef,
   forceBoxart: props.forceBoxart,
-});
-
-const hasNotes = computed(() => {
-  // TODO: Add note count to SimpleRom or check all_user_notes
-  // For now, return false until we implement proper note counting
-  return false;
 });
 
 const computedAspectRatio = computed(() => {
@@ -389,7 +384,7 @@ onBeforeUnmount(() => {
                     <v-icon>mdi-star</v-icon>
                   </v-chip>
                   <v-chip
-                    v-if="hasNotes && showChips"
+                    v-if="rom.has_notes && showChips"
                     class="translucent text-white mr-1 mb-1 px-1"
                     density="compact"
                     title="View notes"

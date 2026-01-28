@@ -1,4 +1,4 @@
-"""empty message
+"""Update roms_metadata view to include flashpoint metadata
 
 Revision ID: 0052_roms_metadata_flashpoint
 Revises: 0051_flashpoint_metadata

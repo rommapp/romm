@@ -2,22 +2,22 @@
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, nextTick, onMounted, watch } from "vue";
+import { inject, nextTick, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
 import FilterFavoritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavoritesBtn.vue";
-import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchedBtn.vue";
+import FilterMatchStateBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchStateBtn.vue";
 import FilterMissingBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMissingBtn.vue";
+import FilterPlatformBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlatformBtn.vue";
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
-import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
 import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
-import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryFilter, {
+  type FilterLogicOperator,
+} from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -44,7 +44,6 @@ const platformsStore = storePlatforms();
 const {
   searchTerm,
   activeFilterDrawer,
-  filterUnmatched,
   filterMatched,
   filterFavorites,
   filterDuplicates,
@@ -52,57 +51,118 @@ const {
   filterRA,
   filterMissing,
   filterVerified,
-  selectedGenre,
   filterGenres,
-  selectedFranchise,
+  selectedGenres,
+  genresLogic,
   filterFranchises,
-  selectedCollection,
+  selectedFranchises,
+  franchisesLogic,
   filterCollections,
-  selectedCompany,
+  selectedCollections,
+  collectionsLogic,
   filterCompanies,
-  selectedAgeRating,
+  selectedCompanies,
+  companiesLogic,
   filterAgeRatings,
-  selectedStatus,
+  selectedAgeRatings,
+  ageRatingsLogic,
   filterStatuses,
-  selectedPlatform,
-  filterPlatforms,
-  selectedRegion,
+  selectedStatuses,
+  statusesLogic,
+  selectedPlatforms,
   filterRegions,
-  selectedLanguage,
+  selectedRegions,
+  regionsLogic,
   filterLanguages,
+  selectedLanguages,
+  languagesLogic,
+  filterPlayerCounts,
+  selectedPlayerCounts,
+  playerCountsLogic,
 } = storeToRefs(galleryFilterStore);
-const { filteredRoms } = storeToRefs(romsStore);
-const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const onFilterChange = debounce(
   () => {
     romsStore.resetPagination();
-    romsStore.fetchRoms({ galleryFilter: galleryFilterStore, concat: false });
+    romsStore.fetchRoms({
+      galleryFilter: galleryFilterStore,
+      platformsStore: platformsStore,
+      concat: false,
+    });
 
     const url = new URL(window.location.href);
     // Update URL with filters
     Object.entries({
       search: searchTerm.value,
-      filterMatched: filterMatched.value ? "1" : null,
-      filterUnmatched: filterUnmatched.value ? "1" : null,
-      filterFavorites: filterFavorites.value ? "1" : null,
-      filterDuplicates: filterDuplicates.value ? "1" : null,
-      filterPlayables: filterPlayables.value ? "1" : null,
-      filterMissing: filterMissing.value ? "1" : null,
-      filterVerified: filterVerified.value ? "1" : null,
-      filterRA: filterRA.value ? "1" : null,
-      platform: selectedPlatform.value
-        ? String(selectedPlatform.value.id)
-        : null,
-      genre: selectedGenre.value,
-      franchise: selectedFranchise.value,
-      collection: selectedCollection.value,
-      company: selectedCompany.value,
-      ageRating: selectedAgeRating.value,
-      region: selectedRegion.value,
-      language: selectedLanguage.value,
-      status: selectedStatus.value,
+      matched:
+        filterMatched.value === null ? null : String(filterMatched.value),
+      filterFavorites:
+        filterFavorites.value === null ? null : String(filterFavorites.value),
+      filterDuplicates:
+        filterDuplicates.value === null ? null : String(filterDuplicates.value),
+      filterPlayables:
+        filterPlayables.value === null ? null : String(filterPlayables.value),
+      filterMissing:
+        filterMissing.value === null ? null : String(filterMissing.value),
+      filterVerified:
+        filterVerified.value === null ? null : String(filterVerified.value),
+      filterRA: filterRA.value === null ? null : String(filterRA.value),
+      platforms:
+        selectedPlatforms.value.length > 0
+          ? selectedPlatforms.value.map((p) => String(p.id)).join(",")
+          : null,
+      genres:
+        selectedGenres.value.length > 0 ? selectedGenres.value.join(",") : null,
+      genresLogic: selectedGenres.value.length > 0 ? genresLogic.value : null,
+      franchises:
+        selectedFranchises.value.length > 0
+          ? selectedFranchises.value.join(",")
+          : null,
+      franchisesLogic:
+        selectedFranchises.value.length > 0 ? franchisesLogic.value : null,
+      collections:
+        selectedCollections.value.length > 0
+          ? selectedCollections.value.join(",")
+          : null,
+      collectionsLogic:
+        selectedCollections.value.length > 0 ? collectionsLogic.value : null,
+      companies:
+        selectedCompanies.value.length > 0
+          ? selectedCompanies.value.join(",")
+          : null,
+      companiesLogic:
+        selectedCompanies.value.length > 0 ? companiesLogic.value : null,
+      ageRatings:
+        selectedAgeRatings.value.length > 0
+          ? selectedAgeRatings.value.join(",")
+          : null,
+      ageRatingsLogic:
+        selectedAgeRatings.value.length > 0 ? ageRatingsLogic.value : null,
+      regions:
+        selectedRegions.value.length > 0
+          ? selectedRegions.value.join(",")
+          : null,
+      regionsLogic:
+        selectedRegions.value.length > 0 ? regionsLogic.value : null,
+      languages:
+        selectedLanguages.value.length > 0
+          ? selectedLanguages.value.join(",")
+          : null,
+      languagesLogic:
+        selectedLanguages.value.length > 0 ? languagesLogic.value : null,
+      statuses:
+        selectedStatuses.value.length > 0
+          ? selectedStatuses.value.join(",")
+          : null,
+      statusesLogic:
+        selectedStatuses.value.length > 0 ? statusesLogic.value : null,
+      playerCounts:
+        selectedPlayerCounts.value.length > 0
+          ? selectedPlayerCounts.value.join(",")
+          : null,
+      playerCountsLogic:
+        selectedPlayerCounts.value.length > 0 ? playerCountsLogic.value : null,
     }).forEach(([key, value]) => {
       if (value) {
         url.searchParams.set(key, value);
@@ -123,98 +183,89 @@ emitter?.on("filterRoms", onFilterChange);
 const filters = [
   {
     label: t("platform.genre"),
-    selected: selectedGenre,
+    selected: selectedGenres,
     items: filterGenres,
+    logic: genresLogic,
+    setLogic: (logic: FilterLogicOperator) =>
+      galleryFilterStore.setGenresLogic(logic),
   },
   {
     label: t("platform.franchise"),
-    selected: selectedFranchise,
+    selected: selectedFranchises,
     items: filterFranchises,
+    logic: franchisesLogic,
+    setLogic: (logic: FilterLogicOperator) =>
+      galleryFilterStore.setFranchisesLogic(logic),
   },
   {
     label: t("platform.collection"),
-    selected: selectedCollection,
+    selected: selectedCollections,
     items: filterCollections,
+    logic: collectionsLogic,
+    setLogic: (logic: FilterLogicOperator) =>
+      galleryFilterStore.setCollectionsLogic(logic),
   },
   {
     label: t("platform.company"),
-    selected: selectedCompany,
+    selected: selectedCompanies,
     items: filterCompanies,
+    logic: companiesLogic,
+    setLogic: (logic: FilterLogicOperator) =>
+      galleryFilterStore.setCompaniesLogic(logic),
   },
   {
     label: t("platform.age-rating"),
-    selected: selectedAgeRating,
+    selected: selectedAgeRatings,
     items: filterAgeRatings,
+    logic: ageRatingsLogic,
+    setLogic: (logic: FilterLogicOperator) =>
+      galleryFilterStore.setAgeRatingsLogic(logic),
   },
   {
     label: t("platform.region"),
-    selected: selectedRegion,
+    selected: selectedRegions,
     items: filterRegions,
+    logic: regionsLogic,
+    setLogic: (logic: FilterLogicOperator) =>
+      galleryFilterStore.setRegionsLogic(logic),
   },
   {
     label: t("platform.language"),
-    selected: selectedLanguage,
+    selected: selectedLanguages,
     items: filterLanguages,
+    logic: languagesLogic,
+    setLogic: (logic: FilterLogicOperator) =>
+      galleryFilterStore.setLanguagesLogic(logic),
+  },
+  {
+    label: t("platform.player-count"),
+    selected: selectedPlayerCounts,
+    items: filterPlayerCounts,
+    logic: playerCountsLogic,
+    setLogic: (logic: FilterLogicOperator) =>
+      galleryFilterStore.setPlayerCountsLogic(logic),
   },
   {
     label: t("platform.status"),
-    selected: selectedStatus,
+    selected: selectedStatuses,
     items: filterStatuses,
+    logic: statusesLogic,
+    setLogic: (logic: FilterLogicOperator) =>
+      galleryFilterStore.setStatusesLogic(logic),
   },
 ];
 
 function resetFilters() {
   galleryFilterStore.resetFilters();
-  nextTick(() => emitter?.emit("filterRoms", null));
-}
-
-function setFilters() {
-  galleryFilterStore.setFilterPlatforms([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => platformsStore.get(rom.platform_id))
-        .filter((platform) => !!platform)
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterGenres([
-    ...new Set(
-      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.genres).sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterFranchises([
-    ...new Set(
-      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.franchises).sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCompanies([
-    ...new Set(
-      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.companies).sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCollections([
-    ...new Set(
-      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.collections).sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterAgeRatings([
-    ...new Set(
-      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.age_ratings).sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterRegions([
-    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.regions).sort()),
-  ]);
-  galleryFilterStore.setFilterLanguages([
-    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.languages).sort()),
-  ]);
+  nextTick(async () => {
+    emitter?.emit("filterRoms", null);
+  });
 }
 
 onMounted(async () => {
   const {
     search: urlSearch,
-    filterMatched: urlFilteredMatch,
-    filterUnmatched: urlFilteredUnmatched,
+    matched: urlMatched,
     filterFavorites: urlFilteredFavorites,
     filterDuplicates: urlFilteredDuplicates,
     filterPlayables: urlFilteredPlayables,
@@ -222,68 +273,206 @@ onMounted(async () => {
     filterVerified: urlFilteredVerified,
     filterRA: urlFilteredRa,
     platform: urlPlatform,
-    genre: urlGenre,
-    franchise: urlFranchise,
-    collection: urlCollection,
-    company: urlCompany,
-    ageRating: urlAgeRating,
-    region: urlRegion,
-    language: urlLanguage,
-    status: urlStatus,
+    platforms: urlPlatforms,
+    // Multi-value URL params
+    genres: urlGenres,
+    genresLogic: urlGenresLogic,
+    franchises: urlFranchises,
+    franchisesLogic: urlFranchisesLogic,
+    collections: urlCollections,
+    collectionsLogic: urlCollectionsLogic,
+    companies: urlCompanies,
+    companiesLogic: urlCompaniesLogic,
+    ageRatings: urlAgeRatings,
+    ageRatingsLogic: urlAgeRatingsLogic,
+    regions: urlRegions,
+    regionsLogic: urlRegionsLogic,
+    languages: urlLanguages,
+    languagesLogic: urlLanguagesLogic,
+    statuses: urlStatuses,
+    statusesLogic: urlStatusesLogic,
+    playerCounts: urlPlayerCounts,
+    playerCountsLogic: urlPlayerCountsLogic,
   } = router.currentRoute.value.query;
 
   // Check for query params to set filters
-  if (urlFilteredMatch !== undefined) {
-    galleryFilterStore.setFilterMatched(true);
-  }
-  if (urlFilteredUnmatched !== undefined) {
-    galleryFilterStore.setFilterUnmatched(true);
+  if (urlMatched !== undefined) {
+    if (urlMatched === "true") {
+      galleryFilterStore.setFilterMatched(true);
+    } else if (urlMatched === "false") {
+      galleryFilterStore.setFilterMatched(false);
+    }
+    // Any other value means no filter (both remain null)
   }
   if (urlFilteredFavorites !== undefined) {
-    galleryFilterStore.setFilterFavorites(true);
+    if (urlFilteredFavorites === "true") {
+      galleryFilterStore.setFilterFavorites(true);
+    } else if (urlFilteredFavorites === "false") {
+      galleryFilterStore.setFilterFavorites(false);
+    } else {
+      galleryFilterStore.setFilterFavorites(null);
+    }
   }
   if (urlFilteredDuplicates !== undefined) {
-    galleryFilterStore.setFilterDuplicates(true);
+    if (urlFilteredDuplicates === "true") {
+      galleryFilterStore.setFilterDuplicates(true);
+    } else if (urlFilteredDuplicates === "false") {
+      galleryFilterStore.setFilterDuplicates(false);
+    } else {
+      galleryFilterStore.setFilterDuplicates(null);
+    }
   }
   if (urlFilteredPlayables !== undefined) {
-    galleryFilterStore.setFilterPlayables(true);
+    if (urlFilteredPlayables === "true") {
+      galleryFilterStore.setFilterPlayables(true);
+    } else if (urlFilteredPlayables === "false") {
+      galleryFilterStore.setFilterPlayables(false);
+    } else {
+      galleryFilterStore.setFilterPlayables(null);
+    }
   }
   if (urlFilteredMissing !== undefined) {
-    galleryFilterStore.setFilterMissing(true);
+    if (urlFilteredMissing === "true") {
+      galleryFilterStore.setFilterMissing(true);
+    } else if (urlFilteredMissing === "false") {
+      galleryFilterStore.setFilterMissing(false);
+    } else {
+      galleryFilterStore.setFilterMissing(null);
+    }
   }
   if (urlFilteredVerified !== undefined) {
-    galleryFilterStore.setFilterVerified(true);
+    if (urlFilteredVerified === "true") {
+      galleryFilterStore.setFilterVerified(true);
+    } else if (urlFilteredVerified === "false") {
+      galleryFilterStore.setFilterVerified(false);
+    } else {
+      galleryFilterStore.setFilterVerified(null);
+    }
   }
   if (urlFilteredRa !== undefined) {
-    galleryFilterStore.setFilterRA(true);
+    if (urlFilteredRa === "true") {
+      galleryFilterStore.setFilterRA(true);
+    } else if (urlFilteredRa === "false") {
+      galleryFilterStore.setFilterRA(false);
+    } else {
+      galleryFilterStore.setFilterRA(null);
+    }
   }
-  if (urlPlatform !== undefined) {
+  // Check for query params to set multi-value filters (prioritize over single values)
+  if (urlPlatforms !== undefined) {
+    const platformIds = (urlPlatforms as string)
+      .split(",")
+      .filter((p) => p.trim())
+      .map(Number);
+    const platforms = platformIds
+      .map((id) => platformsStore.get(id))
+      .filter((p): p is NonNullable<typeof p> => p !== undefined);
+    if (platforms.length > 0) {
+      galleryFilterStore.setSelectedFilterPlatforms(platforms);
+    }
+  } else if (urlPlatform !== undefined) {
+    // Backward compatibility: if single platform is set, convert to multiselect
     const platform = platformsStore.get(Number(urlPlatform));
-    if (platform) galleryFilterStore.setSelectedFilterPlatform(platform);
+    if (platform) galleryFilterStore.setSelectedFilterPlatforms([platform]);
   }
-  if (urlGenre !== undefined) {
-    galleryFilterStore.setSelectedFilterGenre(urlGenre as string);
+  if (urlGenres !== undefined) {
+    const genres = (urlGenres as string).split(",").filter((g) => g.trim());
+    galleryFilterStore.setSelectedFilterGenres(genres);
+    if (urlGenresLogic !== undefined) {
+      galleryFilterStore.setGenresLogic(urlGenresLogic as FilterLogicOperator);
+    }
   }
-  if (urlFranchise !== undefined) {
-    galleryFilterStore.setSelectedFilterFranchise(urlFranchise as string);
+
+  if (urlFranchises !== undefined) {
+    const franchises = (urlFranchises as string)
+      .split(",")
+      .filter((f) => f.trim());
+    galleryFilterStore.setSelectedFilterFranchises(franchises);
+    if (urlFranchisesLogic !== undefined) {
+      galleryFilterStore.setFranchisesLogic(
+        urlFranchisesLogic as FilterLogicOperator,
+      );
+    }
   }
-  if (urlCollection !== undefined) {
-    galleryFilterStore.setSelectedFilterCollection(urlCollection as string);
+
+  if (urlCollections !== undefined) {
+    const collections = (urlCollections as string)
+      .split(",")
+      .filter((c) => c.trim());
+    galleryFilterStore.setSelectedFilterCollections(collections);
+    if (urlCollectionsLogic !== undefined) {
+      galleryFilterStore.setCollectionsLogic(
+        urlCollectionsLogic as FilterLogicOperator,
+      );
+    }
   }
-  if (urlCompany !== undefined) {
-    galleryFilterStore.setSelectedFilterCompany(urlCompany as string);
+
+  if (urlCompanies !== undefined) {
+    const companies = (urlCompanies as string)
+      .split(",")
+      .filter((c) => c.trim());
+    galleryFilterStore.setSelectedFilterCompanies(companies);
+    if (urlCompaniesLogic !== undefined) {
+      galleryFilterStore.setCompaniesLogic(
+        urlCompaniesLogic as FilterLogicOperator,
+      );
+    }
   }
-  if (urlAgeRating !== undefined) {
-    galleryFilterStore.setSelectedFilterAgeRating(urlAgeRating as string);
+
+  if (urlAgeRatings !== undefined) {
+    const ageRatings = (urlAgeRatings as string)
+      .split(",")
+      .filter((a) => a.trim());
+    galleryFilterStore.setSelectedFilterAgeRatings(ageRatings);
+    if (urlAgeRatingsLogic !== undefined) {
+      galleryFilterStore.setAgeRatingsLogic(
+        urlAgeRatingsLogic as FilterLogicOperator,
+      );
+    }
   }
-  if (urlRegion !== undefined) {
-    galleryFilterStore.setSelectedFilterRegion(urlRegion as string);
+
+  if (urlRegions !== undefined) {
+    const regions = (urlRegions as string).split(",").filter((r) => r.trim());
+    galleryFilterStore.setSelectedFilterRegions(regions);
+    if (urlRegionsLogic !== undefined) {
+      galleryFilterStore.setRegionsLogic(
+        urlRegionsLogic as FilterLogicOperator,
+      );
+    }
   }
-  if (urlLanguage !== undefined) {
-    galleryFilterStore.setSelectedFilterLanguage(urlLanguage as string);
+
+  if (urlLanguages !== undefined) {
+    const languages = (urlLanguages as string)
+      .split(",")
+      .filter((l) => l.trim());
+    galleryFilterStore.setSelectedFilterLanguages(languages);
+    if (urlLanguagesLogic !== undefined) {
+      galleryFilterStore.setLanguagesLogic(
+        urlLanguagesLogic as FilterLogicOperator,
+      );
+    }
   }
-  if (urlStatus !== undefined) {
-    galleryFilterStore.setSelectedFilterStatus(urlStatus as string);
+
+  if (urlStatuses !== undefined) {
+    const statuses = (urlStatuses as string).split(",").filter((s) => s.trim());
+    galleryFilterStore.setSelectedFilterStatuses(statuses);
+    if (urlStatusesLogic !== undefined) {
+      galleryFilterStore.setStatusesLogic(
+        urlStatusesLogic as FilterLogicOperator,
+      );
+    }
+  }
+
+  if (urlPlayerCounts !== undefined) {
+    const playerCounts = (urlPlayerCounts as string)
+      .split(",")
+      .filter((pc) => pc.trim());
+    galleryFilterStore.setSelectedFilterPlayerCounts(playerCounts);
+    if (urlPlayerCountsLogic !== undefined) {
+      galleryFilterStore.setPlayerCountsLogic(
+        urlPlayerCountsLogic as FilterLogicOperator,
+      );
+    }
   }
 
   // Check if search term is set in the URL (empty string is ok)
@@ -297,18 +486,6 @@ onMounted(async () => {
   if (freshSearch || galleryFilterStore.isFiltered()) {
     emitter?.emit("filterRoms", null);
   }
-
-  watch(
-    () => filteredRoms.value,
-    async () => setFilters(),
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
-
-  watch(
-    () => allPlatforms.value,
-    async () => setFilters(),
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
 });
 </script>
 
@@ -317,7 +494,7 @@ onMounted(async () => {
     v-model="activeFilterDrawer"
     mobile
     floating
-    width="400"
+    width="500"
     :class="{
       'ml-2': activeFilterDrawer,
       'drawer-mobile': smAndDown && activeFilterDrawer,
@@ -325,17 +502,11 @@ onMounted(async () => {
     class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
     <v-list tabindex="-1">
-      <template v-if="showSearchBar && xs">
-        <v-list-item>
-          <SearchTextField :tabindex="activeFilterDrawer ? 0 : -1" />
-        </v-list-item>
-      </template>
+      <v-list-item v-if="showSearchBar && xs">
+        <SearchTextField :tabindex="activeFilterDrawer ? 0 : -1" />
+      </v-list-item>
       <v-list-item>
-        <FilterUnmatchedBtn :tabindex="activeFilterDrawer ? 0 : -1" />
-        <FilterMatchedBtn
-          class="mt-2"
-          :tabindex="activeFilterDrawer ? 0 : -1"
-        />
+        <FilterMatchStateBtn :tabindex="activeFilterDrawer ? 0 : -1" />
         <FilterFavoritesBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
@@ -359,88 +530,82 @@ onMounted(async () => {
         />
         <FilterRaBtn class="mt-2" :tabindex="activeFilterDrawer ? 0 : -1" />
       </v-list-item>
-      <v-list-item
-        v-if="showPlatformsFilter"
-        :tabindex="activeFilterDrawer ? 0 : -1"
-      >
-        <v-autocomplete
-          v-model="selectedPlatform"
-          :tabindex="activeFilterDrawer ? 0 : -1"
-          hide-details
-          prepend-inner-icon="mdi-controller"
-          clearable
-          :label="t('common.platform')"
-          variant="outlined"
-          density="comfortable"
-          :items="filterPlatforms"
-          @update:model-value="
-            nextTick(() => emitter?.emit('filterRoms', null))
-          "
-        >
-          <template #item="{ props, item }">
-            <v-list-item
-              v-bind="props"
-              class="py-4"
-              :title="item.raw.name ?? ''"
-              :subtitle="item.raw.fs_slug"
-            >
-              <template #prepend>
-                <PlatformIcon
-                  :key="item.raw.slug"
-                  :size="35"
-                  :slug="item.raw.slug"
-                  :name="item.raw.name"
-                  :fs-slug="item.raw.fs_slug"
-                />
-              </template>
-              <template #append>
-                <MissingFromFSIcon
-                  v-if="item.raw.missing_from_fs"
-                  text="Missing platform from filesystem"
-                  chip
-                  chip-label
-                  chip-density="compact"
-                  class="ml-2"
-                />
-                <v-chip class="ml-2" size="x-small" label>
-                  {{ item.raw.rom_count }}
-                </v-chip>
-              </template>
-            </v-list-item>
-          </template>
-          <template #chip="{ item }">
-            <v-chip>
-              <PlatformIcon
-                :key="item.raw.slug"
-                :slug="item.raw.slug"
-                :name="item.raw.name"
-                :fs-slug="item.raw.fs_slug"
-                :size="20"
-                class="mr-2"
-              />
-              {{ item.raw.name }}
-            </v-chip>
-          </template>
-        </v-autocomplete>
+      <v-list-item v-if="showPlatformsFilter">
+        <FilterPlatformBtn :tabindex="activeFilterDrawer ? 0 : -1" />
       </v-list-item>
       <v-list-item
         v-for="filter in filters"
         :key="filter.label"
         :tabindex="activeFilterDrawer ? 0 : -1"
+        class="py-2"
       >
-        <v-autocomplete
-          v-model="filter.selected.value"
-          :tabindex="activeFilterDrawer ? 0 : -1"
-          hide-details
-          clearable
-          :label="filter.label"
-          variant="solo-filled"
-          density="comfortable"
-          :items="filter.items.value"
-          @update:model-value="
-            nextTick(() => emitter?.emit('filterRoms', null))
-          "
-        />
+        <div class="d-flex align-center ga-2 w-100">
+          <v-select
+            v-model="filter.selected.value"
+            :tabindex="activeFilterDrawer ? 0 : -1"
+            hide-details
+            clearable
+            multiple
+            chips
+            closable-chips
+            :label="filter.label"
+            variant="outlined"
+            density="comfortable"
+            :items="filter.items.value"
+            class="flex-grow-1"
+            @update:model-value="
+              nextTick(() => emitter?.emit('filterRoms', null))
+            "
+          />
+          <!-- AND/OR Logic Toggle - always visible -->
+          <v-btn-toggle
+            :model-value="filter.logic.value"
+            mandatory
+            variant="outlined"
+            density="compact"
+            class="flex-shrink-0"
+            @update:model-value="
+              (value) => {
+                filter.setLogic(value);
+                nextTick(() => emitter?.emit('filterRoms', null));
+              }
+            "
+          >
+            <v-tooltip
+              :text="t('platform.match-any-logic')"
+              location="bottom"
+              open-delay="500"
+            >
+              <template #activator="{ props }">
+                <v-btn value="any" size="small" v-bind="props">
+                  <v-icon size="x-large">mdi-set-all</v-icon>
+                </v-btn>
+              </template>
+            </v-tooltip>
+            <v-tooltip
+              :text="t('platform.match-all-logic')"
+              location="bottom"
+              open-delay="500"
+            >
+              <template #activator="{ props }">
+                <v-btn value="all" size="small" v-bind="props">
+                  <v-icon size="x-large">mdi-set-center</v-icon>
+                </v-btn>
+              </template>
+            </v-tooltip>
+            <v-tooltip
+              :text="t('platform.match-none-logic')"
+              location="bottom"
+              open-delay="500"
+            >
+              <template #activator="{ props }">
+                <v-btn value="none" size="small" v-bind="props">
+                  <v-icon size="x-large">mdi-set-none</v-icon>
+                </v-btn>
+              </template>
+            </v-tooltip>
+          </v-btn-toggle>
+        </div>
       </v-list-item>
       <v-list-item
         class="justify-center d-flex"

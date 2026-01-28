@@ -1,4 +1,4 @@
-"""empty message
+"""Change igdb_id and sgdb_id to integer
 
 Revision ID: 0010_igdb_id_integerr
 Revises: 0009_models_refactor

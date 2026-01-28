@@ -8,7 +8,6 @@ import type {
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import type { GetRomsParams } from "@/services/api/rom";
 import cacheService from "@/services/cache";
-import { getStatusKeyForText } from "@/utils";
 
 class CachedApiService {
   private createRequestConfig(
@@ -30,7 +29,10 @@ class CachedApiService {
     onBackgroundUpdate: (data: GetRomsResponse) => void,
   ): Promise<AxiosResponse<GetRomsResponse>> {
     const config = this.createRequestConfig("GET", "/roms", {
-      platform_id: params.platformId,
+      platform_ids:
+        params.platformIds && params.platformIds.length > 0
+          ? params.platformIds
+          : undefined,
       collection_id: params.collectionId,
       virtual_collection_id: params.virtualCollectionId,
       smart_collection_id: params.smartCollectionId,
@@ -40,22 +42,98 @@ class CachedApiService {
       order_by: params.orderBy,
       order_dir: params.orderDir,
       group_by_meta_id: params.groupByMetaId,
-      selected_genre: params.selectedGenre,
-      selected_franchise: params.selectedFranchise,
-      selected_collection: params.selectedCollection,
-      selected_company: params.selectedCompany,
-      selected_age_rating: params.selectedAgeRating,
-      selected_status: getStatusKeyForText(params.selectedStatus ?? null),
-      selected_region: params.selectedRegion,
-      selected_language: params.selectedLanguage,
-      ...(params.filterUnmatched ? { matched: false } : {}),
-      ...(params.filterMatched ? { matched: true } : {}),
-      ...(params.filterFavorites ? { favorite: true } : {}),
-      ...(params.filterDuplicates ? { duplicate: true } : {}),
-      ...(params.filterPlayables ? { playable: true } : {}),
-      ...(params.filterMissing ? { missing: true } : {}),
-      ...(params.filterRA ? { has_ra: true } : {}),
-      ...(params.filterVerified ? { verified: true } : {}),
+      genres:
+        params.selectedGenres && params.selectedGenres.length > 0
+          ? params.selectedGenres
+          : undefined,
+      franchises:
+        params.selectedFranchises && params.selectedFranchises.length > 0
+          ? params.selectedFranchises
+          : undefined,
+      collections:
+        params.selectedCollections && params.selectedCollections.length > 0
+          ? params.selectedCollections
+          : undefined,
+      companies:
+        params.selectedCompanies && params.selectedCompanies.length > 0
+          ? params.selectedCompanies
+          : undefined,
+      age_ratings:
+        params.selectedAgeRatings && params.selectedAgeRatings.length > 0
+          ? params.selectedAgeRatings
+          : undefined,
+      statuses:
+        params.selectedStatuses && params.selectedStatuses.length > 0
+          ? params.selectedStatuses
+          : undefined,
+      regions:
+        params.selectedRegions && params.selectedRegions.length > 0
+          ? params.selectedRegions
+          : undefined,
+      languages:
+        params.selectedLanguages && params.selectedLanguages.length > 0
+          ? params.selectedLanguages
+          : undefined,
+      player_counts:
+        params.selectedPlayerCounts && params.selectedPlayerCounts.length > 0
+          ? params.selectedPlayerCounts
+          : undefined,
+      // Logic operators
+      genres_logic:
+        params.selectedGenres && params.selectedGenres.length > 0
+          ? params.genresLogic || "any"
+          : undefined,
+      franchises_logic:
+        params.selectedFranchises && params.selectedFranchises.length > 0
+          ? params.franchisesLogic || "any"
+          : undefined,
+      collections_logic:
+        params.selectedCollections && params.selectedCollections.length > 0
+          ? params.collectionsLogic || "any"
+          : undefined,
+      companies_logic:
+        params.selectedCompanies && params.selectedCompanies.length > 0
+          ? params.companiesLogic || "any"
+          : undefined,
+      age_ratings_logic:
+        params.selectedAgeRatings && params.selectedAgeRatings.length > 0
+          ? params.ageRatingsLogic || "any"
+          : undefined,
+      regions_logic:
+        params.selectedRegions && params.selectedRegions.length > 0
+          ? params.regionsLogic || "any"
+          : undefined,
+      languages_logic:
+        params.selectedLanguages && params.selectedLanguages.length > 0
+          ? params.languagesLogic || "any"
+          : undefined,
+      statuses_logic:
+        params.selectedStatuses && params.selectedStatuses.length > 0
+          ? params.statusesLogic || "any"
+          : undefined,
+      player_counts_logic:
+        params.selectedPlayerCounts && params.selectedPlayerCounts.length > 0
+          ? params.playerCountsLogic || "any"
+          : undefined,
+      ...(params.filterMatched !== null
+        ? { matched: params.filterMatched }
+        : {}),
+      ...(params.filterFavorites !== null
+        ? { favorite: params.filterFavorites }
+        : {}),
+      ...(params.filterDuplicates !== null
+        ? { duplicate: params.filterDuplicates }
+        : {}),
+      ...(params.filterPlayables !== null
+        ? { playable: params.filterPlayables }
+        : {}),
+      ...(params.filterMissing !== null
+        ? { missing: params.filterMissing }
+        : {}),
+      ...(params.filterRA !== null ? { has_ra: params.filterRA } : {}),
+      ...(params.filterVerified !== null
+        ? { verified: params.filterVerified }
+        : {}),
     });
 
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
@@ -69,6 +147,7 @@ class CachedApiService {
       order_dir: "desc",
       limit: 15,
       with_char_index: false,
+      with_filter_values: false,
     });
 
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
@@ -82,6 +161,8 @@ class CachedApiService {
       order_dir: "desc",
       limit: 15,
       with_char_index: false,
+      with_filter_values: false,
+      last_played: true,
     });
 
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
@@ -98,6 +179,7 @@ class CachedApiService {
       order_dir: "desc",
       limit: 15,
       with_char_index: false,
+      with_filter_values: false,
     });
   }
 
@@ -107,6 +189,8 @@ class CachedApiService {
       order_dir: "desc",
       limit: 15,
       with_char_index: false,
+      with_filter_values: false,
+      last_played: true,
     });
   }
 
