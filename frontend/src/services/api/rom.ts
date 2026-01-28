@@ -5,6 +5,7 @@ import type {
   RomUserSchema,
   UserNoteSchema,
   WalkthroughSchema,
+  RomFiltersDict,
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
@@ -170,7 +171,7 @@ async function getRoms({
       selectedAgeRatings && selectedAgeRatings.length > 0
         ? selectedAgeRatings
         : undefined,
-    selected_statuses:
+    statuses:
       selectedStatuses && selectedStatuses.length > 0
         ? selectedStatuses
         : undefined,
@@ -188,39 +189,39 @@ async function getRoms({
         : undefined,
     // Logic operators
     genres_logic:
-      selectedGenres && selectedGenres.length > 1
+      selectedGenres && selectedGenres.length > 0
         ? genresLogic || "any"
         : undefined,
     franchises_logic:
-      selectedFranchises && selectedFranchises.length > 1
+      selectedFranchises && selectedFranchises.length > 0
         ? franchisesLogic || "any"
         : undefined,
     collections_logic:
-      selectedCollections && selectedCollections.length > 1
+      selectedCollections && selectedCollections.length > 0
         ? collectionsLogic || "any"
         : undefined,
     companies_logic:
-      selectedCompanies && selectedCompanies.length > 1
+      selectedCompanies && selectedCompanies.length > 0
         ? companiesLogic || "any"
         : undefined,
     age_ratings_logic:
-      selectedAgeRatings && selectedAgeRatings.length > 1
+      selectedAgeRatings && selectedAgeRatings.length > 0
         ? ageRatingsLogic || "any"
         : undefined,
     regions_logic:
-      selectedRegions && selectedRegions.length > 1
+      selectedRegions && selectedRegions.length > 0
         ? regionsLogic || "any"
         : undefined,
     languages_logic:
-      selectedLanguages && selectedLanguages.length > 1
+      selectedLanguages && selectedLanguages.length > 0
         ? languagesLogic || "any"
         : undefined,
     statuses_logic:
-      selectedStatuses && selectedStatuses.length > 1
+      selectedStatuses && selectedStatuses.length > 0
         ? statusesLogic || "any"
         : undefined,
     player_counts_logic:
-      selectedPlayerCounts && selectedPlayerCounts.length > 1
+      selectedPlayerCounts && selectedPlayerCounts.length > 0
         ? playerCountsLogic || "any"
         : undefined,
     ...(filterMatched !== null ? { matched: filterMatched } : {}),
@@ -247,6 +248,7 @@ async function getRecentRoms(): Promise<{ data: GetRomsResponse }> {
       order_dir: "desc",
       limit: RECENT_ROMS_LIMIT,
       with_char_index: false,
+      with_filter_values: false,
     },
   });
 }
@@ -258,6 +260,7 @@ async function getRecentPlayedRoms(): Promise<{ data: GetRomsResponse }> {
       order_dir: "desc",
       limit: RECENT_PLAYED_ROMS_LIMIT,
       with_char_index: false,
+      with_filter_values: false,
       last_played: true,
     },
   });
@@ -584,6 +587,10 @@ async function getRomNotes({
   });
 }
 
+async function getRomFilters(): Promise<{ data: RomFiltersDict }> {
+  return api.get("/roms/filters");
+}
+
 export default {
   uploadRoms,
   getRoms,
@@ -603,4 +610,5 @@ export default {
   updateRomNote,
   deleteRomNote,
   getRomNotes,
+  getRomFilters,
 };

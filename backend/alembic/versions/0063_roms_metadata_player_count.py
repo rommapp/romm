@@ -98,14 +98,6 @@ def upgrade():
                         '[]'::jsonb
                     ) AS age_ratings,
 
-                    COALESCE(
-                        NULLIF(r.manual_metadata ->> 'player_count', '1'),
-                        NULLIF(r.ss_metadata ->> 'player_count', '1'),
-                        NULLIF(r.igdb_metadata ->> 'player_count', '1'),
-                        NULLIF(r.gamelist_metadata ->> 'player_count', '1'),
-                        '1'
-                    ) AS player_count,
-
                     CASE
                         WHEN r.manual_metadata IS NOT NULL AND r.manual_metadata ? 'first_release_date' AND
                             r.manual_metadata ->> 'first_release_date' NOT IN ('null', 'None', '0', '0.0') AND
@@ -155,7 +147,15 @@ def upgrade():
                             CASE WHEN launchbox_rating IS NOT NULL THEN 1 ELSE 0 END +
                             CASE WHEN gamelist_rating IS NOT NULL THEN 1 ELSE 0 END)
                         ELSE NULL
-                    END AS average_rating
+                    END AS average_rating,
+
+                    COALESCE(
+                        NULLIF(r.manual_metadata ->> 'player_count', '1'),
+                        NULLIF(r.ss_metadata ->> 'player_count', '1'),
+                        NULLIF(r.igdb_metadata ->> 'player_count', '1'),
+                        NULLIF(r.gamelist_metadata ->> 'player_count', '1'),
+                        '1'
+                    ) AS player_count
                 FROM (
                     SELECT
                         r.id,
@@ -283,14 +283,6 @@ def upgrade():
                             JSON_ARRAY()
                         ) AS age_ratings,
 
-                        COALESCE(
-                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.manual_metadata, '$.player_count')), '1'),
-                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.player_count')), '1'),
-                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.player_count')), '1'),
-                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.player_count')), '1'),
-                            '1'
-                        ) AS player_count,
-
                         CASE
                             WHEN JSON_CONTAINS_PATH(r.manual_metadata, 'one', '$.first_release_date') AND
                                 JSON_UNQUOTE(JSON_EXTRACT(r.manual_metadata, '$.first_release_date')) NOT IN ('null', 'None', '0', '0.0') AND
@@ -344,7 +336,15 @@ def upgrade():
                                 CASE WHEN launchbox_rating IS NOT NULL THEN 1 ELSE 0 END +
                                 CASE WHEN gamelist_rating IS NOT NULL THEN 1 ELSE 0 END)
                             ELSE NULL
-                        END AS average_rating
+                        END AS average_rating,
+
+                        COALESCE(
+                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.manual_metadata, '$.player_count')), '1'),
+                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.player_count')), '1'),
+                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.player_count')), '1'),
+                            NULLIF(JSON_UNQUOTE(JSON_EXTRACT(r.gamelist_metadata, '$.player_count')), '1'),
+                            '1'
+                        ) AS player_count
                     FROM (
                         SELECT
                             id,

@@ -1,8 +1,9 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import Body
 from fastapi import Path as PathVar
-from fastapi import Request, status
+from fastapi import Query, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.platform import PlatformSchema
@@ -15,6 +16,7 @@ from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.platform import Platform
 from utils.platforms import get_supported_platforms
 from utils.router import APIRouter
 
@@ -48,12 +50,33 @@ async def add_platform(
 
 
 @protected_route(router.get, "", [Scope.PLATFORMS_READ])
-def get_platforms(request: Request) -> list[PlatformSchema]:
+def get_platforms(
+    request: Request,
+    updated_after: Annotated[
+        datetime | None,
+        Query(
+            description="Filter platforms updated after this datetime (ISO 8601 format with timezone information)."
+        ),
+    ] = None,
+) -> list[PlatformSchema]:
     """Retrieve platforms."""
 
     return [
-        PlatformSchema.model_validate(p) for p in db_platform_handler.get_platforms()
+        PlatformSchema.model_validate(p)
+        for p in db_platform_handler.get_platforms(updated_after=updated_after)
     ]
+
+
+@protected_route(router.get, "/identifiers", [Scope.PLATFORMS_READ])
+def get_platform_identifiers(
+    request: Request,
+) -> list[int]:
+    """Retrieve platform identifiers."""
+
+    platforms = db_platform_handler.get_platforms(
+        only_fields=[Platform.id],
+    )
+    return [p.id for p in platforms]
 
 
 @protected_route(router.get, "/supported", [Scope.PLATFORMS_READ])

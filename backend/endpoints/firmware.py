@@ -125,6 +125,24 @@ def get_platform_firmware(
     ]
 
 
+@protected_route(router.get, "/identifiers", [Scope.FIRMWARE_READ])
+def get_firmware_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get firmware identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of firmware IDs
+    """
+    firmware = db_firmware_handler.list_firmware(
+        only_fields=[Firmware.id],
+    )
+    return [f.id for f in firmware]
+
+
 @protected_route(
     router.get,
     "/{id}",

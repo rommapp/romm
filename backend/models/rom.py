@@ -48,6 +48,7 @@ class RomFileCategory(enum.StrEnum):
     DEMO = "demo"
     TRANSLATION = "translation"
     PROTOTYPE = "prototype"
+    CHEAT = "cheat"
 
 
 class SiblingRom(BaseModel):

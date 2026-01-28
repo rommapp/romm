@@ -43,6 +43,7 @@ from endpoints.responses import BulkOperationResponse
 from endpoints.responses.rom import (
     DetailedRomSchema,
     RomFileSchema,
+    RomFiltersDict,
     RomUserSchema,
     SimpleRomSchema,
     UserNoteSchema,
@@ -65,7 +66,7 @@ from handler.metadata.ss_handler import get_preferred_media_types
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom
+from models.rom import Rom, RomNote
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
@@ -186,6 +187,7 @@ class CustomLimitOffsetParams(LimitOffsetParams):
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     char_index: dict[str, int]
     rom_id_index: list[int]
+    filter_values: RomFiltersDict
     __params_type__ = CustomLimitOffsetParams
 
 
@@ -195,6 +197,9 @@ def get_roms(
     with_char_index: Annotated[
         bool,
         Query(description="Whether to get the char index."),
+    ] = True,
+    with_filter_values: Annotated[
+        bool, Query(description="Whether to return filter values.")
     ] = True,
     search_term: Annotated[
         str | None,
@@ -306,7 +311,7 @@ def get_roms(
             ),
         ),
     ] = None,
-    selected_statuses: Annotated[
+    statuses: Annotated[
         list[str] | None,
         Query(
             description=(
@@ -346,55 +351,55 @@ def get_roms(
     genres_logic: Annotated[
         str,
         Query(
-            description="Logic operator for genres filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for genres filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     franchises_logic: Annotated[
         str,
         Query(
-            description="Logic operator for franchises filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for franchises filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     collections_logic: Annotated[
         str,
         Query(
-            description="Logic operator for collections filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for collections filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     companies_logic: Annotated[
         str,
         Query(
-            description="Logic operator for companies filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for companies filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     age_ratings_logic: Annotated[
         str,
         Query(
-            description="Logic operator for age ratings filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for age ratings filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     regions_logic: Annotated[
         str,
         Query(
-            description="Logic operator for regions filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for regions filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     languages_logic: Annotated[
         str,
         Query(
-            description="Logic operator for languages filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for languages filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     statuses_logic: Annotated[
         str,
         Query(
-            description="Logic operator for statuses filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for statuses filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     player_counts_logic: Annotated[
         str,
         Query(
-            description="Logic operator for player counts filter: 'any' (OR) or 'all' (AND).",
+            description="Logic operator for player counts filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
         ),
     ] = "any",
     order_by: Annotated[
@@ -405,9 +410,15 @@ def get_roms(
         str,
         Query(description="Order direction, either 'asc' or 'desc'."),
     ] = "asc",
+    updated_after: Annotated[
+        datetime | None,
+        Query(
+            description="Filter roms updated after this datetime (ISO 8601 format with timezone information)."
+        ),
+    ] = None,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
-    query, order_by_attr = db_rom_handler.get_roms_query(
+    unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
@@ -415,7 +426,7 @@ def get_roms(
 
     # Filter down the query
     query = db_rom_handler.filter_roms(
-        query=query,
+        query=unfiltered_query,
         user_id=request.user.id,
         platform_ids=platform_ids,
         collection_id=collection_id,
@@ -435,7 +446,7 @@ def get_roms(
         collections=collections,
         companies=companies,
         age_ratings=age_ratings,
-        selected_statuses=selected_statuses,
+        statuses=statuses,
         regions=regions,
         languages=languages,
         player_counts=player_counts,
@@ -450,6 +461,7 @@ def get_roms(
         statuses_logic=statuses_logic,
         player_counts_logic=player_counts_logic,
         group_by_meta_id=group_by_meta_id,
+        updated_after=updated_after,
     )
 
     # Get the char index for the roms
@@ -459,6 +471,33 @@ def get_roms(
             query=query, order_by_attr=order_by_attr
         )
         char_index_dict = {char: index for (char, index) in char_index}
+
+    filter_values = RomFiltersDict(
+        genres=[],
+        franchises=[],
+        collections=[],
+        companies=[],
+        game_modes=[],
+        age_ratings=[],
+        player_counts=[],
+        regions=[],
+        languages=[],
+        platforms=[],
+    )
+    if with_filter_values:
+        # We use the unfiltered query so applied filters don't affect the list
+        filter_query = db_rom_handler.filter_roms(
+            query=unfiltered_query,
+            user_id=request.user.id,
+            platform_ids=platform_ids,
+            collection_id=collection_id,
+            virtual_collection_id=virtual_collection_id,
+            smart_collection_id=smart_collection_id,
+            search_term=search_term,
+        )
+        query_filters = db_rom_handler.with_filter_values(query=filter_query)
+        # trunk-ignore(mypy/typeddict-item)
+        filter_values = RomFiltersDict(**query_filters)
 
     # Get all ROM IDs in order for the additional data
     with sync_session.begin() as session:
@@ -473,8 +512,22 @@ def get_roms(
             additional_data={
                 "char_index": char_index_dict,
                 "rom_id_index": rom_id_index,
+                "filter_values": filter_values,
             },
         )
+
+
+@protected_route(router.get, "/identifiers", [Scope.ROMS_READ])
+def get_rom_identifiers(
+    request: Request,
+) -> list[int]:
+    """Retrieve rom identifiers."""
+    db_roms = db_rom_handler.get_roms_scalar(
+        user_id=request.user.id,
+        only_fields=[Rom.id],
+    )
+
+    return [r.id for r in db_roms]
 
 
 @protected_route(
@@ -669,6 +722,15 @@ def get_rom_by_hash(
         )
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(router.get, "/filters", [Scope.ROMS_READ])
+async def get_rom_filters(request: Request) -> RomFiltersDict:
+    from handler.database import db_rom_handler
+
+    filters = db_rom_handler.get_rom_filters()
+    # trunk-ignore(mypy/typeddict-item)
+    return RomFiltersDict(**filters)
 
 
 @protected_route(
@@ -1009,7 +1071,9 @@ async def update_rom(
             safe_int_or_none(data["tgdb_id"]) if "tgdb_id" in data else rom.tgdb_id
         ),
         "flashpoint_id": (
-            data["flashpoint_id"] if "flashpoint_id" in data else rom.flashpoint_id
+            data["flashpoint_id"] or None
+            if "flashpoint_id" in data
+            else rom.flashpoint_id
         ),
         "hltb_id": (
             safe_int_or_none(data["hltb_id"]) if "hltb_id" in data else rom.hltb_id
@@ -1502,7 +1566,7 @@ async def update_rom_user(
 
 @protected_route(
     router.get,
-    "files/{id}",
+    "/files/{id}",
     [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
@@ -1586,8 +1650,6 @@ async def get_rom_notes(
     tags: list[str] = DEFAULT_TAGS,
 ) -> list[UserNoteSchema]:
     """Get all notes for a ROM."""
-    from handler.database import db_rom_handler
-
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -1607,6 +1669,30 @@ async def get_rom_notes(
 
 
 @protected_route(
+    router.get,
+    "/{id}/notes/identifiers",
+    [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def get_rom_note_identifiers(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> list[int]:
+    """Get all note identifiers for a ROM."""
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    notes = db_rom_handler.get_rom_notes(
+        rom_id=id,
+        user_id=request.user.id,
+        only_fields=[RomNote.id],
+    )
+
+    return [note.id for note in notes]
+
+
+@protected_route(
     router.post,
     "/{id}/notes",
     [Scope.ROMS_USER_WRITE],
@@ -1618,8 +1704,6 @@ async def create_rom_note(
     note_data: Annotated[dict, Body()],
 ) -> UserNoteSchema:
     """Create a new note for a ROM."""
-    from handler.database import db_rom_handler
-
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -1651,8 +1735,6 @@ async def update_rom_note(
     note_data: Annotated[dict, Body()],
 ) -> UserNoteSchema:
     """Update a ROM note."""
-    from handler.database import db_rom_handler
-
     note = db_rom_handler.update_rom_note(
         note_id=note_id,
         user_id=request.user.id,
@@ -1685,8 +1767,6 @@ async def delete_rom_note(
     note_id: Annotated[int, PathVar(description="Note id.", ge=1)],
 ) -> dict:
     """Delete a ROM note."""
-    from handler.database import db_rom_handler
-
     success = db_rom_handler.delete_rom_note(note_id=note_id, user_id=request.user.id)
 
     if not success:

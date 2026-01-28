@@ -2,7 +2,7 @@
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, nextTick, onMounted, ref, watch } from "vue";
+import { inject, nextTick, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -15,10 +15,11 @@ import FilterPlatformBtn from "@/components/Gallery/AppBar/common/FilterDrawer/F
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
 import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
-import cachedApiService from "@/services/cache/api";
-import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryFilter, {
+  type FilterLogicOperator,
+} from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 
 withDefaults(
@@ -79,13 +80,16 @@ const {
   selectedPlayerCounts,
   playerCountsLogic,
 } = storeToRefs(galleryFilterStore);
-const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const onFilterChange = debounce(
   () => {
     romsStore.resetPagination();
-    romsStore.fetchRoms({ galleryFilter: galleryFilterStore, concat: false });
+    romsStore.fetchRoms({
+      galleryFilter: galleryFilterStore,
+      platformsStore: platformsStore,
+      concat: false,
+    });
 
     const url = new URL(window.location.href);
     // Update URL with filters
@@ -110,49 +114,49 @@ const onFilterChange = debounce(
           : null,
       genres:
         selectedGenres.value.length > 0 ? selectedGenres.value.join(",") : null,
-      genresLogic: selectedGenres.value.length > 1 ? genresLogic.value : null,
+      genresLogic: selectedGenres.value.length > 0 ? genresLogic.value : null,
       franchises:
         selectedFranchises.value.length > 0
           ? selectedFranchises.value.join(",")
           : null,
       franchisesLogic:
-        selectedFranchises.value.length > 1 ? franchisesLogic.value : null,
+        selectedFranchises.value.length > 0 ? franchisesLogic.value : null,
       collections:
         selectedCollections.value.length > 0
           ? selectedCollections.value.join(",")
           : null,
       collectionsLogic:
-        selectedCollections.value.length > 1 ? collectionsLogic.value : null,
+        selectedCollections.value.length > 0 ? collectionsLogic.value : null,
       companies:
         selectedCompanies.value.length > 0
           ? selectedCompanies.value.join(",")
           : null,
       companiesLogic:
-        selectedCompanies.value.length > 1 ? companiesLogic.value : null,
+        selectedCompanies.value.length > 0 ? companiesLogic.value : null,
       ageRatings:
         selectedAgeRatings.value.length > 0
           ? selectedAgeRatings.value.join(",")
           : null,
       ageRatingsLogic:
-        selectedAgeRatings.value.length > 1 ? ageRatingsLogic.value : null,
+        selectedAgeRatings.value.length > 0 ? ageRatingsLogic.value : null,
       regions:
         selectedRegions.value.length > 0
           ? selectedRegions.value.join(",")
           : null,
       regionsLogic:
-        selectedRegions.value.length > 1 ? regionsLogic.value : null,
+        selectedRegions.value.length > 0 ? regionsLogic.value : null,
       languages:
         selectedLanguages.value.length > 0
           ? selectedLanguages.value.join(",")
           : null,
       languagesLogic:
-        selectedLanguages.value.length > 1 ? languagesLogic.value : null,
+        selectedLanguages.value.length > 0 ? languagesLogic.value : null,
       statuses:
         selectedStatuses.value.length > 0
           ? selectedStatuses.value.join(",")
           : null,
       statusesLogic:
-        selectedStatuses.value.length > 1 ? statusesLogic.value : null,
+        selectedStatuses.value.length > 0 ? statusesLogic.value : null,
       playerCounts:
         selectedPlayerCounts.value.length > 0
           ? selectedPlayerCounts.value.join(",")
@@ -174,16 +178,6 @@ const onFilterChange = debounce(
   { leading: false, trailing: true },
 );
 
-// Separate debounced function for search term changes
-const onSearchChange = debounce(
-  async () => {
-    await fetchSearchFilteredRoms();
-    setFilters();
-  },
-  500,
-  { leading: false, trailing: true },
-);
-
 emitter?.on("filterRoms", onFilterChange);
 
 const filters = [
@@ -192,7 +186,7 @@ const filters = [
     selected: selectedGenres,
     items: filterGenres,
     logic: genresLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setGenresLogic(logic),
   },
   {
@@ -200,7 +194,7 @@ const filters = [
     selected: selectedFranchises,
     items: filterFranchises,
     logic: franchisesLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setFranchisesLogic(logic),
   },
   {
@@ -208,7 +202,7 @@ const filters = [
     selected: selectedCollections,
     items: filterCollections,
     logic: collectionsLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setCollectionsLogic(logic),
   },
   {
@@ -216,7 +210,7 @@ const filters = [
     selected: selectedCompanies,
     items: filterCompanies,
     logic: companiesLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setCompaniesLogic(logic),
   },
   {
@@ -224,7 +218,7 @@ const filters = [
     selected: selectedAgeRatings,
     items: filterAgeRatings,
     logic: ageRatingsLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setAgeRatingsLogic(logic),
   },
   {
@@ -232,7 +226,7 @@ const filters = [
     selected: selectedRegions,
     items: filterRegions,
     logic: regionsLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setRegionsLogic(logic),
   },
   {
@@ -240,7 +234,7 @@ const filters = [
     selected: selectedLanguages,
     items: filterLanguages,
     logic: languagesLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setLanguagesLogic(logic),
   },
   {
@@ -248,7 +242,7 @@ const filters = [
     selected: selectedPlayerCounts,
     items: filterPlayerCounts,
     logic: playerCountsLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setPlayerCountsLogic(logic),
   },
   {
@@ -256,7 +250,7 @@ const filters = [
     selected: selectedStatuses,
     items: filterStatuses,
     logic: statusesLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setStatusesLogic(logic),
   },
 ];
@@ -264,109 +258,8 @@ const filters = [
 function resetFilters() {
   galleryFilterStore.resetFilters();
   nextTick(async () => {
-    await fetchSearchFilteredRoms();
-    setFilters();
     emitter?.emit("filterRoms", null);
   });
-}
-
-// Store search-filtered ROMs for populating filter options
-let searchFilteredRoms = ref<SimpleRom[]>([]);
-
-async function fetchSearchFilteredRoms() {
-  try {
-    const params = {
-      searchTerm: searchTerm.value,
-      platformIds: romsStore.currentPlatform
-        ? [romsStore.currentPlatform.id]
-        : null,
-      collectionId: romsStore.currentCollection?.id ?? null,
-      virtualCollectionId: romsStore.currentVirtualCollection?.id ?? null,
-      smartCollectionId: romsStore.currentSmartCollection?.id ?? null,
-      limit: 10000, // Get enough ROMs to populate filters
-      offset: 0,
-      orderBy: romsStore.orderBy,
-      orderDir: romsStore.orderDir,
-      // Exclude all other filters to get comprehensive filter options
-      filterMatched: null,
-      filterFavorites: null,
-      filterDuplicates: null,
-      filterPlayables: null,
-      filterRA: null,
-      filterMissing: null,
-      filterVerified: null,
-      // Exclude all multi-value filters to get all possible options
-      selectedGenres: null,
-      selectedFranchises: null,
-      selectedCollections: null,
-      selectedCompanies: null,
-      selectedAgeRatings: null,
-      selectedRegions: null,
-      selectedLanguages: null,
-      selectedStatuses: null,
-    };
-
-    // Fetch ROMs with only search term applied (and current platform/collection context)
-    const response = await cachedApiService.getRoms(params, () => {}); // No background update callback needed
-
-    searchFilteredRoms.value = response.data.items;
-  } catch (error) {
-    console.error("Failed to fetch search-filtered ROMs:", error);
-    // Fall back to current filtered ROMs if search-only fetch fails
-    searchFilteredRoms.value = romsStore.filteredRoms;
-  }
-}
-
-function setFilters() {
-  const romsForFilters =
-    searchFilteredRoms.value.length > 0
-      ? searchFilteredRoms.value
-      : romsStore.filteredRoms;
-
-  galleryFilterStore.setFilterPlatforms([
-    ...new Set(
-      romsForFilters
-        .flatMap((rom) => platformsStore.get(rom.platform_id))
-        .filter((platform) => !!platform)
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterGenres([
-    ...new Set(romsForFilters.flatMap((rom) => rom.metadatum.genres).sort()),
-  ]);
-  galleryFilterStore.setFilterFranchises([
-    ...new Set(
-      romsForFilters.flatMap((rom) => rom.metadatum.franchises).sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCompanies([
-    ...new Set(romsForFilters.flatMap((rom) => rom.metadatum.companies).sort()),
-  ]);
-  galleryFilterStore.setFilterCollections([
-    ...new Set(
-      romsForFilters.flatMap((rom) => rom.metadatum.collections).sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterAgeRatings([
-    ...new Set(
-      romsForFilters.flatMap((rom) => rom.metadatum.age_ratings).sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterRegions([
-    ...new Set(romsForFilters.flatMap((rom) => rom.regions).sort()),
-  ]);
-  galleryFilterStore.setFilterLanguages([
-    ...new Set(romsForFilters.flatMap((rom) => rom.languages).sort()),
-  ]);
-  galleryFilterStore.setFilterPlayerCounts([
-    ...new Set(
-      romsForFilters
-        .map((rom) => rom.metadatum.player_count)
-        .filter((playerCount): playerCount is string => !!playerCount)
-        .sort(),
-    ),
-  ]);
-  // Note: filterStatuses is static and doesn't need to be set dynamically
 }
 
 onMounted(async () => {
@@ -486,7 +379,7 @@ onMounted(async () => {
     const genres = (urlGenres as string).split(",").filter((g) => g.trim());
     galleryFilterStore.setSelectedFilterGenres(genres);
     if (urlGenresLogic !== undefined) {
-      galleryFilterStore.setGenresLogic(urlGenresLogic as "any" | "all");
+      galleryFilterStore.setGenresLogic(urlGenresLogic as FilterLogicOperator);
     }
   }
 
@@ -497,7 +390,7 @@ onMounted(async () => {
     galleryFilterStore.setSelectedFilterFranchises(franchises);
     if (urlFranchisesLogic !== undefined) {
       galleryFilterStore.setFranchisesLogic(
-        urlFranchisesLogic as "any" | "all",
+        urlFranchisesLogic as FilterLogicOperator,
       );
     }
   }
@@ -509,7 +402,7 @@ onMounted(async () => {
     galleryFilterStore.setSelectedFilterCollections(collections);
     if (urlCollectionsLogic !== undefined) {
       galleryFilterStore.setCollectionsLogic(
-        urlCollectionsLogic as "any" | "all",
+        urlCollectionsLogic as FilterLogicOperator,
       );
     }
   }
@@ -520,7 +413,9 @@ onMounted(async () => {
       .filter((c) => c.trim());
     galleryFilterStore.setSelectedFilterCompanies(companies);
     if (urlCompaniesLogic !== undefined) {
-      galleryFilterStore.setCompaniesLogic(urlCompaniesLogic as "any" | "all");
+      galleryFilterStore.setCompaniesLogic(
+        urlCompaniesLogic as FilterLogicOperator,
+      );
     }
   }
 
@@ -531,7 +426,7 @@ onMounted(async () => {
     galleryFilterStore.setSelectedFilterAgeRatings(ageRatings);
     if (urlAgeRatingsLogic !== undefined) {
       galleryFilterStore.setAgeRatingsLogic(
-        urlAgeRatingsLogic as "any" | "all",
+        urlAgeRatingsLogic as FilterLogicOperator,
       );
     }
   }
@@ -540,7 +435,9 @@ onMounted(async () => {
     const regions = (urlRegions as string).split(",").filter((r) => r.trim());
     galleryFilterStore.setSelectedFilterRegions(regions);
     if (urlRegionsLogic !== undefined) {
-      galleryFilterStore.setRegionsLogic(urlRegionsLogic as "any" | "all");
+      galleryFilterStore.setRegionsLogic(
+        urlRegionsLogic as FilterLogicOperator,
+      );
     }
   }
 
@@ -550,7 +447,9 @@ onMounted(async () => {
       .filter((l) => l.trim());
     galleryFilterStore.setSelectedFilterLanguages(languages);
     if (urlLanguagesLogic !== undefined) {
-      galleryFilterStore.setLanguagesLogic(urlLanguagesLogic as "any" | "all");
+      galleryFilterStore.setLanguagesLogic(
+        urlLanguagesLogic as FilterLogicOperator,
+      );
     }
   }
 
@@ -558,7 +457,9 @@ onMounted(async () => {
     const statuses = (urlStatuses as string).split(",").filter((s) => s.trim());
     galleryFilterStore.setSelectedFilterStatuses(statuses);
     if (urlStatusesLogic !== undefined) {
-      galleryFilterStore.setStatusesLogic(urlStatusesLogic as "any" | "all");
+      galleryFilterStore.setStatusesLogic(
+        urlStatusesLogic as FilterLogicOperator,
+      );
     }
   }
 
@@ -569,7 +470,7 @@ onMounted(async () => {
     galleryFilterStore.setSelectedFilterPlayerCounts(playerCounts);
     if (urlPlayerCountsLogic !== undefined) {
       galleryFilterStore.setPlayerCountsLogic(
-        urlPlayerCountsLogic as "any" | "all",
+        urlPlayerCountsLogic as FilterLogicOperator,
       );
     }
   }
@@ -581,33 +482,10 @@ onMounted(async () => {
     romsStore.resetPagination();
   }
 
-  // Initial fetch of search-filtered ROMs for filter options
-  await fetchSearchFilteredRoms();
-  setFilters();
-
   // Fire off search if URL state prepopulated
   if (freshSearch || galleryFilterStore.isFiltered()) {
     emitter?.emit("filterRoms", null);
   }
-
-  // Watch for search term changes to update filter options
-  watch(
-    () => searchTerm.value,
-    async () => {
-      await onSearchChange();
-    },
-    { immediate: false },
-  );
-
-  // Watch for platform changes to update filter options
-  watch(
-    () => allPlatforms.value,
-    async () => {
-      await fetchSearchFilteredRoms();
-      setFilters();
-    },
-    { immediate: false },
-  );
 });
 </script>
 
@@ -700,7 +578,7 @@ onMounted(async () => {
             >
               <template #activator="{ props }">
                 <v-btn value="any" size="small" v-bind="props">
-                  <v-icon size="x-large">mdi-set-none</v-icon>
+                  <v-icon size="x-large">mdi-set-all</v-icon>
                 </v-btn>
               </template>
             </v-tooltip>
@@ -711,7 +589,18 @@ onMounted(async () => {
             >
               <template #activator="{ props }">
                 <v-btn value="all" size="small" v-bind="props">
-                  <v-icon size="x-large">mdi-set-all</v-icon>
+                  <v-icon size="x-large">mdi-set-center</v-icon>
+                </v-btn>
+              </template>
+            </v-tooltip>
+            <v-tooltip
+              :text="t('platform.match-none-logic')"
+              location="bottom"
+              open-delay="500"
+            >
+              <template #activator="{ props }">
+                <v-btn value="none" size="small" v-bind="props">
+                  <v-icon size="x-large">mdi-set-none</v-icon>
                 </v-btn>
               </template>
             </v-tooltip>

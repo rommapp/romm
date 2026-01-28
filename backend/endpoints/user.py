@@ -212,6 +212,23 @@ def get_users(request: Request) -> list[UserSchema]:
     return [UserSchema.model_validate(u) for u in db_user_handler.get_users()]
 
 
+@protected_route(router.get, "/identifiers", [Scope.USERS_READ])
+def get_user_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get all user identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: All user ids stored in the RomM's database
+    """
+
+    users = db_user_handler.get_users(only_fields=[User.id])
+    return [u.id for u in users]
+
+
 @protected_route(router.get, "/me", [Scope.ME_READ])
 def get_current_user(request: Request) -> UserSchema | None:
     """Get current user endpoint

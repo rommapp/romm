@@ -55,6 +55,7 @@
   "show-not-ra-only": "Mostrar apenas ROMs sem RetroAchievements",
   "match-any-logic": "Corresponder a QUALQUER um dos valores selecionados (lógica OU)",
   "match-all-logic": "Corresponder a TODOS os valores selecionados (lógica E)",
+  "match-none-logic": "Não corresponde a NENHUM dos valores selecionados (lógica NOT)",
   "status": "Status",
   "upload-roms": "Carregar ROMs"
 }

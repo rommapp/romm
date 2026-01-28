@@ -128,12 +128,12 @@ class FSHandler:
         # Limit filename length
         if len(filename) > FILE_NAME_MAX_LENGTH:
             raise ValueError(
-                f"Filename exceeds maximum length of {FILE_NAME_MAX_LENGTH} characters"
+                f"Filename {filename} exceeds maximum length of {FILE_NAME_MAX_LENGTH} characters"
             )
 
         # Ensure we have a valid filename
         if not filename or filename == "." or filename == "..":
-            raise ValueError("Invalid filename")
+            raise ValueError(f"Invalid filename {filename}")
 
         return filename
 
@@ -143,11 +143,13 @@ class FSHandler:
 
         # Check for explicit parent directory references
         if ".." in path_path.parts:
-            raise ValueError("Path contains invalid parent directory references")
+            raise ValueError(
+                f"Path {path} contains invalid parent directory references"
+            )
 
         # Check for absolute paths
         if path_path.is_absolute():
-            raise ValueError("Path must be relative, not absolute")
+            raise ValueError(f"Path {path} must be relative, not absolute")
 
         # Normalize path without resolving the full path yet
         base_path_obj = Path(self.base_path).resolve()

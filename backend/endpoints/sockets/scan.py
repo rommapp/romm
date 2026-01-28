@@ -212,7 +212,7 @@ def _should_get_rom_files(
         return False
 
     return bool(
-        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and newly_added)
+        newly_added
         or (scan_type == ScanType.COMPLETE)
         or (scan_type == ScanType.HASHES)
         or (rom and rom.id in roms_ids)
@@ -335,7 +335,13 @@ async def _identify_rom(
         await socket_manager.emit(
             "scan:scanning_rom",
             SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                exclude={"created_at", "updated_at", "rom_user"}
+                exclude={
+                    "created_at",
+                    "updated_at",
+                    "rom_user",
+                    "last_modified",
+                    "files",
+                }
             ),
         )
 
@@ -440,7 +446,7 @@ async def _identify_rom(
     await socket_manager.emit(
         "scan:scanning_rom",
         SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-            exclude={"created_at", "updated_at", "rom_user"}
+            exclude={"created_at", "updated_at", "rom_user", "last_modified", "files"}
         ),
     )
 

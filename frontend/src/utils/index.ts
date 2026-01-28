@@ -122,7 +122,10 @@ export function getDownloadPath({
   if (fileIDs.length > 0) {
     queryParams.append("file_ids", fileIDs.join(","));
   }
-  return `/api/roms/${rom.id}/content/${rom.fs_name}?${queryParams.toString()}`;
+  const queryString = queryParams.toString();
+  return `/api/roms/${rom.id}/content/${rom.fs_name}${
+    queryString ? `?${queryString}` : ""
+  }`;
 }
 
 export function getDownloadLink({

@@ -569,6 +569,7 @@ class ConfigManager:
                     "region": self.config.SCAN_REGION_PRIORITY,
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
+                "media": self.config.SCAN_MEDIA,
             },
         }
 
