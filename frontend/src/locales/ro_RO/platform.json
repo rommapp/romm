@@ -55,6 +55,7 @@
   "show-not-ra-only": "Afișează doar ROM-uri fără RetroAchievements",
   "match-any-logic": "Corespunde ORICĂREIA dintre valorile selectate (logică SAU)",
   "match-all-logic": "Corespunde TUTUROR valorilor selectate (logică ȘI)",
+  "match-none-logic": "Nu se potrivește cu NICIUNA dintre valorile selectate (logica NOT)",
   "status": "Stare",
   "upload-roms": "Încărcare ROM-uri"
 }

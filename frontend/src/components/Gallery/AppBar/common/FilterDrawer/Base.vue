@@ -15,7 +15,9 @@ import FilterPlatformBtn from "@/components/Gallery/AppBar/common/FilterDrawer/F
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
 import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
-import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryFilter, {
+  type FilterLogicOperator,
+} from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -112,49 +114,49 @@ const onFilterChange = debounce(
           : null,
       genres:
         selectedGenres.value.length > 0 ? selectedGenres.value.join(",") : null,
-      genresLogic: selectedGenres.value.length > 1 ? genresLogic.value : null,
+      genresLogic: selectedGenres.value.length > 0 ? genresLogic.value : null,
       franchises:
         selectedFranchises.value.length > 0
           ? selectedFranchises.value.join(",")
           : null,
       franchisesLogic:
-        selectedFranchises.value.length > 1 ? franchisesLogic.value : null,
+        selectedFranchises.value.length > 0 ? franchisesLogic.value : null,
       collections:
         selectedCollections.value.length > 0
           ? selectedCollections.value.join(",")
           : null,
       collectionsLogic:
-        selectedCollections.value.length > 1 ? collectionsLogic.value : null,
+        selectedCollections.value.length > 0 ? collectionsLogic.value : null,
       companies:
         selectedCompanies.value.length > 0
           ? selectedCompanies.value.join(",")
           : null,
       companiesLogic:
-        selectedCompanies.value.length > 1 ? companiesLogic.value : null,
+        selectedCompanies.value.length > 0 ? companiesLogic.value : null,
       ageRatings:
         selectedAgeRatings.value.length > 0
           ? selectedAgeRatings.value.join(",")
           : null,
       ageRatingsLogic:
-        selectedAgeRatings.value.length > 1 ? ageRatingsLogic.value : null,
+        selectedAgeRatings.value.length > 0 ? ageRatingsLogic.value : null,
       regions:
         selectedRegions.value.length > 0
           ? selectedRegions.value.join(",")
           : null,
       regionsLogic:
-        selectedRegions.value.length > 1 ? regionsLogic.value : null,
+        selectedRegions.value.length > 0 ? regionsLogic.value : null,
       languages:
         selectedLanguages.value.length > 0
           ? selectedLanguages.value.join(",")
           : null,
       languagesLogic:
-        selectedLanguages.value.length > 1 ? languagesLogic.value : null,
+        selectedLanguages.value.length > 0 ? languagesLogic.value : null,
       statuses:
         selectedStatuses.value.length > 0
           ? selectedStatuses.value.join(",")
           : null,
       statusesLogic:
-        selectedStatuses.value.length > 1 ? statusesLogic.value : null,
+        selectedStatuses.value.length > 0 ? statusesLogic.value : null,
       playerCounts:
         selectedPlayerCounts.value.length > 0
           ? selectedPlayerCounts.value.join(",")
@@ -184,7 +186,7 @@ const filters = [
     selected: selectedGenres,
     items: filterGenres,
     logic: genresLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setGenresLogic(logic),
   },
   {
@@ -192,7 +194,7 @@ const filters = [
     selected: selectedFranchises,
     items: filterFranchises,
     logic: franchisesLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setFranchisesLogic(logic),
   },
   {
@@ -200,7 +202,7 @@ const filters = [
     selected: selectedCollections,
     items: filterCollections,
     logic: collectionsLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setCollectionsLogic(logic),
   },
   {
@@ -208,7 +210,7 @@ const filters = [
     selected: selectedCompanies,
     items: filterCompanies,
     logic: companiesLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setCompaniesLogic(logic),
   },
   {
@@ -216,7 +218,7 @@ const filters = [
     selected: selectedAgeRatings,
     items: filterAgeRatings,
     logic: ageRatingsLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setAgeRatingsLogic(logic),
   },
   {
@@ -224,7 +226,7 @@ const filters = [
     selected: selectedRegions,
     items: filterRegions,
     logic: regionsLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setRegionsLogic(logic),
   },
   {
@@ -232,7 +234,7 @@ const filters = [
     selected: selectedLanguages,
     items: filterLanguages,
     logic: languagesLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setLanguagesLogic(logic),
   },
   {
@@ -240,7 +242,7 @@ const filters = [
     selected: selectedPlayerCounts,
     items: filterPlayerCounts,
     logic: playerCountsLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setPlayerCountsLogic(logic),
   },
   {
@@ -248,7 +250,7 @@ const filters = [
     selected: selectedStatuses,
     items: filterStatuses,
     logic: statusesLogic,
-    setLogic: (logic: "any" | "all") =>
+    setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setStatusesLogic(logic),
   },
 ];
@@ -377,7 +379,7 @@ onMounted(async () => {
     const genres = (urlGenres as string).split(",").filter((g) => g.trim());
     galleryFilterStore.setSelectedFilterGenres(genres);
     if (urlGenresLogic !== undefined) {
-      galleryFilterStore.setGenresLogic(urlGenresLogic as "any" | "all");
+      galleryFilterStore.setGenresLogic(urlGenresLogic as FilterLogicOperator);
     }
   }
 
@@ -388,7 +390,7 @@ onMounted(async () => {
     galleryFilterStore.setSelectedFilterFranchises(franchises);
     if (urlFranchisesLogic !== undefined) {
       galleryFilterStore.setFranchisesLogic(
-        urlFranchisesLogic as "any" | "all",
+        urlFranchisesLogic as FilterLogicOperator,
       );
     }
   }
@@ -400,7 +402,7 @@ onMounted(async () => {
     galleryFilterStore.setSelectedFilterCollections(collections);
     if (urlCollectionsLogic !== undefined) {
       galleryFilterStore.setCollectionsLogic(
-        urlCollectionsLogic as "any" | "all",
+        urlCollectionsLogic as FilterLogicOperator,
       );
     }
   }
@@ -411,7 +413,9 @@ onMounted(async () => {
       .filter((c) => c.trim());
     galleryFilterStore.setSelectedFilterCompanies(companies);
     if (urlCompaniesLogic !== undefined) {
-      galleryFilterStore.setCompaniesLogic(urlCompaniesLogic as "any" | "all");
+      galleryFilterStore.setCompaniesLogic(
+        urlCompaniesLogic as FilterLogicOperator,
+      );
     }
   }
 
@@ -422,7 +426,7 @@ onMounted(async () => {
     galleryFilterStore.setSelectedFilterAgeRatings(ageRatings);
     if (urlAgeRatingsLogic !== undefined) {
       galleryFilterStore.setAgeRatingsLogic(
-        urlAgeRatingsLogic as "any" | "all",
+        urlAgeRatingsLogic as FilterLogicOperator,
       );
     }
   }
@@ -431,7 +435,9 @@ onMounted(async () => {
     const regions = (urlRegions as string).split(",").filter((r) => r.trim());
     galleryFilterStore.setSelectedFilterRegions(regions);
     if (urlRegionsLogic !== undefined) {
-      galleryFilterStore.setRegionsLogic(urlRegionsLogic as "any" | "all");
+      galleryFilterStore.setRegionsLogic(
+        urlRegionsLogic as FilterLogicOperator,
+      );
     }
   }
 
@@ -441,7 +447,9 @@ onMounted(async () => {
       .filter((l) => l.trim());
     galleryFilterStore.setSelectedFilterLanguages(languages);
     if (urlLanguagesLogic !== undefined) {
-      galleryFilterStore.setLanguagesLogic(urlLanguagesLogic as "any" | "all");
+      galleryFilterStore.setLanguagesLogic(
+        urlLanguagesLogic as FilterLogicOperator,
+      );
     }
   }
 
@@ -449,7 +457,9 @@ onMounted(async () => {
     const statuses = (urlStatuses as string).split(",").filter((s) => s.trim());
     galleryFilterStore.setSelectedFilterStatuses(statuses);
     if (urlStatusesLogic !== undefined) {
-      galleryFilterStore.setStatusesLogic(urlStatusesLogic as "any" | "all");
+      galleryFilterStore.setStatusesLogic(
+        urlStatusesLogic as FilterLogicOperator,
+      );
     }
   }
 
@@ -460,7 +470,7 @@ onMounted(async () => {
     galleryFilterStore.setSelectedFilterPlayerCounts(playerCounts);
     if (urlPlayerCountsLogic !== undefined) {
       galleryFilterStore.setPlayerCountsLogic(
-        urlPlayerCountsLogic as "any" | "all",
+        urlPlayerCountsLogic as FilterLogicOperator,
       );
     }
   }
@@ -568,7 +578,7 @@ onMounted(async () => {
             >
               <template #activator="{ props }">
                 <v-btn value="any" size="small" v-bind="props">
-                  <v-icon size="x-large">mdi-set-none</v-icon>
+                  <v-icon size="x-large">mdi-set-all</v-icon>
                 </v-btn>
               </template>
             </v-tooltip>
@@ -579,7 +589,18 @@ onMounted(async () => {
             >
               <template #activator="{ props }">
                 <v-btn value="all" size="small" v-bind="props">
-                  <v-icon size="x-large">mdi-set-all</v-icon>
+                  <v-icon size="x-large">mdi-set-center</v-icon>
+                </v-btn>
+              </template>
+            </v-tooltip>
+            <v-tooltip
+              :text="t('platform.match-none-logic')"
+              location="bottom"
+              open-delay="500"
+            >
+              <template #activator="{ props }">
+                <v-btn value="none" size="small" v-bind="props">
+                  <v-icon size="x-large">mdi-set-none</v-icon>
                 </v-btn>
               </template>
             </v-tooltip>
