@@ -21,6 +21,7 @@
   "hasheous-requires-hashes": "Hasheous richiede che il calcolo degli hash sia abilitato",
   "retroachievements-requires-hashes": "RetroAchievements richiede che il calcolo degli hash sia abilitato",
   "manage-library": "Gestisci libreria",
+  "launchbox-remote": "Launchbox",
   "metadata-sources": "Fonti metadati",
   "new-platforms": "Nuove piattaforme",
   "new-platforms-desc": "Scansiona solo le nuove piattaforme (più veloce)",

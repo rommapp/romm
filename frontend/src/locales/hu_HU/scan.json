@@ -21,6 +21,7 @@
   "hasheous-requires-hashes": "A Hasheous megköveteli a hash számítás engedélyezését",
   "retroachievements-requires-hashes": "A RetroAchievements-hez engedélyezni kell a hash-számítást.",
   "manage-library": "Könyvtár Menedzsment",
+  "launchbox-remote": "Launchbox",
   "metadata-sources": "Metaadat források",
   "new-platforms": "Új platformok",
   "new-platforms-desc": "Csak új platformokat szkenneljen (leggyorsabb)",

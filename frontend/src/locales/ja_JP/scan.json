@@ -20,6 +20,7 @@
   "hash-calculation-disabled": "ハッシュ計算が無効になっています",
   "hasheous-requires-hashes": "Hasheousはファイルハッシュが必要です",
   "manage-library": "ライブラリを編集",
+  "launchbox-remote": "Launchbox",
   "metadata-sources": "メタデータ取得元",
   "new-platforms": "新規プラットフォーム",
   "new-platforms-desc": "新規プラットフォームのみを検索 (最速)",
