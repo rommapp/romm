@@ -214,10 +214,7 @@ watch(
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
-            <v-tab
-              v-if="(currentRom as any).walkthroughs?.length"
-              value="walkthroughs"
-            >
+            <v-tab v-if="currentRom.walkthroughs?.length" value="walkthroughs">
               Walkthroughs
             </v-tab>
             <v-tab v-if="currentRom.hltb_id" value="timetobeat">
@@ -265,7 +262,7 @@ watch(
                 <Personal :rom="currentRom" />
               </v-window-item>
               <v-window-item
-                v-if="(currentRom as any).walkthroughs?.length"
+                v-if="currentRom.walkthroughs?.length"
                 value="walkthroughs"
               >
                 <Walkthroughs :rom="currentRom as any" />

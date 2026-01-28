@@ -9,10 +9,6 @@ const props = defineProps<{
   rom: DetailedRom;
 }>();
 
-const walkthroughs = computed<Walkthrough[]>(
-  () => (props.rom.walkthroughs || []) as Walkthrough[],
-);
-
 const openPanels = ref<number[]>([]);
 
 const isOpen = (id: number) => openPanels.value.includes(id);
@@ -20,14 +16,14 @@ const isOpen = (id: number) => openPanels.value.includes(id);
 
 <template>
   <v-alert
-    v-if="!walkthroughs.length"
+    v-if="!rom.walkthroughs.length"
     type="info"
     variant="tonal"
     text="No walkthroughs saved for this ROM."
   />
   <v-expansion-panels v-else v-model="openPanels" multiple>
     <v-expansion-panel
-      v-for="wt in walkthroughs"
+      v-for="wt in rom.walkthroughs"
       :key="wt.id"
       :value="wt.id"
       elevation="0"

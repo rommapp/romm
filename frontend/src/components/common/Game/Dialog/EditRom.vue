@@ -420,7 +420,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           />
           <WalkthroughPanel
             :rom-id="rom.id"
-            :initial-walkthroughs="(rom as any).walkthroughs || []"
+            :initial-walkthroughs="rom.walkthroughs"
           />
         </v-expansion-panels>
       </v-form>
