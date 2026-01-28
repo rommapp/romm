@@ -13,6 +13,7 @@ from handler.scan_handler import scan_save, scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.assets import Save
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -149,6 +150,26 @@ def get_saves(
     )
 
     return [SaveSchema.model_validate(save) for save in saves]
+
+
+@protected_route(router.get, "/identifiers", [Scope.ASSETS_READ])
+def get_save_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get save identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of save IDs
+    """
+    saves = db_save_handler.get_saves(
+        user_id=request.user.id,
+        only_fields=[Save.id],
+    )
+
+    return [save.id for save in saves]
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])

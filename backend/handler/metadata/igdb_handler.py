@@ -746,7 +746,7 @@ class IGDBHandler(MetadataHandler):
             )
             matched_roms.extend(alternative_roms)
 
-        # Use a dictionary to keep track of unique ids
+        # Use a dictionary to keep track of unique IDs
         unique_ids: dict[int, Game] = {}
 
         # Use a list comprehension to filter duplicates based on the 'id' key

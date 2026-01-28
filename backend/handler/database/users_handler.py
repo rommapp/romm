@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from sqlalchemy import and_, delete, func, not_, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import QueryableAttribute, Session, load_only
 from sqlalchemy.sql import Delete, Select, Update
 
 from decorators.database import begin_session
@@ -94,6 +94,7 @@ class DBUsersHandler(DBBaseHandler):
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
         has_ra_username: bool | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[User]:
         query = self.filter(
@@ -103,6 +104,10 @@ class DBUsersHandler(DBBaseHandler):
             roles=roles,
             has_ra_username=has_ra_username,
         )
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
+
         return session.scalars(query).all()
 
     @begin_session
