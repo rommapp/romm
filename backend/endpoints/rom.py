@@ -8,6 +8,7 @@ from typing import Annotated, Any
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
+import pydash
 from anyio import Path, open_file
 from fastapi import (
     Body,
@@ -42,6 +43,7 @@ from endpoints.responses import BulkOperationResponse
 from endpoints.responses.rom import (
     DetailedRomSchema,
     RomFileSchema,
+    RomFiltersDict,
     RomUserSchema,
     SimpleRomSchema,
     UserNoteSchema,
@@ -52,7 +54,6 @@ from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
-from handler.filesystem.base_handler import CoverSize
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
@@ -65,7 +66,7 @@ from handler.metadata.ss_handler import get_preferred_media_types
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom
+from models.rom import Rom, RomNote
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
@@ -186,6 +187,7 @@ class CustomLimitOffsetParams(LimitOffsetParams):
 class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     char_index: dict[str, int]
     rom_id_index: list[int]
+    filter_values: RomFiltersDict
     __params_type__ = CustomLimitOffsetParams
 
 
@@ -196,13 +198,21 @@ def get_roms(
         bool,
         Query(description="Whether to get the char index."),
     ] = True,
+    with_filter_values: Annotated[
+        bool, Query(description="Whether to return filter values.")
+    ] = True,
     search_term: Annotated[
         str | None,
         Query(description="Search term to filter roms."),
     ] = None,
-    platform_id: Annotated[
-        int | None,
-        Query(description="Platform internal id.", ge=1),
+    platform_ids: Annotated[
+        list[int] | None,
+        Query(
+            description=(
+                "Platform internal ids. Multiple values are allowed by repeating the"
+                " parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
     collection_id: Annotated[
         int | None,
@@ -218,7 +228,7 @@ def get_roms(
     ] = None,
     matched: Annotated[
         bool | None,
-        Query(description="Whether the rom matched a metadata source."),
+        Query(description="Whether the rom matched at least one metadata source."),
     ] = None,
     favorite: Annotated[
         bool | None,
@@ -227,6 +237,12 @@ def get_roms(
     duplicate: Annotated[
         bool | None,
         Query(description="Whether the rom is marked as duplicate."),
+    ] = None,
+    last_played: Annotated[
+        bool | None,
+        Query(
+            description="Whether the rom has a last played value for the current user."
+        ),
     ] = None,
     playable: Annotated[
         bool | None,
@@ -242,9 +258,7 @@ def get_roms(
     ] = None,
     verified: Annotated[
         bool | None,
-        Query(
-            description="Whether the rom is verified by Hasheous from the filesystem."
-        ),
+        Query(description="Whether the rom is verified by Hasheous."),
     ] = None,
     group_by_meta_id: Annotated[
         bool,
@@ -252,38 +266,142 @@ def get_roms(
             description="Whether to group roms by metadata ID (IGDB / Moby / ScreenScraper / RetroAchievements / LaunchBox)."
         ),
     ] = False,
-    selected_genre: Annotated[
-        str | None,
-        Query(description="Associated genre."),
+    genres: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated genre. Multiple values are allowed by repeating the"
+                " parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_franchise: Annotated[
-        str | None,
-        Query(description="Associated franchise."),
+    franchises: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated franchise. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_collection: Annotated[
-        str | None,
-        Query(description="Associated collection."),
+    collections: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated collection. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_company: Annotated[
-        str | None,
-        Query(description="Associated company."),
+    companies: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated company. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_age_rating: Annotated[
-        str | None,
-        Query(description="Associated age rating."),
+    age_ratings: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated age rating. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_status: Annotated[
-        str | None,
-        Query(description="Game status, set by the current user."),
+    statuses: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Game status, set by the current user. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_region: Annotated[
-        str | None,
-        Query(description="Associated region tag."),
+    regions: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated region tag. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
-    selected_language: Annotated[
-        str | None,
-        Query(description="Associated language tag."),
+    languages: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated language tag. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
     ] = None,
+    player_counts: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated player count. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will be returned."
+            ),
+        ),
+    ] = None,
+    # Logic operators for multi-value filters
+    genres_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for genres filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    franchises_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for franchises filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    collections_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for collections filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    companies_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for companies filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    age_ratings_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for age ratings filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    regions_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for regions filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    languages_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for languages filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    statuses_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for statuses filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
+    player_counts_logic: Annotated[
+        str,
+        Query(
+            description="Logic operator for player counts filter: 'any' (OR), 'all' (AND) or 'none' (NOT).",
+        ),
+    ] = "any",
     order_by: Annotated[
         str,
         Query(description="Field to order results by."),
@@ -292,11 +410,15 @@ def get_roms(
         str,
         Query(description="Order direction, either 'asc' or 'desc'."),
     ] = "asc",
+    updated_after: Annotated[
+        datetime | None,
+        Query(
+            description="Filter roms updated after this datetime (ISO 8601 format with timezone information)."
+        ),
+    ] = None,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
-
-    # Get the base roms query
-    query, order_by_attr = db_rom_handler.get_roms_query(
+    unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
@@ -304,9 +426,9 @@ def get_roms(
 
     # Filter down the query
     query = db_rom_handler.filter_roms(
-        query=query,
+        query=unfiltered_query,
         user_id=request.user.id,
-        platform_id=platform_id,
+        platform_ids=platform_ids,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,
         smart_collection_id=smart_collection_id,
@@ -314,19 +436,32 @@ def get_roms(
         matched=matched,
         favorite=favorite,
         duplicate=duplicate,
+        last_played=last_played,
         playable=playable,
         has_ra=has_ra,
         missing=missing,
         verified=verified,
-        selected_genre=selected_genre,
-        selected_franchise=selected_franchise,
-        selected_collection=selected_collection,
-        selected_company=selected_company,
-        selected_age_rating=selected_age_rating,
-        selected_status=selected_status,
-        selected_region=selected_region,
-        selected_language=selected_language,
+        genres=genres,
+        franchises=franchises,
+        collections=collections,
+        companies=companies,
+        age_ratings=age_ratings,
+        statuses=statuses,
+        regions=regions,
+        languages=languages,
+        player_counts=player_counts,
+        # Logic operators
+        genres_logic=genres_logic,
+        franchises_logic=franchises_logic,
+        collections_logic=collections_logic,
+        companies_logic=companies_logic,
+        age_ratings_logic=age_ratings_logic,
+        regions_logic=regions_logic,
+        languages_logic=languages_logic,
+        statuses_logic=statuses_logic,
+        player_counts_logic=player_counts_logic,
         group_by_meta_id=group_by_meta_id,
+        updated_after=updated_after,
     )
 
     # Get the char index for the roms
@@ -336,6 +471,33 @@ def get_roms(
             query=query, order_by_attr=order_by_attr
         )
         char_index_dict = {char: index for (char, index) in char_index}
+
+    filter_values = RomFiltersDict(
+        genres=[],
+        franchises=[],
+        collections=[],
+        companies=[],
+        game_modes=[],
+        age_ratings=[],
+        player_counts=[],
+        regions=[],
+        languages=[],
+        platforms=[],
+    )
+    if with_filter_values:
+        # We use the unfiltered query so applied filters don't affect the list
+        filter_query = db_rom_handler.filter_roms(
+            query=unfiltered_query,
+            user_id=request.user.id,
+            platform_ids=platform_ids,
+            collection_id=collection_id,
+            virtual_collection_id=virtual_collection_id,
+            smart_collection_id=smart_collection_id,
+            search_term=search_term,
+        )
+        query_filters = db_rom_handler.with_filter_values(query=filter_query)
+        # trunk-ignore(mypy/typeddict-item)
+        filter_values = RomFiltersDict(**query_filters)
 
     # Get all ROM IDs in order for the additional data
     with sync_session.begin() as session:
@@ -350,8 +512,22 @@ def get_roms(
             additional_data={
                 "char_index": char_index_dict,
                 "rom_id_index": rom_id_index,
+                "filter_values": filter_values,
             },
         )
+
+
+@protected_route(router.get, "/identifiers", [Scope.ROMS_READ])
+def get_rom_identifiers(
+    request: Request,
+) -> list[int]:
+    """Retrieve rom identifiers."""
+    db_roms = db_rom_handler.get_roms_scalar(
+        user_id=request.user.id,
+        only_fields=[Rom.id],
+    )
+
+    return [r.id for r in db_roms]
 
 
 @protected_route(
@@ -546,6 +722,15 @@ def get_rom_by_hash(
         )
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(router.get, "/filters", [Scope.ROMS_READ])
+async def get_rom_filters(request: Request) -> RomFiltersDict:
+    from handler.database import db_rom_handler
+
+    filters = db_rom_handler.get_rom_filters()
+    # trunk-ignore(mypy/typeddict-item)
+    return RomFiltersDict(**filters)
 
 
 @protected_route(
@@ -850,6 +1035,7 @@ async def update_rom(
                 "flashpoint_metadata": {},
                 "hltb_metadata": {},
                 "revision": "",
+                "gamelist_metadata": {},
             },
         )
 
@@ -885,7 +1071,9 @@ async def update_rom(
             safe_int_or_none(data["tgdb_id"]) if "tgdb_id" in data else rom.tgdb_id
         ),
         "flashpoint_id": (
-            data["flashpoint_id"] if "flashpoint_id" in data else rom.flashpoint_id
+            data["flashpoint_id"] or None
+            if "flashpoint_id" in data
+            else rom.flashpoint_id
         ),
         "hltb_id": (
             safe_int_or_none(data["hltb_id"]) if "hltb_id" in data else rom.hltb_id
@@ -900,7 +1088,7 @@ async def update_rom(
     raw_hasheous_metadata = parse_raw_metadata(data, "raw_hasheous_metadata")
     raw_flashpoint_metadata = parse_raw_metadata(data, "raw_flashpoint_metadata")
     raw_hltb_metadata = parse_raw_metadata(data, "raw_hltb_metadata")
-
+    raw_manual_metadata = parse_raw_metadata(data, "raw_manual_metadata")
     if cleaned_data["igdb_id"] and raw_igdb_metadata is not None:
         cleaned_data["igdb_metadata"] = raw_igdb_metadata
     if cleaned_data["moby_id"] and raw_moby_metadata is not None:
@@ -915,6 +1103,8 @@ async def update_rom(
         cleaned_data["flashpoint_metadata"] = raw_flashpoint_metadata
     if cleaned_data["hltb_id"] and raw_hltb_metadata is not None:
         cleaned_data["hltb_metadata"] = raw_hltb_metadata
+    if raw_manual_metadata is not None:
+        cleaned_data["manual_metadata"] = raw_manual_metadata
 
     # Fetch metadata from external sources
     if (
@@ -965,10 +1155,12 @@ async def update_rom(
     elif rom.igdb_id and not cleaned_data["igdb_id"]:
         cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
 
-    if cleaned_data.get("url_screenshots", []):
+    url_screenshots = cleaned_data.get("url_screenshots", [])
+    screenshots_changed = pydash.xor(url_screenshots, rom.url_screenshots or [])
+    if url_screenshots:
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
-            overwrite=True,
+            overwrite=bool(screenshots_changed),
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
         cleaned_data.update(
@@ -1015,39 +1207,31 @@ async def update_rom(
             )
         else:
             url_cover = data.get("url_cover", rom.url_cover)
-            if url_cover != rom.url_cover or not fs_resource_handler.cover_exists(
-                rom, CoverSize.BIG
-            ):
-                path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-                    entity=rom,
-                    overwrite=True,
-                    url_cover=str(url_cover),
-                )
-                cleaned_data.update(
-                    {
-                        "url_cover": url_cover,
-                        "path_cover_s": path_cover_s,
-                        "path_cover_l": path_cover_l,
-                    }
-                )
-            else:
-                cleaned_data.update({"url_cover": rom.url_cover})
+            path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
+                entity=rom,
+                overwrite=url_cover != rom.url_cover,
+                url_cover=str(url_cover),
+            )
+            cleaned_data.update(
+                {
+                    "url_cover": url_cover,
+                    "path_cover_s": path_cover_s,
+                    "path_cover_l": path_cover_l,
+                }
+            )
 
     url_manual = data.get("url_manual", rom.url_manual)
-    if url_manual != rom.url_manual or not fs_resource_handler.manual_exists(rom):
-        path_manual = await fs_resource_handler.get_manual(
-            rom=rom,
-            overwrite=True,
-            url_manual=str(url_manual) if url_manual else None,
-        )
-        cleaned_data.update(
-            {
-                "url_manual": url_manual,
-                "path_manual": path_manual,
-            }
-        )
-    else:
-        cleaned_data.update({"url_manual": rom.url_manual})
+    path_manual = await fs_resource_handler.get_manual(
+        rom=rom,
+        overwrite=url_manual != rom.url_manual,
+        url_manual=str(url_manual) if url_manual else None,
+    )
+    cleaned_data.update(
+        {
+            "url_manual": url_manual,
+            "path_manual": path_manual,
+        }
+    )
 
     # Handle RetroAchievements badges when the ID has changed
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
@@ -1382,7 +1566,7 @@ async def update_rom_user(
 
 @protected_route(
     router.get,
-    "files/{id}",
+    "/files/{id}",
     [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
@@ -1466,8 +1650,6 @@ async def get_rom_notes(
     tags: list[str] = DEFAULT_TAGS,
 ) -> list[UserNoteSchema]:
     """Get all notes for a ROM."""
-    from handler.database import db_rom_handler
-
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -1487,6 +1669,30 @@ async def get_rom_notes(
 
 
 @protected_route(
+    router.get,
+    "/{id}/notes/identifiers",
+    [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def get_rom_note_identifiers(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> list[int]:
+    """Get all note identifiers for a ROM."""
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    notes = db_rom_handler.get_rom_notes(
+        rom_id=id,
+        user_id=request.user.id,
+        only_fields=[RomNote.id],
+    )
+
+    return [note.id for note in notes]
+
+
+@protected_route(
     router.post,
     "/{id}/notes",
     [Scope.ROMS_USER_WRITE],
@@ -1498,8 +1704,6 @@ async def create_rom_note(
     note_data: Annotated[dict, Body()],
 ) -> UserNoteSchema:
     """Create a new note for a ROM."""
-    from handler.database import db_rom_handler
-
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -1531,8 +1735,6 @@ async def update_rom_note(
     note_data: Annotated[dict, Body()],
 ) -> UserNoteSchema:
     """Update a ROM note."""
-    from handler.database import db_rom_handler
-
     note = db_rom_handler.update_rom_note(
         note_id=note_id,
         user_id=request.user.id,
@@ -1565,8 +1767,6 @@ async def delete_rom_note(
     note_id: Annotated[int, PathVar(description="Note id.", ge=1)],
 ) -> dict:
     """Delete a ROM note."""
-    from handler.database import db_rom_handler
-
     success = db_rom_handler.delete_rom_note(note_id=note_id, user_id=request.user.id)
 
     if not success:

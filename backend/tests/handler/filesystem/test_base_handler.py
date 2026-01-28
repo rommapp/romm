@@ -83,7 +83,7 @@ class TestFSHandler:
     def test_sanitize_filename_too_long(self, handler: FSHandler):
         """Test filename sanitization with too long filenames"""
         long_name = "a" * (FILE_NAME_MAX_LENGTH + 1)
-        with pytest.raises(ValueError, match="Filename exceeds maximum length"):
+        with pytest.raises(ValueError, match="Filename .* exceeds maximum length"):
             handler._sanitize_filename(long_name)
 
     def test_validate_path_valid(self, handler: FSHandler):
@@ -110,7 +110,7 @@ class TestFSHandler:
 
         for path in malicious_paths:
             with pytest.raises(
-                ValueError, match="Path contains invalid parent directory references"
+                ValueError, match="Path .* contains invalid parent directory references"
             ):
                 handler.validate_path(path)
 
@@ -119,7 +119,9 @@ class TestFSHandler:
         absolute_paths = ["/etc/passwd", "/tmp/test.txt", "/home/user/file.txt"]
 
         for path in absolute_paths:
-            with pytest.raises(ValueError, match="Path must be relative, not absolute"):
+            with pytest.raises(
+                ValueError, match="Path .* must be relative, not absolute"
+            ):
                 handler.validate_path(path)
 
     def test_get_file_name_with_no_extension(self, handler: FSHandler):

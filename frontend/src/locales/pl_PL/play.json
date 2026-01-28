@@ -15,6 +15,10 @@
   "select-state": "Wybierz stan",
   "change-state": "Zmień stan",
   "deselect-state": "Odznacz stan",
+  "no-save-selected": "Nie wybrano zapisu",
+  "no-state-selected": "Nie wybrano stanu",
+  "no-saves-available": "Brak dostępnych zapisów",
+  "no-states-available": "Brak dostępnych stanów",
   "background-color": "Kolor tła",
   "select-background-color": "Wybierz kolor tła"
 }

@@ -1,8 +1,10 @@
 import type { AxiosProgressEvent } from "axios";
 import type {
   BulkOperationResponse,
+  ManualMetadata,
   RomUserSchema,
   UserNoteSchema,
+  RomFiltersDict,
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
@@ -10,7 +12,7 @@ import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom, SimpleRom, SearchRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
-import { getDownloadPath, getStatusKeyForText } from "@/utils";
+import { getDownloadPath } from "@/utils";
 
 export const romApi = api;
 
@@ -61,7 +63,7 @@ async function uploadRoms({
 }
 
 export interface GetRomsParams {
-  platformId?: number | null;
+  platformIds?: number[] | null;
   collectionId?: number | null;
   virtualCollectionId?: string | null;
   smartCollectionId?: number | null;
@@ -70,27 +72,38 @@ export interface GetRomsParams {
   offset?: number;
   orderBy?: string | null;
   orderDir?: string | null;
-  filterUnmatched?: boolean;
-  filterMatched?: boolean;
-  filterFavorites?: boolean;
-  filterDuplicates?: boolean;
-  filterPlayables?: boolean;
-  filterRA?: boolean;
-  filterMissing?: boolean;
-  filterVerified?: boolean;
+  filterMatched?: boolean | null;
+  filterFavorites?: boolean | null;
+  filterDuplicates?: boolean | null;
+  filterPlayables?: boolean | null;
+  filterRA?: boolean | null;
+  filterMissing?: boolean | null;
+  filterVerified?: boolean | null;
   groupByMetaId?: boolean;
-  selectedGenre?: string | null;
-  selectedFranchise?: string | null;
-  selectedCollection?: string | null;
-  selectedCompany?: string | null;
-  selectedAgeRating?: string | null;
-  selectedStatus?: string | null;
-  selectedRegion?: string | null;
-  selectedLanguage?: string | null;
+  // Multi-value filters
+  selectedGenres?: string[] | null;
+  selectedFranchises?: string[] | null;
+  selectedCollections?: string[] | null;
+  selectedCompanies?: string[] | null;
+  selectedAgeRatings?: string[] | null;
+  selectedRegions?: string[] | null;
+  selectedLanguages?: string[] | null;
+  selectedPlayerCounts?: string[] | null;
+  selectedStatuses?: string[] | null;
+  // Logic operators for multi-value filters
+  genresLogic?: string | null;
+  franchisesLogic?: string | null;
+  collectionsLogic?: string | null;
+  companiesLogic?: string | null;
+  ageRatingsLogic?: string | null;
+  regionsLogic?: string | null;
+  languagesLogic?: string | null;
+  statusesLogic?: string | null;
+  playerCountsLogic?: string | null;
 }
 
 async function getRoms({
-  platformId = null,
+  platformIds = null,
   collectionId = null,
   virtualCollectionId = null,
   smartCollectionId = null,
@@ -99,53 +112,128 @@ async function getRoms({
   offset = 0,
   orderBy = "name",
   orderDir = "asc",
-  filterUnmatched = false,
-  filterMatched = false,
-  filterFavorites = false,
-  filterDuplicates = false,
-  filterPlayables = false,
+  filterMatched = null,
+  filterFavorites = null,
+  filterDuplicates = null,
+  filterPlayables = null,
   filterRA = false,
   filterMissing = false,
   filterVerified = false,
   groupByMetaId = false,
-  selectedGenre = null,
-  selectedFranchise = null,
-  selectedCollection = null,
-  selectedCompany = null,
-  selectedAgeRating = null,
-  selectedStatus = null,
-  selectedRegion = null,
-  selectedLanguage = null,
+  selectedGenres = null,
+  selectedFranchises = null,
+  selectedCollections = null,
+  selectedCompanies = null,
+  selectedAgeRatings = null,
+  selectedRegions = null,
+  selectedLanguages = null,
+  selectedPlayerCounts = null,
+  selectedStatuses = null,
+  // Logic operators
+  genresLogic = null,
+  franchisesLogic = null,
+  collectionsLogic = null,
+  companiesLogic = null,
+  ageRatingsLogic = null,
+  regionsLogic = null,
+  languagesLogic = null,
+  statusesLogic = null,
+  playerCountsLogic = null,
 }: GetRomsParams): Promise<{ data: GetRomsResponse }> {
+  const params = {
+    platform_ids:
+      platformIds && platformIds.length > 0 ? platformIds : undefined,
+    collection_id: collectionId,
+    virtual_collection_id: virtualCollectionId,
+    smart_collection_id: smartCollectionId,
+    search_term: searchTerm,
+    limit: limit,
+    offset: offset,
+    order_by: orderBy,
+    order_dir: orderDir,
+    group_by_meta_id: groupByMetaId,
+    genres:
+      selectedGenres && selectedGenres.length > 0 ? selectedGenres : undefined,
+    franchises:
+      selectedFranchises && selectedFranchises.length > 0
+        ? selectedFranchises
+        : undefined,
+    collections:
+      selectedCollections && selectedCollections.length > 0
+        ? selectedCollections
+        : undefined,
+    companies:
+      selectedCompanies && selectedCompanies.length > 0
+        ? selectedCompanies
+        : undefined,
+    age_ratings:
+      selectedAgeRatings && selectedAgeRatings.length > 0
+        ? selectedAgeRatings
+        : undefined,
+    statuses:
+      selectedStatuses && selectedStatuses.length > 0
+        ? selectedStatuses
+        : undefined,
+    regions:
+      selectedRegions && selectedRegions.length > 0
+        ? selectedRegions
+        : undefined,
+    languages:
+      selectedLanguages && selectedLanguages.length > 0
+        ? selectedLanguages
+        : undefined,
+    player_counts:
+      selectedPlayerCounts && selectedPlayerCounts.length > 0
+        ? selectedPlayerCounts
+        : undefined,
+    // Logic operators
+    genres_logic:
+      selectedGenres && selectedGenres.length > 0
+        ? genresLogic || "any"
+        : undefined,
+    franchises_logic:
+      selectedFranchises && selectedFranchises.length > 0
+        ? franchisesLogic || "any"
+        : undefined,
+    collections_logic:
+      selectedCollections && selectedCollections.length > 0
+        ? collectionsLogic || "any"
+        : undefined,
+    companies_logic:
+      selectedCompanies && selectedCompanies.length > 0
+        ? companiesLogic || "any"
+        : undefined,
+    age_ratings_logic:
+      selectedAgeRatings && selectedAgeRatings.length > 0
+        ? ageRatingsLogic || "any"
+        : undefined,
+    regions_logic:
+      selectedRegions && selectedRegions.length > 0
+        ? regionsLogic || "any"
+        : undefined,
+    languages_logic:
+      selectedLanguages && selectedLanguages.length > 0
+        ? languagesLogic || "any"
+        : undefined,
+    statuses_logic:
+      selectedStatuses && selectedStatuses.length > 0
+        ? statusesLogic || "any"
+        : undefined,
+    player_counts_logic:
+      selectedPlayerCounts && selectedPlayerCounts.length > 0
+        ? playerCountsLogic || "any"
+        : undefined,
+    ...(filterMatched !== null ? { matched: filterMatched } : {}),
+    ...(filterFavorites !== null ? { favorite: filterFavorites } : {}),
+    ...(filterDuplicates !== null ? { duplicate: filterDuplicates } : {}),
+    ...(filterPlayables !== null ? { playable: filterPlayables } : {}),
+    ...(filterMissing !== null ? { missing: filterMissing } : {}),
+    ...(filterRA !== null ? { has_ra: filterRA } : {}),
+    ...(filterVerified !== null ? { verified: filterVerified } : {}),
+  };
+
   return api.get(`/roms`, {
-    params: {
-      platform_id: platformId,
-      collection_id: collectionId,
-      virtual_collection_id: virtualCollectionId,
-      smart_collection_id: smartCollectionId,
-      search_term: searchTerm,
-      limit: limit,
-      offset: offset,
-      order_by: orderBy,
-      order_dir: orderDir,
-      group_by_meta_id: groupByMetaId,
-      selected_genre: selectedGenre,
-      selected_franchise: selectedFranchise,
-      selected_collection: selectedCollection,
-      selected_company: selectedCompany,
-      selected_age_rating: selectedAgeRating,
-      selected_status: getStatusKeyForText(selectedStatus),
-      selected_region: selectedRegion,
-      selected_language: selectedLanguage,
-      ...(filterUnmatched ? { matched: false } : {}),
-      ...(filterMatched ? { matched: true } : {}),
-      ...(filterFavorites ? { favorite: true } : {}),
-      ...(filterDuplicates ? { duplicate: true } : {}),
-      ...(filterPlayables ? { playable: true } : {}),
-      ...(filterMissing ? { missing: true } : {}),
-      ...(filterRA ? { has_ra: true } : {}),
-      ...(filterVerified ? { verified: true } : {}),
-    },
+    params,
   });
 }
 
@@ -159,6 +247,7 @@ async function getRecentRoms(): Promise<{ data: GetRomsResponse }> {
       order_dir: "desc",
       limit: RECENT_ROMS_LIMIT,
       with_char_index: false,
+      with_filter_values: false,
     },
   });
 }
@@ -170,6 +259,8 @@ async function getRecentPlayedRoms(): Promise<{ data: GetRomsResponse }> {
       order_dir: "desc",
       limit: RECENT_PLAYED_ROMS_LIMIT,
       with_char_index: false,
+      with_filter_values: false,
+      last_played: true,
     },
   });
 }
@@ -266,6 +357,7 @@ async function bulkDownloadRoms({
 
 export type UpdateRom = SimpleRom & {
   artwork?: File;
+  manual_metadata?: ManualMetadata | null;
   raw_metadata?: {
     igdb_metadata?: string;
     moby_metadata?: string;
@@ -301,6 +393,10 @@ async function updateRom({
   formData.append("hasheous_id", rom.hasheous_id?.toString() || "");
   formData.append("tgdb_id", rom.tgdb_id?.toString() || "");
   formData.append("hltb_id", rom.hltb_id?.toString() || "");
+
+  if (rom.manual_metadata) {
+    formData.append("raw_manual_metadata", JSON.stringify(rom.manual_metadata));
+  }
 
   if (rom.raw_metadata?.igdb_metadata) {
     formData.append("raw_igdb_metadata", rom.raw_metadata.igdb_metadata);
@@ -489,6 +585,10 @@ async function getRomNotes({
   });
 }
 
+async function getRomFilters(): Promise<{ data: RomFiltersDict }> {
+  return api.get("/roms/filters");
+}
+
 export default {
   uploadRoms,
   getRoms,
@@ -508,4 +608,5 @@ export default {
   updateRomNote,
   deleteRomNote,
   getRomNotes,
+  getRomFilters,
 };

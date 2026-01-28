@@ -108,7 +108,7 @@ def _make_file_uri(platform_dir: str, raw_text: str) -> str:
 def extract_media_from_gamelist_rom(
     game: Element, platform: Platform
 ) -> GamelistMetadataMedia:
-    platform_dir = fs_platform_handler.get_plaform_fs_structure(platform.fs_slug)
+    platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
 
     gamelist_media = GamelistMetadataMedia(
         box2d_url=None,
@@ -285,7 +285,7 @@ class GamelistHandler(MetadataHandler):
 
     async def _find_gamelist_file(self, platform: Platform) -> Path | None:
         """Find the gamelist.xml file for a platform"""
-        platform_dir = fs_platform_handler.get_plaform_fs_structure(platform.fs_slug)
+        platform_dir = fs_platform_handler.get_platform_fs_structure(platform.fs_slug)
 
         # Check for platform-level gamelist.xml
         platform_gamelist = f"{platform_dir}/gamelist.xml"

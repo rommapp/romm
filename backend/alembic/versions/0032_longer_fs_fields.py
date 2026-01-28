@@ -1,4 +1,4 @@
-"""empty message
+"""Increase length of platform fields
 
 Revision ID: 0032_longer_fs_fields
 Revises: 0031_datetime_to_timestamp

@@ -1,7 +1,6 @@
 html,
 body {
   background-color: rgba(var(--v-theme-background)) !important;
-  overflow-y: auto;
   margin: 0 !important;
 }
 .main-layout {
@@ -15,6 +14,14 @@ body {
 .translucent {
   background: rgba(0, 0, 0, 0.5) !important;
   font-weight: 500 !important;
+}
+.translucent-light {
+  background: rgba(0, 0, 0, 0.2) !important;
+  font-weight: 500 !important;
+}
+.transparent {
+  background: transparent !important;
+  box-shadow: none !important;
 }
 .tooltip :deep(.v-overlay__content) {
   background: rgba(255, 255, 255, 1) !important;

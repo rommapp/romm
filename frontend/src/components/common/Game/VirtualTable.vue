@@ -16,6 +16,7 @@ import storeAuth from "@/stores/auth";
 import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
@@ -44,6 +45,7 @@ const { filteredRoms, selectedRoms, fetchingRoms, fetchTotalRoms } =
 const auth = storeAuth();
 const galleryFilterStore = storeGalleryFilter();
 const collectionsStore = storeCollections();
+const platformsStore = storePlatforms();
 const emitter = inject<Emitter<Events>>("emitter");
 
 const HEADERS = [
@@ -99,12 +101,6 @@ const HEADERS = [
 
 const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 
-function hasNotes(item: SimpleRom): boolean {
-  // TODO: Add note count to SimpleRom or check all_user_notes
-  // For now, return false until we implement proper note counting
-  return false;
-}
-
 function showNoteDialog(event: MouseEvent | KeyboardEvent, item: SimpleRom) {
   event.preventDefault();
   emitter?.emit("showNoteDialog", item);
@@ -140,7 +136,10 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
   romsStore.resetPagination();
   romsStore.setOrderBy(key);
   romsStore.setOrderDir(order);
-  romsStore.fetchRoms({ galleryFilter: galleryFilterStore });
+  romsStore.fetchRoms({
+    galleryFilter: galleryFilterStore,
+    platformsStore: platformsStore,
+  });
 }
 </script>
 
@@ -312,7 +311,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 <v-icon>mdi-card-multiple-outline</v-icon>
               </v-chip>
               <v-chip
-                v-if="hasNotes(item)"
+                v-if="item.has_notes"
                 class="translucent text-white mr-1 px-1"
                 chip
                 size="x-small"
@@ -326,7 +325,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
                 class="mr-1 px-1 item-chip"
                 chip
-                chip-size="x-small"
+                chip-size="small"
               />
             </template>
           </v-list-item>

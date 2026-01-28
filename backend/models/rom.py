@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import enum
 from datetime import datetime
 from functools import cached_property
@@ -46,6 +47,7 @@ class RomFileCategory(enum.StrEnum):
     DEMO = "demo"
     TRANSLATION = "translation"
     PROTOTYPE = "prototype"
+    CHEAT = "cheat"
 
 
 class SiblingRom(BaseModel):
@@ -135,6 +137,7 @@ class RomMetadata(BaseModel):
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    player_count: Mapped[str | None] = mapped_column(String(length=100), default="1")
     first_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
     average_rating: Mapped[float | None] = mapped_column(default=None)
 
@@ -209,6 +212,9 @@ class Rom(BaseModel):
     gamelist_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
+    manual_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
     path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
@@ -227,6 +233,7 @@ class Rom(BaseModel):
     )
 
     revision: Mapped[str | None] = mapped_column(String(length=100))
+    version: Mapped[str | None] = mapped_column(String(length=100))
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
@@ -308,12 +315,16 @@ class Rom(BaseModel):
         return len(self.files) == 1 and not self.files[0].is_nested
 
     @cached_property
+    def _top_level_files(self) -> list[RomFile]:
+        return [f for f in self.files if f.is_top_level]
+
+    @cached_property
     def has_nested_single_file(self) -> bool:
-        return len(self.files) == 1 and self.files[0].is_nested
+        return not self.has_simple_single_file and len(self._top_level_files) == 1
 
     @cached_property
     def has_multiple_files(self) -> bool:
-        return len(self.files) > 1
+        return len(self._top_level_files) > 1
 
     @property
     def fs_resources_path(self) -> str:
@@ -388,13 +399,18 @@ class Rom(BaseModel):
     @cached_property
     def merged_ra_metadata(self) -> dict[str, list] | None:
         if self.ra_metadata and "achievements" in self.ra_metadata:
-            for achievement in self.ra_metadata.get("achievements", []):
+            # Create a deep copy to avoid mutating the original metadata
+            # This ensures that badge paths remain relative for filesystem operations
+            # while the frontend receives absolute paths
+            metadata_copy = copy.deepcopy(self.ra_metadata)
+            for achievement in metadata_copy.get("achievements", []):
                 achievement["badge_path_lock"] = (
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}"
                 )
                 achievement["badge_path"] = (
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
                 )
+            return metadata_copy
         return self.ra_metadata
 
     # Used only during scan process

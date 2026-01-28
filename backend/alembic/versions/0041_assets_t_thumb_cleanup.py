@@ -1,4 +1,4 @@
-"""empty message
+"""Use higher resolution images for assets
 
 Revision ID: 0041_assets_t_thumb_cleanup
 Revises: 0040_migrate_assets_paths

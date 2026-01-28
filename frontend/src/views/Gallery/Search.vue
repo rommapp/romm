@@ -13,6 +13,7 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameTable from "@/components/common/Game/VirtualTable.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
+import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
@@ -22,6 +23,7 @@ const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const romsStore = storeRoms();
+const platformsStore = storePlatforms();
 const {
   filteredRoms,
   selectedRoms,
@@ -100,7 +102,10 @@ function onGameTouchEnd() {
 
 function fetchRoms() {
   romsStore
-    .fetchRoms({ galleryFilter: galleryFilterStore })
+    .fetchRoms({
+      galleryFilter: galleryFilterStore,
+      platformsStore: platformsStore,
+    })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
         msg: `Couldn't fetch roms: ${error}`,
@@ -108,22 +113,18 @@ function fetchRoms() {
         color: "red",
         timeout: 4000,
       });
-    })
-    .finally(() => {
-      galleryFilterStore.activeFilterDrawer = false;
     });
 }
 
-const { y: documentY } = useScroll(document.body, { throttle: 500 });
+const { y: windowY } = useScroll(window, { throttle: 500 });
 
-watch(documentY, () => {
+watch(windowY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = documentY.value === 0;
+    scrolledToTop.value = windowY.value === 0;
     if (
-      documentY.value + window.innerHeight >=
-        document.body.scrollHeight - 300 &&
+      windowY.value + window.innerHeight >= document.body.scrollHeight - 300 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();

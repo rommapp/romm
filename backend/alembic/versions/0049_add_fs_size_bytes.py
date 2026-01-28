@@ -1,4 +1,4 @@
-"""empty message
+"""Add fs_size_bytes to roms table
 
 Revision ID: 0049_add_fs_size_bytes
 Revises: 0048_sibling_roms_more_ids

@@ -36,6 +36,7 @@ dependencies = [
   "passlib[bcrypt] ~= 1.7",
   "pillow ~= 10.3",
   "psycopg[c] ~= 3.2",
+  "pydantic ~= 2.11",
   "pydash ~= 7.0",
   "python-dotenv ~= 1.0",
   "python-magic ~= 0.4",
@@ -49,11 +50,6 @@ dependencies = [
   "starlette ~= 0.49",
   "streaming-form-data ~= 1.19",
   "strsimpy ~= 0.2",
-  "types-colorama ~= 0.4",
-  "types-passlib ~= 1.7",
-  "types-pyyaml ~= 6.0",
-  "types-redis ~= 4.6",
-  "user-agents ~= 2.2",
   "uvicorn ~= 0.35",
   "uvicorn-worker ~= 0.3",
   "watchfiles ~= 1.1",
@@ -68,6 +64,10 @@ dev = [
   "memray ~= 1.15",
   "mypy ~= 1.13",
   "pyinstrument ~= 5.0",
+  "types-colorama ~= 0.4",
+  "types-passlib ~= 1.7",
+  "types-pyyaml ~= 6.0",
+  "types-redis ~= 4.6",
 ]
 test = [
   "fakeredis ~= 2.21",
@@ -82,6 +82,54 @@ test = [
 [project.urls]
 Homepage = "https://romm.app/"
 Source = "https://github.com/rommapp/romm"
+
+[tool.deptry]
+known_first_party = [
+  "__version__",
+  "adapters",
+  "config",
+  "decorators",
+  "endpoints",
+  "exceptions",
+  "handler",
+  "logger",
+  "main",
+  "models",
+  "startup",
+  "tasks",
+  "utils",
+]
+pep621_dev_dependency_groups = ["dev"]
+
+[tool.deptry.package_module_name_map]
+PyYAML = "yaml"
+opentelemetry-distro = "opentelemetry"
+pillow = "PIL"
+python-dotenv = "dotenv"
+python-magic = "magic"
+python-socketio = "socketio"
+
+[tool.deptry.per_rule_ignores]
+DEP002 = [ # DEP002 rule: Project should not contain unused dependencies
+  # Packages used within the server initialization script.
+  "gunicorn",
+  "uvicorn-worker",
+  "watchfiles",
+  # OpenTelemetry packages are used via auto-instrumentation.
+  "opentelemetry-exporter-otlp",
+  "opentelemetry-instrumentation-aiohttp-client",
+  "opentelemetry-instrumentation-fastapi",
+  "opentelemetry-instrumentation-httpx",
+  "opentelemetry-instrumentation-redis",
+  "opentelemetry-instrumentation-sqlalchemy",
+  # Database drivers are used via SQLAlchemy.
+  "psycopg",
+  # Pytest plugins are used via pytest only.
+  "pytest-cov",
+  "pytest-env",
+  "pytest-mock",
+  "pytest-recording",
+]
 
 [tool.uv]
 package = false
