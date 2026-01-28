@@ -1,11 +1,11 @@
 # trunk-ignore-all(bandit/B404)
 
 import subprocess
-import tempfile
+import time
 from collections.abc import Callable
 from pathlib import Path
 
-from config import ROMM_TMP_PATH, SEVEN_ZIP_TIMEOUT
+from config import SEVEN_ZIP_TIMEOUT
 from logger.logger import log
 
 SEVEN_ZIP_PATH = "/usr/bin/7zz"
@@ -42,9 +42,9 @@ def process_file_7z(
         current_size = 0
 
         for line in lines:
-            line = line.strip()
+            line = line.lstrip()
             if line.startswith("Path = "):
-                current_file = line.split(" = ")[1].strip()
+                current_file = line.split(" = ", 1)[1]
             elif line.startswith("Size = "):
                 try:
                     current_size = int(line.split(" = ")[1].strip())
@@ -61,34 +61,32 @@ def process_file_7z(
         if not largest_file:
             return False
 
-        with tempfile.TemporaryDirectory(dir=ROMM_TMP_PATH) as temp_dir:
-            log.debug(f"Extracting {largest_file} from {file_path}...")
+        log.debug(f"Extracting {largest_file} from {file_path}...")
 
-            temp_path = Path(temp_dir)
-            subprocess.run(
-                [
-                    SEVEN_ZIP_PATH,
-                    "e",
-                    str(file_path),
-                    largest_file,
-                    f"-o{temp_path}",
-                    "-y",
-                ],
-                capture_output=True,
-                check=True,
-                timeout=SEVEN_ZIP_TIMEOUT,
-                shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
-            )
+        start_decompression_time = time.monotonic()
 
-            # Get the first file in temp_path
-            extracted_file = next(temp_path.iterdir(), None)
-            if extracted_file and extracted_file.exists():
-                with open(extracted_file, "rb") as f:
-                    while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                        fn_hash_update(chunk)
+        with subprocess.Popen(
+            [SEVEN_ZIP_PATH, "e", str(file_path), largest_file, "-so", "-y"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+        ) as process:
+            if process.stdout:
+                while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
+                    elapsed_time = time.monotonic() - start_decompression_time
 
-                return True
+                    if elapsed_time > SEVEN_ZIP_TIMEOUT:
+                        process.terminate()
+                        log.error("7z extraction timed out")
+                        return False
+
+                    fn_hash_update(chunk)
+
+        if process.returncode != 0:
+            log.error(f"7z extraction failed with return code {process.returncode}")
             return False
+
+        return True
 
     except (
         subprocess.TimeoutExpired,
