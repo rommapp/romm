@@ -25,6 +25,8 @@ LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final[str] = (
 LAUNCHBOX_METADATA_IMAGE_KEY: Final[str] = "romm:launchbox_metadata_image"
 LAUNCHBOX_MAME_KEY: Final[str] = "romm:launchbox_mame"
 LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
+LAUNCHBOX_XML_INDEX_KEY: Final[str] = "romm:launchbox_xml_index"
+
 
 LAUNCHBOX_LOCAL_DIR: Final[Path] = Path(ROMM_BASE_PATH) / "temp"
 LAUNCHBOX_PLATFORMS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Data" / "Platforms"
@@ -35,8 +37,6 @@ LAUNCHBOX_VIDEOS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Videos"
 # Regex to detect LaunchBox ID tags in filenames like (launchbox-12345)
 LAUNCHBOX_TAG_REGEX = re.compile(r"\(launchbox-(\d+)\)", re.IGNORECASE)
 DASH_COLON_REGEX = re.compile(r"\s?-\s")
-
-LOCAL_XML_INDEX_CACHE: dict[str, tuple[int, dict[str, dict[str, str]]]] = {}
 
 
 class LaunchboxImage(TypedDict):
@@ -85,7 +85,7 @@ def _sanitize_filename(stem: str) -> str:
 def _file_uri_for_local_path(path: Path) -> str | None:
     try:
         _ = path.resolve().relative_to(LAUNCHBOX_LOCAL_DIR.resolve())
-    except Exception:
+    except ValueError:
         return None
     return f"file://{str(path)}"
 
@@ -722,7 +722,19 @@ def build_rom(
         ),
     }
 
-    return LaunchboxRom({k: v for k, v in rom.items() if v})
+    return LaunchboxRom(
+        launchbox_id=launchbox_id,
+        name=name,
+        summary=summary,
+        url_cover=url_cover or "",
+        url_screenshots=url_screenshots,
+        url_manual=url_manual or "",
+        launchbox_metadata=build_launchbox_metadata(
+            local=local,
+            remote=remote,
+            images=images,
+        ),
+    )
 
 
 class LaunchboxHandler(MetadataHandler):
@@ -805,45 +817,56 @@ class LaunchboxHandler(MetadataHandler):
         try:
             xml_path_str = str(xml_path.resolve())
             mtime_ns = xml_path.stat().st_mtime_ns
+            indexed_val = {}
 
-            cached = LOCAL_XML_INDEX_CACHE.get(xml_path_str)
-            if cached is not None and cached[0] == mtime_ns:
-                index = cached[1]
+            cached_str = await async_cache.hget(LAUNCHBOX_XML_INDEX_KEY, xml_path_str)
+            if cached_str:
+                cached = json.loads(cached_str)
+                if cached[0] == mtime_ns:
+                    indexed_val = cached[1]
+                else:
+                    cached = None
             else:
+                cached = None
+
+            if cached is None:
                 root = ET.parse(xml_path_str).getroot()
+                if root:
+                    for game_elem in root.findall(".//Game"):
+                        entry: dict[str, str] = {}
+                        for child_elem in game_elem:
+                            if child_elem.tag and child_elem.text is not None:
+                                entry[child_elem.tag] = child_elem.text
+                        if not entry:
+                            continue
 
-                index: dict[str, dict[str, str]] = {}
-                for game in root.findall(".//Game"):
-                    entry: dict[str, str] = {}
-                    for child in list(game):
-                        if child.tag and child.text is not None:
-                            entry[child.tag] = child.text
-                    if not entry:
-                        continue
+                        app_path = (entry.get("ApplicationPath") or "").strip()
+                        if app_path:
+                            app_base = PureWindowsPath(app_path).name.strip().lower()
+                            if app_base:
+                                indexed_val.setdefault(app_base, entry)
 
-                    app_path = (entry.get("ApplicationPath") or "").strip()
-                    if app_path:
-                        app_base = PureWindowsPath(app_path).name.strip().lower()
-                        if app_base:
-                            index.setdefault(app_base, entry)
+                        title = (entry.get("Title") or "").strip().lower()
+                        if title:
+                            indexed_val.setdefault(f"title:{title}", entry)
 
-                    title = (entry.get("Title") or "").strip().lower()
-                    if title:
-                        index.setdefault(f"title:{title}", entry)
-
-                LOCAL_XML_INDEX_CACHE[xml_path_str] = (mtime_ns, index)
-        except Exception as e:
+                    await async_cache.hset(
+                        LAUNCHBOX_XML_INDEX_KEY,
+                        xml_path_str,
+                        json.dumps((mtime_ns, indexed_val)),
+                    )
+        except (ET.ParseError, FileNotFoundError, PermissionError) as e:
             log.warning(f"Failed to parse local LaunchBox XML {xml_path}: {e}")
             return None
 
-        if not index:
+        if not indexed_val:
             return None
 
-        fs_key = (fs_name or "").strip().lower()
+        fs_key = fs_name.strip().lower()
         if not fs_key:
             return None
 
-        direct = index.get(fs_key)
+        direct = indexed_val.get(fs_key)
         if direct is not None:
             return direct
 
@@ -853,11 +876,11 @@ class LaunchboxHandler(MetadataHandler):
             stem = ""
 
         if stem:
-            by_title = index.get(f"title:{stem}")
+            by_title = indexed_val.get(f"title:{stem}")
             if by_title is not None:
                 return by_title
 
-        return index.get(f"title:{fs_key}")
+        return indexed_val.get(f"title:{fs_key}")
 
     async def _get_remote_rom(
         self,
@@ -975,7 +998,7 @@ class LaunchboxHandler(MetadataHandler):
         if not remote_available:
             return fallback_rom
 
-        match = re.search(r"\(launchbox-(\d+)\)", fs_name, flags=re.IGNORECASE)
+        match = LAUNCHBOX_TAG_REGEX.search(fs_name)
         launchbox_id_from_tag = int(match.group(1)) if match else None
 
         if launchbox_id_from_tag is not None:
