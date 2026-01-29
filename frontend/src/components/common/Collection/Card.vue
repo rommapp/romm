@@ -137,7 +137,7 @@ const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 
 // Determine the correct route for this collection type
 const collectionRoute = computed(() => {
-  if (!props.withLink || !props.collection) return {};
+  if (!props.withLink || !props.collection) return null;
 
   // Check if it's a smart collection (has filter_criteria property)
   if ("filter_criteria" in props.collection) {
@@ -184,9 +184,13 @@ onBeforeUnmount(() => {
 <template>
   <div ref="tilt-card-ref" data-tilt>
     <v-card
-      v-bind="{
-        to: collectionRoute,
-      }"
+      v-bind="
+        collectionRoute
+          ? {
+              to: collectionRoute,
+            }
+          : {}
+      "
       :class="{
         'transform-scale': transformScale && !enable3DTilt,
       }"
