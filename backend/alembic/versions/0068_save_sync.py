@@ -29,9 +29,9 @@ def upgrade():
         sa.Column("hostname", sa.String(255), nullable=True),
         sa.Column(
             "sync_mode",
-            sa.Enum("api", "file_transfer", "push_pull", name="syncmode"),
+            sa.Enum("API", "FILE_TRANSFER", "PUSH_PULL", name="syncmode"),
             nullable=False,
-            server_default="api",
+            server_default="API",
         ),
         sa.Column("sync_enabled", sa.Boolean(), nullable=False, server_default="1"),
         sa.Column("last_seen", sa.TIMESTAMP(timezone=True), nullable=True),
