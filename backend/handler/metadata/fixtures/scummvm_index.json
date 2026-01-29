@@ -1,0 +1,1714 @@
+{
+  "os": {
+    "name": "007: James Bond - The Stealth Affair",
+    "engine": "cine"
+  },
+  "cruise": {
+    "name": "Cruise for a Corpse",
+    "engine": "cruise"
+  },
+  "fw": {
+    "name": "Future Wars: Adventures in Time",
+    "engine": "cine"
+  },
+  "adrift": {
+    "name": "ADRIFT Interactive Fiction games",
+    "engine": "glk"
+  },
+  "agt": {
+    "name": "AGT Interactive Fiction games",
+    "engine": "glk"
+  },
+  "advsys": {
+    "name": "AdvSys Interactive Fiction games",
+    "engine": "glk"
+  },
+  "alan": {
+    "name": "Alan 2 &amp; 3 Interactive Fiction games",
+    "engine": "glk"
+  },
+  "archetype": {
+    "name": "Archetype Interactive Fiction games",
+    "engine": "glk"
+  },
+  "glulx": {
+    "name": "Glulx Interactive Fiction games",
+    "engine": "glk"
+  },
+  "hugo": {
+    "name": "Hugo Interactive Fiction games",
+    "engine": "glk"
+  },
+  "jacl": {
+    "name": "JACL Interactive Fiction games",
+    "engine": "glk"
+  },
+  "level9": {
+    "name": "Level 9 Interactive Fiction games",
+    "engine": "glk"
+  },
+  "quest": {
+    "name": "Quest Interactive Fiction games",
+    "engine": "glk"
+  },
+  "scottadams": {
+    "name": "Scott Adams Interactive Fiction games",
+    "engine": "glk"
+  },
+  "zcode": {
+    "name": "ZCode (Infocom and Inform) Interactive Fiction games",
+    "engine": "glk"
+  },
+  "adibou1": {
+    "name": "Adibou 1",
+    "engine": "gob"
+  },
+  "adibou2": {
+    "name": "Adibou 2",
+    "engine": "gob"
+  },
+  "bargon": {
+    "name": "Bargon Attack",
+    "engine": "gob"
+  },
+  "crousti": {
+    "name": "Croustibat",
+    "engine": "gob"
+  },
+  "fascination": {
+    "name": "Fascination",
+    "engine": "gob"
+  },
+  "geisha": {
+    "name": "Geisha",
+    "engine": "gob"
+  },
+  "gob1": {
+    "name": "Gobliiins",
+    "engine": "gob"
+  },
+  "gob2": {
+    "name": "Gobliins 2: The Prince Buffoon",
+    "engine": "gob"
+  },
+  "gob3": {
+    "name": "Goblins Quest 3",
+    "engine": "gob"
+  },
+  "lit": {
+    "name": "Lost in Time",
+    "engine": "gob"
+  },
+  "littlered": {
+    "name": "Once Upon A Time: Little Red Riding Hood",
+    "engine": "gob"
+  },
+  "bambou": {
+    "name": "Playtoons Limited Edition - Bambou le sauveur de la jungle",
+    "engine": "gob"
+  },
+  "woodruff": {
+    "name": "The Bizarre Adventures of Woodruff and the Schnibble",
+    "engine": "gob"
+  },
+  "urban": {
+    "name": "Urban Runner",
+    "engine": "gob"
+  },
+  "ween": {
+    "name": "Ween: The Prophecy",
+    "engine": "gob"
+  },
+  "tortoise": {
+    "name": "Aesop's Fables: The Tortoise and the Hare",
+    "engine": "mohawk"
+  },
+  "arthurbday": {
+    "name": "Arthur's Birthday",
+    "engine": "mohawk"
+  },
+  "seussabc": {
+    "name": "Dr. Seuss's ABC",
+    "engine": "mohawk"
+  },
+  "greeneggs": {
+    "name": "Green Eggs and Ham",
+    "engine": "mohawk"
+  },
+  "harryhh": {
+    "name": "Harry and the Haunted House",
+    "engine": "mohawk"
+  },
+  "grandma": {
+    "name": "Just Grandma and Me",
+    "engine": "mohawk"
+  },
+  "lilmonster": {
+    "name": "Little Monster at School",
+    "engine": "mohawk"
+  },
+  "arthur": {
+    "name": "Marc Brown's Arthur's Teacher Trouble",
+    "engine": "mohawk"
+  },
+  "ruff": {
+    "name": "Ruff's Bone",
+    "engine": "mohawk"
+  },
+  "sheila": {
+    "name": "Sheila Rae, the Brave",
+    "engine": "mohawk"
+  },
+  "bearfight": {
+    "name": "The Berenstain Bears Get in a Fight",
+    "engine": "mohawk"
+  },
+  "beardark": {
+    "name": "The Berenstain Bears In The Dark",
+    "engine": "mohawk"
+  },
+  "newkid": {
+    "name": "The New Kid on the Block",
+    "engine": "mohawk"
+  },
+  "alice": {
+    "name": "Alice: An Interactive Museum",
+    "engine": "director"
+  },
+  "gadget": {
+    "name": "Gadget: Invention, Travel and Adventure",
+    "engine": "director"
+  },
+  "lzone": {
+    "name": "L-ZONE",
+    "engine": "director"
+  },
+  "ashinaredwitch": {
+    "name": "Ashina: The Red Witch",
+    "engine": "ags"
+  },
+  "justignorethem": {
+    "name": "Just Ignore Them",
+    "engine": "ags"
+  },
+  "mybigsister": {
+    "name": "My Big Sister",
+    "engine": "ags"
+  },
+  "mybigsisterrm": {
+    "name": "My Big Sister Remastered",
+    "engine": "ags"
+  },
+  "redbow": {
+    "name": "Red Bow",
+    "engine": "ags"
+  },
+  "astrochicken": {
+    "name": "Astro Chicken",
+    "engine": "sci"
+  },
+  "castlebrain": {
+    "name": "Castle of Dr. Brain",
+    "engine": "sci"
+  },
+  "iceman": {
+    "name": "Code-Name: Iceman",
+    "engine": "sci"
+  },
+  "camelot": {
+    "name": "Conquests of Camelot: The Search for the Grail",
+    "engine": "sci"
+  },
+  "longbow": {
+    "name": "Conquests of the Longbow: The Legend of Robin Hood",
+    "engine": "sci"
+  },
+  "ddp": {
+    "name": "Donald Duck's Playground",
+    "engine": "agi"
+  },
+  "ecoquest2": {
+    "name": "EcoQuest II: Lost Secret of the Rainforest",
+    "engine": "sci"
+  },
+  "ecoquest": {
+    "name": "EcoQuest: The Search for Cetus",
+    "engine": "sci"
+  },
+  "freddypharkas": {
+    "name": "Freddy Pharkas: Frontier Pharmacist",
+    "engine": "sci"
+  },
+  "gk1": {
+    "name": "Gabriel Knight: Sins of the Fathers",
+    "engine": "sci"
+  },
+  "goldrush": {
+    "name": "Gold Rush!",
+    "engine": "agi"
+  },
+  "hires0": {
+    "name": "Hi-Res Adventure #0: Mission Asteroid",
+    "engine": "adl"
+  },
+  "hires1": {
+    "name": "Hi-Res Adventure #1: Mystery House",
+    "engine": "adl"
+  },
+  "hires2": {
+    "name": "Hi-Res Adventure #2: The Wizard and the Princess",
+    "engine": "adl"
+  },
+  "hires3": {
+    "name": "Hi-Res Adventure #3: Cranston Manor",
+    "engine": "adl"
+  },
+  "hires4": {
+    "name": "Hi-Res Adventure #4: Ulysses and the Golden Fleece",
+    "engine": "adl"
+  },
+  "hires5": {
+    "name": "Hi-Res Adventure #5: Time Zone",
+    "engine": "adl"
+  },
+  "hires6": {
+    "name": "Hi-Res Adventure #6: The Dark Crystal",
+    "engine": "adl"
+  },
+  "hoyle4": {
+    "name": "Hoyle Classic Card Games",
+    "engine": "sci"
+  },
+  "hoyle5": {
+    "name": "Hoyle Classic Games",
+    "engine": "sci"
+  },
+  "hoyle5solitaire": {
+    "name": "Hoyle Solitaire",
+    "engine": "sci"
+  },
+  "hoyle1": {
+    "name": "Hoyle's Official Book of Games: Volume 1",
+    "engine": "sci"
+  },
+  "hoyle2": {
+    "name": "Hoyle's Official Book of Games: Volume 2",
+    "engine": "sci"
+  },
+  "hoyle3": {
+    "name": "Hoyle's Official Book of Games: Volume 3",
+    "engine": "sci"
+  },
+  "chest": {
+    "name": "Inside the Chest",
+    "engine": "sci"
+  },
+  "jones": {
+    "name": "Jones in the Fast Lane",
+    "engine": "sci"
+  },
+  "kq1": {
+    "name": "King's Quest I: Quest for the Crown",
+    "engine": "agi"
+  },
+  "kq2": {
+    "name": "King's Quest II: Romancing the Throne",
+    "engine": "agi"
+  },
+  "kq3": {
+    "name": "King's Quest III: To Heir Is Human",
+    "engine": "agi"
+  },
+  "kq4": {
+    "name": "King's Quest IV: The Perils of Rosella",
+    "engine": "agi"
+  },
+  "kq4sci": {
+    "name": "King's Quest IV: The Perils of Rosella",
+    "engine": "sci"
+  },
+  "kq5": {
+    "name": "King's Quest V: Absence Makes the Heart Go Yonder!",
+    "engine": "sci"
+  },
+  "kq6": {
+    "name": "King's Quest VI: Heir Today, Gone Tomorrow",
+    "engine": "sci"
+  },
+  "kq7": {
+    "name": "King's Quest VII: The Princeless Bride",
+    "engine": "sci"
+  },
+  "kq1sci": {
+    "name": "King's Quest: Quest for the Crown",
+    "engine": "sci"
+  },
+  "kquestions": {
+    "name": "King's Questions",
+    "engine": "sci"
+  },
+  "laurabow2": {
+    "name": "Laura Bow 2: The Dagger of Amon Ra",
+    "engine": "sci"
+  },
+  "laurabow": {
+    "name": "Laura Bow: The Colonel's Bequest",
+    "engine": "sci"
+  },
+  "lsl2": {
+    "name": "Leisure Suit Larry 2: Goes Looking for Love (in Several Wrong Places)",
+    "engine": "sci"
+  },
+  "lsl3": {
+    "name": "Leisure Suit Larry 3: Passionate Patti in Pursuit of the Pulsating Pectorals",
+    "engine": "sci"
+  },
+  "lsl5": {
+    "name": "Leisure Suit Larry 5: Passionate Patti Does a Little Undercover Work",
+    "engine": "sci"
+  },
+  "lsl6": {
+    "name": "Leisure Suit Larry 6: Shape Up or Slip Out!",
+    "engine": "sci"
+  },
+  "lsl6hires": {
+    "name": "Leisure Suit Larry 6: Shape Up or Slip Out!",
+    "engine": "sci"
+  },
+  "lsl7": {
+    "name": "Leisure Suit Larry 7: Love for Sail!",
+    "engine": "sci"
+  },
+  "lsl1": {
+    "name": "Leisure Suit Larry in the Land of the Lounge Lizards",
+    "engine": "agi"
+  },
+  "lsl1sci": {
+    "name": "Leisure Suit Larry in the Land of the Lounge Lizards",
+    "engine": "sci"
+  },
+  "lighthouse": {
+    "name": "Lighthouse: The Dark Being",
+    "engine": "sci"
+  },
+  "mh2": {
+    "name": "Manhunter 2: San Francisco",
+    "engine": "agi"
+  },
+  "mh1": {
+    "name": "Manhunter: New York",
+    "engine": "agi"
+  },
+  "mickey": {
+    "name": "Mickey's Space Adventure",
+    "engine": "agi"
+  },
+  "fairytales": {
+    "name": "Mixed Up Fairy Tales",
+    "engine": "sci"
+  },
+  "mixedup": {
+    "name": "Mixed-Up Mother Goose",
+    "engine": "agi"
+  },
+  "mothergoose": {
+    "name": "Mixed-Up Mother Goose",
+    "engine": "sci"
+  },
+  "mothergoose256": {
+    "name": "Mixed-Up Mother Goose",
+    "engine": "sci"
+  },
+  "mothergoosehires": {
+    "name": "Mixed-Up Mother Goose Deluxe",
+    "engine": "sci"
+  },
+  "pepper": {
+    "name": "Pepper's Adventures in Time",
+    "engine": "sci"
+  },
+  "phantasmagoria": {
+    "name": "Phantasmagoria",
+    "engine": "sci"
+  },
+  "phantasmagoria2": {
+    "name": "Phantasmagoria 2: A Puzzle of Flesh",
+    "engine": "sci"
+  },
+  "pq2": {
+    "name": "Police Quest 2: The Vengeance",
+    "engine": "sci"
+  },
+  "pq3": {
+    "name": "Police Quest 3: The Kindred",
+    "engine": "sci"
+  },
+  "pq4": {
+    "name": "Police Quest IV: Open Season",
+    "engine": "sci"
+  },
+  "pq1": {
+    "name": "Police Quest: In Pursuit of the Death Angel",
+    "engine": "agi"
+  },
+  "pq1sci": {
+    "name": "Police Quest: In Pursuit of the Death Angel",
+    "engine": "sci"
+  },
+  "pqswat": {
+    "name": "Police Quest: SWAT",
+    "engine": "sci"
+  },
+  "qfg1": {
+    "name": "Quest for Glory I: So You Want To Be A Hero",
+    "engine": "sci"
+  },
+  "qfg1vga": {
+    "name": "Quest for Glory I: So You Want To Be A Hero",
+    "engine": "sci"
+  },
+  "qfg2": {
+    "name": "Quest for Glory II: Trial by Fire",
+    "engine": "sci"
+  },
+  "qfg3": {
+    "name": "Quest for Glory III: Wages of War",
+    "engine": "sci"
+  },
+  "qfg4": {
+    "name": "Quest for Glory IV: Shadows of Darkness",
+    "engine": "sci"
+  },
+  "rama": {
+    "name": "RAMA",
+    "engine": "sci"
+  },
+  "shivers": {
+    "name": "Shivers",
+    "engine": "sci"
+  },
+  "slater": {
+    "name": "Slater &amp; Charlie Go Camping",
+    "engine": "sci"
+  },
+  "sq6": {
+    "name": "Space Quest 6: Roger Wilco in the Spinal Frontier",
+    "engine": "sci"
+  },
+  "sq1sci": {
+    "name": "Space Quest I: Roger Wilco in the Sarien Encounter",
+    "engine": "sci"
+  },
+  "sq2": {
+    "name": "Space Quest II: Chapter II - Vohaul's Revenge",
+    "engine": "agi"
+  },
+  "sq3": {
+    "name": "Space Quest III: The Pirates of Pestulon",
+    "engine": "sci"
+  },
+  "sq4": {
+    "name": "Space Quest IV: Roger Wilco and the Time Rippers",
+    "engine": "sci"
+  },
+  "sq5": {
+    "name": "Space Quest V: The Next Mutation",
+    "engine": "sci"
+  },
+  "sq1": {
+    "name": "Space Quest: Chapter I - The Sarien Encounter",
+    "engine": "agi"
+  },
+  "gk2": {
+    "name": "The Beast Within: A Gabriel Knight Mystery",
+    "engine": "sci"
+  },
+  "bc": {
+    "name": "The Black Cauldron",
+    "engine": "agi"
+  },
+  "islandbrain": {
+    "name": "The Island of Dr. Brain",
+    "engine": "sci"
+  },
+  "torin": {
+    "name": "Torin's Passage",
+    "engine": "sci"
+  },
+  "troll": {
+    "name": "Troll's Tale",
+    "engine": "agi"
+  },
+  "winnie": {
+    "name": "Winnie the Pooh in the Hundred Acre Wood",
+    "engine": "agi"
+  },
+  "baseball": {
+    "name": "Backyard Baseball",
+    "engine": "scumm"
+  },
+  "baseball2001": {
+    "name": "Backyard Baseball 2001",
+    "engine": "scumm"
+  },
+  "baseball2003": {
+    "name": "Backyard Baseball 2003",
+    "engine": "scumm"
+  },
+  "basketball": {
+    "name": "Backyard Basketball",
+    "engine": "scumm"
+  },
+  "football": {
+    "name": "Backyard Football",
+    "engine": "scumm"
+  },
+  "football2002": {
+    "name": "Backyard Football 2002",
+    "engine": "scumm"
+  },
+  "brstorm": {
+    "name": "Bear Stormin'",
+    "engine": "scumm"
+  },
+  "thinker1": {
+    "name": "Big Thinkers! 1st Grade",
+    "engine": "scumm"
+  },
+  "thinkerk": {
+    "name": "Big Thinkers! Kindergarten",
+    "engine": "scumm"
+  },
+  "blues123time": {
+    "name": "Blue's 123 Time Activities",
+    "engine": "scumm"
+  },
+  "bluesabctime": {
+    "name": "Blue's ABC Time Activities",
+    "engine": "scumm"
+  },
+  "arttime": {
+    "name": "Blue's Clues: Blue's Art Time Activities",
+    "engine": "scumm"
+  },
+  "bluesbirthday": {
+    "name": "Blue's Clues: Blue's Birthday Adventure",
+    "engine": "scumm"
+  },
+  "readtime": {
+    "name": "Blue's Reading Time Activities",
+    "engine": "scumm"
+  },
+  "bluestreasurehunt": {
+    "name": "Blue's Treasure Hunt",
+    "engine": "scumm"
+  },
+  "fbear": {
+    "name": "Fatty Bear's Birthday Surprise",
+    "engine": "scumm"
+  },
+  "fbpack": {
+    "name": "Fatty Bear's FunPack",
+    "engine": "scumm"
+  },
+  "freddi2": {
+    "name": "Freddi Fish 2: The Case of the Haunted Schoolhouse",
+    "engine": "scumm"
+  },
+  "freddi3": {
+    "name": "Freddi Fish 3: The Case of the Stolen Conch Shell",
+    "engine": "scumm"
+  },
+  "freddi4": {
+    "name": "Freddi Fish 4: The Case of the Hogfish Rustlers of Briny Gulch",
+    "engine": "scumm"
+  },
+  "freddicove": {
+    "name": "Freddi Fish 5: The Case of the Creature of Coral Cove",
+    "engine": "scumm"
+  },
+  "maze": {
+    "name": "Freddi Fish and Luther's Maze Madness",
+    "engine": "scumm"
+  },
+  "water": {
+    "name": "Freddi Fish and Luther's Water Worries",
+    "engine": "scumm"
+  },
+  "freddi": {
+    "name": "Freddi Fish and the Case of the Missing Kelp Seeds",
+    "engine": "scumm"
+  },
+  "airport": {
+    "name": "Let's Explore the Airport",
+    "engine": "scumm"
+  },
+  "farm": {
+    "name": "Let's Explore the Farm",
+    "engine": "scumm"
+  },
+  "jungle": {
+    "name": "Let's Explore the Jungle",
+    "engine": "scumm"
+  },
+  "moonbase": {
+    "name": "Moonbase Commander",
+    "engine": "scumm"
+  },
+  "pajama2": {
+    "name": "Pajama Sam 2: Thunder and Lightning Aren't so Frightening",
+    "engine": "scumm"
+  },
+  "pajama3": {
+    "name": "Pajama Sam 3: You Are What You Eat From Your Head To Your Feet",
+    "engine": "scumm"
+  },
+  "lost": {
+    "name": "Pajama Sam's Lost &amp; Found",
+    "engine": "scumm"
+  },
+  "socks": {
+    "name": "Pajama Sam's Sock Works",
+    "engine": "scumm"
+  },
+  "pjgames": {
+    "name": "Pajama Sam: Games to Play on Any Day",
+    "engine": "scumm"
+  },
+  "pajama": {
+    "name": "Pajama Sam: No Need to Hide When It's Dark Outside",
+    "engine": "scumm"
+  },
+  "puttrace": {
+    "name": "Putt-Putt Enters the Race",
+    "engine": "scumm"
+  },
+  "puttmoon": {
+    "name": "Putt-Putt Goes to the Moon",
+    "engine": "scumm"
+  },
+  "puttcircus": {
+    "name": "Putt-Putt Joins the Circus",
+    "engine": "scumm"
+  },
+  "puttputt": {
+    "name": "Putt-Putt Joins the Parade",
+    "engine": "scumm"
+  },
+  "puttzoo": {
+    "name": "Putt-Putt Saves the Zoo",
+    "engine": "scumm"
+  },
+  "putttime": {
+    "name": "Putt-Putt Travels Through Time",
+    "engine": "scumm"
+  },
+  "activity": {
+    "name": "Putt-Putt and Fatty Bear's Activity Pack",
+    "engine": "scumm"
+  },
+  "balloon": {
+    "name": "Putt-Putt and Pep's Balloon-O-Rama",
+    "engine": "scumm"
+  },
+  "dog": {
+    "name": "Putt-Putt and Pep's Dog on a Stick",
+    "engine": "scumm"
+  },
+  "funpack": {
+    "name": "Putt-Putt's Fun Pack",
+    "engine": "scumm"
+  },
+  "chase": {
+    "name": "SPY Fox in \"Cheese Chase\"",
+    "engine": "scumm"
+  },
+  "spyfox2": {
+    "name": "Spy Fox 2: \"Some Assembly Required\"",
+    "engine": "scumm"
+  },
+  "spyfox": {
+    "name": "Spy Fox in \"Dry Cereal\"",
+    "engine": "scumm"
+  },
+  "mustard": {
+    "name": "Spy Fox in \"Hold the Mustard\"",
+    "engine": "scumm"
+  },
+  "spyozon": {
+    "name": "Spy Fox: \"Operation Ozone\"",
+    "engine": "scumm"
+  },
+  "sky": {
+    "name": "Beneath a Steel Sky",
+    "engine": "sky"
+  },
+  "sword2": {
+    "name": "Broken Sword II: The Smoking Mirror",
+    "engine": "sword2"
+  },
+  "sword1": {
+    "name": "Broken Sword: The Shadow of the Templars",
+    "engine": "sword1"
+  },
+  "lure": {
+    "name": "Lure of the Temptress",
+    "engine": "lure"
+  },
+  "blackwell2": {
+    "name": "Blackwell Unbound",
+    "engine": "ags"
+  },
+  "danewguys2": {
+    "name": "Da New Guys: Day of the Jackass",
+    "engine": "ags"
+  },
+  "geminirue": {
+    "name": "Gemini Rue",
+    "engine": "ags"
+  },
+  "oldskies": {
+    "name": "Old Skies",
+    "engine": "ags"
+  },
+  "shardlight": {
+    "name": "Shardlight",
+    "engine": "ags"
+  },
+  "blackwell3": {
+    "name": "The Blackwell Convergence",
+    "engine": "ags"
+  },
+  "blackwell4": {
+    "name": "The Blackwell Deception",
+    "engine": "ags"
+  },
+  "blackwell5": {
+    "name": "The Blackwell Epiphany",
+    "engine": "ags"
+  },
+  "blackwell1": {
+    "name": "The Blackwell Legacy",
+    "engine": "ags"
+  },
+  "shivah": {
+    "name": "The Shivah",
+    "engine": "ags"
+  },
+  "shivahkosher": {
+    "name": "The Shivah: Kosher Edition",
+    "engine": "ags"
+  },
+  "unavowed": {
+    "name": "Unavowed",
+    "engine": "ags"
+  },
+  "bladerunner": {
+    "name": "Blade Runner",
+    "engine": "bladerunner"
+  },
+  "eob": {
+    "name": "Eye of the Beholder",
+    "engine": "kyra"
+  },
+  "eob2": {
+    "name": "Eye of the Beholder II: The Legend of Darkmoon",
+    "engine": "kyra"
+  },
+  "lol": {
+    "name": "Lands of Lore: The Throne of Chaos",
+    "engine": "kyra"
+  },
+  "kyra1": {
+    "name": "The Legend of Kyrandia",
+    "engine": "kyra"
+  },
+  "kyra3": {
+    "name": "The Legend of Kyrandia: Book 3 - Malcolm's Revenge",
+    "engine": "kyra"
+  },
+  "kyra2": {
+    "name": "The Legend of Kyrandia: Hand of Fate",
+    "engine": "kyra"
+  },
+  "blueforce": {
+    "name": "Blue Force",
+    "engine": "tsage"
+  },
+  "ringworld2": {
+    "name": "Return to Ringworld",
+    "engine": "tsage"
+  },
+  "ringworld": {
+    "name": "Ringworld: Revenge of the Patriarch",
+    "engine": "tsage"
+  },
+  "castlemaster": {
+    "name": "Castle Master",
+    "engine": "freescape"
+  },
+  "darkside": {
+    "name": "Dark Side",
+    "engine": "freescape"
+  },
+  "driller": {
+    "name": "Driller",
+    "engine": "freescape"
+  },
+  "totaleclipse": {
+    "name": "Total Eclipse",
+    "engine": "freescape"
+  },
+  "totaleclipse2": {
+    "name": "Total Eclipse 2",
+    "engine": "freescape"
+  },
+  "clandestiny": {
+    "name": "Clandestiny",
+    "engine": "groovie"
+  },
+  "11h": {
+    "name": "The 11th Hour: The Sequel to The 7th Guest",
+    "engine": "groovie"
+  },
+  "t7g": {
+    "name": "The 7th Guest",
+    "engine": "groovie"
+  },
+  "unclehenry": {
+    "name": "Uncle Henry's Playhouse",
+    "engine": "groovie"
+  },
+  "corruption": {
+    "name": "Corruption",
+    "engine": "glk"
+  },
+  "fish": {
+    "name": "Fish!",
+    "engine": "glk"
+  },
+  "jinxter": {
+    "name": "Jinxter",
+    "engine": "glk"
+  },
+  "myth": {
+    "name": "Myth",
+    "engine": "glk"
+  },
+  "guild": {
+    "name": "The Guild of Thieves",
+    "engine": "glk"
+  },
+  "pawn": {
+    "name": "The Pawn",
+    "engine": "glk"
+  },
+  "wonderland": {
+    "name": "Wonderland",
+    "engine": "glk"
+  },
+  "remorse": {
+    "name": "Crusader: No Remorse",
+    "engine": "ultima"
+  },
+  "ultima4": {
+    "name": "Ultima IV: Quest of the Avatar",
+    "engine": "ultima"
+  },
+  "ultima6": {
+    "name": "Ultima VI: The False Prophet",
+    "engine": "ultima"
+  },
+  "ultima8": {
+    "name": "Ultima VIII - Pagan",
+    "engine": "ultima"
+  },
+  "daniel": {
+    "name": "Daniel in the Lions' Den",
+    "engine": "mohawk"
+  },
+  "noah": {
+    "name": "Noah's Ark",
+    "engine": "mohawk"
+  },
+  "create": {
+    "name": "The Story of Creation",
+    "engine": "mohawk"
+  },
+  "darby": {
+    "name": "Darby the Dragon",
+    "engine": "composer"
+  },
+  "gregory": {
+    "name": "Gregory and the Hot Air Balloon",
+    "engine": "composer"
+  },
+  "babayaga": {
+    "name": "Magic Tales: Baba Yaga and the Magic Geese",
+    "engine": "composer"
+  },
+  "imoking": {
+    "name": "Magic Tales: Imo &amp; the King",
+    "engine": "composer"
+  },
+  "liam": {
+    "name": "Magic Tales: Liam Finds a Story",
+    "engine": "composer"
+  },
+  "sleepingcub": {
+    "name": "Magic Tales: Sleeping Cub's Test of Courage",
+    "engine": "composer"
+  },
+  "littlesamurai": {
+    "name": "Magic Tales: The Little Samurai",
+    "engine": "composer"
+  },
+  "princess": {
+    "name": "Magic Tales: The Princess and the Crab",
+    "engine": "composer"
+  },
+  "elvira2": {
+    "name": "Elvira II: The Jaws of Cerberus",
+    "engine": "agos"
+  },
+  "elvira1": {
+    "name": "Elvira: Mistress of the Dark",
+    "engine": "agos"
+  },
+  "pn": {
+    "name": "Personal Nightmare",
+    "engine": "agos"
+  },
+  "simon1": {
+    "name": "Simon the Sorcerer",
+    "engine": "agos"
+  },
+  "simon2": {
+    "name": "Simon the Sorcerer II: The Lion, the Wizard and the Wardrobe",
+    "engine": "agos"
+  },
+  "dimp": {
+    "name": "Simon the Sorcerer's Puzzle Pack: Demon in my Pocket",
+    "engine": "agos"
+  },
+  "jumble": {
+    "name": "Simon the Sorcerer's Puzzle Pack: Jumble",
+    "engine": "agos"
+  },
+  "puzzle": {
+    "name": "Simon the Sorcerer's Puzzle Pack: NoPatience",
+    "engine": "agos"
+  },
+  "swampy": {
+    "name": "Simon the Sorcerer's Puzzle Pack: Swampy Adventures",
+    "engine": "agos"
+  },
+  "feeble": {
+    "name": "The Feeble Files",
+    "engine": "agos"
+  },
+  "waxworks": {
+    "name": "Waxworks",
+    "engine": "agos"
+  },
+  "monkey4": {
+    "name": "Escape From Monkey Island",
+    "engine": "grim"
+  },
+  "ft": {
+    "name": "Full Throttle",
+    "engine": "scumm"
+  },
+  "grim": {
+    "name": "Grim Fandango",
+    "engine": "grim"
+  },
+  "atlantis": {
+    "name": "Indiana Jones and the Fate of Atlantis",
+    "engine": "scumm"
+  },
+  "indy3": {
+    "name": "Indiana Jones and the Last Crusade: The Graphic Adventure",
+    "engine": "scumm"
+  },
+  "loom": {
+    "name": "Loom",
+    "engine": "scumm"
+  },
+  "maniac": {
+    "name": "Maniac Mansion",
+    "engine": "scumm"
+  },
+  "tentacle": {
+    "name": "Maniac Mansion: Day of the Tentacle",
+    "engine": "scumm"
+  },
+  "monkey2": {
+    "name": "Monkey Island 2: LeChuck's Revenge",
+    "engine": "scumm"
+  },
+  "pass": {
+    "name": "Passport to Adventure (Indiana Jones and the Last Crusade, The Secret of Monkey Island, Loom)",
+    "engine": "scumm"
+  },
+  "samnmax": {
+    "name": "Sam &amp; Max: Hit the Road",
+    "engine": "scumm"
+  },
+  "comi": {
+    "name": "The Curse of Monkey Island",
+    "engine": "scumm"
+  },
+  "dig": {
+    "name": "The Dig",
+    "engine": "scumm"
+  },
+  "monkey": {
+    "name": "The Secret of Monkey Island",
+    "engine": "scumm"
+  },
+  "zak": {
+    "name": "Zak McKracken and the Alien Mindbenders",
+    "engine": "scumm"
+  },
+  "5ld": {
+    "name": "Five Lethal Demons",
+    "engine": "wintermute"
+  },
+  "5ma": {
+    "name": "Five Magical Amulets",
+    "engine": "wintermute"
+  },
+  "helga": {
+    "name": "Helga Deep In Trouble",
+    "engine": "wintermute"
+  },
+  "footballgame": {
+    "name": "Football Game",
+    "engine": "ags"
+  },
+  "sumatra": {
+    "name": "Sumatra: Fate of Yandi",
+    "engine": "ags"
+  },
+  "excavationhb": {
+    "name": "The Excavation of Hob's Barrow",
+    "engine": "ags"
+  },
+  "gobliiins5-1": {
+    "name": "Gobliiins5 - L'Invasion des Morglotons Part1",
+    "engine": "ags"
+  },
+  "gobliiins5-2": {
+    "name": "Gobliiins5 - L'Invasion des Morglotons Part2",
+    "engine": "ags"
+  },
+  "gobliiins5-3": {
+    "name": "Gobliiins5 - L'Invasion des Morglotons Part3",
+    "engine": "ags"
+  },
+  "gobliiins5-4": {
+    "name": "Gobliiins5 - L'Invasion des Morglotons Part4",
+    "engine": "ags"
+  },
+  "fta2": {
+    "name": "Halls of the Dead: Faery Tale Adventure II",
+    "engine": "saga2"
+  },
+  "ihnm": {
+    "name": "Harlan Ellison: I Have No Mouth, and I Must Scream",
+    "engine": "saga"
+  },
+  "ite": {
+    "name": "Inherit the Earth: Quest for the Orb",
+    "engine": "saga"
+  },
+  "henachoco01": {
+    "name": "Henachoco #1",
+    "engine": "director"
+  },
+  "henachoco02": {
+    "name": "Henachoco #2",
+    "engine": "director"
+  },
+  "henachoco03": {
+    "name": "Henachoco #3",
+    "engine": "director"
+  },
+  "henachoco04": {
+    "name": "Henachoco #4",
+    "engine": "director"
+  },
+  "henachoco05": {
+    "name": "Yaken Rodem",
+    "engine": "director"
+  },
+  "hugo2": {
+    "name": "Hugo II: Whodunit?",
+    "engine": "hugo"
+  },
+  "hugo3": {
+    "name": "Hugo III: Jungle of Doom",
+    "engine": "hugo"
+  },
+  "hugo1": {
+    "name": "Hugo's House of Horrors",
+    "engine": "hugo"
+  },
+  "maniacmansiondeluxe": {
+    "name": "Maniac Mansion Deluxe",
+    "engine": "ags"
+  },
+  "sqdote": {
+    "name": "Space Quest Minus 1: Decisions of the Elders",
+    "engine": "ags"
+  },
+  "sqinc": {
+    "name": "Space Quest: Incinerations",
+    "engine": "ags"
+  },
+  "3mice1": {
+    "name": "Marvellous Mice Adventures: Meeting Sea Rat",
+    "engine": "qdengine"
+  },
+  "3mice2": {
+    "name": "Marvellous Mice Adventures: Sea Rat's Birthday",
+    "engine": "qdengine"
+  },
+  "maski": {
+    "name": "Mask show",
+    "engine": "qdengine"
+  },
+  "shveik": {
+    "name": "The Adventures of the Good Soldier Schweik",
+    "engine": "qdengine"
+  },
+  "nupogodi3": {
+    "name": "Wait for it! Issue 3. Song for a hare",
+    "engine": "qdengine"
+  },
+  "mm1": {
+    "name": "Might and Magic: Book One - Secret of the Inner Sanctum",
+    "engine": "mm"
+  },
+  "cloudsofxeen": {
+    "name": "Might and Magic: Clouds of Xeen",
+    "engine": "mm"
+  },
+  "darksideofxeen": {
+    "name": "Might and Magic: Darkside of Xeen",
+    "engine": "mm"
+  },
+  "swordsofxeen": {
+    "name": "Might and Magic: Swords of Xeen",
+    "engine": "mm"
+  },
+  "worldofxeen": {
+    "name": "Might and Magic: World of Xeen",
+    "engine": "mm"
+  },
+  "mti": {
+    "name": "Muppet Treasure Island ",
+    "engine": "mtropolis"
+  },
+  "rtz": {
+    "name": "Return to Zork",
+    "engine": "made"
+  },
+  "znemesis": {
+    "name": "Zork Nemesis: The Forbidden Lands",
+    "engine": "zvision"
+  },
+  "zgi": {
+    "name": "Zork: Grand Inquisitor",
+    "engine": "zvision"
+  },
+  "myst": {
+    "name": "Myst",
+    "engine": "mohawk"
+  },
+  "riven": {
+    "name": "Riven: The Sequel to Myst",
+    "engine": "mohawk"
+  },
+  "manhole": {
+    "name": "The Manhole",
+    "engine": "made"
+  },
+  "myst3": {
+    "name": "Myst III: Exile",
+    "engine": "myst3"
+  },
+  "buried": {
+    "name": "The Journeyman Project 2: Buried in Time",
+    "engine": "buried"
+  },
+  "pegasus": {
+    "name": "The Journeyman Project: Pegasus Prime",
+    "engine": "pegasus"
+  },
+  "nancy3": {
+    "name": "Nancy Drew: Message in a Haunted Mansion",
+    "engine": "nancy"
+  },
+  "nancy1": {
+    "name": "Nancy Drew: Secrets Can Kill",
+    "engine": "nancy"
+  },
+  "nancy2": {
+    "name": "Nancy Drew: Stay Tuned for Danger",
+    "engine": "nancy"
+  },
+  "nancy5": {
+    "name": "Nancy Drew: The Final Scene",
+    "engine": "nancy"
+  },
+  "nancy4": {
+    "name": "Nancy Drew: Treasure in the Royal Tower",
+    "engine": "nancy"
+  },
+  "vampirediaries": {
+    "name": "The Vampire Diaries",
+    "engine": "nancy"
+  },
+  "ootopos": {
+    "name": "OO-Topos",
+    "engine": "glk"
+  },
+  "crimsoncrown": {
+    "name": "The Crimson Crown: Further Adventures in Transylvania",
+    "engine": "glk"
+  },
+  "transylvania": {
+    "name": "Transylvania",
+    "engine": "glk"
+  },
+  "reah": {
+    "name": "Reah: Face the Unknown",
+    "engine": "vcruise"
+  },
+  "schizm": {
+    "name": "Schizm: Mysterious Journey",
+    "engine": "vcruise"
+  },
+  "sfinx": {
+    "name": "Sfinx",
+    "engine": "cge2"
+  },
+  "soltys": {
+    "name": "Sołtys",
+    "engine": "cge"
+  },
+  "ritter": {
+    "name": "1½ Ritter: Auf der Suche nach der hinreißenden Herzelinde",
+    "engine": "wintermute"
+  },
+  "toltecs": {
+    "name": "3 Skulls of the Toltecs",
+    "engine": "toltecs"
+  },
+  "goldenwake": {
+    "name": "A Golden Wake",
+    "engine": "ags"
+  },
+  "rosewater": {
+    "name": "Rosewater",
+    "engine": "ags"
+  },
+  "ags": {
+    "name": "Adventure Game Studio games",
+    "engine": "ags"
+  },
+  "fukuokagoround": {
+    "name": "Fukuoka Go-Round",
+    "engine": "director"
+  },
+  "amazon": {
+    "name": "Amazon: Guardians of Eden",
+    "engine": "access"
+  },
+  "apeodyssey": {
+    "name": "Ape Odyssey 2001",
+    "engine": "director"
+  },
+  "bickadoodle": {
+    "name": "Bickadoodle",
+    "engine": "wintermute"
+  },
+  "dragons": {
+    "name": "Blazing Dragons",
+    "engine": "dragons"
+  },
+  "sword25": {
+    "name": "Broken Sword 2.5: The Return of the Templars",
+    "engine": "sword25"
+  },
+  "tucker": {
+    "name": "Bud Tucker in Double Trouble",
+    "engine": "tucker"
+  },
+  "chewy": {
+    "name": "Chewy: Esc from F5",
+    "engine": "chewy"
+  },
+  "chivalry": {
+    "name": "Chivalry is Not Dead",
+    "engine": "wintermute"
+  },
+  "chopsuey": {
+    "name": "Chop Suey",
+    "engine": "director"
+  },
+  "classicalcats": {
+    "name": "Classical Cats",
+    "engine": "director"
+  },
+  "deadcity": {
+    "name": "Dead City",
+    "engine": "wintermute"
+  },
+  "dirtysplit": {
+    "name": "Dirty Split",
+    "engine": "wintermute"
+  },
+  "dw": {
+    "name": "Discworld",
+    "engine": "tinsel"
+  },
+  "dw2": {
+    "name": "Discworld II: Missing Presumed...!?",
+    "engine": "tinsel"
+  },
+  "draci": {
+    "name": "Dragon History",
+    "engine": "draci"
+  },
+  "dreamweb": {
+    "name": "DreamWeb",
+    "engine": "dreamweb"
+  },
+  "dreamswitchhouse": {
+    "name": "Dreams in the Witch House",
+    "engine": "ags"
+  },
+  "drascula": {
+    "name": "Dráscula: The Vampire Strikes Back",
+    "engine": "drascula"
+  },
+  "duckman": {
+    "name": "Duckman: The Graphic Adventures of a Private Dick",
+    "engine": "illusions"
+  },
+  "easternmind": {
+    "name": "Eastern Mind",
+    "engine": "director"
+  },
+  "the7colors": {
+    "name": "The Seven Colors: Legend of PSY・S City",
+    "engine": "director"
+  },
+  "efh": {
+    "name": "Escape From Hell",
+    "engine": "efh"
+  },
+  "escapemansion": {
+    "name": "Escape from the Mansion",
+    "engine": "wintermute"
+  },
+  "queen": {
+    "name": "Flight of the Amazon Queen",
+    "engine": "queen"
+  },
+  "fullpipe": {
+    "name": "Full Pipe",
+    "engine": "ngi"
+  },
+  "ganbareinuchan": {
+    "name": "Ganbare! Inuchan: Rock'n Roll Edition",
+    "engine": "director"
+  },
+  "nemurenu": {
+    "name": "Nemurenu Yoru no Chiisana O-Hanashi",
+    "engine": "director"
+  },
+  "ganbareinuchan2": {
+    "name": "Ganbare! Inuchan: Trip Around the World",
+    "engine": "director"
+  },
+  "hadesch": {
+    "name": "Hades Challenge",
+    "engine": "hadesch"
+  },
+  "hopkins": {
+    "name": "Hopkins FBI",
+    "engine": "hopkins"
+  },
+  "hdb": {
+    "name": "Hyperspace Delivery Boy!",
+    "engine": "hdb"
+  },
+  "japanart07": {
+    "name": "Japan Art Today 07: Takashi Murakami - A Romantic Evening",
+    "engine": "director"
+  },
+  "kathyrain": {
+    "name": "Kathy Rain",
+    "engine": "ags"
+  },
+  "whispersofamachine": {
+    "name": "Whispers of a Machine",
+    "engine": "ags"
+  },
+  "kingdom": {
+    "name": "Kingdom: The Far Reaches",
+    "engine": "kingdom"
+  },
+  "lgop2": {
+    "name": "Leather Goddesses of Phobos! 2: Gas Pump Girls Meet the Pulsating Inconvenience from Planet X",
+    "engine": "made"
+  },
+  "lba": {
+    "name": "Little Big Adventure (Relentless: Twinsen's Adventure)",
+    "engine": "twine"
+  },
+  "bbvs": {
+    "name": "MTV's Beavis and Butt-Head in Virtual Stupidity",
+    "engine": "bbvs"
+  },
+  "majestic": {
+    "name": "Majestic Part 1: Alien Encounter",
+    "engine": "director"
+  },
+  "sinistersix": {
+    "name": "Marvel Comics Spider-Man: The Sinister Six",
+    "engine": "hypno"
+  },
+  "private-eye": {
+    "name": "Private Eye",
+    "engine": "private"
+  },
+  "msn1": {
+    "name": "Mission Supernova 1",
+    "engine": "supernova"
+  },
+  "msn2": {
+    "name": "Mission Supernova 2",
+    "engine": "supernova"
+  },
+  "mortevielle": {
+    "name": "Mortville Manor",
+    "engine": "mortevielle"
+  },
+  "nl": {
+    "name": "Nightlong: Union City Conspiracy",
+    "engine": "trecision"
+  },
+  "nippon": {
+    "name": "Nippon Safes, Inc.",
+    "engine": "parallaction"
+  },
+  "obsidian": {
+    "name": "Obsidian",
+    "engine": "mtropolis"
+  },
+  "burger": {
+    "name": "Orion Burger",
+    "engine": "m4"
+  },
+  "overringunder": {
+    "name": "Over-Ring-Under",
+    "engine": "director"
+  },
+  "plumbers": {
+    "name": "Plumbers Don't Wear Ties",
+    "engine": "plumbers"
+  },
+  "primordia": {
+    "name": "Primordia",
+    "engine": "ags"
+  },
+  "strangeland": {
+    "name": "Strangeland",
+    "engine": "ags"
+  },
+  "petka1": {
+    "name": "Red Comrades 1: Save the Galaxy",
+    "engine": "petka"
+  },
+  "petka2": {
+    "name": "Red Comrades 2: For the Great Justice",
+    "engine": "petka"
+  },
+  "resonance": {
+    "name": "Resonance",
+    "engine": "ags"
+  },
+  "nebular": {
+    "name": "Rex Nebular and the Cosmic Gender Bender",
+    "engine": "mads"
+  },
+  "rise": {
+    "name": "Rise of the Dragon",
+    "engine": "dgds"
+  },
+  "rodney": {
+    "name": "Rodney's Funscreen",
+    "engine": "made"
+  },
+  "rosemary": {
+    "name": "Rosemary",
+    "engine": "wintermute"
+  },
+  "asylum": {
+    "name": "Sanitarium",
+    "engine": "asylum"
+  },
+  "soldierboyz": {
+    "name": "Soldier Boyz",
+    "engine": "hypno"
+  },
+  "wetlands": {
+    "name": "Wetlands",
+    "engine": "hypno"
+  },
+  "sq45": {
+    "name": "Space Quest IV.5 - Roger Wilco and the Voyage Home",
+    "engine": "ags"
+  },
+  "sqvsb": {
+    "name": "Space Quest: Vohaul Strikes Back",
+    "engine": "ags"
+  },
+  "warlock": {
+    "name": "Spaceship Warlock",
+    "engine": "director"
+  },
+  "titanic": {
+    "name": "Starship Titanic",
+    "engine": "titanic"
+  },
+  "stellaluna": {
+    "name": "Stellaluna",
+    "engine": "mohawk"
+  },
+  "syberia": {
+    "name": "Syberia",
+    "engine": "tetraedge"
+  },
+  "syberia2": {
+    "name": "Syberia II",
+    "engine": "tetraedge"
+  },
+  "technobabylon": {
+    "name": "Technobabylon",
+    "engine": "ags"
+  },
+  "teenagent": {
+    "name": "Teen Agent",
+    "engine": "teenagent"
+  },
+  "prince": {
+    "name": "The Prince and the Coward",
+    "engine": "prince"
+  },
+  "tlc": {
+    "name": "Tender Loving Care",
+    "engine": "groovie"
+  },
+  "betterd": {
+    "name": "The Better Dead Ratification",
+    "engine": "director"
+  },
+  "cutemachine": {
+    "name": "The Cute Machine",
+    "engine": "director"
+  },
+  "darkeye": {
+    "name": "The Dark Eye",
+    "engine": "director"
+  },
+  "griffon": {
+    "name": "The Griffon Legend",
+    "engine": "griffon"
+  },
+  "lab": {
+    "name": "The Labyrinth of Time",
+    "engine": "lab"
+  },
+  "tlj": {
+    "name": "The Longest Journey",
+    "engine": "stark"
+  },
+  "rosetattoo": {
+    "name": "The Lost Files of Sherlock Holmes: Case of the Rose Tattoo",
+    "engine": "sherlock"
+  },
+  "scalpel": {
+    "name": "The Lost Files of Sherlock Holmes: The Case of the Serrated Scalpel",
+    "engine": "sherlock"
+  },
+  "neverhood": {
+    "name": "The Neverhood",
+    "engine": "neverhood"
+  },
+  "pokus": {
+    "name": "The Pink Panther: Hokus Pokus Pink",
+    "engine": "pink"
+  },
+  "peril": {
+    "name": "The Pink Panther: Passport to Peril",
+    "engine": "pink"
+  },
+  "spacebar": {
+    "name": "The Space Bar",
+    "engine": "bagel"
+  },
+  "twc": {
+    "name": "The White Chamber",
+    "engine": "wintermute"
+  },
+  "twp": {
+    "name": "Thimbleweed Park",
+    "engine": "twp"
+  },
+  "timegal": {
+    "name": "Time Gal",
+    "engine": "director"
+  },
+  "tony": {
+    "name": "Tony Tough and the Night of Roasted Moths",
+    "engine": "tony"
+  },
+  "toon": {
+    "name": "Toonstruck",
+    "engine": "toon"
+  },
+  "touche": {
+    "name": "Touché: The Adventures of the Fifth Musketeer",
+    "engine": "touche"
+  },
+  "gnap": {
+    "name": "U.F.O.s",
+    "engine": "gnap"
+  },
+  "unrest": {
+    "name": "Unrest",
+    "engine": "crab"
+  },
+  "pepperon": {
+    "name": "Valmaison au fil des saisons / Pepperon",
+    "engine": "director"
+  },
+  "versailles": {
+    "name": "Versailles 1685",
+    "engine": "cryomni3d"
+  },
+  "voyeur": {
+    "name": "Voyeur",
+    "engine": "voyeur"
+  },
+  "wrath": {
+    "name": "Wrath of the Gods",
+    "engine": "director"
+  }
+}
