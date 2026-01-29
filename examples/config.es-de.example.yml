@@ -154,7 +154,7 @@ scan:
       - "hasheous" # Hasheous
       - "flashpoint" # Flashpoint Project
       - "hltb" # HowLongToBeat
-    # Media assets to download
+  # Media assets to download
   media:
     # Used as alternative cover art
     - box2d # Normal cover art (always enabled)
