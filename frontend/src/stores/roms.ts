@@ -97,18 +97,18 @@ export default defineStore("roms", {
     },
     // Fetching multiple roms
     _buildRequestParams(galleryFilter: GalleryFilterStore) {
-      // Determine platform IDs - use multiselect platforms if available, otherwise convert single platform to array
+      // Determine platform IDs
       let platformIds: number[] | null = null;
-      if (galleryFilter.selectedPlatforms.length > 0) {
+
+      // Prioritize currentPlatform if set, as it indicates a single platform view
+      if (this.currentPlatform) {
+        platformIds = [this.currentPlatform.id];
+      } else if (galleryFilter.selectedPlatforms.length > 0) {
+        // Otherwise, use multi-select platforms from filter
         platformIds = galleryFilter.selectedPlatforms.map((p) => p.id);
-      } else {
-        const singlePlatformId =
-          this.currentPlatform?.id ??
-          galleryFilter.selectedPlatform?.id ??
-          null;
-        if (singlePlatformId) {
-          platformIds = [singlePlatformId];
-        }
+      } else if (galleryFilter.selectedPlatform) {
+        // Fallback to single selected platform from filter
+        platformIds = [galleryFilter.selectedPlatform.id];
       }
 
       const params = {

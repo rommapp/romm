@@ -11,12 +11,14 @@ import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getStatusKeyForText } from "@/utils";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
 const collectionsStore = storeCollections();
+const romsStore = storeRoms();
 const { mdAndUp } = useDisplay();
 const router = useRouter();
 const show = ref(false);
@@ -24,6 +26,7 @@ const name = ref("");
 const description = ref("");
 const isPublic = ref(false);
 
+const { currentPlatform } = storeToRefs(romsStore);
 const {
   searchTerm,
   filterMatched,
@@ -70,10 +73,13 @@ const filterSummary = computed(() => {
   const filters = [];
 
   if (searchTerm.value) filters.push(`Search: "${searchTerm.value}"`);
-  if (selectedPlatforms.value && selectedPlatforms.value.length > 0)
+  if (selectedPlatforms.value && selectedPlatforms.value.length > 0) {
     filters.push(
-      `Platforms: ${selectedPlatforms.value.map((p) => p.name).join(", ")}`,
+      `Platforms: ${selectedPlatforms.value.map((p) => p.display_name).join(", ")}`,
     );
+  } else if (currentPlatform.value) {
+    filters.push(`Platform: ${currentPlatform.value.display_name}`);
+  }
   if (filterMatched.value) filters.push("Matched only");
   if (filterFavorites.value) filters.push("Favorites");
   if (filterDuplicates.value) filters.push("Duplicates");
@@ -125,14 +131,14 @@ async function createSmartCollection() {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   try {
-    const filterCriteria: Record<
-      string,
-      number | boolean | string | string[] | number[] | (string | null)[] | null
-    > = {};
+    const filterCriteria: Record<string, any> = {};
 
     if (searchTerm.value) filterCriteria.search_term = searchTerm.value;
-    if (selectedPlatforms.value && selectedPlatforms.value.length > 0)
+    if (selectedPlatforms.value && selectedPlatforms.value.length > 0) {
       filterCriteria.platform_ids = selectedPlatforms.value.map((p) => p.id);
+    } else if (currentPlatform.value) {
+      filterCriteria.platform_ids = [currentPlatform.value.id];
+    }
     if (filterMatched.value) filterCriteria.matched = true;
     if (filterFavorites.value) filterCriteria.favorite = true;
     if (filterDuplicates.value) filterCriteria.duplicate = true;
@@ -142,27 +148,27 @@ async function createSmartCollection() {
     if (filterVerified.value) filterCriteria.verified = true;
     if (selectedGenres.value && selectedGenres.value.length > 0) {
       filterCriteria.genres = selectedGenres.value;
-      if (selectedGenres.value.length > 1)
+      if (selectedGenres.value.length > 0)
         filterCriteria.genres_logic = genresLogic.value;
     }
     if (selectedFranchises.value && selectedFranchises.value.length > 0) {
       filterCriteria.franchises = selectedFranchises.value;
-      if (selectedFranchises.value.length > 1)
+      if (selectedFranchises.value.length > 0)
         filterCriteria.franchises_logic = franchisesLogic.value;
     }
     if (selectedCollections.value && selectedCollections.value.length > 0) {
       filterCriteria.collections = selectedCollections.value;
-      if (selectedCollections.value.length > 1)
+      if (selectedCollections.value.length > 0)
         filterCriteria.collections_logic = collectionsLogic.value;
     }
     if (selectedCompanies.value && selectedCompanies.value.length > 0) {
       filterCriteria.companies = selectedCompanies.value;
-      if (selectedCompanies.value.length > 1)
+      if (selectedCompanies.value.length > 0)
         filterCriteria.companies_logic = companiesLogic.value;
     }
     if (selectedAgeRatings.value && selectedAgeRatings.value.length > 0) {
       filterCriteria.age_ratings = selectedAgeRatings.value;
-      if (selectedAgeRatings.value.length > 1)
+      if (selectedAgeRatings.value.length > 0)
         filterCriteria.age_ratings_logic = ageRatingsLogic.value;
     }
     if (selectedStatuses.value && selectedStatuses.value.length > 0) {
@@ -176,12 +182,12 @@ async function createSmartCollection() {
     }
     if (selectedRegions.value && selectedRegions.value.length > 0) {
       filterCriteria.regions = selectedRegions.value;
-      if (selectedRegions.value.length > 1)
+      if (selectedRegions.value.length > 0)
         filterCriteria.regions_logic = regionsLogic.value;
     }
     if (selectedLanguages.value && selectedLanguages.value.length > 0) {
       filterCriteria.languages = selectedLanguages.value;
-      if (selectedLanguages.value.length > 1)
+      if (selectedLanguages.value.length > 0)
         filterCriteria.languages_logic = languagesLogic.value;
     }
 

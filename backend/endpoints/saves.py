@@ -153,10 +153,10 @@ async def add_save(
     )
 
     if db_save:
-        update_data = {"file_size_bytes": scanned_save.file_size_bytes}
-        if save_name is not None:
-            update_data["save_name"] = save_name
-        db_save = db_save_handler.update_save(db_save.id, update_data)
+        db_save = db_save_handler.update_save(db_save.id, {
+            "file_size_bytes": scanned_save.file_size_bytes,
+            "save_name": save_name or db_save.save_name,
+        })
     else:
         scanned_save.rom_id = rom.id
         scanned_save.user_id = request.user.id
@@ -250,6 +250,26 @@ def get_saves(
     return [
         _build_save_schema(save, device, sync_by_save_id.get(save.id)) for save in saves
     ]
+
+
+@protected_route(router.get, "/identifiers", [Scope.ASSETS_READ])
+def get_save_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get save identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of save IDs
+    """
+    saves = db_save_handler.get_saves(
+        user_id=request.user.id,
+        only_fields=[Save.id],
+    )
+
+    return [save.id for save in saves]
 
 
 @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])

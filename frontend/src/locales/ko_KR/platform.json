@@ -55,6 +55,7 @@
   "show-not-ra-only": "RetroAchievements가 없는 ROM만 표시",
   "match-any-logic": "선택한 값 중 하나라도 일치 (OR 논리)",
   "match-all-logic": "선택한 모든 값과 일치 (AND 논리)",
+  "match-none-logic": "선택한 값과 일치하는 항목 없음(NOT 논리)",
   "status": "플레이 상태",
   "upload-roms": "롬 업로드"
 }

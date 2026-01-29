@@ -188,39 +188,39 @@ async function getRoms({
         : undefined,
     // Logic operators
     genres_logic:
-      selectedGenres && selectedGenres.length > 1
+      selectedGenres && selectedGenres.length > 0
         ? genresLogic || "any"
         : undefined,
     franchises_logic:
-      selectedFranchises && selectedFranchises.length > 1
+      selectedFranchises && selectedFranchises.length > 0
         ? franchisesLogic || "any"
         : undefined,
     collections_logic:
-      selectedCollections && selectedCollections.length > 1
+      selectedCollections && selectedCollections.length > 0
         ? collectionsLogic || "any"
         : undefined,
     companies_logic:
-      selectedCompanies && selectedCompanies.length > 1
+      selectedCompanies && selectedCompanies.length > 0
         ? companiesLogic || "any"
         : undefined,
     age_ratings_logic:
-      selectedAgeRatings && selectedAgeRatings.length > 1
+      selectedAgeRatings && selectedAgeRatings.length > 0
         ? ageRatingsLogic || "any"
         : undefined,
     regions_logic:
-      selectedRegions && selectedRegions.length > 1
+      selectedRegions && selectedRegions.length > 0
         ? regionsLogic || "any"
         : undefined,
     languages_logic:
-      selectedLanguages && selectedLanguages.length > 1
+      selectedLanguages && selectedLanguages.length > 0
         ? languagesLogic || "any"
         : undefined,
     statuses_logic:
-      selectedStatuses && selectedStatuses.length > 1
+      selectedStatuses && selectedStatuses.length > 0
         ? statusesLogic || "any"
         : undefined,
     player_counts_logic:
-      selectedPlayerCounts && selectedPlayerCounts.length > 1
+      selectedPlayerCounts && selectedPlayerCounts.length > 0
         ? playerCountsLogic || "any"
         : undefined,
     ...(filterMatched !== null ? { matched: filterMatched } : {}),

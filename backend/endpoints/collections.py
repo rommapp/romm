@@ -1,9 +1,10 @@
 import json
+from datetime import datetime
 from io import BytesIO
 from typing import Annotated
 
 from fastapi import Path as PathVar
-from fastapi import Request, UploadFile, status
+from fastapi import Query, Request, UploadFile, status
 
 from decorators.auth import protected_route
 from endpoints.responses.collection import (
@@ -23,7 +24,11 @@ from handler.filesystem.base_handler import CoverSize
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.collection import Collection, SmartCollection
+from models.collection import (
+    Collection,
+    SmartCollection,
+    VirtualCollection,
+)
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -144,20 +149,53 @@ async def add_smart_collection(
 
 
 @protected_route(router.get, "", [Scope.COLLECTIONS_READ])
-def get_collections(request: Request) -> list[CollectionSchema]:
+def get_collections(
+    request: Request,
+    updated_after: Annotated[
+        datetime | None,
+        Query(
+            description="Filter collections updated after this datetime (ISO 8601 format with timezone information)."
+        ),
+    ] = None,
+) -> list[CollectionSchema]:
     """Get collections endpoint
 
     Args:
         request (Request): Fastapi Request object
-        id (int, optional): Collection id. Defaults to None.
+        updated_after: Filter collections updated after this datetime
 
     Returns:
         list[CollectionSchema]: List of collections
     """
 
-    collections = db_collection_handler.get_collections()
+    collections = db_collection_handler.get_collections(updated_after=updated_after)
 
-    return CollectionSchema.for_user(request.user.id, [c for c in collections])
+    return CollectionSchema.for_user(request.user.id, collections)
+
+
+@protected_route(router.get, "/identifiers", [Scope.COLLECTIONS_READ])
+def get_collection_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get collections identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of collection IDs
+    """
+
+    collections = db_collection_handler.get_collections(
+        only_fields=[
+            Collection.id,
+            Collection.name,
+            Collection.user_id,
+            Collection.is_public,
+        ],
+    )
+
+    return [c.id for c in collections if c.user_id == request.user.id or c.is_public]
 
 
 @protected_route(router.get, "/virtual", [Scope.COLLECTIONS_READ])
@@ -175,27 +213,80 @@ def get_virtual_collections(
         list[VirtualCollectionSchema]: List of virtual collections
     """
 
-    virtual_collections = db_collection_handler.get_virtual_collections(type, limit)
+    virtual_collections = db_collection_handler.get_virtual_collections(
+        type=type, limit=limit
+    )
 
     return [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections]
 
 
-@protected_route(router.get, "/smart", [Scope.COLLECTIONS_READ])
-def get_smart_collections(request: Request) -> list[SmartCollectionSchema]:
-    """Get smart collections endpoint
+@protected_route(router.get, "/virtual/identifiers", [Scope.COLLECTIONS_READ])
+def get_virtual_collection_identifiers(
+    request: Request,
+) -> list[str]:
+    """Get virtual collections identifiers endpoint
 
     Args:
         request (Request): Fastapi Request object
 
     Returns:
+        list[str]: List of generated virtual collection IDs
+    """
+
+    virtual_collections = db_collection_handler.get_virtual_collections(
+        type="all",
+        only_fields=[VirtualCollection.name, VirtualCollection.type],
+    )
+
+    return [s.id for s in virtual_collections]
+
+
+@protected_route(router.get, "/smart", [Scope.COLLECTIONS_READ])
+def get_smart_collections(
+    request: Request,
+    updated_after: Annotated[
+        datetime | None,
+        Query(
+            description="Filter smart collections updated after this datetime (ISO 8601 format with timezone information)."
+        ),
+    ] = None,
+) -> list[SmartCollectionSchema]:
+    """Get smart collections endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        updated_after: Filter smart collections updated after this datetime
+
+    Returns:
         list[SmartCollectionSchema]: List of smart collections
     """
 
-    smart_collections = db_collection_handler.get_smart_collections(request.user.id)
-
-    return SmartCollectionSchema.for_user(
-        request.user.id, [s for s in smart_collections]
+    smart_collections = db_collection_handler.get_smart_collections(
+        request.user.id, updated_after=updated_after
     )
+
+    return SmartCollectionSchema.for_user(request.user.id, smart_collections)
+
+
+@protected_route(router.get, "/smart/identifiers", [Scope.COLLECTIONS_READ])
+def get_smart_collection_identifiers(
+    request: Request,
+) -> list[int]:
+    """Get smart collections identifiers endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[int]: List of smart collection IDs
+    """
+
+    smart_collections = db_collection_handler.get_smart_collections(
+        request.user.id,
+        only_fields=[SmartCollection.id],
+    )
+
+    return [s.id for s in smart_collections]
 
 
 @protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])
