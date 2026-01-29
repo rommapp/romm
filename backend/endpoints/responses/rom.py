@@ -309,7 +309,6 @@ class RomSchema(BaseModel):
     rom_user: RomUserSchema
     merged_screenshots: list[str]
     merged_ra_metadata: RomRAMetadata | None
-    walkthroughs: list[WalkthroughSchema]
 
     class Config:
         from_attributes = True
@@ -405,6 +404,7 @@ class DetailedRomSchema(RomSchema):
     user_screenshots: list[ScreenshotSchema]
     user_collections: list[UserCollectionSchema]
     all_user_notes: list[UserNoteSchema]
+    walkthroughs: list[WalkthroughSchema]
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:

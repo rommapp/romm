@@ -264,8 +264,8 @@ class Rom(BaseModel):
         lazy="raise", back_populates="rom"
     )
     rom_users: Mapped[list[RomUser]] = relationship(lazy="raise", back_populates="rom")
-    walkthroughs: Mapped[list["Walkthrough"]] = relationship(
-        "Walkthrough", lazy="raise", back_populates="rom", cascade="all, delete-orphan"
+    walkthroughs: Mapped[list[Walkthrough]] = relationship(
+        lazy="raise", back_populates="rom", cascade="all, delete-orphan"
     )
     notes: Mapped[list[RomNote]] = relationship(lazy="raise", back_populates="rom")
     metadatum: Mapped[RomMetadata] = relationship(

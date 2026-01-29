@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from handler.walkthrough_handler import WalkthroughFormat, WalkthroughSource
 from models.base import BaseModel
+
+if TYPE_CHECKING:
+    from models.rom import Rom
 
 
 class Walkthrough(BaseModel):
