@@ -153,10 +153,13 @@ async def add_save(
     )
 
     if db_save:
-        db_save = db_save_handler.update_save(db_save.id, {
-            "file_size_bytes": scanned_save.file_size_bytes,
-            "save_name": save_name or db_save.save_name,
-        })
+        db_save = db_save_handler.update_save(
+            db_save.id,
+            {
+                "file_size_bytes": scanned_save.file_size_bytes,
+                "save_name": save_name or db_save.save_name,
+            },
+        )
     else:
         scanned_save.rom_id = rom.id
         scanned_save.user_id = request.user.id
