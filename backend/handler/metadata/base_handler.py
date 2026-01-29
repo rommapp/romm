@@ -30,6 +30,9 @@ SWITCH_PRODUCT_ID_REGEX: Final = re.compile(r"(0100[0-9A-F]{12})")
 # No regex needed for MAME
 MAME_XML_KEY: Final = "romm:mame_xml"
 
+# ScummVM
+SCUMMVM_INDEX_KEY: Final = "romm:scummvm_index"
+
 # PS2 OPL
 PS2_OPL_REGEX: Final = re.compile(r"^([A-Z]{4}_\d{3}\.\d{2})\..*$")
 PS2_OPL_KEY: Final = "romm:ps2_opl_index"
@@ -258,6 +261,17 @@ class MetadataHandler(abc.ABC):
             search_term = fs_rom_handler.get_file_name_with_no_tags(
                 index_entry.get("description", search_term)
             )
+
+        return search_term
+
+    async def _scummvm_format(self, search_term: str) -> str:
+        from handler.filesystem import fs_rom_handler
+
+        search_term = fs_rom_handler.get_file_name_with_no_extension(search_term)
+        index_entry = await async_cache.hget(SCUMMVM_INDEX_KEY, search_term)
+        if index_entry:
+            index_entry = json.loads(index_entry)
+            search_term = index_entry["name"]
 
         return search_term
 
