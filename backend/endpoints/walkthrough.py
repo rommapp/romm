@@ -1,10 +1,10 @@
-from datetime import datetime
 from pathlib import Path
 
 from fastapi import HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from decorators.auth import protected_route
+from endpoints.responses.rom import WalkthroughSchema
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_walkthrough_handler
 from handler.filesystem import fs_resource_handler
@@ -77,22 +77,6 @@ class WalkthroughCreateRequest(BaseModel):
     url: str = Field(..., description="Walkthrough URL from GameFAQs")
 
 
-class StoredWalkthroughResponse(BaseModel):
-    id: int
-    rom_id: int
-    url: str
-    title: str | None
-    author: str | None
-    source: WalkthroughSource
-    format: WalkthroughFormat
-    file_path: str | None
-    content: str
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(use_enum_values=True, from_attributes=True)
-
-
 @protected_route(
     router.post, "/fetch", [Scope.ROMS_READ], status_code=status.HTTP_200_OK
 )
@@ -122,14 +106,14 @@ def _detect_format_from_extension(filename: str) -> WalkthroughFormat:
 def list_walkthroughs_for_rom(
     request: Request,  # noqa: ARG001 - required for authentication decorator
     rom_id: int,
-) -> list[StoredWalkthroughResponse]:
+) -> list[WalkthroughSchema]:
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Rom not found"
         )
     walkthroughs = db_walkthrough_handler.get_walkthroughs_for_rom(rom_id)
-    return [StoredWalkthroughResponse.model_validate(wt) for wt in walkthroughs]
+    return [WalkthroughSchema.model_validate(wt) for wt in walkthroughs]
 
 
 @protected_route(
@@ -142,7 +126,7 @@ async def create_walkthrough_for_rom(
     request: Request,  # noqa: ARG001 - required for authentication decorator
     rom_id: int,
     payload: WalkthroughCreateRequest,
-) -> StoredWalkthroughResponse:
+) -> WalkthroughSchema:
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise HTTPException(
@@ -161,7 +145,7 @@ async def create_walkthrough_for_rom(
         content=result["content"],
     )
     saved = db_walkthrough_handler.add_or_update_walkthrough(walkthrough)
-    return StoredWalkthroughResponse.model_validate(saved)
+    return WalkthroughSchema.model_validate(saved)
 
 
 @protected_route(
@@ -176,7 +160,7 @@ async def upload_walkthrough_for_rom(
     file: UploadFile,
     title: str | None = None,
     author: str | None = None,
-) -> StoredWalkthroughResponse:
+) -> WalkthroughSchema:
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise HTTPException(
@@ -259,7 +243,7 @@ async def upload_walkthrough_for_rom(
                 detail="Failed to store walkthrough file.",
             ) from e
 
-    return StoredWalkthroughResponse.model_validate(saved)
+    return WalkthroughSchema.model_validate(saved)
 
 
 @protected_route(router.delete, "/{walkthrough_id}", [Scope.ROMS_WRITE])
