@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
@@ -108,7 +109,6 @@ class WalkthroughSchema(BaseModel):
     title: str | None
     author: str | None
     source: WalkthroughSource
-    format: WalkthroughFormat
     file_path: str | None
     content: str
     created_at: datetime
@@ -117,6 +117,23 @@ class WalkthroughSchema(BaseModel):
     class Config:
         from_attributes = True
         use_enum_values = True
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def format(self) -> WalkthroughFormat:
+        candidate = self.file_path or self.url or ""
+        ext = Path(candidate).suffix.lower()
+        if ext == ".pdf":
+            return WalkthroughFormat.PDF
+        if ext in {".html", ".htm"}:
+            return WalkthroughFormat.HTML
+        if ext in {".txt", ".text", ".md"}:
+            return WalkthroughFormat.TEXT
+        if self.source == WalkthroughSource.GAMEFAQS:
+            return WalkthroughFormat.TEXT
+        if self.content.lstrip().startswith("<"):
+            return WalkthroughFormat.HTML
+        return WalkthroughFormat.TEXT
 
 
 def rom_user_schema_factory() -> RomUserSchema:

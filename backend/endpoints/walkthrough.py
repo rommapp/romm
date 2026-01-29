@@ -140,7 +140,6 @@ async def create_walkthrough_for_rom(
         title=result.get("title"),
         author=result.get("author"),
         source=result["source"],
-        format=result["format"],
         file_path=None,
         content=result["content"],
     )
@@ -215,7 +214,6 @@ async def upload_walkthrough_for_rom(
         title=title or Path(filename).stem,
         author=author,
         source=WalkthroughSource.UPLOAD,
-        format=fmt,
         content=content,
         file_path=None,
     )

@@ -1,7 +1,7 @@
 """Add walkthroughs table
 
-Revision ID: 0064_walkthroughs
-Revises: 0063_roms_metadata_player_count
+Revision ID: 0068_walkthroughs
+Revises: 0067_romfile_category_enum_cheat
 Create Date: 2026-01-04 18:40:00.000000
 """
 
@@ -12,8 +12,8 @@ from alembic import op
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision: str = "0064_walkthroughs"
-down_revision: Union[str, None] = "0063_roms_metadata_player_count"
+revision: str = "0068_walkthroughs"
+down_revision: Union[str, None] = "0067_romfile_category_enum_cheat"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -31,11 +31,6 @@ def upgrade() -> None:
         sa.Column(
             "source",
             sa.Enum("GAMEFAQS", "UPLOAD", name="walkthroughsource"),
-            nullable=False,
-        ),
-        sa.Column(
-            "format",
-            sa.Enum("html", "text", "pdf", name="walkthroughformat"),
             nullable=False,
         ),
         sa.Column("file_path", sa.String(length=1000), nullable=True),
