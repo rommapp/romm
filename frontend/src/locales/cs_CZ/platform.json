@@ -55,6 +55,7 @@
   "show-not-ra-only": "Zobrazit pouze ROM bez RetroAchievements",
   "match-any-logic": "Odpovídá KTERÉKOLI z vybraných hodnot (logika NEBO)",
   "match-all-logic": "Odpovídá VŠEM vybraným hodnotám (logika A)",
+  "match-none-logic": "Shoda ŽÁDNÁ z vybraných hodnot (logika NOT)",
   "status": "Stav",
   "upload-roms": "Nahrát ROMy"
 }

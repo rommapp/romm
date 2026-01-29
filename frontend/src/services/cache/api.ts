@@ -80,39 +80,39 @@ class CachedApiService {
           : undefined,
       // Logic operators
       genres_logic:
-        params.selectedGenres && params.selectedGenres.length > 1
+        params.selectedGenres && params.selectedGenres.length > 0
           ? params.genresLogic || "any"
           : undefined,
       franchises_logic:
-        params.selectedFranchises && params.selectedFranchises.length > 1
+        params.selectedFranchises && params.selectedFranchises.length > 0
           ? params.franchisesLogic || "any"
           : undefined,
       collections_logic:
-        params.selectedCollections && params.selectedCollections.length > 1
+        params.selectedCollections && params.selectedCollections.length > 0
           ? params.collectionsLogic || "any"
           : undefined,
       companies_logic:
-        params.selectedCompanies && params.selectedCompanies.length > 1
+        params.selectedCompanies && params.selectedCompanies.length > 0
           ? params.companiesLogic || "any"
           : undefined,
       age_ratings_logic:
-        params.selectedAgeRatings && params.selectedAgeRatings.length > 1
+        params.selectedAgeRatings && params.selectedAgeRatings.length > 0
           ? params.ageRatingsLogic || "any"
           : undefined,
       regions_logic:
-        params.selectedRegions && params.selectedRegions.length > 1
+        params.selectedRegions && params.selectedRegions.length > 0
           ? params.regionsLogic || "any"
           : undefined,
       languages_logic:
-        params.selectedLanguages && params.selectedLanguages.length > 1
+        params.selectedLanguages && params.selectedLanguages.length > 0
           ? params.languagesLogic || "any"
           : undefined,
       statuses_logic:
-        params.selectedStatuses && params.selectedStatuses.length > 1
+        params.selectedStatuses && params.selectedStatuses.length > 0
           ? params.statusesLogic || "any"
           : undefined,
       player_counts_logic:
-        params.selectedPlayerCounts && params.selectedPlayerCounts.length > 1
+        params.selectedPlayerCounts && params.selectedPlayerCounts.length > 0
           ? params.playerCountsLogic || "any"
           : undefined,
       ...(params.filterMatched !== null

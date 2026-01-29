@@ -1,0 +1,105 @@
+name: Run Migrations
+
+on:
+  pull_request:
+    paths:
+      - "backend/alembic/versions/**"
+
+permissions: read-all
+
+jobs:
+  migrate-postgres:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6.7.0
+
+      - name: Install python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run PostgreSQL Migrations
+        working-directory: backend
+        env:
+          ROMM_DB_DRIVER: postgresql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: user
+          DB_PASSWD: password
+          DB_NAME: testdb
+          ROMM_AUTH_SECRET_KEY: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          ROMM_BASE_PATH: romm_test
+        run: uv run alembic upgrade head
+
+  migrate-mariadb:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_USER: user
+          MARIADB_PASSWORD: password
+          MARIADB_DATABASE: testdb
+          MARIADB_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -u root --password=root"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.3.0
+
+      - name: Install mariadb connectors
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb3 libmariadb-dev
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6.7.0
+
+      - name: Install python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run MariaDB Migrations
+        working-directory: backend
+        env:
+          ROMM_DB_DRIVER: mariadb
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: user
+          DB_PASSWD: password
+          DB_NAME: testdb
+          ROMM_AUTH_SECRET_KEY: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          ROMM_BASE_PATH: romm_test
+        run: uv run alembic upgrade head
