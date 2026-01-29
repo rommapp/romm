@@ -268,6 +268,10 @@ class LaunchboxHandler(MetadataHandler):
 
         search_term = search_term.lower()
 
+        if platform_slug == UPS.SCUMMVM:
+            search_term = await self._scummvm_format(search_term)
+            fallback_rom = LaunchboxRom(launchbox_id=None, name=search_term)
+
         index_entry = await self._get_rom_from_metadata(search_term, platform_slug)
 
         if not index_entry:

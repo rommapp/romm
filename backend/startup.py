@@ -20,6 +20,7 @@ from handler.metadata.base_handler import (
     PS2_OPL_KEY,
     PS2_SERIAL_INDEX_KEY,
     PSP_SERIAL_INDEX_KEY,
+    SCUMMVM_INDEX_KEY,
 )
 from handler.redis_handler import async_cache
 from logger.logger import log
@@ -68,6 +69,11 @@ async def main() -> None:
         log.info("Initializing cache with fixtures data")
         await conditionally_set_cache(
             async_cache, MAME_XML_KEY, METADATA_FIXTURES_DIR / "mame_index.json"
+        )
+        await conditionally_set_cache(
+            async_cache,
+            SCUMMVM_INDEX_KEY,
+            METADATA_FIXTURES_DIR / "scummvm_index.json",
         )
         await conditionally_set_cache(
             async_cache, PS2_OPL_KEY, METADATA_FIXTURES_DIR / "ps2_opl_index.json"
