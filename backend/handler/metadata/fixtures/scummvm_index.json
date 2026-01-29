@@ -24,7 +24,7 @@
     "engine": "glk"
   },
   "alan": {
-    "name": "Alan 2 &amp; 3 Interactive Fiction games",
+    "name": "Alan 2 & 3 Interactive Fiction games",
     "engine": "glk"
   },
   "archetype": {
@@ -488,7 +488,7 @@
     "engine": "sci"
   },
   "slater": {
-    "name": "Slater &amp; Charlie Go Camping",
+    "name": "Slater & Charlie Go Camping",
     "engine": "sci"
   },
   "sq6": {
@@ -664,7 +664,7 @@
     "engine": "scumm"
   },
   "lost": {
-    "name": "Pajama Sam's Lost &amp; Found",
+    "name": "Pajama Sam's Lost & Found",
     "engine": "scumm"
   },
   "socks": {
@@ -948,7 +948,7 @@
     "engine": "composer"
   },
   "imoking": {
-    "name": "Magic Tales: Imo &amp; the King",
+    "name": "Magic Tales: Imo & the King",
     "engine": "composer"
   },
   "liam": {
@@ -1052,7 +1052,7 @@
     "engine": "scumm"
   },
   "samnmax": {
-    "name": "Sam &amp; Max: Hit the Road",
+    "name": "Sam & Max: Hit the Road",
     "engine": "scumm"
   },
   "comi": {
