@@ -14,6 +14,7 @@ from models.base import (
 )
 
 if TYPE_CHECKING:
+    from models.device_save_sync import DeviceSaveSync
     from models.rom import Rom
     from models.user import User
 
@@ -54,9 +55,15 @@ class Save(RomAsset):
     __table_args__ = {"extend_existing": True}
 
     emulator: Mapped[str | None] = mapped_column(String(length=50))
+    save_name: Mapped[str | None] = mapped_column(String(length=255))
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="saves")
     user: Mapped[User] = relationship(lazy="joined", back_populates="saves")
+    device_syncs: Mapped[list[DeviceSaveSync]] = relationship(
+        back_populates="save",
+        cascade="all, delete-orphan",
+        lazy="raise",
+    )
 
     @cached_property
     def screenshot(self) -> Screenshot | None:
