@@ -109,7 +109,7 @@ export default defineConfig(({ mode }) => {
       viteStaticCopy({
         targets: [
           {
-            src: "node_modules/rom-patcher/rom-patcher-js/*",
+            src: "node_modules/rom-patcher/rom-patcher-js/**/*.js",
             dest: "rom-patcher",
           },
         ],
