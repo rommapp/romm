@@ -23,19 +23,19 @@ async function loadScripts() {
 
   try {
     importScripts(
-      "/node_modules/rom-patcher/rom-patcher-js/modules/BinFile.js",
-      "/node_modules/rom-patcher/rom-patcher-js/modules/HashCalculator.js",
-      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_gba.js",
-      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_n64.js",
-      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.bdf.js",
-      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.bps.js",
-      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.ips.js",
-      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.pmsr.js",
-      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.ppf.js",
-      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.rup.js",
-      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.ups.js",
-      "/node_modules/rom-patcher/rom-patcher-js/modules/RomPatcher.format.vcdiff.js",
-      "/node_modules/rom-patcher/rom-patcher-js/RomPatcher.js",
+      "/rom-patcher/modules/BinFile.js",
+      "/rom-patcher/modules/HashCalculator.js",
+      "/rom-patcher/modules/RomPatcher.format.aps_gba.js",
+      "/rom-patcher/modules/RomPatcher.format.aps_n64.js",
+      "/rom-patcher/modules/RomPatcher.format.bdf.js",
+      "/rom-patcher/modules/RomPatcher.format.bps.js",
+      "/rom-patcher/modules/RomPatcher.format.ips.js",
+      "/rom-patcher/modules/RomPatcher.format.pmsr.js",
+      "/rom-patcher/modules/RomPatcher.format.ppf.js",
+      "/rom-patcher/modules/RomPatcher.format.rup.js",
+      "/rom-patcher/modules/RomPatcher.format.ups.js",
+      "/rom-patcher/modules/RomPatcher.format.vcdiff.js",
+      "/rom-patcher/RomPatcher.js",
     );
     scriptsLoaded = true;
     return true;
