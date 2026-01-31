@@ -55,7 +55,8 @@ class Save(RomAsset):
     __table_args__ = {"extend_existing": True}
 
     emulator: Mapped[str | None] = mapped_column(String(length=50))
-    save_name: Mapped[str | None] = mapped_column(String(length=255))
+    slot: Mapped[str | None] = mapped_column(String(length=255))
+    content_hash: Mapped[str | None] = mapped_column(String(length=32))
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="saves")
     user: Mapped[User] = relationship(lazy="joined", back_populates="saves")
