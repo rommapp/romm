@@ -13,6 +13,7 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     LIBRARY_BASE_PATH,
     OIDC_ENABLED,
+    OIDC_AUTOLOGIN,
     OIDC_PROVIDER,
     SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
     SCHEDULED_RESCAN_CRON,
@@ -116,6 +117,7 @@ async def heartbeat() -> HeartbeatResponse:
         },
         "OIDC": {
             "ENABLED": OIDC_ENABLED,
+            "AUTOLOGIN": OIDC_AUTOLOGIN,
             "PROVIDER": OIDC_PROVIDER,
         },
         "TASKS": {

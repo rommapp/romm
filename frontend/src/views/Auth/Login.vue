@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { refetchCSRFToken } from "@/services/api";
@@ -20,7 +20,7 @@ const visiblePassword = ref(false);
 const loggingIn = ref(false);
 const loggingInOIDC = ref(false);
 const {
-  OIDC: { ENABLED: oidcEnabled, PROVIDER: oidcProvider },
+  OIDC: { ENABLED: oidcEnabled, AUTOLOGIN: oidcAutologin, PROVIDER: oidcProvider },
   FRONTEND: { DISABLE_USERPASS_LOGIN: loginDisabled },
 } = heartbeatStore.value;
 const forgotMode = ref(false);
@@ -91,6 +91,13 @@ async function loginOIDC() {
   loggingInOIDC.value = true;
   window.open("/api/login/openid", "_self");
 }
+
+onMounted(async () => {
+  if (oidcEnabled && oidcAutologin){
+    loginOIDC();
+  }
+})
+
 </script>
 
 <template>

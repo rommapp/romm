@@ -45,6 +45,7 @@ const defaultHeartbeat: Heartbeat = {
   },
   OIDC: {
     ENABLED: false,
+    AUTOLOGIN: false,
     PROVIDER: "",
   },
   TASKS: {
