@@ -23,18 +23,18 @@ async function loadScripts() {
 
   try {
     importScripts(
-      "/rom-patcher/modules/BinFile.js",
-      "/rom-patcher/modules/HashCalculator.js",
-      "/rom-patcher/modules/RomPatcher.format.aps_gba.js",
-      "/rom-patcher/modules/RomPatcher.format.aps_n64.js",
-      "/rom-patcher/modules/RomPatcher.format.bdf.js",
-      "/rom-patcher/modules/RomPatcher.format.bps.js",
-      "/rom-patcher/modules/RomPatcher.format.ips.js",
-      "/rom-patcher/modules/RomPatcher.format.pmsr.js",
-      "/rom-patcher/modules/RomPatcher.format.ppf.js",
-      "/rom-patcher/modules/RomPatcher.format.rup.js",
-      "/rom-patcher/modules/RomPatcher.format.ups.js",
-      "/rom-patcher/modules/RomPatcher.format.vcdiff.js",
+      "/rom-patcher/BinFile.js",
+      "/rom-patcher/HashCalculator.js",
+      "/rom-patcher/RomPatcher.format.aps_gba.js",
+      "/rom-patcher/RomPatcher.format.aps_n64.js",
+      "/rom-patcher/RomPatcher.format.bdf.js",
+      "/rom-patcher/RomPatcher.format.bps.js",
+      "/rom-patcher/RomPatcher.format.ips.js",
+      "/rom-patcher/RomPatcher.format.pmsr.js",
+      "/rom-patcher/RomPatcher.format.ppf.js",
+      "/rom-patcher/RomPatcher.format.rup.js",
+      "/rom-patcher/RomPatcher.format.ups.js",
+      "/rom-patcher/RomPatcher.format.vcdiff.js",
       "/rom-patcher/RomPatcher.js",
     );
     scriptsLoaded = true;
