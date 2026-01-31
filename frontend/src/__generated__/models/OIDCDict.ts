@@ -4,6 +4,7 @@
 /* eslint-disable */
 export type OIDCDict = {
     ENABLED: boolean;
+    AUTOLOGIN: boolean;
     PROVIDER: string;
 };
 
