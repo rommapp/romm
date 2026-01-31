@@ -16,6 +16,7 @@ import type { RomRAMetadata } from './RomRAMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
 import type { SiblingRomSchema } from './SiblingRomSchema';
+import type { WalkthroughSchema } from './WalkthroughSchema';
 export type SimpleRomSchema = {
     id: number;
     igdb_id: (number | null);
@@ -84,5 +85,6 @@ export type SimpleRomSchema = {
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
+    walkthroughs: Array<WalkthroughSchema>;
 };
 

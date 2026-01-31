@@ -198,10 +198,44 @@ function removeExclusion(exclusionValue: string, exclusionType: string) {
             authStore.scopes.includes('platforms.write') &&
             config.CONFIG_FILE_WRITABLE
           "
+<<<<<<< HEAD
           divided
           density="compact"
           variant="text"
         >
+=======
+          prepend-icon="mdi-plus"
+          variant="outlined"
+          class="text-primary"
+          @click="addExclusion()"
+        >
+          {{ t("common.add") }}
+        </v-btn>
+      </template>
+      <template #item.type="{ item }">
+        <v-list-item class="pa-0" min-width="240px">
+          <template #prepend>
+            <v-icon :icon="item.icon" size="26" class="mr-3" />
+          </template>
+          <span class="font-weight-medium">{{ item.title }}</span>
+        </v-list-item>
+      </template>
+      <template #item.value="{ item }">
+        <v-list-item class="pa-0" min-width="160px">
+          <span class="font-weight-medium">{{ item.value }}</span>
+        </v-list-item>
+      </template>
+      <template #item.actions="{ item }">
+        <v-btn-group
+          v-if="
+            authStore.scopes.includes('platforms.write') &&
+            config.CONFIG_FILE_WRITABLE
+          "
+          divided
+          density="compact"
+          variant="text"
+        >
+>>>>>>> b2f995ec7 (feat: Refactor Library Management settings and add Missing Games component)
           <v-btn
             class="text-romm-red"
             size="small"

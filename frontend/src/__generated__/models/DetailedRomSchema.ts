@@ -21,6 +21,7 @@ import type { SiblingRomSchema } from './SiblingRomSchema';
 import type { StateSchema } from './StateSchema';
 import type { UserCollectionSchema } from './UserCollectionSchema';
 import type { UserNoteSchema } from './UserNoteSchema';
+import type { WalkthroughSchema } from './WalkthroughSchema';
 export type DetailedRomSchema = {
     id: number;
     igdb_id: (number | null);
@@ -89,6 +90,7 @@ export type DetailedRomSchema = {
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
+    walkthroughs: Array<WalkthroughSchema>;
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;
     user_screenshots: Array<ScreenshotSchema>;

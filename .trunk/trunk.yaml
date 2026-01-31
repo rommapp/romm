@@ -48,6 +48,7 @@ lint:
   ignore:
     - linters: [ALL]
       paths:
+        - frontend/assets/patcherjs/**
         - frontend/src/__generated__/**
         - docker/Dockerfile
         - docker/nginx/js/**
