@@ -20,7 +20,11 @@ const visiblePassword = ref(false);
 const loggingIn = ref(false);
 const loggingInOIDC = ref(false);
 const {
-  OIDC: { ENABLED: oidcEnabled, AUTOLOGIN: oidcAutologin, PROVIDER: oidcProvider },
+  OIDC: {
+    ENABLED: oidcEnabled,
+    AUTOLOGIN: oidcAutologin,
+    PROVIDER: oidcProvider,
+  },
   FRONTEND: { DISABLE_USERPASS_LOGIN: loginDisabled },
 } = heartbeatStore.value;
 const forgotMode = ref(false);
@@ -93,11 +97,10 @@ async function loginOIDC() {
 }
 
 onMounted(async () => {
-  if (oidcEnabled && oidcAutologin){
+  if (oidcEnabled && oidcAutologin) {
     loginOIDC();
   }
-})
-
+});
 </script>
 
 <template>
