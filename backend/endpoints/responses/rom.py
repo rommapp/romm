@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
@@ -17,6 +18,7 @@ from handler.metadata.launchbox_handler import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
+from handler.walkthrough_handler import WalkthroughFormat, WalkthroughSource
 from models.collection import Collection
 from models.rom import Rom, RomFileCategory, RomUserStatus
 
@@ -98,6 +100,40 @@ ManualMetadata = TypedDict(
     },
     total=False,
 )
+
+
+class WalkthroughSchema(BaseModel):
+    id: int
+    rom_id: int
+    url: str
+    title: str | None
+    author: str | None
+    source: WalkthroughSource
+    file_path: str | None
+    content: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+        use_enum_values = True
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def format(self) -> WalkthroughFormat:
+        candidate = self.file_path or self.url or ""
+        ext = Path(candidate).suffix.lower()
+        if ext == ".pdf":
+            return WalkthroughFormat.PDF
+        if ext in {".html", ".htm"}:
+            return WalkthroughFormat.HTML
+        if ext in {".txt", ".text", ".md"}:
+            return WalkthroughFormat.TEXT
+        if self.source == WalkthroughSource.GAMEFAQS:
+            return WalkthroughFormat.TEXT
+        if self.content.lstrip().startswith("<"):
+            return WalkthroughFormat.HTML
+        return WalkthroughFormat.TEXT
 
 
 def rom_user_schema_factory() -> RomUserSchema:
@@ -290,6 +326,7 @@ class RomSchema(BaseModel):
     rom_user: RomUserSchema
     merged_screenshots: list[str]
     merged_ra_metadata: RomRAMetadata | None
+    walkthroughs: list[WalkthroughSchema]
 
     class Config:
         from_attributes = True

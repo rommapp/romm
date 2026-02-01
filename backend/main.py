@@ -43,6 +43,7 @@ from endpoints import (
     stats,
     tasks,
     user,
+    walkthrough,
 )
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
@@ -137,6 +138,7 @@ app.include_router(firmware.router, prefix="/api")
 app.include_router(collections.router, prefix="/api")
 app.include_router(gamelist.router, prefix="/api")
 app.include_router(netplay.router, prefix="/api")
+app.include_router(walkthrough.router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 app.mount("/netplay", netplay_socket_handler.socket_app)

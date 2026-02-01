@@ -18,6 +18,7 @@ dependencies = [
   "alembic ~= 1.13",
   "anyio ~= 4.4",
   "authlib ~= 1.6.5",
+  "beautifulsoup4 ~= 4.12",
   "colorama ~= 0.4",
   "defusedxml ~= 0.7",
   "fastapi-pagination[sqlalchemy] ~= 0.15",

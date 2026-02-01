@@ -1,88 +1,88 @@
 html,
 body {
-  background-color: rgba(var(--v-theme-background)) !important;
-  margin: 0 !important;
+    background-color: rgba(var(--v-theme-background)) !important;
+    margin: 0 !important;
 }
 .main-layout {
-  z-index: 1010 !important;
+    z-index: 1010 !important;
 }
 .text-shadow {
-  text-shadow:
-    1px 1px 3px #000000,
-    0 0 3px #000000 !important;
+    text-shadow:
+        1px 1px 3px #000000,
+        0 0 3px #000000 !important;
 }
 .translucent {
-  background: rgba(0, 0, 0, 0.5) !important;
-  font-weight: 500 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    font-weight: 500 !important;
 }
-.translucent-light {
-  background: rgba(0, 0, 0, 0.2) !important;
-  font-weight: 500 !important;
+.transparent {
+    background: transparent !important;
+    box-shadow: none !important;
 }
 .transparent {
   background: transparent !important;
   box-shadow: none !important;
 }
 .tooltip :deep(.v-overlay__content) {
-  background: rgba(255, 255, 255, 1) !important;
-  color: rgb(41, 41, 41) !important;
+    background: rgba(255, 255, 255, 1) !important;
+    color: rgb(41, 41, 41) !important;
 }
 .scroll {
-  overflow-x: visible !important;
-  overflow-y: auto !important;
+    overflow-x: visible !important;
+    overflow-y: auto !important;
 }
 .scroll-hidden {
-  overflow: hidden;
+    overflow: hidden;
 }
 .emoji-collection {
-  mask-image: linear-gradient(
-    to right,
-    black 0%,
-    black 70%,
-    transparent 100%
-  ) !important;
+    mask-image: linear-gradient(
+        to right,
+        black 0%,
+        black 70%,
+        transparent 100%
+    ) !important;
 }
 .emoji {
-  margin: 0 2px !important;
+    margin: 0 2px !important;
 }
 .file-input {
-  display: none !important;
+    display: none !important;
 }
 .transform-scale {
-  transition-property: all !important;
-  transition-duration: 0.1s !important;
+    transition-property: all !important;
+    transition-duration: 0.1s !important;
 }
 .transform-scale:hover,
 .transform-scale:focus {
-  transform: scale(1.07) !important;
+    transform: scale(1.07) !important;
 }
 .pointer {
-  cursor: pointer !important;
+    cursor: pointer !important;
 }
 .border-selected {
-  border: 1px solid rgba(var(--v-theme-primary)) !important;
-  transform: scale(1.04);
+    border: 1px solid rgba(var(--v-theme-primary)) !important;
+    transform: scale(1.04);
 }
 .greyscale {
-  filter: grayscale(100%);
+    filter: grayscale(100%);
 }
 .unset-height {
-  height: unset !important;
+    height: unset !important;
 }
 .drawer-mobile {
-  width: calc(100% - 16px) !important;
+    width: calc(100% - 16px) !important;
 }
 .bottom-0 {
-  bottom: 0 !important;
+    bottom: 0 !important;
 }
 .bottom-50 {
-  bottom: 50px !important;
+    bottom: 50px !important;
 }
 .max-h-50 {
-  height: auto !important;
-  max-height: 50dvh !important;
+    height: auto !important;
+    max-height: 50dvh !important;
 }
 .max-h-70 {
-  height: auto !important;
-  max-height: 70dvh !important;
+    height: auto !important;
+    max-height: 70dvh !important;
 }
