@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from .base import BaseModel
+from .device import DeviceSyncSchema
 
 
 class BaseAsset(BaseModel):
@@ -31,7 +32,21 @@ class ScreenshotSchema(BaseAsset):
 
 class SaveSchema(BaseAsset):
     emulator: str | None
+    slot: str | None = None
+    content_hash: str | None = None
     screenshot: ScreenshotSchema | None
+    device_syncs: list[DeviceSyncSchema] = []
+
+
+class SlotSummarySchema(BaseModel):
+    slot: str | None
+    count: int
+    latest: SaveSchema
+
+
+class SaveSummarySchema(BaseModel):
+    total_count: int
+    slots: list[SlotSummarySchema]
 
 
 class StateSchema(BaseAsset):
