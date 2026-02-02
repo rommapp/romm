@@ -992,6 +992,11 @@ class LaunchboxHandler(MetadataHandler):
 
         search_term = search_term.lower()
 
+        # Check if game is scummvm shortname
+        if platform_slug == UPS.SCUMMVM:
+            search_term = await self._scummvm_format(search_term)
+            fallback_rom = LaunchboxRom(launchbox_id=None, name=search_term)
+        
         index_entry = await self._get_remote_rom(
             search_term,
             platform_slug,

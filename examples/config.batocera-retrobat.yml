@@ -31,15 +31,15 @@ system:
     arcadia: arcadia-2001
     archimedes: acorn-archimedes
     arduboy: arduboy
-    astrocade: astrocade
+    astrocde: astrocade
     atari2600: atari2600
     atari5200: atari5200
     atari7800: atari7800
-    atari800: atari
+    atari800: atari8bit
     atarist: atari-st
     atom: atom
     atomiswave: arcade
-    bbcmicro: bbcmicro
+    bbc: bbcmicro
     c128: c128
     c20: vic-20
     c64: c64
@@ -47,6 +47,7 @@ system:
     cdi: philips-cd-i
     channelf: fairchild-channel-f
     coco: trs-80-color-computer
+    commander-x16: commander-x16
     colecovision: colecovision
     cplus4: c-plus-4
     cps1: cps1
@@ -57,8 +58,10 @@ system:
     dos: dos
     dreamcast: dc
     easyrpg: rpgmaker
+    electron: acorn-electron
     fbneo: arcade
     fds: fds
+    flash: browser
     fm7: fm-7
     fmtowns: fm-towns
     gamate: gamate
@@ -66,31 +69,41 @@ system:
     gamecom: game-dot-com
     gamecube: ngc
     gamegear: gamegear
+    gamepock: epoch-game-pocket-computer
     gb: gb
     gb2players: gb
     gba: gba
     gba2players: gba
     gbc: gbc
     gbc2players: gbc
+    gmaster: hartung
     gp32: gp32
     gzdoom: doom
     intellivision: intellivision
     jaguar: jaguar
     jaguarcd: atari-jaguar-cd
     lcdgames: handheld-electronic-lcd
+    lindbergh: model2
     lynx: lynx
+    macintosh: mac
     mame: arcade
     mastersystem: sms
     megadrive: genesis
     megadrive-msu: genesis
-    megaduck: megaduck
+    megaduck: mega-duck-slash-cougar-boy
     model2: arcade
     model3: arcade
+    msu-md: genesis
     msx1: msx
     msx2: msx2
-    msx2+: msx2
+    msx2+: msx2plus
+    msxturbor: msx-turbo
+    mugen: mugen
+    multivision: multivision
     n64: n64
     n64dd: 64dd
+    namco22: arcade
+    namco2x6: arcade
     naomi: arcade
     naomi2: arcade
     nds: nds
@@ -99,20 +112,29 @@ system:
     nes: nes
     ngp: neo-geo-pocket
     ngpc: neo-geo-pocket-color
-    oricatmos: oric
+    odyssey2: odyssey
+    openbor: openbor
+    oricatmos: atmos
     pc88: pc-8800-series
     pc98: pc-9800-series
     pcengine: tg16
     pcenginecd: turbografx-cd
     pcfx: pc-fx
     pet: cpet
+    pico: sega-pico
+    plugnplay: plug-and-play
     pokemini: pokemon-mini
     prboom: doom
+    ps: psx
     ps2: ps2
     ps3: ps3
+    ps3-psn: ps3
     ps4: ps4
+    ps5: ps5
     psp: psp
+    pspminis: psp-minis
     psvita: psvita
+    psvr: psvr
     psx: psx
     pv1000: casio-pv-1000
     samcoupe: sam-coupe
@@ -122,25 +144,34 @@ system:
     scv: epoch-super-cassette-vision
     sega32x: sega32
     segacd: segacd
+    segastv: stv
     sg1000: sg1000
     sgb: gbc
     snes: snes
-    snes-msu: snes
+    snes-msu1: snes
+    socrates: socrates
     spectravideo: spectravideo
+    sufami: sufami-turbo
     supergrafx: supergrafx
     supervision: supervision
     supracan: super-acan
     switch: switch
     thomson: thomson-mo5
-    ti99: ti-99
-    tic80: tic-80
+    tic80: tic
     triforce: arcade
     tutor: tomy-tutor
+    uzebox: uzebox
+    vc4000: vc-4000
     vectrex: vectrex
+    videopacplus: videopac-g7400
     virtualboy: virtualboy
+    vis: vis
+    vpinball: pinball
     vsmile: vsmile
+    wasm4: wasm-4
     wii: wii
     wiiu: wiiu
+    wiiware: wii
     windows: win
     wswan: wonderswan
     wswanc: wonderswan-color
@@ -148,7 +179,7 @@ system:
     x68000: sharp-x68000
     xbox: xbox
     xbox360: xbox360
-    zmachine: z-machine
+    xegs: atari-xegs
     zx81: zx81
     zxspectrum: zxs
   versions: {}

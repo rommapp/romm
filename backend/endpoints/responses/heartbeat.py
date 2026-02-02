@@ -38,6 +38,7 @@ class FrontendDict(TypedDict):
 
 class OIDCDict(TypedDict):
     ENABLED: bool
+    AUTOLOGIN: bool
     PROVIDER: str
 
 
