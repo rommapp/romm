@@ -154,17 +154,17 @@ scan:
       - "hasheous" # Hasheous
       - "flashpoint" # Flashpoint Project
       - "hltb" # HowLongToBeat
-    # Media assets to download
-    media:
-      # Used as alternative cover art
-      - box2d # Normal cover art (always enabled)
-      - box3d # 3D box art
-      - miximage # Mixed image of multiple media
-      - physical # Disc, cartridge, etc.
-      # Added to the screenshots carousel
-      - screenshot # Screenshot (enabled by default)
-      - title_screen # Title screen
-      - marquee # Transparent logo
-      - fanart # User uploaded artwork
-      # Gameplay video
-      - video # Video (warning: large file size)
+  # Media assets to download
+  media:
+    # Used as alternative cover art
+    - box2d # Normal cover art (always enabled)
+    - box3d # 3D box art
+    - miximage # Mixed image of multiple media
+    - physical # Disc, cartridge, etc.
+    # Added to the screenshots carousel
+    - screenshot # Screenshot (enabled by default)
+    - title_screen # Title screen
+    - marquee # Transparent logo
+    - fanart # User uploaded artwork
+    # Gameplay video
+    - video # Video (warning: large file size)
