@@ -279,3 +279,204 @@ class TestDeviceUserIsolation:
             device_id=device.id, user_id=admin_user.id
         )
         assert still_exists is not None
+
+
+class TestDeviceDuplicateHandling:
+    def test_duplicate_mac_address_returns_409(
+        self, client, access_token: str, admin_user: User
+    ):
+        db_device_handler.add_device(
+            Device(
+                id="existing-mac-device",
+                user_id=admin_user.id,
+                name="Existing Device",
+                mac_address="AA:BB:CC:DD:EE:FF",
+            )
+        )
+
+        response = client.post(
+            "/api/devices",
+            json={
+                "name": "New Device",
+                "mac_address": "AA:BB:CC:DD:EE:FF",
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        data = response.json()["detail"]
+        assert data["error"] == "device_exists"
+        assert data["device_id"] == "existing-mac-device"
+
+    def test_duplicate_hostname_platform_returns_409(
+        self, client, access_token: str, admin_user: User
+    ):
+        db_device_handler.add_device(
+            Device(
+                id="existing-hostname-device",
+                user_id=admin_user.id,
+                name="Existing Device",
+                hostname="my-device",
+                platform="android",
+            )
+        )
+
+        response = client.post(
+            "/api/devices",
+            json={
+                "name": "New Device",
+                "hostname": "my-device",
+                "platform": "android",
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        data = response.json()["detail"]
+        assert data["error"] == "device_exists"
+        assert data["device_id"] == "existing-hostname-device"
+
+    def test_allow_existing_returns_existing_device(
+        self, client, access_token: str, admin_user: User
+    ):
+        existing = db_device_handler.add_device(
+            Device(
+                id="allow-existing-device",
+                user_id=admin_user.id,
+                name="Existing Device",
+                mac_address="11:22:33:44:55:66",
+            )
+        )
+
+        response = client.post(
+            "/api/devices",
+            json={
+                "name": "New Device Name",
+                "mac_address": "11:22:33:44:55:66",
+                "allow_existing": True,
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["device_id"] == existing.id
+        assert data["name"] == "Existing Device"
+
+    def test_allow_existing_with_reset_syncs(
+        self, client, access_token: str, admin_user: User, rom
+    ):
+        from handler.database import db_device_save_sync_handler, db_save_handler
+        from models.assets import Save
+
+        existing = db_device_handler.add_device(
+            Device(
+                id="reset-syncs-device",
+                user_id=admin_user.id,
+                name="Device With Syncs",
+                mac_address="77:88:99:AA:BB:CC",
+            )
+        )
+
+        save = db_save_handler.add_save(
+            Save(
+                file_name="test.sav",
+                file_name_no_tags="test",
+                file_name_no_ext="test",
+                file_extension="sav",
+                file_path="/saves",
+                file_size_bytes=100,
+                rom_id=rom.id,
+                user_id=admin_user.id,
+            )
+        )
+        db_device_save_sync_handler.upsert_sync(device_id=existing.id, save_id=save.id)
+
+        sync_before = db_device_save_sync_handler.get_sync(
+            device_id=existing.id, save_id=save.id
+        )
+        assert sync_before is not None
+
+        response = client.post(
+            "/api/devices",
+            json={
+                "mac_address": "77:88:99:AA:BB:CC",
+                "allow_existing": True,
+                "reset_syncs": True,
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["device_id"] == existing.id
+
+        sync_after = db_device_save_sync_handler.get_sync(
+            device_id=existing.id, save_id=save.id
+        )
+        assert sync_after is None
+
+    def test_allow_duplicate_creates_new_device(
+        self, client, access_token: str, admin_user: User
+    ):
+        existing = db_device_handler.add_device(
+            Device(
+                id="original-device",
+                user_id=admin_user.id,
+                name="Original Device",
+                mac_address="DD:EE:FF:00:11:22",
+            )
+        )
+
+        response = client.post(
+            "/api/devices",
+            json={
+                "name": "Duplicate Install",
+                "mac_address": "DD:EE:FF:00:11:22",
+                "allow_duplicate": True,
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["device_id"] != existing.id
+        assert data["name"] == "Duplicate Install"
+
+    def test_no_conflict_without_fingerprint(self, client, access_token: str):
+        response1 = client.post(
+            "/api/devices",
+            json={"name": "Device 1"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response1.status_code == status.HTTP_201_CREATED
+
+        response2 = client.post(
+            "/api/devices",
+            json={"name": "Device 2"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response2.status_code == status.HTTP_201_CREATED
+        assert response1.json()["device_id"] != response2.json()["device_id"]
+
+    def test_hostname_only_no_conflict_without_platform(
+        self, client, access_token: str, admin_user: User
+    ):
+        db_device_handler.add_device(
+            Device(
+                id="hostname-only-device",
+                user_id=admin_user.id,
+                name="Existing",
+                hostname="my-device",
+            )
+        )
+
+        response = client.post(
+            "/api/devices",
+            json={
+                "name": "New Device",
+                "hostname": "my-device",
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
