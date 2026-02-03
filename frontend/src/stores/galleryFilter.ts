@@ -5,15 +5,15 @@ import { romStatusMap } from "@/utils";
 export type Platform = PlatformSchema;
 
 export type FilterType =
-  | "genre"
-  | "franchise"
-  | "collection"
-  | "company"
-  | "ageRating"
-  | "status"
-  | "region"
-  | "language"
-  | "playerCount";
+  | "genres"
+  | "franchises"
+  | "collections"
+  | "companies"
+  | "ageRatings"
+  | "statuses"
+  | "regions"
+  | "languages"
+  | "playerCounts";
 
 export type FilterLogicOperator = "any" | "all" | "none";
 
