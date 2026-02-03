@@ -35,7 +35,7 @@ def _build_save_schema(
     device: Device | None = None,
     sync: DeviceSaveSync | None = None,
 ) -> SaveSchema:
-    device_syncs: list[DeviceSyncSchema] = []
+    save_schema = SaveSchema.model_validate(save)
 
     if device:
         if sync:
@@ -47,7 +47,7 @@ def _build_save_schema(
             last_synced = save.updated_at
             is_untracked = False
 
-        device_syncs.append(
+        save_schema.device_syncs = [
             DeviceSyncSchema(
                 device_id=device.id,
                 device_name=device.name,
@@ -55,15 +55,9 @@ def _build_save_schema(
                 is_untracked=is_untracked,
                 is_current=is_current,
             )
-        )
+        ]
 
-    save_data = {
-        key: getattr(save, key)
-        for key in SaveSchema.model_fields
-        if key != "device_syncs" and hasattr(save, key)
-    }
-    save_data["device_syncs"] = device_syncs
-    return SaveSchema.model_validate(save_data)
+    return save_schema
 
 
 DATETIME_TAG_PATTERN = re.compile(r" \[\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\]")
