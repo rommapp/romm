@@ -716,7 +716,7 @@ def pkgj_psp_games_feed(request: Request) -> Response:
         content="\n".join(txt_lines),
         media_type="text/plain",
         headers={
-            "Content-Disposition": "filename=titles_pspgames.txt",
+            "Content-Disposition": "filename=pkgj_psp_games.txt",
             "Cache-Control": "no-cache",
         },
     )
@@ -778,7 +778,7 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
         content="\n".join(txt_lines),
         media_type="text/plain",
         headers={
-            "Content-Disposition": "filename=titles_pspdlcs",
+            "Content-Disposition": "filename=pkgj_psp_dlc.txt",
             "Cache-Control": "no-cache",
         },
     )
@@ -844,7 +844,7 @@ def pkgj_psv_games_feed(request: Request) -> Response:
         content="\n".join(txt_lines),
         media_type="text/plain",
         headers={
-            "Content-Disposition": "filename=titles_psvgames.tsv",
+            "Content-Disposition": "filename=pkgj_psvita_games.txt",
             "Cache-Control": "no-cache",
         },
     )
@@ -904,7 +904,7 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
         content="\n".join(txt_lines),
         media_type="text/plain",
         headers={
-            "Content-Disposition": "filename=titles_psvdlcs.tsv",
+            "Content-Disposition": "filename=pkgj_psvita_dlc.txt",
             "Cache-Control": "no-cache",
         },
     )
@@ -962,7 +962,7 @@ def pkgj_psx_games_feed(request: Request) -> Response:
         content="\n".join(txt_lines),
         media_type="text/plain",
         headers={
-            "Content-Disposition": "filename=titles_psxgames.tsv",
+            "Content-Disposition": "filename=pkgj_psx_games.txt",
             "Cache-Control": "no-cache",
         },
     )
