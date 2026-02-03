@@ -258,7 +258,7 @@ function getFilterValues(path: string): string[] {
               height="50"
               width="50"
               class="mr-4 cursor-pointer"
-              @click="onFilterClick('ageRating', value.rating)"
+              @click="onFilterClick('ageRatings', value.rating)"
             />
           </div>
         </v-row>
