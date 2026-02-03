@@ -78,6 +78,7 @@ jobs:
 
       - name: Publish coverage report
         uses: orgoro/coverage@v3.2
+        continue-on-error: true
         with:
           coverageFile: backend/coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
