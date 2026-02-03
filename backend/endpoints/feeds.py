@@ -268,6 +268,17 @@ def generate_content_id(file: RomFile) -> str:
     return f"UP9644-{file.id:09d}_00-0000000000000000"
 
 
+def _text_response(lines: list[str], filename: str) -> Response:
+    return Response(
+        content="\n".join(lines),
+        media_type="text/plain",
+        headers={
+            "Content-Disposition": f"filename={filename}",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
 @protected_route(
     router.get,
     "/pkgi/ps3/{content_type}",
@@ -338,16 +349,7 @@ def pkgi_ps3_feed(
                 )
             )
 
-    txt_content = "\n".join(txt_lines)
-
-    return Response(
-        content=txt_content,
-        media_type="text/plain",
-        headers={
-            "Content-Disposition": f"filename=pkgi_{content_type_enum.value}.txt",
-            "Cache-Control": "no-cache",
-        },
-    )
+    return _text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
 
 
 @protected_route(
@@ -420,16 +422,7 @@ def pkgi_psvita_feed(
                 )
             )
 
-    txt_content = "\n".join(txt_lines)
-
-    return Response(
-        content=txt_content,
-        media_type="text/plain",
-        headers={
-            "Content-Disposition": f"filename=pkgi_{content_type_enum.value}.txt",
-            "Cache-Control": "no-cache",
-        },
-    )
+    return _text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
 
 
 @protected_route(
@@ -504,16 +497,7 @@ def pkgi_psp_feed(
                 )
             )
 
-    txt_content = "\n".join(txt_lines)
-
-    return Response(
-        content=txt_content,
-        media_type="text/plain",
-        headers={
-            "Content-Disposition": f"filename=pkgi_{content_type_enum.value}.txt",
-            "Cache-Control": "no-cache",
-        },
-    )
+    return _text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
 
 
 def _format_release_date(timestamp: int | None) -> str | None:
@@ -640,16 +624,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
             )
         )
 
-    txt_content = "\n".join(txt_lines)
-
-    return Response(
-        content=txt_content,
-        media_type="text/plain",
-        headers={
-            "Content-Disposition": f"filename=kekatsu_{platform_slug}.txt",
-            "Cache-Control": "no-cache",
-        },
-    )
+    return _text_response(txt_lines, f"kekatsu_{platform_slug}.txt")
 
 
 def _format_pkgj_datetime(value: datetime | None) -> str:
@@ -712,14 +687,7 @@ def pkgj_psp_games_feed(request: Request) -> Response:
             )
         )
 
-    return Response(
-        content="\n".join(txt_lines),
-        media_type="text/plain",
-        headers={
-            "Content-Disposition": "filename=pkgj_psp_games.txt",
-            "Cache-Control": "no-cache",
-        },
-    )
+    return _text_response(txt_lines, "pkgj_psp_games.txt")
 
 
 @protected_route(
@@ -774,14 +742,7 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
             )
         )
 
-    return Response(
-        content="\n".join(txt_lines),
-        media_type="text/plain",
-        headers={
-            "Content-Disposition": "filename=pkgj_psp_dlc.txt",
-            "Cache-Control": "no-cache",
-        },
-    )
+    return _text_response(txt_lines, "pkgj_psp_dlc.txt")
 
 
 @protected_route(
@@ -840,14 +801,7 @@ def pkgj_psv_games_feed(request: Request) -> Response:
             )
         )
 
-    return Response(
-        content="\n".join(txt_lines),
-        media_type="text/plain",
-        headers={
-            "Content-Disposition": "filename=pkgj_psvita_games.txt",
-            "Cache-Control": "no-cache",
-        },
-    )
+    return _text_response(txt_lines, "pkgj_psvita_games.txt")
 
 
 @protected_route(
@@ -900,14 +854,7 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
             )
         )
 
-    return Response(
-        content="\n".join(txt_lines),
-        media_type="text/plain",
-        headers={
-            "Content-Disposition": "filename=pkgj_psvita_dlc.txt",
-            "Cache-Control": "no-cache",
-        },
-    )
+    return _text_response(txt_lines, "pkgj_psvita_dlc.txt")
 
 
 @protected_route(
@@ -958,11 +905,4 @@ def pkgj_psx_games_feed(request: Request) -> Response:
             )
         )
 
-    return Response(
-        content="\n".join(txt_lines),
-        media_type="text/plain",
-        headers={
-            "Content-Disposition": "filename=pkgj_psx_games.txt",
-            "Cache-Control": "no-cache",
-        },
-    )
+    return _text_response(txt_lines, "pkgj_psx_games.txt")

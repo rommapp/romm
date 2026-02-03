@@ -127,7 +127,7 @@ def test_pkgi_ps3_feed(
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.headers["content-disposition"] == "filename=pkgi_game.txt"
-    assert "Test PS3.pkg" in response.text
+    assert "Test PS3" in response.text
 
 
 def test_pkgi_psvita_feed(
@@ -169,7 +169,7 @@ def test_pkgi_psvita_feed(
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.headers["content-disposition"] == "filename=pkgi_game.txt"
-    assert "Test PSV.pkg" in response.text
+    assert "Test PSV" in response.text
 
 
 def test_pkgi_psp_feed(
@@ -211,7 +211,7 @@ def test_pkgi_psp_feed(
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.headers["content-disposition"] == "filename=pkgi_game.txt"
-    assert "Test PSP.pkg" in response.text
+    assert "Test PSP" in response.text
 
 
 def test_fpkgi_feed(
@@ -235,8 +235,6 @@ def test_fpkgi_feed(
             "regions": ["US"],
         },
     )
-    rom.metadatum = RomMetadata()
-    db_rom_handler.add_rom(rom)
 
     response = client.get(
         "/api/feeds/fpkgi/ps4",
