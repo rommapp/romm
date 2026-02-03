@@ -1,4 +1,9 @@
 from datetime import datetime
+from typing import Any
+
+from pydantic import model_validator
+from sqlalchemy import inspect
+from sqlalchemy.exc import InvalidRequestError
 
 from .base import BaseModel
 from .device import DeviceSyncSchema
@@ -36,6 +41,25 @@ class SaveSchema(BaseAsset):
     content_hash: str | None = None
     screenshot: ScreenshotSchema | None
     device_syncs: list[DeviceSyncSchema] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_lazy_relationships(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return data
+        try:
+            state = inspect(data)
+        except Exception:
+            return data
+        result = {}
+        for field_name in cls.model_fields:
+            if field_name in state.unloaded:
+                continue
+            try:
+                result[field_name] = getattr(data, field_name)
+            except InvalidRequestError:
+                continue
+        return result
 
 
 class SlotSummarySchema(BaseModel):
