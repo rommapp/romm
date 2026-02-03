@@ -2097,41 +2097,41 @@ class TestContentHashDeduplication:
 
 class TestContentHashComputation:
     def test_compute_file_hash(self, tmp_path):
-        from handler.scan_handler import _compute_file_hash
+        from handler.filesystem.assets_handler import compute_file_hash
 
         test_file = tmp_path / "test.sav"
         test_file.write_bytes(b"test content for hashing")
 
-        hash_result = _compute_file_hash(str(test_file))
+        hash_result = compute_file_hash(str(test_file))
 
         assert hash_result is not None
         assert len(hash_result) == 32
 
-        hash_result2 = _compute_file_hash(str(test_file))
+        hash_result2 = compute_file_hash(str(test_file))
         assert hash_result == hash_result2
 
     def test_same_content_produces_same_hash(self, tmp_path):
-        from handler.scan_handler import _compute_file_hash
+        from handler.filesystem.assets_handler import compute_file_hash
 
         file1 = tmp_path / "save1.sav"
         file2 = tmp_path / "save2.sav"
         file1.write_bytes(b"identical content")
         file2.write_bytes(b"identical content")
 
-        hash1 = _compute_file_hash(str(file1))
-        hash2 = _compute_file_hash(str(file2))
+        hash1 = compute_file_hash(str(file1))
+        hash2 = compute_file_hash(str(file2))
 
         assert hash1 == hash2
 
     def test_different_content_produces_different_hash(self, tmp_path):
-        from handler.scan_handler import _compute_file_hash
+        from handler.filesystem.assets_handler import compute_file_hash
 
         file1 = tmp_path / "save1.sav"
         file2 = tmp_path / "save2.sav"
         file1.write_bytes(b"content A")
         file2.write_bytes(b"content B")
 
-        hash1 = _compute_file_hash(str(file1))
-        hash2 = _compute_file_hash(str(file2))
+        hash1 = compute_file_hash(str(file1))
+        hash2 = compute_file_hash(str(file2))
 
         assert hash1 != hash2
