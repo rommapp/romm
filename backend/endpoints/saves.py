@@ -160,7 +160,7 @@ async def add_save(
             user_id=request.user.id,
             rom_id=rom.id,
             slot=slot,
-            order_by_updated_at_desc=True,
+            order_by="updated_at",
         )
         if slot_saves:
             latest_in_slot = slot_saves[0]
@@ -251,7 +251,7 @@ async def add_save(
             user_id=request.user.id,
             rom_id=rom.id,
             slot=slot,
-            order_by_updated_at_desc=True,
+            order_by="updated_at",
         )
         if len(slot_saves) > autocleanup_limit:
             for old_save in slot_saves[autocleanup_limit:]:
