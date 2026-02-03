@@ -2,12 +2,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import Body, HTTPException, Request, status
+from fastapi import Body, HTTPException, Request, Response, status
 
 from decorators.auth import protected_route
 from endpoints.responses.device import DeviceCreateResponse, DeviceSchema
 from handler.auth.constants import Scope
-from handler.database import db_device_handler
+from handler.database import db_device_handler, db_device_save_sync_handler
 from logger.logger import log
 from models.device import Device
 from utils.router import APIRouter
@@ -18,14 +18,10 @@ router = APIRouter(
 )
 
 
-@protected_route(
-    router.post,
-    "",
-    [Scope.DEVICES_WRITE],
-    status_code=status.HTTP_201_CREATED,
-)
+@protected_route(router.post, "", [Scope.DEVICES_WRITE])
 def register_device(
     request: Request,
+    response: Response,
     name: str | None = Body(None, embed=True),
     platform: str | None = Body(None, embed=True),
     client: str | None = Body(None, embed=True),
@@ -33,7 +29,50 @@ def register_device(
     ip_address: str | None = Body(None, embed=True),
     mac_address: str | None = Body(None, embed=True),
     hostname: str | None = Body(None, embed=True),
+    allow_existing: bool = Body(False, embed=True),
+    allow_duplicate: bool = Body(False, embed=True),
+    reset_syncs: bool = Body(False, embed=True),
 ) -> DeviceCreateResponse:
+    existing_device = None
+    if not allow_duplicate:
+        existing_device = db_device_handler.get_device_by_fingerprint(
+            user_id=request.user.id,
+            mac_address=mac_address,
+            hostname=hostname,
+            platform=platform,
+        )
+
+    if existing_device:
+        if not allow_existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "device_exists",
+                    "message": "A device with this fingerprint already exists",
+                    "device_id": existing_device.id,
+                },
+            )
+
+        if reset_syncs:
+            db_device_save_sync_handler.delete_syncs_for_device(
+                device_id=existing_device.id
+            )
+
+        db_device_handler.update_last_seen(
+            device_id=existing_device.id, user_id=request.user.id
+        )
+        log.info(
+            f"Returned existing device {existing_device.id} for user {request.user.username}"
+        )
+
+        response.status_code = status.HTTP_200_OK
+        return DeviceCreateResponse(
+            device_id=existing_device.id,
+            name=existing_device.name,
+            created_at=existing_device.created_at,
+        )
+
+    response.status_code = status.HTTP_201_CREATED
     device_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
