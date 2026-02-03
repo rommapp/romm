@@ -22,6 +22,11 @@ from endpoints.responses.feeds import (
     PKGiFeedPS3ItemSchema,
     PKGiFeedPSPItemSchema,
     PKGiFeedPSVitaItemSchema,
+    PkgjPSPDlcsItemSchema,
+    PkgjPSPGamesItemSchema,
+    PkgjPSVDlcsItemSchema,
+    PkgjPSVGamesItemSchema,
+    PkgjPSXGamesItemSchema,
     TinfoilFeedFileSchema,
     TinfoilFeedSchema,
     TinfoilFeedTitleDBSchema,
@@ -318,8 +323,20 @@ def pkgi_ps3_feed(
             )
 
             # Format: contentid,type,name,description,rap,url,size,checksum
-            txt_line = f'{pkgi_item.contentid},{pkgi_item.type},"{pkgi_item.name}",{pkgi_item.description},{pkgi_item.rap},"{pkgi_item.url}",{pkgi_item.size},{pkgi_item.checksum}'
-            txt_lines.append(txt_line)
+            txt_lines.append(
+                ",".join(
+                    [
+                        pkgi_item.contentid,
+                        str(pkgi_item.type),
+                        f'"{pkgi_item.name}"',
+                        pkgi_item.description,
+                        pkgi_item.rap,
+                        f'"{pkgi_item.url}"',
+                        str(pkgi_item.size),
+                        pkgi_item.checksum,
+                    ]
+                )
+            )
 
     txt_content = "\n".join(txt_lines)
 
@@ -388,8 +405,20 @@ def pkgi_psvita_feed(
             )
 
             # Format: contentid,flags,name,name2,zrif,url,size,checksum
-            txt_line = f'{pkgi_item.contentid},{pkgi_item.flags},"{pkgi_item.name}",{pkgi_item.name2},{pkgi_item.zrif},"{pkgi_item.url}",{pkgi_item.size},{pkgi_item.checksum}'
-            txt_lines.append(txt_line)
+            txt_lines.append(
+                ",".join(
+                    [
+                        pkgi_item.contentid,
+                        str(pkgi_item.flags),
+                        f'"{pkgi_item.name}"',
+                        pkgi_item.name2,
+                        pkgi_item.zrif,
+                        f'"{pkgi_item.url}"',
+                        str(pkgi_item.size),
+                        pkgi_item.checksum,
+                    ]
+                )
+            )
 
     txt_content = "\n".join(txt_lines)
 
@@ -460,8 +489,20 @@ def pkgi_psp_feed(
             )
 
             # Format: contentid,type,name,description,rap,url,size,checksum
-            txt_line = f'{pkgi_item.contentid},{pkgi_item.type},"{pkgi_item.name}",{pkgi_item.description},{pkgi_item.rap},"{pkgi_item.url}",{pkgi_item.size},{pkgi_item.checksum}'
-            txt_lines.append(txt_line)
+            txt_lines.append(
+                ",".join(
+                    [
+                        pkgi_item.contentid,
+                        str(pkgi_item.type),
+                        f'"{pkgi_item.name}"',
+                        pkgi_item.description,
+                        pkgi_item.rap,
+                        f'"{pkgi_item.url}"',
+                        str(pkgi_item.size),
+                        pkgi_item.checksum,
+                    ]
+                )
+            )
 
     txt_content = "\n".join(txt_lines)
 
@@ -583,8 +624,21 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
         )
 
         # Format: title	platform	region	version	author	download_url	filename	size	box_art_url
-        txt_line = f"{kekatsu_item.title}\t{kekatsu_item.platform}\t{kekatsu_item.region}\t{kekatsu_item.version}\t{kekatsu_item.author}\t{kekatsu_item.download_url}\t{kekatsu_item.filename}\t{kekatsu_item.size}\t{kekatsu_item.box_art_url}"
-        txt_lines.append(txt_line)
+        txt_lines.append(
+            "\t".join(
+                [
+                    kekatsu_item.title,
+                    kekatsu_item.platform,
+                    kekatsu_item.region,
+                    kekatsu_item.version,
+                    kekatsu_item.author,
+                    kekatsu_item.download_url,
+                    kekatsu_item.filename,
+                    str(kekatsu_item.size),
+                    kekatsu_item.box_art_url,
+                ]
+            )
+        )
 
     txt_content = "\n".join(txt_lines)
 
@@ -593,6 +647,322 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
         media_type="text/plain",
         headers={
             "Content-Disposition": f"filename=kekatsu_{platform_slug}.txt",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+def _format_pkgj_datetime(value: datetime | None) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    return ""
+
+
+@protected_route(
+    router.get,
+    "/pkgj/psp/games",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+def pkgj_psp_games_feed(request: Request) -> Response:
+    platform = db_platform_handler.get_platform_by_slug(UPS.PSP)
+    if not platform:
+        raise HTTPException(
+            status_code=404, detail="PlayStation Portable platform not found"
+        )
+
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    txt_lines = []
+    txt_lines.append(
+        "Title ID\tRegion\tType\tName\tPKG direct link\tContent ID\tLast Modification Date\tRAP\tDownload .RAP file\tFile Size\tSHA256"
+    )
+
+    for rom in roms:
+        download_url = generate_rom_download_url(request, rom)
+        last_modified = _format_pkgj_datetime(rom.updated_at)
+
+        pkgj_item = PkgjPSPGamesItemSchema(
+            title_id="",
+            region=rom.regions[0] if rom.regions else "",
+            type="PSP",
+            name=(rom.name or rom.fs_name_no_tags).strip(),
+            download_link=download_url,
+            content_id="",
+            last_modified=rom.updated_at,
+            rap="",
+            download_rap_file="",
+            file_size=rom.fs_size_bytes,
+            sha_256=rom.sha1_hash or "",
+        )
+
+        txt_lines.append(
+            "\t".join(
+                [
+                    pkgj_item.title_id,
+                    pkgj_item.region,
+                    pkgj_item.type,
+                    pkgj_item.name,
+                    pkgj_item.download_link,
+                    pkgj_item.content_id,
+                    last_modified,
+                    pkgj_item.rap,
+                    pkgj_item.download_rap_file,
+                    str(pkgj_item.file_size),
+                    pkgj_item.sha_256,
+                ]
+            )
+        )
+
+    return Response(
+        content="\n".join(txt_lines),
+        media_type="text/plain",
+        headers={
+            "Content-Disposition": "filename=titles_pspgames.txt",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@protected_route(
+    router.get,
+    "/pkgj/psp/dlc",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+def pkgj_psp_dlcs_feed(request: Request) -> Response:
+    platform = db_platform_handler.get_platform_by_slug(UPS.PSP)
+    if not platform:
+        raise HTTPException(
+            status_code=404, detail="PlayStation Portable platform not found"
+        )
+
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    txt_lines = []
+    txt_lines.append(
+        "Title ID\tRegion\tName\tPKG direct link\tContent ID\tLast Modification Date\tRAP\tDownload .RAP file\tFile Size\tSHA256"
+    )
+
+    for rom in roms:
+        download_url = generate_rom_download_url(request, rom)
+        last_modified = _format_pkgj_datetime(rom.updated_at)
+
+        pkgj_item = PkgjPSPDlcsItemSchema(
+            title_id="",
+            region=rom.regions[0] if rom.regions else "",
+            name=(rom.name or rom.fs_name_no_tags).strip(),
+            download_link=download_url,
+            content_id="",
+            last_modified=rom.updated_at,
+            rap="",
+            download_rap_file="",
+            file_size=rom.fs_size_bytes,
+            sha_256=rom.sha1_hash or "",
+        )
+
+        txt_lines.append(
+            "\t".join(
+                [
+                    pkgj_item.title_id,
+                    pkgj_item.region,
+                    pkgj_item.name,
+                    pkgj_item.download_link,
+                    pkgj_item.content_id,
+                    last_modified,
+                    pkgj_item.rap,
+                    pkgj_item.download_rap_file,
+                    str(pkgj_item.file_size),
+                    pkgj_item.sha_256,
+                ]
+            )
+        )
+
+    return Response(
+        content="\n".join(txt_lines),
+        media_type="text/plain",
+        headers={
+            "Content-Disposition": "filename=titles_pspdlcs",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@protected_route(
+    router.get,
+    "/pkgj/psvita/games",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+def pkgj_psv_games_feed(request: Request) -> Response:
+    platform = db_platform_handler.get_platform_by_slug(UPS.PSVITA)
+    if not platform:
+        raise HTTPException(
+            status_code=404, detail="PlayStation Vita platform not found"
+        )
+
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    txt_lines = []
+    txt_lines.append(
+        "Title ID\tRegion\tName\tPKG direct link\tzRIF\tContent ID\tLast Modification Date\tOriginal Name\tFile Size\tSHA256\tRequired FW\tApp Version"
+    )
+
+    for rom in roms:
+        download_url = generate_rom_download_url(request, rom)
+        last_modified = _format_pkgj_datetime(rom.updated_at)
+
+        pkgj_item = PkgjPSVGamesItemSchema(
+            title_id="",
+            region=rom.regions[0] if rom.regions else "",
+            name=(rom.name or rom.fs_name_no_tags).strip(),
+            download_link=download_url,
+            zrif="",
+            content_id="",
+            last_modified=rom.updated_at,
+            original_name="",
+            file_size=rom.fs_size_bytes,
+            sha_256=rom.sha1_hash or "",
+            required_fw="",
+            app_version="",
+        )
+
+        txt_lines.append(
+            "\t".join(
+                [
+                    pkgj_item.title_id,
+                    pkgj_item.region,
+                    pkgj_item.name,
+                    pkgj_item.download_link,
+                    pkgj_item.zrif,
+                    pkgj_item.content_id,
+                    last_modified,
+                    pkgj_item.original_name,
+                    str(pkgj_item.file_size),
+                    pkgj_item.sha_256,
+                    pkgj_item.required_fw,
+                    pkgj_item.app_version,
+                ]
+            )
+        )
+
+    return Response(
+        content="\n".join(txt_lines),
+        media_type="text/plain",
+        headers={
+            "Content-Disposition": "filename=titles_psvgames.tsv",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@protected_route(
+    router.get,
+    "/pkgj/psvita/dlc",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+def pkgj_psv_dlcs_feed(request: Request) -> Response:
+    platform = db_platform_handler.get_platform_by_slug(UPS.PSVITA)
+    if not platform:
+        raise HTTPException(
+            status_code=404, detail="PlayStation Vita platform not found"
+        )
+
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    txt_lines = []
+    txt_lines.append(
+        "Title ID\tRegion\tName\tPKG direct link\tzRIF\tContent ID\tLast Modification Date\tFile Size\tSHA256"
+    )
+
+    for rom in roms:
+        download_url = generate_rom_download_url(request, rom)
+        last_modified = _format_pkgj_datetime(rom.updated_at)
+
+        pkgj_item = PkgjPSVDlcsItemSchema(
+            title_id="",
+            region=rom.regions[0] if rom.regions else "",
+            name=(rom.name or rom.fs_name_no_tags).strip(),
+            download_link=download_url,
+            zrif="",
+            content_id="",
+            last_modified=rom.updated_at,
+            file_size=rom.fs_size_bytes,
+            sha_256=rom.sha1_hash or "",
+        )
+
+        txt_lines.append(
+            "\t".join(
+                [
+                    pkgj_item.title_id,
+                    pkgj_item.region,
+                    pkgj_item.name,
+                    pkgj_item.download_link,
+                    pkgj_item.zrif,
+                    pkgj_item.content_id,
+                    last_modified,
+                    str(pkgj_item.file_size),
+                    pkgj_item.sha_256,
+                ]
+            )
+        )
+
+    return Response(
+        content="\n".join(txt_lines),
+        media_type="text/plain",
+        headers={
+            "Content-Disposition": "filename=titles_psvdlcs.tsv",
+            "Cache-Control": "no-cache",
+        },
+    )
+
+
+@protected_route(
+    router.get,
+    "/pkgj/psx/games",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+def pkgj_psx_games_feed(request: Request) -> Response:
+    platform = db_platform_handler.get_platform_by_slug(UPS.PSX)
+    if not platform:
+        raise HTTPException(status_code=404, detail="PlayStation platform not found")
+
+    roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
+    txt_lines = []
+    txt_lines.append(
+        "Title ID\tRegion\tName\tPKG direct link\tContent ID\tLast Modification Date\tOriginal Name\tFile Size\tSHA256"
+    )
+
+    for rom in roms:
+        download_url = generate_rom_download_url(request, rom)
+        last_modified = _format_pkgj_datetime(rom.updated_at)
+
+        pkgj_item = PkgjPSXGamesItemSchema(
+            title_id="",
+            region=rom.regions[0] if rom.regions else "",
+            name=(rom.name or rom.fs_name_no_tags).strip(),
+            download_link=download_url,
+            content_id="",
+            last_modified=rom.updated_at,
+            original_name="",
+            file_size=rom.fs_size_bytes,
+            sha_256=rom.sha1_hash or "",
+        )
+
+        txt_lines.append(
+            "\t".join(
+                [
+                    pkgj_item.title_id,
+                    pkgj_item.region,
+                    pkgj_item.name,
+                    pkgj_item.download_link,
+                    pkgj_item.content_id,
+                    last_modified,
+                    pkgj_item.original_name,
+                    str(pkgj_item.file_size),
+                    pkgj_item.sha_256,
+                ]
+            )
+        )
+
+    return Response(
+        content="\n".join(txt_lines),
+        media_type="text/plain",
+        headers={
+            "Content-Disposition": "filename=titles_psxgames.tsv",
             "Cache-Control": "no-cache",
         },
     )
