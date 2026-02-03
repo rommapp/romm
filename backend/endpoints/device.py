@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Any
 
-from fastapi import Body, HTTPException, Request, Response, status
+from fastapi import HTTPException, Request, Response, status
+from pydantic import BaseModel
 
 from decorators.auth import protected_route
 from endpoints.responses.device import DeviceCreateResponse, DeviceSchema
@@ -18,32 +18,47 @@ router = APIRouter(
 )
 
 
+class DeviceCreatePayload(BaseModel):
+    name: str | None = None
+    platform: str | None = None
+    client: str | None = None
+    client_version: str | None = None
+    ip_address: str | None = None
+    mac_address: str | None = None
+    hostname: str | None = None
+    allow_existing: bool = False
+    allow_duplicate: bool = False
+    reset_syncs: bool = False
+
+
+class DeviceUpdatePayload(BaseModel):
+    name: str | None = None
+    platform: str | None = None
+    client: str | None = None
+    client_version: str | None = None
+    ip_address: str | None = None
+    mac_address: str | None = None
+    hostname: str | None = None
+    sync_enabled: bool | None = None
+
+
 @protected_route(router.post, "", [Scope.DEVICES_WRITE])
 def register_device(
     request: Request,
     response: Response,
-    name: str | None = Body(None, embed=True),
-    platform: str | None = Body(None, embed=True),
-    client: str | None = Body(None, embed=True),
-    client_version: str | None = Body(None, embed=True),
-    ip_address: str | None = Body(None, embed=True),
-    mac_address: str | None = Body(None, embed=True),
-    hostname: str | None = Body(None, embed=True),
-    allow_existing: bool = Body(False, embed=True),
-    allow_duplicate: bool = Body(False, embed=True),
-    reset_syncs: bool = Body(False, embed=True),
+    payload: DeviceCreatePayload,
 ) -> DeviceCreateResponse:
     existing_device = None
-    if not allow_duplicate:
+    if not payload.allow_duplicate:
         existing_device = db_device_handler.get_device_by_fingerprint(
             user_id=request.user.id,
-            mac_address=mac_address,
-            hostname=hostname,
-            platform=platform,
+            mac_address=payload.mac_address,
+            hostname=payload.hostname,
+            platform=payload.platform,
         )
 
     if existing_device:
-        if not allow_existing:
+        if not payload.allow_existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail={
@@ -53,7 +68,7 @@ def register_device(
                 },
             )
 
-        if reset_syncs:
+        if payload.reset_syncs:
             db_device_save_sync_handler.delete_syncs_for_device(
                 device_id=existing_device.id
             )
@@ -79,13 +94,13 @@ def register_device(
     device = Device(
         id=device_id,
         user_id=request.user.id,
-        name=name,
-        platform=platform,
-        client=client,
-        client_version=client_version,
-        ip_address=ip_address,
-        mac_address=mac_address,
-        hostname=hostname,
+        name=payload.name,
+        platform=payload.platform,
+        client=payload.client,
+        client_version=payload.client_version,
+        ip_address=payload.ip_address,
+        mac_address=payload.mac_address,
+        hostname=payload.hostname,
         last_seen=now,
     )
 
@@ -120,14 +135,7 @@ def get_device(request: Request, device_id: str) -> DeviceSchema:
 def update_device(
     request: Request,
     device_id: str,
-    name: str | None = Body(None, embed=True),
-    platform: str | None = Body(None, embed=True),
-    client: str | None = Body(None, embed=True),
-    client_version: str | None = Body(None, embed=True),
-    ip_address: str | None = Body(None, embed=True),
-    mac_address: str | None = Body(None, embed=True),
-    hostname: str | None = Body(None, embed=True),
-    sync_enabled: bool | None = Body(None, embed=True),
+    payload: DeviceUpdatePayload,
 ) -> DeviceSchema:
     device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
     if not device:
@@ -136,24 +144,7 @@ def update_device(
             detail=f"Device with ID {device_id} not found",
         )
 
-    update_data: dict[str, Any] = {}
-    if name is not None:
-        update_data["name"] = name
-    if platform is not None:
-        update_data["platform"] = platform
-    if client is not None:
-        update_data["client"] = client
-    if client_version is not None:
-        update_data["client_version"] = client_version
-    if ip_address is not None:
-        update_data["ip_address"] = ip_address
-    if mac_address is not None:
-        update_data["mac_address"] = mac_address
-    if hostname is not None:
-        update_data["hostname"] = hostname
-    if sync_enabled is not None:
-        update_data["sync_enabled"] = sync_enabled
-
+    update_data = payload.model_dump(exclude_unset=True)
     if update_data:
         device = db_device_handler.update_device(
             device_id=device_id,
