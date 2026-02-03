@@ -76,6 +76,7 @@ class Config:
     EXCLUDED_MULTI_FILES: list[str]
     EXCLUDED_MULTI_PARTS_EXT: list[str]
     EXCLUDED_MULTI_PARTS_FILES: list[str]
+    GAMELIST_AUTO_EXPORT_ON_SCAN: bool
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
@@ -222,6 +223,9 @@ class ConfigManager:
             ),
             FIRMWARE_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.firmware_folder", "bios"
+            ),            
+            GAMELIST_AUTO_EXPORT_ON_SCAN=pydash.get(
+                self._raw_config, "gamelist.auto_export_on_scan", False
             ),
             SKIP_HASH_CALCULATION=pydash.get(
                 self._raw_config, "filesystem.skip_hash_calculation", False
@@ -362,6 +366,12 @@ class ConfigManager:
         if not isinstance(self.config.EXCLUDED_MULTI_PARTS_FILES, list):
             log.critical(
                 "Invalid config.yml: exclude.roms.multi_file.parts.names must be a list"
+            )
+            sys.exit(3)
+        
+        if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
+            log.critical(
+                "Invalid config.yml: gamelist.auto_export_on_scan must be a boolean"
             )
             sys.exit(3)
 
@@ -570,6 +580,9 @@ class ConfigManager:
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
                 "media": self.config.SCAN_MEDIA,
+            },
+            "gamelist": {
+                "auto_export_on_scan": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
             },
         }
 

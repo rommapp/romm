@@ -22,6 +22,7 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from exceptions.socket_exceptions import ScanStoppedException
+from utils.gamelist_exporter import GamelistExporter
 from handler.database import db_firmware_handler, db_platform_handler, db_rom_handler
 from handler.filesystem import (
     fs_firmware_handler,
@@ -683,6 +684,28 @@ async def scan_platforms(
                 log.warning(f" - {p.slug} ({p.fs_slug})")
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
+
+        # Export gamelist.xml if enabled in config
+        if cm.get_config().GAMELIST_AUTO_EXPORT_ON_SCAN:
+            log.info("Auto-exporting gamelist.xml for all platforms...")
+            gamelist_exporter = GamelistExporter(local_export=True)
+            for platform_slug in platform_list:
+                platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+                if platform:
+                    try:
+                        await gamelist_exporter.export_platform_to_file(
+                            platform.id,
+                            request=None,
+                        )
+                        log.info(
+                            f"Auto-exported gamelist.xml for platform {platform.name} after scan"
+                        )
+                    except Exception as e:
+                        log.error(
+                            f"Failed to auto-export gamelist.xml for platform {platform.name}: {e}"
+                        )
+            log.info("Gamelist.xml auto-export completed.")
+            
         await socket_manager.emit("scan:done", scan_stats.to_dict())
     except ScanStoppedException:
         await stop_scan()
