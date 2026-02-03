@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from datetime import datetime, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
@@ -115,3 +115,15 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
             session.flush()
             return sync
         return None
+
+    @begin_session
+    def delete_syncs_for_device(
+        self,
+        device_id: str,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        session.execute(
+            delete(DeviceSaveSync)
+            .where(DeviceSaveSync.device_id == device_id)
+            .execution_options(synchronize_session="evaluate")
+        )

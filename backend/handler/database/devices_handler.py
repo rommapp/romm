@@ -31,6 +31,33 @@ class DBDevicesHandler(DBBaseHandler):
         )
 
     @begin_session
+    def get_device_by_fingerprint(
+        self,
+        user_id: int,
+        mac_address: str | None = None,
+        hostname: str | None = None,
+        platform: str | None = None,
+        session: Session = None,  # type: ignore
+    ) -> Device | None:
+        if mac_address:
+            device = session.scalar(
+                select(Device)
+                .filter_by(user_id=user_id, mac_address=mac_address)
+                .limit(1)
+            )
+            if device:
+                return device
+
+        if hostname and platform:
+            return session.scalar(
+                select(Device)
+                .filter_by(user_id=user_id, hostname=hostname, platform=platform)
+                .limit(1)
+            )
+
+        return None
+
+    @begin_session
     def get_devices(
         self,
         user_id: int,
