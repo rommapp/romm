@@ -74,7 +74,9 @@ def upgrade() -> None:
         )
 
         with op.batch_alter_table("rom_files", schema=None) as batch_op:
-            batch_op.alter_column("category", type_=rom_file_category_enum, nullable=True)
+            batch_op.alter_column(
+                "category", type_=rom_file_category_enum, nullable=True
+            )
 
 
 def downgrade() -> None:
