@@ -1,7 +1,5 @@
 import asyncio
 import enum
-import hashlib
-import zipfile
 from typing import Any
 
 import socketio  # type: ignore
@@ -11,6 +9,7 @@ from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler
+from handler.filesystem.assets_handler import compute_content_hash
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_flashpoint_handler,
@@ -820,37 +819,7 @@ async def scan_rom(
     return Rom(**rom_attrs)
 
 
-def _compute_file_hash(file_path: str) -> str:
-    hash_obj = hashlib.md5(usedforsecurity=False)
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            hash_obj.update(chunk)
-    return hash_obj.hexdigest()
-
-
-def _compute_zip_hash(zip_path: str) -> str:
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        file_hashes = []
-        for name in sorted(zf.namelist()):
-            if not name.endswith("/"):
-                content = zf.read(name)
-                file_hash = hashlib.md5(content, usedforsecurity=False).hexdigest()
-                file_hashes.append(f"{name}:{file_hash}")
-        combined = "\n".join(file_hashes)
-        return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
-
-
-def _compute_content_hash(file_path: str) -> str | None:
-    try:
-        if zipfile.is_zipfile(file_path):
-            return _compute_zip_hash(file_path)
-        return _compute_file_hash(file_path)
-    except Exception as e:
-        log.debug(f"Failed to compute content hash for {file_path}: {e}")
-        return None
-
-
-async def _scan_asset(file_name: str, asset_path: str, compute_hash: bool = False):
+async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False):
     file_path = f"{asset_path}/{file_name}"
     file_size = await fs_asset_handler.get_file_size(file_path)
 
@@ -863,9 +832,9 @@ async def _scan_asset(file_name: str, asset_path: str, compute_hash: bool = Fals
         "file_size_bytes": file_size,
     }
 
-    if compute_hash:
+    if should_hash:
         absolute_path = f"{ASSETS_BASE_PATH}/{file_path}"
-        result["content_hash"] = _compute_content_hash(absolute_path)
+        result["content_hash"] = compute_content_hash(absolute_path)
 
     return result
 
@@ -880,7 +849,7 @@ async def scan_save(
     saves_path = fs_asset_handler.build_saves_file_path(
         user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
-    scanned_asset = await _scan_asset(file_name, saves_path, compute_hash=True)
+    scanned_asset = await _scan_asset(file_name, saves_path, should_hash=True)
     return Save(**scanned_asset)
 
 
