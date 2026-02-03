@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Any, Final, NotRequired, TypedDict
 
 from pydantic import BaseModel, BeforeValidator, Field, field_validator
@@ -244,3 +245,42 @@ class KekatsuDSItemSchema(BaseModel):
     filename: str
     size: int
     box_art_url: str
+
+
+# Pkgj feed formats
+# Source: https://github.com/rommapp/romm/issues/2899
+class PkgjBaseItemSchema(BaseModel):
+    title_id: str
+    region: str
+    name: str
+    download_link: str
+    content_id: str
+    last_modified: datetime
+    file_size: int
+    sha_256: str
+
+
+class PkgjPSPGamesItemSchema(PkgjBaseItemSchema):
+    type: str
+    rap: str
+    download_rap_file: str
+
+
+class PkgjPSPDlcsItemSchema(PkgjBaseItemSchema):
+    rap: str
+    download_rap_file: str
+
+
+class PkgjPSVGamesItemSchema(PkgjBaseItemSchema):
+    zrif: str
+    original_name: str
+    required_fw: str
+    app_version: str
+
+
+class PkgjPSVDlcsItemSchema(PkgjBaseItemSchema):
+    zrif: str
+
+
+class PkgjPSXGamesItemSchema(PkgjBaseItemSchema):
+    original_name: str
