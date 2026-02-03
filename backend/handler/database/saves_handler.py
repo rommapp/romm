@@ -1,6 +1,7 @@
 from collections.abc import Sequence
+from typing import Literal
 
-from sqlalchemy import and_, delete, desc, select, update
+from sqlalchemy import and_, asc, delete, desc, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 
 from decorators.database import begin_session
@@ -63,7 +64,8 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int | None = None,
         platform_id: int | None = None,
         slot: str | None = None,
-        order_by_updated_at_desc: bool = False,
+        order_by: Literal["updated_at", "created_at"] | None = None,
+        order_dir: Literal["asc", "desc"] = "desc",
         only_fields: Sequence[QueryableAttribute] | None = None,
         session: Session = None,  # type: ignore
     ) -> Sequence[Save]:
@@ -80,8 +82,10 @@ class DBSavesHandler(DBBaseHandler):
         if slot is not None:
             query = query.filter(Save.slot == slot)
 
-        if order_by_updated_at_desc:
-            query = query.order_by(desc(Save.updated_at))
+        if order_by:
+            order_col = getattr(Save, order_by)
+            order_fn = asc if order_dir == "asc" else desc
+            query = query.order_by(order_fn(order_col))
 
         if only_fields:
             query = query.options(load_only(*only_fields))

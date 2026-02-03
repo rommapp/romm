@@ -255,7 +255,7 @@ class TestDBSavesHandlerSlotFiltering:
         all_saves = db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id)
         assert len(all_saves) >= 2
 
-    def test_get_saves_order_by_updated_at_desc(self, admin_user: User, rom: Rom):
+    def test_get_saves_order_by(self, admin_user: User, rom: Rom):
         from datetime import datetime, timedelta, timezone
 
         base_time = datetime.now(timezone.utc)
@@ -295,16 +295,28 @@ class TestDBSavesHandlerSlotFiltering:
             created2.id, {"updated_at": base_time - timedelta(hours=1)}
         )
 
-        ordered_saves = db_save_handler.get_saves(
+        ordered_saves_desc = db_save_handler.get_saves(
             user_id=admin_user.id,
             rom_id=rom.id,
             slot="order_test",
-            order_by_updated_at_desc=True,
+            order_by="updated_at",
         )
 
-        assert len(ordered_saves) == 2
-        assert ordered_saves[0].id == created2.id
-        assert ordered_saves[1].id == created1.id
+        assert len(ordered_saves_desc) == 2
+        assert ordered_saves_desc[0].id == created2.id
+        assert ordered_saves_desc[1].id == created1.id
+
+        ordered_saves_asc = db_save_handler.get_saves(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="order_test",
+            order_by="updated_at",
+            order_dir="asc",
+        )
+
+        assert len(ordered_saves_asc) == 2
+        assert ordered_saves_asc[0].id == created1.id
+        assert ordered_saves_asc[1].id == created2.id
 
 
 class TestDBSavesHandlerSummary:
