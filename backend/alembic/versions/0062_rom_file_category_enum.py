@@ -38,6 +38,26 @@ def upgrade() -> None:
             create_type=False,
         )
         rom_file_category_enum.create(connection, checkfirst=True)
+
+        # remove bad values before alter
+        op.execute(
+            """
+            UPDATE rom_files
+            SET category = NULL
+            WHERE category IS NOT NULL
+            AND category NOT IN ('GAME', 'DLC', 'HACK', 'MANUAL', 'PATCH', 'UPDATE', 'MOD', 'DEMO', 'TRANSLATION', 'PROTOTYPE')
+            """
+        )
+
+        # postgres being picky about needing USING
+        op.execute(
+            """
+            ALTER TABLE rom_files
+            ALTER COLUMN category TYPE romfilecategory
+            USING category::text::romfilecategory
+            """
+        )
+
     else:
         rom_file_category_enum = sa.Enum(
             "GAME",
