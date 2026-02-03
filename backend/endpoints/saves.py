@@ -26,13 +26,8 @@ from logger.logger import log
 from models.assets import Save
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
+from utils.datetime import to_utc
 from utils.router import APIRouter
-
-
-def _to_utc(dt: datetime) -> datetime:
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
 
 
 def _build_save_schema(
@@ -44,7 +39,7 @@ def _build_save_schema(
 
     if device:
         if sync:
-            is_current = _to_utc(sync.last_synced_at) >= _to_utc(save.updated_at)
+            is_current = to_utc(sync.last_synced_at) >= to_utc(save.updated_at)
             last_synced = sync.last_synced_at
             is_untracked = sync.is_untracked
         else:
@@ -167,7 +162,7 @@ async def add_save(
             sync = db_device_save_sync_handler.get_sync(
                 device_id=device.id, save_id=latest_in_slot.id
             )
-            if not sync or _to_utc(sync.last_synced_at) < _to_utc(
+            if not sync or to_utc(sync.last_synced_at) < to_utc(
                 latest_in_slot.updated_at
             ):
                 raise HTTPException(
@@ -178,7 +173,7 @@ async def add_save(
         sync = db_device_save_sync_handler.get_sync(
             device_id=device.id, save_id=db_save.id
         )
-        if sync and _to_utc(sync.last_synced_at) < _to_utc(db_save.updated_at):
+        if sync and to_utc(sync.last_synced_at) < to_utc(db_save.updated_at):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Save has been updated since your last sync",
