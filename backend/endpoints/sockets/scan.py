@@ -686,7 +686,8 @@ async def scan_platforms(
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 
         # Export gamelist.xml if enabled in config
-        if cm.get_config().GAMELIST_AUTO_EXPORT_ON_SCAN:
+        config = cm.get_config()
+        if config.GAMELIST_AUTO_EXPORT_ON_SCAN:
             log.info("Auto-exporting gamelist.xml for all platforms...")
             gamelist_exporter = GamelistExporter(local_export=True)
             platforms_by_slug = {p.fs_slug: p for p in db_platform_handler.get_platforms()}
