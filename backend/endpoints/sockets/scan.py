@@ -693,17 +693,17 @@ async def scan_platforms(
             for platform_slug in platform_list:
                 platform = platforms_by_slug.get(platform_slug)
                 if platform:
-                    try:
-                        await gamelist_exporter.export_platform_to_file(
-                            platform.id,
-                            request=None,
-                        )
+                    export_success = await gamelist_exporter.export_platform_to_file(
+                        platform.id,
+                        request=None,
+                    )
+                    if export_success:
                         log.info(
                             f"Auto-exported gamelist.xml for platform {platform.name} after scan"
                         )
-                    except Exception as e:
-                        log.error(
-                            f"Failed to auto-export gamelist.xml for platform {platform.name}: {e}"
+                    else:
+                        log.warning(
+                            f"Failed to auto-export gamelist.xml for platform {platform.name} after scan"
                         )
             log.info("Gamelist.xml auto-export completed.")
             
