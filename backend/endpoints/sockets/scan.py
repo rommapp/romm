@@ -689,8 +689,9 @@ async def scan_platforms(
         if cm.get_config().GAMELIST_AUTO_EXPORT_ON_SCAN:
             log.info("Auto-exporting gamelist.xml for all platforms...")
             gamelist_exporter = GamelistExporter(local_export=True)
+            platforms_by_slug = {p.fs_slug: p for p in db_platform_handler.get_platforms()}
             for platform_slug in platform_list:
-                platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+                platform = platforms_by_slug.get(platform_slug)
                 if platform:
                     try:
                         await gamelist_exporter.export_platform_to_file(
