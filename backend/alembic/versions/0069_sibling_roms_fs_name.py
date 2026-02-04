@@ -1,6 +1,6 @@
 """Add fs_name_no_tags fallback matching to sibling_roms view
 
-Revision ID: 0068_sibling_roms_fs_name
+Revision ID: 0069_sibling_roms_fs_name
 Revises: 0067_romfile_category_enum_cheat
 Create Date: 2026-02-03 19:07:00.000000
 
@@ -12,7 +12,7 @@ from alembic import op
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0068_sibling_roms_fs_name"
+revision = "0069_sibling_roms_fs_name"
 down_revision = "0067_romfile_category_enum_cheat"
 branch_labels = None
 depends_on = None

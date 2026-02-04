@@ -1,7 +1,7 @@
 """Add device-based save synchronization
 
-Revision ID: 0068_save_sync
-Revises: 0067_romfile_category_enum_cheat
+Revision ID: 0069_sibling_roms_fs_name
+Revises: 0068_save_sync
 Create Date: 2026-01-17
 
 """
@@ -9,8 +9,8 @@ Create Date: 2026-01-17
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0068_save_sync"
-down_revision = "0067_romfile_category_enum_cheat"
+revision = "0069_sibling_roms_fs_name"
+down_revision = "0068_save_sync"
 branch_labels = None
 depends_on = None
 
