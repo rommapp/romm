@@ -282,7 +282,7 @@ class TestDeviceUserIsolation:
 
 
 class TestDeviceDuplicateHandling:
-    def test_duplicate_mac_address_returns_409(
+    def test_duplicate_mac_address_returns_existing(
         self, client, access_token: str, admin_user: User
     ):
         db_device_handler.add_device(
@@ -303,12 +303,12 @@ class TestDeviceDuplicateHandling:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == status.HTTP_409_CONFLICT
-        data = response.json()["detail"]
-        assert data["error"] == "device_exists"
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
         assert data["device_id"] == "existing-mac-device"
+        assert data["name"] == "Existing Device"
 
-    def test_duplicate_hostname_platform_returns_409(
+    def test_duplicate_hostname_platform_returns_existing(
         self, client, access_token: str, admin_user: User
     ):
         db_device_handler.add_device(
@@ -331,10 +331,37 @@ class TestDeviceDuplicateHandling:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["device_id"] == "existing-hostname-device"
+        assert data["name"] == "Existing Device"
+
+    def test_duplicate_with_allow_existing_false_returns_409(
+        self, client, access_token: str, admin_user: User
+    ):
+        db_device_handler.add_device(
+            Device(
+                id="reject-duplicate-device",
+                user_id=admin_user.id,
+                name="Existing Device",
+                mac_address="FF:EE:DD:CC:BB:AA",
+            )
+        )
+
+        response = client.post(
+            "/api/devices",
+            json={
+                "name": "New Device",
+                "mac_address": "FF:EE:DD:CC:BB:AA",
+                "allow_existing": False,
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
         assert response.status_code == status.HTTP_409_CONFLICT
         data = response.json()["detail"]
         assert data["error"] == "device_exists"
-        assert data["device_id"] == "existing-hostname-device"
+        assert data["device_id"] == "reject-duplicate-device"
 
     def test_allow_existing_returns_existing_device(
         self, client, access_token: str, admin_user: User
