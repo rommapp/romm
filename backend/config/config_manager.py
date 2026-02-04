@@ -223,7 +223,7 @@ class ConfigManager:
             ),
             FIRMWARE_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.firmware_folder", "bios"
-            ),            
+            ),
             GAMELIST_AUTO_EXPORT_ON_SCAN=pydash.get(
                 self._raw_config, "gamelist.auto_export_on_scan", False
             ),
