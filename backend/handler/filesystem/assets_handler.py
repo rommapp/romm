@@ -1,9 +1,42 @@
+import hashlib
 import os
+import zipfile
 
 from config import ASSETS_BASE_PATH
+from logger.logger import log
 from models.user import User
 
 from .base_handler import FSHandler
+
+
+def compute_file_hash(file_path: str) -> str:
+    hash_obj = hashlib.md5(usedforsecurity=False)
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            hash_obj.update(chunk)
+    return hash_obj.hexdigest()
+
+
+def compute_zip_hash(zip_path: str) -> str:
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        file_hashes = []
+        for name in sorted(zf.namelist()):
+            if not name.endswith("/"):
+                content = zf.read(name)
+                file_hash = hashlib.md5(content, usedforsecurity=False).hexdigest()
+                file_hashes.append(f"{name}:{file_hash}")
+        combined = "\n".join(file_hashes)
+        return hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
+
+
+def compute_content_hash(file_path: str) -> str | None:
+    try:
+        if zipfile.is_zipfile(file_path):
+            return compute_zip_hash(file_path)
+        return compute_file_hash(file_path)
+    except Exception as e:
+        log.debug(f"Failed to compute content hash for {file_path}: {e}")
+        return None
 
 
 class FSAssetsHandler(FSHandler):
