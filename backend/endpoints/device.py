@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, Request, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from decorators.auth import protected_route
 from endpoints.responses.device import DeviceCreateResponse, DeviceSchema
@@ -26,9 +26,15 @@ class DeviceCreatePayload(BaseModel):
     ip_address: str | None = None
     mac_address: str | None = None
     hostname: str | None = None
-    allow_existing: bool = False
+    allow_existing: bool = True
     allow_duplicate: bool = False
     reset_syncs: bool = False
+
+    @model_validator(mode="after")
+    def _duplicate_disables_existing(self) -> "DeviceCreatePayload":
+        if self.allow_duplicate:
+            self.allow_existing = False
+        return self
 
 
 class DeviceUpdatePayload(BaseModel):
