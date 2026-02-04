@@ -368,7 +368,6 @@ class ConfigManager:
                 "Invalid config.yml: exclude.roms.multi_file.parts.names must be a list"
             )
             sys.exit(3)
-        
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
             log.critical(
                 "Invalid config.yml: gamelist.auto_export_on_scan must be a boolean"
