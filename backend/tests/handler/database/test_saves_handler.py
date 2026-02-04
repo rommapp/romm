@@ -166,3 +166,280 @@ class TestDBSavesHandlerPlatformFiltering:
 
         # Verify the save is associated with the correct platform through ROM
         assert retrieved_save.rom.platform_id == platform.id
+
+
+class TestDBSavesHandlerSlotFiltering:
+    def test_get_saves_with_slot_filter(self, admin_user: User, rom: Rom):
+        save1 = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="slot_test_1.sav",
+            file_name_no_tags="slot_test_1",
+            file_name_no_ext="slot_test_1",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="Slot A",
+        )
+        save2 = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="slot_test_2.sav",
+            file_name_no_tags="slot_test_2",
+            file_name_no_ext="slot_test_2",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="Slot A",
+        )
+        save3 = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="slot_test_3.sav",
+            file_name_no_tags="slot_test_3",
+            file_name_no_ext="slot_test_3",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="Slot B",
+        )
+
+        db_save_handler.add_save(save1)
+        db_save_handler.add_save(save2)
+        db_save_handler.add_save(save3)
+
+        slot_a_saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_id=rom.id, slot="Slot A"
+        )
+        assert len(slot_a_saves) == 2
+        assert all(s.slot == "Slot A" for s in slot_a_saves)
+
+        slot_b_saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_id=rom.id, slot="Slot B"
+        )
+        assert len(slot_b_saves) == 1
+        assert slot_b_saves[0].slot == "Slot B"
+
+    def test_get_saves_with_null_slot_filter(self, admin_user: User, rom: Rom):
+        save_with_slot = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="with_slot.sav",
+            file_name_no_tags="with_slot",
+            file_name_no_ext="with_slot",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="Main",
+        )
+        save_without_slot = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="without_slot.sav",
+            file_name_no_tags="without_slot",
+            file_name_no_ext="without_slot",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot=None,
+        )
+
+        db_save_handler.add_save(save_with_slot)
+        db_save_handler.add_save(save_without_slot)
+
+        all_saves = db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id)
+        assert len(all_saves) >= 2
+
+    def test_get_saves_order_by(self, admin_user: User, rom: Rom):
+        from datetime import datetime, timedelta, timezone
+
+        base_time = datetime.now(timezone.utc)
+
+        save1 = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="order_test_1.sav",
+            file_name_no_tags="order_test_1",
+            file_name_no_ext="order_test_1",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="order_test",
+        )
+        save2 = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="order_test_2.sav",
+            file_name_no_tags="order_test_2",
+            file_name_no_ext="order_test_2",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="order_test",
+        )
+
+        created1 = db_save_handler.add_save(save1)
+        created2 = db_save_handler.add_save(save2)
+
+        db_save_handler.update_save(
+            created1.id, {"updated_at": base_time - timedelta(hours=2)}
+        )
+        db_save_handler.update_save(
+            created2.id, {"updated_at": base_time - timedelta(hours=1)}
+        )
+
+        ordered_saves_desc = db_save_handler.get_saves(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="order_test",
+            order_by="updated_at",
+        )
+
+        assert len(ordered_saves_desc) == 2
+        assert ordered_saves_desc[0].id == created2.id
+        assert ordered_saves_desc[1].id == created1.id
+
+        ordered_saves_asc = db_save_handler.get_saves(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            slot="order_test",
+            order_by="updated_at",
+            order_dir="asc",
+        )
+
+        assert len(ordered_saves_asc) == 2
+        assert ordered_saves_asc[0].id == created1.id
+        assert ordered_saves_asc[1].id == created2.id
+
+
+class TestDBSavesHandlerSummary:
+    def test_get_saves_summary_basic(self, admin_user: User, rom: Rom):
+        from datetime import datetime, timedelta, timezone
+
+        base_time = datetime.now(timezone.utc)
+
+        configs = [
+            ("summary_a_1.sav", "Slot A", -3),
+            ("summary_a_2.sav", "Slot A", -1),
+            ("summary_b_1.sav", "Slot B", -2),
+            ("summary_none_1.sav", None, -4),
+        ]
+
+        for filename, slot, hours_offset in configs:
+            save = Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name=filename,
+                file_name_no_tags=filename.replace(".sav", ""),
+                file_name_no_ext=filename.replace(".sav", ""),
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot=slot,
+            )
+            created = db_save_handler.add_save(save)
+            db_save_handler.update_save(
+                created.id, {"updated_at": base_time + timedelta(hours=hours_offset)}
+            )
+
+        summary = db_save_handler.get_saves_summary(
+            user_id=admin_user.id, rom_id=rom.id
+        )
+
+        assert "total_count" in summary
+        assert "slots" in summary
+        assert summary["total_count"] == 4
+        assert len(summary["slots"]) == 3
+
+    def test_get_saves_summary_latest_per_slot(self, admin_user: User, rom: Rom):
+        from datetime import datetime, timedelta, timezone
+
+        base_time = datetime.now(timezone.utc)
+
+        old_save = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="latest_test_old.sav",
+            file_name_no_tags="latest_test_old",
+            file_name_no_ext="latest_test_old",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="latest_test",
+        )
+        new_save = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="latest_test_new.sav",
+            file_name_no_tags="latest_test_new",
+            file_name_no_ext="latest_test_new",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="latest_test",
+        )
+
+        old_created = db_save_handler.add_save(old_save)
+        new_created = db_save_handler.add_save(new_save)
+
+        db_save_handler.update_save(
+            old_created.id, {"updated_at": base_time - timedelta(hours=5)}
+        )
+        db_save_handler.update_save(
+            new_created.id, {"updated_at": base_time - timedelta(hours=1)}
+        )
+
+        summary = db_save_handler.get_saves_summary(
+            user_id=admin_user.id, rom_id=rom.id
+        )
+
+        latest_slot = next(
+            (s for s in summary["slots"] if s["slot"] == "latest_test"), None
+        )
+        assert latest_slot is not None
+        assert latest_slot["count"] == 2
+        assert latest_slot["latest"].file_name == "latest_test_new.sav"
+
+    def test_get_saves_summary_empty_rom(self, admin_user: User):
+        summary = db_save_handler.get_saves_summary(
+            user_id=admin_user.id, rom_id=999999
+        )
+
+        assert summary["total_count"] == 0
+        assert summary["slots"] == []
+
+    def test_get_saves_summary_count_accuracy(self, admin_user: User, rom: Rom):
+        for i in range(5):
+            save = Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name=f"count_test_{i}.sav",
+                file_name_no_tags=f"count_test_{i}",
+                file_name_no_ext=f"count_test_{i}",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="count_test",
+            )
+            db_save_handler.add_save(save)
+
+        summary = db_save_handler.get_saves_summary(
+            user_id=admin_user.id, rom_id=rom.id
+        )
+
+        count_slot = next(
+            (s for s in summary["slots"] if s["slot"] == "count_test"), None
+        )
+        assert count_slot is not None
+        assert count_slot["count"] == 5
