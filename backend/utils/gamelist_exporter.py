@@ -25,7 +25,7 @@ class GamelistExporter:
         """Format release date to YYYYMMDDTHHMMSS format"""
         return datetime.fromtimestamp(timestamp / 1000).strftime("%Y%m%dT%H%M%S")
 
-    def _create_game_element(self, rom: Rom, request: Request) -> Element:
+    def _create_game_element(self, rom: Rom, request: Request | None) -> Element:
         """Create a <game> element for a ROM"""
         game = Element("game")
 
@@ -33,6 +33,10 @@ class GamelistExporter:
         if self.local_export:
             SubElement(game, "path").text = f"./{rom.fs_name}"
         else:
+            if request is None:
+                raise ValueError(
+                    "Request object must be provided for non-local exports"
+                )
             SubElement(game, "path").text = str(
                 request.url_for(
                     "get_rom_content",
@@ -155,7 +159,7 @@ class GamelistExporter:
 
         return game
 
-    def export_platform_to_xml(self, platform_id: int, request: Request) -> str:
+    def export_platform_to_xml(self, platform_id: int, request: Request | None) -> str:
         """Export a platform's ROMs to gamelist.xml format
 
         Args:
@@ -188,7 +192,7 @@ class GamelistExporter:
     async def export_platform_to_file(
         self,
         platform_id: int,
-        request: Request,
+        request: Request | None,
     ) -> bool:
         """Export platform ROMs to gamelist.xml file in the platform's directory
 
