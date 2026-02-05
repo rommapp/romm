@@ -225,7 +225,7 @@ class ConfigManager:
                 self._raw_config, "filesystem.firmware_folder", "bios"
             ),
             GAMELIST_AUTO_EXPORT_ON_SCAN=pydash.get(
-                self._raw_config, "gamelist.auto_export_on_scan", False
+                self._raw_config, "scan.export_gamelist", False
             ),
             SKIP_HASH_CALCULATION=pydash.get(
                 self._raw_config, "filesystem.skip_hash_calculation", False
@@ -370,7 +370,7 @@ class ConfigManager:
             sys.exit(3)
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
             log.critical(
-                "Invalid config.yml: gamelist.auto_export_on_scan must be a boolean"
+                "Invalid config.yml: scan.export_gamelist must be a boolean"
             )
             sys.exit(3)
 
@@ -579,10 +579,9 @@ class ConfigManager:
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
                 "media": self.config.SCAN_MEDIA,
+                "export_gamelist": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
             },
-            "gamelist": {
-                "auto_export_on_scan": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
-            },
+
         }
 
         try:
