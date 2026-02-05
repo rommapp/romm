@@ -369,9 +369,7 @@ class ConfigManager:
             )
             sys.exit(3)
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
-            log.critical(
-                "Invalid config.yml: scan.export_gamelist must be a boolean"
-            )
+            log.critical("Invalid config.yml: scan.export_gamelist must be a boolean")
             sys.exit(3)
 
         if not isinstance(self.config.PLATFORMS_BINDING, dict):
@@ -581,7 +579,6 @@ class ConfigManager:
                 "media": self.config.SCAN_MEDIA,
                 "export_gamelist": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
             },
-
         }
 
         try:
