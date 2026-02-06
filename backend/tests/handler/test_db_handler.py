@@ -105,6 +105,82 @@ def test_filter_last_played(rom: Rom, platform: Platform, admin_user: User):
     assert {r.id for r in unplayed_roms} == {second_rom.id}
 
 
+def test_filter_by_search_term_with_multiple_terms(platform: Platform):
+    # Create additional ROMs for testing
+    rom_wwe = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="WWE SmackDown! Here Comes the Pain",
+            slug="wwe-smackdown-here-comes-the-pain",
+            fs_name="WWE_SmackDown_Here_Comes_the_Pain.zip",
+            fs_name_no_tags="WWE_SmackDown_Here_Comes_the_Pain",
+            fs_name_no_ext="WWE_SmackDown_Here_Comes_the_Pain",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+    rom_wcw = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="WCW Nitro",
+            slug="wcw-nitro",
+            fs_name="WCW_Nitro.zip",
+            fs_name_no_tags="WCW_Nitro",
+            fs_name_no_ext="WCW_Nitro",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+    rom_tna = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="TNA Impact!",
+            slug="tna-impact",
+            fs_name="TNA_Impact.zip",
+            fs_name_no_tags="TNA_Impact",
+            fs_name_no_ext="TNA_Impact",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+    _rom_non_matching = db_rom_handler.add_rom(
+        Rom(
+            platform_id=platform.id,
+            name="Super Mario World",
+            slug="super-mario-world",
+            fs_name="Super_Mario_World.zip",
+            fs_name_no_tags="Super_Mario_World",
+            fs_name_no_ext="Super_Mario_World",
+            fs_extension="zip",
+            fs_path=f"{platform.slug}/roms",
+        )
+    )
+
+    # Test with multiple search terms
+    search_term = "WWE|WCW|TNA|wrestling"
+    filtered_roms = db_rom_handler.get_roms_scalar(search_term=search_term)
+
+    expected_rom_ids = {rom_wwe.id, rom_wcw.id, rom_tna.id}
+    actual_rom_ids = {r.id for r in filtered_roms}
+    assert actual_rom_ids == expected_rom_ids
+
+    # Test with a term that doesn't match anything
+    search_term_no_match = "nonexistent"
+    filtered_roms_no_match = db_rom_handler.get_roms_scalar(
+        search_term=search_term_no_match
+    )
+    assert len(filtered_roms_no_match) == 0
+
+    # Test with a single search term
+    search_term_single = "WWE"
+    filtered_roms_single = db_rom_handler.get_roms_scalar(
+        search_term=search_term_single
+    )
+    expected_rom_ids_single = {rom_wwe.id}
+    actual_rom_ids_single = {r.id for r in filtered_roms_single}
+    assert actual_rom_ids_single == expected_rom_ids_single
+
+
 def test_users(admin_user):
     db_user_handler.add_user(
         User(
