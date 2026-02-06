@@ -235,12 +235,18 @@ class DBRomsHandler(DBBaseHandler):
         return query
 
     def _filter_by_search_term(self, query: Query, search_term: str):
-        return query.filter(
-            or_(
-                Rom.fs_name.ilike(f"%{search_term}%"),
-                Rom.name.ilike(f"%{search_term}%"),
+        terms = [term.strip() for term in search_term.split("|")]
+        conditions = [
+            condition
+            for term in terms
+            for condition in (
+                Rom.fs_name.ilike(f"%{term}%"),
+                Rom.name.ilike(f"%{term}%"),
             )
-        )
+            if term
+        ]
+
+        return query.filter(or_(*conditions))
 
     def _filter_by_matched(self, query: Query, value: bool) -> Query:
         """Filter based on whether the rom is matched to a metadata provider.
