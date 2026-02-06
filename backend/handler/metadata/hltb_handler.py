@@ -179,7 +179,7 @@ class HLTBHandler(MetadataHandler):
         self.user_endpoint = f"{self.base_url}/api/user"
         self.stats_endpoint = f"{self.base_url}/api/stats/games?platform=1&year=2000"
         self.search_url = f"{self.base_url}/api/search"
-        self.search_init_url = f"{self.base_url}/api/search/init"
+        self.search_init_url = f"{self.search_url}/init"
         self.security_token = None
         self.min_similarity_score: Final = 0.85
 
@@ -305,7 +305,7 @@ class HLTBHandler(MetadataHandler):
         try:
             payload = {
                 "searchType": "games",
-                "searchTerms": [search_term],
+                "searchTerms": search_term.split(" "),
                 "searchPage": 1,
                 "size": 20,
                 "searchOptions": {
