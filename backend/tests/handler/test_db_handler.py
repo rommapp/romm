@@ -106,7 +106,6 @@ def test_filter_last_played(rom: Rom, platform: Platform, admin_user: User):
 
 
 def test_filter_by_search_term_with_multiple_terms(platform: Platform):
-    # Create additional ROMs for testing
     rom_wwe = db_rom_handler.add_rom(
         Rom(
             platform_id=platform.id,
