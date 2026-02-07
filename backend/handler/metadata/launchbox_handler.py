@@ -28,7 +28,7 @@ LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
 LAUNCHBOX_XML_INDEX_KEY: Final[str] = "romm:launchbox_xml_index"
 
 
-LAUNCHBOX_LOCAL_DIR: Final[Path] = Path(ROMM_BASE_PATH) / "temp"
+LAUNCHBOX_LOCAL_DIR: Final[Path] = Path(ROMM_BASE_PATH) / "launchbox"
 LAUNCHBOX_PLATFORMS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Data" / "Platforms"
 LAUNCHBOX_IMAGES_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Images"
 LAUNCHBOX_MANUALS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Manuals"
@@ -996,7 +996,7 @@ class LaunchboxHandler(MetadataHandler):
         if platform_slug == UPS.SCUMMVM:
             search_term = await self._scummvm_format(search_term)
             fallback_rom = LaunchboxRom(launchbox_id=None, name=search_term)
-        
+
         index_entry = await self._get_remote_rom(
             search_term,
             platform_slug,
