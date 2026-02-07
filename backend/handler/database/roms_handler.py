@@ -330,7 +330,7 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def _filter_by_verified(self, query: Query):
+    def _filter_by_verified(self, query: Query, value: bool) -> Query:
         keys_to_check = [
             "tosec_match",
             "mame_arcade_match",
@@ -347,11 +347,17 @@ class DBRomsHandler(DBBaseHandler):
             conditions = " OR ".join(
                 f"(hasheous_metadata->>'{key}')::boolean" for key in keys_to_check
             )
-            return query.filter(text(conditions))
+            predicate = text(f"({conditions})")
+            if not value:
+                predicate = text(f"NOT ({conditions})")
+            return query.filter(predicate)
         else:
-            return query.filter(
-                or_(*(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check))
+            predicate = or_(
+                *(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check)
             )
+            if not value:
+                predicate = not_(predicate)
+            return query.filter(predicate)
 
     def _filter_by_genres(
         self,
@@ -587,9 +593,8 @@ class DBRomsHandler(DBBaseHandler):
         if missing is not None:
             query = self._filter_by_missing_from_fs(query, value=missing)
 
-        # TODO: Correctly support true/false values.
-        if verified:
-            query = self._filter_by_verified(query)
+        if verified is not None:
+            query = self._filter_by_verified(query, value=verified)
 
         if updated_after:
             query = query.filter(Rom.updated_at > updated_after)
