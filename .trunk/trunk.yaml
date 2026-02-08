@@ -25,7 +25,7 @@ lint:
     - dotenv-linter@4.0.0
     - hadolint@2.14.0
     - markdownlint@0.47.0
-    - eslint@10.0.0
+    - eslint@9.34.0
     - actionlint@1.7.10
     - bandit@1.9.3
     - black@26.1.0
