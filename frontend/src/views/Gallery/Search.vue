@@ -13,7 +13,6 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameTable from "@/components/common/Game/VirtualTable.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
-import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
@@ -23,7 +22,6 @@ const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const romsStore = storeRoms();
-const platformsStore = storePlatforms();
 const {
   filteredRoms,
   selectedRoms,
@@ -101,19 +99,14 @@ function onGameTouchEnd() {
 }
 
 function fetchRoms() {
-  romsStore
-    .fetchRoms({
-      galleryFilter: galleryFilterStore,
-      platformsStore: platformsStore,
-    })
-    .catch((error) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Couldn't fetch roms: ${error}`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
+  romsStore.fetchRoms({}).catch((error) => {
+    emitter?.emit("snackbarShow", {
+      msg: `Couldn't fetch roms: ${error}`,
+      icon: "mdi-close-circle",
+      color: "red",
+      timeout: 4000,
     });
+  });
 }
 
 const { y: windowY } = useScroll(window, { throttle: 500 });

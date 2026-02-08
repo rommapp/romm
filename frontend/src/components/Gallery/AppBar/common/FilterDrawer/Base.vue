@@ -87,8 +87,6 @@ const onFilterChange = debounce(
   () => {
     romsStore.resetPagination();
     romsStore.fetchRoms({
-      galleryFilter: galleryFilterStore,
-      platformsStore: platformsStore,
       concat: false,
     });
 
