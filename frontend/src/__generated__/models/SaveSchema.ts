@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { DeviceSyncSchema } from './DeviceSyncSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 export type SaveSchema = {
     id: number;
@@ -19,6 +20,9 @@ export type SaveSchema = {
     created_at: string;
     updated_at: string;
     emulator: (string | null);
+    slot?: (string | null);
+    content_hash?: (string | null);
     screenshot: (ScreenshotSchema | null);
+    device_syncs?: Array<DeviceSyncSchema>;
 };
 

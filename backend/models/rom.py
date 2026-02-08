@@ -472,10 +472,6 @@ class RomNote(BaseModel):
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="notes")
     user: Mapped[User] = relationship(lazy="joined", back_populates="notes")
 
-    @property
-    def user__username(self) -> str:
-        return self.user.username
-
 
 class RomUser(BaseModel):
     __tablename__ = "rom_user"
@@ -503,7 +499,3 @@ class RomUser(BaseModel):
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="rom_users")
     user: Mapped[User] = relationship(lazy="joined", back_populates="rom_users")
-
-    @property
-    def user__username(self) -> str:
-        return self.user.username
