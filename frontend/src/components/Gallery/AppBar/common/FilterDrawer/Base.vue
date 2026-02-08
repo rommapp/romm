@@ -2,7 +2,7 @@
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, nextTick, onMounted } from "vue";
+import { inject, nextTick, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -21,6 +21,7 @@ import storeGalleryFilter, {
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { romStatusMap, type PlayingStatus } from "@/utils";
 
 withDefaults(
   defineProps<{
@@ -180,6 +181,13 @@ const onFilterChange = debounce(
 
 emitter?.on("filterRoms", onFilterChange);
 
+const mappedStatuses = ref(
+  filterStatuses.value.map((s) => ({
+    title: romStatusMap[s as PlayingStatus].text,
+    value: s,
+  })),
+);
+
 const filters = [
   {
     label: t("platform.genre"),
@@ -248,7 +256,7 @@ const filters = [
   {
     label: t("platform.status"),
     selected: selectedStatuses,
-    items: filterStatuses,
+    items: mappedStatuses,
     logic: statusesLogic,
     setLogic: (logic: FilterLogicOperator) =>
       galleryFilterStore.setStatusesLogic(logic),

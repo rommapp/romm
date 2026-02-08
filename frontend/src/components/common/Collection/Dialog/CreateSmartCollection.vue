@@ -13,7 +13,6 @@ import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getStatusKeyForText } from "@/utils";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
@@ -172,10 +171,7 @@ async function createSmartCollection() {
         filterCriteria.age_ratings_logic = ageRatingsLogic.value;
     }
     if (selectedStatuses.value && selectedStatuses.value.length > 0) {
-      const statusKeys = selectedStatuses.value
-        .filter((s): s is string => s !== null)
-        .map((s) => getStatusKeyForText(s))
-        .filter((key) => key !== null);
+      const statusKeys = selectedStatuses.value;
       if (statusKeys.length > 0) {
         filterCriteria.selected_status = statusKeys;
       }
