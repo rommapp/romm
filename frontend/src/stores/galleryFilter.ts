@@ -29,7 +29,7 @@ const defaultFilterState = {
   filterRegions: [] as string[],
   filterLanguages: [] as string[],
   filterPlayerCounts: [] as string[],
-  filterStatuses: Object.values(romStatusMap).map((status) => status.text),
+  filterStatuses: Object.keys(romStatusMap),
   filterMatched: null as boolean | null, // null = all, true = matched, false = unmatched
   filterFavorites: null as boolean | null, // null = all, true = favorites, false = not favorites
   filterDuplicates: null as boolean | null, // null = all, true = duplicates, false = not duplicates
