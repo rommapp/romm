@@ -92,7 +92,7 @@ function closeDialog() {
         density="default"
         :label="t('common.collection')"
         item-title="name"
-        :items="collectionsStore.allCollections"
+        :items="collectionsStore.ownedCollections"
         variant="outlined"
         hide-details
         return-object

@@ -319,8 +319,6 @@ async function fetchRoms() {
   romsStore.resetPagination();
 
   const fetchedRoms = await romsStore.fetchRoms({
-    galleryFilter: galleryFilterStore,
-    platformsStore: platformsStore,
     concat: false,
   });
 
