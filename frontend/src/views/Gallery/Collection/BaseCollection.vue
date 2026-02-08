@@ -15,7 +15,6 @@ import GameTable from "@/components/common/Game/VirtualTable.vue";
 import { type CollectionType } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
-import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
@@ -30,7 +29,6 @@ const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const romsStore = storeRoms();
-const platformsStore = storePlatforms();
 const {
   filteredRoms,
   selectedRoms,
@@ -55,10 +53,7 @@ async function fetchRoms() {
   });
 
   romsStore
-    .fetchRoms({
-      galleryFilter: galleryFilterStore,
-      platformsStore: platformsStore,
-    })
+    .fetchRoms({})
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
