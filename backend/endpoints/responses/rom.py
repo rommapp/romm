@@ -117,7 +117,6 @@ def rom_user_schema_factory() -> RomUserSchema:
         difficulty=0,
         completion=0,
         status=None,
-        user__username="",
     )
 
 
@@ -136,7 +135,6 @@ class RomUserSchema(BaseModel):
     difficulty: int
     completion: int
     status: RomUserStatus | None
-    user__username: str
 
     class Config:
         from_attributes = True

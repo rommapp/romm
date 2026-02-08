@@ -36,7 +36,7 @@ const collectionInfoFields = [
     label: "Roms",
   },
   {
-    key: "user__username",
+    key: "owner_username",
     label: t("collection.owner"),
   },
 ];
@@ -146,7 +146,7 @@ async function updateCollection() {
           <div class="position-absolute append-top-right mr-5">
             <template
               v-if="
-                currentCollection.user__username === auth.user?.username &&
+                currentCollection.user_id === auth.user?.id &&
                 auth.scopes.includes('collections.write')
               "
             >
@@ -328,7 +328,7 @@ async function updateCollection() {
     <RSection
       v-if="
         auth.scopes.includes('collections.write') &&
-        currentCollection.user__username === auth.user?.username
+        currentCollection.user_id === auth.user?.id
       "
       icon="mdi-alert"
       icon-color="red"
