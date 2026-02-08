@@ -424,13 +424,21 @@ class DBRomsHandler(DBBaseHandler):
         condition = op(RomMetadata.age_ratings, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
-    def _filter_by_status(self, query: Query, statuses: Sequence[str]):
+    def _filter_by_status(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+        match_none: bool = False,
+    ):
         """Filter by one or more user statuses using OR logic."""
-        if not statuses:
+        if not values:
             return query
 
         status_filters = []
-        for selected_status in statuses:
+        for selected_status in values:
             if selected_status == "now_playing":
                 status_filters.append(RomUser.now_playing.is_(True))
             elif selected_status == "backlogged":
@@ -440,11 +448,17 @@ class DBRomsHandler(DBBaseHandler):
             else:
                 status_filters.append(RomUser.status == selected_status)
 
-        # If hidden is in the list, don't apply the hidden filter at the end
-        if "hidden" in statuses:
-            return query.filter(or_(*status_filters))
+        comb = and_ if match_all else or_
+        condition = comb(*status_filters)
 
-        return query.filter(or_(*status_filters), RomUser.hidden.is_(False))
+        # Apply negation if match_none, otherwise apply condition
+        query = query.filter(~condition) if match_none else query.filter(condition)
+
+        # If hidden wasn't explicitly requested, always exclude hidden rows
+        if "hidden" not in values:
+            query = query.filter(RomUser.hidden.is_(False))
+
+        return query
 
     def _filter_by_regions(
         self,
@@ -726,6 +740,7 @@ class DBRomsHandler(DBBaseHandler):
             (regions, regions_logic, self._filter_by_regions),
             (languages, languages_logic, self._filter_by_languages),
             (player_counts, player_counts_logic, self._filter_by_player_counts),
+            (statuses, statuses_logic, self._filter_by_status),
         ]
 
         for values, logic, filter_func in filters_to_apply:
@@ -739,9 +754,7 @@ class DBRomsHandler(DBBaseHandler):
                 )
 
         # The RomUser table is already joined if user_id is set
-        if statuses and user_id:
-            query = self._filter_by_status(query, statuses)
-        elif user_id:
+        if user_id:
             query = query.filter(
                 or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
             )

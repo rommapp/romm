@@ -710,17 +710,6 @@ export function getI18nKeyForStatus(status: PlayingStatus): string | null {
   return romStatusMap[status]?.i18nKey ?? null;
 }
 
-/**
- * Get the status key for a given text.
- *
- * @param text The text to convert.
- * @returns The corresponding status key.
- */
-export function getStatusKeyForText(text: string | null) {
-  if (!text) return null;
-  return inverseRomStatusMap[text];
-}
-
 export function isNintendoDSFile(rom: SimpleRom): boolean {
   return ["cia", "nds", "3ds", "dsi"].includes(rom.fs_extension.toLowerCase());
 }
