@@ -451,7 +451,13 @@ class DBRomsHandler(DBBaseHandler):
         condition = comb(*status_filters)
 
         # Apply negation if match_none, otherwise apply condition
-        return query.filter(~condition) if match_none else query.filter(condition)
+        query = query.filter(~condition) if match_none else query.filter(condition)
+
+        # Don't apply the hidden filter is hidden is set
+        if "hidden" in values:
+            return query
+
+        return query.filter(or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None)))
 
     def _filter_by_regions(
         self,
