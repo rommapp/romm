@@ -630,7 +630,11 @@ export function isRuffleEmulationSupported(
   return ["flash", "browser"].includes(slug.toLowerCase());
 }
 
-type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
+export type PlayingStatus =
+  | RomUserStatus
+  | "backlogged"
+  | "now_playing"
+  | "hidden";
 
 /**
  * Map of ROM statuses to their corresponding emoji, text, and i18n key.
