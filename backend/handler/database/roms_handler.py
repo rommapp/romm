@@ -433,7 +433,6 @@ class DBRomsHandler(DBBaseHandler):
         match_all: bool = False,
         match_none: bool = False,
     ):
-        """Filter by one or more user statuses using OR logic."""
         if not values:
             return query
 
@@ -734,7 +733,6 @@ class DBRomsHandler(DBBaseHandler):
             (regions, regions_logic, self._filter_by_regions),
             (languages, languages_logic, self._filter_by_languages),
             (player_counts, player_counts_logic, self._filter_by_player_counts),
-            (statuses, statuses_logic, self._filter_by_status),
         ]
 
         for values, logic, filter_func in filters_to_apply:
@@ -748,8 +746,15 @@ class DBRomsHandler(DBBaseHandler):
                 )
 
         # The RomUser table is already joined if user_id is set
-        # If hidden wasn't explicitly requested, always exclude hidden rows
-        if user_id and (not statuses or "hidden" not in statuses):
+        if statuses and user_id:
+            query = self._filter_by_status(
+                query,
+                session=session,
+                values=statuses,
+                match_all=(statuses_logic == "all"),
+                match_none=(statuses_logic == "none"),
+            )
+        elif user_id:
             query = query.filter(
                 or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
             )
