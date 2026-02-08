@@ -7,9 +7,9 @@ from defusedxml import ElementTree as ET
 
 from config import (
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
+    LAUNCHBOX_API_ENABLED,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
 )
-from handler.metadata import meta_launchbox_handler
 from handler.metadata.launchbox_handler import (
     LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,
@@ -44,7 +44,10 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
     async def run(self, force: bool = False) -> dict[str, Any]:
         update_stats = UpdateStats()
 
-        if not meta_launchbox_handler.is_enabled():
+        # This task pulls remote metadata from LaunchBox (Metadata.zip) and should
+        # only run when the LaunchBox API integration is enabled.
+        # `meta_launchbox_handler.is_enabled()` may also be true for local-only mode.
+        if not LAUNCHBOX_API_ENABLED:
             log.warning("Launchbox API is not enabled, skipping metadata update")
             return update_stats.to_dict()
 

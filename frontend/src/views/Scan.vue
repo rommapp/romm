@@ -17,6 +17,8 @@ import storeScanning from "@/stores/scanning";
 import { platformCategoryToIcon } from "@/utils";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
+const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
+  "scan.launchboxRemoteEnabled";
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
@@ -67,10 +69,18 @@ const storedMetadataSources = useLocalStorage(
   LOCAL_STORAGE_METADATA_SOURCES_KEY,
   [] as string[],
 );
+const launchboxRemoteEnabled = useLocalStorage(
+  LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY,
+  true,
+);
 const metadataSources = ref<MetadataOption[]>(
   metadataOptions.value.filter(
     (m) => storedMetadataSources.value.includes(m.value) && !m.disabled,
   ) || heartbeat.getEnabledMetadataOptions(),
+);
+
+const isLaunchboxSelected = computed(() =>
+  metadataSources.value.some((s) => s.value === "launchbox"),
 );
 
 watch(metadataOptions, (newOptions) => {
@@ -138,6 +148,7 @@ async function scan() {
     platforms: platformsToScan.value,
     type: scanType.value,
     apis: metadataSources.value.map((s) => s.value),
+    launchbox_remote_enabled: launchboxRemoteEnabled.value,
   });
 }
 
@@ -362,6 +373,24 @@ async function stopScan() {
                   <v-avatar size="25" rounded="1">
                     <v-img :src="item.raw.logo_path" />
                   </v-avatar>
+                </template>
+
+                <template #append v-if="item.raw.value === 'launchbox'">
+                  <div class="d-flex align-center">
+                    <span class="text-caption text-medium-emphasis mr-4">
+                      Remote
+                    </span>
+                    <v-switch
+                      v-model="launchboxRemoteEnabled"
+                      color="primary"
+                      density="compact"
+                      hide-details
+                      :disabled="!isLaunchboxSelected"
+                      aria-label="Remote"
+                      @click.stop
+                      @mousedown.stop
+                    />
+                  </div>
                 </template>
               </v-list-item>
             </template>
