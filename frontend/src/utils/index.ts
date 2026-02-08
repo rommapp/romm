@@ -674,13 +674,6 @@ export const romStatusMap: Record<
 };
 
 /**
- * Inverse map of ROM statuses from text to status key.
- */
-const inverseRomStatusMap = Object.fromEntries(
-  Object.entries(romStatusMap).map(([key, value]) => [value.text, key]),
-) as Record<string, PlayingStatus>;
-
-/**
  * Get the emoji for a given ROM status.
  *
  * @param status The ROM status.
