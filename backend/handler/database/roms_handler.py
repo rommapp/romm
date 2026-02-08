@@ -452,13 +452,7 @@ class DBRomsHandler(DBBaseHandler):
         condition = comb(*status_filters)
 
         # Apply negation if match_none, otherwise apply condition
-        query = query.filter(~condition) if match_none else query.filter(condition)
-
-        # If hidden wasn't explicitly requested, always exclude hidden rows
-        if "hidden" not in values:
-            query = query.filter(RomUser.hidden.is_(False))
-
-        return query
+        return query.filter(~condition) if match_none else query.filter(condition)
 
     def _filter_by_regions(
         self,
@@ -754,7 +748,8 @@ class DBRomsHandler(DBBaseHandler):
                 )
 
         # The RomUser table is already joined if user_id is set
-        if user_id:
+        # If hidden wasn't explicitly requested, always exclude hidden rows
+        if user_id and (not statuses or "hidden" not in statuses):
             query = query.filter(
                 or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
             )
