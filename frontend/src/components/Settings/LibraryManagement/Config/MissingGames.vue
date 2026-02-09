@@ -43,11 +43,7 @@ const onFilterChange = debounce(
   () => {
     romsStore.resetPagination();
     galleryFilterStore.setFilterMissing(true);
-    romsStore.fetchRoms({
-      galleryFilter: galleryFilterStore,
-      platformsStore: platformsStore,
-      concat: false,
-    });
+    romsStore.fetchRoms(false);
 
     const url = new URL(window.location.href);
     // Update URL with filters
@@ -75,10 +71,7 @@ async function fetchRoms() {
 
   galleryFilterStore.setFilterMissing(true);
   romsStore
-    .fetchRoms({
-      galleryFilter: galleryFilterStore,
-      platformsStore: platformsStore,
-    })
+    .fetchRoms()
     .catch((error) => {
       console.error("Error fetching missing games:", error);
       emitter?.emit("snackbarShow", {
@@ -98,10 +91,7 @@ function cleanupAll() {
   romsStore.setLimit(10000);
   galleryFilterStore.setFilterMissing(true);
   romsStore
-    .fetchRoms({
-      galleryFilter: galleryFilterStore,
-      platformsStore: platformsStore,
-    })
+    .fetchRoms()
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,

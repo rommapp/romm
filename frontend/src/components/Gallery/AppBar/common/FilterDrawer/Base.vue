@@ -86,11 +86,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const onFilterChange = debounce(
   () => {
     romsStore.resetPagination();
-    romsStore.fetchRoms({
-      galleryFilter: galleryFilterStore,
-      platformsStore: platformsStore,
-      concat: false,
-    });
+    romsStore.fetchRoms(false);
 
     const url = new URL(window.location.href);
     // Update URL with filters

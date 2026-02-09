@@ -43,7 +43,7 @@ class Collection(BaseModel):
     user: Mapped["User"] = relationship(lazy="joined", back_populates="collections")
 
     @property
-    def user__username(self) -> str:
+    def owner_username(self) -> str:
         return self.user.username
 
     @property
@@ -228,7 +228,7 @@ class SmartCollection(BaseModel):
         )
 
     @property
-    def user__username(self) -> str:
+    def owner_username(self) -> str:
         return self.user.username
 
     @property
