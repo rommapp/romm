@@ -22,6 +22,5 @@ export type SmartCollectionSchema = {
     filter_summary: string;
     user_id: number;
     owner_username: string;
-    owned_by_current_user: boolean;
 };
 

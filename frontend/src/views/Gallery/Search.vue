@@ -99,7 +99,7 @@ function onGameTouchEnd() {
 }
 
 function fetchRoms() {
-  romsStore.fetchRoms({}).catch((error) => {
+  romsStore.fetchRoms().catch((error) => {
     emitter?.emit("snackbarShow", {
       msg: `Couldn't fetch roms: ${error}`,
       icon: "mdi-close-circle",

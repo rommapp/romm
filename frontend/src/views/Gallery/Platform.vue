@@ -48,7 +48,7 @@ async function fetchRoms() {
   });
 
   romsStore
-    .fetchRoms({})
+    .fetchRoms()
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
