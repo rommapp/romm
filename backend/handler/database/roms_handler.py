@@ -1025,7 +1025,10 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        rom_user = session.query(RomUser).filter_by(id=id).one()
+        rom_user = session.query(RomUser).filter_by(id=id).one_or_none()
+        if not rom_user:
+            return None
+
         if not data.get("is_main_sibling", False):
             return rom_user
 
