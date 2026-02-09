@@ -1,16 +1,16 @@
 {
+  "back-to-login": "Torna al login",
+  "confirm-new-password": "Conferma nuova password",
+  "forgot-password": "Hai dimenticato la password?",
   "login": "Login",
   "login-oidc": "Login con {oidc}",
+  "new-password": "Nuova password",
   "or": "o",
   "password": "Password",
-  "username": "Nome utente",
-  "forgot-password": "Hai dimenticato la password?",
-  "send-reset-link": "Invia link di reimpostazione",
-  "reset-sent": "Link di reimpostazione inviato. Contatta l'amministratore.",
-  "new-password": "Nuova password",
-  "confirm-new-password": "Conferma nuova password",
+  "register": "Registrati",
   "reset-password": "Reimposta password",
-  "back-to-login": "Torna al login",
+  "reset-sent": "Link di reimpostazione inviato. Contatta l'amministratore.",
+  "send-reset-link": "Invia link di reimpostazione",
   "setup-wizard": "Procedura guidata di configurazione",
-  "register": "Registrati"
+  "username": "Nome utente"
 }

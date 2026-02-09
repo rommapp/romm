@@ -1,14 +1,13 @@
 {
   "admin-user-step": "管理者ユーザーを作成",
-  "supported-platforms": "利用可能なプラットフォーム",
   "cancel": "キャンセル",
   "check-metadata-step": "メタデータソースを確認",
   "confirm-create-platforms": "RomMは構造{structure}（{pattern}）を{count}プラットフォーム{plural}で作成します。続行しますか？",
   "confirm-no-platforms": "フォルダ構造が検出されず、プラットフォームも選択されていません。フォルダ構造を手動で作成する必要があります。続行しますか？",
   "confirm-no-structure": "フォルダ構造が検出されませんでした。RomMは構造A（roms/{platform}）を{count}プラットフォーム{plural}で作成します。続行しますか？",
   "continue": "続行",
-  "detected-platforms": "検出されたプラットフォーム",
   "deselect-all": "すべて選択解除",
+  "detected-platforms": "検出されたプラットフォーム",
   "finish": "完了",
   "folder-structure": "フォルダ構造",
   "game": "ゲーム",
@@ -24,5 +23,6 @@
   "select-platforms": "作成するプラットフォームを選択",
   "selected": "選択済み",
   "structure-a-detected": "構造Aが検出されました",
-  "structure-b-detected": "構造Bが検出されました"
+  "structure-b-detected": "構造Bが検出されました",
+  "supported-platforms": "利用可能なプラットフォーム"
 }
