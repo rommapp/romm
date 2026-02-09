@@ -3,6 +3,12 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
 
+from config.config_manager import (
+    DEFAULT_EXCLUDED_DIRS,
+    DEFAULT_EXCLUDED_EXTENSIONS,
+    DEFAULT_EXCLUDED_FILES,
+)
+
 
 @pytest.fixture
 def client():
@@ -13,12 +19,6 @@ def client():
 def test_config(client):
     response = client.get("/api/config")
     assert response.status_code == status.HTTP_200_OK
-
-    from config.config_manager import (
-        DEFAULT_EXCLUDED_DIRS,
-        DEFAULT_EXCLUDED_EXTENSIONS,
-        DEFAULT_EXCLUDED_FILES,
-    )
 
     config = response.json()
     assert config.get("EXCLUDED_PLATFORMS") == DEFAULT_EXCLUDED_DIRS
