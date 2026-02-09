@@ -336,7 +336,7 @@ class TestFSPlatformsHandler:
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
             with patch("os.path.exists") as mock_exists:
-                # Roms folder doesn't exist at base level
+                # ROMs folder doesn't exist at base level
                 mock_exists.return_value = False
 
                 with patch("os.listdir") as mock_listdir:

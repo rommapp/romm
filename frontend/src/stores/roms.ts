@@ -165,7 +165,7 @@ export default defineStore("roms", {
         this._allRoms = this._allRoms.concat(items);
       }
 
-      // Update the offset and total roms in filtered database result
+      // Update the offset and total ROMs in filtered database result
       if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
       if (total !== null) this.fetchTotalRoms = total;
 
