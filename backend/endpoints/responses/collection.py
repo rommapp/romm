@@ -28,7 +28,7 @@ class CollectionSchema(BaseCollectionSchema):
     id: int
     url_cover: str | None
     user_id: int
-    user__username: str
+    owner_username: str
 
     class Config:
         from_attributes = True
@@ -60,7 +60,7 @@ class SmartCollectionSchema(BaseCollectionSchema):
     filter_criteria: dict[str, Any]
     filter_summary: str
     user_id: int
-    user__username: str
+    owner_username: str
     is_smart: bool = True
 
     class Config:

@@ -20,6 +20,6 @@ export type CollectionSchema = {
     id: number;
     url_cover: (string | null);
     user_id: number;
-    user__username: string;
+    owner_username: string;
 };
 

@@ -318,11 +318,7 @@ async function fetchRoms() {
   romsStore.setOrderDir("asc");
   romsStore.resetPagination();
 
-  const fetchedRoms = await romsStore.fetchRoms({
-    galleryFilter: galleryFilterStore,
-    platformsStore: platformsStore,
-    concat: false,
-  });
+  const fetchedRoms = await romsStore.fetchRoms(false);
 
   if (selectedIndex.value >= fetchedRoms.length) selectedIndex.value = 0;
   await nextTick();
