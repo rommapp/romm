@@ -419,7 +419,7 @@ function openCacheDialog() {
               <!-- Configuration Section -->
               <!-- Disc Selector -->
               <v-select
-                v-if="rom.has_multiple_files"
+                v-if="rom.files.length > 1"
                 v-model="selectedDisc"
                 class="mb-3"
                 hide-details
@@ -475,7 +475,7 @@ function openCacheDialog() {
 
               <v-divider
                 v-if="
-                  rom.has_multiple_files ||
+                  rom.files.length > 1 ||
                   supportedCores.length > 1 ||
                   firmwareOptions.length > 0
                 "
