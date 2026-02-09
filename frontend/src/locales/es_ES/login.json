@@ -1,16 +1,16 @@
 {
+  "back-to-login": "Volver a iniciar sesión",
+  "confirm-new-password": "Confirmar nueva contraseña",
+  "forgot-password": "¿Olvidates tu contraseña?",
   "login": "Iniciar sesión",
   "login-oidc": "Iniciar sesión con {oidc}",
+  "new-password": "Nueva contraseña",
   "or": "o",
   "password": "Contraseña",
-  "username": "Usuario",
-  "forgot-password": "¿Olvidates tu contraseña?",
-  "send-reset-link": "Enviar enlace de restablecimiento",
-  "reset-sent": "Enlace de restablecimiento enviado. Contacta a tu administrador.",
-  "new-password": "Nueva contraseña",
-  "confirm-new-password": "Confirmar nueva contraseña",
+  "register": "Registrarse",
   "reset-password": "Restablecer contraseña",
-  "back-to-login": "Volver a iniciar sesión",
+  "reset-sent": "Enlace de restablecimiento enviado. Contacta a tu administrador.",
+  "send-reset-link": "Enviar enlace de restablecimiento",
   "setup-wizard": "Asistente de configuración",
-  "register": "Registrarse"
+  "username": "Usuario"
 }
