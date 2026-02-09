@@ -33,7 +33,7 @@ class PlatformAlreadyExistsException(Exception):
 
 class RomsNotFoundException(Exception):
     def __init__(self, platform: str):
-        self.message = f"Roms not found for platform {hl(platform, color=BLUE)}. {FOLDER_STRUCT_MSG }"
+        self.message = f"ROMs not found for platform {hl(platform, color=BLUE)}. {FOLDER_STRUCT_MSG }"
         super().__init__(self.message)
 
     def __repr__(self):

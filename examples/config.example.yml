@@ -8,10 +8,10 @@
 #     - excluded_folder_a
 #     - excluded_folder_b
 
-#   # Exclude roms or parts of roms to be scanned
+#   # Exclude ROMs or parts of ROMs to be scanned
 #   roms:
 #     # Single file games section.
-#     # Will not apply to files that are in sub-folders (multi-disc roms, games with updates, DLC, patches, etc.)
+#     # Will not apply to files that are in sub-folders (multi-disc ROMs, games with updates, DLC, patches, etc.)
 #     single_file:
 #       # Exclude all files with certain extensions to be scanned
 #       extensions:
@@ -26,7 +26,7 @@
 #         - '*.nfo'
 
 #     # Multi files games section
-#     # Will apply to files that are in sub-folders (multi-disc roms, games with updates, DLC, patches, etc.)
+#     # Will apply to files that are in sub-folders (multi-disc ROMs, games with updates, DLC, patches, etc.)
 #     multi_file:
 #       # Exclude matched 'folder' names to be scanned (RomM identifies folders as multi file games)
 #       # Common ES-DE media folders are listed below
