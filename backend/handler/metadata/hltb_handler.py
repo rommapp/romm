@@ -203,6 +203,7 @@ class HLTBHandler(MetadataHandler):
                 response = client.get(GITHUB_FILE_URL, timeout=10)
                 response.raise_for_status()
                 self.search_url = response.text.strip()
+                self.search_init_url = f"{self.search_url}/init"
         except Exception as e:
             log.warning("Unexpected error fetching HLTB endpoint from GitHub: %s", e)
 

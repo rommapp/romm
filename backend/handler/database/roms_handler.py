@@ -1025,10 +1025,7 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        rom_user = self.get_rom_user_by_id(id)
-        if not rom_user:
-            return None
-
+        rom_user = session.query(RomUser).filter_by(id=id).one()
         if not data.get("is_main_sibling", False):
             return rom_user
 
@@ -1047,7 +1044,7 @@ class DBRomsHandler(DBBaseHandler):
             .values(is_main_sibling=False)
         )
 
-        return session.query(RomUser).filter_by(id=id).one()
+        return rom_user
 
     @begin_session
     def add_rom_file(
