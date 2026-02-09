@@ -57,7 +57,7 @@ async function fetchRoms() {
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
-        msg: `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
+        msg: `Couldn't fetch ROMs for platform ID ${currentPlatform.value?.id}: ${error}`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
