@@ -21,6 +21,5 @@ export type CollectionSchema = {
     url_cover: (string | null);
     user_id: number;
     owner_username: string;
-    owned_by_current_user: boolean;
 };
 

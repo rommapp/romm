@@ -193,11 +193,7 @@ export default defineStore("roms", {
         galleryFilter.setFilterPlayerCounts(filter_values.player_counts);
       }
     },
-    async fetchRoms({
-      concat = true,
-    }: {
-      concat?: boolean;
-    }): Promise<SimpleRom[]> {
+    async fetchRoms(concat = true): Promise<SimpleRom[]> {
       if (this.fetchingRoms) return Promise.resolve([]);
       this.fetchingRoms = true;
 
