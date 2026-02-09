@@ -30,7 +30,7 @@
   "quick-scan": "Scanare rapidă",
   "quick-scan-desc": "Scanează doar jocuri noi",
   "retroachievements-requires-hashes": "RetroAchievements necesită hash-uri de fișiere",
-  "roms-scanned-n": "Roms: {n} scanată | Roms: {n} scanate",
+  "roms-scanned-n": "ROMs: {n} scanată | ROMs: {n} scanate",
   "roms-scanned-with-details": "Rom-uri: {n_scanned_roms} scanate din {n_total_roms}, cu {n_new_roms} noi și {n_identified_roms} identificate",
   "scan": "Scanează",
   "scan-options": "Tip de scanare",
