@@ -42,7 +42,7 @@ class PlaymatchRomMatch(TypedDict):
 
 class PlaymatchHandler(MetadataHandler):
     """
-    Handler for [Playmatch](https://github.com/RetroRealm/playmatch), a service for matching Roms by Hashes.
+    Handler for [Playmatch](https://github.com/RetroRealm/playmatch), a service for matching ROMs by Hashes.
     """
 
     def __init__(self):

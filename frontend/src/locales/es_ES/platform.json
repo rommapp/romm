@@ -57,5 +57,5 @@
   "match-all-logic": "Coincidir con TODOS los valores seleccionados (lógica Y)",
   "match-none-logic": "No coincide con NINGUNO de los valores seleccionados (lógica NOT)",
   "status": "Estado",
-  "upload-roms": "Subir Roms"
+  "upload-roms": "Subir ROMs"
 }

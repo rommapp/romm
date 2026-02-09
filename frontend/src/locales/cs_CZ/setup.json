@@ -1,14 +1,13 @@
 {
   "admin-user-step": "Vytvořit administrátorského uživatele",
-  "supported-platforms": "Dostupné platformy",
   "cancel": "Zrušit",
   "check-metadata-step": "Zkontrolovat zdroje metadat",
   "confirm-create-platforms": "RomM vytvoří strukturu {structure} ({pattern}) s {count} platforma{plural}. Pokračovat?",
   "confirm-no-platforms": "Nebyla detekována žádná struktura složek a nebyly vybrány žádné platformy. Budete muset vytvořit strukturu složek ručně. Pokračovat?",
   "confirm-no-structure": "Nebyla detekována žádná struktura složek. RomM vytvoří strukturu A (roms/{platform}) s {count} platforma{plural}. Pokračovat?",
   "continue": "Pokračovat",
-  "detected-platforms": "Detekované platformy",
   "deselect-all": "Zrušit výběr všech",
+  "detected-platforms": "Detekované platformy",
   "finish": "Dokončit",
   "folder-structure": "Struktura složek",
   "game": "hra",
@@ -24,5 +23,6 @@
   "select-platforms": "Vyberte platformy k vytvoření",
   "selected": "vybráno",
   "structure-a-detected": "Detekována struktura A",
-  "structure-b-detected": "Detekována struktura B"
+  "structure-b-detected": "Detekována struktura B",
+  "supported-platforms": "Dostupné platformy"
 }
