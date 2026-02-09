@@ -1,16 +1,16 @@
 {
+  "back-to-login": "Back to login",
+  "confirm-new-password": "Confirm new password",
+  "forgot-password": "Forgot your password?",
   "login": "Login",
   "login-oidc": "Login with {oidc}",
+  "new-password": "New password",
   "or": "or",
   "password": "Password",
-  "username": "Username",
-  "forgot-password": "Forgot your password?",
-  "send-reset-link": "Send reset link",
-  "reset-sent": "Reset link sent. Contact your admin.",
-  "new-password": "New password",
-  "confirm-new-password": "Confirm new password",
+  "register": "Register",
   "reset-password": "Reset password",
-  "back-to-login": "Back to login",
+  "reset-sent": "Reset link sent. Contact your admin.",
+  "send-reset-link": "Send reset link",
   "setup-wizard": "Setup wizard",
-  "register": "Register"
+  "username": "Username"
 }
