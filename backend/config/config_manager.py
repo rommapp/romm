@@ -28,6 +28,34 @@ from logger.logger import log
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
+DEFAULT_EXCLUDED_EXTENSIONS: Final = [
+    "db",
+    "ini",
+    "tmp",
+    "bak",
+    "lock",
+    "log",
+    "cache",
+    "crdownload",
+]
+DEFAULT_EXCLUDED_FILES: Final = [
+    ".DS_Store",
+    ".localized",
+    ".Trashes",
+    ".stfolder",
+    "@SynoResource",
+]
+DEFAULT_EXCLUDED_DIRS: Final = [
+    "@eaDir",
+    "__MACOSX",
+    "$RECYCLE.BIN",
+    ".Trash-*",
+    ".stfolder",
+    ".Spotlight-V100",
+    ".fseventsd",
+    ".DocumentRevisions-V100",
+    "System Volume Information",
+]
 
 
 class EjsControlsButton(TypedDict):
@@ -194,27 +222,39 @@ class ConfigManager:
         self.config = Config(
             CONFIG_FILE_MOUNTED=self._config_file_mounted,
             CONFIG_FILE_WRITABLE=self._config_file_writable,
-            EXCLUDED_PLATFORMS=pydash.get(self._raw_config, "exclude.platforms", []),
+            EXCLUDED_PLATFORMS=pydash.get(
+                self._raw_config, "exclude.platforms", DEFAULT_EXCLUDED_DIRS
+            ),
             EXCLUDED_SINGLE_EXT=[
                 e.lower()
                 for e in pydash.get(
-                    self._raw_config, "exclude.roms.single_file.extensions", []
+                    self._raw_config,
+                    "exclude.roms.single_file.extensions",
+                    DEFAULT_EXCLUDED_EXTENSIONS,
                 )
             ],
             EXCLUDED_SINGLE_FILES=pydash.get(
-                self._raw_config, "exclude.roms.single_file.names", []
+                self._raw_config,
+                "exclude.roms.single_file.names",
+                DEFAULT_EXCLUDED_FILES,
             ),
             EXCLUDED_MULTI_FILES=pydash.get(
-                self._raw_config, "exclude.roms.multi_file.names", []
+                self._raw_config,
+                "exclude.roms.multi_file.names",
+                DEFAULT_EXCLUDED_DIRS,
             ),
             EXCLUDED_MULTI_PARTS_EXT=[
                 e.lower()
                 for e in pydash.get(
-                    self._raw_config, "exclude.roms.multi_file.parts.extensions", []
+                    self._raw_config,
+                    "exclude.roms.multi_file.parts.extensions",
+                    DEFAULT_EXCLUDED_EXTENSIONS,
                 )
             ],
             EXCLUDED_MULTI_PARTS_FILES=pydash.get(
-                self._raw_config, "exclude.roms.multi_file.parts.names", []
+                self._raw_config,
+                "exclude.roms.multi_file.parts.names",
+                DEFAULT_EXCLUDED_FILES,
             ),
             PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {}),
             PLATFORMS_VERSIONS=pydash.get(self._raw_config, "system.versions", {}),

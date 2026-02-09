@@ -1,7 +1,12 @@
 import os
 from pathlib import Path
 
-from config.config_manager import ConfigManager
+from config.config_manager import (
+    DEFAULT_EXCLUDED_DIRS,
+    DEFAULT_EXCLUDED_EXTENSIONS,
+    DEFAULT_EXCLUDED_FILES,
+    ConfigManager,
+)
 
 
 def test_config_loader():
@@ -58,12 +63,16 @@ def test_empty_config_loader():
         )
     )
 
-    assert loader.config.EXCLUDED_PLATFORMS == []
-    assert loader.config.EXCLUDED_SINGLE_EXT == []
-    assert loader.config.EXCLUDED_SINGLE_FILES == []
-    assert loader.config.EXCLUDED_MULTI_FILES == []
-    assert loader.config.EXCLUDED_MULTI_PARTS_EXT == []
-    assert loader.config.EXCLUDED_MULTI_PARTS_FILES == []
+    assert loader.config.EXCLUDED_PLATFORMS == DEFAULT_EXCLUDED_DIRS
+    assert loader.config.EXCLUDED_SINGLE_EXT == [
+        e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS
+    ]
+    assert loader.config.EXCLUDED_SINGLE_FILES == DEFAULT_EXCLUDED_FILES
+    assert loader.config.EXCLUDED_MULTI_FILES == DEFAULT_EXCLUDED_DIRS
+    assert loader.config.EXCLUDED_MULTI_PARTS_EXT == [
+        e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS
+    ]
+    assert loader.config.EXCLUDED_MULTI_PARTS_FILES == DEFAULT_EXCLUDED_FILES
     assert loader.config.PLATFORMS_BINDING == {}
     assert loader.config.PLATFORMS_VERSIONS == {}
     assert loader.config.ROMS_FOLDER_NAME == "roms"
