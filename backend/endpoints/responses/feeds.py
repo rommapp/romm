@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Annotated, Any, Final, NotRequired, TypedDict
 
 from pydantic import BaseModel, BeforeValidator, Field, field_validator
@@ -255,7 +254,7 @@ class PkgjBaseItemSchema(BaseModel):
     name: str
     download_link: str
     content_id: str
-    last_modified: datetime
+    last_modified: str
     file_size: int
     sha_256: str
 
