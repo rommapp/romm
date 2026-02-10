@@ -268,7 +268,24 @@ def generate_content_id(file: RomFile) -> str:
     return f"UP9644-{file.id:09d}_00-0000000000000000"
 
 
-def _text_response(lines: list[str], filename: str) -> Response:
+def get_rap_data(request: Request, rom: Rom) -> tuple[str, str]:
+    """Helper to find the .rap file for a given rom"""
+    for file in rom.files:
+        if file.file_extension.lower() == "rap":
+            rap_hash = file.sha1_hash or ""
+            rap_download_url = generate_romfile_download_url(request, file)
+            return rap_hash, rap_download_url
+
+    return "", ""
+
+
+def format_pkgj_datetime(value: datetime | None) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    return ""
+
+
+def text_response(lines: list[str], filename: str) -> Response:
     return Response(
         content="\n".join(lines),
         media_type="text/plain",
@@ -320,6 +337,7 @@ def pkgi_ps3_feed(
 
             content_id = generate_content_id(file)
             download_url = generate_romfile_download_url(request, file)
+            rap_hash, _ = get_rap_data(request, rom)
 
             # Validate the item schema
             pkgi_item = PKGiFeedPS3ItemSchema(
@@ -327,7 +345,7 @@ def pkgi_ps3_feed(
                 type=content_type_int,
                 name=file.file_name_no_tags,
                 description="",
-                rap="",
+                rap=rap_hash,
                 url=download_url,
                 size=file.file_size_bytes,
                 checksum=file.sha1_hash or "",
@@ -349,7 +367,7 @@ def pkgi_ps3_feed(
                 )
             )
 
-    return _text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
+    return text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
 
 
 @protected_route(
@@ -422,7 +440,7 @@ def pkgi_psvita_feed(
                 )
             )
 
-    return _text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
+    return text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
 
 
 @protected_route(
@@ -468,6 +486,7 @@ def pkgi_psp_feed(
 
             content_id = generate_content_id(file)
             download_url = generate_romfile_download_url(request, file)
+            rap_hash, _ = get_rap_data(request, rom)
 
             # Validate the item schema
             pkgi_item = PKGiFeedPSPItemSchema(
@@ -475,7 +494,7 @@ def pkgi_psp_feed(
                 type=content_type_int,
                 name=file.file_name_no_tags,
                 description="",
-                rap="",
+                rap=rap_hash,
                 url=download_url,
                 size=file.file_size_bytes,
                 checksum=file.sha1_hash or "",
@@ -497,10 +516,10 @@ def pkgi_psp_feed(
                 )
             )
 
-    return _text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
+    return text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
 
 
-def _format_release_date(timestamp: int | None) -> str | None:
+def format_release_date(timestamp: int | None) -> str | None:
     """Format release date to MM-DD-YYYY format"""
     if not timestamp:
         return None
@@ -541,7 +560,7 @@ def fpkgi_feed(request: Request, platform_slug: str) -> Response:
             title_id=f"ROMM{str(rom.id)[-5:].zfill(5)}",
             region=rom.regions[0] if rom.regions else None,
             version=rom.revision or None,
-            release=_format_release_date(rom.metadatum.first_release_date),
+            release=format_release_date(rom.metadatum.first_release_date),
             min_fw=None,
             cover_url=str(
                 URLPath(rom.path_cover_large).make_absolute_url(request.base_url)
@@ -624,13 +643,7 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
             )
         )
 
-    return _text_response(txt_lines, f"kekatsu_{platform_slug}.txt")
-
-
-def _format_pkgj_datetime(value: datetime | None) -> str:
-    if isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d %H:%M:%S")
-    return ""
+    return text_response(txt_lines, f"kekatsu_{platform_slug}.txt")
 
 
 @protected_route(
@@ -652,42 +665,48 @@ def pkgj_psp_games_feed(request: Request) -> Response:
     )
 
     for rom in roms:
-        download_url = generate_rom_download_url(request, rom)
-        last_modified = _format_pkgj_datetime(rom.updated_at)
+        for file in rom.files:
+            if not validate_pkgi_file(file, RomFileCategory.GAME):
+                continue
 
-        pkgj_item = PkgjPSPGamesItemSchema(
-            title_id="",
-            region=rom.regions[0] if rom.regions else "",
-            type="PSP",
-            name=(rom.name or rom.fs_name_no_tags).strip(),
-            download_link=download_url,
-            content_id="",
-            last_modified=rom.updated_at,
-            rap="",
-            download_rap_file="",
-            file_size=rom.fs_size_bytes,
-            sha_256=rom.sha1_hash or "",
-        )
+            download_url = generate_romfile_download_url(request, file)
+            content_id = generate_content_id(file)
+            last_modified = format_pkgj_datetime(file.updated_at)
+            rap_hash, rap_download_url = get_rap_data(request, rom)
 
-        txt_lines.append(
-            "\t".join(
-                [
-                    pkgj_item.title_id,
-                    pkgj_item.region,
-                    pkgj_item.type,
-                    pkgj_item.name,
-                    pkgj_item.download_link,
-                    pkgj_item.content_id,
-                    last_modified,
-                    pkgj_item.rap,
-                    pkgj_item.download_rap_file,
-                    str(pkgj_item.file_size),
-                    pkgj_item.sha_256,
-                ]
+            pkgj_item = PkgjPSPGamesItemSchema(
+                title_id="",
+                region=rom.regions[0] if rom.regions else "",
+                type="PSP",
+                name=(file.file_name_no_tags).strip(),
+                download_link=download_url,
+                content_id=content_id,
+                last_modified=file.updated_at,
+                rap=rap_hash,
+                download_rap_file=rap_download_url,
+                file_size=file.file_size_bytes,
+                sha_256=file.sha1_hash or "",
             )
-        )
 
-    return _text_response(txt_lines, "pkgj_psp_games.txt")
+            txt_lines.append(
+                "\t".join(
+                    [
+                        pkgj_item.title_id,
+                        pkgj_item.region,
+                        pkgj_item.type,
+                        pkgj_item.name,
+                        pkgj_item.download_link,
+                        pkgj_item.content_id,
+                        last_modified,
+                        pkgj_item.rap,
+                        pkgj_item.download_rap_file,
+                        str(pkgj_item.file_size),
+                        pkgj_item.sha_256,
+                    ]
+                )
+            )
+
+    return text_response(txt_lines, "pkgj_psp_games.txt")
 
 
 @protected_route(
@@ -709,40 +728,46 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
     )
 
     for rom in roms:
-        download_url = generate_rom_download_url(request, rom)
-        last_modified = _format_pkgj_datetime(rom.updated_at)
+        for file in rom.files:
+            if not validate_pkgi_file(file, RomFileCategory.DLC):
+                continue
 
-        pkgj_item = PkgjPSPDlcsItemSchema(
-            title_id="",
-            region=rom.regions[0] if rom.regions else "",
-            name=(rom.name or rom.fs_name_no_tags).strip(),
-            download_link=download_url,
-            content_id="",
-            last_modified=rom.updated_at,
-            rap="",
-            download_rap_file="",
-            file_size=rom.fs_size_bytes,
-            sha_256=rom.sha1_hash or "",
-        )
+            download_url = generate_romfile_download_url(request, file)
+            content_id = generate_content_id(file)
+            last_modified = format_pkgj_datetime(file.updated_at)
+            rap_hash, rap_download_url = get_rap_data(request, rom)
 
-        txt_lines.append(
-            "\t".join(
-                [
-                    pkgj_item.title_id,
-                    pkgj_item.region,
-                    pkgj_item.name,
-                    pkgj_item.download_link,
-                    pkgj_item.content_id,
-                    last_modified,
-                    pkgj_item.rap,
-                    pkgj_item.download_rap_file,
-                    str(pkgj_item.file_size),
-                    pkgj_item.sha_256,
-                ]
+            pkgj_item = PkgjPSPDlcsItemSchema(
+                title_id="",
+                region=rom.regions[0] if rom.regions else "",
+                name=(file.file_name_no_tags).strip(),
+                download_link=download_url,
+                content_id=content_id,
+                last_modified=file.updated_at,
+                rap=rap_hash,
+                download_rap_file=rap_download_url,
+                file_size=file.file_size_bytes,
+                sha_256=file.sha1_hash or "",
             )
-        )
 
-    return _text_response(txt_lines, "pkgj_psp_dlc.txt")
+            txt_lines.append(
+                "\t".join(
+                    [
+                        pkgj_item.title_id,
+                        pkgj_item.region,
+                        pkgj_item.name,
+                        pkgj_item.download_link,
+                        pkgj_item.content_id,
+                        last_modified,
+                        pkgj_item.rap,
+                        pkgj_item.download_rap_file,
+                        str(pkgj_item.file_size),
+                        pkgj_item.sha_256,
+                    ]
+                )
+            )
+
+    return text_response(txt_lines, "pkgj_psp_dlc.txt")
 
 
 @protected_route(
@@ -764,44 +789,49 @@ def pkgj_psv_games_feed(request: Request) -> Response:
     )
 
     for rom in roms:
-        download_url = generate_rom_download_url(request, rom)
-        last_modified = _format_pkgj_datetime(rom.updated_at)
+        for file in rom.files:
+            if not validate_pkgi_file(file, RomFileCategory.GAME):
+                continue
 
-        pkgj_item = PkgjPSVGamesItemSchema(
-            title_id="",
-            region=rom.regions[0] if rom.regions else "",
-            name=(rom.name or rom.fs_name_no_tags).strip(),
-            download_link=download_url,
-            zrif="",
-            content_id="",
-            last_modified=rom.updated_at,
-            original_name="",
-            file_size=rom.fs_size_bytes,
-            sha_256=rom.sha1_hash or "",
-            required_fw="",
-            app_version="",
-        )
+            download_url = generate_romfile_download_url(request, file)
+            content_id = generate_content_id(file)
+            last_modified = format_pkgj_datetime(file.updated_at)
 
-        txt_lines.append(
-            "\t".join(
-                [
-                    pkgj_item.title_id,
-                    pkgj_item.region,
-                    pkgj_item.name,
-                    pkgj_item.download_link,
-                    pkgj_item.zrif,
-                    pkgj_item.content_id,
-                    last_modified,
-                    pkgj_item.original_name,
-                    str(pkgj_item.file_size),
-                    pkgj_item.sha_256,
-                    pkgj_item.required_fw,
-                    pkgj_item.app_version,
-                ]
+            pkgj_item = PkgjPSVGamesItemSchema(
+                title_id="",
+                region=rom.regions[0] if rom.regions else "",
+                name=(file.file_name_no_tags).strip(),
+                download_link=download_url,
+                zrif="",
+                content_id=content_id,
+                last_modified=file.updated_at,
+                original_name="",
+                file_size=file.file_size_bytes,
+                sha_256=file.sha1_hash or "",
+                required_fw="",
+                app_version="",
             )
-        )
 
-    return _text_response(txt_lines, "pkgj_psvita_games.txt")
+            txt_lines.append(
+                "\t".join(
+                    [
+                        pkgj_item.title_id,
+                        pkgj_item.region,
+                        pkgj_item.name,
+                        pkgj_item.download_link,
+                        pkgj_item.zrif,
+                        pkgj_item.content_id,
+                        last_modified,
+                        pkgj_item.original_name,
+                        str(pkgj_item.file_size),
+                        pkgj_item.sha_256,
+                        pkgj_item.required_fw,
+                        pkgj_item.app_version,
+                    ]
+                )
+            )
+
+    return text_response(txt_lines, "pkgj_psvita_games.txt")
 
 
 @protected_route(
@@ -823,38 +853,43 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
     )
 
     for rom in roms:
-        download_url = generate_rom_download_url(request, rom)
-        last_modified = _format_pkgj_datetime(rom.updated_at)
+        for file in rom.files:
+            if not validate_pkgi_file(file, RomFileCategory.DLC):
+                continue
 
-        pkgj_item = PkgjPSVDlcsItemSchema(
-            title_id="",
-            region=rom.regions[0] if rom.regions else "",
-            name=(rom.name or rom.fs_name_no_tags).strip(),
-            download_link=download_url,
-            zrif="",
-            content_id="",
-            last_modified=rom.updated_at,
-            file_size=rom.fs_size_bytes,
-            sha_256=rom.sha1_hash or "",
-        )
+            download_url = generate_romfile_download_url(request, file)
+            content_id = generate_content_id(file)
+            last_modified = format_pkgj_datetime(file.updated_at)
 
-        txt_lines.append(
-            "\t".join(
-                [
-                    pkgj_item.title_id,
-                    pkgj_item.region,
-                    pkgj_item.name,
-                    pkgj_item.download_link,
-                    pkgj_item.zrif,
-                    pkgj_item.content_id,
-                    last_modified,
-                    str(pkgj_item.file_size),
-                    pkgj_item.sha_256,
-                ]
+            pkgj_item = PkgjPSVDlcsItemSchema(
+                title_id="",
+                region=rom.regions[0] if rom.regions else "",
+                name=(file.file_name_no_tags).strip(),
+                download_link=download_url,
+                zrif="",
+                content_id=content_id,
+                last_modified=file.updated_at,
+                file_size=file.file_size_bytes,
+                sha_256=file.sha1_hash or "",
             )
-        )
 
-    return _text_response(txt_lines, "pkgj_psvita_dlc.txt")
+            txt_lines.append(
+                "\t".join(
+                    [
+                        pkgj_item.title_id,
+                        pkgj_item.region,
+                        pkgj_item.name,
+                        pkgj_item.download_link,
+                        pkgj_item.zrif,
+                        pkgj_item.content_id,
+                        last_modified,
+                        str(pkgj_item.file_size),
+                        pkgj_item.sha_256,
+                    ]
+                )
+            )
+
+    return text_response(txt_lines, "pkgj_psvita_dlc.txt")
 
 
 @protected_route(
@@ -874,35 +909,40 @@ def pkgj_psx_games_feed(request: Request) -> Response:
     )
 
     for rom in roms:
-        download_url = generate_rom_download_url(request, rom)
-        last_modified = _format_pkgj_datetime(rom.updated_at)
+        for file in rom.files:
+            if not validate_pkgi_file(file, RomFileCategory.GAME):
+                continue
 
-        pkgj_item = PkgjPSXGamesItemSchema(
-            title_id="",
-            region=rom.regions[0] if rom.regions else "",
-            name=(rom.name or rom.fs_name_no_tags).strip(),
-            download_link=download_url,
-            content_id="",
-            last_modified=rom.updated_at,
-            original_name="",
-            file_size=rom.fs_size_bytes,
-            sha_256=rom.sha1_hash or "",
-        )
+            download_url = generate_romfile_download_url(request, file)
+            content_id = generate_content_id(file)
+            last_modified = format_pkgj_datetime(file.updated_at)
 
-        txt_lines.append(
-            "\t".join(
-                [
-                    pkgj_item.title_id,
-                    pkgj_item.region,
-                    pkgj_item.name,
-                    pkgj_item.download_link,
-                    pkgj_item.content_id,
-                    last_modified,
-                    pkgj_item.original_name,
-                    str(pkgj_item.file_size),
-                    pkgj_item.sha_256,
-                ]
+            pkgj_item = PkgjPSXGamesItemSchema(
+                title_id="",
+                region=rom.regions[0] if rom.regions else "",
+                name=(file.file_name_no_tags).strip(),
+                download_link=download_url,
+                content_id=content_id,
+                last_modified=file.updated_at,
+                original_name="",
+                file_size=file.file_size_bytes,
+                sha_256=file.sha1_hash or "",
             )
-        )
 
-    return _text_response(txt_lines, "pkgj_psx_games.txt")
+            txt_lines.append(
+                "\t".join(
+                    [
+                        pkgj_item.title_id,
+                        pkgj_item.region,
+                        pkgj_item.name,
+                        pkgj_item.download_link,
+                        pkgj_item.content_id,
+                        last_modified,
+                        pkgj_item.original_name,
+                        str(pkgj_item.file_size),
+                        pkgj_item.sha_256,
+                    ]
+                )
+            )
+
+    return text_response(txt_lines, "pkgj_psx_games.txt")
