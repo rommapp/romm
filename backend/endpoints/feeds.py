@@ -333,13 +333,13 @@ def pkgi_ps3_feed(
     txt_lines = []
 
     for rom in roms:
+        rap_hash, _ = get_rap_data(request, rom)
         for file in rom.files:
             if not validate_pkgi_file(file, content_type_enum):
                 continue
 
             content_id = generate_content_id(file)
             download_url = generate_romfile_download_url(request, file)
-            rap_hash, _ = get_rap_data(request, rom)
 
             # Validate the item schema
             pkgi_item = PKGiFeedPS3ItemSchema(
@@ -484,13 +484,13 @@ def pkgi_psp_feed(
     txt_lines = []
 
     for rom in roms:
+        rap_hash, _ = get_rap_data(request, rom)
         for file in rom.files:
             if not validate_pkgi_file(file, content_type_enum):
                 continue
 
             content_id = generate_content_id(file)
             download_url = generate_romfile_download_url(request, file)
-            rap_hash, _ = get_rap_data(request, rom)
 
             # Validate the item schema
             pkgi_item = PKGiFeedPSPItemSchema(
@@ -670,6 +670,7 @@ def pkgj_psp_games_feed(request: Request) -> Response:
     )
 
     for rom in roms:
+        rap_hash, rap_download_url = get_rap_data(request, rom)
         for file in rom.files:
             if not validate_pkgi_file(file, RomFileCategory.GAME):
                 continue
@@ -677,7 +678,6 @@ def pkgj_psp_games_feed(request: Request) -> Response:
             download_url = generate_romfile_download_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
-            rap_hash, rap_download_url = get_rap_data(request, rom)
 
             pkgj_item = PkgjPSPGamesItemSchema(
                 title_id="",
@@ -734,6 +734,7 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
     )
 
     for rom in roms:
+        rap_hash, rap_download_url = get_rap_data(request, rom)
         for file in rom.files:
             if not validate_pkgi_file(file, RomFileCategory.DLC):
                 continue
@@ -741,7 +742,6 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
             download_url = generate_romfile_download_url(request, file)
             content_id = generate_content_id(file)
             last_modified = format_pkgj_datetime(file.updated_at)
-            rap_hash, rap_download_url = get_rap_data(request, rom)
 
             pkgj_item = PkgjPSPDlcsItemSchema(
                 title_id="",
