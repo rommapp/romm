@@ -1,3 +1,5 @@
+import csv
+import io
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated
@@ -352,20 +354,21 @@ def pkgi_ps3_feed(
             )
 
             # Format: contentid,type,name,description,rap,url,size,checksum
-            txt_lines.append(
-                ",".join(
-                    [
-                        pkgi_item.contentid,
-                        str(pkgi_item.type),
-                        f'"{pkgi_item.name}"',
-                        pkgi_item.description,
-                        pkgi_item.rap,
-                        f'"{pkgi_item.url}"',
-                        str(pkgi_item.size),
-                        pkgi_item.checksum,
-                    ]
-                )
+            output = io.StringIO()
+            writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(
+                [
+                    pkgi_item.contentid,
+                    str(pkgi_item.type),
+                    pkgi_item.name,
+                    pkgi_item.description,
+                    pkgi_item.rap,
+                    pkgi_item.url,
+                    str(pkgi_item.size),
+                    pkgi_item.checksum,
+                ]
             )
+            txt_lines.append(output.getvalue().strip())
 
     return text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
 
@@ -425,20 +428,21 @@ def pkgi_psvita_feed(
             )
 
             # Format: contentid,flags,name,name2,zrif,url,size,checksum
-            txt_lines.append(
-                ",".join(
-                    [
-                        pkgi_item.contentid,
-                        str(pkgi_item.flags),
-                        f'"{pkgi_item.name}"',
-                        pkgi_item.name2,
-                        pkgi_item.zrif,
-                        f'"{pkgi_item.url}"',
-                        str(pkgi_item.size),
-                        pkgi_item.checksum,
-                    ]
-                )
+            output = io.StringIO()
+            writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(
+                [
+                    pkgi_item.contentid,
+                    str(pkgi_item.flags),
+                    pkgi_item.name,
+                    pkgi_item.name2,
+                    pkgi_item.zrif,
+                    pkgi_item.url,
+                    str(pkgi_item.size),
+                    pkgi_item.checksum,
+                ]
             )
+            txt_lines.append(output.getvalue().strip())
 
     return text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
 
@@ -501,20 +505,21 @@ def pkgi_psp_feed(
             )
 
             # Format: contentid,type,name,description,rap,url,size,checksum
-            txt_lines.append(
-                ",".join(
-                    [
-                        pkgi_item.contentid,
-                        str(pkgi_item.type),
-                        f'"{pkgi_item.name}"',
-                        pkgi_item.description,
-                        pkgi_item.rap,
-                        f'"{pkgi_item.url}"',
-                        str(pkgi_item.size),
-                        pkgi_item.checksum,
-                    ]
-                )
+            output = io.StringIO()
+            writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(
+                [
+                    pkgi_item.contentid,
+                    str(pkgi_item.type),
+                    pkgi_item.name,
+                    pkgi_item.description,
+                    pkgi_item.rap,
+                    pkgi_item.url,
+                    str(pkgi_item.size),
+                    pkgi_item.checksum,
+                ]
             )
+            txt_lines.append(output.getvalue().strip())
 
     return text_response(txt_lines, f"pkgi_{content_type_enum.value}.txt")
 
@@ -599,9 +604,8 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
 
     txt_lines = []
     txt_lines.append("1")  # Database version
-    txt_lines.append(
-        "\t"
-    )  # Delimiter (cannot use csv (coma) as kekatsu does not support " (double quotes) as a text delimiter)
+    # Delimiter (cannot use csv (coma) as kekatsu does not support " (double quotes) as a text delimiter)
+    txt_lines.append("\t")
 
     for rom in roms:
         download_url = generate_rom_download_url(request, rom)
@@ -627,21 +631,22 @@ def kekatsu_ds_feed(request: Request, platform_slug: str) -> Response:
         )
 
         # Format: title	platform	region	version	author	download_url	filename	size	box_art_url
-        txt_lines.append(
-            "\t".join(
-                [
-                    kekatsu_item.title,
-                    kekatsu_item.platform,
-                    kekatsu_item.region,
-                    kekatsu_item.version,
-                    kekatsu_item.author,
-                    kekatsu_item.download_url,
-                    kekatsu_item.filename,
-                    str(kekatsu_item.size),
-                    kekatsu_item.box_art_url,
-                ]
-            )
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(
+            [
+                kekatsu_item.title,
+                kekatsu_item.platform,
+                kekatsu_item.region,
+                kekatsu_item.version,
+                kekatsu_item.author,
+                kekatsu_item.download_url,
+                kekatsu_item.filename,
+                str(kekatsu_item.size),
+                kekatsu_item.box_art_url,
+            ]
         )
+        txt_lines.append(output.getvalue().strip())
 
     return text_response(txt_lines, f"kekatsu_{platform_slug}.txt")
 
@@ -688,23 +693,24 @@ def pkgj_psp_games_feed(request: Request) -> Response:
                 sha_256=file.sha1_hash or "",
             )
 
-            txt_lines.append(
-                "\t".join(
-                    [
-                        pkgj_item.title_id,
-                        pkgj_item.region,
-                        pkgj_item.type,
-                        pkgj_item.name,
-                        pkgj_item.download_link,
-                        pkgj_item.content_id,
-                        pkgj_item.last_modified,
-                        pkgj_item.rap,
-                        pkgj_item.download_rap_file,
-                        str(pkgj_item.file_size),
-                        pkgj_item.sha_256,
-                    ]
-                )
+            output = io.StringIO()
+            writer = csv.writer(output, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(
+                [
+                    pkgj_item.title_id,
+                    pkgj_item.region,
+                    pkgj_item.type,
+                    pkgj_item.name,
+                    pkgj_item.download_link,
+                    pkgj_item.content_id,
+                    pkgj_item.last_modified,
+                    pkgj_item.rap,
+                    pkgj_item.download_rap_file,
+                    str(pkgj_item.file_size),
+                    pkgj_item.sha_256,
+                ]
             )
+            txt_lines.append(output.getvalue().strip())
 
     return text_response(txt_lines, "pkgj_psp_games.txt")
 
@@ -750,22 +756,23 @@ def pkgj_psp_dlcs_feed(request: Request) -> Response:
                 sha_256=file.sha1_hash or "",
             )
 
-            txt_lines.append(
-                "\t".join(
-                    [
-                        pkgj_item.title_id,
-                        pkgj_item.region,
-                        pkgj_item.name,
-                        pkgj_item.download_link,
-                        pkgj_item.content_id,
-                        pkgj_item.last_modified,
-                        pkgj_item.rap,
-                        pkgj_item.download_rap_file,
-                        str(pkgj_item.file_size),
-                        pkgj_item.sha_256,
-                    ]
-                )
+            output = io.StringIO()
+            writer = csv.writer(output, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(
+                [
+                    pkgj_item.title_id,
+                    pkgj_item.region,
+                    pkgj_item.name,
+                    pkgj_item.download_link,
+                    pkgj_item.content_id,
+                    pkgj_item.last_modified,
+                    pkgj_item.rap,
+                    pkgj_item.download_rap_file,
+                    str(pkgj_item.file_size),
+                    pkgj_item.sha_256,
+                ]
             )
+            txt_lines.append(output.getvalue().strip())
 
     return text_response(txt_lines, "pkgj_psp_dlc.txt")
 
@@ -812,24 +819,25 @@ def pkgj_psv_games_feed(request: Request) -> Response:
                 app_version="",
             )
 
-            txt_lines.append(
-                "\t".join(
-                    [
-                        pkgj_item.title_id,
-                        pkgj_item.region,
-                        pkgj_item.name,
-                        pkgj_item.download_link,
-                        pkgj_item.zrif,
-                        pkgj_item.content_id,
-                        pkgj_item.last_modified,
-                        pkgj_item.original_name,
-                        str(pkgj_item.file_size),
-                        pkgj_item.sha_256,
-                        pkgj_item.required_fw,
-                        pkgj_item.app_version,
-                    ]
-                )
+            output = io.StringIO()
+            writer = csv.writer(output, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(
+                [
+                    pkgj_item.title_id,
+                    pkgj_item.region,
+                    pkgj_item.name,
+                    pkgj_item.download_link,
+                    pkgj_item.zrif,
+                    pkgj_item.content_id,
+                    pkgj_item.last_modified,
+                    pkgj_item.original_name,
+                    str(pkgj_item.file_size),
+                    pkgj_item.sha_256,
+                    pkgj_item.required_fw,
+                    pkgj_item.app_version,
+                ]
             )
+            txt_lines.append(output.getvalue().strip())
 
     return text_response(txt_lines, "pkgj_psvita_games.txt")
 
@@ -873,21 +881,22 @@ def pkgj_psv_dlcs_feed(request: Request) -> Response:
                 sha_256=file.sha1_hash or "",
             )
 
-            txt_lines.append(
-                "\t".join(
-                    [
-                        pkgj_item.title_id,
-                        pkgj_item.region,
-                        pkgj_item.name,
-                        pkgj_item.download_link,
-                        pkgj_item.zrif,
-                        pkgj_item.content_id,
-                        pkgj_item.last_modified,
-                        str(pkgj_item.file_size),
-                        pkgj_item.sha_256,
-                    ]
-                )
+            output = io.StringIO()
+            writer = csv.writer(output, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(
+                [
+                    pkgj_item.title_id,
+                    pkgj_item.region,
+                    pkgj_item.name,
+                    pkgj_item.download_link,
+                    pkgj_item.zrif,
+                    pkgj_item.content_id,
+                    pkgj_item.last_modified,
+                    str(pkgj_item.file_size),
+                    pkgj_item.sha_256,
+                ]
             )
+            txt_lines.append(output.getvalue().strip())
 
     return text_response(txt_lines, "pkgj_psvita_dlc.txt")
 
@@ -929,20 +938,21 @@ def pkgj_psx_games_feed(request: Request) -> Response:
                 sha_256=file.sha1_hash or "",
             )
 
-            txt_lines.append(
-                "\t".join(
-                    [
-                        pkgj_item.title_id,
-                        pkgj_item.region,
-                        pkgj_item.name,
-                        pkgj_item.download_link,
-                        pkgj_item.content_id,
-                        pkgj_item.last_modified,
-                        pkgj_item.original_name,
-                        str(pkgj_item.file_size),
-                        pkgj_item.sha_256,
-                    ]
-                )
+            output = io.StringIO()
+            writer = csv.writer(output, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(
+                [
+                    pkgj_item.title_id,
+                    pkgj_item.region,
+                    pkgj_item.name,
+                    pkgj_item.download_link,
+                    pkgj_item.content_id,
+                    pkgj_item.last_modified,
+                    pkgj_item.original_name,
+                    str(pkgj_item.file_size),
+                    pkgj_item.sha_256,
+                ]
             )
+            txt_lines.append(output.getvalue().strip())
 
     return text_response(txt_lines, "pkgj_psx_games.txt")
