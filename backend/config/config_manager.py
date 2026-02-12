@@ -44,6 +44,7 @@ DEFAULT_EXCLUDED_FILES: Final = [
     ".Trashes",
     ".stfolder",
     "@SynoResource",
+    "gamelist.xml",
 ]
 DEFAULT_EXCLUDED_DIRS: Final = [
     "@eaDir",
