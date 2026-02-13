@@ -705,7 +705,7 @@ def get_rom_by_hash(
     md5_hash: Annotated[str | None, Query(description="MD5 hash value")] = None,
     sha1_hash: Annotated[str | None, Query(description="SHA1 hash value")] = None,
     ra_hash: Annotated[
-        str | None, Query(description="RetroAchivements hash value")
+        str | None, Query(description="RetroAchievements hash value")
     ] = None,
 ) -> DetailedRomSchema:
     if not crc_hash and not md5_hash and not sha1_hash and not ra_hash:
