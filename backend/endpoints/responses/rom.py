@@ -162,6 +162,7 @@ class RomFileSchema(BaseModel):
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
+    ra_hash: str | None
     category: RomFileCategory | None
 
     class Config:
@@ -273,6 +274,7 @@ class RomSchema(BaseModel):
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
+    ra_hash: str | None
 
     has_simple_single_file: bool
     has_nested_single_file: bool
