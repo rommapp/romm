@@ -1267,9 +1267,10 @@ class DBRomsHandler(DBBaseHandler):
     @with_details
     def get_rom_by_hash(
         self,
-        crc_hash: str | None,
-        md5_hash: str | None,
-        sha1_hash: str | None,
+        crc_hash: str | None = None,
+        md5_hash: str | None = None,
+        sha1_hash: str | None = None,
+        ra_hash: str | None = None,
         *,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
@@ -1286,9 +1287,11 @@ class DBRomsHandler(DBBaseHandler):
                 (crc_hash, Rom.crc_hash),
                 (md5_hash, Rom.md5_hash),
                 (sha1_hash, Rom.sha1_hash),
+                (ra_hash, Rom.ra_hash),
                 (crc_hash, RomFile.crc_hash),
                 (md5_hash, RomFile.md5_hash),
                 (sha1_hash, RomFile.sha1_hash),
+                (ra_hash, RomFile.ra_hash),
             ]
             if value is not None
         ]
