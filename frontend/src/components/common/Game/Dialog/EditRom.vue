@@ -65,8 +65,8 @@ function previewImage(event: Event) {
     imagePreviewUrl.value = reader.result?.toString() || "";
     removeCover.value = false;
   };
-  if (input.files[0]) {
-    reader.readAsDataURL(input.files[0]);
+  if (rom.value.artwork) {
+    reader.readAsDataURL(rom.value.artwork);
   }
 }
 

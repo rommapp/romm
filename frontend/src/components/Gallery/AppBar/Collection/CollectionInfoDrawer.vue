@@ -82,8 +82,8 @@ function previewImage(event: Event) {
     imagePreviewUrl.value = reader.result?.toString() || "";
     removeCover.value = false;
   };
-  if (input.files[0]) {
-    reader.readAsDataURL(input.files[0]);
+  if (updatedCollection.value.artwork) {
+    reader.readAsDataURL(updatedCollection.value.artwork);
   }
 }
 
