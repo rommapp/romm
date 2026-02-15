@@ -38,7 +38,7 @@ emitter?.on("showEditRomDialog", (romToEdit: SimpleRom) => {
 });
 
 emitter?.on("updateUrlCover", (url_cover) => {
-  setArtwork(url_cover);
+  setUrlCover(url_cover);
 });
 
 const missingCoverImage = computed(() =>
@@ -51,19 +51,26 @@ function triggerFileInput(id: string) {
 }
 
 function previewImage(event: Event) {
+  if (!rom.value) return;
+
   const input = event.target as HTMLInputElement;
   if (!input.files) return;
 
+  // Set artwork from uploaded file
+  rom.value.artwork = input.files[0];
+
+  // Display the image preview
   const reader = new FileReader();
   reader.onload = () => {
-    setArtwork(reader.result?.toString() || "");
+    imagePreviewUrl.value = reader.result?.toString() || "";
+    removeCover.value = false;
   };
-  if (input.files[0]) {
-    reader.readAsDataURL(input.files[0]);
+  if (rom.value.artwork) {
+    reader.readAsDataURL(rom.value.artwork);
   }
 }
 
-function setArtwork(coverUrl: string) {
+function setUrlCover(coverUrl: string) {
   if (!coverUrl || !rom.value) return;
   rom.value.url_cover = coverUrl;
   imagePreviewUrl.value = coverUrl;
