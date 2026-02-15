@@ -91,7 +91,7 @@ const secondCover = computed(() => memoizedCovers.value[1]);
         </div>
       </template>
       <template v-else>
-        <div class="split-image first-image">
+        <div class="split-image">
           <v-img cover :src="firstCover" :aspect-ratio="1 / 1">
             <template #placeholder>
               <Skeleton :aspect-ratio="1 / 1" type="image" />
