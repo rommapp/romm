@@ -48,7 +48,7 @@ const collectionCoverImage = computed(() =>
 );
 
 emitter?.on("updateUrlCover", (coverUrl) => {
-  setArtwork(coverUrl);
+  setCoverUrl(coverUrl);
 });
 
 function showEditable() {
@@ -73,16 +73,21 @@ function previewImage(event: Event) {
   const input = event.target as HTMLInputElement;
   if (!input.files) return;
 
+  // Set artwork from uploaded file
+  updatedCollection.value.artwork = input.files[0];
+
+  // Display the image preview
   const reader = new FileReader();
   reader.onload = () => {
-    setArtwork(reader.result?.toString() || "");
+    imagePreviewUrl.value = reader.result?.toString() || "";
+    removeCover.value = false;
   };
-  if (input.files[0]) {
-    reader.readAsDataURL(input.files[0]);
+  if (updatedCollection.value.artwork) {
+    reader.readAsDataURL(updatedCollection.value.artwork);
   }
 }
 
-function setArtwork(coverUrl: string) {
+function setCoverUrl(coverUrl: string) {
   if (!coverUrl) return;
   updatedCollection.value.url_cover = coverUrl;
   imagePreviewUrl.value = coverUrl;
