@@ -9,7 +9,6 @@ from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler
-from handler.filesystem.assets_handler import compute_content_hash
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_flashpoint_handler,
@@ -833,8 +832,9 @@ async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False
     }
 
     if should_hash:
-        absolute_path = f"{ASSETS_BASE_PATH}/{file_path}"
-        result["content_hash"] = compute_content_hash(absolute_path)
+        result["content_hash"] = await fs_asset_handler.compute_content_hash(
+            f"{ASSETS_BASE_PATH}/{file_path}"
+        )
 
     return result
 
