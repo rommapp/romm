@@ -435,7 +435,11 @@ def confirm_download(
         )
 
     device = _resolve_device(device_id, request.user.id)
-    assert device is not None
+    if device is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device with ID {device_id} not found",
+        )
 
     sync = db_device_save_sync_handler.upsert_sync(
         device_id=device_id,
@@ -581,7 +585,11 @@ def track_save(
         )
 
     device = _resolve_device(device_id, request.user.id)
-    assert device is not None
+    if device is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device with ID {device_id} not found",
+        )
 
     sync = db_device_save_sync_handler.set_untracked(
         device_id=device_id, save_id=id, untracked=False
@@ -605,7 +613,11 @@ def untrack_save(
         )
 
     device = _resolve_device(device_id, request.user.id)
-    assert device is not None
+    if device is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device with ID {device_id} not found",
+        )
 
     sync = db_device_save_sync_handler.set_untracked(
         device_id=device_id, save_id=id, untracked=True
