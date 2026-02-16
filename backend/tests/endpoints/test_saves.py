@@ -1826,6 +1826,8 @@ class TestConfirmDownload:
         sync = db_device_save_sync_handler.get_sync(
             device_id=device.id, save_id=save.id
         )
+        assert sync is not None
+
         assert sync.last_synced_at.replace(
             microsecond=0, tzinfo=None
         ) == save.updated_at.replace(microsecond=0, tzinfo=None)
@@ -1853,10 +1855,11 @@ class TestConfirmDownload:
         updated_device = db_device_handler.get_device(
             device_id=device.id, user_id=device.user_id
         )
+
+        assert updated_device is not None
+        assert updated_device.last_seen is not None
         if original_last_seen:
             assert updated_device.last_seen > original_last_seen
-        else:
-            assert updated_device.last_seen is not None
 
     def test_confirm_download_save_not_found(
         self,
@@ -2096,42 +2099,50 @@ class TestContentHashDeduplication:
 
 
 class TestContentHashComputation:
-    def test_compute_file_hash(self, tmp_path):
-        from handler.filesystem.assets_handler import compute_file_hash
+    @mock.patch("handler.filesystem.fs_asset_handler.validate_path")
+    async def test_compute_file_hash(self, mock_validate_path, tmp_path):
+        from handler.filesystem import fs_asset_handler
 
         test_file = tmp_path / "test.sav"
         test_file.write_bytes(b"test content for hashing")
+        mock_validate_path.return_value = test_file
 
-        hash_result = compute_file_hash(str(test_file))
+        hash_result = await fs_asset_handler._compute_file_hash(str(test_file))
 
         assert hash_result is not None
         assert len(hash_result) == 32
 
-        hash_result2 = compute_file_hash(str(test_file))
+        hash_result2 = await fs_asset_handler._compute_file_hash(str(test_file))
         assert hash_result == hash_result2
 
-    def test_same_content_produces_same_hash(self, tmp_path):
-        from handler.filesystem.assets_handler import compute_file_hash
+    @mock.patch("handler.filesystem.fs_asset_handler.validate_path")
+    async def test_same_content_produces_same_hash(self, mock_validate_path, tmp_path):
+        from handler.filesystem import fs_asset_handler
 
         file1 = tmp_path / "save1.sav"
         file2 = tmp_path / "save2.sav"
         file1.write_bytes(b"identical content")
         file2.write_bytes(b"identical content")
+        mock_validate_path.side_effect = [file1, file2]
 
-        hash1 = compute_file_hash(str(file1))
-        hash2 = compute_file_hash(str(file2))
+        hash1 = await fs_asset_handler._compute_file_hash(str(file1))
+        hash2 = await fs_asset_handler._compute_file_hash(str(file2))
 
         assert hash1 == hash2
 
-    def test_different_content_produces_different_hash(self, tmp_path):
-        from handler.filesystem.assets_handler import compute_file_hash
+    @mock.patch("handler.filesystem.fs_asset_handler.validate_path")
+    async def test_different_content_produces_different_hash(
+        self, mock_validate_path, tmp_path
+    ):
+        from handler.filesystem import fs_asset_handler
 
         file1 = tmp_path / "save1.sav"
         file2 = tmp_path / "save2.sav"
         file1.write_bytes(b"content A")
         file2.write_bytes(b"content B")
+        mock_validate_path.side_effect = [file1, file2]
 
-        hash1 = compute_file_hash(str(file1))
-        hash2 = compute_file_hash(str(file2))
+        hash1 = await fs_asset_handler._compute_file_hash(str(file1))
+        hash2 = await fs_asset_handler._compute_file_hash(str(file2))
 
         assert hash1 != hash2
