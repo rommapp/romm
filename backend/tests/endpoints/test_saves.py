@@ -2099,11 +2099,13 @@ class TestContentHashDeduplication:
 
 
 class TestContentHashComputation:
-    async def test_compute_file_hash(self, tmp_path):
+    @mock.patch("handler.filesystem.fs_asset_handler.validate_path")
+    async def test_compute_file_hash(self, mock_validate_path, tmp_path):
         from handler.filesystem import fs_asset_handler
 
         test_file = tmp_path / "test.sav"
         test_file.write_bytes(b"test content for hashing")
+        mock_validate_path.return_value = test_file
 
         hash_result = await fs_asset_handler._compute_file_hash(str(test_file))
 
@@ -2113,26 +2115,32 @@ class TestContentHashComputation:
         hash_result2 = await fs_asset_handler._compute_file_hash(str(test_file))
         assert hash_result == hash_result2
 
-    async def test_same_content_produces_same_hash(self, tmp_path):
+    @mock.patch("handler.filesystem.fs_asset_handler.validate_path")
+    async def test_same_content_produces_same_hash(self, mock_validate_path, tmp_path):
         from handler.filesystem import fs_asset_handler
 
         file1 = tmp_path / "save1.sav"
         file2 = tmp_path / "save2.sav"
         file1.write_bytes(b"identical content")
         file2.write_bytes(b"identical content")
+        mock_validate_path.side_effect = [file1, file2]
 
         hash1 = await fs_asset_handler._compute_file_hash(str(file1))
         hash2 = await fs_asset_handler._compute_file_hash(str(file2))
 
         assert hash1 == hash2
 
-    async def test_different_content_produces_different_hash(self, tmp_path):
+    @mock.patch("handler.filesystem.fs_asset_handler.validate_path")
+    async def test_different_content_produces_different_hash(
+        self, mock_validate_path, tmp_path
+    ):
         from handler.filesystem import fs_asset_handler
 
         file1 = tmp_path / "save1.sav"
         file2 = tmp_path / "save2.sav"
         file1.write_bytes(b"content A")
         file2.write_bytes(b"content B")
+        mock_validate_path.side_effect = [file1, file2]
 
         hash1 = await fs_asset_handler._compute_file_hash(str(file1))
         hash2 = await fs_asset_handler._compute_file_hash(str(file2))
