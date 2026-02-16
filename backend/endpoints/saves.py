@@ -435,8 +435,6 @@ def confirm_download(
         )
 
     device = _resolve_device(device_id, request.user.id)
-    assert device is not None
-
     sync = db_device_save_sync_handler.upsert_sync(
         device_id=device_id,
         save_id=save.id,
@@ -581,8 +579,6 @@ def track_save(
         )
 
     device = _resolve_device(device_id, request.user.id)
-    assert device is not None
-
     sync = db_device_save_sync_handler.set_untracked(
         device_id=device_id, save_id=id, untracked=False
     )
@@ -605,8 +601,6 @@ def untrack_save(
         )
 
     device = _resolve_device(device_id, request.user.id)
-    assert device is not None
-
     sync = db_device_save_sync_handler.set_untracked(
         device_id=device_id, save_id=id, untracked=True
     )
