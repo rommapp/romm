@@ -275,7 +275,7 @@ class MetadataHandler(abc.ABC):
 
         return search_term
 
-    def _mask_sensitive_values(self, values: dict[str, str | None]) -> dict[str, str]:
+    def _mask_sensitive_values(self, values: dict[str, str]) -> dict[str, str]:
         """
         Mask sensitive values (headers or params), leaving only the first 2 and last 2 characters of the token.
         """
