@@ -203,14 +203,12 @@ def upgrade() -> None:
             "update roms set file_name_no_ext = regexp_replace(file_name, '\\.[a-z]{2,}$', '')"
         )
         if is_postgresql(connection):
-            batch_op.execute(
-                """
+            batch_op.execute("""
                 UPDATE roms
                 SET platform_id = platforms.id
                 FROM platforms
                 WHERE roms.platform_slug = platforms.slug
-                """
-            )
+                """)
         else:
             batch_op.execute(
                 "update roms inner join platforms on roms.platform_slug = platforms.slug set roms.platform_id = platforms.id"
@@ -270,14 +268,12 @@ def downgrade() -> None:
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         if is_postgresql(connection):
-            batch_op.execute(
-                """
+            batch_op.execute("""
                 UPDATE roms
                 SET platform_slug = platforms.slug
                 FROM platforms
                 WHERE roms.platform_id = platforms.id
-                """
-            )
+                """)
         else:
             batch_op.execute(
                 "update roms inner join platforms on roms.platform_id = platforms.id set roms.platform_slug = platforms.slug"

@@ -21,13 +21,11 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column("is_favorite", sa.Boolean(), nullable=True))
 
     op.execute("UPDATE collections SET is_favorite = FALSE WHERE is_favorite IS NULL")
-    op.execute(
-        """
+    op.execute("""
         UPDATE collections
         SET is_favorite = TRUE
         WHERE LOWER(name) IN ('favourites', 'favorites')
-        """
-    )
+        """)
 
     with op.batch_alter_table("collections", schema=None) as batch_op:
         batch_op.alter_column("is_favorite", existing_type=sa.Boolean(), nullable=False)

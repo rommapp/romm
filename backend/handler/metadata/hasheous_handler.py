@@ -103,6 +103,9 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
             "remasters": [],
             "similar_games": [],
             "expanded_games": [],
+            # TODO: extract multiplayer modes and derive player count
+            "multiplayer_modes": [],
+            "player_count": "1",
         }
     )
 

@@ -29,8 +29,7 @@ def upgrade() -> None:
     )
 
     connection.execute(
-        sa.text(
-            f"""
+        sa.text(f"""
             CREATE OR REPLACE VIEW sibling_roms AS
             SELECT
                 r1.id AS rom_id,
@@ -69,8 +68,7 @@ def upgrade() -> None:
                     OR
                     (r1.fs_name_no_tags = r2.fs_name_no_tags)
                 );
-            """  # nosec B608
-        ),
+            """),  # nosec B608
     )
 
 
@@ -82,8 +80,7 @@ def downgrade() -> None:
 
     # Restore previous view without fs_name_no_tags fallback
     connection.execute(
-        sa.text(
-            f"""
+        sa.text(f"""
             CREATE OR REPLACE VIEW sibling_roms AS
             SELECT
                 r1.id AS rom_id,
@@ -120,8 +117,7 @@ def downgrade() -> None:
                     OR
                     (r1.tgdb_id = r2.tgdb_id AND r1.tgdb_id IS NOT NULL)
                 );
-            """  # nosec B608
-        ),
+            """),  # nosec B608
     )
 
     # Remove the index

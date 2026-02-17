@@ -44,13 +44,11 @@ def upgrade() -> None:
         sa.UniqueConstraint("rom_id", "user_id", name="unique_rom_user_props"),
     )
 
-    op.execute(
-        """
+    op.execute("""
         INSERT INTO rom_user (id, updated_at, note_raw_markdown, note_is_public, is_main_sibling, rom_id, user_id)
         SELECT id, updated_at, raw_markdown, is_public, FALSE, rom_id, user_id
         FROM rom_notes
-    """
-    )
+    """)
 
     op.drop_table("rom_notes")
     # ### end Alembic commands ###
@@ -84,13 +82,11 @@ def downgrade() -> None:
     )
 
     # Copy the data back from the new table to the old table
-    op.execute(
-        """
+    op.execute("""
         INSERT INTO rom_notes (id, updated_at, raw_markdown, is_public, rom_id, user_id)
         SELECT id, updated_at, note_raw_markdown, note_is_public, rom_id, user_id
         FROM rom_user
-    """
-    )
+    """)
 
     # Drop the new table
     op.drop_table("rom_user")

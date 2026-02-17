@@ -86,8 +86,7 @@ def upgrade() -> None:
             sa.Column("url_cover", sa.Text(), nullable=True),
             sa.PrimaryKeyConstraint("id"),
         )
-        batch_op.execute(
-            "INSERT INTO roms(\
+        batch_op.execute("INSERT INTO roms(\
                             r_igdb_id, p_igdb_id, r_sgdb_id, p_sgdb_id, p_slug, p_name, \
                             file_name, file_name_no_tags, file_extension, file_path, file_size, \
                             file_size_units, r_name, r_slug, summary, path_cover_s, path_cover_l, has_cover, \
@@ -97,8 +96,7 @@ def upgrade() -> None:
                             file_name, file_name_no_tags, file_extension, file_path, file_size, \
                             file_size_units, r_name, r_slug, summary, path_cover_s, path_cover_l, has_cover, \
                             region, revision, tags, multi, files, url_cover \
-                            FROM old_roms"
-        )
+                            FROM old_roms")
         op.drop_table("old_roms")
     # ### end Alembic commands ###
 
