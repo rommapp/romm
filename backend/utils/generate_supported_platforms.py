@@ -68,10 +68,8 @@ if __name__ == "__main__":
         sorted(supported_platforms.items(), key=lambda item: item[1]["name"].lower())
     )
 
-    print(
-        """|Platform Name|Folder Name|Metadata Providers|
-|---|---|---|"""
-    )
+    print("""|Platform Name|Folder Name|Metadata Providers|
+|---|---|---|""")
 
     for platform in supported_platforms.values():
         print(

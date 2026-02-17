@@ -25,8 +25,7 @@ def upgrade() -> None:
     )
 
     connection.execute(
-        sa.text(
-            f"""
+        sa.text(f"""
             CREATE OR REPLACE VIEW sibling_roms AS
             SELECT
                 r1.id AS rom_id,
@@ -51,8 +50,7 @@ def upgrade() -> None:
                     OR
                     (r1.ss_id = r2.ss_id AND r1.ss_id IS NOT NULL)
                 );
-            """  # nosec B608
-        ),
+            """),  # nosec B608
     )
 
 
@@ -65,8 +63,7 @@ def downgrade() -> None:
     connection.execute(sa.text("DROP VIEW IF EXISTS sibling_roms;"))
 
     connection.execute(
-        sa.text(
-            f"""
+        sa.text(f"""
             CREATE VIEW sibling_roms AS
             SELECT
                 r1.id AS rom_id,
@@ -88,6 +85,5 @@ def downgrade() -> None:
                     OR
                     (r1.moby_id = r2.moby_id AND r1.moby_id IS NOT NULL)
                 );
-            """  # nosec B608
-        ),
+            """),  # nosec B608
     )
