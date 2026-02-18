@@ -1,3 +1,4 @@
+import type { AxiosResponse } from "axios";
 import type { ExclusionPayload, PlatformBindingPayload } from "@/__generated__";
 import api from "@/services/api";
 
@@ -10,8 +11,10 @@ async function addPlatformBindConfig({
   fsSlug: string;
   slug: string;
 }) {
-  const payload: PlatformBindingPayload = { fs_slug: fsSlug, slug };
-  return api.post("/config/system/platforms", payload);
+  return api.post<void, AxiosResponse<void>, PlatformBindingPayload>(
+    "/config/system/platforms",
+    { fs_slug: fsSlug, slug },
+  );
 }
 
 async function deletePlatformBindConfig({ fsSlug }: { fsSlug: string }) {
@@ -25,8 +28,10 @@ async function addPlatformVersionConfig({
   fsSlug: string;
   slug: string;
 }) {
-  const payload: PlatformBindingPayload = { fs_slug: fsSlug, slug };
-  return api.post("/config/system/versions", payload);
+  return api.post<void, AxiosResponse<void>, PlatformBindingPayload>(
+    "/config/system/versions",
+    { fs_slug: fsSlug, slug },
+  );
 }
 
 async function deletePlatformVersionConfig({ fsSlug }: { fsSlug: string }) {
@@ -40,11 +45,13 @@ async function addExclusion({
   exclusionValue: string;
   exclusionType: string;
 }) {
-  const payload: ExclusionPayload = {
-    exclusion_value: exclusionValue,
-    exclusion_type: exclusionType,
-  };
-  return api.post("/config/exclude", payload);
+  return api.post<void, AxiosResponse<void>, ExclusionPayload>(
+    "/config/exclude",
+    {
+      exclusion_value: exclusionValue,
+      exclusion_type: exclusionType,
+    },
+  );
 }
 
 async function deleteExclusion({

@@ -1,3 +1,4 @@
+import type { AxiosResponse } from "axios";
 import type {
   Body_request_password_reset_api_forgot_password_post as RequestPasswordResetInput,
   Body_reset_password_api_reset_password_post as ResetPasswordInput,
@@ -20,22 +21,24 @@ async function login(username: string, password: string) {
 }
 
 async function logout() {
-  return api.post("/logout");
+  return api.post("/logout", {});
 }
 
 async function requestPasswordReset(username: string) {
-  const payload: RequestPasswordResetInput = {
-    username,
-  };
-  return api.post("/forgot-password", payload);
+  return api.post<void, AxiosResponse<void>, RequestPasswordResetInput>(
+    "/forgot-password",
+    { username },
+  );
 }
 
 async function resetPassword(token: string, newPassword: string) {
-  const payload: ResetPasswordInput = {
-    token,
-    new_password: newPassword,
-  };
-  return api.post("/reset-password", payload);
+  return api.post<void, AxiosResponse<void>, ResetPasswordInput>(
+    "/reset-password",
+    {
+      token,
+      new_password: newPassword,
+    },
+  );
 }
 
 export default {
