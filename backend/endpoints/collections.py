@@ -3,6 +3,7 @@ from datetime import datetime
 from io import BytesIO
 from typing import Annotated
 
+from fastapi import File, Form
 from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
 
@@ -42,7 +43,14 @@ async def add_collection(
     request: Request,
     is_public: bool | None = None,
     is_favorite: bool | None = None,
-    artwork: UploadFile | None = None,
+    artwork: UploadFile | None = File(
+        default=None, description="Collection artwork file."
+    ),
+    name: str = Form(default=""),
+    description: str = Form(default=""),
+    url_cover: str = Form(
+        default="", description="Remote URL to fetch and use as cover artwork."
+    ),
 ) -> CollectionSchema:
     """Create collection endpoint
 
@@ -52,12 +60,10 @@ async def add_collection(
     Returns:
         CollectionSchema: Just created collection
     """
-
-    data = await request.form()
     cleaned_data = {
-        "name": data.get("name", ""),
-        "description": data.get("description", ""),
-        "url_cover": data.get("url_cover", ""),
+        "name": name,
+        "description": description,
+        "url_cover": url_cover,
         "is_public": is_public or False,
         "is_favorite": is_favorite or False,
         "user_id": request.user.id,
@@ -104,7 +110,14 @@ async def add_collection(
 
 @protected_route(router.post, "/smart", [Scope.COLLECTIONS_WRITE])
 async def add_smart_collection(
-    request: Request, is_public: bool | None = None
+    request: Request,
+    is_public: bool | None = None,
+    name: str = Form(default=""),
+    description: str = Form(default=""),
+    filter_criteria: str = Form(
+        default="{}",
+        description="Smart collection filters as a JSON string.",
+    ),
 ) -> SmartCollectionSchema:
     """Create smart collection endpoint
 
@@ -114,19 +127,16 @@ async def add_smart_collection(
     Returns:
         SmartCollectionSchema: Just created smart collection
     """
-
-    data = await request.form()
-
     # Parse filter criteria from JSON string
     try:
-        filter_criteria = json.loads(str(data.get("filter_criteria", "{}")))
+        parsed_filter_criteria = json.loads(filter_criteria)
     except json.JSONDecodeError as e:
         raise ValueError("Invalid JSON for filter_criteria field") from e
 
     cleaned_data = {
-        "name": str(data.get("name", "")),
-        "description": str(data.get("description", "")),
-        "filter_criteria": filter_criteria,
+        "name": name,
+        "description": description,
+        "filter_criteria": parsed_filter_criteria,
         "is_public": is_public if is_public is not None else False,
         "user_id": request.user.id,
     }
@@ -358,7 +368,16 @@ async def update_collection(
     id: int,
     remove_cover: bool = False,
     is_public: bool | None = None,
-    artwork: UploadFile | None = None,
+    artwork: UploadFile | None = File(
+        default=None, description="Collection artwork file."
+    ),
+    rom_ids: str = Form(
+        ...,
+        description="Collection ROM IDs as a JSON array string (e.g. [1,2,3]).",
+    ),
+    name: str | None = Form(default=None),
+    description: str | None = Form(default=None),
+    url_cover: str | None = Form(default=None, description="Updated remote cover URL."),
 ) -> CollectionSchema:
     """Update collection endpoint
 
@@ -368,9 +387,6 @@ async def update_collection(
     Returns:
         CollectionSchema: Updated collection
     """
-
-    data = await request.form()
-
     collection = db_collection_handler.get_collection(id)
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
@@ -382,13 +398,15 @@ async def update_collection(
         raise CollectionNotFoundInDatabaseException(id)
 
     try:
-        rom_ids = json.loads(data["rom_ids"])  # type: ignore
+        parsed_rom_ids = json.loads(rom_ids)
     except json.JSONDecodeError as e:
         raise ValueError("Invalid list for rom_ids field in update collection") from e
 
     cleaned_data = {
-        "name": data.get("name", collection.name),
-        "description": data.get("description", collection.description),
+        "name": name if name is not None else collection.name,
+        "description": (
+            description if description is not None else collection.description
+        ),
         "is_public": is_public if is_public is not None else collection.is_public,
         "user_id": request.user.id,
     }
@@ -415,26 +433,28 @@ async def update_collection(
                 }
             )
         else:
-            if data.get(
-                "url_cover", ""
-            ) != collection.url_cover or not fs_resource_handler.cover_exists(
-                collection, CoverSize.BIG
+            current_url_cover = (
+                url_cover if url_cover is not None else collection.url_cover
+            )
+            if (
+                current_url_cover != collection.url_cover
+                or not fs_resource_handler.cover_exists(collection, CoverSize.BIG)
             ):
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     entity=collection,
                     overwrite=True,
-                    url_cover=data.get("url_cover", ""),  # type: ignore
+                    url_cover=current_url_cover,
                 )
                 cleaned_data.update(
                     {
-                        "url_cover": data.get("url_cover", collection.url_cover),
+                        "url_cover": current_url_cover,
                         "path_cover_s": path_cover_s,
                         "path_cover_l": path_cover_l,
                     }
                 )
 
     updated_collection = db_collection_handler.update_collection(
-        id, cleaned_data, rom_ids
+        id, cleaned_data, parsed_rom_ids
     )
 
     return CollectionSchema.model_validate(updated_collection)
@@ -445,6 +465,12 @@ async def update_smart_collection(
     request: Request,
     id: int,
     is_public: bool | None = None,
+    name: str | None = Form(default=None),
+    description: str | None = Form(default=None),
+    filter_criteria: str | None = Form(
+        default=None,
+        description="Updated smart collection filters as a JSON string.",
+    ),
 ) -> SmartCollectionSchema:
     """Update smart collection endpoint
 
@@ -455,9 +481,6 @@ async def update_smart_collection(
     Returns:
         SmartCollectionSchema: Updated smart collection
     """
-
-    data = await request.form()
-
     smart_collection = db_collection_handler.get_smart_collection(id)
     if not smart_collection:
         raise CollectionNotFoundInDatabaseException(id)
@@ -466,17 +489,19 @@ async def update_smart_collection(
         raise CollectionPermissionError(id)
 
     # Parse filter criteria if provided
-    filter_criteria = smart_collection.filter_criteria
-    if "filter_criteria" in data:
+    parsed_filter_criteria = smart_collection.filter_criteria
+    if filter_criteria is not None:
         try:
-            filter_criteria = json.loads(str(data["filter_criteria"]))
+            parsed_filter_criteria = json.loads(filter_criteria)
         except json.JSONDecodeError as e:
             raise ValueError("Invalid JSON for filter_criteria field") from e
 
     cleaned_data = {
-        "name": str(data.get("name", smart_collection.name)),
-        "description": str(data.get("description", smart_collection.description)),
-        "filter_criteria": filter_criteria,
+        "name": name if name is not None else smart_collection.name,
+        "description": (
+            description if description is not None else smart_collection.description
+        ),
+        "filter_criteria": parsed_filter_criteria,
         "is_public": is_public if is_public is not None else smart_collection.is_public,
         "user_id": request.user.id,
     }

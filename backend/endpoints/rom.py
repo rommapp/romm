@@ -12,7 +12,9 @@ import pydash
 from anyio import Path, open_file
 from fastapi import (
     Body,
+    Depends,
     File,
+    Form,
     Header,
     HTTPException,
 )
@@ -23,11 +25,10 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.datastructures import FormData
 from fastapi.responses import Response
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
@@ -86,8 +87,117 @@ def safe_int_or_none(value: Any) -> int | None:
     return safe_int(value)
 
 
-def parse_raw_metadata(data: FormData, form_key: str) -> dict | None:
-    raw_json = data.get(form_key, None)
+class RomUpdateForm(BaseModel):
+    igdb_id: str | None = Field(default=None, description="IGDB game ID.")
+    sgdb_id: str | None = Field(default=None, description="SteamGridDB game ID.")
+    moby_id: str | None = Field(default=None, description="MobyGames game ID.")
+    ss_id: str | None = Field(default=None, description="ScreenScraper game ID.")
+    ra_id: str | None = Field(default=None, description="RetroAchievements game ID.")
+    launchbox_id: str | None = Field(default=None, description="LaunchBox game ID.")
+    hasheous_id: str | None = Field(default=None, description="Hasheous game ID.")
+    tgdb_id: str | None = Field(default=None, description="TheGamesDB game ID.")
+    flashpoint_id: str | None = Field(default=None, description="Flashpoint game ID.")
+    hltb_id: str | None = Field(default=None, description="HowLongToBeat game ID.")
+    raw_igdb_metadata: str | None = Field(
+        default=None, description="Raw IGDB metadata as JSON string."
+    )
+    raw_moby_metadata: str | None = Field(
+        default=None, description="Raw MobyGames metadata as JSON string."
+    )
+    raw_ss_metadata: str | None = Field(
+        default=None, description="Raw ScreenScraper metadata as JSON string."
+    )
+    raw_launchbox_metadata: str | None = Field(
+        default=None, description="Raw LaunchBox metadata as JSON string."
+    )
+    raw_hasheous_metadata: str | None = Field(
+        default=None, description="Raw Hasheous metadata as JSON string."
+    )
+    raw_flashpoint_metadata: str | None = Field(
+        default=None, description="Raw Flashpoint metadata as JSON string."
+    )
+    raw_hltb_metadata: str | None = Field(
+        default=None, description="Raw HowLongToBeat metadata as JSON string."
+    )
+    raw_manual_metadata: str | None = Field(
+        default=None, description="Raw manual metadata as JSON string."
+    )
+    name: str | None = None
+    summary: str | None = None
+    fs_name: str | None = None
+    url_cover: str | None = None
+    url_manual: str | None = None
+
+
+class RomUserUpdatePayload(BaseModel):
+    data: dict[str, Any] = Field(default_factory=dict)
+    update_last_played: bool = False
+    remove_last_played: bool = False
+
+
+async def parse_rom_update_form(
+    request: Request,
+    igdb_id: str | None = Form(default=None),
+    sgdb_id: str | None = Form(default=None),
+    moby_id: str | None = Form(default=None),
+    ss_id: str | None = Form(default=None),
+    ra_id: str | None = Form(default=None),
+    launchbox_id: str | None = Form(default=None),
+    hasheous_id: str | None = Form(default=None),
+    tgdb_id: str | None = Form(default=None),
+    flashpoint_id: str | None = Form(default=None),
+    hltb_id: str | None = Form(default=None),
+    raw_igdb_metadata: str | None = Form(default=None),
+    raw_moby_metadata: str | None = Form(default=None),
+    raw_ss_metadata: str | None = Form(default=None),
+    raw_launchbox_metadata: str | None = Form(default=None),
+    raw_hasheous_metadata: str | None = Form(default=None),
+    raw_flashpoint_metadata: str | None = Form(default=None),
+    raw_hltb_metadata: str | None = Form(default=None),
+    raw_manual_metadata: str | None = Form(default=None),
+    name: str | None = Form(default=None),
+    summary: str | None = Form(default=None),
+    fs_name: str | None = Form(default=None),
+    url_cover: str | None = Form(default=None),
+    url_manual: str | None = Form(default=None),
+) -> RomUpdateForm:
+    # Preserve "field was provided" behavior used by update logic.
+    form_keys = set((await request.form()).keys())
+    field_values = {
+        "igdb_id": igdb_id,
+        "sgdb_id": sgdb_id,
+        "moby_id": moby_id,
+        "ss_id": ss_id,
+        "ra_id": ra_id,
+        "launchbox_id": launchbox_id,
+        "hasheous_id": hasheous_id,
+        "tgdb_id": tgdb_id,
+        "flashpoint_id": flashpoint_id,
+        "hltb_id": hltb_id,
+        "raw_igdb_metadata": raw_igdb_metadata,
+        "raw_moby_metadata": raw_moby_metadata,
+        "raw_ss_metadata": raw_ss_metadata,
+        "raw_launchbox_metadata": raw_launchbox_metadata,
+        "raw_hasheous_metadata": raw_hasheous_metadata,
+        "raw_flashpoint_metadata": raw_flashpoint_metadata,
+        "raw_hltb_metadata": raw_hltb_metadata,
+        "raw_manual_metadata": raw_manual_metadata,
+        "name": name,
+        "summary": summary,
+        "fs_name": fs_name,
+        "url_cover": url_cover,
+        "url_manual": url_manual,
+    }
+    return RomUpdateForm.model_validate(
+        {field: value for field, value in field_values.items() if field in form_keys}
+    )
+
+
+def parse_raw_metadata(form_data: RomUpdateForm, form_key: str) -> dict | None:
+    if form_key not in form_data.model_fields_set:
+        return None
+
+    raw_json = getattr(form_data, form_key, None)
     if not raw_json or str(raw_json).strip() == "":
         return None
 
@@ -988,6 +1098,7 @@ async def get_rom_content(
 async def update_rom(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    form_data: Annotated[RomUpdateForm, Depends(parse_rom_update_form)],
     artwork: Annotated[
         UploadFile | None,
         File(description="Custom artwork to set as cover."),
@@ -1002,8 +1113,6 @@ async def update_rom(
     ] = False,
 ) -> DetailedRomSchema:
     """Update a rom."""
-    data = await request.form()
-
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
@@ -1051,50 +1160,69 @@ async def update_rom(
 
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
+    provided_fields = form_data.model_fields_set
     cleaned_data: dict[str, Any] = {
         "igdb_id": (
-            safe_int_or_none(data["igdb_id"]) if "igdb_id" in data else rom.igdb_id
+            safe_int_or_none(form_data.igdb_id)
+            if "igdb_id" in provided_fields
+            else rom.igdb_id
         ),
         "sgdb_id": (
-            safe_int_or_none(data["sgdb_id"]) if "sgdb_id" in data else rom.sgdb_id
+            safe_int_or_none(form_data.sgdb_id)
+            if "sgdb_id" in provided_fields
+            else rom.sgdb_id
         ),
         "moby_id": (
-            safe_int_or_none(data["moby_id"]) if "moby_id" in data else rom.moby_id
+            safe_int_or_none(form_data.moby_id)
+            if "moby_id" in provided_fields
+            else rom.moby_id
         ),
-        "ss_id": safe_int_or_none(data["ss_id"]) if "ss_id" in data else rom.ss_id,
-        "ra_id": safe_int_or_none(data["ra_id"]) if "ra_id" in data else rom.ra_id,
+        "ss_id": (
+            safe_int_or_none(form_data.ss_id)
+            if "ss_id" in provided_fields
+            else rom.ss_id
+        ),
+        "ra_id": (
+            safe_int_or_none(form_data.ra_id)
+            if "ra_id" in provided_fields
+            else rom.ra_id
+        ),
         "launchbox_id": (
-            safe_int_or_none(data["launchbox_id"])
-            if "launchbox_id" in data
+            safe_int_or_none(form_data.launchbox_id)
+            if "launchbox_id" in provided_fields
             else rom.launchbox_id
         ),
         "hasheous_id": (
-            safe_int_or_none(data["hasheous_id"])
-            if "hasheous_id" in data
+            safe_int_or_none(form_data.hasheous_id)
+            if "hasheous_id" in provided_fields
             else rom.hasheous_id
         ),
         "tgdb_id": (
-            safe_int_or_none(data["tgdb_id"]) if "tgdb_id" in data else rom.tgdb_id
+            safe_int_or_none(form_data.tgdb_id)
+            if "tgdb_id" in provided_fields
+            else rom.tgdb_id
         ),
         "flashpoint_id": (
-            data["flashpoint_id"] or None
-            if "flashpoint_id" in data
+            form_data.flashpoint_id or None
+            if "flashpoint_id" in provided_fields
             else rom.flashpoint_id
         ),
         "hltb_id": (
-            safe_int_or_none(data["hltb_id"]) if "hltb_id" in data else rom.hltb_id
+            safe_int_or_none(form_data.hltb_id)
+            if "hltb_id" in provided_fields
+            else rom.hltb_id
         ),
     }
 
     # Add raw metadata parsing
-    raw_igdb_metadata = parse_raw_metadata(data, "raw_igdb_metadata")
-    raw_moby_metadata = parse_raw_metadata(data, "raw_moby_metadata")
-    raw_ss_metadata = parse_raw_metadata(data, "raw_ss_metadata")
-    raw_launchbox_metadata = parse_raw_metadata(data, "raw_launchbox_metadata")
-    raw_hasheous_metadata = parse_raw_metadata(data, "raw_hasheous_metadata")
-    raw_flashpoint_metadata = parse_raw_metadata(data, "raw_flashpoint_metadata")
-    raw_hltb_metadata = parse_raw_metadata(data, "raw_hltb_metadata")
-    raw_manual_metadata = parse_raw_metadata(data, "raw_manual_metadata")
+    raw_igdb_metadata = parse_raw_metadata(form_data, "raw_igdb_metadata")
+    raw_moby_metadata = parse_raw_metadata(form_data, "raw_moby_metadata")
+    raw_ss_metadata = parse_raw_metadata(form_data, "raw_ss_metadata")
+    raw_launchbox_metadata = parse_raw_metadata(form_data, "raw_launchbox_metadata")
+    raw_hasheous_metadata = parse_raw_metadata(form_data, "raw_hasheous_metadata")
+    raw_flashpoint_metadata = parse_raw_metadata(form_data, "raw_flashpoint_metadata")
+    raw_hltb_metadata = parse_raw_metadata(form_data, "raw_hltb_metadata")
+    raw_manual_metadata = parse_raw_metadata(form_data, "raw_manual_metadata")
     if cleaned_data["igdb_id"] and raw_igdb_metadata is not None:
         cleaned_data["igdb_metadata"] = raw_igdb_metadata
     if cleaned_data["moby_id"] and raw_moby_metadata is not None:
@@ -1175,12 +1303,14 @@ async def update_rom(
 
     cleaned_data.update(
         {
-            "name": data.get("name", rom.name),
-            "summary": data.get("summary", rom.summary),
+            "name": form_data.name if "name" in provided_fields else rom.name,
+            "summary": (
+                form_data.summary if "summary" in provided_fields else rom.summary
+            ),
         }
     )
 
-    new_fs_name = str(data.get("fs_name") or rom.fs_name)
+    new_fs_name = str(form_data.fs_name or rom.fs_name)
     new_fs_name = sanitize_filename(new_fs_name)
     cleaned_data.update(
         {
@@ -1212,7 +1342,9 @@ async def update_rom(
                 }
             )
         else:
-            url_cover = data.get("url_cover", rom.url_cover)
+            url_cover = (
+                form_data.url_cover if "url_cover" in provided_fields else rom.url_cover
+            )
             path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                 entity=rom,
                 overwrite=url_cover != rom.url_cover,
@@ -1226,7 +1358,9 @@ async def update_rom(
                 }
             )
 
-    url_manual = data.get("url_manual", rom.url_manual)
+    url_manual = (
+        form_data.url_manual if "url_manual" in provided_fields else rom.url_manual
+    )
     path_manual = await fs_resource_handler.get_manual(
         rom=rom,
         overwrite=url_manual != rom.url_manual,
@@ -1519,20 +1653,10 @@ async def delete_roms(
 async def update_rom_user(
     request: Request,
     id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    update_last_played: Annotated[
-        bool,
-        Body(description="Whether to update the last played date."),
-    ] = False,
-    remove_last_played: Annotated[
-        bool,
-        Body(description="Whether to remove the last played date."),
-    ] = False,
+    payload: Annotated[RomUserUpdatePayload, Body()],
 ) -> RomUserSchema:
     """Update rom data associated to the current user."""
-
-    # TODO: Migrate to native FastAPI body parsing.
-    data = await request.json()
-    rom_user_data = data.get("data", {})
+    rom_user_data = payload.data
 
     rom = db_rom_handler.get_rom(id)
 
@@ -1560,9 +1684,9 @@ async def update_rom_user(
         if field in rom_user_data
     }
 
-    if update_last_played:
+    if payload.update_last_played:
         cleaned_data.update({"last_played": datetime.now(timezone.utc)})
-    elif remove_last_played:
+    elif payload.remove_last_played:
         cleaned_data.update({"last_played": None})
 
     rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
