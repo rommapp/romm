@@ -1,18 +1,23 @@
-import type { ScreenshotSchema } from "@/__generated__";
+import type {
+  Body_add_screenshot_api_screenshots_post as AddScreenshotInput,
+  DetailedRomSchema,
+  ScreenshotSchema,
+} from "@/__generated__";
 import api from "@/services/api";
-import type { DetailedRom } from "@/stores/roms";
 
 export const screenshotApi = api;
+
+type ScreenshotUploadInput = AddScreenshotInput & {
+  screenshotFile: File;
+};
 
 async function uploadScreenshots({
   rom,
   screenshotsToUpload,
   emulator,
 }: {
-  rom: DetailedRom;
-  screenshotsToUpload: {
-    screenshotFile: File;
-  }[];
+  rom: DetailedRomSchema;
+  screenshotsToUpload: ScreenshotUploadInput[];
   emulator?: string;
 }): Promise<PromiseSettledResult<ScreenshotSchema>[]> {
   const promises = screenshotsToUpload.map(({ screenshotFile }) => {
@@ -42,7 +47,7 @@ async function updateScreenshot({
   screenshotFile,
 }: {
   screenshot: ScreenshotSchema;
-  screenshotFile: File;
+  screenshotFile: ScreenshotUploadInput["screenshotFile"];
 }): Promise<{ data: ScreenshotSchema }> {
   const formData = new FormData();
   formData.append("screenshotFile", screenshotFile);

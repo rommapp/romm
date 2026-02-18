@@ -1,6 +1,11 @@
-import type { SaveSchema } from "@/__generated__";
+import type {
+  Body_add_save_api_saves_post as AddSaveInput,
+  Body_delete_saves_api_saves_delete_post as DeleteSavesInput,
+  Body_update_save_api_saves__id__put as UpdateSaveInput,
+  DetailedRomSchema,
+  SaveSchema,
+} from "@/__generated__";
 import api from "@/services/api";
-import type { DetailedRom } from "@/stores/roms";
 
 export const saveApi = api;
 
@@ -9,19 +14,14 @@ async function uploadSaves({
   savesToUpload,
   emulator,
 }: {
-  rom: DetailedRom;
-  savesToUpload: {
-    saveFile: File;
-    screenshotFile?: File;
-  }[];
+  rom: DetailedRomSchema;
+  savesToUpload: AddSaveInput[];
   emulator?: string;
 }): Promise<PromiseSettledResult<SaveSchema>[]> {
   const promises = savesToUpload.map(({ saveFile, screenshotFile }) => {
     const formData = new FormData();
-    formData.append("saveFile", saveFile);
-    if (screenshotFile) {
-      formData.append("screenshotFile", screenshotFile);
-    }
+    if (saveFile) formData.append("saveFile", saveFile);
+    if (screenshotFile) formData.append("screenshotFile", screenshotFile);
 
     return new Promise<SaveSchema>((resolve, reject) => {
       api
@@ -47,11 +47,11 @@ async function updateSave({
   screenshotFile,
 }: {
   save: SaveSchema;
-  saveFile: File;
-  screenshotFile?: File;
+  saveFile: UpdateSaveInput["saveFile"];
+  screenshotFile?: UpdateSaveInput["screenshotFile"];
 }): Promise<{ data: SaveSchema }> {
   const formData = new FormData();
-  formData.append("saveFile", saveFile);
+  if (saveFile) formData.append("saveFile", saveFile);
   if (screenshotFile) formData.append("screenshotFile", screenshotFile);
 
   return api.put(`/saves/${save.id}`, formData);
@@ -62,9 +62,10 @@ async function deleteSaves({
 }: {
   saves: SaveSchema[];
 }): Promise<{ data: number[] }> {
-  return api.post("/saves/delete", {
+  const payload: DeleteSavesInput = {
     saves: saves.map((s) => s.id),
-  });
+  };
+  return api.post("/saves/delete", payload);
 }
 
 export default {

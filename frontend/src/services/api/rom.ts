@@ -1,8 +1,14 @@
 import type { AxiosProgressEvent } from "axios";
 import type {
+  Body_delete_roms_api_roms_delete_post as DeleteRomsInput,
+  Body_update_rom_api_roms__id__put as UpdateRomInput,
   BulkOperationResponse,
+  DetailedRomSchema,
   ManualMetadata,
+  RomUserUpdatePayload,
   RomUserSchema,
+  SearchRomSchema,
+  SimpleRomSchema,
   UserNoteSchema,
   RomFiltersDict,
 } from "@/__generated__";
@@ -10,11 +16,13 @@ import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "
 import api from "@/services/api";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
-import type { DetailedRom, SimpleRom, SearchRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import { getDownloadPath } from "@/utils";
 
 export const romApi = api;
+type DetailedRom = DetailedRomSchema;
+type SimpleRom = SimpleRomSchema;
+type SearchRom = SearchRomSchema;
 
 const DOWNLOAD_CLEANUP_DELAY = 100;
 
@@ -378,62 +386,77 @@ async function updateRom({
   removeCover?: boolean;
   unmatch?: boolean;
 }): Promise<{ data: DetailedRom }> {
+  const payload: UpdateRomInput = {
+    name: rom.name || "",
+    fs_name: rom.fs_name,
+    summary: rom.summary || "",
+    igdb_id: rom.igdb_id?.toString() || "",
+    sgdb_id: rom.sgdb_id?.toString() || "",
+    moby_id: rom.moby_id?.toString() || "",
+    ss_id: rom.ss_id?.toString() || "",
+    launchbox_id: rom.launchbox_id?.toString() || "",
+    ra_id: rom.ra_id?.toString() || "",
+    flashpoint_id: rom.flashpoint_id?.toString() || "",
+    hasheous_id: rom.hasheous_id?.toString() || "",
+    tgdb_id: rom.tgdb_id?.toString() || "",
+    hltb_id: rom.hltb_id?.toString() || "",
+    url_cover: rom.url_cover || "",
+    artwork: rom.artwork,
+  };
   const formData = new FormData();
-  formData.append("name", rom.name || "");
-  formData.append("fs_name", rom.fs_name);
-  formData.append("summary", rom.summary || "");
-
-  formData.append("igdb_id", rom.igdb_id?.toString() || "");
-  formData.append("sgdb_id", rom.sgdb_id?.toString() || "");
-  formData.append("moby_id", rom.moby_id?.toString() || "");
-  formData.append("ss_id", rom.ss_id?.toString() || "");
-  formData.append("launchbox_id", rom.launchbox_id?.toString() || "");
-  formData.append("ra_id", rom.ra_id?.toString() || "");
-  formData.append("flashpoint_id", rom.flashpoint_id?.toString() || "");
-  formData.append("hasheous_id", rom.hasheous_id?.toString() || "");
-  formData.append("tgdb_id", rom.tgdb_id?.toString() || "");
-  formData.append("hltb_id", rom.hltb_id?.toString() || "");
+  formData.append("name", payload.name || "");
+  formData.append("fs_name", payload.fs_name || "");
+  formData.append("summary", payload.summary || "");
+  formData.append("igdb_id", payload.igdb_id || "");
+  formData.append("sgdb_id", payload.sgdb_id || "");
+  formData.append("moby_id", payload.moby_id || "");
+  formData.append("ss_id", payload.ss_id || "");
+  formData.append("launchbox_id", payload.launchbox_id || "");
+  formData.append("ra_id", payload.ra_id || "");
+  formData.append("flashpoint_id", payload.flashpoint_id || "");
+  formData.append("hasheous_id", payload.hasheous_id || "");
+  formData.append("tgdb_id", payload.tgdb_id || "");
+  formData.append("hltb_id", payload.hltb_id || "");
 
   if (rom.manual_metadata) {
-    formData.append("raw_manual_metadata", JSON.stringify(rom.manual_metadata));
+    payload.raw_manual_metadata = JSON.stringify(rom.manual_metadata);
+    formData.append("raw_manual_metadata", payload.raw_manual_metadata);
   }
 
   if (rom.raw_metadata?.igdb_metadata) {
-    formData.append("raw_igdb_metadata", rom.raw_metadata.igdb_metadata);
+    payload.raw_igdb_metadata = rom.raw_metadata.igdb_metadata;
+    formData.append("raw_igdb_metadata", payload.raw_igdb_metadata);
   }
   if (rom.raw_metadata?.moby_metadata) {
-    formData.append("raw_moby_metadata", rom.raw_metadata.moby_metadata);
+    payload.raw_moby_metadata = rom.raw_metadata.moby_metadata;
+    formData.append("raw_moby_metadata", payload.raw_moby_metadata);
   }
   if (rom.raw_metadata?.ss_metadata) {
-    formData.append("raw_ss_metadata", rom.raw_metadata.ss_metadata);
+    payload.raw_ss_metadata = rom.raw_metadata.ss_metadata;
+    formData.append("raw_ss_metadata", payload.raw_ss_metadata);
   }
   if (rom.raw_metadata?.launchbox_metadata) {
-    formData.append(
-      "raw_launchbox_metadata",
-      rom.raw_metadata.launchbox_metadata,
-    );
+    payload.raw_launchbox_metadata = rom.raw_metadata.launchbox_metadata;
+    formData.append("raw_launchbox_metadata", payload.raw_launchbox_metadata);
   }
   if (rom.raw_metadata?.hasheous_metadata) {
-    formData.append(
-      "raw_hasheous_metadata",
-      rom.raw_metadata.hasheous_metadata,
-    );
+    payload.raw_hasheous_metadata = rom.raw_metadata.hasheous_metadata;
+    formData.append("raw_hasheous_metadata", payload.raw_hasheous_metadata);
   }
   if (rom.raw_metadata?.flashpoint_metadata) {
-    formData.append(
-      "raw_flashpoint_metadata",
-      rom.raw_metadata.flashpoint_metadata,
-    );
+    payload.raw_flashpoint_metadata = rom.raw_metadata.flashpoint_metadata;
+    formData.append("raw_flashpoint_metadata", payload.raw_flashpoint_metadata);
   }
   if (rom.raw_metadata?.hltb_metadata) {
-    formData.append("raw_hltb_metadata", rom.raw_metadata.hltb_metadata);
+    payload.raw_hltb_metadata = rom.raw_metadata.hltb_metadata;
+    formData.append("raw_hltb_metadata", payload.raw_hltb_metadata);
   }
 
   // Don't set url_cover on manual artwork upload
-  if (rom.artwork) {
-    formData.append("artwork", rom.artwork);
+  if (payload.artwork) {
+    formData.append("artwork", payload.artwork);
   } else {
-    formData.append("url_cover", rom.url_cover || "");
+    formData.append("url_cover", payload.url_cover || "");
   }
 
   return api.put(`/roms/${rom.id}`, formData, {
@@ -502,11 +525,12 @@ async function updateUserRomProps({
   updateLastPlayed?: boolean;
   removeLastPlayed?: boolean;
 }): Promise<{ data: RomUserSchema }> {
-  return api.put(`/roms/${romId}/props`, {
+  const payload: RomUserUpdatePayload = {
     data: data,
     update_last_played: updateLastPlayed,
     remove_last_played: removeLastPlayed,
-  });
+  };
+  return api.put(`/roms/${romId}/props`, payload);
 }
 
 async function deleteRoms({
@@ -516,10 +540,11 @@ async function deleteRoms({
   roms: SimpleRom[];
   deleteFromFs: number[];
 }): Promise<{ data: BulkOperationResponse }> {
-  return api.post("/roms/delete", {
+  const payload: DeleteRomsInput = {
     roms: roms.map((r) => r.id),
     delete_from_fs: deleteFromFs,
-  });
+  };
+  return api.post("/roms/delete", payload);
 }
 
 // Multi-note management functions

@@ -1,3 +1,7 @@
+import type {
+  Body_request_password_reset_api_forgot_password_post as RequestPasswordResetInput,
+  Body_reset_password_api_reset_password_post as ResetPasswordInput,
+} from "@/__generated__";
 import api from "@/services/api";
 
 export const identityApi = api;
@@ -20,11 +24,18 @@ async function logout() {
 }
 
 async function requestPasswordReset(username: string) {
-  return api.post("/forgot-password", { username });
+  const payload: RequestPasswordResetInput = {
+    username,
+  };
+  return api.post("/forgot-password", payload);
 }
 
 async function resetPassword(token: string, newPassword: string) {
-  return api.post("/reset-password", { token, new_password: newPassword });
+  const payload: ResetPasswordInput = {
+    token,
+    new_password: newPassword,
+  };
+  return api.post("/reset-password", payload);
 }
 
 export default {

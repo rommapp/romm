@@ -1,19 +1,31 @@
-import type { StateSchema } from "@/__generated__";
+import type {
+  Body_add_state_api_states_post as AddStateInput,
+  Body_delete_states_api_states_delete_post as DeleteStatesInput,
+  Body_update_state_api_states__id__put as UpdateStateInput,
+  DetailedRomSchema,
+  StateSchema,
+} from "@/__generated__";
 import api from "@/services/api";
-import type { DetailedRom } from "@/stores/roms";
 
 export const stateApi = api;
+
+type UploadStateInput = AddStateInput & {
+  stateFile: File;
+  screenshotFile?: File;
+};
+
+type UpdateStateUploadInput = UpdateStateInput & {
+  stateFile: File;
+  screenshotFile?: File;
+};
 
 async function uploadStates({
   rom,
   statesToUpload,
   emulator,
 }: {
-  rom: DetailedRom;
-  statesToUpload: {
-    stateFile: File;
-    screenshotFile?: File;
-  }[];
+  rom: DetailedRomSchema;
+  statesToUpload: UploadStateInput[];
   emulator?: string;
 }): Promise<PromiseSettledResult<StateSchema>[]> {
   const promises = statesToUpload.map(({ stateFile, screenshotFile }) => {
@@ -47,8 +59,8 @@ async function updateState({
   screenshotFile,
 }: {
   state: StateSchema;
-  stateFile: File;
-  screenshotFile?: File;
+  stateFile: UpdateStateUploadInput["stateFile"];
+  screenshotFile?: UpdateStateUploadInput["screenshotFile"];
 }): Promise<{ data: StateSchema }> {
   const formData = new FormData();
   formData.append("stateFile", stateFile);
@@ -62,9 +74,10 @@ async function deleteStates({
 }: {
   states: StateSchema[];
 }): Promise<{ data: number[] }> {
-  return api.post("/states/delete", {
+  const payload: DeleteStatesInput = {
     states: states.map((s) => s.id),
-  });
+  };
+  return api.post("/states/delete", payload);
 }
 
 export default {

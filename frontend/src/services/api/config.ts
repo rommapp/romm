@@ -1,3 +1,4 @@
+import type { ExclusionPayload, PlatformBindingPayload } from "@/__generated__";
 import api from "@/services/api";
 
 export const configApi = api;
@@ -9,7 +10,8 @@ async function addPlatformBindConfig({
   fsSlug: string;
   slug: string;
 }) {
-  return api.post("/config/system/platforms", { fs_slug: fsSlug, slug: slug });
+  const payload: PlatformBindingPayload = { fs_slug: fsSlug, slug };
+  return api.post("/config/system/platforms", payload);
 }
 
 async function deletePlatformBindConfig({ fsSlug }: { fsSlug: string }) {
@@ -23,7 +25,8 @@ async function addPlatformVersionConfig({
   fsSlug: string;
   slug: string;
 }) {
-  return api.post("/config/system/versions", { fs_slug: fsSlug, slug: slug });
+  const payload: PlatformBindingPayload = { fs_slug: fsSlug, slug };
+  return api.post("/config/system/versions", payload);
 }
 
 async function deletePlatformVersionConfig({ fsSlug }: { fsSlug: string }) {
@@ -37,10 +40,11 @@ async function addExclusion({
   exclusionValue: string;
   exclusionType: string;
 }) {
-  return api.post("/config/exclude", {
+  const payload: ExclusionPayload = {
     exclusion_value: exclusionValue,
     exclusion_type: exclusionType,
-  });
+  };
+  return api.post("/config/exclude", payload);
 }
 
 async function deleteExclusion({

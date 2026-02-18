@@ -1,5 +1,11 @@
+import type {
+  Body_add_platform_api_platforms_post as AddPlatformInput,
+  Body_update_platform_api_platforms__id__put as UpdatePlatformInput,
+  PlatformSchema,
+} from "@/__generated__";
 import api from "@/services/api";
-import type { Platform } from "@/stores/platforms";
+
+type Platform = PlatformSchema;
 
 export const platformApi = api;
 
@@ -8,7 +14,8 @@ async function uploadPlatform({
 }: {
   fsSlug: string;
 }): Promise<{ data: Platform }> {
-  return api.post("/platforms", { fs_slug: fsSlug });
+  const payload: AddPlatformInput = { fs_slug: fsSlug };
+  return api.post("/platforms", payload);
 }
 
 async function getPlatforms(): Promise<{ data: Platform[] }> {
@@ -30,7 +37,11 @@ async function updatePlatform({
 }: {
   platform: Platform;
 }): Promise<{ data: Platform }> {
-  return api.put(`/platforms/${platform.id}`, platform);
+  const payload: UpdatePlatformInput = {
+    custom_name: platform.custom_name,
+    aspect_ratio: platform.aspect_ratio,
+  };
+  return api.put(`/platforms/${platform.id}`, payload);
 }
 
 async function deletePlatform({ platform }: { platform: Platform }) {
