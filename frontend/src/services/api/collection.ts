@@ -1,9 +1,17 @@
-import api from "@/services/api";
 import type {
-  Collection,
-  VirtualCollection,
-  SmartCollection,
-} from "@/stores/collections";
+  Body_add_collection_api_collections_post as AddCollectionInput,
+  Body_add_smart_collection_api_collections_smart_post as AddSmartCollectionInput,
+  Body_update_collection_api_collections__id__put as UpdateCollectionInput,
+  Body_update_smart_collection_api_collections_smart__id__put as UpdateSmartCollectionInput,
+  CollectionSchema,
+  SmartCollectionSchema,
+  VirtualCollectionSchema,
+} from "@/__generated__";
+import api from "@/services/api";
+
+type Collection = CollectionSchema;
+type VirtualCollection = VirtualCollectionSchema;
+type SmartCollection = SmartCollectionSchema;
 
 export type UpdatedCollection = Collection & {
   artwork?: File;
@@ -17,12 +25,18 @@ async function createCollection({
 }: {
   collection: Partial<UpdatedCollection>;
 }): Promise<{ data: Collection }> {
+  const payload: AddCollectionInput = {
+    name: collection.name || "",
+    description: collection.description || "",
+    url_cover: collection.url_cover || "",
+    artwork: collection.artwork,
+  };
   const formData = new FormData();
-  formData.append("name", collection.name || "");
-  formData.append("description", collection.description || "");
-  formData.append("url_cover", collection.url_cover || "");
+  formData.append("name", payload.name || "");
+  formData.append("description", payload.description || "");
+  formData.append("url_cover", payload.url_cover || "");
   formData.append("rom_ids", JSON.stringify(collection.rom_ids || []));
-  if (collection.artwork) formData.append("artwork", collection.artwork);
+  if (payload.artwork) formData.append("artwork", payload.artwork);
 
   return api.post(`/collections`, formData, {
     headers: {
@@ -40,14 +54,16 @@ async function createSmartCollection({
 }: {
   smartCollection: Partial<SmartCollection>;
 }): Promise<{ data: SmartCollection }> {
+  const payload: AddSmartCollectionInput = {
+    name: smartCollection.name,
+    description: smartCollection.description,
+    filter_criteria: JSON.stringify(smartCollection.filter_criteria),
+  };
   const formData = new FormData();
 
-  formData.append("name", smartCollection.name || "");
-  formData.append("description", smartCollection.description || "");
-  formData.append(
-    "filter_criteria",
-    JSON.stringify(smartCollection.filter_criteria),
-  );
+  formData.append("name", payload.name || "");
+  formData.append("description", payload.description || "");
+  formData.append("filter_criteria", payload.filter_criteria || "{}");
 
   return api.post("/collections/smart", formData, {
     headers: {
@@ -99,12 +115,19 @@ async function updateCollection({
   collection: UpdatedCollection;
   removeCover?: boolean;
 }): Promise<{ data: Collection }> {
+  const payload: UpdateCollectionInput = {
+    name: collection.name || "",
+    description: collection.description || "",
+    url_cover: collection.url_cover || "",
+    rom_ids: JSON.stringify(collection.rom_ids || []),
+    artwork: collection.artwork,
+  };
   const formData = new FormData();
-  formData.append("name", collection.name || "");
-  formData.append("description", collection.description || "");
-  formData.append("url_cover", collection.url_cover || "");
-  formData.append("rom_ids", JSON.stringify(collection.rom_ids || []));
-  if (collection.artwork) formData.append("artwork", collection.artwork);
+  formData.append("name", payload.name || "");
+  formData.append("description", payload.description || "");
+  formData.append("url_cover", payload.url_cover || "");
+  formData.append("rom_ids", payload.rom_ids);
+  if (payload.artwork) formData.append("artwork", payload.artwork);
 
   return api.put(`/collections/${collection.id}`, formData, {
     headers: {
@@ -119,14 +142,16 @@ async function updateSmartCollection({
 }: {
   smartCollection: SmartCollection;
 }): Promise<{ data: SmartCollection }> {
+  const payload: UpdateSmartCollectionInput = {
+    name: smartCollection.name || "",
+    description: smartCollection.description || "",
+    filter_criteria: JSON.stringify(smartCollection.filter_criteria),
+  };
   const formData = new FormData();
 
-  formData.append("name", smartCollection.name || "");
-  formData.append("description", smartCollection.description || "");
-  formData.append(
-    "filter_criteria",
-    JSON.stringify(smartCollection.filter_criteria),
-  );
+  formData.append("name", payload.name || "");
+  formData.append("description", payload.description || "");
+  formData.append("filter_criteria", payload.filter_criteria || "{}");
 
   return api.put(`/collections/smart/${smartCollection.id}`, formData, {
     headers: {

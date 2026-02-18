@@ -1,6 +1,12 @@
-import type { UserSchema, InviteLinkSchema } from "@/__generated__";
+import type {
+  Body_add_user_api_users_post as AddUserInput,
+  Body_create_user_from_invite_api_users_register_post as RegisterUserInput,
+  Body_refresh_retro_achievements_api_users__id__ra_refresh_post as RefreshRetroAchievementsInput,
+  InviteLinkSchema,
+  UserForm,
+  UserSchema,
+} from "@/__generated__";
 import api from "@/services/api";
-import type { User } from "@/stores/users";
 
 export const userApi = api;
 
@@ -15,7 +21,13 @@ async function createUser({
   email: string;
   role: string;
 }): Promise<{ data: UserSchema }> {
-  return api.post("/users", { username, password, email, role });
+  const payload: AddUserInput = {
+    username,
+    password,
+    email,
+    role,
+  };
+  return api.post("/users", payload);
 }
 
 async function createInviteLink({
@@ -32,14 +44,22 @@ async function registerUser(
   password: string,
   token: string,
 ): Promise<{ data: UserSchema }> {
-  return api.post("/users/register", { username, email, password, token });
+  const payload: RegisterUserInput = {
+    username,
+    email,
+    password,
+    token,
+  };
+  return api.post("/users/register", payload);
 }
 
 async function fetchUsers(): Promise<{ data: UserSchema[] }> {
   return api.get("/users");
 }
 
-async function fetchUser(user: User): Promise<{ data: UserSchema }> {
+async function fetchUser(
+  user: Pick<UserSchema, "id">,
+): Promise<{ data: UserSchema }> {
   return api.get(`/users/${user.id}`);
 }
 
@@ -55,29 +75,33 @@ async function updateUser({
   avatar?: File;
   password?: string;
 }): Promise<{ data: UserSchema }> {
-  return api.put(
-    `/users/${id}`,
-    {
-      avatar: avatar || null,
-      username: attrs.username,
-      password: attrs.password,
-      email: attrs.email,
-      enabled: attrs.enabled,
-      role: attrs.role,
-      ra_username: attrs.ra_username,
-      ui_settings: attrs.ui_settings,
+  const uiSettings =
+    typeof attrs.ui_settings === "string"
+      ? attrs.ui_settings
+      : attrs.ui_settings
+        ? JSON.stringify(attrs.ui_settings)
+        : attrs.ui_settings;
+
+  const payload: UserForm = {
+    avatar: avatar || null,
+    username: attrs.username,
+    password: attrs.password,
+    email: attrs.email,
+    enabled: attrs.enabled,
+    role: attrs.role,
+    ra_username: attrs.ra_username,
+    ui_settings: uiSettings,
+  };
+  return api.put(`/users/${id}`, payload, {
+    headers: {
+      "Content-Type": avatar
+        ? "multipart/form-data"
+        : "application/x-www-form-urlencoded",
     },
-    {
-      headers: {
-        "Content-Type": avatar
-          ? "multipart/form-data"
-          : "application/x-www-form-urlencoded",
-      },
-    },
-  );
+  });
 }
 
-async function deleteUser(user: User) {
+async function deleteUser(user: Pick<UserSchema, "id">) {
   return api.delete(`/users/${user.id}`);
 }
 
@@ -88,7 +112,10 @@ async function refreshRetroAchievements({
   id: number;
   incremental?: boolean;
 }) {
-  return api.post(`/users/${id}/ra/refresh`, { incremental });
+  const payload: RefreshRetroAchievementsInput = {
+    incremental,
+  };
+  return api.post(`/users/${id}/ra/refresh`, payload);
 }
 
 export default {

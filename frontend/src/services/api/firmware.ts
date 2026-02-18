@@ -1,4 +1,9 @@
-import type { FirmwareSchema, AddFirmwareResponse } from "@/__generated__";
+import type {
+  AddFirmwareResponse,
+  Body_add_firmware_api_firmware_post as AddFirmwareInput,
+  Body_delete_firmware_api_firmware_delete_post as DeleteFirmwareInput,
+  FirmwareSchema,
+} from "@/__generated__";
 import api from "@/services/api";
 
 export const firmwareApi = api;
@@ -22,8 +27,9 @@ async function uploadFirmware({
   platformId: number;
   files: File[];
 }): Promise<{ data: AddFirmwareResponse }> {
+  const payload: AddFirmwareInput = { files };
   const formData = new FormData();
-  files.forEach((file) => formData.append("files", file));
+  payload.files.forEach((file) => formData.append("files", file));
 
   return firmwareApi.post(`/firmware`, formData, {
     headers: {
@@ -40,10 +46,11 @@ async function deleteFirmware({
   firmware: FirmwareSchema[];
   deleteFromFs: number[];
 }) {
-  return api.post("/firmware/delete", {
+  const payload: DeleteFirmwareInput = {
     firmware: firmware.map((s) => s.id),
     delete_from_fs: deleteFromFs,
-  });
+  };
+  return api.post("/firmware/delete", payload);
 }
 
 export default {

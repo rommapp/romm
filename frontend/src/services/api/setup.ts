@@ -1,5 +1,5 @@
+import type { PlatformSchema } from "@/__generated__";
 import api from "@/services/api";
-import type { Platform } from "@/stores/platforms";
 
 export type LibraryStructure = "struct_a" | "struct_b" | null;
 
@@ -11,7 +11,7 @@ export interface ExistingPlatform {
 export interface SetupLibraryInfo {
   detected_structure: LibraryStructure;
   existing_platforms: ExistingPlatform[];
-  supported_platforms: Platform[];
+  supported_platforms: PlatformSchema[];
 }
 
 export interface CreatePlatformsResponse {

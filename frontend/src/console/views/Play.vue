@@ -11,7 +11,10 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import type { FirmwareSchema } from "@/__generated__";
+import type {
+  Body_add_state_api_states_post as AddStateInput,
+  FirmwareSchema,
+} from "@/__generated__";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
@@ -467,13 +470,22 @@ async function boot() {
     screenshot: ArrayBuffer;
   }) {
     try {
+      const payload: AddStateInput = {
+        stateFile: new Blob([stateFile]),
+        screenshotFile: new Blob([screenshotFile], { type: "image/png" }),
+      };
+
       const formData = new FormData();
-      formData.append("stateFile", new Blob([stateFile]), "state.save");
-      formData.append(
-        "screenshotFile",
-        new Blob([screenshotFile], { type: "image/png" }),
-        "screenshot.png",
-      );
+      if (payload.stateFile) {
+        formData.append("stateFile", payload.stateFile, "state.save");
+      }
+      if (payload.screenshotFile) {
+        formData.append(
+          "screenshotFile",
+          payload.screenshotFile,
+          "screenshot.png",
+        );
+      }
 
       await api.post("/states", formData, {
         headers: { "Content-Type": "multipart/form-data" },
