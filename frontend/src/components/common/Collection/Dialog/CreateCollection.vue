@@ -82,7 +82,7 @@ async function createCollection() {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   try {
-    const { data } = await collectionApi.createCollection({
+    const data = await collectionApi.createCollection({
       collection: { ...collection.value },
     });
 

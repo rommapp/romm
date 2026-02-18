@@ -1,6 +1,5 @@
 import type {
   Body_add_platform_api_platforms_post as AddPlatformInput,
-  Body_update_platform_api_platforms__id__put as UpdatePlatformInput,
   PlatformSchema,
 } from "@/__generated__";
 import api from "@/services/api";
@@ -9,39 +8,28 @@ type Platform = PlatformSchema;
 
 export const platformApi = api;
 
-async function uploadPlatform({
-  fsSlug,
-}: {
-  fsSlug: string;
-}): Promise<{ data: Platform }> {
+async function uploadPlatform({ fsSlug }: { fsSlug: string }) {
   const payload: AddPlatformInput = { fs_slug: fsSlug };
-  return api.post("/platforms", payload);
+  return api.post<Platform>("/platforms", payload);
 }
 
-async function getPlatforms(): Promise<{ data: Platform[] }> {
-  return api.get("/platforms");
+async function getPlatforms() {
+  return api.get<Platform[]>("/platforms");
 }
 
-async function getPlatform(
-  id: number | undefined,
-): Promise<{ data: Platform }> {
-  return api.get(`/platforms/${id}`);
+async function getPlatform(id: number | undefined) {
+  return api.get<Platform>(`/platforms/${id}`);
 }
 
-async function getSupportedPlatforms(): Promise<{ data: Platform[] }> {
-  return api.get("/platforms/supported");
+async function getSupportedPlatforms() {
+  return api.get<Platform[]>("/platforms/supported");
 }
 
-async function updatePlatform({
-  platform,
-}: {
-  platform: Platform;
-}): Promise<{ data: Platform }> {
-  const payload: UpdatePlatformInput = {
+async function updatePlatform({ platform }: { platform: Platform }) {
+  return api.put<Platform>(`/platforms/${platform.id}`, {
     custom_name: platform.custom_name,
     aspect_ratio: platform.aspect_ratio,
-  };
-  return api.put(`/platforms/${platform.id}`, payload);
+  });
 }
 
 async function deletePlatform({ platform }: { platform: Platform }) {

@@ -129,7 +129,7 @@ async function uploadManuals() {
       romId: rom.value.id,
       filesToUpload: manualFiles.value,
     })
-    .then((responses: PromiseSettledResult<unknown>[]) => {
+    .then((responses) => {
       const successfulUploads = responses.filter(
         (d) => d.status == "fulfilled",
       );

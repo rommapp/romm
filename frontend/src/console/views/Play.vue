@@ -31,6 +31,7 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
+import { buildFormInput } from "@/utils/formData";
 
 const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
@@ -470,22 +471,14 @@ async function boot() {
     screenshot: ArrayBuffer;
   }) {
     try {
-      const payload: AddStateInput = {
-        stateFile: new Blob([stateFile]),
-        screenshotFile: new Blob([screenshotFile], { type: "image/png" }),
-      };
-
-      const formData = new FormData();
-      if (payload.stateFile) {
-        formData.append("stateFile", payload.stateFile, "state.save");
-      }
-      if (payload.screenshotFile) {
-        formData.append(
+      const formData = buildFormInput<AddStateInput>([
+        ["stateFile", new Blob([stateFile]), "state.save"],
+        [
           "screenshotFile",
-          payload.screenshotFile,
+          new Blob([screenshotFile], { type: "image/png" }),
           "screenshot.png",
-        );
-      }
+        ],
+      ]);
 
       await api.post("/states", formData, {
         headers: { "Content-Type": "multipart/form-data" },

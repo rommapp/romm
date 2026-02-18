@@ -1,11 +1,11 @@
 import type {
   Body_add_state_api_states_post as AddStateInput,
-  Body_delete_states_api_states_delete_post as DeleteStatesInput,
   Body_update_state_api_states__id__put as UpdateStateInput,
   DetailedRomSchema,
   StateSchema,
 } from "@/__generated__";
 import api from "@/services/api";
+import { buildFormInput } from "@/utils/formData";
 
 export const stateApi = api;
 
@@ -27,17 +27,16 @@ async function uploadStates({
   rom: DetailedRomSchema;
   statesToUpload: UploadStateInput[];
   emulator?: string;
-}): Promise<PromiseSettledResult<StateSchema>[]> {
+}) {
   const promises = statesToUpload.map(({ stateFile, screenshotFile }) => {
-    const formData = new FormData();
-    formData.append("stateFile", stateFile);
-    if (screenshotFile) {
-      formData.append("screenshotFile", screenshotFile);
-    }
+    const formData = buildFormInput<UploadStateInput>([
+      ["stateFile", stateFile],
+      ["screenshotFile", screenshotFile],
+    ]);
 
     return new Promise<StateSchema>((resolve, reject) => {
       api
-        .post("/states", formData, {
+        .post<StateSchema>("/states", formData, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
@@ -61,23 +60,19 @@ async function updateState({
   state: StateSchema;
   stateFile: UpdateStateUploadInput["stateFile"];
   screenshotFile?: UpdateStateUploadInput["screenshotFile"];
-}): Promise<{ data: StateSchema }> {
-  const formData = new FormData();
-  formData.append("stateFile", stateFile);
-  if (screenshotFile) formData.append("screenshotFile", screenshotFile);
+}) {
+  const formData = buildFormInput<UpdateStateUploadInput>([
+    ["stateFile", stateFile],
+    ["screenshotFile", screenshotFile],
+  ]);
 
-  return api.put(`/states/${state.id}`, formData);
+  return api.put<StateSchema>(`/states/${state.id}`, formData);
 }
 
-async function deleteStates({
-  states,
-}: {
-  states: StateSchema[];
-}): Promise<{ data: number[] }> {
-  const payload: DeleteStatesInput = {
+async function deleteStates({ states }: { states: StateSchema[] }) {
+  return api.post<number[]>("/states/delete", {
     states: states.map((s) => s.id),
-  };
-  return api.post("/states/delete", payload);
+  });
 }
 
 export default {
