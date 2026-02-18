@@ -71,10 +71,11 @@
 #   versions:
 #     naomi: arcade
 
-# The folder name where your roms are located
 # filesystem:
-#   roms_folder: 'roms' # For example if your folder structure is /home/user/library/roms_folder
-#   skip_hash_calculation: false # Skip file hash calculations on low power devices (eg. Raspberry PI)
+#   # Custom games folder name only (eg. `retro_games/`)
+#   roms_folder: 'roms'
+#   # Skip file hash calculations on low power devices (eg. Raspberry PI)
+#   skip_hash_calculation: false
 
 # scan:
 #   # Metadata priority during scans
