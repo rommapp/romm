@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from functools import partial
 
 import pydash
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import case, delete, or_, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Delete, Select, Update
 
@@ -38,8 +38,8 @@ class DBScreenshotsHandler(DBBaseHandler):
         if exclude_filenames:
             query = query.filter(
                 or_(
-                    Screenshot.file_name.not_in(filenames),
-                    Screenshot.file_name_no_ext.not_in(filenames),
+                    Screenshot.file_name.not_in(exclude_filenames),
+                    Screenshot.file_name_no_ext.not_in(exclude_filenames),
                 )
             )
 
@@ -68,6 +68,11 @@ class DBScreenshotsHandler(DBBaseHandler):
             rom_id=rom_id,
             user_id=user_id,
             filenames=pydash.compact([file_name, file_name_no_ext]),
+        )
+        # Prefer exact stem matches first
+        query = query.order_by(
+            case((Screenshot.file_name_no_ext == file_name, 0), else_=1),
+            Screenshot.id.desc(),
         )
         return session.scalars(query.limit(1)).first()
 
