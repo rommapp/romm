@@ -75,42 +75,35 @@ def test_get_states_prefers_exact_matching_screenshot_filename(
     )
 
     # Ambiguous fallback screenshot stem (`test_game`) that used to be picked for both.
-    db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_game.state.auto.png",
-            file_name_no_tags="test_game",
-            file_name_no_ext="test_game",
-            file_extension="png",
-            file_path=f"{platform.slug}/screenshots",
-            file_size_bytes=1,
+    screenshots_data = [
+        {
+            "file_name": "test_game.state.auto.png",
+            "file_name_no_tags": "test_game",
+            "file_name_no_ext": "test_game",
+        },
+        {
+            "file_name": "test_game.state1.png",
+            "file_name_no_tags": "test_game.state1",
+            "file_name_no_ext": "test_game.state1",
+        },
+        {
+            "file_name": "test_game.state2.png",
+            "file_name_no_tags": "test_game.state2",
+            "file_name_no_ext": "test_game.state2",
+        },
+    ]
+
+    for data in screenshots_data:
+        db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_extension="png",
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=1,
+                **data,
+            )
         )
-    )
-    db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_game.state1.png",
-            file_name_no_tags="test_game.state1",
-            file_name_no_ext="test_game.state1",
-            file_extension="png",
-            file_path=f"{platform.slug}/screenshots",
-            file_size_bytes=1,
-        )
-    )
-    db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_game.state2.png",
-            file_name_no_tags="test_game.state2",
-            file_name_no_ext="test_game.state2",
-            file_extension="png",
-            file_path=f"{platform.slug}/screenshots",
-            file_size_bytes=1,
-        )
-    )
 
     response = client.get(
         "/api/states",
@@ -213,42 +206,35 @@ def test_get_saves_prefers_exact_matching_screenshot_filename(
         )
     )
 
-    db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_game.state.auto.png",
-            file_name_no_tags="test_game",
-            file_name_no_ext="test_game",
-            file_extension="png",
-            file_path=f"{platform.slug}/screenshots",
-            file_size_bytes=1,
+    screenshots_data = [
+        {
+            "file_name": "test_game.state.auto.png",
+            "file_name_no_tags": "test_game",
+            "file_name_no_ext": "test_game",
+        },
+        {
+            "file_name": "test_game.state1.png",
+            "file_name_no_tags": "test_game.state1",
+            "file_name_no_ext": "test_game.state1",
+        },
+        {
+            "file_name": "test_game.state2.png",
+            "file_name_no_tags": "test_game.state2",
+            "file_name_no_ext": "test_game.state2",
+        },
+    ]
+
+    for data in screenshots_data:
+        db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_extension="png",
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=1,
+                **data,
+            )
         )
-    )
-    db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_game.state1.png",
-            file_name_no_tags="test_game.state1",
-            file_name_no_ext="test_game.state1",
-            file_extension="png",
-            file_path=f"{platform.slug}/screenshots",
-            file_size_bytes=1,
-        )
-    )
-    db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_game.state2.png",
-            file_name_no_tags="test_game.state2",
-            file_name_no_ext="test_game.state2",
-            file_extension="png",
-            file_path=f"{platform.slug}/screenshots",
-            file_size_bytes=1,
-        )
-    )
 
     response = client.get(
         "/api/saves",
