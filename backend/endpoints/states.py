@@ -111,7 +111,7 @@ async def add_state(
             rom_id=rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            filename=screenshotFile.filename,
+            file_name=screenshotFile.filename,
             rom_id=rom.id,
             user_id=request.user.id,
         )
@@ -221,7 +221,7 @@ async def update_state(request: Request, id: int) -> StateSchema:
             rom_id=db_state.rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            filename=screenshotFile.filename,
+            file_name=screenshotFile.filename,
             rom_id=db_state.rom.id,
             user_id=request.user.id,
         )
