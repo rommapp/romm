@@ -37,10 +37,8 @@ class DBScreenshotsHandler(DBBaseHandler):
 
         if exclude_filenames:
             query = query.filter(
-                or_(
-                    Screenshot.file_name.not_in(exclude_filenames),
-                    Screenshot.file_name_no_ext.not_in(exclude_filenames),
-                )
+                Screenshot.file_name.not_in(exclude_filenames),
+                Screenshot.file_name_no_ext.not_in(exclude_filenames),
             )
 
         return query
