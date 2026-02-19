@@ -79,9 +79,10 @@ class Save(RomAsset):
         from handler.database import db_screenshot_handler
 
         return db_screenshot_handler.get_screenshot(
-            filename_no_ext=self.file_name,  # Match state filename against screenshot filename stem
             rom_id=self.rom_id,
             user_id=self.user_id,
+            file_name=self.file_name,  # Match state filename against screenshot filename stem
+            file_name_no_ext=self.file_name_no_ext,
         )
 
 
@@ -99,7 +100,8 @@ class State(RomAsset):
         from handler.database import db_screenshot_handler
 
         return db_screenshot_handler.get_screenshot(
-            filename_no_ext=self.file_name,  # Match state filename against screenshot filename stem
             rom_id=self.rom_id,
             user_id=self.user_id,
+            file_name=self.file_name,  # Match state filename against screenshot filename stem
+            file_name_no_ext=self.file_name_no_ext,
         )
