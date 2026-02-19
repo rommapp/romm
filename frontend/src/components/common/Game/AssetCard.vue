@@ -84,12 +84,7 @@ function handleDelete(event: Event) {
       @click="handleClick"
     >
       <v-card-text class="pa-2">
-        <!-- Screenshot for states -->
-        <v-row
-          v-if="type === 'state' && isState(asset)"
-          no-gutters
-          class="bg-surface"
-        >
+        <v-row v-if="asset.screenshot" no-gutters class="bg-surface">
           <v-col cols="12">
             <v-img
               rounded

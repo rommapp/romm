@@ -67,7 +67,7 @@ async def add_screenshot(
         rom_id=rom.id,
     )
     db_screenshot = db_screenshot_handler.get_screenshot(
-        filename=screenshotFile.filename,
+        file_name=screenshotFile.filename,
         rom_id=rom.id,
         user_id=current_user.id,
     )
