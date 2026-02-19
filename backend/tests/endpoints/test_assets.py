@@ -139,30 +139,19 @@ def test_get_states_screenshot_match_is_scoped_by_user(
         )
     )
 
-    db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=editor_user.id,
-            file_name="test_game.state1.png",
-            file_name_no_tags="test_game.state1",
-            file_name_no_ext="test_game.state1",
-            file_extension="png",
-            file_path=f"{platform.slug}/screenshots",
-            file_size_bytes=1,
+    for user in [editor_user, admin_user]:
+        db_screenshot_handler.add_screenshot(
+            Screenshot(
+                rom_id=rom.id,
+                user_id=user.id,
+                file_name="test_game.state1.png",
+                file_name_no_tags="test_game.state1",
+                file_name_no_ext="test_game.state1",
+                file_extension="png",
+                file_path=f"{platform.slug}/screenshots",
+                file_size_bytes=1,
+            )
         )
-    )
-    db_screenshot_handler.add_screenshot(
-        Screenshot(
-            rom_id=rom.id,
-            user_id=admin_user.id,
-            file_name="test_game.state1.png",
-            file_name_no_tags="test_game.state1",
-            file_name_no_ext="test_game.state1",
-            file_extension="png",
-            file_path=f"{platform.slug}/screenshots",
-            file_size_bytes=1,
-        )
-    )
 
     response = client.get(
         f"/api/states/{state.id}",
