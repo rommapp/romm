@@ -31,6 +31,35 @@ from logger.logger import log
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
 SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
+DEFAULT_EXCLUDED_EXTENSIONS: Final = [
+    "db",
+    "ini",
+    "tmp",
+    "bak",
+    "lock",
+    "log",
+    "cache",
+    "crdownload",
+]
+DEFAULT_EXCLUDED_FILES: Final = [
+    ".DS_Store",
+    ".localized",
+    ".Trashes",
+    ".stfolder",
+    "@SynoResource",
+    "gamelist.xml",
+]
+DEFAULT_EXCLUDED_DIRS: Final = [
+    "@eaDir",
+    "__MACOSX",
+    "$RECYCLE.BIN",
+    ".Trash-*",
+    ".stfolder",
+    ".Spotlight-V100",
+    ".fseventsd",
+    ".DocumentRevisions-V100",
+    "System Volume Information",
+]
 
 
 class EjsControlsButton(TypedDict):
@@ -79,6 +108,7 @@ class Config:
     EXCLUDED_MULTI_FILES: list[str]
     EXCLUDED_MULTI_PARTS_EXT: list[str]
     EXCLUDED_MULTI_PARTS_FILES: list[str]
+    GAMELIST_AUTO_EXPORT_ON_SCAN: bool
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
@@ -197,27 +227,39 @@ class ConfigManager:
         self.config = Config(
             CONFIG_FILE_MOUNTED=self._config_file_mounted,
             CONFIG_FILE_WRITABLE=self._config_file_writable,
-            EXCLUDED_PLATFORMS=pydash.get(self._raw_config, "exclude.platforms", []),
+            EXCLUDED_PLATFORMS=pydash.get(
+                self._raw_config, "exclude.platforms", DEFAULT_EXCLUDED_DIRS
+            ),
             EXCLUDED_SINGLE_EXT=[
                 e.lower()
                 for e in pydash.get(
-                    self._raw_config, "exclude.roms.single_file.extensions", []
+                    self._raw_config,
+                    "exclude.roms.single_file.extensions",
+                    DEFAULT_EXCLUDED_EXTENSIONS,
                 )
             ],
             EXCLUDED_SINGLE_FILES=pydash.get(
-                self._raw_config, "exclude.roms.single_file.names", []
+                self._raw_config,
+                "exclude.roms.single_file.names",
+                DEFAULT_EXCLUDED_FILES,
             ),
             EXCLUDED_MULTI_FILES=pydash.get(
-                self._raw_config, "exclude.roms.multi_file.names", []
+                self._raw_config,
+                "exclude.roms.multi_file.names",
+                DEFAULT_EXCLUDED_DIRS,
             ),
             EXCLUDED_MULTI_PARTS_EXT=[
                 e.lower()
                 for e in pydash.get(
-                    self._raw_config, "exclude.roms.multi_file.parts.extensions", []
+                    self._raw_config,
+                    "exclude.roms.multi_file.parts.extensions",
+                    DEFAULT_EXCLUDED_EXTENSIONS,
                 )
             ],
             EXCLUDED_MULTI_PARTS_FILES=pydash.get(
-                self._raw_config, "exclude.roms.multi_file.parts.names", []
+                self._raw_config,
+                "exclude.roms.multi_file.parts.names",
+                DEFAULT_EXCLUDED_FILES,
             ),
             PLATFORMS_BINDING=pydash.get(self._raw_config, "system.platforms", {}),
             PLATFORMS_VERSIONS=pydash.get(self._raw_config, "system.versions", {}),
@@ -226,6 +268,9 @@ class ConfigManager:
             ),
             FIRMWARE_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.firmware_folder", "bios"
+            ),
+            GAMELIST_AUTO_EXPORT_ON_SCAN=pydash.get(
+                self._raw_config, "scan.export_gamelist", False
             ),
             SKIP_HASH_CALCULATION=pydash.get(
                 self._raw_config, "filesystem.skip_hash_calculation", False
@@ -370,6 +415,9 @@ class ConfigManager:
             log.critical(
                 "Invalid config.yml: exclude.roms.multi_file.parts.names must be a list"
             )
+            sys.exit(3)
+        if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
+            log.critical("Invalid config.yml: scan.export_gamelist must be a boolean")
             sys.exit(3)
 
         if not isinstance(self.config.PLATFORMS_BINDING, dict):
@@ -587,6 +635,8 @@ class ConfigManager:
                     "region": self.config.SCAN_REGION_PRIORITY,
                     "language": self.config.SCAN_LANGUAGE_PRIORITY,
                 },
+                "media": self.config.SCAN_MEDIA,
+                "export_gamelist": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
             },
         }
 

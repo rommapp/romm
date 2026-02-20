@@ -34,7 +34,7 @@ emitter?.on("showCreateCollectionDialog", () => {
   removeCover.value = false;
 });
 emitter?.on("updateUrlCover", (coverUrl) => {
-  setArtwork(coverUrl);
+  setUrlCover(coverUrl);
 });
 
 const missingCoverImage = computed(() =>
@@ -50,16 +50,21 @@ function previewImage(event: Event) {
   const input = event.target as HTMLInputElement;
   if (!input.files) return;
 
+  // Set artwork from uploaded file
+  collection.value.artwork = input.files[0];
+
+  // Display the image preview
   const reader = new FileReader();
   reader.onload = () => {
-    setArtwork(reader.result?.toString() || "");
+    imagePreviewUrl.value = reader.result?.toString() || "";
+    removeCover.value = false;
   };
-  if (input.files[0]) {
-    reader.readAsDataURL(input.files[0]);
+  if (collection.value.artwork) {
+    reader.readAsDataURL(collection.value.artwork);
   }
 }
 
-function setArtwork(coverUrl: string) {
+function setUrlCover(coverUrl: string) {
   if (!coverUrl || !collection.value) return;
   collection.value.url_cover = coverUrl;
   imagePreviewUrl.value = coverUrl;
@@ -78,7 +83,7 @@ async function createCollection() {
 
   try {
     const { data } = await collectionApi.createCollection({
-      collection: collection.value,
+      collection: { ...collection.value },
     });
 
     emitter?.emit("snackbarShow", {

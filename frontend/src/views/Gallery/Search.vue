@@ -99,19 +99,14 @@ function onGameTouchEnd() {
 }
 
 function fetchRoms() {
-  romsStore
-    .fetchRoms({ galleryFilter: galleryFilterStore })
-    .catch((error) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Couldn't fetch roms: ${error}`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
-    })
-    .finally(() => {
-      galleryFilterStore.activeFilterDrawer = false;
+  romsStore.fetchRoms().catch((error) => {
+    emitter?.emit("snackbarShow", {
+      msg: `Couldn't fetch roms: ${error}`,
+      icon: "mdi-close-circle",
+      color: "red",
+      timeout: 4000,
     });
+  });
 }
 
 const { y: windowY } = useScroll(window, { throttle: 500 });

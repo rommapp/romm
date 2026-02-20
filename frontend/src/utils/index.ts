@@ -122,7 +122,10 @@ export function getDownloadPath({
   if (fileIDs.length > 0) {
     queryParams.append("file_ids", fileIDs.join(","));
   }
-  return `/api/roms/${rom.id}/content/${rom.fs_name}?${queryParams.toString()}`;
+  const queryString = queryParams.toString();
+  return `/api/roms/${rom.id}/content/${rom.fs_name}${
+    queryString ? `?${queryString}` : ""
+  }`;
 }
 
 export function getDownloadLink({
@@ -627,7 +630,11 @@ export function isRuffleEmulationSupported(
   return ["flash", "browser"].includes(slug.toLowerCase());
 }
 
-type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
+export type PlayingStatus =
+  | RomUserStatus
+  | "backlogged"
+  | "now_playing"
+  | "hidden";
 
 /**
  * Map of ROM statuses to their corresponding emoji, text, and i18n key.
@@ -667,13 +674,6 @@ export const romStatusMap: Record<
 };
 
 /**
- * Inverse map of ROM statuses from text to status key.
- */
-const inverseRomStatusMap = Object.fromEntries(
-  Object.entries(romStatusMap).map(([key, value]) => [value.text, key]),
-) as Record<string, PlayingStatus>;
-
-/**
  * Get the emoji for a given ROM status.
  *
  * @param status The ROM status.
@@ -705,17 +705,6 @@ export function getTextForStatus(status: PlayingStatus): string | null {
  */
 export function getI18nKeyForStatus(status: PlayingStatus): string | null {
   return romStatusMap[status]?.i18nKey ?? null;
-}
-
-/**
- * Get the status key for a given text.
- *
- * @param text The text to convert.
- * @returns The corresponding status key.
- */
-export function getStatusKeyForText(text: string | null) {
-  if (!text) return null;
-  return inverseRomStatusMap[text];
 }
 
 export function isNintendoDSFile(rom: SimpleRom): boolean {

@@ -37,10 +37,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV NVM_DIR="/root/.nvm"
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash \
     && . "$NVM_DIR/nvm.sh" \
-    && nvm install 18.20.8 \
-    && nvm use 18.20.8 \
-    && nvm alias default 18.20.8
-ENV PATH="$NVM_DIR/versions/node/v18.20.8/bin:$PATH"
+    && nvm install 24.13.1 \
+    && nvm use 24.13.1 \
+    && nvm alias default 24.13.1
+ENV PATH="$NVM_DIR/versions/node/v24.13.1/bin:$PATH"
 
 # Build and install RAHasher (optional for RA hashes)
 RUN git clone --recursive --branch 1.8.1 --depth 1 https://github.com/RetroAchievements/RALibretro.git /tmp/RALibretro

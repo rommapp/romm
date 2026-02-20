@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -27,14 +28,14 @@ class CollectionSchema(BaseCollectionSchema):
     id: int
     url_cover: str | None
     user_id: int
-    user__username: str
+    owner_username: str
 
     class Config:
         from_attributes = True
 
     @classmethod
     def for_user(
-        cls, user_id: int, collections: list["Collection"]
+        cls, user_id: int, collections: Sequence["Collection"]
     ) -> list["CollectionSchema"]:
         return [
             cls.model_validate(c)
@@ -59,7 +60,7 @@ class SmartCollectionSchema(BaseCollectionSchema):
     filter_criteria: dict[str, Any]
     filter_summary: str
     user_id: int
-    user__username: str
+    owner_username: str
     is_smart: bool = True
 
     class Config:
@@ -67,7 +68,7 @@ class SmartCollectionSchema(BaseCollectionSchema):
 
     @classmethod
     def for_user(
-        cls, user_id: int, smart_collections: list["SmartCollection"]
+        cls, user_id: int, smart_collections: Sequence["SmartCollection"]
     ) -> list["SmartCollectionSchema"]:
         """Filter smart collections visible to user and create schemas."""
         return [

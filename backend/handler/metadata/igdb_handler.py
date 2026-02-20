@@ -669,6 +669,12 @@ class IGDBHandler(MetadataHandler):
             search_term = await self._mame_format(search_term)
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
+        # Support for ScummVM filename format
+        scummvm_platform = self.get_platform(UPS.SCUMMVM)
+        if platform_igdb_id == scummvm_platform.get("igdb_id"):
+            search_term = await self._scummvm_format(search_term)
+            fallback_rom = IGDBRom(igdb_id=None, name=search_term)
+
         search_term = self.normalize_search_term(search_term)
 
         log.debug("Searching for %s on IGDB with game_type", search_term)
@@ -746,7 +752,7 @@ class IGDBHandler(MetadataHandler):
             )
             matched_roms.extend(alternative_roms)
 
-        # Use a dictionary to keep track of unique ids
+        # Use a dictionary to keep track of unique IDs
         unique_ids: dict[int, Game] = {}
 
         # Use a list comprehension to filter duplicates based on the 'id' key
@@ -2534,7 +2540,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "category": "Computer",
         "family_name": "Magnavox",
         "family_slug": "magnavox",
-        "generation": -1,
+        "generation": 2,
         "id": 133,
         "name": "Odyssey 2 / Videopac G7000",
         "slug": "odyssey-2-slash-videopac-g7000",
@@ -3269,10 +3275,10 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf1.jpg",
     },
     UPS.TURBOGRAFX_CD: {
-        "category": "Computer",
+        "category": "Console",
         "family_name": "NEC",
         "family_slug": "nec",
-        "generation": -1,
+        "generation": 4,
         "id": 150,
         "name": "Turbografx-16/PC Engine CD",
         "slug": "turbografx-16-slash-pc-engine-cd",

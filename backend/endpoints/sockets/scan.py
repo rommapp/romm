@@ -50,6 +50,7 @@ from models.rom import Rom, RomFile
 from tasks.tasks import update_job_meta
 from utils import emoji
 from utils.context import initialize_context
+from utils.gamelist_exporter import GamelistExporter
 
 STOP_SCAN_FLAG: Final = "scan:stop"
 
@@ -212,7 +213,7 @@ def _should_get_rom_files(
         return False
 
     return bool(
-        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and newly_added)
+        newly_added
         or (scan_type == ScanType.COMPLETE)
         or (scan_type == ScanType.HASHES)
         or (rom and rom.id in roms_ids)
@@ -335,7 +336,13 @@ async def _identify_rom(
         await socket_manager.emit(
             "scan:scanning_rom",
             SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                exclude={"created_at", "updated_at", "rom_user"}
+                exclude={
+                    "created_at",
+                    "updated_at",
+                    "rom_user",
+                    "last_modified",
+                    "files",
+                }
             ),
         )
 
@@ -440,7 +447,7 @@ async def _identify_rom(
     await socket_manager.emit(
         "scan:scanning_rom",
         SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-            exclude={"created_at", "updated_at", "rom_user"}
+            exclude={"created_at", "updated_at", "rom_user", "last_modified", "files"}
         ),
     )
 
@@ -677,6 +684,32 @@ async def scan_platforms(
                 log.warning(f" - {p.slug} ({p.fs_slug})")
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
+
+        # Export gamelist.xml if enabled in config
+        config = cm.get_config()
+        if config.GAMELIST_AUTO_EXPORT_ON_SCAN:
+            log.info("Auto-exporting gamelist.xml for all platforms...")
+            gamelist_exporter = GamelistExporter(local_export=True)
+            platforms_by_slug = {
+                p.fs_slug: p for p in db_platform_handler.get_platforms()
+            }
+            for platform_slug in platform_list:
+                platform = platforms_by_slug.get(platform_slug)
+                if platform:
+                    export_success = await gamelist_exporter.export_platform_to_file(
+                        platform.id,
+                        request=None,
+                    )
+                    if export_success:
+                        log.info(
+                            f"Auto-exported gamelist.xml for platform {platform.name} after scan"
+                        )
+                    else:
+                        log.warning(
+                            f"Failed to auto-export gamelist.xml for platform {platform.name} after scan"
+                        )
+            log.info("Gamelist.xml auto-export completed.")
+
         await socket_manager.emit("scan:done", scan_stats.to_dict())
     except ScanStoppedException:
         await stop_scan()

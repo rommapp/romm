@@ -83,10 +83,10 @@ REGIONS = (
     ("W", "World"),
 )
 
-REGIONS_BY_SHORTCODE = {region[0].lower(): region[1] for region in REGIONS}
+REGIONS_BY_SHORTCODE = {region[0]: region[1] for region in REGIONS}
 REGIONS_NAME_KEYS = frozenset(region[1].lower() for region in REGIONS)
 
-LANGUAGES_BY_SHORTCODE = {lang[0].lower(): lang[1] for lang in LANGUAGES}
+LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
 LANGUAGES_NAME_KEYS = frozenset(lang[1].lower() for lang in LANGUAGES)
 
 
@@ -128,12 +128,12 @@ class FSHandler:
         # Limit filename length
         if len(filename) > FILE_NAME_MAX_LENGTH:
             raise ValueError(
-                f"Filename exceeds maximum length of {FILE_NAME_MAX_LENGTH} characters"
+                f"Filename {filename} exceeds maximum length of {FILE_NAME_MAX_LENGTH} characters"
             )
 
         # Ensure we have a valid filename
         if not filename or filename == "." or filename == "..":
-            raise ValueError("Invalid filename")
+            raise ValueError(f"Invalid filename {filename}")
 
         return filename
 
@@ -143,11 +143,13 @@ class FSHandler:
 
         # Check for explicit parent directory references
         if ".." in path_path.parts:
-            raise ValueError("Path contains invalid parent directory references")
+            raise ValueError(
+                f"Path {path} contains invalid parent directory references"
+            )
 
         # Check for absolute paths
         if path_path.is_absolute():
-            raise ValueError("Path must be relative, not absolute")
+            raise ValueError(f"Path {path} must be relative, not absolute")
 
         # Normalize path without resolving the full path yet
         base_path_obj = Path(self.base_path).resolve()

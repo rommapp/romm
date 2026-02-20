@@ -1,8 +1,9 @@
 import functools
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlalchemy import delete, or_, select, update
-from sqlalchemy.orm import Query, Session, selectinload
+from sqlalchemy.orm import Query, QueryableAttribute, Session, load_only, selectinload
 
 from decorators.database import begin_session
 from models.platform import Platform
@@ -65,9 +66,17 @@ class DBPlatformsHandler(DBBaseHandler):
     @with_firmware
     def get_platforms(
         self,
+        updated_after: datetime | None = None,
+        only_fields: Sequence[QueryableAttribute] | None = None,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
     ) -> Sequence[Platform]:
+        if updated_after:
+            query = query.filter(Platform.updated_at > updated_after)
+
+        if only_fields:
+            query = query.options(load_only(*only_fields))
+
         return session.scalars(query.order_by(Platform.name.asc())).unique().all()
 
     @begin_session

@@ -13,7 +13,7 @@ import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
-import storeRoms, { MAX_FETCH_LIMIT } from "@/stores/roms";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
@@ -43,10 +43,7 @@ const onFilterChange = debounce(
   () => {
     romsStore.resetPagination();
     galleryFilterStore.setFilterMissing(true);
-    romsStore.fetchRoms({
-      galleryFilter: galleryFilterStore,
-      concat: false,
-    });
+    romsStore.fetchRoms(false);
 
     const url = new URL(window.location.href);
     // Update URL with filters
@@ -74,7 +71,7 @@ async function fetchRoms() {
 
   galleryFilterStore.setFilterMissing(true);
   romsStore
-    .fetchRoms({ galleryFilter: galleryFilterStore })
+    .fetchRoms()
     .catch((error) => {
       console.error("Error fetching missing games:", error);
       emitter?.emit("snackbarShow", {
@@ -91,10 +88,10 @@ async function fetchRoms() {
 }
 
 function cleanupAll() {
-  romsStore.setLimit(MAX_FETCH_LIMIT);
+  romsStore.setLimit(10000);
   galleryFilterStore.setFilterMissing(true);
   romsStore
-    .fetchRoms({ galleryFilter: galleryFilterStore })
+    .fetchRoms()
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,

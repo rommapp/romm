@@ -54,7 +54,7 @@ const processRomUpdates = debounce(() => {
     }
 
     let scannedPlatform = scanningPlatforms.value.find(
-      (p) => p.slug === rom.platform_slug,
+      (p) => p.fs_slug === rom.platform_fs_slug,
     );
 
     // Add the platform if the socket dropped and it's missing

@@ -117,7 +117,6 @@ def rom_user_schema_factory() -> RomUserSchema:
         difficulty=0,
         completion=0,
         status=None,
-        user__username="",
     )
 
 
@@ -136,7 +135,6 @@ class RomUserSchema(BaseModel):
     difficulty: int
     completion: int
     status: RomUserStatus | None
-    user__username: str
 
     class Config:
         from_attributes = True
@@ -164,6 +162,7 @@ class RomFileSchema(BaseModel):
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
+    ra_hash: str | None
     category: RomFileCategory | None
 
     class Config:
@@ -275,6 +274,7 @@ class RomSchema(BaseModel):
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
+    ra_hash: str | None
 
     has_simple_single_file: bool
     has_nested_single_file: bool
@@ -444,3 +444,16 @@ class DetailedRomSchema(RomSchema):
     @field_validator("user_screenshots")
     def sort_user_screenshots(cls, v: list[ScreenshotSchema]) -> list[ScreenshotSchema]:
         return sorted(v, key=lambda x: x.created_at, reverse=True)
+
+
+class RomFiltersDict(TypedDict):
+    genres: list[str]
+    franchises: list[str]
+    collections: list[str]
+    companies: list[str]
+    game_modes: list[str]
+    age_ratings: list[str]
+    player_counts: list[str]
+    regions: list[str]
+    languages: list[str]
+    platforms: list[int]

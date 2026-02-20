@@ -49,6 +49,7 @@ def get_config() -> ConfigResponse:
         SCAN_ARTWORK_PRIORITY=cfg.SCAN_ARTWORK_PRIORITY,
         SCAN_REGION_PRIORITY=cfg.SCAN_REGION_PRIORITY,
         SCAN_LANGUAGE_PRIORITY=cfg.SCAN_LANGUAGE_PRIORITY,
+        SCAN_MEDIA=cfg.SCAN_MEDIA,
         # Add SFU configuration
         SFU_HOST=getenv("SFU_HOST", getenv("EMULATORJS_SFU_HOST", 'localhost')),
         SFU_PORT=int(getenv('SFU_PORT', getenv('EMULATORJS_SFU_PORT', '3001'))),
