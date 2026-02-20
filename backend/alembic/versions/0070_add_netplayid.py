@@ -1,7 +1,7 @@
 """add netplayid to users table
 
-Revision ID: 0064_add_netplayid
-Revises: 0063_roms_metadata_player_count
+Revision ID: 0070_add_netplayid
+Revises: 0069_sibling_roms_fs_name
 Create Date: 2026-01-18 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0064_add_netplayid"
-down_revision = "0063_roms_metadata_player_count"
+revision = "0070_add_netplayid"
+down_revision = "0069_sibling_roms_fs_name"
 branch_labels = None
 depends_on = None
 
