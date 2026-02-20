@@ -75,6 +75,7 @@ Here are a few projects maintained by members of our community. Please note that
 
 - [romm-comm][romm-comm-discord-bot]: Discord bot by @idio-sync
 - [GGRequestz][ggrequestz]: Game discovery and request tool by @XTREEMMAK
+- [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by @amn-96
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
@@ -158,6 +159,7 @@ Here are a few projects that we think you might like:
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [muos-app]: https://github.com/rommapp/muos-app
 [ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
+[syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
 [romm-client]: https://github.com/chaun14/romm-client
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
