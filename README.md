@@ -28,7 +28,7 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 - Metadata available for [400+ platforms][docs-supported-platforms]
 - Play games directly from the browser using [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers]
 - Share your library with friends with limited access and permissions
-- Official apps for [Playnite][playnite-app] and [muOS][muos-app]
+- Official apps for [Playnite][playnite-app], [Android][argosy-launcher] and [CFWs][grout]
 - Supports multi-disk games, DLCs, mods, hacks, patches, and manuals
 - Parse and filter by [tags][docs-tag-support] in filenames
 - View, upload, update, and delete games from any modern web browser
@@ -53,13 +53,14 @@ Here are a few projects maintained by members of our community. Please note that
 
 ### Mobile
 
-- [romm-mobile][romm-mobile]: Android (and soon iOS) app by @mattsays
+- 🔷 [Argosy][argosy-launcher]: Native client for installing and launching games by @tmgast
 - [romm-ios-app][romm-ios-app]: Native iOS app by @ilyas-hallak
+- [romm-mobile][romm-mobile]: Android (and soon iOS) app by @mattsays
 - [romm-android][romm-android]: Android app by @samwelnella
-- [Argosy][argosy-launcher]: Native client for installing and launching games by @tmgast
 
 ### Desktop
 
+- 🔷 [Playnite plugin][playnite-app]: Library plugin for Playnite by @gantoine
 - [RommBrowser][romm-browser]: Electron client by @smurflabs
 - [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by @Covin90
 - [RomMate][rommate]: Desktop app for browsing your collection by @brenoprata10
@@ -67,7 +68,7 @@ Here are a few projects maintained by members of our community. Please note that
 
 ### Handhelds
 
-- [Grout][grout]: Download client for muOS and NextUI by @UncleJunVIP
+- 🔷 [Grout][grout]: Download client for muOS and NextUI by @UncleJunVIP
 - [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by @PeriBluGaming
 - [SwitchRomM][switch-romm]: Homebrew NRO for Switch by @Shalasere
 
@@ -76,6 +77,8 @@ Here are a few projects maintained by members of our community. Please note that
 - [romm-comm][romm-comm-discord-bot]: Discord bot by @idio-sync
 - [GGRequestz][ggrequestz]: Game discovery and request tool by @XTREEMMAK
 - [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by @amn-96
+
+[🔷] Official first-party app
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
@@ -157,7 +160,6 @@ Here are a few projects that we think you might like:
 [romm-browser]: https://github.com/smurflabs/RommBrowser/
 [romm-mobile]: https://github.com/mattsays/romm-mobile
 [playnite-app]: https://github.com/rommapp/playnite-plugin
-[muos-app]: https://github.com/rommapp/muos-app
 [ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
 [syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
 [romm-client]: https://github.com/chaun14/romm-client
