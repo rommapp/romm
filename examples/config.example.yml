@@ -137,6 +137,7 @@
 # emulatorjs:
 #   debug: true # Available options will be logged to the browser console
 #   cache_limit: null # Cache limit per ROM (in bytes)
+#   keyboard_lock: false # Should keyboard be locked in fullscreen?
 #   disable_batch_bootup: false
 #   disable_auto_unload: false
 #   settings:
