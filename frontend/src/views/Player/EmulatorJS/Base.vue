@@ -62,7 +62,7 @@ async function onPlay() {
   fullScreen.value = fullScreenOnPlay.value;
   playing.value = true;
 
-  const { EJS_NETPLAY_ENABLED } = configStore.config;
+  const { EJS_NETPLAY_ENABLED, EJS_KEYBOARD_LOCK } = configStore.config;
   const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
   const LOCAL_PATH = "/assets/emulatorjs/data";
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
@@ -173,8 +173,8 @@ onMounted(async () => {
   emitter?.on("saveSelected", selectSave);
   emitter?.on("stateSelected", selectState);
 
-  document.addEventListener("fullscreenchange", () => {
-    if (fullScreenOnPlay.value && "keyboard" in navigator) {
+  if (configStore.config.EJS_KEYBOARD_LOCK && "keyboard" in navigator) {
+    document.addEventListener("fullscreenchange", () => {
       if (document.fullscreenElement && navigator.keyboard.lock) {
         navigator.keyboard.lock([
           "Escape",
@@ -186,8 +186,8 @@ onMounted(async () => {
       } else if (!document.fullscreenElement && navigator.keyboard.unlock) {
         navigator.keyboard.unlock();
       }
-    }
-  });
+    });
+  }
 
   // Determine default tab and selection (mutually exclusive)
   const compatibleStates = rom.value.user_states.filter(
