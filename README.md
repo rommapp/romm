@@ -168,4 +168,4 @@ Here are a few projects that we think you might like:
 [romm-android]: https://github.com/samwelnella/romm-android
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
-[argosy-launcher]: https://github.com/nendotools/argosy-launcher
+[argosy-launcher]: https://github.com/rommapp/argosy-launcher
