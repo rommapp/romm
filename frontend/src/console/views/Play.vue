@@ -11,7 +11,10 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import type { FirmwareSchema } from "@/__generated__";
+import type {
+  Body_add_state_api_states_post as AddStateInput,
+  FirmwareSchema,
+} from "@/__generated__";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
@@ -28,6 +31,7 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
+import { buildFormInput } from "@/utils/formData";
 
 const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
@@ -467,13 +471,14 @@ async function boot() {
     screenshot: ArrayBuffer;
   }) {
     try {
-      const formData = new FormData();
-      formData.append("stateFile", new Blob([stateFile]), "state.save");
-      formData.append(
-        "screenshotFile",
-        new Blob([screenshotFile], { type: "image/png" }),
-        "screenshot.png",
-      );
+      const formData = buildFormInput<AddStateInput>([
+        ["stateFile", new Blob([stateFile]), "state.save"],
+        [
+          "screenshotFile",
+          new Blob([screenshotFile], { type: "image/png" }),
+          "screenshot.png",
+        ],
+      ]);
 
       await api.post("/states", formData, {
         headers: { "Content-Type": "multipart/form-data" },

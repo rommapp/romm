@@ -187,7 +187,7 @@ async function createSmartCollection() {
         filterCriteria.languages_logic = languagesLogic.value;
     }
 
-    const { data } = await collectionApi.createSmartCollection({
+    const data = await collectionApi.createSmartCollection({
       smartCollection: {
         name: name.value.trim(),
         description: description.value.trim() || undefined,

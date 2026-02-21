@@ -99,7 +99,7 @@ async function uploadRoms() {
       filesToUpload: filesToUpload.value,
       platformId: platformId,
     })
-    .then((responses: PromiseSettledResult<unknown>[]) => {
+    .then((responses) => {
       const successfulUploads = responses.filter(
         (d) => d.status == "fulfilled",
       );

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Request, UploadFile, status
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema
@@ -27,9 +27,13 @@ async def add_state(
     request: Request,
     rom_id: int,
     emulator: str | None = None,
+    stateFile: UploadFile | None = File(
+        default=None, description="State file to upload."
+    ),
+    screenshotFile: UploadFile | None = File(
+        default=None, description="Screenshot file associated with this state."
+    ),
 ) -> StateSchema:
-    data = await request.form()
-
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
@@ -43,13 +47,11 @@ async def add_state(
         emulator=emulator,
     )
 
-    if "stateFile" not in data:
+    if not stateFile:
         log.error("No state file provided")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="No state file provided"
         )
-
-    stateFile: UploadFile = data["stateFile"]  # type: ignore
 
     if not stateFile.filename:
         log.error("State file has no filename")
@@ -95,7 +97,6 @@ async def add_state(
         scanned_state.emulator = emulator
         db_state = db_state_handler.add_state(state=scanned_state)
 
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
@@ -187,23 +188,27 @@ def get_state(request: Request, id: int) -> StateSchema:
 
 
 @protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
-async def update_state(request: Request, id: int) -> StateSchema:
-    data = await request.form()
-
+async def update_state(
+    request: Request,
+    id: int,
+    stateFile: UploadFile | None = File(
+        default=None, description="Updated state file content."
+    ),
+    screenshotFile: UploadFile | None = File(
+        default=None, description="Updated screenshot file."
+    ),
+) -> StateSchema:
     db_state = db_state_handler.get_state(user_id=request.user.id, id=id)
     if not db_state:
         error = f"State with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    if "stateFile" in data:
-        stateFile: UploadFile = data["stateFile"]  # type: ignore
+    if stateFile:
         await fs_asset_handler.write_file(file=stateFile, path=db_state.file_path)
         db_state = db_state_handler.update_state(
             db_state.id, {"file_size_bytes": stateFile.size}
         )
-
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,

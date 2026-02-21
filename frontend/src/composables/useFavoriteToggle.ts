@@ -18,7 +18,7 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
     }
     if (favoriteCollection.value) return favoriteCollection.value;
     // Create if still missing
-    const { data } = await collectionApi.createCollection({
+    const data = await collectionApi.createCollection({
       collection: {
         name: "Favorites",
         rom_ids: [],
@@ -47,7 +47,7 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
 
     const currentlyFav = fav.rom_ids.includes(rom.id);
     if (currentlyFav) {
-      fav.rom_ids = fav.rom_ids.filter((id) => id !== rom.id);
+      fav.rom_ids = fav.rom_ids.filter((id: number) => id !== rom.id);
       if (romsStore.currentCollection?.id === fav.id) {
         romsStore.remove([rom]);
       }
@@ -72,7 +72,7 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
       if (currentlyFav) {
         fav.rom_ids.push(rom.id);
       } else {
-        fav.rom_ids = fav.rom_ids.filter((id) => id !== rom.id);
+        fav.rom_ids = fav.rom_ids.filter((id: number) => id !== rom.id);
       }
       const detail = (error as { response?: { data?: { detail?: string } } })
         ?.response?.data?.detail;

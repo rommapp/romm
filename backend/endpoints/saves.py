@@ -3,7 +3,7 @@ import re
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
@@ -110,25 +110,27 @@ async def add_save(
     overwrite: bool = False,
     autocleanup: bool = False,
     autocleanup_limit: int = 10,
+    saveFile: UploadFile | None = File(
+        default=None, description="Save file to upload."
+    ),
+    screenshotFile: UploadFile | None = File(
+        default=None, description="Screenshot file associated with this save."
+    ),
 ) -> SaveSchema:
     """Upload a save file for a ROM."""
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
     )
 
-    data = await request.form()
-
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    if "saveFile" not in data:
+    if not saveFile:
         log.error("No save file provided")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="No save file provided"
         )
-
-    saveFile: UploadFile = data["saveFile"]  # type: ignore
 
     if not saveFile.filename:
         log.error("Save file has no filename")
@@ -250,7 +252,6 @@ async def add_save(
                 except FileNotFoundError:
                     log.warning(f"Could not delete old save file: {old_save.full_path}")
 
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
@@ -446,9 +447,17 @@ def confirm_download(
 
 
 @protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
-async def update_save(request: Request, id: int) -> SaveSchema:
+async def update_save(
+    request: Request,
+    id: int,
+    saveFile: UploadFile | None = File(
+        default=None, description="Updated save file content."
+    ),
+    screenshotFile: UploadFile | None = File(
+        default=None, description="Updated screenshot file."
+    ),
+) -> SaveSchema:
     """Update a save file."""
-    data = await request.form()
 
     db_save = db_save_handler.get_save(user_id=request.user.id, id=id)
     if not db_save:
@@ -456,14 +465,12 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    if "saveFile" in data:
-        saveFile: UploadFile = data["saveFile"]  # type: ignore
+    if saveFile:
         await fs_asset_handler.write_file(file=saveFile, path=db_save.file_path)
         db_save = db_save_handler.update_save(
             db_save.id, {"file_size_bytes": saveFile.size}
         )
 
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,

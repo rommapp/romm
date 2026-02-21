@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Request, UploadFile, status
+from fastapi import File, HTTPException, Request, UploadFile, status
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import ScreenshotSchema
@@ -22,9 +22,10 @@ router = APIRouter(
 async def add_screenshot(
     request: Request,
     rom_id: int,
+    screenshotFile: UploadFile | None = File(
+        default=None, description="Screenshot file to upload."
+    ),
 ) -> ScreenshotSchema:
-    data = await request.form()
-
     rom = db_rom_handler.get_rom(id=rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
@@ -36,14 +37,12 @@ async def add_screenshot(
         user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
     )
 
-    if "screenshotFile" not in data:
+    if not screenshotFile:
         log.error("No screenshot file provided")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No screenshot file provided",
         )
-
-    screenshotFile: UploadFile = data["screenshotFile"]  # type: ignore
     if not screenshotFile.filename:
         log.error("Screenshot file has no filename")
         raise HTTPException(
