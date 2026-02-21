@@ -173,6 +173,22 @@ onMounted(async () => {
   emitter?.on("saveSelected", selectSave);
   emitter?.on("stateSelected", selectState);
 
+  document.addEventListener("fullscreenchange", () => {
+    if (fullScreenOnPlay.value && "keyboard" in navigator) {
+      if (document.fullscreenElement && navigator.keyboard.lock) {
+        navigator.keyboard.lock([
+          "Escape",
+          "Tab",
+          "AltLeft",
+          "ControlLeft",
+          "MetaLeft",
+        ]);
+      } else if (!document.fullscreenElement && navigator.keyboard.unlock) {
+        navigator.keyboard.unlock();
+      }
+    }
+  });
+
   // Determine default tab and selection (mutually exclusive)
   const compatibleStates = rom.value.user_states.filter(
     (s) => !s.emulator || s.emulator === supportedCores.value[0],
