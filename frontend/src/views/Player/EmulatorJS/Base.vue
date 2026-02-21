@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
+import { useEventListener, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -174,7 +174,7 @@ onMounted(async () => {
   emitter?.on("stateSelected", selectState);
 
   if (configStore.config.EJS_KEYBOARD_LOCK && "keyboard" in navigator) {
-    document.addEventListener("fullscreenchange", () => {
+    useEventListener(document, "fullscreenchange", () => {
       if (document.fullscreenElement && navigator.keyboard.lock) {
         navigator.keyboard.lock([
           "Escape",
