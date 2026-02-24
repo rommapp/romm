@@ -53,30 +53,30 @@ Here are a few projects maintained by members of our community. Please note that
 
 ### Mobile
 
-- 🔷 [Argosy][argosy-launcher]: Native client for installing and launching games by @tmgast
-- [romm-ios-app][romm-ios-app]: Native iOS app by @ilyas-hallak
-- [romm-mobile][romm-mobile]: Android (and soon iOS) app by @mattsays
-- [romm-android][romm-android]: Android app by @samwelnella
+- 🔷 [Argosy][argosy-launcher]: Native client for installing and launching games by [@tmgast](https://github.com/tmgast)
+- [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
+- [romm-mobile][romm-mobile]: Android (and soon iOS) app by [@mattsays](https://github.com/mattsays)
+- [romm-android][romm-android]: Android app by [@samwelnella](https://github.com/samwelnella)
 
 ### Desktop
 
-- 🔷 [Playnite plugin][playnite-app]: Library plugin for Playnite by @gantoine
-- [RommBrowser][romm-browser]: Electron client by @smurflabs
-- [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by @Covin90
-- [RomMate][rommate]: Desktop app for browsing your collection by @brenoprata10
-- [romm-client][romm-client]: Desktop client by @chaun14
+- 🔷 [Playnite plugin][playnite-app]: Library plugin for Playnite by [@gantoine](https://github.com/gantoine)
+- [RommBrowser][romm-browser]: Electron client by [@smurflabs](https://github.com/smurflabs)
+- [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
+- [RomMate][rommate]: Desktop app for browsing your collection by [@brenoprata10](https://github.com/brenoprata10)
+- [romm-client][romm-client]: Desktop client by [@chaun14](https://github.com/chaun14)
 
 ### Handhelds
 
-- 🔷 [Grout][grout]: Download client for muOS and NextUI by @UncleJunVIP
-- [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by @PeriBluGaming
-- [SwitchRomM][switch-romm]: Homebrew NRO for Switch by @Shalasere
+- 🔷 [Grout][grout]: Download client for muOS and NextUI by [@BrandonKowalski](https://github.com/BrandonKowalski)
+- [DeckRommSync][deck-romm-sync]: SteamOS downloader and syncer by [@PeriBluGaming](https://github.com/PeriBluGaming)
+- [SwitchRomM][switch-romm]: Homebrew NRO for Switch by [@Shalasere](https://github.com/Shalasere)
 
 ### Other
 
-- [romm-comm][romm-comm-discord-bot]: Discord bot by @idio-sync
-- [GGRequestz][ggrequestz]: Game discovery and request tool by @XTREEMMAK
-- [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by @amn-96
+- [romm-comm][romm-comm-discord-bot]: Discord bot by [@idio-sync](https://github.com/idio-sync)
+- [GGRequestz][ggrequestz]: Game discovery and request tool by [@XTREEMMAK](https://github.com/XTREEMMAK)
+- [Syncthing sync][syncthing-sync]: Small tool to push a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
 
 [🔷] Official first-party app
 
