@@ -11,7 +11,6 @@ from sqlalchemy import (
     and_,
     case,
     cast,
-    collate,
     delete,
     false,
     func,
@@ -44,6 +43,7 @@ from utils.database import (
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
+    natural_sort_expressions,
 )
 
 from .base_handler import DBBaseHandler
@@ -95,8 +95,6 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.WONDERSWAN,
     UPS.WONDERSWAN_COLOR,
 ]
-
-STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+"
 
 
 def _create_metadata_id_case(
@@ -797,47 +795,20 @@ class DBRomsHandler(DBBaseHandler):
 
         order_attr_column = order_attr
 
-        # Ignore case when the order attribute is a number
-        if isinstance(order_attr.type, (String, Text)):
-            # Remove any leading articles
-            stripped_articles = func.trim(
-                func.lower(order_attr).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
-            )
-
-            # Extract base name (before first colon) for primary sort key.
-            # This ensures "Game" sorts before "Game 2" regardless of
-            # subtitles (e.g. "Game: Super Fun" before "Game 2: ...").
-            if ROMM_DB_DRIVER in ("mariadb", "mysql"):
-                base_cleaned = func.trim(
-                    func.lower(func.substring_index(order_attr, ":", 1)).regexp_replace(
-                        STRIP_ARTICLES_REGEX, "", "i"
-                    )
-                )
-                base_sort = func.natural_sort_key(base_cleaned)
-                full_sort = func.natural_sort_key(stripped_articles)
-            elif ROMM_DB_DRIVER == "postgresql":
-                base_cleaned = func.trim(
-                    func.lower(
-                        func.split_part(cast(order_attr, Text), ":", 1)
-                    ).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
-                )
-                base_sort = collate(base_cleaned, "natural_sort")
-                full_sort = collate(stripped_articles, "natural_sort")
-            else:
-                base_sort = stripped_articles
-                full_sort = stripped_articles
-
+        # For non-string columns (e.g. dates), sort directly without natural sort
+        if not isinstance(order_attr.type, (String, Text)):
             if order_dir.lower() == "desc":
-                return query.order_by(base_sort.desc(), full_sort.desc()), order_attr_column  # type: ignore
+                order_attr = order_attr.desc()
             else:
-                return query.order_by(base_sort.asc(), full_sort.asc()), order_attr_column  # type: ignore
+                order_attr = order_attr.asc()
+            return query.order_by(order_attr), order_attr_column  # type: ignore
+
+        _, base_sort, full_sort = natural_sort_expressions(order_attr)
 
         if order_dir.lower() == "desc":
-            order_attr = order_attr.desc()
+            return query.order_by(base_sort.desc(), full_sort.desc()), order_attr_column  # type: ignore
         else:
-            order_attr = order_attr.asc()
-
-        return query.order_by(order_attr), order_attr_column  # type: ignore
+            return query.order_by(base_sort.asc(), full_sort.asc()), order_attr_column  # type: ignore
 
     @begin_session
     def get_roms_scalar(
@@ -900,42 +871,14 @@ class DBRomsHandler(DBBaseHandler):
         order_by_attr: Any,
         session: Session = None,  # type: ignore
     ) -> list[Row[tuple[str, int]]]:
-        if isinstance(order_by_attr.type, (String, Text)):
-            # Remove any leading articles
-            stripped_articles = func.trim(
-                func.lower(order_by_attr).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
-            )
-        else:
-            stripped_articles = func.trim(
-                func.lower(Rom.name).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
-            )
+        # Fall back to Rom.name for non-string sort columns (e.g. dates)
+        if not isinstance(order_by_attr.type, (String, Text)):
+            order_by_attr = Rom.name
 
-        # Extract base name (before first colon) for primary sort key.
-        # This ensures "Game" sorts before "Game 2" regardless of
-        # subtitles (e.g. "Game: Super Fun" before "Game 2: ...").
-        if isinstance(order_by_attr.type, (String, Text)):
-            if ROMM_DB_DRIVER in ("mariadb", "mysql"):
-                base_cleaned = func.trim(
-                    func.lower(
-                        func.substring_index(order_by_attr, ":", 1)
-                    ).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
-                )
-                base_sort = func.natural_sort_key(base_cleaned)
-                full_sort = func.natural_sort_key(stripped_articles)
-            elif ROMM_DB_DRIVER == "postgresql":
-                base_cleaned = func.trim(
-                    func.lower(
-                        func.split_part(cast(order_by_attr, Text), ":", 1)
-                    ).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
-                )
-                base_sort = collate(base_cleaned, "natural_sort")
-                full_sort = collate(stripped_articles, "natural_sort")
-            else:
-                base_sort = stripped_articles
-                full_sort = stripped_articles
-            sort_order = [base_sort, full_sort]
-        else:
-            sort_order = [stripped_articles]
+        stripped_articles, base_sort, full_sort = natural_sort_expressions(
+            order_by_attr
+        )
+        sort_order = [base_sort, full_sort]
 
         # Get the row number and first letter for each item
         subquery = (
