@@ -45,7 +45,7 @@ declare global {
   interface Navigator {
     keyboard: {
       lock: (keys: string[]) => Promise<void>;
-      unlock: () => Promise<void>;
+      unlock: () => void;
     };
   }
 }
@@ -188,7 +188,7 @@ onMounted(async () => {
         navigator.keyboard
           .lock(["Escape", "Tab", "AltLeft", "ControlLeft", "MetaLeft"])
           .catch(() => {});
-      } else if (!document.fullscreenElement) {
+      } else {
         navigator.keyboard.unlock();
       }
     });
