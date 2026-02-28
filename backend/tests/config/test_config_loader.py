@@ -29,7 +29,6 @@ def test_config_loader():
     assert loader.config.EJS_DISABLE_AUTO_UNLOAD
     assert loader.config.EJS_DISABLE_BATCH_BOOTUP
     assert loader.config.EJS_CACHE_LIMIT == 1000
-    assert loader.config.EJS_KEYBOARD_LOCK
     assert loader.config.EJS_NETPLAY_ENABLED
     assert loader.config.EJS_NETPLAY_ICE_SERVERS == [
         {"urls": "stun:stun.relay.metered.ca:80"},
@@ -81,7 +80,6 @@ def test_empty_config_loader():
     assert not loader.config.SKIP_HASH_CALCULATION
     assert not loader.config.EJS_DEBUG
     assert loader.config.EJS_CACHE_LIMIT is None
-    assert not loader.config.EJS_KEYBOARD_LOCK
     assert not loader.config.EJS_DISABLE_AUTO_UNLOAD
     assert not loader.config.EJS_DISABLE_BATCH_BOOTUP
     assert not loader.config.EJS_NETPLAY_ENABLED

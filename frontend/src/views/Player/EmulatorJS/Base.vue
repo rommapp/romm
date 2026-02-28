@@ -41,6 +41,15 @@ const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
 
+declare global {
+  interface Navigator {
+    keyboard: {
+      lock: (keys: string[]) => {};
+      unlock: () => {};
+    };
+  }
+}
+
 const compatibleStates = computed(
   () =>
     rom.value?.user_states.filter(
@@ -62,7 +71,7 @@ async function onPlay() {
   fullScreen.value = fullScreenOnPlay.value;
   playing.value = true;
 
-  const { EJS_NETPLAY_ENABLED, EJS_KEYBOARD_LOCK } = configStore.config;
+  const { EJS_NETPLAY_ENABLED } = configStore.config;
   const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
   const LOCAL_PATH = "/assets/emulatorjs/data";
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
@@ -173,7 +182,7 @@ onMounted(async () => {
   emitter?.on("saveSelected", selectSave);
   emitter?.on("stateSelected", selectState);
 
-  if (configStore.config.EJS_KEYBOARD_LOCK && "keyboard" in navigator) {
+  if ("keyboard" in navigator) {
     useEventListener(document, "fullscreenchange", () => {
       if (document.fullscreenElement && navigator.keyboard.lock) {
         navigator.keyboard.lock([

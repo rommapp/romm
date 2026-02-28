@@ -55,7 +55,6 @@ scan:
 emulatorjs:
   debug: true
   cache_limit: 1000
-  keyboard_lock: true
   disable_auto_unload: true
   disable_batch_bootup: true
   netplay:

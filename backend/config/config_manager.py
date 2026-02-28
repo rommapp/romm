@@ -114,7 +114,6 @@ class Config:
     HIGH_PRIO_STRUCTURE_PATH: str
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
-    EJS_KEYBOARD_LOCK: bool
     EJS_DISABLE_AUTO_UNLOAD: bool
     EJS_DISABLE_BATCH_BOOTUP: bool
     EJS_NETPLAY_ENABLED: bool
@@ -275,9 +274,6 @@ class ConfigManager:
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
             EJS_CACHE_LIMIT=pydash.get(
                 self._raw_config, "emulatorjs.cache_limit", None
-            ),
-            EJS_KEYBOARD_LOCK=pydash.get(
-                self._raw_config, "emulatorjs.keyboard_lock", False
             ),
             EJS_DISABLE_AUTO_UNLOAD=pydash.get(
                 self._raw_config, "emulatorjs.disable_auto_unload", False
@@ -479,12 +475,6 @@ class ConfigManager:
             )
             sys.exit(3)
 
-        if not isinstance(self.config.EJS_KEYBOARD_LOCK, bool):
-            log.critical(
-                "Invalid config.yml: emulatorjs.keyboard_lock must be a boolean"
-            )
-            sys.exit(3)
-
         if not isinstance(self.config.EJS_DISABLE_AUTO_UNLOAD, bool):
             log.critical(
                 "Invalid config.yml: emulatorjs.disable_auto_unload must be a boolean"
@@ -611,7 +601,6 @@ class ConfigManager:
             "emulatorjs": {
                 "debug": self.config.EJS_DEBUG,
                 "cache_limit": self.config.EJS_CACHE_LIMIT,
-                "keyboard_lock": self.config.EJS_KEYBOARD_LOCK,
                 "disable_auto_unload": self.config.EJS_DISABLE_AUTO_UNLOAD,
                 "disable_batch_bootup": self.config.EJS_DISABLE_BATCH_BOOTUP,
                 "netplay": {
