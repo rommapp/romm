@@ -26,7 +26,6 @@ const defaultConfig = {
   EJS_DEBUG: false,
   EJS_NETPLAY_ENABLED: false,
   EJS_CACHE_LIMIT: null,
-  EJS_KEYBOARD_LOCK: false,
   EJS_DISABLE_AUTO_UNLOAD: false,
   EJS_DISABLE_BATCH_BOOTUP: false,
   EJS_NETPLAY_ICE_SERVERS: [],
