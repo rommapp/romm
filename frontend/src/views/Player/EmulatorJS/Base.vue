@@ -44,8 +44,8 @@ const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
 declare global {
   interface Navigator {
     keyboard: {
-      lock: (keys: string[]) => {};
-      unlock: () => {};
+      lock: (keys: string[]) => Promise<void>;
+      unlock: () => Promise<void>;
     };
   }
 }
@@ -184,15 +184,11 @@ onMounted(async () => {
 
   if ("keyboard" in navigator) {
     useEventListener(document, "fullscreenchange", () => {
-      if (document.fullscreenElement && navigator.keyboard.lock) {
-        navigator.keyboard.lock([
-          "Escape",
-          "Tab",
-          "AltLeft",
-          "ControlLeft",
-          "MetaLeft",
-        ]);
-      } else if (!document.fullscreenElement && navigator.keyboard.unlock) {
+      if (document.fullscreenElement) {
+        navigator.keyboard
+          .lock(["Escape", "Tab", "AltLeft", "ControlLeft", "MetaLeft"])
+          .catch(() => {});
+      } else if (!document.fullscreenElement) {
         navigator.keyboard.unlock();
       }
     });
