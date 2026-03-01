@@ -15,7 +15,7 @@ router = APIRouter(
 
 
 @router.get("")
-def get_config() -> ConfigResponse:
+def get_config(request: Request) -> ConfigResponse:
     """Get config endpoint
 
     Returns:
@@ -40,7 +40,10 @@ def get_config() -> ConfigResponse:
         EJS_DISABLE_AUTO_UNLOAD=cfg.EJS_DISABLE_AUTO_UNLOAD,
         EJS_DISABLE_BATCH_BOOTUP=cfg.EJS_DISABLE_BATCH_BOOTUP,
         EJS_NETPLAY_ENABLED=cfg.EJS_NETPLAY_ENABLED,
-        EJS_NETPLAY_ICE_SERVERS=cfg.EJS_NETPLAY_ICE_SERVERS,
+        # Contains credentials, so only send when authenticated
+        EJS_NETPLAY_ICE_SERVERS=(
+            cfg.EJS_NETPLAY_ICE_SERVERS if request.user.is_authenticated else []
+        ),
         EJS_CONTROLS=cfg.EJS_CONTROLS,
         EJS_SETTINGS=cfg.EJS_SETTINGS,
         SCAN_METADATA_PRIORITY=cfg.SCAN_METADATA_PRIORITY,
