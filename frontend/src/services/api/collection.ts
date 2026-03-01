@@ -1,9 +1,18 @@
-import api from "@/services/api";
 import type {
-  Collection,
-  VirtualCollection,
-  SmartCollection,
-} from "@/stores/collections";
+  Body_add_collection_api_collections_post as AddCollectionInput,
+  Body_add_smart_collection_api_collections_smart_post as AddSmartCollectionInput,
+  Body_update_collection_api_collections__id__put as UpdateCollectionInput,
+  Body_update_smart_collection_api_collections_smart__id__put as UpdateSmartCollectionInput,
+  CollectionSchema,
+  SmartCollectionSchema,
+  VirtualCollectionSchema,
+} from "@/__generated__";
+import api from "@/services/api";
+import { buildFormInput } from "@/utils/formData";
+
+type Collection = CollectionSchema;
+type VirtualCollection = VirtualCollectionSchema;
+type SmartCollection = SmartCollectionSchema;
 
 export type UpdatedCollection = Collection & {
   artwork?: File;
@@ -16,15 +25,15 @@ async function createCollection({
   collection,
 }: {
   collection: Partial<UpdatedCollection>;
-}): Promise<{ data: Collection }> {
-  const formData = new FormData();
-  formData.append("name", collection.name || "");
-  formData.append("description", collection.description || "");
-  formData.append("url_cover", collection.url_cover || "");
-  formData.append("rom_ids", JSON.stringify(collection.rom_ids || []));
-  if (collection.artwork) formData.append("artwork", collection.artwork);
+}) {
+  const formData = buildFormInput<AddCollectionInput>([
+    ["name", collection.name],
+    ["description", collection.description],
+    ["url_cover", collection.url_cover],
+    ["artwork", collection.artwork],
+  ]);
 
-  return api.post(`/collections`, formData, {
+  const { data } = await api.post<Collection>(`/collections`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -33,34 +42,40 @@ async function createCollection({
       is_favorite: collection.is_favorite || false,
     },
   });
+  return data;
 }
 
 async function createSmartCollection({
   smartCollection,
 }: {
   smartCollection: Partial<SmartCollection>;
-}): Promise<{ data: SmartCollection }> {
-  const formData = new FormData();
+}) {
+  const formData = buildFormInput<AddSmartCollectionInput>([
+    ["name", smartCollection.name],
+    ["description", smartCollection.description],
+    [
+      "filter_criteria",
+      JSON.stringify(smartCollection.filter_criteria) || "{}",
+    ],
+  ]);
 
-  formData.append("name", smartCollection.name || "");
-  formData.append("description", smartCollection.description || "");
-  formData.append(
-    "filter_criteria",
-    JSON.stringify(smartCollection.filter_criteria),
+  const { data } = await api.post<SmartCollection>(
+    "/collections/smart",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      params: {
+        is_public: smartCollection.is_public,
+      },
+    },
   );
-
-  return api.post("/collections/smart", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-    params: {
-      is_public: smartCollection.is_public,
-    },
-  });
+  return data;
 }
 
-async function getCollections(): Promise<{ data: Collection[] }> {
-  return api.get("/collections");
+async function getCollections() {
+  return api.get<Collection[]>("/collections");
 }
 
 async function getVirtualCollections({
@@ -68,28 +83,26 @@ async function getVirtualCollections({
 }: {
   type?: string;
   limit?: number;
-}): Promise<{ data: VirtualCollection[] }> {
-  return api.get("/collections/virtual", { params: { type } });
+}) {
+  return api.get<VirtualCollection[]>("/collections/virtual", {
+    params: { type },
+  });
 }
 
-async function getSmartCollections(): Promise<{ data: SmartCollection[] }> {
-  return api.get("/collections/smart");
+async function getSmartCollections() {
+  return api.get<SmartCollection[]>("/collections/smart");
 }
 
-async function getCollection(id: number): Promise<{ data: Collection }> {
-  return api.get(`/collections/${id}`);
+async function getCollection(id: number) {
+  return api.get<Collection>(`/collections/${id}`);
 }
 
-async function getVirtualCollection(
-  id: string,
-): Promise<{ data: VirtualCollection }> {
-  return api.get(`/collections/virtual/${id}`);
+async function getVirtualCollection(id: string) {
+  return api.get<VirtualCollection>(`/collections/virtual/${id}`);
 }
 
-async function getSmartCollection(
-  id: number,
-): Promise<{ data: SmartCollection }> {
-  return api.get(`/collections/smart/${id}`);
+async function getSmartCollection(id: number) {
+  return api.get<SmartCollection>(`/collections/smart/${id}`);
 }
 
 async function updateCollection({
@@ -98,15 +111,16 @@ async function updateCollection({
 }: {
   collection: UpdatedCollection;
   removeCover?: boolean;
-}): Promise<{ data: Collection }> {
-  const formData = new FormData();
-  formData.append("name", collection.name || "");
-  formData.append("description", collection.description || "");
-  formData.append("url_cover", collection.url_cover || "");
-  formData.append("rom_ids", JSON.stringify(collection.rom_ids || []));
-  if (collection.artwork) formData.append("artwork", collection.artwork);
+}) {
+  const formData = buildFormInput<UpdateCollectionInput>([
+    ["name", collection.name],
+    ["description", collection.description],
+    ["url_cover", collection.url_cover],
+    ["rom_ids", JSON.stringify(collection.rom_ids)],
+    ["artwork", collection.artwork],
+  ]);
 
-  return api.put(`/collections/${collection.id}`, formData, {
+  return api.put<Collection>(`/collections/${collection.id}`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -118,24 +132,28 @@ async function updateSmartCollection({
   smartCollection,
 }: {
   smartCollection: SmartCollection;
-}): Promise<{ data: SmartCollection }> {
-  const formData = new FormData();
+}) {
+  const formData = buildFormInput<UpdateSmartCollectionInput>([
+    ["name", smartCollection.name],
+    ["description", smartCollection.description],
+    [
+      "filter_criteria",
+      JSON.stringify(smartCollection.filter_criteria) || "{}",
+    ],
+  ]);
 
-  formData.append("name", smartCollection.name || "");
-  formData.append("description", smartCollection.description || "");
-  formData.append(
-    "filter_criteria",
-    JSON.stringify(smartCollection.filter_criteria),
+  return api.put<SmartCollection>(
+    `/collections/smart/${smartCollection.id}`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      params: {
+        is_public: smartCollection.is_public,
+      },
+    },
   );
-
-  return api.put(`/collections/smart/${smartCollection.id}`, formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-    params: {
-      is_public: smartCollection.is_public,
-    },
-  });
 }
 
 async function deleteCollection({ collection }: { collection: Collection }) {

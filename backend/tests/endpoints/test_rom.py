@@ -123,6 +123,41 @@ def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
     assert body["successful_items"] == 1
 
 
+def test_update_rom_user_props_with_data_envelope(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.put(
+        f"/api/roms/{rom.id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"data": {"backlogged": True, "rating": 7}},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["backlogged"] is True
+    assert body["rating"] == 7
+
+
+def test_update_rom_user_props_last_played_flags(
+    client: TestClient, access_token: str, rom: Rom
+):
+    mark_played_response = client.put(
+        f"/api/roms/{rom.id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"data": {}, "update_last_played": True},
+    )
+    assert mark_played_response.status_code == status.HTTP_200_OK
+    assert mark_played_response.json()["last_played"] is not None
+
+    clear_played_response = client.put(
+        f"/api/roms/{rom.id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"data": {}, "remove_last_played": True},
+    )
+    assert clear_played_response.status_code == status.HTTP_200_OK
+    assert clear_played_response.json()["last_played"] is None
+
+
 class TestUpdateMetadataIDs:
     @patch.object(
         IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=MOCK_IGDB_ID)
