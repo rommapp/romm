@@ -499,22 +499,220 @@ def get_roms(
         # trunk-ignore(mypy/typeddict-item)
         filter_values = RomFiltersDict(**query_filters)
 
-    # Get all ROM IDs in order for the additional data
+    import json
+
+    from sqlalchemy import text
+
+    from config import FRONTEND_RESOURCES_PATH
+
+    def _json(val):
+        """Parse JSON strings from raw SQL results."""
+        if isinstance(val, str):
+            try:
+                return json.loads(val)
+            except (json.JSONDecodeError, TypeError):
+                return val
+        return val
+
     with sync_session.begin() as session:
         rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
+        total = len(rom_id_index)
 
-        return paginate(
-            session,
-            query,
-            transformer=lambda items: [
-                SimpleRomSchema.from_orm_with_request(i, request) for i in items
-            ],
-            additional_data={
-                "char_index": char_index_dict,
-                "rom_id_index": rom_id_index,
-                "filter_values": filter_values,
-            },
+        page_offset = int(request.query_params.get("offset", 0))
+        page_limit = int(request.query_params.get("limit", 50))
+        page_ids = rom_id_index[page_offset : page_offset + page_limit]
+
+        empty_result = {
+            "items": [],
+            "total": total,
+            "limit": page_limit,
+            "offset": page_offset,
+            "char_index": char_index_dict,
+            "rom_id_index": rom_id_index,
+            "filter_values": filter_values,
+        }
+        if not page_ids:
+            return empty_result
+
+        placeholders = ",".join([":id_" + str(i) for i in range(len(page_ids))])
+        id_params = {f"id_{i}": rid for i, rid in enumerate(page_ids)}
+
+        # Single query for roms + platform + metadata (skips sibling_roms VIEW entirely)
+        rows = (
+            session.execute(
+                text(f"""
+            SELECT
+                r.id, r.igdb_id, r.sgdb_id, r.moby_id, r.ss_id, r.ra_id,
+                r.launchbox_id, r.hasheous_id, r.tgdb_id, r.flashpoint_id,
+                r.hltb_id, r.gamelist_id,
+                r.fs_name, r.fs_name_no_tags, r.fs_name_no_ext, r.fs_extension,
+                r.fs_path, r.fs_size_bytes,
+                r.name, r.slug,
+                r.ss_metadata, r.gamelist_metadata,
+                r.path_cover_s, r.path_cover_l, r.url_cover,
+                r.path_manual, r.path_screenshots,
+                r.regions, r.languages, r.tags,
+                r.missing_from_fs, r.platform_id,
+                r.created_at, r.updated_at,
+                p.slug AS platform_slug, p.fs_slug AS platform_fs_slug,
+                p.custom_name AS platform_custom_name, p.name AS platform_name,
+                m.genres, m.franchises, m.collections AS meta_collections,
+                m.companies, m.game_modes, m.age_ratings,
+                m.player_count, m.first_release_date, m.average_rating
+            FROM roms r
+            JOIN platforms p ON p.id = r.platform_id
+            LEFT JOIN roms_metadata m ON m.rom_id = r.id
+            WHERE r.id IN ({placeholders})
+        """),
+                id_params,
+            )
+            .mappings()
+            .all()
         )
+
+        # Batch-load rom_users and notes (avoids N+1)
+        rom_user_rows = (
+            session.execute(
+                text(f"""
+            SELECT rom_id, id, user_id, is_main_sibling, last_played,
+                   backlogged, now_playing, hidden, rating, difficulty,
+                   completion, status, created_at, updated_at
+            FROM rom_user WHERE rom_id IN ({placeholders})
+        """),
+                id_params,
+            )
+            .mappings()
+            .all()
+        )
+        rom_users_by_rom: dict = {}
+        for ru in rom_user_rows:
+            rom_users_by_rom.setdefault(ru["rom_id"], []).append(ru)
+
+        notes_rows = (
+            session.execute(
+                text(f"""
+            SELECT rom_id, user_id, is_public
+            FROM rom_notes WHERE rom_id IN ({placeholders})
+        """),
+                id_params,
+            )
+            .mappings()
+            .all()
+        )
+        notes_by_rom: dict = {}
+        for n in notes_rows:
+            notes_by_rom.setdefault(n["rom_id"], []).append(n)
+
+        user_id = request.user.id
+        rom_map = {row["id"]: row for row in rows}
+        now_str = datetime.now(timezone.utc).isoformat()
+        dummy_rom_user = {
+            "id": -1,
+            "user_id": -1,
+            "rom_id": -1,
+            "created_at": now_str,
+            "updated_at": now_str,
+            "last_played": None,
+            "is_main_sibling": False,
+            "backlogged": False,
+            "now_playing": False,
+            "hidden": False,
+            "rating": 0,
+            "difficulty": 0,
+            "completion": 0,
+            "status": None,
+        }
+
+        items = []
+        for rid in page_ids:
+            row = rom_map.get(rid)
+            if not row:
+                continue
+
+            # Build dict from row, pop columns that need transformation
+            data = dict(row)
+            path_cover_s = data.pop("path_cover_s")
+            path_cover_l = data.pop("path_cover_l")
+            screenshots = _json(data.pop("path_screenshots")) or []
+            pname = data.pop("platform_name")
+            ts = data["updated_at"]
+
+            # Nest metadata fields
+            data["metadatum"] = {
+                "rom_id": data["id"],
+                "genres": sorted(_json(data.pop("genres")) or []),
+                "franchises": sorted(_json(data.pop("franchises")) or []),
+                "collections": sorted(_json(data.pop("meta_collections")) or []),
+                "companies": sorted(_json(data.pop("companies")) or []),
+                "game_modes": sorted(_json(data.pop("game_modes")) or []),
+                "age_ratings": sorted(_json(data.pop("age_ratings")) or []),
+                "player_count": data.pop("player_count") or "1",
+                "first_release_date": data.pop("first_release_date"),
+                "average_rating": (
+                    float(v) if (v := data.pop("average_rating")) else None
+                ),
+            }
+
+            # Computed fields (normally on the ORM model)
+            data["platform_display_name"] = data["platform_custom_name"] or pname
+            data["path_cover_small"] = (
+                f"{FRONTEND_RESOURCES_PATH}/{path_cover_s}?ts={ts}"
+                if path_cover_s
+                else ""
+            )
+            data["path_cover_large"] = (
+                f"{FRONTEND_RESOURCES_PATH}/{path_cover_l}?ts={ts}"
+                if path_cover_l
+                else ""
+            )
+            data["full_path"] = f"{data['fs_path']}/{data['fs_name']}"
+            data["has_manual"] = bool(data.get("path_manual"))
+            data["missing_from_fs"] = bool(data["missing_from_fs"])
+            data["merged_screenshots"] = [
+                f"{FRONTEND_RESOURCES_PATH}/{s}" for s in screenshots
+            ]
+            data["url_cover"] = data.get("url_cover") or None
+            is_unidentified = not any(
+                data.get(k)
+                for k in (
+                    "igdb_id",
+                    "moby_id",
+                    "ss_id",
+                    "ra_id",
+                    "launchbox_id",
+                    "hasheous_id",
+                    "flashpoint_id",
+                    "hltb_id",
+                    "gamelist_id",
+                )
+            )
+            data["is_unidentified"] = is_unidentified
+            data["is_identified"] = not is_unidentified
+
+            # Parse JSON string columns
+            for key in ("regions", "languages", "tags"):
+                data[key] = _json(data[key]) or []
+            data["ss_metadata"] = _json(data.get("ss_metadata"))
+            data["gamelist_metadata"] = _json(data.get("gamelist_metadata"))
+
+            # rom_user + notes from batch queries
+            data["rom_user"] = next(
+                (
+                    dict(ru)
+                    for ru in rom_users_by_rom.get(rid, [])
+                    if ru["user_id"] == user_id
+                ),
+                dummy_rom_user,
+            )
+            data["has_notes"] = any(
+                n["is_public"] or n["user_id"] == user_id
+                for n in notes_by_rom.get(rid, [])
+            )
+
+            items.append(SimpleRomSchema.model_validate(data))
+
+        empty_result["items"] = items
+        return empty_result
 
 
 @protected_route(router.get, "/identifiers", [Scope.ROMS_READ])
