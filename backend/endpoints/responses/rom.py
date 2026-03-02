@@ -348,6 +348,31 @@ class SiblingRomSchema(BaseModel):
 
 
 class SimpleRomSchema(RomSchema):
+    # Defaults for fields not needed in list views
+    summary: str | None = None
+    alternative_names: list[str] = []
+    youtube_video_id: str | None = None
+    igdb_metadata: RomIGDBMetadata | None = None
+    moby_metadata: RomMobyMetadata | None = None
+    launchbox_metadata: RomLaunchboxMetadata | None = None
+    hasheous_metadata: RomHasheousMetadata | None = None
+    flashpoint_metadata: RomFlashpointMetadata | None = None
+    hltb_metadata: RomHLTBMetadata | None = None
+    manual_metadata: ManualMetadata | None = None
+    path_manual: str | None = None
+    url_manual: str | None = None
+    revision: str | None = None
+    crc_hash: str | None = None
+    md5_hash: str | None = None
+    sha1_hash: str | None = None
+    ra_hash: str | None = None
+    has_simple_single_file: bool = False
+    has_nested_single_file: bool = False
+    has_multiple_files: bool = False
+    files: list[RomFileSchema] = []
+    siblings: list[SiblingRomSchema] = []
+    merged_ra_metadata: RomRAMetadata | None = None
+
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request)
