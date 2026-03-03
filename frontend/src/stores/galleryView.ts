@@ -50,7 +50,11 @@ export default defineStore("galleryView", {
         if (ratioParts && ratioParts.length >= 2) {
           const width = Number(ratioParts[0]);
           const height = Number(ratioParts[1]);
-          if (Number.isFinite(width) && Number.isFinite(height) && height !== 0) {
+          if (
+            Number.isFinite(width) &&
+            Number.isFinite(height) &&
+            height !== 0
+          ) {
             return width / height;
           }
         }
