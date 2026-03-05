@@ -127,6 +127,8 @@ watch(windowY, () => {
 
 onMounted(async () => {
   scrolledToTop.value = true;
+  searchTerm.value = "";
+  await fetchRoms();
 });
 
 onUnmounted(() => {
