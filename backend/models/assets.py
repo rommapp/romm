@@ -50,6 +50,14 @@ class RomAsset(BaseAsset):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
 
 
+class Screenshot(RomAsset):
+    __tablename__ = "screenshots"
+    __table_args__ = {"extend_existing": True}
+
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="screenshots")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="screenshots")
+
+
 class Save(RomAsset):
     __tablename__ = "saves"
     __table_args__ = {"extend_existing": True}
@@ -71,8 +79,10 @@ class Save(RomAsset):
         from handler.database import db_screenshot_handler
 
         return db_screenshot_handler.get_screenshot(
-            filename_no_ext=self.file_name_no_ext,
             rom_id=self.rom_id,
+            user_id=self.user_id,
+            file_name=self.file_name,  # Match state filename against screenshot filename stem
+            file_name_no_ext=self.file_name_no_ext,
         )
 
 
@@ -90,14 +100,8 @@ class State(RomAsset):
         from handler.database import db_screenshot_handler
 
         return db_screenshot_handler.get_screenshot(
-            filename_no_ext=self.file_name_no_ext,
             rom_id=self.rom_id,
+            user_id=self.user_id,
+            file_name=self.file_name,  # Match state filename against screenshot filename stem
+            file_name_no_ext=self.file_name_no_ext,
         )
-
-
-class Screenshot(RomAsset):
-    __tablename__ = "screenshots"
-    __table_args__ = {"extend_existing": True}
-
-    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="screenshots")
-    user: Mapped[User] = relationship(lazy="joined", back_populates="screenshots")
