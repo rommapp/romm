@@ -99,6 +99,14 @@ router = APIRouter(
     tags=["saves"],
 )
 
+SAVE_FILE_UPLOAD = File(default=None, description="Save file to upload.")
+SAVE_SCREENSHOT_UPLOAD = File(
+    default=None,
+    description="Screenshot file associated with this save.",
+)
+SAVE_FILE_UPDATE = File(default=None, description="Updated save file content.")
+SAVE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
+
 
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 async def add_save(
@@ -110,12 +118,8 @@ async def add_save(
     overwrite: bool = False,
     autocleanup: bool = False,
     autocleanup_limit: int = 10,
-    saveFile: UploadFile | None = File(
-        default=None, description="Save file to upload."
-    ),
-    screenshotFile: UploadFile | None = File(
-        default=None, description="Screenshot file associated with this save."
-    ),
+    saveFile: UploadFile | None = SAVE_FILE_UPLOAD,
+    screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPLOAD,
 ) -> SaveSchema:
     """Upload a save file for a ROM."""
     device = _resolve_device(
@@ -450,12 +454,8 @@ def confirm_download(
 async def update_save(
     request: Request,
     id: int,
-    saveFile: UploadFile | None = File(
-        default=None, description="Updated save file content."
-    ),
-    screenshotFile: UploadFile | None = File(
-        default=None, description="Updated screenshot file."
-    ),
+    saveFile: UploadFile | None = SAVE_FILE_UPDATE,
+    screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPDATE,
 ) -> SaveSchema:
     """Update a save file."""
 

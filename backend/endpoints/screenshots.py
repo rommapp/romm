@@ -17,14 +17,14 @@ router = APIRouter(
     tags=["screenshots"],
 )
 
+SCREENSHOT_FILE_UPLOAD = File(default=None, description="Screenshot file to upload.")
+
 
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 async def add_screenshot(
     request: Request,
     rom_id: int,
-    screenshotFile: UploadFile | None = File(
-        default=None, description="Screenshot file to upload."
-    ),
+    screenshotFile: UploadFile | None = SCREENSHOT_FILE_UPLOAD,
 ) -> ScreenshotSchema:
     rom = db_rom_handler.get_rom(id=rom_id)
     if not rom:

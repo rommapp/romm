@@ -37,15 +37,15 @@ router = APIRouter(
     tags=["collections"],
 )
 
+COLLECTION_ARTWORK_FILE = File(default=None, description="Collection artwork file.")
+
 
 @protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
 async def add_collection(
     request: Request,
     is_public: bool | None = None,
     is_favorite: bool | None = None,
-    artwork: UploadFile | None = File(
-        default=None, description="Collection artwork file."
-    ),
+    artwork: UploadFile | None = COLLECTION_ARTWORK_FILE,
     name: str = Form(default=""),
     description: str = Form(default=""),
     url_cover: str = Form(
@@ -368,9 +368,7 @@ async def update_collection(
     id: int,
     remove_cover: bool = False,
     is_public: bool | None = None,
-    artwork: UploadFile | None = File(
-        default=None, description="Collection artwork file."
-    ),
+    artwork: UploadFile | None = COLLECTION_ARTWORK_FILE,
     rom_ids: str = Form(
         ...,
         description="Collection ROM IDs as a JSON array string (e.g. [1,2,3]).",
