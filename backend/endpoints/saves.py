@@ -266,7 +266,7 @@ async def add_save(
             rom_id=rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            filename=screenshotFile.filename,
+            file_name=screenshotFile.filename,
             rom_id=rom.id,
             user_id=request.user.id,
         )
@@ -488,7 +488,7 @@ async def update_save(
             rom_id=db_save.rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            filename=screenshotFile.filename,
+            file_name=screenshotFile.filename,
             rom_id=db_save.rom.id,
             user_id=request.user.id,
         )
