@@ -21,18 +21,22 @@ router = APIRouter(
     tags=["states"],
 )
 
+STATE_FILE_UPLOAD = File(default=None, description="State file to upload.")
+STATE_SCREENSHOT_UPLOAD = File(
+    default=None,
+    description="Screenshot file associated with this state.",
+)
+STATE_FILE_UPDATE = File(default=None, description="Updated state file content.")
+STATE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
+
 
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 async def add_state(
     request: Request,
     rom_id: int,
     emulator: str | None = None,
-    stateFile: UploadFile | None = File(
-        default=None, description="State file to upload."
-    ),
-    screenshotFile: UploadFile | None = File(
-        default=None, description="Screenshot file associated with this state."
-    ),
+    stateFile: UploadFile | None = STATE_FILE_UPLOAD,
+    screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
@@ -191,12 +195,8 @@ def get_state(request: Request, id: int) -> StateSchema:
 async def update_state(
     request: Request,
     id: int,
-    stateFile: UploadFile | None = File(
-        default=None, description="Updated state file content."
-    ),
-    screenshotFile: UploadFile | None = File(
-        default=None, description="Updated screenshot file."
-    ),
+    stateFile: UploadFile | None = STATE_FILE_UPDATE,
+    screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPDATE,
 ) -> StateSchema:
     db_state = db_state_handler.get_state(user_id=request.user.id, id=id)
     if not db_state:
