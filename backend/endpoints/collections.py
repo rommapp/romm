@@ -31,7 +31,7 @@ from models.collection import (
     VirtualCollection,
 )
 from utils.router import APIRouter
-from utils.validation import ValidationError, validate_url_for_http_request
+from utils.validation import ValidationError
 
 router = APIRouter(
     prefix="/collections",
@@ -70,14 +70,6 @@ async def add_collection(
         "user_id": request.user.id,
     }
 
-    # Validate URL if provided
-    if url_cover:
-        try:
-            validate_url_for_http_request(url_cover, "Cover URL")
-        except ValidationError as e:
-            log.error(f"Invalid cover URL in add_collection: {str(e)}")
-            raise HTTPException(status_code=400, detail=str(e)) from e
-
     db_collection = db_collection_handler.get_collection_by_name(
         cleaned_data["name"], request.user.id
     )
@@ -87,21 +79,25 @@ async def add_collection(
 
     _added_collection = db_collection_handler.add_collection(Collection(**cleaned_data))
 
-    if artwork is not None and artwork.filename is not None:
-        file_ext = artwork.filename.split(".")[-1]
-        artwork_content = BytesIO(await artwork.read())
-        (
-            path_cover_l,
-            path_cover_s,
-        ) = await fs_resource_handler.store_artwork(
-            _added_collection, artwork_content, file_ext
-        )
-    else:
-        path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-            entity=_added_collection,
-            overwrite=True,
-            url_cover=_added_collection.url_cover,
-        )
+    try:
+        if artwork is not None and artwork.filename is not None:
+            file_ext = artwork.filename.split(".")[-1]
+            artwork_content = BytesIO(await artwork.read())
+            (
+                path_cover_l,
+                path_cover_s,
+            ) = await fs_resource_handler.store_artwork(
+                _added_collection, artwork_content, file_ext
+            )
+        else:
+            path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
+                entity=_added_collection,
+                overwrite=True,
+                url_cover=_added_collection.url_cover,
+            )
+    except ValidationError as e:
+        log.error(f"Invalid cover URL in add_collection: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     _added_collection.path_cover_s = path_cover_s
     _added_collection.path_cover_l = path_cover_l
@@ -448,26 +444,22 @@ async def update_collection(
                 current_url_cover != collection.url_cover
                 or not fs_resource_handler.cover_exists(collection, CoverSize.BIG)
             ):
-                # Validate URL if provided and changed
-                if current_url_cover:
-                    try:
-                        validate_url_for_http_request(current_url_cover, "Cover URL")
-                    except ValidationError as e:
-                        log.error(f"Invalid cover URL in update_collection: {str(e)}")
-                        raise HTTPException(status_code=400, detail=str(e)) from e
-
-                path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-                    entity=collection,
-                    overwrite=True,
-                    url_cover=current_url_cover,
-                )
-                cleaned_data.update(
-                    {
-                        "url_cover": current_url_cover,
-                        "path_cover_s": path_cover_s,
-                        "path_cover_l": path_cover_l,
-                    }
-                )
+                try:
+                    path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
+                        entity=collection,
+                        overwrite=True,
+                        url_cover=current_url_cover,
+                    )
+                    cleaned_data.update(
+                        {
+                            "url_cover": current_url_cover,
+                            "path_cover_s": path_cover_s,
+                            "path_cover_l": path_cover_l,
+                        }
+                    )
+                except ValidationError as e:
+                    log.error(f"Invalid cover URL in update_collection: {str(e)}")
+                    raise HTTPException(status_code=400, detail=str(e)) from e
 
     updated_collection = db_collection_handler.update_collection(
         id, cleaned_data, parsed_rom_ids

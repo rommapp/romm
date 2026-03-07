@@ -15,7 +15,6 @@ import type {
   Body_add_state_api_states_post as AddStateInput,
   FirmwareSchema,
 } from "@/__generated__";
-import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
@@ -25,6 +24,7 @@ import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeLanguage from "@/stores/language";
+import type { DetailedRom } from "@/stores/roms";
 import {
   getSupportedEJSCores,
   getControlSchemeForPlatform,
@@ -60,7 +60,7 @@ const { selectedLanguage } = storeToRefs(languageStore);
 const romId = Number(route.params.rom);
 const initialSaveId = route.query.save ? Number(route.query.save) : null;
 const initialStateId = route.query.state ? Number(route.query.state) : null;
-const romRef = ref<DetailedRomSchema | null>(null);
+const romRef = ref<DetailedRom | null>(null);
 const showHint = ref(true);
 const bezelSrc = ref<string>("");
 const showExitPrompt = ref(false);

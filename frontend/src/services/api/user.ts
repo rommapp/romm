@@ -62,13 +62,6 @@ async function updateUser({
   avatar?: File;
   password?: string;
 }) {
-  const uiSettings =
-    typeof attrs.ui_settings === "string"
-      ? attrs.ui_settings
-      : attrs.ui_settings
-        ? JSON.stringify(attrs.ui_settings)
-        : attrs.ui_settings;
-
   return api.put<UserSchema>(
     `/users/${id}`,
     {
@@ -79,7 +72,7 @@ async function updateUser({
       enabled: attrs.enabled,
       role: attrs.role,
       ra_username: attrs.ra_username,
-      ui_settings: uiSettings,
+      ui_settings: attrs.ui_settings,
     },
     {
       headers: {
