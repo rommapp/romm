@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from anyio import Path as AnyioPath
 
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.local_source import LocalSource
@@ -347,8 +348,7 @@ class TestLocalSource:
     async def test_cache_hit_uses_cached_index(
         self, source: LocalSource, nes_xml: Path, platforms_dir: Path
     ):
-        xml_path_str = str(nes_xml.resolve())
-        mtime_ns = nes_xml.stat().st_mtime_ns
+        mtime_ns = (await AnyioPath(str(nes_xml)).stat()).st_mtime_ns
         cached_index = {
             "super mario bros..nes": {"Title": "Cached Entry", "DatabaseID": "9999"}
         }
@@ -399,7 +399,7 @@ class TestLocalSource:
     async def test_parse_error_returns_none(
         self, source: LocalSource, nes_xml: Path, platforms_dir: Path
     ):
-        nes_xml.write_text("<<<not valid xml>>>")
+        await AnyioPath(str(nes_xml)).write_text("<<<not valid xml>>>")
 
         with patch(
             "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
@@ -519,16 +519,8 @@ class TestRemoteSourceGetRom:
 
     async def test_alternate_name_match(self, source: RemoteSource):
         alt_entry = {"DatabaseID": "1234"}
-        hget_responses = {
-            # First pass: name lookup misses
-            f"super mario bros.:Nintendo Entertainment System": None,
-            # Alternate name lookup hits
-            "super mario bros.": json.dumps(alt_entry),
-            # Database ID lookup hits
-            "1234": json.dumps(REMOTE_ENTRY),
-        }
 
-        async def side_effect(key, field):
+        async def side_effect(key, _field):
             if key == LAUNCHBOX_METADATA_NAME_KEY:
                 return None
             if key == LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY:
