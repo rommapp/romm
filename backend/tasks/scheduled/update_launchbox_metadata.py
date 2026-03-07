@@ -10,7 +10,7 @@ from config import (
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
 )
 from handler.metadata import meta_launchbox_handler
-from handler.metadata.launchbox_handler import (
+from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,

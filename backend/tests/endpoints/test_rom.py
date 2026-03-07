@@ -9,7 +9,8 @@ from main import app
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
 from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
-from handler.metadata.launchbox_handler import LaunchboxHandler, LaunchboxRom
+from handler.metadata.launchbox_handler.handler import LaunchboxHandler
+from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom

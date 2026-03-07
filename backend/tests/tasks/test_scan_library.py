@@ -6,7 +6,7 @@ from handler.metadata.flashpoint_handler import FlashpointHandler
 from handler.metadata.hasheous_handler import HasheousHandler
 from handler.metadata.hltb_handler import HLTBHandler
 from handler.metadata.igdb_handler import IGDBHandler
-from handler.metadata.launchbox_handler import LaunchboxHandler
+from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.moby_handler import MobyGamesHandler
 from handler.metadata.ra_handler import RAHandler
 from handler.metadata.sgdb_handler import SGDBBaseHandler
