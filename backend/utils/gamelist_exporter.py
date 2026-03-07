@@ -9,6 +9,7 @@ from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
 from fastapi import Request
 
 from config import FRONTEND_RESOURCES_PATH, YOUTUBE_BASE_URL
+from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler
 from logger.logger import log
@@ -28,6 +29,8 @@ class GamelistExporter:
     def _create_game_element(self, rom: Rom, request: Request | None) -> Element:
         """Create a <game> element for a ROM"""
         game = Element("game")
+
+        config = cm.get_config()
 
         # Basic game info
         if self.local_export:
@@ -56,10 +59,20 @@ class GamelistExporter:
                 f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_l}"
             )
 
-        if rom.youtube_video_id:
-            SubElement(game, "video").text = (
-                f"{YOUTUBE_BASE_URL}/embed/{rom.youtube_video_id}"
+        if config.GAMELIST_EXPORT_LOCAL_VIDEO:
+            video_path = (
+                (rom.ss_metadata or {}).get("video_path")
+                or (rom.gamelist_metadata or {}).get("video_path")
             )
+            if video_path:
+                SubElement(game, "video").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{video_path}"
+                )
+        else:
+            if rom.youtube_video_id:
+                SubElement(game, "video").text = (
+                    f"{YOUTUBE_BASE_URL}/embed/{rom.youtube_video_id}"
+                )
 
         if rom.path_screenshots:
             SubElement(game, "screenshot").text = (
