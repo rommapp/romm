@@ -1,6 +1,7 @@
 import re
 
 from config import LAUNCHBOX_API_ENABLED
+from handler.filesystem import fs_rom_handler
 from handler.redis_handler import async_cache
 from logger.logger import log
 from utils.database import safe_int
@@ -52,8 +53,6 @@ class LaunchboxHandler(MetadataHandler):
         *,
         remote_enabled: bool = True,
     ) -> LaunchboxRom:
-        from handler.filesystem import fs_rom_handler
-
         fallback_rom = LaunchboxRom(launchbox_id=None)
 
         if not self.is_enabled():

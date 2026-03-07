@@ -532,6 +532,7 @@ def build_rom(
         or ""
     ).strip()
 
+    launchbox_id = int(launchbox_id) if launchbox_id is not None else None
     return LaunchboxRom(
         launchbox_id=launchbox_id,
         name=name,
