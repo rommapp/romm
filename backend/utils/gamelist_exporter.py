@@ -9,7 +9,7 @@ from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
 from fastapi import Request
 
 from config import FRONTEND_RESOURCES_PATH, YOUTUBE_BASE_URL
-from config.config_manager import config_manager as cm
+from config.config_manager import config_manager as cm, Config
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler
 from logger.logger import log
@@ -26,7 +26,7 @@ class GamelistExporter:
         """Format release date to YYYYMMDDTHHMMSS format"""
         return datetime.fromtimestamp(timestamp / 1000).strftime("%Y%m%dT%H%M%S")
 
-    def _create_game_element(self, rom: Rom, request: Request | None, config) -> Element:
+    def _create_game_element(self, rom: Rom, request: Request | None, config: Config) -> Element:
         """Create a <game> element for a ROM"""
         game = Element("game")
 
