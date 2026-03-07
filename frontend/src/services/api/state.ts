@@ -9,7 +9,7 @@ import { buildFormInput } from "@/utils/formData";
 
 export const stateApi = api;
 
-type UploadStateInput = AddStateInput & {
+type StateUploadInput = AddStateInput & {
   stateFile: File;
   screenshotFile?: File;
 };
@@ -25,11 +25,11 @@ async function uploadStates({
   emulator,
 }: {
   rom: DetailedRomSchema;
-  statesToUpload: UploadStateInput[];
+  statesToUpload: StateUploadInput[];
   emulator?: string;
 }) {
   const promises = statesToUpload.map(({ stateFile, screenshotFile }) => {
-    const formData = buildFormInput<UploadStateInput>([
+    const formData = buildFormInput<StateUploadInput>([
       ["stateFile", stateFile],
       ["screenshotFile", screenshotFile],
     ]);

@@ -64,12 +64,20 @@ async def add_state(
             status_code=status.HTTP_400_BAD_REQUEST, detail="State file has no filename"
         )
 
+    try:
+        sanitized_state_filename = sanitize_filename(stateFile.filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid state filename: {str(exc)}",
+        ) from exc
+
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
     log.info(
-        f"Uploading state {hl(stateFile.filename)} for {hl(str(rom.name), color=BLUE)}"
+        f"Uploading state {hl(sanitized_state_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
     states_path = fs_asset_handler.build_states_file_path(
@@ -79,18 +87,20 @@ async def add_state(
         emulator=emulator,
     )
 
-    await fs_asset_handler.write_file(file=stateFile, path=states_path)
+    await fs_asset_handler.write_file(
+        file=stateFile, path=states_path, filename=sanitized_state_filename
+    )
 
     # Scan or update state
     scanned_state = await scan_state(
-        file_name=stateFile.filename,
+        file_name=sanitized_state_filename,
         user=request.user,
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom_id,
         emulator=emulator,
     )
     db_state = db_state_handler.get_state_by_filename(
-        user_id=request.user.id, rom_id=rom.id, file_name=stateFile.filename
+        user_id=request.user.id, rom_id=rom.id, file_name=sanitized_state_filename
     )
     if db_state:
         db_state = db_state_handler.update_state(
