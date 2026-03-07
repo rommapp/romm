@@ -10,6 +10,7 @@ from handler.scan_handler import scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -56,17 +57,29 @@ async def add_screenshot(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Screenshot has no filename"
         )
 
-    await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+    try:
+        sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid screenshot filename: {str(exc)}",
+        ) from exc
+
+    await fs_asset_handler.write_file(
+        file=screenshotFile,
+        path=screenshots_path,
+        filename=sanitized_screenshot_filename,
+    )
 
     # Scan or update screenshot
     scanned_screenshot = await scan_screenshot(
-        file_name=screenshotFile.filename,
+        file_name=sanitized_screenshot_filename,
         user=request.user,
         platform_fs_slug=rom.platform_slug,
         rom_id=rom.id,
     )
     db_screenshot = db_screenshot_handler.get_screenshot(
-        file_name=screenshotFile.filename,
+        file_name=sanitized_screenshot_filename,
         rom_id=rom.id,
         user_id=current_user.id,
     )

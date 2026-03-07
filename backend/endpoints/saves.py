@@ -27,6 +27,7 @@ from models.assets import Save
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.datetime import to_utc
+from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 
 
@@ -257,20 +258,32 @@ async def add_save(
                     log.warning(f"Could not delete old save file: {old_save.full_path}")
 
     if screenshotFile and screenshotFile.filename:
+        try:
+            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid screenshot filename: {str(exc)}",
+            ) from exc
+
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )
 
-        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(
+            file=screenshotFile,
+            path=screenshots_path,
+            filename=sanitized_screenshot_filename,
+        )
 
         scanned_screenshot = await scan_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             user=request.user,
             platform_fs_slug=rom.platform_slug,
             rom_id=rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             rom_id=rom.id,
             user_id=request.user.id,
         )
@@ -472,23 +485,35 @@ async def update_save(
         )
 
     if screenshotFile and screenshotFile.filename:
+        try:
+            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid screenshot filename: {str(exc)}",
+            ) from exc
+
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,
             platform_fs_slug=db_save.rom.platform_slug,
             rom_id=db_save.rom.id,
         )
 
-        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(
+            file=screenshotFile,
+            path=screenshots_path,
+            filename=sanitized_screenshot_filename,
+        )
 
         # Scan or update screenshot
         scanned_screenshot = await scan_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             user=request.user,
             platform_fs_slug=db_save.rom.platform_slug,
             rom_id=db_save.rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             rom_id=db_save.rom.id,
             user_id=request.user.id,
         )

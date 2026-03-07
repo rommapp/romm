@@ -31,6 +31,7 @@ from models.collection import (
     VirtualCollection,
 )
 from utils.router import APIRouter
+from utils.validation import ValidationError, validate_url_for_http_request
 
 router = APIRouter(
     prefix="/collections",
@@ -68,6 +69,15 @@ async def add_collection(
         "is_favorite": is_favorite or False,
         "user_id": request.user.id,
     }
+
+    # Validate URL if provided
+    if url_cover:
+        try:
+            validate_url_for_http_request(url_cover, "Cover URL")
+        except ValidationError as e:
+            log.error(f"Invalid cover URL in add_collection: {str(e)}")
+            raise ValueError(str(e))
+
     db_collection = db_collection_handler.get_collection_by_name(
         cleaned_data["name"], request.user.id
     )
@@ -438,6 +448,14 @@ async def update_collection(
                 current_url_cover != collection.url_cover
                 or not fs_resource_handler.cover_exists(collection, CoverSize.BIG)
             ):
+                # Validate URL if provided and changed
+                if current_url_cover:
+                    try:
+                        validate_url_for_http_request(current_url_cover, "Cover URL")
+                    except ValidationError as e:
+                        log.error(f"Invalid cover URL in update_collection: {str(e)}")
+                        raise ValueError(str(e))
+
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     entity=collection,
                     overwrite=True,

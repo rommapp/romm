@@ -73,6 +73,7 @@ from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
+from utils.validation import ValidationError, validate_url_for_http_request
 
 router = APIRouter(
     prefix="/roms",
@@ -1290,6 +1291,14 @@ async def update_rom(
         cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
 
     url_screenshots = cleaned_data.get("url_screenshots", [])
+    if url_screenshots:
+        for screenshot_url in url_screenshots:
+            try:
+                validate_url_for_http_request(str(screenshot_url), "Screenshot URL")
+            except ValidationError as e:
+                log.error(f"Invalid screenshot URL in update_rom: {str(e)}")
+                raise ValueError(str(e))
+
     screenshots_changed = pydash.xor(url_screenshots, rom.url_screenshots or [])
     if url_screenshots:
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
@@ -1345,6 +1354,14 @@ async def update_rom(
             url_cover = (
                 form_data.url_cover if "url_cover" in provided_fields else rom.url_cover
             )
+            # Validate URL if provided and changed
+            if url_cover and url_cover != rom.url_cover:
+                try:
+                    validate_url_for_http_request(url_cover, "Cover URL")
+                except ValidationError as e:
+                    log.error(f"Invalid cover URL in update_rom: {str(e)}")
+                    raise ValueError(str(e))
+
             path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                 entity=rom,
                 overwrite=url_cover != rom.url_cover,
@@ -1361,6 +1378,14 @@ async def update_rom(
     url_manual = (
         form_data.url_manual if "url_manual" in provided_fields else rom.url_manual
     )
+    # Validate URL if provided and changed
+    if url_manual and url_manual != rom.url_manual:
+        try:
+            validate_url_for_http_request(url_manual, "Manual URL")
+        except ValidationError as e:
+            log.error(f"Invalid manual URL in update_rom: {str(e)}")
+            raise ValueError(str(e))
+
     path_manual = await fs_resource_handler.get_manual(
         rom=rom,
         overwrite=url_manual != rom.url_manual,

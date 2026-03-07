@@ -14,6 +14,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import State
+from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -102,21 +103,33 @@ async def add_state(
         db_state = db_state_handler.add_state(state=scanned_state)
 
     if screenshotFile and screenshotFile.filename:
+        try:
+            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid screenshot filename: {str(exc)}",
+            ) from exc
+
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )
 
-        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(
+            file=screenshotFile,
+            path=screenshots_path,
+            filename=sanitized_screenshot_filename,
+        )
 
         # Scan or update screenshot
         scanned_screenshot = await scan_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             user=request.user,
             platform_fs_slug=rom.platform_slug,
             rom_id=rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             rom_id=rom.id,
             user_id=request.user.id,
         )
@@ -210,23 +223,35 @@ async def update_state(
             db_state.id, {"file_size_bytes": stateFile.size}
         )
     if screenshotFile and screenshotFile.filename:
+        try:
+            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid screenshot filename: {str(exc)}",
+            ) from exc
+
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,
             platform_fs_slug=db_state.rom.platform_slug,
             rom_id=db_state.rom.id,
         )
 
-        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(
+            file=screenshotFile,
+            path=screenshots_path,
+            filename=sanitized_screenshot_filename,
+        )
 
         # Scan or update screenshot
         scanned_screenshot = await scan_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             user=request.user,
             platform_fs_slug=db_state.rom.platform_slug,
             rom_id=db_state.rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             rom_id=db_state.rom.id,
             user_id=request.user.id,
         )
