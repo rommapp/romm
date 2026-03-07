@@ -24,7 +24,7 @@
   "metadata-sources": "Fonti metadati",
   "new-platforms": "Nuove piattaforme",
   "new-platforms-desc": "Scansiona solo le nuove piattaforme (più veloce)",
-  "no-new-roms": "Nessuna nuova rom o modifica trovata",
+  "no-new-roms": "Nessuna nuova ROM o modifica trovata",
   "not-identified": "Non identificato",
   "platforms-scanned-n": "Piattaforme: {n} scansionate",
   "platforms-scanned-with-details": "Piattaforme: {n_scanned_platforms} scansionate su {n_total_platforms}, con {n_new_platforms} nuove e {n_identified_platforms} identificate",

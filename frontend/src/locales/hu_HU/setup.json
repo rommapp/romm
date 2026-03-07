@@ -1,14 +1,13 @@
 {
   "admin-user-step": "Rendszergazda felhasználó létrehozása",
-  "supported-platforms": "Elérhető platformok",
   "cancel": "Mégse",
   "check-metadata-step": "Metaadat források ellenőrzése",
   "confirm-create-platforms": "RomM létrehozza a(z) {structure} struktúrát ({pattern}) {count} platform{plural}. Folytatás?",
   "confirm-no-platforms": "Nem található mappastruktúra és nincsenek kiválasztott platformok. Kézzel kell létrehoznia a mappastruktúrát. Folytatás?",
   "confirm-no-structure": "Nem található mappastruktúra. RomM létrehozza az A struktúrát (roms/{platform}) {count} platform{plural}. Folytatás?",
   "continue": "Folytatás",
-  "detected-platforms": "Észlelt platformok",
   "deselect-all": "Összes kijelölés törlése",
+  "detected-platforms": "Észlelt platformok",
   "finish": "Befejezés",
   "folder-structure": "Mappastruktúra",
   "game": "játék",
@@ -24,5 +23,6 @@
   "select-platforms": "Létrehozandó platformok kiválasztása",
   "selected": "kiválasztva",
   "structure-a-detected": "A struktúra észlelve",
-  "structure-b-detected": "B struktúra észlelve"
+  "structure-b-detected": "B struktúra észlelve",
+  "supported-platforms": "Elérhető platformok"
 }

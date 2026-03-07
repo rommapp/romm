@@ -21,6 +21,6 @@ export type SmartCollectionSchema = {
     filter_criteria: Record<string, any>;
     filter_summary: string;
     user_id: number;
-    user__username: string;
+    owner_username: string;
 };
 

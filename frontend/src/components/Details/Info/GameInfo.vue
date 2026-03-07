@@ -19,22 +19,22 @@ const showDialog = ref(false);
 const carouselValue = ref(0);
 const router = useRouter();
 const filters = [
-  { key: "region", path: "regions", name: t("rom.regions") },
-  { key: "language", path: "languages", name: t("rom.languages") },
-  { key: "genre", path: "metadatum.genres", name: t("rom.genres") },
+  { key: "regions", path: "regions", name: t("rom.regions") },
+  { key: "languages", path: "languages", name: t("rom.languages") },
+  { key: "genres", path: "metadatum.genres", name: t("rom.genres") },
   {
-    key: "franchise",
+    key: "franchises",
     path: "metadatum.franchises",
     name: t("rom.franchises"),
   },
   {
-    key: "collection",
+    key: "collections",
     path: "metadatum.collections",
     name: t("rom.collections"),
   },
-  { key: "company", path: "metadatum.companies", name: t("rom.companies") },
+  { key: "companies", path: "metadatum.companies", name: t("rom.companies") },
   {
-    key: "playerCount",
+    key: "playerCounts",
     path: "metadatum.player_count",
     name: t("rom.player-count"),
   },
@@ -258,7 +258,7 @@ function getFilterValues(path: string): string[] {
               height="50"
               width="50"
               class="mr-4 cursor-pointer"
-              @click="onFilterClick('ageRating', value.rating)"
+              @click="onFilterClick('ageRatings', value.rating)"
             />
           </div>
         </v-row>

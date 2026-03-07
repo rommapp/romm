@@ -22,6 +22,7 @@ from utils.database import CustomJSON
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
     from models.collection import Collection, SmartCollection
+    from models.device import Device
     from models.rom import RomNote, RomUser
 
 
@@ -78,6 +79,9 @@ class User(BaseModel, SimpleUser):
     )
     smart_collections: Mapped[list["SmartCollection"]] = relationship(
         lazy="raise", back_populates="user"
+    )
+    devices: Mapped[list["Device"]] = relationship(
+        lazy="raise", back_populates="user", cascade="all, delete-orphan"
     )
 
     @classmethod

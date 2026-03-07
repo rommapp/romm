@@ -56,6 +56,7 @@ server {
         proxy_pass http://wsgi_server;
         proxy_request_buffering off;
         proxy_buffering off;
+        proxy_read_timeout 300s;
     }
     location ~ ^/(ws|netplay) {
         proxy_pass http://wsgi_server;

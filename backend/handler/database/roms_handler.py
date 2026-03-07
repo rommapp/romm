@@ -235,12 +235,18 @@ class DBRomsHandler(DBBaseHandler):
         return query
 
     def _filter_by_search_term(self, query: Query, search_term: str):
-        return query.filter(
-            or_(
-                Rom.fs_name.ilike(f"%{search_term}%"),
-                Rom.name.ilike(f"%{search_term}%"),
+        terms = [term.strip() for term in search_term.split("|")]
+        conditions = [
+            condition
+            for term in terms
+            for condition in (
+                Rom.fs_name.ilike(f"%{term}%"),
+                Rom.name.ilike(f"%{term}%"),
             )
-        )
+            if term
+        ]
+
+        return query.filter(or_(*conditions))
 
     def _filter_by_matched(self, query: Query, value: bool) -> Query:
         """Filter based on whether the rom is matched to a metadata provider.
@@ -324,7 +330,7 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def _filter_by_verified(self, query: Query):
+    def _filter_by_verified(self, query: Query, value: bool) -> Query:
         keys_to_check = [
             "tosec_match",
             "mame_arcade_match",
@@ -341,11 +347,17 @@ class DBRomsHandler(DBBaseHandler):
             conditions = " OR ".join(
                 f"(hasheous_metadata->>'{key}')::boolean" for key in keys_to_check
             )
-            return query.filter(text(conditions))
+            predicate = text(f"({conditions})")
+            if not value:
+                predicate = text(f"NOT ({conditions})")
+            return query.filter(predicate)
         else:
-            return query.filter(
-                or_(*(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check))
+            predicate = or_(
+                *(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check)
             )
+            if not value:
+                predicate = not_(predicate)
+            return query.filter(predicate)
 
     def _filter_by_genres(
         self,
@@ -412,13 +424,20 @@ class DBRomsHandler(DBBaseHandler):
         condition = op(RomMetadata.age_ratings, values, session=session)
         return query.filter(~condition) if match_none else query.filter(condition)
 
-    def _filter_by_status(self, query: Query, statuses: Sequence[str]):
-        """Filter by one or more user statuses using OR logic."""
-        if not statuses:
+    def _filter_by_status(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+        match_none: bool = False,
+    ):
+        if not values:
             return query
 
         status_filters = []
-        for selected_status in statuses:
+        for selected_status in values:
             if selected_status == "now_playing":
                 status_filters.append(RomUser.now_playing.is_(True))
             elif selected_status == "backlogged":
@@ -428,11 +447,17 @@ class DBRomsHandler(DBBaseHandler):
             else:
                 status_filters.append(RomUser.status == selected_status)
 
-        # If hidden is in the list, don't apply the hidden filter at the end
-        if "hidden" in statuses:
-            return query.filter(or_(*status_filters))
+        comb = and_ if match_all else or_
+        condition = comb(*status_filters)
 
-        return query.filter(or_(*status_filters), RomUser.hidden.is_(False))
+        # Apply negation if match_none, otherwise apply condition
+        query = query.filter(~condition) if match_none else query.filter(condition)
+
+        # Don't apply the hidden filter is hidden is set
+        if "hidden" in values:
+            return query
+
+        return query.filter(or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None)))
 
     def _filter_by_regions(
         self,
@@ -581,9 +606,8 @@ class DBRomsHandler(DBBaseHandler):
         if missing is not None:
             query = self._filter_by_missing_from_fs(query, value=missing)
 
-        # TODO: Correctly support true/false values.
-        if verified:
-            query = self._filter_by_verified(query)
+        if verified is not None:
+            query = self._filter_by_verified(query, value=verified)
 
         if updated_after:
             query = query.filter(Rom.updated_at > updated_after)
@@ -606,6 +630,7 @@ class DBRomsHandler(DBBaseHandler):
                 .with_only_columns(
                     base_subquery.c.id,
                     base_subquery.c.fs_name_no_ext,
+                    base_subquery.c.fs_name_no_tags,
                     base_subquery.c.platform_id,
                     base_subquery.c.igdb_id,
                     base_subquery.c.ss_id,
@@ -667,6 +692,11 @@ class DBRomsHandler(DBBaseHandler):
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
+                                "fs",
+                                base_subquery.c.fs_name_no_tags,
+                                base_subquery.c.platform_id,
+                            ),
+                            _create_metadata_id_case(
                                 "romm",
                                 base_subquery.c.id,
                                 base_subquery.c.platform_id,
@@ -723,7 +753,13 @@ class DBRomsHandler(DBBaseHandler):
 
         # The RomUser table is already joined if user_id is set
         if statuses and user_id:
-            query = self._filter_by_status(query, statuses)
+            query = self._filter_by_status(
+                query,
+                session=session,
+                values=statuses,
+                match_all=(statuses_logic == "all"),
+                match_none=(statuses_logic == "none"),
+            )
         elif user_id:
             query = query.filter(
                 or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
@@ -989,7 +1025,7 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        rom_user = self.get_rom_user_by_id(id)
+        rom_user = session.query(RomUser).filter_by(id=id).one_or_none()
         if not rom_user:
             return None
 
@@ -1011,7 +1047,7 @@ class DBRomsHandler(DBBaseHandler):
             .values(is_main_sibling=False)
         )
 
-        return session.query(RomUser).filter_by(id=id).one()
+        return rom_user
 
     @begin_session
     def add_rom_file(
@@ -1231,9 +1267,10 @@ class DBRomsHandler(DBBaseHandler):
     @with_details
     def get_rom_by_hash(
         self,
-        crc_hash: str | None,
-        md5_hash: str | None,
-        sha1_hash: str | None,
+        crc_hash: str | None = None,
+        md5_hash: str | None = None,
+        sha1_hash: str | None = None,
+        ra_hash: str | None = None,
         *,
         query: Query = None,  # type: ignore
         session: Session = None,  # type: ignore
@@ -1250,9 +1287,11 @@ class DBRomsHandler(DBBaseHandler):
                 (crc_hash, Rom.crc_hash),
                 (md5_hash, Rom.md5_hash),
                 (sha1_hash, Rom.sha1_hash),
+                (ra_hash, Rom.ra_hash),
                 (crc_hash, RomFile.crc_hash),
                 (md5_hash, RomFile.md5_hash),
                 (sha1_hash, RomFile.sha1_hash),
+                (ra_hash, RomFile.ra_hash),
             ]
             if value is not None
         ]

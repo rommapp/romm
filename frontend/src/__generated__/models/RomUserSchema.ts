@@ -18,6 +18,5 @@ export type RomUserSchema = {
     difficulty: number;
     completion: number;
     status: (RomUserStatus | null);
-    user__username: string;
 };
 

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Request, UploadFile, status
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema
@@ -14,6 +14,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import State
+from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -21,15 +22,23 @@ router = APIRouter(
     tags=["states"],
 )
 
+STATE_FILE_UPLOAD = File(..., description="State file to upload.")
+STATE_SCREENSHOT_UPLOAD = File(
+    default=None,
+    description="Screenshot file associated with this state.",
+)
+STATE_FILE_UPDATE = File(default=None, description="Updated state file content.")
+STATE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
+
 
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 async def add_state(
     request: Request,
     rom_id: int,
     emulator: str | None = None,
+    stateFile: UploadFile = STATE_FILE_UPLOAD,
+    screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
-    data = await request.form()
-
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
@@ -43,26 +52,26 @@ async def add_state(
         emulator=emulator,
     )
 
-    if "stateFile" not in data:
-        log.error("No state file provided")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No state file provided"
-        )
-
-    stateFile: UploadFile = data["stateFile"]  # type: ignore
-
     if not stateFile.filename:
         log.error("State file has no filename")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="State file has no filename"
         )
 
+    try:
+        sanitized_state_filename = sanitize_filename(stateFile.filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid state filename: {str(exc)}",
+        ) from exc
+
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
     log.info(
-        f"Uploading state {hl(stateFile.filename)} for {hl(str(rom.name), color=BLUE)}"
+        f"Uploading state {hl(sanitized_state_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
     states_path = fs_asset_handler.build_states_file_path(
@@ -72,18 +81,20 @@ async def add_state(
         emulator=emulator,
     )
 
-    await fs_asset_handler.write_file(file=stateFile, path=states_path)
+    await fs_asset_handler.write_file(
+        file=stateFile, path=states_path, filename=sanitized_state_filename
+    )
 
     # Scan or update state
     scanned_state = await scan_state(
-        file_name=stateFile.filename,
+        file_name=sanitized_state_filename,
         user=request.user,
         platform_fs_slug=rom.platform.fs_slug,
         rom_id=rom_id,
         emulator=emulator,
     )
     db_state = db_state_handler.get_state_by_filename(
-        user_id=request.user.id, rom_id=rom.id, file_name=stateFile.filename
+        user_id=request.user.id, rom_id=rom.id, file_name=sanitized_state_filename
     )
     if db_state:
         db_state = db_state_handler.update_state(
@@ -95,23 +106,34 @@ async def add_state(
         scanned_state.emulator = emulator
         db_state = db_state_handler.add_state(state=scanned_state)
 
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
+        try:
+            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid screenshot filename: {str(exc)}",
+            ) from exc
+
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )
 
-        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(
+            file=screenshotFile,
+            path=screenshots_path,
+            filename=sanitized_screenshot_filename,
+        )
 
         # Scan or update screenshot
         scanned_screenshot = await scan_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             user=request.user,
             platform_fs_slug=rom.platform_slug,
             rom_id=rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            filename=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             rom_id=rom.id,
             user_id=request.user.id,
         )
@@ -187,41 +209,55 @@ def get_state(request: Request, id: int) -> StateSchema:
 
 
 @protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
-async def update_state(request: Request, id: int) -> StateSchema:
-    data = await request.form()
-
+async def update_state(
+    request: Request,
+    id: int,
+    stateFile: UploadFile | None = STATE_FILE_UPDATE,
+    screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPDATE,
+) -> StateSchema:
     db_state = db_state_handler.get_state(user_id=request.user.id, id=id)
     if not db_state:
         error = f"State with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    if "stateFile" in data:
-        stateFile: UploadFile = data["stateFile"]  # type: ignore
-        await fs_asset_handler.write_file(file=stateFile, path=db_state.file_path)
+    if stateFile:
+        await fs_asset_handler.write_file(
+            file=stateFile, path=db_state.file_path, filename=db_state.file_name
+        )
         db_state = db_state_handler.update_state(
             db_state.id, {"file_size_bytes": stateFile.size}
         )
-
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
+        try:
+            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid screenshot filename: {str(exc)}",
+            ) from exc
+
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,
             platform_fs_slug=db_state.rom.platform_slug,
             rom_id=db_state.rom.id,
         )
 
-        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(
+            file=screenshotFile,
+            path=screenshots_path,
+            filename=sanitized_screenshot_filename,
+        )
 
         # Scan or update screenshot
         scanned_screenshot = await scan_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             user=request.user,
             platform_fs_slug=db_state.rom.platform_slug,
             rom_id=db_state.rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            filename=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             rom_id=db_state.rom.id,
             user_id=request.user.id,
         )

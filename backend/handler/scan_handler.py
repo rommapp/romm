@@ -4,6 +4,7 @@ from typing import Any
 
 import socketio  # type: ignore
 
+from config import ASSETS_BASE_PATH
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
@@ -826,11 +827,11 @@ async def scan_rom(
     return Rom(**rom_attrs)
 
 
-async def _scan_asset(file_name: str, asset_path: str):
+async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False):
     file_path = f"{asset_path}/{file_name}"
     file_size = await fs_asset_handler.get_file_size(file_path)
 
-    return {
+    result = {
         "file_path": asset_path,
         "file_name": file_name,
         "file_name_no_tags": fs_asset_handler.get_file_name_with_no_tags(file_name),
@@ -838,6 +839,13 @@ async def _scan_asset(file_name: str, asset_path: str):
         "file_extension": fs_asset_handler.parse_file_extension(file_name),
         "file_size_bytes": file_size,
     }
+
+    if should_hash:
+        result["content_hash"] = await fs_asset_handler.compute_content_hash(
+            f"{ASSETS_BASE_PATH}/{file_path}"
+        )
+
+    return result
 
 
 async def scan_save(
@@ -850,7 +858,7 @@ async def scan_save(
     saves_path = fs_asset_handler.build_saves_file_path(
         user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
-    scanned_asset = await _scan_asset(file_name, saves_path)
+    scanned_asset = await _scan_asset(file_name, saves_path, should_hash=True)
     return Save(**scanned_asset)
 
 

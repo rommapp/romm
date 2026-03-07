@@ -18,7 +18,7 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
     }
     if (favoriteCollection.value) return favoriteCollection.value;
     // Create if still missing
-    const { data } = await collectionApi.createCollection({
+    const data = await collectionApi.createCollection({
       collection: {
         name: "Favorites",
         rom_ids: [],

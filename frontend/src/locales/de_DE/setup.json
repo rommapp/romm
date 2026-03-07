@@ -1,14 +1,13 @@
 {
   "admin-user-step": "Administrator-Benutzer erstellen",
-  "supported-platforms": "Verfügbare Plattformen",
   "cancel": "Abbrechen",
   "check-metadata-step": "Metadatenquellen überprüfen",
   "confirm-create-platforms": "RomM erstellt Struktur {structure} ({pattern}) mit {count} Plattform{plural}. Fortfahren?",
   "confirm-no-platforms": "Keine Ordnerstruktur erkannt und keine Plattformen ausgewählt. Sie müssen die Ordnerstruktur manuell erstellen. Fortfahren?",
   "confirm-no-structure": "Keine Ordnerstruktur erkannt. RomM erstellt Struktur A (roms/{platform}) mit {count} Plattform{plural}. Fortfahren?",
   "continue": "Fortfahren",
-  "detected-platforms": "Erkannte Plattformen",
   "deselect-all": "Alle abwählen",
+  "detected-platforms": "Erkannte Plattformen",
   "finish": "Fertig",
   "folder-structure": "Ordnerstruktur",
   "game": "Spiel",
@@ -24,5 +23,6 @@
   "select-platforms": "Plattformen zum Erstellen auswählen",
   "selected": "ausgewählt",
   "structure-a-detected": "Struktur A erkannt",
-  "structure-b-detected": "Struktur B erkannt"
+  "structure-b-detected": "Struktur B erkannt",
+  "supported-platforms": "Verfügbare Plattformen"
 }

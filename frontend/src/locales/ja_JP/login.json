@@ -1,16 +1,16 @@
 {
+  "back-to-login": "ログインに戻る",
+  "confirm-new-password": "新しいパスワードを確認",
+  "forgot-password": "パスワードをお忘れですか？",
   "login": "ログイン",
   "login-oidc": "Login with {oidc}",
+  "new-password": "新しいパスワード",
   "or": "or",
   "password": "パスワード",
-  "username": "ユーザ名",
-  "forgot-password": "パスワードをお忘れですか？",
-  "send-reset-link": "リセットリンクを送信",
-  "reset-sent": "リセットリンクが送信されました。管理者に連絡してください。",
-  "new-password": "新しいパスワード",
-  "confirm-new-password": "新しいパスワードを確認",
+  "register": "登録",
   "reset-password": "パスワードをリセット",
-  "back-to-login": "ログインに戻る",
+  "reset-sent": "リセットリンクが送信されました。管理者に連絡してください。",
+  "send-reset-link": "リセットリンクを送信",
   "setup-wizard": "セットアップウィザード",
-  "register": "登録"
+  "username": "ユーザ名"
 }

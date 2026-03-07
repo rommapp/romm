@@ -10,6 +10,7 @@ from pathlib import Path
 from tempfile import SpooledTemporaryFile
 from typing import BinaryIO
 
+from anyio import Path as AnyioPath
 from anyio import open_file
 from starlette.datastructures import UploadFile
 
@@ -83,10 +84,10 @@ REGIONS = (
     ("W", "World"),
 )
 
-REGIONS_BY_SHORTCODE = {region[0].lower(): region[1] for region in REGIONS}
+REGIONS_BY_SHORTCODE = {region[0]: region[1] for region in REGIONS}
 REGIONS_NAME_KEYS = frozenset(region[1].lower() for region in REGIONS)
 
-LANGUAGES_BY_SHORTCODE = {lang[0].lower(): lang[1] for lang in LANGUAGES}
+LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
 LANGUAGES_NAME_KEYS = frozenset(lang[1].lower() for lang in LANGUAGES)
 
 
@@ -458,11 +459,13 @@ class FSHandler:
 
         # Async thread-safe file copy
         async with source_lock, dest_lock:
-            if not source_full_path.is_file():
+            source_anyio_path = AnyioPath(str(source_full_path))
+            if not await source_anyio_path.is_file():
                 raise FileNotFoundError(f"Source file not found: {source_full_path}")
 
             # Create destination directory if needed
-            dest_full_path.parent.mkdir(parents=True, exist_ok=True)
+            dest_parent_anyio_path = AnyioPath(str(dest_full_path.parent))
+            await dest_parent_anyio_path.mkdir(parents=True, exist_ok=True)
             shutil.copy2(str(source_full_path), str(dest_full_path))
 
     async def move_file_or_folder(self, source_path: str, dest_path: str) -> None:

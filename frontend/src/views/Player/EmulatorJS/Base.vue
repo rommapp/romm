@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
+import { useEventListener, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -40,6 +40,15 @@ const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
+
+declare global {
+  interface Navigator {
+    keyboard: {
+      lock: (keys: string[]) => Promise<void>;
+      unlock: () => void;
+    };
+  }
+}
 
 const compatibleStates = computed(
   () =>
@@ -172,6 +181,18 @@ onMounted(async () => {
   // Listen for save/state selection from dialogs
   emitter?.on("saveSelected", selectSave);
   emitter?.on("stateSelected", selectState);
+
+  if ("keyboard" in navigator) {
+    useEventListener(document, "fullscreenchange", () => {
+      if (document.fullscreenElement) {
+        navigator.keyboard
+          .lock(["Escape", "Tab", "AltLeft", "ControlLeft", "MetaLeft"])
+          .catch(() => {});
+      } else {
+        navigator.keyboard.unlock();
+      }
+    });
+  }
 
   // Determine default tab and selection (mutually exclusive)
   const compatibleStates = rom.value.user_states.filter(
@@ -419,7 +440,7 @@ function openCacheDialog() {
               <!-- Configuration Section -->
               <!-- Disc Selector -->
               <v-select
-                v-if="rom.has_multiple_files"
+                v-if="rom.files.length > 1"
                 v-model="selectedDisc"
                 class="mb-3"
                 hide-details
@@ -475,7 +496,7 @@ function openCacheDialog() {
 
               <v-divider
                 v-if="
-                  rom.has_multiple_files ||
+                  rom.files.length > 1 ||
                   supportedCores.length > 1 ||
                   firmwareOptions.length > 0
                 "

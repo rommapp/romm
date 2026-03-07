@@ -1,14 +1,13 @@
 {
   "admin-user-step": "Creează un utilizator administrator",
-  "supported-platforms": "Platforme disponibile",
   "cancel": "Anulează",
   "check-metadata-step": "Verifică sursele de metadate",
   "confirm-create-platforms": "RomM va crea structura {structure} ({pattern}) cu {count} platformă{plural}. Continuă?",
   "confirm-no-platforms": "Nu s-a detectat nicio structură de directoare și nu au fost selectate platforme. Va trebui să creezi manual structura directoarelor. Continuă?",
   "confirm-no-structure": "Nu s-a detectat nicio structură de directoare. RomM va crea structura A (roms/{platform}) cu {count} platformă{plural}. Continuă?",
   "continue": "Continuă",
-  "detected-platforms": "Platforme detectate",
   "deselect-all": "Deselectează tot",
+  "detected-platforms": "Platforme detectate",
   "finish": "Finalizează",
   "folder-structure": "Structura directoarelor",
   "game": "joc",
@@ -24,5 +23,6 @@
   "select-platforms": "Selectează platformele de creat",
   "selected": "selectat",
   "structure-a-detected": "Structura A detectată",
-  "structure-b-detected": "Structura B detectată"
+  "structure-b-detected": "Structura B detectată",
+  "supported-platforms": "Platforme disponibile"
 }
