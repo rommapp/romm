@@ -181,9 +181,7 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
 
     # Try to resolve hostname as IP address
     try:
-        # Handle IPv6 addresses in brackets
-        ip_str = hostname.strip("[]")
-        ip = ipaddress.ip_address(ip_str)
+        ip = ipaddress.ip_address(hostname)
 
         # Block cloud metadata service IPs (AWS, GCP, Azure, etc.)
         # AWS/Azure metadata service: 169.254.169.254
