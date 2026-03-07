@@ -15,7 +15,7 @@ from models.collection import Collection
 from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
-from utils.validation import ValidationError, validate_url_for_http_request
+from utils.validation import validate_url_for_http_request
 
 from .base_handler import CoverSize, FSHandler
 

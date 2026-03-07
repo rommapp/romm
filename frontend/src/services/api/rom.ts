@@ -383,20 +383,23 @@ async function updateRom({
   removeCover?: boolean;
   unmatch?: boolean;
 }) {
+  const toFormIdValue = (value: number | string | null | undefined): string =>
+    value === null || value === undefined ? "" : String(value);
+
   const fields: FormInputField<UpdateRomInput>[] = [
     ["name", rom.name],
     ["fs_name", rom.fs_name],
     ["summary", rom.summary],
-    ["igdb_id", rom.igdb_id?.toString()],
-    ["sgdb_id", rom.sgdb_id?.toString()],
-    ["moby_id", rom.moby_id?.toString()],
-    ["ss_id", rom.ss_id?.toString()],
-    ["launchbox_id", rom.launchbox_id?.toString()],
-    ["ra_id", rom.ra_id?.toString()],
-    ["flashpoint_id", rom.flashpoint_id?.toString()],
-    ["hasheous_id", rom.hasheous_id?.toString()],
-    ["tgdb_id", rom.tgdb_id?.toString()],
-    ["hltb_id", rom.hltb_id?.toString()],
+    ["igdb_id", toFormIdValue(rom.igdb_id)],
+    ["sgdb_id", toFormIdValue(rom.sgdb_id)],
+    ["moby_id", toFormIdValue(rom.moby_id)],
+    ["ss_id", toFormIdValue(rom.ss_id)],
+    ["launchbox_id", toFormIdValue(rom.launchbox_id)],
+    ["ra_id", toFormIdValue(rom.ra_id)],
+    ["flashpoint_id", toFormIdValue(rom.flashpoint_id)],
+    ["hasheous_id", toFormIdValue(rom.hasheous_id)],
+    ["tgdb_id", toFormIdValue(rom.tgdb_id)],
+    ["hltb_id", toFormIdValue(rom.hltb_id)],
   ];
 
   if (rom.manual_metadata) {

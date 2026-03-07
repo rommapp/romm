@@ -100,7 +100,7 @@ router = APIRouter(
     tags=["saves"],
 )
 
-SAVE_FILE_UPLOAD = File(default=None, description="Save file to upload.")
+SAVE_FILE_UPLOAD = File(..., description="Save file to upload.")
 SAVE_SCREENSHOT_UPLOAD = File(
     default=None,
     description="Screenshot file associated with this save.",
@@ -119,7 +119,7 @@ async def add_save(
     overwrite: bool = False,
     autocleanup: bool = False,
     autocleanup_limit: int = 10,
-    saveFile: UploadFile | None = SAVE_FILE_UPLOAD,
+    saveFile: UploadFile = SAVE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPLOAD,
 ) -> SaveSchema:
     """Upload a save file for a ROM."""
@@ -130,12 +130,6 @@ async def add_save(
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
-
-    if not saveFile:
-        log.error("No save file provided")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No save file provided"
-        )
 
     if not saveFile.filename:
         log.error("Save file has no filename")
@@ -487,7 +481,9 @@ async def update_save(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     if saveFile:
-        await fs_asset_handler.write_file(file=saveFile, path=db_save.file_path)
+        await fs_asset_handler.write_file(
+            file=saveFile, path=db_save.file_path, filename=db_save.file_name
+        )
         db_save = db_save_handler.update_save(
             db_save.id, {"file_size_bytes": saveFile.size}
         )
