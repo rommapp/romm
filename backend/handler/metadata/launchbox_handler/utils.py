@@ -2,8 +2,6 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-import pydash
-
 from .types import LAUNCHBOX_LOCAL_DIR
 
 
@@ -42,11 +40,15 @@ def parse_list(value: str | None) -> list[str]:
     return [p.strip() for p in parts if p and p.strip()]
 
 
-def dedupe_words(values):
+def dedupe_words(values: list[str | None]) -> list[str]:
     seen = {}
     out: list[str] = []
 
-    for v in pydash.compact(pydash.map_(values, str.strip)):
+    for v in values:
+        if v is None or not v.strip():
+            continue
+
+        v = v.strip()
         key = v.lower()
         if key not in seen:
             seen[key] = len(out)

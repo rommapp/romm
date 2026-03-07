@@ -25,9 +25,7 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
-    LAUNCHBOX_XML_INDEX_KEY,
     LaunchboxImage,
-    LaunchboxRom,
 )
 from handler.metadata.launchbox_handler.utils import (
     coalesce,
@@ -1002,7 +1000,7 @@ class TestLaunchboxHandlerSearch:
                 )
 
         assert len(result) == 1
-        assert result[0].get("launchbox_id", None) == 1234
+        assert result[0].get("launchbox_id", 0) == 1234
 
     async def test_get_matched_rom_by_id_disabled_returns_none(
         self, handler: LaunchboxHandler
