@@ -11,7 +11,6 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
 import BackButton from "@/console/components/BackButton.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
 import NavigationText from "@/console/components/NavigationText.vue";
@@ -22,6 +21,7 @@ import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import stateApi from "@/services/api/state";
 import storeHeartbeat from "@/stores/heartbeat";
+import type { DetailedRom } from "@/stores/roms";
 import storeRoms from "@/stores/roms";
 import { getSupportedEJSCores, toBrowserLocale } from "@/utils";
 import {
@@ -46,7 +46,7 @@ const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
 
-const rom = ref<DetailedRomSchema | null>(null);
+const rom = ref<DetailedRom | null>(null);
 const playerState = ref<PlayerState>("loading");
 const errorMessage = ref<string | null>(null);
 

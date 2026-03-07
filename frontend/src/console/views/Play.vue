@@ -11,8 +11,10 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import type { FirmwareSchema } from "@/__generated__";
-import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
+import type {
+  Body_add_state_api_states_post as AddStateInput,
+  FirmwareSchema,
+} from "@/__generated__";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
@@ -22,12 +24,14 @@ import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeLanguage from "@/stores/language";
+import type { DetailedRom } from "@/stores/roms";
 import {
   getSupportedEJSCores,
   getControlSchemeForPlatform,
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
+import { buildFormInput } from "@/utils/formData";
 
 const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
@@ -56,7 +60,7 @@ const { selectedLanguage } = storeToRefs(languageStore);
 const romId = Number(route.params.rom);
 const initialSaveId = route.query.save ? Number(route.query.save) : null;
 const initialStateId = route.query.state ? Number(route.query.state) : null;
-const romRef = ref<DetailedRomSchema | null>(null);
+const romRef = ref<DetailedRom | null>(null);
 const showHint = ref(true);
 const bezelSrc = ref<string>("");
 const showExitPrompt = ref(false);
@@ -467,13 +471,14 @@ async function boot() {
     screenshot: ArrayBuffer;
   }) {
     try {
-      const formData = new FormData();
-      formData.append("stateFile", new Blob([stateFile]), "state.save");
-      formData.append(
-        "screenshotFile",
-        new Blob([screenshotFile], { type: "image/png" }),
-        "screenshot.png",
-      );
+      const formData = buildFormInput<AddStateInput>([
+        ["stateFile", new Blob([stateFile]), "state.save"],
+        [
+          "screenshotFile",
+          new Blob([screenshotFile], { type: "image/png" }),
+          "screenshot.png",
+        ],
+      ]);
 
       await api.post("/states", formData, {
         headers: { "Content-Type": "multipart/form-data" },

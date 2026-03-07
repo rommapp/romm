@@ -14,6 +14,7 @@ from typing import IO, Any, Final, Literal, TypedDict, cast
 
 import magic
 import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
+from anyio import Path as AnyioPath
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
@@ -448,7 +449,7 @@ class FSRomsHandler(FSHandler):
         rom_ra_h = ""
 
         # Check if rom is a multi-part rom
-        if os.path.isdir(f"{abs_fs_path}/{rom.fs_name}"):
+        if await AnyioPath(f"{abs_fs_path}/{rom.fs_name}").is_dir():
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
             if calculate_hashes:
                 ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
