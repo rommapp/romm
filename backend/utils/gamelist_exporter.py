@@ -9,6 +9,7 @@ from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
 from fastapi import Request
 
 from config import FRONTEND_RESOURCES_PATH, YOUTUBE_BASE_URL
+from config.config_manager import config_manager as cm, Config
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler
 from logger.logger import log
@@ -25,7 +26,7 @@ class GamelistExporter:
         """Format release date to YYYYMMDDTHHMMSS format"""
         return datetime.fromtimestamp(timestamp / 1000).strftime("%Y%m%dT%H%M%S")
 
-    def _create_game_element(self, rom: Rom, request: Request | None) -> Element:
+    def _create_game_element(self, rom: Rom, request: Request | None, config: Config) -> Element:
         """Create a <game> element for a ROM"""
         game = Element("game")
 
@@ -56,10 +57,20 @@ class GamelistExporter:
                 f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_l}"
             )
 
-        if rom.youtube_video_id:
-            SubElement(game, "video").text = (
-                f"{YOUTUBE_BASE_URL}/embed/{rom.youtube_video_id}"
+        if config.GAMELIST_EXPORT_LOCAL_VIDEO:
+            video_path = (
+                (rom.ss_metadata or {}).get("video_path")
+                or (rom.gamelist_metadata or {}).get("video_path")
             )
+            if video_path:
+                SubElement(game, "video").text = (
+                    f"{FRONTEND_RESOURCES_PATH}/{video_path}"
+                )
+        else:
+            if rom.youtube_video_id:
+                SubElement(game, "video").text = (
+                    f"{YOUTUBE_BASE_URL}/embed/{rom.youtube_video_id}"
+                )
 
         if rom.path_screenshots:
             SubElement(game, "screenshot").text = (
@@ -174,12 +185,14 @@ class GamelistExporter:
 
         roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
 
+        config = cm.get_config()
+
         # Create root element
         root = Element("gameList")
 
         for rom in roms:
             if rom and not rom.missing_from_fs and rom.fs_name != "gamelist.xml":
-                game_element = self._create_game_element(rom, request=request)
+                game_element = self._create_game_element(rom, request=request, config=config)
                 root.append(game_element)
 
         # Convert to XML string
