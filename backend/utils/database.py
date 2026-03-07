@@ -2,6 +2,7 @@ import json
 from typing import Any, Sequence
 
 import sqlalchemy as sa
+from sqlalchemy import Text, collate
 from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnElement, func
@@ -126,6 +127,48 @@ def json_array_contains_all(
     raise NotImplementedError(
         f"json_array_contains_all is not implemented for engine: {conn.engine.name}"
     )
+
+
+STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+"
+
+
+def natural_sort_expressions(
+    column: Any,
+) -> tuple[Any, Any, Any]:
+    """Build natural sort expressions for the given string column.
+
+    Returns (stripped, base_sort, full_sort) where:
+    - stripped: column value lowered with leading articles removed
+    - base_sort: sorts by the part before the first colon (series grouping)
+    - full_sort: sorts by the full name (tiebreaker)
+    """
+    from config import ROMM_DB_DRIVER
+
+    stripped = func.trim(
+        func.lower(column).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
+    )
+
+    if ROMM_DB_DRIVER in ("mariadb", "mysql"):
+        base_cleaned = func.trim(
+            func.lower(func.substring_index(column, ":", 1)).regexp_replace(
+                STRIP_ARTICLES_REGEX, "", "i"
+            )
+        )
+        base_sort = func.natural_sort_key(base_cleaned)
+        full_sort = func.natural_sort_key(stripped)
+    elif ROMM_DB_DRIVER == "postgresql":
+        base_cleaned = func.trim(
+            func.lower(func.split_part(sa.cast(column, Text), ":", 1)).regexp_replace(
+                STRIP_ARTICLES_REGEX, "", "i"
+            )
+        )
+        base_sort = collate(base_cleaned, "natural_sort")
+        full_sort = collate(stripped, "natural_sort")
+    else:
+        base_sort = stripped
+        full_sort = stripped
+
+    return stripped, base_sort, full_sort
 
 
 def safe_str_to_bool(value: Any, default: bool = False) -> bool:
