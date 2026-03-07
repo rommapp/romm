@@ -629,10 +629,10 @@ class ConfigManager:
                 "export_gamelist": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
             },
             "gamelist": {
-                "export" : {
-                    "local_video": self.config.GAMELIST_EXPORT_LOCAL_VIDEO
-                }
-            }
+                "export": {
+                    "local_video": self.config.GAMELIST_EXPORT_LOCAL_VIDEO,
+                },
+            },
         }
 
         try:
