@@ -119,6 +119,18 @@ def validate_email(email: str) -> None:
         raise ValidationError(msg, "Email")
 
 
+# Check for localhost and reserved hostnames
+RESERVED_HOSTNAMES = [
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",  # trunk-ignore(bandit/B104)
+    "[::1]",
+    "::1",
+    "[::]",
+    "::",
+]
+
+
 def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
     """Validate URL to prevent Server-Side Request Forgery (SSRF) attacks.
 
@@ -145,7 +157,7 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
     except Exception as e:
         msg = f"Invalid {field_name}: unable to parse URL"
         log.error(f"{msg}: {str(e)}")
-        raise ValidationError(msg, field_name)
+        raise ValidationError(msg, field_name) from e
 
     # Validate scheme - only allow http and https
     if parsed.scheme not in ["http", "https"]:
@@ -160,17 +172,7 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
         log.error(msg)
         raise ValidationError(msg, field_name)
 
-    # Check for localhost and reserved hostnames
-    reserved_hostnames = [
-        "localhost",
-        "127.0.0.1",
-        "0.0.0.0",
-        "[::1]",
-        "::1",
-        "[::]",
-        "::",
-    ]
-    if hostname.lower() in reserved_hostnames:
+    if hostname.lower() in RESERVED_HOSTNAMES:
         msg = f"Invalid {field_name}: localhost and reserved hostnames are not allowed"
         log.error(f"SSRF prevention: {msg} - hostname '{hostname}'")
         raise ValidationError(msg, field_name)
@@ -180,6 +182,13 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
         # Handle IPv6 addresses in brackets
         ip_str = hostname.strip("[]")
         ip = ipaddress.ip_address(ip_str)
+
+        # Block cloud metadata service IPs (AWS, GCP, Azure, etc.)
+        # AWS/Azure metadata service: 169.254.169.254
+        if isinstance(ip, ipaddress.IPv4Address) and str(ip).startswith("169.254."):
+            msg = f"Invalid {field_name}: cloud metadata service addresses are not allowed"
+            log.error(f"SSRF prevention: {msg} - IP '{ip}'")
+            raise ValidationError(msg, field_name)
 
         # Block private/internal IP addresses
         if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
@@ -193,17 +202,7 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
             log.error(f"SSRF prevention: {msg} - IP '{ip}'")
             raise ValidationError(msg, field_name)
 
-        # Block cloud metadata service IPs (AWS, GCP, Azure, etc.)
-        # AWS/Azure metadata service: 169.254.169.254
-        # IPv6 link-local range: fe80::/10 (already covered by is_link_local)
-        if isinstance(ip, ipaddress.IPv4Address):
-            # Check for 169.254.0.0/16 (link-local)
-            if str(ip).startswith("169.254."):
-                msg = f"Invalid {field_name}: cloud metadata service addresses are not allowed"
-                log.error(f"SSRF prevention: {msg} - IP '{ip}'")
-                raise ValidationError(msg, field_name)
-
-    except ValueError:
+    except ValueError as e:
         # Not a direct IP address, which is fine - it's a domain name
         # Additional checks for suspicious domain patterns
         hostname_lower = hostname.lower()
@@ -213,4 +212,4 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
         if any(hostname_lower.endswith(tld) for tld in internal_tlds):
             msg = f"Invalid {field_name}: internal domain names are not allowed"
             log.error(f"SSRF prevention: {msg} - hostname '{hostname}'")
-            raise ValidationError(msg, field_name)
+            raise ValidationError(msg, field_name) from e

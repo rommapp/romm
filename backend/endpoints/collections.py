@@ -76,7 +76,7 @@ async def add_collection(
             validate_url_for_http_request(url_cover, "Cover URL")
         except ValidationError as e:
             log.error(f"Invalid cover URL in add_collection: {str(e)}")
-            raise ValueError(str(e))
+            raise ValueError(str(e)) from e
 
     db_collection = db_collection_handler.get_collection_by_name(
         cleaned_data["name"], request.user.id
@@ -454,7 +454,7 @@ async def update_collection(
                         validate_url_for_http_request(current_url_cover, "Cover URL")
                     except ValidationError as e:
                         log.error(f"Invalid cover URL in update_collection: {str(e)}")
-                        raise ValueError(str(e))
+                        raise ValueError(str(e)) from e
 
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     entity=collection,
