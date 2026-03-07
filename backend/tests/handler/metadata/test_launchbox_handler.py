@@ -764,27 +764,34 @@ class TestLaunchboxHandlerGetPlatform:
 
 class TestLaunchboxHandlerGetRom:
     @pytest.fixture
-    def handler(self) -> LaunchboxHandler:
+    def handler(self, monkeypatch) -> LaunchboxHandler:
         h = LaunchboxHandler()
         h._local = MagicMock(spec=LocalSource)
         h._remote = MagicMock(spec=RemoteSource)
+        h._local.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
+        monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
         return h
 
-    async def test_disabled_returns_fallback(self, handler: LaunchboxHandler):
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=False):
-            result = await handler.get_rom("game.nes", "nes")
+    async def test_disabled_returns_fallback(
+        self, handler: LaunchboxHandler, monkeypatch
+    ):
+        monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: False)
+        result = await handler.get_rom("game.nes", "nes")
         assert result["launchbox_id"] is None
 
-    async def test_local_found_remote_unavailable(self, handler: LaunchboxHandler):
+    async def test_local_found_remote_unavailable(
+        self, handler: LaunchboxHandler, monkeypatch
+    ):
         local_data = {"Title": "Mario", "DatabaseID": "1234"}
-        handler._local.get_rom = AsyncMock(return_value=local_data)
-        handler._remote.fetch_images = AsyncMock(return_value=None)
-
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            with patch.object(
-                async_cache, "exists", new_callable=AsyncMock, return_value=False
-            ):
-                result = await handler.get_rom("game.nes", "nes")
+        monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=False))
+        with patch.object(
+            handler._local, "get_rom", new=AsyncMock(return_value=local_data)
+        ):
+            result = await handler.get_rom("game.nes", "nes")
 
         assert result.get("launchbox_id", None) == 1234
         assert result.get("name", None) == "Mario"
@@ -793,169 +800,145 @@ class TestLaunchboxHandlerGetRom:
         self, handler: LaunchboxHandler
     ):
         local_data = {"Title": "Mario", "DatabaseID": "1234"}
-        handler._local.get_rom = AsyncMock(return_value=local_data)
-        handler._remote.get_by_id = AsyncMock(return_value=REMOTE_ENTRY)
-        handler._remote.get_rom = AsyncMock(return_value=None)
-        handler._remote.fetch_images = AsyncMock(return_value=None)
+        mock_get_by_id = AsyncMock(return_value=REMOTE_ENTRY)
+        with (
+            patch.object(
+                handler._local, "get_rom", new=AsyncMock(return_value=local_data)
+            ),
+            patch.object(handler._remote, "get_by_id", new=mock_get_by_id),
+        ):
+            result = await handler.get_rom("game.nes", "nes")
 
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            with patch.object(
-                async_cache, "exists", new_callable=AsyncMock, return_value=True
-            ):
-                result = await handler.get_rom("game.nes", "nes")
-
-        handler._remote.get_by_id.assert_called_once_with(1234)
+        mock_get_by_id.assert_called_once_with(1234)
         assert result.get("launchbox_id", None) == 1234
 
     async def test_local_found_supplements_remote_by_title_fallback(
         self, handler: LaunchboxHandler
     ):
         local_data = {"Title": "Mario"}  # no DatabaseID
-        handler._local.get_rom = AsyncMock(return_value=local_data)
-        handler._remote.get_by_id = AsyncMock(return_value=None)
-        handler._remote.get_rom = AsyncMock(return_value=REMOTE_ENTRY)
-        handler._remote.fetch_images = AsyncMock(return_value=None)
+        mock_get_rom = AsyncMock(return_value=REMOTE_ENTRY)
+        with (
+            patch.object(
+                handler._local, "get_rom", new=AsyncMock(return_value=local_data)
+            ),
+            patch.object(handler._remote, "get_rom", new=mock_get_rom),
+        ):
+            result = await handler.get_rom("game.nes", "nes")
 
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            with patch.object(
-                async_cache, "exists", new_callable=AsyncMock, return_value=True
-            ):
-                result = await handler.get_rom("game.nes", "nes")
-
-        handler._remote.get_rom.assert_called_once_with(
-            "Mario", "nes", assume_cache_present=True
-        )
+        mock_get_rom.assert_called_once_with("Mario", "nes", assume_cache_present=True)
         assert result.get("name", None) == "Mario"
 
-    async def test_no_local_no_remote_returns_fallback(self, handler: LaunchboxHandler):
-        handler._local.get_rom = AsyncMock(return_value=None)
-
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            with patch.object(
-                async_cache, "exists", new_callable=AsyncMock, return_value=False
-            ):
-                result = await handler.get_rom("game.nes", "nes")
-
+    async def test_no_local_no_remote_returns_fallback(
+        self, handler: LaunchboxHandler, monkeypatch
+    ):
+        monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=False))
+        result = await handler.get_rom("game.nes", "nes")
         assert result["launchbox_id"] is None
 
     async def test_tag_in_filename_matches_by_id(self, handler: LaunchboxHandler):
-        handler._local.get_rom = AsyncMock(return_value=None)
-        handler._remote.get_by_id = AsyncMock(return_value=REMOTE_ENTRY)
-        handler._remote.fetch_images = AsyncMock(return_value=None)
-
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            with patch.object(
-                async_cache, "exists", new_callable=AsyncMock, return_value=True
-            ):
-                result = await handler.get_rom(
-                    "Super Mario Bros (launchbox-1234).nes", "nes"
-                )
+        with patch.object(
+            handler._remote, "get_by_id", new=AsyncMock(return_value=REMOTE_ENTRY)
+        ):
+            result = await handler.get_rom(
+                "Super Mario Bros (launchbox-1234).nes", "nes"
+            )
 
         assert result.get("launchbox_id", None) == 1234
 
     async def test_tag_in_filename_not_found_falls_through_to_name_search(
         self, handler: LaunchboxHandler
     ):
-        handler._local.get_rom = AsyncMock(return_value=None)
-        handler._remote.get_by_id = AsyncMock(return_value=None)
-        handler._remote.get_rom = AsyncMock(return_value=REMOTE_ENTRY)
-        handler._remote.fetch_images = AsyncMock(return_value=None)
-
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            with patch.object(
-                async_cache, "exists", new_callable=AsyncMock, return_value=True
-            ):
-                # fs_rom_handler.get_file_name_with_no_tags strips the tag
-                with patch(
-                    "handler.metadata.launchbox_handler.handler.fs_rom_handler"
-                ) as mock_fs:
-                    mock_fs.get_file_name_with_no_tags.return_value = "Super Mario Bros"
-                    result = await handler.get_rom(
-                        "Super Mario Bros (launchbox-9999).nes", "nes"
-                    )
+        with (
+            patch.object(
+                handler._remote,
+                "get_rom",
+                new=AsyncMock(return_value=REMOTE_ENTRY),
+            ),
+            patch(
+                "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+            ) as mock_fs,
+        ):
+            # fs_rom_handler.get_file_name_with_no_tags strips the tag
+            mock_fs.get_file_name_with_no_tags.return_value = "Super Mario Bros"
+            result = await handler.get_rom(
+                "Super Mario Bros (launchbox-9999).nes", "nes"
+            )
 
         # Falls through to name search, which succeeds
         assert result.get("launchbox_id", None) == 1234
 
     async def test_name_search_succeeds(self, handler: LaunchboxHandler):
-        handler._local.get_rom = AsyncMock(return_value=None)
-        handler._remote.get_rom = AsyncMock(return_value=REMOTE_ENTRY)
-        handler._remote.fetch_images = AsyncMock(return_value=None)
-
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            with patch.object(
-                async_cache, "exists", new_callable=AsyncMock, return_value=True
-            ):
-                with patch(
-                    "handler.metadata.launchbox_handler.handler.fs_rom_handler"
-                ) as mock_fs:
-                    mock_fs.get_file_name_with_no_tags.return_value = (
-                        "Super Mario Bros."
-                    )
-                    result = await handler.get_rom("Super Mario Bros.nes", "nes")
+        with (
+            patch.object(
+                handler._remote,
+                "get_rom",
+                new=AsyncMock(return_value=REMOTE_ENTRY),
+            ),
+            patch(
+                "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+            ) as mock_fs,
+        ):
+            mock_fs.get_file_name_with_no_tags.return_value = "Super Mario Bros."
+            result = await handler.get_rom("Super Mario Bros.nes", "nes")
 
         assert result.get("launchbox_id", None) == 1234
         assert result.get("name", None) == "Super Mario Bros."
 
     async def test_name_search_fails_returns_fallback(self, handler: LaunchboxHandler):
-        handler._local.get_rom = AsyncMock(return_value=None)
-        handler._remote.get_rom = AsyncMock(return_value=None)
-
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            with patch.object(
-                async_cache, "exists", new_callable=AsyncMock, return_value=True
-            ):
-                with patch(
-                    "handler.metadata.launchbox_handler.handler.fs_rom_handler"
-                ) as mock_fs:
-                    mock_fs.get_file_name_with_no_tags.return_value = "Unknown Game"
-                    result = await handler.get_rom("Unknown Game.nes", "nes")
-
+        with patch(
+            "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+        ) as mock_fs:
+            mock_fs.get_file_name_with_no_tags.return_value = "Unknown Game"
+            result = await handler.get_rom("Unknown Game.nes", "nes")
         assert result["launchbox_id"] is None
 
     async def test_keep_tags_true_skips_tag_stripping(self, handler: LaunchboxHandler):
-        handler._local.get_rom = AsyncMock(return_value=None)
-        handler._remote.get_rom = AsyncMock(return_value=None)
-
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            with patch.object(
-                async_cache, "exists", new_callable=AsyncMock, return_value=True
-            ):
-                with patch(
-                    "handler.metadata.launchbox_handler.handler.fs_rom_handler"
-                ) as mock_fs:
-                    await handler.get_rom("Game (USA).nes", "nes", keep_tags=True)
-                    # fs_rom_handler.get_file_name_with_no_tags should NOT be called
-                    mock_fs.get_file_name_with_no_tags.assert_not_called()
+        with patch(
+            "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+        ) as mock_fs:
+            await handler.get_rom("Game (USA).nes", "nes", keep_tags=True)
+            # fs_rom_handler.get_file_name_with_no_tags should NOT be called
+            mock_fs.get_file_name_with_no_tags.assert_not_called()
 
 
 class TestLaunchboxHandlerGetRomById:
     @pytest.fixture
-    def handler(self) -> LaunchboxHandler:
+    def handler(self, monkeypatch) -> LaunchboxHandler:
         h = LaunchboxHandler()
         h._remote = MagicMock(spec=RemoteSource)
+        h._remote.get_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         return h
 
-    async def test_disabled_returns_fallback(self, handler: LaunchboxHandler):
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=False):
-            result = await handler.get_rom_by_id(1234)
+    async def test_disabled_returns_fallback(
+        self, handler: LaunchboxHandler, monkeypatch
+    ):
+        monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: False)
+        result = await handler.get_rom_by_id(1234)
         assert result["launchbox_id"] is None
 
     async def test_remote_disabled_returns_fallback(self, handler: LaunchboxHandler):
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            result = await handler.get_rom_by_id(1234, remote_enabled=False)
+        result = await handler.get_rom_by_id(1234, remote_enabled=False)
         assert result["launchbox_id"] is None
 
     async def test_not_in_cache_returns_fallback(self, handler: LaunchboxHandler):
-        handler._remote.get_by_id = AsyncMock(return_value=None)
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            result = await handler.get_rom_by_id(9999)
+        result = await handler.get_rom_by_id(9999)
         assert result["launchbox_id"] is None
 
     async def test_found_returns_launchbox_rom(self, handler: LaunchboxHandler):
-        handler._remote.get_by_id = AsyncMock(return_value=REMOTE_ENTRY)
-        handler._remote.fetch_images = AsyncMock(return_value=REMOTE_IMAGES)
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
+        with (
+            patch.object(
+                handler._remote,
+                "get_by_id",
+                new=AsyncMock(return_value=REMOTE_ENTRY),
+            ),
+            patch.object(
+                handler._remote,
+                "fetch_images",
+                new=AsyncMock(return_value=REMOTE_IMAGES),
+            ),
+        ):
             result = await handler.get_rom_by_id(1234)
 
         assert result.get("launchbox_id", None) == 1234
@@ -965,46 +948,45 @@ class TestLaunchboxHandlerGetRomById:
 
 class TestLaunchboxHandlerSearch:
     @pytest.fixture
-    def handler(self) -> LaunchboxHandler:
+    def handler(self, monkeypatch) -> LaunchboxHandler:
         h = LaunchboxHandler()
         h._local = MagicMock(spec=LocalSource)
         h._remote = MagicMock(spec=RemoteSource)
+        h._local.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
+        monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
         return h
 
     async def test_get_matched_roms_by_name_disabled_returns_empty(
-        self, handler: LaunchboxHandler
+        self, handler: LaunchboxHandler, monkeypatch
     ):
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=False):
-            result = await handler.get_matched_roms_by_name("Mario", "nes")
+        monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: False)
+        result = await handler.get_matched_roms_by_name("Mario", "nes")
         assert result == []
 
     async def test_get_matched_roms_by_name_found(self, handler: LaunchboxHandler):
-        handler._local.get_rom = AsyncMock(return_value=None)
-        handler._remote.get_rom = AsyncMock(return_value=REMOTE_ENTRY)
-        handler._remote.fetch_images = AsyncMock(return_value=None)
-
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            with patch.object(
-                async_cache, "exists", new_callable=AsyncMock, return_value=True
-            ):
-                result = await handler.get_matched_roms_by_name(
-                    "Super Mario Bros.", "nes"
-                )
+        with patch.object(
+            handler._remote, "get_rom", new=AsyncMock(return_value=REMOTE_ENTRY)
+        ):
+            result = await handler.get_matched_roms_by_name("Super Mario Bros.", "nes")
 
         assert len(result) == 1
         assert result[0].get("launchbox_id", 0) == 1234
 
     async def test_get_matched_rom_by_id_disabled_returns_none(
-        self, handler: LaunchboxHandler
+        self, handler: LaunchboxHandler, monkeypatch
     ):
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=False):
-            result = await handler.get_matched_rom_by_id(1234)
+        monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: False)
+        result = await handler.get_matched_rom_by_id(1234)
         assert result is None
 
     async def test_get_matched_rom_by_id_found(self, handler: LaunchboxHandler):
-        handler._remote.get_by_id = AsyncMock(return_value=REMOTE_ENTRY)
-        handler._remote.fetch_images = AsyncMock(return_value=None)
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
+        with patch.object(
+            handler._remote, "get_by_id", new=AsyncMock(return_value=REMOTE_ENTRY)
+        ):
             result = await handler.get_matched_rom_by_id(1234)
         assert result is not None
         assert result.get("launchbox_id", None) == 1234
@@ -1012,7 +994,5 @@ class TestLaunchboxHandlerSearch:
     async def test_get_matched_rom_by_id_not_found_returns_none(
         self, handler: LaunchboxHandler
     ):
-        handler._remote.get_by_id = AsyncMock(return_value=None)
-        with patch.object(LaunchboxHandler, "is_enabled", return_value=True):
-            result = await handler.get_matched_rom_by_id(9999)
+        result = await handler.get_matched_rom_by_id(9999)
         assert result is None
