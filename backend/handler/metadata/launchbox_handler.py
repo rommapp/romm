@@ -703,8 +703,16 @@ def build_rom(
 
 class LaunchboxHandler(MetadataHandler):
     @classmethod
+    def is_cloud_enabled(cls) -> bool:
+        return LAUNCHBOX_API_ENABLED
+
+    @classmethod
+    def is_local_enabled(cls) -> bool:
+        return LAUNCHBOX_PLATFORMS_DIR.exists()
+
+    @classmethod
     def is_enabled(cls) -> bool:
-        return LAUNCHBOX_API_ENABLED or LAUNCHBOX_PLATFORMS_DIR.exists()
+        return cls.is_cloud_enabled() or cls.is_local_enabled()
 
     async def heartbeat(self) -> bool:
         return self.is_enabled()

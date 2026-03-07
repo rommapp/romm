@@ -377,8 +377,11 @@ async function stopScan() {
 
                 <template #append v-if="item.raw.value === 'launchbox'">
                   <div class="d-flex align-center">
-                    <span class="text-caption text-medium-emphasis mr-4">
-                      Remote
+                    <span
+                      class="text-caption text-primary text-medium-emphasis mr-4"
+                      :class="{ 'text-romm-gray': launchboxRemoteEnabled }"
+                    >
+                      Local
                     </span>
                     <v-switch
                       v-model="launchboxRemoteEnabled"
@@ -391,6 +394,12 @@ async function stopScan() {
                       @mousedown.stop
                     />
                   </div>
+                  <span
+                    class="text-caption text-primary text-medium-emphasis ml-4"
+                    :class="{ 'text-romm-gray': !launchboxRemoteEnabled }"
+                  >
+                    Cloud
+                  </span>
                 </template>
               </v-list-item>
             </template>
