@@ -24,7 +24,7 @@ async function fetchRoms() {
 
 function clearInput() {
   searchTerm.value = null;
-  initialSearch.value = true;
+  initialSearch.value = false;
   emitter?.emit("filterRoms", null);
 }
 
