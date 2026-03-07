@@ -124,9 +124,7 @@ RESERVED_HOSTNAMES = [
     "localhost",
     "127.0.0.1",
     "0.0.0.0",  # trunk-ignore(bandit/B104)
-    "[::1]",
     "::1",
-    "[::]",
     "::",
 ]
 

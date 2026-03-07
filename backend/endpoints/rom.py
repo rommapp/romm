@@ -136,34 +136,37 @@ class RomUserUpdatePayload(BaseModel):
     remove_last_played: bool = False
 
 
+# Sentinel to distinguish "field not provided" from "field provided as None/empty"
+_FORM_FIELD_NOT_PROVIDED = object()
+
+
 async def parse_rom_update_form(
     request: Request,
-    igdb_id: str | None = Form(default=None),
-    sgdb_id: str | None = Form(default=None),
-    moby_id: str | None = Form(default=None),
-    ss_id: str | None = Form(default=None),
-    ra_id: str | None = Form(default=None),
-    launchbox_id: str | None = Form(default=None),
-    hasheous_id: str | None = Form(default=None),
-    tgdb_id: str | None = Form(default=None),
-    flashpoint_id: str | None = Form(default=None),
-    hltb_id: str | None = Form(default=None),
-    raw_igdb_metadata: str | None = Form(default=None),
-    raw_moby_metadata: str | None = Form(default=None),
-    raw_ss_metadata: str | None = Form(default=None),
-    raw_launchbox_metadata: str | None = Form(default=None),
-    raw_hasheous_metadata: str | None = Form(default=None),
-    raw_flashpoint_metadata: str | None = Form(default=None),
-    raw_hltb_metadata: str | None = Form(default=None),
-    raw_manual_metadata: str | None = Form(default=None),
-    name: str | None = Form(default=None),
-    summary: str | None = Form(default=None),
-    fs_name: str | None = Form(default=None),
-    url_cover: str | None = Form(default=None),
-    url_manual: str | None = Form(default=None),
+    igdb_id: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    sgdb_id: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    moby_id: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    ss_id: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    ra_id: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    launchbox_id: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    hasheous_id: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    tgdb_id: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    flashpoint_id: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    hltb_id: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    raw_igdb_metadata: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    raw_moby_metadata: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    raw_ss_metadata: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    raw_launchbox_metadata: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    raw_hasheous_metadata: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    raw_flashpoint_metadata: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    raw_hltb_metadata: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    raw_manual_metadata: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    name: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    summary: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    fs_name: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    url_cover: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
+    url_manual: str | None = Form(default=_FORM_FIELD_NOT_PROVIDED),
 ) -> RomUpdateForm:
-    # Preserve "field was provided" behavior used by update logic.
-    form_keys = set((await request.form()).keys())
+    # Track which fields were actually provided (not the sentinel)
     field_values = {
         "igdb_id": igdb_id,
         "sgdb_id": sgdb_id,
@@ -189,8 +192,13 @@ async def parse_rom_update_form(
         "url_cover": url_cover,
         "url_manual": url_manual,
     }
+
     return RomUpdateForm.model_validate(
-        {field: value for field, value in field_values.items() if field in form_keys}
+        {
+            field: value
+            for field, value in field_values.items()
+            if value is not _FORM_FIELD_NOT_PROVIDED
+        }
     )
 
 
