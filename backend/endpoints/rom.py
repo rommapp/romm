@@ -1297,7 +1297,7 @@ async def update_rom(
                 validate_url_for_http_request(str(screenshot_url), "Screenshot URL")
             except ValidationError as e:
                 log.error(f"Invalid screenshot URL in update_rom: {str(e)}")
-                raise ValueError(str(e))
+                raise ValueError(str(e)) from e
 
     screenshots_changed = pydash.xor(url_screenshots, rom.url_screenshots or [])
     if url_screenshots:
@@ -1360,7 +1360,7 @@ async def update_rom(
                     validate_url_for_http_request(url_cover, "Cover URL")
                 except ValidationError as e:
                     log.error(f"Invalid cover URL in update_rom: {str(e)}")
-                    raise ValueError(str(e))
+                    raise ValueError(str(e)) from e
 
             path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                 entity=rom,
@@ -1384,7 +1384,7 @@ async def update_rom(
             validate_url_for_http_request(url_manual, "Manual URL")
         except ValidationError as e:
             log.error(f"Invalid manual URL in update_rom: {str(e)}")
-            raise ValueError(str(e))
+            raise ValueError(str(e)) from e
 
     path_manual = await fs_resource_handler.get_manual(
         rom=rom,
