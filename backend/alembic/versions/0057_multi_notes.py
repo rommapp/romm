@@ -75,23 +75,17 @@ def upgrade() -> None:
     # Migrate existing notes from rom_user to rom_notes table
     # Both note_raw_markdown and note_is_public columns exist from previous migrations
     connection = op.get_bind()
-    result = connection.execute(
-        text(
-            """
+    result = connection.execute(text("""
             SELECT id, rom_id, user_id, note_raw_markdown, note_is_public, updated_at
             FROM rom_user
-        """
-        )
-    )
+        """))
 
     for row in result:
         connection.execute(
-            text(
-                """
+            text("""
                 INSERT INTO rom_notes (title, content, is_public, tags, created_at, updated_at, rom_id, user_id)
                 VALUES (:title, :content, :is_public, :tags, :created_at, :updated_at, :rom_id, :user_id)
-            """
-            ),
+            """),
             {
                 "title": "My Note",
                 "content": row.note_raw_markdown or "",  # Handle potential NULL content
@@ -125,26 +119,20 @@ def downgrade() -> None:
 
     # Migrate notes back to rom_user (take first note per user/rom)
     connection = op.get_bind()
-    result = connection.execute(
-        text(
-            """
+    result = connection.execute(text("""
             SELECT DISTINCT rom_id, user_id, 
                    FIRST_VALUE(content) OVER (PARTITION BY rom_id, user_id ORDER BY updated_at DESC) as content,
                    FIRST_VALUE(is_public) OVER (PARTITION BY rom_id, user_id ORDER BY updated_at DESC) as is_public
             FROM rom_notes
-        """
-        )
-    )
+        """))
 
     for row in result:
         connection.execute(
-            text(
-                """
+            text("""
                 UPDATE rom_user 
                 SET note_raw_markdown = :content, note_is_public = :is_public 
                 WHERE rom_id = :rom_id AND user_id = :user_id
-            """
-            ),
+            """),
             {
                 "content": row.content,
                 "is_public": row.is_public,

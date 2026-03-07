@@ -23,20 +23,14 @@ depends_on = None
 def upgrade() -> None:
     conn = op.get_bind()
 
-    conn.execute(
-        text(
-            """
+    conn.execute(text("""
             UPDATE roms 
             SET url_cover = replace(url_cover, 't_thumb', 't_1080p')
             WHERE url_cover LIKE '%t_thumb%'
-            """
-        )
-    )
+            """))
 
     if is_postgresql(conn):
-        conn.execute(
-            text(
-                """
+        conn.execute(text("""
                 UPDATE roms 
                 SET url_screenshots = (
                     SELECT jsonb_agg(
@@ -46,19 +40,13 @@ def upgrade() -> None:
                 )
                 WHERE url_screenshots IS NOT NULL
                 AND url_screenshots::text LIKE '%t_thumb%';
-                """
-            )
-        )
+                """))
     else:
-        result = conn.execute(
-            text(
-                """
+        result = conn.execute(text("""
                 SELECT id, url_screenshots
                 FROM roms
                 WHERE JSON_SEARCH(url_screenshots, 'one', '%t_thumb%') IS NOT NULL
-                """
-            )
-        )
+                """))
 
         for row in result:
             row_id, screenshots_json = row
@@ -75,13 +63,11 @@ def upgrade() -> None:
                             for url in screenshots
                         ]
                         conn.execute(
-                            text(
-                                """
+                            text("""
                                 UPDATE roms
                                 SET url_screenshots = :screenshots
                                 WHERE id = :id
-                                """
-                            ),
+                                """),
                             {
                                 "screenshots": json.dumps(updated_screenshots),
                                 "id": row_id,

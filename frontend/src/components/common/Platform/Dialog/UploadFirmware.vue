@@ -60,7 +60,7 @@ function uploadFirmware() {
       platformId: currentPlatform.value.id,
       files: filesToUpload.value,
     })
-    .then(({ data }) => {
+    .then((data) => {
       const { uploaded, firmware } = data;
       if (currentPlatform.value) {
         currentPlatform.value.firmware = firmware;

@@ -14,6 +14,8 @@ from handler.database import (
     db_user_handler,
 )
 from models.assets import Save, Screenshot, State
+from models.device import Device
+from models.device_save_sync import DeviceSaveSync
 from models.platform import Platform
 from models.rom import Rom
 from models.user import Role, User
@@ -30,6 +32,8 @@ def setup_database():
 @pytest.fixture(autouse=True)
 def clear_database():
     with session.begin() as s:
+        s.query(DeviceSaveSync).delete(synchronize_session="evaluate")
+        s.query(Device).delete(synchronize_session="evaluate")
         s.query(Save).delete(synchronize_session="evaluate")
         s.query(State).delete(synchronize_session="evaluate")
         s.query(Screenshot).delete(synchronize_session="evaluate")

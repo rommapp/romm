@@ -25,15 +25,11 @@ def upgrade() -> None:
 
     # Get all firmware records with their hash information
     connection = op.get_bind()
-    result = connection.execute(
-        sa.text(
-            """
+    result = connection.execute(sa.text("""
         SELECT f.id, p.slug as platform_slug, f.file_name, f.file_size_bytes, f.md5_hash, f.sha1_hash, f.crc_hash
         FROM firmware f
         JOIN platforms p ON f.platform_id = p.id
-        """
-        )
-    )
+        """))
 
     all_firmware = result.fetchall()
     verified_firmware_ids = []

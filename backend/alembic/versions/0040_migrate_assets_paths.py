@@ -43,15 +43,11 @@ def upgrade() -> None:
 
         # Build query based on whether emulator exists
         select_cols = "id, file_path, rom_id" + (", emulator" if has_emulator else "")
-        results = conn.execute(
-            text(
-                f"""
+        results = conn.execute(text(f"""
                 SELECT {select_cols}
                 FROM {table}
                 WHERE {like_clause}
-            """  # nosec B608
-            )
-        ).fetchall()
+            """)).fetchall()  # nosec B608
 
         for row in results:
             item_id = row.id
@@ -102,13 +98,11 @@ def upgrade() -> None:
 
             # Update DB
             conn.execute(
-                text(
-                    f"""
+                text(f"""
                     UPDATE {table}
                     SET file_path = :new_path
                     WHERE id = :item_id
-                """  # nosec B608
-                ),
+                """),  # nosec B608
                 {"new_path": new_path, "item_id": item_id},
             )
 

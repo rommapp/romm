@@ -165,7 +165,7 @@ export default defineStore("roms", {
         this._allRoms = this._allRoms.concat(items);
       }
 
-      // Update the offset and total roms in filtered database result
+      // Update the offset and total ROMs in filtered database result
       if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
       if (total !== null) this.fetchTotalRoms = total;
 
@@ -193,20 +193,15 @@ export default defineStore("roms", {
         galleryFilter.setFilterPlayerCounts(filter_values.player_counts);
       }
     },
-    async fetchRoms({
-      galleryFilter,
-      platformsStore,
-      concat = true,
-    }: {
-      galleryFilter: GalleryFilterStore;
-      platformsStore: PlatformsStore;
-      concat?: boolean;
-    }): Promise<SimpleRom[]> {
+    async fetchRoms(concat = true): Promise<SimpleRom[]> {
       if (this.fetchingRoms) return Promise.resolve([]);
       this.fetchingRoms = true;
 
+      const galleryFilterStore = storeGalleryFilter();
+      const platformsStore = storePlatforms();
+
       // Capture current request parameters to validate background updates
-      const currentRequestParams = this._buildRequestParams(galleryFilter);
+      const currentRequestParams = this._buildRequestParams(galleryFilterStore);
 
       return new Promise((resolve, reject) => {
         cachedApiService
@@ -214,14 +209,14 @@ export default defineStore("roms", {
             if (concat && this.fetchOffset != 0) return;
 
             // Check if parameters have changed since the request was made
-            const currentParams = this._buildRequestParams(galleryFilter);
+            const currentParams = this._buildRequestParams(galleryFilterStore);
             const paramsChanged =
               JSON.stringify(currentParams) !==
               JSON.stringify(currentRequestParams);
             if (paramsChanged) return;
             this._postFetchRoms(
               response,
-              galleryFilter,
+              galleryFilterStore,
               platformsStore,
               concat,
             );
@@ -229,7 +224,7 @@ export default defineStore("roms", {
           .then((response) => {
             this._postFetchRoms(
               response.data,
-              galleryFilter,
+              galleryFilterStore,
               platformsStore,
               concat,
             );

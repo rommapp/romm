@@ -1,14 +1,13 @@
 {
   "admin-user-step": "Crear un usuario administrador",
-  "supported-platforms": "Plataformas disponibles",
   "cancel": "Cancelar",
   "check-metadata-step": "Comprobar fuentes de metadatos",
   "confirm-create-platforms": "RomM creará la estructura {structure} ({pattern}) con {count} plataforma{plural}. ¿Continuar?",
   "confirm-no-platforms": "No se detectó estructura de carpetas y no se seleccionaron plataformas. Necesitará crear la estructura de carpetas manualmente. ¿Continuar?",
   "confirm-no-structure": "No se detectó estructura de carpetas. RomM creará la estructura A (roms/{platform}) con {count} plataforma{plural}. ¿Continuar?",
   "continue": "Continuar",
-  "detected-platforms": "Plataformas detectadas",
   "deselect-all": "Deseleccionar todo",
+  "detected-platforms": "Plataformas detectadas",
   "finish": "Finalizar",
   "folder-structure": "Estructura de carpetas",
   "game": "juego",
@@ -24,5 +23,6 @@
   "select-platforms": "Seleccionar plataformas a crear",
   "selected": "seleccionado",
   "structure-a-detected": "Estructura A detectada",
-  "structure-b-detected": "Estructura B detectada"
+  "structure-b-detected": "Estructura B detectada",
+  "supported-platforms": "Plataformas disponibles"
 }

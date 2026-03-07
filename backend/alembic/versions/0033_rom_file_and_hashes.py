@@ -82,8 +82,7 @@ def upgrade() -> None:
     )
 
     if is_postgresql(connection):
-        op.execute(
-            """
+        op.execute("""
             INSERT INTO rom_files (
                 rom_id,
                 file_name,
@@ -107,11 +106,9 @@ def upgrade() -> None:
             CROSS JOIN jsonb_array_elements(r.files) AS file_data
             WHERE file_data->>'filename' IS NOT NULL
             AND file_data->>'filename' <> '';
-            """
-        )
+            """)
     else:
-        op.execute(
-            """
+        op.execute("""
             INSERT INTO rom_files (
                 rom_id,
                 file_name,
@@ -142,8 +139,7 @@ def upgrade() -> None:
             ) AS extracted_files
             WHERE JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.filename')) IS NOT NULL
             AND JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.filename')) <> '';
-            """
-        )
+            """)
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.alter_column(
@@ -210,8 +206,7 @@ def downgrade() -> None:
         )
 
     if is_postgresql(connection):
-        op.execute(
-            """
+        op.execute("""
             WITH aggregated_data AS (
                 SELECT
                     rom_id,
@@ -234,11 +229,9 @@ def downgrade() -> None:
                 file_size_bytes = aggregated_data.total_size
             FROM aggregated_data
             WHERE roms.id = aggregated_data.rom_id;
-            """
-        )
+            """)
     else:
-        op.execute(
-            """
+        op.execute("""
             UPDATE roms
             JOIN (
                 SELECT
@@ -260,8 +253,7 @@ def downgrade() -> None:
                 roms.files = aggregated_data.files,
                 roms.multi = aggregated_data.multi,
                 roms.file_size_bytes = aggregated_data.total_size;
-            """
-        )
+            """)
 
     op.drop_table("rom_files")
 

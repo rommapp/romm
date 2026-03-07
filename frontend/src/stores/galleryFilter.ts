@@ -1,19 +1,17 @@
 import { defineStore } from "pinia";
-import type { PlatformSchema } from "@/__generated__";
 import { romStatusMap } from "@/utils";
-
-export type Platform = PlatformSchema;
+import type { Platform } from "./platforms";
 
 export type FilterType =
-  | "genre"
-  | "franchise"
-  | "collection"
-  | "company"
-  | "ageRating"
-  | "status"
-  | "region"
-  | "language"
-  | "playerCount";
+  | "genres"
+  | "franchises"
+  | "collections"
+  | "companies"
+  | "ageRatings"
+  | "statuses"
+  | "regions"
+  | "languages"
+  | "playerCounts";
 
 export type FilterLogicOperator = "any" | "all" | "none";
 
@@ -29,7 +27,7 @@ const defaultFilterState = {
   filterRegions: [] as string[],
   filterLanguages: [] as string[],
   filterPlayerCounts: [] as string[],
-  filterStatuses: Object.values(romStatusMap).map((status) => status.text),
+  filterStatuses: Object.keys(romStatusMap),
   filterMatched: null as boolean | null, // null = all, true = matched, false = unmatched
   filterFavorites: null as boolean | null, // null = all, true = favorites, false = not favorites
   filterDuplicates: null as boolean | null, // null = all, true = duplicates, false = not duplicates

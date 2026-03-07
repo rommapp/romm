@@ -36,7 +36,7 @@ onMounted(async () => {
       romId.value = response.data.id;
     })
     .catch((error) => {
-      console.error("Error fetching ROM by metadata provider:", error);
+      console.warn("Error fetching ROM by metadata provider:", error);
       // Keep romId.value as null to fall back to IGDB link
     });
 });

@@ -1,16 +1,16 @@
 {
+  "back-to-login": "Voltar para o login",
+  "confirm-new-password": "Confirmar nova senha",
+  "forgot-password": "Esqueceu sua senha?",
   "login": "Entrar",
   "login-oidc": "Entrar com {oidc}",
+  "new-password": "Nova senha",
   "or": "ou",
   "password": "Senha",
-  "username": "Nome de usuário",
-  "forgot-password": "Esqueceu sua senha?",
-  "send-reset-link": "Enviar link de redefinição",
-  "reset-sent": "Link de redefinição enviado. Contate o administrador.",
-  "new-password": "Nova senha",
-  "confirm-new-password": "Confirmar nova senha",
+  "register": "Registrar",
   "reset-password": "Redefinir senha",
-  "back-to-login": "Voltar para o login",
+  "reset-sent": "Link de redefinição enviado. Contate o administrador.",
+  "send-reset-link": "Enviar link de redefinição",
   "setup-wizard": "Assistente de configuração",
-  "register": "Registrar"
+  "username": "Nome de usuário"
 }

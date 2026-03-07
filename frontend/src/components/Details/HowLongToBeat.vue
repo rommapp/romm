@@ -44,13 +44,7 @@ const allStyles = computed(() => {
 
 <template>
   <div v-if="howLongToBeat">
-    <v-row class="mb-4">
-      <v-col cols="12">
-        <h3 class="text-h6 mb-4">{{ t("rom.how-long-to-beat") }}</h3>
-      </v-col>
-    </v-row>
-
-    <v-row>
+    <v-row class="pa-2">
       <v-col v-if="mainStory" cols="12" sm="6" lg="3">
         <v-card>
           <v-card-text class="text-center pa-4">

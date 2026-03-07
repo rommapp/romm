@@ -6,6 +6,7 @@ import type {
   SmartCollectionSchema,
 } from "@/__generated__";
 import collectionApi from "@/services/api/collection";
+import storeAuth from "@/stores/auth";
 import type { SimpleRom } from "./roms";
 
 export type Collection = CollectionSchema;
@@ -29,6 +30,10 @@ export default defineStore("collections", {
       allCollections.filter((p) =>
         p.name.toLowerCase().includes(filterText.toLowerCase()),
       ),
+    ownedCollections: ({ allCollections }) => {
+      const authStore = storeAuth();
+      return allCollections.filter((c) => c.user_id === authStore.user?.id);
+    },
     filteredVirtualCollections: ({ virtualCollections, filterText }) =>
       virtualCollections.filter((p) =>
         p.name.toLowerCase().includes(filterText.toLowerCase()),

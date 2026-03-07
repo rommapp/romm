@@ -321,7 +321,7 @@ async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
       filesToUpload: [file],
       platformId: platformId,
     })
-    .then((responses: PromiseSettledResult<unknown>[]) => {
+    .then((responses) => {
       const successfulUploads = responses.filter(
         (d) => d.status === "fulfilled",
       );

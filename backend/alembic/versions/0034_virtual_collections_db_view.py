@@ -46,21 +46,16 @@ def upgrade() -> None:
     connection = op.get_bind()
 
     if is_postgresql(connection):
-        connection.execute(
-            sa.text(
-                """
+        connection.execute(sa.text("""
                 INSERT INTO collections_roms (collection_id, rom_id, created_at, updated_at)
                 SELECT c.id, rom_id::INT, NOW(), NOW()
                 FROM collections c,
                 LATERAL jsonb_array_elements_text(c.roms) AS rom_id
                 LEFT JOIN roms r ON rom_id::INT = r.id
                 WHERE r.id IS NOT NULL;
-                """
-            )
-        )
+                """))
         connection.execute(
-            sa.text(
-                """
+            sa.text("""
                 CREATE OR REPLACE VIEW virtual_collections AS
                 WITH genres_collection AS (
                     SELECT
@@ -135,25 +130,19 @@ def upgrade() -> None:
                 GROUP BY collection_type, collection_name
                 HAVING COUNT(DISTINCT rom_id) > 2
                 ORDER BY collection_type, collection_name;
-                """  # nosec B608
-            ),
+                """),  # nosec B608
         )
     else:
-        connection.execute(
-            sa.text(
-                """
+        connection.execute(sa.text("""
                 INSERT INTO collections_roms (collection_id, rom_id, created_at, updated_at)
                 SELECT c.id, jt.rom_id, NOW(), NOW()
                 FROM collections c
                 JOIN JSON_TABLE(c.roms, '$[*]' COLUMNS (rom_id INT PATH '$')) AS jt
                 LEFT JOIN roms r ON jt.rom_id = r.id
                 WHERE r.id IS NOT NULL;
-                """
-            )
-        )
+                """))
         connection.execute(
-            sa.text(
-                """
+            sa.text("""
                 CREATE OR REPLACE VIEW virtual_collections AS
                 WITH genres AS (
                     SELECT
@@ -259,8 +248,7 @@ def upgrade() -> None:
                 GROUP BY collection_type, collection_name
                 HAVING COUNT(DISTINCT rom_id) > 2
                 ORDER BY collection_type, collection_name;
-                """
-            ),
+                """),
         )
 
     op.drop_column("collections", "roms")
@@ -272,9 +260,7 @@ def downgrade() -> None:
 
     connection = op.get_bind()
     if is_postgresql(connection):
-        connection.execute(
-            sa.text(
-                """
+        connection.execute(sa.text("""
                 UPDATE collections c
                 SET roms = COALESCE(
                     (SELECT jsonb_agg(rom_id)
@@ -282,13 +268,9 @@ def downgrade() -> None:
                     WHERE cr.collection_id = c.id),
                     '[]'::jsonb
                 );
-                """
-            )
-        )
+                """))
     else:
-        connection.execute(
-            sa.text(
-                """
+        connection.execute(sa.text("""
                 UPDATE collections c
                 JOIN (
                     SELECT collection_id, IFNULL(JSON_ARRAYAGG(rom_id), JSON_ARRAY()) AS roms
@@ -298,9 +280,7 @@ def downgrade() -> None:
                 ON c.id = cr.collection_id
                 SET c.roms = cr.roms;
 
-                """
-            )
-        )
+                """))
 
     with op.batch_alter_table("collections", schema=None) as batch_op:
         batch_op.alter_column("roms", existing_type=CustomJSON(), nullable=False)
@@ -308,9 +288,7 @@ def downgrade() -> None:
     op.drop_table("collections_roms")
 
     connection.execute(
-        sa.text(
-            """
+        sa.text("""
             DROP VIEW virtual_collections;
-            """
-        ),
+            """),
     )

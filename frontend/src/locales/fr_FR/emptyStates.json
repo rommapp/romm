@@ -1,11 +1,11 @@
 {
   "404-subtitle": "La page que vous recherchez n'existe pas",
   "404-title": "Page introuvable",
-  "firmware-title": "Aucun firmware/BIOS",
   "firmware-text": "Le firmware/BIOS recherché n'existe pas",
-  "search-for-games": "Recherchez des jeux sur toutes les plateformes",
-  "manual-match": "Recherchez des jeux auprès de tous les fournisseurs de métadonnées",
+  "firmware-title": "Aucun firmware/BIOS",
   "home-headline": "Aucun jeu dans votre bibliothèque",
+  "home-text": "Prêt à jouer ?",
   "home-title": "Effectuez une analyse rapide pour détecter automatiquement les jeux sur votre système",
-  "home-text": "Prêt à jouer ?"
+  "manual-match": "Recherchez des jeux auprès de tous les fournisseurs de métadonnées",
+  "search-for-games": "Recherchez des jeux sur toutes les plateformes"
 }

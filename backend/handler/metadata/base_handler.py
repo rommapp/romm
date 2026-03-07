@@ -5,7 +5,7 @@ import re
 import unicodedata
 from functools import lru_cache
 from pathlib import Path
-from typing import Final, NotRequired, TypedDict
+from typing import Final, Mapping, NotRequired, TypedDict
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from strsimpy.jaro_winkler import JaroWinkler
@@ -275,7 +275,9 @@ class MetadataHandler(abc.ABC):
 
         return search_term
 
-    def _mask_sensitive_values(self, values: dict[str, str | None]) -> dict[str, str]:
+    def _mask_sensitive_values(
+        self, values: Mapping[str, str | None]
+    ) -> dict[str, str]:
         """
         Mask sensitive values (headers or params), leaving only the first 2 and last 2 characters of the token.
         """

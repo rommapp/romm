@@ -1,11 +1,11 @@
 {
   "404-subtitle": "Pagina pe care o căutați nu există",
   "404-title": "Pagină negăsită",
-  "firmware-title": "Fără firmware/BIOS",
   "firmware-text": "Firmware-ul/BIOS-ul căutat nu există",
-  "search-for-games": "Căutați jocuri pe toate platformele",
-  "manual-match": "Căutați jocuri la toți furnizorii de metadate",
+  "firmware-title": "Fără firmware/BIOS",
   "home-headline": "Nu există jocuri în biblioteca dvs.",
+  "home-text": "Sunteți gata de joacă?",
   "home-title": "Rulați o scanare rapidă pentru a detecta automat jocurile de pe sistemul dvs.",
-  "home-text": "Sunteți gata de joacă?"
+  "manual-match": "Căutați jocuri la toți furnizorii de metadate",
+  "search-for-games": "Căutați jocuri pe toate platformele"
 }

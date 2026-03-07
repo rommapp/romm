@@ -1,16 +1,16 @@
 {
+  "back-to-login": "Vissza a bejelentkezéshez",
+  "confirm-new-password": "Új jelszó megerősítése",
+  "forgot-password": "Elfelejtetted a jelszavad?",
   "login": "Bejelentkezés",
   "login-oidc": "Bejelentkezés ezzel {oidc}",
+  "new-password": "Új jelszó",
   "or": "vagy",
   "password": "Jelszó",
-  "username": "Felhasználónév",
-  "forgot-password": "Elfelejtetted a jelszavad?",
-  "send-reset-link": "Visszaállítási link küldése",
-  "reset-sent": "Visszaállítási link kiküldve. Lépj kapcsolatba az adminnal.",
-  "new-password": "Új jelszó",
-  "confirm-new-password": "Új jelszó megerősítése",
+  "register": "Regisztráció",
   "reset-password": "Jelszó visszaállítása",
-  "back-to-login": "Vissza a bejelentkezéshez",
+  "reset-sent": "Visszaállítási link kiküldve. Lépj kapcsolatba az adminnal.",
+  "send-reset-link": "Visszaállítási link küldése",
   "setup-wizard": "Beállítási varázsló",
-  "register": "Regisztráció"
+  "username": "Felhasználónév"
 }

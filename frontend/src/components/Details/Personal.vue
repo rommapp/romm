@@ -274,7 +274,7 @@ watch(
                     v-model="romUser.completion"
                     :class="{ 'ml-4': mdAndUp }"
                     :disabled="!scopes.includes('roms.user.write')"
-                    min="1"
+                    min="0"
                     max="100"
                     step="1"
                     hide-details

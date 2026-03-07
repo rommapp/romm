@@ -136,10 +136,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
   romsStore.resetPagination();
   romsStore.setOrderBy(key);
   romsStore.setOrderDir(order);
-  romsStore.fetchRoms({
-    galleryFilter: galleryFilterStore,
-    platformsStore: platformsStore,
-  });
+  romsStore.fetchRoms();
 }
 </script>
 

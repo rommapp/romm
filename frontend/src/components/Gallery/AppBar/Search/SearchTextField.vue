@@ -24,6 +24,8 @@ async function fetchRoms() {
 
 function clearInput() {
   searchTerm.value = null;
+  initialSearch.value = false;
+  emitter?.emit("filterRoms", null);
 }
 
 function resetGallery() {

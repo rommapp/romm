@@ -34,9 +34,7 @@ def upgrade():
         )
 
     if is_postgresql(connection):
-        connection.execute(
-            sa.text(
-                """
+        connection.execute(sa.text("""
                 CREATE OR REPLACE VIEW roms_metadata AS
                 SELECT
                     r.id AS rom_id,
@@ -209,13 +207,9 @@ def upgrade():
                         END AS gamelist_rating
                     FROM roms r
                 ) AS r;
-                """
-            )
-        )
+                """))
     else:
-        connection.execute(
-            sa.text(
-                """CREATE OR REPLACE VIEW roms_metadata AS
+        connection.execute(sa.text("""CREATE OR REPLACE VIEW roms_metadata AS
                     SELECT
                         r.id as rom_id,
                         NOW() AS created_at,
@@ -389,9 +383,7 @@ def upgrade():
                             END AS gamelist_rating
                         FROM roms
                     ) AS r;
-                """
-            )
-        )
+                """))
 
 
 def downgrade():

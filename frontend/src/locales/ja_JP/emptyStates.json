@@ -1,11 +1,11 @@
 {
   "404-subtitle": "表示しようとしたページは見つかりませんでした",
   "404-title": "ページが見つかりませんでした",
-  "firmware-title": "ファームウェア/BIOSなし",
   "firmware-text": "お探しのファームウェア/BIOSは存在しません",
-  "search-for-games": "全てのプラットフォームから検索",
-  "manual-match": "全てのメタデータプロバイダーから検索",
+  "firmware-title": "ファームウェア/BIOSなし",
   "home-headline": "ライブラリにゲームがありません",
+  "home-text": "プレイする準備はできましたか？",
   "home-title": "システム上のゲームを自動的に検出するためにクイックスキャンを実行します",
-  "home-text": "プレイする準備はできましたか？"
+  "manual-match": "全てのメタデータプロバイダーから検索",
+  "search-for-games": "全てのプラットフォームから検索"
 }

@@ -84,15 +84,13 @@ def upgrade() -> None:
         )
 
         connection.execute(
-            sa.text(
-                """
+            sa.text("""
                 UPDATE roms
                 SET path_cover_s = :path_cover_s,
                     path_cover_l = :path_cover_l,
                     path_screenshots = :path_screenshots
                 WHERE id = :id
-            """
-            ),
+            """),
             {
                 "id": rom.id,
                 "path_cover_s": updated_path_cover_s,

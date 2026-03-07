@@ -14,6 +14,7 @@ from typing import IO, Any, Final, Literal, TypedDict, cast
 
 import magic
 import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
+from anyio import Path as AnyioPath
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
@@ -334,46 +335,46 @@ class FSRomsHandler(FSHandler):
         regions, languages, other_tags = [], [], []
         version = revision = ""
 
-        for raw in tags:
-            tag = raw.lower()
+        for raw_tag in tags:
+            lower_tag = raw_tag.lower()
 
             # Region by code
-            if tag in REGIONS_BY_SHORTCODE.keys():
-                regions.append(REGIONS_BY_SHORTCODE[tag])
+            if raw_tag in REGIONS_BY_SHORTCODE.keys():
+                regions.append(REGIONS_BY_SHORTCODE[raw_tag])
                 continue
-            if tag in REGIONS_NAME_KEYS:
-                regions.append(raw)
+            if lower_tag in REGIONS_NAME_KEYS:
+                regions.append(raw_tag)
                 continue
 
             # Language by code
-            if tag in LANGUAGES_BY_SHORTCODE.keys():
-                languages.append(LANGUAGES_BY_SHORTCODE[tag])
+            if raw_tag in LANGUAGES_BY_SHORTCODE.keys():
+                languages.append(LANGUAGES_BY_SHORTCODE[raw_tag])
                 continue
-            if tag in LANGUAGES_NAME_KEYS:
-                languages.append(raw)
+            if lower_tag in LANGUAGES_NAME_KEYS:
+                languages.append(raw_tag)
                 continue
 
             # Version
-            version_match = VERSION_TAG_REGEX.match(raw)
+            version_match = VERSION_TAG_REGEX.match(raw_tag)
             if version_match:
                 version = version_match[1]
                 continue
 
             # Region prefix
-            region_match = REGION_TAG_REGEX.match(raw)
+            region_match = REGION_TAG_REGEX.match(raw_tag)
             if region_match:
                 key = region_match[1].lower()
                 regions.append(REGIONS_BY_SHORTCODE.get(key, region_match[1]))
                 continue
 
             # Revision prefix
-            revision_match = REVISION_TAG_REGEX.match(raw)
+            revision_match = REVISION_TAG_REGEX.match(raw_tag)
             if revision_match:
                 revision = revision_match[1]
                 continue
 
             # Anything else
-            other_tags.append(raw)
+            other_tags.append(raw_tag)
 
         return ParsedTags(
             version=version,
@@ -448,7 +449,7 @@ class FSRomsHandler(FSHandler):
         rom_ra_h = ""
 
         # Check if rom is a multi-part rom
-        if os.path.isdir(f"{abs_fs_path}/{rom.fs_name}"):
+        if await AnyioPath(f"{abs_fs_path}/{rom.fs_name}").is_dir():
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
             if calculate_hashes:
                 ra_platform = meta_ra_handler.get_platform(rom.platform_slug)

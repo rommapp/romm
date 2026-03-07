@@ -1,14 +1,13 @@
 {
   "admin-user-step": "建立管理員使用者",
-  "supported-platforms": "可用平台",
   "cancel": "取消",
   "check-metadata-step": "檢查詮釋資料來源",
   "confirm-create-platforms": "RomM 將建立結構 {structure}（{pattern}）包含 {count} 個平台{plural}。繼續嗎？",
   "confirm-no-platforms": "未偵測到資料夾結構且未選擇平台。您需要手動建立資料夾結構。繼續嗎？",
   "confirm-no-structure": "未偵測到資料夾結構。RomM 將建立結構 A（roms/{platform}）包含 {count} 個平台{plural}。繼續嗎？",
   "continue": "繼續",
-  "detected-platforms": "偵測到的平台",
   "deselect-all": "取消全選",
+  "detected-platforms": "偵測到的平台",
   "finish": "完成",
   "folder-structure": "資料夾結構",
   "game": "遊戲",
@@ -24,5 +23,6 @@
   "select-platforms": "選擇要建立的平台",
   "selected": "已選擇",
   "structure-a-detected": "偵測到結構 A",
-  "structure-b-detected": "偵測到結構 B"
+  "structure-b-detected": "偵測到結構 B",
+  "supported-platforms": "可用平台"
 }
