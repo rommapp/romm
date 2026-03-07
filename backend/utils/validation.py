@@ -136,9 +136,13 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
 
     This function validates that:
     - The URL scheme is http or https only
-    - The host is not an internal/private IP address
-    - The host is not a reserved hostname (localhost, etc.)
-    - The host is not a cloud metadata service endpoint
+    - If the host is a literal IP address, it is not private/internal/reserved
+    - The host is not a reserved hostname (localhost, 127.0.0.1, etc.)
+    - The host does not use internal TLDs (.local, .internal, .localhost)
+
+    Note: This function does NOT perform DNS resolution. Domain names that resolve
+    to private IPs will not be detected (DNS rebinding/internal DNS bypass possible).
+    It only checks literal IP addresses in the hostname.
 
     Args:
         url (str): The URL to validate

@@ -143,9 +143,17 @@ async def add_save(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Save file has no filename"
         )
 
-    actual_filename = saveFile.filename
+    try:
+        sanitized_save_filename = sanitize_filename(saveFile.filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid save filename: {str(exc)}",
+        ) from exc
+
+    actual_filename = sanitized_save_filename
     if slot:
-        actual_filename = _apply_datetime_tag(saveFile.filename)
+        actual_filename = _apply_datetime_tag(sanitized_save_filename)
 
     db_save = db_save_handler.get_save_by_filename(
         user_id=request.user.id, rom_id=rom.id, file_name=actual_filename

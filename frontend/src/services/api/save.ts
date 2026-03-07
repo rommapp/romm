@@ -9,17 +9,27 @@ import { buildFormInput } from "@/utils/formData";
 
 export const saveApi = api;
 
+type SaveUploadInput = AddSaveInput & {
+  saveFile: File;
+  screenshotFile?: File;
+};
+
+type UpdateSaveUploadInput = UpdateSaveInput & {
+  saveFile: File;
+  screenshotFile?: File;
+};
+
 async function uploadSaves({
   rom,
   savesToUpload,
   emulator,
 }: {
   rom: DetailedRomSchema;
-  savesToUpload: AddSaveInput[];
+  savesToUpload: SaveUploadInput[];
   emulator?: string;
 }) {
   const promises = savesToUpload.map(({ saveFile, screenshotFile }) => {
-    const formData = buildFormInput<AddSaveInput>([
+    const formData = buildFormInput<SaveUploadInput>([
       ["saveFile", saveFile],
       ["screenshotFile", screenshotFile],
     ]);
@@ -48,10 +58,10 @@ async function updateSave({
   screenshotFile,
 }: {
   save: SaveSchema;
-  saveFile: UpdateSaveInput["saveFile"];
-  screenshotFile?: UpdateSaveInput["screenshotFile"];
+  saveFile: UpdateSaveUploadInput["saveFile"];
+  screenshotFile?: UpdateSaveUploadInput["screenshotFile"];
 }) {
-  const formData = buildFormInput<UpdateSaveInput>([
+  const formData = buildFormInput<UpdateSaveUploadInput>([
     ["saveFile", saveFile],
     ["screenshotFile", screenshotFile],
   ]);
