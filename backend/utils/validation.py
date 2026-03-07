@@ -1,4 +1,6 @@
+import ipaddress
 import re
+from urllib.parse import urlparse
 
 from logger.logger import log
 from models.user import TEXT_FIELD_LENGTH
@@ -115,3 +117,100 @@ def validate_email(email: str) -> None:
         msg = "Invalid email format"
         log.error(f"Validation failed: {msg} for email: {email}")
         raise ValidationError(msg, "Email")
+
+
+def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
+    """Validate URL to prevent Server-Side Request Forgery (SSRF) attacks.
+
+    This function validates that:
+    - The URL scheme is http or https only
+    - The host is not an internal/private IP address
+    - The host is not a reserved hostname (localhost, etc.)
+    - The host is not a cloud metadata service endpoint
+
+    Args:
+        url (str): The URL to validate
+        field_name (str): The name of the field for error messages
+
+    Raises:
+        ValidationError: If the URL is invalid or potentially dangerous
+    """
+    if not url or not url.strip():
+        msg = f"{field_name} cannot be empty"
+        log.error(msg)
+        raise ValidationError(msg, field_name)
+
+    try:
+        parsed = urlparse(url)
+    except Exception as e:
+        msg = f"Invalid {field_name}: unable to parse URL"
+        log.error(f"{msg}: {str(e)}")
+        raise ValidationError(msg, field_name)
+
+    # Validate scheme - only allow http and https
+    if parsed.scheme not in ["http", "https"]:
+        msg = f"Invalid {field_name}: only http and https schemes are allowed"
+        log.error(f"SSRF prevention: {msg} - got scheme '{parsed.scheme}'")
+        raise ValidationError(msg, field_name)
+
+    # Extract hostname
+    hostname = parsed.hostname
+    if not hostname:
+        msg = f"Invalid {field_name}: missing hostname"
+        log.error(msg)
+        raise ValidationError(msg, field_name)
+
+    # Check for localhost and reserved hostnames
+    reserved_hostnames = [
+        "localhost",
+        "127.0.0.1",
+        "0.0.0.0",
+        "[::1]",
+        "::1",
+        "[::]",
+        "::",
+    ]
+    if hostname.lower() in reserved_hostnames:
+        msg = f"Invalid {field_name}: localhost and reserved hostnames are not allowed"
+        log.error(f"SSRF prevention: {msg} - hostname '{hostname}'")
+        raise ValidationError(msg, field_name)
+
+    # Try to resolve hostname as IP address
+    try:
+        # Handle IPv6 addresses in brackets
+        ip_str = hostname.strip("[]")
+        ip = ipaddress.ip_address(ip_str)
+
+        # Block private/internal IP addresses
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            msg = f"Invalid {field_name}: private, internal, and reserved IP addresses are not allowed"
+            log.error(f"SSRF prevention: {msg} - IP '{ip}'")
+            raise ValidationError(msg, field_name)
+
+        # Block multicast addresses
+        if ip.is_multicast:
+            msg = f"Invalid {field_name}: multicast addresses are not allowed"
+            log.error(f"SSRF prevention: {msg} - IP '{ip}'")
+            raise ValidationError(msg, field_name)
+
+        # Block cloud metadata service IPs (AWS, GCP, Azure, etc.)
+        # AWS/Azure metadata service: 169.254.169.254
+        # IPv6 link-local range: fe80::/10 (already covered by is_link_local)
+        if isinstance(ip, ipaddress.IPv4Address):
+            # Check for 169.254.0.0/16 (link-local)
+            if str(ip).startswith("169.254."):
+                msg = f"Invalid {field_name}: cloud metadata service addresses are not allowed"
+                log.error(f"SSRF prevention: {msg} - IP '{ip}'")
+                raise ValidationError(msg, field_name)
+
+    except ValueError:
+        # Not a direct IP address, which is fine - it's a domain name
+        # Additional checks for suspicious domain patterns
+        hostname_lower = hostname.lower()
+
+        # Block common internal TLDs
+        internal_tlds = [".local", ".internal", ".localhost"]
+        if any(hostname_lower.endswith(tld) for tld in internal_tlds):
+            msg = f"Invalid {field_name}: internal domain names are not allowed"
+            log.error(f"SSRF prevention: {msg} - hostname '{hostname}'")
+            raise ValidationError(msg, field_name)

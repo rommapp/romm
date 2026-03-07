@@ -14,6 +14,7 @@ from models.collection import Collection
 from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
+from utils.validation import ValidationError, validate_url_for_http_request
 
 from .base_handler import CoverSize, FSHandler
 
@@ -92,6 +93,13 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URLs
+            # Validate URL to prevent SSRF attacks
+            try:
+                validate_url_for_http_request(url_cover, "Cover URL")
+            except ValidationError as e:
+                log.error(f"URL validation failed for cover: {str(e)}")
+                return None
+
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream(
@@ -256,6 +264,13 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URLs
+            # Validate URL to prevent SSRF attacks
+            try:
+                validate_url_for_http_request(url_screenhot, "Screenshot URL")
+            except ValidationError as e:
+                log.error(f"URL validation failed for screenshot: {str(e)}")
+                return None
+
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream(
@@ -367,6 +382,13 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URL
+            # Validate URL to prevent SSRF attacks
+            try:
+                validate_url_for_http_request(url_manual, "Manual URL")
+            except ValidationError as e:
+                log.error(f"URL validation failed for manual: {str(e)}")
+                return None
+
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream(
@@ -425,6 +447,13 @@ class FSResourcesHandler(FSHandler):
 
     # Retroachievements
     async def store_ra_badge(self, url: str, path: str) -> None:
+        # Validate URL to prevent SSRF attacks
+        try:
+            validate_url_for_http_request(url, "Badge URL")
+        except ValidationError as e:
+            log.error(f"URL validation failed for badge: {str(e)}")
+            return
+
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
 
@@ -488,6 +517,13 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URLs
+            # Validate URL to prevent SSRF attacks
+            try:
+                validate_url_for_http_request(url, "Media URL")
+            except ValidationError as e:
+                log.error(f"URL validation failed for media file: {str(e)}")
+                return None
+
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream("GET", url, timeout=120) as response:
