@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import NotRequired, TypedDict
 
 import pydash
+from anyio import Path as AnyioPath
 
 from adapters.services.retroachievements import RetroAchievementsService
 from adapters.services.retroachievements_types import (
@@ -169,7 +170,8 @@ class RAHandler(MetadataHandler):
             return REFRESH_RETROACHIEVEMENTS_CACHE_DAYS + 1
 
         full_path = fs_resource_handler.validate_path(file_path)
-        return int((time.time() - os.path.getmtime(full_path)) / (24 * 3600))
+        file_stat = await AnyioPath(str(full_path)).stat()
+        return int((time.time() - file_stat.st_mtime) / (24 * 3600))
 
     async def _search_rom(self, rom: Rom, ra_hash: str) -> RAGameListItem | None:
         if not rom.platform.ra_id:

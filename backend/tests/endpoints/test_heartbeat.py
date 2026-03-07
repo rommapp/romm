@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import status
@@ -85,28 +85,52 @@ def test_get_setup_library_info_structure_a_detected(client, access_token):
         ) as mock_get_platforms:
             mock_get_platforms.return_value = ["n64", "psx"]
 
-            with patch("os.path.exists", return_value=True):
-                with patch("os.listdir") as mock_listdir:
-                    mock_listdir.side_effect = [
-                        ["game1.z64", "game2.z64"],  # n64 roms
-                        ["game1.iso"],  # psx roms
-                    ]
+            # Create mock entry objects with .name attribute
+            def create_mock_entry(name):
+                entry = MagicMock()
+                entry.name = name
+                return entry
 
-                    response = client.get(
-                        "/api/setup/library",
-                        headers={"Authorization": f"Bearer {access_token}"},
-                    )
+            async def mock_iterdir_n64():
+                yield create_mock_entry("game1.z64")
+                yield create_mock_entry("game2.z64")
 
-                    assert response.status_code == status.HTTP_200_OK
-                    data = response.json()
+            async def mock_iterdir_psx():
+                yield create_mock_entry("game1.iso")
 
-                    assert data["detected_structure"] == "struct_a"
-                    assert len(data["existing_platforms"]) == 2
-                    assert data["existing_platforms"][0]["fs_slug"] == "n64"
-                    assert data["existing_platforms"][0]["rom_count"] == 2
-                    assert data["existing_platforms"][1]["fs_slug"] == "psx"
-                    assert data["existing_platforms"][1]["rom_count"] == 1
-                    assert "supported_platforms" in data
+            with patch("endpoints.heartbeat.AnyioPath") as mock_anyio_path:
+                # Create side effects for multiple calls to AnyioPath()
+                path_instances = []
+
+                # First call - n64 roms directory
+                mock_n64_path = AsyncMock()
+                mock_n64_path.exists = AsyncMock(return_value=True)
+                mock_n64_path.iterdir = mock_iterdir_n64
+                path_instances.append(mock_n64_path)
+
+                # Second call - psx roms directory
+                mock_psx_path = AsyncMock()
+                mock_psx_path.exists = AsyncMock(return_value=True)
+                mock_psx_path.iterdir = mock_iterdir_psx
+                path_instances.append(mock_psx_path)
+
+                mock_anyio_path.side_effect = path_instances
+
+                response = client.get(
+                    "/api/setup/library",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+
+                assert response.status_code == status.HTTP_200_OK
+                data = response.json()
+
+                assert data["detected_structure"] == "struct_a"
+                assert len(data["existing_platforms"]) == 2
+                assert data["existing_platforms"][0]["fs_slug"] == "n64"
+                assert data["existing_platforms"][0]["rom_count"] == 2
+                assert data["existing_platforms"][1]["fs_slug"] == "psx"
+                assert data["existing_platforms"][1]["rom_count"] == 1
+                assert "supported_platforms" in data
 
 
 def test_get_setup_library_info_structure_b_detected(client, admin_user, access_token):
@@ -121,22 +145,37 @@ def test_get_setup_library_info_structure_b_detected(client, admin_user, access_
         ) as mock_get_platforms:
             mock_get_platforms.return_value = ["gba"]
 
-            with patch("os.path.exists", return_value=True):
-                with patch("os.listdir") as mock_listdir:
-                    mock_listdir.return_value = ["game1.gba", "game2.gba", "game3.gba"]
+            # Create mock entry objects with .name attribute
+            def create_mock_entry(name):
+                entry = MagicMock()
+                entry.name = name
+                return entry
 
-                    response = client.get(
-                        "/api/setup/library",
-                        headers={"Authorization": f"Bearer {access_token}"},
-                    )
+            async def mock_iterdir_gba():
+                yield create_mock_entry("game1.gba")
+                yield create_mock_entry("game2.gba")
+                yield create_mock_entry("game3.gba")
 
-                    assert response.status_code == status.HTTP_200_OK
-                    data = response.json()
+            with patch("endpoints.heartbeat.AnyioPath") as mock_anyio_path:
+                # Create mock for gba roms directory
+                mock_gba_path = AsyncMock()
+                mock_gba_path.exists = AsyncMock(return_value=True)
+                mock_gba_path.iterdir = mock_iterdir_gba
 
-                    assert data["detected_structure"] == "B"
-                    assert len(data["existing_platforms"]) == 1
-                    assert data["existing_platforms"][0]["fs_slug"] == "gba"
-                    assert data["existing_platforms"][0]["rom_count"] == 3
+                mock_anyio_path.return_value = mock_gba_path
+
+                response = client.get(
+                    "/api/setup/library",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+
+                assert response.status_code == status.HTTP_200_OK
+                data = response.json()
+
+                assert data["detected_structure"] == "B"
+                assert len(data["existing_platforms"]) == 1
+                assert data["existing_platforms"][0]["fs_slug"] == "gba"
+                assert data["existing_platforms"][0]["rom_count"] == 3
 
 
 def test_get_setup_library_info_no_structure_detected(client, admin_user, access_token):
