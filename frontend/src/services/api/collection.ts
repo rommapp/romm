@@ -116,7 +116,7 @@ async function updateCollection({
     ["name", collection.name],
     ["description", collection.description],
     ["url_cover", collection.url_cover],
-    ["rom_ids", JSON.stringify(collection.rom_ids)],
+    ["rom_ids", JSON.stringify(collection.rom_ids ?? [])],
     ["artwork", collection.artwork],
   ]);
 
