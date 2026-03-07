@@ -127,7 +127,7 @@ watch(windowY, () => {
 
 onMounted(async () => {
   scrolledToTop.value = true;
-  await fetchRoms();
+  fetchRoms();
 });
 
 onUnmounted(() => {
