@@ -26,11 +26,9 @@ class GamelistExporter:
         """Format release date to YYYYMMDDTHHMMSS format"""
         return datetime.fromtimestamp(timestamp / 1000).strftime("%Y%m%dT%H%M%S")
 
-    def _create_game_element(self, rom: Rom, request: Request | None) -> Element:
+    def _create_game_element(self, rom: Rom, request: Request | None, config) -> Element:
         """Create a <game> element for a ROM"""
         game = Element("game")
-
-        config = cm.get_config()
 
         # Basic game info
         if self.local_export:
@@ -187,12 +185,14 @@ class GamelistExporter:
 
         roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
 
+        config = cm.get_config()
+
         # Create root element
         root = Element("gameList")
 
         for rom in roms:
             if rom and not rom.missing_from_fs and rom.fs_name != "gamelist.xml":
-                game_element = self._create_game_element(rom, request=request)
+                game_element = self._create_game_element(rom, request=request, config=config)
                 root.append(game_element)
 
         # Convert to XML string
