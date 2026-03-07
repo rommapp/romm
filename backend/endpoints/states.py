@@ -22,7 +22,7 @@ router = APIRouter(
     tags=["states"],
 )
 
-STATE_FILE_UPLOAD = File(default=None, description="State file to upload.")
+STATE_FILE_UPLOAD = File(..., description="State file to upload.")
 STATE_SCREENSHOT_UPLOAD = File(
     default=None,
     description="Screenshot file associated with this state.",
@@ -36,7 +36,7 @@ async def add_state(
     request: Request,
     rom_id: int,
     emulator: str | None = None,
-    stateFile: UploadFile | None = STATE_FILE_UPLOAD,
+    stateFile: UploadFile = STATE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
     rom = db_rom_handler.get_rom(rom_id)
@@ -51,12 +51,6 @@ async def add_state(
         rom_id=rom_id,
         emulator=emulator,
     )
-
-    if not stateFile:
-        log.error("No state file provided")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No state file provided"
-        )
 
     if not stateFile.filename:
         log.error("State file has no filename")
@@ -228,7 +222,9 @@ async def update_state(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     if stateFile:
-        await fs_asset_handler.write_file(file=stateFile, path=db_state.file_path)
+        await fs_asset_handler.write_file(
+            file=stateFile, path=db_state.file_path, filename=db_state.file_name
+        )
         db_state = db_state_handler.update_state(
             db_state.id, {"file_size_bytes": stateFile.size}
         )

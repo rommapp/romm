@@ -18,14 +18,14 @@ router = APIRouter(
     tags=["screenshots"],
 )
 
-SCREENSHOT_FILE_UPLOAD = File(default=None, description="Screenshot file to upload.")
+SCREENSHOT_FILE_UPLOAD = File(..., description="Screenshot file to upload.")
 
 
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 async def add_screenshot(
     request: Request,
     rom_id: int,
-    screenshotFile: UploadFile | None = SCREENSHOT_FILE_UPLOAD,
+    screenshotFile: UploadFile = SCREENSHOT_FILE_UPLOAD,
 ) -> ScreenshotSchema:
     rom = db_rom_handler.get_rom(id=rom_id)
     if not rom:
@@ -38,23 +38,11 @@ async def add_screenshot(
         user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
     )
 
-    if not screenshotFile:
-        log.error("No screenshot file provided")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No screenshot file provided",
-        )
     if not screenshotFile.filename:
         log.error("Screenshot file has no filename")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Screenshot file has no filename",
-        )
-
-    if not screenshotFile.filename:
-        log.warning("Skipping empty screenshot")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Screenshot has no filename"
         )
 
     try:

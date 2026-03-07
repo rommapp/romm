@@ -6,6 +6,6 @@ export type Body_add_screenshot_api_screenshots_post = {
     /**
      * Screenshot file to upload.
      */
-    screenshotFile?: (Blob | null);
+    screenshotFile: Blob;
 };
 

@@ -137,7 +137,10 @@ async def add_smart_collection(
     try:
         parsed_filter_criteria = json.loads(filter_criteria)
     except json.JSONDecodeError as e:
-        raise ValueError("Invalid JSON for filter_criteria field") from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON for filter_criteria field",
+        ) from e
 
     cleaned_data = {
         "name": name,
@@ -404,7 +407,10 @@ async def update_collection(
     try:
         parsed_rom_ids = json.loads(rom_ids)
     except json.JSONDecodeError as e:
-        raise ValueError("Invalid list for rom_ids field in update collection") from e
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid list for rom_ids field in update collection",
+        ) from e
 
     cleaned_data = {
         "name": name if name is not None else collection.name,
@@ -502,7 +508,10 @@ async def update_smart_collection(
         try:
             parsed_filter_criteria = json.loads(filter_criteria)
         except json.JSONDecodeError as e:
-            raise ValueError("Invalid JSON for filter_criteria field") from e
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid JSON for filter_criteria field",
+            ) from e
 
     cleaned_data = {
         "name": name if name is not None else smart_collection.name,
