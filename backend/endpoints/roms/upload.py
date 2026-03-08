@@ -21,9 +21,9 @@ router = APIRouter(
     tags=["upload"],
 )
 
-_UPLOAD_TMP_BASE = Path("/tmp/romm_uploads")
-_UPLOAD_TTL = 86400  # 24 hours
-_ASSEMBLY_CHUNK_SIZE = 8192  # 8KB read buffer during assembly
+ROM_UPLOAD_TMP_BASE = Path("/tmp/romm_uploads")
+ROM_UPLOAD_TTL = 86400  # 24 hours
+ROM_ASSEMBLY_CHUNK_SIZE = 8192  # 8KB read buffer during assembly
 
 
 def _session_key(upload_id: str) -> str:
@@ -41,11 +41,13 @@ async def _get_session(upload_id: str) -> dict:
 
 
 async def _save_session(upload_id: str, session: dict) -> None:
-    await async_cache.set(_session_key(upload_id), json.dumps(session), ex=_UPLOAD_TTL)
+    await async_cache.set(
+        _session_key(upload_id), json.dumps(session), ex=ROM_UPLOAD_TTL
+    )
 
 
 def _cleanup_tmp(upload_id: str) -> None:
-    tmp_dir = _UPLOAD_TMP_BASE / upload_id
+    tmp_dir = ROM_UPLOAD_TMP_BASE / upload_id
     if tmp_dir.exists():
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -94,7 +96,7 @@ async def start_chunked_upload(
         )
 
     upload_id = str(uuid4())
-    tmp_dir = _UPLOAD_TMP_BASE / upload_id
+    tmp_dir = ROM_UPLOAD_TMP_BASE / upload_id
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
     session = {
@@ -159,11 +161,11 @@ async def upload_chunk(
             detail=f"Chunk index {chunk_index} out of range (total: {session['total_chunks']})",
         )
 
-    chunk_path = _UPLOAD_TMP_BASE / upload_id / f"{chunk_index:05d}"
+    chunk_path = ROM_UPLOAD_TMP_BASE / upload_id / f"{chunk_index:05d}"
 
     try:
         chunk_data = await request.body()
-        async with open_file(chunk_path, "wb") as f:
+        async with await open_file(chunk_path, "wb") as f:
             await f.write(chunk_data)
     except Exception as exc:
         log.error(
@@ -240,12 +242,12 @@ async def complete_chunked_upload(
     log.info(f"Assembling {total_chunks} chunks into {file_location}")
 
     try:
-        async with open_file(file_location, "wb") as dest:
+        async with await open_file(file_location, "wb") as dest:
             for i in range(total_chunks):
-                chunk_path = _UPLOAD_TMP_BASE / upload_id / f"{i:05d}"
-                async with open_file(chunk_path, "rb") as src:
+                chunk_path = ROM_UPLOAD_TMP_BASE / upload_id / f"{i:05d}"
+                async with await open_file(chunk_path, "rb") as src:
                     while True:
-                        buf = await src.read(_ASSEMBLY_CHUNK_SIZE)
+                        buf = await src.read(ROM_ASSEMBLY_CHUNK_SIZE)
                         if not buf:
                             break
                         await dest.write(buf)
@@ -269,8 +271,8 @@ async def complete_chunked_upload(
 
 
 @protected_route(
-    router.delete,
-    "/{upload_id}",
+    router.post,
+    "/{upload_id}/cancel",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
 )

@@ -75,9 +75,7 @@ async function uploadRomChunked({
       } catch (err) {
         lastError = err as Error;
         if (attempt < MAX_CHUNK_RETRIES - 1) {
-          await new Promise((r) =>
-            setTimeout(r, 1000 * Math.pow(2, attempt)),
-          );
+          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
         }
       }
     }

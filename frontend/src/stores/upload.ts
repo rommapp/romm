@@ -43,7 +43,11 @@ export default defineStore("upload", {
       file.rate = progressEvent.rate || file.rate;
       file.finished = progressEvent.loaded === progressEvent.total;
     },
-    updateChunkProgress(filename: string, overallPercent: number, totalBytes: number) {
+    updateChunkProgress(
+      filename: string,
+      overallPercent: number,
+      totalBytes: number,
+    ) {
       const file = this.files.find((f) => f.filename === filename);
       if (!file) return;
 
