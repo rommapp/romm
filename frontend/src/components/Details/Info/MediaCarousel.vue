@@ -25,7 +25,9 @@ const youtubeVideoId = computed(
 
 const localVideoPath = computed(() => {
   return (
-    props.rom.ss_metadata?.video_path || props.rom.gamelist_metadata?.video_path
+    props.rom.ss_metadata?.video_path ||
+    props.rom.ss_metadata?.video_normalized_path ||
+    props.rom.gamelist_metadata?.video_path
   );
 });
 const screenshots = computed(() => props.rom.merged_screenshots);

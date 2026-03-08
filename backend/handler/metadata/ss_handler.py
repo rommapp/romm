@@ -118,6 +118,7 @@ class SSMetadataMedia(TypedDict):
     marquee_path: str | None
     logo_path: str | None
     video_path: str | None
+    video_normalized_path: str | None
 
 
 class SSMetadata(SSMetadataMedia):
@@ -166,6 +167,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         marquee_path=None,
         logo_path=None,
         video_path=None,
+        video_normalized_path=None,
     )
 
     for region in get_preferred_regions():
@@ -294,6 +296,10 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 ss_media["video_normalized_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
                 )
+                if MetadataMediaType.VIDEO_NORMALIZED in preferred_media_types:
+                    ss_media["video_normalized_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.VIDEO_NORMALIZED)}/video-normalized.mp4"
+                    )
 
     return ss_media
 

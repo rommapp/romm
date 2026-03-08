@@ -128,6 +128,7 @@
 #     - manual # Manual (enabled by default)
 #     # Gameplay video
 #     - video  # Video (warning: large file size)
+#     - video_normalized  # Normalized video (smaller file size than video)
 #     # Media used for batocera gamelist.xml export
 #     - box2d_back  # Back cover art
 #     - logo  # Transparent logo

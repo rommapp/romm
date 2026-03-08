@@ -77,6 +77,7 @@ class MetadataMediaType(enum.StrEnum):
     LOGO = "logo"
     FANART = "fanart"
     VIDEO = "video"
+    VIDEO_NORMALIZED = "video_normalized"
     MANUAL = "manual"
 
 
