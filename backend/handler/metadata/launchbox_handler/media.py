@@ -394,11 +394,7 @@ def build_launchbox_metadata(
     local: dict[str, str] | None = None,
     remote: dict | None = None,
     images: list[LaunchboxImage],
-    **kwargs: object,
 ) -> LaunchboxMetadata:
-    if local is None and isinstance(kwargs.get("local_entry"), dict):
-        local = kwargs["local_entry"]  # type: ignore[assignment]
-
     local_release_date = local.get("ReleaseDate") if local else None
     remote_release_date = remote.get("ReleaseDate") if remote else None
     release_date_raw = coalesce(local_release_date, remote_release_date)
