@@ -27,7 +27,6 @@ type SearchRom = SearchRomSchema;
 
 const DOWNLOAD_CLEANUP_DELAY = 100;
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB per chunk
-const CHUNKED_THRESHOLD = 10 * 1024 * 1024; // Files larger than 10MB use chunked upload
 const MAX_CHUNK_RETRIES = 3;
 
 async function uploadRomChunked({
@@ -98,51 +97,21 @@ async function uploadRoms({
   platformId: number;
   filesToUpload: File[];
 }) {
-  const heartbeat = storeHeartbeat();
-
   if (!socket.connected) socket.connect();
   const uploadStore = storeUpload();
 
   const promises = filesToUpload.map((file) => {
     uploadStore.start(file.name);
 
-    if (file.size > CHUNKED_THRESHOLD) {
-      return uploadRomChunked({ platformId, file })
-        .then(() => null as null)
-        .catch((error) => {
-          uploadStore.fail(
-            file.name,
-            error.response?.data?.detail ?? error.message,
-          );
-          return Promise.reject(error);
-        });
-    }
-
-    const formData = new FormData();
-    formData.append(file.name, file);
-
-    return new Promise<null>((resolve, reject) => {
-      api
-        .post("/roms", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            "X-Upload-Platform": platformId.toString(),
-            "X-Upload-Filename": file.name,
-          },
-          timeout: heartbeat.value.FRONTEND.UPLOAD_TIMEOUT * 1000,
-          params: {},
-          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-            uploadStore.update(file.name, progressEvent);
-          },
-        })
-        .then(() => {
-          resolve(null);
-        })
-        .catch((error) => {
-          uploadStore.fail(file.name, error.response?.data?.detail);
-          reject(error);
-        });
-    });
+    return uploadRomChunked({ platformId, file })
+      .then(() => null as null)
+      .catch((error) => {
+        uploadStore.fail(
+          file.name,
+          error.response?.data?.detail ?? error.message,
+        );
+        return Promise.reject(error);
+      });
   });
 
   return Promise.allSettled(promises);
@@ -534,7 +503,6 @@ async function uploadManuals({
   romId: number;
   filesToUpload: File[];
 }) {
-  const heartbeat = storeHeartbeat();
   const uploadStore = storeUpload();
 
   const promises = filesToUpload.map((file) => {
@@ -549,7 +517,6 @@ async function uploadManuals({
             "Content-Type": "multipart/form-data",
             "X-Upload-Filename": file.name,
           },
-          timeout: heartbeat.value.FRONTEND.UPLOAD_TIMEOUT * 1000,
           params: {},
           onUploadProgress: (progressEvent: AxiosProgressEvent) => {
             uploadStore.update(file.name, progressEvent);
@@ -672,7 +639,6 @@ async function getRomFilters() {
 
 export default {
   uploadRoms,
-  uploadRomChunked,
   getRoms,
   getRecentRoms,
   getRecentPlayedRoms,

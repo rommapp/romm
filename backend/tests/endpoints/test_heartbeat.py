@@ -51,7 +51,6 @@ def test_heartbeat(client):
 
     assert "FRONTEND" in heartbeat
     frontend = heartbeat["FRONTEND"]
-    assert isinstance(frontend["UPLOAD_TIMEOUT"], int)
     assert isinstance(frontend["DISABLE_USERPASS_LOGIN"], bool)
 
     assert "OIDC" in heartbeat
