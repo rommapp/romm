@@ -45,6 +45,31 @@ const aspectRatioOptions = computed(() => [
     source: "IGDB / MobyGames",
   },
   {
+    name: "0.71 / 1",
+    size: 0.71 / 1,
+    source: "DVD",
+  },
+  {
+    name: "0.79 / 1",
+    size: 0.79 / 1,
+    source: "Blu-ray (Full artwork)",
+  },
+  {
+    name: "0.87 / 1",
+    size: 0.87 / 1,
+    source: "Blu-ray (Plastic header)",
+  },
+  {
+    name: "1.08 / 1",
+    size: 1.08 / 1,
+    source: "Nintendo DS / 3DS",
+  },
+  {
+    name: "0.58 / 1",
+    size: 0.58 / 1,
+    source: "PSP",
+  },
+  {
     name: "1 / 1",
     size: 1 / 1,
     source: t("platform.old-squared-cases"),
