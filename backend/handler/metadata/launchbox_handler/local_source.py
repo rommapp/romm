@@ -24,9 +24,10 @@ class LocalSource:
         if not xml_path or not xml_path.exists():
             return None
 
+        current_mtime = xml_path.stat().st_mtime_ns
         if (
             platform_slug not in self._cache
-            or self._mtime.get(platform_slug) != xml_path.stat().st_mtime_ns
+            or self._mtime.get(platform_slug) != current_mtime
         ):
             try:
                 indexed_val: dict[str, dict[str, str]] = {}
@@ -54,7 +55,7 @@ class LocalSource:
                 return None
 
             self._cache[platform_slug] = indexed_val
-            self._mtime[platform_slug] = xml_path.stat().st_mtime_ns
+            self._mtime[platform_slug] = current_mtime
 
         indexed_val = self._cache[platform_slug]
 

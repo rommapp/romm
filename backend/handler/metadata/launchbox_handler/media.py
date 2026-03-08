@@ -149,19 +149,22 @@ def _find_local_media_candidates(
         indexed: list[tuple[int, Path]] = []
         prefix = f"{stem}-"
 
-        for p in d.iterdir():
-            if not (p.is_file() and p.suffix.lower() in allowed_exts):
-                continue
+        try:
+            for p in d.iterdir():
+                if not (p.is_file() and p.suffix.lower() in allowed_exts):
+                    continue
 
-            stem_name = p.stem
-            if stem_name == stem:
-                plain = p
-                continue
+                stem_name = p.stem
+                if stem_name == stem:
+                    plain = p
+                    continue
 
-            if stem_name.startswith(prefix):
-                suffix = stem_name[len(prefix) :]
-                if suffix.isdigit():
-                    indexed.append((int(suffix), p))
+                if stem_name.startswith(prefix):
+                    suffix = stem_name[len(prefix) :]
+                    if suffix.isdigit():
+                        indexed.append((int(suffix), p))
+        except (OSError, PermissionError):
+            return []
 
         if indexed:
             indexed.sort(key=lambda t: (t[0], t[1].name.lower()))
