@@ -1,5 +1,6 @@
 import json
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Annotated
 from uuid import UUID, uuid4
@@ -21,9 +22,10 @@ router = APIRouter(
     tags=["upload"],
 )
 
-ROM_UPLOAD_TMP_BASE = Path("/tmp/romm_uploads")
+ROM_UPLOAD_TMP_BASE = Path(tempfile.gettempdir()) / "romm" / "uploads"
 ROM_UPLOAD_TTL = 86400  # 24 hours
 ROM_ASSEMBLY_CHUNK_SIZE = 8192  # 8KB read buffer during assembly
+ROM_UPLOAD_MAX_CHUNK_SIZE = 64 * 1024 * 1024  # 64MB hard cap per chunk
 
 
 def _session_key(upload_id: str) -> str:
@@ -32,6 +34,14 @@ def _session_key(upload_id: str) -> str:
 
 def _chunks_key(upload_id: str) -> str:
     return f"chunked_upload:{upload_id}:chunks"
+
+
+def _expected_chunk_size(total_size: int, total_chunks: int, chunk_index: int) -> int:
+    """Return expected chunk size using fixed-size chunks with a shorter final chunk."""
+    chunk_size = (total_size + total_chunks - 1) // total_chunks
+    if chunk_index < total_chunks - 1:
+        return chunk_size
+    return total_size - (chunk_size * (total_chunks - 1))
 
 
 async def _get_session(upload_id: str) -> dict:
@@ -160,16 +170,81 @@ async def upload_chunk(
             detail=f"Chunk index {chunk_index} out of range (total: {session['total_chunks']})",
         )
 
+    expected_chunk_size = _expected_chunk_size(
+        session["total_size"], session["total_chunks"], chunk_index
+    )
+
+    if expected_chunk_size > ROM_UPLOAD_MAX_CHUNK_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Chunk size exceeds server maximum",
+        )
+
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            content_length_bytes = int(content_length)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid Content-Length header",
+            ) from exc
+
+        if content_length_bytes > ROM_UPLOAD_MAX_CHUNK_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Chunk exceeds maximum allowed size",
+            )
+
+        if content_length_bytes != expected_chunk_size:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Unexpected chunk size for index {chunk_index}: "
+                    f"expected {expected_chunk_size}, got {content_length_bytes}"
+                ),
+            )
+
     chunk_path = ROM_UPLOAD_TMP_BASE / upload_id / f"{chunk_index:05d}"
+    chunk_bytes_written = 0
 
     try:
-        chunk_data = await request.body()
         async with await open_file(chunk_path, "wb") as f:
-            await f.write(chunk_data)
+            async for body_chunk in request.stream():
+                chunk_bytes_written += len(body_chunk)
+                if chunk_bytes_written > ROM_UPLOAD_MAX_CHUNK_SIZE:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail="Chunk exceeds maximum allowed size",
+                    )
+                if chunk_bytes_written > expected_chunk_size:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=(
+                            f"Chunk index {chunk_index} exceeds expected size "
+                            f"{expected_chunk_size}"
+                        ),
+                    )
+                await f.write(body_chunk)
+
+        if chunk_bytes_written != expected_chunk_size:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Unexpected chunk size for index {chunk_index}: "
+                    f"expected {expected_chunk_size}, got {chunk_bytes_written}"
+                ),
+            )
+    except HTTPException:
+        if chunk_path.exists():
+            chunk_path.unlink()
+        raise
     except Exception as exc:
         log.error(
             f"Error writing chunk {chunk_index} for upload {upload_id}", exc_info=exc
         )
+        if chunk_path.exists():
+            chunk_path.unlink()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error writing chunk to disk",
@@ -227,6 +302,14 @@ async def complete_chunked_upload(
             detail=f"Missing chunks: {missing}",
         )
 
+    # Atomically claim this upload session so only one /complete can proceed.
+    deleted = await async_cache.delete(_session_key(upload_id))
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Upload is already being assembled or has already completed",
+        )
+
     filename = session["filename"]
     platform_fs_slug = session["platform_fs_slug"]
     roms_path = fs_rom_handler.get_roms_fs_structure(platform_fs_slug)
@@ -235,7 +318,6 @@ async def complete_chunked_upload(
         file_location = fs_rom_handler.validate_path(f"{roms_path}/{filename}")
     except ValueError as exc:
         _cleanup_tmp(upload_id)
-        await async_cache.delete(_session_key(upload_id))
         await async_cache.delete(_chunks_key(upload_id))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -246,8 +328,15 @@ async def complete_chunked_upload(
 
     log.info(f"Assembling {total_chunks} chunks into {file_location}")
 
+    # Assemble chunks in order into final file with a temporary filename
+    # then atomically rename to final location
+    temp_location = file_location.with_name(
+        f".{file_location.name}.{uuid4().hex}.assembling"
+    )
+    assembled_bytes = 0
+
     try:
-        async with await open_file(file_location, "wb") as dest:
+        async with await open_file(temp_location, "wb") as dest:
             for i in range(total_chunks):
                 chunk_path = ROM_UPLOAD_TMP_BASE / upload_id / f"{i:05d}"
                 async with await open_file(chunk_path, "rb") as src:
@@ -255,13 +344,29 @@ async def complete_chunked_upload(
                         buf = await src.read(ROM_ASSEMBLY_CHUNK_SIZE)
                         if not buf:
                             break
+                        assembled_bytes += len(buf)
                         await dest.write(buf)
+        if assembled_bytes != session["total_size"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Assembled file size mismatch: "
+                    f"expected {session['total_size']}, got {assembled_bytes}"
+                ),
+            )
+
+        temp_location.replace(file_location)
+    except HTTPException:
+        if temp_location.exists():
+            temp_location.unlink()
+        _cleanup_tmp(upload_id)
+        await async_cache.delete(_chunks_key(upload_id))
+        raise
     except Exception as exc:
         log.error(f"Error assembling upload {upload_id}", exc_info=exc)
-        if file_location.exists():
-            file_location.unlink()
+        if temp_location.exists():
+            temp_location.unlink()
         _cleanup_tmp(upload_id)
-        await async_cache.delete(_session_key(upload_id))
         await async_cache.delete(_chunks_key(upload_id))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -269,7 +374,6 @@ async def complete_chunked_upload(
         ) from exc
 
     _cleanup_tmp(upload_id)
-    await async_cache.delete(_session_key(upload_id))
     await async_cache.delete(_chunks_key(upload_id))
 
     log.info(f"Chunked upload complete: {file_location}")
