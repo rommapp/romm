@@ -66,6 +66,29 @@ def _cleanup_tmp(upload_id: str) -> None:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+def _validate_upload_id(upload_id: str) -> None:
+    try:
+        UUID(upload_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid upload ID",
+        ) from exc
+
+
+def _validate_session_owner(session: dict, user_id: int) -> None:
+    if session["user_id"] != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+
+async def _cleanup_upload_state(upload_id: str) -> None:
+    _cleanup_tmp(upload_id)
+    await async_cache.delete(_chunks_key(upload_id))
+
+
 @protected_route(
     router.post,
     "/start",
@@ -147,22 +170,10 @@ async def upload_chunk(
 ) -> dict:
     """Upload a single chunk of a ROM file."""
 
-    # Validate upload_id is a valid UUID to prevent path traversal
-    try:
-        UUID(upload_id)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid upload ID",
-        ) from exc
+    _validate_upload_id(upload_id)
 
     session = await _get_session(upload_id)
-
-    if session["user_id"] != request.user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
+    _validate_session_owner(session, request.user.id)
 
     if chunk_index >= session["total_chunks"]:
         raise HTTPException(
@@ -180,8 +191,7 @@ async def upload_chunk(
             detail="Chunk size exceeds server maximum",
         )
 
-    content_length = request.headers.get("content-length")
-    if content_length is not None:
+    if content_length := request.headers.get("content-length"):
         try:
             content_length_bytes = int(content_length)
         except ValueError as exc:
@@ -235,16 +245,14 @@ async def upload_chunk(
                     f"expected {expected_chunk_size}, got {chunk_bytes_written}"
                 ),
             )
-    except HTTPException:
+    except Exception as exc:
         if chunk_path.exists():
             chunk_path.unlink()
-        raise
-    except Exception as exc:
+        if isinstance(exc, HTTPException):
+            raise
         log.error(
             f"Error writing chunk {chunk_index} for upload {upload_id}", exc_info=exc
         )
-        if chunk_path.exists():
-            chunk_path.unlink()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error writing chunk to disk",
@@ -272,21 +280,10 @@ async def complete_chunked_upload(
 ) -> Response:
     """Assemble all chunks into the final ROM file."""
 
-    try:
-        UUID(upload_id)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid upload ID",
-        ) from exc
+    _validate_upload_id(upload_id)
 
     session = await _get_session(upload_id)
-
-    if session["user_id"] != request.user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
+    _validate_session_owner(session, request.user.id)
 
     total_chunks = session["total_chunks"]
 
@@ -317,8 +314,7 @@ async def complete_chunked_upload(
     try:
         file_location = fs_rom_handler.validate_path(f"{roms_path}/{filename}")
     except ValueError as exc:
-        _cleanup_tmp(upload_id)
-        await async_cache.delete(_chunks_key(upload_id))
+        await _cleanup_upload_state(upload_id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -356,25 +352,19 @@ async def complete_chunked_upload(
             )
 
         temp_location.replace(file_location)
-    except HTTPException:
-        if temp_location.exists():
-            temp_location.unlink()
-        _cleanup_tmp(upload_id)
-        await async_cache.delete(_chunks_key(upload_id))
-        raise
     except Exception as exc:
-        log.error(f"Error assembling upload {upload_id}", exc_info=exc)
         if temp_location.exists():
             temp_location.unlink()
-        _cleanup_tmp(upload_id)
-        await async_cache.delete(_chunks_key(upload_id))
+        await _cleanup_upload_state(upload_id)
+        if isinstance(exc, HTTPException):
+            raise
+        log.error(f"Error assembling upload {upload_id}", exc_info=exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error assembling file chunks",
         ) from exc
 
-    _cleanup_tmp(upload_id)
-    await async_cache.delete(_chunks_key(upload_id))
+    await _cleanup_upload_state(upload_id)
 
     log.info(f"Chunked upload complete: {file_location}")
 
@@ -393,26 +383,17 @@ async def cancel_chunked_upload(
 ) -> Response:
     """Cancel a chunked upload session and clean up temp files."""
 
-    try:
-        UUID(upload_id)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid upload ID",
-        ) from exc
+    _validate_upload_id(upload_id)
 
-    # Best-effort: session may already be gone
+    # Best-effort: session may already be gone because /complete claimed it.
     raw = await async_cache.get(_session_key(upload_id))
-    if raw:
-        session = json.loads(raw)
-        if session["user_id"] != request.user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Forbidden",
-            )
-        await async_cache.delete(_session_key(upload_id))
-        await async_cache.delete(_chunks_key(upload_id))
+    if not raw:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    _cleanup_tmp(upload_id)
+    session = json.loads(raw)
+    _validate_session_owner(session, request.user.id)
+
+    await async_cache.delete(_session_key(upload_id))
+    await _cleanup_upload_state(upload_id)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
