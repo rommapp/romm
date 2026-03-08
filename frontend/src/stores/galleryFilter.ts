@@ -1,8 +1,6 @@
 import { defineStore } from "pinia";
-import type { PlatformSchema } from "@/__generated__";
 import { romStatusMap } from "@/utils";
-
-export type Platform = PlatformSchema;
+import type { Platform } from "./platforms";
 
 export type FilterType =
   | "genres"

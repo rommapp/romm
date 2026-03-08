@@ -17,7 +17,7 @@ from handler.metadata import (
 )
 from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
-from handler.metadata.launchbox_handler import LaunchboxRom
+from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSRom
@@ -64,7 +64,7 @@ async def search_rom(
         and not meta_ss_handler.is_enabled()
         and not meta_moby_handler.is_enabled()
         and not meta_flashpoint_handler.is_enabled()
-        and not meta_launchbox_handler.is_enabled()
+        and not meta_launchbox_handler.is_cloud_enabled()
     ):
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(

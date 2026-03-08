@@ -4,7 +4,8 @@ from unittest.mock import AsyncMock, patch
 import anyio
 import pytest
 
-from handler.metadata.launchbox_handler import (
+from handler.metadata.launchbox_handler.handler import LaunchboxHandler
+from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
@@ -12,7 +13,6 @@ from handler.metadata.launchbox_handler import (
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
     LAUNCHBOX_PLATFORMS_KEY,
-    LaunchboxHandler,
 )
 from tasks.scheduled.update_launchbox_metadata import (
     UpdateLaunchboxMetadataTask,
@@ -67,7 +67,7 @@ class TestUpdateLaunchboxMetadataTask:
 
     async def test_run_when_launchbox_api_disabled(self, task, mocker):
         """Test run method when Launchbox API is disabled"""
-        mocker.patch.object(LaunchboxHandler, "is_enabled", return_value=False)
+        mocker.patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=False)
         mock_log = mocker.patch("tasks.scheduled.update_launchbox_metadata.log")
 
         await task.run(force=True)

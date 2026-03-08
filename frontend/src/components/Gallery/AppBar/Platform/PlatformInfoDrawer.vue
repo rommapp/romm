@@ -33,28 +33,87 @@ const auth = storeAuth();
 const navigationStore = storeNavigation();
 const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 const selectedAspectRatio = ref(0);
-const aspectRatioOptions = computed(() => [
-  {
-    name: "2 / 3",
-    size: 2 / 3,
-    source: "SteamGridDB",
-  },
-  {
-    name: "3 / 4",
-    size: 3 / 4,
-    source: "IGDB / MobyGames",
-  },
-  {
-    name: "1 / 1",
-    size: 1 / 1,
-    source: t("platform.old-squared-cases"),
-  },
-  {
-    name: "16 / 11",
-    size: 16 / 11,
-    source: t("platform.old-horizontal-cases"),
-  },
+
+// Some platform boxes have specific aspect ratios
+const DVD_PLATFORMS = new Set([
+  "dvd-player",
+  "ps2",
+  "ngc",
+  "wii",
+  "wiiu",
+  "xbox",
+  "xbox360",
 ]);
+const BLU_RAY_PLATFORMS = new Set(["blu-ray-player", "ps3", "ps4"]);
+const DS_3DS_PLATFORMS = new Set(["3ds", "nds", "new-nintendo-3ds"]);
+const PSP_PLATFORMS = new Set(["psp", "psp-minis"]);
+
+const aspectRatioOptions = computed(() => {
+  const slug = currentPlatform.value?.slug?.toLowerCase() ?? "";
+  return [
+    {
+      name: "2 / 3",
+      size: 2 / 3,
+      source: "SteamGridDB",
+    },
+    {
+      name: "3 / 4",
+      size: 3 / 4,
+      source: "IGDB / MobyGames",
+    },
+    {
+      name: "1 / 1",
+      size: 1 / 1,
+      source: t("platform.old-squared-cases"),
+    },
+    {
+      name: "16 / 11",
+      size: 16 / 11,
+      source: t("platform.old-horizontal-cases"),
+    },
+    ...(DVD_PLATFORMS.has(slug)
+      ? [
+          {
+            name: "0.71 / 1",
+            size: 0.71 / 1,
+            source: "DVD",
+          },
+        ]
+      : []),
+    ...(BLU_RAY_PLATFORMS.has(slug)
+      ? [
+          {
+            name: "0.79 / 1",
+            size: 0.79 / 1,
+            source: "Blu-ray (Full artwork)",
+          },
+          {
+            name: "0.87 / 1",
+            size: 0.87 / 1,
+            source: "Blu-ray (Plastic header)",
+          },
+        ]
+      : []),
+    ...(DS_3DS_PLATFORMS.has(slug)
+      ? [
+          {
+            name: "1.08 / 1",
+            size: 1.08 / 1,
+            source: "Nintendo DS / 3DS",
+          },
+        ]
+      : []),
+    ...(PSP_PLATFORMS.has(slug)
+      ? [
+          {
+            name: "0.58 / 1",
+            size: 0.58 / 1,
+            source: "PSP",
+          },
+        ]
+      : []),
+  ];
+});
 const tabIndex = computed(() => (activePlatformInfoDrawer.value ? 0 : -1));
 
 const PLATFORM_INFO_FIELDS: {
@@ -150,6 +209,7 @@ async function setAspectRatio() {
         });
         if (currentPlatform.value) {
           currentPlatform.value.aspect_ratio = selectedOption.name;
+          platformsStore.update(currentPlatform.value);
         }
       })
       .catch((error) => {
