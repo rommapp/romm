@@ -134,10 +134,6 @@
 #     # Other media assets (might be used in the future)
 #     - marquee  # Custom marquee
 
-# gamelist:
-#   export:
-#     local_video: true # Local video path instead of YouTube (requires scan.media: -video)
-
 # EmulatorJS per-core options
 # emulatorjs:
 #   debug: true # Available options will be logged to the browser console

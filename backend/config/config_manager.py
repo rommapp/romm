@@ -106,7 +106,6 @@ class Config:
     EXCLUDED_MULTI_PARTS_EXT: list[str]
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     GAMELIST_AUTO_EXPORT_ON_SCAN: bool
-    GAMELIST_EXPORT_LOCAL_VIDEO: bool
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
@@ -269,9 +268,6 @@ class ConfigManager:
             GAMELIST_AUTO_EXPORT_ON_SCAN=pydash.get(
                 self._raw_config, "scan.export_gamelist", False
             ),
-            GAMELIST_EXPORT_LOCAL_VIDEO=pydash.get(
-                self._raw_config, "gamelist.export.local_video", False
-            ),
             SKIP_HASH_CALCULATION=pydash.get(
                 self._raw_config, "filesystem.skip_hash_calculation", False
             ),
@@ -415,10 +411,6 @@ class ConfigManager:
             sys.exit(3)
         if not isinstance(self.config.GAMELIST_AUTO_EXPORT_ON_SCAN, bool):
             log.critical("Invalid config.yml: scan.export_gamelist must be a boolean")
-            sys.exit(3)
-
-        if not isinstance(self.config.GAMELIST_EXPORT_LOCAL_VIDEO, bool):
-            log.critical("Invalid config.yml: gamelist.export.local_video must be a boolean")
             sys.exit(3)
 
         if not isinstance(self.config.PLATFORMS_BINDING, dict):
@@ -627,11 +619,6 @@ class ConfigManager:
                 },
                 "media": self.config.SCAN_MEDIA,
                 "export_gamelist": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
-            },
-            "gamelist": {
-                "export": {
-                    "local_video": self.config.GAMELIST_EXPORT_LOCAL_VIDEO,
-                },
             },
         }
 
