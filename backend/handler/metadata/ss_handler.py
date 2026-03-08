@@ -125,6 +125,7 @@ class SSMetadata(SSMetadataMedia):
     ss_score: str | None
     first_release_date: int | None
     alternative_names: list[str]
+    age_ratings: list[str]
     companies: list[str]
     franchises: list[str]
     game_modes: list[str]
@@ -365,10 +366,18 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             return "1"
         return str(player_count)
 
+    def _get_age_ratings(game: SSGame) -> list[str]:
+        return [
+            f"{classification['type']} {classification['text']}"
+            for classification in game.get("classifications", [])
+            if classification.get("type") and classification.get("text")
+        ]
+
     return SSMetadata(
         {
             "ss_score": _normalize_score(game.get("note", {}).get("text", "")),
             "alternative_names": [name["text"] for name in game.get("noms", [])],
+            "age_ratings": _get_age_ratings(game),
             "companies": pydash.compact(
                 [
                     game.get("editeur", {}).get("text"),
