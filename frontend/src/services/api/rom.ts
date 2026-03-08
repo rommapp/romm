@@ -25,10 +25,10 @@ type SimpleRom = SimpleRomSchema;
 type SearchRom = SearchRomSchema;
 
 const DOWNLOAD_CLEANUP_DELAY = 100;
-const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB per chunk
+const UPLOAD_CHUNK_SIZE = 10 * 1024 * 1024; // 10MB per chunk
 const MAX_CHUNK_RETRIES = 3;
 
-async function uploadROMChunked({
+async function uploadRomChunked({
   platformId,
   file,
 }: {
@@ -36,7 +36,7 @@ async function uploadROMChunked({
   file: File;
 }): Promise<void> {
   const uploadStore = storeUpload();
-  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE);
 
   const { data: startData } = await api.post("/roms/upload/start", null, {
     headers: {
@@ -49,8 +49,11 @@ async function uploadROMChunked({
   const { upload_id } = startData;
 
   for (let i = 0; i < totalChunks; i++) {
-    const start = i * CHUNK_SIZE;
-    const chunk = file.slice(start, Math.min(start + CHUNK_SIZE, file.size));
+    const start = i * UPLOAD_CHUNK_SIZE;
+    const chunk = file.slice(
+      start,
+      Math.min(start + UPLOAD_CHUNK_SIZE, file.size),
+    );
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < MAX_CHUNK_RETRIES; attempt++) {
@@ -59,7 +62,6 @@ async function uploadROMChunked({
           headers: {
             "Content-Type": "application/octet-stream",
             "X-Chunk-Index": i.toString(),
-            "X-Total-Chunks": totalChunks.toString(),
           },
           timeout: 120000,
           onUploadProgress: (progressEvent: AxiosProgressEvent) => {
@@ -85,11 +87,11 @@ async function uploadROMChunked({
   }
 
   await api.post(`/roms/upload/${upload_id}/complete`, null, {
-    timeout: 300000,
+    timeout: 600000, // 10 minutes
   });
 }
 
-async function uploadROMs({
+async function uploadRoms({
   platformId,
   filesToUpload,
 }: {
@@ -102,7 +104,7 @@ async function uploadROMs({
   const promises = filesToUpload.map((file) => {
     uploadStore.start(file.name);
 
-    return uploadROMChunked({ platformId, file })
+    return uploadRomChunked({ platformId, file })
       .then(() => null as null)
       .catch((error) => {
         uploadStore.fail(
@@ -637,7 +639,7 @@ async function getRomFilters() {
 }
 
 export default {
-  uploadROMs,
+  uploadRoms,
   getRoms,
   getRecentRoms,
   getRecentPlayedRoms,
