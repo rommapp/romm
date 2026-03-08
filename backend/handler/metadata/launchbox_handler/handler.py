@@ -99,9 +99,6 @@ class LaunchboxHandler(MetadataHandler):
                 media_req=media_req,
             )
 
-        if not remote_available:
-            return fallback_rom
-
         match = LAUNCHBOX_TAG_REGEX.search(fs_name)
         launchbox_id_from_tag = int(match.group(1)) if match else None
 
@@ -119,6 +116,9 @@ class LaunchboxHandler(MetadataHandler):
                 log.warning(
                     f"LaunchBox ID {launchbox_id_from_tag} from filename tag not found in LaunchBox"
                 )
+
+        if not remote_available:
+            return fallback_rom
 
         # `keep_tags` prevents stripping content that is considered a tag, e.g., anything between `()` or `[]`.
         # By default, tags are still stripped to keep scan behavior consistent with previous versions.
@@ -198,7 +198,7 @@ class LaunchboxHandler(MetadataHandler):
             return []
 
         rom = await self.get_rom(search_term, platform_slug, True)
-        return [rom] if rom else []
+        return [rom]
 
     async def get_matched_rom_by_id(self, database_id: int) -> LaunchboxRom | None:
         if not self.is_enabled():

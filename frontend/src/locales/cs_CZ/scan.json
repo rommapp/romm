@@ -19,7 +19,6 @@
   "hashes-desc": "Přepočítá hashe pro vybrané platformy",
   "hashes-disabled-tooltip": "Výpočet hashů zakázán.<br><br>Hashe (MD5, SHA1, CRC32) jsou jedinečné otisky, které přesně identifikují soubory ROM.<br><br>Bez nich nemohou Hasheous a RetroAchievements porovnávat hry se svými databázemi, ale skenování bude rychlejší.",
   "hashes-enabled-tooltip": "Výpočet hashů povolen.<br><br>Budou vypočítány hashe (MD5, SHA1, CRC32) pro vytvoření jedinečných otisků každého souboru ROM.<br><br>To umožňuje Hasheous a RetroAchievements přesně identifikovat hry ve svých databázích.",
-  "launchbox-remote": "Launchbox",
   "manage-library": "Správa knihovny",
   "metadata-sources": "Zdroje metadat",
   "new-platforms": "Nové platformy",

@@ -389,17 +389,16 @@ async function stopScan() {
                       density="compact"
                       hide-details
                       :disabled="!isLaunchboxSelected"
-                      aria-label="Remote"
                       @click.stop
                       @mousedown.stop
                     />
+                    <span
+                      class="text-caption text-primary text-medium-emphasis ml-4"
+                      :class="{ 'text-romm-gray': !launchboxRemoteEnabled }"
+                    >
+                      Cloud
+                    </span>
                   </div>
-                  <span
-                    class="text-caption text-primary text-medium-emphasis ml-4"
-                    :class="{ 'text-romm-gray': !launchboxRemoteEnabled }"
-                  >
-                    Cloud
-                  </span>
                 </template>
               </v-list-item>
             </template>

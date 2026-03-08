@@ -19,7 +19,6 @@
   "hashes-desc": "Przelicza sumy kontrolne dla wybranych platform",
   "hashes-disabled-tooltip": "Obliczanie skrótów wyłączone.<br><br>Skróty (MD5, SHA1, CRC32) to unikalne odciski palców, które precyzyjnie identyfikują pliki ROM.<br><br>Bez nich Hasheous i RetroAchievements nie mogą dopasować gier do swoich baz danych, ale skanowanie będzie szybsze.",
   "hashes-enabled-tooltip": "Obliczanie skrótów włączone.<br><br>Zostaną obliczone skróty (MD5, SHA1, CRC32) w celu utworzenia unikalnych odcisków palców każdego pliku ROM.<br><br>To pozwala Hasheous i RetroAchievements na dokładną identyfikację gier w ich bazach danych.",
-  "launchbox-remote": "LaunchBox Zdalny",
   "manage-library": "Zarządzaj biblioteką",
   "metadata-sources": "Źródła metadanych",
   "new-platforms": "Nowe platformy",
