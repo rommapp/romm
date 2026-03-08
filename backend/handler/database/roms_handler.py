@@ -798,7 +798,7 @@ class DBRomsHandler(DBBaseHandler):
 
         # Ignore case when the order attribute is a number
         if isinstance(order_attr.type, (String, Text)):
-            # Remove any leading articles (text is already lowercased, so no "i" flag needed)
+            # Remove any leading articles
             order_attr = func.trim(
                 func.lower(order_attr).regexp_replace(STRIP_ARTICLES_REGEX, "")
             )
@@ -877,7 +877,7 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> list[Row[tuple[str, int]]]:
         if isinstance(order_by_attr.type, (String, Text)):
-            # Remove any leading articles (text is already lowercased, so no "i" flag needed)
+            # Remove any leading articles
             order_by_attr = func.trim(
                 func.lower(order_by_attr).regexp_replace(STRIP_ARTICLES_REGEX, "")
             )
