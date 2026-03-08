@@ -317,7 +317,7 @@ async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
 
   // Upload the patched ROM
   await romApi
-    .uploadRoms({
+    .uploadROMs({
       filesToUpload: [file],
       platformId: platformId,
     })

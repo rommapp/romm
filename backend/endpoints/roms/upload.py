@@ -30,6 +30,10 @@ def _session_key(upload_id: str) -> str:
     return f"chunked_upload:{upload_id}"
 
 
+def _chunks_key(upload_id: str) -> str:
+    return f"chunked_upload:{upload_id}:chunks"
+
+
 async def _get_session(upload_id: str) -> dict:
     raw = await async_cache.get(_session_key(upload_id))
     if not raw:
@@ -106,7 +110,6 @@ async def start_chunked_upload(
         "filename": filename,
         "total_chunks": total_chunks,
         "total_size": total_size,
-        "received_chunks": [],
         "user_id": request.user.id,
     }
     await _save_session(upload_id, session)
@@ -130,10 +133,6 @@ async def upload_chunk(
     chunk_index: Annotated[
         int,
         Header(alias="x-chunk-index", ge=0),
-    ],
-    total_chunks: Annotated[
-        int,
-        Header(alias="x-total-chunks", ge=1),
     ],
 ) -> dict:
     """Upload a single chunk of a ROM file."""
@@ -176,13 +175,14 @@ async def upload_chunk(
             detail="Error writing chunk to disk",
         ) from exc
 
-    received = session["received_chunks"]
-    if chunk_index not in received:
-        received.append(chunk_index)
-        session["received_chunks"] = received
-        await _save_session(upload_id, session)
+    # Atomically add chunk to set and update TTL
+    await async_cache.sadd(_chunks_key(upload_id), chunk_index)
+    await async_cache.expire(_chunks_key(upload_id), ROM_UPLOAD_TTL)
 
-    return {"received": len(received), "total": session["total_chunks"]}
+    # Get current chunk count
+    received_count = await async_cache.scard(_chunks_key(upload_id))
+
+    return {"received": received_count, "total": session["total_chunks"]}
 
 
 @protected_route(
@@ -214,10 +214,14 @@ async def complete_chunked_upload(
         )
 
     total_chunks = session["total_chunks"]
-    received_chunks = session["received_chunks"]
 
-    if len(received_chunks) != total_chunks:
-        missing = sorted(set(range(total_chunks)) - set(received_chunks))
+    # Atomically get received chunk count and members from Redis set
+    received_count = await async_cache.scard(_chunks_key(upload_id))
+
+    if received_count != total_chunks:
+        received_chunks_bytes = await async_cache.smembers(_chunks_key(upload_id))
+        received_chunks = {int(chunk) for chunk in received_chunks_bytes}
+        missing = sorted(set(range(total_chunks)) - received_chunks)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Missing chunks: {missing}",
@@ -232,6 +236,7 @@ async def complete_chunked_upload(
     except ValueError as exc:
         _cleanup_tmp(upload_id)
         await async_cache.delete(_session_key(upload_id))
+        await async_cache.delete(_chunks_key(upload_id))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -257,6 +262,7 @@ async def complete_chunked_upload(
             file_location.unlink()
         _cleanup_tmp(upload_id)
         await async_cache.delete(_session_key(upload_id))
+        await async_cache.delete(_chunks_key(upload_id))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error assembling file chunks",
@@ -264,6 +270,7 @@ async def complete_chunked_upload(
 
     _cleanup_tmp(upload_id)
     await async_cache.delete(_session_key(upload_id))
+    await async_cache.delete(_chunks_key(upload_id))
 
     log.info(f"Chunked upload complete: {file_location}")
 
@@ -300,6 +307,7 @@ async def cancel_chunked_upload(
                 detail="Forbidden",
             )
         await async_cache.delete(_session_key(upload_id))
+        await async_cache.delete(_chunks_key(upload_id))
 
     _cleanup_tmp(upload_id)
 

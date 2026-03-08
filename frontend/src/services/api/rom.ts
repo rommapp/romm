@@ -15,7 +15,6 @@ import type {
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
 import socket from "@/services/socket";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeUpload from "@/stores/upload";
 import { getDownloadPath } from "@/utils";
 import { buildFormInput, type FormInputField } from "@/utils/formData";
@@ -29,7 +28,7 @@ const DOWNLOAD_CLEANUP_DELAY = 100;
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB per chunk
 const MAX_CHUNK_RETRIES = 3;
 
-async function uploadRomChunked({
+async function uploadROMChunked({
   platformId,
   file,
 }: {
@@ -80,7 +79,7 @@ async function uploadRomChunked({
     }
 
     if (lastError) {
-      await api.delete(`/roms/upload/${upload_id}`).catch(() => {});
+      await api.post(`/roms/upload/${upload_id}/cancel`).catch(() => {});
       throw lastError;
     }
   }
@@ -90,7 +89,7 @@ async function uploadRomChunked({
   });
 }
 
-async function uploadRoms({
+async function uploadROMs({
   platformId,
   filesToUpload,
 }: {
@@ -103,7 +102,7 @@ async function uploadRoms({
   const promises = filesToUpload.map((file) => {
     uploadStore.start(file.name);
 
-    return uploadRomChunked({ platformId, file })
+    return uploadROMChunked({ platformId, file })
       .then(() => null as null)
       .catch((error) => {
         uploadStore.fail(
@@ -638,7 +637,7 @@ async function getRomFilters() {
 }
 
 export default {
-  uploadRoms,
+  uploadROMs,
   getRoms,
   getRecentRoms,
   getRecentPlayedRoms,
