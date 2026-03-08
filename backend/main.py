@@ -24,27 +24,25 @@ from config import (
     ROMM_AUTH_SECRET_KEY,
     SENTRY_DSN,
 )
-from endpoints import (
-    auth,
-    collections,
-    configs,
-    device,
-    feeds,
-    firmware,
-    gamelist,
-    heartbeat,
-    netplay,
-    platform,
-    raw,
-    rom,
-    saves,
-    screenshots,
-    search,
-    states,
-    stats,
-    tasks,
-    user,
-)
+from endpoints.auth import router as auth_router
+from endpoints.collections import router as collections_router
+from endpoints.configs import router as configs_router
+from endpoints.device import router as device_router
+from endpoints.feeds import router as feeds_router
+from endpoints.firmware import router as firmware_router
+from endpoints.gamelist import router as gamelist_router
+from endpoints.heartbeat import router as heartbeat_router
+from endpoints.netplay import router as netplay_router
+from endpoints.platform import router as platform_router
+from endpoints.raw import router as raw_router
+from endpoints.roms import router as rom_router
+from endpoints.saves import router as saves_router
+from endpoints.screenshots import router as screenshots_router
+from endpoints.search import router as search_router
+from endpoints.states import router as states_router
+from endpoints.stats import router as stats_router
+from endpoints.tasks import router as tasks_router
+from endpoints.user import router as user_router
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
@@ -120,25 +118,25 @@ app.add_middleware(
 # Sets context vars in request-response cycle
 app.middleware("http")(set_context_middleware)
 
-app.include_router(heartbeat.router, prefix="/api")
-app.include_router(auth.router, prefix="/api")
-app.include_router(user.router, prefix="/api")
-app.include_router(device.router, prefix="/api")
-app.include_router(platform.router, prefix="/api")
-app.include_router(rom.router, prefix="/api")
-app.include_router(search.router, prefix="/api")
-app.include_router(saves.router, prefix="/api")
-app.include_router(states.router, prefix="/api")
-app.include_router(tasks.router, prefix="/api")
-app.include_router(feeds.router, prefix="/api")
-app.include_router(configs.router, prefix="/api")
-app.include_router(stats.router, prefix="/api")
-app.include_router(raw.router, prefix="/api")
-app.include_router(screenshots.router, prefix="/api")
-app.include_router(firmware.router, prefix="/api")
-app.include_router(collections.router, prefix="/api")
-app.include_router(gamelist.router, prefix="/api")
-app.include_router(netplay.router, prefix="/api")
+app.include_router(heartbeat_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(user_router, prefix="/api")
+app.include_router(device_router, prefix="/api")
+app.include_router(platform_router, prefix="/api")
+app.include_router(rom_router, prefix="/api")
+app.include_router(search_router, prefix="/api")
+app.include_router(saves_router, prefix="/api")
+app.include_router(states_router, prefix="/api")
+app.include_router(tasks_router, prefix="/api")
+app.include_router(feeds_router, prefix="/api")
+app.include_router(configs_router, prefix="/api")
+app.include_router(stats_router, prefix="/api")
+app.include_router(raw_router, prefix="/api")
+app.include_router(screenshots_router, prefix="/api")
+app.include_router(firmware_router, prefix="/api")
+app.include_router(collections_router, prefix="/api")
+app.include_router(gamelist_router, prefix="/api")
+app.include_router(netplay_router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 app.mount("/netplay", netplay_socket_handler.socket_app)
