@@ -46,18 +46,10 @@ export default defineStore("galleryView", {
       const platformsStore = storePlatforms();
       const platform = platformId ? platformsStore.get(platformId) : null;
       if (platform?.aspect_ratio) {
-        const ratioParts = platform.aspect_ratio.match(/\d+(?:\.\d+)?/g);
-        if (ratioParts && ratioParts.length >= 2) {
-          const width = Number(ratioParts[0]);
-          const height = Number(ratioParts[1]);
-          if (
-            Number.isFinite(width) &&
-            Number.isFinite(height) &&
-            height !== 0
-          ) {
-            return width / height;
-          }
-        }
+        return (
+          parseFloat(platform.aspect_ratio.split("/")[0]) /
+          parseFloat(platform.aspect_ratio.split("/")[1])
+        );
       }
 
       return this.defaultAspectRatio;
