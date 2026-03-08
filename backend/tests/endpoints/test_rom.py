@@ -271,6 +271,30 @@ class TestUpdateMetadataIDs:
         assert get_rom_by_id_mock.called
 
     @patch.object(
+        LaunchboxHandler,
+        "get_rom_by_id",
+        return_value=LaunchboxRom(launchbox_id=None),
+    )
+    def test_update_rom_launchbox_id_persists_when_handler_disabled(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Test that LaunchBox ID persists when handler is disabled or game not found."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"launchbox_id": str(MOCK_LAUNCHBOX_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["launchbox_id"] == MOCK_LAUNCHBOX_ID
+        assert get_rom_by_id_mock.called
+
+    @patch.object(
         FlashpointHandler,
         "get_rom_by_id",
         return_value=FlashpointRom(flashpoint_id=str(MOCK_FLASHPOINT_ID)),
