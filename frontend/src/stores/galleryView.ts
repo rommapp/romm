@@ -47,8 +47,8 @@ export default defineStore("galleryView", {
       const platform = platformId ? platformsStore.get(platformId) : null;
       if (platform?.aspect_ratio) {
         return (
-          parseInt(platform.aspect_ratio.split("/")[0]) /
-          parseInt(platform.aspect_ratio.split("/")[1])
+          parseFloat(platform.aspect_ratio.split("/")[0]) /
+          parseFloat(platform.aspect_ratio.split("/")[1])
         );
       }
 
