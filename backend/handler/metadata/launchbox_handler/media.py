@@ -203,7 +203,7 @@ def _get_cover(req: MediaRequest) -> str | None:
         "Steam Poster",
     )
 
-    # Remote media fallback (only if allowed)
+    # Remote media (overridden by local if available)
     if req.remote_enabled and req.remote_images:
         best_cover: dict | None = None
         for image_type in cover_priority_types:
@@ -243,7 +243,7 @@ def _get_cover(req: MediaRequest) -> str | None:
 def _get_screenshots(req: MediaRequest) -> list[str]:
     screenshots: list[str] = []
 
-    # Remote media fallback (only if allowed)
+    # Remote media (overridden by local if available)
     if req.remote_enabled and req.remote_images:
         screenshots = [
             f"https://images.launchbox-app.com/{image.get('FileName')}"
@@ -324,7 +324,7 @@ def _get_manuals(req: MediaRequest) -> str | None:
 def _get_images(req: MediaRequest) -> list[LaunchboxImage]:
     images: list[LaunchboxImage] = []
 
-    # Remote media fallback (only if allowed)
+    # Remote media (overridden by local if available)
     if req.remote_enabled and req.remote_images:
         images = [
             LaunchboxImage(
