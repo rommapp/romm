@@ -122,10 +122,16 @@ const coverImageSource = computed(() => {
 
 const ageRatingBadges = computed(() => {
   const ratings = props.rom.metadatum?.age_ratings || [];
-  const igdbRatings = (props.rom.igdb_metadata as any)?.age_ratings || [];
+  const igdbRatings = props.rom.igdb_metadata?.age_ratings || [];
+  const ssRatings = props.rom.ss_metadata?.age_ratings || [];
+
   const igdbByRating = new Map(
-    igdbRatings.map((r: any) => [String(r?.rating || "").trim(), r]),
+    igdbRatings.map((r) => [String(r.rating).trim(), r]),
   );
+  const ssByRating = new Map(
+    ssRatings.map((r) => [String(r.rating).trim(), r]),
+  );
+
   const categorySlug: Record<string, string> = {
     ESRB: "esrb",
     PEGI: "pegi",
@@ -135,21 +141,17 @@ const ageRatingBadges = computed(() => {
     CLASS_IND: "class_ind",
     ACB: "acb",
   };
+
   const normalizeRatingCode = (rating: string) =>
     rating.toString().toLowerCase().replace("+", "");
 
-  return ratings.map((entry: any) => {
-    if (typeof entry === "object" && entry?.rating) {
-      return entry;
-    }
-
-    const raw = String(entry);
-    if (raw.includes(":")) {
-      const [categoryRaw, ratingRaw] = raw.split(":");
-      const category = categoryRaw?.trim() || "";
-      const rating = ratingRaw?.trim() || "";
+  return ratings.map((entry) => {
+    // Handle manually entered ratings
+    if (entry.includes(":")) {
+      const [categoryRaw, ratingRaw] = entry.split(":");
+      const category = categoryRaw?.trim();
+      const rating = ratingRaw?.trim();
       const slug = categorySlug[category];
-
       const rating_cover_url =
         slug && rating
           ? `https://www.igdb.com/icons/rating_icons/${slug}/${slug}_${normalizeRatingCode(rating)}.png`
@@ -162,12 +164,25 @@ const ageRatingBadges = computed(() => {
       };
     }
 
-    const igdbMatch = igdbByRating.get(raw.trim());
+    // IGDB age ratings contain cover URLs
+    const igdbMatch = igdbByRating.get(entry.trim());
     if (igdbMatch) {
       return igdbMatch;
     }
 
-    return { rating: raw, category: "", rating_cover_url: undefined };
+    // ScreenScraper age ratings need to have cover URLs constructed
+    const ssMatch = ssByRating.get(entry.trim());
+    if (ssMatch) {
+      const slug = categorySlug[ssMatch.category];
+      return {
+        ...ssMatch,
+        rating_cover_url: slug
+          ? `https://www.igdb.com/icons/rating_icons/${slug}/${slug}_${normalizeRatingCode(ssMatch.rating)}.png`
+          : undefined,
+      };
+    }
+
+    return { rating: entry, category: "", rating_cover_url: undefined };
   });
 });
 
@@ -251,15 +266,34 @@ function getFilterValues(path: string): string[] {
             <span>{{ t("rom.age-rating") }}</span>
           </v-col>
           <div class="d-flex" :class="{ 'my-2': xs }">
-            <v-img
+            <template
               v-for="value in ageRatingBadges"
               :key="`${value.category}:${value.rating}`"
-              :src="value.rating_cover_url"
-              height="50"
-              width="50"
-              class="mr-4 cursor-pointer"
-              @click="onFilterClick('ageRatings', value.rating)"
-            />
+            >
+              <v-img
+                v-if="value.rating_cover_url"
+                :key="`${value.category}:${value.rating}`"
+                :src="value.rating_cover_url"
+                height="50"
+                width="50"
+                class="mr-4 cursor-pointer"
+                @click="onFilterClick('ageRatings', value.rating)"
+              />
+              <v-chip
+                v-else
+                size="small"
+                variant="outlined"
+                class="mr-4"
+                label
+                @click="onFilterClick('ageRatings', value.rating)"
+              >
+                {{
+                  value.category
+                    ? `${value.category}: ${value.rating}`
+                    : value.rating
+                }}
+              </v-chip>
+            </template>
           </div>
         </v-row>
       </template>
