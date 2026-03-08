@@ -19,7 +19,6 @@
   "hashes-desc": "Hash-értékek újraszámítása a kiválasztott platformokon",
   "hashes-disabled-tooltip": "Fájl hash számítás letiltva.<br><br>A hash-ek (MD5, SHA1, CRC32) egyedi ujjlenyomatok, amelyek pontosan azonosítják a ROM fájlokat.<br><br>Ezek nélkül a Hasheous és a RetroAchievements nem tudja a játékokat az adatbázisukhoz rendelni, de a szkennelés gyorsabb lesz.",
   "hashes-enabled-tooltip": "Fájl hash számítás engedélyezve.<br><br>Hashes (MD5, SHA1, CRC32) lesz kiszámítva, hogy egyedi ujjlenyomatokat hozzon létre minden ROM fájlhoz.<br><br>Ez lehetővé teszi a Hasheous és a RetroAchievements számára, hogy pontosan azonosítsák a játékokat az adatbázisaikban.",
-  "launchbox-remote": "Launchbox",
   "manage-library": "Könyvtár Menedzsment",
   "metadata-sources": "Metaadat források",
   "new-platforms": "Új platformok",

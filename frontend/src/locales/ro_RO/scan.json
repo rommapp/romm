@@ -19,7 +19,6 @@
   "hashes-desc": "Recalculează hash-urile pentru platformele selectate",
   "hashes-disabled-tooltip": "Calculul hash-urilor dezactivat.<br><br>Hash-urile (MD5, SHA1, CRC32) sunt amprente digitale unice care identifică fișierele ROM cu precizie.<br><br>Fără ele, Hasheous și RetroAchievements nu pot potrivi jocurile cu bazele lor de date, dar scanarea va fi mai rapidă.",
   "hashes-enabled-tooltip": "Calculul hash-urilor activat.<br><br>Se vor calcula hash-uri (MD5, SHA1, CRC32) pentru a crea amprente digitale unice pentru fiecare fișier ROM.<br><br>Aceasta permite lui Hasheous și RetroAchievements să identifice cu precizie jocurile în bazele lor de date.",
-  "launchbox-remote": "Launchbox",
   "manage-library": "Gestionează biblioteca",
   "metadata-sources": "Surse de metadate",
   "new-platforms": "Platforme noi",
