@@ -176,7 +176,9 @@ const ageRatingBadges = computed(() => {
       const slug = categorySlug[ssMatch.category];
       return {
         ...ssMatch,
-        rating_cover_url: `https://www.igdb.com/icons/rating_icons/${slug}/${slug}_${normalizeRatingCode(ssMatch.rating)}.png`,
+        rating_cover_url: slug
+          ? `https://www.igdb.com/icons/rating_icons/${slug}/${slug}_${normalizeRatingCode(ssMatch.rating)}.png`
+          : undefined,
       };
     }
 
@@ -264,15 +266,34 @@ function getFilterValues(path: string): string[] {
             <span>{{ t("rom.age-rating") }}</span>
           </v-col>
           <div class="d-flex" :class="{ 'my-2': xs }">
-            <v-img
+            <template
               v-for="value in ageRatingBadges"
               :key="`${value.category}:${value.rating}`"
-              :src="value.rating_cover_url"
-              height="50"
-              width="50"
-              class="mr-4 cursor-pointer"
-              @click="onFilterClick('ageRatings', value.rating)"
-            />
+            >
+              <v-img
+                v-if="value.rating_cover_url"
+                :key="`${value.category}:${value.rating}`"
+                :src="value.rating_cover_url"
+                height="50"
+                width="50"
+                class="mr-4 cursor-pointer"
+                @click="onFilterClick('ageRatings', value.rating)"
+              />
+              <v-chip
+                v-else
+                size="small"
+                variant="outlined"
+                class="mr-4"
+                label
+                @click="onFilterClick('ageRatings', value.rating)"
+              >
+                {{
+                  value.category
+                    ? `${value.category}: ${value.rating}`
+                    : value.rating
+                }}
+              </v-chip>
+            </template>
           </div>
         </v-row>
       </template>
