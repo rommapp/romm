@@ -76,7 +76,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxId] = {
         "id": 58,
         "name": "Fairchild Channel F",
     },
-    UPS.FAMICOM: {"id": 157, "name": "Nintendo Famicom Disk System"},
+    UPS.FAMICOM: {"id": 27, "name": "Nintendo Famicom"},
     UPS.FDS: {"id": 157, "name": "Nintendo Famicom Disk System"},
     UPS.FM_7: {"id": 186, "name": "Fujitsu FM-7"},
     UPS.FM_TOWNS: {"id": 124, "name": "Fujitsu FM Towns Marty"},
