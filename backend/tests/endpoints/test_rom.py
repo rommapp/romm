@@ -182,9 +182,7 @@ class TestUpdateMetadataIDs:
         assert body["igdb_id"] == MOCK_IGDB_ID
         assert get_rom_by_id_mock.called
 
-    @patch.object(
-        IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None)
-    )
+    @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
     def test_update_rom_igdb_id_persists_when_handler_disabled(
         self,
         get_rom_by_id_mock: AsyncMock,
