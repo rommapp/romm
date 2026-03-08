@@ -29,10 +29,7 @@ from fastapi.responses import Response
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from pydantic import BaseModel, Field
-from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
-from streaming_form_data import StreamingFormDataParser
-from streaming_form_data.targets import FileTarget, NullTarget
 
 from config import (
     DEV_MODE,
@@ -43,11 +40,9 @@ from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.rom import (
     DetailedRomSchema,
-    RomFileSchema,
     RomFiltersDict,
     RomUserSchema,
     SimpleRomSchema,
-    UserNoteSchema,
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
@@ -67,7 +62,7 @@ from handler.metadata.ss_handler import get_preferred_media_types
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom, RomNote
+from models.rom import Rom
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
@@ -75,6 +70,9 @@ from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 from utils.validation import ValidationError
 
+from .files import router as files_router
+from .manual import router as manual_router
+from .notes import router as notes_router
 from .upload import router as upload_router
 
 router = APIRouter(
@@ -82,6 +80,9 @@ router = APIRouter(
     tags=["roms"],
 )
 router.include_router(upload_router)
+router.include_router(files_router)
+router.include_router(manual_router)
+router.include_router(notes_router)
 
 
 def safe_int_or_none(value: Any) -> int | None:
@@ -1392,128 +1393,6 @@ async def update_rom(
 
 @protected_route(
     router.post,
-    "/{id}/manuals",
-    [Scope.ROMS_WRITE],
-    status_code=status.HTTP_201_CREATED,
-    responses={status.HTTP_404_NOT_FOUND: {}},
-)
-async def add_rom_manuals(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    filename: Annotated[
-        str,
-        Header(
-            description="The name of the file being uploaded.",
-            alias="x-upload-filename",
-        ),
-    ],
-) -> Response:
-    """Upload manuals for a rom."""
-
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    manuals_path = f"{rom.fs_resources_path}/manual"
-    file_location = fs_resource_handler.validate_path(f"{manuals_path}/{rom.id}.pdf")
-    log.info(f"Uploading manual to {hl(str(file_location))}")
-
-    await fs_resource_handler.make_directory(manuals_path)
-
-    parser = StreamingFormDataParser(headers=request.headers)
-    parser.register("x-upload-platform", NullTarget())
-    parser.register(filename, FileTarget(str(file_location)))
-
-    def cleanup_partial_file():
-        if file_location.exists():
-            file_location.unlink()
-
-    try:
-        async for chunk in request.stream():
-            parser.data_received(chunk)
-
-        db_rom_handler.update_rom(
-            id,
-            {
-                "path_manual": f"{manuals_path}/{rom.id}.pdf",
-            },
-        )
-    except ClientDisconnect:
-        log.error("Client disconnected during upload")
-        cleanup_partial_file()
-    except Exception as exc:
-        log.error("Error uploading files", exc_info=exc)
-        cleanup_partial_file()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="There was an error uploading the manual",
-        ) from exc
-
-    return Response()
-
-
-@protected_route(
-    router.delete,
-    "/{id}/manuals",
-    [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
-)
-async def delete_rom_manuals(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-) -> Response:
-    """Delete manuals for a rom."""
-
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    if not fs_resource_handler.manual_exists(rom):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No manual found for this ROM",
-        )
-
-    try:
-        await fs_resource_handler.remove_manual(rom)
-        db_rom_handler.update_rom(
-            id,
-            {
-                "path_manual": "",
-                "url_manual": "",
-            },
-        )
-
-        log.info(
-            f"Deleted manual for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
-        )
-    except FileNotFoundError:
-        log.warning(
-            f"Manual file not found for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]"
-        )
-        # Still update the database even if file doesn't exist
-        db_rom_handler.update_rom(
-            id,
-            {
-                "path_manual": "",
-                "url_manual": "",
-            },
-        )
-    except Exception as exc:
-        log.error(
-            f"Error deleting manual for {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}]",
-            exc_info=exc,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="There was an error deleting the manual",
-        ) from exc
-
-    return Response()
-
-
-@protected_route(
-    router.post,
     "/delete",
     [Scope.ROMS_WRITE],
     responses={status.HTTP_404_NOT_FOUND: {}},
@@ -1635,216 +1514,3 @@ async def update_rom_user(
     rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
 
     return RomUserSchema.model_validate(rom_user)
-
-
-@protected_route(
-    router.get,
-    "/{id}/files",
-    [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
-)
-async def get_romfile(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
-) -> RomFileSchema:
-    """Retrieve a rom file by ID."""
-
-    file = db_rom_handler.get_rom_file_by_id(id)
-    if not file:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found",
-        )
-
-    return RomFileSchema.model_validate(file)
-
-
-@protected_route(
-    router.get,
-    "/{id}/files/content/{file_name}",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
-)
-async def get_romfile_content(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
-    file_name: Annotated[str, PathVar(description="File name to download")],
-):
-    """Download a rom file."""
-
-    current_username = (
-        request.user.username if request.user.is_authenticated else "unknown"
-    )
-
-    file = db_rom_handler.get_rom_file_by_id(id)
-    if not file:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found",
-        )
-
-    log.info(f"User {hl(current_username, color=BLUE)} is downloading {hl(file_name)}")
-
-    # Serve the file directly in development mode for emulatorjs
-    if DEV_MODE:
-        rom_path = fs_rom_handler.validate_path(file.full_path)
-        return FileResponse(
-            path=rom_path,
-            filename=file_name,
-            headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(file_name)}; filename=\"{quote(file_name)}\"",
-                "Content-Type": "application/octet-stream",
-                "Content-Length": str(file.file_size_bytes),
-            },
-        )
-
-    # Otherwise proxy through nginx
-    return FileRedirectResponse(
-        download_path=Path(f"/library/{file.full_path}"),
-    )
-
-
-DEFAULT_PUBLIC_ONLY = Query(False, description="Only return public notes")
-DEFAULT_SEARCH = Query(None, description="Search notes by title or content")
-DEFAULT_TAGS = Query(None, description="Filter by tags")
-
-
-@protected_route(
-    router.get,
-    "/{id}/notes",
-    [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
-)
-async def get_rom_notes(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    public_only: bool = DEFAULT_PUBLIC_ONLY,
-    search: str = DEFAULT_SEARCH,
-    tags: list[str] = DEFAULT_TAGS,
-) -> list[UserNoteSchema]:
-    """Get all notes for a ROM."""
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    if tags is None:
-        tags = []
-
-    notes = db_rom_handler.get_rom_notes(
-        rom_id=id,
-        user_id=request.user.id,
-        public_only=public_only,
-        search=search,
-        tags=tags,
-    )
-
-    return [UserNoteSchema.model_validate(note) for note in notes]
-
-
-@protected_route(
-    router.get,
-    "/{id}/notes/identifiers",
-    [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
-)
-async def get_rom_note_identifiers(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-) -> list[int]:
-    """Get all note identifiers for a ROM."""
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    notes = db_rom_handler.get_rom_notes(
-        rom_id=id,
-        user_id=request.user.id,
-        only_fields=[RomNote.id],
-    )
-
-    return [note.id for note in notes]
-
-
-@protected_route(
-    router.post,
-    "/{id}/notes",
-    [Scope.ROMS_USER_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
-)
-async def create_rom_note(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    note_data: Annotated[dict, Body()],
-) -> UserNoteSchema:
-    """Create a new note for a ROM."""
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    note = db_rom_handler.create_rom_note(
-        rom_id=id,
-        user_id=request.user.id,
-        title=note_data["title"],
-        content=note_data.get("content", ""),
-        is_public=note_data.get("is_public", False),
-        tags=note_data.get("tags", []),
-    )
-
-    # Add username to the note data
-    note["username"] = request.user.username
-    return UserNoteSchema.model_validate(note)
-
-
-@protected_route(
-    router.put,
-    "/{id}/notes/{note_id}",
-    [Scope.ROMS_USER_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
-)
-async def update_rom_note(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    note_id: Annotated[int, PathVar(description="Note id.", ge=1)],
-    note_data: Annotated[dict, Body()],
-) -> UserNoteSchema:
-    """Update a ROM note."""
-    note = db_rom_handler.update_rom_note(
-        note_id=note_id,
-        user_id=request.user.id,
-        **{
-            k: v
-            for k, v in note_data.items()
-            if k in ["title", "content", "is_public", "tags"]
-        },
-    )
-
-    if not note:
-        raise HTTPException(
-            status_code=404, detail="Note not found or not owned by user"
-        )
-
-    # Add username to the note data
-    note["username"] = request.user.username
-    return UserNoteSchema.model_validate(note)
-
-
-@protected_route(
-    router.delete,
-    "/{id}/notes/{note_id}",
-    [Scope.ROMS_USER_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
-)
-async def delete_rom_note(
-    request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
-    note_id: Annotated[int, PathVar(description="Note id.", ge=1)],
-) -> dict:
-    """Delete a ROM note."""
-    success = db_rom_handler.delete_rom_note(note_id=note_id, user_id=request.user.id)
-
-    if not success:
-        raise HTTPException(
-            status_code=404, detail="Note not found or not owned by user"
-        )
-
-    return {"message": "Note deleted successfully"}
