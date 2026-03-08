@@ -26,6 +26,72 @@ type SimpleRom = SimpleRomSchema;
 type SearchRom = SearchRomSchema;
 
 const DOWNLOAD_CLEANUP_DELAY = 100;
+const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB per chunk
+const CHUNKED_THRESHOLD = 10 * 1024 * 1024; // Files larger than 10MB use chunked upload
+const MAX_CHUNK_RETRIES = 3;
+
+async function uploadRomChunked({
+  platformId,
+  file,
+}: {
+  platformId: number;
+  file: File;
+}): Promise<void> {
+  const uploadStore = storeUpload();
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+  const { data: startData } = await api.post("/roms/upload/start", null, {
+    headers: {
+      "X-Upload-Platform": platformId.toString(),
+      "X-Upload-Filename": file.name,
+      "X-Upload-Total-Size": file.size.toString(),
+      "X-Upload-Total-Chunks": totalChunks.toString(),
+    },
+  });
+  const { upload_id } = startData;
+
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * CHUNK_SIZE;
+    const chunk = file.slice(start, Math.min(start + CHUNK_SIZE, file.size));
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < MAX_CHUNK_RETRIES; attempt++) {
+      try {
+        await api.put(`/roms/upload/${upload_id}`, chunk, {
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "X-Chunk-Index": i.toString(),
+            "X-Total-Chunks": totalChunks.toString(),
+          },
+          timeout: 120000,
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            const chunkFraction = progressEvent.progress ?? 0;
+            const overall = ((i + chunkFraction) / totalChunks) * 100;
+            uploadStore.updateChunkProgress(file.name, overall, file.size);
+          },
+        });
+        lastError = null;
+        break;
+      } catch (err) {
+        lastError = err as Error;
+        if (attempt < MAX_CHUNK_RETRIES - 1) {
+          await new Promise((r) =>
+            setTimeout(r, 1000 * Math.pow(2, attempt)),
+          );
+        }
+      }
+    }
+
+    if (lastError) {
+      await api.delete(`/roms/upload/${upload_id}`).catch(() => {});
+      throw lastError;
+    }
+  }
+
+  await api.post(`/roms/upload/${upload_id}/complete`, null, {
+    timeout: 300000,
+  });
+}
 
 async function uploadRoms({
   platformId,
@@ -40,10 +106,23 @@ async function uploadRoms({
   const uploadStore = storeUpload();
 
   const promises = filesToUpload.map((file) => {
+    uploadStore.start(file.name);
+
+    if (file.size > CHUNKED_THRESHOLD) {
+      return uploadRomChunked({ platformId, file })
+        .then(() => null as null)
+        .catch((error) => {
+          uploadStore.fail(
+            file.name,
+            error.response?.data?.detail ?? error.message,
+          );
+          return Promise.reject(error);
+        });
+    }
+
     const formData = new FormData();
     formData.append(file.name, file);
 
-    uploadStore.start(file.name);
     return new Promise<null>((resolve, reject) => {
       api
         .post("/roms", formData, {
@@ -595,6 +674,7 @@ async function getRomFilters() {
 
 export default {
   uploadRoms,
+  uploadRomChunked,
   getRoms,
   getRecentRoms,
   getRecentPlayedRoms,

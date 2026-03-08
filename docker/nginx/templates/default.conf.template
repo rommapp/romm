@@ -51,6 +51,22 @@ server {
         proxy_pass http://wsgi_server;
     }
 
+    # Chunked upload complete endpoint - needs longer timeout for large file assembly
+    location ~ ^/api/roms/upload/[^/]+/complete {
+        proxy_pass http://wsgi_server;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_read_timeout 600s;
+    }
+
+    # Chunked upload chunk and session endpoints
+    location ~ ^/api/roms/upload {
+        proxy_pass http://wsgi_server;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_read_timeout 120s;
+    }
+
     # Backend api calls
     location /api {
         proxy_pass http://wsgi_server;
