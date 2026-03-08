@@ -86,7 +86,6 @@ class SSPlatform(TypedDict):
 class SSAgeRating(TypedDict):
     rating: str
     category: str
-    rating_cover_url: str
 
 
 class SSMetadataMedia(TypedDict):
@@ -125,7 +124,7 @@ class SSMetadata(SSMetadataMedia):
     ss_score: str | None
     first_release_date: int | None
     alternative_names: list[str]
-    age_ratings: list[str]
+    age_ratings: list[SSAgeRating]
     companies: list[str]
     franchises: list[str]
     game_modes: list[str]
@@ -366,9 +365,12 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
             return "1"
         return str(player_count)
 
-    def _get_age_ratings(game: SSGame) -> list[str]:
+    def _get_age_ratings(game: SSGame) -> list[SSAgeRating]:
         return [
-            f"{classification['type']} {classification['text']}"
+            SSAgeRating(
+                rating=classification["text"],
+                category=classification["type"],
+            )
             for classification in game.get("classifications", [])
             if classification.get("type") and classification.get("text")
         ]
