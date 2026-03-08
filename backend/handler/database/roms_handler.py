@@ -798,10 +798,15 @@ class DBRomsHandler(DBBaseHandler):
 
         # Ignore case when the order attribute is a number
         if isinstance(order_attr.type, (String, Text)):
-            # Remove any leading articles
+            # Remove any leading articles (text is already lowercased, so no "i" flag needed)
             order_attr = func.trim(
-                func.lower(order_attr).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
+                func.lower(order_attr).regexp_replace(STRIP_ARTICLES_REGEX, "")
             )
+
+            # Pad numbers with leading zeros to ensure natural sorting
+            order_attr = order_attr.regexp_replace(
+                r"(\d+)", r"00000000000\1"
+            ).regexp_replace(r"0*(\d{12})", r"\1")
 
         if order_dir.lower() == "desc":
             order_attr = order_attr.desc()
@@ -872,14 +877,19 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> list[Row[tuple[str, int]]]:
         if isinstance(order_by_attr.type, (String, Text)):
-            # Remove any leading articles
+            # Remove any leading articles (text is already lowercased, so no "i" flag needed)
             order_by_attr = func.trim(
-                func.lower(order_by_attr).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
+                func.lower(order_by_attr).regexp_replace(STRIP_ARTICLES_REGEX, "")
             )
         else:
             order_by_attr = func.trim(
-                func.lower(Rom.name).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
+                func.lower(Rom.name).regexp_replace(STRIP_ARTICLES_REGEX, "")
             )
+
+        # Pad numbers with leading zeros to ensure natural sorting
+        order_by_attr = order_by_attr.regexp_replace(
+            r"(\d+)", r"00000000000\1"
+        ).regexp_replace(r"0*(\d{12})", r"\1")
 
         # Get the row number and first letter for each item
         subquery = (

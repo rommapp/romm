@@ -18,6 +18,10 @@ jobs:
     permissions:
       checks: write
       pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [mariadb, postgresql]
     services:
       mariadb:
         image: mariadb:10.11
@@ -29,6 +33,15 @@ jobs:
           MYSQL_DATABASE: romm_test
           MYSQL_ROOT_PASSWORD: passwd
         options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+      postgresql:
+        image: postgres:16
+        ports:
+          - 5432
+        env:
+          POSTGRES_USER: romm_test
+          POSTGRES_PASSWORD: passwd
+          POSTGRES_DB: romm_test
+        options: --health-cmd="pg_isready" --health-interval=5s --health-timeout=2s --health-retries=3
       valkey:
         image: valkey/valkey:7.2
         ports:
@@ -40,6 +53,7 @@ jobs:
         uses: actions/checkout@v4.3.0
 
       - name: Install mariadb connectors
+        if: matrix.db == 'mariadb'
         run: |
           sudo apt-get update
           sudo apt-get install -y libmariadb3 libmariadb-dev
@@ -55,14 +69,16 @@ jobs:
         run: |
           uv sync --extra test
 
-      - name: Initiate database
+      - name: Initiate MariaDB database
+        if: matrix.db == 'mariadb'
         run: |
           mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON romm_test.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
 
       - name: Run python tests
         env:
           DB_HOST: 127.0.0.1
-          DB_PORT: ${{ job.services.mariadb.ports['3306'] }}
+          DB_PORT: ${{ matrix.db == 'mariadb' && job.services.mariadb.ports['3306'] || job.services.postgresql.ports['5432'] }}
+          ROMM_DB_DRIVER: ${{ matrix.db }}
           REDIS_HOST: 127.0.0.1
           REDIS_PORT: ${{ job.services.valkey.ports['6379'] }}
         run: |
@@ -73,12 +89,14 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action/linux@v2.20.0
         if: (!cancelled())
         with:
+          check_name: Test Results (${{ matrix.db }})
           files: |
             backend/pytest-report.xml
 
       - name: Publish coverage report
         uses: orgoro/coverage@v3.2
         continue-on-error: true
+        if: matrix.db == 'mariadb'
         with:
           coverageFile: backend/coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
