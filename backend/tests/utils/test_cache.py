@@ -1,7 +1,5 @@
 from unittest.mock import AsyncMock
 
-from redis.asyncio import Redis as AsyncRedis
-
 from handler.metadata.base_handler import MAME_XML_KEY, METADATA_FIXTURES_DIR
 from handler.redis_handler import async_cache
 from utils.cache import conditionally_set_cache
@@ -13,10 +11,10 @@ class TestConditionallySetCache:
     async def test_cache_not_exists_loads_data(self, mocker):
         """Test loading data when cache doesn't exist."""
         mock_cache_exists = mocker.patch.object(
-            AsyncRedis, "exists", side_effect=AsyncMock(return_value=False)
+            async_cache, "exists", new_callable=AsyncMock, return_value=False
         )
         mock_pipeline = AsyncMock()
-        mock_cache_pipeline = mocker.patch.object(AsyncRedis, "pipeline")
+        mock_cache_pipeline = mocker.patch.object(async_cache, "pipeline")
         mock_cache_pipeline.return_value.__aenter__.return_value = mock_pipeline
 
         await conditionally_set_cache(
@@ -31,10 +29,10 @@ class TestConditionallySetCache:
     async def test_cache_exists_and_hash_does_not_match_loads_data(self, mocker):
         """Test loading data when cache exists but file hash does not match."""
         mock_cache_exists = mocker.patch.object(
-            AsyncRedis, "exists", side_effect=AsyncMock(return_value=True)
+            async_cache, "exists", new_callable=AsyncMock, return_value=True
         )
         mock_pipeline = AsyncMock()
-        mock_cache_pipeline = mocker.patch.object(AsyncRedis, "pipeline")
+        mock_cache_pipeline = mocker.patch.object(async_cache, "pipeline")
         mock_cache_pipeline.return_value.__aenter__.return_value = mock_pipeline
 
         await conditionally_set_cache(
@@ -57,12 +55,12 @@ class TestConditionallySetCache:
             ),
         )
         mock_cache_exists = mocker.patch.object(
-            AsyncRedis, "exists", side_effect=AsyncMock(return_value=True)
+            async_cache, "exists", new_callable=AsyncMock, return_value=True
         )
         mock_cache_get = mocker.patch.object(
-            AsyncRedis, "get", side_effect=AsyncMock(return_value=fake_md5_hash)
+            async_cache, "get", new_callable=AsyncMock, return_value=fake_md5_hash
         )
-        mock_cache_pipeline = mocker.patch.object(AsyncRedis, "pipeline")
+        mock_cache_pipeline = mocker.patch.object(async_cache, "pipeline")
 
         await conditionally_set_cache(
             async_cache, MAME_XML_KEY, METADATA_FIXTURES_DIR / "mame_index.json"
@@ -75,9 +73,9 @@ class TestConditionallySetCache:
     async def test_exception_handling(self, mocker):
         """Test exception handling when file loading fails."""
         mocker.patch.object(
-            AsyncRedis, "exists", side_effect=AsyncMock(return_value=False)
+            async_cache, "exists", new_callable=AsyncMock, return_value=False
         )
-        mock_cache_pipeline = mocker.patch.object(AsyncRedis, "pipeline")
+        mock_cache_pipeline = mocker.patch.object(async_cache, "pipeline")
 
         await conditionally_set_cache(
             async_cache, MAME_XML_KEY, METADATA_FIXTURES_DIR / "nonexistent.json"
