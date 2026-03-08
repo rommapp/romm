@@ -29,7 +29,8 @@ from handler.metadata.gamelist_handler import GamelistRom
 from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST, HasheousRom
 from handler.metadata.hltb_handler import HLTB_PLATFORM_LIST, HLTBRom
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST, IGDBRom
-from handler.metadata.launchbox_handler import LAUNCHBOX_PLATFORM_LIST, LaunchboxRom
+from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
+from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST, MobyGamesRom
 from handler.metadata.playmatch_handler import PlaymatchRomMatch
 from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAGameRom
@@ -288,6 +289,7 @@ async def scan_rom(
     fs_rom: FSRom,
     metadata_sources: list[str],
     newly_added: bool,
+    launchbox_remote_enabled: bool = True,
     socket_manager: socketio.AsyncRedisManager | None = None,
 ) -> Rom:
     rom_attrs = {
@@ -592,12 +594,20 @@ async def scan_rom(
                 and rom.platform_slug in LAUNCHBOX_PLATFORM_LIST
             )
         ):
-            if scan_type == ScanType.UPDATE and rom.launchbox_id:
-                return await meta_launchbox_handler.get_rom_by_id(rom.launchbox_id)
-            else:
-                return await meta_launchbox_handler.get_rom(
-                    rom_attrs["fs_name"], platform_slug
+            if (
+                scan_type == ScanType.UPDATE
+                and rom.launchbox_id
+                and launchbox_remote_enabled
+            ):
+                return await meta_launchbox_handler.get_rom_by_id(
+                    rom.launchbox_id, remote_enabled=True
                 )
+
+            return await meta_launchbox_handler.get_rom(
+                rom_attrs["fs_name"],
+                platform_slug,
+                remote_enabled=launchbox_remote_enabled,
+            )
 
         return LaunchboxRom(launchbox_id=None)
 
