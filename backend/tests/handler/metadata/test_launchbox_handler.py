@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from anyio import Path as AnyioPath
+from defusedxml import ElementTree as ET
 
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.local_source import LocalSource
@@ -317,11 +318,7 @@ class TestLocalSource:
             "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
             platforms_dir,
         ):
-            with patch.object(
-                async_cache, "hget", new_callable=AsyncMock, return_value=None
-            ):
-                with patch.object(async_cache, "hset", new_callable=AsyncMock):
-                    result = await source.get_rom("super mario bros..nes", "nes")
+            result = await source.get_rom("super mario bros..nes", "nes")
 
         assert result is not None
         assert result.get("Title", None) == "Super Mario Bros."
@@ -335,12 +332,8 @@ class TestLocalSource:
             "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
             platforms_dir,
         ):
-            with patch.object(
-                async_cache, "hget", new_callable=AsyncMock, return_value=None
-            ):
-                with patch.object(async_cache, "hset", new_callable=AsyncMock):
-                    # "Mega Man 2.nes" → stem "Mega Man 2" → title key "mega man 2"
-                    result = await source.get_rom("Mega Man 2.nes", "nes")
+            # "Mega Man 2.nes" → stem "Mega Man 2" → title key "mega man 2"
+            result = await source.get_rom("Mega Man 2.nes", "nes")
 
         assert result is not None
         assert result.get("Title", None) == "Mega Man 2"
@@ -348,53 +341,39 @@ class TestLocalSource:
     async def test_cache_hit_uses_cached_index(
         self, source: LocalSource, nes_xml: Path, platforms_dir: Path
     ):
-        mtime_ns = (await AnyioPath(str(nes_xml)).stat()).st_mtime_ns
         cached_index = {
             "super mario bros..nes": {"Title": "Cached Entry", "DatabaseID": "9999"}
         }
-        cached_payload = json.dumps((mtime_ns, cached_index))
+        source._cache["nes"] = cached_index
 
         with patch(
             "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
             platforms_dir,
         ):
-            with patch.object(
-                async_cache, "hget", new_callable=AsyncMock, return_value=cached_payload
-            ):
-                with patch.object(
-                    async_cache, "hset", new_callable=AsyncMock
-                ) as mock_hset:
-                    result = await source.get_rom("super mario bros..nes", "nes")
-                    # hset should NOT be called — we used the cache
-                    mock_hset.assert_not_called()
+            with patch(
+                "handler.metadata.launchbox_handler.local_source.ET.parse"
+            ) as mock_parse:
+                result = await source.get_rom("super mario bros..nes", "nes")
+                mock_parse.assert_not_called()
 
         assert result is not None
         assert result.get("Title", None) == "Cached Entry"
 
-    async def test_stale_cache_triggers_reparse(
+    async def test_xml_parsed_once_across_calls(
         self, source: LocalSource, nes_xml: Path, platforms_dir: Path
     ):
-        stale_mtime = 0  # clearly wrong mtime
-        stale_index = {"super mario bros..nes": {"Title": "Stale Entry"}}
-        stale_payload = json.dumps((stale_mtime, stale_index))
-
+        """XML should only be parsed once per platform per LocalSource lifetime."""
         with patch(
             "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
             platforms_dir,
         ):
-            with patch.object(
-                async_cache, "hget", new_callable=AsyncMock, return_value=stale_payload
-            ):
-                with patch.object(
-                    async_cache, "hset", new_callable=AsyncMock
-                ) as mock_hset:
-                    result = await source.get_rom("super mario bros..nes", "nes")
-                    # hset should be called with fresh data
-                    mock_hset.assert_called_once()
-
-        # Should return fresh parsed data, not stale entry
-        assert result is not None
-        assert result.get("Title", None) == "Super Mario Bros."
+            with patch(
+                "handler.metadata.launchbox_handler.local_source.ET.parse",
+                wraps=ET.parse,
+            ) as mock_parse:
+                await source.get_rom("super mario bros..nes", "nes")
+                await source.get_rom("Mega Man 2.nes", "nes")
+                mock_parse.assert_called_once()
 
     async def test_parse_error_returns_none(
         self, source: LocalSource, nes_xml: Path, platforms_dir: Path
@@ -405,11 +384,7 @@ class TestLocalSource:
             "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
             platforms_dir,
         ):
-            with patch.object(
-                async_cache, "hget", new_callable=AsyncMock, return_value=None
-            ):
-                with patch.object(async_cache, "hset", new_callable=AsyncMock):
-                    result = await source.get_rom("super mario bros..nes", "nes")
+            result = await source.get_rom("super mario bros..nes", "nes")
 
         assert result is None
 
@@ -420,11 +395,7 @@ class TestLocalSource:
             "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
             platforms_dir,
         ):
-            with patch.object(
-                async_cache, "hget", new_callable=AsyncMock, return_value=None
-            ):
-                with patch.object(async_cache, "hset", new_callable=AsyncMock):
-                    result = await source.get_rom("   ", "nes")
+            result = await source.get_rom("   ", "nes")
 
         assert result is None
 
@@ -435,11 +406,7 @@ class TestLocalSource:
             "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
             platforms_dir,
         ):
-            with patch.object(
-                async_cache, "hget", new_callable=AsyncMock, return_value=None
-            ):
-                with patch.object(async_cache, "hset", new_callable=AsyncMock):
-                    result = await source.get_rom("game_that_does_not_exist.nes", "nes")
+            result = await source.get_rom("game_that_does_not_exist.nes", "nes")
 
         assert result is None
 
