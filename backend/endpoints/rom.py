@@ -1261,7 +1261,8 @@ async def update_rom(
         launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
             cleaned_data["launchbox_id"]
         )
-        cleaned_data.update(launchbox_rom)
+        if launchbox_rom.get("launchbox_id"):
+            cleaned_data.update(launchbox_rom)
     elif rom.launchbox_id and not cleaned_data["launchbox_id"]:
         cleaned_data.update({"launchbox_id": None, "launchbox_metadata": {}})
 
