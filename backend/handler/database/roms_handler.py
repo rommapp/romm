@@ -803,6 +803,10 @@ class DBRomsHandler(DBBaseHandler):
                 func.lower(order_attr).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
             )
 
+            order_attr = order_attr.regexp_replace(
+                r"(\d+)", r"00000000000\1", "g"
+            ).regexp_replace(r"0*(\d{12})", r"\1", "g")
+
         if order_dir.lower() == "desc":
             order_attr = order_attr.desc()
         else:
@@ -880,6 +884,11 @@ class DBRomsHandler(DBBaseHandler):
             order_by_attr = func.trim(
                 func.lower(Rom.name).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
             )
+
+        if isinstance(order_by_attr.type, (String, Text)):
+            order_by_attr = order_by_attr.regexp_replace(
+                r"(\d+)", r"00000000000\1", "g"
+            ).regexp_replace(r"0*(\d{12})", r"\1", "g")
 
         # Get the row number and first letter for each item
         subquery = (
