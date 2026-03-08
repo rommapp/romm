@@ -1250,7 +1250,8 @@ async def update_rom(
         flashpoint_rom = await meta_flashpoint_handler.get_rom_by_id(
             cleaned_data["flashpoint_id"]
         )
-        cleaned_data.update(flashpoint_rom)
+        if flashpoint_rom.get("flashpoint_id"):
+            cleaned_data.update(flashpoint_rom)
     elif rom.flashpoint_id and not cleaned_data["flashpoint_id"]:
         cleaned_data.update({"flashpoint_id": None, "flashpoint_metadata": {}})
 
@@ -1268,7 +1269,8 @@ async def update_rom(
 
     if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
         ra_rom = await meta_ra_handler.get_rom_by_id(rom, ra_id=cleaned_data["ra_id"])
-        cleaned_data.update(ra_rom)
+        if ra_rom.get("ra_id"):
+            cleaned_data.update(ra_rom)
     elif rom.ra_id and not cleaned_data["ra_id"]:
         cleaned_data.update({"ra_id": None, "ra_metadata": {}})
 
@@ -1276,19 +1278,22 @@ async def update_rom(
         moby_rom = await meta_moby_handler.get_rom_by_id(
             int(cleaned_data.get("moby_id", ""))
         )
-        cleaned_data.update(moby_rom)
+        if moby_rom.get("moby_id"):
+            cleaned_data.update(moby_rom)
     elif rom.moby_id and not cleaned_data["moby_id"]:
         cleaned_data.update({"moby_id": None, "moby_metadata": {}})
 
     if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
         ss_rom = await meta_ss_handler.get_rom_by_id(rom, cleaned_data["ss_id"])
-        cleaned_data.update(ss_rom)
+        if ss_rom.get("ss_id"):
+            cleaned_data.update(ss_rom)
     elif rom.ss_id and not cleaned_data["ss_id"]:
         cleaned_data.update({"ss_id": None, "ss_metadata": {}})
 
     if cleaned_data["igdb_id"] and int(cleaned_data["igdb_id"]) != rom.igdb_id:
         igdb_rom = await meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
-        cleaned_data.update(igdb_rom)
+        if igdb_rom.get("igdb_id"):
+            cleaned_data.update(igdb_rom)
     elif rom.igdb_id and not cleaned_data["igdb_id"]:
         cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
 
