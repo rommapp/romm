@@ -56,7 +56,12 @@ class GamelistExporter:
                 f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_l}"
             )
 
-        if rom.youtube_video_id:
+        video_path = (rom.ss_metadata or {}).get("video_path") or (
+            rom.gamelist_metadata or {}
+        ).get("video_path")
+        if video_path:
+            SubElement(game, "video").text = f"{FRONTEND_RESOURCES_PATH}/{video_path}"
+        elif rom.youtube_video_id:
             SubElement(game, "video").text = (
                 f"{YOUTUBE_BASE_URL}/embed/{rom.youtube_video_id}"
             )
