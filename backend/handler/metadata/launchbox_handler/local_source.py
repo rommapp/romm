@@ -1,16 +1,17 @@
-import json
 from pathlib import Path, PureWindowsPath
 
 from defusedxml import ElementTree as ET
 
-from handler.redis_handler import async_cache
 from logger.logger import log
 
 from .platforms import get_platform
-from .types import LAUNCHBOX_PLATFORMS_DIR, LAUNCHBOX_XML_INDEX_KEY
+from .types import LAUNCHBOX_PLATFORMS_DIR
 
 
 class LocalSource:
+    def __init__(self) -> None:
+        self._cache: dict[str, dict[str, dict[str, str]]] = {}
+
     async def get_rom(self, fs_name: str, platform_slug: str) -> dict[str, str] | None:
         if not LAUNCHBOX_PLATFORMS_DIR.exists():
             return None
@@ -22,23 +23,10 @@ class LocalSource:
         if not xml_path or not xml_path.exists():
             return None
 
-        try:
-            xml_path_str = str(xml_path.resolve())
-            mtime_ns = xml_path.stat().st_mtime_ns
-            indexed_val = {}
-
-            cached_str = await async_cache.hget(LAUNCHBOX_XML_INDEX_KEY, xml_path_str)
-            if cached_str:
-                cached = json.loads(cached_str)
-                if cached[0] == mtime_ns:
-                    indexed_val = cached[1]
-                else:
-                    cached = None
-            else:
-                cached = None
-
-            if cached is None:
-                root = ET.parse(xml_path_str).getroot()
+        if platform_slug not in self._cache:
+            try:
+                indexed_val: dict[str, dict[str, str]] = {}
+                root = ET.parse(str(xml_path.resolve())).getroot()
                 if root:
                     for game_elem in root.findall(".//Game"):
                         entry: dict[str, str] = {}
@@ -57,15 +45,13 @@ class LocalSource:
                         title = (entry.get("Title") or "").strip().lower()
                         if title:
                             indexed_val.setdefault(f"title:{title}", entry)
+            except (ET.ParseError, FileNotFoundError, PermissionError) as e:
+                log.warning(f"Failed to parse local LaunchBox XML {xml_path}: {e}")
+                return None
 
-                    await async_cache.hset(
-                        LAUNCHBOX_XML_INDEX_KEY,
-                        xml_path_str,
-                        json.dumps((mtime_ns, indexed_val)),
-                    )
-        except (ET.ParseError, FileNotFoundError, PermissionError) as e:
-            log.warning(f"Failed to parse local LaunchBox XML {xml_path}: {e}")
-            return None
+            self._cache[platform_slug] = indexed_val
+
+        indexed_val = self._cache[platform_slug]
 
         if not indexed_val:
             return None
