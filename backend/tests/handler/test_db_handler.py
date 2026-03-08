@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import pytest
 from sqlalchemy.exc import IntegrityError
 
 from handler.auth import auth_handler
@@ -253,16 +254,14 @@ def test_users(admin_user):
     all_users = db_user_handler.get_users()
     assert len(all_users) == 1
 
-    try:
-        new_user = db_user_handler.add_user(
+    with pytest.raises(IntegrityError):
+        db_user_handler.add_user(
             User(
                 username="test_admin",
                 hashed_password=auth_handler.get_password_hash("new_password"),
                 role=Role.ADMIN,
             )
         )
-    except IntegrityError as e:
-        assert "Duplicate entry 'test_admin' for key" in str(e)
 
 
 def test_saves(save: Save, platform: Platform, admin_user: User):
