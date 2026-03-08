@@ -15,7 +15,6 @@ import type {
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
 import socket from "@/services/socket";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeUpload from "@/stores/upload";
 import { getDownloadPath } from "@/utils";
 import { buildFormInput, type FormInputField } from "@/utils/formData";
@@ -26,6 +25,71 @@ type SimpleRom = SimpleRomSchema;
 type SearchRom = SearchRomSchema;
 
 const DOWNLOAD_CLEANUP_DELAY = 100;
+const UPLOAD_CHUNK_SIZE = 10 * 1024 * 1024; // 10MB per chunk
+const MAX_CHUNK_RETRIES = 3;
+
+async function uploadRomChunked({
+  platformId,
+  file,
+}: {
+  platformId: number;
+  file: File;
+}): Promise<void> {
+  const uploadStore = storeUpload();
+  const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE);
+
+  const { data: startData } = await api.post("/roms/upload/start", null, {
+    headers: {
+      "X-Upload-Platform": platformId.toString(),
+      "X-Upload-Filename": file.name,
+      "X-Upload-Total-Size": file.size.toString(),
+      "X-Upload-Total-Chunks": totalChunks.toString(),
+    },
+  });
+  const { upload_id } = startData;
+
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * UPLOAD_CHUNK_SIZE;
+    const chunk = file.slice(
+      start,
+      Math.min(start + UPLOAD_CHUNK_SIZE, file.size),
+    );
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < MAX_CHUNK_RETRIES; attempt++) {
+      try {
+        await api.put(`/roms/upload/${upload_id}`, chunk, {
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "X-Chunk-Index": i.toString(),
+          },
+          timeout: 120000,
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            const chunkFraction = progressEvent.progress ?? 0;
+            const overall = ((i + chunkFraction) / totalChunks) * 100;
+            uploadStore.updateChunkProgress(file.name, overall, file.size);
+          },
+        });
+        lastError = null;
+        break;
+      } catch (err) {
+        lastError = err as Error;
+        if (attempt < MAX_CHUNK_RETRIES - 1) {
+          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        }
+      }
+    }
+
+    if (lastError) {
+      await api.post(`/roms/upload/${upload_id}/cancel`).catch(() => {});
+      throw lastError;
+    }
+  }
+
+  await api.post(`/roms/upload/${upload_id}/complete`, null, {
+    timeout: 600000, // 10 minutes
+  });
+}
 
 async function uploadRoms({
   platformId,
@@ -34,38 +98,21 @@ async function uploadRoms({
   platformId: number;
   filesToUpload: File[];
 }) {
-  const heartbeat = storeHeartbeat();
-
   if (!socket.connected) socket.connect();
   const uploadStore = storeUpload();
 
   const promises = filesToUpload.map((file) => {
-    const formData = new FormData();
-    formData.append(file.name, file);
-
     uploadStore.start(file.name);
-    return new Promise<null>((resolve, reject) => {
-      api
-        .post("/roms", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            "X-Upload-Platform": platformId.toString(),
-            "X-Upload-Filename": file.name,
-          },
-          timeout: heartbeat.value.FRONTEND.UPLOAD_TIMEOUT * 1000,
-          params: {},
-          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-            uploadStore.update(file.name, progressEvent);
-          },
-        })
-        .then(() => {
-          resolve(null);
-        })
-        .catch((error) => {
-          uploadStore.fail(file.name, error.response?.data?.detail);
-          reject(error);
-        });
-    });
+
+    return uploadRomChunked({ platformId, file })
+      .then(() => null as null)
+      .catch((error) => {
+        uploadStore.fail(
+          file.name,
+          error.response?.data?.detail ?? error.message,
+        );
+        return Promise.reject(error);
+      });
   });
 
   return Promise.allSettled(promises);
@@ -457,7 +504,6 @@ async function uploadManuals({
   romId: number;
   filesToUpload: File[];
 }) {
-  const heartbeat = storeHeartbeat();
   const uploadStore = storeUpload();
 
   const promises = filesToUpload.map((file) => {
@@ -472,7 +518,6 @@ async function uploadManuals({
             "Content-Type": "multipart/form-data",
             "X-Upload-Filename": file.name,
           },
-          timeout: heartbeat.value.FRONTEND.UPLOAD_TIMEOUT * 1000,
           params: {},
           onUploadProgress: (progressEvent: AxiosProgressEvent) => {
             uploadStore.update(file.name, progressEvent);

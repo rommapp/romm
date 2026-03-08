@@ -39,7 +39,6 @@ const defaultHeartbeat: Heartbeat = {
     DISABLE_RUFFLE_RS: false,
   },
   FRONTEND: {
-    UPLOAD_TIMEOUT: 20,
     DISABLE_USERPASS_LOGIN: false,
     YOUTUBE_BASE_URL: "https://www.youtube.com",
   },

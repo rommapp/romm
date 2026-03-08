@@ -20,7 +20,6 @@ from config import (
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
-    UPLOAD_TIMEOUT,
     YOUTUBE_BASE_URL,
 )
 from config.config_manager import config_manager as cm
@@ -112,7 +111,6 @@ async def heartbeat() -> HeartbeatResponse:
             "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS,
         },
         "FRONTEND": {
-            "UPLOAD_TIMEOUT": UPLOAD_TIMEOUT,
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,
             "YOUTUBE_BASE_URL": YOUTUBE_BASE_URL,
         },

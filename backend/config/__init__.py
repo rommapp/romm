@@ -201,7 +201,6 @@ DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_J
 DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
 
 # FRONTEND
-UPLOAD_TIMEOUT: Final[int] = safe_int(_get_env("UPLOAD_TIMEOUT"), 600)
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
 
 # LOGGING
