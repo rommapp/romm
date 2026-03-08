@@ -693,7 +693,9 @@ class DBRomsHandler(DBBaseHandler):
                             ),
                             _create_metadata_id_case(
                                 "fs",
-                                base_subquery.c.fs_name_no_tags,
+                                func.nullif(
+                                    base_subquery.c.fs_name_no_tags, ""
+                                ),
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
@@ -866,6 +868,7 @@ class DBRomsHandler(DBBaseHandler):
             statuses_logic=kwargs.get("statuses_logic", "any"),
             player_counts_logic=kwargs.get("player_counts_logic", "any"),
             user_id=kwargs.get("user_id", None),
+            group_by_meta_id=kwargs.get("group_by_meta_id", False),
         )
         return session.scalars(roms).all()
 
