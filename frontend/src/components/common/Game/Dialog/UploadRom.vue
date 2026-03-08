@@ -62,7 +62,7 @@ emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
     });
 });
 
-async function uploadRoms() {
+async function uploadROMs() {
   if (!selectedPlatform.value) return;
   show.value = false;
 
@@ -95,7 +95,7 @@ async function uploadRoms() {
   const platformId = selectedPlatform.value.id;
 
   await romApi
-    .uploadRoms({
+    .uploadROMs({
       filesToUpload: filesToUpload.value,
       platformId: platformId,
     })
@@ -382,7 +382,7 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
                 ? 'plain'
                 : 'flat'
             "
-            @click="uploadRoms"
+            @click="uploadROMs"
           >
             {{ t("common.upload") }}
           </v-btn>
