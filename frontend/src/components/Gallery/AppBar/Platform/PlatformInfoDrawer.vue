@@ -150,6 +150,7 @@ async function setAspectRatio() {
         });
         if (currentPlatform.value) {
           currentPlatform.value.aspect_ratio = selectedOption.name;
+          platformsStore.update(currentPlatform.value);
         }
       })
       .catch((error) => {
