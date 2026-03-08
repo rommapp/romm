@@ -9,7 +9,8 @@ from main import app
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
 from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
-from handler.metadata.launchbox_handler import LaunchboxHandler, LaunchboxRom
+from handler.metadata.launchbox_handler.handler import LaunchboxHandler
+from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
@@ -123,6 +124,41 @@ def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
     assert body["successful_items"] == 1
 
 
+def test_update_rom_user_props_with_data_envelope(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.put(
+        f"/api/roms/{rom.id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"data": {"backlogged": True, "rating": 7}},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["backlogged"] is True
+    assert body["rating"] == 7
+
+
+def test_update_rom_user_props_last_played_flags(
+    client: TestClient, access_token: str, rom: Rom
+):
+    mark_played_response = client.put(
+        f"/api/roms/{rom.id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"data": {}, "update_last_played": True},
+    )
+    assert mark_played_response.status_code == status.HTTP_200_OK
+    assert mark_played_response.json()["last_played"] is not None
+
+    clear_played_response = client.put(
+        f"/api/roms/{rom.id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"data": {}, "remove_last_played": True},
+    )
+    assert clear_played_response.status_code == status.HTTP_200_OK
+    assert clear_played_response.json()["last_played"] is None
+
+
 class TestUpdateMetadataIDs:
     @patch.object(
         IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=MOCK_IGDB_ID)
@@ -135,6 +171,26 @@ class TestUpdateMetadataIDs:
         rom: Rom,
     ):
         """Test updating IGDB ID."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"igdb_id": str(MOCK_IGDB_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["igdb_id"] == MOCK_IGDB_ID
+        assert get_rom_by_id_mock.called
+
+    @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+    def test_update_rom_igdb_id_persists_when_handler_disabled(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Test that IGDB ID persists when handler is disabled or game not found."""
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -170,6 +226,30 @@ class TestUpdateMetadataIDs:
         assert body["moby_id"] == MOCK_MOBY_ID
         assert get_rom_by_id_mock.called
 
+    @patch.object(
+        MobyGamesHandler,
+        "get_rom_by_id",
+        return_value=MobyGamesRom(moby_id=None),
+    )
+    def test_update_rom_moby_id_persists_when_handler_disabled(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Test that MobyGames ID persists when handler is disabled or game not found."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"moby_id": str(MOCK_MOBY_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["moby_id"] == MOCK_MOBY_ID
+        assert get_rom_by_id_mock.called
+
     @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=MOCK_SS_ID))
     def test_update_rom_ss_id(
         self,
@@ -190,6 +270,26 @@ class TestUpdateMetadataIDs:
         assert body["ss_id"] == MOCK_SS_ID
         assert get_rom_by_id_mock.called
 
+    @patch.object(SSHandler, "get_rom_by_id", return_value=SSRom(ss_id=None))
+    def test_update_rom_ss_id_persists_when_handler_disabled(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Test that ScreenScraper ID persists when handler is disabled or game not found."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"ss_id": str(MOCK_SS_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["ss_id"] == MOCK_SS_ID
+        assert get_rom_by_id_mock.called
+
     @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=MOCK_RA_ID))
     def test_update_rom_ra_id(
         self,
@@ -199,6 +299,26 @@ class TestUpdateMetadataIDs:
         rom: Rom,
     ):
         """Test updating RetroAchievements ID."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"ra_id": str(MOCK_RA_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["ra_id"] == MOCK_RA_ID
+        assert get_rom_by_id_mock.called
+
+    @patch.object(RAHandler, "get_rom_by_id", return_value=RAGameRom(ra_id=None))
+    def test_update_rom_ra_id_persists_when_handler_disabled(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Test that RetroAchievements ID persists when handler is disabled or game not found."""
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -235,6 +355,30 @@ class TestUpdateMetadataIDs:
         assert get_rom_by_id_mock.called
 
     @patch.object(
+        LaunchboxHandler,
+        "get_rom_by_id",
+        return_value=LaunchboxRom(launchbox_id=None),
+    )
+    def test_update_rom_launchbox_id_persists_when_handler_disabled(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Test that LaunchBox ID persists when handler is disabled or game not found."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"launchbox_id": str(MOCK_LAUNCHBOX_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["launchbox_id"] == MOCK_LAUNCHBOX_ID
+        assert get_rom_by_id_mock.called
+
+    @patch.object(
         FlashpointHandler,
         "get_rom_by_id",
         return_value=FlashpointRom(flashpoint_id=str(MOCK_FLASHPOINT_ID)),
@@ -247,6 +391,30 @@ class TestUpdateMetadataIDs:
         rom: Rom,
     ):
         """Test updating Flashpoint ID."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={"flashpoint_id": str(MOCK_FLASHPOINT_ID)},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        body = response.json()
+        assert body["flashpoint_id"] == str(MOCK_FLASHPOINT_ID)
+        assert get_rom_by_id_mock.called
+
+    @patch.object(
+        FlashpointHandler,
+        "get_rom_by_id",
+        return_value=FlashpointRom(flashpoint_id=None),
+    )
+    def test_update_rom_flashpoint_id_persists_when_handler_disabled(
+        self,
+        get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """Test that Flashpoint ID persists when handler is disabled or game not found."""
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},

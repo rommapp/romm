@@ -2,6 +2,8 @@ import os
 import shutil
 from dataclasses import dataclass
 
+from anyio import Path as AnyioPath
+
 from config import RESOURCES_BASE_PATH
 from handler.database import db_platform_handler, db_rom_handler
 from logger.logger import log
@@ -57,7 +59,8 @@ class CleanupOrphanedResourcesTask(Task):
         cleanup_stats = CleanupStats()
 
         roms_resources_path = os.path.join(RESOURCES_BASE_PATH, "roms")
-        if not os.path.exists(roms_resources_path):
+        roms_resources_dir = AnyioPath(roms_resources_path)
+        if not await roms_resources_dir.exists():
             cleanup_stats.update()
             log.info("Resources path does not exist, skipping cleanup")
             return cleanup_stats.to_dict()
@@ -82,18 +85,19 @@ class CleanupOrphanedResourcesTask(Task):
 
         # Count total platforms and ROMs for progress tracking
         platform_dirs: set[int] = {
-            int(d)
-            for d in os.listdir(roms_resources_path)
-            if os.path.isdir(os.path.join(roms_resources_path, d))
+            int(entry.name)
+            async for entry in roms_resources_dir.iterdir()
+            if await entry.is_dir()
         }
 
         rom_dirs_by_platform: dict[int, set[int]] = {}
         for platform_dir in platform_dirs:
             platform_path = os.path.join(roms_resources_path, str(platform_dir))
+            platform_dir_path = AnyioPath(platform_path)
             rom_dirs_by_platform[platform_dir] = {
-                int(d)
-                for d in os.listdir(platform_path)
-                if os.path.isdir(os.path.join(platform_path, d))
+                int(entry.name)
+                async for entry in platform_dir_path.iterdir()
+                if await entry.is_dir()
             }
 
         cleanup_stats.update(

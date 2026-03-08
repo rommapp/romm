@@ -1,4 +1,5 @@
 from fastapi import HTTPException, Request, status
+from pydantic import BaseModel
 
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
@@ -12,6 +13,16 @@ router = APIRouter(
     prefix="/config",
     tags=["config"],
 )
+
+
+class PlatformBindingPayload(BaseModel):
+    fs_slug: str
+    slug: str
+
+
+class ExclusionPayload(BaseModel):
+    exclusion_value: str
+    exclusion_type: str
 
 
 @router.get("")
@@ -55,12 +66,13 @@ def get_config(request: Request) -> ConfigResponse:
 
 
 @protected_route(router.post, "/system/platforms", [Scope.PLATFORMS_WRITE])
-async def add_platform_binding(request: Request) -> None:
+async def add_platform_binding(
+    request: Request, payload: PlatformBindingPayload
+) -> None:
     """Add platform binding to the configuration"""
 
-    data = await request.json()
-    fs_slug = data["fs_slug"]
-    slug = data["slug"]
+    fs_slug = payload.fs_slug
+    slug = payload.slug
 
     try:
         cm.add_platform_binding(fs_slug, slug)
@@ -85,12 +97,13 @@ async def delete_platform_binding(request: Request, fs_slug: str) -> None:
 
 
 @protected_route(router.post, "/system/versions", [Scope.PLATFORMS_WRITE])
-async def add_platform_version(request: Request) -> None:
+async def add_platform_version(
+    request: Request, payload: PlatformBindingPayload
+) -> None:
     """Add platform version to the configuration"""
 
-    data = await request.json()
-    fs_slug = data["fs_slug"]
-    slug = data["slug"]
+    fs_slug = payload.fs_slug
+    slug = payload.slug
 
     try:
         cm.add_platform_version(fs_slug, slug)
@@ -115,12 +128,11 @@ async def delete_platform_version(request: Request, fs_slug: str) -> None:
 
 
 @protected_route(router.post, "/exclude", [Scope.PLATFORMS_WRITE])
-async def add_exclusion(request: Request) -> None:
+async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     """Add platform exclusion to the configuration"""
 
-    data = await request.json()
-    exclusion_value = data["exclusion_value"]
-    exclusion_type = data["exclusion_type"]
+    exclusion_value = payload.exclusion_value
+    exclusion_type = payload.exclusion_type
     try:
         cm.add_exclusion(exclusion_type, exclusion_value)
     except ConfigNotWritableException as exc:

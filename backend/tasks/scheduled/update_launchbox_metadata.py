@@ -10,7 +10,7 @@ from config import (
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
 )
 from handler.metadata import meta_launchbox_handler
-from handler.metadata.launchbox_handler import (
+from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
@@ -44,7 +44,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
     async def run(self, force: bool = False) -> dict[str, Any]:
         update_stats = UpdateStats()
 
-        if not meta_launchbox_handler.is_enabled():
+        if not meta_launchbox_handler.is_cloud_enabled():
             log.warning("Launchbox API is not enabled, skipping metadata update")
             return update_stats.to_dict()
 

@@ -1,5 +1,7 @@
 import os
 
+from anyio import Path as AnyioPath
+
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import (
@@ -105,12 +107,13 @@ class FSPlatformsHandler(FSHandler):
         # For Structure B, only include directories that have a roms subfolder
         structure = self.detect_library_structure()
         if structure == LibraryStructure.B:
-            platforms = [
-                platform
-                for platform in platforms
-                if os.path.exists(
+            filtered_platforms: list[str] = []
+            for platform in platforms:
+                roms_path = AnyioPath(
                     os.path.join(LIBRARY_BASE_PATH, platform, cnfg.ROMS_FOLDER_NAME)
                 )
-            ]
+                if await roms_path.exists():
+                    filtered_platforms.append(platform)
+            platforms = filtered_platforms
 
         return self._exclude_platforms(platforms)

@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Request, UploadFile, status
+from fastapi import File, HTTPException, Request, UploadFile, status
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import ScreenshotSchema
@@ -10,6 +10,7 @@ from handler.scan_handler import scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -17,14 +18,15 @@ router = APIRouter(
     tags=["screenshots"],
 )
 
+SCREENSHOT_FILE_UPLOAD = File(..., description="Screenshot file to upload.")
+
 
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 async def add_screenshot(
     request: Request,
     rom_id: int,
+    screenshotFile: UploadFile = SCREENSHOT_FILE_UPLOAD,
 ) -> ScreenshotSchema:
-    data = await request.form()
-
     rom = db_rom_handler.get_rom(id=rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
@@ -36,14 +38,6 @@ async def add_screenshot(
         user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
     )
 
-    if "screenshotFile" not in data:
-        log.error("No screenshot file provided")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No screenshot file provided",
-        )
-
-    screenshotFile: UploadFile = data["screenshotFile"]  # type: ignore
     if not screenshotFile.filename:
         log.error("Screenshot file has no filename")
         raise HTTPException(
@@ -51,23 +45,29 @@ async def add_screenshot(
             detail="Screenshot file has no filename",
         )
 
-    if not screenshotFile.filename:
-        log.warning("Skipping empty screenshot")
+    try:
+        sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+    except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Screenshot has no filename"
-        )
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid screenshot filename: {str(exc)}",
+        ) from exc
 
-    await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+    await fs_asset_handler.write_file(
+        file=screenshotFile,
+        path=screenshots_path,
+        filename=sanitized_screenshot_filename,
+    )
 
     # Scan or update screenshot
     scanned_screenshot = await scan_screenshot(
-        file_name=screenshotFile.filename,
+        file_name=sanitized_screenshot_filename,
         user=request.user,
         platform_fs_slug=rom.platform_slug,
         rom_id=rom.id,
     )
     db_screenshot = db_screenshot_handler.get_screenshot(
-        file_name=screenshotFile.filename,
+        file_name=sanitized_screenshot_filename,
         rom_id=rom.id,
         user_id=current_user.id,
     )

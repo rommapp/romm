@@ -3,7 +3,7 @@ import re
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
@@ -27,6 +27,7 @@ from models.assets import Save
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from utils.datetime import to_utc
+from utils.filesystem import sanitize_filename
 from utils.router import APIRouter
 
 
@@ -99,6 +100,14 @@ router = APIRouter(
     tags=["saves"],
 )
 
+SAVE_FILE_UPLOAD = File(..., description="Save file to upload.")
+SAVE_SCREENSHOT_UPLOAD = File(
+    default=None,
+    description="Screenshot file associated with this save.",
+)
+SAVE_FILE_UPDATE = File(default=None, description="Updated save file content.")
+SAVE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
+
 
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
 async def add_save(
@@ -110,25 +119,17 @@ async def add_save(
     overwrite: bool = False,
     autocleanup: bool = False,
     autocleanup_limit: int = 10,
+    saveFile: UploadFile = SAVE_FILE_UPLOAD,
+    screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPLOAD,
 ) -> SaveSchema:
     """Upload a save file for a ROM."""
     device = _resolve_device(
         device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
     )
 
-    data = await request.form()
-
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
-
-    if "saveFile" not in data:
-        log.error("No save file provided")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No save file provided"
-        )
-
-    saveFile: UploadFile = data["saveFile"]  # type: ignore
 
     if not saveFile.filename:
         log.error("Save file has no filename")
@@ -136,9 +137,17 @@ async def add_save(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Save file has no filename"
         )
 
-    actual_filename = saveFile.filename
+    try:
+        sanitized_save_filename = sanitize_filename(saveFile.filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid save filename: {str(exc)}",
+        ) from exc
+
+    actual_filename = sanitized_save_filename
     if slot:
-        actual_filename = _apply_datetime_tag(saveFile.filename)
+        actual_filename = _apply_datetime_tag(sanitized_save_filename)
 
     db_save = db_save_handler.get_save_by_filename(
         user_id=request.user.id, rom_id=rom.id, file_name=actual_filename
@@ -250,22 +259,33 @@ async def add_save(
                 except FileNotFoundError:
                     log.warning(f"Could not delete old save file: {old_save.full_path}")
 
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
+        try:
+            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid screenshot filename: {str(exc)}",
+            ) from exc
+
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )
 
-        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(
+            file=screenshotFile,
+            path=screenshots_path,
+            filename=sanitized_screenshot_filename,
+        )
 
         scanned_screenshot = await scan_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             user=request.user,
             platform_fs_slug=rom.platform_slug,
             rom_id=rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             rom_id=rom.id,
             user_id=request.user.id,
         )
@@ -446,9 +466,13 @@ def confirm_download(
 
 
 @protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
-async def update_save(request: Request, id: int) -> SaveSchema:
+async def update_save(
+    request: Request,
+    id: int,
+    saveFile: UploadFile | None = SAVE_FILE_UPDATE,
+    screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPDATE,
+) -> SaveSchema:
     """Update a save file."""
-    data = await request.form()
 
     db_save = db_save_handler.get_save(user_id=request.user.id, id=id)
     if not db_save:
@@ -456,32 +480,44 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    if "saveFile" in data:
-        saveFile: UploadFile = data["saveFile"]  # type: ignore
-        await fs_asset_handler.write_file(file=saveFile, path=db_save.file_path)
+    if saveFile:
+        await fs_asset_handler.write_file(
+            file=saveFile, path=db_save.file_path, filename=db_save.file_name
+        )
         db_save = db_save_handler.update_save(
             db_save.id, {"file_size_bytes": saveFile.size}
         )
 
-    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
+        try:
+            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid screenshot filename: {str(exc)}",
+            ) from exc
+
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
             user=request.user,
             platform_fs_slug=db_save.rom.platform_slug,
             rom_id=db_save.rom.id,
         )
 
-        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(
+            file=screenshotFile,
+            path=screenshots_path,
+            filename=sanitized_screenshot_filename,
+        )
 
         # Scan or update screenshot
         scanned_screenshot = await scan_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             user=request.user,
             platform_fs_slug=db_save.rom.platform_slug,
             rom_id=db_save.rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=screenshotFile.filename,
+            file_name=sanitized_screenshot_filename,
             rom_id=db_save.rom.id,
             user_id=request.user.id,
         )

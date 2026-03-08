@@ -4,6 +4,7 @@ from io import BytesIO
 from pathlib import Path
 
 import httpx
+from anyio import Path as AnyioPath
 from fastapi import status
 from PIL import Image, ImageFile, UnidentifiedImageError
 
@@ -14,6 +15,7 @@ from models.collection import Collection
 from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
+from utils.validation import validate_url_for_http_request
 
 from .base_handler import CoverSize, FSHandler
 
@@ -73,11 +75,11 @@ class FSResourcesHandler(FSHandler):
         # Handle file:// URLs for gamelist.xml
         if url_cover.startswith("file://"):
             try:
-                file_path = Path(url_cover[7:])  # Remove "file://" prefix
-                if file_path.exists():
+                file_path = AnyioPath(url_cover[7:])  # Remove "file://" prefix
+                if await file_path.exists():
                     # Copy the file to the resources directory
                     dest_path = f"{cover_file}/{size.value}.png"
-                    await self.copy_file(file_path, dest_path)
+                    await self.copy_file(Path(str(file_path)), dest_path)
 
                     if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
                         self.image_converter.convert_to_webp(
@@ -92,6 +94,9 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URLs
+            # Validate URL to prevent SSRF attacks
+            validate_url_for_http_request(url_cover, "Cover URL")
+
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream(
@@ -244,10 +249,12 @@ class FSResourcesHandler(FSHandler):
         # Handle file:// URLs for gamelist.xml
         if url_screenhot.startswith("file://"):
             try:
-                file_path = Path(url_screenhot[7:])  # Remove "file://" prefix
-                if file_path.exists():
+                file_path = AnyioPath(url_screenhot[7:])  # Remove "file://" prefix
+                if await file_path.exists():
                     # Copy the file to the resources directory
-                    await self.copy_file(file_path, f"{screenshot_path}/{idx}.jpg")
+                    await self.copy_file(
+                        Path(str(file_path)), f"{screenshot_path}/{idx}.jpg"
+                    )
                 else:
                     log.warning(f"Screenshot file not found: {file_path}")
                     return None
@@ -256,6 +263,9 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URLs
+            # Validate URL to prevent SSRF attacks
+            validate_url_for_http_request(url_screenhot, "Screenshot URL")
+
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream(
@@ -355,10 +365,12 @@ class FSResourcesHandler(FSHandler):
         # Handle file:// URLs for gamelist.xml
         if url_manual.startswith("file://"):
             try:
-                file_path = Path(url_manual[7:])  # Remove "file://" prefix
-                if file_path.exists():
+                file_path = AnyioPath(url_manual[7:])  # Remove "file://" prefix
+                if await file_path.exists():
                     # Copy the file to the resources directory
-                    await self.copy_file(file_path, f"{manual_path}/{rom.id}.pdf")
+                    await self.copy_file(
+                        Path(str(file_path)), f"{manual_path}/{rom.id}.pdf"
+                    )
                 else:
                     log.warning(f"Manual file not found: {file_path}")
                     return None
@@ -367,6 +379,9 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URL
+            # Validate URL to prevent SSRF attacks
+            validate_url_for_http_request(url_manual, "Manual URL")
+
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream(
@@ -425,6 +440,9 @@ class FSResourcesHandler(FSHandler):
 
     # Retroachievements
     async def store_ra_badge(self, url: str, path: str) -> None:
+        # Validate URL to prevent SSRF attacks
+        validate_url_for_http_request(url, "Badge URL")
+
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
 
@@ -480,14 +498,17 @@ class FSResourcesHandler(FSHandler):
         # Handle file:// URLs for gamelist.xml
         if url.startswith("file://"):
             try:
-                file_path = Path(url[7:])  # Remove "file://" prefix
-                if file_path.exists():
-                    await self.copy_file(file_path, dest_path)
+                file_path = AnyioPath(url[7:])  # Remove "file://" prefix
+                if await file_path.exists():
+                    await self.copy_file(Path(str(file_path)), dest_path)
             except Exception as exc:
                 log.error(f"Unable to copy media file {url}: {str(exc)}")
                 return None
         else:
             # Handle HTTP URLs
+            # Validate URL to prevent SSRF attacks
+            validate_url_for_http_request(url, "Media URL")
+
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream("GET", url, timeout=120) as response:

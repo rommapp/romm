@@ -1,5 +1,6 @@
 import os
 
+from anyio import Path as AnyioPath
 from fastapi import HTTPException, Request, status
 
 from config import (
@@ -227,8 +228,9 @@ async def get_setup_library_info(request: Request):
                     )
 
                 # Count files and folders in the roms directory
-                if os.path.exists(roms_path):
-                    items = os.listdir(roms_path)
+                roms_dir = AnyioPath(roms_path)
+                if await roms_dir.exists():
+                    items = [entry.name async for entry in roms_dir.iterdir()]
                     # Filter out hidden files and system files
                     rom_count = len(
                         [
