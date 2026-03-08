@@ -125,12 +125,11 @@ class LaunchboxHandler(MetadataHandler):
         # If `keep_tags` is True, the full `fs_name` is used for searching.
         if not keep_tags:
             search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
-            # We replace " - "/"- " with ": " to match Launchbox's naming convention
-            search_term = re.sub(DASH_COLON_REGEX, ": ", search_term)
         else:
             search_term = fs_name
 
-        search_term = search_term.lower()
+        # We replace " - "/"- " with ": " to match Launchbox's naming convention
+        search_term = re.sub(DASH_COLON_REGEX, ": ", search_term).lower()
 
         # Check if game is scummvm shortname
         if platform_slug == UPS.SCUMMVM:
@@ -197,12 +196,12 @@ class LaunchboxHandler(MetadataHandler):
         if not self.is_enabled():
             return []
 
-        rom = await self.get_rom(search_term, platform_slug, True)
+        rom = await self.get_rom(search_term, platform_slug, keep_tags=True)
         return [rom]
 
     async def get_matched_rom_by_id(self, database_id: int) -> LaunchboxRom | None:
         if not self.is_enabled():
             return None
 
-        rom = await self.get_rom_by_id(database_id, remote_enabled=True)
+        rom = await self.get_rom_by_id(database_id)
         return rom if rom.get("launchbox_id") else None
