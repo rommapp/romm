@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { SSAgeRating } from './SSAgeRating';
 export type RomSSMetadata = {
     bezel_url?: (string | null);
     box2d_url?: (string | null);
@@ -33,6 +34,7 @@ export type RomSSMetadata = {
     ss_score?: (string | null);
     first_release_date?: (number | null);
     alternative_names?: Array<string>;
+    age_ratings?: Array<SSAgeRating>;
     companies?: Array<string>;
     franchises?: Array<string>;
     game_modes?: Array<string>;

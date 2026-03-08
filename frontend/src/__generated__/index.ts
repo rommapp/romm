@@ -106,6 +106,7 @@ export type { SiblingRomSchema } from './models/SiblingRomSchema';
 export type { SimpleRomSchema } from './models/SimpleRomSchema';
 export type { SlotSummarySchema } from './models/SlotSummarySchema';
 export type { SmartCollectionSchema } from './models/SmartCollectionSchema';
+export type { SSAgeRating } from './models/SSAgeRating';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
 export type { SyncMode } from './models/SyncMode';
