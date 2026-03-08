@@ -11,6 +11,7 @@ from .types import LAUNCHBOX_PLATFORMS_DIR
 class LocalSource:
     def __init__(self) -> None:
         self._cache: dict[str, dict[str, dict[str, str]]] = {}
+        self._mtime: dict[str, int] = {}
 
     async def get_rom(self, fs_name: str, platform_slug: str) -> dict[str, str] | None:
         if not LAUNCHBOX_PLATFORMS_DIR.exists():
@@ -23,7 +24,10 @@ class LocalSource:
         if not xml_path or not xml_path.exists():
             return None
 
-        if platform_slug not in self._cache:
+        if (
+            platform_slug not in self._cache
+            or self._mtime.get(platform_slug) != xml_path.stat().st_mtime_ns
+        ):
             try:
                 indexed_val: dict[str, dict[str, str]] = {}
                 root = ET.parse(str(xml_path.resolve())).getroot()
@@ -50,6 +54,7 @@ class LocalSource:
                 return None
 
             self._cache[platform_slug] = indexed_val
+            self._mtime[platform_slug] = xml_path.stat().st_mtime_ns
 
         indexed_val = self._cache[platform_slug]
 
