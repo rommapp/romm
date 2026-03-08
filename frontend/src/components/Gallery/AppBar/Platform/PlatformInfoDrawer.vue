@@ -35,8 +35,16 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 const selectedAspectRatio = ref(0);
 
 // Some platform boxes have specific aspect ratios
-const DVD_PLATFORMS = new Set(["dvd-player"]);
-const BLU_RAY_PLATFORMS = new Set(["blu-ray-player"]);
+const DVD_PLATFORMS = new Set([
+  "dvd-player",
+  "ps2",
+  "ngc",
+  "wii",
+  "wiiu",
+  "xbox",
+  "xbox360",
+]);
+const BLU_RAY_PLATFORMS = new Set(["blu-ray-player", "ps3", "ps4"]);
 const DS_3DS_PLATFORMS = new Set(["3ds", "nds", "new-nintendo-3ds"]);
 const PSP_PLATFORMS = new Set(["psp", "psp-minis"]);
 
@@ -52,6 +60,16 @@ const aspectRatioOptions = computed(() => {
       name: "3 / 4",
       size: 3 / 4,
       source: "IGDB / MobyGames",
+    },
+    {
+      name: "1 / 1",
+      size: 1 / 1,
+      source: t("platform.old-squared-cases"),
+    },
+    {
+      name: "16 / 11",
+      size: 16 / 11,
+      source: t("platform.old-horizontal-cases"),
     },
     ...(DVD_PLATFORMS.has(slug)
       ? [
@@ -94,16 +112,6 @@ const aspectRatioOptions = computed(() => {
           },
         ]
       : []),
-    {
-      name: "1 / 1",
-      size: 1 / 1,
-      source: t("platform.old-squared-cases"),
-    },
-    {
-      name: "16 / 11",
-      size: 16 / 11,
-      source: t("platform.old-horizontal-cases"),
-    },
   ];
 });
 const tabIndex = computed(() => (activePlatformInfoDrawer.value ? 0 : -1));
