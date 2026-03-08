@@ -43,7 +43,6 @@ from endpoints import (
     states,
     stats,
     tasks,
-    upload,
     user,
 )
 from handler.auth.hybrid_auth import HybridAuthBackend
@@ -126,7 +125,6 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(user.router, prefix="/api")
 app.include_router(device.router, prefix="/api")
 app.include_router(platform.router, prefix="/api")
-app.include_router(upload.router, prefix="/api")
 app.include_router(rom.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(saves.router, prefix="/api")

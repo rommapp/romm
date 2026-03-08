@@ -17,7 +17,7 @@ from logger.logger import log
 from utils.router import APIRouter
 
 router = APIRouter(
-    prefix="/roms/upload",
+    prefix="/upload",
     tags=["upload"],
 )
 
@@ -41,9 +41,7 @@ async def _get_session(upload_id: str) -> dict:
 
 
 async def _save_session(upload_id: str, session: dict) -> None:
-    await async_cache.set(
-        _session_key(upload_id), json.dumps(session), ex=_UPLOAD_TTL
-    )
+    await async_cache.set(_session_key(upload_id), json.dumps(session), ex=_UPLOAD_TTL)
 
 
 def _cleanup_tmp(upload_id: str) -> None:
@@ -168,7 +166,9 @@ async def upload_chunk(
         async with open_file(chunk_path, "wb") as f:
             await f.write(chunk_data)
     except Exception as exc:
-        log.error(f"Error writing chunk {chunk_index} for upload {upload_id}", exc_info=exc)
+        log.error(
+            f"Error writing chunk {chunk_index} for upload {upload_id}", exc_info=exc
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error writing chunk to disk",

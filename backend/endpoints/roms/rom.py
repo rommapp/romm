@@ -75,10 +75,13 @@ from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 from utils.validation import ValidationError
 
+from .upload import router as upload_router
+
 router = APIRouter(
     prefix="/roms",
     tags=["roms"],
 )
+router.include_router(upload_router)
 
 
 def safe_int_or_none(value: Any) -> int | None:
@@ -208,86 +211,6 @@ def parse_raw_metadata(form_data: RomUpdateForm, form_key: str) -> dict | None:
     except json.JSONDecodeError as e:
         log.warning(f"Invalid JSON for {form_key}: {e}")
         return None
-
-
-@protected_route(
-    router.post,
-    "",
-    [Scope.ROMS_WRITE],
-    status_code=status.HTTP_201_CREATED,
-    responses={status.HTTP_400_BAD_REQUEST: {}},
-)
-async def add_rom(
-    request: Request,
-    platform_id: Annotated[
-        int,
-        Header(description="Platform internal id.", ge=1, alias="x-upload-platform"),
-    ],
-    filename: Annotated[
-        str,
-        Header(
-            description="The name of the file being uploaded.",
-            alias="x-upload-filename",
-        ),
-    ],
-) -> Response:
-    """Upload a single rom."""
-
-    if not platform_id or not filename:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No platform ID or filename provided",
-        )
-
-    db_platform = db_platform_handler.get_platform(platform_id)
-    if not db_platform:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Platform not found",
-        )
-
-    platform_fs_slug = db_platform.fs_slug
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform_fs_slug)
-    log.info(
-        f"Uploading file to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}[{hl(platform_fs_slug)}]"
-    )
-
-    file_location = fs_rom_handler.validate_path(f"{roms_path}/{filename}")
-
-    parser = StreamingFormDataParser(headers=request.headers)
-    parser.register("x-upload-platform", NullTarget())
-    parser.register(filename, FileTarget(str(file_location)))
-
-    # Check if the file already exists
-    if await fs_rom_handler.file_exists(f"{roms_path}/{filename}"):
-        log.warning(f" - Skipping {hl(filename)} since the file already exists")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File {filename} already exists",
-        )
-
-    # Create the directory if it doesn't exist
-    await fs_rom_handler.make_directory(roms_path)
-
-    def cleanup_partial_file():
-        if file_location.exists():
-            file_location.unlink()
-
-    try:
-        async for chunk in request.stream():
-            parser.data_received(chunk)
-    except ClientDisconnect:
-        log.error("Client disconnected during upload")
-        cleanup_partial_file()
-    except Exception as exc:
-        log.error("Error uploading files", exc_info=exc)
-        cleanup_partial_file()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="There was an error uploading the file(s)",
-        ) from exc
-
-    return Response()
 
 
 class CustomLimitOffsetParams(LimitOffsetParams):
@@ -1716,7 +1639,7 @@ async def update_rom_user(
 
 @protected_route(
     router.get,
-    "/files/{id}",
+    "/{id}/files",
     [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
@@ -1738,7 +1661,7 @@ async def get_romfile(
 
 @protected_route(
     router.get,
-    "files/{id}/content/{file_name}",
+    "/{id}/files/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
     responses={status.HTTP_404_NOT_FOUND: {}},
 )
