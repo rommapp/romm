@@ -67,7 +67,7 @@ class TestUpdateLaunchboxMetadataTask:
 
     async def test_run_when_launchbox_api_disabled(self, task, mocker):
         """Test run method when Launchbox API is disabled"""
-        mocker.patch.object(LaunchboxHandler, "is_enabled", return_value=False)
+        mocker.patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=False)
         mock_log = mocker.patch("tasks.scheduled.update_launchbox_metadata.log")
 
         await task.run(force=True)
