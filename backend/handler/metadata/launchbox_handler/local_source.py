@@ -52,6 +52,8 @@ class LocalSource:
                             indexed_val.setdefault(f"title:{title}", entry)
             except (ET.ParseError, FileNotFoundError, PermissionError) as e:
                 log.warning(f"Failed to parse local LaunchBox XML {xml_path}: {e}")
+                self._cache[platform_slug] = {}
+                self._mtime[platform_slug] = current_mtime
                 return None
 
             self._cache[platform_slug] = indexed_val
