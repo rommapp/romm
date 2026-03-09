@@ -41,7 +41,6 @@ const { xs, smAndDown } = useDisplay();
 const router = useRouter();
 const galleryFilterStore = storeGalleryFilter();
 const romsStore = storeRoms();
-const { fetchTotalRoms } = storeToRefs(romsStore);
 const platformsStore = storePlatforms();
 const {
   searchTerm,
@@ -557,7 +556,7 @@ onMounted(async () => {
             variant="outlined"
             density="comfortable"
             :items="filter.items.value"
-            class="flex-grow-1"
+            class="grow"
             @update:model-value="
               nextTick(() => emitter?.emit('filterRoms', null))
             "
@@ -568,7 +567,7 @@ onMounted(async () => {
             mandatory
             variant="outlined"
             density="compact"
-            class="flex-shrink-0"
+            class="shrink-0"
             @update:model-value="
               (value) => {
                 filter.setLogic(value);
@@ -613,7 +612,7 @@ onMounted(async () => {
         </div>
       </v-list-item>
       <v-list-item
-        class="justify-center d-flex flex-column ga-2"
+        class="justify-center d-flex"
         :tabindex="activeFilterDrawer ? 0 : -1"
       >
         <v-btn
@@ -624,12 +623,6 @@ onMounted(async () => {
         >
           {{ t("platform.reset-filters") }}
         </v-btn>
-        <span
-          v-if="fetchTotalRoms > 0"
-          class="text-caption text-medium-emphasis"
-        >
-          {{ t("gallery.filtered-results", { count: fetchTotalRoms }) }}
-        </span>
       </v-list-item>
     </v-list>
   </v-navigation-drawer>
