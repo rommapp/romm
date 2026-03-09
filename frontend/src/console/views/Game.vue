@@ -54,7 +54,6 @@ const selectedZone = ref<FocusZone>("play");
 const selectedStateIndex = ref(0);
 const showDescription = ref(false);
 const showDetails = ref(false);
-const showCoverLightbox = ref(false);
 const showLightbox = ref(false);
 const selectedShot = ref(0);
 const screenshotsRef = useTemplateRef<HTMLDivElement>("screenshots-ref");
@@ -156,15 +155,6 @@ function goBackToPlatform() {
 
 const { subscribe } = useInputScope();
 function handleAction(action: InputAction): boolean {
-  // Cover lightbox handling
-  if (showCoverLightbox.value) {
-    if (action === "back") {
-      showCoverLightbox.value = false;
-      return true;
-    }
-    return false;
-  }
-
   // Lightbox handling
   if (showLightbox.value) {
     if (action === "moveRight") {
@@ -563,8 +553,7 @@ onUnmounted(() => {
                   :src="largeCover || fallbackCoverImage"
                   :lazy-src="smallCover || fallbackCoverImage"
                   :alt="`${rom.name} cover`"
-                  class="w-[220px] md:w-[260px] h-auto rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8),_0_0_0_1px_rgba(255,255,255,0.1)] cursor-pointer"
-                  @click="showCoverLightbox = true"
+                  class="w-[220px] md:w-[260px] h-auto rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8),_0_0_0_1px_rgba(255,255,255,0.1)]"
                 />
               </div>
 
@@ -1022,57 +1011,6 @@ onUnmounted(() => {
         :start-index="selectedShot"
         @close="showLightbox = false"
       />
-
-      <!-- Cover Lightbox -->
-      <v-dialog
-        :model-value="showCoverLightbox"
-        :width="600"
-        scroll-strategy="block"
-        no-click-animation
-        persistent
-        z-index="9999"
-        scrim="black"
-        class="lightbox-dialog"
-        @update:model-value="showCoverLightbox = false"
-      >
-        <template #default>
-          <div class="lightbox-header">
-            <h2 class="text-h6" :style="{ color: 'var(--console-modal-text)' }">
-              Cover
-            </h2>
-            <v-btn
-              icon="mdi-close"
-              aria-label="Close"
-              size="small"
-              @click="showCoverLightbox = false"
-            />
-          </div>
-          <div class="d-flex justify-center pa-4">
-            <v-img
-              :src="largeCover || fallbackCoverImage"
-              :alt="`${rom.name} cover`"
-              contain
-              max-height="70vh"
-            >
-              <template #placeholder>
-                <div class="d-flex justify-center align-center">
-                  <v-progress-circular indeterminate />
-                </div>
-              </template>
-            </v-img>
-          </div>
-          <div class="lightbox-footer pa-4">
-            <NavigationText
-              :show-navigation="false"
-              :show-select="false"
-              :show-back="true"
-              :show-toggle-favorite="false"
-              :show-menu="false"
-              :is-modal="true"
-            />
-          </div>
-        </template>
-      </v-dialog>
 
       <NavigationHint
         :show-navigation="true"

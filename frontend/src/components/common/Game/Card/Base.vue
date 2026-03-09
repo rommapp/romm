@@ -10,6 +10,7 @@ import {
   inject,
   useTemplateRef,
 } from "vue";
+import RDialog from "@/components/common/RDialog.vue";
 import { useDisplay } from "vuetify";
 import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
 import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
@@ -83,6 +84,7 @@ const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const activeMenu = ref(false);
 const gameIsHovering = ref(false);
+const showCoverZoom = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("playGame", handlePlayGame);
 
@@ -293,6 +295,16 @@ onBeforeUnmount(() => {
             @touchstart="handleTouchStart"
             @touchend="handleTouchEnd"
           >
+            <v-fade-transition>
+              <v-btn
+                v-if="isOuterHovering"
+                icon="mdi-magnify-plus-outline"
+                size="x-small"
+                class="cover-zoom-btn position-absolute"
+                variant="flat"
+                @click.stop="showCoverZoom = true"
+              />
+            </v-fade-transition>
             <template v-if="titleOnHover">
               <v-expand-transition>
                 <div
@@ -469,6 +481,31 @@ onBeforeUnmount(() => {
       </v-card>
     </div>
   </v-hover>
+
+  <r-dialog
+    v-model="showCoverZoom"
+    :width="500"
+    icon="mdi-image"
+  >
+    <template #header>
+      {{ rom.name }}
+    </template>
+    <template #content>
+      <v-img
+        :src="largeCover || fallbackCoverImage"
+        :alt="rom.name || 'Cover'"
+        contain
+        max-height="70vh"
+        class="pa-2"
+      >
+        <template #placeholder>
+          <div class="d-flex justify-center align-center h-100">
+            <v-progress-circular indeterminate />
+          </div>
+        </template>
+      </v-img>
+    </template>
+  </r-dialog>
 </template>
 
 <style scoped>
@@ -502,6 +539,13 @@ onBeforeUnmount(() => {
 .append-inner-right {
   bottom: 0rem;
   right: 0rem;
+}
+
+.cover-zoom-btn {
+  top: 0.25rem;
+  right: 0.25rem;
+  opacity: 0.85;
+  z-index: 1;
 }
 
 .v-chip:hover {
