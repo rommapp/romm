@@ -36,7 +36,9 @@ const { fetchTotalRoms } = storeToRefs(romsStore);
         @click="galleryFilterStore.switchActiveFilterDrawer"
       >
         <div class="d-flex flex-col align-center">
-          <span class="text-caption leading-none!">{{ fetchTotalRoms }}</span>
+          <span v-if="fetchTotalRoms > 0" class="text-caption leading-none!">{{
+            fetchTotalRoms
+          }}</span>
           <v-icon size="x-large">mdi-filter-variant</v-icon>
         </div>
       </v-btn>
