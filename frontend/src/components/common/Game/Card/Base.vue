@@ -10,7 +10,6 @@ import {
   inject,
   useTemplateRef,
 } from "vue";
-import RDialog from "@/components/common/RDialog.vue";
 import { useDisplay } from "vuetify";
 import type { VImg } from "vuetify/lib/components/VImg/VImg.js";
 import type { BoxartStyleOption } from "@/components/Settings/UserInterface/Interface.vue";
@@ -20,6 +19,7 @@ import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import Sources from "@/components/common/Game/Card/Sources.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import { useGameAnimation } from "@/composables/useGameAnimation";
 import { ROUTES } from "@/plugins/router";
 import storeCollections from "@/stores/collections";
@@ -482,11 +482,7 @@ onBeforeUnmount(() => {
     </div>
   </v-hover>
 
-  <r-dialog
-    v-model="showCoverZoom"
-    :width="500"
-    icon="mdi-image"
-  >
+  <r-dialog v-model="showCoverZoom" :width="500" icon="mdi-image">
     <template #header>
       {{ rom.name }}
     </template>
