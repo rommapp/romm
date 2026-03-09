@@ -10,6 +10,7 @@ from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
 
 from config import (
+    INVITE_TOKEN_EXPIRY_MINUTES,
     OIDC_CLAIM_ROLES,
     OIDC_ENABLED,
     OIDC_ROLE_ADMIN,
@@ -35,7 +36,6 @@ class AuthHandler:
     def __init__(self) -> None:
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         self.reset_passwd_token_expires_in_minutes = 10
-        self.invite_link_token_expires_in_minutes = 10
 
     def verify_password(self, plain_password, hashed_password):
         return self.pwd_context.verify(plain_password, hashed_password)
@@ -169,15 +169,20 @@ class AuthHandler:
         )
         await RedisSessionMiddleware.clear_user_sessions(user.username)
 
-    def generate_invite_link_token(self, user: Any, role: str) -> str:
+    def generate_invite_link_token(
+        self, user: Any, role: str, expiration_minutes: int | None = None
+    ) -> str:
         """
         Generate an invite link token for the user.
         Args:
             user (Any): The user object.
             role (str): The role of the user.
+            expiration_minutes (int | None): Token expiration in minutes. Defaults to
+                the INVITE_TOKEN_EXPIRY_MINUTES environment variable.
         Returns:
             str: The generated invite link token.
         """
+        expires_in = expiration_minutes if expiration_minutes is not None else INVITE_TOKEN_EXPIRY_MINUTES
         now = datetime.now(timezone.utc)
 
         jti = str(uuid.uuid4())
@@ -189,7 +194,7 @@ class AuthHandler:
             "iat": int(now.timestamp()),
             "exp": int(
                 (
-                    now + timedelta(minutes=self.invite_link_token_expires_in_minutes)
+                    now + timedelta(minutes=expires_in)
                 ).timestamp()
             ),
             "jti": jti,
@@ -204,7 +209,7 @@ class AuthHandler:
             f"Invite link created by {hl(user.username, color=CYAN)}: {hl(invite_link)}"
         )
         redis_client.setex(
-            f"invite-jti:{jti}", self.invite_link_token_expires_in_minutes * 60, "valid"
+            f"invite-jti:{jti}", expires_in * 60, "valid"
         )
         return token
 
