@@ -11,16 +11,16 @@ const { lgAndUp } = useDisplay();
 const show = ref(false);
 const fullInviteLink = ref("");
 const selectedRole = ref("");
-const selectedExpiration = ref<number>(1440);
+const selectedExpiration = ref<number>(86400);
 const roles = ["viewer", "editor", "admin"];
 const expirationOptions = [
-  { label: "1 hour", value: 60 },
-  { label: "6 hours", value: 360 },
-  { label: "12 hours", value: 720 },
-  { label: "1 day", value: 1440 },
-  { label: "3 days", value: 4320 },
-  { label: "7 days", value: 10080 },
-  { label: "30 days", value: 43200 },
+  { label: "1 hour", value: 3600 },
+  { label: "6 hours", value: 21600 },
+  { label: "12 hours", value: 43200 },
+  { label: "1 day", value: 86400 },
+  { label: "3 days", value: 259200 },
+  { label: "7 days", value: 604800 },
+  { label: "30 days", value: 2592000 },
 ];
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showCreateInviteLinkDialog", () => {
@@ -31,7 +31,7 @@ function createInviteLink() {
   userApi
     .createInviteLink({
       role: selectedRole.value,
-      expirationMinutes: selectedExpiration.value,
+      expirationSeconds: selectedExpiration.value,
     })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
