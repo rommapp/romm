@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
+import { useI18n } from "vue-i18n";
 import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
 import CharIndexBar from "@/components/Gallery/AppBar/common/CharIndexBar.vue";
 import ContextualRandomBtn from "@/components/Gallery/AppBar/common/ContextualRandomBtn.vue";
@@ -7,6 +9,7 @@ import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.v
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
 import SmartCollectionBtn from "@/components/Gallery/AppBar/common/SmartCollectionBtn.vue";
+import storeRoms from "@/stores/roms";
 import { calculateMainLayoutWidth } from "@/utils";
 
 withDefaults(
@@ -21,6 +24,9 @@ withDefaults(
     showSearchBar: false,
   },
 );
+const { t } = useI18n();
+const romsStore = storeRoms();
+const { fetchTotalRoms } = storeToRefs(romsStore);
 const { calculatedWidth } = calculateMainLayoutWidth();
 </script>
 <template>
@@ -34,6 +40,14 @@ const { calculatedWidth } = calculateMainLayoutWidth();
     <template #prepend>
       <slot name="prepend" />
       <FilterBtn />
+      <v-chip
+        v-if="fetchTotalRoms > 0"
+        size="x-small"
+        variant="tonal"
+        class="mr-1"
+      >
+        {{ t("gallery.filtered-results", { count: fetchTotalRoms }) }}
+      </v-chip>
       <SmartCollectionBtn />
     </template>
     <SearchTextField v-if="showSearchBar" />
