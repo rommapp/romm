@@ -1,6 +1,6 @@
 """Fix sibling_roms view to exclude empty fs_name_no_tags from matching
 
-Revision ID: 0071_sibling_roms_nonempty_fs_name
+Revision ID: 0071_sibling_roms_fs_name
 Revises: 0070_ss_age_ratings
 Create Date: 2026-03-08 22:45:44.767000
 
@@ -12,7 +12,7 @@ from alembic import op
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0071_sibling_roms_nonempty_fs_name"
+revision = "0071_sibling_roms_fs_name"
 down_revision = "0070_ss_age_ratings"
 branch_labels = None
 depends_on = None
