@@ -51,18 +51,15 @@ class RemoteSource:
         if not file_name_clean:
             return None
 
-        # Build a deduplicated list of lookup candidates:
+        # Build a deduplicated list of lookup candidates (at most 3):
         # 1. exact as-is, 2. lowercased, 3. normalized (OS chars stripped, NFD)
-        candidates: list[str] = []
-        seen: set[str] = set()
-        for c in (
-            file_name_clean,
-            file_name_clean.lower(),
-            normalize_launchbox_name(file_name_clean),
-        ):
-            if c not in seen:
-                seen.add(c)
-                candidates.append(c)
+        lowered = file_name_clean.lower()
+        normalized = normalize_launchbox_name(file_name_clean)
+        candidates: list[str] = [file_name_clean]
+        if lowered != file_name_clean:
+            candidates.append(lowered)
+        if normalized not in candidates:
+            candidates.append(normalized)
 
         for candidate in candidates:
             metadata_name_index_entry = await async_cache.hget(

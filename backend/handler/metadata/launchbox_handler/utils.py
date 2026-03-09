@@ -25,9 +25,9 @@ def normalize_launchbox_name(name: str) -> str:
     """
     s = (name or "").lower()
     # Decompose Unicode and strip combining marks (handles macrons, accents, etc.)
-    if any(ord(c) > 127 for c in s):
-        s = unicodedata.normalize("NFD", s)
-        s = "".join(c for c in s if not unicodedata.combining(c))
+    # unicodedata.normalize is a no-op for pure ASCII, so the check is unnecessary.
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
     # Strip punctuation / OS-restricted characters
     s = _NON_WORD_PATTERN.sub(" ", s)
     # Collapse whitespace

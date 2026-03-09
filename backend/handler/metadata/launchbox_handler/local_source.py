@@ -68,8 +68,11 @@ class LocalSource:
                                     f"title_normalized:{normalized_title}", entry
                                 )
 
-                            # Collect for fuzzy matching
-                            title_list.append((normalized_title or title, entry))
+                            # Only add to the fuzzy list when normalization
+                            # produces a usable key; skip titles that reduce to
+                            # empty (e.g. titles composed entirely of special chars)
+                            fuzzy_key = normalized_title if normalized_title else title
+                            title_list.append((fuzzy_key, entry))
             except (ET.ParseError, FileNotFoundError, PermissionError) as e:
                 log.warning(f"Failed to parse local LaunchBox XML {xml_path}: {e}")
                 self._cache[platform_slug] = {}
