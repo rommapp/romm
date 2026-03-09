@@ -905,6 +905,11 @@ async def get_rom_content(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
     )
 
+    # If .cue files are present, only list those in the M3U
+    # (avoids invalid entries like raw .bin tracks)
+    cue_files = [f for f in files if f.file_extension.lower() == "cue"]
+    m3u_files = cue_files if cue_files else files
+
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         if len(files) == 1:
@@ -953,12 +958,6 @@ async def get_rom_content(
 
                 # Add M3U file if not already present
                 if not rom.has_m3u_file():
-                    # If .cue files are present, only list those in the M3U
-                    # (avoids invalid entries like raw .bin tracks)
-                    cue_files = [
-                        f for f in files if f.file_extension.lower() == "cue"
-                    ]
-                    m3u_files = cue_files if cue_files else files
                     m3u_encoded_content = "\n".join(
                         [f.file_name_for_download(hidden_folder) for f in m3u_files]
                     ).encode()
@@ -1002,10 +1001,6 @@ async def get_rom_content(
     ]
 
     if not rom.has_m3u_file():
-        # If .cue files are present, only list those in the M3U
-        # (avoids invalid entries like raw .bin tracks)
-        cue_files = [f for f in files if f.file_extension.lower() == "cue"]
-        m3u_files = cue_files if cue_files else files
         m3u_encoded_content = "\n".join(
             [f.file_name_for_download(hidden_folder) for f in m3u_files]
         ).encode()
