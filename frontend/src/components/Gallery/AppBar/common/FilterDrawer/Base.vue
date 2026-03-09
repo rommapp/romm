@@ -41,6 +41,7 @@ const { xs, smAndDown } = useDisplay();
 const router = useRouter();
 const galleryFilterStore = storeGalleryFilter();
 const romsStore = storeRoms();
+const { fetchTotalRoms } = storeToRefs(romsStore);
 const platformsStore = storePlatforms();
 const {
   searchTerm,
@@ -612,7 +613,7 @@ onMounted(async () => {
         </div>
       </v-list-item>
       <v-list-item
-        class="justify-center d-flex"
+        class="justify-center d-flex flex-column ga-2"
         :tabindex="activeFilterDrawer ? 0 : -1"
       >
         <v-btn
@@ -623,6 +624,12 @@ onMounted(async () => {
         >
           {{ t("platform.reset-filters") }}
         </v-btn>
+        <span
+          v-if="fetchTotalRoms > 0"
+          class="text-caption text-medium-emphasis"
+        >
+          {{ t("gallery.filtered-results", { count: fetchTotalRoms }) }}
+        </span>
       </v-list-item>
     </v-list>
   </v-navigation-drawer>

@@ -2,13 +2,10 @@
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storeRoms from "@/stores/roms";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
-const romsStore = storeRoms();
 const { activeFilterDrawer } = storeToRefs(galleryFilterStore);
-const { fetchTotalRoms } = storeToRefs(romsStore);
 </script>
 
 <template>
@@ -21,10 +18,11 @@ const { fetchTotalRoms } = storeToRefs(romsStore);
   >
     <template #activator="{ props }">
       <v-btn
-        class="ml-0 d-flex flex-column"
+        class="ml-0"
         variant="text"
         rounded="0"
         v-bind="props"
+        icon="mdi-filter-variant"
         :color="
           activeFilterDrawer
             ? 'primary'
@@ -34,12 +32,7 @@ const { fetchTotalRoms } = storeToRefs(romsStore);
         "
         aria-label="Filter"
         @click="galleryFilterStore.switchActiveFilterDrawer"
-      >
-        <v-icon>mdi-filter-variant</v-icon>
-        <span v-if="fetchTotalRoms > 0" class="text-caption font-weight-medium">
-          {{ fetchTotalRoms }}
-        </span>
-      </v-btn>
+      />
     </template>
   </v-tooltip>
 </template>
