@@ -337,7 +337,9 @@ class OpenIDHandler:
             )
 
         role = Role.VIEWER
+        claims_provided = False
         if OIDC_CLAIM_ROLES and OIDC_CLAIM_ROLES in userinfo:
+            claims_provided = True
             roles = userinfo[OIDC_CLAIM_ROLES] or []
             if OIDC_ROLE_ADMIN and OIDC_ROLE_ADMIN in roles:
                 role = Role.ADMIN
@@ -368,7 +370,7 @@ class OpenIDHandler:
                 role=role,
             )
             user = db_user_handler.add_user(new_user)
-        elif OIDC_CLAIM_ROLES and user.role != role:
+        elif claims_provided and user.role != role:
             user = db_user_handler.update_user(user.id, {"role": role})
 
         if not user.enabled:
