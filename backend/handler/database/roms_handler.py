@@ -30,7 +30,7 @@ from sqlalchemy.orm import (
     noload,
     selectinload,
 )
-from sqlalchemy.sql.elements import KeyedColumnElement
+from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select
 
 from config import ROMM_DB_DRIVER
@@ -99,7 +99,9 @@ STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+"
 
 
 def _create_metadata_id_case(
-    prefix: str, id_column: KeyedColumnElement, platform_id_column: KeyedColumnElement
+    prefix: str,
+    id_column: ColumnElement,
+    platform_id_column: ColumnElement,
 ):
     return case(
         (
@@ -693,7 +695,7 @@ class DBRomsHandler(DBBaseHandler):
                             ),
                             _create_metadata_id_case(
                                 "fs",
-                                base_subquery.c.fs_name_no_tags,
+                                func.nullif(base_subquery.c.fs_name_no_tags, ""),
                                 base_subquery.c.platform_id,
                             ),
                             _create_metadata_id_case(
@@ -866,6 +868,7 @@ class DBRomsHandler(DBBaseHandler):
             statuses_logic=kwargs.get("statuses_logic", "any"),
             player_counts_logic=kwargs.get("player_counts_logic", "any"),
             user_id=kwargs.get("user_id", None),
+            group_by_meta_id=kwargs.get("group_by_meta_id", False),
         )
         return session.scalars(roms).all()
 
