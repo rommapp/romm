@@ -26,14 +26,14 @@ async function createUser({
 
 async function createInviteLink({
   role,
-  expirationMinutes,
+  expirationSeconds,
 }: {
   role: string;
-  expirationMinutes?: number;
+  expirationSeconds?: number;
 }) {
   const params: Record<string, string | number> = { role };
-  if (expirationMinutes !== undefined) {
-    params.expiration_minutes = expirationMinutes;
+  if (expirationSeconds !== undefined) {
+    params.expiration_seconds = expirationSeconds;
   }
   return api.post<InviteLinkSchema>("/users/invite-link", {}, { params });
 }
