@@ -47,7 +47,6 @@ const props = defineProps<{
   state: StateSchema | null;
   bios: FirmwareSchema | null;
   core: string | null;
-  disc: number | null;
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
@@ -129,7 +128,6 @@ window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
 window.EJS_gameID = romRef.value.id;
 window.EJS_gameUrl = getDownloadPath({
   rom: romRef.value,
-  fileIDs: props.disc ? [props.disc] : [],
 });
 window.EJS_biosUrl = props.bios
   ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
@@ -195,15 +193,6 @@ onMounted(() => {
     );
   } else {
     localStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
-  }
-
-  if (props.disc) {
-    localStorage.setItem(
-      `player:${romRef.value.id}:disc`,
-      props.disc.toString(),
-    );
-  } else {
-    localStorage.removeItem(`player:${romRef.value.id}:disc`);
   }
 
   emitter?.on("saveSelected", loadSave);

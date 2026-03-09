@@ -34,7 +34,7 @@ const firmwareOptions = ref<FirmwareSchema[]>([]);
 const selectedSave = ref<SaveSchema | null>(null);
 const isSavesTabSelected = ref(true);
 const selectedState = ref<StateSchema | null>(null);
-const selectedDisc = ref<number | null>(null);
+// const selectedDisc = ref<number | null>(null);
 const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
@@ -216,12 +216,12 @@ onMounted(async () => {
     selectedState.value = null;
   }
 
-  const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
-  if (storedDisc) {
-    selectedDisc.value = parseInt(storedDisc);
-  } else {
-    selectedDisc.value = rom.value.files[0]?.id ?? null;
-  }
+  // const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
+  // if (storedDisc) {
+  //   selectedDisc.value = parseInt(storedDisc);
+  // } else {
+  //   selectedDisc.value = rom.value.files[0]?.id ?? null;
+  // }
 
   const storedCore = localStorage.getItem(
     `player:${rom.value.platform_slug}:core`,
@@ -439,7 +439,7 @@ function openCacheDialog() {
             <v-card-text class="pa-3">
               <!-- Configuration Section -->
               <!-- Disc Selector -->
-              <v-select
+              <!-- <v-select
                 v-if="rom.files.length > 1"
                 v-model="selectedDisc"
                 class="mb-3"
@@ -455,7 +455,7 @@ function openCacheDialog() {
                     value: f.id,
                   }))
                 "
-              />
+              /> -->
 
               <!-- Core Selector -->
               <v-select
@@ -609,7 +609,6 @@ function openCacheDialog() {
           :save="selectedSave"
           :bios="selectedFirmware"
           :core="selectedCore"
-          :disc="selectedDisc"
         />
       </v-col>
     </template>

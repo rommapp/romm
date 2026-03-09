@@ -11,10 +11,7 @@ import {
 } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
-import type {
-  Body_add_state_api_states_post as AddStateInput,
-  FirmwareSchema,
-} from "@/__generated__";
+import type { Body_add_state_api_states_post as AddStateInput } from "@/__generated__";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
@@ -43,7 +40,6 @@ const createPlayerStorage = (romId: number, platformSlug: string) => ({
     `player:${romId}:initial_state_id`,
     null as string | null,
   ),
-  disc: useLocalStorage(`player:${romId}:disc`, null as string | null),
   core: useLocalStorage(`player:${platformSlug}:core`, null as string | null),
   biosId: useLocalStorage(
     `player:${platformSlug}:bios_id`,
@@ -378,13 +374,8 @@ async function boot() {
     playerStorage.initialStateId.value = String(initialStateId);
   }
 
-  // Disc selection persistence
-  const discId = playerStorage.disc.value
-    ? parseInt(playerStorage.disc.value)
-    : null;
   window.EJS_gameUrl = getDownloadPath({
     rom: rom,
-    fileIDs: discId ? [discId] : [],
   });
 
   // BIOS selection persistence
