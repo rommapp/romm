@@ -109,14 +109,14 @@ def add_user(
     status_code=status.HTTP_201_CREATED,
 )
 def create_invite_link(
-    request: Request, role: str, expiration_seconds: int | None = None
+    request: Request, role: str, expiration: int | None = None
 ) -> InviteLinkSchema:
     """Create an invite link for a user.
 
     Args:
         request (Request): FastAPI Request object
         role (str): The role of the user
-        expiration_seconds (int | None): Token expiration in seconds. Defaults to
+        expiration (int | None): Token expiration in seconds. Defaults to
             the INVITE_TOKEN_EXPIRY_SECONDS environment variable.
 
     Returns:
@@ -140,8 +140,8 @@ def create_invite_link(
             detail=msg,
         )
 
-    if expiration_seconds is not None and expiration_seconds <= 0:
-        msg = "expiration_seconds must be a positive integer"
+    if expiration is not None and expiration <= 0:
+        msg = "expiration must be a positive integer"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -149,7 +149,7 @@ def create_invite_link(
         )
 
     token = auth_handler.generate_invite_link_token(
-        request.user, role=role, expiration_seconds=expiration_seconds
+        request.user, role=role, expiration=expiration
     )
     return InviteLinkSchema.model_validate({"token": token})
 

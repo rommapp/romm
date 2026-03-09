@@ -31,7 +31,7 @@ function createInviteLink() {
   userApi
     .createInviteLink({
       role: selectedRole.value,
-      expirationSeconds: selectedExpiration.value,
+      expiration: selectedExpiration.value,
     })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
