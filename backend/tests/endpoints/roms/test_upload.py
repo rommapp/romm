@@ -8,7 +8,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
 
-from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
+from endpoints.auth import ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints.roms import upload as upload_endpoint
 from handler.auth import oauth_handler
 from handler.redis_handler import sync_cache
@@ -38,7 +38,7 @@ def editor_access_token(editor_user: User):
             "scopes": " ".join(editor_user.oauth_scopes),
             "type": "access",
         },
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
     )
 
 
