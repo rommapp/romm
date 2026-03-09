@@ -17,6 +17,7 @@ from config import (
     OIDC_PROVIDER,
     OIDC_REDIRECT_URI,
     OIDC_SERVER_APPLICATION_URL,
+    OIDC_SERVER_METADATA_URL,
     OIDC_TLS_CACERTFILE,
 )
 from handler.auth.constants import (
@@ -55,9 +56,8 @@ oauth.register(
     name="openid",
     client_id=config.get("OIDC_CLIENT_ID"),
     client_secret=config.get("OIDC_CLIENT_SECRET"),
-    server_metadata_url=get_well_known_url(
-        config.get("OIDC_SERVER_APPLICATION_URL"), external=True
-    ),
+    server_metadata_url=OIDC_SERVER_METADATA_URL
+    or get_well_known_url(config.get("OIDC_SERVER_APPLICATION_URL"), external=True),
     client_kwargs={
         "scope": f"openid profile email {OIDC_CLAIM_ROLES}".strip(),
         "verify": OIDC_TLS_CACERTFILE,
