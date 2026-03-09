@@ -297,7 +297,7 @@ onBeforeUnmount(() => {
           >
             <v-fade-transition>
               <v-btn
-                v-if="isOuterHovering"
+                v-if="isOuterHovering && !pointerOnHover"
                 icon="mdi-magnify-plus-outline"
                 size="x-small"
                 class="cover-zoom-btn position-absolute"
