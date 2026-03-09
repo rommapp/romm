@@ -170,19 +170,21 @@ class AuthHandler:
         await RedisSessionMiddleware.clear_user_sessions(user.username)
 
     def generate_invite_link_token(
-        self, user: Any, role: str, expiration_seconds: int | None = None
+        self, user: Any, role: str, expiration: int | None = None
     ) -> str:
         """
         Generate an invite link token for the user.
         Args:
             user (Any): The user object.
             role (str): The role of the user.
-            expiration_seconds (int | None): Token expiration in seconds. Defaults to
+            expiration (int | None): Token expiration in seconds. Defaults to
                 the INVITE_TOKEN_EXPIRY_SECONDS environment variable.
         Returns:
             str: The generated invite link token.
         """
-        expires_in = expiration_seconds if expiration_seconds is not None else INVITE_TOKEN_EXPIRY_SECONDS
+        expires_in = (
+            expiration if expiration is not None else INVITE_TOKEN_EXPIRY_SECONDS
+        )
         now = datetime.now(timezone.utc)
 
         jti = str(uuid.uuid4())
