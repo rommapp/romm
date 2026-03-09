@@ -126,6 +126,9 @@ DISABLE_USERPASS_LOGIN: Final[bool] = safe_str_to_bool(
     _get_env("DISABLE_USERPASS_LOGIN")
 )
 DISABLE_SETUP_WIZARD: Final[bool] = safe_str_to_bool(_get_env("DISABLE_SETUP_WIZARD"))
+INVITE_TOKEN_EXPIRY_SECONDS: Final[int] = safe_int(
+    _get_env("INVITE_TOKEN_EXPIRY_SECONDS"), 10 * 60
+)
 
 # OIDC
 OIDC_ENABLED: Final[bool] = safe_str_to_bool(_get_env("OIDC_ENABLED"))

@@ -11,7 +11,17 @@ const { lgAndUp } = useDisplay();
 const show = ref(false);
 const fullInviteLink = ref("");
 const selectedRole = ref("");
+const selectedExpiration = ref<number>(86400);
 const roles = ["viewer", "editor", "admin"];
+const expirationOptions = [
+  { label: "1 hour", value: 3600 },
+  { label: "6 hours", value: 21600 },
+  { label: "12 hours", value: 43200 },
+  { label: "1 day", value: 86400 },
+  { label: "3 days", value: 259200 },
+  { label: "7 days", value: 604800 },
+  { label: "30 days", value: 2592000 },
+];
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showCreateInviteLinkDialog", () => {
   show.value = true;
@@ -19,7 +29,10 @@ emitter?.on("showCreateInviteLinkDialog", () => {
 
 function createInviteLink() {
   userApi
-    .createInviteLink({ role: selectedRole.value })
+    .createInviteLink({
+      role: selectedRole.value,
+      expiration: selectedExpiration.value,
+    })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Invite link created",
@@ -65,6 +78,20 @@ function closeDialog() {
             >{{ role.charAt(0).toUpperCase() + role.slice(1) }}
           </v-btn>
         </v-btn-toggle>
+      </v-row>
+      <v-row class="justify-center pa-2" no-gutters>
+        <v-select
+          v-model="selectedExpiration"
+          :items="expirationOptions"
+          item-title="label"
+          item-value="value"
+          label="Expires in"
+          variant="outlined"
+          density="compact"
+          hide-details
+          class="ma-1"
+          style="max-width: 200px"
+        />
         <v-btn-toggle class="text-primary ma-1" divided>
           <v-btn
             :disabled="!selectedRole"

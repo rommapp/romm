@@ -24,12 +24,18 @@ async function createUser({
   return api.post<UserSchema>("/users", payload);
 }
 
-async function createInviteLink({ role }: { role: string }) {
-  return api.post<InviteLinkSchema>(
-    "/users/invite-link",
-    {},
-    { params: { role } },
-  );
+async function createInviteLink({
+  role,
+  expiration,
+}: {
+  role: string;
+  expiration?: number;
+}) {
+  const params: Record<string, string | number> = { role };
+  if (expiration !== undefined) {
+    params.expiration = expiration;
+  }
+  return api.post<InviteLinkSchema>("/users/invite-link", {}, { params });
 }
 
 async function registerUser(
