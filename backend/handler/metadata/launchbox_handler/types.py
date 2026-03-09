@@ -14,6 +14,9 @@ LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final[str] = (
     "romm:launchbox_metadata_alternate_name"
 )
 LAUNCHBOX_METADATA_IMAGE_KEY: Final[str] = "romm:launchbox_metadata_image"
+LAUNCHBOX_METADATA_PLATFORM_NAMES_KEY: Final[str] = (
+    "romm:launchbox_metadata_platform_names"
+)
 LAUNCHBOX_MAME_KEY: Final[str] = "romm:launchbox_mame"
 LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
 

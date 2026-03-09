@@ -17,8 +17,10 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_PLATFORM_NAMES_KEY,
     LAUNCHBOX_PLATFORMS_KEY,
 )
+from handler.metadata.launchbox_handler.utils import normalize_launchbox_name
 from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask, TaskType
@@ -97,6 +99,10 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
                                 current_game_image_db_id = None
                                 current_game_images: list[dict[str, Any]] = []
+                                # Per-platform names list for fuzzy matching
+                                platform_names_buffer: dict[
+                                    str, list[dict[str, str]]
+                                ] = {}
 
                                 for _, elem in ctx:
                                     if elem.tag == "Game":
@@ -122,17 +128,51 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             and platform_elem is not None
                                             and platform_elem.text
                                         ):
-                                            # Use a unique combination of name and platform as the key
+                                            entry_data = {
+                                                child.tag: child.text
+                                                for child in elem
+                                            }
+                                            entry_json = json.dumps(entry_data)
+                                            platform = platform_elem.text
+                                            name = name_elem.text
+
+                                            # Store by original lowercase name
+                                            lowercase_key = f"{name.lower()}:{platform}"
                                             await pipe.hset(
                                                 LAUNCHBOX_METADATA_NAME_KEY,
-                                                mapping={
-                                                    f"{name_elem.text.lower()}:{platform_elem.text}": json.dumps(
-                                                        {
-                                                            child.tag: child.text
-                                                            for child in elem
-                                                        }
-                                                    )
-                                                },
+                                                mapping={lowercase_key: entry_json},
+                                            )
+
+                                            # Also store by normalized name to
+                                            # handle OS-restricted chars and
+                                            # diacritics (e.g. * → stripped, ō → o)
+                                            normalized = normalize_launchbox_name(name)
+                                            normalized_key = (
+                                                f"{normalized}:{platform}"
+                                            )
+                                            if normalized_key != lowercase_key:
+                                                await pipe.hset(
+                                                    LAUNCHBOX_METADATA_NAME_KEY,
+                                                    mapping={
+                                                        normalized_key: entry_json
+                                                    },
+                                                )
+
+                                            # Collect for per-platform fuzzy index
+                                            db_id = (
+                                                id_elem.text
+                                                if id_elem is not None
+                                                and id_elem.text
+                                                else ""
+                                            )
+                                            platform_names_buffer.setdefault(
+                                                platform, []
+                                            ).append(
+                                                {
+                                                    "name": name,
+                                                    "normalized": normalized,
+                                                    "database_id": db_id,
+                                                }
                                             )
                                         elem.clear()
 
@@ -142,17 +182,34 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             alternate_name_elem is not None
                                             and alternate_name_elem.text
                                         ):
+                                            alt_name = alternate_name_elem.text
+                                            alt_entry_json = json.dumps(
+                                                {
+                                                    child.tag: child.text
+                                                    for child in elem
+                                                }
+                                            )
+
+                                            # Original lowercase key
                                             await pipe.hset(
                                                 LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
                                                 mapping={
-                                                    alternate_name_elem.text.lower(): json.dumps(
-                                                        {
-                                                            child.tag: child.text
-                                                            for child in elem
-                                                        }
-                                                    )
+                                                    alt_name.lower(): alt_entry_json
                                                 },
                                             )
+
+                                            # Normalized key for OS-char/diacritic
+                                            # matching
+                                            normalized_alt = normalize_launchbox_name(
+                                                alt_name
+                                            )
+                                            if normalized_alt != alt_name.lower():
+                                                await pipe.hset(
+                                                    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
+                                                    mapping={
+                                                        normalized_alt: alt_entry_json
+                                                    },
+                                                )
 
                                         elem.clear()
 
@@ -195,6 +252,14 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             )
                                         },
                                     )
+
+                                # Store per-platform names index for fuzzy matching
+                                for platform, names in platform_names_buffer.items():
+                                    await pipe.hset(
+                                        LAUNCHBOX_METADATA_PLATFORM_NAMES_KEY,
+                                        mapping={platform: json.dumps(names)},
+                                    )
+
                                 await pipe.execute()
                                 processed_files += 1
                                 update_stats.update(processed=processed_files)

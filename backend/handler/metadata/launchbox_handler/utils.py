@@ -1,8 +1,38 @@
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
 from .types import LAUNCHBOX_LOCAL_DIR
+
+# Patterns for normalize_launchbox_name
+_NON_WORD_PATTERN = re.compile(r"[^\w\s]")
+_WHITESPACE_PATTERN = re.compile(r"\s+")
+
+
+def normalize_launchbox_name(name: str) -> str:
+    """
+    Normalize a LaunchBox game name for loose/fuzzy matching.
+
+    - Lowercases the string
+    - NFD-normalizes and strips combining marks (e.g. ō → o, é → e)
+    - Strips punctuation and OS-restricted characters (*, ?, <, >, |, :, etc.)
+    - Collapses whitespace
+
+    This allows matching between a user's ROM filename (which may have
+    OS-reserved characters replaced or removed) and the original title stored
+    in the LaunchBox database.
+    """
+    s = (name or "").lower()
+    # Decompose Unicode and strip combining marks (handles macrons, accents, etc.)
+    if any(ord(c) > 127 for c in s):
+        s = unicodedata.normalize("NFD", s)
+        s = "".join(c for c in s if not unicodedata.combining(c))
+    # Strip punctuation / OS-restricted characters
+    s = _NON_WORD_PATTERN.sub(" ", s)
+    # Collapse whitespace
+    s = _WHITESPACE_PATTERN.sub(" ", s)
+    return s.strip()
 
 
 def sanitize_filename(stem: str) -> str:

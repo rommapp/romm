@@ -1,5 +1,7 @@
 import json
 
+from strsimpy.jaro_winkler import JaroWinkler
+
 from handler.redis_handler import async_cache
 from logger.logger import log
 
@@ -9,7 +11,13 @@ from .types import (
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_PLATFORM_NAMES_KEY,
 )
+from .utils import normalize_launchbox_name
+
+_jarowinkler = JaroWinkler()
+# Minimum Jaro-Winkler similarity score to accept a fuzzy match
+_FUZZY_MATCH_THRESHOLD = 0.90
 
 
 class RemoteSource:
@@ -43,10 +51,18 @@ class RemoteSource:
         if not file_name_clean:
             return None
 
-        candidates: list[str] = [file_name_clean]
-        lower = file_name_clean.lower()
-        if lower != file_name_clean:
-            candidates.append(lower)
+        # Build a deduplicated list of lookup candidates:
+        # 1. exact as-is, 2. lowercased, 3. normalized (OS chars stripped, NFD)
+        candidates: list[str] = []
+        seen: set[str] = set()
+        for c in (
+            file_name_clean,
+            file_name_clean.lower(),
+            normalize_launchbox_name(file_name_clean),
+        ):
+            if c not in seen:
+                seen.add(c)
+                candidates.append(c)
 
         for candidate in candidates:
             metadata_name_index_entry = await async_cache.hget(
@@ -71,6 +87,48 @@ class RemoteSource:
             )
             if metadata_database_index_entry:
                 return json.loads(metadata_database_index_entry)
+
+        # Last resort: fuzzy match against all known titles for this platform
+        return await self._fuzzy_match(file_name_clean, platform_name)
+
+    async def _fuzzy_match(
+        self, file_name: str, platform_name: str
+    ) -> dict | None:
+        """
+        Load the per-platform names index and find the best Jaro-Winkler
+        match for *file_name*.  Returns the full game entry for the best
+        match if its similarity score meets _FUZZY_MATCH_THRESHOLD.
+        """
+        platform_names_json = await async_cache.hget(
+            LAUNCHBOX_METADATA_PLATFORM_NAMES_KEY, platform_name
+        )
+        if not platform_names_json:
+            return None
+
+        search_norm = normalize_launchbox_name(file_name)
+        if not search_norm:
+            return None
+
+        platform_names: list[dict[str, str]] = json.loads(platform_names_json)
+
+        best_score = 0.0
+        best_db_id: str | None = None
+
+        for entry in platform_names:
+            name_norm = entry.get("normalized", "")
+            if not name_norm:
+                continue
+            score = _jarowinkler.similarity(search_norm, name_norm)
+            if score > best_score:
+                best_score = score
+                best_db_id = entry.get("database_id")
+
+        if best_score >= _FUZZY_MATCH_THRESHOLD and best_db_id:
+            log.debug(
+                f"Fuzzy-matched '{file_name}' → database ID {best_db_id} "
+                f"(score {best_score:.3f})"
+            )
+            return await self.get_by_id(best_db_id)
 
         return None
 

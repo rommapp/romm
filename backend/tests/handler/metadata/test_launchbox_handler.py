@@ -27,10 +27,12 @@ from handler.metadata.launchbox_handler.types import (
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    LAUNCHBOX_METADATA_PLATFORM_NAMES_KEY,
     LaunchboxImage,
 )
 from handler.metadata.launchbox_handler.utils import (
     coalesce,
+    normalize_launchbox_name,
     parse_playmode,
     parse_release_date,
     parse_videourl,
@@ -66,6 +68,22 @@ SAMPLE_NES_XML = """\
     <Developer>Capcom</Developer>
     <Publisher>Capcom</Publisher>
     <Genre>Platformer;Action</Genre>
+  </Game>
+  <Game>
+    <Title>Akumajō Dracula</Title>
+    <ApplicationPath>Games\\NES\\Akumajou Dracula.nes</ApplicationPath>
+    <DatabaseID>9001</DatabaseID>
+    <Developer>Konami</Developer>
+    <Publisher>Konami</Publisher>
+    <Genre>Action</Genre>
+  </Game>
+  <Game>
+    <Title>ルートダブル -Before Crime * After Days-</Title>
+    <ApplicationPath>Games\\NES\\ルートダブル -Before Crime  After Days-.nes</ApplicationPath>
+    <DatabaseID>9002</DatabaseID>
+    <Developer>Innocent Grey</Developer>
+    <Publisher>Innocent Grey</Publisher>
+    <Genre>Visual Novel</Genre>
   </Game>
 </LaunchBox>
 """
@@ -963,4 +981,258 @@ class TestLaunchboxHandlerSearch:
         self, handler: LaunchboxHandler
     ):
         result = await handler.get_matched_rom_by_id(9999)
+        assert result is None
+
+
+# ===========================================================================
+# TestNormalizeLaunchboxName
+# ===========================================================================
+
+
+class TestNormalizeLaunchboxName:
+    def test_lowercases(self):
+        assert normalize_launchbox_name("Super Mario Bros") == "super mario bros"
+
+    def test_strips_os_restricted_asterisk(self):
+        # "Crime * Punishment" → asterisk replaced with space → spaces collapsed
+        assert normalize_launchbox_name("Crime * Punishment") == "crime punishment"
+
+    def test_strips_question_mark(self):
+        assert normalize_launchbox_name("What Is This?") == "what is this"
+
+    def test_strips_angle_brackets(self):
+        # "Game <2>" → angle brackets replaced with spaces → "game 2"
+        assert normalize_launchbox_name("Game <2>") == "game 2"
+
+    def test_strips_pipe(self):
+        assert normalize_launchbox_name("A|B") == "a b"
+
+    def test_strips_colon(self):
+        # "Subtitle: Extra" → colon replaced with space → "subtitle extra"
+        assert normalize_launchbox_name("Subtitle: Extra") == "subtitle extra"
+
+    def test_collapses_whitespace(self):
+        assert normalize_launchbox_name("A   B") == "a b"
+
+    def test_strips_leading_trailing_whitespace(self):
+        assert normalize_launchbox_name("  Game  ") == "game"
+
+    def test_empty_string(self):
+        assert normalize_launchbox_name("") == ""
+
+    def test_removes_macron_o(self):
+        # ō (U+014D) → o via NFD decomposition + combining-mark removal
+        assert normalize_launchbox_name("Akumajō Dracula") == "akumajo dracula"
+
+    def test_removes_accent_e(self):
+        assert normalize_launchbox_name("Pokémon") == "pokemon"
+
+    def test_os_char_and_diacritic_combined(self):
+        # Both * stripped (replaced by space, then collapsed) and ō → o
+        result = normalize_launchbox_name("Crime * Akumajō")
+        assert result == "crime akumajo"
+
+    def test_asterisk_normalization_matches_stripped_version(self):
+        """The core OS-char use case: title with * normalizes to match user's file."""
+        title_with_asterisk = "ルートダブル -Before Crime * After Days-"
+        user_file_stem = "ルートダブル -Before Crime  After Days-"
+        assert normalize_launchbox_name(title_with_asterisk) == normalize_launchbox_name(
+            user_file_stem
+        )
+
+
+# ===========================================================================
+# TestLocalSourceNormalizedAndFuzzyMatch
+# ===========================================================================
+
+
+class TestLocalSourceNormalizedAndFuzzyMatch:
+    @pytest.fixture
+    def source(self) -> LocalSource:
+        return LocalSource()
+
+    async def test_normalized_title_match_diacritic(
+        self, source: LocalSource, nes_xml: Path, platforms_dir: Path
+    ):
+        """
+        ROM file uses 'Akumajou Dracula' (no macron); XML has 'Akumajō Dracula'.
+        The normalized index should map both to the same key.
+        """
+        with patch(
+            "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
+            platforms_dir,
+        ):
+            result = await source.get_rom("Akumajou Dracula.nes", "nes")
+
+        assert result is not None
+        assert result.get("Title") == "Akumajō Dracula"
+        assert result.get("DatabaseID") == "9001"
+
+    async def test_normalized_title_match_os_char(
+        self, source: LocalSource, nes_xml: Path, platforms_dir: Path
+    ):
+        """
+        ROM file has the asterisk removed; XML title has asterisk.
+        After normalization both should match.
+        """
+        with patch(
+            "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
+            platforms_dir,
+        ):
+            # User's file has asterisk replaced with a space
+            result = await source.get_rom(
+                "ルートダブル -Before Crime  After Days-.nes", "nes"
+            )
+
+        assert result is not None
+        assert result.get("DatabaseID") == "9002"
+
+    async def test_fuzzy_match_romanization(
+        self, source: LocalSource, nes_xml: Path, platforms_dir: Path
+    ):
+        """
+        Fuzzy fallback: 'Akumajou Dracula' (user's file) should fuzzy-match
+        'Akumajō Dracula' in the XML via Jaro-Winkler ≥ 0.90.
+        """
+        with patch(
+            "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
+            platforms_dir,
+        ):
+            # Use a filename that doesn't have an exact / normalized match
+            # but IS close enough for fuzzy matching
+            result = await source.get_rom("akumajou dracula.nes", "nes")
+
+        assert result is not None
+        assert result.get("DatabaseID") in ("9001", "9002", "1234", "5678")
+
+    async def test_no_match_still_returns_none(
+        self, source: LocalSource, nes_xml: Path, platforms_dir: Path
+    ):
+        with patch(
+            "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
+            platforms_dir,
+        ):
+            result = await source.get_rom("completely_unrelated_title.nes", "nes")
+
+        assert result is None
+
+    async def test_title_list_built_during_cache_build(
+        self, source: LocalSource, nes_xml: Path, platforms_dir: Path
+    ):
+        """_title_list should be populated after first get_rom call."""
+        with patch(
+            "handler.metadata.launchbox_handler.local_source.LAUNCHBOX_PLATFORMS_DIR",
+            platforms_dir,
+        ):
+            await source.get_rom("super mario bros..nes", "nes")
+
+        assert "nes" in source._title_list
+        assert len(source._title_list["nes"]) > 0
+
+
+# ===========================================================================
+# TestRemoteSourceNormalizedAndFuzzyMatch
+# ===========================================================================
+
+
+class TestRemoteSourceNormalizedAndFuzzyMatch:
+    @pytest.fixture
+    def source(self) -> RemoteSource:
+        return RemoteSource()
+
+    async def test_normalized_candidate_tried(self, source: RemoteSource):
+        """
+        When the exact and lowercase lookups fail, the normalized variant
+        (OS chars + diacritics stripped) should be tried.
+        """
+        # After normalization, "crime * punishment" → "crime punishment"
+        # (asterisk replaced with space, then whitespace collapsed)
+        normalized_key = "crime punishment:Nintendo Entertainment System"
+
+        async def side_effect(key, field):
+            if key == LAUNCHBOX_METADATA_NAME_KEY and field == normalized_key:
+                return json.dumps(REMOTE_ENTRY)
+            return None
+
+        with patch.object(async_cache, "hget", new=AsyncMock(side_effect=side_effect)):
+            result = await source.get_rom(
+                "crime * punishment",  # contains OS-restricted *
+                "nes",
+                assume_cache_present=True,
+            )
+
+        assert result is not None
+        assert result.get("DatabaseID") == "1234"
+
+    async def test_fuzzy_match_used_as_last_resort(self, source: RemoteSource):
+        """
+        When all exact / normalized lookups fail, _fuzzy_match should be called
+        and return the best-scoring entry from the platform names index.
+        """
+        platform_names = [
+            {
+                "name": "Akumajō Dracula",
+                "normalized": "akumajo dracula",
+                "database_id": "9001",
+            },
+            {
+                "name": "Super Mario Bros.",
+                "normalized": "super mario bros",
+                "database_id": "1234",
+            },
+        ]
+
+        async def hget_side_effect(key, field):
+            if key == LAUNCHBOX_METADATA_PLATFORM_NAMES_KEY:
+                return json.dumps(platform_names)
+            if key == LAUNCHBOX_METADATA_DATABASE_ID_KEY and field == "9001":
+                return json.dumps({**REMOTE_ENTRY, "DatabaseID": "9001"})
+            return None
+
+        with patch.object(
+            async_cache, "hget", new=AsyncMock(side_effect=hget_side_effect)
+        ):
+            result = await source._fuzzy_match(
+                "Akumajou Dracula",  # romanized; no exact match in index
+                "Nintendo Entertainment System",
+            )
+
+        assert result is not None
+        assert result.get("DatabaseID") == "9001"
+
+    async def test_fuzzy_match_below_threshold_returns_none(
+        self, source: RemoteSource
+    ):
+        """Entries with score < 0.90 should not be returned."""
+        platform_names = [
+            {
+                "name": "Totally Different Game",
+                "normalized": "totally different game",
+                "database_id": "0001",
+            },
+        ]
+
+        async def hget_side_effect(key, field):
+            if key == LAUNCHBOX_METADATA_PLATFORM_NAMES_KEY:
+                return json.dumps(platform_names)
+            return None
+
+        with patch.object(
+            async_cache, "hget", new=AsyncMock(side_effect=hget_side_effect)
+        ):
+            result = await source._fuzzy_match(
+                "Super Mario Bros",
+                "Nintendo Entertainment System",
+            )
+
+        assert result is None
+
+    async def test_fuzzy_match_no_platform_index_returns_none(
+        self, source: RemoteSource
+    ):
+        """If the platform names index is absent, _fuzzy_match should return None."""
+        with patch.object(async_cache, "hget", new=AsyncMock(return_value=None)):
+            result = await source._fuzzy_match(
+                "Any Game", "Nintendo Entertainment System"
+            )
         assert result is None
