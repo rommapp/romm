@@ -46,6 +46,7 @@ const defaultHeartbeat: Heartbeat = {
     ENABLED: false,
     AUTOLOGIN: false,
     PROVIDER: "",
+    RP_INITIATED_LOGOUT: false,
   },
   TASKS: {
     ENABLE_SCHEDULED_RESCAN: false,

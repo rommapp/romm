@@ -1,14 +1,20 @@
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Final
+from typing import Annotated, Final, Optional
+from urllib.parse import urlencode
 
 from fastapi import Body, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic
 
-from config import OIDC_ENABLED, OIDC_REDIRECT_URI
+from config import (
+    OIDC_ENABLED,
+    OIDC_END_SESSION_ENDPOINT,
+    OIDC_REDIRECT_URI,
+    OIDC_RP_INITIATED_LOGOUT,
+)
 from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
-from endpoints.responses.oauth import TokenResponse
+from endpoints.responses.oauth import OIDCLogoutResponse, TokenResponse
 from exceptions.auth_exceptions import (
     AuthCredentialsException,
     OIDCDisabledException,
@@ -63,14 +69,37 @@ def login(
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
-def logout(request: Request) -> None:
+async def logout(request: Request) -> Optional[OIDCLogoutResponse]:
     """Session logout endpoint
 
     Args:
         request (Request): Fastapi Request object
+
+    Returns:
+        Optional[dict]: When OIDC RP-Initiated Logout is enabled and the session
+        contains an OIDC id_token, returns a dict with the OIDC end-session URL
+        so the client can redirect the browser to log out of the OIDC provider.
     """
 
+    id_token = request.session.get("oidc_id_token")
     request.session.clear()
+
+    if OIDC_RP_INITIATED_LOGOUT and id_token:
+        end_session_endpoint = OIDC_END_SESSION_ENDPOINT
+        if not end_session_endpoint and oauth.openid:
+            try:
+                metadata = await oauth.openid.load_server_metadata()
+                end_session_endpoint = metadata.get("end_session_endpoint", "")
+            except Exception:
+                log.warning(
+                    "Failed to load OIDC server metadata for RP-Initiated Logout"
+                )
+
+        if end_session_endpoint:
+            params = urlencode({"id_token_hint": id_token})
+            return {"oidc_logout_url": f"{end_session_endpoint}?{params}"}
+
+    return None
 
 
 @router.post("/token")
@@ -265,6 +294,8 @@ async def auth_openid(request: Request):
 
     request.session["iss"] = "romm:auth"
     request.session["sub"] = potential_user.username
+    if OIDC_RP_INITIATED_LOGOUT:
+        request.session["oidc_id_token"] = token.get("id_token", "")
 
     # Update last login and active times
     now = datetime.now(timezone.utc)
