@@ -14,7 +14,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
-import romApi from "@/services/api/rom";
+import taskApi from "@/services/api/task";
 import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
@@ -94,9 +94,7 @@ async function cleanupAll() {
 
   cleaningUp.value = true;
   try {
-    await romApi.cleanupMissingRoms({
-      platformId: selectedPlatform.value?.id,
-    });
+    await taskApi.runTask("cleanup_missing_roms");
     emitter?.emit("snackbarShow", {
       msg: t("settings.cleanup-all-queued"),
       icon: "mdi-check-circle",

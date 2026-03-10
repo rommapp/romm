@@ -1470,42 +1470,6 @@ async def delete_roms(
     }
 
 
-@protected_route(router.post, "/cleanup-missing", [Scope.ROMS_WRITE])
-async def cleanup_missing_roms(
-    request: Request,
-    platform_id: Annotated[
-        int | None,
-        Body(
-            description="Optional platform ID to restrict cleanup to a single platform.",
-            embed=True,
-        ),
-    ] = None,
-) -> dict:
-    """Enqueue a background task to delete all ROMs flagged as missing from the filesystem.
-
-    Optionally restrict the cleanup to a single platform by providing a platform_id.
-    """
-    from config import TASK_RESULT_TTL, TASK_TIMEOUT
-    from handler.redis_handler import low_prio_queue
-    from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
-
-    job = low_prio_queue.enqueue(
-        cleanup_missing_roms_task.run,
-        kwargs={"platform_id": platform_id},
-        job_timeout=TASK_TIMEOUT,
-        result_ttl=TASK_RESULT_TTL,
-        meta={
-            "task_name": cleanup_missing_roms_task.title,
-            "task_type": cleanup_missing_roms_task.task_type.value,
-        },
-    )
-
-    return {
-        "task_id": job.get_id(),
-        "status": str(job.get_status()),
-    }
-
-
 @protected_route(
     router.put,
     "/{id}/props",
