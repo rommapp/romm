@@ -15,6 +15,7 @@
   "canceled": "Visszavonva",
   "cleanup": "Takarítás",
   "cleanup-all": "Mindent tisztítson meg",
+  "cleanup-all-confirm": "This will permanently delete all missing ROMs{platform} from the database and their resource directories. This action cannot be undone.",
   "completed": "Befejezve",
   "config-file-not-mounted-desc": "A config.yml fájl nincs csatolva. A konfigurációban végrehajtott összes módosítás az alkalmazás újraindítása után nem marad meg.",
   "config-file-not-mounted-title": "Konfigurációs fájl nincs csatolva!",
