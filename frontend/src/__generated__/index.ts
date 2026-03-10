@@ -70,6 +70,7 @@ export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';
 export type { NetplayICEServer } from './models/NetplayICEServer';
 export type { OIDCDict } from './models/OIDCDict';
+export type { OIDCLogoutResponse } from './models/OIDCLogoutResponse';
 export type { PlatformBindingPayload } from './models/PlatformBindingPayload';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { RAGameRomAchievement } from './models/RAGameRomAchievement';
