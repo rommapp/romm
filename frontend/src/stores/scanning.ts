@@ -3,17 +3,17 @@ import type { ScanStats } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import type { Platform } from "./platforms";
 
-export interface ScanningPlatformFirmwareEvent {
-  platform_id: number;
-  platform_fs_slug: string;
-  platform_slug: string;
-  platform_display_name: string;
-  firmware_count: number;
-}
-
-export interface ScanningPlatform extends Partial<Platform> {
+export interface ScanningPlatform extends Pick<
+  Platform,
+  | "id"
+  | "name"
+  | "display_name"
+  | "slug"
+  | "fs_slug"
+  | "is_identified"
+  | "firmware_count"
+> {
   roms: SimpleRom[];
-  firmware_count: number;
 }
 
 export default defineStore("scanning", {
