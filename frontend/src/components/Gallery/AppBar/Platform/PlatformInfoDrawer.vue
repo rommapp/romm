@@ -43,10 +43,25 @@ const DVD_PLATFORMS = new Set([
   "wiiu",
   "xbox",
   "xbox360",
+  "win",
 ]);
-const BLU_RAY_PLATFORMS = new Set(["blu-ray-player", "ps3", "ps4"]);
-const DS_3DS_PLATFORMS = new Set(["3ds", "nds", "new-nintendo-3ds"]);
+const BLU_RAY_PLATFORMS = new Set([
+  "blu-ray-player",
+  "ps3",
+  "ps4",
+  "ps5",
+  "psvita",
+  "xboxone",
+  "series-x-s",
+]);
+const DS_3DS_PLATFORMS = new Set([
+  "nds",
+  "nintendo-dsi",
+  "3ds",
+  "new-nintendo-3ds",
+]);
 const PSP_PLATFORMS = new Set(["psp", "psp-minis"]);
+const SWITCH_PLATFORMS = new Set(["switch", "switch-2"]);
 
 const aspectRatioOptions = computed(() => {
   const slug = currentPlatform.value?.slug?.toLowerCase() ?? "";
@@ -109,6 +124,15 @@ const aspectRatioOptions = computed(() => {
             name: "0.58 / 1",
             size: 0.58 / 1,
             source: "PSP",
+          },
+        ]
+      : []),
+    ...(SWITCH_PLATFORMS.has(slug)
+      ? [
+          {
+            name: "0.62 / 1",
+            size: 0.62 / 1,
+            source: "Switch",
           },
         ]
       : []),

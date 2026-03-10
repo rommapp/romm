@@ -27,7 +27,15 @@ const tabIndex = computed(() => (activeSettingsDrawer.value ? 0 : -1));
 const activeElement = useActiveElement();
 
 async function logout() {
-  identityApi.logout().then(async () => {
+  identityApi.logout().then(async (response) => {
+    const oidcLogoutUrl = response?.data?.oidc_logout_url;
+
+    if (oidcLogoutUrl) {
+      // Redirect the browser to the OIDC end-session endpoint for RP-Initiated Logout
+      window.location.href = oidcLogoutUrl;
+      return;
+    }
+
     // Refetch CSRF token
     await refetchCSRFToken();
 

@@ -556,7 +556,7 @@ onMounted(async () => {
             variant="outlined"
             density="comfortable"
             :items="filter.items.value"
-            class="flex-grow-1"
+            class="grow"
             @update:model-value="
               nextTick(() => emitter?.emit('filterRoms', null))
             "
@@ -567,7 +567,7 @@ onMounted(async () => {
             mandatory
             variant="outlined"
             density="compact"
-            class="flex-shrink-0"
+            class="shrink-0"
             @update:model-value="
               (value) => {
                 filter.setLogic(value);

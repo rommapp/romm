@@ -350,6 +350,38 @@ async def test_oidc_token_without_email_verified_claim(
     assert userinfo.get("email") == mock_jwt_payload.claims.get("email")
 
 
+async def test_oidc_valid_no_edit_user_role_if_claim_not_in_userinfo(
+    mocker,
+    mock_oidc_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """Test that role is not changed for existing user on login if OIDC role claim is configured but not provided by the OIDC provider."""
+    mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "roles")
+    mocker.patch("handler.auth.base_handler.OIDC_ROLE_ADMIN", "admin")
+    # The OIDC provider does NOT include the roles claim in userinfo
+    mock_token["userinfo"].pop("roles", None)
+    mock_user = MagicMock(enabled=True, role=Role.ADMIN)
+    mocker.patch(
+        "handler.database.db_user_handler.get_user_by_email", return_value=mock_user
+    )
+    mock_edit_user = mocker.patch(
+        "handler.database.db_user_handler.update_user", return_value=mock_user
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    user, _ = await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    # The user's existing ADMIN role should be preserved
+    mock_edit_user.assert_not_called()
+    assert user.role == Role.ADMIN
+
+
 async def test_oidc_invalid_token_signature(mock_oidc_enabled):
     """Test token decoding raises exception for invalid signature."""
     oidc_handler = OpenIDHandler()

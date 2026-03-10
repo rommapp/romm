@@ -6,5 +6,6 @@ export type OIDCDict = {
     ENABLED: boolean;
     AUTOLOGIN: boolean;
     PROVIDER: string;
+    RP_INITIATED_LOGOUT: boolean;
 };
 
