@@ -141,20 +141,14 @@ function getCoveragePercent(matched: number, total: number): string {
               />
             </div>
             <div class="platform-content">
-              <!-- Row 1: Name + stats (primary info) -->
-              <div class="d-flex justify-space-between align-start">
+              <!-- Header: Name + size -->
+              <div class="d-flex justify-space-between align-center">
                 <div>
                   <div class="text-subtitle-1 font-weight-medium">
                     {{ platform.display_name }}
                   </div>
-                  <div class="d-flex align-center ga-1 mt-n1">
-                    <v-chip
-                      size="x-small"
-                      label
-                      variant="text"
-                      class="text-medium-emphasis pa-0"
-                      style="font-size: 0.65rem"
-                    >
+                  <div class="d-flex align-center ga-1">
+                    <v-chip size="x-small" label class="text-grey">
                       {{ platform.fs_slug }}
                     </v-chip>
                     <v-icon
@@ -173,12 +167,14 @@ function getCoveragePercent(matched: number, total: number): string {
                   </div>
                 </div>
                 <div class="text-right flex-shrink-0 ml-4">
-                  <div class="text-subtitle-1 font-weight-bold text-primary">
+                  <div class="text-subtitle-2 font-weight-bold text-primary">
                     {{ formatBytes(Number(platform.fs_size_bytes)) }}
                   </div>
-                  <div class="text-medium-emphasis" style="font-size: 0.7rem">
-                    {{ platform.rom_count }} roms
-                    · {{
+                  <div
+                    class="text-medium-emphasis"
+                    style="font-size: 0.7rem"
+                  >
+                    {{
                       getPlatformPercentage(
                         platform.fs_size_bytes,
                         props.totalFilesize,
@@ -188,8 +184,16 @@ function getCoveragePercent(matched: number, total: number): string {
                 </div>
               </div>
 
-              <!-- Detail table: label | chips -->
+              <!-- Detail table: label | value -->
               <div class="detail-table mt-2">
+                <div class="detail-row">
+                  <span class="detail-label">Roms</span>
+                  <div>
+                    <v-chip size="x-small" label>
+                      {{ platform.rom_count }}
+                    </v-chip>
+                  </div>
+                </div>
                 <div class="detail-row">
                   <span class="detail-label">
                     {{ t("rom.metadata") }}
@@ -296,7 +300,7 @@ function getCoveragePercent(matched: number, total: number): string {
 .platform-icon {
   display: flex;
   align-items: flex-start;
-  padding-top: 2px;
+  padding-top: 6px;
 }
 
 .detail-table {
