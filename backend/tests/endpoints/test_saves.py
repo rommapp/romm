@@ -7,7 +7,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
 
-from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
+from endpoints.auth import ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import db_device_handler, db_device_save_sync_handler
@@ -56,7 +56,7 @@ def token_without_device_scopes(admin_user: User):
             "scopes": " ".join(scopes),
             "type": "access",
         },
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
     )
 
 

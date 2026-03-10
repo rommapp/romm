@@ -1,6 +1,8 @@
 name: Build Experimental Docker Image
 
 on:
+  pull_request:
+    types: [labeled]
   workflow_dispatch:
     inputs:
       # trunk-ignore(checkov/CKV_GHA_7)
@@ -13,9 +15,13 @@ permissions:
   contents: write
   packages: write
   actions: write
+  pull-requests: write
 
 jobs:
   build:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'build-preview')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -28,8 +34,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.3.0
         with:
-          ref: ${{ github.event.inputs.branch }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
           fetch-depth: 0
+
+      - name: PR comment build starting
+        if: github.event_name == 'pull_request'
+        id: build-comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🔨 Preview build is under way...`
+            });
+            core.setOutput('comment-id', comment.data.id);
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3.6.0
@@ -50,7 +70,7 @@ jobs:
           images: |
             name=rommapp/romm-testing
           tags: |
-            type=raw,value=${{ github.event.inputs.branch }}
+            type=raw,value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
 
       - name: Build full image
         id: build-full
@@ -62,3 +82,15 @@ jobs:
           platforms: linux/arm64,linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           target: full-image
+
+      - name: Comment PR with Docker image link
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.updateComment({
+              comment_id: ${{ steps.build-comment.outputs.comment-id }},
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Preview build completed!\n\nDocker image: \`rommapp/romm-testing:${{ github.head_ref }}\``
+            })
