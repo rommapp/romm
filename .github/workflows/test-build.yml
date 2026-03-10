@@ -27,6 +27,7 @@ jobs:
       id-token: write
       contents: write
       packages: write
+      pull-requests: write
     steps:
       - name: Run only once per workflow
         run: echo "Triggered by ${{ github.event_name }}"
