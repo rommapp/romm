@@ -3,7 +3,16 @@ import type { ScanStats } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import type { Platform } from "./platforms";
 
-export interface ScanningPlatform extends Partial<Platform> {
+export interface ScanningPlatform extends Pick<
+  Platform,
+  | "id"
+  | "name"
+  | "display_name"
+  | "slug"
+  | "fs_slug"
+  | "is_identified"
+  | "firmware_count"
+> {
   roms: SimpleRom[];
 }
 

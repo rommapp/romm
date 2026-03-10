@@ -490,13 +490,6 @@ async def _identify_platform(
     if MetadataSource.GAMELIST in metadata_sources:
         await meta_gamelist_handler.populate_cache(platform)
 
-    await socket_manager.emit(
-        "scan:scanning_platform",
-        PlatformSchema.model_validate(platform).model_dump(
-            include={"id", "name", "display_name", "slug", "fs_slug", "is_identified"}
-        ),
-    )
-
     # Scanning firmware
     try:
         fs_firmware = await fs_firmware_handler.get_firmware(platform.fs_slug)
@@ -516,6 +509,21 @@ async def _identify_platform(
             platform=platform,
             fs_fw=fs_fw,
         )
+
+    await socket_manager.emit(
+        "scan:scanning_platform",
+        PlatformSchema.model_validate(platform).model_dump(
+            include={
+                "id",
+                "name",
+                "display_name",
+                "slug",
+                "fs_slug",
+                "is_identified",
+                "firmware_count",
+            }
+        ),
+    )
 
     # This reduces the number of socket emissions
     await scan_stats.increment(
