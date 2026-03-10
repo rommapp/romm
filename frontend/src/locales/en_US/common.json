@@ -33,7 +33,6 @@
   "platforms": "Platforms",
   "platforms-n": "{n} Platform | {n} Platforms",
   "metadata-coverage": "Metadata coverage",
-  "platforms-size": "Size per platform",
   "region-breakdown": "Region breakdown",
   "profile": "Profile",
   "random": "Random",
