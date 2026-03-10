@@ -32,8 +32,6 @@
   "platform": "Platform",
   "platforms": "Platforms",
   "platforms-n": "{n} Platform | {n} Platforms",
-  "metadata-coverage": "Metadata coverage",
-  "region-breakdown": "Region breakdown",
   "profile": "Profile",
   "random": "Random",
   "removing-from-filesystem": "Removing from filesystem",

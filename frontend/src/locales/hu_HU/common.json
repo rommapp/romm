@@ -32,7 +32,6 @@
   "platform": "Platform",
   "platforms": "Platformok",
   "platforms-n": "{n} Platform | {n} Platformok",
-  "platforms-size": "Méret platformonként",
   "profile": "Profil",
   "random": "Véletlenszerű",
   "removing-from-filesystem": "Eltávolítás a fájlrendszerből",

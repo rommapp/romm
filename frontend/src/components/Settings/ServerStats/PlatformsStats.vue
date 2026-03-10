@@ -192,7 +192,7 @@ function getCoveragePercent(matched: number, total: number): string {
               <div class="detail-table mt-2">
                 <div class="detail-row">
                   <span class="detail-label">
-                    {{ t("common.metadata-coverage") }}
+                    {{ t("rom.metadata") }}
                   </span>
                   <div
                     v-if="orderedCoverageByPlatform[platform.id]?.length > 0"
@@ -222,7 +222,7 @@ function getCoveragePercent(matched: number, total: number): string {
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">
-                    {{ t("common.region-breakdown") }}
+                    {{ t("platform.region") }}
                   </span>
                   <div
                     v-if="getVisibleRegions(platform.id).length > 0"
