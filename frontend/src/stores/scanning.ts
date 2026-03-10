@@ -3,8 +3,18 @@ import type { ScanStats } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import type { Platform } from "./platforms";
 
+export interface ScannedFirmware {
+  platform_id: number;
+  platform_fs_slug: string;
+  platform_slug: string;
+  platform_display_name: string;
+  file_name: string;
+  is_verified: boolean;
+}
+
 export interface ScanningPlatform extends Partial<Platform> {
   roms: SimpleRom[];
+  firmware: ScannedFirmware[];
 }
 
 export default defineStore("scanning", {
