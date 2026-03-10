@@ -196,10 +196,7 @@ export function useGameAnimation({
     if (!romsStore.isSimpleRom(rom)) return null;
     // Only play video if boxart style is miximage
     if (boxartStyle.value !== "miximage_path") return null;
-    const ssVideo =
-      rom.ss_metadata?.video_path || rom.ss_metadata?.video_normalized_path;
-    const gamelistVideo = rom.gamelist_metadata?.video_path;
-    return ssVideo || gamelistVideo || null;
+    return rom.path_video ?? null;
   });
 
   const playVideoEnabled = computed(() => {
