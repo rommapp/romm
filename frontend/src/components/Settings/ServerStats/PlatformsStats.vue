@@ -97,8 +97,8 @@ function getCoveragePercent(matched: number, total: number): string {
 
 <template>
   <RSection
-    icon="mdi-harddisk"
-    :title="t('common.platforms-size')"
+    icon="mdi-controller"
+    :title="t('common.platforms')"
     elevation="0"
     title-divider
     bg-color="bg-background"
@@ -125,7 +125,7 @@ function getCoveragePercent(matched: number, total: number): string {
         <v-sheet
           v-for="platform in sortedPlatforms"
           :key="platform.slug"
-          class="platform-card mb-2"
+          class="platform-card mb-3"
           rounded
         >
           <div class="pa-3">
