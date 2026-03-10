@@ -22,7 +22,9 @@ const { t } = useI18n();
           />
         </v-avatar>
       </template>
-      {{ platform.display_name }}
+      <div class="text-no-wrap">
+        {{ platform.display_name }}
+      </div>
       <template #append>
         <v-chip class="ml-3" color="primary" size="x-small" label>
           {{ platform.roms.length }}

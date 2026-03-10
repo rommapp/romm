@@ -9,8 +9,7 @@ import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
-import storeScanning from "@/stores/scanning";
-import type { ScanningPlatformFirmwareEvent } from "@/stores/scanning";
+import storeScanning, { type ScanningPlatform } from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 
 withDefaults(
@@ -61,6 +60,7 @@ const processRomUpdates = debounce(() => {
     // Add the platform if the socket dropped and it's missing
     if (!scannedPlatform) {
       scanningPlatforms.value.push({
+        name: rom.platform_display_name,
         display_name: rom.platform_display_name,
         slug: rom.platform_slug,
         id: rom.platform_id,
@@ -89,29 +89,26 @@ const processRomUpdates = debounce(() => {
 socket.on(
   "scan:scanning_platform",
   ({
+    name,
     display_name,
     slug,
     id,
     fs_slug,
     is_identified,
-  }: {
-    display_name: string;
-    slug: string;
-    id: number;
-    fs_slug: string;
-    is_identified: boolean;
-  }) => {
+    firmware_count,
+  }: ScanningPlatform) => {
     scanningStore.setScanning(true);
     scanningPlatforms.value = scanningPlatforms.value.filter(
       (platform) => platform.display_name !== display_name,
     );
     scanningPlatforms.value.push({
+      name,
       display_name,
       slug,
       id,
       fs_slug,
       roms: [],
-      firmware_count: 0,
+      firmware_count,
       is_identified,
     });
   },
@@ -124,33 +121,6 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   romUpdateQueue.value.push(rom);
   processRomUpdates();
 });
-
-socket.on(
-  "scan:scanning_firmware",
-  (event: ScanningPlatformFirmwareEvent) => {
-    scanningStore.setScanning(true);
-
-    let scannedPlatform = scanningPlatforms.value.find(
-      (p) => p.fs_slug === event.platform_fs_slug,
-    );
-
-    // Add the platform if the socket dropped and it's missing
-    if (!scannedPlatform) {
-      scanningPlatforms.value.push({
-        display_name: event.platform_display_name,
-        slug: event.platform_slug,
-        id: event.platform_id,
-        fs_slug: event.platform_fs_slug,
-        is_identified: true,
-        roms: [],
-        firmware_count: 0,
-      });
-      scannedPlatform = scanningPlatforms.value.at(-1)!;
-    }
-
-    scannedPlatform.firmware_count = event.firmware_count;
-  },
-);
 
 socket.on("scan:done", () => {
   scanningStore.setScanning(false);
@@ -183,7 +153,6 @@ socket.on("scan:update_stats", (stats: ScanStats) => {
 onBeforeUnmount(() => {
   socket.off("scan:scanning_platform");
   socket.off("scan:scanning_rom");
-  socket.off("scan:scanning_firmware");
   socket.off("scan:done");
   socket.off("scan:done_ko");
   processRomUpdates.cancel();

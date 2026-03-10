@@ -90,9 +90,9 @@ watch(metadataOptions, (newOptions) => {
   );
 });
 
-// Track which platforms have ROMs or firmware without a deep watch on the entire array.
+// Track which platforms have ROMs/firmware without a deep watch on the entire array.
 // The computed returns a stable string that only changes when a platform
-// transitions from 0→>0 ROMs/firmware (or back), so the watch fires O(n_platforms)
+// transitions from 0→1+ ROMs/firmware (or back), so the watch fires O(n_platforms)
 // times rather than O(n_roms) times.
 const platformsWithRomsKey = computed(() =>
   scanningPlatforms.value
@@ -101,9 +101,7 @@ const platformsWithRomsKey = computed(() =>
 );
 watch(platformsWithRomsKey, () => {
   panels.value = scanningPlatforms.value
-    .map((p, index) =>
-      p.roms.length > 0 || p.firmware_count > 0 ? index : -1,
-    )
+    .map((p, index) => (p.roms.length > 0 || p.firmware_count > 0 ? index : -1))
     .filter((index) => index !== -1);
 });
 

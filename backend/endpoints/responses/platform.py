@@ -50,6 +50,11 @@ class PlatformSchema(BaseModel):
     def display_name(self) -> str:
         return self.custom_name or self.name
 
+    @computed_field  # type: ignore
+    @property
+    def firmware_count(self) -> int:
+        return len(self.firmware)
+
     @field_validator("firmware")
     def sort_files(cls, v: list[FirmwareSchema]) -> list[FirmwareSchema]:
         return sorted(v, key=lambda x: x.file_name)

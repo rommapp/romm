@@ -37,5 +37,6 @@ export type PlatformSchema = {
     is_identified: boolean;
     missing_from_fs: boolean;
     readonly display_name: string;
+    readonly firmware_count: number;
 };
 
