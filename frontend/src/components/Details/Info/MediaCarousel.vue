@@ -23,13 +23,6 @@ const youtubeVideoId = computed(
     props.rom.manual_metadata?.youtube_video_id || props.rom.youtube_video_id,
 );
 
-const localVideoPath = computed(() => {
-  return (
-    props.rom.ss_metadata?.video_path ||
-    props.rom.ss_metadata?.video_normalized_path ||
-    props.rom.gamelist_metadata?.video_path
-  );
-});
 const screenshots = computed(() => props.rom.merged_screenshots);
 const mediaPaths = computed(() => {
   const ss = props.rom.ss_metadata;
@@ -103,12 +96,12 @@ const carouselHeight = computed(() => {
       />
     </v-carousel-item>
     <v-carousel-item
-      v-if="localVideoPath"
-      :key="localVideoPath"
+      v-if="rom.path_video"
+      :key="rom.path_video"
       content-class="d-flex justify-center align-center"
     >
       <video
-        :src="`${FRONTEND_RESOURCES_PATH}/${localVideoPath}`"
+        :src="`${FRONTEND_RESOURCES_PATH}/${rom.path_video}`"
         class="h-full object-contain"
         controls
       />

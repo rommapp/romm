@@ -61,6 +61,7 @@ export type SimpleRomSchema = {
     has_manual: boolean;
     path_manual: (string | null);
     url_manual: (string | null);
+    path_video: (string | null);
     is_identifying?: boolean;
     is_unidentified: boolean;
     is_identified: boolean;
