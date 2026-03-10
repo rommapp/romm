@@ -571,18 +571,6 @@ async function deleteRoms({
   return api.post<BulkOperationResponse>("/roms/delete", payload);
 }
 
-async function cleanupMissingRoms({
-  platformId,
-}: {
-  platformId?: number | null;
-} = {}) {
-  const payload = platformId ? { platform_id: platformId } : {};
-  return api.post<{ task_id: string; status: string }>(
-    "/roms/cleanup-missing",
-    payload,
-  );
-}
-
 // Multi-note management functions
 async function createRomNote({
   romId,
@@ -665,7 +653,6 @@ export default {
   removeManual,
   updateUserRomProps,
   deleteRoms,
-  cleanupMissingRoms,
   createRomNote,
   updateRomNote,
   deleteRomNote,
