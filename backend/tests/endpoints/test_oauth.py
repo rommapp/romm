@@ -57,6 +57,45 @@ def test_refreshing_oauth_token_with_invalid_refresh_token(client):
         assert e.detail == "Invalid refresh token"
 
 
+def test_refresh_token_rotation_invalidates_old_token(client, refresh_token):
+    first_response = client.post(
+        "/api/token",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        },
+    )
+
+    assert first_response.status_code == status.HTTP_200_OK
+    first_body = first_response.json()
+
+    assert first_body["access_token"]
+    assert first_body["refresh_token"]
+    assert first_body["refresh_token"] != refresh_token
+
+    new_refresh_token = first_body["refresh_token"]
+
+    second_response = client.post(
+        "/api/token",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        },
+    )
+
+    assert second_response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    third_response = client.post(
+        "/api/token",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": new_refresh_token,
+        },
+    )
+
+    assert third_response.status_code == status.HTTP_200_OK
+
+
 def test_auth_via_upass(client, admin_user):
     response = client.post(
         "/api/token",
@@ -117,3 +156,17 @@ def test_auth_with_invalid_grant_type(client):
     except HTTPException as e:
         assert e.status_code == status.HTTP_400_BAD_REQUEST
         assert e.detail == "Invalid or unsupported grant type"
+
+
+def test_refreshing_oauth_token_expired_refresh_token(
+    client, admin_user, expired_refresh_token
+):
+    response = client.post(
+        "/api/token",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": expired_refresh_token,
+        },
+    )
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
