@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from decorators.database import begin_session
 from models.assets import Save, Screenshot, State
@@ -80,30 +83,33 @@ class DBStatsHandler(DBBaseHandler):
             or 0
         )
 
+    # Metadata source columns on the Rom model, keyed by source identifier.
+    METADATA_SOURCE_COLUMNS: dict[str, "InstrumentedAttribute"] = {
+        "igdb": Rom.igdb_id,
+        "ss": Rom.ss_id,
+        "moby": Rom.moby_id,
+        "launchbox": Rom.launchbox_id,
+        "ra": Rom.ra_id,
+        "hasheous": Rom.hasheous_id,
+        "tgdb": Rom.tgdb_id,
+        "flashpoint": Rom.flashpoint_id,
+        "hltb": Rom.hltb_id,
+        "gamelist": Rom.gamelist_id,
+    }
+
     @begin_session
     def get_metadata_coverage_by_platform(
         self,
         session: Session = None,  # type: ignore
     ) -> dict[int, list[dict]]:
         """Get the count of ROMs matched per metadata source, grouped by platform."""
-        source_keys = [
-            "igdb", "ss", "moby", "launchbox", "ra",
-            "hasheous", "tgdb", "flashpoint", "hltb", "gamelist",
-        ]
-
         rows = session.execute(
             select(
                 Rom.platform_id,
-                func.count(Rom.igdb_id).label("igdb"),
-                func.count(Rom.ss_id).label("ss"),
-                func.count(Rom.moby_id).label("moby"),
-                func.count(Rom.launchbox_id).label("launchbox"),
-                func.count(Rom.ra_id).label("ra"),
-                func.count(Rom.hasheous_id).label("hasheous"),
-                func.count(Rom.tgdb_id).label("tgdb"),
-                func.count(Rom.flashpoint_id).label("flashpoint"),
-                func.count(Rom.hltb_id).label("hltb"),
-                func.count(Rom.gamelist_id).label("gamelist"),
+                *(
+                    func.count(col).label(key)
+                    for key, col in self.METADATA_SOURCE_COLUMNS.items()
+                ),
             )
             .select_from(Rom)
             .group_by(Rom.platform_id)
@@ -113,7 +119,7 @@ class DBStatsHandler(DBBaseHandler):
         for row in rows:
             result[row.platform_id] = [
                 {"source": key, "matched": getattr(row, key)}
-                for key in source_keys
+                for key in self.METADATA_SOURCE_COLUMNS
                 if getattr(row, key) > 0
             ]
         return result
