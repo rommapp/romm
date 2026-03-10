@@ -90,16 +90,18 @@ watch(metadataOptions, (newOptions) => {
   );
 });
 
-// Adding each new scanned platform to panelIndex to be open by default
-watch(
-  scanningPlatforms,
-  () => {
-    panels.value = scanningPlatforms.value
-      .map((p, index) => (p.roms.length > 0 ? index : -1))
-      .filter((index) => index !== -1);
-  },
-  { deep: true },
+// Track which platforms have ROMs without a deep watch on the entire array.
+// The computed returns a stable string that only changes when a platform
+// transitions from 0→>0 ROMs (or back), so the watch fires O(n_platforms)
+// times rather than O(n_roms) times.
+const platformsWithRomsKey = computed(() =>
+  scanningPlatforms.value.map((p) => (p.roms.length > 0 ? 1 : 0)).join(""),
 );
+watch(platformsWithRomsKey, () => {
+  panels.value = scanningPlatforms.value
+    .map((p, index) => (p.roms.length > 0 ? index : -1))
+    .filter((index) => index !== -1);
+});
 
 const scanOptions = [
   {
