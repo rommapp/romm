@@ -18,6 +18,7 @@ from handler.database import (
     db_user_handler,
 )
 from models.assets import Save, Screenshot, State
+from models.client_token import ClientToken
 from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.platform import Platform
@@ -36,6 +37,7 @@ def setup_database():
 @pytest.fixture(autouse=True)
 def clear_database():
     with session.begin() as s:
+        s.query(ClientToken).delete(synchronize_session="evaluate")
         s.query(DeviceSaveSync).delete(synchronize_session="evaluate")
         s.query(Device).delete(synchronize_session="evaluate")
         s.query(Save).delete(synchronize_session="evaluate")

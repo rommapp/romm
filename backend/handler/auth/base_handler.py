@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -30,6 +32,14 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 
 oct_key = OctKey.import_key(ROMM_AUTH_SECRET_KEY)
+
+
+def generate_client_token() -> str:
+    return "rmm_" + secrets.token_hex(32)
+
+
+def hash_client_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
 
 
 class AuthHandler:
