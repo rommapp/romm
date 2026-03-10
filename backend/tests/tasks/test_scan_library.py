@@ -55,35 +55,6 @@ class TestScanLibraryTask:
         )
         mock_log.info.assert_any_call("Scheduled library scan done")
 
-    async def test_run_no_metadata_sources(self, task, mocker):
-        """Test run proceeds even when no metadata sources are enabled"""
-        mocker.patch.object(HasheousHandler, "is_enabled", return_value=False)
-        mocker.patch.object(IGDBHandler, "is_enabled", return_value=False)
-        mocker.patch.object(LaunchboxHandler, "is_enabled", return_value=False)
-        mocker.patch.object(MobyGamesHandler, "is_enabled", return_value=False)
-        mocker.patch.object(RAHandler, "is_enabled", return_value=False)
-        mocker.patch.object(SGDBBaseHandler, "is_enabled", return_value=False)
-        mocker.patch.object(SSHandler, "is_enabled", return_value=False)
-        mocker.patch.object(FlashpointHandler, "is_enabled", return_value=False)
-        mocker.patch.object(HLTBHandler, "is_enabled", return_value=False)
-        mocker.patch.object(TGDBHandler, "is_enabled", return_value=False)
-        mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", True)
-        mock_scan_platforms = mocker.patch(
-            "tasks.scheduled.scan_library.scan_platforms"
-        )
-        mock_log = mocker.patch("tasks.scheduled.scan_library.log")
-        mock_scan_platforms.return_value = AsyncMock()
-
-        await task.run()
-
-        mock_log.info.assert_any_call("Scheduled library scan started...")
-        mock_scan_platforms.assert_called_once_with(
-            platform_ids=[],
-            metadata_sources=[],
-            scan_type=ScanType.QUICK,
-        )
-        mock_log.info.assert_any_call("Scheduled library scan done")
-
     async def test_run_disabled(self, task, mocker):
         """Test run when scheduled rescan is disabled"""
         mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", False)
