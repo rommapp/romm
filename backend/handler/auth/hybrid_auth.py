@@ -1,5 +1,4 @@
 from fastapi.security.http import HTTPBasic
-from fastapi import HTTPException
 from starlette.authentication import AuthCredentials, AuthenticationBackend
 from starlette.requests import HTTPConnection
 
@@ -41,11 +40,9 @@ class HybridAuthBackend(AuthenticationBackend):
 
             # Check if bearer auth header is valid
             if scheme.lower() == "bearer":
-                try:
-                    user, claims = await oauth_handler.get_current_active_user_from_bearer_token(token)
-                except HTTPException as exc:
-                    if exc.status_code == 401:
-                        return None
+                user, claims = (
+                    await oauth_handler.get_current_active_user_from_bearer_token(token)
+                )
 
                 if user is None or claims is None:
                     return None

@@ -107,11 +107,6 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
             )
 
-        if claims.get("type") != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
-            )
-
         if not user.enabled:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled"
@@ -122,7 +117,6 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 "sub": user.username,
                 "iss": "romm:oauth",
                 "scopes": claims.get("scopes"),
-                "type": "access",
             },
             expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
         )
@@ -132,7 +126,6 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 "sub": user.username,
                 "iss": "romm:oauth",
                 "scopes": claims.get("scopes"),
-                "type": "refresh",
             },
             expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
         )
@@ -141,8 +134,8 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "bearer",  # trunk-ignore(bandit/B105)
-            "expires_in": ACCESS_TOKEN_EXPIRE_SECONDS,
-            "refresh_expires_in": REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+            "expires": ACCESS_TOKEN_EXPIRE_SECONDS,
+            "refresh_expires": REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         }
 
     # Authentication via username/password
@@ -191,7 +184,6 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
             "sub": user.username,
             "iss": "romm:oauth",
             "scopes": " ".join(form_data.scopes),
-            "type": "access",
         },
         expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
     )
@@ -201,7 +193,6 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
             "sub": user.username,
             "iss": "romm:oauth",
             "scopes": " ".join(form_data.scopes),
-            "type": "refresh",
         },
         expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     )
@@ -210,8 +201,8 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",  # trunk-ignore(bandit/B105)
-        "expires_in": ACCESS_TOKEN_EXPIRE_SECONDS,
-        "refresh_expires_in": REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        "expires": ACCESS_TOKEN_EXPIRE_SECONDS,
+        "refresh_expires": REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     }
 
 

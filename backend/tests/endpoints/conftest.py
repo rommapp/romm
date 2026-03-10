@@ -12,10 +12,9 @@ def access_token(admin_user):  # noqa
         "sub": admin_user.username,
         "iss": "romm:oauth",
         "scopes": " ".join(admin_user.oauth_scopes),
-        "type": "access",
     }
 
-    return oauth_handler.create_oauth_token(
+    return oauth_handler.create_access_token(
         data=data, expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS)
     )
 
@@ -26,9 +25,8 @@ def refresh_token(admin_user):  # noqa
         "sub": admin_user.username,
         "iss": "romm:oauth",
         "scopes": " ".join(admin_user.oauth_scopes),
-        "type": "refresh",
     }
 
-    return oauth_handler.create_oauth_token(
+    return oauth_handler.create_refresh_token(
         data=data, expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     )

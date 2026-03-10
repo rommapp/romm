@@ -111,9 +111,8 @@ def test_add_user_from_unauthorized_user(
         "sub": requesting_user.username,
         "iss": "romm:oauth",
         "scopes": " ".join(requesting_user.oauth_scopes),
-        "type": "access",
     }
-    access_token = oauth_handler.create_oauth_token(
+    access_token = oauth_handler.create_access_token(
         data=data, expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS)
     )
 
