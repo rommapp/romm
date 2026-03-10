@@ -21,6 +21,7 @@ withDefaults(
     showSearchBar: false,
   },
 );
+
 const { calculatedWidth } = calculateMainLayoutWidth();
 </script>
 <template>

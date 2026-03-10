@@ -39,6 +39,7 @@ class OIDCDict(TypedDict):
     ENABLED: bool
     AUTOLOGIN: bool
     PROVIDER: str
+    RP_INITIATED_LOGOUT: bool
 
 
 class TasksDict(TypedDict):
