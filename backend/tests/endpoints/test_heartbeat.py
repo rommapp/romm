@@ -57,6 +57,7 @@ def test_heartbeat(client):
     oidc = heartbeat["OIDC"]
     assert isinstance(oidc["ENABLED"], bool)
     assert isinstance(oidc["PROVIDER"], str)
+    assert isinstance(oidc["RP_INITIATED_LOGOUT"], bool)
 
 
 def test_heartbeat_metadata(client):

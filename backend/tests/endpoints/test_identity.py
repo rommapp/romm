@@ -250,6 +250,58 @@ async def test_logout_invalidates_session(client, admin_user: User):
     await RedisSessionMiddleware.clear_user_sessions(admin_user.username)
 
 
+def test_logout_without_oidc_returns_no_body(client, admin_user: User):
+    """Test that logout without OIDC session returns no OIDC logout URL."""
+    basic_auth = base64.b64encode(b"test_admin:test_admin_password").decode("ascii")
+    response = client.post(
+        "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.post("/api/logout")
+    assert response.status_code == HTTPStatus.OK
+    # Non-OIDC session should not return an oidc_logout_url
+    assert response.json() is None or (
+        response.json() is not None and "oidc_logout_url" not in response.json()
+    )
+
+
+def test_logout_with_oidc_rp_initiated_logout(client, admin_user: User):
+    """Test that logout with OIDC RP-Initiated Logout returns the end-session URL."""
+    basic_auth = base64.b64encode(b"test_admin:test_admin_password").decode("ascii")
+    response = client.post(
+        "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+    session_cookie = response.cookies.get("romm_session")
+    assert session_cookie is not None
+
+    end_session_url = "https://auth.example.com/application/o/romm/end-session/"
+    fake_id_token = "fake.id.token"
+
+    # Inject oidc_id_token into the session in Redis directly
+    session_data = sync_cache.get(f"session:{session_cookie}")
+    assert session_data is not None
+    session_dict = json.loads(session_data)
+    session_dict["oidc_id_token"] = fake_id_token
+    sync_cache.set(f"session:{session_cookie}", json.dumps(session_dict))
+
+    with (
+        mock.patch("endpoints.auth.OIDC_RP_INITIATED_LOGOUT", True),
+        mock.patch("endpoints.auth.OIDC_END_SESSION_ENDPOINT", end_session_url),
+    ):
+        response = client.post(
+            "/api/logout",
+            cookies={"romm_session": session_cookie},
+        )
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+        assert data is not None
+        assert "oidc_logout_url" in data
+        assert data["oidc_logout_url"].startswith(end_session_url)
+        assert f"id_token_hint={fake_id_token}" in data["oidc_logout_url"]
+
+
 def test_update_user_with_valid_ui_settings(
     client, access_token: str, editor_user: User
 ):
