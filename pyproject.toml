@@ -136,3 +136,10 @@ package = false
 
 [tool.ty.environment]
 root = ["./backend"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=0.26.0",
+    "pytest-env>=1.1.5",
+]

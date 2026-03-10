@@ -141,11 +141,18 @@ def read_basic_file(file_path: os.PathLike[str]) -> Iterator[bytes]:
 def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
     try:
         with zipfile.ZipFile(file, "r") as z:
-            # Find the biggest file in the archive
-            largest_file = max(z.infolist(), key=lambda x: x.file_size)
-            with z.open(largest_file, "r") as f:
-                while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                    yield chunk
+            # Sort files alphabetically by name for deterministic hashing.
+            # This ensures multi-file archives (e.g. MAME ROM sets) produce a
+            # unique combined hash rather than matching on a single shared file,
+            # which could cause false positive identification across different games.
+            files = sorted(
+                [f for f in z.infolist() if not f.is_dir()],
+                key=lambda x: x.filename,
+            )
+            for file_info in files:
+                with z.open(file_info, "r") as f:
+                    while chunk := f.read(FILE_READ_CHUNK_SIZE):
+                        yield chunk
     except zipfile.BadZipFile:
         if isinstance(file, Path):
             for chunk in read_basic_file(file):

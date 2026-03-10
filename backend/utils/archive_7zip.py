@@ -19,6 +19,11 @@ def process_file_7z(
     """
     Process a 7zip file using the system's 7zip binary and use the provided callables to update the calculated hashes.
 
+    All files within the archive are processed in alphabetical order to produce a
+    deterministic combined hash. This ensures multi-file archives (e.g. MAME ROM sets)
+    yield a unique hash per game rather than matching on a single shared file, which
+    could cause false positive identification across different games.
+
     Args:
         file_path: Path to the 7z file
         fn_hash_update: Callback to update hashes with data chunks
@@ -36,55 +41,55 @@ def process_file_7z(
 
         lines = result.stdout.split("\n")
 
-        largest_file = None
-        largest_size = 0
+        # Collect all files (not directories), then sort alphabetically for
+        # deterministic hashing across archives with different internal ordering.
+        all_files: list[str] = []
         current_file = None
-        current_size = 0
+        is_directory = False
 
         for line in lines:
             line = line.lstrip()
             if line.startswith("Path = "):
                 current_file = line.split(" = ", 1)[1]
-            elif line.startswith("Size = "):
-                try:
-                    current_size = int(line.split(" = ")[1].strip())
-                except ValueError:
-                    current_size = 0
+                is_directory = False
             elif line.startswith("Attributes = "):
-                # Check if this is a file (not a folder)
                 attrs = line.split(" = ")[1].strip()
-                if current_file and not attrs.startswith("D"):  # D indicates directory
-                    if current_size > largest_size:
-                        largest_size = current_size
-                        largest_file = current_file
+                is_directory = attrs.startswith("D")  # D indicates directory
+                if current_file and not is_directory:
+                    all_files.append(current_file)
 
-        if not largest_file:
+        if not all_files:
             return False
 
-        log.debug(f"Extracting {largest_file} from {file_path}...")
+        all_files.sort()
 
-        start_decompression_time = time.monotonic()
+        for file_name in all_files:
+            log.debug(f"Extracting {file_name} from {file_path}...")
 
-        with subprocess.Popen(
-            [SEVEN_ZIP_PATH, "e", str(file_path), largest_file, "-so", "-y"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
-        ) as process:
-            if process.stdout:
-                while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
-                    elapsed_time = time.monotonic() - start_decompression_time
+            start_decompression_time = time.monotonic()
 
-                    if elapsed_time > SEVEN_ZIP_TIMEOUT:
-                        process.terminate()
-                        log.error("7z extraction timed out")
-                        return False
+            with subprocess.Popen(
+                [SEVEN_ZIP_PATH, "e", str(file_path), file_name, "-so", "-y"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+            ) as process:
+                if process.stdout:
+                    while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
+                        elapsed_time = time.monotonic() - start_decompression_time
 
-                    fn_hash_update(chunk)
+                        if elapsed_time > SEVEN_ZIP_TIMEOUT:
+                            process.terminate()
+                            log.error("7z extraction timed out")
+                            return False
 
-        if process.returncode != 0:
-            log.error(f"7z extraction failed with return code {process.returncode}")
-            return False
+                        fn_hash_update(chunk)
+
+            if process.returncode != 0:
+                log.error(
+                    f"7z extraction failed with return code {process.returncode}"
+                )
+                return False
 
         return True
 

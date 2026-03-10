@@ -252,8 +252,9 @@ class HasheousHandler(MetadataHandler):
         ]
 
         # Select the largest file by size, as it is most likely to be the main ROM file.
-        # This increases the accuracy of metadata lookups, since the largest file is
-        # expected to have the correct and complete hash values for external services.
+        # Note: for archive files (ZIP, 7z), the stored hash already incorporates all
+        # internal files in alphabetical order, producing a unique combined fingerprint
+        # that avoids false positives when multiple games share individual archive members.
         first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
         if first_file is None:
             return fallback_rom
