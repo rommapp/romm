@@ -23,4 +23,6 @@ def stats() -> StatsReturn:
         "STATES": db_stats_handler.get_states_count(),
         "SCREENSHOTS": db_stats_handler.get_screenshots_count(),
         "TOTAL_FILESIZE_BYTES": db_stats_handler.get_total_filesize(),
+        "METADATA_COVERAGE": db_stats_handler.get_metadata_coverage_by_platform(),
+        "REGION_BREAKDOWN": db_stats_handler.get_region_breakdown_by_platform(),
     }
