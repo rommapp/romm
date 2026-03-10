@@ -10,11 +10,11 @@ import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import GameTable from "@/components/common/Game/VirtualTable.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import taskApi from "@/services/api/task";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
-import taskApi from "@/services/api/task";
 import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
@@ -96,7 +96,7 @@ async function cleanupAll() {
   try {
     await taskApi.runTask("cleanup_missing_roms");
     emitter?.emit("snackbarShow", {
-      msg: t("settings.cleanup-all-queued"),
+      msg: "Cleanup task queued, missing ROMs will be deleted shortly.",
       icon: "mdi-check-circle",
       color: "green",
       timeout: 5000,
@@ -104,7 +104,7 @@ async function cleanupAll() {
   } catch (error) {
     console.error("Error queuing cleanup task:", error);
     emitter?.emit("snackbarShow", {
-      msg: t("settings.cleanup-all-error", { error }),
+      msg: `Couldn't queue cleanup task: ${error}`,
       icon: "mdi-close-circle",
       color: "red",
       timeout: 4000,
