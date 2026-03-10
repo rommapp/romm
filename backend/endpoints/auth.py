@@ -86,7 +86,7 @@ async def logout(request: Request) -> Optional[dict]:
                 metadata = await oauth.openid.load_server_metadata()
                 end_session_endpoint = metadata.get("end_session_endpoint", "")
             except Exception:
-                pass
+                log.warning("Failed to load OIDC server metadata for RP-Initiated Logout")
 
         if end_session_endpoint:
             params = urlencode({"id_token_hint": id_token})
