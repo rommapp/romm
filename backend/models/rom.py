@@ -353,7 +353,6 @@ class Rom(BaseModel):
             (self.ss_metadata or {}).get("video_path")
             or (self.ss_metadata or {}).get("video_normalized_path")
             or (self.gamelist_metadata or {}).get("video_path")
-            or None
         )
 
     @property

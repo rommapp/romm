@@ -57,9 +57,7 @@ class GamelistExporter:
             )
 
         if path_video := rom.path_video:
-            SubElement(game, "video").text = (
-                f"{FRONTEND_RESOURCES_PATH}/{path_video}"
-            )
+            SubElement(game, "video").text = f"{FRONTEND_RESOURCES_PATH}/{path_video}"
         elif rom.youtube_video_id:
             SubElement(game, "video").text = (
                 f"{YOUTUBE_BASE_URL}/embed/{rom.youtube_video_id}"
