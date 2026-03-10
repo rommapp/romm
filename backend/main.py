@@ -25,6 +25,7 @@ from config import (
     SENTRY_DSN,
 )
 from endpoints.auth import router as auth_router
+from endpoints.client_tokens import router as client_tokens_router
 from endpoints.collections import router as collections_router
 from endpoints.configs import router as configs_router
 from endpoints.device import router as device_router
@@ -96,6 +97,8 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         secret=ROMM_AUTH_SECRET_KEY,
         exempt_urls=[
             re.compile(r"^/api/token.*"),
+            re.compile(r"^/api/client-tokens/exchange"),
+            re.compile(r"^/api/client-tokens/pair/.+/status"),
             re.compile(r"^/ws"),
             re.compile(r"^/netplay"),
         ],
@@ -121,6 +124,7 @@ app.middleware("http")(set_context_middleware)
 app.include_router(heartbeat_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
+app.include_router(client_tokens_router, prefix="/api")
 app.include_router(device_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
 app.include_router(rom_router, prefix="/api")

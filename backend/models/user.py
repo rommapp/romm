@@ -21,6 +21,7 @@ from utils.database import CustomJSON
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
+    from models.client_token import ClientToken
     from models.collection import Collection, SmartCollection
     from models.device import Device
     from models.rom import RomNote, RomUser
@@ -82,6 +83,9 @@ class User(BaseModel, SimpleUser):
     )
     devices: Mapped[list["Device"]] = relationship(
         lazy="raise", back_populates="user", cascade="all, delete-orphan"
+    )
+    client_tokens: Mapped[list["ClientToken"]] = relationship(
+        lazy="raise", back_populates="user"
     )
 
     @classmethod
