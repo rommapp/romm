@@ -15,6 +15,7 @@
   "canceled": "Abgebrochen",
   "cleanup": "Bereinigung",
   "cleanup-all": "Alles bereinigen",
+  "cleanup-all-confirm": "This will permanently delete all missing ROMs{platform} from the database and their resource directories. This action cannot be undone.",
   "completed": "Abgeschlossen",
   "config-file-not-mounted-desc": "Die config.yml-Datei wurde nicht eingebunden. Alle an der Konfiguration vorgenommenen Änderungen werden nach dem Neustart der Anwendung nicht beibehalten.",
   "config-file-not-mounted-title": "Konfigurationsdatei nicht eingebunden!",

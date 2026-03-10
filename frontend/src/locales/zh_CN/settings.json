@@ -15,6 +15,7 @@
   "canceled": "已取消",
   "cleanup": "清理",
   "cleanup-all": "清理全部",
+  "cleanup-all-confirm": "This will permanently delete all missing ROMs{platform} from the database and their resource directories. This action cannot be undone.",
   "completed": "已完成",
   "config-file-not-mounted-desc": "config.yml 文件未被挂载。对配置所做的任何更改在应用程序重新启动后都不会保留。",
   "config-file-not-mounted-title": "配置文件未挂载！",
