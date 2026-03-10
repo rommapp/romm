@@ -32,6 +32,7 @@ from handler.redis_handler import (
     low_prio_queue,
     redis_client,
 )
+from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
 from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
@@ -96,6 +97,13 @@ manual_tasks: list[ManualTask] = [
             "name": "cleanup_orphaned_resources",
             "type": TaskType.CLEANUP,
             "task": cleanup_orphaned_resources_task,
+        }
+    ),
+    ManualTask(
+        {
+            "name": "cleanup_missing_roms",
+            "type": TaskType.CLEANUP,
+            "task": cleanup_missing_roms_task,
         }
     ),
 ]

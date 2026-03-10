@@ -14,6 +14,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
+import romApi from "@/services/api/rom";
 import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
@@ -26,6 +27,7 @@ const { selectedPlatform } = storeToRefs(galleryFilterStore);
 const platformsStore = storePlatforms();
 const emitter = inject<Emitter<Events>>("emitter");
 const loading = ref(false);
+const cleaningUp = ref(false);
 let timeout: ReturnType<typeof setTimeout> = setTimeout(() => {}, 400);
 
 const allPlatforms = computed(() =>
@@ -87,39 +89,31 @@ async function fetchRoms() {
     });
 }
 
-function cleanupAll() {
-  romsStore.setLimit(10000);
-  galleryFilterStore.setFilterMissing(true);
-  romsStore
-    .fetchRoms()
-    .then(() => {
-      emitter?.emit("showLoadingDialog", {
-        loading: false,
-        scrim: false,
-      });
-      if (filteredRoms.value.length > 0) {
-        emitter?.emit("showDeleteRomDialog", filteredRoms.value);
-      } else {
-        emitter?.emit("snackbarShow", {
-          msg: t("settings.no-missing-roms-to-delete"),
-          icon: "mdi-close-circle",
-          color: "red",
-          timeout: 4000,
-        });
-      }
-    })
-    .catch((error) => {
-      console.error("Error fetching missing games:", error);
-      emitter?.emit("snackbarShow", {
-        msg: t("settings.couldnt-fetch-missing-roms", { error }),
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
-    })
-    .finally(() => {
-      galleryFilterStore.setFilterMissing(false);
+async function cleanupAll() {
+  if (cleaningUp.value) return;
+
+  cleaningUp.value = true;
+  try {
+    await romApi.cleanupMissingRoms({
+      platformId: selectedPlatform.value?.id,
     });
+    emitter?.emit("snackbarShow", {
+      msg: t("settings.cleanup-all-queued"),
+      icon: "mdi-check-circle",
+      color: "green",
+      timeout: 5000,
+    });
+  } catch (error) {
+    console.error("Error queuing cleanup task:", error);
+    emitter?.emit("snackbarShow", {
+      msg: t("settings.cleanup-all-error", { error }),
+      icon: "mdi-close-circle",
+      color: "red",
+      timeout: 4000,
+    });
+  } finally {
+    cleaningUp.value = false;
+  }
 }
 
 function resetMissingRoms() {
@@ -231,6 +225,7 @@ onUnmounted(() => {
             size="large"
             class="text-romm-red bg-toplayer"
             variant="flat"
+            :loading="cleaningUp"
             @click="cleanupAll"
           >
             {{ t("settings.cleanup-all") }}
