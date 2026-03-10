@@ -14,7 +14,7 @@ from config import (
 )
 from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
-from endpoints.responses.oauth import TokenResponse
+from endpoints.responses.oauth import OIDCLogoutResponse, TokenResponse
 from exceptions.auth_exceptions import (
     AuthCredentialsException,
     OIDCDisabledException,
@@ -69,7 +69,7 @@ def login(
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
-async def logout(request: Request) -> Optional[dict]:
+async def logout(request: Request) -> Optional[OIDCLogoutResponse]:
     """Session logout endpoint
 
     Args:
@@ -294,7 +294,8 @@ async def auth_openid(request: Request):
 
     request.session["iss"] = "romm:auth"
     request.session["sub"] = potential_user.username
-    request.session["oidc_id_token"] = token.get("id_token", "")
+    if OIDC_RP_INITIATED_LOGOUT:
+        request.session["oidc_id_token"] = token.get("id_token", "")
 
     # Update last login and active times
     now = datetime.now(timezone.utc)
