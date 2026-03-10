@@ -10,6 +10,8 @@ import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import GameTable from "@/components/common/Game/VirtualTable.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import RDialog from "@/components/common/RDialog.vue";
+import taskApi from "@/services/api/task";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
@@ -26,6 +28,8 @@ const { selectedPlatform } = storeToRefs(galleryFilterStore);
 const platformsStore = storePlatforms();
 const emitter = inject<Emitter<Events>>("emitter");
 const loading = ref(false);
+const cleaningUp = ref(false);
+const showConfirmDialog = ref(false);
 let timeout: ReturnType<typeof setTimeout> = setTimeout(() => {}, 400);
 
 const allPlatforms = computed(() =>
@@ -87,39 +91,33 @@ async function fetchRoms() {
     });
 }
 
-function cleanupAll() {
-  romsStore.setLimit(10000);
-  galleryFilterStore.setFilterMissing(true);
-  romsStore
-    .fetchRoms()
-    .then(() => {
-      emitter?.emit("showLoadingDialog", {
-        loading: false,
-        scrim: false,
-      });
-      if (filteredRoms.value.length > 0) {
-        emitter?.emit("showDeleteRomDialog", filteredRoms.value);
-      } else {
-        emitter?.emit("snackbarShow", {
-          msg: t("settings.no-missing-roms-to-delete"),
-          icon: "mdi-close-circle",
-          color: "red",
-          timeout: 4000,
-        });
-      }
-    })
-    .catch((error) => {
-      console.error("Error fetching missing games:", error);
-      emitter?.emit("snackbarShow", {
-        msg: t("settings.couldnt-fetch-missing-roms", { error }),
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
-    })
-    .finally(() => {
-      galleryFilterStore.setFilterMissing(false);
+async function cleanupAll() {
+  if (cleaningUp.value) return;
+
+  cleaningUp.value = true;
+  try {
+    const body = selectedPlatform.value?.id
+      ? { platform_id: selectedPlatform.value.id }
+      : {};
+    await taskApi.runTask("cleanup_missing_roms", body);
+    emitter?.emit("snackbarShow", {
+      msg: "Cleanup task queued, missing ROMs will be deleted shortly.",
+      icon: "mdi-check-circle",
+      color: "green",
+      timeout: 5000,
     });
+  } catch (error) {
+    console.error("Error queuing cleanup task:", error);
+    emitter?.emit("snackbarShow", {
+      msg: `Couldn't queue cleanup task: ${error}`,
+      icon: "mdi-close-circle",
+      color: "red",
+      timeout: 4000,
+    });
+  } finally {
+    cleaningUp.value = false;
+    showConfirmDialog.value = false;
+  }
 }
 
 function resetMissingRoms() {
@@ -231,7 +229,8 @@ onUnmounted(() => {
             size="large"
             class="text-romm-red bg-toplayer"
             variant="flat"
-            @click="cleanupAll"
+            :loading="cleaningUp"
+            @click="showConfirmDialog = true"
           >
             {{ t("settings.cleanup-all") }}
           </v-btn>
@@ -242,4 +241,41 @@ onUnmounted(() => {
       <FabOverlay />
     </template>
   </template>
+
+  <!-- Cleanup Confirmation Dialog -->
+  <RDialog
+    v-model="showConfirmDialog"
+    icon="mdi-delete"
+    width="500"
+    @close="showConfirmDialog = false"
+  >
+    <template #header>
+      <v-toolbar-title>{{ t("common.confirm-deletion") }}</v-toolbar-title>
+    </template>
+    <template #content>
+      <div class="pa-4">
+        {{
+          t("settings.cleanup-all-confirm", {
+            platform: selectedPlatform ? ` for ${selectedPlatform.name}` : "",
+          })
+        }}
+      </div>
+    </template>
+    <template #footer>
+      <v-row class="justify-center my-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-toplayer" @click="showConfirmDialog = false">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn
+            class="bg-toplayer text-romm-red"
+            :loading="cleaningUp"
+            @click="cleanupAll"
+          >
+            {{ t("settings.cleanup-all") }}
+          </v-btn>
+        </v-btn-group>
+      </v-row>
+    </template>
+  </RDialog>
 </template>

@@ -15,6 +15,7 @@
   "canceled": "취소됨",
   "cleanup": "정리",
   "cleanup-all": "모두 정리",
+  "cleanup-all-confirm": "This will permanently delete all missing ROMs{platform} from the database and their resource directories. This action cannot be undone.",
   "completed": "완료됨",
   "config-file-not-mounted-desc": "config.yml 파일이 마운트되지 않았습니다. 구성에 대한 모든 변경 사항은 애플리케이션이 다시 시작된 후 유지되지 않습니다.",
   "config-file-not-mounted-title": "구성 파일이 마운트되지 않음!",

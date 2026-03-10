@@ -15,6 +15,7 @@
   "canceled": "Отменено",
   "cleanup": "Очистка",
   "cleanup-all": "Очистить все",
+  "cleanup-all-confirm": "This will permanently delete all missing ROMs{platform} from the database and their resource directories. This action cannot be undone.",
   "completed": "Завершено",
   "config-file-not-mounted-desc": "Файл config.yml не был смонтирован. Любые изменения конфигурации не будут сохранены после перезагрузки приложения.",
   "config-file-not-mounted-title": "Файл конфигурации не смонтирован!",

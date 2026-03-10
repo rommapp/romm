@@ -15,6 +15,7 @@
   "canceled": "Annullato",
   "cleanup": "Pulizia",
   "cleanup-all": "Pulisci tutto",
+  "cleanup-all-confirm": "This will permanently delete all missing ROMs{platform} from the database and their resource directories. This action cannot be undone.",
   "completed": "Completato",
   "config-file-not-mounted-desc": "Il file config.yml non è stato montato. Qualsiasi modifica apportata alla configurazione non persisterà dopo il riavvio dell'applicazione.",
   "config-file-not-mounted-title": "File di configurazione non montato!",

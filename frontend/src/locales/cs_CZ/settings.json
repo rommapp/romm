@@ -15,6 +15,7 @@
   "canceled": "Zrušeno",
   "cleanup": "Vyčištění",
   "cleanup-all": "Vyčistit vše",
+  "cleanup-all-confirm": "This will permanently delete all missing ROMs{platform} from the database and their resource directories. This action cannot be undone.",
   "completed": "Dokončeno",
   "config-file-not-mounted-desc": "Soubor config.yml nebyl připojen. Veškeré změny provedené v konfiguraci se po restartování aplikace neuchovají.",
   "config-file-not-mounted-title": "Konfigurační soubor není připojen!",
