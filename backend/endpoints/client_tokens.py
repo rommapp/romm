@@ -79,16 +79,15 @@ def _validate_scopes(requested: list[str], user_scopes: list[Scope]) -> None:
 def _check_rate_limit(request: Request) -> None:
     client_ip = request.client.host if request.client else "unknown"
     rate_key = f"client-token-rate:{client_ip}"
-    current = sync_cache.get(rate_key)
-    if current and int(current) >= RATE_LIMIT_MAX_ATTEMPTS:
+    pipe = sync_cache.pipeline()
+    pipe.incr(rate_key)
+    pipe.expire(rate_key, RATE_LIMIT_WINDOW_SECONDS)
+    count, _ = pipe.execute()
+    if count > RATE_LIMIT_MAX_ATTEMPTS:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many exchange attempts. Try again later.",
         )
-    pipe = sync_cache.pipeline()
-    pipe.incr(rate_key)
-    pipe.expire(rate_key, RATE_LIMIT_WINDOW_SECONDS)
-    pipe.execute()
 
 
 def _build_create_schema(token: ClientToken, raw_token: str) -> ClientTokenCreateSchema:

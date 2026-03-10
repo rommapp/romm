@@ -24,4 +24,4 @@ class ClientToken(BaseModel):
     expires_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     last_used_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 
-    user: Mapped[User] = relationship(lazy="joined")
+    user: Mapped[User] = relationship(lazy="joined", back_populates="client_tokens")
