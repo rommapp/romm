@@ -156,3 +156,17 @@ def test_auth_with_invalid_grant_type(client):
     except HTTPException as e:
         assert e.status_code == status.HTTP_400_BAD_REQUEST
         assert e.detail == "Invalid or unsupported grant type"
+
+
+def test_refreshing_oauth_token_expired_refresh_token(
+    client, admin_user, expired_refresh_token
+):
+    response = client.post(
+        "/api/token",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": expired_refresh_token,
+        },
+    )
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED

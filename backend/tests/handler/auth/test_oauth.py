@@ -1,13 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 import pytest
 from fastapi import Request, status
 from fastapi.exceptions import HTTPException
-from joserfc import jwt
 
 from decorators.auth import protected_route
 from handler.auth import oauth_handler
-from handler.auth.base_handler import ALGORITHM, oct_key
 from handler.database import db_user_handler
 from utils.router import APIRouter
 
@@ -83,37 +81,6 @@ async def test_get_current_active_user_from_bearer_token_expired_token(admin_use
         await oauth_handler.get_current_active_user_from_bearer_token(token)
 
     assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
-
-
-def make_expired_refresh_token(admin_user) -> str:
-    expire = int((datetime.now(timezone.utc) + timedelta(seconds=-1)).timestamp())
-
-    return jwt.encode(
-        {"alg": ALGORITHM},
-        {
-            "sub": admin_user.username,
-            "iss": "romm:oauth",
-            "scopes": " ".join(admin_user.oauth_scopes),
-            "type": "refresh",
-            "jti": "expired-test-jti",
-            "exp": expire,
-        },
-        oct_key,
-    )
-
-
-def test_refreshing_oauth_token_expired_refresh_token(client, admin_user):
-    refresh_token = make_expired_refresh_token(admin_user)
-
-    response = client.post(
-        "/api/token",
-        data={
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-        },
-    )
-
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 def test_protected_route():
