@@ -10,6 +10,7 @@ import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import GameTable from "@/components/common/Game/VirtualTable.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import RDialog from "@/components/common/RDialog.vue";
 import taskApi from "@/services/api/task";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
@@ -28,6 +29,7 @@ const platformsStore = storePlatforms();
 const emitter = inject<Emitter<Events>>("emitter");
 const loading = ref(false);
 const cleaningUp = ref(false);
+const showConfirmDialog = ref(false);
 let timeout: ReturnType<typeof setTimeout> = setTimeout(() => {}, 400);
 
 const allPlatforms = computed(() =>
@@ -114,6 +116,7 @@ async function cleanupAll() {
     });
   } finally {
     cleaningUp.value = false;
+    showConfirmDialog.value = false;
   }
 }
 
@@ -227,7 +230,7 @@ onUnmounted(() => {
             class="text-romm-red bg-toplayer"
             variant="flat"
             :loading="cleaningUp"
-            @click="cleanupAll"
+            @click="showConfirmDialog = true"
           >
             {{ t("settings.cleanup-all") }}
           </v-btn>
@@ -238,4 +241,41 @@ onUnmounted(() => {
       <FabOverlay />
     </template>
   </template>
+
+  <!-- Cleanup Confirmation Dialog -->
+  <RDialog
+    v-model="showConfirmDialog"
+    icon="mdi-delete"
+    width="500"
+    @close="showConfirmDialog = false"
+  >
+    <template #header>
+      <v-toolbar-title>{{ t("common.confirm-deletion") }}</v-toolbar-title>
+    </template>
+    <template #content>
+      <div class="pa-4">
+        {{
+          t("settings.cleanup-all-confirm", {
+            platform: selectedPlatform ? ` for ${selectedPlatform.name}` : "",
+          })
+        }}
+      </div>
+    </template>
+    <template #footer>
+      <v-row class="justify-center my-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-toplayer" @click="showConfirmDialog = false">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn
+            class="bg-toplayer text-romm-red"
+            :loading="cleaningUp"
+            @click="cleanupAll"
+          >
+            {{ t("settings.cleanup-all") }}
+          </v-btn>
+        </v-btn-group>
+      </v-row>
+    </template>
+  </RDialog>
 </template>
