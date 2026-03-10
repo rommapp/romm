@@ -187,7 +187,7 @@ function getCoveragePercent(matched: number, total: number): string {
               <!-- Detail table: label | value -->
               <div class="detail-table mt-2">
                 <div class="detail-row">
-                  <span class="detail-label">Roms</span>
+                  <span class="detail-label">{{ t("setup.games") }}</span>
                   <div>
                     <v-chip size="x-small" label>
                       {{ platform.rom_count }}
@@ -345,7 +345,7 @@ function getCoveragePercent(matched: number, total: number): string {
 
 .size-bar-fill {
   height: 100%;
-  min-width: 2px;
+  min-width: 0;
   background: rgb(var(--v-theme-primary));
   border-radius: 0 2px 2px 0;
   transition: width 0.3s ease;
