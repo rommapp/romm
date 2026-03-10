@@ -94,7 +94,10 @@ async function cleanupAll() {
 
   cleaningUp.value = true;
   try {
-    await taskApi.runTask("cleanup_missing_roms");
+    const body = selectedPlatform.value?.id
+      ? { platform_id: selectedPlatform.value.id }
+      : {};
+    await taskApi.runTask("cleanup_missing_roms", body);
     emitter?.emit("snackbarShow", {
       msg: "Cleanup task queued, missing ROMs will be deleted shortly.",
       icon: "mdi-check-circle",
