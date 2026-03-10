@@ -71,7 +71,7 @@ const MAX_VISIBLE_REGIONS = 5;
 const expandedRegions = ref(new Set<number>());
 
 function getVisibleRegions(platformId: number): RegionBreakdownItem[] {
-  const items = props.regionBreakdown[platformId];
+  const items = props.regionBreakdown[String(platformId)];
   if (!items) return [];
   if (expandedRegions.value.has(platformId)) return items;
   return items.slice(0, MAX_VISIBLE_REGIONS);
@@ -79,7 +79,7 @@ function getVisibleRegions(platformId: number): RegionBreakdownItem[] {
 
 function getHiddenRegionCount(platformId: number): number {
   if (expandedRegions.value.has(platformId)) return 0;
-  const items = props.regionBreakdown[platformId];
+  const items = props.regionBreakdown[String(platformId)];
   if (!items) return 0;
   return Math.max(0, items.length - MAX_VISIBLE_REGIONS);
 }
@@ -195,11 +195,11 @@ function getCoveragePercent(matched: number, total: number): string {
                     {{ t("rom.metadata") }}
                   </span>
                   <div
-                    v-if="orderedCoverageByPlatform[platform.id]?.length > 0"
+                    v-if="orderedCoverageByPlatform[String(platform.id)]?.length > 0"
                     class="d-flex flex-wrap ga-1"
                   >
                     <v-chip
-                      v-for="item in orderedCoverageByPlatform[platform.id]"
+                      v-for="item in orderedCoverageByPlatform[String(platform.id)]"
                       :key="item.source"
                       :title="`${sourceInfo[item.source]?.name ?? item.source}: ${item.matched} / ${platform.rom_count}`"
                       class="chip-fixed"
