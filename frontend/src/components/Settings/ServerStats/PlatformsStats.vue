@@ -47,14 +47,16 @@ const sourceInfo = computed(() => {
   return map;
 });
 
-function getOrderedCoverage(platformId: number): MetadataCoverageItem[] {
-  const items = props.metadataCoverage[platformId];
-  if (!items) return [];
+const orderedCoverageByPlatform = computed(() => {
   const priority = metadataOptions.value.map((o) => o.value);
-  return [...items].sort(
-    (a, b) => priority.indexOf(a.source) - priority.indexOf(b.source),
-  );
-}
+  const result: Record<string, MetadataCoverageItem[]> = {};
+  for (const [id, items] of Object.entries(props.metadataCoverage)) {
+    result[id] = [...items].sort(
+      (a, b) => priority.indexOf(a.source) - priority.indexOf(b.source),
+    );
+  }
+  return result;
+});
 
 function getPlatformPercentage(
   filesize: number | string,
@@ -193,11 +195,11 @@ function getCoveragePercent(matched: number, total: number): string {
                     {{ t("common.metadata-coverage") }}
                   </span>
                   <div
-                    v-if="getOrderedCoverage(platform.id).length > 0"
+                    v-if="orderedCoverageByPlatform[platform.id]?.length > 0"
                     class="d-flex flex-wrap ga-1"
                   >
                     <v-chip
-                      v-for="item in getOrderedCoverage(platform.id)"
+                      v-for="item in orderedCoverageByPlatform[platform.id]"
                       :key="item.source"
                       :title="`${sourceInfo[item.source]?.name ?? item.source}: ${item.matched} / ${platform.rom_count}`"
                       class="chip-fixed"
