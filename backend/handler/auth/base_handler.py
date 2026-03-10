@@ -248,12 +248,12 @@ class OAuthHandler:
     def __init__(self) -> None:
         pass
 
-    def create_oauth_token(
-            self, data: dict, expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY
+    def _create_oauth_token(
+        self, data: dict, expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY
     ) -> str:
         to_encode = data.copy()
         expire = int((datetime.now(timezone.utc) + expires_delta).timestamp())
-        to_encode.update({"exp": expire})
+        to_encode["exp"] = expire
 
         return jwt.encode(
             {"alg": ALGORITHM},
@@ -264,26 +264,21 @@ class OAuthHandler:
     def create_access_token(
         self, data: dict, expires_delta: timedelta = DEFAULT_OAUTH_TOKEN_EXPIRY
     ) -> str:
-        return self.create_oauth_token(data, expires_delta)
-
-    def create_refresh_token(
-            self, data: dict, expires_delta: timedelta
-    ) -> str:
         to_encode = data.copy()
-        expire = int((datetime.now(timezone.utc) + expires_delta).timestamp())
+        to_encode["type"] = "access"
+        return self._create_oauth_token(to_encode, expires_delta)
+
+    def create_refresh_token(self, data: dict, expires_delta: timedelta) -> str:
+        to_encode = data.copy()
         jti = str(uuid.uuid4())
-
-        to_encode.update({
-            "exp": expire,
-            "jti": jti,
-            "type": "refresh",
-        })
-
-        token = jwt.encode(
-            {"alg": ALGORITHM},
-            to_encode,
-            oct_key,
+        to_encode.update(
+            {
+                "jti": jti,
+                "type": "refresh",
+            }
         )
+
+        token = self._create_oauth_token(to_encode, expires_delta)
 
         redis_client.setex(
             f"refresh-jti:{jti}",
@@ -315,8 +310,6 @@ class OAuthHandler:
         if not jti or redis_client.get(f"refresh-jti:{jti}") != b"valid":
             raise OAuthCredentialsException
 
-        redis_client.delete(f"refresh-jti:{jti}")
-
         username = payload.claims.get("sub")
         if not username:
             raise OAuthCredentialsException
@@ -328,6 +321,7 @@ class OAuthHandler:
         if not user.enabled:
             raise UserDisabledException
 
+        redis_client.delete(f"refresh-jti:{jti}")
         return user, payload.claims
 
     async def get_current_active_user_from_bearer_token(self, token: str):

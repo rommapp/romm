@@ -1,10 +1,12 @@
 from base64 import b64encode
+from datetime import timedelta
 
 import pytest
 from fastapi import status
 from fastapi.exceptions import HTTPException
 from starlette.requests import HTTPConnection
 
+from endpoints.auth import REFRESH_TOKEN_EXPIRE_DAYS
 from handler.auth import auth_handler, oauth_handler
 from handler.auth.constants import EDIT_SCOPES
 from handler.auth.hybrid_auth import HybridAuthBackend
@@ -107,12 +109,11 @@ async def test_hybrid_auth_backend_empty_session_and_headers(editor_user: User):
 
 
 async def test_hybrid_auth_backend_bearer_auth_header(editor_user: User):
-    access_token = oauth_handler.create_oauth_token(
+    access_token = oauth_handler.create_access_token(
         data={
             "sub": editor_user.username,
             "iss": "romm:oauth",
             "scopes": " ".join(editor_user.oauth_scopes),
-            "type": "access",
         },
     )
 
@@ -192,13 +193,13 @@ async def test_hybrid_auth_backend_invalid_scheme():
 
 
 async def test_hybrid_auth_backend_with_refresh_token(editor_user: User):
-    refresh_token = oauth_handler.create_oauth_token(
+    refresh_token = oauth_handler.create_refresh_token(
         data={
             "sub": editor_user.username,
             "iss": "romm:oauth",
             "scopes": " ".join(editor_user.oauth_scopes),
-            "type": "refresh",
         },
+        expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     )
 
     class MockConnection(HTTPConnection):
@@ -215,12 +216,11 @@ async def test_hybrid_auth_backend_with_refresh_token(editor_user: User):
 
 async def test_hybrid_auth_backend_scope_subset(editor_user: User):
     scopes = editor_user.oauth_scopes[:3]
-    access_token = oauth_handler.create_oauth_token(
+    access_token = oauth_handler.create_access_token(
         data={
             "sub": editor_user.username,
             "iss": "romm:oauth",
             "scopes": " ".join(scopes),
-            "type": "access",
         },
     )
 
