@@ -11,7 +11,7 @@ from handler.auth.base_handler import hash_client_token
 from handler.database import db_client_token_handler, db_user_handler
 from handler.redis_handler import sync_cache
 from models.client_token import ClientToken
-from models.user import Role, User
+from models.user import Role
 
 
 @pytest.fixture
