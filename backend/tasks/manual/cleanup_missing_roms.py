@@ -69,18 +69,19 @@ class CleanupMissingRomsTask(Task):
                     f"Deleting missing ROM '{rom.name or rom.fs_name}' [ID: {rom.id}] from database"
                 )
                 db_rom_handler.delete_rom(rom.id)
-
-                try:
-                    await fs_resource_handler.remove_directory(rom.fs_resources_path)
-                except FileNotFoundError:
-                    log.warning(
-                        f"Couldn't find resources to delete for '{rom.name or rom.fs_name}'"
-                    )
-
-                stats.update(roms_deleted=stats.roms_deleted + 1)
             except Exception as e:
                 log.error(f"Failed to delete missing ROM {rom.id}: {e}")
                 stats.update(errors=stats.errors + 1)
+                continue
+
+            try:
+                await fs_resource_handler.remove_directory(rom.fs_resources_path)
+            except FileNotFoundError:
+                log.warning(
+                    f"Couldn't find resources to delete for '{rom.name or rom.fs_name}'"
+                )
+
+            stats.update(roms_deleted=stats.roms_deleted + 1)
 
         log.info(
             f"Cleanup of missing ROMs completed: {stats.roms_deleted} deleted, {stats.errors} error(s)"

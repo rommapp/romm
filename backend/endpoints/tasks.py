@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
-from typing import TypedDict
+from typing import Any, TypedDict
 
-from fastapi import HTTPException, Request
+from fastapi import Body, HTTPException, Request
 from rq import Worker
 from rq.job import Job, JobStatus
 from rq.registry import FailedJobRegistry, FinishedJobRegistry
@@ -370,12 +370,17 @@ async def run_all_tasks(request: Request) -> list[TaskExecutionResponse]:
 
 
 @protected_route(router.post, "/run/{task_name}", [Scope.TASKS_RUN])
-async def run_single_task(request: Request, task_name: str) -> TaskExecutionResponse:
+async def run_single_task(
+    request: Request,
+    task_name: str,
+    task_kwargs: dict[str, Any] | None = Body(default=None),
+) -> TaskExecutionResponse:
     """Run a single task endpoint.
 
     Args:
         request (Request): FastAPI Request object
         task_name (str): Name of the task to run
+        task_kwargs (dict | None): Optional keyword arguments forwarded to the task's run() method
     Returns:
         TaskExecutionResponse: Task execution response with details
     """
@@ -397,6 +402,7 @@ async def run_single_task(request: Request, task_name: str) -> TaskExecutionResp
 
     job = low_prio_queue.enqueue(
         task_instance.run,
+        kwargs=task_kwargs or {},
         job_timeout=TASK_TIMEOUT,
         result_ttl=TASK_RESULT_TTL,
         meta={
