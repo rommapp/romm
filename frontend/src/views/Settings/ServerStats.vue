@@ -3,6 +3,8 @@ import { onBeforeMount, ref } from "vue";
 import PlatformsStats from "@/components/Settings/ServerStats/PlatformsStats.vue";
 import SummaryStats from "@/components/Settings/ServerStats/SummaryStats.vue";
 import api from "@/services/api";
+import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
+import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
 
 const stats = ref({
   PLATFORMS: 0,
@@ -11,6 +13,8 @@ const stats = ref({
   STATES: 0,
   SCREENSHOTS: 0,
   TOTAL_FILESIZE_BYTES: 0,
+  METADATA_COVERAGE: {} as Record<string, MetadataCoverageItem[]>,
+  REGION_BREAKDOWN: {} as Record<string, RegionBreakdownItem[]>,
 });
 
 onBeforeMount(() => {
@@ -21,5 +25,10 @@ onBeforeMount(() => {
 </script>
 <template>
   <SummaryStats class="ma-2" :stats="stats" />
-  <PlatformsStats class="ma-2" :total-filesize="stats.TOTAL_FILESIZE_BYTES" />
+  <PlatformsStats
+    class="ma-2"
+    :total-filesize="stats.TOTAL_FILESIZE_BYTES"
+    :metadata-coverage="stats.METADATA_COVERAGE"
+    :region-breakdown="stats.REGION_BREAKDOWN"
+  />
 </template>

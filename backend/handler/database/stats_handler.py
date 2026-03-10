@@ -79,3 +79,71 @@ class DBStatsHandler(DBBaseHandler):
             )
             or 0
         )
+
+    @begin_session
+    def get_metadata_coverage_by_platform(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> dict[int, list[dict]]:
+        """Get the count of ROMs matched per metadata source, grouped by platform."""
+        source_keys = [
+            "igdb", "ss", "moby", "launchbox", "ra",
+            "hasheous", "tgdb", "flashpoint", "hltb", "gamelist",
+        ]
+
+        rows = session.execute(
+            select(
+                Rom.platform_id,
+                func.count(Rom.igdb_id).label("igdb"),
+                func.count(Rom.ss_id).label("ss"),
+                func.count(Rom.moby_id).label("moby"),
+                func.count(Rom.launchbox_id).label("launchbox"),
+                func.count(Rom.ra_id).label("ra"),
+                func.count(Rom.hasheous_id).label("hasheous"),
+                func.count(Rom.tgdb_id).label("tgdb"),
+                func.count(Rom.flashpoint_id).label("flashpoint"),
+                func.count(Rom.hltb_id).label("hltb"),
+                func.count(Rom.gamelist_id).label("gamelist"),
+            )
+            .select_from(Rom)
+            .group_by(Rom.platform_id)
+        ).all()
+
+        result: dict[int, list[dict]] = {}
+        for row in rows:
+            result[row.platform_id] = [
+                {"source": key, "matched": getattr(row, key)}
+                for key in source_keys
+                if getattr(row, key) > 0
+            ]
+        return result
+
+    @begin_session
+    def get_region_breakdown_by_platform(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> dict[int, list[dict]]:
+        """Get the count of ROMs per region, grouped by platform."""
+        rows = session.execute(
+            select(Rom.platform_id, Rom.regions).where(
+                Rom.regions.is_not(None)
+            )
+        ).all()
+
+        counter: dict[int, dict[str, int]] = {}
+        for platform_id, regions_list in rows:
+            if regions_list:
+                if platform_id not in counter:
+                    counter[platform_id] = {}
+                for region in regions_list:
+                    counter[platform_id][region] = (
+                        counter[platform_id].get(region, 0) + 1
+                    )
+
+        return {
+            pid: [
+                {"region": r, "count": c}
+                for r, c in sorted(regions.items(), key=lambda x: -x[1])
+            ]
+            for pid, regions in counter.items()
+        }
