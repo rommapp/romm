@@ -348,6 +348,15 @@ class Rom(BaseModel):
         )
 
     @property
+    def path_video(self) -> str | None:
+        return (
+            (self.ss_metadata or {}).get("video_path")
+            or (self.ss_metadata or {}).get("video_normalized_path")
+            or (self.gamelist_metadata or {}).get("video_path")
+            or None
+        )
+
+    @property
     def is_unidentified(self) -> bool:
         return (
             not self.igdb_id
