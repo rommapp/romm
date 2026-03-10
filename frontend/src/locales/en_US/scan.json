@@ -27,7 +27,6 @@
   "firmware-found": "Firmware found: {n} file | Firmware found: {n} files",
   "firmware-scanned-n": "Firmware: {n} scanned",
   "firmware-scanned-with-details": "Firmware: {n_scanned_firmware} scanned, with {n_new_firmware} new",
-  "firmware-verified": "Verified",
   "platforms-scanned-n": "Platforms: {n} scanned",
   "platforms-scanned-with-details": "Platforms: {n_scanned_platforms} scanned out of {n_total_platforms}, with {n_new_platforms} new and {n_identified_platforms} identified",
   "quick-scan": "Quick scan",
