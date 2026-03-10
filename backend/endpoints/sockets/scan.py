@@ -114,6 +114,7 @@ def _get_socket_manager() -> socketio.AsyncRedisManager:
 async def _identify_firmware(
     platform: Platform,
     fs_fw: str,
+    socket_manager: socketio.AsyncRedisManager,
 ) -> int:
     # Break early if the flag is set
     if redis_client.get(STOP_SCAN_FLAG):
@@ -139,6 +140,18 @@ async def _identify_firmware(
     scanned_firmware.missing_from_fs = False
     scanned_firmware.is_verified = is_verified
     db_firmware_handler.add_firmware(scanned_firmware)
+
+    await socket_manager.emit(
+        "scan:scanning_firmware",
+        {
+            "platform_id": platform.id,
+            "platform_fs_slug": platform.fs_slug,
+            "platform_slug": platform.slug,
+            "platform_display_name": platform.custom_name or platform.name,
+            "file_name": scanned_firmware.file_name,
+            "is_verified": is_verified,
+        },
+    )
 
     return 1 if not firmware else 0
 
@@ -515,6 +528,7 @@ async def _identify_platform(
         new_firmware += await _identify_firmware(
             platform=platform,
             fs_fw=fs_fw,
+            socket_manager=socket_manager,
         )
 
     # This reduces the number of socket emissions

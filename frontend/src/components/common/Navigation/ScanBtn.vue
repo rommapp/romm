@@ -10,6 +10,7 @@ import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
+import type { ScannedFirmware } from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 
 withDefaults(
@@ -66,6 +67,7 @@ const processRomUpdates = debounce(() => {
         fs_slug: rom.platform_fs_slug,
         is_identified: true,
         roms: [],
+        firmware: [],
       });
       scannedPlatform = scanningPlatforms.value.at(-1)!;
     }
@@ -109,6 +111,7 @@ socket.on(
       id,
       fs_slug,
       roms: [],
+      firmware: [],
       is_identified,
     });
   },
@@ -120,6 +123,35 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   // Queue ROM for batch processing instead of immediate update
   romUpdateQueue.value.push(rom);
   processRomUpdates();
+});
+
+socket.on("scan:scanning_firmware", (firmware: ScannedFirmware) => {
+  scanningStore.setScanning(true);
+
+  let scannedPlatform = scanningPlatforms.value.find(
+    (p) => p.fs_slug === firmware.platform_fs_slug,
+  );
+
+  // Add the platform if the socket dropped and it's missing
+  if (!scannedPlatform) {
+    scanningPlatforms.value.push({
+      display_name: firmware.platform_display_name,
+      slug: firmware.platform_slug,
+      id: firmware.platform_id,
+      fs_slug: firmware.platform_fs_slug,
+      is_identified: true,
+      roms: [],
+      firmware: [],
+    });
+    scannedPlatform = scanningPlatforms.value.at(-1)!;
+  }
+
+  const existingFirmware = scannedPlatform.firmware.find(
+    (f) => f.file_name === firmware.file_name,
+  );
+  if (!existingFirmware) {
+    scannedPlatform.firmware.push(firmware);
+  }
 });
 
 socket.on("scan:done", () => {
@@ -153,6 +185,7 @@ socket.on("scan:update_stats", (stats: ScanStats) => {
 onBeforeUnmount(() => {
   socket.off("scan:scanning_platform");
   socket.off("scan:scanning_rom");
+  socket.off("scan:scanning_firmware");
   socket.off("scan:done");
   socket.off("scan:done_ko");
   processRomUpdates.cancel();

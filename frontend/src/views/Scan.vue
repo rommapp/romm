@@ -90,16 +90,20 @@ watch(metadataOptions, (newOptions) => {
   );
 });
 
-// Track which platforms have ROMs without a deep watch on the entire array.
+// Track which platforms have ROMs or firmware without a deep watch on the entire array.
 // The computed returns a stable string that only changes when a platform
-// transitions from 0→>0 ROMs (or back), so the watch fires O(n_platforms)
+// transitions from 0→>0 ROMs/firmware (or back), so the watch fires O(n_platforms)
 // times rather than O(n_roms) times.
 const platformsWithRomsKey = computed(() =>
-  scanningPlatforms.value.map((p) => (p.roms.length > 0 ? 1 : 0)).join(""),
+  scanningPlatforms.value
+    .map((p) => (p.roms.length > 0 || p.firmware.length > 0 ? 1 : 0))
+    .join(""),
 );
 watch(platformsWithRomsKey, () => {
   panels.value = scanningPlatforms.value
-    .map((p, index) => (p.roms.length > 0 ? index : -1))
+    .map((p, index) =>
+      p.roms.length > 0 || p.firmware.length > 0 ? index : -1,
+    )
     .filter((index) => index !== -1);
 });
 
@@ -645,6 +649,23 @@ async function stopScan() {
                 scanStats.identified_roms,
                 scanStats.scanned_roms,
               ),
+            })
+          }}</span>
+        </v-chip>
+        <v-chip
+          color="secondary"
+          size="small"
+          text-color="white"
+          class="ml-1 my-1"
+        >
+          <v-icon left> mdi-memory </v-icon>
+          <span v-if="xs" class="ml-2">{{
+            t("scan.firmware-scanned-n", scanStats.scanned_firmware)
+          }}</span>
+          <span v-else class="ml-2">{{
+            t("scan.firmware-scanned-with-details", {
+              n_scanned_firmware: scanStats.scanned_firmware,
+              n_new_firmware: scanStats.new_firmware,
             })
           }}</span>
         </v-chip>

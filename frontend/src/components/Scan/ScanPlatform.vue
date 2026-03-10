@@ -28,6 +28,17 @@ const { t } = useI18n();
           {{ platform.roms.length }}
         </v-chip>
         <v-chip
+          v-if="platform.firmware.length > 0"
+          class="ml-1"
+          color="secondary"
+          size="x-small"
+          label
+          :title="t('scan.firmware-found', platform.firmware.length)"
+        >
+          <v-icon start size="x-small">mdi-memory</v-icon>
+          {{ platform.firmware.length }}
+        </v-chip>
+        <v-chip
           v-if="!platform.is_identified"
           color="red"
           size="small"
@@ -169,7 +180,34 @@ const { t } = useI18n();
         </template>
       </template>
     </RomListItem>
-    <v-list-item v-if="platform.roms.length == 0" class="text-center my-2">
+    <v-list-item
+      v-for="fw in platform.firmware"
+      :key="fw.file_name"
+      class="pa-2"
+    >
+      <template #prepend>
+        <v-icon class="mr-2" color="secondary">mdi-memory</v-icon>
+      </template>
+      <v-list-item-title class="text-body-2">
+        {{ fw.file_name }}
+      </v-list-item-title>
+      <template #append>
+        <v-chip
+          v-if="fw.is_verified"
+          color="green"
+          size="x-small"
+          label
+          class="ml-2"
+        >
+          <v-icon start size="x-small">mdi-check-decagram-outline</v-icon>
+          {{ t("scan.firmware-verified") }}
+        </v-chip>
+      </template>
+    </v-list-item>
+    <v-list-item
+      v-if="platform.roms.length === 0 && platform.firmware.length === 0"
+      class="text-center my-2"
+    >
       {{ t("scan.no-new-roms") }}
     </v-list-item>
   </v-expansion-panel-text>
