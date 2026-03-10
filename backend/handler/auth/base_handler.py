@@ -310,7 +310,7 @@ class OAuthHandler:
             raise OAuthCredentialsException
 
         jti = payload.claims.get("jti")
-        if not jti or redis_client.get(f"refresh-jti:{jti}") != b"valid":
+        if not jti or redis_client.getdel(f"refresh-jti:{jti}") != b"valid":
             raise OAuthCredentialsException
 
         username = payload.claims.get("sub")
@@ -323,8 +323,6 @@ class OAuthHandler:
 
         if not user.enabled:
             raise UserDisabledException
-
-        redis_client.delete(f"refresh-jti:{jti}")
         return user, payload.claims
 
     async def get_current_active_user_from_bearer_token(self, token: str):
