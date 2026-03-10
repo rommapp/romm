@@ -6,7 +6,12 @@ from fastapi import Body, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic
 
-from config import OIDC_ENABLED, OIDC_END_SESSION_ENDPOINT, OIDC_REDIRECT_URI, OIDC_RP_INITIATED_LOGOUT
+from config import (
+    OIDC_ENABLED,
+    OIDC_END_SESSION_ENDPOINT,
+    OIDC_REDIRECT_URI,
+    OIDC_RP_INITIATED_LOGOUT,
+)
 from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
 from endpoints.responses.oauth import TokenResponse
@@ -86,7 +91,9 @@ async def logout(request: Request) -> Optional[dict]:
                 metadata = await oauth.openid.load_server_metadata()
                 end_session_endpoint = metadata.get("end_session_endpoint", "")
             except Exception:
-                log.warning("Failed to load OIDC server metadata for RP-Initiated Logout")
+                log.warning(
+                    "Failed to load OIDC server metadata for RP-Initiated Logout"
+                )
 
         if end_session_endpoint:
             params = urlencode({"id_token_hint": id_token})
