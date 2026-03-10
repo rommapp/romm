@@ -37,6 +37,20 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.head_ref }}
           fetch-depth: 0
 
+      - name: PR comment build starting
+        if: github.event_name == 'pull_request'
+        id: build-comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🔨 Preview build is under way...`
+            });
+            core.setOutput('comment-id', comment.data.id);
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3.6.0
 
@@ -74,9 +88,9 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            github.rest.issues.updateComment({
+              comment_id: ${{ steps.build-comment.outputs.comment-id }},
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `✅ Docker image built successfully!\n\nDocker image: \`rommapp/romm-testing:${{ github.head_ref }}\``
+              body: `✅ Preview build completed!\n\nDocker image: \`rommapp/romm-testing:${{ github.head_ref }}\``
             })
