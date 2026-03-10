@@ -369,11 +369,14 @@ async def run_all_tasks(request: Request) -> list[TaskExecutionResponse]:
     ]
 
 
+TASK_KWARGS = Body(default=None)
+
+
 @protected_route(router.post, "/run/{task_name}", [Scope.TASKS_RUN])
 async def run_single_task(
     request: Request,
     task_name: str,
-    task_kwargs: dict[str, Any] | None = Body(default=None),
+    task_kwargs: dict[str, Any] | None = TASK_KWARGS,
 ) -> TaskExecutionResponse:
     """Run a single task endpoint.
 
