@@ -269,6 +269,9 @@ class OAuthHandler:
         return self._create_oauth_token(to_encode, expires_delta)
 
     def create_refresh_token(self, data: dict, expires_delta: timedelta) -> str:
+        if expires_delta <= timedelta(0):
+            raise ValueError("expires_delta must be positive for refresh tokens")
+
         to_encode = data.copy()
         jti = str(uuid.uuid4())
         to_encode.update(
