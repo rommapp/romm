@@ -147,6 +147,10 @@ OIDC_TLS_CACERTFILE: Final[str | None] = _get_env("OIDC_TLS_CACERTFILE")
 OIDC_USERNAME_ATTRIBUTE: Final[str] = _get_env(
     "OIDC_USERNAME_ATTRIBUTE", "preferred_username"
 )
+OIDC_RP_INITIATED_LOGOUT: Final[bool] = safe_str_to_bool(
+    _get_env("OIDC_RP_INITIATED_LOGOUT")
+)
+OIDC_END_SESSION_ENDPOINT: Final[str] = _get_env("OIDC_END_SESSION_ENDPOINT", "")
 
 # SCANS
 SCAN_TIMEOUT: Final[int] = safe_int(_get_env("SCAN_TIMEOUT"), 60 * 60 * 4)  # 4 hours
