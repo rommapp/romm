@@ -6,3 +6,8 @@ class TokenResponse(TypedDict):
     refresh_token: NotRequired[str]
     token_type: str
     expires: int
+    refresh_expires: NotRequired[int]
+
+
+class OIDCLogoutResponse(TypedDict):
+    oidc_logout_url: str

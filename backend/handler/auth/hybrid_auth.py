@@ -44,6 +44,7 @@ class HybridAuthBackend(AuthenticationBackend):
                     user,
                     claims,
                 ) = await oauth_handler.get_current_active_user_from_bearer_token(token)
+
                 if user is None or claims is None:
                     return None
 

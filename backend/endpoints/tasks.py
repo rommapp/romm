@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
-from typing import TypedDict
+from typing import Any, TypedDict
 
-from fastapi import HTTPException, Request
+from fastapi import Body, HTTPException, Request
 from rq import Worker
 from rq.job import Job, JobStatus
 from rq.registry import FailedJobRegistry, FinishedJobRegistry
@@ -32,6 +32,7 @@ from handler.redis_handler import (
     low_prio_queue,
     redis_client,
 )
+from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
 from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
@@ -96,6 +97,13 @@ manual_tasks: list[ManualTask] = [
             "name": "cleanup_orphaned_resources",
             "type": TaskType.CLEANUP,
             "task": cleanup_orphaned_resources_task,
+        }
+    ),
+    ManualTask(
+        {
+            "name": "cleanup_missing_roms",
+            "type": TaskType.CLEANUP,
+            "task": cleanup_missing_roms_task,
         }
     ),
 ]
@@ -361,13 +369,21 @@ async def run_all_tasks(request: Request) -> list[TaskExecutionResponse]:
     ]
 
 
+TASK_KWARGS = Body(default=None)
+
+
 @protected_route(router.post, "/run/{task_name}", [Scope.TASKS_RUN])
-async def run_single_task(request: Request, task_name: str) -> TaskExecutionResponse:
+async def run_single_task(
+    request: Request,
+    task_name: str,
+    task_kwargs: dict[str, Any] | None = TASK_KWARGS,
+) -> TaskExecutionResponse:
     """Run a single task endpoint.
 
     Args:
         request (Request): FastAPI Request object
         task_name (str): Name of the task to run
+        task_kwargs (dict | None): Optional keyword arguments forwarded to the task's run() method
     Returns:
         TaskExecutionResponse: Task execution response with details
     """
@@ -389,6 +405,7 @@ async def run_single_task(request: Request, task_name: str) -> TaskExecutionResp
 
     job = low_prio_queue.enqueue(
         task_instance.run,
+        kwargs=task_kwargs or {},
         job_timeout=TASK_TIMEOUT,
         result_ttl=TASK_RESULT_TTL,
         meta={

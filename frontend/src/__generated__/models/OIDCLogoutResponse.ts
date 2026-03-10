@@ -2,10 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type OIDCDict = {
-    ENABLED: boolean;
-    AUTOLOGIN: boolean;
-    PROVIDER: string;
-    RP_INITIATED_LOGOUT: boolean;
+export type OIDCLogoutResponse = {
+    oidc_logout_url: string;
 };
 

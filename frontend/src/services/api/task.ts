@@ -14,8 +14,8 @@ async function runAllTasks() {
   return api.post<TaskExecutionResponse[]>("/tasks/run");
 }
 
-async function runTask(taskName: string) {
-  return api.post<TaskExecutionResponse>(`/tasks/run/${taskName}`);
+async function runTask(taskName: string, body?: Record<string, unknown>) {
+  return api.post<TaskExecutionResponse>(`/tasks/run/${taskName}`, body);
 }
 
 async function getTaskStatus() {

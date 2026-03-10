@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 import pytest
 from fastapi import Request, status
 from fastapi.exceptions import HTTPException
@@ -9,18 +11,17 @@ from utils.router import APIRouter
 
 
 def test_create_oauth_token():
-    token = oauth_handler.create_oauth_token(data={"sub": "test_user"})
+    token = oauth_handler.create_access_token(data={"sub": "test_user"})
 
     assert isinstance(token, str)
 
 
 async def test_get_current_active_user_from_bearer_token(admin_user):
-    token = oauth_handler.create_oauth_token(
+    token = oauth_handler.create_access_token(
         data={
             "sub": admin_user.username,
             "iss": "romm:oauth",
             "scopes": " ".join(admin_user.oauth_scopes),
-            "type": "access",
         },
     )
     user, claims = await oauth_handler.get_current_active_user_from_bearer_token(token)
@@ -40,7 +41,7 @@ async def test_get_current_active_user_from_bearer_token_invalid_token():
 
 
 async def test_get_current_active_user_from_bearer_token_invalid_user():
-    token = oauth_handler.create_oauth_token(
+    token = oauth_handler.create_access_token(
         data={"sub": "invalid_user", "iss": "romm:oauth"}
     )
 
@@ -49,12 +50,11 @@ async def test_get_current_active_user_from_bearer_token_invalid_user():
 
 
 async def test_get_current_active_user_from_bearer_token_disabled_user(admin_user):
-    token = oauth_handler.create_oauth_token(
+    token = oauth_handler.create_access_token(
         data={
             "sub": admin_user.username,
             "iss": "romm:oauth",
             "scopes": " ".join(admin_user.oauth_scopes),
-            "type": "access",
         },
     )
 
@@ -65,6 +65,22 @@ async def test_get_current_active_user_from_bearer_token_disabled_user(admin_use
     except HTTPException as e:
         assert e.status_code == status.HTTP_401_UNAUTHORIZED
         assert e.detail == "Disabled user"
+
+
+async def test_get_current_active_user_from_bearer_token_expired_token(admin_user):
+    token = oauth_handler.create_access_token(
+        data={
+            "sub": admin_user.username,
+            "iss": "romm:oauth",
+            "scopes": " ".join(admin_user.oauth_scopes),
+        },
+        expires_delta=timedelta(seconds=-1),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await oauth_handler.get_current_active_user_from_bearer_token(token)
+
+    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 def test_protected_route():

@@ -13,7 +13,7 @@ from endpoints.auth import ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database.users_handler import DBUsersHandler
-from handler.redis_handler import sync_cache
+from handler.redis_handler import async_cache, sync_cache
 from models.user import Role, User
 
 
@@ -111,9 +111,8 @@ def test_add_user_from_unauthorized_user(
         "sub": requesting_user.username,
         "iss": "romm:oauth",
         "scopes": " ".join(requesting_user.oauth_scopes),
-        "type": "access",
     }
-    access_token = oauth_handler.create_oauth_token(
+    access_token = oauth_handler.create_access_token(
         data=data, expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS)
     )
 
@@ -248,6 +247,58 @@ async def test_logout_invalidates_session(client, admin_user: User):
     assert response.status_code in [HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN]
 
     await RedisSessionMiddleware.clear_user_sessions(admin_user.username)
+
+
+def test_logout_without_oidc_returns_no_body(client, admin_user: User):
+    """Test that logout without OIDC session returns no OIDC logout URL."""
+    basic_auth = base64.b64encode(b"test_admin:test_admin_password").decode("ascii")
+    response = client.post(
+        "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+
+    response = client.post("/api/logout")
+    assert response.status_code == HTTPStatus.OK
+    # Non-OIDC session should not return an oidc_logout_url
+    assert response.json() is None
+
+
+@pytest.mark.asyncio
+async def test_logout_with_oidc_rp_initiated_logout(client, admin_user: User):
+    """Test that logout with OIDC RP-Initiated Logout returns the end-session URL."""
+    basic_auth = base64.b64encode(b"test_admin:test_admin_password").decode("ascii")
+    response = client.post(
+        "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
+    )
+    assert response.status_code == HTTPStatus.OK
+    session_cookie = response.cookies.get("romm_session")
+    assert session_cookie is not None
+
+    end_session_url = "https://auth.example.com/application/o/romm/end-session/"
+    fake_id_token = "fake.id.token"
+
+    # The session middleware uses async_cache (not sync_cache), so we must use
+    # async_cache to inject oidc_id_token into the session data in Redis.
+    session_data_raw = await async_cache.get(f"session:{session_cookie}")
+    assert session_data_raw is not None
+    session_dict = json.loads(session_data_raw)
+    session_dict["oidc_id_token"] = fake_id_token
+    await async_cache.set(f"session:{session_cookie}", json.dumps(session_dict))
+
+    with (
+        mock.patch("endpoints.auth.OIDC_RP_INITIATED_LOGOUT", True),
+        mock.patch("endpoints.auth.OIDC_END_SESSION_ENDPOINT", end_session_url),
+    ):
+        response = client.post(
+            "/api/logout",
+            cookies={"romm_session": session_cookie},
+        )
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+        assert data is not None
+        assert "oidc_logout_url" in data
+        assert data["oidc_logout_url"].startswith(end_session_url)
+        assert f"id_token_hint={fake_id_token}" in data["oidc_logout_url"]
 
 
 def test_update_user_with_valid_ui_settings(

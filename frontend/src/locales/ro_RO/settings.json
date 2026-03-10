@@ -15,6 +15,7 @@
   "canceled": "Anulat",
   "cleanup": "Curățare",
   "cleanup-all": "Curăță tot",
+  "cleanup-all-confirm": "This will permanently delete all missing ROMs{platform} from the database and their resource directories. This action cannot be undone.",
   "completed": "Finalizat",
   "config-file-not-mounted-desc": "Fișierul config.yml nu a fost montat. Orice modificări aduse configurației nu vor persista după repornirea aplicației.",
   "config-file-not-mounted-title": "Fișierul de configurare nu este montat!",

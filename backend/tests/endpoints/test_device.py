@@ -27,12 +27,11 @@ def clear_cache():
 
 @pytest.fixture
 def editor_access_token(editor_user: User):
-    return oauth_handler.create_oauth_token(
+    return oauth_handler.create_access_token(
         data={
             "sub": editor_user.username,
             "iss": "romm:oauth",
             "scopes": " ".join(editor_user.oauth_scopes),
-            "type": "access",
         },
         expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
     )
