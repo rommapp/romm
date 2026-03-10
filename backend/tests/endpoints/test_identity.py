@@ -261,9 +261,7 @@ def test_logout_without_oidc_returns_no_body(client, admin_user: User):
     response = client.post("/api/logout")
     assert response.status_code == HTTPStatus.OK
     # Non-OIDC session should not return an oidc_logout_url
-    assert response.json() is None or (
-        response.json() is not None and "oidc_logout_url" not in response.json()
-    )
+    assert response.json() is None
 
 
 @pytest.mark.asyncio
