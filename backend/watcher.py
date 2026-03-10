@@ -161,9 +161,6 @@ def process_changes(changes: Sequence[Change]) -> None:
             MetadataSource.TGDB: meta_tgdb_handler.is_enabled(),
         }
         metadata_sources = [source for source, flag in source_mapping.items() if flag]
-        if not metadata_sources:
-            log.warning("No metadata sources enabled, skipping rescan")
-            return
 
         # Get currently pending scan jobs (scheduled, queued, or running)
         pending_jobs = get_pending_scan_jobs()

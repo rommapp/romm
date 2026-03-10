@@ -54,10 +54,6 @@ class ScanLibraryTask(PeriodicTask):
         }
 
         metadata_sources = [source for source, flag in source_mapping.items() if flag]
-        if not metadata_sources:
-            log.warning("No metadata sources enabled, unscheduling library scan")
-            self.unschedule()
-            return scan_stats.to_dict()
 
         log.info("Scheduled library scan started...")
         scan_stats = await scan_platforms(
