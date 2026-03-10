@@ -1,10 +1,14 @@
+from datetime import datetime, timedelta, timezone
+
 import alembic.config
 import pytest
+from joserfc import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from config.config_manager import ConfigManager
 from handler.auth import auth_handler
+from handler.auth.base_handler import ALGORITHM, oct_key
 from handler.database import (
     db_platform_handler,
     db_rom_handler,
@@ -153,3 +157,21 @@ def viewer_user():
         role=Role.VIEWER,
     )
     return db_user_handler.add_user(user)
+
+
+@pytest.fixture
+def expired_refresh_token(admin_user: User) -> str:
+    expire = int((datetime.now(timezone.utc) + timedelta(seconds=-1)).timestamp())
+
+    return jwt.encode(
+        {"alg": ALGORITHM},
+        {
+            "sub": admin_user.username,
+            "iss": "romm:oauth",
+            "scopes": " ".join(admin_user.oauth_scopes),
+            "type": "refresh",
+            "jti": "expired-test-jti",
+            "exp": expire,
+        },
+        oct_key,
+    )

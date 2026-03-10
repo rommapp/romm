@@ -49,12 +49,11 @@ def token_without_device_scopes(admin_user: User):
         for s in admin_user.oauth_scopes
         if s not in (Scope.DEVICES_READ, Scope.DEVICES_WRITE)
     ]
-    return oauth_handler.create_oauth_token(
+    return oauth_handler.create_access_token(
         data={
             "sub": admin_user.username,
             "iss": "romm:oauth",
             "scopes": " ".join(scopes),
-            "type": "access",
         },
         expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
     )

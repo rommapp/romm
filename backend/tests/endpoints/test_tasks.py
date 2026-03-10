@@ -196,10 +196,9 @@ class TestListTasks:
             "sub": admin_user.username,
             "iss": "romm:oauth",
             "scopes": "roms:read",  # Missing TASKS_RUN scope
-            "type": "access",
         }
 
-        token = oauth_handler.create_oauth_token(
+        token = oauth_handler.create_access_token(
             data=data, expires_delta=timedelta(minutes=30)
         )
 
