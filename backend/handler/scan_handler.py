@@ -1,15 +1,14 @@
 import asyncio
 import enum
-import os
 from typing import Any
 
 import socketio  # type: ignore
 
-from config import ASSETS_BASE_PATH, LIBRARY_BASE_PATH
+from config import ASSETS_BASE_PATH
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
-from handler.filesystem import fs_asset_handler, fs_firmware_handler
+from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_flashpoint_handler,
@@ -48,24 +47,6 @@ from models.user import User
 from utils import emoji
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
-
-PICO8_CARTRIDGE_EXTENSION = ".p8.png"
-
-
-def get_pico8_cover_url(
-    platform_slug: str,
-    fs_name: str,
-    fs_path: str,
-) -> str | None:
-    """Return a ``file://`` URL for a PICO-8 cartridge label, or ``None``.
-
-    PICO-8 ``.p8.png`` files are valid PNG images whose visual content *is*
-    the cartridge label/cover art.  When such a ROM is found we can use the
-    file itself as the cover instead of fetching one from an external source.
-    """
-    if platform_slug == UPS.PICO and fs_name.endswith(PICO8_CARTRIDGE_EXTENSION):
-        return f"file://{os.path.join(LIBRARY_BASE_PATH, fs_path, fs_name)}"
-    return None
 
 
 @enum.unique
@@ -788,7 +769,7 @@ async def scan_rom(
     # PICO-8 .p8.png files are valid PNG images whose visual content is the
     # cartridge label, so the ROM file itself serves as the cover art.
     if not rom_attrs.get("url_cover") and not rom_attrs.get("path_cover_s"):
-        pico8_url = get_pico8_cover_url(
+        pico8_url = fs_rom_handler.get_pico8_cover_url(
             platform.slug, rom_attrs["fs_name"], rom_attrs["fs_path"]
         )
         if pico8_url:
