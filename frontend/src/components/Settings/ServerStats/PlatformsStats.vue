@@ -23,14 +23,14 @@ const orderBy = ref<"name" | "size" | "count">("name");
 
 const sortedPlatforms = computed(() => {
   if (orderBy.value === "size") {
-    return allPlatforms.value.sort(
+    return [...allPlatforms.value].sort(
       (a, b) => Number(b.fs_size_bytes) - Number(a.fs_size_bytes),
     );
   }
   if (orderBy.value === "count") {
-    return allPlatforms.value.sort((a, b) => b.rom_count - a.rom_count);
+    return [...allPlatforms.value].sort((a, b) => b.rom_count - a.rom_count);
   }
-  return allPlatforms.value.sort((a, b) =>
+  return [...allPlatforms.value].sort((a, b) =>
     a.display_name.localeCompare(b.display_name, undefined, {
       sensitivity: "base",
     }),
@@ -217,7 +217,7 @@ function getCoveragePercent(matched: number, total: number): string {
                         size="12"
                         rounded
                       >
-                        <v-img :src="sourceInfo[item.source].logo_path" />
+                        <v-img :src="sourceInfo[item.source]?.logo_path" />
                       </v-avatar>
                       {{ getCoveragePercent(item.matched, platform.rom_count) }}%
                     </v-chip>
