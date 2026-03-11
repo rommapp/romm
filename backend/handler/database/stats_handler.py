@@ -10,6 +10,20 @@ from models.rom import Rom, RomFile
 
 from .base_handler import DBBaseHandler
 
+# Metadata source columns on the Rom model, keyed by source identifier.
+_METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
+    "igdb": Rom.igdb_id,
+    "ss": Rom.ss_id,
+    "moby": Rom.moby_id,
+    "launchbox": Rom.launchbox_id,
+    "ra": Rom.ra_id,
+    "hasheous": Rom.hasheous_id,
+    "tgdb": Rom.tgdb_id,
+    "flashpoint": Rom.flashpoint_id,
+    "hltb": Rom.hltb_id,
+    "gamelist": Rom.gamelist_id,
+}
+
 
 class DBStatsHandler(DBBaseHandler):
     @begin_session
@@ -83,20 +97,6 @@ class DBStatsHandler(DBBaseHandler):
             or 0
         )
 
-    # Metadata source columns on the Rom model, keyed by source identifier.
-    METADATA_SOURCE_COLUMNS: dict[str, "InstrumentedAttribute"] = {
-        "igdb": Rom.igdb_id,
-        "ss": Rom.ss_id,
-        "moby": Rom.moby_id,
-        "launchbox": Rom.launchbox_id,
-        "ra": Rom.ra_id,
-        "hasheous": Rom.hasheous_id,
-        "tgdb": Rom.tgdb_id,
-        "flashpoint": Rom.flashpoint_id,
-        "hltb": Rom.hltb_id,
-        "gamelist": Rom.gamelist_id,
-    }
-
     @begin_session
     def get_metadata_coverage_by_platform(
         self,
@@ -108,7 +108,7 @@ class DBStatsHandler(DBBaseHandler):
                 Rom.platform_id,
                 *(
                     func.count(col).label(key)
-                    for key, col in self.METADATA_SOURCE_COLUMNS.items()
+                    for key, col in _METADATA_SOURCE_COLUMNS.items()
                 ),
             )
             .select_from(Rom)
@@ -119,7 +119,7 @@ class DBStatsHandler(DBBaseHandler):
         for row in rows:
             result[row.platform_id] = [
                 {"source": key, "matched": getattr(row, key)}
-                for key in self.METADATA_SOURCE_COLUMNS
+                for key in _METADATA_SOURCE_COLUMNS
                 if getattr(row, key) > 0
             ]
         return result
