@@ -97,6 +97,10 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.WONDERSWAN_COLOR,
 ]
 
+OTHER_SUPPORTED_PLATFORMS = [
+    UPS.BROWSER,
+]
+
 STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+"
 
 
@@ -305,7 +309,7 @@ class DBRomsHandler(DBBaseHandler):
         """Filter based on whether the rom is playable on supported platforms."""
         predicate = or_(
             Platform.slug.in_(EJS_SUPPORTED_PLATFORMS),
-            Platform.slug == UPS.BROWSER
+            Platform.slug.in_(OTHER_SUPPORTED_PLATFORMS),
         )
         if not value:
             predicate = not_(predicate)
