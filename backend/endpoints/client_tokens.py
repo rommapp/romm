@@ -1,7 +1,7 @@
 import json
 
 from fastapi import HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from decorators.auth import protected_route
 from endpoints.responses.client_token import (
@@ -16,6 +16,7 @@ from handler.database import db_client_token_handler
 from handler.redis_handler import sync_cache
 from models.client_token import ClientToken
 from utils.client_tokens import (
+    PAIR_CODE_TTL_SECONDS,
     build_admin_schema,
     build_create_schema,
     build_schema,
@@ -32,12 +33,11 @@ router = APIRouter(
 )
 
 MAX_TOKENS_PER_USER = 25
-PAIR_CODE_TTL_SECONDS = 60
 
 
 class ClientTokenCreatePayload(BaseModel):
     name: str
-    scopes: list[str]
+    scopes: list[str] = Field(min_length=1)
     expires_in: str | None = None
 
 

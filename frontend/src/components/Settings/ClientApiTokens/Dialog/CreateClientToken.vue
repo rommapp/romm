@@ -29,7 +29,6 @@ const rawToken = ref("");
 const tokenId = ref<number | null>(null);
 
 const pairCode = ref("");
-const pairExpiresIn = ref(0);
 const pairTimer = ref<ReturnType<typeof setInterval> | null>(null);
 const pairCountdown = ref(0);
 const pairStatus = ref<"pending" | "claimed" | "expired">("pending");
@@ -227,7 +226,6 @@ async function startPairing() {
   try {
     const { data } = await clientTokenApi.pairToken(tokenId.value);
     pairCode.value = data.code;
-    pairExpiresIn.value = data.expires_in;
     pairCountdown.value = data.expires_in;
     pairLoading.value = false;
 
@@ -282,7 +280,6 @@ async function regeneratePairCode() {
   try {
     const { data } = await clientTokenApi.pairToken(tokenId.value!);
     pairCode.value = data.code;
-    pairExpiresIn.value = data.expires_in;
     pairCountdown.value = data.expires_in;
     pairLoading.value = false;
 
