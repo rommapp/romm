@@ -301,7 +301,10 @@ class DBRomsHandler(DBBaseHandler):
 
     def _filter_by_playable(self, query: Query, value: bool) -> Query:
         """Filter based on whether the rom is playable on supported platforms."""
-        predicate = Platform.slug.in_(EJS_SUPPORTED_PLATFORMS)
+        predicate = or_(
+            Platform.slug.in_(EJS_SUPPORTED_PLATFORMS),
+            Platform.slug == UPS.BROWSER
+        )
         if not value:
             predicate = not_(predicate)
         return query.join(Platform).filter(predicate)
