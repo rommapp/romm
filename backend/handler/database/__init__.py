@@ -1,3 +1,4 @@
+from .client_tokens_handler import DBClientTokensHandler
 from .collections_handler import DBCollectionsHandler
 from .device_save_sync_handler import DBDeviceSaveSyncHandler
 from .devices_handler import DBDevicesHandler
@@ -10,6 +11,7 @@ from .states_handler import DBStatesHandler
 from .stats_handler import DBStatsHandler
 from .users_handler import DBUsersHandler
 
+db_client_token_handler = DBClientTokensHandler()
 db_collection_handler = DBCollectionsHandler()
 db_device_handler = DBDevicesHandler()
 db_device_save_sync_handler = DBDeviceSaveSyncHandler()

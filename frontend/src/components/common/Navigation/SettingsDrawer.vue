@@ -154,6 +154,18 @@ function onClose() {
         {{ t("scan.metadata-sources") }}
       </v-list-item>
       <v-list-item
+        v-if="scopes.includes('me.write')"
+        :tabindex="tabIndex"
+        class="mt-1"
+        rounded
+        :to="{ name: ROUTES.CLIENT_API_TOKENS }"
+        append-icon="mdi-key-variant"
+        aria-label="Client API Tokens"
+        role="listitem"
+      >
+        {{ t("settings.client-api-tokens") }}
+      </v-list-item>
+      <v-list-item
         v-if="scopes.includes('users.write')"
         :tabindex="tabIndex"
         class="mt-1"
