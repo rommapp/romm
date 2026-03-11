@@ -2,13 +2,13 @@
 import { storeToRefs } from "pinia";
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
-import RSection from "@/components/common/RSection.vue";
-import storePlatforms from "@/stores/platforms";
-import storeHeartbeat from "@/stores/heartbeat";
-import { formatBytes, platformCategoryToIcon, regionToEmoji } from "@/utils";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import RSection from "@/components/common/RSection.vue";
+import storeHeartbeat from "@/stores/heartbeat";
+import storePlatforms from "@/stores/platforms";
+import { formatBytes, platformCategoryToIcon, regionToEmoji } from "@/utils";
 
 const props = defineProps<{
   totalFilesize: number;
@@ -37,7 +37,9 @@ const sortedPlatforms = computed(() => {
   );
 });
 
-const metadataOptions = computed(() => heartbeat.getMetadataOptionsByPriority());
+const metadataOptions = computed(() =>
+  heartbeat.getMetadataOptionsByPriority(),
+);
 
 const sourceInfo = computed(() => {
   const map: Record<string, { name: string; logo_path: string }> = {};
@@ -131,142 +133,148 @@ function getCoveragePercent(matched: number, total: number): string {
           rounded
         >
           <div class="pa-3">
-          <div class="platform-grid">
-            <div class="platform-icon">
-              <PlatformIcon
-                :slug="platform.slug"
-                :name="platform.name"
-                :fs-slug="platform.fs_slug"
-                :size="36"
-              />
-            </div>
-            <div class="platform-content">
-              <!-- Header: Name + size -->
-              <div class="d-flex justify-space-between align-center">
-                <div>
-                  <div class="text-subtitle-1 font-weight-medium">
-                    {{ platform.display_name }}
-                  </div>
-                  <div class="d-flex align-center ga-1">
-                    <v-chip size="x-small" label class="text-grey">
-                      {{ platform.fs_slug }}
-                    </v-chip>
-                    <v-icon
-                      :icon="platformCategoryToIcon(platform.category || '')"
-                      size="10"
-                      class="text-medium-emphasis"
-                      :title="platform.category"
-                    />
-                    <span
-                      v-if="platform.family_name"
-                      class="text-medium-emphasis"
-                      style="font-size: 0.65rem"
-                    >
-                      {{ platform.family_name }}
-                    </span>
-                  </div>
-                </div>
-                <div class="text-right flex-shrink-0 ml-4">
-                  <div class="text-subtitle-2 font-weight-bold text-primary">
-                    {{ formatBytes(Number(platform.fs_size_bytes)) }}
-                  </div>
-                  <div
-                    class="text-medium-emphasis"
-                    style="font-size: 0.7rem"
-                  >
-                    {{
-                      getPlatformPercentage(
-                        platform.fs_size_bytes,
-                        props.totalFilesize,
-                      ).toFixed(1)
-                    }}%
-                  </div>
-                </div>
+            <div class="platform-grid">
+              <div class="platform-icon">
+                <PlatformIcon
+                  :slug="platform.slug"
+                  :name="platform.name"
+                  :fs-slug="platform.fs_slug"
+                  :size="36"
+                />
               </div>
-
-              <!-- Detail table: label | value -->
-              <div class="detail-table mt-2">
-                <div class="detail-row">
-                  <span class="detail-label">{{ t("setup.games") }}</span>
+              <div class="platform-content">
+                <!-- Header: Name + size -->
+                <div class="d-flex justify-space-between align-center">
                   <div>
-                    <v-chip size="x-small" label>
-                      {{ platform.rom_count }}
-                    </v-chip>
-                  </div>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">
-                    {{ t("rom.metadata") }}
-                  </span>
-                  <div
-                    v-if="orderedCoverageByPlatform[String(platform.id)]?.length > 0"
-                    class="d-flex flex-wrap ga-1"
-                  >
-                    <v-chip
-                      v-for="item in orderedCoverageByPlatform[String(platform.id)]"
-                      :key="item.source"
-                      :title="`${sourceInfo[item.source]?.name ?? item.source}: ${item.matched} / ${platform.rom_count}`"
-                      class="chip-fixed"
-                      size="x-small"
-                      label
-                      variant="tonal"
-                    >
-                      <v-avatar
-                        v-if="sourceInfo[item.source]?.logo_path"
-                        start
-                        size="12"
-                        rounded
+                    <div class="text-subtitle-1 font-weight-medium">
+                      {{ platform.display_name }}
+                    </div>
+                    <div class="d-flex align-center ga-1">
+                      <v-chip size="x-small" label class="text-grey">
+                        {{ platform.fs_slug }}
+                      </v-chip>
+                      <v-icon
+                        :icon="platformCategoryToIcon(platform.category || '')"
+                        size="10"
+                        class="text-medium-emphasis"
+                        :title="platform.category"
+                      />
+                      <span
+                        v-if="platform.family_name"
+                        class="text-medium-emphasis"
+                        style="font-size: 0.65rem"
                       >
-                        <v-img :src="sourceInfo[item.source]?.logo_path" />
-                      </v-avatar>
-                      {{ getCoveragePercent(item.matched, platform.rom_count) }}%
-                    </v-chip>
+                        {{ platform.family_name }}
+                      </span>
+                    </div>
                   </div>
-                  <span v-else class="empty-state">—</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">
-                    {{ t("platform.region") }}
-                  </span>
-                  <div
-                    v-if="getVisibleRegions(platform.id).length > 0"
-                    class="d-flex flex-wrap ga-1"
-                  >
-                    <v-chip
-                      v-for="item in getVisibleRegions(platform.id)"
-                      :key="item.region"
-                      :title="`${item.region}: ${item.count}`"
-                      class="chip-fixed"
-                      size="x-small"
-                      label
-                      variant="tonal"
-                    >
-                      <span class="mr-1">{{ regionToEmoji(item.region) }}</span>
-                      {{ item.count }}
-                    </v-chip>
-                    <v-chip
-                      v-if="
-                        getHiddenRegionCount(platform.id) > 0 ||
-                        expandedRegions.has(platform.id)
-                      "
-                      size="x-small"
-                      label
-                      variant="text"
-                      class="text-medium-emphasis cursor-pointer"
-                      @click="toggleRegions(platform.id)"
-                    >
+                  <div class="text-right flex-shrink-0 ml-4">
+                    <div class="text-subtitle-2 font-weight-bold text-primary">
+                      {{ formatBytes(Number(platform.fs_size_bytes)) }}
+                    </div>
+                    <div class="text-medium-emphasis" style="font-size: 0.7rem">
                       {{
-                        expandedRegions.has(platform.id)
-                          ? "−"
-                          : "+" + getHiddenRegionCount(platform.id)
-                      }}
-                    </v-chip>
+                        getPlatformPercentage(
+                          platform.fs_size_bytes,
+                          props.totalFilesize,
+                        ).toFixed(1)
+                      }}%
+                    </div>
                   </div>
-                  <span v-else class="empty-state">—</span>
+                </div>
+
+                <!-- Detail table: label | value -->
+                <div class="detail-table mt-2">
+                  <div class="detail-row">
+                    <span class="detail-label">{{ t("setup.games") }}</span>
+                    <div>
+                      <v-chip size="x-small" label>
+                        {{ platform.rom_count }}
+                      </v-chip>
+                    </div>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">
+                      {{ t("rom.metadata") }}
+                    </span>
+                    <div
+                      v-if="
+                        orderedCoverageByPlatform[String(platform.id)]?.length >
+                        0
+                      "
+                      class="d-flex flex-wrap ga-1"
+                    >
+                      <v-chip
+                        v-for="item in orderedCoverageByPlatform[
+                          String(platform.id)
+                        ]"
+                        :key="item.source"
+                        :title="`${sourceInfo[item.source]?.name ?? item.source}: ${item.matched} / ${platform.rom_count}`"
+                        class="chip-fixed"
+                        size="x-small"
+                        label
+                        variant="tonal"
+                      >
+                        <v-avatar
+                          v-if="sourceInfo[item.source]?.logo_path"
+                          start
+                          size="12"
+                          rounded
+                        >
+                          <v-img :src="sourceInfo[item.source]?.logo_path" />
+                        </v-avatar>
+                        {{
+                          getCoveragePercent(item.matched, platform.rom_count)
+                        }}%
+                      </v-chip>
+                    </div>
+                    <span v-else class="empty-state">—</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">
+                      {{ t("platform.region") }}
+                    </span>
+                    <div
+                      v-if="getVisibleRegions(platform.id).length > 0"
+                      class="d-flex flex-wrap ga-1"
+                    >
+                      <v-chip
+                        v-for="item in getVisibleRegions(platform.id)"
+                        :key="item.region"
+                        :title="`${item.region}: ${item.count}`"
+                        class="chip-fixed"
+                        size="x-small"
+                        label
+                        variant="tonal"
+                      >
+                        <span class="mr-1">{{
+                          regionToEmoji(item.region)
+                        }}</span>
+                        {{ item.count }}
+                      </v-chip>
+                      <v-chip
+                        v-if="
+                          getHiddenRegionCount(platform.id) > 0 ||
+                          expandedRegions.has(platform.id)
+                        "
+                        size="x-small"
+                        label
+                        variant="text"
+                        class="text-medium-emphasis cursor-pointer"
+                        @click="toggleRegions(platform.id)"
+                      >
+                        {{
+                          expandedRegions.has(platform.id)
+                            ? "−"
+                            : "+" + getHiddenRegionCount(platform.id)
+                        }}
+                      </v-chip>
+                    </div>
+                    <span v-else class="empty-state">—</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
           </div>
           <div class="size-bar-track">
             <div
