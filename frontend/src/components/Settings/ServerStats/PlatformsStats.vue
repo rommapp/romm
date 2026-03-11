@@ -129,12 +129,12 @@ function getCoveragePercent(matched: number, total: number): string {
         <v-sheet
           v-for="platform in sortedPlatforms"
           :key="platform.slug"
-          class="platform-card mb-3"
+          class="overflow-hidden mb-3"
           rounded
         >
           <div class="pa-3">
-            <div class="platform-grid">
-              <div class="platform-icon">
+            <div class="platform-layout grid gap-3">
+              <div class="flex items-start pt-1">
                 <PlatformIcon
                   :slug="platform.slug"
                   :name="platform.name"
@@ -168,7 +168,7 @@ function getCoveragePercent(matched: number, total: number): string {
                       </span>
                     </div>
                   </div>
-                  <div class="text-right flex-shrink-0 ml-4">
+                  <div class="text-right shrink-0 ml-4">
                     <div class="text-subtitle-2 font-weight-bold text-primary">
                       {{ formatBytes(Number(platform.fs_size_bytes)) }}
                     </div>
@@ -184,17 +184,23 @@ function getCoveragePercent(matched: number, total: number): string {
                 </div>
 
                 <!-- Detail table: label | value -->
-                <div class="detail-table mt-2">
-                  <div class="detail-row">
-                    <span class="detail-label">{{ t("setup.games") }}</span>
+                <div class="detail-table mt-2 flex flex-col gap-2">
+                  <div class="detail-row grid items-baseline gap-2">
+                    <span
+                      class="detail-label whitespace-nowrap font-semibold uppercase opacity-50"
+                    >
+                      {{ t("setup.games") }}
+                    </span>
                     <div>
                       <v-chip size="x-small" label>
                         {{ platform.rom_count }}
                       </v-chip>
                     </div>
                   </div>
-                  <div class="detail-row">
-                    <span class="detail-label">
+                  <div class="detail-row grid items-baseline gap-2">
+                    <span
+                      class="detail-label whitespace-nowrap font-semibold uppercase opacity-50"
+                    >
                       {{ t("rom.metadata") }}
                     </span>
                     <div
@@ -210,7 +216,7 @@ function getCoveragePercent(matched: number, total: number): string {
                         ]"
                         :key="item.source"
                         :title="`${sourceInfo[item.source]?.name ?? item.source}: ${item.matched} / ${platform.rom_count}`"
-                        class="chip-fixed"
+                        class="min-w-13 justify-center"
                         size="x-small"
                         label
                         variant="tonal"
@@ -228,10 +234,12 @@ function getCoveragePercent(matched: number, total: number): string {
                         }}%
                       </v-chip>
                     </div>
-                    <span v-else class="empty-state">—</span>
+                    <span v-else class="text-xs opacity-25">—</span>
                   </div>
-                  <div class="detail-row">
-                    <span class="detail-label">
+                  <div class="detail-row grid items-baseline gap-2">
+                    <span
+                      class="detail-label whitespace-nowrap font-semibold uppercase opacity-50"
+                    >
                       {{ t("platform.region") }}
                     </span>
                     <div
@@ -242,7 +250,7 @@ function getCoveragePercent(matched: number, total: number): string {
                         v-for="item in getVisibleRegions(platform.id)"
                         :key="item.region"
                         :title="`${item.region}: ${item.count}`"
-                        class="chip-fixed"
+                        class="min-w-13 justify-center"
                         size="x-small"
                         label
                         variant="tonal"
@@ -270,15 +278,15 @@ function getCoveragePercent(matched: number, total: number): string {
                         }}
                       </v-chip>
                     </div>
-                    <span v-else class="empty-state">—</span>
+                    <span v-else class="text-xs opacity-25">—</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <div class="size-bar-track">
+          <div class="size-bar-track h-0.75">
             <div
-              class="size-bar-fill"
+              class="size-bar-fill h-full min-w-0 rounded-r-xs duration-300 ease-in-out"
               :style="{
                 width:
                   getPlatformPercentage(
@@ -295,67 +303,30 @@ function getCoveragePercent(matched: number, total: number): string {
 </template>
 
 <style scoped>
-.platform-card {
-  overflow: hidden;
-}
-
-.platform-grid {
-  display: grid;
+.platform-layout {
   grid-template-columns: 36px 1fr;
-  column-gap: 12px;
-}
-
-.platform-icon {
-  display: flex;
-  align-items: flex-start;
-  padding-top: 6px;
 }
 
 .detail-table {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 8px;
   border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .detail-row {
-  display: grid;
   grid-template-columns: 120px 1fr;
-  align-items: baseline;
-  gap: 8px;
 }
 
 .detail-label {
   font-size: 0.625rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  opacity: 0.5;
   line-height: 1.8;
-  white-space: nowrap;
-}
-
-.chip-fixed {
-  min-width: 52px;
-  justify-content: center;
-}
-
-.empty-state {
-  font-size: 0.75rem;
-  opacity: 0.25;
+  letter-spacing: 0.04em;
 }
 
 .size-bar-track {
-  height: 3px;
   background: rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .size-bar-fill {
-  height: 100%;
-  min-width: 0;
   background: rgb(var(--v-theme-primary));
-  border-radius: 0 2px 2px 0;
-  transition: width 0.3s ease;
+  transition-property: width;
 }
 </style>
