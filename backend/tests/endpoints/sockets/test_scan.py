@@ -1,6 +1,6 @@
+import os
 from unittest.mock import Mock
 
-import os
 import pytest
 import socketio
 
@@ -263,7 +263,9 @@ class TestGetPico8CoverUrl:
             fs_name="mygame.p8.png",
             fs_path="pico/roms",
         )
-        expected = f"file://{os.path.join(LIBRARY_BASE_PATH, 'pico/roms', 'mygame.p8.png')}"
+        expected = (
+            f"file://{os.path.join(LIBRARY_BASE_PATH, 'pico/roms', 'mygame.p8.png')}"
+        )
         assert url == expected
 
     def test_returns_none_for_non_pico8_platform(self, handler: FSRomsHandler):
