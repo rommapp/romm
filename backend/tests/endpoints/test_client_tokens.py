@@ -21,12 +21,11 @@ def client():
 
 @pytest.fixture
 def editor_access_token(editor_user):
-    return oauth_handler.create_oauth_token(
+    return oauth_handler.create_access_token(
         data={
             "sub": editor_user.username,
             "iss": "romm:oauth",
             "scopes": " ".join(editor_user.oauth_scopes),
-            "type": "access",
         },
         expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
     )
@@ -34,12 +33,11 @@ def editor_access_token(editor_user):
 
 @pytest.fixture
 def viewer_access_token(viewer_user):
-    return oauth_handler.create_oauth_token(
+    return oauth_handler.create_access_token(
         data={
             "sub": viewer_user.username,
             "iss": "romm:oauth",
             "scopes": " ".join(viewer_user.oauth_scopes),
-            "type": "access",
         },
         expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
     )
