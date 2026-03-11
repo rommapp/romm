@@ -57,10 +57,6 @@ function fetchTokens() {
 
 onMounted(fetchTokens);
 
-emitter?.on("showCreateClientTokenDialog", () => {
-  // Refetch after dialog closes via snackbar events
-});
-
 function onTokenCreated() {
   fetchTokens();
 }

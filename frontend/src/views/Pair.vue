@@ -8,8 +8,7 @@ const route = useRoute();
 const code = computed(() => (route.query.code as string) || "");
 const callback = computed(() => (route.query.callback as string) || "");
 
-const status = ref<"idle" | "exchanging" | "success" | "error">("idle");
-const rawToken = ref("");
+const status = ref<"idle" | "exchanging" | "error">("idle");
 const errorMessage = ref("");
 
 function isCustomScheme(url: string): boolean {
@@ -64,7 +63,7 @@ onMounted(async () => {
 const formattedCode = computed(() => {
   const c = code.value.replace("-", "").toUpperCase();
   if (c.length === 8) return c.slice(0, 4) + "-" + c.slice(4);
-  return code.value;
+  return c;
 });
 </script>
 
