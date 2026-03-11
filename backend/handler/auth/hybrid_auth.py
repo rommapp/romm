@@ -6,7 +6,6 @@ from starlette.requests import HTTPConnection
 
 from config import KIOSK_MODE
 from handler.auth import auth_handler, oauth_handler
-from handler.auth.base_handler import hash_client_token
 from handler.database import db_client_token_handler, db_user_handler
 from models.user import User
 from utils.datetime import to_utc
@@ -47,7 +46,7 @@ class HybridAuthBackend(AuthenticationBackend):
             if scheme.lower() == "bearer":
                 # Client API tokens use the rmm_ prefix
                 if token.startswith("rmm_"):
-                    hashed = hash_client_token(token)
+                    hashed = auth_handler.hash_client_token(token)
                     client_token = db_client_token_handler.get_token_by_hash(hashed)
                     if client_token is None:
                         return None

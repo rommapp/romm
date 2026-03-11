@@ -85,7 +85,7 @@ class User(BaseModel, SimpleUser):
         lazy="raise", back_populates="user", cascade="all, delete-orphan"
     )
     client_tokens: Mapped[list["ClientToken"]] = relationship(
-        lazy="raise", back_populates="user"
+        lazy="raise", back_populates="user", cascade="all, delete-orphan"
     )
 
     @classmethod
