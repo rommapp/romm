@@ -33,8 +33,10 @@ export const ROUTES = {
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
   METADATA_SOURCES: "metadata-sources",
+  CLIENT_API_TOKENS: "client-api-tokens",
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
+  PAIR: "pair",
   NOT_FOUND: "404",
   CONSOLE_HOME: "console-home",
   CONSOLE_PLATFORM: "console-platform",
@@ -227,6 +229,14 @@ const routes = [
         component: () => import("@/views/Settings/MetadataSources.vue"),
       },
       {
+        path: "client-api-tokens",
+        name: ROUTES.CLIENT_API_TOKENS,
+        meta: {
+          title: i18n.global.t("settings.client-api-tokens"),
+        },
+        component: () => import("@/views/Settings/ClientApiTokens.vue"),
+      },
+      {
         path: "administration",
         name: ROUTES.ADMINISTRATION,
         meta: {
@@ -248,6 +258,11 @@ const routes = [
         component: () => import("@/views/404.vue"),
       },
     ],
+  },
+  {
+    path: "/pair",
+    name: ROUTES.PAIR,
+    component: () => import("@/views/Pair.vue"),
   },
   // Console mode (separate UI namespace under /console)
   {
@@ -313,6 +328,7 @@ const router = createRouter({
 });
 
 const routePermissions: RoutePermissions[] = [
+  { path: ROUTES.CLIENT_API_TOKENS, requiredScopes: ["me.write"] },
   { path: ROUTES.SCAN, requiredScopes: ["platforms.write"] },
   { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
   { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
@@ -324,7 +340,8 @@ function checkRoutePermissions(route: string, user: User | null): boolean {
     route === ROUTES.LOGIN ||
     route === ROUTES.SETUP ||
     route === ROUTES.RESET_PASSWORD ||
-    route === ROUTES.REGISTER
+    route === ROUTES.REGISTER ||
+    route === ROUTES.PAIR
   )
     return true;
 
@@ -358,7 +375,8 @@ router.beforeEach(async (to, _from, next) => {
       !user.value &&
       currentRoute !== ROUTES.LOGIN &&
       currentRoute !== ROUTES.RESET_PASSWORD &&
-      currentRoute !== ROUTES.REGISTER
+      currentRoute !== ROUTES.REGISTER &&
+      currentRoute !== ROUTES.PAIR
     ) {
       return next({
         name: ROUTES.LOGIN,

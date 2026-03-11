@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -36,6 +38,14 @@ class AuthHandler:
     def __init__(self) -> None:
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         self.reset_passwd_token_expires_in_minutes = 10
+
+    @staticmethod
+    def generate_client_token() -> str:
+        return "rmm_" + secrets.token_hex(32)
+
+    @staticmethod
+    def hash_client_token(raw: str) -> str:
+        return hashlib.sha256(raw.encode()).hexdigest()
 
     def verify_password(self, plain_password, hashed_password):
         return self.pwd_context.verify(plain_password, hashed_password)
