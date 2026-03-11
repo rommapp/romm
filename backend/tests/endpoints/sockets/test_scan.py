@@ -6,8 +6,9 @@ import socketio
 
 from config import LIBRARY_BASE_PATH
 from endpoints.sockets.scan import ScanStats, _should_scan_rom
+from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
-from handler.scan_handler import ScanType, get_pico8_cover_url
+from handler.scan_handler import ScanType
 from models.rom import Rom
 
 
@@ -250,10 +251,14 @@ class TestShouldScanRom:
 
 
 class TestGetPico8CoverUrl:
-    """Tests for the PICO-8 cover art URL helper."""
+    """Tests for the PICO-8 cover art URL helper on FSRomsHandler."""
 
-    def test_returns_file_url_for_pico8_cartridge(self):
-        url = get_pico8_cover_url(
+    @pytest.fixture
+    def handler(self):
+        return FSRomsHandler()
+
+    def test_returns_file_url_for_pico8_cartridge(self, handler: FSRomsHandler):
+        url = handler.get_pico8_cover_url(
             platform_slug=UPS.PICO,
             fs_name="mygame.p8.png",
             fs_path="pico/roms",
@@ -261,33 +266,33 @@ class TestGetPico8CoverUrl:
         expected = f"file://{os.path.join(LIBRARY_BASE_PATH, 'pico/roms', 'mygame.p8.png')}"
         assert url == expected
 
-    def test_returns_none_for_non_pico8_platform(self):
-        url = get_pico8_cover_url(
+    def test_returns_none_for_non_pico8_platform(self, handler: FSRomsHandler):
+        url = handler.get_pico8_cover_url(
             platform_slug="snes",
             fs_name="mygame.p8.png",
             fs_path="snes/roms",
         )
         assert url is None
 
-    def test_returns_none_for_plain_p8_text_file(self):
+    def test_returns_none_for_plain_p8_text_file(self, handler: FSRomsHandler):
         """Plain .p8 files are text-only and have no embedded PNG image."""
-        url = get_pico8_cover_url(
+        url = handler.get_pico8_cover_url(
             platform_slug=UPS.PICO,
             fs_name="mygame.p8",
             fs_path="pico/roms",
         )
         assert url is None
 
-    def test_returns_none_for_unrelated_extension(self):
-        url = get_pico8_cover_url(
+    def test_returns_none_for_unrelated_extension(self, handler: FSRomsHandler):
+        url = handler.get_pico8_cover_url(
             platform_slug=UPS.PICO,
             fs_name="mygame.zip",
             fs_path="pico/roms",
         )
         assert url is None
 
-    def test_url_starts_with_file_scheme(self):
-        url = get_pico8_cover_url(
+    def test_url_starts_with_file_scheme(self, handler: FSRomsHandler):
+        url = handler.get_pico8_cover_url(
             platform_slug=UPS.PICO,
             fs_name="cart.p8.png",
             fs_path="pico/roms",
@@ -295,10 +300,10 @@ class TestGetPico8CoverUrl:
         assert url is not None
         assert url.startswith("file://")
 
-    def test_url_contains_fs_path_and_name(self):
+    def test_url_contains_fs_path_and_name(self, handler: FSRomsHandler):
         fs_path = "pico/roms"
         fs_name = "celeste.p8.png"
-        url = get_pico8_cover_url(
+        url = handler.get_pico8_cover_url(
             platform_slug=UPS.PICO,
             fs_name=fs_name,
             fs_path=fs_path,
