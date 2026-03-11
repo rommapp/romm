@@ -131,9 +131,7 @@ class DBStatsHandler(DBBaseHandler):
     ) -> dict[int, list[dict]]:
         """Get the count of ROMs per region, grouped by platform."""
         rows = session.execute(
-            select(Rom.platform_id, Rom.regions).where(
-                Rom.regions.is_not(None)
-            )
+            select(Rom.platform_id, Rom.regions).where(Rom.regions.is_not(None))
         ).all()
 
         counter: dict[int, dict[str, int]] = {}
