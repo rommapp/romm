@@ -59,13 +59,13 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.ATARI5200,
     UPS.ATARI7800,
     UPS.C_PLUS_4,
-    UPS.C64,
     UPS.CPET,
     UPS.C64,
     UPS.C128,
     UPS.COLECOVISION,
     UPS.JAGUAR,
     UPS.LYNX,
+    UPS.DOS,
     UPS.NEO_GEO_POCKET,
     UPS.NEO_GEO_POCKET_COLOR,
     UPS.NES,
@@ -77,11 +77,13 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.NINTENDO_DSI,
     UPS.GB,
     UPS.GBA,
+    UPS.GBC,
     UPS.PC_FX,
     UPS.PHILIPS_CD_I,
     UPS.PSX,
     UPS.PSP,
     UPS.SEGACD,
+    UPS.SEGA32,
     UPS.GENESIS,
     UPS.SMS,
     UPS.GAMEGEAR,
@@ -93,6 +95,10 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.VIRTUALBOY,
     UPS.WONDERSWAN,
     UPS.WONDERSWAN_COLOR,
+]
+
+OTHER_SUPPORTED_PLATFORMS = [
+    UPS.BROWSER,
 ]
 
 STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+"
@@ -301,7 +307,10 @@ class DBRomsHandler(DBBaseHandler):
 
     def _filter_by_playable(self, query: Query, value: bool) -> Query:
         """Filter based on whether the rom is playable on supported platforms."""
-        predicate = Platform.slug.in_(EJS_SUPPORTED_PLATFORMS)
+        predicate = or_(
+            Platform.slug.in_(EJS_SUPPORTED_PLATFORMS),
+            Platform.slug.in_(OTHER_SUPPORTED_PLATFORMS),
+        )
         if not value:
             predicate = not_(predicate)
         return query.join(Platform).filter(predicate)
