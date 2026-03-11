@@ -32,7 +32,6 @@
   "platform": "Platform",
   "platforms": "Platforms",
   "platforms-n": "{n} Platform | {n} Platforms",
-  "platforms-size": "Size per platform",
   "profile": "Profile",
   "random": "Random",
   "removing-from-filesystem": "Removing from filesystem",
