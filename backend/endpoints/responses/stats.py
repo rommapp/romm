@@ -1,6 +1,16 @@
 from typing import TypedDict
 
 
+class MetadataCoverageItem(TypedDict):
+    source: str
+    matched: int
+
+
+class RegionBreakdownItem(TypedDict):
+    region: str
+    count: int
+
+
 class StatsReturn(TypedDict):
     PLATFORMS: int
     ROMS: int
@@ -8,3 +18,5 @@ class StatsReturn(TypedDict):
     STATES: int
     SCREENSHOTS: int
     TOTAL_FILESIZE_BYTES: int
+    METADATA_COVERAGE: dict[int, list[MetadataCoverageItem]]
+    REGION_BREAKDOWN: dict[int, list[RegionBreakdownItem]]

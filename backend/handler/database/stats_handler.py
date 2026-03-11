@@ -1,11 +1,28 @@
+from __future__ import annotations
+
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from decorators.database import begin_session
 from models.assets import Save, Screenshot, State
 from models.rom import Rom, RomFile
 
 from .base_handler import DBBaseHandler
+
+# Metadata source columns on the Rom model, keyed by source identifier.
+_METADATA_SOURCE_COLUMNS: dict[str, InstrumentedAttribute] = {
+    "igdb": Rom.igdb_id,
+    "ss": Rom.ss_id,
+    "moby": Rom.moby_id,
+    "launchbox": Rom.launchbox_id,
+    "ra": Rom.ra_id,
+    "hasheous": Rom.hasheous_id,
+    "tgdb": Rom.tgdb_id,
+    "flashpoint": Rom.flashpoint_id,
+    "hltb": Rom.hltb_id,
+    "gamelist": Rom.gamelist_id,
+}
 
 
 class DBStatsHandler(DBBaseHandler):
@@ -79,3 +96,58 @@ class DBStatsHandler(DBBaseHandler):
             )
             or 0
         )
+
+    @begin_session
+    def get_metadata_coverage_by_platform(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> dict[int, list[dict]]:
+        """Get the count of ROMs matched per metadata source, grouped by platform."""
+        rows = session.execute(
+            select(
+                Rom.platform_id,
+                *(
+                    func.count(col).label(key)
+                    for key, col in _METADATA_SOURCE_COLUMNS.items()
+                ),
+            )
+            .select_from(Rom)
+            .group_by(Rom.platform_id)
+        ).all()
+
+        result: dict[int, list[dict]] = {}
+        for row in rows:
+            result[row.platform_id] = [
+                {"source": key, "matched": getattr(row, key)}
+                for key in _METADATA_SOURCE_COLUMNS
+                if getattr(row, key) > 0
+            ]
+        return result
+
+    @begin_session
+    def get_region_breakdown_by_platform(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> dict[int, list[dict]]:
+        """Get the count of ROMs per region, grouped by platform."""
+        rows = session.execute(
+            select(Rom.platform_id, Rom.regions).where(Rom.regions.is_not(None))
+        ).all()
+
+        counter: dict[int, dict[str, int]] = {}
+        for platform_id, regions_list in rows:
+            if regions_list:
+                if platform_id not in counter:
+                    counter[platform_id] = {}
+                for region in regions_list:
+                    counter[platform_id][region] = (
+                        counter[platform_id].get(region, 0) + 1
+                    )
+
+        return {
+            pid: [
+                {"region": r, "count": c}
+                for r, c in sorted(regions.items(), key=lambda x: -x[1])
+            ]
+            for pid, regions in counter.items()
+        }
