@@ -6,8 +6,7 @@ from fastapi.testclient import TestClient
 from main import app
 
 from endpoints.auth import ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.auth import oauth_handler
-from handler.auth.base_handler import hash_client_token
+from handler.auth import auth_handler, oauth_handler
 from handler.database import db_client_token_handler, db_user_handler
 from handler.redis_handler import sync_cache
 from models.client_token import ClientToken
@@ -160,11 +159,11 @@ class TestClientTokenCRUD:
         assert body["expires_at"] is not None
 
         # Old token should no longer work
-        old_hash = hash_client_token(old_raw)
+        old_hash = auth_handler.hash_client_token(old_raw)
         assert db_client_token_handler.get_token_by_hash(old_hash) is None
 
         # New token should work
-        new_hash = hash_client_token(new_raw)
+        new_hash = auth_handler.hash_client_token(new_raw)
         assert db_client_token_handler.get_token_by_hash(new_hash) is not None
 
     def test_create_token_limit(self, client, access_token, admin_user):
@@ -495,11 +494,11 @@ class TestClientTokenPairing:
         assert new_raw != old_raw
 
         # Old credential should be dead
-        old_hash = hash_client_token(old_raw)
+        old_hash = auth_handler.hash_client_token(old_raw)
         assert db_client_token_handler.get_token_by_hash(old_hash) is None
 
         # New credential should work
-        new_hash = hash_client_token(new_raw)
+        new_hash = auth_handler.hash_client_token(new_raw)
         assert db_client_token_handler.get_token_by_hash(new_hash) is not None
 
     def test_exchange_expired_code(self, client, access_token, admin_user):
@@ -686,7 +685,7 @@ class TestClientTokenAdmin:
         assert response.status_code == status.HTTP_200_OK
 
         # Verify token no longer authenticates
-        hashed = hash_client_token(raw_token)
+        hashed = auth_handler.hash_client_token(raw_token)
         assert db_client_token_handler.get_token_by_hash(hashed) is None
 
     def test_non_admin_cannot_list_all(self, client, editor_access_token, editor_user):
