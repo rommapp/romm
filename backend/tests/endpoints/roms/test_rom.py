@@ -139,6 +139,30 @@ def test_update_rom_user_props_with_data_envelope(
     assert body["rating"] == 7
 
 
+def test_update_rom_user_props_partial_update(
+    client: TestClient, access_token: str, rom: Rom
+):
+    # Set initial values
+    client.put(
+        f"/api/roms/{rom.id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"data": {"backlogged": True, "rating": 5, "hidden": True}},
+    )
+
+    # Partial update: only update rating, backlogged and hidden should remain unchanged
+    response = client.put(
+        f"/api/roms/{rom.id}/props",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"data": {"rating": 9}},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["rating"] == 9
+    assert body["backlogged"] is True
+    assert body["hidden"] is True
+
+
 def test_update_rom_user_props_last_played_flags(
     client: TestClient, access_token: str, rom: Rom
 ):
