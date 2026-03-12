@@ -21,23 +21,6 @@ def _get_env(var: str, fallback: str | None = None) -> str | None:
     return val.strip() if val else val
 
 
-# Helper function to ensure correct error handling for env variables that expect a positive integer
-def _get_positive_int_env(var_name: str, default: int) -> int:
-    raw = _get_env(var_name)
-    if raw is None:
-        return default
-
-    try:
-        value = int(raw)
-    except ValueError as exc:
-        raise ValueError(f"{var_name} must be an integer!") from exc
-
-    if value <= 0:
-        raise ValueError(f"{var_name} must be a positive integer!")
-
-    return value
-
-
 ROMM_BASE_URL: Final[str] = _get_env("ROMM_BASE_URL", "http://0.0.0.0")
 ROMM_PORT: Final[int] = safe_int(_get_env("ROMM_PORT"), 8080)
 
@@ -130,15 +113,13 @@ ROMM_AUTH_SECRET_KEY: Final[str] = _get_env("ROMM_AUTH_SECRET_KEY", "")
 if not ROMM_AUTH_SECRET_KEY:
     raise ValueError("ROMM_AUTH_SECRET_KEY environment variable is not set!")
 
-OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS: Final[int] = _get_positive_int_env(
-    "OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS",
-    30 * 60,  # 30 minutes, in seconds
-)
+OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS: Final[int] = safe_int(
+    _get_env("OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS"), 30 * 60
+)  # 30 minutes, in seconds
 
-OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS: Final[int] = _get_positive_int_env(
-    "OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS",
-    7 * 24 * 60 * 60,  # 7 days, in seconds
-)
+OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS: Final[int] = safe_int(
+    _get_env("OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS"), 7 * 24 * 60 * 60
+)  # 7 days, in seconds
 
 SESSION_MAX_AGE_SECONDS: Final[int] = safe_int(
     _get_env("SESSION_MAX_AGE_SECONDS"), 14 * 24 * 60 * 60
