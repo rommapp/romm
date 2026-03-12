@@ -119,7 +119,7 @@ class TestFSRomsHandler:
                     FIRMWARE_FOLDER_NAME="bios",
                 ),
             )
-            m.setattr("os.path.exists", lambda x: False)  # Simulate normal structure
+            m.setattr("os.path.isdir", lambda x: False)  # Simulate normal structure
 
             result = handler.get_roms_fs_structure(fs_slug)
             assert result == f"{fs_slug}/roms"
@@ -147,7 +147,7 @@ class TestFSRomsHandler:
                 ),
             )
             m.setattr(
-                "os.path.exists", lambda x: True
+                "os.path.isdir", lambda x: True
             )  # Simulate high priority structure
 
             result = handler.get_roms_fs_structure(fs_slug)
@@ -315,7 +315,7 @@ class TestFSRomsHandler:
         """Test get_roms with actual files in the filesystem"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.isdir", lambda x: False)  # Normal structure
 
             result = await handler.get_roms(platform)
 
@@ -345,7 +345,7 @@ class TestFSRomsHandler:
         """Test get_rom_files with a single ROM file"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.isdir", lambda x: False)  # Normal structure
 
             parsed_rom_files = await handler.get_rom_files(rom_single)
 
@@ -368,7 +368,7 @@ class TestFSRomsHandler:
         """Test get_rom_files with a multi-part ROM"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.isdir", lambda x: False)  # Normal structure
 
             parsed_rom_files = await handler.get_rom_files(rom_multi)
 
@@ -523,7 +523,7 @@ class TestFSRomsHandler:
         non_hashable_path = handler.get_roms_fs_structure(non_hashable_platform.fs_slug)
 
         with pytest.MonkeyPatch.context() as m:
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("os.path.isdir", lambda x: False)  # Normal structure
 
             assert hashable_path == f"{hashable_platform.fs_slug}/roms"
             assert non_hashable_path == f"{non_hashable_platform.fs_slug}/roms"
@@ -551,13 +551,13 @@ class TestFSRomsHandler:
 
         with pytest.MonkeyPatch.context() as m:
             # Test with normal structure
-            m.setattr("os.path.exists", lambda x: False)
+            m.setattr("os.path.isdir", lambda x: False)
 
             structure = handler.get_roms_fs_structure(fs_slug)
             assert structure == f"{fs_slug}/roms"
 
             # Test with high priority structure
-            m.setattr("os.path.exists", lambda x: True)
+            m.setattr("os.path.isdir", lambda x: True)
 
             structure = handler.get_roms_fs_structure(fs_slug)
             assert structure == f"roms/{fs_slug}"

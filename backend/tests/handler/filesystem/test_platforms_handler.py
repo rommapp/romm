@@ -1,9 +1,11 @@
+import os
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
+from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from handler.filesystem.platforms_handler import FSPlatformsHandler, LibraryStructure
 
 
@@ -65,6 +67,25 @@ class TestFSPlatformsHandler:
             assert "romm" not in result
             assert "excluded_platform" not in result
 
+    def test_exclude_platforms_wildcard_patterns(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Test that _exclude_platforms supports wildcard patterns"""
+        config.EXCLUDED_PLATFORMS = [".Trash-*", "@eaDir", "__MACOSX"]
+        platforms = ["n64", ".Trash-1000", ".Trash-0", "@eaDir", "__MACOSX", "psx"]
+
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            result = handler._exclude_platforms(platforms)
+
+            assert "n64" in result
+            assert "psx" in result
+            assert ".Trash-1000" not in result
+            assert ".Trash-0" not in result
+            assert "@eaDir" not in result
+            assert "__MACOSX" not in result
+
     def test_exclude_platforms_empty_list(self, handler: FSPlatformsHandler, config):
         """Test that _exclude_platforms handles empty list"""
         with patch(
@@ -93,7 +114,7 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=True):
+            with patch("os.path.isdir", return_value=True):
                 result = handler.get_platforms_directory()
                 assert result == config.ROMS_FOLDER_NAME
 
@@ -104,7 +125,7 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=False):
+            with patch("os.path.isdir", return_value=False):
                 result = handler.get_platforms_directory()
                 assert result == ""
 
@@ -117,7 +138,7 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=True):
+            with patch("os.path.isdir", return_value=True):
                 result = handler.get_platform_fs_structure(fs_slug)
                 assert result == f"{config.ROMS_FOLDER_NAME}/{fs_slug}"
 
@@ -156,7 +177,7 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=True):
+            with patch("os.path.isdir", return_value=True):
                 with patch.object(handler, "make_directory") as mock_make_directory:
                     await handler.add_platform(fs_slug)
                     mock_make_directory.assert_called_once_with(expected_path)
@@ -171,10 +192,34 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=False):
-                with patch.object(handler, "make_directory") as mock_make_directory:
-                    await handler.add_platform(fs_slug)
-                    mock_make_directory.assert_called_once_with(expected_path)
+            with patch("os.path.isdir", return_value=False):
+                with patch.object(handler, "validate_path") as mock_validate:
+                    mock_base_dir = mock_validate.return_value
+                    mock_base_dir.exists.return_value = False
+                    with patch.object(handler, "make_directory") as mock_make_directory:
+                        await handler.add_platform(fs_slug)
+                        mock_make_directory.assert_called_once_with(expected_path)
+
+    async def test_add_platform_raises_when_base_dir_exists_structure_b(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Test that add_platform raises PlatformAlreadyExistsException when the
+        base platform directory already exists in Structure B mode (no roms subfolder
+        at the HIGH_PRIO_STRUCTURE_PATH), preventing creation of roms subfolders
+        inside existing platform directories."""
+        fs_slug = "psx"
+
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.isdir", return_value=False):
+                with patch.object(handler, "validate_path") as mock_validate:
+                    mock_base_dir = mock_validate.return_value
+                    # Simulate that the base platform directory already exists
+                    mock_base_dir.exists.return_value = True
+
+                    with pytest.raises(PlatformAlreadyExistsException):
+                        await handler.add_platform(fs_slug)
 
     async def test_get_platforms_returns_existing_platforms(
         self, handler: FSPlatformsHandler, config
@@ -207,7 +252,7 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=True):
+            with patch("os.path.isdir", return_value=True):
                 with patch.object(
                     handler, "list_directories", return_value=[]
                 ) as mock_list:
@@ -261,9 +306,13 @@ class TestFSPlatformsHandler:
             # Test both methods return consistent paths
             structure_path = handler.get_platform_fs_structure(fs_slug)
 
-            with patch.object(handler, "make_directory") as mock_make_directory:
-                await handler.add_platform(fs_slug)
-                mock_make_directory.assert_called_once_with(structure_path)
+            with patch("os.path.isdir", return_value=False):
+                with patch.object(handler, "validate_path") as mock_validate:
+                    mock_base_dir = mock_validate.return_value
+                    mock_base_dir.exists.return_value = False
+                    with patch.object(handler, "make_directory") as mock_make_directory:
+                        await handler.add_platform(fs_slug)
+                        mock_make_directory.assert_called_once_with(structure_path)
 
     def test_actual_directory_operations(self, handler: FSPlatformsHandler, config):
         """Test operations with actual directory structure"""
@@ -289,12 +338,17 @@ class TestFSPlatformsHandler:
             result = handler.get_platform_fs_structure("")
             assert result == f"/{config.ROMS_FOLDER_NAME}"
 
-            # Test adding empty platform
-            with patch.object(handler, "make_directory") as mock_make_directory:
-                await handler.add_platform("")
-                mock_make_directory.assert_called_once_with(
-                    f"/{config.ROMS_FOLDER_NAME}"
-                )
+            # Test adding empty platform - with os.path.isdir returning False (Structure B mode),
+            # validate_path("") returns the base path, which does not "exist" here
+            with patch("os.path.isdir", return_value=False):
+                with patch.object(handler, "validate_path") as mock_validate:
+                    mock_base_dir = mock_validate.return_value
+                    mock_base_dir.exists.return_value = False
+                    with patch.object(handler, "make_directory") as mock_make_directory:
+                        await handler.add_platform("")
+                        mock_make_directory.assert_called_once_with(
+                            f"/{config.ROMS_FOLDER_NAME}"
+                        )
 
     def test_multiple_platforms_handling(self, handler: FSPlatformsHandler, config):
         """Test handling multiple platforms simultaneously"""
@@ -321,12 +375,26 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists") as mock_exists:
-                mock_exists.return_value = True
+            with patch("os.path.isdir") as mock_isdir:
+                mock_isdir.return_value = True
 
                 result = handler.detect_library_structure()
                 assert result == LibraryStructure.A
-                mock_exists.assert_called_once_with(roms_path)
+                mock_isdir.assert_called_once_with(roms_path)
+
+    def test_detect_library_structure_structure_a_file_not_dir(
+        self, handler: FSPlatformsHandler, config
+    ):
+        """Test detect_library_structure does not detect Structure A when roms path
+        is a file rather than a directory (os.path.isdir returns False for files)"""
+        with patch(
+            "handler.filesystem.platforms_handler.cm.get_config", return_value=config
+        ):
+            with patch("os.path.isdir", return_value=False):
+                with patch("os.listdir", return_value=[]):
+                    result = handler.detect_library_structure()
+                    # Should not detect Structure A for a file named 'roms'
+                    assert result is None
 
     def test_detect_library_structure_structure_b(
         self, handler: FSPlatformsHandler, config
@@ -335,37 +403,34 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists") as mock_exists:
-                # ROMs folder doesn't exist at base level
-                mock_exists.return_value = False
+            with patch("os.listdir") as mock_listdir:
+                mock_listdir.return_value = ["n64", "psx", "other_folder"]
 
-                with patch("os.listdir") as mock_listdir:
-                    mock_listdir.return_value = ["n64", "psx", "other_folder"]
+                with patch("os.path.isdir") as mock_isdir:
+                    # Define exact paths that should be recognized as directories
+                    true_dirs = {
+                        f"{LIBRARY_BASE_PATH}/n64",
+                        f"{LIBRARY_BASE_PATH}/psx",
+                        f"{LIBRARY_BASE_PATH}/n64/{config.ROMS_FOLDER_NAME}",
+                        f"{LIBRARY_BASE_PATH}/psx/{config.ROMS_FOLDER_NAME}",
+                    }
 
-                    with patch("os.path.isdir") as mock_isdir:
-                        # n64 and psx are directories with roms subfolders
-                        def isdir_side_effect(path):
-                            return "n64" in path or "psx" in path
+                    def isdir_side_effect(path):
+                        return os.path.normpath(path) in {
+                            os.path.normpath(p) for p in true_dirs
+                        }
 
-                        def exists_side_effect(path):
-                            # n64/roms and psx/roms exist
-                            return (
-                                f"n64/{config.ROMS_FOLDER_NAME}" in path
-                                or f"psx/{config.ROMS_FOLDER_NAME}" in path
-                            )
+                    mock_isdir.side_effect = isdir_side_effect
 
-                        mock_isdir.side_effect = isdir_side_effect
-                        mock_exists.side_effect = exists_side_effect
-
-                        result = handler.detect_library_structure()
-                        assert result == LibraryStructure.B
+                    result = handler.detect_library_structure()
+                    assert result == LibraryStructure.B
 
     def test_detect_library_structure_none(self, handler: FSPlatformsHandler, config):
         """Test detect_library_structure returns None when no structure detected"""
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=False):
+            with patch("os.path.isdir", return_value=False):
                 with patch("os.listdir", return_value=[]):
                     result = handler.detect_library_structure()
                     assert result is None
@@ -377,7 +442,7 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=False):
+            with patch("os.path.isdir", return_value=False):
                 with patch("os.listdir", side_effect=OSError("Permission denied")):
                     result = handler.detect_library_structure()
                     assert result is None
@@ -389,7 +454,7 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            with patch("os.path.exists", return_value=False):
+            with patch("os.path.isdir", return_value=False):
                 with patch("os.listdir", return_value=[]):
                     result = handler.detect_library_structure()
                     assert result is None

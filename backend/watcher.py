@@ -47,7 +47,7 @@ sentry_sdk.init(
 )
 tracer = trace.get_tracer(__name__)
 
-structure_level = 2 if os.path.exists(cm.get_config().HIGH_PRIO_STRUCTURE_PATH) else 1
+structure_level = 2 if os.path.isdir(cm.get_config().HIGH_PRIO_STRUCTURE_PATH) else 1
 
 
 @enum.unique

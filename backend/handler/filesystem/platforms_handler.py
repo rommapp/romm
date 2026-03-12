@@ -1,3 +1,4 @@
+import fnmatch
 import os
 
 from anyio import Path as AnyioPath
@@ -21,7 +22,10 @@ class FSPlatformsHandler(FSHandler):
         return [
             platform
             for platform in platforms
-            if platform not in cnfg.EXCLUDED_PLATFORMS
+            if not any(
+                platform == excluded or fnmatch.fnmatch(platform, excluded)
+                for excluded in cnfg.EXCLUDED_PLATFORMS
+            )
         ]
 
     def create_library_structure(self) -> None:
@@ -40,9 +44,9 @@ class FSPlatformsHandler(FSHandler):
         """
         cnfg = cm.get_config()
 
-        # Check if the roms folder exists (Structure A indicator)
+        # Check if the roms directory exists (Structure A indicator)
         roms_path = os.path.join(LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME)
-        if os.path.exists(roms_path):
+        if os.path.isdir(roms_path):
             return LibraryStructure.A
 
         # Check if any platform folders with roms subfolders exist (Structure B)
@@ -51,7 +55,7 @@ class FSPlatformsHandler(FSHandler):
             for item in library_contents:
                 item_path = os.path.join(LIBRARY_BASE_PATH, item)
                 roms_subfolder = os.path.join(item_path, cnfg.ROMS_FOLDER_NAME)
-                if os.path.isdir(item_path) and os.path.exists(roms_subfolder):
+                if os.path.isdir(item_path) and os.path.isdir(roms_subfolder):
                     return LibraryStructure.B
         except (OSError, FileNotFoundError):
             pass
@@ -64,7 +68,7 @@ class FSPlatformsHandler(FSHandler):
         # Fallback to config hint when detection is inconclusive
         return (
             cnfg.ROMS_FOLDER_NAME
-            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
+            if os.path.isdir(cnfg.HIGH_PRIO_STRUCTURE_PATH)
             else ""
         )
 
@@ -74,7 +78,7 @@ class FSPlatformsHandler(FSHandler):
         # Fallback to config hint when detection is inconclusive
         return (
             f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
-            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
+            if os.path.isdir(cnfg.HIGH_PRIO_STRUCTURE_PATH)
             else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
         )
 
@@ -84,7 +88,18 @@ class FSPlatformsHandler(FSHandler):
         Args:
             fs_slug: platform slug
         """
+        cnfg = cm.get_config()
         platform_path = self.get_platform_fs_structure(fs_slug)
+
+        # For Structure B (or None), check if the base platform directory already
+        # exists to prevent inadvertently creating roms subfolders inside existing
+        # platform directories that were set up without a roms subfolder.
+        # Note: this is a best-effort check; concurrent directory creation between
+        # this check and make_directory() is unlikely in normal single-user usage.
+        if not os.path.isdir(cnfg.HIGH_PRIO_STRUCTURE_PATH):
+            base_platform_dir = self.validate_path(fs_slug)
+            if base_platform_dir.exists():
+                raise PlatformAlreadyExistsException(fs_slug)
 
         try:
             await self.make_directory(platform_path)
@@ -112,7 +127,7 @@ class FSPlatformsHandler(FSHandler):
                 roms_path = AnyioPath(
                     os.path.join(LIBRARY_BASE_PATH, platform, cnfg.ROMS_FOLDER_NAME)
                 )
-                if await roms_path.exists():
+                if await roms_path.is_dir():
                     filtered_platforms.append(platform)
             platforms = filtered_platforms
 
