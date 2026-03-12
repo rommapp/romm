@@ -4,7 +4,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.testclient import TestClient
 from main import app
 
-from endpoints.auth import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth.constants import EDIT_SCOPES
 
 

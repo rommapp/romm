@@ -8,7 +8,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
 
-from endpoints.auth import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints.roms import upload as upload_endpoint
 from handler.auth import oauth_handler
 from handler.redis_handler import sync_cache

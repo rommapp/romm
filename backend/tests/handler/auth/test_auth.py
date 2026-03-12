@@ -6,7 +6,7 @@ from fastapi import status
 from fastapi.exceptions import HTTPException
 from starlette.requests import HTTPConnection
 
-from endpoints.auth import OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS
+from config import OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS
 from handler.auth import auth_handler, oauth_handler
 from handler.auth.constants import EDIT_SCOPES
 from handler.auth.hybrid_auth import HybridAuthBackend

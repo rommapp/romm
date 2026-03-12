@@ -7,7 +7,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
 
-from endpoints.auth import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import db_device_handler, db_device_save_sync_handler
