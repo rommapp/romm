@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import pytest
 
-from endpoints.auth import (
+from config import (
     OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
     OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS,
 )
