@@ -116,9 +116,14 @@ if not ROMM_AUTH_SECRET_KEY:
 OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS: Final[int] = safe_int(
     _get_env("OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS"), 30 * 60
 )  # 30 minutes, in seconds
+if OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS <= 0:
+    raise ValueError("OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS must be a positive integer!")
+
 OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS: Final[int] = safe_int(
     _get_env("OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS"), 7 * 24 * 60 * 60
 )  # 7 days, in seconds
+if OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS <= 0:
+    raise ValueError("OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS must be a positive integer!")
 SESSION_MAX_AGE_SECONDS: Final[int] = safe_int(
     _get_env("SESSION_MAX_AGE_SECONDS"), 14 * 24 * 60 * 60
 )  # 14 days, in seconds
