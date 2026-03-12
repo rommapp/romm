@@ -143,11 +143,12 @@ def test_update_rom_user_props_partial_update(
     client: TestClient, access_token: str, rom: Rom
 ):
     # Set initial values
-    client.put(
+    setup_response = client.put(
         f"/api/roms/{rom.id}/props",
         headers={"Authorization": f"Bearer {access_token}"},
         json={"data": {"backlogged": True, "rating": 5, "hidden": True}},
     )
+    assert setup_response.status_code == status.HTTP_200_OK
 
     # Partial update: only update rating, backlogged and hidden should remain unchanged
     response = client.put(

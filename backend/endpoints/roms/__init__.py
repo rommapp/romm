@@ -145,13 +145,19 @@ class RomUserData(BaseModel):
     )
     hidden: bool | None = Field(default=None, description="Whether this rom is hidden.")
     rating: int | None = Field(
-        default=None, description="User rating for this rom (0-10)."
+        default=None, description="User rating for this rom (0-10).", ge=0, le=10
     )
     difficulty: int | None = Field(
-        default=None, description="User difficulty rating for this rom."
+        default=None,
+        description="User difficulty rating for this rom (0-10).",
+        ge=0,
+        le=10,
     )
     completion: int | None = Field(
-        default=None, description="User completion percentage for this rom."
+        default=None,
+        description="User completion percentage for this rom (0-100).",
+        ge=0,
+        le=100,
     )
     status: RomUserStatus | None = Field(
         default=None, description="User play status for this rom."
