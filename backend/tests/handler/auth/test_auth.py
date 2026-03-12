@@ -6,7 +6,7 @@ from fastapi import status
 from fastapi.exceptions import HTTPException
 from starlette.requests import HTTPConnection
 
-from endpoints.auth import REFRESH_TOKEN_EXPIRE_DAYS
+from endpoints.auth import OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS
 from handler.auth import auth_handler, oauth_handler
 from handler.auth.constants import EDIT_SCOPES
 from handler.auth.hybrid_auth import HybridAuthBackend
@@ -199,7 +199,7 @@ async def test_hybrid_auth_backend_with_refresh_token(editor_user: User):
             "iss": "romm:oauth",
             "scopes": " ".join(editor_user.oauth_scopes),
         },
-        expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_delta=timedelta(seconds=OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS),
     )
 
     class MockConnection(HTTPConnection):

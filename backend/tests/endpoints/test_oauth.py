@@ -4,7 +4,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.testclient import TestClient
 from main import app
 
-from endpoints.auth import ACCESS_TOKEN_EXPIRE_SECONDS
+from endpoints.auth import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth.constants import EDIT_SCOPES
 
 
@@ -27,7 +27,7 @@ def test_refreshing_oauth_token_basic(client, refresh_token):
     body = response.json()
     assert body["access_token"]
     assert body["token_type"] == "bearer"
-    assert body["expires"] == ACCESS_TOKEN_EXPIRE_SECONDS
+    assert body["expires"] == OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 
 
 def test_refreshing_oauth_token_without_refresh_token(client):
@@ -111,7 +111,7 @@ def test_auth_via_upass(client, admin_user):
     assert body["access_token"]
     assert body["refresh_token"]
     assert body["token_type"] == "bearer"
-    assert body["expires"] == ACCESS_TOKEN_EXPIRE_SECONDS
+    assert body["expires"] == OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 
 
 def test_auth_via_upass_with_invalid_credentials(client, admin_user):
