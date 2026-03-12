@@ -180,10 +180,10 @@ class TestSyncRetroAchievementsProgressTask:
             mock_rom_user.id, {"status": RomUserStatus.COMPLETED_100}
         )
 
-    async def test_run_does_not_overwrite_existing_rom_user_status(
+    async def test_run_updates_existing_rom_user_status_when_changed(
         self, task, viewer_user, rom, mocker
     ):
-        """Test that rom_user.status is not overwritten when already set."""
+        """Test that rom_user.status is updated when the RA award kind changes."""
         ra_id = 12345
         mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
         mocker.patch.object(DBUsersHandler, "update_user")
@@ -210,7 +210,50 @@ class TestSyncRetroAchievementsProgressTask:
         )
         mock_rom_user = MagicMock(spec=RomUser)
         mock_rom_user.id = 1
-        mock_rom_user.status = RomUserStatus.RETIRED  # Already manually set
+        # Previously INCOMPLETE (set by an earlier sync), now mastered in RA
+        mock_rom_user.status = RomUserStatus.INCOMPLETE
+        mocker.patch.object(
+            DBRomsHandler, "get_rom_user", return_value=mock_rom_user
+        )
+        mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
+
+        await task.run()
+
+        mock_update_rom_user.assert_called_once_with(
+            mock_rom_user.id, {"status": RomUserStatus.COMPLETED_100}
+        )
+
+    async def test_run_skips_update_when_status_already_matches(
+        self, task, viewer_user, rom, mocker
+    ):
+        """Test that rom_user.status is not written again when it already matches RA."""
+        ra_id = 12345
+        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
+        mocker.patch.object(DBUsersHandler, "update_user")
+        user_progression = {
+            "total": 1,
+            "results": [
+                {
+                    "rom_ra_id": ra_id,
+                    "max_possible": 50,
+                    "num_awarded": 50,
+                    "num_awarded_hardcore": 50,
+                    "highest_award_kind": RAUserCompletionProgressKind.MASTERED,
+                    "earned_achievements": [],
+                }
+            ],
+        }
+        mocker.patch.object(
+            RAHandler, "get_user_progression", return_value=user_progression
+        )
+        mock_rom = MagicMock()
+        mock_rom.id = rom.id
+        mocker.patch.object(
+            DBRomsHandler, "get_rom_by_metadata_id", return_value=mock_rom
+        )
+        mock_rom_user = MagicMock(spec=RomUser)
+        mock_rom_user.id = 1
+        mock_rom_user.status = RomUserStatus.COMPLETED_100  # Already up-to-date
         mocker.patch.object(
             DBRomsHandler, "get_rom_user", return_value=mock_rom_user
         )
