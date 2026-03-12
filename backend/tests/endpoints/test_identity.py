@@ -9,7 +9,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
 
-from endpoints.auth import ACCESS_TOKEN_EXPIRE_SECONDS
+from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database.users_handler import DBUsersHandler
@@ -113,7 +113,7 @@ def test_add_user_from_unauthorized_user(
         "scopes": " ".join(requesting_user.oauth_scopes),
     }
     access_token = oauth_handler.create_access_token(
-        data=data, expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS)
+        data=data, expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS)
     )
 
     with mock.patch.object(

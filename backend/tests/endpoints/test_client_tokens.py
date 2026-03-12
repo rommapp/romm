@@ -5,7 +5,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
 
-from endpoints.auth import ACCESS_TOKEN_EXPIRE_SECONDS
+from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import auth_handler, oauth_handler
 from handler.database import db_client_token_handler, db_user_handler
 from handler.redis_handler import sync_cache
@@ -27,7 +27,7 @@ def editor_access_token(editor_user):
             "iss": "romm:oauth",
             "scopes": " ".join(editor_user.oauth_scopes),
         },
-        expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
+        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
     )
 
 
@@ -39,7 +39,7 @@ def viewer_access_token(viewer_user):
             "iss": "romm:oauth",
             "scopes": " ".join(viewer_user.oauth_scopes),
         },
-        expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
+        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
     )
 
 
