@@ -264,7 +264,7 @@ onBeforeUnmount(() => {
               }
             : {}),
         }"
-        :variant="boxartStyle === 'cover_path' ? 'elevated' : 'flat'"
+        variant="flat"
         class="game-card bg-transparent"
         :class="{
           'transform-scale':
