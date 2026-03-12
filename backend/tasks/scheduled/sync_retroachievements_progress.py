@@ -46,8 +46,9 @@ def get_rom_user_status_from_ra_award_kind(
 def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> None:
     """Update rom_user.status for each game in the user's RA progression.
 
-    The status is only set when it is currently unset (None), so manually-set
-    statuses are never overwritten.
+    The status is always kept in sync with the user's latest RA award so that
+    changes (e.g. beating a previously-incomplete game) are reflected on every
+    sync run.
     """
     for game_progression in user_progression.get("results", []):
         rom_ra_id = game_progression.get("rom_ra_id")
@@ -68,7 +69,7 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
         if rom_user is None:
             rom_user = db_rom_handler.add_rom_user(rom.id, user.id)
 
-        if rom_user.status is not None:
+        if rom_user.status == new_status:
             continue
 
         db_rom_handler.update_rom_user(rom_user.id, {"status": new_status})
