@@ -2,7 +2,10 @@ from datetime import timedelta
 
 import pytest
 
-from endpoints.auth import ACCESS_TOKEN_EXPIRE_SECONDS, REFRESH_TOKEN_EXPIRE_DAYS
+from endpoints.auth import (
+    OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
+    OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS,
+)
 from handler.auth import oauth_handler
 
 
@@ -15,7 +18,7 @@ def access_token(admin_user):  # noqa
     }
 
     return oauth_handler.create_access_token(
-        data=data, expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS)
+        data=data, expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS)
     )
 
 
@@ -28,5 +31,5 @@ def refresh_token(admin_user):  # noqa
     }
 
     return oauth_handler.create_refresh_token(
-        data=data, expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        data=data, expires_delta=timedelta(seconds=OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS)
     )
