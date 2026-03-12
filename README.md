@@ -55,8 +55,6 @@ Here are a few projects maintained by members of our community. Please note that
 
 - 🔷 [Argosy][argosy-launcher]: Native client for installing and launching games by [@tmgast](https://github.com/tmgast)
 - [romm-ios-app][romm-ios-app]: Native iOS app by [@ilyas-hallak](https://github.com/ilyas-hallak)
-- [romm-mobile][romm-mobile]: Android (and soon iOS) app by [@mattsays](https://github.com/mattsays)
-- [romm-android][romm-android]: Android app by [@samwelnella](https://github.com/samwelnella)
 
 ### Desktop
 
@@ -158,14 +156,12 @@ Here are a few projects that we think you might like:
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
 [switch-romm]: https://github.com/Shalasere/SwitchRomM
 [romm-browser]: https://github.com/smurflabs/RommBrowser/
-[romm-mobile]: https://github.com/mattsays/romm-mobile
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [ggrequestz]: https://github.com/XTREEMMAK/ggrequestz
 [syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
 [romm-client]: https://github.com/chaun14/romm-client
 [romm-retroarch-sync]: https://github.com/Covin90/romm-retroarch-sync
 [rommate]: https://github.com/brenoprata10/rommate
-[romm-android]: https://github.com/samwelnella/romm-android
 [grout]: https://github.com/rommapp/grout
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher
