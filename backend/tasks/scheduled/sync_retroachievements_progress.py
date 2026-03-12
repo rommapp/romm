@@ -1,10 +1,10 @@
 from typing import Any, cast
 
+from adapters.services.retroachievements_types import RAUserCompletionProgressKind
 from config import (
     ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
     SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
 )
-from adapters.services.retroachievements_types import RAUserCompletionProgressKind
 from handler.database import db_rom_handler, db_user_handler
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
@@ -17,7 +17,7 @@ from utils.context import initialize_context
 from . import UpdateStats
 
 
-def get_rom_user_status_from_ra_award_kind(
+def _get_rom_user_status_from_ra_award_kind(
     highest_award_kind: str | None,
 ) -> RomUserStatus | None:
     """Map a RetroAchievements award kind to a RomUser status.
@@ -33,13 +33,16 @@ def get_rom_user_status_from_ra_award_kind(
         RAUserCompletionProgressKind.COMPLETED,
     ):
         return RomUserStatus.COMPLETED_100
+
     if highest_award_kind in (
         RAUserCompletionProgressKind.BEATEN_HARDCORE,
         RAUserCompletionProgressKind.BEATEN_SOFTCORE,
     ):
         return RomUserStatus.FINISHED
+
     if highest_award_kind is None:
         return RomUserStatus.INCOMPLETE
+
     return None
 
 
@@ -55,7 +58,7 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
         if not rom_ra_id:
             continue
 
-        new_status = get_rom_user_status_from_ra_award_kind(
+        new_status = _get_rom_user_status_from_ra_award_kind(
             game_progression.get("highest_award_kind")
         )
         if new_status is None:
