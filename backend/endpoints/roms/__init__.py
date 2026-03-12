@@ -61,7 +61,7 @@ from handler.metadata.ss_handler import get_preferred_media_types
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom
+from models.rom import Rom, RomUserStatus
 from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
@@ -133,10 +133,48 @@ class RomUpdateForm(BaseModel):
     url_manual: str | None = None
 
 
+class RomUserData(BaseModel):
+    is_main_sibling: bool | None = Field(
+        default=None, description="Whether this rom is the main sibling."
+    )
+    backlogged: bool | None = Field(
+        default=None, description="Whether this rom is in the backlog."
+    )
+    now_playing: bool | None = Field(
+        default=None, description="Whether this rom is currently being played."
+    )
+    hidden: bool | None = Field(default=None, description="Whether this rom is hidden.")
+    rating: int | None = Field(
+        default=None, description="User rating for this rom (0-10).", ge=0, le=10
+    )
+    difficulty: int | None = Field(
+        default=None,
+        description="User difficulty rating for this rom (0-10).",
+        ge=0,
+        le=10,
+    )
+    completion: int | None = Field(
+        default=None,
+        description="User completion percentage for this rom (0-100).",
+        ge=0,
+        le=100,
+    )
+    status: RomUserStatus | None = Field(
+        default=None, description="User play status for this rom."
+    )
+
+
 class RomUserUpdatePayload(BaseModel):
-    data: dict[str, Any] = Field(default_factory=dict)
-    update_last_played: bool = False
-    remove_last_played: bool = False
+    data: RomUserData = Field(
+        default_factory=RomUserData,
+        description="Partial rom user data to update. Only provided fields will be updated.",
+    )
+    update_last_played: bool = Field(
+        default=False, description="Set last played timestamp to now."
+    )
+    remove_last_played: bool = Field(
+        default=False, description="Clear the last played timestamp."
+    )
 
 
 async def parse_rom_update_form(
@@ -1482,8 +1520,6 @@ async def update_rom_user(
     payload: Annotated[RomUserUpdatePayload, Body()],
 ) -> RomUserSchema:
     """Update rom data associated to the current user."""
-    rom_user_data = payload.data
-
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
@@ -1493,22 +1529,7 @@ async def update_rom_user(
         id, request.user.id
     ) or db_rom_handler.add_rom_user(id, request.user.id)
 
-    fields_to_update = [
-        "is_main_sibling",
-        "backlogged",
-        "now_playing",
-        "hidden",
-        "rating",
-        "difficulty",
-        "completion",
-        "status",
-    ]
-
-    cleaned_data = {
-        field: rom_user_data[field]
-        for field in fields_to_update
-        if field in rom_user_data
-    }
+    cleaned_data = payload.data.model_dump(exclude_unset=True)
 
     if payload.update_last_played:
         cleaned_data.update({"last_played": datetime.now(timezone.utc)})
