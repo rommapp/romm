@@ -60,6 +60,10 @@ COMPRESSED_FILE_EXTENSIONS = frozenset(
     )
 )
 
+# PICO-8 cartridges are often stored as PNG files
+PICO8_CARTRIDGE_EXTENSION = ".p8.png"
+
+
 # CHD (Compressed Hunks of Data) v5 format constants
 # See: https://github.com/mamedev/mame/blob/master/src/lib/util/chd.h
 CHD_SIGNATURE: Final = b"MComprHD"
@@ -728,3 +732,19 @@ class FSRomsHandler(FSHandler):
             await self.move_file_or_folder(
                 f"{fs_path}/{old_name}", f"{fs_path}/{new_name}"
             )
+
+    def get_pico8_cover_url(
+        self, platform_slug: str, fs_name: str, fs_path: str
+    ) -> str | None:
+        """Return a ``file://`` URL for a PICO-8 cartridge label, or ``None``.
+
+        PICO-8 ``.p8.png`` files are valid PNG images whose visual content *is*
+        the cartridge label/cover art.  When such a ROM is found we can use the
+        file itself as the cover instead of fetching one from an external source.
+        """
+        if platform_slug == UPS.PICO and fs_name.lower().endswith(
+            PICO8_CARTRIDGE_EXTENSION
+        ):
+            rom_path = self.validate_path(f"{fs_path}/{fs_name}")
+            return f"file://{rom_path}"
+        return None
