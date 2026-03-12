@@ -8,7 +8,7 @@ from config import ASSETS_BASE_PATH
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
-from handler.filesystem import fs_asset_handler, fs_firmware_handler
+from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_flashpoint_handler,
@@ -764,6 +764,16 @@ async def scan_rom(
                 or [],
             }
         )
+
+    # Use PICO-8 cartridge PNG as cover art if no cover is set.
+    # PICO-8 .p8.png files are valid PNG images whose visual content is the
+    # cartridge label, so the ROM file itself serves as the cover art.
+    if not rom_attrs.get("url_cover") and not rom_attrs.get("path_cover_s"):
+        pico8_url = fs_rom_handler.get_pico8_cover_url(
+            platform.slug, rom_attrs["fs_name"], rom_attrs["fs_path"]
+        )
+        if pico8_url:
+            rom_attrs["url_cover"] = pico8_url
 
     # If not found in any metadata source, we return the rom with the default values
     if (
