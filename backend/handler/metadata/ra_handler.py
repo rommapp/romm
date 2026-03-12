@@ -343,7 +343,10 @@ class RAHandler(MetadataHandler):
                 == game_current_progression.get("most_recent_awarded_date")
             ):
                 # Always keep highest_award_kind up-to-date even for cached progressions
-                if game_current_progression.get("highest_award_kind") != highest_award_kind:
+                if (
+                    game_current_progression.get("highest_award_kind")
+                    != highest_award_kind
+                ):
                     game_current_progression = {
                         **game_current_progression,
                         "highest_award_kind": highest_award_kind,

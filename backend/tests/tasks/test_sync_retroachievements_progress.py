@@ -9,7 +9,7 @@ from handler.metadata.ra_handler import RAHandler
 from models.rom import RomUser, RomUserStatus
 from tasks.scheduled.sync_retroachievements_progress import (
     SyncRetroAchievementsProgressTask,
-    get_rom_user_status_from_ra_award_kind,
+    _get_rom_user_status_from_ra_award_kind,
 )
 
 
@@ -20,23 +20,27 @@ def task() -> SyncRetroAchievementsProgressTask:
 
 
 class TestGetRomUserStatusFromRaAwardKind:
-    """Tests for the get_rom_user_status_from_ra_award_kind helper."""
+    """Tests for the _get_rom_user_status_from_ra_award_kind helper."""
 
     def test_mastered_returns_completed_100(self):
         assert (
-            get_rom_user_status_from_ra_award_kind(RAUserCompletionProgressKind.MASTERED)
+            _get_rom_user_status_from_ra_award_kind(
+                RAUserCompletionProgressKind.MASTERED
+            )
             == RomUserStatus.COMPLETED_100
         )
 
     def test_completed_returns_completed_100(self):
         assert (
-            get_rom_user_status_from_ra_award_kind(RAUserCompletionProgressKind.COMPLETED)
+            _get_rom_user_status_from_ra_award_kind(
+                RAUserCompletionProgressKind.COMPLETED
+            )
             == RomUserStatus.COMPLETED_100
         )
 
     def test_beaten_hardcore_returns_finished(self):
         assert (
-            get_rom_user_status_from_ra_award_kind(
+            _get_rom_user_status_from_ra_award_kind(
                 RAUserCompletionProgressKind.BEATEN_HARDCORE
             )
             == RomUserStatus.FINISHED
@@ -44,19 +48,17 @@ class TestGetRomUserStatusFromRaAwardKind:
 
     def test_beaten_softcore_returns_finished(self):
         assert (
-            get_rom_user_status_from_ra_award_kind(
+            _get_rom_user_status_from_ra_award_kind(
                 RAUserCompletionProgressKind.BEATEN_SOFTCORE
             )
             == RomUserStatus.FINISHED
         )
 
     def test_none_returns_incomplete(self):
-        assert (
-            get_rom_user_status_from_ra_award_kind(None) == RomUserStatus.INCOMPLETE
-        )
+        assert _get_rom_user_status_from_ra_award_kind(None) == RomUserStatus.INCOMPLETE
 
     def test_unknown_value_returns_none(self):
-        assert get_rom_user_status_from_ra_award_kind("unknown_award") is None
+        assert _get_rom_user_status_from_ra_award_kind("unknown_award") is None
 
 
 class TestSyncRetroAchievementsProgressTask:
@@ -169,9 +171,7 @@ class TestSyncRetroAchievementsProgressTask:
         mock_rom_user = MagicMock(spec=RomUser)
         mock_rom_user.id = 1
         mock_rom_user.status = None
-        mocker.patch.object(
-            DBRomsHandler, "get_rom_user", return_value=mock_rom_user
-        )
+        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
         mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
 
         await task.run()
@@ -212,9 +212,7 @@ class TestSyncRetroAchievementsProgressTask:
         mock_rom_user.id = 1
         # Previously INCOMPLETE (set by an earlier sync), now mastered in RA
         mock_rom_user.status = RomUserStatus.INCOMPLETE
-        mocker.patch.object(
-            DBRomsHandler, "get_rom_user", return_value=mock_rom_user
-        )
+        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
         mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
 
         await task.run()
@@ -254,9 +252,7 @@ class TestSyncRetroAchievementsProgressTask:
         mock_rom_user = MagicMock(spec=RomUser)
         mock_rom_user.id = 1
         mock_rom_user.status = RomUserStatus.COMPLETED_100  # Already up-to-date
-        mocker.patch.object(
-            DBRomsHandler, "get_rom_user", return_value=mock_rom_user
-        )
+        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
         mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
 
         await task.run()
@@ -294,9 +290,7 @@ class TestSyncRetroAchievementsProgressTask:
         mock_rom_user = MagicMock(spec=RomUser)
         mock_rom_user.id = 1
         mock_rom_user.status = None
-        mocker.patch.object(
-            DBRomsHandler, "get_rom_user", return_value=mock_rom_user
-        )
+        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
         mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
 
         await task.run()
