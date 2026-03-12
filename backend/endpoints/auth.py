@@ -7,6 +7,8 @@ from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic
 
 from config import (
+    OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
+    OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS,
     OIDC_ENABLED,
     OIDC_END_SESSION_ENDPOINT,
     OIDC_REDIRECT_URI,
@@ -27,9 +29,6 @@ from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.router import APIRouter
-
-ACCESS_TOKEN_EXPIRE_SECONDS: Final = 30 * 60  # 30 minutes
-REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
 
 router = APIRouter(
     tags=["auth"],
@@ -147,7 +146,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 "iss": "romm:oauth",
                 "scopes": claims.get("scopes"),
             },
-            expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
+            expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
         )
 
         refresh_token = oauth_handler.create_refresh_token(
@@ -156,15 +155,15 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 "iss": "romm:oauth",
                 "scopes": claims.get("scopes"),
             },
-            expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+            expires_delta=timedelta(seconds=OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS),
         )
 
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "bearer",  # trunk-ignore(bandit/B105)
-            "expires": ACCESS_TOKEN_EXPIRE_SECONDS,
-            "refresh_expires": REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+            "expires": OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
+            "refresh_expires": OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS,
         }
 
     # Authentication via username/password
@@ -214,7 +213,7 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
             "iss": "romm:oauth",
             "scopes": " ".join(form_data.scopes),
         },
-        expires_delta=timedelta(seconds=ACCESS_TOKEN_EXPIRE_SECONDS),
+        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
     )
 
     refresh_token = oauth_handler.create_refresh_token(
@@ -223,15 +222,15 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
             "iss": "romm:oauth",
             "scopes": " ".join(form_data.scopes),
         },
-        expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_delta=timedelta(seconds=OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS),
     )
 
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",  # trunk-ignore(bandit/B105)
-        "expires": ACCESS_TOKEN_EXPIRE_SECONDS,
-        "refresh_expires": REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        "expires": OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
+        "refresh_expires": OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS,
     }
 
 
