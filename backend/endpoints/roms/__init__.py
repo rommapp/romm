@@ -134,20 +134,41 @@ class RomUpdateForm(BaseModel):
 
 
 class RomUserData(BaseModel):
-    is_main_sibling: bool | None = Field(default=None, description="Whether this rom is the main sibling.")
-    backlogged: bool | None = Field(default=None, description="Whether this rom is in the backlog.")
-    now_playing: bool | None = Field(default=None, description="Whether this rom is currently being played.")
+    is_main_sibling: bool | None = Field(
+        default=None, description="Whether this rom is the main sibling."
+    )
+    backlogged: bool | None = Field(
+        default=None, description="Whether this rom is in the backlog."
+    )
+    now_playing: bool | None = Field(
+        default=None, description="Whether this rom is currently being played."
+    )
     hidden: bool | None = Field(default=None, description="Whether this rom is hidden.")
-    rating: int | None = Field(default=None, description="User rating for this rom (0-10).")
-    difficulty: int | None = Field(default=None, description="User difficulty rating for this rom.")
-    completion: int | None = Field(default=None, description="User completion percentage for this rom.")
-    status: RomUserStatus | None = Field(default=None, description="User play status for this rom.")
+    rating: int | None = Field(
+        default=None, description="User rating for this rom (0-10)."
+    )
+    difficulty: int | None = Field(
+        default=None, description="User difficulty rating for this rom."
+    )
+    completion: int | None = Field(
+        default=None, description="User completion percentage for this rom."
+    )
+    status: RomUserStatus | None = Field(
+        default=None, description="User play status for this rom."
+    )
 
 
 class RomUserUpdatePayload(BaseModel):
-    data: RomUserData = Field(default_factory=RomUserData, description="Partial rom user data to update. Only provided fields will be updated.")
-    update_last_played: bool = Field(default=False, description="Set last played timestamp to now.")
-    remove_last_played: bool = Field(default=False, description="Clear the last played timestamp.")
+    data: RomUserData = Field(
+        default_factory=RomUserData,
+        description="Partial rom user data to update. Only provided fields will be updated.",
+    )
+    update_last_played: bool = Field(
+        default=False, description="Set last played timestamp to now."
+    )
+    remove_last_played: bool = Field(
+        default=False, description="Clear the last played timestamp."
+    )
 
 
 async def parse_rom_update_form(
