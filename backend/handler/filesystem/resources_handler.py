@@ -95,7 +95,7 @@ class FSResourcesHandler(FSHandler):
         else:
             # Handle HTTP URLs
             # Validate URL to prevent SSRF attacks
-            validate_url_for_http_request(url_cover, "Cover URL")
+            validate_url_for_http_request(url_cover, "url_cover")
 
             httpx_client = ctx_httpx_client.get()
             try:
@@ -264,7 +264,7 @@ class FSResourcesHandler(FSHandler):
         else:
             # Handle HTTP URLs
             # Validate URL to prevent SSRF attacks
-            validate_url_for_http_request(url_screenhot, "Screenshot URL")
+            validate_url_for_http_request(url_screenhot, "url_screenshot")
 
             httpx_client = ctx_httpx_client.get()
             try:
@@ -380,7 +380,7 @@ class FSResourcesHandler(FSHandler):
         else:
             # Handle HTTP URL
             # Validate URL to prevent SSRF attacks
-            validate_url_for_http_request(url_manual, "Manual URL")
+            validate_url_for_http_request(url_manual, "url_manual")
 
             httpx_client = ctx_httpx_client.get()
             try:
@@ -441,7 +441,7 @@ class FSResourcesHandler(FSHandler):
     # Retroachievements
     async def store_ra_badge(self, url: str, path: str) -> None:
         # Validate URL to prevent SSRF attacks
-        validate_url_for_http_request(url, "Badge URL")
+        validate_url_for_http_request(url, "url_badge")
 
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
@@ -484,7 +484,7 @@ class FSResourcesHandler(FSHandler):
     ) -> str:
         return os.path.join("roms", str(platform_id), str(rom_id), media_type.value)
 
-    async def store_media_file(self, url: str, dest_path: str) -> None:
+    async def store_media_file(self, url_media: str, dest_path: str) -> None:
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(dest_path)
 
@@ -496,22 +496,24 @@ class FSResourcesHandler(FSHandler):
         await self.make_directory(directory)
 
         # Handle file:// URLs for gamelist.xml
-        if url.startswith("file://"):
+        if url_media.startswith("file://"):
             try:
-                file_path = AnyioPath(url[7:])  # Remove "file://" prefix
+                file_path = AnyioPath(url_media[7:])  # Remove "file://" prefix
                 if await file_path.exists():
                     await self.copy_file(Path(str(file_path)), dest_path)
             except Exception as exc:
-                log.error(f"Unable to copy media file {url}: {str(exc)}")
+                log.error(f"Unable to copy media file {url_media}: {str(exc)}")
                 return None
         else:
             # Handle HTTP URLs
             # Validate URL to prevent SSRF attacks
-            validate_url_for_http_request(url, "Media URL")
+            validate_url_for_http_request(url_media, "url_media")
 
             httpx_client = ctx_httpx_client.get()
             try:
-                async with httpx_client.stream("GET", url, timeout=120) as response:
+                async with httpx_client.stream(
+                    "GET", url_media, timeout=120
+                ) as response:
                     if response.status_code == status.HTTP_200_OK:
                         async with await self.write_file_streamed(
                             path=directory, filename=filename
@@ -519,7 +521,7 @@ class FSResourcesHandler(FSHandler):
                             async for chunk in response.aiter_raw():
                                 await f.write(chunk)
             except httpx.TransportError as exc:
-                log.error(f"Unable to fetch media file at {url}: {str(exc)}")
+                log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
                 return None
 
     async def remove_media_resources_path(

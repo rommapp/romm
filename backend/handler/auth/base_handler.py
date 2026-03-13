@@ -333,6 +333,7 @@ class OAuthHandler:
 
         if not user.enabled:
             raise UserDisabledException
+
         return user, payload.claims
 
     async def get_current_active_user_from_bearer_token(self, token: str):
@@ -415,9 +416,8 @@ class OpenIDHandler:
             )
 
         role = Role.VIEWER
-        claims_provided = False
-        if OIDC_CLAIM_ROLES and OIDC_CLAIM_ROLES in userinfo:
-            claims_provided = True
+        claims_provided = OIDC_CLAIM_ROLES and OIDC_CLAIM_ROLES in userinfo
+        if claims_provided:
             roles = userinfo[OIDC_CLAIM_ROLES] or []
             if OIDC_ROLE_ADMIN and OIDC_ROLE_ADMIN in roles:
                 role = Role.ADMIN

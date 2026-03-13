@@ -10,10 +10,6 @@ async function getTaskById(taskId: string) {
   return api.get<TaskStatusResponse>(`/tasks/${taskId}`);
 }
 
-async function runAllTasks() {
-  return api.post<TaskExecutionResponse[]>("/tasks/run");
-}
-
 async function runTask(taskName: string, body?: Record<string, unknown>) {
   return api.post<TaskExecutionResponse>(`/tasks/run/${taskName}`, body);
 }
@@ -25,7 +21,6 @@ async function getTaskStatus() {
 export default {
   getTasks,
   getTaskById,
-  runAllTasks,
   runTask,
   getTaskStatus,
 };
