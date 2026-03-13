@@ -75,6 +75,9 @@ def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> 
         if rom_user.status == new_status:
             continue
 
+        if rom_user.status in {RomUserStatus.RETIRED, RomUserStatus.NEVER_PLAYING}:
+            continue
+
         db_rom_handler.update_rom_user(rom_user.id, {"status": new_status})
         log.debug(
             f"Set rom_user status to '{new_status}' for user '{user.username}' "
