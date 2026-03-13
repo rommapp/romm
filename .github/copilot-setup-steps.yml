@@ -6,6 +6,19 @@ on:
 jobs:
   copilot-setup-steps:
     runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: passwd
+        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+      valkey:
+        image: valkey/valkey:7.2
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=2s --health-retries=3
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.3.0
@@ -16,8 +29,11 @@ jobs:
       - name: Install Python
         run: uv python install 3.13
 
+      - name: Install system dependencies
+        run: sudo apt-get install -y libmariadb3 libmariadb-dev libpq-dev
+
       - name: Install backend dependencies
-        run: uv sync --extra test
+        run: uv sync --all-extras --dev
 
       - name: Set up Node.js
         uses: actions/setup-node@v5.0.0
@@ -27,3 +43,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
         working-directory: frontend
+
+      - name: Install Trunk CLI
+        run: curl https://get.trunk.io -fsSL | bash -s -- -y
+
+      - name: Set up test database
+        run: mysql --host 127.0.0.1 --port 3306 -uroot -ppasswd < backend/romm_test/setup.sql
