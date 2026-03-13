@@ -141,7 +141,7 @@ def create_invite_link(
         )
 
     if expiration is not None and expiration <= 0:
-        msg = "expiration must be a positive integer"
+        msg = "Invite link expiration must be a positive integer"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
