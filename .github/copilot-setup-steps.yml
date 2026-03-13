@@ -1,0 +1,29 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.3.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6.7.0
+
+      - name: Install Python
+        run: uv python install 3.13
+
+      - name: Install backend dependencies
+        run: uv sync --extra test
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5.0.0
+        with:
+          node-version: "18"
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: frontend
