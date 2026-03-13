@@ -206,15 +206,6 @@ async def upload_chunk(
                 detail="Chunk exceeds maximum allowed size",
             )
 
-        if content_length_bytes != expected_chunk_size:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"Unexpected chunk size for index {chunk_index}: "
-                    f"expected {expected_chunk_size}, got {content_length_bytes}"
-                ),
-            )
-
     chunk_path = ROM_UPLOAD_TMP_BASE / upload_id / f"{chunk_index:05d}"
     chunk_bytes_written = 0
 
@@ -227,24 +218,7 @@ async def upload_chunk(
                         status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                         detail="Chunk exceeds maximum allowed size",
                     )
-                if chunk_bytes_written > expected_chunk_size:
-                    raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail=(
-                            f"Chunk index {chunk_index} exceeds expected size "
-                            f"{expected_chunk_size}"
-                        ),
-                    )
                 await f.write(body_chunk)
-
-        if chunk_bytes_written != expected_chunk_size:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"Unexpected chunk size for index {chunk_index}: "
-                    f"expected {expected_chunk_size}, got {chunk_bytes_written}"
-                ),
-            )
     except Exception as exc:
         if chunk_path.exists():
             chunk_path.unlink()
