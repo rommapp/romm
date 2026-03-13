@@ -74,6 +74,7 @@ class RAUserGameProgression(TypedDict):
     num_awarded: int | None
     num_awarded_hardcore: int | None
     most_recent_awarded_date: NotRequired[str | None]
+    highest_award_kind: NotRequired[str | None]
     earned_achievements: list[EarnedAchievement]
 
 
@@ -328,6 +329,7 @@ class RAHandler(MetadataHandler):
 
         async for rom in self.ra_service.iter_user_completion_progress(username):
             rom_game_id = rom.get("GameID")
+            highest_award_kind = rom.get("HighestAwardKind", None)
 
             # If we have current progression data, and number of awarded achievements and most
             # recent awarded date match, then we can skip fetching progression details.
@@ -340,6 +342,15 @@ class RAHandler(MetadataHandler):
                 and rom["MostRecentAwardedDate"]
                 == game_current_progression.get("most_recent_awarded_date")
             ):
+                # Always keep highest_award_kind up-to-date even for cached progressions
+                if (
+                    game_current_progression.get("highest_award_kind")
+                    != highest_award_kind
+                ):
+                    game_current_progression = {
+                        **game_current_progression,
+                        "highest_award_kind": highest_award_kind,
+                    }
                 game_progressions.append(game_current_progression)
                 continue
 
@@ -369,6 +380,7 @@ class RAHandler(MetadataHandler):
                     num_awarded=rom.get("NumAwarded", None),
                     num_awarded_hardcore=rom.get("NumAwardedHardcore", None),
                     most_recent_awarded_date=rom.get("MostRecentAwardedDate", None),
+                    highest_award_kind=highest_award_kind,
                     earned_achievements=earned_achievements,
                 )
             )
