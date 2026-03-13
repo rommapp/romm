@@ -69,6 +69,7 @@ class DBClientTokensHandler(DBBaseHandler):
         stmt = delete(ClientToken).where(ClientToken.id == token_id)
         if user_id is not None:
             stmt = stmt.where(ClientToken.user_id == user_id)
+
         result = session.execute(stmt.execution_options(synchronize_session="evaluate"))
         return result.rowcount
 
@@ -82,11 +83,13 @@ class DBClientTokensHandler(DBBaseHandler):
         token = session.get(ClientToken, token_id)
         if token is None:
             return
+
         if (
             token.last_used_at
             and (now - to_utc(token.last_used_at)) < LAST_USED_DEBOUNCE
         ):
             return
+
         session.execute(
             update(ClientToken)
             .where(ClientToken.id == token_id)
@@ -108,11 +111,14 @@ class DBClientTokensHandler(DBBaseHandler):
             .values(hashed_token=new_hash, last_used_at=None)
             .execution_options(synchronize_session="evaluate")
         )
+
         if user_id is not None:
             stmt = stmt.where(ClientToken.user_id == user_id)
+
         result = session.execute(stmt)
         if result.rowcount == 0:
             return None
+
         return session.get(ClientToken, token_id)
 
     @begin_session
@@ -140,4 +146,5 @@ class DBClientTokensHandler(DBBaseHandler):
         stmt = select(ClientToken).where(ClientToken.id == token_id)
         if user_id is not None:
             stmt = stmt.where(ClientToken.user_id == user_id)
+
         return session.scalar(stmt)
