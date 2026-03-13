@@ -97,7 +97,7 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.WONDERSWAN_COLOR,
 ]
 
-OTHER_SUPPORTED_PLATFORMS = [
+RUFFLE_SUPPORTED_PLATFORMS = [
     UPS.BROWSER,
 ]
 
@@ -309,7 +309,7 @@ class DBRomsHandler(DBBaseHandler):
         """Filter based on whether the rom is playable on supported platforms."""
         predicate = or_(
             Platform.slug.in_(EJS_SUPPORTED_PLATFORMS),
-            Platform.slug.in_(OTHER_SUPPORTED_PLATFORMS),
+            Platform.slug.in_(RUFFLE_SUPPORTED_PLATFORMS),
         )
         if not value:
             predicate = not_(predicate)

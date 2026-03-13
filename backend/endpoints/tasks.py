@@ -315,60 +315,6 @@ async def get_task_by_id(request: Request, task_id: str) -> TaskStatusResponse:
     return _build_task_status_response(job)
 
 
-@protected_route(router.post, "/run", [Scope.TASKS_RUN])
-async def run_all_tasks(request: Request) -> list[TaskExecutionResponse]:
-    """Run all runnable tasks endpoint
-
-    Args:
-        request (Request): FastAPI Request object
-    Returns:
-        TaskExecutionResponse: Task execution response with details
-    """
-    # Filter only runnable tasks
-    runnable_tasks = {
-        task["name"]: task["task"]
-        for task in manual_tasks + scheduled_tasks
-        if task["task"].enabled and task["task"].manual_run
-    }
-
-    if not runnable_tasks:
-        raise HTTPException(
-            status_code=400,
-            detail="No runnable tasks available to run",
-        )
-
-    jobs = [
-        (
-            task_name,
-            low_prio_queue.enqueue(
-                task_instance.run,
-                job_timeout=TASK_TIMEOUT,
-                result_ttl=TASK_RESULT_TTL,
-                meta={
-                    "task_name": task_instance.title,
-                    "task_type": task_instance.task_type.value,
-                },
-            ),
-        )
-        for task_name, task_instance in runnable_tasks.items()
-    ]
-
-    return [
-        TaskExecutionResponse(
-            task_name=task_name,
-            task_id=job.get_id(),
-            status=job.get_status() or JobStatus.QUEUED,
-            created_at=(
-                job.created_at.isoformat()
-                if job.created_at
-                else datetime.now(timezone.utc).isoformat()
-            ),
-            enqueued_at=job.enqueued_at.isoformat() if job.enqueued_at else None,
-        )
-        for (task_name, job) in jobs
-    ]
-
-
 TASK_KWARGS = Body(default=None)
 
 

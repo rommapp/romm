@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from decorators.database import begin_session
+from endpoints.responses.stats import MetadataCoverageItem, RegionBreakdownItem
 from models.assets import Save, Screenshot, State
 from models.rom import Rom, RomFile
 
@@ -101,7 +102,7 @@ class DBStatsHandler(DBBaseHandler):
     def get_metadata_coverage_by_platform(
         self,
         session: Session = None,  # type: ignore
-    ) -> dict[int, list[dict]]:
+    ) -> dict[int, list[MetadataCoverageItem]]:
         """Get the count of ROMs matched per metadata source, grouped by platform."""
         rows = session.execute(
             select(
@@ -115,20 +116,21 @@ class DBStatsHandler(DBBaseHandler):
             .group_by(Rom.platform_id)
         ).all()
 
-        result: dict[int, list[dict]] = {}
+        result: dict[int, list[MetadataCoverageItem]] = {}
         for row in rows:
             result[row.platform_id] = [
-                {"source": key, "matched": getattr(row, key)}
+                MetadataCoverageItem(source=key, matched=getattr(row, key))
                 for key in _METADATA_SOURCE_COLUMNS
                 if getattr(row, key) > 0
             ]
+
         return result
 
     @begin_session
     def get_region_breakdown_by_platform(
         self,
         session: Session = None,  # type: ignore
-    ) -> dict[int, list[dict]]:
+    ) -> dict[int, list[RegionBreakdownItem]]:
         """Get the count of ROMs per region, grouped by platform."""
         rows = session.execute(
             select(Rom.platform_id, Rom.regions).where(Rom.regions.is_not(None))

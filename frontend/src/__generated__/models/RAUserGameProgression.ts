@@ -9,6 +9,7 @@ export type RAUserGameProgression = {
     num_awarded: (number | null);
     num_awarded_hardcore: (number | null);
     most_recent_awarded_date?: (string | null);
+    highest_award_kind?: (string | null);
     earned_achievements: Array<EarnedAchievement>;
 };
 
