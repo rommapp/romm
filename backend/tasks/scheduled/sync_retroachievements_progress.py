@@ -1,17 +1,88 @@
 from typing import Any, cast
 
+from adapters.services.retroachievements_types import RAUserCompletionProgressKind
 from config import (
     ENABLE_SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC,
     SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON,
 )
-from handler.database import db_user_handler
+from handler.database import db_rom_handler, db_user_handler
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from logger.logger import log
+from models.rom import RomUserStatus
+from models.user import User
 from tasks.tasks import PeriodicTask, TaskType
 from utils.context import initialize_context
 
 from . import UpdateStats
+
+
+def _get_rom_user_status_from_ra_award_kind(
+    highest_award_kind: str | None,
+) -> RomUserStatus | None:
+    """Map a RetroAchievements award kind to a RomUser status.
+
+    Returns:
+        - COMPLETED_100 if the user has mastered or completed the game
+        - FINISHED if the user has beaten the game (softcore or hardcore)
+        - INCOMPLETE if the user has started but not yet beaten the game
+        - None if the award kind is unrecognised
+    """
+    if highest_award_kind in (
+        RAUserCompletionProgressKind.MASTERED,
+        RAUserCompletionProgressKind.COMPLETED,
+    ):
+        return RomUserStatus.COMPLETED_100
+
+    if highest_award_kind in (
+        RAUserCompletionProgressKind.BEATEN_HARDCORE,
+        RAUserCompletionProgressKind.BEATEN_SOFTCORE,
+    ):
+        return RomUserStatus.FINISHED
+
+    if highest_award_kind is None:
+        return RomUserStatus.INCOMPLETE
+
+    return None
+
+
+def _sync_rom_user_statuses(user: User, user_progression: RAUserProgression) -> None:
+    """Update rom_user.status for each game in the user's RA progression.
+
+    The status is always kept in sync with the user's latest RA award so that
+    changes (e.g. beating a previously-incomplete game) are reflected on every
+    sync run.
+    """
+    for game_progression in user_progression.get("results", []):
+        rom_ra_id = game_progression.get("rom_ra_id")
+        if not rom_ra_id:
+            continue
+
+        new_status = _get_rom_user_status_from_ra_award_kind(
+            game_progression.get("highest_award_kind")
+        )
+        if new_status is None:
+            continue
+
+        rom = db_rom_handler.get_rom_by_metadata_id(ra_id=rom_ra_id)
+        if not rom:
+            continue
+
+        rom_user = db_rom_handler.get_rom_user(rom.id, user.id)
+        if rom_user is None:
+            rom_user = db_rom_handler.add_rom_user(rom.id, user.id)
+
+        if rom_user.status == new_status:
+            continue
+
+        if rom_user.status in {RomUserStatus.RETIRED, RomUserStatus.NEVER_PLAYING}:
+            continue
+
+        db_rom_handler.update_rom_user(rom_user.id, {"status": new_status})
+        log.debug(
+            f"Set rom_user status to '{new_status}' for user '{user.username}' "
+            f"and ROM with RA ID {rom_ra_id}"
+        )
 
 
 class SyncRetroAchievementsProgressTask(PeriodicTask):
@@ -63,6 +134,7 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
                 log.debug(
                     f"Updated RetroAchievements progress for user: {user.username}"
                 )
+                _sync_rom_user_statuses(user, user_progression)
 
             processed_users += 1
             update_stats.update(processed=processed_users)
