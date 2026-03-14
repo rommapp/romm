@@ -63,4 +63,25 @@ for subfolder in assets resources; do
 	fi
 done
 
+# PUID/PGID support: when running as root, fix ownership of writable data
+# directories and drop privileges to the specified user/group before executing
+# the main process. This allows containers to run as a non-root user while
+# still being able to write to mounted volumes (e.g. on TrueNAS/Unraid).
+if [[ ${EUID} -eq 0 ]]; then
+	PUID=${PUID:-1000}
+	PGID=${PGID:-1000}
+
+	echo "Setting up with PUID=${PUID} and PGID=${PGID}"
+
+	# Fix ownership of writable data directories to the target UID/GID.
+	# Use -R for /redis-data to ensure existing data files (e.g. dump.rdb) are
+	# accessible. Avoid -R for /romm to prevent touching user-mounted volumes
+	# (library, assets, resources, etc.) which may contain large collections.
+	chown "${PUID}:${PGID}" /romm
+	chown -R "${PUID}:${PGID}" /redis-data
+
+	# Drop privileges to the target user and re-execute
+	exec su-exec "${PUID}:${PGID}" "$@"
+fi
+
 exec "$@"

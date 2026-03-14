@@ -21,6 +21,10 @@ services:
       - RETROACHIEVEMENTS_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
       - STEAMGRIDDB_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
       - HASHEOUS_API_ENABLED=true # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#hasheous
+      # Optionally set the user/group that RomM will run as (default: 1000).
+      # This is useful on systems like TrueNAS/Unraid that use a specific UID/GID.
+      # - PUID=1000
+      # - PGID=1000
     volumes:
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
       - romm_redis_data:/redis-data # Cached data for background tasks

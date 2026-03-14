@@ -164,6 +164,7 @@ RUN apk add --no-cache \
     libpq \
     7zip \
     tzdata \
+    su-exec \
     valkey
 
 # Add Python by copying it from the official Docker image. This way, we don't rely on Alpine's
