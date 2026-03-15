@@ -84,7 +84,7 @@ async def _sync_device(device: Device) -> dict:
     )
 
     try:
-        conn = await ssh_sync_handler.connect(sync_config)
+        conn = await ssh_sync_handler.connect(sync_config, device_id=device.id)
     except Exception as e:
         log.error(f"Push-pull: failed to connect to device {device.id}: {e}")
         db_sync_session_handler.fail_session(

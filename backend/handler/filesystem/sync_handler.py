@@ -17,7 +17,8 @@ class FSSyncHandler(FSHandler):
     def build_incoming_path(
         self, device_id: str, platform_slug: str | None = None
     ) -> str:
-        parts = [device_id, "incoming"]
+        """Build the relative incoming path for a device (and optional platform)."""
+        parts = [self.base_path, device_id, "incoming"]
         if platform_slug:
             parts.append(platform_slug)
         return os.path.join(*parts)
@@ -25,16 +26,25 @@ class FSSyncHandler(FSHandler):
     def build_outgoing_path(
         self, device_id: str, platform_slug: str | None = None
     ) -> str:
-        parts = [device_id, "outgoing"]
+        """Build the relative outgoing path for a device (and optional platform)."""
+        parts = [self.base_path, device_id, "outgoing"]
+        if platform_slug:
+            parts.append(platform_slug)
+        return os.path.join(*parts)
+
+    def build_conflicts_path(
+        self, device_id: str, platform_slug: str | None = None
+    ) -> str:
+        """Build the relative conflicts path for a device (and optional platform)."""
+        parts = [self.base_path, device_id, "conflicts"]
         if platform_slug:
             parts.append(platform_slug)
         return os.path.join(*parts)
 
     def ensure_device_directories(self, device_id: str) -> None:
         """Create incoming/outgoing directory structure for a device."""
-        device_base = self.base_path / device_id
-        incoming = device_base / "incoming"
-        outgoing = device_base / "outgoing"
+        incoming = Path(self.build_incoming_path(device_id))
+        outgoing = Path(self.build_outgoing_path(device_id))
 
         incoming.mkdir(parents=True, exist_ok=True)
         outgoing.mkdir(parents=True, exist_ok=True)
@@ -46,7 +56,7 @@ class FSSyncHandler(FSHandler):
 
         Returns list of dicts with keys: platform_slug, file_name, full_path, file_size, mtime
         """
-        incoming_dir = self.base_path / device_id / "incoming"
+        incoming_dir = self.base_path / self.build_incoming_path(device_id)
         if not incoming_dir.exists():
             return []
 
@@ -84,7 +94,9 @@ class FSSyncHandler(FSHandler):
         self, device_id: str, platform_slug: str, file_name: str, data: bytes
     ) -> str:
         """Write a file to a device's outgoing directory."""
-        outgoing_dir = self.base_path / device_id / "outgoing" / platform_slug
+        outgoing_dir = self.base_path / self.build_outgoing_path(
+            device_id, platform_slug
+        )
         outgoing_dir.mkdir(parents=True, exist_ok=True)
         file_path = outgoing_dir / file_name
         file_path.write_bytes(data)

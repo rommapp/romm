@@ -77,6 +77,14 @@ watchfiles \
 	'uv run python watcher.py' \
 	/app/romm/library &
 
+if [[ ${ENABLE_SYNC_FOLDER_WATCHER:-false} == "true" ]]; then
+	echo "Starting sync folder watcher..."
+	watchfiles \
+		--target-type command \
+		'uv run python sync_watcher.py' \
+		/app/romm/sync &
+fi
+
 # Start the frontend dev server
 cd /app/frontend
 npm run dev &

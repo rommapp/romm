@@ -1,8 +1,8 @@
 """Sync folder watcher for File Transfer mode.
 
 This module is invoked by watchfiles when changes are detected in the sync
-folder (SYNC_BASE_PATH). It processes incoming save files from devices that
-use file_transfer sync mode.
+folder. It processes incoming save files from devices that use file_transfer
+sync mode.
 
 The watcher is configured to run as a separate watchfiles process monitoring
 the sync base path. When files appear in a device's incoming/ directory, they
@@ -19,7 +19,7 @@ from typing import cast
 
 import sentry_sdk
 
-from config import ENABLE_SYNC_FOLDER_WATCHER, SENTRY_DSN, SYNC_BASE_PATH
+from config import ENABLE_SYNC_FOLDER_WATCHER, SENTRY_DSN
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
@@ -46,10 +46,11 @@ Change = tuple[str, str]
 def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
     """Extract device_id, platform_slug, and filename from a sync incoming path.
 
-    Expected path format: {SYNC_BASE_PATH}/{device_id}/incoming/{platform_slug}/filename.ext
+    Expected path format: {build_incoming_path(device_id, platform_slug)}/filename.ext
+    i.e. {SYNC_BASE_PATH}/{device_id}/incoming/{platform_slug}/filename.ext
     """
     try:
-        rel_path = os.path.relpath(path, SYNC_BASE_PATH)
+        rel_path = os.path.relpath(path)
         parts = rel_path.split(os.sep)
         # Minimum: device_id / incoming / platform_slug / filename
         if len(parts) < 4 or parts[1] != "incoming":
@@ -57,6 +58,12 @@ def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
         device_id = parts[0]
         platform_slug = parts[2]
         filename = parts[-1]
+
+        # Validate path matches the canonical incoming path structure
+        expected_prefix = fs_sync_handler.build_incoming_path(device_id, platform_slug)
+        if not rel_path.startswith(expected_prefix):
+            return None
+
         return (device_id, platform_slug, filename)
     except (ValueError, IndexError):
         return None
@@ -64,7 +71,7 @@ def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
 
 def _ensure_conflicts_dir(device_id: str, platform_slug: str) -> str:
     """Ensure the conflicts directory exists and return its path."""
-    conflicts_dir = os.path.join(SYNC_BASE_PATH, device_id, "conflicts", platform_slug)
+    conflicts_dir = fs_sync_handler.build_conflicts_path(device_id, platform_slug)
     os.makedirs(conflicts_dir, exist_ok=True)
     return conflicts_dir
 

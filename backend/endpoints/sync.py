@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import HTTPException, Request, UploadFile, status
+from fastapi import HTTPException, Request, status
 from pydantic import BaseModel
 
 from config import TASK_TIMEOUT
@@ -19,7 +19,6 @@ from handler.database import (
 )
 from handler.redis_handler import high_prio_queue
 from handler.sync.comparison import compare_save_state
-from handler.sync.ssh_handler import ssh_sync_handler
 from logger.logger import log
 from models.assets import Save
 from models.device import SyncMode
@@ -370,82 +369,3 @@ def trigger_push_pull(
 
     log.info(f"Enqueued push-pull sync for device {device.id}")
     return SyncSessionSchema.model_validate(sync_session)
-
-
-@protected_route(router.post, "/devices/{device_id}/ssh-key", [Scope.DEVICES_WRITE])
-async def upload_ssh_key(
-    request: Request,
-    device_id: str,
-    keyFile: UploadFile,
-) -> dict:
-    """Upload an SSH private key for a push-pull device."""
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
-
-    key_data = await keyFile.read()
-    if not key_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Empty key file",
-        )
-
-    # Validate it looks like a private key
-    key_str = key_data.decode("utf-8", errors="replace")
-    if "PRIVATE KEY" not in key_str:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File does not appear to be a valid SSH private key",
-        )
-
-    key_path = ssh_sync_handler.store_key(device.id, key_data)
-
-    # Update device sync_config with the key path
-    sync_config = device.sync_config or {}
-    sync_config["ssh_key_path"] = str(key_path)
-    db_device_handler.update_device(
-        device_id=device.id,
-        user_id=request.user.id,
-        data={"sync_config": sync_config},
-    )
-
-    log.info(f"Stored SSH key for device {device.id}")
-    return {"status": "ok", "key_path": str(key_path)}
-
-
-@protected_route(
-    router.delete,
-    "/devices/{device_id}/ssh-key",
-    [Scope.DEVICES_WRITE],
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def delete_ssh_key(
-    request: Request,
-    device_id: str,
-) -> None:
-    """Remove an SSH private key for a device."""
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
-
-    removed = ssh_sync_handler.remove_key(device.id)
-    if not removed:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No SSH key found for this device",
-        )
-
-    # Remove key path from sync_config
-    sync_config = device.sync_config or {}
-    sync_config.pop("ssh_key_path", None)
-    db_device_handler.update_device(
-        device_id=device.id,
-        user_id=request.user.id,
-        data={"sync_config": sync_config},
-    )
