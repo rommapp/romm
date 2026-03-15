@@ -50,6 +50,7 @@ dependencies = [
   "sentry-sdk ~= 2.32",
   "starlette ~= 0.49",
   "streaming-form-data ~= 1.19",
+  "ua-parser ~= 1.0",
   "strsimpy ~= 0.2",
   "uvicorn ~= 0.35",
   "uvicorn-worker ~= 0.3",

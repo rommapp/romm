@@ -17,6 +17,7 @@ export type UserSchema = {
     ra_username?: (string | null);
     ra_progression?: (RAProgression | null);
     ui_settings?: (Record<string, any> | null);
+    current_device_id?: (string | null);
     created_at: string;
     updated_at: string;
 };

@@ -498,10 +498,15 @@ def confirm_download(
 async def update_save(
     request: Request,
     id: int,
+    device_id: str | None = None,
     saveFile: UploadFile | None = SAVE_FILE_UPDATE,
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPDATE,
 ) -> SaveSchema:
     """Update a save file."""
+
+    device = _resolve_device(
+        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
+    )
 
     db_save = db_save_handler.get_save(user_id=request.user.id, id=id)
     if not db_save:
@@ -568,8 +573,18 @@ async def update_save(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
 
-    # Refetch the save to get updated fields
-    return SaveSchema.model_validate(db_save)
+    if device:
+        db_device_save_sync_handler.upsert_sync(
+            device_id=device.id, save_id=db_save.id, synced_at=db_save.updated_at
+        )
+        db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
+
+    sync = None
+    if device:
+        sync = db_device_save_sync_handler.get_sync(
+            device_id=device.id, save_id=db_save.id
+        )
+    return _build_save_schema(db_save, device, sync)
 
 
 @protected_route(

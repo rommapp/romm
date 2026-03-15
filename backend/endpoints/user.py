@@ -254,7 +254,7 @@ def get_current_user(request: Request) -> UserSchema | None:
         UserSchema | None: Current user
     """
 
-    return request.user
+    return UserSchema.from_orm_with_request(request.user, request)
 
 
 @protected_route(router.get, "/{id}", [Scope.USERS_READ])
