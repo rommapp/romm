@@ -15,11 +15,11 @@ if TYPE_CHECKING:
 
 
 class SyncSessionStatus(enum.StrEnum):
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
+    PENDING = "PENDING"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 
 class SyncSession(BaseModel):
@@ -35,7 +35,9 @@ class SyncSession(BaseModel):
     )
 
     status: Mapped[SyncSessionStatus] = mapped_column(
-        Enum(SyncSessionStatus), default=SyncSessionStatus.PENDING, index=True
+        Enum(SyncSessionStatus),
+        default=SyncSessionStatus.PENDING,
+        index=True,
     )
     initiated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(

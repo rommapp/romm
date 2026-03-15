@@ -8,6 +8,9 @@ Create Date: 2026-03-14 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import ENUM
+
+from utils.database import is_postgresql
 
 revision = "0073_sync_sessions"
 down_revision = "0072_client_tokens"
@@ -16,6 +19,28 @@ depends_on = None
 
 
 def upgrade() -> None:
+    connection = op.get_bind()
+    if is_postgresql(connection):
+        rom_user_status_enum = ENUM(
+            "PENDING",
+            "IN_PROGRESS",
+            "COMPLETED",
+            "FAILED",
+            "CANCELLED",
+            name="syncsessionstatus",
+            create_type=False,
+        )
+        rom_user_status_enum.create(connection, checkfirst=False)
+    else:
+        rom_user_status_enum = sa.Enum(
+            "PENDING",
+            "IN_PROGRESS",
+            "COMPLETED",
+            "FAILED",
+            "CANCELLED",
+            name="syncsessionstatus",
+        )
+
     op.create_table(
         "sync_sessions",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -24,15 +49,15 @@ def upgrade() -> None:
         sa.Column(
             "status",
             sa.Enum(
-                "pending",
-                "in_progress",
-                "completed",
-                "failed",
-                "cancelled",
+                "PENDING",
+                "IN_PROGRESS",
+                "COMPLETED",
+                "FAILED",
+                "CANCELLED",
                 name="syncsessionstatus",
             ),
             nullable=False,
-            server_default="pending",
+            server_default="PENDING",
         ),
         sa.Column(
             "initiated_at",
@@ -80,4 +105,5 @@ def downgrade() -> None:
     op.drop_index("ix_sync_sessions_status", table_name="sync_sessions")
     op.drop_index("ix_sync_sessions_user_id", table_name="sync_sessions")
     op.drop_index("ix_sync_sessions_device_id", table_name="sync_sessions")
+
     op.drop_table("sync_sessions")
