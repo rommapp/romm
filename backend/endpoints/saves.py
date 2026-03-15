@@ -17,6 +17,7 @@ from handler.database import (
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
+    db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save, scan_screenshot
@@ -116,6 +117,7 @@ async def add_save(
     emulator: str | None = None,
     slot: str | None = None,
     device_id: str | None = None,
+    session_id: int | None = None,
     overwrite: bool = False,
     autocleanup: bool = False,
     autocleanup_limit: int = 10,
@@ -243,6 +245,19 @@ async def add_save(
             device_id=device.id, save_id=db_save.id, synced_at=db_save.updated_at
         )
         db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
+
+    if session_id:
+        try:
+            session = db_sync_session_handler.get_session(
+                session_id=session_id, user_id=request.user.id
+            )
+            if session:
+                db_sync_session_handler.update_session(
+                    session_id=session_id,
+                    data={"operations_completed": session.operations_completed + 1},
+                )
+        except Exception:
+            log.warning(f"Failed to update sync session {session_id}")
 
     if slot and autocleanup:
         slot_saves = db_save_handler.get_saves(
@@ -401,6 +416,7 @@ def download_save(
     request: Request,
     id: int,
     device_id: str | None = None,
+    session_id: int | None = None,
     optimistic: bool = True,
 ) -> FileResponse:
     """Download a save file."""
@@ -436,6 +452,19 @@ def download_save(
             synced_at=save.updated_at,
         )
         db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
+
+    if session_id:
+        try:
+            session = db_sync_session_handler.get_session(
+                session_id=session_id, user_id=request.user.id
+            )
+            if session:
+                db_sync_session_handler.update_session(
+                    session_id=session_id,
+                    data={"operations_completed": session.operations_completed + 1},
+                )
+        except Exception:
+            log.warning(f"Failed to update sync session {session_id}")
 
     return FileResponse(path=str(file_path), filename=save.file_name)
 

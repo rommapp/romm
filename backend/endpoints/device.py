@@ -8,8 +8,9 @@ from decorators.auth import protected_route
 from endpoints.responses.device import DeviceCreateResponse, DeviceSchema
 from handler.auth.constants import Scope
 from handler.database import db_device_handler, db_device_save_sync_handler
+from handler.filesystem import fs_sync_handler
 from logger.logger import log
-from models.device import Device
+from models.device import Device, SyncMode
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -26,6 +27,8 @@ class DeviceCreatePayload(BaseModel):
     ip_address: str | None = None
     mac_address: str | None = None
     hostname: str | None = None
+    sync_mode: SyncMode | None = None
+    sync_config: dict | None = None
     allow_existing: bool = True
     allow_duplicate: bool = False
     reset_syncs: bool = False
@@ -46,6 +49,8 @@ class DeviceUpdatePayload(BaseModel):
     mac_address: str | None = None
     hostname: str | None = None
     sync_enabled: bool | None = None
+    sync_mode: SyncMode | None = None
+    sync_config: dict | None = None
 
 
 @protected_route(router.post, "", [Scope.DEVICES_WRITE])
@@ -107,11 +112,20 @@ def register_device(
         ip_address=payload.ip_address,
         mac_address=payload.mac_address,
         hostname=payload.hostname,
+        sync_mode=payload.sync_mode,
+        sync_config=payload.sync_config,
         last_seen=now,
     )
 
     db_device = db_device_handler.add_device(device)
     log.info(f"Registered device {device_id} for user {request.user.username}")
+
+    # Auto-create sync folders for file_transfer devices
+    if payload.sync_mode == SyncMode.FILE_TRANSFER:
+        try:
+            fs_sync_handler.ensure_device_directories(device_id)
+        except Exception:
+            log.warning(f"Failed to create sync directories for device {device_id}")
 
     return DeviceCreateResponse(
         device_id=db_device.id,

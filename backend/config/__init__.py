@@ -212,6 +212,23 @@ SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
     "0 4 * * *",  # At 4:00 AM every day
 )
 
+# SYNC
+SYNC_BASE_PATH: Final[str] = _get_env("SYNC_BASE_PATH", f"{ROMM_BASE_PATH}/sync")
+ENABLE_SYNC_FOLDER_WATCHER: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SYNC_FOLDER_WATCHER")
+)
+SYNC_FOLDER_SCAN_DELAY: Final[int] = safe_int(
+    _get_env("SYNC_FOLDER_SCAN_DELAY"), 2  # 2 minutes
+)
+ENABLE_SYNC_PUSH_PULL: Final[bool] = safe_str_to_bool(_get_env("ENABLE_SYNC_PUSH_PULL"))
+SYNC_PUSH_PULL_CRON: Final[str] = _get_env(
+    "SYNC_PUSH_PULL_CRON",
+    "*/30 * * * *",  # Every 30 minutes
+)
+SYNC_SSH_KEYS_PATH: Final[str] = _get_env(
+    "SYNC_SSH_KEYS_PATH", f"{ROMM_BASE_PATH}/sync/keys"
+)
+
 # EMULATION
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))
 DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))

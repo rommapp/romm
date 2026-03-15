@@ -1,0 +1,43 @@
+from datetime import datetime
+from typing import Literal
+
+from .base import BaseModel
+
+
+class SyncOperationSchema(BaseModel):
+    action: Literal["upload", "download", "conflict", "no_op"]
+    rom_id: int
+    save_id: int | None = None
+    file_name: str
+    slot: str | None = None
+    emulator: str | None = None
+    reason: str
+    server_updated_at: datetime | None = None
+    server_content_hash: str | None = None
+
+
+class SyncNegotiateResponse(BaseModel):
+    session_id: int
+    operations: list[SyncOperationSchema]
+    total_upload: int
+    total_download: int
+    total_conflict: int
+    total_no_op: int
+
+
+class SyncSessionSchema(BaseModel):
+    id: int
+    device_id: str
+    user_id: int
+    status: str
+    initiated_at: datetime
+    completed_at: datetime | None = None
+    operations_planned: int
+    operations_completed: int
+    operations_failed: int
+    error_message: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

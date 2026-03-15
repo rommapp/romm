@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import TIMESTAMP, Boolean, Enum, ForeignKey, String
+from sqlalchemy import JSON, TIMESTAMP, Boolean, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel
@@ -38,6 +38,7 @@ class Device(BaseModel):
 
     sync_mode: Mapped[SyncMode] = mapped_column(Enum(SyncMode), default=SyncMode.API)
     sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    sync_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     last_seen: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 

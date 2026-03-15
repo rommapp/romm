@@ -36,6 +36,7 @@ class TaskType(str, Enum):
     CONVERSION = "conversion"
     CLEANUP = "cleanup"
     UPDATE = "update"
+    SYNC = "sync"
     WATCHER = "watcher"
     GENERIC = "generic"
 

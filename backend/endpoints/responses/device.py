@@ -28,6 +28,7 @@ class DeviceSchema(BaseModel):
     hostname: str | None
     sync_mode: SyncMode
     sync_enabled: bool
+    sync_config: dict | None
     last_seen: datetime | None
     created_at: datetime
     updated_at: datetime
