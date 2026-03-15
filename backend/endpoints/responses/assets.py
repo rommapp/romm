@@ -1,11 +1,10 @@
-from datetime import datetime
 from typing import Any
 
 from pydantic import ConfigDict, model_validator
 from sqlalchemy import inspect
 from sqlalchemy.exc import InvalidRequestError
 
-from .base import BaseModel
+from .base import BaseModel, UTCDatetime
 from .device import DeviceSyncSchema
 
 
@@ -26,8 +25,8 @@ class BaseAsset(BaseModel):
 
     missing_from_fs: bool
 
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
 
 
 class ScreenshotSchema(BaseAsset):

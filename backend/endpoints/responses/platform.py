@@ -1,10 +1,8 @@
-from datetime import datetime
-
 from pydantic import ConfigDict, Field, computed_field, field_validator
 
 from models.platform import DEFAULT_COVER_ASPECT_RATIO
 
-from .base import BaseModel
+from .base import BaseModel, UTCDatetime
 from .firmware import FirmwareSchema
 
 
@@ -37,8 +35,8 @@ class PlatformSchema(BaseModel):
     url_logo: str | None = None
     firmware: list[FirmwareSchema] = Field(default_factory=list)
     aspect_ratio: str = DEFAULT_COVER_ASPECT_RATIO
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
     fs_size_bytes: int
     is_unidentified: bool
     is_identified: bool

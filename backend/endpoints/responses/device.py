@@ -1,10 +1,8 @@
-from datetime import datetime
-
 from pydantic import ConfigDict
 
 from models.device import SyncMode
 
-from .base import BaseModel
+from .base import BaseModel, UTCDatetime
 
 
 class DeviceSyncSchema(BaseModel):
@@ -12,7 +10,7 @@ class DeviceSyncSchema(BaseModel):
 
     device_id: str
     device_name: str | None
-    last_synced_at: datetime
+    last_synced_at: UTCDatetime
     is_untracked: bool
     is_current: bool
 
@@ -32,12 +30,12 @@ class DeviceSchema(BaseModel):
     sync_mode: SyncMode
     sync_enabled: bool
     sync_config: dict | None
-    last_seen: datetime | None
-    created_at: datetime
-    updated_at: datetime
+    last_seen: UTCDatetime | None
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
 
 
 class DeviceCreateResponse(BaseModel):
     device_id: str
     name: str | None
-    created_at: datetime
+    created_at: UTCDatetime

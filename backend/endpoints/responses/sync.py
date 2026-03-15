@@ -1,9 +1,8 @@
-from datetime import datetime
 from typing import Literal
 
 from pydantic import ConfigDict
 
-from .base import BaseModel
+from .base import BaseModel, UTCDatetime
 
 
 class SyncOperationSchema(BaseModel):
@@ -14,7 +13,7 @@ class SyncOperationSchema(BaseModel):
     slot: str | None = None
     emulator: str | None = None
     reason: str
-    server_updated_at: datetime | None = None
+    server_updated_at: UTCDatetime | None = None
     server_content_hash: str | None = None
 
 
@@ -34,11 +33,11 @@ class SyncSessionSchema(BaseModel):
     device_id: str
     user_id: int
     status: str
-    initiated_at: datetime
-    completed_at: datetime | None = None
+    initiated_at: UTCDatetime
+    completed_at: UTCDatetime | None = None
     operations_planned: int
     operations_completed: int
     operations_failed: int
     error_message: str | None = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime

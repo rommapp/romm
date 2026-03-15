@@ -20,7 +20,7 @@ from handler.metadata.ss_handler import SSMetadata
 from models.collection import Collection
 from models.rom import Rom, RomFileCategory, RomUserStatus
 
-from .base import BaseModel
+from .base import BaseModel, UTCDatetime
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
@@ -33,8 +33,8 @@ class UserNoteSchema(BaseModel):
     content: str
     is_public: bool
     tags: list[str] | None = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
     user_id: int
     username: str
 
@@ -125,9 +125,9 @@ class RomUserSchema(BaseModel):
     id: int
     user_id: int
     rom_id: int
-    created_at: datetime
-    updated_at: datetime
-    last_played: datetime | None
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
+    last_played: UTCDatetime | None
     is_main_sibling: bool
     backlogged: bool
     now_playing: bool
@@ -156,9 +156,9 @@ class RomFileSchema(BaseModel):
     file_path: str
     file_size_bytes: int
     full_path: str
-    created_at: datetime
-    updated_at: datetime
-    last_modified: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
+    last_modified: UTCDatetime
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
@@ -281,8 +281,8 @@ class RomSchema(BaseModel):
     has_multiple_files: bool
     files: list[RomFileSchema]
     full_path: str
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
     missing_from_fs: bool
     has_notes: bool
 
