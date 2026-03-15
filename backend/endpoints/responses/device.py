@@ -1,22 +1,25 @@
 from datetime import datetime
 
+from pydantic import ConfigDict
+
 from models.device import SyncMode
 
 from .base import BaseModel
 
 
 class DeviceSyncSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     device_id: str
     device_name: str | None
     last_synced_at: datetime
     is_untracked: bool
     is_current: bool
 
-    class Config:
-        from_attributes = True
-
 
 class DeviceSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     user_id: int
     name: str | None
@@ -32,9 +35,6 @@ class DeviceSchema(BaseModel):
     last_seen: datetime | None
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class DeviceCreateResponse(BaseModel):

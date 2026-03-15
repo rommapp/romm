@@ -187,7 +187,7 @@ async def upload_chunk(
 
     if expected_chunk_size > ROM_UPLOAD_MAX_CHUNK_SIZE:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="Chunk size exceeds server maximum",
         )
 
@@ -202,7 +202,7 @@ async def upload_chunk(
 
         if content_length_bytes > ROM_UPLOAD_MAX_CHUNK_SIZE:
             raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 detail="Chunk exceeds maximum allowed size",
             )
 
@@ -215,7 +215,7 @@ async def upload_chunk(
                 chunk_bytes_written += len(body_chunk)
                 if chunk_bytes_written > ROM_UPLOAD_MAX_CHUNK_SIZE:
                     raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                         detail="Chunk exceeds maximum allowed size",
                     )
                 await f.write(body_chunk)

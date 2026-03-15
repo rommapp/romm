@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import model_validator
+from pydantic import ConfigDict, model_validator
 from sqlalchemy import inspect
 from sqlalchemy.exc import InvalidRequestError
 
@@ -10,6 +10,8 @@ from .device import DeviceSyncSchema
 
 
 class BaseAsset(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     rom_id: int
     user_id: int
@@ -26,9 +28,6 @@ class BaseAsset(BaseModel):
 
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class ScreenshotSchema(BaseAsset):

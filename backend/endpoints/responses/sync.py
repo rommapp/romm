@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Literal
 
+from pydantic import ConfigDict
+
 from .base import BaseModel
 
 
@@ -26,6 +28,8 @@ class SyncNegotiateResponse(BaseModel):
 
 
 class SyncSessionSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     device_id: str
     user_id: int
@@ -38,6 +42,3 @@ class SyncSessionSchema(BaseModel):
     error_message: str | None = None
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True

@@ -167,7 +167,8 @@ class TestSessionMiddleware:
         key = OctKey.import_key("test-secret-key")
         token = jwt.encode({"alg": "HS256"}, payload, key=key)
 
-        response = client.get("/get", cookies={"session": token})
+        client.cookies.set("session", token)
+        response = client.get("/get")
         assert response.status_code == 200
         # middleware must reject the expired token → empty session
         assert response.json()["session"] == {}
@@ -183,7 +184,8 @@ class TestSessionMiddleware:
         key = OctKey.import_key("test-secret-key")
         token = jwt.encode({"alg": "HS256"}, payload, key=key)
 
-        response = client.get("/get", cookies={"session": token})
+        client.cookies.set("session", token)
+        response = client.get("/get")
         assert response.status_code == 200
         # middleware must reject the future token → empty session
         assert response.json()["session"] == {}
@@ -199,7 +201,8 @@ class TestSessionMiddleware:
 
         # Tamper with the cookie (simulate bad signature)
         tampered_cookie = response.cookies["session"][:-10] + "tampereddata"
-        response = client.get("/get", cookies={"session": tampered_cookie})
+        client.cookies.set("session", tampered_cookie)
+        response = client.get("/get")
         assert response.status_code == 200
         data = response.json()
 

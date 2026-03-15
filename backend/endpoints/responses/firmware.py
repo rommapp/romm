@@ -1,10 +1,14 @@
 from datetime import datetime
 from typing import TypedDict
 
+from pydantic import ConfigDict
+
 from .base import BaseModel
 
 
 class FirmwareSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
 
     file_name: str
@@ -24,9 +28,6 @@ class FirmwareSchema(BaseModel):
 
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class AddFirmwareResponse(TypedDict):

@@ -172,8 +172,11 @@ async def test_password_change_invalidates_sessions(client, admin_user: User):
     old_session_cookie = response.cookies.get("romm_session")
     assert old_session_cookie is not None
 
+    def _cookie_header(cookie_value: str) -> dict[str, str]:
+        return {"Cookie": f"romm_session={cookie_value}"}
+
     # Verify session works
-    response = client.get("/api/users/me", cookies={"romm_session": old_session_cookie})
+    response = client.get("/api/users/me", headers=_cookie_header(old_session_cookie))
     assert response.status_code == HTTPStatus.OK
 
     # Update the user's password
@@ -185,7 +188,7 @@ async def test_password_change_invalidates_sessions(client, admin_user: User):
     assert response.status_code == HTTPStatus.OK
 
     # Attempt to access a protected resource using the old session cookie
-    response = client.get("/api/users/me", cookies={"romm_session": old_session_cookie})
+    response = client.get("/api/users/me", headers=_cookie_header(old_session_cookie))
     assert response.status_code in [HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN]
 
     # Login with the new credentials
@@ -201,7 +204,7 @@ async def test_password_change_invalidates_sessions(client, admin_user: User):
     assert new_session_cookie != old_session_cookie
 
     # Attempt to access a protected resource using the new session cookie
-    response = client.get("/api/users/me", cookies={"romm_session": new_session_cookie})
+    response = client.get("/api/users/me", headers=_cookie_header(new_session_cookie))
     assert response.status_code == HTTPStatus.OK
 
     await RedisSessionMiddleware.clear_user_sessions(admin_user.username)
@@ -220,16 +223,19 @@ async def test_logout_invalidates_session(client, admin_user: User):
     session_cookie = response.cookies.get("romm_session")
     assert session_cookie is not None
 
+    def _cookie_header(cookie_value: str) -> dict[str, str]:
+        return {"Cookie": f"romm_session={cookie_value}"}
+
     # Verify session works
-    response = client.get("/api/users/me", cookies={"romm_session": session_cookie})
+    response = client.get("/api/users/me", headers=_cookie_header(session_cookie))
     assert response.status_code == HTTPStatus.OK
 
     # Log out the user
-    response = client.post("/api/logout", cookies={"romm_session": session_cookie})
+    response = client.post("/api/logout", headers=_cookie_header(session_cookie))
     assert response.status_code == HTTPStatus.OK
 
     # Attempt to access a protected resource using the old session cookie
-    response = client.get("/api/users/me", cookies={"romm_session": session_cookie})
+    response = client.get("/api/users/me", headers=_cookie_header(session_cookie))
     assert response.status_code in [HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN]
 
     await RedisSessionMiddleware.clear_user_sessions(admin_user.username)
@@ -277,7 +283,7 @@ async def test_logout_with_oidc_rp_initiated_logout(client, admin_user: User):
     ):
         response = client.post(
             "/api/logout",
-            cookies={"romm_session": session_cookie},
+            headers={"Cookie": f"romm_session={session_cookie}"},
         )
         assert response.status_code == HTTPStatus.OK
         data = response.json()

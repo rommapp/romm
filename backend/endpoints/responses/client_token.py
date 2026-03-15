@@ -1,9 +1,13 @@
 from datetime import datetime
 
+from pydantic import ConfigDict
+
 from .base import BaseModel
 
 
 class ClientTokenSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     scopes: list[str]
@@ -11,9 +15,6 @@ class ClientTokenSchema(BaseModel):
     last_used_at: datetime | None
     created_at: datetime
     user_id: int
-
-    class Config:
-        from_attributes = True
 
 
 class ClientTokenCreateSchema(ClientTokenSchema):

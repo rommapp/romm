@@ -185,7 +185,7 @@ def test_upload_chunk_oversized_returns_413(
         content=b"1234567",
     )
 
-    assert response.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
     assert response.json()["detail"] == "Chunk exceeds maximum allowed size"
 
 

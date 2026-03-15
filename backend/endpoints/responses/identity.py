@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import NotRequired, TypedDict, get_type_hints
 
+from pydantic import ConfigDict
+
 from handler.metadata.ra_handler import RAUserProgression
 from models.user import Role
 
@@ -14,6 +16,8 @@ RAProgression = TypedDict(  # type: ignore[misc]
 
 
 class UserSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     username: str
     email: str | None
@@ -29,9 +33,6 @@ class UserSchema(BaseModel):
 
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class InviteLinkSchema(BaseModel):

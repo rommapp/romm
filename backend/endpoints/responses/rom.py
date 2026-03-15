@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
-from pydantic import computed_field, field_validator
+from pydantic import ConfigDict, computed_field, field_validator
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from handler.metadata.flashpoint_handler import FlashpointMetadata
@@ -26,6 +26,8 @@ SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
 
 class UserNoteSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     title: str
     content: str
@@ -35,9 +37,6 @@ class UserNoteSchema(BaseModel):
     updated_at: datetime
     user_id: int
     username: str
-
-    class Config:
-        from_attributes = True
 
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
@@ -121,6 +120,8 @@ def rom_user_schema_factory() -> RomUserSchema:
 
 
 class RomUserSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     rom_id: int
@@ -136,9 +137,6 @@ class RomUserSchema(BaseModel):
     completion: int
     status: RomUserStatus | None
 
-    class Config:
-        from_attributes = True
-
     @classmethod
     def for_user(cls, user_id: int, db_rom: Rom) -> RomUserSchema:
         for n in db_rom.rom_users:
@@ -150,6 +148,8 @@ class RomUserSchema(BaseModel):
 
 
 class RomFileSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     rom_id: int
     file_name: str
@@ -165,11 +165,10 @@ class RomFileSchema(BaseModel):
     ra_hash: str | None
     category: RomFileCategory | None
 
-    class Config:
-        from_attributes = True
-
 
 class RomMetadataSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     rom_id: int
     genres: list[str]
     franchises: list[str]
@@ -180,9 +179,6 @@ class RomMetadataSchema(BaseModel):
     player_count: str
     first_release_date: int | None
     average_rating: float | None
-
-    class Config:
-        from_attributes = True
 
     @field_validator("genres")
     def sort_genres(cls, v: list[str]) -> list[str]:
@@ -210,6 +206,8 @@ class RomMetadataSchema(BaseModel):
 
 
 class RomSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     igdb_id: int | None
     sgdb_id: int | None
@@ -292,9 +290,6 @@ class RomSchema(BaseModel):
     rom_user: RomUserSchema
     merged_screenshots: list[str]
     merged_ra_metadata: RomRAMetadata | None
-
-    class Config:
-        from_attributes = True
 
     @classmethod
     def populate_properties(cls, db_rom: Rom, request: Request) -> Rom:

@@ -10,7 +10,7 @@ def dummy_task():
     pass
 
 
-class TestTask(PeriodicTask):
+class DummyTask(PeriodicTask):
     async def run(self, *args, **kwargs):
         pass
 
@@ -23,7 +23,7 @@ class TestPreventRequeue(unittest.TestCase):
     ):
         for method_name in ["init", "schedule"]:
             with self.subTest(method=method_name):
-                task = TestTask(
+                task = DummyTask(
                     title="Test Task",
                     description="A test task",
                     task_type=TaskType.GENERIC,
