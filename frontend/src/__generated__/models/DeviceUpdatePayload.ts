@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { SyncMode } from './SyncMode';
 export type DeviceUpdatePayload = {
     name?: (string | null);
     platform?: (string | null);
@@ -11,5 +12,7 @@ export type DeviceUpdatePayload = {
     mac_address?: (string | null);
     hostname?: (string | null);
     sync_enabled?: (boolean | null);
+    sync_mode?: (SyncMode | null);
+    sync_config?: (Record<string, any> | null);
 };
 
