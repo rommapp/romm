@@ -1,13 +1,4 @@
-import pytest
 from fastapi import status
-from fastapi.testclient import TestClient
-from main import app
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
 
 
 def test_get_platforms(client, access_token, platform):

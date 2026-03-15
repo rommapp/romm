@@ -1,19 +1,11 @@
-import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from main import app
 
 from handler.database import db_save_handler, db_screenshot_handler, db_state_handler
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
 
 
 def test_delete_saves(client, access_token, save):

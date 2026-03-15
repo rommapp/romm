@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from main import app
 
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
@@ -16,13 +15,6 @@ from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from models.platform import Platform
 from models.rom import Rom
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
-
 
 MOCK_IGDB_ID = 11111
 MOCK_MOBY_ID = 22222

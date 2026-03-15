@@ -1,52 +1,22 @@
 """Tests for sync endpoints."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from unittest import mock
 
-import pytest
 from fastapi import status
-from fastapi.testclient import TestClient
-from main import app
 
-from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.auth import oauth_handler
 from handler.database import (
     db_device_handler,
     db_device_save_sync_handler,
     db_save_handler,
     db_sync_session_handler,
 )
-from handler.redis_handler import sync_cache
 from models.assets import Save
 from models.device import Device, SyncMode
 from models.platform import Platform
 from models.rom import Rom
 from models.sync_session import SyncSession, SyncSessionStatus
 from models.user import User
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
-
-
-@pytest.fixture(autouse=True)
-def clear_cache():
-    yield
-    sync_cache.flushall()
-
-
-@pytest.fixture
-def editor_access_token(editor_user: User):
-    return oauth_handler.create_access_token(
-        data={
-            "sub": editor_user.username,
-            "iss": "romm:oauth",
-            "scopes": " ".join(editor_user.oauth_scopes),
-        },
-        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
-    )
 
 
 class TestSyncNegotiate:

@@ -6,27 +6,13 @@ from unittest import mock
 
 import pytest
 from fastapi import status
-from fastapi.testclient import TestClient
-from main import app
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database.users_handler import DBUsersHandler
-from handler.redis_handler import async_cache, sync_cache
+from handler.redis_handler import async_cache
 from models.user import Role, User
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
-
-
-@pytest.fixture(autouse=True)
-def clear_cache():
-    yield
-    sync_cache.flushall()
 
 
 def test_login_logout(client, admin_user: User):

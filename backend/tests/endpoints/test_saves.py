@@ -4,31 +4,16 @@ from unittest import mock
 
 import pytest
 from fastapi import status
-from fastapi.testclient import TestClient
-from main import app
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.auth.constants import Scope
 from handler.database import db_device_handler, db_device_save_sync_handler
-from handler.redis_handler import sync_cache
 from models.assets import Save
 from models.device import Device
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
-
-
-@pytest.fixture(autouse=True)
-def clear_cache():
-    yield
-    sync_cache.flushall()
 
 
 @pytest.fixture

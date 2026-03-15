@@ -1,9 +1,6 @@
 from unittest.mock import patch
 
-import pytest
 from fastapi import status
-from fastapi.testclient import TestClient
-from main import app
 
 from config.config_manager import (
     DEFAULT_EXCLUDED_DIRS,
@@ -11,12 +8,6 @@ from config.config_manager import (
     DEFAULT_EXCLUDED_FILES,
 )
 from config.config_manager import config_manager as cm
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
 
 
 def test_config(client):
