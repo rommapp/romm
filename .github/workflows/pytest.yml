@@ -53,7 +53,6 @@ jobs:
         uses: actions/checkout@v4.3.0
 
       - name: Install mariadb connectors
-        if: matrix.db == 'mariadb'
         run: |
           sudo apt-get update
           sudo apt-get install -y libmariadb3 libmariadb-dev
