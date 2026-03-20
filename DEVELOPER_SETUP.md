@@ -76,9 +76,8 @@ sudo apt install libmariadb3 libmariadb-dev libpq-dev
 # Users on macOS can skip this step as RAHasher is not supported
 git clone --recursive https://github.com/RetroAchievements/RALibretro.git
 cd ./RALibretro
-git checkout 1.8.0
+git checkout 1.8.3
 git submodule update --init --recursive
-sed -i '22a #include <ctime>' ./src/Util.h
 make HAVE_CHD=1 -f ./Makefile.RAHasher
 cp ./bin64/RAHasher /usr/bin/RAHasher
 ```

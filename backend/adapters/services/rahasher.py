@@ -65,6 +65,7 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
     UPS.WASM_4: 72,
     UPS.SUPERVISION: 63,
     UPS.WIN: 102,
+    UPS.WII: 19,
     UPS.WONDERSWAN: 53,
     UPS.WONDERSWAN_COLOR: 53,
 }
@@ -96,7 +97,7 @@ class RAHasherService:
             return ""
 
         return_code = await proc.wait()
-        if return_code != 1:
+        if return_code != 0:
             if proc.stderr is not None:
                 stderr = (await proc.stderr.read()).decode("utf-8")
             else:

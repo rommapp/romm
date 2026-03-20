@@ -464,6 +464,7 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
         "name": "Watara/QuickShot Supervision",
     },
     UPS.WIN: {"id": 102, "name": "Windows"},
+    UPS.WII: {"id": 19, "name": "Wii"},
     UPS.WONDERSWAN: {"id": 53, "name": "WonderSwan"},
     UPS.WONDERSWAN_COLOR: {"id": 53, "name": "WonderSwan Color"},
 }
