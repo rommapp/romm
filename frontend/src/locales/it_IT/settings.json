@@ -171,6 +171,10 @@
   "netplay-id-chars": "L'ID di Netplay può contenere solo lettere, numeri, underscore, trattini e emojis",
   "netplay-id-hint": "Devi creare un ID di Netplay unico per utilizzare Netplay.",
   "variant-folder": "Cartella variante",
+  "netplay-id": "ID di Netplay",
+  "netplay-id-length": "L'ID di Netplay deve essere lungo tra 3 e 32 caratteri",
+  "netplay-id-chars": "L'ID di Netplay può contenere solo lettere, numeri, underscore, trattini e emojis",
+  "netplay-id-hint": "Devi creare un ID di Netplay unico per utilizzare Netplay.",
   "virtual-collection-type": "Tipo di collezione virtuale (Metodo di raggruppamento delle rom)",
   "watcher": "Monitor"
 }

@@ -30,3 +30,5 @@ class ConfigResponse(TypedDict):
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
+    SFU_HOST: str
+    SFU_PORT: int

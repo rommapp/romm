@@ -171,6 +171,10 @@
   "netplay-id-chars": "ID Netplay может содержать только буквы, цифры, эмодзи, символы, подчеркивания и дефисы",
   "netplay-id-hint": "Вы должны создать уникальный ID Netplay для использования Netplay.",
   "variant-folder": "Папка варианта",
+  "netplay-id": "ID Netplay",
+  "netplay-id-length": "ID Netplay должен быть между 3 и 32 символами",
+  "netplay-id-chars": "ID Netplay может содержать только буквы, цифры, эмодзи, символы, подчеркивания и дефисы",
+  "netplay-id-hint": "Вы должны создать уникальный ID Netplay для использования Netplay.",
   "virtual-collection-type": "Тип виртуальной коллекции (метод группировки ромов)",
   "watcher": "Наблюдатель"
 }

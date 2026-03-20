@@ -171,6 +171,10 @@
   "netplay-id-chars": "El ID de Netplay puede contener solo letras, números, guiones bajos, guiones y emojis",
   "netplay-id-hint": "Debe crear un ID de Netplay único para usar Netplay.",
   "variant-folder": "Carpeta variante",
+  "netplay-id": "ID de Netplay",
+  "netplay-id-length": "El ID de Netplay debe tener entre 3 y 32 caracteres",
+  "netplay-id-chars": "El ID de Netplay puede contener solo letras, números, guiones bajos, guiones y emojis",
+  "netplay-id-hint": "Debe crear un ID de Netplay único para usar Netplay.",
   "virtual-collection-type": "Tipo de colección virtual (método de agrupación de ROM)",
   "watcher": "Vigilante"
 }

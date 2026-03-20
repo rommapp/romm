@@ -171,6 +171,10 @@
   "netplay-id-chars": "Netplay ID kann nur Buchstaben, Zahlen, Unterstriche, Bindestriche und Emojis enthalten",
   "netplay-id-hint": "Sie müssen eine eindeutige Netplay ID erstellen, um Netplay zu verwenden.",
   "variant-folder": "Variantenordner",
+  "netplay-id": "Netplay ID",
+  "netplay-id-length": "Netplay ID muss zwischen 3 und 32 Zeichen lang sein",
+  "netplay-id-chars": "Netplay ID kann nur Buchstaben, Zahlen, Unterstriche, Bindestriche und Emojis enthalten",
+  "netplay-id-hint": "Sie müssen eine eindeutige Netplay ID erstellen, um Netplay zu verwenden.",
   "virtual-collection-type": "Typ der automatisch generierten Sammlung (ROM-Gruppierungsmethode)",
   "watcher": "Überwacher"
 }

@@ -171,6 +171,10 @@
   "netplay-id-chars": "Netplay IDは英数字、アンダースコア、ハイフン、エモジキーのみ使用できます",
   "netplay-id-hint": "Netplayを使用するには、Netplay IDを作成する必要があります。",
   "variant-folder": "バリアントフォルダ",
+  "netplay-id": "Netplay ID",
+  "netplay-id-length": "Netplay IDは3文字以上32文字以内である必要があります",
+  "netplay-id-chars": "Netplay IDは英数字、アンダースコア、ハイフン、エモジキーのみ使用できます",
+  "netplay-id-hint": "Netplayを使用するには、Netplay IDを作成する必要があります。",
   "virtual-collection-type": "バーチャルコレクションタイプ (romのグループ化方法)",
   "watcher": "ウォッチャー"
 }

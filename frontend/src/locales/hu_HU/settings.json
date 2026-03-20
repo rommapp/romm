@@ -171,6 +171,10 @@
   "netplay-id-chars": "Netplay ID csak betűk, számok, aláhúzások, kötőjelek és emojiket tartalmazhat",
   "netplay-id-hint": "Netplay ID-t kell létrehoznod a Netplay használatához.",
   "variant-folder": "Változat mappa",
+  "netplay-id": "Netplay ID",
+  "netplay-id-length": "Netplay ID hossza 3-32 karakter között kell legyen",
+  "netplay-id-chars": "Netplay ID csak betűk, számok, aláhúzások, kötőjelek és emojiket tartalmazhat",
+  "netplay-id-hint": "Netplay ID-t kell létrehoznod a Netplay használatához.",
   "virtual-collection-type": "Virtuális gyűjtemény típusa (ROM csoportosítási mód)",
   "watcher": "Figyelő"
 }

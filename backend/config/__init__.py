@@ -134,6 +134,13 @@ ROMM_AUTH_SECRET_KEY: Final[str] = _get_env(
 if not ROMM_AUTH_SECRET_KEY and not IS_PYTEST_RUN:
     raise ValueError("ROMM_AUTH_SECRET_KEY environment variable is not set!")
 
+# SFU internal API auth
+# Dedicated shared secret for SFU -> RomM internal endpoints.
+# SECURITY: this must be distinct from ROMM_AUTH_SECRET_KEY in real deployments.
+ROMM_SFU_INTERNAL_SECRET: Final[str] = _get_env(
+    "ROMM_SFU_INTERNAL_SECRET", "test-sfu-internal" if IS_PYTEST_RUN else ""
+)
+
 SESSION_MAX_AGE_SECONDS: Final[int] = safe_int(
     _get_env("SESSION_MAX_AGE_SECONDS"), 14 * 24 * 60 * 60
 )  # 14 days, in seconds

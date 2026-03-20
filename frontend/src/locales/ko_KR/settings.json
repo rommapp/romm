@@ -171,6 +171,10 @@
   "netplay-id-chars": "Netplay ID는 영문자, 숫자, 언더스코어, 하이픈, 이모지만 포함할 수 있습니다",
   "netplay-id-hint": "Netplay를 사용하기 위해서는 Netplay ID를 생성해야 합니다.",
   "variant-folder": "변형 폴더",
+  "netplay-id": "Netplay ID",
+  "netplay-id-length": "Netplay ID는 3자 이상 32자 이하여야 합니다",
+  "netplay-id-chars": "Netplay ID는 영문자, 숫자, 언더스코어, 하이픈, 이모지만 포함할 수 있습니다",
+  "netplay-id-hint": "Netplay를 사용하기 위해서는 Netplay ID를 생성해야 합니다.",
   "virtual-collection-type": "자동 생성된 모음집 유형(롬 그룹화 방법)",
   "watcher": "감시자"
 }

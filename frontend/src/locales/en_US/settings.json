@@ -171,6 +171,10 @@
   "netplay-id-chars": "Netplay ID can only contain letters, numbers, emojis, symbols, underscores, and dashes",
   "netplay-id-hint": "You must create a unique netplay ID to use netplay.",
   "variant-folder": "Variant folder",
+  "netplay-id": "Netplay ID",
+  "netplay-id-length": "Netplay ID must be between 3 and 32 characters",
+  "netplay-id-chars": "Netplay ID can only contain letters, numbers, emojis, symbols, underscores, and dashes",
+  "netplay-id-hint": "You must create a unique netplay ID to use netplay.",
   "virtual-collection-type": "Virtual collection type (ROM grouping method)",
   "watcher": "Watcher"
 }

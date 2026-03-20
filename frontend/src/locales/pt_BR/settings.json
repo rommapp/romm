@@ -171,6 +171,10 @@
   "netplay-id-chars": "O ID do Netplay pode conter apenas letras, números, emojis, símbolos, underscores e hífens",
   "netplay-id-hint": "Você deve criar um ID de Netplay único para usar o Netplay.",
   "variant-folder": "Pasta variante",
+  "netplay-id": "ID do Netplay",
+  "netplay-id-length": "O ID do Netplay deve ter entre 3 e 32 caracteres",
+  "netplay-id-chars": "O ID do Netplay pode conter apenas letras, números, emojis, símbolos, underscores e hífens",
+  "netplay-id-hint": "Você deve criar um ID de Netplay único para usar o Netplay.",
   "virtual-collection-type": "Tipo de coleção virtual (método de agrupamento de ROM)",
   "watcher": "Monitor"
 }

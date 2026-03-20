@@ -41,17 +41,6 @@ const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
-const sfuTokenExpiry = ref<number | null>(null);
-// Token refresh timer removed - tokens are now fetched on-demand
-
-declare global {
-  interface Navigator {
-    keyboard: {
-      lock: (keys: string[]) => Promise<void>;
-      unlock: () => void;
-    };
-  }
-}
 
 const compatibleStates = computed(
   () =>
@@ -80,165 +69,8 @@ async function onPlay() {
   // /assets/emulatorjs (logos, etc) to avoid clobbering.
   const { EJS_NETPLAY_ENABLED, EJS_DEBUG } = configStore.config;
   const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
-  const LOCAL_PATH = "/assets/emulatorjs/data";
+  const LOCAL_PATH = "/assets/emulatorjs-sfu/data";
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
-
-  // Hard-pin the CDN cores folder used by EmulatorJS core fallback downloads.
-  // This is intentionally independent from the SFU fork's internal version.
-  (window as any).EJS_CDN_CORES_VERSION = "nightly";
-
-  async function ensureSfuToken(tokenType: "read" | "write" = "read") {
-    // SFU token fetching logic for either read or write tokens.
-    try {
-      // Token requests to the RomM backend API
-      const { data } = await api.post("/sfu/token", { token_type: tokenType });
-      const token = data?.token;
-      if (typeof token !== "string" || token.length === 0) {
-        throw new Error("Missing token in /api/sfu/token response");
-      }
-      // Store the token in the global window object (cookie) for EmulatorJS-SFU to use.
-      window.EJS_netplayToken = token;
-      console.log(`[Play] Set window.EJS_netplayToken`);
-
-      //track token expiry for refresh logic
-      const maxAge = tokenType === "read" ? 900 : 30;
-      sfuTokenExpiry.value = Date.now() + maxAge * 1000;
-
-      // Store the token in a cookie; Socket.IO will send it in
-      // the handshake headers on the same domain.
-      const secure = window.location.protocol === "https:" ? "; Secure" : "";
-      const cookieValue = `romm_sfu_token=${encodeURIComponent(
-        token,
-      )}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
-      console.log(`[Play] Setting cookie: ${cookieValue}`);
-
-      // Cookie storage for socket.io authentication
-      document.cookie = cookieValue;
-
-      console.log(`[Play] Cookie set successfully`);
-      return token;
-    } catch (err) {
-      console.error(`[Play] ensureSfuToken failed:`, err);
-      throw err;
-    }
-  }
-
-  async function ensureValidSfuToken(
-    tokenType: "read" | "write" = "read",
-  ): Promise<string> {
-    const now = Date.now();
-    const bufferTime = 60000; // refresh token 1 minute before expiry.
-
-    if (!sfuTokenExpiry.value || sfuTokenExpiry.value - bufferTime <= now) {
-      await ensureSfuToken(tokenType);
-    }
-
-    return window.EJS_netplayToken;
-  }
-
-  // error handling for SFU auth failures used to trigger token refresh
-  // handles write tokens by default, but can be called with "read" explicitly.
-  function handleSfuAuthError(tokenType: "read" | "write" = "write") {
-    console.warn(
-      `[Play] SFU auth failed, attempting ${tokenType}token refresh`,
-    );
-    console.log(`[Play] Calling ensureSfuToken for ${tokenType} token`);
-    // Force refresh token of requested type.
-    ensureSfuToken(tokenType)
-      .then((token) => {
-        console.log(
-          `[Play] Successfully refreshed ${tokenType} token, cookie should be set`,
-        );
-      })
-      .catch((err) => {
-        console.error(`[Play] Failed to refresh SFU ${tokenType} token:`, err);
-      });
-  }
-
-  function normalizeIceServerUrls(urls: any): string[] {
-    if (typeof urls === "string") return [urls];
-    if (Array.isArray(urls)) return urls.filter((u) => typeof u === "string");
-    return [];
-  }
-
-  function iceServerKey(server: any): string {
-    const urls = normalizeIceServerUrls(server?.urls)
-      .map((u) => u.trim())
-      .filter(Boolean)
-      .sort();
-    const username =
-      typeof server?.username === "string" ? server.username : "";
-    const credential =
-      typeof server?.credential === "string" ? server.credential : "";
-    return JSON.stringify({ urls, username, credential });
-  }
-
-  function mergeIceServers(preferred: any[], fallback: any[]): any[] {
-    const out: any[] = [];
-    const seen = new Set<string>();
-    for (const list of [preferred, fallback]) {
-      for (const s of Array.isArray(list) ? list : []) {
-        const urls = normalizeIceServerUrls(s?.urls);
-        if (urls.length === 0) continue;
-        const key = iceServerKey(s);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push(s);
-      }
-    }
-    return out;
-  }
-
-  async function tryFetchPreferredIceServers() {
-    const debugEnabled = Boolean(
-      EJS_DEBUG || (window as any).EJS_DEBUG_XX || (window as any).EJS_DEBUG,
-    );
-    try {
-      const token = (window as any).EJS_netplayToken;
-      if (typeof token !== "string" || token.length === 0) return;
-
-      // Fetching ICE servers from RomM backend API
-      const resp = await fetch(`/ice`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!resp.ok) {
-        throw new Error(`GET /ice failed (${resp.status})`);
-      }
-
-      const data = await resp.json();
-      const preferred = Array.isArray(data?.iceServers) ? data.iceServers : [];
-      const fallback = Array.isArray(configStore.config.EJS_NETPLAY_ICE_SERVERS)
-        ? configStore.config.EJS_NETPLAY_ICE_SERVERS
-        : [];
-
-      // Set SFU node provided ICE servers as preferred for optimized routing, with host RomM config fallback
-      const merged = mergeIceServers(preferred, fallback);
-      if (merged.length > 0) {
-        // Setting ICE servers for WebRTC connections
-        (window as any).EJS_netplayICEServers = merged;
-        if (debugEnabled) {
-          console.info("[Play] ICE servers merged", {
-            preferred: preferred.length,
-            fallback: fallback.length,
-            merged: merged.length,
-            nodeId: data?.nodeId,
-            sfuUrl: data?.url,
-          });
-        }
-      }
-    } catch (err) {
-      if (debugEnabled) {
-        console.warn(
-          "[Play] Failed to fetch SFU /ice; using config.yml ICE servers only",
-          err,
-        );
-      }
-    }
-  }
 
   function loadScript(src: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -271,44 +103,31 @@ async function onPlay() {
 
   async function attemptLoad(path: string) {
     window.EJS_pathtodata = path;
-
-    // EmulatorJS-SFU requires a browser mediasoup-client bundle.
-    // Don't rely on RomM's netplay flag here; if a hybrid-only loader is used, it
-    // will fail SFU init unless this is present.
-    if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
-      try {
-        // Always prefer the locally mounted bundle.
-        const mediasoupPath = `${LOCAL_PATH}/vendor/mediasoup-client-umd.js`;
-        console.info("[Play] Preloading mediasoup-client:", mediasoupPath);
-        await loadScript(mediasoupPath);
-        normalizeMediasoupClientGlobal();
-        // Verify it loaded correctly, in case of a bad file or interrupted download.
-        if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
-          console.warn(
-            "[Play] mediasoup-client script loaded but global not found; SFU netplay may fail",
-          );
-        }
-      } catch (e) {
-        // Keep this as a warning (not fatal) so non-netplay sessions still work.
-        console.warn(
-          "[Play] mediasoup-client bundle missing; SFU netplay may fail",
-          e,
-        );
-      }
-    } else {
-      // If a bundle was already present, still normalize its shape.
-      normalizeMediasoupClientGlobal();
-    }
-
     await loadScript(`${path}/loader.js`);
   }
 
   try {
-    try {
-      await attemptLoad(EJS_NETPLAY_ENABLED ? CDN_PATH : LOCAL_PATH);
-    } catch (e) {
-      console.warn("[Play] Local loader failed, trying CDN", e);
-      await attemptLoad(EJS_NETPLAY_ENABLED ? LOCAL_PATH : CDN_PATH);
+    if (EJS_NETPLAY_ENABLED) {
+      // Fetch read token on-demand (will be fetched when SFU returns 401)
+      // No periodic refresh - tokens are fetched only when needed
+      await ensureSfuToken("read").catch(() => {
+        // Silently fail - token will be fetched on-demand when SFU requires it
+      });
+      // Fetch ICE servers from RomM backend API for intialization of WebRTC with SFU nodes.
+      await tryFetchPreferredIceServers();
+    }
+    if (EJS_NETPLAY_ENABLED) {
+      // Netplay depends on our locally mounted EmulatorJS + SFU proxies.
+      // **************  TODO:  Review this code later  *******************
+      // We can review removing this code later as romm now downloads the appropriate EmulatorJS-SFU bundle
+      await attemptLoad(LOCAL_PATH);
+    } else {
+      try {
+        await attemptLoad(LOCAL_PATH);
+      } catch (e) {
+        console.warn("[Play] Local loader failed, trying CDN", e);
+        await attemptLoad(CDN_PATH);
+      }
     }
     playing.value = true;
     fullScreen.value = fullScreenOnPlay.value;

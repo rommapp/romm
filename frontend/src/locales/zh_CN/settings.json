@@ -171,6 +171,10 @@
   "netplay-id-chars": "Netplay ID 只能包含字母、数字、表情符号、符号、下划线和连字符",
   "netplay-id-hint": "您必须创建一个唯一的 Netplay ID 才能使用 Netplay。",
   "variant-folder": "变体文件夹",
+  "netplay-id": "Netplay ID",
+  "netplay-id-length": "Netplay ID 必须介于 3 和 32 个字符之间",
+  "netplay-id-chars": "Netplay ID 只能包含字母、数字、表情符号、符号、下划线和连字符",
+  "netplay-id-hint": "您必须创建一个唯一的 Netplay ID 才能使用 Netplay。",
   "virtual-collection-type": "虚拟收藏类型（Rom 文件分组方法）",
   "watcher": "监视器"
 }

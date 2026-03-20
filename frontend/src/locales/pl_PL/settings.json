@@ -171,6 +171,10 @@
   "netplay-id-chars": "ID Netplay może zawierać tylko litery, cyfry, znaki podkreślenia, myślniki i emoji",
   "netplay-id-hint": "Musisz utworzyć unikalne ID Netplay, aby korzystać z Netplay.",
   "variant-folder": "Folder wariantu",
+  "netplay-id": "ID Netplay",
+  "netplay-id-length": "ID Netplay musi mieć między 3 a 32 znakami",
+  "netplay-id-chars": "ID Netplay może zawierać tylko litery, cyfry, znaki podkreślenia, myślniki i emoji",
+  "netplay-id-hint": "Musisz utworzyć unikalne ID Netplay, aby korzystać z Netplay.",
   "virtual-collection-type": "Typ automatycznej kolekcji (metoda grupowania ROM-ów)",
   "watcher": "Monitor"
 }
