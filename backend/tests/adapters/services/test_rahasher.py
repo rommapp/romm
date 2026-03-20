@@ -51,7 +51,7 @@ class TestRAHasherService:
     async def test_calculate_hash_success(self, service):
         """Test successful hash calculation."""
         mock_proc = AsyncMock()
-        mock_proc.wait.return_value = 1  # RAHasher returns 1 on success
+        mock_proc.wait.return_value = 0  # RAHasher returns 0 on success
         mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
         mock_proc.stderr = None
 
@@ -136,7 +136,7 @@ class TestRAHasherService:
     async def test_calculate_hash_with_extra_output(self, service):
         """Test when RAHasher returns hash with extra text."""
         mock_proc = AsyncMock()
-        mock_proc.wait.return_value = 1
+        mock_proc.wait.return_value = 0
         mock_proc.stdout.read.return_value = (
             b"Processing file... Hash: a1b2c3d4e5f6789012345678901234ab Done.\n"
         )
@@ -181,7 +181,7 @@ class TestRAHasherService:
 
         for platform_id, file_path, platform_slug in test_cases:
             mock_proc = AsyncMock()
-            mock_proc.wait.return_value = 1
+            mock_proc.wait.return_value = 0
             mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
             mock_proc.stderr = None
 
@@ -289,7 +289,7 @@ class TestRAHasherServicePerformance:
     async def test_concurrent_hash_calculations(self, service):
         """Test multiple concurrent hash calculations."""
         mock_proc = AsyncMock()
-        mock_proc.wait.return_value = 1
+        mock_proc.wait.return_value = 0
         mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
         mock_proc.stderr = None
 
