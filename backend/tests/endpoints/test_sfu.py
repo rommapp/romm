@@ -26,6 +26,20 @@ class TestSFUToken:
             return int(value.timestamp())
         return int(value)
 
+    def test_get_sfu_ice_unauthorized(self, client):
+        response = client.get("/api/sfu/ice")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_get_sfu_ice_success(self, client, access_token, admin_user):
+        response = client.get(
+            "/api/sfu/ice",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert "iceServers" in body
+        assert isinstance(body["iceServers"], list)
+
     def test_mint_sfu_token_unauthorized(self, client):
         response = client.post("/api/sfu/token")
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -76,7 +90,7 @@ class TestSFUToken:
         assert ttl > 0
 
     def test_mint_sfu_read_token_success(self, client, access_token, admin_user):
-        # Test read token (15min expiry, no Redis storage, no jti)
+        # Test read token (48h expiry, no Redis storage, no jti)
         response = client.post(
             "/api/sfu/token",
             json={"token_type": "read"},
@@ -86,7 +100,7 @@ class TestSFUToken:
 
         body = response.json()
         assert body["token_type"] == "bearer"
-        assert body["expires"] == 900  # 15 minutes
+        assert body["expires"] == 48 * 60 * 60  # 48 hours
 
         token = body["token"]
         decoded = jwt.decode(token, oct_key, algorithms=["HS256"])
@@ -97,11 +111,12 @@ class TestSFUToken:
         assert claims["type"] == "sfu:read"
         assert "jti" not in claims  # Read tokens don't include jti
 
-        # JWT exp should be roughly now + 900s (15 minutes)
+        # JWT exp should be roughly now + 48h
         now_ts = int(datetime.now(timezone.utc).timestamp())
         exp_ts = self._to_epoch_seconds(claims["exp"])
-        assert exp_ts - now_ts <= 905
-        assert exp_ts - now_ts >= 895
+        expected_ttl = 48 * 60 * 60
+        assert exp_ts - now_ts <= expected_ttl + 5
+        assert exp_ts - now_ts >= expected_ttl - 5
 
         # Read tokens should NOT be stored in Redis
         # Since we don't have a jti, we can't check Redis, but we verify

@@ -24,27 +24,27 @@ from config import (
     ROMM_AUTH_SECRET_KEY,
     SENTRY_DSN,
 )
-from endpoints import (
-    auth,
-    collections,
-    configs,
-    feeds,
-    firmware,
-    gamelist,
-    heartbeat,
-    netplay,
-    platform,
-    raw,
-    rom,
-    saves,
-    screenshots,
-    search,
-    sfu,
-    states,
-    stats,
-    tasks,
-    user,
-)
+from endpoints.auth import router as auth_router
+from endpoints.client_tokens import router as client_tokens_router
+from endpoints.collections import router as collections_router
+from endpoints.configs import router as configs_router
+from endpoints.device import router as device_router
+from endpoints.feeds import router as feeds_router
+from endpoints.firmware import router as firmware_router
+from endpoints.gamelist import router as gamelist_router
+from endpoints.heartbeat import router as heartbeat_router
+from endpoints.netplay import router as netplay_router
+from endpoints.platform import router as platform_router
+from endpoints.raw import router as raw_router
+from endpoints.roms import router as rom_router
+from endpoints.saves import router as saves_router
+from endpoints.sfu import router as sfu_router
+from endpoints.screenshots import router as screenshots_router
+from endpoints.search import router as search_router
+from endpoints.states import router as states_router
+from endpoints.stats import router as stats_router
+from endpoints.tasks import router as tasks_router
+from endpoints.user import router as user_router
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware.csrf_middleware import CSRFMiddleware
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
@@ -99,6 +99,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         exempt_urls=[
             re.compile(r"^/api/token.*"),
             re.compile(r"^/api/sfu/token.*"),
+            re.compile(r"^/api/sfu/internal/verify"),
             re.compile(r"^/ws"),
             re.compile(r"^/netplay"),
         ],
@@ -128,6 +129,7 @@ app.include_router(client_tokens_router, prefix="/api")
 app.include_router(device_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
 app.include_router(rom_router, prefix="/api")
+app.include_router(sfu_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
 app.include_router(saves_router, prefix="/api")
 app.include_router(states_router, prefix="/api")

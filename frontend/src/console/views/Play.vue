@@ -489,13 +489,6 @@ async function boot() {
           "screenshot.png",
         ],
       ]);
-      const formData = new FormData();
-      formData.append("stateFile", new Blob([stateFile]), "state.save");
-      formData.append(
-        "screenshotFile",
-        new Blob([screenshotFile], { type: "image/png" }),
-        "screenshot.png",
-      );
 
       await api.post("/states", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -675,17 +668,13 @@ async function boot() {
 
     window.EJS_pathtodata = path;
 
-    /*    // EmulatorJS-SFU netplay requires a browser mediasoup-client bundle.
+    // EmulatorJS-SFU netplay requires a browser mediasoup-client bundle.
     // Don't rely on RomM's netplay flag here; if a hybrid-only loader is used, it
     // will fail SFU init unless this is present.
     if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
       try {
-        // Always prefer the locally mounted bundle.
+        // Always prefer the locally mounted bundle (RomM Dockerfile builds it).
         const mediasoupPath = `${LOCAL_PATH}/vendor/mediasoup-client-umd.js`;
-        console.info(
-          "[ConsolePlay] Preloading mediasoup-client:",
-          mediasoupPath,
-        );
         await loadScript(mediasoupPath);
 
         if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
@@ -700,7 +689,7 @@ async function boot() {
           e,
         );
       }
-    }  */
+    }
 
     await loadScript(`${path}/loader.js`);
   }
@@ -770,24 +759,8 @@ async function boot() {
       (window as any).EJS_DEBUG_XX || (window as any).EJS_DEBUG,
     );
     try {
-      const baseUrl = String(window.EJS_netplayUrl || "").replace(/\/+$/, "");
-      if (!baseUrl) return;
-
-      const token = (window as any).EJS_netplayToken;
-      if (typeof token !== "string" || token.length === 0) return;
-
-      const resp = await fetch(`${baseUrl}/ice`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!resp.ok) {
-        throw new Error(`GET /ice failed (${resp.status})`);
-      }
-
-      const data = await resp.json();
+      // Use RomM's /api/sfu/ice (same-origin, session auth) to avoid 401 when SFU is on different origin
+      const { data } = await api.get<{ iceServers?: unknown[]; nodeId?: string; url?: string }>("/sfu/ice");
       const preferred = Array.isArray(data?.iceServers) ? data.iceServers : [];
       const fallback = Array.isArray(EJS_NETPLAY_ICE_SERVERS)
         ? EJS_NETPLAY_ICE_SERVERS

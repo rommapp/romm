@@ -49,6 +49,121 @@ const compatibleStates = computed(
     ) ?? [],
 );
 
+async function ensureSfuToken(tokenType?: "read" | "write") {
+  try {
+    const { data } = await api.post("/sfu/token", {
+      token_type: tokenType ?? "read",
+    });
+    const token = data?.token;
+    if (typeof token !== "string" || token.length === 0) {
+      throw new Error("Missing token in /api/sfu/token response");
+    }
+    (window as any).EJS_netplayToken = token;
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    const maxAge = tokenType === "write" ? 30 : 48 * 60 * 60;
+    document.cookie = `romm_sfu_token=${encodeURIComponent(
+      token,
+    )}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
+    // #region agent log
+    fetch("http://127.0.0.1:7242/ingest/22e800bc-6bc6-4492-ae2b-c74b05fdebc4", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "d4e756",
+      },
+      body: JSON.stringify({
+        sessionId: "d4e756",
+        location: "Base.vue:ensureSfuToken",
+        message: "token minted and set",
+        data: { success: true, tokenType: tokenType ?? "read" },
+        timestamp: Date.now(),
+        hypothesisId: "D",
+      }),
+    }).catch(() => {});
+    // #endregion
+  } catch (err) {
+    console.warn(
+      "[Play] Failed to mint SFU token; authenticated netplay may fail",
+      err,
+    );
+    // #region agent log
+    fetch("http://127.0.0.1:7242/ingest/22e800bc-6bc6-4492-ae2b-c74b05fdebc4", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "d4e756",
+      },
+      body: JSON.stringify({
+        sessionId: "d4e756",
+        location: "Base.vue:ensureSfuToken",
+        message: "token mint failed",
+        data: {
+          success: false,
+          errMsg: err instanceof Error ? err.message : String(err),
+        },
+        timestamp: Date.now(),
+        hypothesisId: "D",
+      }),
+    }).catch(() => {});
+    // #endregion
+  }
+}
+
+async function tryFetchPreferredIceServers() {
+  const debugEnabled = Boolean(
+    (window as any).EJS_DEBUG_XX || (window as any).EJS_DEBUG,
+  );
+  try {
+    // Use RomM's /api/sfu/ice (same-origin, session auth) to avoid 401 when SFU is on different origin
+    const { data } = await api.get<{ iceServers?: unknown[] }>("/sfu/ice");
+    const preferred = Array.isArray(data?.iceServers) ? data.iceServers : [];
+    const fallback = Array.isArray(configStore.config.EJS_NETPLAY_ICE_SERVERS)
+      ? configStore.config.EJS_NETPLAY_ICE_SERVERS
+      : [];
+    const merge = (a: any[], b: any[]) => {
+      const out: any[] = [];
+      const seen = new Set<string>();
+      for (const list of [a, b]) {
+        for (const s of Array.isArray(list) ? list : []) {
+          const urls =
+            typeof s?.urls === "string"
+              ? [s.urls]
+              : Array.isArray(s?.urls)
+                ? s.urls.filter((u: any) => typeof u === "string")
+                : [];
+          if (urls.length === 0) continue;
+          const key = JSON.stringify({
+            urls: urls.sort(),
+            username: s?.username ?? "",
+            credential: s?.credential ?? "",
+          });
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push(s);
+        }
+      }
+      return out;
+    };
+    const merged = merge(preferred, fallback);
+    if (merged.length > 0) {
+      (window as any).EJS_netplayICEServers = merged;
+      if (debugEnabled)
+        console.info("[Play] ICE servers merged", merged.length);
+    }
+  } catch (err) {
+    if (debugEnabled) {
+      console.warn(
+        "[Play] Failed to fetch SFU /ice; using config ICE servers",
+        err,
+      );
+    }
+  }
+}
+
+function handleSfuAuthError(_tokenType?: string) {
+  ensureSfuToken().catch(() => {});
+}
+
 async function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {
     romApi.updateUserRomProps({
@@ -61,7 +176,7 @@ async function onPlay() {
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   // make SFU auth error handling available globally to EmulatorJS-SFU
-  window.handleSfuAuthError = handleSfuAuthError;
+  (window as any).handleSfuAuthError = handleSfuAuthError;
   fullScreen.value = fullScreenOnPlay.value;
   playing.value = true;
 
@@ -108,8 +223,10 @@ async function onPlay() {
 
   try {
     if (EJS_NETPLAY_ENABLED) {
+      // Set netplay URL before token/ICE fetch (Player may not have mounted yet)
+      (window as any).EJS_netplayUrl = window.location.origin;
+      (window as any).EJS_netplayServer = window.location.origin;
       // Fetch read token on-demand (will be fetched when SFU returns 401)
-      // No periodic refresh - tokens are fetched only when needed
       await ensureSfuToken("read").catch(() => {
         // Silently fail - token will be fetched on-demand when SFU requires it
       });
@@ -117,6 +234,18 @@ async function onPlay() {
       await tryFetchPreferredIceServers();
     }
     if (EJS_NETPLAY_ENABLED) {
+      // Preload mediasoup-client before loader.js; SFUTransport expects window.mediasoupClient
+      if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
+        try {
+          await loadScript(`${LOCAL_PATH}/vendor/mediasoup-client-umd.js`);
+          normalizeMediasoupClientGlobal();
+        } catch (e) {
+          console.warn(
+            "[Play] mediasoup-client bundle missing; SFU netplay may fail",
+            e,
+          );
+        }
+      }
       // Netplay depends on our locally mounted EmulatorJS + SFU proxies.
       // **************  TODO:  Review this code later  *******************
       // We can review removing this code later as romm now downloads the appropriate EmulatorJS-SFU bundle

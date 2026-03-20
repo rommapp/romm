@@ -40,16 +40,36 @@ server {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $forwardscheme;
 
-    # Emulator SFU helper endpoints
-    # Use regex locations + proxy_pass without URI so the original URI is preserved.
-    # These must come BEFORE the default location block.
-    location ~ ^/(?:list|ice|create)$ {
+    # ICE servers: proxy to RomM backend (session auth) so emulator fetch works same-origin
+    location = /ice {
+        proxy_pass http://wsgi_server/api/sfu/ice;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwardscheme;
+        proxy_set_header Cookie $http_cookie;
+    }
+
+    # Emulator SFU helper endpoints (list, create - ice handled above)
+    location ~ ^/(?:list|create)$ {
         proxy_pass http://romm_sfu;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwardscheme;
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header Authorization $http_authorization;
     }
 
     # Room management endpoints (join, leave)
     location ~ ^/(?:join|leave)/ {
         proxy_pass http://romm_sfu;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwardscheme;
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header Authorization $http_authorization;
     }
 
     # Emulator resolution of web socket to connect to mediasoup
@@ -58,6 +78,12 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwardscheme;
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header Authorization $http_authorization;
         add_header Cache-Control "public, max-age=31536000";
     }
 
@@ -67,6 +93,12 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $forwardscheme;
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header Authorization $http_authorization;
     }
 
     location / {

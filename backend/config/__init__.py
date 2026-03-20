@@ -157,6 +157,12 @@ DISABLE_SETUP_WIZARD: Final[bool] = safe_str_to_bool(_get_env("DISABLE_SETUP_WIZ
 INVITE_TOKEN_EXPIRY_SECONDS: Final[int] = safe_int(
     _get_env("INVITE_TOKEN_EXPIRY_SECONDS"), 10 * 60
 )
+OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS: Final[int] = safe_int(
+    _get_env("OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS"), 15 * 60
+)  # 15 minutes
+OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS: Final[int] = safe_int(
+    _get_env("OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS"), 7 * 24 * 60 * 60
+)  # 7 days
 
 # OIDC
 OIDC_ENABLED: Final[bool] = safe_str_to_bool(_get_env("OIDC_ENABLED"))

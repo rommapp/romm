@@ -9,6 +9,7 @@ from joserfc import jwt
 from joserfc.errors import BadSignatureError, DecodeError
 
 from config import ROMM_AUTH_SECRET_KEY, ROMM_SFU_INTERNAL_SECRET
+from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.base import BaseModel
 from endpoints.responses.sfu import SFUTokenResponse
@@ -21,7 +22,7 @@ from utils.router import APIRouter
 
 # Declarations to configure JWT tokens for SFU authentication.
 SFU_TOKEN_TTL_SECONDS: Final[int] = 30  # Write token TTL (deprecated, use SFU_WRITE_TOKEN_TTL_SECONDS)
-SFU_READ_TOKEN_TTL_SECONDS: Final[int] = 900  # 15 minutes for read tokens
+SFU_READ_TOKEN_TTL_SECONDS: Final[int] = 48 * 60 * 60  # 48 hours for read tokens
 SFU_WRITE_TOKEN_TTL_SECONDS: Final[int] = 30  # 30 seconds for write tokens
 SFU_TOKEN_ISSUER: Final[str] = "romm:sfu"
 SFU_JTI_REDIS_KEY_PREFIX: Final[str] = "sfu:auth:jti:"
@@ -311,6 +312,15 @@ def _get_netplay_username_from_ui_settings(ui_settings: dict | None) -> str | No
 
     return None
 
+# ICE servers for WebRTC (same-origin, uses RomM config; avoids 401 when SFU is on different origin)
+@protected_route(router.get, "/sfu/ice", [Scope.ME_READ])
+def get_sfu_ice_servers(request: Request) -> dict[str, list]:
+    """Return configured ICE servers for netplay WebRTC connections."""
+    cfg = cm.get_config()
+    servers = list(cfg.EJS_NETPLAY_ICE_SERVERS) if cfg.EJS_NETPLAY_ICE_SERVERS else []
+    return {"iceServers": servers}
+
+
 # Endpoint to mint SFU authentication tokens.
 @protected_route(router.post, "/sfu/token", [Scope.ME_READ])
 def mint_sfu_token(
@@ -321,7 +331,7 @@ def mint_sfu_token(
     
     Args:
         request: FastAPI request object
-        token_type: "read" for room listings (15min), "write" for creating/joining rooms (30s)
+        token_type: "read" for room listings (48h), "write" for creating/joining rooms (30s)
     
     Returns:
         SFUTokenResponse with token, token_type, and expires
@@ -367,7 +377,7 @@ def mint_sfu_token(
     if token_type == "write":
         token_data["jti"] = jti
 
-    token = oauth_handler.create_oauth_token(
+    token = oauth_handler._create_oauth_token(
         data=token_data,
         expires_delta=expires_delta,
     )

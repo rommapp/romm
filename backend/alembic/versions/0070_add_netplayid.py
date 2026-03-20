@@ -1,7 +1,7 @@
 """add netplayid to users table
 
 Revision ID: 0070_add_netplayid
-Revises: 0069_sibling_roms_fs_name
+Revises: 0070_ss_age_ratings
 Create Date: 2026-01-18 00:00:00.000000
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0070_add_netplayid"
-down_revision = "0069_sibling_roms_fs_name"
+down_revision = "0070_ss_age_ratings"
 branch_labels = None
 depends_on = None
 
