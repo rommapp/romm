@@ -10,7 +10,7 @@ withDefaults(defineProps<{ text: string; icon: string }>(), {
 });
 </script>
 <template>
-  <v-item v-slot="{ isSelected, toggle }">
+  <v-item v-slot="{ isSelected, toggle }" :value="text">
     <v-card
       :color="isSelected ? 'primary' : 'romm-gray'"
       class="d-flex align-center"
