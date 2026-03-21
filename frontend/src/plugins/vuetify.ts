@@ -3,8 +3,7 @@ import { useLocalStorage } from "@vueuse/core";
 import { createVuetify } from "vuetify";
 import { VDateInput } from "vuetify/labs/VDateInput";
 import "vuetify/styles";
-import { themes, dark, light, autoThemeKey } from "@/styles/themes";
-import { isKeyof } from "@/types";
+import { dark, light } from "@/styles/themes";
 
 const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
 mediaMatch.addEventListener("change", (event) => {
@@ -12,13 +11,10 @@ mediaMatch.addEventListener("change", (event) => {
 });
 
 function getTheme() {
-  const storedTheme = useLocalStorage("settings.theme", autoThemeKey);
+  const storedTheme = useLocalStorage("settings.theme", "auto");
 
-  if (
-    storedTheme.value !== autoThemeKey &&
-    isKeyof(storedTheme.value, themes)
-  ) {
-    return themes[storedTheme.value];
+  if (storedTheme.value === "dark" || storedTheme.value === "light") {
+    return storedTheme.value;
   }
 
   return mediaMatch.matches ? "dark" : "light";
