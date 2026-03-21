@@ -249,7 +249,12 @@ onMounted(async () => {
       )
     : undefined;
 
-  selectedFirmware.value = biosFromStorage ?? biosFromConfig ?? null;
+  // Auto-select firmware if only one option is available
+  const biosFromSingleOption =
+    firmwareOptions.value.length === 1 ? firmwareOptions.value[0] : undefined;
+
+  selectedFirmware.value =
+    biosFromStorage ?? biosFromConfig ?? biosFromSingleOption ?? null;
 });
 
 onBeforeUnmount(async () => {
