@@ -636,14 +636,16 @@ async function boot() {
   // Allow route transition animation to settle
   await new Promise((r) => setTimeout(r, 50));
 
-  const EMULATORJS_VERSION = EJS_NETPLAY_ENABLED ? "nightly" : "4.2.3";
-  const LOCAL_PATH = "/assets/emulatorjs-sfu/data";
-  const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
-  // const CDN_PATH = `https://github.com/TechnicallyComputers/EmulatorJS-SFU/data`; // temporarily rewrite CDN path to EmulatorJS-SFU repo, latest version only.
+  // SFU_NETPLAY_ENABLED=false: OG EmulatorJS from cdn.emulatorjs.org
+  // SFU_NETPLAY_ENABLED=true: EmulatorJS-SFU from jsDelivr (TechnicallyComputers/EmulatorJS-SFU)
+  const OG_EMULATORJS_CDN = "https://cdn.emulatorjs.org/4.2.3/data";
+  const EJS_SFU_CDN =
+    "https://cdn.jsdelivr.net/gh/TechnicallyComputers/EmulatorJS-SFU@main/data";
 
   // Hard-pin the CDN cores folder used by EmulatorJS core fallback downloads.
-  // This is intentionally independent from the SFU fork's internal version.
-  (window as any).EJS_CDN_CORES_VERSION = "nightly";
+  (window as any).EJS_CDN_CORES_VERSION = EJS_NETPLAY_ENABLED
+    ? "nightly"
+    : "4.2.3";
 
   function loadScript(src: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -656,41 +658,23 @@ async function boot() {
     });
   }
 
-  async function attemptLoad(label: "configured" | "default-local" | "cdn") {
-    const path =
-      label === "configured"
-        ? CONFIGURED_LOCAL_PATH
-        : label === "default-local"
-          ? DEFAULT_LOCAL_PATH
-          : CDN_PATH;
-
-    loaderStatus.value = label === "cdn" ? "loading-cdn" : "loading-local";
-
-    window.EJS_pathtodata = path;
-
-    // EmulatorJS-SFU netplay requires a browser mediasoup-client bundle.
-    // Don't rely on RomM's netplay flag here; if a hybrid-only loader is used, it
-    // will fail SFU init unless this is present.
-    if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
-      try {
-        // Always prefer the locally mounted bundle (RomM Dockerfile builds it).
-        const mediasoupPath = `${LOCAL_PATH}/vendor/mediasoup-client-umd.js`;
-        await loadScript(mediasoupPath);
-
-        if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
-          console.warn(
-            "[ConsolePlay] mediasoup-client script loaded but global not found; SFU netplay may fail",
-          );
-        }
-      } catch (e) {
-        // Keep this as a warning (not fatal) so non-netplay sessions still work.
-        console.warn(
-          "[ConsolePlay] mediasoup-client bundle missing; SFU netplay may fail",
-          e,
-        );
-      }
+  function normalizeMediasoupClientGlobal() {
+    const w = window as any;
+    const mc = w.mediasoupClient || w.mediasoup || null;
+    if (!mc) return;
+    if (!mc.Device && mc.default && mc.default.Device) {
+      w.mediasoupClient = mc.default;
+      return;
     }
+    if (!w.mediasoupClient && mc.Device) {
+      w.mediasoupClient = mc;
+    }
+  }
 
+  async function attemptLoad(path: string) {
+    loaderStatus.value =
+      path === OG_EMULATORJS_CDN ? "loading-cdn" : "loading-local";
+    window.EJS_pathtodata = path;
     await loadScript(`${path}/loader.js`);
   }
 
@@ -804,15 +788,33 @@ async function boot() {
     }
 
     if (EJS_NETPLAY_ENABLED) {
-      // Netplay depends on our locally mounted EmulatorJS + SFU proxies.
-      await attemptLoad("local");
-    } else {
-      try {
-        await attemptLoad("local");
-      } catch (e) {
-        console.warn("[Play] Local loader failed, trying CDN", e);
-        await attemptLoad("cdn");
+      // SFU netplay: EmulatorJS-SFU from jsDelivr; mediasoup from CDN or RomM bundle
+      if (!((window as any).mediasoupClient || (window as any).mediasoup)) {
+        const mediasoupPaths = [
+          `${EJS_SFU_CDN}/vendor/mediasoup-client-umd.js`,
+          "/assets/emulatorjs-sfu/data/vendor/mediasoup-client-umd.js",
+        ];
+        let loaded = false;
+        for (const p of mediasoupPaths) {
+          try {
+            await loadScript(p);
+            normalizeMediasoupClientGlobal();
+            loaded = true;
+            break;
+          } catch {
+            // Try next path
+          }
+        }
+        if (!loaded) {
+          console.warn(
+            "[ConsolePlay] mediasoup-client bundle missing; SFU netplay may fail",
+          );
+        }
       }
+      await attemptLoad(EJS_SFU_CDN);
+    } else {
+      // No SFU: OG EmulatorJS from cdn.emulatorjs.org
+      await attemptLoad(OG_EMULATORJS_CDN);
     }
     // Wait for emulator bootstrap
     const startDeadline = Date.now() + 8000; // 8s

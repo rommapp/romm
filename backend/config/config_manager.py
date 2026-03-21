@@ -27,6 +27,7 @@ from exceptions.config_exceptions import ConfigNotWritableException
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.database import safe_str_to_bool
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
@@ -289,9 +290,7 @@ class ConfigManager:
             EJS_DATA_PATH=pydash.get(
                 self._raw_config, "emulatorjs.data_path", "/assets/emulatorjs/data"
             ),
-            EJS_NETPLAY_ENABLED=pydash.get(
-                self._raw_config, "emulatorjs.netplay.enabled", False
-            ),
+            EJS_NETPLAY_ENABLED=self._resolve_netplay_enabled(),
             EJS_NETPLAY_ICE_SERVERS=pydash.get(
                 self._raw_config, "emulatorjs.netplay.ice_servers", []
             ),
@@ -365,6 +364,22 @@ class ConfigManager:
             )
 
         return controls
+
+    def _resolve_netplay_enabled(self) -> bool:
+        """Resolve SFU netplay enabled from config, with env override.
+
+        SFU_NETPLAY_ENABLED (preferred) or EJS_NETPLAY_ENABLED (backwards compat)
+        override config.yml emulatorjs.netplay.enabled when set.
+        """
+        base = pydash.get(
+            self._raw_config, "emulatorjs.netplay.enabled", False
+        )
+        env_val = os.environ.get("SFU_NETPLAY_ENABLED") or os.environ.get(
+            "EJS_NETPLAY_ENABLED"
+        )
+        if env_val is not None:
+            return safe_str_to_bool(env_val)
+        return bool(base)
 
     def _format_ejs_controls_for_yaml(
         self,

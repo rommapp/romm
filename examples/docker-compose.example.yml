@@ -20,6 +20,7 @@ services:
       # If hosting SFU elsewhere, change this to that host.
       - SFU_HOST=romm-sfu
       - SFU_PORT=3001 # mediasoup SFU port for netplay
+      - SFU_NETPLAY_ENABLED=true # Load EmulatorJS-SFU from jsDelivr; false = OG EmulatorJS from cdn.emulatorjs.org
       - DB_HOST=romm-db
       - DB_NAME=romm # Should match MARIADB_DATABASE in mariadb
       - DB_USER=romm-user # Should match MARIADB_USER in mariadb

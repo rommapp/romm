@@ -165,11 +165,19 @@ start_bin_valkey-server() {
 	set +o errexit
 
 	while ((retry < max_retries)); do
-		# Attempt to check if valkey TCP port is open
+		# First check if TCP port is open, then verify Valkey accepts Redis protocol (PING)
 		if (echo >/dev/tcp/"${host}"/"${port}") 2>/dev/null; then
-			debug_log "Internal valkey is ready and accepting connections"
-			set -o errexit # Re-enable errexit after success
-			return 0
+			local ping_result
+			if [[ -n ${REDIS_PASSWORD:-} ]]; then
+				ping_result=$(redis-cli -h "${host}" -p "${port}" -a "${REDIS_PASSWORD}" ping 2>/dev/null || true)
+			else
+				ping_result=$(redis-cli -h "${host}" -p "${port}" ping 2>/dev/null || true)
+			fi
+			if [[ "${ping_result}" == "PONG" ]]; then
+				debug_log "Internal valkey is ready and accepting connections"
+				set -o errexit # Re-enable errexit after success
+				return 0
+			fi
 		fi
 
 		sleep 0.5
@@ -301,6 +309,8 @@ fi
 # Start Valkey server if REDIS_HOST is not set (which would mean user is using an external Redis/Valkey)
 if [[ -z ${REDIS_HOST} ]]; then
 	watchdog_process_pid valkey-server
+	# Export REDIS_HOST so Python startup and workers reliably connect to internal Valkey
+	export REDIS_HOST=127.0.0.1
 else
 	info_log "REDIS_HOST is set, not starting internal valkey-server"
 fi
