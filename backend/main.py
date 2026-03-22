@@ -142,6 +142,7 @@ app.include_router(firmware_router, prefix="/api")
 app.include_router(collections_router, prefix="/api")
 app.include_router(gamelist_router, prefix="/api")
 app.include_router(netplay_router, prefix="/api")
+app.include_router(streaming_router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 app.mount("/netplay", netplay_socket_handler.socket_app)
