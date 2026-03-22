@@ -25,11 +25,13 @@ import UploadProgress from "@/components/common/Notifications/UploadProgress.vue
 import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
+import useStreamingStore from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
+const streamingStore = useStreamingStore();
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
@@ -62,6 +64,7 @@ onBeforeMount(async () => {
   if (showVirtualCollections) {
     collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value);
   }
+  streamingStore.fetchConfig();
 
   navigationStore.reset();
 });
