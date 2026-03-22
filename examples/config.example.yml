@@ -164,3 +164,29 @@
 #       1: # Player 2
 #       2: # Player 3
 #       3: # Player 4
+# streaming:
+#   enabled: true
+#
+#   containers:
+#     - platform: ps2
+#       # Browser-facing Selkies web UI
+#       host: http://192.168.1.51:3000
+#
+#       # server-to-broker URL
+#       # If pcsx2 emulator is on a different host, use its LAN IP.
+#       # If on the same Docker network, use the container name: http://pcsx2:8000
+#       broker_host: http://192.168.1.51:8000
+#
+#       # Must match BROKER_SECRET env var on the PCSX2 container
+#       # Optional shared secret. Set BROKER_SECRET to the same value in the PCSX2 container's environment.
+#       # Prevents unauthorized ROM launches if the broker port is exposed.
+#       # broker_secret: "change_me_to_a_random_string"
+#
+#       label: PCSX2
+#
+#     # Add more emulator containers here as needed:
+#     # - platform: psx
+#     #   host: http://192.168.1.51:3002
+#     #   broker_host: http://192.168.1.51:8001
+#     #   broker_secret: "another_secret"
+#     #   label: DuckStation
