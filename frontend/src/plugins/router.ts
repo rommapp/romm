@@ -27,6 +27,7 @@ export const ROUTES = {
   ROM: "rom",
   EMULATORJS: "emulatorjs",
   RUFFLE: "ruffle",
+  STREAM: "stream",
   SCAN: "scan",
   PATCHER: "patcher",
   USER_PROFILE: "user-profile",
@@ -188,6 +189,11 @@ const routes = [
         path: "april-fools",
         name: ROUTES.APRIL_FOOLS,
         component: () => import("@/views/Player/AprilFools.vue"),
+      },
+      {
+        path: "rom/:rom/stream",
+        name: ROUTES.STREAM,
+        component: () => import("@/views/Player/Stream/Player.vue"),
       },
       {
         path: "scan",
