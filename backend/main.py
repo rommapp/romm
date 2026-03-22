@@ -42,6 +42,7 @@ from endpoints.screenshots import router as screenshots_router
 from endpoints.search import router as search_router
 from endpoints.states import router as states_router
 from endpoints.stats import router as stats_router
+from endpoints.streaming import router as streaming_router
 from endpoints.tasks import router as tasks_router
 from endpoints.user import router as user_router
 from handler.auth.hybrid_auth import HybridAuthBackend
