@@ -48,6 +48,42 @@ async def auth_middleware(
     return await handler(req)
 
 
+class IGDBRateLimiter:
+    """Token bucket rate limiter for IGDB API (4 requests/second)."""
+
+    def __init__(self, rate: float = 4.0) -> None:
+        self._rate = rate
+        self._lock = asyncio.Lock()
+        self._tokens = rate
+        self._last_refill = asyncio.get_event_loop().time()
+
+    async def acquire(self) -> None:
+        async with self._lock:
+            now = asyncio.get_event_loop().time()
+            elapsed = now - self._last_refill
+            self._tokens = min(self._rate, self._tokens + elapsed * self._rate)
+            self._last_refill = now
+
+            if self._tokens < 1.0:
+                wait_time = (1.0 - self._tokens) / self._rate
+                await asyncio.sleep(wait_time)
+                self._tokens = 0.0
+                self._last_refill = asyncio.get_event_loop().time()
+            else:
+                self._tokens -= 1.0
+
+
+# Shared rate limiter instance across all IGDBService instances
+_igdb_rate_limiter = None
+
+
+def _get_rate_limiter() -> IGDBRateLimiter:
+    global _igdb_rate_limiter
+    if _igdb_rate_limiter is None:
+        _igdb_rate_limiter = IGDBRateLimiter()
+    return _igdb_rate_limiter
+
+
 class IGDBService:
     """Service to interact with the IGDB API.
 
@@ -92,6 +128,9 @@ class IGDBService:
             request_timeout,
         )
 
+        # Rate limit to avoid 429 responses (IGDB allows 4 req/s)
+        await _get_rate_limiter().acquire()
+
         try:
             res = await aiohttp_session.post(
                 url,
@@ -133,7 +172,8 @@ class IGDBService:
             log.error("Error decoding JSON response from IGDB: %s", exc)
             return []
 
-        # Retry the request once if it times out
+        # Retry the request once
+        await _get_rate_limiter().acquire()
         try:
             log.debug(
                 "API request: URL=%s, Content=%s, Timeout=%s",
