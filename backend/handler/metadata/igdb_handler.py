@@ -430,6 +430,13 @@ class IGDBHandler(MetadataHandler):
     def __init__(self) -> None:
         self.igdb_service = IGDBService(twitch_auth=TwitchAuth())
         self.pagination_limit = 200
+        # Per-scan cache: (search_term, platform_igdb_id) -> Game | None
+        # Avoids duplicate API calls for ROMs that normalize to the same search term
+        self._search_cache: dict[tuple[str, int], Game | None] = {}
+
+    def clear_search_cache(self) -> None:
+        """Clear the per-scan search cache. Call at the start of each scan."""
+        self._search_cache.clear()
 
     @classmethod
     def is_enabled(cls) -> bool:
@@ -561,10 +568,6 @@ class IGDBHandler(MetadataHandler):
             return extra_games_by_name[best_match]
 
         return None
-
-    # Per-scan cache: (search_term, platform_igdb_id) -> Game | None
-    # Avoids duplicate API calls for ROMs that normalize to the same search term
-    _search_cache: dict[tuple[str, int], Game | None] = {}
 
     async def _search_rom(self, search_term: str, platform_igdb_id: int) -> Game | None:
         """Search IGDB for a ROM, trying progressively broader queries.

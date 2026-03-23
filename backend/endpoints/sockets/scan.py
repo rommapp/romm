@@ -30,7 +30,7 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.metadata import meta_gamelist_handler
+from handler.metadata import meta_gamelist_handler, meta_igdb_handler
 from handler.metadata.ss_handler import get_preferred_media_types
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
@@ -67,6 +67,7 @@ class ScanStats:
     identified_roms: int = 0
     scanned_firmware: int = 0
     new_firmware: int = 0
+    scan_phase: str = ""
 
     def __post_init__(self):
         # Lock for thread-safe updates
@@ -103,6 +104,7 @@ class ScanStats:
             "identified_roms": self.identified_roms,
             "scanned_firmware": self.scanned_firmware,
             "new_firmware": self.new_firmware,
+            "scan_phase": self.scan_phase,
         }
 
 
@@ -557,7 +559,10 @@ async def _identify_platform(
         log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
     # Phase 1: Discovery — create DB entries, hash files, no metadata API calls
-    log.info("Phase 1: Discovering ROMs...")
+    log.info(
+        f"{hl('Phase 1', color=BLUE)}: Discovering {hl(str(len(fs_roms)))} ROMs for {hl(platform.custom_name or platform.name, color=BLUE)}"
+    )
+    await scan_stats.update(socket_manager=socket_manager, scan_phase="discovering")
     discover_semaphore = asyncio.Semaphore(SCAN_WORKERS)
     roms_to_enrich: list[tuple[Rom, FSRom, bool]] = []
 
@@ -596,11 +601,16 @@ async def _identify_platform(
             elif isinstance(result, tuple):
                 roms_to_enrich.append(result)
 
-    log.info(f"Phase 1 complete: {len(roms_to_enrich)} ROMs to enrich with metadata")
+    log.info(
+        f"{hl('Phase 1 complete', color=BLUE)}: {hl(str(len(roms_to_enrich)))} ROMs to enrich with metadata"
+    )
 
     # Phase 2: Enrichment — fetch metadata from external sources, download assets
     if roms_to_enrich:
-        log.info("Phase 2: Fetching metadata...")
+        log.info(
+            f"{hl('Phase 2', color=BLUE)}: Fetching metadata for {hl(str(len(roms_to_enrich)))} ROMs..."
+        )
+        await scan_stats.update(socket_manager=socket_manager, scan_phase="enriching")
         enrich_semaphore = asyncio.Semaphore(SCAN_WORKERS)
 
         async def enrich_with_semaphore(
@@ -681,8 +691,9 @@ async def scan_platforms(
         await socket_manager.emit("scan:done_ko", e.message)
         return scan_stats
 
-    # Clear the gamelist cache  to ensure we're using fresh gamelist.xml data
+    # Clear caches to ensure fresh data for this scan
     meta_gamelist_handler.clear_cache()
+    meta_igdb_handler.clear_search_cache()
 
     # Precalculate total platforms and ROMs
     total_roms = 0
