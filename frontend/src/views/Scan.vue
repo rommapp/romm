@@ -607,6 +607,26 @@ async function stopScan() {
         class="px-2 py-5 bg-background"
       >
         <v-chip
+          v-if="scanStats.scan_phase"
+          :color="scanStats.scan_phase === 'discovering' ? 'warning' : 'info'"
+          size="small"
+          text-color="white"
+          class="mr-1 my-1"
+        >
+          <v-icon left>
+            {{
+              scanStats.scan_phase === "discovering"
+                ? "mdi-folder-search"
+                : "mdi-cloud-download"
+            }}
+          </v-icon>
+          <span class="ml-2">{{
+            scanStats.scan_phase === "discovering"
+              ? t("scan.phase-discovering")
+              : t("scan.phase-enriching")
+          }}</span>
+        </v-chip>
+        <v-chip
           color="primary"
           text-color="white"
           size="small"

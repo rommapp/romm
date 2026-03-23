@@ -16,18 +16,23 @@ export interface ScanningPlatform extends Pick<
   roms: SimpleRom[];
 }
 
+// Extend generated ScanStats with scan_phase from the two-phase scan pipeline
+export type ScanStatsWithPhase = ScanStats & {
+  scan_phase?: string;
+};
+
 export default defineStore("scanning", {
   state: () => ({
     scanning: false,
     scanningPlatforms: [] as ScanningPlatform[],
-    scanStats: {} as ScanStats,
+    scanStats: {} as ScanStatsWithPhase,
   }),
 
   actions: {
     setScanning(scanning: boolean) {
       this.scanning = scanning;
     },
-    setScanStats(stats: ScanStats) {
+    setScanStats(stats: ScanStatsWithPhase) {
       this.scanStats = stats;
     },
     reset() {
@@ -44,6 +49,7 @@ export default defineStore("scanning", {
         identified_roms: 0,
         scanned_firmware: 0,
         new_firmware: 0,
+        scan_phase: "",
       };
     },
   },

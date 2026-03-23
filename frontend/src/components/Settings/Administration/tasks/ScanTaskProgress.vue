@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { ScanStats, ScanTaskStatusResponse } from "@/__generated__";
+import type { ScanTaskStatusResponse } from "@/__generated__";
+import type { ScanStatsWithPhase } from "@/stores/scanning";
 
 const props = defineProps<{
   task: ScanTaskStatusResponse;
-  scanStats: ScanStats;
+  scanStats: ScanStatsWithPhase;
 }>();
 
 const scanProgress = computed(() => {
@@ -17,6 +18,7 @@ const scanProgress = computed(() => {
     identified_roms,
     scanned_firmware,
     new_firmware,
+    scan_phase,
   } = props.scanStats;
 
   return {
@@ -30,6 +32,7 @@ const scanProgress = computed(() => {
     metadataRoms: identified_roms,
     scannedFirmware: scanned_firmware,
     newFirmware: new_firmware,
+    phase: scan_phase || "",
   };
 });
 </script>
@@ -44,6 +47,28 @@ const scanProgress = computed(() => {
         class="progress-bar-fill h-100 rounded"
         :style="{ width: `${scanProgress.platformsPercentage}%` }"
       />
+    </div>
+
+    <div v-if="scanProgress.phase" class="d-flex align-center ga-2 mb-1">
+      <v-chip
+        :color="scanProgress.phase === 'discovering' ? 'warning' : 'info'"
+        size="small"
+        label
+      >
+        <v-icon
+          start
+          :icon="
+            scanProgress.phase === 'discovering'
+              ? 'mdi-folder-search'
+              : 'mdi-cloud-download'
+          "
+        />
+        {{
+          scanProgress.phase === "discovering"
+            ? "Discovering ROMs"
+            : "Fetching metadata"
+        }}
+      </v-chip>
     </div>
 
     <div class="grid grid-cols-5 gap-4">
