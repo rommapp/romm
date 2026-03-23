@@ -1,14 +1,16 @@
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 import socketio
 
 from config import LIBRARY_BASE_PATH
-from endpoints.sockets.scan import ScanStats, _should_scan_rom
-from handler.filesystem.roms_handler import FSRomsHandler
+from endpoints.sockets.scan import ScanStats, _discover_rom, _should_scan_rom
+from handler.database import db_rom_handler
+from handler.filesystem.roms_handler import FSRom, FSRomsHandler
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import ScanType
+from models.platform import Platform
 from models.rom import Rom
 
 
@@ -311,3 +313,77 @@ class TestGetPico8CoverUrl:
         assert url is not None
         assert fs_path in url
         assert fs_name in url
+
+
+class TestDiscoverRomHashesScanType:
+    """Regression test: HASHES scan must persist ROM-level hash fields."""
+
+    async def test_hashes_scan_persists_rom_hash_fields(
+        self, rom: Rom, platform: Platform
+    ):
+        """_discover_rom with ScanType.HASHES should update the ROM record
+        with crc_hash, md5_hash, sha1_hash, ra_hash, and fs_size_bytes."""
+        mock_socket = AsyncMock(spec=socketio.AsyncRedisManager)
+        scan_stats = ScanStats()
+
+        # Create a mock parsed file with known hashes
+        mock_file = Mock()
+        mock_file.file_name = "test.rom"
+        mock_file.file_path = "test/roms/test.rom"
+        mock_file.file_size_bytes = 12345
+        mock_file.last_modified = 0.0
+        mock_file.category = "game"
+        mock_file.crc_hash = "AABB1122"
+        mock_file.md5_hash = "md5hash123"
+        mock_file.sha1_hash = "sha1hash456"
+        mock_file.ra_hash = "rahash789"
+
+        mock_parsed_files = Mock()
+        mock_parsed_files.rom_files = [mock_file]
+        mock_parsed_files.crc_hash = "AABB1122"
+        mock_parsed_files.md5_hash = "md5hash123"
+        mock_parsed_files.sha1_hash = "sha1hash456"
+        mock_parsed_files.ra_hash = "rahash789"
+
+        fs_rom: FSRom = {
+            "fs_name": rom.fs_name,
+            "flat": False,
+            "nested": False,
+            "files": [],
+            "crc_hash": "",
+            "md5_hash": "",
+            "sha1_hash": "",
+            "ra_hash": "",
+        }
+
+        with (
+            patch(
+                "endpoints.sockets.scan.fs_rom_handler.get_rom_files",
+                new_callable=AsyncMock,
+                return_value=mock_parsed_files,
+            ),
+            patch("endpoints.sockets.scan.cm.get_config") as mock_config,
+        ):
+            mock_config.return_value.SKIP_HASH_CALCULATION = False
+
+            result = await _discover_rom(
+                platform=platform,
+                fs_rom=fs_rom,
+                rom=rom,
+                scan_type=ScanType.HASHES,
+                roms_ids=[],
+                metadata_sources=["igdb"],
+                socket_manager=mock_socket,
+                scan_stats=scan_stats,
+            )
+
+            # HASHES scan should return None (no enrichment needed)
+            assert result is None
+
+            # But the ROM record should have been updated with hashes
+            updated_rom = db_rom_handler.get_rom(rom.id)
+            assert updated_rom.crc_hash == "AABB1122"
+            assert updated_rom.md5_hash == "md5hash123"
+            assert updated_rom.sha1_hash == "sha1hash456"
+            assert updated_rom.ra_hash == "rahash789"
+            assert updated_rom.fs_size_bytes == 12345

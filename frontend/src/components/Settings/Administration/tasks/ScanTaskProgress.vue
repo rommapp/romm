@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { ScanTaskStatusResponse } from "@/__generated__";
 import type { ScanStatsWithPhase } from "@/stores/scanning";
+
+const { t } = useI18n();
 
 const props = defineProps<{
   task: ScanTaskStatusResponse;
@@ -65,8 +68,8 @@ const scanProgress = computed(() => {
         />
         {{
           scanProgress.phase === "discovering"
-            ? "Discovering ROMs"
-            : "Fetching metadata"
+            ? t("scan.phase-discovering")
+            : t("scan.phase-enriching")
         }}
       </v-chip>
     </div>

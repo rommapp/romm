@@ -333,6 +333,19 @@ async def _discover_rom(
 
     # Short circuit if the scan type is hashes only
     if scan_type == ScanType.HASHES:
+        # Persist ROM-level hash fields that scan_rom() would normally set
+        if should_update_files and len(fs_rom["files"]) > 0:
+            filesize = sum(file.file_size_bytes for file in fs_rom["files"])
+            db_rom_handler.update_rom(
+                rom.id,
+                {
+                    "crc_hash": fs_rom["crc_hash"],
+                    "md5_hash": fs_rom["md5_hash"],
+                    "sha1_hash": fs_rom["sha1_hash"],
+                    "ra_hash": fs_rom["ra_hash"],
+                    "fs_size_bytes": filesize,
+                },
+            )
         return None
 
     return (rom, fs_rom, newly_added)

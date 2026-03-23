@@ -579,13 +579,12 @@ class IGDBHandler(MetadataHandler):
         if not platform_igdb_id:
             return None
 
-        # Check dedup cache: avoid duplicate API calls for same search term
+        # Check dedup cache: only positive matches are cached to avoid
+        # memoizing transient API failures as "no match"
         cache_key = (search_term, platform_igdb_id)
         if cache_key in self._search_cache:
-            cached = self._search_cache[cache_key]
-            if cached is not None:
-                log.debug(f"Search cache hit for '{search_term}'")
-            return cached
+            log.debug(f"Search cache hit for '{search_term}'")
+            return self._search_cache[cache_key]
 
         # Step 1: Single search with local game_type preference (1 API call)
         result = await self._search_games(search_term, platform_igdb_id)
@@ -595,7 +594,8 @@ class IGDBHandler(MetadataHandler):
 
         # Step 2: Expanded search via search endpoint (1-2 API calls)
         result = await self._expanded_search(search_term, platform_igdb_id)
-        self._search_cache[cache_key] = result
+        if result:
+            self._search_cache[cache_key] = result
         return result
 
     async def heartbeat(self) -> bool:
