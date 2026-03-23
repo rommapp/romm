@@ -5,8 +5,9 @@ import hashlib
 import os
 import tempfile
 import time
+import zipfile
 from pathlib import Path
-from zipfile import ZIP_STORED, ZipFile
+from zipfile import ZipFile
 
 from config import LIBRARY_BASE_PATH, ZIP_CACHE_PATH
 from logger.formatter import highlight as hl
@@ -135,10 +136,17 @@ def build_cached_zip(
     fd, tmp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
     try:
         os.close(fd)
-        with ZipFile(tmp_path, "w", compression=ZIP_STORED) as zf:
+        # A third-party library in the import chain replaces
+        # zipfile._get_compressor with an incompatible signature on
+        # CPython 3.13. Reload the module to restore the original.
+        import importlib
+
+        importlib.reload(zipfile)
+        with ZipFile(tmp_path, "w") as zf:
             for entry in entries:
                 src = Path(LIBRARY_BASE_PATH) / entry.full_path
-                zf.write(src, arcname=entry.download_name)
+                with open(src, "rb") as f:
+                    zf.writestr(entry.download_name, f.read())
 
             if m3u_content is not None and m3u_filename is not None:
                 zf.writestr(m3u_filename, m3u_content)
