@@ -6,6 +6,8 @@ import pytest
 
 from utils.zip_cache import (
     BULK_CACHE_MAX_ROMS,
+    BULK_NAMESPACE_PREFIX,
+    CACHE_KEY_LENGTH,
     DEFAULT_TTL_HOURS,
     LARGE_ZIP_THRESHOLD_BYTES,
     LARGE_ZIP_TTL_HOURS,
@@ -14,6 +16,7 @@ from utils.zip_cache import (
     build_cached_zip,
     cleanup_stale_zips,
     ensure_space_for_cache,
+    get_bulk_namespace,
     get_cache_key,
     get_cached_zip,
     get_ttl_hours,
@@ -66,7 +69,7 @@ class TestGetCacheKey:
 
     def test_returns_hex_string(self):
         key = get_cache_key("1", [_entry()], False)
-        assert len(key) == 16
+        assert len(key) == CACHE_KEY_LENGTH
         int(key, 16)
 
     def test_file_change_invalidates_cache(self):
@@ -90,8 +93,33 @@ class TestGetCacheKey:
     def test_bulk_namespace(self):
         entries = [_entry()]
         key_single = get_cache_key("42", entries)
-        key_bulk = get_cache_key("bulk-42-43", entries)
+        key_bulk = get_cache_key("bulk-abc123", entries)
         assert key_single != key_bulk
+
+    def test_empty_entries(self):
+        key = get_cache_key("1", [], False)
+        assert len(key) == CACHE_KEY_LENGTH
+        int(key, 16)
+
+
+class TestGetBulkNamespace:
+    def test_deterministic(self):
+        assert get_bulk_namespace([1, 2, 3]) == get_bulk_namespace([1, 2, 3])
+
+    def test_order_independent(self):
+        assert get_bulk_namespace([3, 1, 2]) == get_bulk_namespace([1, 2, 3])
+
+    def test_starts_with_prefix(self):
+        ns = get_bulk_namespace([1, 2])
+        assert ns.startswith(f"{BULK_NAMESPACE_PREFIX}-")
+
+    def test_short_enough_for_filesystem(self):
+        ids = list(range(1, 101))
+        ns = get_bulk_namespace(ids)
+        assert len(ns) < 255
+
+    def test_different_ids_produce_different_namespace(self):
+        assert get_bulk_namespace([1, 2]) != get_bulk_namespace([1, 3])
 
 
 class TestGetCachedZip:
@@ -229,10 +257,10 @@ class TestGetZipRedirectPath:
         assert str(get_zip_redirect_path("42", "abc123")) == "/cache/zips/42/abc123.zip"
 
     def test_bulk_path(self):
-        assert (
-            str(get_zip_redirect_path("bulk-1-2-3", "abc123"))
-            == "/cache/zips/bulk-1-2-3/abc123.zip"
-        )
+        ns = get_bulk_namespace([1, 2, 3])
+        path = str(get_zip_redirect_path(ns, "abc123"))
+        assert path.startswith("/cache/zips/bulk-")
+        assert path.endswith("/abc123.zip")
 
 
 class TestEnsureSpaceForCache:
@@ -242,17 +270,18 @@ class TestEnsureSpaceForCache:
 
     def test_returns_false_with_insufficient_space(self, tmp_path, mocker):
         mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
-        assert ensure_space_for_cache([_entry(size=2**62)]) is False
+        mocker.patch("utils.zip_cache._get_available_space", return_value=100)
+        assert ensure_space_for_cache([_entry(size=1024)]) is False
 
     def test_requires_2x_buffer(self, tmp_path, mocker):
         mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
-        stat = os.statvfs(tmp_path)
-        available = stat.f_bavail * stat.f_frsize
-        size_just_over_half = int(available * 0.6)
-        assert ensure_space_for_cache([_entry(size=size_just_over_half)]) is False
+        # 500 bytes available, entry is 300 -> 2x = 600 > 500 -> False
+        mocker.patch("utils.zip_cache._get_available_space", return_value=500)
+        assert ensure_space_for_cache([_entry(size=300)]) is False
 
     def test_evicts_old_entries_to_make_space(self, tmp_path, mocker):
         mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
+
         ns_dir = tmp_path / "old_rom"
         ns_dir.mkdir()
         old_zip = ns_dir / "stale.zip"
@@ -260,16 +289,26 @@ class TestEnsureSpaceForCache:
         old_time = time.time() - (2 * SECONDS_PER_HOUR)
         os.utime(old_zip, (old_time, old_time))
 
+        call_count = [0]
+
+        def fake_space():
+            call_count[0] += 1
+            return 100 if call_count[0] <= 1 else 999999
+
+        mocker.patch("utils.zip_cache._get_available_space", side_effect=fake_space)
+
         assert ensure_space_for_cache([_entry(size=512)]) is True
+        assert not old_zip.exists()
 
     def test_does_not_evict_recent_entries(self, tmp_path, mocker):
         mocker.patch("utils.zip_cache.ZIP_CACHE_PATH", str(tmp_path))
+        mocker.patch("utils.zip_cache._get_available_space", return_value=100)
+
         ns_dir = tmp_path / "active_rom"
         ns_dir.mkdir()
         fresh_zip = ns_dir / "fresh.zip"
         fresh_zip.write_bytes(b"x" * 1024)
 
-        # Fresh file should survive eviction attempt
         ensure_space_for_cache([_entry(size=512)])
         assert fresh_zip.exists()
 
@@ -342,13 +381,12 @@ class TestCleanupStaleZips:
         assert ns_dir.exists()
 
     def test_large_files_use_shorter_ttl(self, tmp_path, mocker):
-        """A large file between the two TTLs should be deleted."""
         ns_dir = tmp_path / "1"
         ns_dir.mkdir()
         large_zip = ns_dir / "large.zip"
-        # Create file larger than threshold
-        large_zip.write_bytes(b"x" * (LARGE_ZIP_THRESHOLD_BYTES + 1))
-        # Set mtime between the two TTLs (e.g., 24 hours ago)
+        # Use truncate for sparse file instead of allocating 8GB+
+        with open(large_zip, "wb") as f:
+            f.truncate(LARGE_ZIP_THRESHOLD_BYTES + 1)
         age = (LARGE_ZIP_TTL_HOURS + 1) * SECONDS_PER_HOUR
         old_time = time.time() - age
         os.utime(large_zip, (old_time, old_time))

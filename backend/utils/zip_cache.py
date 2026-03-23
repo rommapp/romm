@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import importlib
 import os
 import tempfile
 import time
 import zipfile
 from pathlib import Path
-from zipfile import ZipFile
 
 from config import LIBRARY_BASE_PATH, ZIP_CACHE_PATH
 from logger.formatter import highlight as hl
@@ -20,6 +20,7 @@ LARGE_ZIP_THRESHOLD_BYTES = 8 * 1024 * 1024 * 1024  # 8 GB
 DEFAULT_TTL_HOURS = 48
 LARGE_ZIP_TTL_HOURS = 12
 BULK_CACHE_MAX_ROMS = 100
+BULK_NAMESPACE_PREFIX = "bulk"
 MIN_EVICT_AGE_HOURS = 1
 
 
@@ -39,6 +40,10 @@ def get_cache_key(
     hidden_folder: bool = False,
 ) -> str:
     """Deterministic cache key derived from content state."""
+    if not entries:
+        return hashlib.sha256(f"{namespace}:empty".encode()).hexdigest()[
+            :CACHE_KEY_LENGTH
+        ]
     parts = [
         namespace,
         str(hidden_folder),
@@ -47,6 +52,13 @@ def get_cache_key(
     for e in sorted(entries, key=lambda x: x.download_name):
         parts.append(f"{e.download_name}:{e.file_size_bytes}")
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:CACHE_KEY_LENGTH]
+
+
+def get_bulk_namespace(rom_ids: list[int]) -> str:
+    """Deterministic namespace for bulk downloads, hashed to avoid ENAMETOOLONG."""
+    id_str = "-".join(str(i) for i in sorted(rom_ids))
+    id_hash = hashlib.sha256(id_str.encode()).hexdigest()[:CACHE_KEY_LENGTH]
+    return f"{BULK_NAMESPACE_PREFIX}-{id_hash}"
 
 
 def _cache_dir(namespace: str) -> Path:
@@ -114,6 +126,17 @@ def ensure_space_for_cache(entries: list[ZipFileEntry]) -> bool:
     return _get_available_space() > required
 
 
+def _reload_zipfile() -> None:
+    """Reload the zipfile module to restore stdlib internals.
+
+    A third-party library in the import chain overrides
+    zipfile._get_compressor with an incompatible signature on
+    CPython 3.13, breaking ZipFile.write() and writestr(). Reloading
+    restores the original implementation.
+    """
+    importlib.reload(zipfile)
+
+
 def build_cached_zip(
     namespace: str,
     entries: list[ZipFileEntry],
@@ -124,8 +147,7 @@ def build_cached_zip(
     """Build a ZIP_STORED archive on disk and return its path.
 
     Writes to a temp file in the same directory, then atomically renames to
-    the final path to prevent serving partial files. Uses ZipFile.write()
-    to stream file content without loading entire files into memory.
+    the final path to prevent serving partial files.
     """
     target = _cache_file(namespace, cache_key)
     if target.exists():
@@ -136,17 +158,11 @@ def build_cached_zip(
     fd, tmp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
     try:
         os.close(fd)
-        # A third-party library in the import chain replaces
-        # zipfile._get_compressor with an incompatible signature on
-        # CPython 3.13. Reload the module to restore the original.
-        import importlib
-
-        importlib.reload(zipfile)
-        with ZipFile(tmp_path, "w") as zf:
+        _reload_zipfile()
+        with zipfile.ZipFile(tmp_path, "w") as zf:
             for entry in entries:
                 src = Path(LIBRARY_BASE_PATH) / entry.full_path
-                with open(src, "rb") as f:
-                    zf.writestr(entry.download_name, f.read())
+                zf.write(src, arcname=entry.download_name)
 
             if m3u_content is not None and m3u_filename is not None:
                 zf.writestr(m3u_filename, m3u_content)

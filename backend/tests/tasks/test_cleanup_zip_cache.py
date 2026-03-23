@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
 
 from tasks.scheduled.cleanup_zip_cache import CleanupZipCacheTask
 
@@ -22,7 +22,7 @@ class TestCleanupZipCacheTask:
     async def test_run_disabled_unschedules(self, mocker):
         task = CleanupZipCacheTask()
         task.enabled = False
-        mocker.patch.object(task, "unschedule", new_callable=AsyncMock)
+        mocker.patch.object(task, "unschedule", MagicMock())
         mock_cleanup = mocker.patch(
             "tasks.scheduled.cleanup_zip_cache.cleanup_stale_zips",
         )
