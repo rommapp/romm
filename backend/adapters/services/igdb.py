@@ -107,6 +107,7 @@ class IGDBService:
         fields: Sequence[str] | None = None,
         where: str | None = None,
         limit: int | None = None,
+        offset: int | None = None,
         request_timeout: int = 120,
     ) -> list:
         aiohttp_session = ctx_aiohttp_session.get()
@@ -120,6 +121,8 @@ class IGDBService:
             content += f"where {where}; "
         if limit is not None:
             content += f"limit {limit}; "
+        if offset is not None:
+            content += f"offset {offset}; "
         content = content.strip()
 
         log.debug(
@@ -211,6 +214,7 @@ class IGDBService:
         fields: Sequence[str] | None = None,
         where: str | None = None,
         limit: int | None = None,
+        offset: int | None = None,
     ) -> list[Game]:
         """Retrieve games.
 
@@ -223,6 +227,7 @@ class IGDBService:
             fields=fields,
             where=where,
             limit=limit,
+            offset=offset,
         )
 
     async def search(
