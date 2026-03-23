@@ -58,19 +58,20 @@ class IGDBRateLimiter:
         self._last_refill = asyncio.get_event_loop().time()
 
     async def acquire(self) -> None:
-        async with self._lock:
-            now = asyncio.get_event_loop().time()
-            elapsed = now - self._last_refill
-            self._tokens = min(self._rate, self._tokens + elapsed * self._rate)
-            self._last_refill = now
+        while True:
+            async with self._lock:
+                now = asyncio.get_event_loop().time()
+                elapsed = now - self._last_refill
+                self._tokens = min(self._rate, self._tokens + elapsed * self._rate)
+                self._last_refill = now
 
-            if self._tokens < 1.0:
+                if self._tokens >= 1.0:
+                    self._tokens -= 1.0
+                    return
                 wait_time = (1.0 - self._tokens) / self._rate
-                await asyncio.sleep(wait_time)
-                self._tokens = 0.0
-                self._last_refill = asyncio.get_event_loop().time()
-            else:
-                self._tokens -= 1.0
+
+            # Sleep OUTSIDE the lock so other coroutines can proceed
+            await asyncio.sleep(wait_time)
 
 
 # Shared rate limiter instance across all IGDBService instances

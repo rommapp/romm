@@ -443,25 +443,13 @@ class IGDBHandler(MetadataHandler):
             return int(match.group(1))
         return None
 
-    async def _search_rom(
-        self, search_term: str, platform_igdb_id: int, with_game_type: bool = False
+    async def _search_games(
+        self,
+        search_term: str,
+        platform_igdb_id: int,
+        game_type_filter: str = "",
     ) -> Game | None:
-        if not platform_igdb_id:
-            return None
-
-        if with_game_type:
-            categories = (
-                GameType.EXPANDED_GAME,
-                GameType.MAIN_GAME,
-                GameType.PORT,
-                GameType.REMAKE,
-                GameType.REMASTER,
-            )
-            game_type_filter = f"& game_type=({','.join(map(str, categories))})"
-        else:
-            game_type_filter = ""
-
-        log.debug("Searching in games endpoint with game_type %s", game_type_filter)
+        """Search the IGDB games endpoint and return the best match."""
         where_filter = f"platforms=[{platform_igdb_id}] {game_type_filter}"
 
         # Special case for ScummVM games
@@ -470,6 +458,7 @@ class IGDBHandler(MetadataHandler):
         if scummvm_platform["igdb_id"] == platform_igdb_id:
             where_filter = f"keywords=[{platform_igdb_id}] {game_type_filter}"
 
+        log.debug("Searching in games endpoint with filter: %s", where_filter)
         roms = await self.igdb_service.list_games(
             search_term=search_term,
             fields=GAMES_FIELDS,
@@ -496,6 +485,12 @@ class IGDBHandler(MetadataHandler):
             )
             return games_by_name[best_match]
 
+        return None
+
+    async def _expanded_search(
+        self, search_term: str, platform_igdb_id: int
+    ) -> Game | None:
+        """Fallback search using the IGDB search endpoint with name/alternative_name matching."""
         log.debug("Searching expanded in search endpoint")
         roms_expanded = await self.igdb_service.search(
             fields=SEARCH_FIELDS,
@@ -503,36 +498,69 @@ class IGDBHandler(MetadataHandler):
             limit=self.pagination_limit,
         )
 
-        if roms_expanded:
+        if not roms_expanded:
+            return None
+
+        log.debug(
+            "Searching expanded in games endpoint for expanded game %s",
+            roms_expanded[0]["game"],
+        )
+        extra_roms = await self.igdb_service.list_games(
+            fields=GAMES_FIELDS,
+            where=f"id={roms_expanded[0]['game']['id']}",
+            limit=self.pagination_limit,
+        )
+
+        extra_games_by_name: dict[str, Game] = {}
+        for game in extra_roms:
+            game_name = game.get("name", "")
+            if game_name not in extra_games_by_name:
+                extra_games_by_name[game_name] = game
+
+        best_match, best_score = self.find_best_match(
+            search_term,
+            list(extra_games_by_name.keys()),
+        )
+        if best_match:
             log.debug(
-                "Searching expanded in games endpoint for expanded game %s",
-                roms_expanded[0]["game"],
+                f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
             )
-            extra_roms = await self.igdb_service.list_games(
-                fields=GAMES_FIELDS,
-                where=f"id={roms_expanded[0]['game']['id']}",
-                limit=self.pagination_limit,
-            )
-
-            extra_games_by_name: dict[str, Game] = {}
-            for game in extra_roms:
-                game_name = game.get("name", "")
-                if game_name not in extra_games_by_name:
-                    extra_games_by_name[game_name] = game
-
-            best_match, best_score = self.find_best_match(
-                search_term,
-                list(extra_games_by_name.keys()),
-            )
-            if best_match:
-                log.debug(
-                    f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
-                )
-                return extra_games_by_name[best_match]
-
-            roms.extend(extra_roms)
+            return extra_games_by_name[best_match]
 
         return None
+
+    async def _search_rom(self, search_term: str, platform_igdb_id: int) -> Game | None:
+        """Search IGDB for a ROM, trying progressively broader queries.
+
+        Order: games with game_type filter -> games without filter -> expanded search.
+        This avoids redundant expanded searches that the old two-call pattern caused.
+        """
+        if not platform_igdb_id:
+            return None
+
+        categories = (
+            GameType.EXPANDED_GAME,
+            GameType.MAIN_GAME,
+            GameType.PORT,
+            GameType.REMAKE,
+            GameType.REMASTER,
+        )
+        game_type_filter = f"& game_type=({','.join(map(str, categories))})"
+
+        # Step 1: Search with game_type filter (1 API call)
+        result = await self._search_games(
+            search_term, platform_igdb_id, game_type_filter
+        )
+        if result:
+            return result
+
+        # Step 2: Search without game_type filter (1 API call)
+        result = await self._search_games(search_term, platform_igdb_id)
+        if result:
+            return result
+
+        # Step 3: Expanded search via search endpoint (1-2 API calls)
+        return await self._expanded_search(search_term, platform_igdb_id)
 
     async def heartbeat(self) -> bool:
         if not self.is_enabled():
@@ -677,11 +705,8 @@ class IGDBHandler(MetadataHandler):
 
         search_term = self.normalize_search_term(search_term)
 
-        log.debug("Searching for %s on IGDB with game_type", search_term)
-        rom = await self._search_rom(search_term, platform_igdb_id, with_game_type=True)
-        if not rom:
-            log.debug("Searching for %s on IGDB without game_type", search_term)
-            rom = await self._search_rom(search_term, platform_igdb_id)
+        log.debug("Searching for %s on IGDB", search_term)
+        rom = await self._search_rom(search_term, platform_igdb_id)
 
         # IGDB search is fuzzy so no need to split the search term by special characters
         if not rom:
