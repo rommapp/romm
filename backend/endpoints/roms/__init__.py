@@ -71,12 +71,13 @@ from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 from utils.validation import ValidationError
 from utils.zip_cache import (
+    BULK_CACHE_MAX_ROMS,
     ZipFileEntry,
     build_cached_zip,
+    ensure_space_for_cache,
     get_cache_key,
     get_cached_zip,
     get_zip_redirect_path,
-    has_space_for_cache,
 )
 
 from .files import router as files_router
@@ -680,26 +681,65 @@ async def download_roms(
         f"User {hl(current_username, color=BLUE)} is downloading {len(rom_objects)} ROMs as zip"
     )
 
-    content_lines = []
+    all_entries = []
     for rom in rom_objects:
         rom_files = sorted(rom.files, key=lambda x: x.file_name)
         for file in rom_files:
-            content_lines.append(
-                ZipContentLine(
-                    crc32=None,  # The CRC hash stored for compressed files is for the uncompressed content
-                    size_bytes=file.file_size_bytes,
-                    encoded_location=quote(f"/library/{file.full_path}"),
-                    filename=file.full_path,
+            all_entries.append(
+                ZipFileEntry(
+                    download_name=file.full_path,
+                    full_path=file.full_path,
+                    file_size_bytes=file.file_size_bytes,
+                    updated_at_epoch=file.updated_at.timestamp(),
                 )
             )
 
     if filename:
         file_name = sanitize_filename(filename)
     else:
-        base64_content = b64encode(
-            ("\n".join([str(line) for line in content_lines])).encode()
+        content_summary = "\n".join(
+            f"{e.download_name}:{e.file_size_bytes}" for e in all_entries
+        ).encode()
+        file_name = f"{len(rom_objects)} ROMs ({crc32_to_hex(binascii.crc32(content_summary))}).zip"
+
+    range_header = request.headers.get("range")
+    if range_header and len(rom_objects) <= BULK_CACHE_MAX_ROMS:
+        namespace = f"bulk-{'-'.join(str(r.id) for r in sorted(rom_objects, key=lambda r: r.id))}"
+        cache_key = get_cache_key(namespace, all_entries)
+        zip_path = get_cached_zip(namespace, cache_key)
+        if zip_path:
+            return FileRedirectResponse(
+                download_path=get_zip_redirect_path(namespace, cache_key),
+                filename=file_name,
+            )
+        if ensure_space_for_cache(all_entries):
+            await anyio.to_thread.run_sync(
+                lambda: build_cached_zip(
+                    namespace=namespace,
+                    entries=all_entries,
+                    m3u_content=None,
+                    m3u_filename=None,
+                    cache_key=cache_key,
+                )
+            )
+            return FileRedirectResponse(
+                download_path=get_zip_redirect_path(namespace, cache_key),
+                filename=file_name,
+            )
+        log.warning(
+            f"Insufficient disk space to cache bulk ZIP ({len(rom_objects)} ROMs), "
+            "falling back to streaming"
         )
-        file_name = f"{len(rom_objects)} ROMs ({crc32_to_hex(binascii.crc32(base64_content))}).zip"
+
+    content_lines = [
+        ZipContentLine(
+            crc32=None,
+            size_bytes=e.file_size_bytes,
+            encoded_location=quote(f"/library/{e.full_path}"),
+            filename=e.download_name,
+        )
+        for e in all_entries
+    ]
 
     return ZipResponse(
         content_lines=content_lines,
@@ -910,8 +950,9 @@ async def head_rom_content(
         )
         for f in files
     ]
-    cache_key = get_cache_key(rom.id, entries, hidden_folder)
-    zip_path = get_cached_zip(rom.id, cache_key)
+    namespace = str(rom.id)
+    cache_key = get_cache_key(namespace, entries, hidden_folder)
+    zip_path = get_cached_zip(namespace, cache_key)
     if zip_path:
         return Response(
             headers={
@@ -1073,14 +1114,15 @@ async def get_rom_content(
             )
             for f in files
         ]
-        cache_key = get_cache_key(rom.id, entries, hidden_folder)
-        zip_path = get_cached_zip(rom.id, cache_key)
+        namespace = str(rom.id)
+        cache_key = get_cache_key(namespace, entries, hidden_folder)
+        zip_path = get_cached_zip(namespace, cache_key)
         if zip_path:
             return FileRedirectResponse(
-                download_path=get_zip_redirect_path(rom.id, cache_key),
+                download_path=get_zip_redirect_path(namespace, cache_key),
                 filename=f"{file_name}.zip",
             )
-        if has_space_for_cache(entries):
+        if ensure_space_for_cache(entries):
             m3u_content = (
                 None
                 if rom.has_m3u_file()
@@ -1089,7 +1131,7 @@ async def get_rom_content(
             m3u_filename = None if rom.has_m3u_file() else f"{file_name}.m3u"
             await anyio.to_thread.run_sync(
                 lambda: build_cached_zip(
-                    rom_id=rom.id,
+                    namespace=namespace,
                     entries=entries,
                     m3u_content=m3u_content,
                     m3u_filename=m3u_filename,
@@ -1097,11 +1139,11 @@ async def get_rom_content(
                 )
             )
             return FileRedirectResponse(
-                download_path=get_zip_redirect_path(rom.id, cache_key),
+                download_path=get_zip_redirect_path(namespace, cache_key),
                 filename=f"{file_name}.zip",
             )
         log.warning(
-            f"Insufficient disk space to cache ZIP for ROM {rom.id}, "
+            f"Insufficient disk space to cache ZIP for ROM {hl(str(rom.id))}, "
             "falling back to streaming"
         )
 

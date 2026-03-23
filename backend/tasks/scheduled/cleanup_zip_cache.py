@@ -7,11 +7,11 @@ class CleanupZipCacheTask(PeriodicTask):
     def __init__(self):
         super().__init__(
             title="Scheduled ZIP cache cleanup",
-            description="Removes cached ZIP files older than 48 hours",
+            description="Removes stale cached ZIP files based on tiered TTL",
             task_type=TaskType.CLEANUP,
             enabled=True,
             manual_run=False,
-            cron_string="0 4 * * *",  # Daily at 4 AM
+            cron_string="0 4 * * *",
             func="tasks.scheduled.cleanup_zip_cache.cleanup_zip_cache_task.run",
         )
 
@@ -20,7 +20,7 @@ class CleanupZipCacheTask(PeriodicTask):
             self.unschedule()
             return
 
-        deleted = cleanup_stale_zips(max_age_hours=48)
+        deleted = cleanup_stale_zips()
         if deleted:
             log.info(f"Cleaned up {deleted} stale cached ZIP files")
 

@@ -15,6 +15,11 @@ from logger.logger import log
 CACHE_KEY_LENGTH = 16
 DISK_SPACE_MULTIPLIER = 2
 SECONDS_PER_HOUR = 3600
+LARGE_ZIP_THRESHOLD_BYTES = 8 * 1024 * 1024 * 1024  # 8 GB
+DEFAULT_TTL_HOURS = 48
+LARGE_ZIP_TTL_HOURS = 12
+BULK_CACHE_MAX_ROMS = 100
+MIN_EVICT_AGE_HOURS = 1
 
 
 @dataclasses.dataclass(frozen=True)
@@ -28,13 +33,13 @@ class ZipFileEntry:
 
 
 def get_cache_key(
-    rom_id: int,
+    namespace: str,
     entries: list[ZipFileEntry],
-    hidden_folder: bool,
+    hidden_folder: bool = False,
 ) -> str:
-    """Deterministic cache key derived from ROM state."""
+    """Deterministic cache key derived from content state."""
     parts = [
-        str(rom_id),
+        namespace,
         str(hidden_folder),
         str(max(e.updated_at_epoch for e in entries)),
     ]
@@ -43,33 +48,73 @@ def get_cache_key(
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:CACHE_KEY_LENGTH]
 
 
-def _cache_dir(rom_id: int) -> Path:
-    return Path(ZIP_CACHE_PATH) / str(rom_id)
+def _cache_dir(namespace: str) -> Path:
+    return Path(ZIP_CACHE_PATH) / namespace
 
 
-def _cache_file(rom_id: int, cache_key: str) -> Path:
-    return _cache_dir(rom_id) / f"{cache_key}.zip"
+def _cache_file(namespace: str, cache_key: str) -> Path:
+    return _cache_dir(namespace) / f"{cache_key}.zip"
 
 
-def get_cached_zip(rom_id: int, cache_key: str) -> Path | None:
+def get_cached_zip(namespace: str, cache_key: str) -> Path | None:
     """Return the cached ZIP path if it exists on disk, else None."""
-    path = _cache_file(rom_id, cache_key)
+    path = _cache_file(namespace, cache_key)
     return path if path.exists() else None
 
 
-def has_space_for_cache(entries: list[ZipFileEntry]) -> bool:
-    """Check if available disk space exceeds the estimated ZIP size
-    multiplied by DISK_SPACE_MULTIPLIER."""
-    estimated_size = sum(e.file_size_bytes for e in entries)
+def _get_available_space() -> int:
     cache_root = Path(ZIP_CACHE_PATH)
     cache_root.mkdir(parents=True, exist_ok=True)
     stat = os.statvfs(cache_root)
-    available = stat.f_bavail * stat.f_frsize
-    return available > estimated_size * DISK_SPACE_MULTIPLIER
+    return stat.f_bavail * stat.f_frsize
+
+
+def _get_all_cached_zips() -> list[Path]:
+    """Return all cached ZIP files sorted by mtime ascending (oldest first)."""
+    cache_root = Path(ZIP_CACHE_PATH)
+    if not cache_root.exists():
+        return []
+    zips = []
+    for ns_dir in cache_root.iterdir():
+        if not ns_dir.is_dir():
+            continue
+        for zip_file in ns_dir.glob("*.zip"):
+            zips.append(zip_file)
+    zips.sort(key=lambda p: p.stat().st_mtime)
+    return zips
+
+
+def ensure_space_for_cache(entries: list[ZipFileEntry]) -> bool:
+    """Check available disk space, evicting oldest cached ZIPs if needed.
+
+    Requires DISK_SPACE_MULTIPLIER times the estimated ZIP size. Evicts
+    cached entries older than MIN_EVICT_AGE_HOURS until enough space is
+    available or no more evictable entries remain.
+    """
+    estimated_size = sum(e.file_size_bytes for e in entries)
+    required = estimated_size * DISK_SPACE_MULTIPLIER
+
+    if _get_available_space() > required:
+        return True
+
+    evict_cutoff = time.time() - (MIN_EVICT_AGE_HOURS * SECONDS_PER_HOUR)
+    for zip_file in _get_all_cached_zips():
+        if zip_file.stat().st_mtime > evict_cutoff:
+            continue
+        freed = zip_file.stat().st_size
+        zip_file.unlink()
+        parent = zip_file.parent
+        if parent.exists() and not any(parent.iterdir()):
+            parent.rmdir()
+        log.debug(f"Evicted cached ZIP {hl(zip_file.name)} ({freed} bytes)")
+        if _get_available_space() > required:
+            return True
+
+    return _get_available_space() > required
 
 
 def build_cached_zip(
-    rom_id: int,
+    namespace: str,
     entries: list[ZipFileEntry],
     m3u_content: bytes | None,
     m3u_filename: str | None,
@@ -81,7 +126,7 @@ def build_cached_zip(
     the final path to prevent serving partial files. Uses ZipFile.write()
     to stream file content without loading entire files into memory.
     """
-    target = _cache_file(rom_id, cache_key)
+    target = _cache_file(namespace, cache_key)
     if target.exists():
         return target
 
@@ -104,32 +149,52 @@ def build_cached_zip(
             os.unlink(tmp_path)
         raise
 
-    log.info(f"Built cached ZIP for ROM {hl(str(rom_id))}: {hl(target.name)}")
+    log.info(f"Built cached ZIP in {hl(namespace)}: {hl(target.name)}")
     return target
 
 
-def get_zip_redirect_path(rom_id: int, cache_key: str) -> Path:
+def get_zip_redirect_path(namespace: str, cache_key: str) -> Path:
     """Return the nginx-internal URL path for the cached ZIP."""
-    return Path(f"/cache/zips/{rom_id}/{cache_key}.zip")
+    return Path(f"/cache/zips/{namespace}/{cache_key}.zip")
 
 
-def cleanup_stale_zips(max_age_hours: int = 48) -> int:
-    """Remove cached ZIPs older than max_age_hours. Returns count deleted."""
+def get_ttl_hours(entries: list[ZipFileEntry]) -> int:
+    """Return the appropriate TTL based on estimated ZIP size."""
+    estimated_size = sum(e.file_size_bytes for e in entries)
+    if estimated_size > LARGE_ZIP_THRESHOLD_BYTES:
+        return LARGE_ZIP_TTL_HOURS
+    return DEFAULT_TTL_HOURS
+
+
+def cleanup_stale_zips() -> int:
+    """Remove cached ZIPs that have exceeded their TTL.
+
+    Files larger than LARGE_ZIP_THRESHOLD_BYTES use LARGE_ZIP_TTL_HOURS,
+    all others use DEFAULT_TTL_HOURS.
+    """
     cache_root = Path(ZIP_CACHE_PATH)
     if not cache_root.exists():
         return 0
 
-    cutoff = time.time() - (max_age_hours * SECONDS_PER_HOUR)
+    now = time.time()
+    default_cutoff = now - (DEFAULT_TTL_HOURS * SECONDS_PER_HOUR)
+    large_cutoff = now - (LARGE_ZIP_TTL_HOURS * SECONDS_PER_HOUR)
     deleted = 0
 
-    for rom_dir in cache_root.iterdir():
-        if not rom_dir.is_dir():
+    for ns_dir in cache_root.iterdir():
+        if not ns_dir.is_dir():
             continue
-        for zip_file in rom_dir.glob("*.zip"):
-            if zip_file.stat().st_mtime < cutoff:
+        for zip_file in ns_dir.glob("*.zip"):
+            stat = zip_file.stat()
+            cutoff = (
+                large_cutoff
+                if stat.st_size > LARGE_ZIP_THRESHOLD_BYTES
+                else default_cutoff
+            )
+            if stat.st_mtime < cutoff:
                 zip_file.unlink()
                 deleted += 1
-        if rom_dir.exists() and not any(rom_dir.iterdir()):
-            rom_dir.rmdir()
+        if ns_dir.exists() and not any(ns_dir.iterdir()):
+            ns_dir.rmdir()
 
     return deleted

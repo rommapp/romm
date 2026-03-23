@@ -17,7 +17,7 @@ class TestCleanupZipCacheTask:
             return_value=3,
         )
         await task.run()
-        mock_cleanup.assert_called_once_with(max_age_hours=48)
+        mock_cleanup.assert_called_once_with()
 
     async def test_run_disabled_unschedules(self, mocker):
         task = CleanupZipCacheTask()
