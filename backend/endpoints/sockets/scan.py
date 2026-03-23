@@ -226,21 +226,19 @@ def _should_get_rom_files(
 # 3. Create a new ROM entry if it doesn't exist
 # 4. Build the ROM files and calculate the hashes
 # 4. Scan the ROM and update its metadata
-async def _identify_rom(
+async def _discover_rom(
     platform: Platform,
     fs_rom: FSRom,
     rom: Rom | None,
     scan_type: ScanType,
     roms_ids: list[int],
     metadata_sources: list[str],
-    launchbox_remote_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
-    calculate_hashes: bool = True,
-) -> None:
-    # Break early if the flag is set
+) -> tuple[Rom, FSRom, bool] | None:
+    """Phase 1: Create DB entry, hash files, save to DB. No metadata API calls."""
     if redis_client.get(STOP_SCAN_FLAG):
-        return
+        return None
 
     if not _should_scan_rom(
         scan_type=scan_type,
@@ -249,18 +247,14 @@ async def _identify_rom(
         metadata_sources=metadata_sources,
     ):
         if rom:
-            # Just to update the filesystem data
             db_rom_handler.update_rom(
                 rom.id, {"fs_name": fs_rom["fs_name"], "missing_from_fs": False}
             )
+        return None
 
-        return
-
-    # Update properties that don't require metadata
     parsed_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
-    # Create the entry early so we have the ID
     newly_added: bool = rom is None
     if not rom:
         rom = db_rom_handler.add_rom(
@@ -287,7 +281,6 @@ async def _identify_rom(
             )
         )
 
-    # Build rom files object before scanning
     should_update_files = _should_get_rom_files(
         scan_type=scan_type,
         rom=rom,
@@ -295,7 +288,6 @@ async def _identify_rom(
         roms_ids=roms_ids,
     )
     if should_update_files:
-        # Get hash calculation setting from config
         calculate_hashes = not cm.get_config().SKIP_HASH_CALCULATION
         if calculate_hashes:
             log.debug(f"Calculating file hashes for {rom.fs_name}...")
@@ -313,6 +305,52 @@ async def _identify_rom(
             }
         )
 
+        # Save file entries to DB during discovery
+        db_rom_handler.purge_rom_files(rom.id)
+        for file in fs_rom["files"]:
+            db_rom_handler.add_rom_file(
+                RomFile(
+                    rom_id=rom.id,
+                    file_name=file.file_name,
+                    file_path=file.file_path,
+                    file_size_bytes=file.file_size_bytes,
+                    last_modified=file.last_modified,
+                    category=file.category,
+                    crc_hash=file.crc_hash,
+                    md5_hash=file.md5_hash,
+                    sha1_hash=file.sha1_hash,
+                    ra_hash=file.ra_hash,
+                )
+            )
+
+    await scan_stats.increment(
+        socket_manager=socket_manager,
+        scanned_roms=1,
+        new_roms=1 if newly_added else 0,
+    )
+
+    # Short circuit if the scan type is hashes only
+    if scan_type == ScanType.HASHES:
+        return None
+
+    return (rom, fs_rom, newly_added)
+
+
+async def _enrich_rom(
+    platform: Platform,
+    rom: Rom,
+    fs_rom: FSRom,
+    newly_added: bool,
+    scan_type: ScanType,
+    metadata_sources: list[str],
+    launchbox_remote_enabled: bool,
+    socket_manager: socketio.AsyncRedisManager,
+    scan_stats: ScanStats,
+) -> None:
+    """Phase 2: Fetch metadata from external sources and download assets."""
+    if redis_client.get(STOP_SCAN_FLAG):
+        return
+
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
         scan_type=scan_type,
@@ -327,8 +365,6 @@ async def _identify_rom(
 
     await scan_stats.increment(
         socket_manager=socket_manager,
-        scanned_roms=1,
-        new_roms=1 if newly_added else 0,
         identified_roms=1 if scanned_rom.is_identified else 0,
     )
 
@@ -347,33 +383,6 @@ async def _identify_rom(
                 }
             ),
         )
-
-    if should_update_files:
-        # Delete the existing rom files in the DB
-        db_rom_handler.purge_rom_files(_added_rom.id)
-
-        # Create each file entry for the rom
-        new_rom_files = [
-            RomFile(
-                rom_id=_added_rom.id,
-                file_name=file.file_name,
-                file_path=file.file_path,
-                file_size_bytes=file.file_size_bytes,
-                last_modified=file.last_modified,
-                category=file.category,
-                crc_hash=file.crc_hash,
-                md5_hash=file.md5_hash,
-                sha1_hash=file.sha1_hash,
-                ra_hash=file.ra_hash,
-            )
-            for file in fs_rom["files"]
-        ]
-        for new_rom_file in new_rom_files:
-            db_rom_handler.add_rom_file(new_rom_file)
-
-    # Short circuit if the scan type is hashes
-    if scan_type == ScanType.HASHES:
-        return
 
     screenshots_changed = pydash.xor(
         _added_rom.url_screenshots or [], rom.url_screenshots or []
@@ -403,7 +412,6 @@ async def _identify_rom(
     _added_rom.path_screenshots = path_screenshots
     _added_rom.path_manual = path_manual
 
-    # Update the scanned rom with the cover and screenshots paths and update database
     db_rom_handler.update_rom(
         _added_rom.id,
         {
@@ -548,23 +556,24 @@ async def _identify_platform(
     else:
         log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
-    # Create semaphore to limit concurrent ROM scanning
-    scan_semaphore = asyncio.Semaphore(SCAN_WORKERS)
+    # Phase 1: Discovery — create DB entries, hash files, no metadata API calls
+    log.info("Phase 1: Discovering ROMs...")
+    discover_semaphore = asyncio.Semaphore(SCAN_WORKERS)
+    roms_to_enrich: list[tuple[Rom, FSRom, bool]] = []
 
-    async def scan_rom_with_semaphore(fs_rom: FSRom, rom: Rom | None) -> None:
-        """Scan a single ROM with semaphore limiting"""
-        async with scan_semaphore:
-            await _identify_rom(
+    async def discover_with_semaphore(
+        fs_rom: FSRom, rom: Rom | None
+    ) -> tuple[Rom, FSRom, bool] | None:
+        async with discover_semaphore:
+            return await _discover_rom(
                 platform=platform,
                 fs_rom=fs_rom,
                 rom=rom,
                 scan_type=scan_type,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
-                launchbox_remote_enabled=launchbox_remote_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
-                calculate_hashes=calculate_hashes,
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
@@ -573,19 +582,52 @@ async def _identify_platform(
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
         )
 
-        # Process ROMs concurrently within the batch
-        scan_tasks = [
-            scan_rom_with_semaphore(
+        discover_tasks = [
+            discover_with_semaphore(
                 fs_rom=fs_rom, rom=roms_by_fs_name.get(fs_rom["fs_name"])
             )
             for fs_rom in fs_roms_batch
         ]
 
-        # Wait for all ROMs in the batch to complete
-        batched_results = await asyncio.gather(*scan_tasks, return_exceptions=True)
-        for result, fs_rom in zip(batched_results, fs_roms_batch, strict=False):
+        results = await asyncio.gather(*discover_tasks, return_exceptions=True)
+        for result, fs_rom in zip(results, fs_roms_batch, strict=False):
             if isinstance(result, Exception):
-                log.error(f"Error scanning ROM {fs_rom['fs_name']}: {result}")
+                log.error(f"Error discovering ROM {fs_rom['fs_name']}: {result}")
+            elif isinstance(result, tuple):
+                roms_to_enrich.append(result)
+
+    log.info(f"Phase 1 complete: {len(roms_to_enrich)} ROMs to enrich with metadata")
+
+    # Phase 2: Enrichment — fetch metadata from external sources, download assets
+    if roms_to_enrich:
+        log.info("Phase 2: Fetching metadata...")
+        enrich_semaphore = asyncio.Semaphore(SCAN_WORKERS)
+
+        async def enrich_with_semaphore(
+            rom: Rom, fs_rom: FSRom, newly_added: bool
+        ) -> None:
+            async with enrich_semaphore:
+                await _enrich_rom(
+                    platform=platform,
+                    rom=rom,
+                    fs_rom=fs_rom,
+                    newly_added=newly_added,
+                    scan_type=scan_type,
+                    metadata_sources=metadata_sources,
+                    launchbox_remote_enabled=launchbox_remote_enabled,
+                    socket_manager=socket_manager,
+                    scan_stats=scan_stats,
+                )
+
+        enrich_tasks = [
+            enrich_with_semaphore(rom, fs_rom, newly_added)
+            for rom, fs_rom, newly_added in roms_to_enrich
+        ]
+
+        enrich_results = await asyncio.gather(*enrich_tasks, return_exceptions=True)
+        for result, (rom, _, _) in zip(enrich_results, roms_to_enrich, strict=False):
+            if isinstance(result, Exception):
+                log.error(f"Error enriching ROM {rom.fs_name}: {result}")
 
     missing_roms = db_rom_handler.mark_missing_roms(
         platform.id, [rom["fs_name"] for rom in fs_roms]
