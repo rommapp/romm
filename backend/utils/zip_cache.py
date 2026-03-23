@@ -4,13 +4,17 @@ import dataclasses
 import hashlib
 import os
 import tempfile
-from datetime import datetime
+import time
 from pathlib import Path
-from stat import S_IFREG
-from zipfile import ZIP_STORED, ZipFile, ZipInfo
+from zipfile import ZIP_STORED, ZipFile
 
 from config import LIBRARY_BASE_PATH, ZIP_CACHE_PATH
+from logger.formatter import highlight as hl
 from logger.logger import log
+
+CACHE_KEY_LENGTH = 16
+DISK_SPACE_MULTIPLIER = 2
+SECONDS_PER_HOUR = 3600
 
 
 @dataclasses.dataclass(frozen=True)
@@ -36,8 +40,7 @@ def get_cache_key(
     ]
     for e in sorted(entries, key=lambda x: x.download_name):
         parts.append(f"{e.download_name}:{e.file_size_bytes}")
-    digest = hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
-    return digest
+    return hashlib.sha256("|".join(parts).encode()).hexdigest()[:CACHE_KEY_LENGTH]
 
 
 def _cache_dir(rom_id: int) -> Path:
@@ -55,17 +58,14 @@ def get_cached_zip(rom_id: int, cache_key: str) -> Path | None:
 
 
 def has_space_for_cache(entries: list[ZipFileEntry]) -> bool:
-    """Check if there is enough disk space to build the cached ZIP.
-
-    Requires 2x the estimated ZIP size as a safety buffer to avoid filling
-    the disk during the build.
-    """
+    """Check if available disk space exceeds the estimated ZIP size
+    multiplied by DISK_SPACE_MULTIPLIER."""
     estimated_size = sum(e.file_size_bytes for e in entries)
     cache_root = Path(ZIP_CACHE_PATH)
     cache_root.mkdir(parents=True, exist_ok=True)
     stat = os.statvfs(cache_root)
     available = stat.f_bavail * stat.f_frsize
-    return available > estimated_size * 2
+    return available > estimated_size * DISK_SPACE_MULTIPLIER
 
 
 def build_cached_zip(
@@ -78,32 +78,25 @@ def build_cached_zip(
     """Build a ZIP_STORED archive on disk and return its path.
 
     Writes to a temp file in the same directory, then atomically renames to
-    the final path to prevent serving partial files.
+    the final path to prevent serving partial files. Uses ZipFile.write()
+    to stream file content without loading entire files into memory.
     """
     target = _cache_file(rom_id, cache_key)
     if target.exists():
         return target
 
     target.parent.mkdir(parents=True, exist_ok=True)
-    now = datetime.now().timetuple()[:6]
 
     fd, tmp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
     try:
         os.close(fd)
-        with ZipFile(tmp_path, "w") as zf:
+        with ZipFile(tmp_path, "w", compression=ZIP_STORED) as zf:
             for entry in entries:
                 src = Path(LIBRARY_BASE_PATH) / entry.full_path
-                info = ZipInfo(filename=entry.download_name, date_time=now)
-                info.external_attr = S_IFREG | 0o600
-                info.compress_type = ZIP_STORED
-                with open(src, "rb") as f:
-                    zf.writestr(info, f.read())
+                zf.write(src, arcname=entry.download_name)
 
             if m3u_content is not None and m3u_filename is not None:
-                m3u_info = ZipInfo(filename=m3u_filename, date_time=now)
-                m3u_info.external_attr = S_IFREG | 0o600
-                m3u_info.compress_type = ZIP_STORED
-                zf.writestr(m3u_info, m3u_content)
+                zf.writestr(m3u_filename, m3u_content)
 
         os.rename(tmp_path, target)
     except BaseException:
@@ -111,7 +104,7 @@ def build_cached_zip(
             os.unlink(tmp_path)
         raise
 
-    log.info(f"Built cached ZIP for ROM {rom_id}: {target.name}")
+    log.info(f"Built cached ZIP for ROM {hl(str(rom_id))}: {hl(target.name)}")
     return target
 
 
@@ -126,9 +119,7 @@ def cleanup_stale_zips(max_age_hours: int = 48) -> int:
     if not cache_root.exists():
         return 0
 
-    import time
-
-    cutoff = time.time() - (max_age_hours * 3600)
+    cutoff = time.time() - (max_age_hours * SECONDS_PER_HOUR)
     deleted = 0
 
     for rom_dir in cache_root.iterdir():
