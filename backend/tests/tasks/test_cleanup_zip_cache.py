@@ -22,7 +22,7 @@ class TestCleanupZipCacheTask:
     async def test_run_disabled_unschedules(self, mocker):
         task = CleanupZipCacheTask()
         task.enabled = False
-        task.unschedule = AsyncMock()
+        mocker.patch.object(task, "unschedule", new_callable=AsyncMock)
         mock_cleanup = mocker.patch(
             "tasks.scheduled.cleanup_zip_cache.cleanup_stale_zips",
         )
