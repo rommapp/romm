@@ -181,24 +181,7 @@ function handleAction(action: InputAction): boolean {
     }
     if (action === "confirm") {
       const L = Array.from(letters.value)[alphaIndex.value];
-      const idx = filteredRoms.value.findIndex((r) => {
-        const normalized = normalizeTitle(r.name || "");
-        if (L === "#") {
-          return /^[0-9]/.test(normalized);
-        }
-        return normalized.startsWith(L);
-      });
-      if (idx >= 0) {
-        selectedIndex.value = idx;
-        // Stay in alphabet mode, just highlight the game
-        nextTick(() => {
-          cardElementAt(selectedIndex.value)?.scrollIntoView({
-            block: "center",
-            inline: "nearest",
-            behavior: "smooth" as ScrollBehavior,
-          });
-        });
-      }
+      jumpToLetter(L);
       return true;
     }
     if (action === "back") {
@@ -285,17 +268,27 @@ function selectAndOpen(i: number, rom: SimpleRom) {
   });
 }
 
-function jumpToLetter(L: string) {
+async function jumpToLetter(L: string) {
+  // First check if the letter is already in the loaded ROMs
   const idx = filteredRoms.value.findIndex((r) => {
     const normalized = normalizeTitle(r.name || "");
-    if (L === "#") {
-      return /^[0-9]/.test(normalized);
-    }
+    if (L === "#") return /^[0-9]/.test(normalized);
     return normalized.startsWith(L);
   });
 
   if (idx >= 0) {
     selectedIndex.value = idx;
+    inAlphabet.value = false;
+    return;
+  }
+
+  // Letter not in loaded ROMs — re-fetch from that offset using char_index
+  const charIndex = romsStore.characterIndex;
+  const offset = charIndex[L];
+  if (offset != null) {
+    romsStore.fetchOffset = offset;
+    await fetchRoms(false);
+    selectedIndex.value = 0;
     inAlphabet.value = false;
   }
 }
@@ -312,11 +305,11 @@ function resetGallery() {
   galleryFilterStore.activeFilterDrawer = false;
 }
 
-async function fetchRoms() {
+async function fetchRoms(resetPagination = true) {
   romsStore.setLimit(500);
   romsStore.setOrderBy("name");
   romsStore.setOrderDir("asc");
-  romsStore.resetPagination();
+  if (resetPagination) romsStore.resetPagination();
 
   const fetchedRoms = await romsStore.fetchRoms(false);
 
