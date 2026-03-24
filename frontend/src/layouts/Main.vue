@@ -25,7 +25,7 @@ import UploadProgress from "@/components/common/Notifications/UploadProgress.vue
 import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
-import useStreamingStore from "@/stores/streaming";
+import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 
 const navigationStore = storeNavigation();
