@@ -61,31 +61,26 @@ const inAlphabet = ref(false);
 const alphaIndex = ref(0);
 const gridRef = useTemplateRef<HTMLDivElement>("game-grid-ref");
 
-// Generate alphabet letters dynamically based on available games
+// Generate alphabet letters from API's characterIndex (has ALL letters, not just loaded ROMs)
 const letters = computed(() => {
-  const letterSet = new Set<string>();
+  const keys = Object.keys(romsStore.characterIndex);
+  if (keys.length > 0) return keys;
 
+  // Fallback to loaded ROMs if characterIndex not available
+  const letterSet = new Set<string>();
   filteredRoms.value.forEach(({ name }) => {
     if (!name) return;
-
     const normalized = normalizeTitle(name);
     const firstChar = normalized.charAt(0).toUpperCase();
-
-    if (/[A-Z]/.test(firstChar)) {
-      letterSet.add(firstChar);
-    } else if (/[0-9]/.test(firstChar)) {
-      letterSet.add("#");
-    }
+    if (/[A-Z]/.test(firstChar)) letterSet.add(firstChar);
+    else if (/[0-9]/.test(firstChar)) letterSet.add("#");
   });
-
   const result = Array.from(letterSet).sort();
-  // Move # to the beginning if it exists
   const hashIndex = result.indexOf("#");
   if (hashIndex > -1) {
     result.splice(hashIndex, 1);
     result.unshift("#");
   }
-
   return result;
 });
 
