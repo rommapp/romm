@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -19,7 +20,7 @@ except ImportError:
 
 log = logging.getLogger("romm")
 
-router = APIRouter(prefix="/api/streaming", tags=["streaming"])
+router = APIRouter(prefix="/streaming", tags=["streaming"])
 
 _sessions: dict[str, dict[str, Any]] = {}
 
