@@ -6,6 +6,8 @@ export default defineStore("auth", {
   state: () => ({
     user: null as User | null,
     oauth_scopes: [] as string[],
+    isLoading: false,
+    errorMessage: null as string | null,
   }),
 
   getters: {
@@ -16,13 +18,20 @@ export default defineStore("auth", {
 
   actions: {
     async fetchCurrentUser(): Promise<User | null> {
+      this.isLoading = true;
+      this.errorMessage = null;
+
       try {
         const response = await userApi.fetchCurrentUser();
         this.user = response.data;
+        this.errorMessage = null;
         return this.user;
       } catch (error) {
         console.error("Error fetching current user: ", error);
+        this.errorMessage = "Unable to load session. Please sign in again.";
         return this.user;
+      } finally {
+        this.isLoading = false;
       }
     },
     setCurrentUser(user: User | null) {
@@ -31,6 +40,8 @@ export default defineStore("auth", {
     reset() {
       this.user = null;
       this.oauth_scopes = [];
+      this.isLoading = false;
+      this.errorMessage = null;
     },
   },
 });
