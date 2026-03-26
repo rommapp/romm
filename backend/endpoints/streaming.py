@@ -174,20 +174,22 @@ def _stop_broker(container: dict[str, Any]) -> None:
 
 @router.get("/config")
 async def get_config() -> JSONResponse:
-
-    # Returns the streaming config to the frontend.
-
+    """Return streaming configuration to the frontend"""
     cfg = _get_streaming_config()
 
-    safe_containers = [
-        {
-            "platform": c.get("platform"),
-            "host": c.get("host"),
-            "label": c.get("label", c.get("platform", "").upper()),
-        }
-        for c in cfg.get("containers", [])
-        if c.get("platform") and c.get("host")
-    ]
+    safe_containers = []
+    for c in cfg.get("containers", []):
+        if not c.get("platform") or not c.get("host"):
+            continue
+
+        safe_containers.append(
+            {
+                "platform": c.get("platform"),
+                "host": c.get("host"),
+                "broker_host": c.get("broker_host"),
+                "label": c.get("label") or c.get("platform", "").upper(),
+            }
+        )
 
     return JSONResponse(
         {
