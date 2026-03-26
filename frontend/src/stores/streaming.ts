@@ -38,23 +38,23 @@ export const useStreamingStore = defineStore("streaming", () => {
     return config.value.containers.find((c) => c.platform === slug) ?? null;
   }
 
-  /**
-   * Fetch the streaming config from the backend.
-   * Call this once after the user is authenticated.
-   */
   async function fetchConfig(): Promise<void> {
-    loading.value = true;
-    error.value = null;
     try {
-      const res = await fetch("/api/streaming/config");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      config.value = await res.json();
-    } catch (err) {
-      // Non-fatal — streaming is optional. Log it and leave config at default.
-      console.warn("[streaming] Could not fetch config:", err);
-      error.value = String(err);
-    } finally {
-      loading.value = false;
+      const response = await fetch("/api/streaming/config", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch");
+
+      const data = await response.json();
+      this.config = data;
+      this.enabled = data.enabled ?? false;
+      this.containers = data.containers || [];
+
+      console.log("Streaming config loaded:", this.enabled, this.containers); // debug
+    } catch (error) {
+      console.error("Failed to fetch streaming config:", error);
     }
   }
 
