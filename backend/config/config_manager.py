@@ -357,6 +357,10 @@ class ConfigManager:
                     "manual",
                 ],
             ),
+            STREAMING_ENABLED=pydash.get(self._raw_config, "streaming.enabled", False),
+            STREAMING_CONTAINERS=pydash.get(
+                self._raw_config, "streaming.containers", []
+            ),
         )
 
     def _get_ejs_controls(self) -> dict[str, EjsControls]:
