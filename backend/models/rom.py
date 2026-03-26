@@ -50,6 +50,11 @@ class RomFileCategory(enum.StrEnum):
     CHEAT = "cheat"
 
 
+class RomSource(enum.StrEnum):
+    FILESYSTEM = "filesystem"
+    MANUAL = "manual"
+
+
 class SiblingRom(BaseModel):
     __tablename__ = "sibling_roms"
 
@@ -148,6 +153,9 @@ class Rom(BaseModel):
     __tablename__ = "roms"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    source: Mapped[RomSource] = mapped_column(
+        Enum(RomSource), default=RomSource.FILESYSTEM, nullable=False
+    )
 
     igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     sgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
