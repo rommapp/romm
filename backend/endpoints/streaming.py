@@ -186,7 +186,6 @@ async def get_config() -> JSONResponse:
             {
                 "platform": c.get("platform"),
                 "host": c.get("host"),
-                "broker_host": c.get("broker_host"),
                 "label": c.get("label") or c.get("platform", "").upper(),
             }
         )
