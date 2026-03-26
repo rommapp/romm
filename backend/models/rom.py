@@ -16,8 +16,13 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    exists,
     func,
+    not_,
+    or_,
+    select,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from config import FRONTEND_RESOURCES_PATH
@@ -148,6 +153,18 @@ class Rom(BaseModel):
     __tablename__ = "roms"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    @hybrid_property
+    def has_saves(self) -> bool:
+        return bool(self.saves or self.states)
+
+    @has_saves.expression
+    def has_saves(cls):
+        from models.assets import Save, State
+
+        save_exists = select(Save.id).where(Save.rom_id == cls.id)
+        state_exists = select(State.id).where(State.rom_id == cls.id)
+        return or_(exists(save_exists), exists(state_exists))
 
     igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
     sgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
