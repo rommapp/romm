@@ -40,23 +40,18 @@ class ClaimSessionRequest(BaseModel):
 
 
 def _get_streaming_config() -> dict[str, Any]:
+    """Extract streaming config from the parsed Config object"""
     try:
-        # Get the config object
         cfg = cm.get_config()
 
-        # Try to get streaming as an attribute (if RomM updated its model)
-        if hasattr(cfg, "streaming"):
-            return cfg.streaming
+        enabled = getattr(cfg, "STREAMING_ENABLED", False)
+        containers = getattr(cfg, "STREAMING_CONTAINERS", [])
 
-        # If it's not a formal attribute, check the raw dict inside the manager
-        # Most RomM managers have a ._config or .raw_config attribute
-        if hasattr(cm, "_config"):
-            return cm._config.get("streaming", {"enabled": False, "containers": []})
+        return {"enabled": enabled, "containers": containers}
 
     except Exception as e:
         log.error(f"streaming: Failed to extract config from cm: {e}")
-
-    return {"enabled": False, "containers": []}
+        return {"enabled": False, "containers": []}
 
 
 def _container_for_platform(platform: str) -> dict[str, Any] | None:
