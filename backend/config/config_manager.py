@@ -97,6 +97,20 @@ class NetplayICEServer(TypedDict):
     credential: NotRequired[str]
 
 
+# needed for streaming
+class StreamingContainer(TypedDict):
+    platform: str
+    host: str
+    broker_host: str
+    broker_secret: str  # may remove this and have it only be an env var
+    label: str
+
+
+class StreamingConfig(TypedDict):
+    enabled: bool
+    containers: list[StreamingContainer]
+
+
 class Config:
     CONFIG_FILE_MOUNTED: bool
     CONFIG_FILE_WRITABLE: bool
@@ -126,6 +140,8 @@ class Config:
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
+    STREAMING_ENABLED: bool
+    STREAMING_CONTAINERS: list[StreamingContainer]
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -556,6 +572,14 @@ class ConfigManager:
                     f"Invalid config.yml: scan.media.{media} is not a valid media type"
                 )
                 sys.exit(3)
+
+        if not isinstance(self.config.STREAMING_ENABLED, bool):
+            log.critical("Invalid config.yml: streaming.enabled must be a boolean")
+            sys.exit(3)
+
+        if not isinstance(self.config.STREAMING_CONTAINERS, list):
+            log.critical("Invalid config.yml: streaming.containers must be a list")
+            sys.exit(3)
 
     def get_config(self) -> Config:
         try:
