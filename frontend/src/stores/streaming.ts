@@ -1,6 +1,8 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
 export interface StreamingContainer {
   platform: string; // e.g. "ps2"
   host: string; // browser-facing URL, e.g. "http://192.168.1.50:3000"
@@ -20,6 +22,8 @@ export interface ActiveSession {
   claimed_at: string;
 }
 
+// ── Store ─────────────────────────────────────────────────────────────────────
+
 export const useStreamingStore = defineStore("streaming", () => {
   const config = ref<StreamingConfig>({ enabled: false, containers: [] });
   const activeSession = ref<ActiveSession | null>(null);
@@ -28,33 +32,56 @@ export const useStreamingStore = defineStore("streaming", () => {
 
   const isEnabled = computed(() => config.value.enabled);
 
+  // ── Actions ────────────────────────────────────────────────────────────────
+
   /**
-   * Returns the container config for a given platform slug, or null if
+   * Returns the streaming container for a given platform slug, or null if
    * streaming is disabled or no container is configured for that platform.
-   * Components use this to decide whether to show the stream play button.
+   * Case-insensitive so "PS2" and "ps2" both match.
    */
-  function containerForPlatform(slug: string): StreamingContainer | null {
-    if (!config.value.enabled) return null;
-    return config.value.containers.find((c) => c.platform === slug) ?? null;
+  function containerForPlatform(
+    slug: string | null | undefined,
+  ): StreamingContainer | null {
+    if (!slug || !config.value.enabled) return null;
+    const lower = slug.toLowerCase();
+    return (
+      config.value.containers.find((c) => c.platform.toLowerCase() === lower) ??
+      null
+    );
   }
 
+  /**
+   * Fetch streaming config from the backend once on app load.
+   * Non-fatal — if it fails, streaming stays disabled and no buttons appear.
+   */
   async function fetchConfig(): Promise<void> {
+    loading.value = true;
+    error.value = null;
     try {
-      const response = await fetch("/api/streaming/config", {
+      const res = await fetch("/api/streaming/config", {
         cache: "no-store",
         headers: { "Cache-Control": "no-cache" },
       });
 
-      if (!response.ok) throw new Error("Failed to fetch");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const data = await response.json();
-      this.config = data;
-      this.enabled = data.enabled ?? false;
-      this.containers = data.containers || [];
+      const data: StreamingConfig = await res.json();
+      config.value = {
+        enabled: data.enabled ?? false,
+        containers: data.containers ?? [],
+      };
 
-      console.log("Streaming config loaded:", this.enabled, this.containers); // debug
-    } catch (error) {
-      console.error("Failed to fetch streaming config:", error);
+      console.debug(
+        "[streaming] Config loaded — enabled:",
+        config.value.enabled,
+        "platforms:",
+        config.value.containers.map((c) => c.platform),
+      );
+    } catch (err) {
+      error.value = String(err);
+      console.warn("[streaming] Could not fetch config:", err);
+    } finally {
+      loading.value = false;
     }
   }
 
@@ -63,8 +90,8 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Returns the session data (including the container host URL) on success.
    * Throws an error with a `status` property on failure:
    *   409 session in use - error has who/what is playing
-   *   404 platform not configured
-   *   500 trigger write failed
+   *   404 — platform not configured
+   *   503 — broker unreachable
    */
   async function claimSession(
     platform: string,
@@ -81,10 +108,7 @@ export const useStreamingStore = defineStore("streaming", () => {
       const detail = await res.json().catch(() => ({}));
       const err = Object.assign(
         new Error(detail?.detail?.message ?? `HTTP ${res.status}`),
-        {
-          status: res.status,
-          detail: detail?.detail,
-        },
+        { status: res.status, detail: detail?.detail },
       );
       throw err;
     }
@@ -94,14 +118,15 @@ export const useStreamingStore = defineStore("streaming", () => {
     return session;
   }
 
-  //Release the active session when the user leaves the player page.
-
+  /**
+   * Release the active session when the user leaves the player page.
+   * Best-effort — never throws.
+   */
   async function releaseSession(platform: string): Promise<void> {
     activeSession.value = null;
     try {
       await fetch(`/api/streaming/sessions/${platform}`, { method: "DELETE" });
     } catch (err) {
-      // Best effort - don't block navigation if this fails
       console.warn("[streaming] Could not release session:", err);
     }
   }
