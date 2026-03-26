@@ -13,10 +13,18 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from config.config_manager import config_manager as cm
+
 try:
-    from handler.filesystem import config_handler
+    import config
+
+    # In RomM, the full parsed YAML is often stored in 'ROMM_CONFIG'
+    # or accessible via a function in the config module.
+    config_handler = config
 except ImportError:
-    config_handler = None  # type: ignore[assignment]
+    config_handler = None
+    # This will tell you EXACTLY why the config is failing in your logs
+    logging.getLogger("romm").error(f"streaming: failed to import config_handler: {e}")
 
 log = logging.getLogger("romm")
 
@@ -32,20 +40,23 @@ class ClaimSessionRequest(BaseModel):
 
 
 def _get_streaming_config() -> dict[str, Any]:
-    if config_handler is None:
-        return {"enabled": False, "containers": []}
     try:
-        raw: dict = {}
-        if hasattr(config_handler, "get_config"):
-            raw = config_handler.get_config()
-        elif hasattr(config_handler, "config"):
-            raw = config_handler.config
-        elif hasattr(config_handler, "CONFIG"):
-            raw = config_handler.CONFIG
-        return raw.get("streaming", {"enabled": False, "containers": []})
-    except Exception as exc:
-        log.warning("streaming: could not read config — %s", exc)
-        return {"enabled": False, "containers": []}
+        # Get the config object
+        cfg = cm.get_config()
+
+        # Try to get streaming as an attribute (if RomM updated its model)
+        if hasattr(cfg, "streaming"):
+            return cfg.streaming
+
+        # If it's not a formal attribute, check the raw dict inside the manager
+        # Most RomM managers have a ._config or .raw_config attribute
+        if hasattr(cm, "_config"):
+            return cm._config.get("streaming", {"enabled": False, "containers": []})
+
+    except Exception as e:
+        log.error(f"streaming: Failed to extract config from cm: {e}")
+
+    return {"enabled": False, "containers": []}
 
 
 def _container_for_platform(platform: str) -> dict[str, Any] | None:
