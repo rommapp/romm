@@ -16,7 +16,6 @@ import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import { type DetailedRom } from "@/stores/roms";
-import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import { getSupportedEJSCores } from "@/utils";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
@@ -41,12 +40,6 @@ const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
-const streamingStore = useStreamingStore();
-const streamingContainer = computed(() =>
-  rom.value
-    ? streamingStore.containerForPlatform(rom.value.platform_slug)
-    : null,
-);
 
 declare global {
   interface Navigator {
@@ -551,25 +544,6 @@ function openCacheDialog() {
                 @click="onPlay"
               >
                 <span class="text-h6">{{ t("play.play") }}</span>
-              </v-btn>
-
-              <!-- Stream play button only appears if container is configured -->
-              <v-btn
-                v-if="streamingContainer"
-                block
-                size="large"
-                variant="tonal"
-                color="primary"
-                class="mb-3"
-                prepend-icon="mdi-cast"
-                :to="{
-                  name: ROUTES.STREAM,
-                  params: { rom: rom?.id },
-                }"
-              >
-                <span class="text-h6"
-                  >{{ t("play.play") }} ({{ streamingContainer.label }})</span
-                >
               </v-btn>
 
               <!-- Navigation Buttons -->
