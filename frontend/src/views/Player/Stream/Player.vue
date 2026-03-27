@@ -197,12 +197,7 @@ const platformLabel = computed(
 );
 
 const backRoute = computed(() =>
-  rom.value
-    ? {
-        name: "rom",
-        params: { platform: rom.value.platform_slug, romId: rom.value.id },
-      }
-    : { name: "home" },
+  rom.value ? { name: "rom", params: { rom: rom.value.id } } : { name: "home" },
 );
 
 onMounted(async () => {
@@ -215,7 +210,7 @@ onBeforeUnmount(async () => {
   // Always release the session when the component is torn down,
   // whether the user clicked Stop or just navigated away.
   if (playerState.value === "playing") {
-    await streamingStore.releaseSession(platform.value);
+    await streamingStore.releaseSession(rom.value?.platform_slug ?? "");
   }
 });
 
@@ -236,7 +231,7 @@ async function handlePlay(): Promise<void> {
   if (!container.value) {
     playerState.value = "error";
     errorType.value = "not_configured";
-    errorMessage.value = `No streaming container is configured for ${platform.value}.`;
+    errorMessage.value = `No streaming container is configured for ${rom.value?.platform_slug}.`;
     return;
   }
 
@@ -252,7 +247,7 @@ async function handlePlay(): Promise<void> {
 
   try {
     const session = await streamingStore.claimSession(
-      platform.value,
+      rom.value.platform_slug,
       romPath,
       rom.value.name,
     );
@@ -276,7 +271,7 @@ async function handlePlay(): Promise<void> {
 }
 
 async function handleStop(): Promise<void> {
-  await streamingStore.releaseSession(platform.value);
+  await streamingStore.releaseSession(rom.value?.platform_slug ?? "");
   playerState.value = "idle";
   containerHost.value = "";
   router.push(backRoute.value);
