@@ -184,15 +184,16 @@ const isFullscreen = ref(false);
 const playerWrapper = ref<HTMLElement | null>(null);
 const streamFrame = ref<HTMLIFrameElement | null>(null);
 
-const romId = computed(() => Number(route.params.romId));
-const platform = computed(() => route.params.platform as string);
+const romId = computed(() => Number(route.params.rom));
 
 const container = computed(() =>
-  streamingStore.containerForPlatform(platform.value),
+  rom.value
+    ? streamingStore.containerForPlatform(rom.value.platform_slug)
+    : null,
 );
 
 const platformLabel = computed(
-  () => container.value?.label ?? platform.value.toUpperCase(),
+  () => container.value?.label ?? rom.value?.platform_slug?.toUpperCase() ?? "",
 );
 
 const backRoute = computed(() =>
