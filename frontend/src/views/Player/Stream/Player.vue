@@ -161,7 +161,7 @@ interface Rom {
   id: number;
   name: string;
   file_name: string;
-  fs_safe_file_path: string; // full path inside the library, relative to /romm/library/roms
+  full_path: string;
   platform_slug: string;
   cover_url?: string;
 }
@@ -243,7 +243,7 @@ async function handlePlay(): Promise<void> {
   // RomM mounts the library at /romm/library/roms, so the full path is:
   //   /romm/library/roms/<platform_slug>/<file_name>
   // This must match what the pcsx2 container can see at the same path.
-  const romPath = `/romm/library/roms/${rom.value.platform_slug}/${rom.value.file_name}`;
+  const romPath = `/romm/library/${rom.value.full_path}`;
 
   try {
     const session = await streamingStore.claimSession(
