@@ -207,11 +207,8 @@ onMounted(async () => {
 
 onBeforeUnmount(async () => {
   document.removeEventListener("fullscreenchange", onFullscreenChange);
-  // Always release the session when the component is torn down,
-  // whether the user clicked Stop or just navigated away.
-  if (playerState.value === "playing") {
-    await streamingStore.releaseSession(rom.value?.platform_slug ?? "");
-  }
+  // Release regardless of state
+  await streamingStore.releaseSession(rom.value?.platform_slug ?? "");
 });
 
 async function fetchRom(): Promise<void> {
