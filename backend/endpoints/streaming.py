@@ -281,3 +281,12 @@ async def list_sessions() -> JSONResponse:
             for platform, s in _sessions.items()
         }
     )
+
+
+@router.delete("/sessions")
+async def force_release_all() -> JSONResponse:
+    # Admin endpoint — force releases all active sessions
+    released = list(_sessions.keys())
+    _sessions.clear()
+    log.info("streaming: all sessions force-released by admin — %s", released)
+    return JSONResponse({"status": "released", "platforms": released})
