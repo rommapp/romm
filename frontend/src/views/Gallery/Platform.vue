@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { useLocalStorage, useScroll } from "@vueuse/core";
+import { useWindowVirtualizer } from "@tanstack/vue-virtual";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onMounted, ref, watch } from "vue";
+import { computed, inject, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import { useDisplay } from "vuetify";
 import GalleryAppBar from "@/components/Gallery/AppBar/Platform/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
@@ -38,6 +40,40 @@ const noPlatformError = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 let timeout: ReturnType<typeof setTimeout>;
+
+// --- Virtual scrolling ---
+const { name: breakpointName } = useDisplay();
+
+const columns = computed(() => {
+  if (currentView.value === 2) return 1;
+  const view = views[currentView.value];
+  const bp = breakpointName.value;
+  let colSpan: number;
+  if (bp === "xl" || bp === "xxl") colSpan = view["size-xl"];
+  else if (bp === "lg") colSpan = view["size-lg"];
+  else if (bp === "md") colSpan = view["size-md"];
+  else if (bp === "sm") colSpan = view["size-sm"];
+  else colSpan = view["size-cols"];
+  return Math.floor(12 / colSpan);
+});
+
+const rowCount = computed(() =>
+  Math.ceil(filteredRoms.value.length / columns.value),
+);
+
+const virtualizer = useWindowVirtualizer({
+  get count() { return rowCount.value; },
+  estimateSize: () => 200,
+  overscan: 5,
+});
+
+function getRomForCell(rowIndex: number, colIndex: number): SimpleRom | null {
+  const flatIndex = rowIndex * columns.value + colIndex;
+  return flatIndex < filteredRoms.value.length
+    ? filteredRoms.value[flatIndex]
+    : null;
+}
+// --- End virtual scrolling ---
 
 async function fetchRoms() {
   if (fetchingRoms.value) return;
@@ -222,39 +258,58 @@ onBeforeRouteUpdate(async (to, from) => {
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">
-        <v-row v-if="currentView != 2" class="mx-1 my-3 mr-14" no-gutters>
-          <!-- Gallery cards view -->
-          <v-col
-            v-for="rom in filteredRoms"
-            :key="rom.id"
-            class="pa-1 align-self-end"
-            :cols="views[currentView]['size-cols']"
-            :sm="views[currentView]['size-sm']"
-            :md="views[currentView]['size-md']"
-            :lg="views[currentView]['size-lg']"
-            :xl="views[currentView]['size-xl']"
+        <!-- Virtual scrolling gallery cards view -->
+        <div
+          v-if="currentView != 2"
+          :style="{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }"
+          class="mx-1 my-3"
+        >
+          <div
+            v-for="virtualRow in virtualizer.getVirtualItems()"
+            :key="String(virtualRow.key)"
+            :style="{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              transform: `translateY(${virtualRow.start}px)`,
+            }"
           >
-            <GameCard
-              :key="rom.id"
-              :rom="rom"
-              title-on-hover
-              pointer-on-hover
-              with-link
-              transform-scale
-              show-action-bar
-              show-chips
-              :show-platform-icon="false"
-              :with-border-primary="
-                romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
-              "
-              :size-action-bar="currentView"
-              :enable3-d-tilt="enable3DEffect"
-              @click="onGameClick"
-              @touchstart="onGameTouchStart"
-              @touchend="onGameTouchEnd"
-            />
-          </v-col>
-        </v-row>
+            <v-row no-gutters>
+              <v-col
+                v-for="colIndex in columns"
+                :key="`${virtualRow.index}-${colIndex}`"
+                class="pa-1 align-self-end"
+                :cols="views[currentView]['size-cols']"
+                :sm="views[currentView]['size-sm']"
+                :md="views[currentView]['size-md']"
+                :lg="views[currentView]['size-lg']"
+                :xl="views[currentView]['size-xl']"
+              >
+                <GameCard
+                  v-if="getRomForCell(virtualRow.index, colIndex - 1)"
+                  :key="getRomForCell(virtualRow.index, colIndex - 1)!.id"
+                  :rom="getRomForCell(virtualRow.index, colIndex - 1)!"
+                  title-on-hover
+                  pointer-on-hover
+                  with-link
+                  transform-scale
+                  show-action-bar
+                  show-chips
+                  :show-platform-icon="false"
+                  :with-border-primary="
+                    romsStore.isSimpleRom(getRomForCell(virtualRow.index, colIndex - 1)!) && selectedRoms?.includes(getRomForCell(virtualRow.index, colIndex - 1)!)
+                  "
+                  :size-action-bar="currentView"
+                  :enable3-d-tilt="enable3DEffect"
+                  @click="onGameClick"
+                  @touchstart="onGameTouchStart"
+                  @touchend="onGameTouchEnd"
+                />
+              </v-col>
+            </v-row>
+          </div>
+        </div>
 
         <!-- Gallery list view -->
         <v-row v-if="currentView == 2" class="mr-13" no-gutters>

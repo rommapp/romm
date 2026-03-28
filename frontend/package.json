@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@mdi/font": "7.4.47",
+    "@tanstack/vue-virtual": "^3.13.23",
     "@vueuse/core": "^13.7.0",
     "axios": "^1.13.5",
     "cronstrue": "^2.57.0",
