@@ -169,7 +169,9 @@
 #   enabled: true
 #   containers:
 #     - platform: ps2
-#       # Browser-facing Selkies web UI, MUST be serverd over https (use a reverse proxy or the built in self signed cert)
+#       # Browser-facing Selkies web UI, MUST be serverd over https
+#       # (use a reverse proxy or the built in self signed cert for linuxserver)
+#       # can also be a FQDN eg. https://your.example.com
 #       host: https://192.168.1.51:3001
 #
 #       # server-to-broker URL does NOT need to be served over https
