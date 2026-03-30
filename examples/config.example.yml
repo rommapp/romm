@@ -169,10 +169,10 @@
 #
 #   containers:
 #     - platform: ps2
-#       # Browser-facing Selkies web UI
-#       host: http://192.168.1.51:3000
+#       # Browser-facing Selkies web UI, MUST be serverd over https (use a reverse proxy or the built in self signed cert)
+#       host: https://192.168.1.51:3001
 #
-#       # server-to-broker URL
+#       # server-to-broker URL does NOT need to be served over https
 #       # If pcsx2 emulator is on a different host, use its LAN IP.
 #       # If on the same Docker network, use the container name: http://pcsx2:8000
 #       broker_host: http://192.168.1.51:8000
