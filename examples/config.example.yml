@@ -164,9 +164,9 @@
 #       1: # Player 2
 #       2: # Player 3
 #       3: # Player 4
+
 # streaming:
 #   enabled: true
-#
 #   containers:
 #     - platform: ps2
 #       # Browser-facing Selkies web UI, MUST be serverd over https (use a reverse proxy or the built in self signed cert)
