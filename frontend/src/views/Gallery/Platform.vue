@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useLocalStorage, useScroll } from "@vueuse/core";
 import { useWindowVirtualizer } from "@tanstack/vue-virtual";
+import { useLocalStorage, useScroll } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onMounted, ref, watch } from "vue";
@@ -42,18 +42,20 @@ const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 let timeout: ReturnType<typeof setTimeout>;
 
 // --- Virtual scrolling ---
-const { name: breakpointName } = useDisplay();
+const { smAndUp, mdAndUp, lgAndUp, xlAndUp } = useDisplay();
 
 const columns = computed(() => {
   if (currentView.value === 2) return 1;
-  const view = views[currentView.value];
-  const bp = breakpointName.value;
-  let colSpan: number;
-  if (bp === "xl" || bp === "xxl") colSpan = view["size-xl"];
-  else if (bp === "lg") colSpan = view["size-lg"];
-  else if (bp === "md") colSpan = view["size-md"];
-  else if (bp === "sm") colSpan = view["size-sm"];
-  else colSpan = view["size-cols"];
+
+  const colSpan = (() => {
+    const view = views[currentView.value];
+    if (xlAndUp) return view["size-xl"];
+    if (lgAndUp) return view["size-lg"];
+    if (mdAndUp) return view["size-md"];
+    if (smAndUp) return view["size-sm"];
+    return view["size-cols"];
+  })();
+
   return Math.floor(12 / colSpan);
 });
 
@@ -62,16 +64,16 @@ const rowCount = computed(() =>
 );
 
 const virtualizer = useWindowVirtualizer({
-  get count() { return rowCount.value; },
+  get count() {
+    return rowCount.value;
+  },
   estimateSize: () => 200,
   overscan: 5,
 });
 
-function getRomForCell(rowIndex: number, colIndex: number): SimpleRom | null {
+function getROMForCell(rowIndex: number, colIndex: number): SimpleRom | null {
   const flatIndex = rowIndex * columns.value + colIndex;
-  return flatIndex < filteredRoms.value.length
-    ? filteredRoms.value[flatIndex]
-    : null;
+  return filteredRoms.value[flatIndex] ?? null;
 }
 // --- End virtual scrolling ---
 
@@ -261,7 +263,11 @@ onBeforeRouteUpdate(async (to, from) => {
         <!-- Virtual scrolling gallery cards view -->
         <div
           v-if="currentView != 2"
-          :style="{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }"
+          :style="{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
+          }"
           class="mx-1 my-3"
         >
           <div
@@ -287,9 +293,9 @@ onBeforeRouteUpdate(async (to, from) => {
                 :xl="views[currentView]['size-xl']"
               >
                 <GameCard
-                  v-if="getRomForCell(virtualRow.index, colIndex - 1)"
-                  :key="getRomForCell(virtualRow.index, colIndex - 1)!.id"
-                  :rom="getRomForCell(virtualRow.index, colIndex - 1)!"
+                  v-if="getROMForCell(virtualRow.index, colIndex - 1)"
+                  :key="getROMForCell(virtualRow.index, colIndex - 1)!.id"
+                  :rom="getROMForCell(virtualRow.index, colIndex - 1)!"
                   title-on-hover
                   pointer-on-hover
                   with-link
@@ -298,7 +304,12 @@ onBeforeRouteUpdate(async (to, from) => {
                   show-chips
                   :show-platform-icon="false"
                   :with-border-primary="
-                    romsStore.isSimpleRom(getRomForCell(virtualRow.index, colIndex - 1)!) && selectedRoms?.includes(getRomForCell(virtualRow.index, colIndex - 1)!)
+                    romsStore.isSimpleRom(
+                      getROMForCell(virtualRow.index, colIndex - 1)!,
+                    ) &&
+                    selectedRoms?.includes(
+                      getROMForCell(virtualRow.index, colIndex - 1)!,
+                    )
                   "
                   :size-action-bar="currentView"
                   :enable3-d-tilt="enable3DEffect"
