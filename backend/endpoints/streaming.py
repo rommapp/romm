@@ -6,7 +6,6 @@ import os
 import urllib.error
 import urllib.request
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -20,9 +19,9 @@ try:
 
     # In RomM, the full parsed YAML is often stored in 'ROMM_CONFIG'
     # or accessible via a function in the config module.
-    config_handler = config
-except ImportError:
-    config_handler = None
+    config_handler = config  # type: ignore[assignment]
+except ImportError as e:
+    config_handler = None  # type: ignore[assignment]
     # This will tell you EXACTLY why the config is failing in your logs
     logging.getLogger("romm").error(f"streaming: failed to import config_handler: {e}")
 
