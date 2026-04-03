@@ -20,7 +20,7 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "vite --host --port 3005",
+    "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
