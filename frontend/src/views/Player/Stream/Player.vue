@@ -89,9 +89,28 @@
       v-show="playerState === 'playing'"
       ref="playerWrapper"
       class="player-wrapper"
+      :class="{ 'hide-cursor': !isUIVisible }"
+      @mousemove="handleMouseMove"
+      role="presentation"
     >
+      <!-- iframe points at the emulator container's built-in web UI -->
+      <iframe
+        v-if="containerHost"
+        ref="streamFrame"
+        :src="containerHost"
+        class="stream-frame"
+        allow="gamepad *; fullscreen *; autoplay *"
+        allowfullscreen
+        referrerpolicy="no-referrer"
+        title="Game stream"
+      />
+
+      <!-- Hover sensors for cross-origin fallback -->
+      <div class="player-sensor-top" @mousemove="handleMouseMove" />
+      <div class="player-sensor-bottom" @mousemove="handleMouseMove" />
+
       <!-- Control bar — mirrors the EmulatorJS player bar style -->
-      <div class="player-control-bar">
+      <div class="player-control-bar" :class="{ 'is-visible': isUIVisible }">
         <v-btn
           icon
           variant="text"
@@ -120,9 +139,45 @@
           :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
           @click="toggleFullscreen"
         >
-          <v-icon>{{
-            isFullscreen ? "mdi-fullscreen-exit" : "mdi-fullscreen"
-          }}</v-icon>
+          <!-- Icons by SVGRepo (CC Attribution License) -->
+          <svg
+            v-if="isFullscreen"
+            width="20"
+            height="20"
+            viewBox="0 0 48 48"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <g id="Layer_2" data-name="Layer 2">
+              <g id="icons_Q2" data-name="icons Q2">
+                <g>
+                  <path
+                    fill="currentColor"
+                    d="M8,26a2,2,0,0,0-2,2.3A2.1,2.1,0,0,0,8.1,30h7.1L4.7,40.5a2,2,0,0,0-.2,2.8A1.8,1.8,0,0,0,6,44a2,2,0,0,0,1.4-.6L18,32.8v7.1A2.1,2.1,0,0,0,19.7,42,2,2,0,0,0,22,40V28a2,2,0,0,0-2-2Z"
+                  />
+                  <path
+                    fill="currentColor"
+                    d="M43.7,4.8a2,2,0,0,0-3.1-.2L30,15.2V8.1A2.1,2.1,0,0,0,28.3,6,2,2,0,0,0,26,8V20a2,2,0,0,0,2,2H39.9A2.1,2.1,0,0,0,42,20.3,2,2,0,0,0,40,18H32.8L43.4,7.5A2.3,2.3,0,0,0,43.7,4.8Z"
+                  />
+                </g>
+              </g>
+            </g>
+          </svg>
+          <svg
+            v-else
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M21.7092 2.29502C21.8041 2.3904 21.8757 2.50014 21.9241 2.61722C21.9727 2.73425 21.9996 2.8625 22 2.997L22 3V9C22 9.55228 21.5523 10 21 10C20.4477 10 20 9.55228 20 9V5.41421L14.7071 10.7071C14.3166 11.0976 13.6834 11.0976 13.2929 10.7071C12.9024 10.3166 12.9024 9.68342 13.2929 9.29289L18.5858 4H15C14.4477 4 14 3.55228 14 3C14 2.44772 14.4477 2 15 2H20.9998C21.2749 2 21.5242 2.11106 21.705 2.29078L21.7092 2.29502Z"
+              fill="currentColor"
+            />
+            <path
+              d="M10.7071 14.7071L5.41421 20H9C9.55228 20 10 20.4477 10 21C10 21.5523 9.55228 22 9 22H3.00069L2.997 22C2.74301 21.9992 2.48924 21.9023 2.29502 21.7092L2.29078 21.705C2.19595 21.6096 2.12432 21.4999 2.07588 21.3828C2.02699 21.2649 2 21.1356 2 21V15C2 14.4477 2.44772 14 3 14C3.55228 14 4 14.4477 4 15V18.5858L9.29289 13.2929C9.68342 12.9024 10.3166 12.9024 10.7071 13.2929C11.0976 13.6834 11.0976 14.3166 10.7071 14.7071Z"
+              fill="currentColor"
+            />
+          </svg>
         </v-btn>
 
         <v-btn
@@ -133,21 +188,25 @@
           title="Stop and release session"
           @click="handleStop"
         >
-          <v-icon>mdi-stop</v-icon>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 512 512"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              fill="currentColor"
+              transform="translate(106.71015930175781,57.85955810546875)"
+              d="M0 0 C1.11432404 -0.00571014 2.22864807 -0.01142029 3.3767395 -0.01730347 C5.18864525 -0.01898026 5.18864525 -0.01898026 7.03715515 -0.02069092 C8.32079956 -0.02565582 9.60444397 -0.03062073 10.92698669 -0.03573608 C14.43745383 -0.04880523 17.94790188 -0.05529409 21.45838952 -0.05974674 C23.65521704 -0.06268591 25.85203944 -0.06679225 28.04886436 -0.07125092 C34.93289867 -0.08491042 41.81692117 -0.09458505 48.70096809 -0.09845281 C56.62809399 -0.1029321 64.55504735 -0.12048046 72.48212081 -0.1494534 C78.62331182 -0.1711146 84.76445444 -0.18115942 90.90568322 -0.18249393 C94.56739115 -0.18353863 98.22893655 -0.18937501 101.89060402 -0.20731354 C105.97862241 -0.22695303 110.06628218 -0.22248764 114.15434265 -0.21600342 C115.35620712 -0.2252182 116.55807159 -0.23443298 117.7963562 -0.243927 C128.25695616 -0.19204106 135.70279924 1.54525583 143.3367157 8.92559814 C149.32027748 15.7109572 150.00271881 22.57536325 149.7351532 31.47637939 C148.78366845 39.30526269 145.36095272 44.90935193 139.3289032 49.88653564 C101.25040586 73.30262309 49.99202309 54.14044189 5.2898407 54.14044189 C5.2898407 149.18044189 5.2898407 244.22044189 5.2898407 342.14044189 C46.5398407 342.14044189 87.7898407 342.14044189 130.2898407 342.14044189 C138.7221695 346.35660629 145.43170845 349.84660102 148.8132782 358.87091064 C150.61989506 367.47455322 150.43692569 376.32752594 145.8992157 383.98809814 C140.85419249 390.73520442 135.44550735 394.21504541 127.2898407 396.14044189 C122.93978016 396.55815081 118.61711804 396.55086803 114.2495575 396.52862549 C112.33066208 396.53651093 112.33066208 396.53651093 110.3730011 396.54455566 C106.88721422 396.55814767 103.4016959 396.55296346 99.91590476 396.54341841 C96.2500006 396.53577451 92.58411804 396.54288092 88.91821289 396.5475769 C82.76087865 396.55302284 76.60365262 396.54587565 70.44633484 396.53155518 C63.35548855 396.51525263 56.26490142 396.52050432 49.17406148 396.53703439 C43.06076952 396.55070862 36.94755499 396.55253945 30.83425266 396.54471838 C27.19431593 396.5400715 23.55450041 396.53933336 19.91457176 396.54932785 C15.84899789 396.55971252 11.78386064 396.54526395 7.7183075 396.52862549 C6.53194199 396.53469818 5.34557648 396.54077087 4.1232605 396.54702759 C-11.20396154 396.43152478 -24.15691497 392.28891373 -35.3820343 381.66387939 C-44.28083192 372.01853835 -48.82409228 360.68801365 -48.84158707 347.59428978 C-48.84734878 345.96769198 -48.84734878 345.96769198 -48.8532269 344.30823362 C-48.85236042 343.12770213 -48.85149394 341.94717065 -48.8506012 340.73086548 C-48.85357232 339.46830449 -48.85654344 338.2057435 -48.8596046 336.90492308 C-48.86765169 333.40715456 -48.86946289 329.90940659 -48.87020206 326.41162992 C-48.87205663 322.63641389 -48.87960601 318.86120843 -48.88633728 315.08599854 C-48.89990507 306.83374664 -48.90594296 298.58149961 -48.91034794 290.32923841 C-48.91311312 285.17349743 -48.91735099 280.01775831 -48.92185211 274.86201859 C-48.93404299 260.57883255 -48.94434251 246.29564802 -48.9477272 232.01245689 C-48.94794677 231.09872688 -48.94816634 230.18499686 -48.94839256 229.24357805 C-48.94861083 228.32769829 -48.94882911 227.41181853 -48.949054 226.46818483 C-48.94949746 224.61235515 -48.94994403 222.75652548 -48.95039368 220.9006958 C-48.95061511 219.98014596 -48.95083654 219.05959611 -48.95106468 218.11115082 C-48.95501109 203.20133991 -48.97246113 188.29157793 -48.9957532 173.38178591 C-49.01949029 158.06308797 -49.03193014 142.74441455 -49.03309512 127.42569792 C-49.03401058 118.8292872 -49.03973032 110.23294021 -49.05791473 101.63654709 C-49.07334759 94.31525596 -49.07841745 86.99404827 -49.07017663 79.67274396 C-49.06628131 75.94061166 -49.06714467 72.20864723 -49.08123398 68.4765358 C-49.09640153 64.42154391 -49.08807336 60.36692701 -49.07765198 56.31192017 C-49.08570838 55.14477301 -49.09376479 53.97762585 -49.10206532 52.7751106 C-49.01076508 37.53432896 -44.78805282 24.61912176 -34.2335968 13.46856689 C-24.51666184 4.50371668 -13.17219429 0.04066434 0 0 Z"
+            />
+            <path
+              fill="currentColor"
+              transform="translate(354,145)"
+              d="M0 0 C6.65383716 5.38756849 12.70653895 11.55150894 18.7668457 17.58984375 C19.9859388 18.79908005 19.9859388 18.79908005 21.22966003 20.03274536 C23.88121896 22.66481236 26.5289391 25.30069023 29.17578125 27.9375 C30.54276689 29.29837234 30.54276689 29.29837234 31.93736839 30.68673706 C36.25765988 34.98840686 40.57593243 39.29208189 44.89111739 43.59887409 C49.84289994 48.5408599 54.8028842 53.47442177 59.7698701 58.40112591 C64.09915132 62.69651391 68.41731801 67.00292328 72.73171043 71.31326294 C74.55791924 73.13461318 76.38749409 74.95259512 78.22054482 76.76705933 C80.78328273 79.30539511 83.33303948 81.85612927 85.88012695 84.41015625 C86.63190216 85.1491214 87.38367737 85.88808655 88.15823364 86.64944458 C95.24091079 93.80245935 99.57164405 100.57466081 100.25 110.75 C100.00512848 123.77716495 91.05791774 132.24259775 82.38354492 140.90698242 C81.53881119 141.75843338 80.69407745 142.60988434 79.82374573 143.48713684 C77.52578639 145.80074008 75.22341196 148.1098196 72.91826034 150.41625381 C71.47410768 151.86183611 70.03139179 153.30883674 68.58916664 154.75634193 C63.54584323 159.81811277 58.49743695 164.87474829 53.4440918 169.92651367 C48.75201646 174.61738684 44.07122248 179.31931164 39.39555663 184.02653617 C35.3634391 188.08488489 31.32356637 192.13540363 27.2776745 196.18002015 C24.86890209 198.58828524 22.46326387 200.99947964 20.06542015 203.4186306 C17.38792991 206.11578383 14.6979807 208.79988962 12.00463867 211.48120117 C11.22355743 212.27352142 10.4424762 213.06584167 9.63772583 213.88217163 C2.6370668 220.80391023 -4.57346954 226.0545598 -14.6875 226.25 C-22.94859415 226.11656089 -29.20028258 223.82522872 -35.203125 218.0625 C-41.19414257 211.18585375 -42.55801857 204.68002564 -42.6640625 195.6875 C-40.80756961 185.3785042 -34.39435852 178.70045071 -27.10546875 171.6171875 C-26.14744706 170.66851604 -25.19054158 169.71871619 -24.23469543 168.76785278 C-21.74193069 166.2939842 -19.234519 163.83551868 -16.72351074 161.38018799 C-14.15347524 158.86172477 -11.59791243 156.32866412 -9.04101562 153.796875 C-4.04124138 148.85038039 0.97418726 143.92004807 6 139 C5.13731538 138.99853344 4.27463076 138.99706688 3.38580418 138.99555588 C-17.62232178 138.95847577 -38.63028655 138.89944498 -59.63828182 138.81609726 C-69.79767554 138.77631782 -79.95699192 138.74391974 -90.11645508 138.72900391 C-98.97327014 138.71598174 -107.82991495 138.68900258 -116.68663412 138.64538693 C-121.37457911 138.62278489 -126.06231422 138.60708857 -130.75031853 138.60811615 C-135.16713592 138.6088635 -139.58348956 138.5908826 -144.00018692 138.55883217 C-145.61700512 138.55034678 -147.23387541 138.54857398 -148.8507061 138.55419731 C-159.18009443 138.58532442 -166.59943289 137.63499709 -175.25 131.8125 C-181.10024286 125.82929707 -183.69777543 119.53336853 -184.25 111.25 C-184.09287601 102.89100396 -180.63937941 96.05101294 -175 90 C-168.98933127 85.24155392 -163.45657291 83.75537848 -155.86257935 83.7215271 C-155.16733245 83.7157347 -154.47208555 83.7099423 -153.75577056 83.70397437 C-151.43885788 83.68704315 -149.12214521 83.68410386 -146.80517578 83.68115234 C-145.13928238 83.67184941 -143.47339363 83.66168019 -141.80751038 83.65071106 C-137.29355667 83.62343821 -132.77963413 83.60826969 -128.26561975 83.59528303 C-123.54503466 83.57964063 -118.82451308 83.55285393 -114.10397339 83.5272522 C-105.16874857 83.48048408 -96.23351177 83.44373043 -87.29822719 83.41057932 C-77.124119 83.37234406 -66.95007465 83.32293756 -56.77602029 83.27259517 C-35.85072734 83.16930456 -14.92539397 83.0800348 6 83 C5.45764709 82.46875015 4.91529419 81.93750031 4.35650635 81.39015198 C-0.7761675 76.35805887 -5.89639378 71.31376274 -11.00341415 66.25564671 C-13.6288277 63.65622148 -16.25863959 61.06160905 -18.89941406 58.4777832 C-21.45227896 55.97962443 -23.99239162 53.46910967 -26.52448273 50.94990349 C-27.95394764 49.534044 -29.39601629 48.13094554 -30.83831787 46.72816467 C-37.00528374 40.56384355 -41.18952106 35.13675962 -42.56640625 26.41015625 C-42.5558374 17.352655 -41.23602103 10.86221544 -35.203125 3.9375 C-25.26370638 -5.60434188 -11.86785728 -6.67446504 0 0 Z"
+            />
+          </svg>
         </v-btn>
       </div>
-
-      <!-- iframe points at the emulator container's built-in web UI -->
-      <iframe
-        v-if="containerHost"
-        ref="streamFrame"
-        :src="containerHost"
-        class="stream-frame"
-        allow="gamepad *; fullscreen *; autoplay *"
-        allowfullscreen
-        referrerpolicy="no-referrer"
-        title="Game stream"
-      />
     </div>
   </v-main>
 </template>
@@ -180,9 +239,16 @@ const errorMessage = ref<string>("");
 const occupiedBy = ref<{ rom_name: string; claimed_at: string } | null>(null);
 const containerHost = ref<string>("");
 const isFullscreen = ref(false);
+const isUIVisible = ref(true);
+let uiTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const playerWrapper = ref<HTMLElement | null>(null);
 const streamFrame = ref<HTMLIFrameElement | null>(null);
+
+// Cleanup refs for iframe listener management
+let attachTimeouts: ReturnType<typeof setTimeout>[] = [];
+let iframeLoadCleanup: (() => void) | null = null;
+let contentWindowCleanup: (() => void) | null = null;
 
 const romId = computed(() => Number(route.params.rom));
 
@@ -203,10 +269,18 @@ const backRoute = computed(() =>
 onMounted(async () => {
   await fetchRom();
   document.addEventListener("fullscreenchange", onFullscreenChange);
+  showUI();
 });
 
 onBeforeUnmount(async () => {
   document.removeEventListener("fullscreenchange", onFullscreenChange);
+  if (uiTimeout) clearTimeout(uiTimeout);
+  attachTimeouts.forEach((id) => clearTimeout(id));
+  attachTimeouts = [];
+  iframeLoadCleanup?.();
+  iframeLoadCleanup = null;
+  contentWindowCleanup?.();
+  contentWindowCleanup = null;
   // Release regardless of state
   await streamingStore.releaseSession(rom.value?.platform_slug ?? "");
 });
@@ -221,6 +295,68 @@ async function fetchRom(): Promise<void> {
     errorType.value = "server";
     errorMessage.value = "Could not load ROM details.";
   }
+}
+
+function showUI(): void {
+  isUIVisible.value = true;
+  if (uiTimeout) clearTimeout(uiTimeout);
+  uiTimeout = setTimeout(() => {
+    isUIVisible.value = false;
+  }, 1500);
+}
+
+function handleMouseMove(): void {
+  showUI();
+}
+
+/**
+ * Attach mousemove listener to iframe contentWindow if same-origin.
+ * Cleans up any previous load listener before adding a new one.
+ * Guards against double-attachment across repeated calls.
+ */
+function attachIframeListeners(): void {
+  const frame = streamFrame.value;
+  if (!frame) return;
+
+  // Remove stale load listener from a prior call
+  iframeLoadCleanup?.();
+  iframeLoadCleanup = null;
+
+  const tryAttach = (): void => {
+    // Already attached from a previous tryAttach — nothing to do
+    if (contentWindowCleanup) return;
+    try {
+      if (frame.contentWindow) {
+        frame.contentWindow.addEventListener("mousemove", handleMouseMove);
+        frame.contentWindow.addEventListener("mousedown", handleMouseMove);
+        frame.contentWindow.addEventListener("touchstart", handleMouseMove);
+        contentWindowCleanup = () => {
+          try {
+            frame.contentWindow?.removeEventListener(
+              "mousemove",
+              handleMouseMove,
+            );
+            frame.contentWindow?.removeEventListener(
+              "mousedown",
+              handleMouseMove,
+            );
+            frame.contentWindow?.removeEventListener(
+              "touchstart",
+              handleMouseMove,
+            );
+          } catch {
+            // Cross-origin — listeners were never added, nothing to remove
+          }
+        };
+      }
+    } catch {
+      // Cross-origin container, can't access contentWindow
+    }
+  };
+
+  frame.addEventListener("load", tryAttach);
+  iframeLoadCleanup = () => frame.removeEventListener("load", tryAttach);
+  tryAttach();
 }
 
 async function handlePlay(): Promise<void> {
@@ -250,19 +386,32 @@ async function handlePlay(): Promise<void> {
     );
     containerHost.value = session.host;
     playerState.value = "playing";
-  } catch (err: any) {
+
+    // Wait for DOM to update and iframe to exist
+    attachTimeouts.forEach((id) => clearTimeout(id));
+    attachTimeouts = [];
+    attachTimeouts.push(setTimeout(attachIframeListeners, 100));
+    // Also try slightly later as some frames might be slow to initialize window
+    attachTimeouts.push(setTimeout(attachIframeListeners, 500));
+  } catch (err: unknown) {
     playerState.value = "error";
 
-    if (err.status === 409) {
+    const error = err as {
+      status?: number;
+      detail?: { rom_name: string; claimed_at: string } | null;
+      message?: string;
+    };
+
+    if (error.status === 409) {
       errorType.value = "occupied";
-      occupiedBy.value = err.detail ?? null;
-    } else if (err.status === 404) {
+      occupiedBy.value = error.detail ?? null;
+    } else if (error.status === 404) {
       errorType.value = "not_configured";
       errorMessage.value =
         "No streaming container configured for this platform.";
     } else {
       errorType.value = "server";
-      errorMessage.value = err.message ?? "An unexpected error occurred.";
+      errorMessage.value = error.message ?? "An unexpected error occurred.";
     }
   }
 }
@@ -276,10 +425,14 @@ async function handleStop(): Promise<void> {
 
 async function toggleFullscreen(): Promise<void> {
   if (!playerWrapper.value) return;
-  if (!document.fullscreenElement) {
-    await playerWrapper.value.requestFullscreen();
-  } else {
-    await document.exitFullscreen();
+  try {
+    if (!document.fullscreenElement) {
+      await playerWrapper.value.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  } catch {
+    // Fullscreen request denied (e.g., permissions policy or user gesture requirement)
   }
 }
 
@@ -320,43 +473,96 @@ function formatTime(iso: string): string {
 }
 
 .player-wrapper {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
   width: 100%;
+  overflow: hidden;
+}
+
+.player-wrapper.hide-cursor {
+  cursor: none !important;
 }
 
 .player-control-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  min-height: 44px;
-  flex-shrink: 0;
-  background: rgba(18, 18, 18, 0.95);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  gap: 8px;
+  padding: 8px 16px;
+  min-height: 48px;
+  background: rgba(18, 18, 18, 0.5);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  z-index: 10;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.3);
+
+  /* Use visibility/opacity to avoid layout changes (flashing) */
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease;
+
+  /* Hint GPU layer promotion to avoid main thread layout updates */
+  will-change: opacity;
+  transform: translateZ(0);
+}
+
+.player-control-bar.is-visible {
+  visibility: visible;
+  opacity: 1;
 }
 
 .player-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 300px;
+  max-width: 200px;
 }
 
 .stream-frame {
   flex: 1;
   width: 100%;
+  height: 100%;
   border: none;
   background: #000;
   display: block;
 }
 
-:fullscreen .player-control-bar {
-  display: none;
-}
-
 :fullscreen .stream-frame {
   height: 100vh;
+}
+
+.player-sensor-top,
+.player-sensor-bottom {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  z-index: 5;
+  background: transparent;
+}
+
+.player-sensor-top {
+  top: 0;
+  height: 40px;
+}
+
+.player-sensor-bottom {
+  bottom: 0;
+  height: 80px;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
