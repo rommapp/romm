@@ -17,10 +17,10 @@ def sanitize_filename(stem: str) -> str:
 
 def file_uri_for_local_path(path: Path) -> str | None:
     try:
-        _ = path.resolve().relative_to(LAUNCHBOX_LOCAL_DIR.resolve())
+        relative = path.resolve().relative_to(LAUNCHBOX_LOCAL_DIR.resolve())
     except ValueError:
         return None
-    return f"file://{str(path)}"
+    return f"file://{relative.as_posix()}"
 
 
 def coalesce(*values: object | None) -> str | None:

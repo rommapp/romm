@@ -447,7 +447,7 @@ class TestFSHandler:
         def failing_move(*args, **kwargs):
             raise OSError("Simulated failure")
 
-        with patch("shutil.move", side_effect=failing_move):
+        with patch("os.replace", side_effect=failing_move):
             with pytest.raises(OSError, match="Simulated failure"):
                 await handler.write_file(b"test content", ".", "test_file.txt")
 

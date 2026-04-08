@@ -15,6 +15,7 @@ from startup import main
 
 import endpoints.sockets.netplay  # noqa
 import endpoints.sockets.scan  # noqa
+import endpoints.sockets.sync  # noqa
 from config import (
     DEV_HOST,
     DEV_PORT,
@@ -29,9 +30,9 @@ from endpoints.client_tokens import router as client_tokens_router
 from endpoints.collections import router as collections_router
 from endpoints.configs import router as configs_router
 from endpoints.device import router as device_router
+from endpoints.export import router as export_router
 from endpoints.feeds import router as feeds_router
 from endpoints.firmware import router as firmware_router
-from endpoints.gamelist import router as gamelist_router
 from endpoints.heartbeat import router as heartbeat_router
 from endpoints.netplay import router as netplay_router
 from endpoints.platform import router as platform_router
@@ -42,6 +43,7 @@ from endpoints.screenshots import router as screenshots_router
 from endpoints.search import router as search_router
 from endpoints.states import router as states_router
 from endpoints.stats import router as stats_router
+from endpoints.sync import router as sync_router
 from endpoints.tasks import router as tasks_router
 from endpoints.user import router as user_router
 from handler.auth.hybrid_auth import HybridAuthBackend
@@ -131,6 +133,7 @@ app.include_router(rom_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
 app.include_router(saves_router, prefix="/api")
 app.include_router(states_router, prefix="/api")
+app.include_router(sync_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
 app.include_router(feeds_router, prefix="/api")
 app.include_router(configs_router, prefix="/api")
@@ -139,7 +142,7 @@ app.include_router(raw_router, prefix="/api")
 app.include_router(screenshots_router, prefix="/api")
 app.include_router(firmware_router, prefix="/api")
 app.include_router(collections_router, prefix="/api")
-app.include_router(gamelist_router, prefix="/api")
+app.include_router(export_router, prefix="/api")
 app.include_router(netplay_router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)

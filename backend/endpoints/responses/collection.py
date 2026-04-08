@@ -1,10 +1,11 @@
 from collections.abc import Sequence
-from datetime import datetime
 from typing import Any
+
+from pydantic import ConfigDict
 
 from models.collection import Collection, SmartCollection
 
-from .base import BaseModel
+from .base import BaseModel, UTCDatetime
 
 
 class BaseCollectionSchema(BaseModel):
@@ -20,18 +21,17 @@ class BaseCollectionSchema(BaseModel):
     is_favorite: bool = False
     is_virtual: bool = False
     is_smart: bool = False
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
 
 
 class CollectionSchema(BaseCollectionSchema):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     url_cover: str | None
     user_id: int
     owner_username: str
-
-    class Config:
-        from_attributes = True
 
     @classmethod
     def for_user(
@@ -45,15 +45,16 @@ class CollectionSchema(BaseCollectionSchema):
 
 
 class VirtualCollectionSchema(BaseCollectionSchema):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     type: str
     is_virtual: bool = True
 
-    class Config:
-        from_attributes = True
-
 
 class SmartCollectionSchema(BaseCollectionSchema):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     description: str = ""
@@ -62,9 +63,6 @@ class SmartCollectionSchema(BaseCollectionSchema):
     user_id: int
     owner_username: str
     is_smart: bool = True
-
-    class Config:
-        from_attributes = True
 
     @classmethod
     def for_user(

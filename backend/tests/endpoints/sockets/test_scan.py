@@ -1,10 +1,8 @@
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 import socketio
 
-from config import LIBRARY_BASE_PATH
 from endpoints.sockets.scan import ScanStats, _should_scan_rom
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
@@ -263,7 +261,7 @@ class TestGetPico8CoverUrl:
             fs_name="mygame.p8.png",
             fs_path="pico/roms",
         )
-        expected = f"file://{Path(LIBRARY_BASE_PATH).resolve() / 'pico/roms' / 'mygame.p8.png'}"
+        expected = "file://pico/roms/mygame.p8.png"
         assert url == expected
 
     def test_returns_none_for_non_pico8_platform(self, handler: FSRomsHandler):

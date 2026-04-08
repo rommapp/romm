@@ -1,4 +1,5 @@
 import enum
+import fnmatch
 import json
 import os
 from collections.abc import Sequence
@@ -117,8 +118,33 @@ def process_changes(changes: Sequence[Change]) -> None:
     if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:
         return
 
-    # Filter for valid events
-    changes = [change for change in changes if change[0] in VALID_EVENTS]
+    # Filter for valid events, applying the same exclusion rules as the scanner:
+    # exact-match and fnmatch patterns for files, plus excluded directory names
+    # checked against every path component so events inside excluded dirs are ignored.
+    config = cm.get_config()
+    excluded_patterns = (
+        config.EXCLUDED_SINGLE_FILES
+        + config.EXCLUDED_MULTI_FILES
+        + config.EXCLUDED_MULTI_PARTS_FILES
+    )
+
+    def _is_excluded(path: str) -> bool:
+        parts = path.strip("/").split("/")
+        for part in parts:
+            if part.startswith(".romm_tmp_"):
+                return True
+            if any(
+                part == pat or fnmatch.fnmatch(part, pat) for pat in excluded_patterns
+            ):
+                return True
+        return False
+
+    changes = [
+        change
+        for change in changes
+        if change[0] in VALID_EVENTS
+        and not _is_excluded(os.fsdecode(change[1]).split(LIBRARY_BASE_PATH)[-1])
+    ]
     if not changes:
         return
 

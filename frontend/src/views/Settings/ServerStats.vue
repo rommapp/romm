@@ -18,9 +18,11 @@ const stats = ref({
 });
 
 onBeforeMount(() => {
-  api.get("/stats").then(({ data }) => {
-    stats.value = data;
-  });
+  api
+    .get("/stats", { params: { include_platform_stats: true } })
+    .then(({ data }) => {
+      stats.value = data;
+    });
 });
 </script>
 <template>

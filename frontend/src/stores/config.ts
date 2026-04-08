@@ -20,6 +20,9 @@ const defaultConfig = {
   EXCLUDED_MULTI_FILES: [],
   EXCLUDED_MULTI_PARTS_EXT: [],
   EXCLUDED_MULTI_PARTS_FILES: [],
+  DEFAULT_EXCLUDED_DIRS: [],
+  DEFAULT_EXCLUDED_FILES: [],
+  DEFAULT_EXCLUDED_EXTENSIONS: [],
   PLATFORMS_BINDING: {},
   PLATFORMS_VERSIONS: {},
   SKIP_HASH_CALCULATION: false,
@@ -36,6 +39,8 @@ const defaultConfig = {
   SCAN_REGION_PRIORITY: [],
   SCAN_LANGUAGE_PRIORITY: [],
   SCAN_MEDIA: [],
+  GAMELIST_MEDIA_THUMBNAIL: "box2d",
+  GAMELIST_MEDIA_IMAGE: "screenshot",
 } as ConfigResponse;
 
 export default defineStore("config", {

@@ -34,6 +34,11 @@ const isNDSRom = computed(() => {
   return isNintendoDSRom(props.rom);
 });
 
+const isAprilFools = computed(() => {
+  const today = new Date();
+  return today.getMonth() === 3 && today.getDate() === 1;
+});
+
 const isEmulationSupported = computed(() => {
   return (
     isEJSEmulationSupported(
@@ -70,7 +75,7 @@ watch(menuOpen, (val) => {
         @click.prevent="romApi.downloadRom({ rom })"
       />
     </v-col>
-    <v-col v-if="isEmulationSupported" class="d-flex">
+    <v-col v-if="isEmulationSupported || isAprilFools" class="d-flex">
       <PlayBtn
         :rom="rom"
         icon-embedded

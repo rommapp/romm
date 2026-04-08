@@ -45,6 +45,7 @@ class ZipResponse(Response):
             {
                 "Content-Disposition": f"attachment; filename*=UTF-8''{filename}; filename=\"{filename}\"",
                 "X-Archive-Files": "zip",
+                "X-Archive-Charset": "UTF-8",
             }
         )
 

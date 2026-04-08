@@ -99,10 +99,9 @@ XML_TAG_MAP: Final = {
 
 def _make_file_uri(platform_dir: str, raw_text: str) -> str:
     cleaned_text = raw_text.replace("./", "")
-    validated_path = fs_platform_handler.validate_path(
-        os.path.join(platform_dir, cleaned_text)
-    )
-    return f"file://{str(validated_path)}"
+    joined_path = Path(platform_dir, cleaned_text)
+    fs_platform_handler.validate_path(str(joined_path))
+    return f"file://{joined_path.as_posix()}"
 
 
 def extract_media_from_gamelist_rom(
@@ -148,7 +147,9 @@ def extract_media_from_gamelist_rom(
             found_files = glob.glob(str(search_path))
             if found_files:
                 # trunk-ignore(mypy/literal-required)
-                gamelist_media[media_key] = f"file://{str(found_files[0])}"
+                gamelist_media[media_key] = (
+                    f"file://{str(Path(found_files[0]).relative_to(fs_platform_handler.base_path))}"
+                )
 
     return gamelist_media
 
@@ -242,6 +243,12 @@ def populate_rom_specific_paths(
     ):
         updated_metadata["physical_path"] = (
             f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.PHYSICAL)}/physical.png"
+        )
+    if MetadataMediaType.TITLE_SCREEN in preferred_media_types and rom_metadata.get(
+        "title_screen_url"
+    ):
+        updated_metadata["title_screen_path"] = (
+            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.TITLE_SCREEN)}/title_screen.png"
         )
     if MetadataMediaType.VIDEO in preferred_media_types and rom_metadata.get(
         "video_url"

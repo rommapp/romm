@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type CleanupStats = {
+export type OrphanedResourcesCleanupStats = {
     platforms_in_db: number;
     roms_in_db: number;
     platforms_in_fs: number;

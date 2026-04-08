@@ -32,7 +32,7 @@ class LocalSource:
             try:
                 indexed_val: dict[str, dict[str, str]] = {}
                 root = ET.parse(str(xml_path.resolve())).getroot()
-                if root:
+                if root is not None:
                     for game_elem in root.findall(".//Game"):
                         entry: dict[str, str] = {}
                         for child_elem in game_elem:

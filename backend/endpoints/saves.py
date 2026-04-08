@@ -17,6 +17,7 @@ from handler.database import (
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
+    db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save, scan_screenshot
@@ -95,6 +96,16 @@ def _resolve_device(
     return device
 
 
+def _increment_session_counter(session_id: int, user_id: int) -> None:
+    try:
+        db_sync_session_handler.increment_operations_completed(
+            session_id=session_id,
+            user_id=user_id,
+        )
+    except Exception:
+        log.warning(f"Failed to update sync session {session_id}", exc_info=True)
+
+
 router = APIRouter(
     prefix="/saves",
     tags=["saves"],
@@ -116,6 +127,7 @@ async def add_save(
     emulator: str | None = None,
     slot: str | None = None,
     device_id: str | None = None,
+    session_id: int | None = None,
     overwrite: bool = False,
     autocleanup: bool = False,
     autocleanup_limit: int = 10,
@@ -243,6 +255,9 @@ async def add_save(
             device_id=device.id, save_id=db_save.id, synced_at=db_save.updated_at
         )
         db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
+
+    if session_id:
+        _increment_session_counter(session_id, request.user.id)
 
     if slot and autocleanup:
         slot_saves = db_save_handler.get_saves(
@@ -401,6 +416,7 @@ def download_save(
     request: Request,
     id: int,
     device_id: str | None = None,
+    session_id: int | None = None,
     optimistic: bool = True,
 ) -> FileResponse:
     """Download a save file."""
@@ -437,6 +453,9 @@ def download_save(
         )
         db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
 
+    if session_id:
+        _increment_session_counter(session_id, request.user.id)
+
     return FileResponse(path=str(file_path), filename=save.file_name)
 
 
@@ -469,10 +488,15 @@ def confirm_download(
 async def update_save(
     request: Request,
     id: int,
+    device_id: str | None = None,
     saveFile: UploadFile | None = SAVE_FILE_UPDATE,
     screenshotFile: UploadFile | None = SAVE_SCREENSHOT_UPDATE,
 ) -> SaveSchema:
     """Update a save file."""
+
+    device = _resolve_device(
+        device_id, request.user.id, request.auth.scopes, Scope.DEVICES_WRITE
+    )
 
     db_save = db_save_handler.get_save(user_id=request.user.id, id=id)
     if not db_save:
@@ -484,8 +508,19 @@ async def update_save(
         await fs_asset_handler.write_file(
             file=saveFile, path=db_save.file_path, filename=db_save.file_name
         )
+        scanned_save = await scan_save(
+            file_name=db_save.file_name,
+            user=request.user,
+            platform_fs_slug=db_save.rom.platform_fs_slug,
+            rom_id=db_save.rom_id,
+            emulator=db_save.emulator,
+        )
         db_save = db_save_handler.update_save(
-            db_save.id, {"file_size_bytes": saveFile.size}
+            db_save.id,
+            {
+                "file_size_bytes": scanned_save.file_size_bytes,
+                "content_hash": scanned_save.content_hash,
+            },
         )
 
     if screenshotFile and screenshotFile.filename:
@@ -539,8 +574,18 @@ async def update_save(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
 
-    # Refetch the save to get updated fields
-    return SaveSchema.model_validate(db_save)
+    if device:
+        db_device_save_sync_handler.upsert_sync(
+            device_id=device.id, save_id=db_save.id, synced_at=db_save.updated_at
+        )
+        db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
+
+    sync = None
+    if device:
+        sync = db_device_save_sync_handler.get_sync(
+            device_id=device.id, save_id=db_save.id
+        )
+    return _build_save_schema(db_save, device, sync)
 
 
 @protected_route(

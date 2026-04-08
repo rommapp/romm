@@ -87,11 +87,13 @@ jobs:
       - name: Comment PR with Docker image link
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         with:
           script: |
             github.rest.issues.updateComment({
               comment_id: ${{ steps.build-comment.outputs.comment-id }},
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `✅ Preview build completed!\n\nDocker image: \`rommapp/romm-testing:${{ github.head_ref }}\``
+              body: `✅ Preview build completed!\n\nDocker image: \`rommapp/romm-testing:${process.env.HEAD_REF}\``
             })

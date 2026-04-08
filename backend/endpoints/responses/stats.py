@@ -11,7 +11,7 @@ class RegionBreakdownItem(TypedDict):
     count: int
 
 
-class StatsReturn(TypedDict):
+class StatsReturn(TypedDict, total=False):
     PLATFORMS: int
     ROMS: int
     SAVES: int

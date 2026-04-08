@@ -38,7 +38,7 @@ def parse_expiry(expires_in: str | None) -> datetime | None:
     delta = EXPIRY_MAP.get(expires_in)
     if delta is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid expires_in value: {expires_in}. "
             f"Valid values: {', '.join(EXPIRY_MAP.keys())}, never",
         )

@@ -3,7 +3,7 @@ import { computed } from "vue";
 import type {
   ScanStats,
   ConversionStats,
-  CleanupStats,
+  OrphanedResourcesCleanupStats,
   UpdateStats,
   ScanTaskStatusResponse,
   ConversionTaskStatusResponse,
@@ -32,10 +32,13 @@ const conversionStats = computed((): ConversionStats | null => {
   return props.task.meta?.conversion_stats || null;
 });
 
-const cleanupStats = computed((): CleanupStats | null => {
+const cleanupStats = computed((): OrphanedResourcesCleanupStats | null => {
   if (props.task.task_type !== "cleanup") return null;
   // @ts-ignore
-  return props.task.meta?.cleanup_stats || null;
+  const stats = props.task.meta?.cleanup_stats;
+  // Only show CleanupTaskProgress for orphaned resources cleanup (has platforms_in_db)
+  if (!stats || stats.platforms_in_db === undefined) return null;
+  return stats;
 });
 
 const updateStats = computed((): UpdateStats | null => {

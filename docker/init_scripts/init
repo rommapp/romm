@@ -12,6 +12,7 @@ ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="false
 ENABLE_SCHEDULED_RESCAN="${ENABLE_SCHEDULED_RESCAN:="false"}"
 ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA="${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:="false"}"
 ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:="false"}"
+ENABLE_SYNC_FOLDER_WATCHER="${ENABLE_SYNC_FOLDER_WATCHER:="false"}"
 
 # if REDIS_HOST is set, we assume that an external redis is used
 REDIS_HOST="${REDIS_HOST:=""}"
@@ -236,6 +237,23 @@ start_bin_watcher() {
 	echo "${WATCHER_PID}" >/tmp/watcher.pid
 }
 
+start_bin_sync_watcher() {
+	info_log "Starting sync folder watcher"
+	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
+		watchfiles \
+			--target-type command \
+			"python3 sync_watcher.py" \
+			/romm/sync &
+	else
+		watchfiles \
+			--target-type command \
+			"opentelemetry-instrument --service_name '${OTEL_SERVICE_NAME_PREFIX-}sync_watcher' python3 sync_watcher.py" \
+			/romm/sync &
+	fi
+	SYNC_WATCHER_PID=$!
+	echo "${SYNC_WATCHER_PID}" >/tmp/sync_watcher.pid
+}
+
 watchdog_process_pid() {
 	PROCESS=$1
 	if [[ -f "/tmp/${PROCESS}.pid" ]]; then
@@ -267,6 +285,7 @@ shutdown() {
 	# shutdown in reverse order
 	stop_process_pid rq_worker
 	stop_process_pid rq_scheduler
+	stop_process_pid sync_watcher
 	stop_process_pid watcher
 	stop_process_pid nginx
 	stop_process_pid gunicorn
@@ -330,6 +349,11 @@ while ! ((exited)); do
 	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
 		watchdog_process_pid watcher
+	fi
+
+	# only start the sync folder watcher if enabled
+	if [[ ${ENABLE_SYNC_FOLDER_WATCHER} == "true" ]]; then
+		watchdog_process_pid sync_watcher
 	fi
 
 	watchdog_process_pid nginx

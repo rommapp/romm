@@ -58,7 +58,7 @@ RUN npm install
 WORKDIR /app
 
 # Install uv for the non-root user
-COPY --from=ghcr.io/astral-sh/uv:0.7.19 /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /uvx /usr/local/bin/
 
 # Install Python
 RUN uv python install 3.13

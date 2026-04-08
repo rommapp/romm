@@ -1,0 +1,21 @@
+{
+  "add-collection": "Добави колекция",
+  "create-collection": "Създай колекция",
+  "create-smart-collection": "Създай умна колекция",
+  "current-filters": "Текущи филтри",
+  "danger-zone": "Опасна зона",
+  "delete-collection": "Изтрий колекция",
+  "description": "Описание",
+  "edit-collection": "Редактирай колекция",
+  "name": "Име",
+  "owner": "Собственик",
+  "private": "Частна",
+  "private-desc": "Частна (видима само за мен)",
+  "public": "Публична",
+  "public-desc": "Публична (видима за всички)",
+  "removing-collection-1": "Премахване на колекция",
+  "removing-collection-2": "от RomM. Потвърди?",
+  "removing-smart-collection-1": "Премахване на умна колекция",
+  "removing-smart-collection-2": "от RomM. Потвърди?",
+  "search-collection": "Търси колекция"
+}

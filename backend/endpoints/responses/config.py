@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-from config.config_manager import EjsControls, NetplayICEServer
+from config.config_manager import EjsControls, MetadataMediaType, NetplayICEServer
 
 
 class ConfigResponse(TypedDict):
@@ -12,6 +12,9 @@ class ConfigResponse(TypedDict):
     EXCLUDED_MULTI_FILES: list[str]
     EXCLUDED_MULTI_PARTS_EXT: list[str]
     EXCLUDED_MULTI_PARTS_FILES: list[str]
+    DEFAULT_EXCLUDED_DIRS: list[str]
+    DEFAULT_EXCLUDED_FILES: list[str]
+    DEFAULT_EXCLUDED_EXTENSIONS: list[str]
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
     SKIP_HASH_CALCULATION: bool
@@ -28,3 +31,5 @@ class ConfigResponse(TypedDict):
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
+    GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
+    GAMELIST_MEDIA_IMAGE: MetadataMediaType

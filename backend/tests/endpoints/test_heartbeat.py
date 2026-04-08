@@ -1,18 +1,9 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from fastapi import status
-from fastapi.testclient import TestClient
-from main import app
 
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from utils import get_version
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
 
 
 def test_heartbeat(client):

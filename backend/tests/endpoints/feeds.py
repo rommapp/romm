@@ -1,18 +1,10 @@
-import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from main import app
 
 from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
 
 
 def test_webrcade_feed(

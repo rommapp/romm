@@ -1,6 +1,11 @@
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel
 
+from config.config_manager import (
+    DEFAULT_EXCLUDED_DIRS,
+    DEFAULT_EXCLUDED_EXTENSIONS,
+    DEFAULT_EXCLUDED_FILES,
+)
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses.config import ConfigResponse
@@ -43,6 +48,9 @@ def get_config(request: Request) -> ConfigResponse:
         EXCLUDED_MULTI_FILES=cfg.EXCLUDED_MULTI_FILES,
         EXCLUDED_MULTI_PARTS_EXT=cfg.EXCLUDED_MULTI_PARTS_EXT,
         EXCLUDED_MULTI_PARTS_FILES=cfg.EXCLUDED_MULTI_PARTS_FILES,
+        DEFAULT_EXCLUDED_DIRS=list(DEFAULT_EXCLUDED_DIRS),
+        DEFAULT_EXCLUDED_FILES=list(DEFAULT_EXCLUDED_FILES),
+        DEFAULT_EXCLUDED_EXTENSIONS=list(DEFAULT_EXCLUDED_EXTENSIONS),
         PLATFORMS_BINDING=cfg.PLATFORMS_BINDING,
         PLATFORMS_VERSIONS=cfg.PLATFORMS_VERSIONS,
         SKIP_HASH_CALCULATION=cfg.SKIP_HASH_CALCULATION,
@@ -62,6 +70,8 @@ def get_config(request: Request) -> ConfigResponse:
         SCAN_REGION_PRIORITY=cfg.SCAN_REGION_PRIORITY,
         SCAN_LANGUAGE_PRIORITY=cfg.SCAN_LANGUAGE_PRIORITY,
         SCAN_MEDIA=cfg.SCAN_MEDIA,
+        GAMELIST_MEDIA_THUMBNAIL=cfg.GAMELIST_MEDIA_THUMBNAIL,
+        GAMELIST_MEDIA_IMAGE=cfg.GAMELIST_MEDIA_IMAGE,
     )
 
 

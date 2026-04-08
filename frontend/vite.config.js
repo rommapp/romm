@@ -72,6 +72,9 @@ export default defineConfig(({ mode }) => {
   return {
     optimizeDeps: {
       include: VUETIFY_COMPONENTS,
+      esbuildOptions: {
+        target: "esnext",
+      },
     },
     build: {
       target: "esnext",

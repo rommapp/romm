@@ -29,6 +29,7 @@ export type RomSSMetadata = {
     physical_path?: (string | null);
     marquee_path?: (string | null);
     logo_path?: (string | null);
+    title_screen_path?: (string | null);
     video_path?: (string | null);
     video_normalized_path?: (string | null);
     ss_score?: (string | null);

@@ -14,12 +14,35 @@ def test_config_loader():
         os.path.join(Path(__file__).resolve().parent, "fixtures", "config/config.yml")
     )
 
-    assert loader.config.EXCLUDED_PLATFORMS == ["romm"]
-    assert loader.config.EXCLUDED_SINGLE_EXT == ["xml"]
-    assert loader.config.EXCLUDED_SINGLE_FILES == ["info.txt"]
-    assert loader.config.EXCLUDED_MULTI_FILES == ["my_multi_file_game", "DLC"]
-    assert loader.config.EXCLUDED_MULTI_PARTS_EXT == ["txt"]
-    assert loader.config.EXCLUDED_MULTI_PARTS_FILES == ["data.xml"]
+    assert loader.config.EXCLUDED_PLATFORMS == sorted({*DEFAULT_EXCLUDED_DIRS, "romm"})
+    assert loader.config.EXCLUDED_SINGLE_EXT == sorted(
+        {
+            *(e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS),
+            "xml",
+        }
+    )
+    assert loader.config.EXCLUDED_SINGLE_FILES == sorted(
+        {*DEFAULT_EXCLUDED_FILES, "info.txt"}
+    )
+    assert loader.config.EXCLUDED_MULTI_FILES == sorted(
+        {
+            *DEFAULT_EXCLUDED_DIRS,
+            "my_multi_file_game",
+            "DLC",
+        }
+    )
+    assert loader.config.EXCLUDED_MULTI_PARTS_EXT == sorted(
+        {
+            *(e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS),
+            "txt",
+        }
+    )
+    assert loader.config.EXCLUDED_MULTI_PARTS_FILES == sorted(
+        {
+            *DEFAULT_EXCLUDED_FILES,
+            "data.xml",
+        }
+    )
     assert loader.config.PLATFORMS_BINDING == {"gc": "ngc"}
     assert loader.config.PLATFORMS_VERSIONS == {"naomi": "arcade"}
     assert loader.config.ROMS_FOLDER_NAME == "ROMS"
@@ -54,6 +77,8 @@ def test_config_loader():
     assert loader.config.SCAN_ARTWORK_PRIORITY == ["igdb", "ss"]
     assert loader.config.SCAN_REGION_PRIORITY == ["jp", "eu", "wor"]
     assert loader.config.SCAN_LANGUAGE_PRIORITY == ["jp", "es"]
+    assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box3d"
+    assert loader.config.GAMELIST_MEDIA_IMAGE == "title_screen"
 
 
 def test_empty_config_loader():
@@ -63,16 +88,16 @@ def test_empty_config_loader():
         )
     )
 
-    assert loader.config.EXCLUDED_PLATFORMS == DEFAULT_EXCLUDED_DIRS
-    assert loader.config.EXCLUDED_SINGLE_EXT == [
-        e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS
-    ]
-    assert loader.config.EXCLUDED_SINGLE_FILES == DEFAULT_EXCLUDED_FILES
-    assert loader.config.EXCLUDED_MULTI_FILES == DEFAULT_EXCLUDED_DIRS
-    assert loader.config.EXCLUDED_MULTI_PARTS_EXT == [
-        e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS
-    ]
-    assert loader.config.EXCLUDED_MULTI_PARTS_FILES == DEFAULT_EXCLUDED_FILES
+    assert loader.config.EXCLUDED_PLATFORMS == sorted(DEFAULT_EXCLUDED_DIRS)
+    assert loader.config.EXCLUDED_SINGLE_EXT == sorted(
+        {e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS}
+    )
+    assert loader.config.EXCLUDED_SINGLE_FILES == sorted(DEFAULT_EXCLUDED_FILES)
+    assert loader.config.EXCLUDED_MULTI_FILES == sorted(DEFAULT_EXCLUDED_DIRS)
+    assert loader.config.EXCLUDED_MULTI_PARTS_EXT == sorted(
+        {e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS}
+    )
+    assert loader.config.EXCLUDED_MULTI_PARTS_FILES == sorted(DEFAULT_EXCLUDED_FILES)
     assert loader.config.PLATFORMS_BINDING == {}
     assert loader.config.PLATFORMS_VERSIONS == {}
     assert loader.config.ROMS_FOLDER_NAME == "roms"
@@ -86,3 +111,5 @@ def test_empty_config_loader():
     assert loader.config.EJS_NETPLAY_ICE_SERVERS == []
     assert loader.config.EJS_SETTINGS == {}
     assert loader.config.EJS_CONTROLS == {}
+    assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
+    assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"

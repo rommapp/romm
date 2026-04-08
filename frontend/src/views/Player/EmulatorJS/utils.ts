@@ -59,11 +59,13 @@ export async function saveSave({
   save,
   saveFile,
   screenshotFile,
+  deviceId,
 }: {
   rom: DetailedRom;
   save: SaveSchema | null;
   saveFile: ArrayBuffer;
   screenshotFile?: ArrayBuffer;
+  deviceId?: string;
 }): Promise<SaveSchema | null> {
   if (save) {
     try {
@@ -78,6 +80,7 @@ export async function saveSave({
                 type: "application/octet-stream",
               })
             : undefined,
+        deviceId,
       });
 
       // Update the save in the rom object
@@ -96,6 +99,7 @@ export async function saveSave({
     const uploadedSaves = await saveApi.uploadSaves({
       rom: rom,
       emulator: window.EJS_core,
+      deviceId,
       savesToUpload: [
         {
           saveFile: new File([saveFile], `${filename}.srm`, {

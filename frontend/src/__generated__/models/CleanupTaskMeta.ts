@@ -2,8 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CleanupStats } from './CleanupStats';
+import type { MissingRomsCleanupStats } from './MissingRomsCleanupStats';
+import type { OrphanedResourcesCleanupStats } from './OrphanedResourcesCleanupStats';
 export type CleanupTaskMeta = {
-    cleanup_stats: (CleanupStats | null);
+    cleanup_stats: (OrphanedResourcesCleanupStats | MissingRomsCleanupStats | null);
 };
 

@@ -130,13 +130,19 @@ class DBCollectionsHandler(DBBaseHandler):
             )
             # Insert new CollectionRom entries for this collection
             if rom_ids:
-                session.execute(
-                    insert(CollectionRom),
-                    [
-                        {"collection_id": id, "rom_id": rom_id}
-                        for rom_id in set(rom_ids)
-                    ],
+                # Filter out rom_ids that no longer exist in the roms table to
+                # avoid foreign key constraint violations (e.g. after a rescan)
+                valid_rom_ids = set(
+                    session.scalars(select(Rom.id).where(Rom.id.in_(rom_ids))).all()
                 )
+                if valid_rom_ids:
+                    session.execute(
+                        insert(CollectionRom),
+                        [
+                            {"collection_id": id, "rom_id": rom_id}
+                            for rom_id in valid_rom_ids
+                        ],
+                    )
 
         return session.scalar(query.filter_by(id=id).limit(1))
 

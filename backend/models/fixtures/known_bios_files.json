@@ -1213,21 +1213,21 @@
   },
   "zxs:plus3-0.rom": {
     "size": "16384",
-    "crc": "a10230c0",
-    "md5": "3abdc20e72890a750dd3c745d286dfba",
-    "sha1": "a837f66977040f7b51ed053a2483c10f3d070ab7"
+    "crc": "17373da2",
+    "md5": "9833b8b73384dd5fa3678377ff00a2bb",
+    "sha1": "e319ed08b4d53a5e421a75ea00ea02039ba6555b"
   },
   "zxs:plus3-1.rom": {
     "size": "16384",
-    "crc": "09b9c3ca",
-    "md5": "8361a1d9c8bcef89c0c39293776564ad",
-    "sha1": "6a4364f25513e4079f048f2de131a896d30edc64"
+    "crc": "f1d1d99e",
+    "md5": "0f711ceb5ab801b4701989982e0f334c",
+    "sha1": "c9969fc36095a59787554026a9adc3b87678c794"
   },
   "zxs:plus3-2.rom": {
     "size": "16384",
-    "crc": "a60285a0",
-    "md5": "f36c5c2d1f2a682caadeaa6f947db0da",
-    "sha1": "0a747cc0b827a94b4fd74cfd818ca792437a38f7"
+    "crc": "3dbf351d",
+    "md5": "3b6dd659d5e4ec97f0e2f7878152c987",
+    "sha1": "22e50c6ba4157a3f6a821bd9937cd26e292775c6"
   },
   "zxs:plus3-3.rom": {
     "size": "16384",

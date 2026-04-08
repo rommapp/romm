@@ -2,16 +2,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 from fastapi import status
-from fastapi.testclient import TestClient
-from main import app
+from rq.exceptions import NoSuchJobError
 
 from tasks.tasks import Task, TaskType
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
 
 
 @pytest.fixture
@@ -328,6 +321,53 @@ class TestRunSingleTask:
         """Test running a task without authentication"""
         response = client.post("/api/tasks/run/test_task")
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestGetTasksStatus:
+    """Test suite for the get_tasks_status endpoint"""
+
+    @patch("endpoints.tasks.Worker.all", return_value=[])
+    @patch("endpoints.tasks.low_prio_queue")
+    @patch("endpoints.tasks.default_queue")
+    @patch("endpoints.tasks.high_prio_queue")
+    @patch("endpoints.tasks.Job.fetch")
+    def test_get_tasks_status_skips_expired_jobs(
+        self,
+        mock_job_fetch,
+        mock_high_queue,
+        mock_default_queue,
+        mock_low_queue,
+        mock_worker_all,
+        client,
+        access_token,
+    ):
+        """Test that get_tasks_status skips jobs that have expired from Redis"""
+        mock_low_queue.get_jobs.return_value = []
+        mock_default_queue.get_jobs.return_value = []
+        mock_high_queue.get_jobs.return_value = []
+
+        mock_finished_registry = Mock()
+        mock_finished_registry.get_job_ids.return_value = ["expired-job-id"]
+        mock_failed_registry = Mock()
+        mock_failed_registry.get_job_ids.return_value = []
+
+        mock_job_fetch.side_effect = NoSuchJobError(
+            "No such job: rq:job:expired-job-id"
+        )
+
+        with patch(
+            "endpoints.tasks.FinishedJobRegistry", return_value=mock_finished_registry
+        ):
+            with patch(
+                "endpoints.tasks.FailedJobRegistry", return_value=mock_failed_registry
+            ):
+                response = client.get(
+                    "/api/tasks/status",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
 
 
 class TestGetTaskById:

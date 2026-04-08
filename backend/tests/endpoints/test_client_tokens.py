@@ -2,8 +2,6 @@ from datetime import timedelta
 
 import pytest
 from fastapi import status
-from fastapi.testclient import TestClient
-from main import app
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import auth_handler, oauth_handler
@@ -11,24 +9,6 @@ from handler.database import db_client_token_handler, db_user_handler
 from handler.redis_handler import sync_cache
 from models.client_token import ClientToken
 from models.user import Role
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
-
-
-@pytest.fixture
-def editor_access_token(editor_user):
-    return oauth_handler.create_access_token(
-        data={
-            "sub": editor_user.username,
-            "iss": "romm:oauth",
-            "scopes": " ".join(editor_user.oauth_scopes),
-        },
-        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
-    )
 
 
 @pytest.fixture
@@ -41,12 +21,6 @@ def viewer_access_token(viewer_user):
         },
         expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
     )
-
-
-@pytest.fixture(autouse=True)
-def clear_cache():
-    yield
-    sync_cache.flushall()
 
 
 class TestClientTokenCRUD:
@@ -190,7 +164,7 @@ class TestClientTokenCRUD:
             },
             headers={"Authorization": f"Bearer {access_token}"},
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 class TestClientTokenAuth:

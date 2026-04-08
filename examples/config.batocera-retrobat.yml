@@ -183,3 +183,9 @@ system:
     zx81: zx81
     zxspectrum: zxs
   versions: {}
+scan:
+  gamelist:
+    export: true
+    media:
+      thumbnail: box3d
+      image: miximage

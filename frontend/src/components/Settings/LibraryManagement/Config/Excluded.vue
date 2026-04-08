@@ -29,66 +29,96 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 
-const exclusions = computed<Row[]>(() => {
-  const defs = [
-    {
-      set: config.value.EXCLUDED_PLATFORMS || [],
-      title: t("common.platform"),
-      icon: "mdi-gamepad-variant-outline",
-      type: "EXCLUDED_PLATFORMS",
-      description: t("settings.exclusions-platforms-desc"),
-    },
-    {
-      set: config.value.EXCLUDED_SINGLE_FILES || [],
-      title: t("settings.excluded-single-rom-files"),
-      icon: "mdi-file-remove-outline",
-      type: "EXCLUDED_SINGLE_FILES",
-      description: t("settings.exclusions-single-files-desc"),
-    },
-    {
-      set: config.value.EXCLUDED_SINGLE_EXT || [],
-      title: t("settings.excluded-single-rom-extensions"),
-      icon: "mdi-file-code-outline",
-      type: "EXCLUDED_SINGLE_EXT",
-      description: t("settings.exclusions-single-ext-desc"),
-    },
-    {
-      set: config.value.EXCLUDED_MULTI_FILES || [],
-      title: t("settings.excluded-multi-rom-files"),
-      icon: "mdi-file-multiple-outline",
-      type: "EXCLUDED_MULTI_FILES",
-      description: t("settings.exclusions-multi-files-desc"),
-    },
-    {
-      set: config.value.EXCLUDED_MULTI_PARTS_FILES || [],
-      title: t("settings.excluded-multi-rom-parts-files"),
-      icon: "mdi-folder-multiple-outline",
-      type: "EXCLUDED_MULTI_PARTS_FILES",
-      description: t("settings.exclusions-multi-parts-files-desc"),
-    },
-    {
-      set: config.value.EXCLUDED_MULTI_PARTS_EXT || [],
-      title: t("settings.excluded-multi-rom-parts-extensions"),
-      icon: "mdi-file-cog-outline",
-      type: "EXCLUDED_MULTI_PARTS_EXT",
-      description: t("settings.exclusions-multi-parts-ext-desc"),
-    },
-  ];
+const DEFAULT_LIST_MAP: Record<
+  string,
+  | "DEFAULT_EXCLUDED_DIRS"
+  | "DEFAULT_EXCLUDED_FILES"
+  | "DEFAULT_EXCLUDED_EXTENSIONS"
+> = {
+  EXCLUDED_PLATFORMS: "DEFAULT_EXCLUDED_DIRS",
+  EXCLUDED_SINGLE_FILES: "DEFAULT_EXCLUDED_FILES",
+  EXCLUDED_SINGLE_EXT: "DEFAULT_EXCLUDED_EXTENSIONS",
+  EXCLUDED_MULTI_FILES: "DEFAULT_EXCLUDED_DIRS",
+  EXCLUDED_MULTI_PARTS_FILES: "DEFAULT_EXCLUDED_FILES",
+  EXCLUDED_MULTI_PARTS_EXT: "DEFAULT_EXCLUDED_EXTENSIONS",
+};
 
+const EXCLUSION_DEFS = [
+  {
+    key: "EXCLUDED_PLATFORMS" as const,
+    title: () => t("common.platform"),
+    icon: "mdi-gamepad-variant-outline",
+  },
+  {
+    key: "EXCLUDED_SINGLE_FILES" as const,
+    title: () => t("settings.excluded-single-rom-files"),
+    icon: "mdi-file-remove-outline",
+  },
+  {
+    key: "EXCLUDED_SINGLE_EXT" as const,
+    title: () => t("settings.excluded-single-rom-extensions"),
+    icon: "mdi-file-code-outline",
+  },
+  {
+    key: "EXCLUDED_MULTI_FILES" as const,
+    title: () => t("settings.excluded-multi-rom-files"),
+    icon: "mdi-file-multiple-outline",
+  },
+  {
+    key: "EXCLUDED_MULTI_PARTS_FILES" as const,
+    title: () => t("settings.excluded-multi-rom-parts-files"),
+    icon: "mdi-folder-multiple-outline",
+  },
+  {
+    key: "EXCLUDED_MULTI_PARTS_EXT" as const,
+    title: () => t("settings.excluded-multi-rom-parts-extensions"),
+    icon: "mdi-file-cog-outline",
+  },
+];
+
+function isDefault(type: string, value: string): boolean {
+  const defaultKey = DEFAULT_LIST_MAP[type];
+  if (!defaultKey) return false;
+  const defaults = config.value[defaultKey] || [];
+  return defaults.includes(value);
+}
+
+const exclusions = computed<Row[]>(() => {
   const result: Row[] = [];
-  for (const def of defs) {
-    for (const v of def.set) {
-      result.push({
-        type: def.type,
-        title: def.title,
-        icon: def.icon,
-        value: v,
-      });
+  for (const def of EXCLUSION_DEFS) {
+    const set = config.value[def.key] || [];
+    for (const v of set) {
+      if (!isDefault(def.key, v)) {
+        result.push({
+          type: def.key,
+          title: def.title(),
+          icon: def.icon,
+          value: v,
+        });
+      }
     }
   }
   return result.sort(
     (a, b) => a.title.localeCompare(b.title) || a.value.localeCompare(b.value),
   );
+});
+
+const defaultExclusions = computed<Row[]>(() => {
+  const seen = new Map<string, Row>();
+  for (const def of EXCLUSION_DEFS) {
+    const set = config.value[def.key] || [];
+    for (const v of set) {
+      if (isDefault(def.key, v) && !seen.has(v)) {
+        seen.set(v, {
+          type: def.key,
+          title: def.title(),
+          icon: def.icon,
+          value: v,
+        });
+      }
+    }
+  }
+  return [...seen.values()].sort((a, b) => a.value.localeCompare(b.value));
 });
 
 function removeExclusion(exclusionValue: string, exclusionType: string) {
@@ -214,5 +244,29 @@ function removeExclusion(exclusionValue: string, exclusionType: string) {
       </template>
     </v-data-table-virtual>
   </template>
+
+  <div v-if="defaultExclusions.length > 0" class="mt-6">
+    <div class="text-subtitle-2 text-romm-gray mb-2">
+      {{ t("settings.exclusions-defaults") }}
+    </div>
+    <v-row dense>
+      <v-col
+        v-for="item in defaultExclusions"
+        :key="item.value"
+        cols="12"
+        sm="6"
+        lg="3"
+      >
+        <div class="d-flex align-center">
+          <v-icon :icon="item.icon" size="20" class="mr-2 opacity-50" />
+          <div>
+            <div class="text-body-2 opacity-70">{{ item.value }}</div>
+            <div class="text-caption opacity-50">{{ item.title }}</div>
+          </div>
+        </div>
+      </v-col>
+    </v-row>
+  </div>
+
   <CreateExclusionDialog />
 </template>

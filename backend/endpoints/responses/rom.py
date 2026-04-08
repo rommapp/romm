@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
-from pydantic import computed_field, field_validator
+from pydantic import ConfigDict, computed_field, field_validator
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from handler.metadata.flashpoint_handler import FlashpointMetadata
@@ -20,24 +20,23 @@ from handler.metadata.ss_handler import SSMetadata
 from models.collection import Collection
 from models.rom import Rom, RomFileCategory, RomUserStatus
 
-from .base import BaseModel
+from .base import BaseModel, UTCDatetime
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
 
 class UserNoteSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     title: str
     content: str
     is_public: bool
     tags: list[str] | None = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
     user_id: int
     username: str
-
-    class Config:
-        from_attributes = True
 
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
@@ -121,12 +120,14 @@ def rom_user_schema_factory() -> RomUserSchema:
 
 
 class RomUserSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     rom_id: int
-    created_at: datetime
-    updated_at: datetime
-    last_played: datetime | None
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
+    last_played: UTCDatetime | None
     is_main_sibling: bool
     backlogged: bool
     now_playing: bool
@@ -135,9 +136,6 @@ class RomUserSchema(BaseModel):
     difficulty: int
     completion: int
     status: RomUserStatus | None
-
-    class Config:
-        from_attributes = True
 
     @classmethod
     def for_user(cls, user_id: int, db_rom: Rom) -> RomUserSchema:
@@ -150,26 +148,27 @@ class RomUserSchema(BaseModel):
 
 
 class RomFileSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     rom_id: int
     file_name: str
     file_path: str
     file_size_bytes: int
     full_path: str
-    created_at: datetime
-    updated_at: datetime
-    last_modified: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
+    last_modified: UTCDatetime
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
     category: RomFileCategory | None
 
-    class Config:
-        from_attributes = True
-
 
 class RomMetadataSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     rom_id: int
     genres: list[str]
     franchises: list[str]
@@ -180,9 +179,6 @@ class RomMetadataSchema(BaseModel):
     player_count: str
     first_release_date: int | None
     average_rating: float | None
-
-    class Config:
-        from_attributes = True
 
     @field_validator("genres")
     def sort_genres(cls, v: list[str]) -> list[str]:
@@ -204,12 +200,22 @@ class RomMetadataSchema(BaseModel):
     def sort_game_modes(cls, v: list[str]) -> list[str]:
         return sorted(v)
 
-    @field_validator("age_ratings")
-    def sort_age_ratings(cls, v: list[str]) -> list[str]:
+    @field_validator("age_ratings", mode="before")
+    def normalize_age_ratings(cls, v: str | list[str] | None) -> list[str]:
+        if not v:
+            return []
+
+        # MySQL/MariaDB returns a scalar string instead of a single-element array
+        # when using JSON_EXTRACT with a [*] wildcard path on a single-element array.
+        if isinstance(v, str):
+            return sorted([v])
+
         return sorted(v)
 
 
 class RomSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     igdb_id: int | None
     sgdb_id: int | None
@@ -283,8 +289,8 @@ class RomSchema(BaseModel):
     has_multiple_files: bool
     files: list[RomFileSchema]
     full_path: str
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
     missing_from_fs: bool
     has_notes: bool
 
@@ -292,9 +298,6 @@ class RomSchema(BaseModel):
     rom_user: RomUserSchema
     merged_screenshots: list[str]
     merged_ra_metadata: RomRAMetadata | None
-
-    class Config:
-        from_attributes = True
 
     @classmethod
     def populate_properties(cls, db_rom: Rom, request: Request) -> Rom:

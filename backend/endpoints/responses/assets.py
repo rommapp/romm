@@ -1,15 +1,16 @@
-from datetime import datetime
 from typing import Any
 
-from pydantic import model_validator
+from pydantic import ConfigDict, model_validator
 from sqlalchemy import inspect
 from sqlalchemy.exc import InvalidRequestError
 
-from .base import BaseModel
+from .base import BaseModel, UTCDatetime
 from .device import DeviceSyncSchema
 
 
 class BaseAsset(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     rom_id: int
     user_id: int
@@ -24,11 +25,8 @@ class BaseAsset(BaseModel):
 
     missing_from_fs: bool
 
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
+    created_at: UTCDatetime
+    updated_at: UTCDatetime
 
 
 class ScreenshotSchema(BaseAsset):

@@ -40,7 +40,9 @@ async function loadScripts() {
     scriptsLoaded = true;
     return true;
   } catch (error) {
-    throw new Error(`Failed to load patcher scripts: ${error.message}`);
+    throw new Error(`Failed to load patcher scripts: ${error.message}`, {
+      cause: error,
+    });
   }
 }
 

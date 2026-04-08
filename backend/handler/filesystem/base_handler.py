@@ -3,6 +3,7 @@ import fnmatch
 import os
 import re
 import shutil
+import tempfile
 from contextlib import asynccontextmanager
 from enum import Enum
 from io import BytesIO
@@ -172,20 +173,25 @@ class FSHandler:
 
     @asynccontextmanager
     async def _atomic_write(self, target_path: Path):
-        """Context manager for atomic file writing."""
-        temp_path = None
-        try:
-            # Create temporary file in same directory
-            temp_path = target_path.parent / f".tmp_{target_path.name}_{os.getpid()}"
-            yield temp_path
+        """Context manager for atomic file writing.
 
-            # Atomic move to final location
-            shutil.move(str(temp_path), str(target_path))
+        Creates the temp file in the same directory as the target so the
+        final os.replace() occurs on the same filesystem.
+        """
+        fd, temp_path_str = tempfile.mkstemp(
+            dir=str(target_path.parent), prefix=".romm_tmp_"
+        )
+        temp_path = Path(temp_path_str)
+        os.close(fd)
+
+        try:
+            yield temp_path
+            os.replace(str(temp_path), str(target_path))
 
         except Exception:
-            # Clean up temporary file on error
-            if temp_path and temp_path.exists():
-                temp_path.unlink()
+            async_temp = AnyioPath(temp_path)
+            if await async_temp.exists():
+                await async_temp.unlink()
             raise
 
     def get_file_name_with_no_extension(self, file_name: str) -> str:

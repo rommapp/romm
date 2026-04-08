@@ -1,10 +1,8 @@
 import json
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from main import app
 
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
@@ -16,13 +14,6 @@ from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from models.platform import Platform
 from models.rom import Rom
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
-
 
 MOCK_IGDB_ID = 11111
 MOCK_MOBY_ID = 22222
@@ -124,13 +115,150 @@ def test_delete_roms(client: TestClient, access_token: str, rom: Rom):
     assert body["successful_items"] == 1
 
 
-def test_update_rom_user_props_with_data_envelope(
+@patch(
+    "endpoints.roms.fs_rom_handler.remove_directory",
+    new_callable=AsyncMock,
+)
+@patch(
+    "endpoints.roms.fs_rom_handler.remove_file",
+    new_callable=AsyncMock,
+)
+@patch(
+    "endpoints.roms.fs_rom_handler.validate_path",
+)
+def test_delete_roms_from_fs_flat(
+    mock_validate_path,
+    mock_remove_file,
+    mock_remove_directory,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """Test that flat (non-directory) ROM files are deleted from filesystem."""
+    from pathlib import Path
+    from unittest.mock import MagicMock
+
+    mock_path = MagicMock(spec=Path)
+    mock_path.is_dir.return_value = False
+    mock_path.parent.is_dir.return_value = False
+    mock_validate_path.return_value = mock_path
+
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id], "delete_from_fs": [rom.id]},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["successful_items"] == 1
+    assert body["failed_items"] == 0
+    mock_remove_file.assert_called_once()
+    mock_remove_directory.assert_not_called()
+
+
+@patch(
+    "endpoints.roms.fs_rom_handler.remove_directory",
+    new_callable=AsyncMock,
+)
+@patch(
+    "endpoints.roms.fs_rom_handler.remove_file",
+    new_callable=AsyncMock,
+)
+@patch(
+    "endpoints.roms.fs_rom_handler.validate_path",
+)
+def test_delete_roms_from_fs_flat_cleans_empty_parent(
+    mock_validate_path,
+    mock_remove_file,
+    mock_remove_directory,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """Test that empty parent directories are cleaned up after flat ROM file deletion."""
+    from pathlib import Path
+    from unittest.mock import MagicMock
+
+    mock_path = MagicMock(spec=Path)
+    mock_path.is_dir.return_value = False
+    # Parent is not the base_path (a MagicMock will not equal a real Path), is a dir, and is empty
+    mock_path.parent.is_dir.return_value = True
+    mock_path.parent.__iter__ = lambda self: iter([])  # empty directory
+    mock_validate_path.return_value = mock_path
+
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [rom.id], "delete_from_fs": [rom.id]},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["successful_items"] == 1
+    assert body["failed_items"] == 0
+    mock_remove_file.assert_called_once()
+    # remove_directory should be called to clean up the empty parent dir
+    mock_remove_directory.assert_called_once()
+
+
+@patch(
+    "endpoints.roms.fs_rom_handler.remove_directory",
+    new_callable=AsyncMock,
+)
+@patch(
+    "endpoints.roms.fs_rom_handler.validate_path",
+)
+def test_delete_roms_from_fs_nested(
+    mock_validate_path,
+    mock_remove_directory,
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+):
+    """Test that nested (directory) ROMs are deleted using remove_directory."""
+    from pathlib import Path
+    from unittest.mock import MagicMock
+
+    from handler.database import db_rom_handler
+    from models.rom import Rom
+
+    nested_rom = Rom(
+        platform_id=platform.id,
+        name="Nested Game",
+        slug="nested-game",
+        fs_name="Nested Game",
+        fs_name_no_tags="Nested Game",
+        fs_name_no_ext="Nested Game",
+        fs_extension="",
+        fs_path=f"{platform.slug}/roms",
+    )
+    nested_rom = db_rom_handler.add_rom(nested_rom)
+
+    mock_path = MagicMock(spec=Path)
+    mock_path.is_dir.return_value = True
+    mock_validate_path.return_value = mock_path
+
+    response = client.post(
+        "/api/roms/delete",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"roms": [nested_rom.id], "delete_from_fs": [nested_rom.id]},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["successful_items"] == 1
+    assert body["failed_items"] == 0
+    mock_remove_directory.assert_called_once()
+
+
+def test_update_rom_user_props_flat_payload(
     client: TestClient, access_token: str, rom: Rom
 ):
     response = client.put(
         f"/api/roms/{rom.id}/props",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"data": {"backlogged": True, "rating": 7}},
+        json={"backlogged": True, "rating": 7},
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -146,7 +274,7 @@ def test_update_rom_user_props_partial_update(
     setup_response = client.put(
         f"/api/roms/{rom.id}/props",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"data": {"backlogged": True, "rating": 5, "hidden": True}},
+        json={"backlogged": True, "rating": 5, "hidden": True},
     )
     assert setup_response.status_code == status.HTTP_200_OK
 
@@ -154,7 +282,7 @@ def test_update_rom_user_props_partial_update(
     response = client.put(
         f"/api/roms/{rom.id}/props",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"data": {"rating": 9}},
+        json={"rating": 9},
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -168,17 +296,17 @@ def test_update_rom_user_props_last_played_flags(
     client: TestClient, access_token: str, rom: Rom
 ):
     mark_played_response = client.put(
-        f"/api/roms/{rom.id}/props",
+        f"/api/roms/{rom.id}/props?update_last_played=true",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"data": {}, "update_last_played": True},
+        json={},
     )
     assert mark_played_response.status_code == status.HTTP_200_OK
     assert mark_played_response.json()["last_played"] is not None
 
     clear_played_response = client.put(
-        f"/api/roms/{rom.id}/props",
+        f"/api/roms/{rom.id}/props?remove_last_played=true",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"data": {}, "remove_last_played": True},
+        json={},
     )
     assert clear_played_response.status_code == status.HTTP_200_OK
     assert clear_played_response.json()["last_played"] is None

@@ -1,19 +1,18 @@
-from datetime import datetime
+from pydantic import ConfigDict
 
-from .base import BaseModel
+from .base import BaseModel, UTCDatetime
 
 
 class ClientTokenSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     scopes: list[str]
-    expires_at: datetime | None
-    last_used_at: datetime | None
-    created_at: datetime
+    expires_at: UTCDatetime | None
+    last_used_at: UTCDatetime | None
+    created_at: UTCDatetime
     user_id: int
-
-    class Config:
-        from_attributes = True
 
 
 class ClientTokenCreateSchema(ClientTokenSchema):

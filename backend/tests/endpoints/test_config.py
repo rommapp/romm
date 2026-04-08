@@ -1,9 +1,6 @@
 from unittest.mock import patch
 
-import pytest
 from fastapi import status
-from fastapi.testclient import TestClient
-from main import app
 
 from config.config_manager import (
     DEFAULT_EXCLUDED_DIRS,
@@ -13,29 +10,25 @@ from config.config_manager import (
 from config.config_manager import config_manager as cm
 
 
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
-
-
 def test_config(client):
     response = client.get("/api/config")
     assert response.status_code == status.HTTP_200_OK
 
     config = response.json()
-    assert config.get("EXCLUDED_PLATFORMS") == DEFAULT_EXCLUDED_DIRS
-    assert config.get("EXCLUDED_SINGLE_EXT") == [
+    assert config.get("EXCLUDED_PLATFORMS") == sorted(DEFAULT_EXCLUDED_DIRS)
+    assert config.get("EXCLUDED_SINGLE_EXT") == sorted(
         e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS
-    ]
-    assert config.get("EXCLUDED_SINGLE_FILES") == DEFAULT_EXCLUDED_FILES
-    assert config.get("EXCLUDED_MULTI_FILES") == DEFAULT_EXCLUDED_DIRS
-    assert config.get("EXCLUDED_MULTI_PARTS_EXT") == [
+    )
+    assert config.get("EXCLUDED_SINGLE_FILES") == sorted(DEFAULT_EXCLUDED_FILES)
+    assert config.get("EXCLUDED_MULTI_FILES") == sorted(DEFAULT_EXCLUDED_DIRS)
+    assert config.get("EXCLUDED_MULTI_PARTS_EXT") == sorted(
         e.lower() for e in DEFAULT_EXCLUDED_EXTENSIONS
-    ]
-    assert config.get("EXCLUDED_MULTI_PARTS_FILES") == DEFAULT_EXCLUDED_FILES
+    )
+    assert config.get("EXCLUDED_MULTI_PARTS_FILES") == sorted(DEFAULT_EXCLUDED_FILES)
     assert config.get("PLATFORMS_BINDING") == {}
     assert not config.get("SKIP_HASH_CALCULATION")
+    assert config.get("GAMELIST_MEDIA_THUMBNAIL") == "box2d"
+    assert config.get("GAMELIST_MEDIA_IMAGE") == "screenshot"
 
 
 def test_add_platform_binding_payload_shape(client, access_token: str):

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import enum
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import TIMESTAMP, Boolean, Enum, ForeignKey, String
+from sqlalchemy import JSON, TIMESTAMP, Boolean, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel
@@ -18,6 +19,24 @@ class SyncMode(enum.StrEnum):
     API = "api"
     FILE_TRANSFER = "file_transfer"
     PUSH_PULL = "push_pull"
+
+
+@dataclass(frozen=True)
+class DeviceType:
+    """A preconfigured device type with its client identifier and sync mode."""
+
+    platform: str
+    client: str
+    sync_mode: SyncMode
+
+
+KNOWN_DEVICES: dict[str, DeviceType] = {
+    "web": DeviceType(platform="Web", client="web", sync_mode=SyncMode.API),
+    "grout": DeviceType(platform="muOS", client="grout", sync_mode=SyncMode.API),
+    "argosy-launcher": DeviceType(
+        platform="Android", client="argosy-launcher", sync_mode=SyncMode.API
+    ),
+}
 
 
 class Device(BaseModel):
@@ -38,6 +57,7 @@ class Device(BaseModel):
 
     sync_mode: Mapped[SyncMode] = mapped_column(Enum(SyncMode), default=SyncMode.API)
     sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    sync_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     last_seen: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 

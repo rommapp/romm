@@ -81,4 +81,5 @@ export const TaskTypeItem: Record<TaskType, { title: string; icon: string }> = {
   update: { title: "Update", icon: "mdi-update" },
   watcher: { title: "Watcher", icon: "mdi-eye" },
   generic: { title: "Task", icon: "mdi-help-circle" },
+  sync: { title: "Sync", icon: "mdi-sync" },
 };

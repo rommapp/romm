@@ -745,6 +745,6 @@ class FSRomsHandler(FSHandler):
         if platform_slug == UPS.PICO and fs_name.lower().endswith(
             PICO8_CARTRIDGE_EXTENSION
         ):
-            rom_path = self.validate_path(f"{fs_path}/{fs_name}")
-            return f"file://{rom_path}"
+            self.validate_path(f"{fs_path}/{fs_name}")
+            return f"file://{fs_path}/{fs_name}"
         return None

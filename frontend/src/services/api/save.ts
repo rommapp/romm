@@ -23,10 +23,12 @@ async function uploadSaves({
   rom,
   savesToUpload,
   emulator,
+  deviceId,
 }: {
   rom: DetailedRomSchema;
   savesToUpload: SaveUploadInput[];
   emulator?: string;
+  deviceId?: string;
 }) {
   const promises = savesToUpload.map(({ saveFile, screenshotFile }) => {
     const formData = buildFormInput<SaveUploadInput>([
@@ -40,7 +42,7 @@ async function uploadSaves({
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          params: { rom_id: rom.id, emulator },
+          params: { rom_id: rom.id, emulator, device_id: deviceId },
         })
         .then(({ data }) => {
           resolve(data);
@@ -56,17 +58,21 @@ async function updateSave({
   save,
   saveFile,
   screenshotFile,
+  deviceId,
 }: {
   save: SaveSchema;
   saveFile: UpdateSaveUploadInput["saveFile"];
   screenshotFile?: UpdateSaveUploadInput["screenshotFile"];
+  deviceId?: string;
 }) {
   const formData = buildFormInput<UpdateSaveUploadInput>([
     ["saveFile", saveFile],
     ["screenshotFile", screenshotFile],
   ]);
 
-  return api.put<SaveSchema>(`/saves/${save.id}`, formData);
+  return api.put<SaveSchema>(`/saves/${save.id}`, formData, {
+    params: { device_id: deviceId },
+  });
 }
 
 async function deleteSaves({ saves }: { saves: SaveSchema[] }) {

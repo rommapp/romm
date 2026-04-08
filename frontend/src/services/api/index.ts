@@ -70,12 +70,25 @@ api.interceptors.response.use(
       await refetchCSRFToken();
 
       const pathname = window.location.pathname;
-      const params = new URLSearchParams(window.location.search);
+      const search = window.location.search;
+      const params = new URLSearchParams(search);
+      const fullPath = pathname + search;
+
+      // Don't redirect to login if already on an auth-exempt route
+      const authExemptRoutes = [
+        ROUTES.REGISTER,
+        ROUTES.RESET_PASSWORD,
+        ROUTES.PAIR,
+        ROUTES.SETUP,
+      ];
+      if (authExemptRoutes.some((route) => pathname.startsWith(`/${route}`))) {
+        return Promise.reject(error);
+      }
 
       router.push({
         name: ROUTES.LOGIN,
         query: {
-          next: params.get("next") ?? (pathname !== "/login" ? pathname : "/"),
+          next: params.get("next") ?? (pathname !== "/login" ? fullPath : "/"),
         },
       });
     }

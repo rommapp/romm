@@ -4,7 +4,6 @@ from typing import Any
 
 import socketio  # type: ignore
 
-from config import ASSETS_BASE_PATH
 from config.config_manager import config_manager as cm
 from endpoints.responses.rom import SimpleRomSchema
 from handler.database import db_platform_handler, db_rom_handler
@@ -852,9 +851,7 @@ async def _scan_asset(file_name: str, asset_path: str, should_hash: bool = False
     }
 
     if should_hash:
-        result["content_hash"] = await fs_asset_handler.compute_content_hash(
-            f"{ASSETS_BASE_PATH}/{file_path}"
-        )
+        result["content_hash"] = await fs_asset_handler.compute_content_hash(file_path)
 
     return result
 

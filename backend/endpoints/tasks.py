@@ -3,6 +3,7 @@ from typing import Any, TypedDict
 
 from fastapi import Body, HTTPException, Request
 from rq import Worker
+from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
 from rq.registry import FailedJobRegistry, FinishedJobRegistry
 
@@ -18,6 +19,7 @@ from endpoints.responses import (
     ConversionTaskStatusResponse,
     GenericTaskStatusResponse,
     ScanTaskStatusResponse,
+    SyncTaskStatusResponse,
     TaskExecutionResponse,
     TaskStatusResponse,
     UpdateTaskStatusResponse,
@@ -35,6 +37,7 @@ from handler.redis_handler import (
 from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
 from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
+from tasks.manual.sync_folder_scan import sync_folder_scan_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
@@ -114,6 +117,13 @@ manual_tasks: list[ManualTask] = [
             "task": cleanup_missing_roms_task,
         }
     ),
+    ManualTask(
+        {
+            "name": "sync_folder_scan",
+            "type": TaskType.SYNC,
+            "task": sync_folder_scan_task,
+        }
+    ),
 ]
 
 
@@ -183,6 +193,12 @@ def _build_task_status_response(
             return CleanupTaskStatusResponse(
                 task_type=TaskType.CLEANUP,
                 meta={"cleanup_stats": job_meta.get("cleanup_stats")},
+                **common_data,  # trunk-ignore(mypy/typeddict-item)
+            )
+        case TaskType.SYNC:
+            return SyncTaskStatusResponse(
+                task_type=TaskType.SYNC,
+                meta={},
                 **common_data,  # trunk-ignore(mypy/typeddict-item)
             )
         case TaskType.WATCHER:
@@ -281,7 +297,11 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
     # Process finished jobs
     for registry in finished_registries:
         for job_id in registry.get_job_ids():
-            job = Job.fetch(job_id, connection=redis_client)
+            try:
+                job = Job.fetch(job_id, connection=redis_client)
+            except NoSuchJobError:
+                registry.remove(job_id)
+                continue
             all_tasks.append(
                 _build_task_status_response(
                     job,
@@ -291,7 +311,11 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
     # Process failed jobs
     for registry in failed_registries:
         for job_id in registry.get_job_ids():
-            job = Job.fetch(job_id, connection=redis_client)
+            try:
+                job = Job.fetch(job_id, connection=redis_client)
+            except NoSuchJobError:
+                registry.remove(job_id)
+                continue
             all_tasks.append(_build_task_status_response(job))
 
     all_tasks.sort(

@@ -2,13 +2,149 @@ import os
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
 
 from config import RESOURCES_BASE_PATH
 from handler.filesystem.base_handler import CoverSize
-from handler.filesystem.resources_handler import FSResourcesHandler
+from handler.filesystem.resources_handler import (
+    FSResourcesHandler,
+    _check_content_type,
+    _content_type_essence,
+)
 from models.collection import Collection
 from models.rom import Rom
+
+
+class TestContentTypeEssence:
+    """Tests for the _content_type_essence helper."""
+
+    def test_simple_mime_type(self):
+        assert _content_type_essence("image/png") == "image/png"
+
+    def test_with_charset_parameter(self):
+        assert _content_type_essence("text/html; charset=utf-8") == "text/html"
+
+    def test_with_multiple_parameters(self):
+        assert (
+            _content_type_essence("text/html; charset=utf-8; boundary=something")
+            == "text/html"
+        )
+
+    def test_leading_whitespace(self):
+        assert _content_type_essence("  image/jpeg") == "image/jpeg"
+
+    def test_trailing_whitespace(self):
+        assert _content_type_essence("image/jpeg  ") == "image/jpeg"
+
+    def test_whitespace_around_semicolon(self):
+        assert _content_type_essence("image/jpeg ; charset=utf-8") == "image/jpeg"
+
+    def test_uppercase_normalized_to_lower(self):
+        assert _content_type_essence("Image/PNG") == "image/png"
+
+    def test_mixed_case_with_params(self):
+        assert (
+            _content_type_essence("Application/PDF; charset=utf-8") == "application/pdf"
+        )
+
+    def test_utf8_bom_prefix(self):
+        assert _content_type_essence("\ufeffimage/png") == "image/png"
+
+    def test_utf8_bom_with_params(self):
+        assert (
+            _content_type_essence("\ufeffapplication/pdf; charset=utf-8")
+            == "application/pdf"
+        )
+
+    def test_empty_string(self):
+        assert _content_type_essence("") == ""
+
+    def test_none_like_empty(self):
+        """Falsy input returns empty string."""
+        assert _content_type_essence("") == ""
+
+    def test_only_whitespace(self):
+        assert _content_type_essence("   ") == ""
+
+    def test_octet_stream(self):
+        assert (
+            _content_type_essence("application/octet-stream")
+            == "application/octet-stream"
+        )
+
+    def test_force_download(self):
+        assert (
+            _content_type_essence("application/force-download")
+            == "application/force-download"
+        )
+
+
+class TestCheckContentType:
+    """Tests for the _check_content_type helper."""
+
+    @staticmethod
+    def _make_response(content_type: str | None) -> httpx.Response:
+        headers = {}
+        if content_type is not None:
+            headers["content-type"] = content_type
+        return httpx.Response(200, headers=headers)
+
+    def test_valid_image_prefix(self):
+        resp = self._make_response("image/png")
+        assert _check_content_type(resp, ("image/",), "cover") is True
+
+    def test_valid_image_with_charset(self):
+        resp = self._make_response("image/jpeg; charset=utf-8")
+        assert _check_content_type(resp, ("image/",), "cover") is True
+
+    def test_valid_pdf(self):
+        resp = self._make_response("application/pdf")
+        assert (
+            _check_content_type(
+                resp,
+                ("application/pdf", "application/octet-stream"),
+                "manual",
+            )
+            is True
+        )
+
+    def test_valid_octet_stream(self):
+        resp = self._make_response("application/octet-stream")
+        assert (
+            _check_content_type(
+                resp,
+                ("application/pdf", "application/octet-stream"),
+                "manual",
+            )
+            is True
+        )
+
+    def test_wrong_content_type(self):
+        resp = self._make_response("text/html")
+        assert _check_content_type(resp, ("image/",), "cover") is False
+
+    def test_missing_header(self):
+        resp = self._make_response(None)
+        assert _check_content_type(resp, ("image/",), "cover") is False
+
+    def test_empty_header(self):
+        resp = self._make_response("")
+        assert _check_content_type(resp, ("image/",), "cover") is False
+
+    def test_leading_whitespace_still_matches(self):
+        resp = self._make_response("  image/png")
+        assert _check_content_type(resp, ("image/",), "cover") is True
+
+    def test_bom_still_matches(self):
+        # httpx rejects non-ASCII header values, so mock the response
+        resp = Mock(spec=httpx.Response)
+        resp.headers = {"content-type": "\ufeffimage/png"}
+        assert _check_content_type(resp, ("image/",), "cover") is True
+
+    def test_case_insensitive(self):
+        resp = self._make_response("Image/PNG")
+        assert _check_content_type(resp, ("image/",), "cover") is True
 
 
 class TestFSResourcesHandler:

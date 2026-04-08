@@ -700,9 +700,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    class="play-root fixed inset-0 bg-black text-white z-[70] overflow-hidden"
-  >
+  <div class="play-root fixed inset-0 bg-black text-white z-70 overflow-hidden">
     <div id="game" class="w-full h-full" />
     <div
       v-if="bezelSrc"
@@ -741,7 +739,7 @@ onBeforeUnmount(() => {
           <div class="text-red-300 font-medium">
             {{ t("console.emulator-failed") }}
           </div>
-          <div class="mt-1 text-[11px] max-w-xs leading-snug break-words">
+          <div class="mt-1 text-[11px] max-w-xs leading-snug wrap-break-words">
             {{ loaderError }}
           </div>
         </template>
@@ -771,7 +769,7 @@ onBeforeUnmount(() => {
           borderColor: 'var(--console-modal-border)',
           boxShadow: 'var(--console-modal-shadow)',
         }"
-        class="relative w-full max-w-[560px] mx-auto rounded-2xl pa-10 md:p-9 flex flex-col gap-6 focus:outline-none border"
+        class="relative w-full max-w-140 mx-auto rounded-2xl pa-10 md:p-9 flex flex-col gap-6 focus:outline-none border"
       >
         <div class="flex items-center justify-between">
           <h2
@@ -799,7 +797,7 @@ onBeforeUnmount(() => {
                 ? 'opacity-40 cursor-not-allowed'
                 : '',
               focusedExitIndex === i
-                ? 'shadow-[0_0_0_2px_var(--console-modal-tile-selected-border),_0_0_18px_-4px_var(--console-modal-tile-selected-border)]'
+                ? 'shadow-[0_0_0_2px_var(--console-modal-tile-selected-border),0_0_18px_-4px_var(--console-modal-tile-selected-border)]'
                 : '',
             ]"
             :style="

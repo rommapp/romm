@@ -41,7 +41,7 @@ class UpdateTaskMeta(TypedDict):
     update_stats: UpdateStats | None
 
 
-class CleanupStats(TypedDict):
+class OrphanedResourcesCleanupStats(TypedDict):
     platforms_in_db: int
     roms_in_db: int
     platforms_in_fs: int
@@ -50,8 +50,22 @@ class CleanupStats(TypedDict):
     removed_fs_roms: int
 
 
+class MissingRomsCleanupStats(TypedDict):
+    platform_id: int | None
+    roms_found: int
+    roms_deleted: int
+    errors: int
+
+
+CleanupStats = Union[OrphanedResourcesCleanupStats, MissingRomsCleanupStats]
+
+
 class CleanupTaskMeta(TypedDict):
     cleanup_stats: CleanupStats | None
+
+
+class SyncTaskMeta(TypedDict):
+    pass
 
 
 class WatcherTaskMeta(TypedDict):
@@ -68,6 +82,7 @@ TaskMeta = Union[
     ConversionTaskMeta,
     UpdateTaskMeta,
     CleanupTaskMeta,
+    SyncTaskMeta,
     WatcherTaskMeta,
     GenericTaskMeta,
 ]
@@ -106,6 +121,11 @@ class CleanupTaskStatusResponse(BaseTaskStatusResponse):
     meta: CleanupTaskMeta
 
 
+class SyncTaskStatusResponse(BaseTaskStatusResponse):
+    task_type: Literal[TaskType.SYNC]
+    meta: SyncTaskMeta
+
+
 class WatcherTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.WATCHER]
     meta: WatcherTaskMeta
@@ -121,6 +141,7 @@ TaskStatusResponse = Union[
     ConversionTaskStatusResponse,
     UpdateTaskStatusResponse,
     CleanupTaskStatusResponse,
+    SyncTaskStatusResponse,
     WatcherTaskStatusResponse,
     GenericTaskStatusResponse,
 ]

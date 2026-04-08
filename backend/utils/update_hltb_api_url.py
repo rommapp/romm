@@ -9,6 +9,8 @@ from pathlib import Path
 
 import httpx
 
+from utils.context import create_httpx_client
+
 # Precompiled regexes for better performance
 APP_JS_REGEX = re.compile(
     r'src=["\'](?P<path>\/_next\/static\/chunks\/pages\/_app[^"\']+\.js)["\']'
@@ -22,7 +24,7 @@ ENDPOINT_TOKEN_REGEX = re.compile(
 def fetch_hltb_app_script(base_url: str = "https://howlongtobeat.com") -> str | None:
     """Fetch the HLTB app script from the site."""
     try:
-        with httpx.Client() as client:
+        with create_httpx_client() as client:
             # 1) Fetch homepage HTML
             homepage_url = f"{base_url}/"
             resp = client.get(homepage_url, timeout=15)

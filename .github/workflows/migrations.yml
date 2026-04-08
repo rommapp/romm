@@ -31,6 +31,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install mariadb connectors
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb3 libmariadb-dev
+
       - name: Install uv
         uses: astral-sh/setup-uv@v6.7.0
 

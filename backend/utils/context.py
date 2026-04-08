@@ -7,10 +7,24 @@ import aiohttp
 import httpx
 from fastapi import Request, Response
 
+from config import has_proxy_env
+
 _T = TypeVar("_T")
 
 ctx_aiohttp_session: ContextVar[aiohttp.ClientSession] = ContextVar("aiohttp_session")
 ctx_httpx_client: ContextVar[httpx.AsyncClient] = ContextVar("httpx_client")
+
+
+def create_aiohttp_session() -> aiohttp.ClientSession:
+    return aiohttp.ClientSession(trust_env=has_proxy_env())
+
+
+def create_httpx_async_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(trust_env=has_proxy_env())
+
+
+def create_httpx_client() -> httpx.Client:
+    return httpx.Client(trust_env=has_proxy_env())
 
 
 @asynccontextmanager
@@ -25,8 +39,8 @@ async def set_context_var(var: ContextVar[_T], value: _T) -> AsyncGenerator[Toke
 async def initialize_context() -> AsyncGenerator[None]:
     """Initialize context variables."""
     async with (
-        aiohttp.ClientSession() as aiohttp_session,
-        httpx.AsyncClient() as httpx_client,
+        create_aiohttp_session() as aiohttp_session,
+        create_httpx_async_client() as httpx_client,
         set_context_var(ctx_aiohttp_session, aiohttp_session),
         set_context_var(ctx_httpx_client, httpx_client),
     ):

@@ -1,4 +1,3 @@
-from datetime import timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock
 from uuid import UUID
@@ -6,39 +5,9 @@ from uuid import UUID
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from main import app
 
-from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from endpoints.roms import upload as upload_endpoint
-from handler.auth import oauth_handler
-from handler.redis_handler import sync_cache
 from models.platform import Platform
-from models.user import User
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
-
-
-@pytest.fixture(autouse=True)
-def clear_cache():
-    sync_cache.flushall()
-    yield
-    sync_cache.flushall()
-
-
-@pytest.fixture
-def editor_access_token(editor_user: User):
-    return oauth_handler.create_access_token(
-        data={
-            "sub": editor_user.username,
-            "iss": "romm:oauth",
-            "scopes": " ".join(editor_user.oauth_scopes),
-        },
-        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
-    )
 
 
 @pytest.fixture
@@ -215,7 +184,7 @@ def test_upload_chunk_oversized_returns_413(
         content=b"1234567",
     )
 
-    assert response.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
     assert response.json()["detail"] == "Chunk exceeds maximum allowed size"
 
 

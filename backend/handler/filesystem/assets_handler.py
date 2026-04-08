@@ -76,7 +76,7 @@ class FSAssetsHandler(FSHandler):
         return hash_obj.hexdigest()
 
     async def _compute_zip_hash(self, zip_path: str) -> str:
-        with zipfile.ZipFile(zip_path, "r") as zf:
+        with zipfile.ZipFile(f"{self.base_path}/{zip_path}", "r") as zf:
             file_hashes = []
             for name in sorted(zf.namelist()):
                 if not name.endswith("/"):

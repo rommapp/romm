@@ -37,6 +37,7 @@ export const ROUTES = {
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   PAIR: "pair",
+  APRIL_FOOLS: "april-fools",
   NOT_FOUND: "404",
   CONSOLE_HOME: "console-home",
   CONSOLE_PLATFORM: "console-platform",
@@ -182,6 +183,11 @@ const routes = [
         path: "rom/:rom/ruffle",
         name: ROUTES.RUFFLE,
         component: () => import("@/views/Player/RuffleRS/Base.vue"),
+      },
+      {
+        path: "april-fools",
+        name: ROUTES.APRIL_FOOLS,
+        component: () => import("@/views/Player/AprilFools.vue"),
       },
       {
         path: "scan",
@@ -381,7 +387,7 @@ router.beforeEach(async (to, _from, next) => {
       return next({
         name: ROUTES.LOGIN,
         query: {
-          next: to.query.next ?? (to.path !== "/login" ? to.path : "/"),
+          next: to.query.next ?? to.fullPath,
         },
       });
     }

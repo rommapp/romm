@@ -20,6 +20,29 @@ from utils.validation import validate_url_for_http_request
 from .base_handler import CoverSize, FSHandler
 
 
+def _content_type_essence(header_value: str) -> str:
+    """Return the MIME type token (before parameters), lowercased."""
+    if not header_value:
+        return ""
+
+    return (
+        header_value.split(";", 1)[0].strip().lower().lstrip("\ufeff")
+    )  # Remove BOM if present
+
+
+def _check_content_type(
+    response: httpx.Response, allowed_prefixes: tuple[str, ...], label: str
+) -> bool:
+    raw = response.headers.get("content-type", "")
+    essence = _content_type_essence(raw)
+    if not essence or not any(essence.startswith(p) for p in allowed_prefixes):
+        log.warning(
+            f"Unexpected content type for {label}: {raw or '(missing header)'}",
+        )
+        return False
+    return True
+
+
 class FSResourcesHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=RESOURCES_BASE_PATH)
@@ -75,11 +98,15 @@ class FSResourcesHandler(FSHandler):
         # Handle file:// URLs for gamelist.xml
         if url_cover.startswith("file://"):
             try:
-                file_path = AnyioPath(url_cover[7:])  # Remove "file://" prefix
-                if await file_path.exists():
+                from handler.filesystem import fs_rom_handler
+
+                validated = fs_rom_handler.validate_path(
+                    url_cover[7:]  # Remove "file://" prefix
+                )
+                if await AnyioPath(validated).exists():
                     # Copy the file to the resources directory
                     dest_path = f"{cover_file}/{size.value}.png"
-                    await self.copy_file(Path(str(file_path)), dest_path)
+                    await self.copy_file(validated, dest_path)
 
                     if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
                         self.image_converter.convert_to_webp(
@@ -87,14 +114,13 @@ class FSResourcesHandler(FSHandler):
                             force=True,
                         )
                 else:
-                    log.warning(f"Cover file not found: {file_path}")
+                    log.warning(f"Cover file not found: {str(validated)}")
                     return None
             except Exception as exc:
                 log.error(f"Unable to copy cover file {url_cover}: {str(exc)}")
                 return None
         else:
             # Handle HTTP URLs
-            # Validate URL to prevent SSRF attacks
             validate_url_for_http_request(url_cover, "url_cover")
 
             httpx_client = ctx_httpx_client.get()
@@ -103,6 +129,9 @@ class FSResourcesHandler(FSHandler):
                     "GET", url_cover, timeout=120
                 ) as response:
                     if response.status_code == status.HTTP_200_OK:
+                        if not _check_content_type(response, ("image/",), "cover"):
+                            return None
+
                         # Check if content is gzipped from response headers
                         is_gzipped = (
                             response.headers.get("content-encoding", "").lower()
@@ -249,21 +278,22 @@ class FSResourcesHandler(FSHandler):
         # Handle file:// URLs for gamelist.xml
         if url_screenhot.startswith("file://"):
             try:
-                file_path = AnyioPath(url_screenhot[7:])  # Remove "file://" prefix
-                if await file_path.exists():
+                from handler.filesystem import fs_rom_handler
+
+                validated = fs_rom_handler.validate_path(
+                    url_screenhot[7:]  # Remove "file://" prefix
+                )
+                if await AnyioPath(validated).exists():
                     # Copy the file to the resources directory
-                    await self.copy_file(
-                        Path(str(file_path)), f"{screenshot_path}/{idx}.jpg"
-                    )
+                    await self.copy_file(validated, f"{screenshot_path}/{idx}.jpg")
                 else:
-                    log.warning(f"Screenshot file not found: {file_path}")
+                    log.warning(f"Screenshot file not found: {str(validated)}")
                     return None
             except Exception as exc:
                 log.error(f"Unable to copy screenshot file {url_screenhot}: {str(exc)}")
                 return None
         else:
             # Handle HTTP URLs
-            # Validate URL to prevent SSRF attacks
             validate_url_for_http_request(url_screenhot, "url_screenshot")
 
             httpx_client = ctx_httpx_client.get()
@@ -272,6 +302,9 @@ class FSResourcesHandler(FSHandler):
                     "GET", url_screenhot, timeout=120
                 ) as response:
                     if response.status_code == status.HTTP_200_OK:
+                        if not _check_content_type(response, ("image/",), "screenshot"):
+                            return None
+
                         # Check if content is gzipped from response headers
                         is_gzipped = (
                             response.headers.get("content-encoding", "").lower()
@@ -365,21 +398,22 @@ class FSResourcesHandler(FSHandler):
         # Handle file:// URLs for gamelist.xml
         if url_manual.startswith("file://"):
             try:
-                file_path = AnyioPath(url_manual[7:])  # Remove "file://" prefix
-                if await file_path.exists():
+                from handler.filesystem import fs_rom_handler
+
+                validated = fs_rom_handler.validate_path(
+                    url_manual[7:]  # Remove "file://" prefix
+                )
+                if await AnyioPath(validated).exists():
                     # Copy the file to the resources directory
-                    await self.copy_file(
-                        Path(str(file_path)), f"{manual_path}/{rom.id}.pdf"
-                    )
+                    await self.copy_file(validated, f"{manual_path}/{rom.id}.pdf")
                 else:
-                    log.warning(f"Manual file not found: {file_path}")
+                    log.warning(f"Manual file not found: {str(validated)}")
                     return None
             except Exception as exc:
                 log.error(f"Unable to copy manual file {url_manual}: {str(exc)}")
                 return None
         else:
             # Handle HTTP URL
-            # Validate URL to prevent SSRF attacks
             validate_url_for_http_request(url_manual, "url_manual")
 
             httpx_client = ctx_httpx_client.get()
@@ -388,6 +422,17 @@ class FSResourcesHandler(FSHandler):
                     "GET", url_manual, timeout=120
                 ) as response:
                     if response.status_code == status.HTTP_200_OK:
+                        if not _check_content_type(
+                            response,
+                            (
+                                "application/pdf",
+                                "application/force-download",
+                                "application/octet-stream",
+                            ),
+                            "manual",
+                        ):
+                            return None
+
                         # Check if content is gzipped from response headers
                         is_gzipped = (
                             response.headers.get("content-encoding", "").lower()
@@ -440,7 +485,6 @@ class FSResourcesHandler(FSHandler):
 
     # Retroachievements
     async def store_ra_badge(self, url: str, path: str) -> None:
-        # Validate URL to prevent SSRF attacks
         validate_url_for_http_request(url, "url_badge")
 
         httpx_client = ctx_httpx_client.get()
@@ -456,6 +500,9 @@ class FSResourcesHandler(FSHandler):
         try:
             async with httpx_client.stream("GET", url, timeout=120) as response:
                 if response.status_code == status.HTTP_200_OK:
+                    if not _check_content_type(response, ("image/",), "badge"):
+                        return
+
                     async with await self.write_file_streamed(
                         path=directory, filename=filename
                     ) as f:
@@ -498,7 +545,12 @@ class FSResourcesHandler(FSHandler):
         # Handle file:// URLs for gamelist.xml
         if url_media.startswith("file://"):
             try:
-                file_path = AnyioPath(url_media[7:])  # Remove "file://" prefix
+                from handler.filesystem import fs_rom_handler
+
+                validated = fs_rom_handler.validate_path(
+                    url_media[7:]  # Remove "file://" prefix
+                )
+                file_path = AnyioPath(validated)
                 if await file_path.exists():
                     await self.copy_file(Path(str(file_path)), dest_path)
             except Exception as exc:
@@ -506,7 +558,6 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URLs
-            # Validate URL to prevent SSRF attacks
             validate_url_for_http_request(url_media, "url_media")
 
             httpx_client = ctx_httpx_client.get()
@@ -515,6 +566,13 @@ class FSResourcesHandler(FSHandler):
                     "GET", url_media, timeout=120
                 ) as response:
                     if response.status_code == status.HTTP_200_OK:
+                        if not _check_content_type(
+                            response,
+                            ("image/", "video/", "application/pdf"),
+                            "media",
+                        ):
+                            return None
+
                         async with await self.write_file_streamed(
                             path=directory, filename=filename
                         ) as f:

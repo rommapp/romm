@@ -28,6 +28,7 @@ from handler.database import db_user_handler
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils.auth import create_or_find_web_device
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -61,6 +62,10 @@ def login(
 
     request.session["iss"] = "romm:auth"
     request.session["sub"] = user.username
+
+    # Auto-create or find the web browser device
+    device = create_or_find_web_device(request, user)
+    request.session["device_id"] = device.id
 
     # Update last login and active times
     now = datetime.now(timezone.utc)
@@ -297,6 +302,10 @@ async def auth_openid(request: Request):
     request.session["sub"] = potential_user.username
     if OIDC_RP_INITIATED_LOGOUT:
         request.session["oidc_id_token"] = token.get("id_token", "")
+
+    # Auto-create or find the web browser device
+    device = create_or_find_web_device(request, potential_user)
+    request.session["device_id"] = device.id
 
     # Update last login and active times
     now = datetime.now(timezone.utc)
