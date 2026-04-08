@@ -10,13 +10,11 @@
       class="launch-screen"
     >
       <!-- Cover art -->
-      <v-img
-        v-if="rom?.cover_url"
-        :src="rom.cover_url"
-        class="launch-cover mx-auto mb-5"
-        width="200"
-        rounded="lg"
-        cover
+      <img
+        v-if="rom?.url_cover"
+        :src="rom.url_cover"
+        class="launch-cover mx-auto mb-5 d-block"
+        alt="Cover art"
       />
       <v-icon v-else size="96" color="grey-darken-1" class="mb-5">
         mdi-disc
@@ -274,7 +272,7 @@ interface Rom {
   file_name: string;
   full_path: string;
   platform_slug: string;
-  cover_url?: string;
+  url_cover?: string | null;
 }
 
 type PlayerState = "idle" | "loading" | "playing" | "error";
@@ -528,6 +526,10 @@ function formatTime(iso: string): string {
 
 .launch-cover {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  width: 260px;
+  max-width: 260px;
+  height: auto;
+  border-radius: 8px;
 }
 
 .player-wrapper {
