@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import urllib.error
 import urllib.request
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from config.config_manager import config_manager as cm
 
@@ -36,6 +37,11 @@ class ClaimSessionRequest(BaseModel):
     platform: str
     rom_path: str
     rom_name: str
+
+
+class SaveAndExitRequest(BaseModel):
+    slot: Annotated[int, Field(ge=0, le=9)] = 0
+    wait: bool = True
 
 
 def _get_streaming_config() -> dict[str, Any]:
@@ -152,10 +158,49 @@ def _call_broker(container: dict[str, Any], rom_path: str, rom_name: str) -> Non
         ) from exc
 
 
+def _save_and_exit_broker(
+    container: dict[str, Any], slot: int = 0, wait: bool = True
+) -> bool:
+    """
+    POST /save-and-exit to the broker. Best-effort — logs but never raises.
+    With wait=True the call blocks until save+kill completes (use for button press).
+    With wait=False the broker fires save+kill in the background (use for navigation away).
+    Returns True if the broker reported a successful save.
+    """
+    url = _broker_url(container, "/save-and-exit")
+    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    payload = json.dumps({"slot": slot, "wait": wait}).encode()
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Content-Length": str(len(payload)),
+            **({"X-Broker-Secret": secret} if secret else {}),
+        },
+    )
+    timeout = 20 if wait else 5
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = json.loads(resp.read())
+            saved = bool(body.get("saved", False))
+            log.info(
+                "streaming: broker save-and-exit — saved=%s slot=%d wait=%s",
+                saved,
+                slot,
+                wait,
+            )
+            return saved
+    except Exception as exc:
+        log.warning("streaming: broker save-and-exit failed — %s", exc)
+        return False
+
+
 def _stop_broker(container: dict[str, Any]) -> None:
     """Tell the broker to stop emulator. Best-effort — don't raise on failure."""
     url = _broker_url(container, "/launch")
-    secret = container.get("broker_secret", "")
+    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
     req = urllib.request.Request(
         url,
         method="DELETE",
@@ -224,8 +269,9 @@ async def claim_session(req: ClaimSessionRequest, request: Request) -> JSONRespo
             },
         )
 
-    # Tell the broker to load the ROM — raises HTTPException on failure
-    _call_broker(container, req.rom_path, req.rom_name)
+    # Tell the broker to load the ROM — raises HTTPException on failure.
+    # Wrapped in asyncio.to_thread because urllib is synchronous.
+    await asyncio.to_thread(_call_broker, container, req.rom_path, req.rom_name)
 
     now = datetime.utcnow().isoformat()
     _sessions[req.platform] = {
@@ -250,6 +296,37 @@ async def claim_session(req: ClaimSessionRequest, request: Request) -> JSONRespo
     )
 
 
+@router.post("/sessions/{platform}/save-and-exit")
+async def save_and_exit_session(platform: str, req: SaveAndExitRequest) -> JSONResponse:
+    """
+    Save game state then release the session.
+    wait=true (default): blocks until broker confirms save+kill complete.
+    wait=false: broker fires save+kill in background, returns immediately.
+    """
+    session = _sessions.get(platform)
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No active session for platform '{platform}'",
+        )
+
+    container = _container_for_platform(platform)
+    saved = False
+    if container:
+        saved = await asyncio.to_thread(
+            _save_and_exit_broker, container, slot=req.slot, wait=req.wait
+        )
+    else:
+        log.warning(
+            "streaming: save-and-exit — no container for platform=%s, releasing without save",
+            platform,
+        )
+
+    _sessions.pop(platform, None)
+    log.info("streaming: save-and-exit — platform=%s saved=%s", platform, saved)
+    return JSONResponse({"status": "ok", "saved": saved, "platform": platform})
+
+
 @router.delete("/sessions/{platform}")
 async def release_session(platform: str) -> JSONResponse:
 
@@ -262,7 +339,7 @@ async def release_session(platform: str) -> JSONResponse:
     # Best-effort stop, don't block user
     container = _container_for_platform(platform)
     if container:
-        _stop_broker(container)
+        await asyncio.to_thread(_stop_broker, container)
 
     log.info("streaming: session released — platform=%s", platform)
     return JSONResponse({"status": "released", "platform": platform})

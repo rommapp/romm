@@ -215,7 +215,15 @@
           </svg>
         </v-btn>
 
-        <v-btn icon variant="text" density="compact" title="Save and exit">
+        <v-btn
+          icon
+          variant="text"
+          density="compact"
+          title="Save and exit"
+          :loading="isSavingAndExiting"
+          :disabled="isSavingAndExiting"
+          @click="handleSaveAndExit"
+        >
           <svg
             width="20"
             height="20"
@@ -236,6 +244,7 @@
           density="compact"
           color="error"
           title="Stop and release session"
+          :disabled="isSavingAndExiting"
           @click="handleStop"
         >
           <svg
@@ -290,6 +299,7 @@ const occupiedBy = ref<{ rom_name: string; claimed_at: string } | null>(null);
 const containerHost = ref<string>("");
 const isFullscreen = ref(false);
 const isUIVisible = ref(true);
+const isSavingAndExiting = ref(false);
 const volume = ref(1);
 const isMuted = ref(false);
 let uiTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -324,7 +334,7 @@ onMounted(async () => {
   showUI();
 });
 
-onBeforeUnmount(async () => {
+onBeforeUnmount(() => {
   document.removeEventListener("fullscreenchange", onFullscreenChange);
   if (uiTimeout) clearTimeout(uiTimeout);
   attachTimeouts.forEach((id) => clearTimeout(id));
@@ -333,8 +343,14 @@ onBeforeUnmount(async () => {
   iframeLoadCleanup = null;
   contentWindowCleanup?.();
   contentWindowCleanup = null;
-  // Release regardless of state
-  await streamingStore.releaseSession(rom.value?.platform_slug ?? "");
+  if (playerState.value === "playing") {
+    // Navigation away while a game is active — fire save+kill in the broker
+    // background and return immediately so navigation is never held up.
+    void streamingStore.saveAndExit(rom.value?.platform_slug ?? "", 0, false);
+  } else {
+    // No active game (or handleSaveAndExit already ran) — plain release is fine.
+    void streamingStore.releaseSession(rom.value?.platform_slug ?? "");
+  }
 });
 
 async function fetchRom(): Promise<void> {
@@ -472,6 +488,20 @@ async function handleStop(): Promise<void> {
   await streamingStore.releaseSession(rom.value?.platform_slug ?? "");
   playerState.value = "idle";
   containerHost.value = "";
+  router.push(backRoute.value);
+}
+
+async function handleSaveAndExit(): Promise<void> {
+  if (!rom.value || playerState.value !== "playing") return;
+  isSavingAndExiting.value = true;
+  try {
+    await streamingStore.saveAndExit(rom.value.platform_slug, 0, true);
+  } finally {
+    isSavingAndExiting.value = false;
+    playerState.value = "idle";
+    containerHost.value = "";
+  }
+  // Outside finally so we always navigate away, even if the save failed.
   router.push(backRoute.value);
 }
 

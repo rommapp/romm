@@ -123,11 +123,43 @@ export const useStreamingStore = defineStore("streaming", () => {
    * Best-effort — never throws.
    */
   async function releaseSession(platform: string): Promise<void> {
+    if (!platform) return;
     activeSession.value = null;
     try {
       await fetch(`/api/streaming/sessions/${platform}`, { method: "DELETE" });
     } catch (err) {
       console.warn("[streaming] Could not release session:", err);
+    }
+  }
+
+  /**
+   * Save game state then release the session.
+   * wait=true (default): blocks until broker confirms save+kill — use for explicit button press.
+   * wait=false: broker fires save+kill in background, returns immediately — use for navigation away.
+   * Best-effort — never throws.
+   */
+  async function saveAndExit(
+    platform: string,
+    slot = 0,
+    wait = true,
+  ): Promise<boolean> {
+    if (!platform) return false;
+    activeSession.value = null;
+    try {
+      const res = await fetch(
+        `/api/streaming/sessions/${platform}/save-and-exit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slot, wait }),
+        },
+      );
+      if (!res.ok) return false;
+      const data = await res.json();
+      return data.saved ?? false;
+    } catch (err) {
+      console.warn("[streaming] Could not save-and-exit:", err);
+      return false;
     }
   }
 
@@ -141,5 +173,6 @@ export const useStreamingStore = defineStore("streaming", () => {
     fetchConfig,
     claimSession,
     releaseSession,
+    saveAndExit,
   };
 });
