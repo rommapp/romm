@@ -52,6 +52,10 @@ class MuteRequest(BaseModel):
     mute: bool | None = None  # None = toggle, True/False = explicit set
 
 
+class StateRequest(BaseModel):
+    slot: Annotated[int, Field(ge=1, le=9)] = 1
+
+
 def _get_streaming_config() -> dict[str, Any]:
     """Extract streaming config from the parsed Config object"""
     try:
@@ -257,6 +261,57 @@ def _mute_broker(container: dict[str, Any], mute: bool | None) -> bool | None:
         return None
 
 
+def _save_state_broker(container: dict[str, Any], slot: int) -> bool:
+    """POST /save-state to the broker. Returns True if the request was accepted."""
+    url = _broker_url(container, "/save-state")
+    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    payload = json.dumps({"slot": slot}).encode()
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Content-Length": str(len(payload)),
+            **({"X-Broker-Secret": secret} if secret else {}),
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            body = json.loads(resp.read())
+            log.debug("streaming: broker save-state slot=%d — %s", slot, body)
+            return body.get("status") == "saving"
+    except Exception as exc:
+        log.warning("streaming: broker save-state failed — %s", exc)
+        return False
+
+
+def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
+    """POST /load-state to the broker. Returns True if broker confirmed success."""
+    url = _broker_url(container, "/load-state")
+    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    payload = json.dumps({"slot": slot}).encode()
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Content-Length": str(len(payload)),
+            **({"X-Broker-Secret": secret} if secret else {}),
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = json.loads(resp.read())
+            loaded = bool(body.get("loaded", False))
+            log.debug("streaming: broker load-state slot=%d loaded=%s", slot, loaded)
+            return loaded
+    except Exception as exc:
+        log.warning("streaming: broker load-state failed — %s", exc)
+        return False
+
+
 def _stop_broker(container: dict[str, Any]) -> None:
     """Tell the broker to stop emulator. Best-effort — don't raise on failure."""
     url = _broker_url(container, "/launch")
@@ -425,6 +480,53 @@ async def set_mute(platform: str, req: MuteRequest) -> JSONResponse:
         log.warning("streaming: mute — no container for platform=%s", platform)
 
     return JSONResponse({"status": "ok", "mute": confirmed, "platform": platform})
+
+
+@router.post("/sessions/{platform}/save-state")
+async def save_state(platform: str, req: StateRequest) -> JSONResponse:
+    """Save game state to a slot (1–9) without stopping the emulator."""
+    session = _sessions.get(platform)
+    if session is None:
+        raise HTTPException(
+            status_code=404, detail=f"No active session for platform '{platform}'"
+        )
+
+    container = _container_for_platform(platform)
+    ok = False
+    if container:
+        ok = await asyncio.to_thread(_save_state_broker, container, req.slot)
+    else:
+        log.warning("streaming: save-state — no container for platform=%s", platform)
+
+    return JSONResponse(
+        {"status": "saving" if ok else "error", "slot": req.slot, "platform": platform}
+    )
+
+
+@router.post("/sessions/{platform}/load-state")
+async def load_state(platform: str, req: StateRequest) -> JSONResponse:
+    """Load game state from a slot (1–9)."""
+    session = _sessions.get(platform)
+    if session is None:
+        raise HTTPException(
+            status_code=404, detail=f"No active session for platform '{platform}'"
+        )
+
+    container = _container_for_platform(platform)
+    ok = False
+    if container:
+        ok = await asyncio.to_thread(_load_state_broker, container, req.slot)
+    else:
+        log.warning("streaming: load-state — no container for platform=%s", platform)
+
+    return JSONResponse(
+        {
+            "status": "ok" if ok else "error",
+            "loaded": ok,
+            "slot": req.slot,
+            "platform": platform,
+        }
+    )
 
 
 @router.delete("/sessions/{platform}")

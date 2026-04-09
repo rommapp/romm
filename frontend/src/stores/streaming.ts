@@ -196,6 +196,55 @@ export const useStreamingStore = defineStore("streaming", () => {
     }
   }
 
+  /**
+   * Save game state to a slot (1–9) without stopping the emulator.
+   * The broker fires the save in the background and returns immediately.
+   * Best-effort — never throws.
+   */
+  async function saveState(platform: string, slot = 1): Promise<boolean> {
+    if (!platform) return false;
+    try {
+      const res = await fetch(
+        `/api/streaming/sessions/${platform}/save-state`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slot }),
+        },
+      );
+      if (!res.ok) return false;
+      const data = await res.json();
+      return data.status === "saving";
+    } catch (err) {
+      console.warn("[streaming] Could not save state:", err);
+      return false;
+    }
+  }
+
+  /**
+   * Load game state from a slot (1–9).
+   * Best-effort — never throws.
+   */
+  async function loadState(platform: string, slot = 1): Promise<boolean> {
+    if (!platform) return false;
+    try {
+      const res = await fetch(
+        `/api/streaming/sessions/${platform}/load-state`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slot }),
+        },
+      );
+      if (!res.ok) return false;
+      const data = await res.json();
+      return data.loaded ?? false;
+    } catch (err) {
+      console.warn("[streaming] Could not load state:", err);
+      return false;
+    }
+  }
+
   return {
     config,
     activeSession,
@@ -209,5 +258,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     saveAndExit,
     setVolume,
     setMute,
+    saveState,
+    loadState,
   };
 });

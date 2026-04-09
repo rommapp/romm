@@ -167,6 +167,39 @@
           :disabled="isMuted"
         />
 
+        <!-- Save/load state controls -->
+        <select
+          v-model.number="selectedSlot"
+          class="slot-selector"
+          title="Save slot"
+        >
+          <option v-for="n in 9" :key="n" :value="n">Slot {{ n }}</option>
+        </select>
+
+        <v-btn
+          icon
+          variant="text"
+          density="compact"
+          title="Save state"
+          :loading="isSavingState"
+          :disabled="isSavingState || isLoadingState || isSavingAndExiting"
+          @click="handleSaveState"
+        >
+          <v-icon size="20">mdi-content-save-outline</v-icon>
+        </v-btn>
+
+        <v-btn
+          icon
+          variant="text"
+          density="compact"
+          title="Load state"
+          :loading="isLoadingState"
+          :disabled="isSavingState || isLoadingState || isSavingAndExiting"
+          @click="handleLoadState"
+        >
+          <v-icon size="20">mdi-restore</v-icon>
+        </v-btn>
+
         <v-btn
           icon
           variant="text"
@@ -300,6 +333,9 @@ const containerHost = ref<string>("");
 const isFullscreen = ref(false);
 const isUIVisible = ref(true);
 const isSavingAndExiting = ref(false);
+const isSavingState = ref(false);
+const isLoadingState = ref(false);
+const selectedSlot = ref(1);
 const volume = ref(1);
 const isMuted = ref(false);
 
@@ -517,6 +553,26 @@ async function handleSaveAndExit(): Promise<void> {
   router.push(backRoute.value);
 }
 
+async function handleSaveState(): Promise<void> {
+  if (!rom.value || playerState.value !== "playing") return;
+  isSavingState.value = true;
+  try {
+    await streamingStore.saveState(rom.value.platform_slug, selectedSlot.value);
+  } finally {
+    isSavingState.value = false;
+  }
+}
+
+async function handleLoadState(): Promise<void> {
+  if (!rom.value || playerState.value !== "playing") return;
+  isLoadingState.value = true;
+  try {
+    await streamingStore.loadState(rom.value.platform_slug, selectedSlot.value);
+  } finally {
+    isLoadingState.value = false;
+  }
+}
+
 async function toggleFullscreen(): Promise<void> {
   if (!playerWrapper.value) return;
   try {
@@ -626,6 +682,30 @@ function formatTime(iso: string): string {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 200px;
+}
+
+.slot-selector {
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.87);
+  cursor: pointer;
+  font-size: 12px;
+  height: 28px;
+  outline: none;
+  padding: 0 6px;
+  width: 62px;
+}
+
+.slot-selector:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.slot-selector option {
+  background: #1e1e1e;
+  color: rgba(255, 255, 255, 0.87);
 }
 
 .volume-slider {
