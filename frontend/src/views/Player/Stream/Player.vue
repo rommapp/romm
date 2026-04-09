@@ -271,7 +271,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useStreamingStore } from "@/stores/streaming";
 
@@ -302,6 +302,18 @@ const isUIVisible = ref(true);
 const isSavingAndExiting = ref(false);
 const volume = ref(1);
 const isMuted = ref(false);
+
+// Sync volume slider (0–1) and mute button to the broker in real time.
+// Debounced via watch — only fires after the value settles for 150ms.
+let volumeDebounce: ReturnType<typeof setTimeout> | null = null;
+watch(volume, (val) => {
+  if (volumeDebounce) clearTimeout(volumeDebounce);
+  volumeDebounce = setTimeout(() => {
+    const platform = rom.value?.platform_slug;
+    if (platform)
+      void streamingStore.setVolume(platform, Math.round(val * 100));
+  }, 150);
+});
 let uiTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const playerWrapper = ref<HTMLElement | null>(null);
@@ -520,6 +532,8 @@ async function toggleFullscreen(): Promise<void> {
 
 function toggleMute(): void {
   isMuted.value = !isMuted.value;
+  const platform = rom.value?.platform_slug;
+  if (platform) void streamingStore.setMute(platform, isMuted.value);
 }
 
 function onFullscreenChange(): void {

@@ -163,6 +163,39 @@ export const useStreamingStore = defineStore("streaming", () => {
     }
   }
 
+  /**
+   * Set emulator volume (0–100). Best-effort — never throws.
+   */
+  async function setVolume(platform: string, level: number): Promise<void> {
+    if (!platform) return;
+    try {
+      await fetch(`/api/streaming/sessions/${platform}/volume`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: Math.round(level) }),
+      });
+    } catch (err) {
+      console.warn("[streaming] Could not set volume:", err);
+    }
+  }
+
+  /**
+   * Toggle or explicitly set mute. Pass true/false to set, omit for toggle.
+   * Best-effort — never throws.
+   */
+  async function setMute(platform: string, mute?: boolean): Promise<void> {
+    if (!platform) return;
+    try {
+      await fetch(`/api/streaming/sessions/${platform}/mute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mute !== undefined ? { mute } : {}),
+      });
+    } catch (err) {
+      console.warn("[streaming] Could not set mute:", err);
+    }
+  }
+
   return {
     config,
     activeSession,
@@ -174,5 +207,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     claimSession,
     releaseSession,
     saveAndExit,
+    setVolume,
+    setMute,
   };
 });

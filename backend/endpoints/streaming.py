@@ -40,8 +40,16 @@ class ClaimSessionRequest(BaseModel):
 
 
 class SaveAndExitRequest(BaseModel):
-    slot: Annotated[int, Field(ge=0, le=9)] = 0
+    slot: Annotated[int, Field(ge=0, le=10)] = 0
     wait: bool = True
+
+
+class VolumeRequest(BaseModel):
+    level: Annotated[int, Field(ge=0, le=100)]
+
+
+class MuteRequest(BaseModel):
+    mute: bool | None = None  # None = toggle, True/False = explicit set
 
 
 def _get_streaming_config() -> dict[str, Any]:
@@ -197,6 +205,58 @@ def _save_and_exit_broker(
         return False
 
 
+def _volume_broker(container: dict[str, Any], level: int) -> bool:
+    """POST /volume to the broker. Best-effort — logs but never raises."""
+    url = _broker_url(container, "/volume")
+    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    payload = json.dumps({"level": level}).encode()
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Content-Length": str(len(payload)),
+            **({"X-Broker-Secret": secret} if secret else {}),
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            body = json.loads(resp.read())
+            log.debug("streaming: broker volume set to %d — %s", level, body)
+            return body.get("status") == "ok"
+    except Exception as exc:
+        log.warning("streaming: broker volume failed — %s", exc)
+        return False
+
+
+def _mute_broker(container: dict[str, Any], mute: bool | None) -> bool | None:
+    """POST /mute to the broker. Returns confirmed mute state, or None on error."""
+    url = _broker_url(container, "/mute")
+    secret = os.environ.get("BROKER_SECRET", container.get("broker_secret", ""))
+    body_dict: dict[str, Any] = {} if mute is None else {"mute": mute}
+    payload = json.dumps(body_dict).encode()
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Content-Length": str(len(payload)),
+            **({"X-Broker-Secret": secret} if secret else {}),
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            body = json.loads(resp.read())
+            confirmed = body.get("mute")
+            log.debug("streaming: broker mute — %s", body)
+            return confirmed
+    except Exception as exc:
+        log.warning("streaming: broker mute failed — %s", exc)
+        return None
+
+
 def _stop_broker(container: dict[str, Any]) -> None:
     """Tell the broker to stop emulator. Best-effort — don't raise on failure."""
     url = _broker_url(container, "/launch")
@@ -325,6 +385,46 @@ async def save_and_exit_session(platform: str, req: SaveAndExitRequest) -> JSONR
     _sessions.pop(platform, None)
     log.info("streaming: save-and-exit — platform=%s saved=%s", platform, saved)
     return JSONResponse({"status": "ok", "saved": saved, "platform": platform})
+
+
+@router.post("/sessions/{platform}/volume")
+async def set_volume(platform: str, req: VolumeRequest) -> JSONResponse:
+    """Set emulator audio volume (0–100). Best-effort — no 404 if broker unreachable."""
+    session = _sessions.get(platform)
+    if session is None:
+        raise HTTPException(
+            status_code=404, detail=f"No active session for platform '{platform}'"
+        )
+
+    container = _container_for_platform(platform)
+    ok = False
+    if container:
+        ok = await asyncio.to_thread(_volume_broker, container, req.level)
+    else:
+        log.warning("streaming: volume — no container for platform=%s", platform)
+
+    return JSONResponse(
+        {"status": "ok" if ok else "error", "level": req.level, "platform": platform}
+    )
+
+
+@router.post("/sessions/{platform}/mute")
+async def set_mute(platform: str, req: MuteRequest) -> JSONResponse:
+    """Toggle or explicitly set mute state. Omit body to toggle."""
+    session = _sessions.get(platform)
+    if session is None:
+        raise HTTPException(
+            status_code=404, detail=f"No active session for platform '{platform}'"
+        )
+
+    container = _container_for_platform(platform)
+    confirmed: bool | None = None
+    if container:
+        confirmed = await asyncio.to_thread(_mute_broker, container, req.mute)
+    else:
+        log.warning("streaming: mute — no container for platform=%s", platform)
+
+    return JSONResponse({"status": "ok", "mute": confirmed, "platform": platform})
 
 
 @router.delete("/sessions/{platform}")
