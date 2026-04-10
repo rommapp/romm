@@ -182,7 +182,12 @@
           density="compact"
           title="Save state"
           :loading="isSavingState"
-          :disabled="isSavingState || isLoadingState || isSavingAndExiting"
+          :disabled="
+            isSavingState ||
+            isLoadingState ||
+            isLoadingAutosave ||
+            isSavingAndExiting
+          "
           @click="handleSaveState"
         >
           <v-icon size="20">mdi-content-save-outline</v-icon>
@@ -194,10 +199,32 @@
           density="compact"
           title="Load state"
           :loading="isLoadingState"
-          :disabled="isSavingState || isLoadingState || isSavingAndExiting"
+          :disabled="
+            isSavingState ||
+            isLoadingState ||
+            isLoadingAutosave ||
+            isSavingAndExiting
+          "
           @click="handleLoadState"
         >
           <v-icon size="20">mdi-restore</v-icon>
+        </v-btn>
+
+        <v-btn
+          icon
+          variant="text"
+          density="compact"
+          title="Load autosave"
+          :loading="isLoadingAutosave"
+          :disabled="
+            isSavingState ||
+            isLoadingState ||
+            isLoadingAutosave ||
+            isSavingAndExiting
+          "
+          @click="handleLoadAutosave"
+        >
+          <v-icon size="20">mdi-history</v-icon>
         </v-btn>
 
         <v-btn
@@ -335,6 +362,7 @@ const isUIVisible = ref(true);
 const isSavingAndExiting = ref(false);
 const isSavingState = ref(false);
 const isLoadingState = ref(false);
+const isLoadingAutosave = ref(false);
 const selectedSlot = ref(1);
 const volume = ref(1);
 const isMuted = ref(false);
@@ -570,6 +598,16 @@ async function handleLoadState(): Promise<void> {
     await streamingStore.loadState(rom.value.platform_slug, selectedSlot.value);
   } finally {
     isLoadingState.value = false;
+  }
+}
+
+async function handleLoadAutosave(): Promise<void> {
+  if (!rom.value || playerState.value !== "playing") return;
+  isLoadingAutosave.value = true;
+  try {
+    await streamingStore.loadState(rom.value.platform_slug, 10);
+  } finally {
+    isLoadingAutosave.value = false;
   }
 }
 

@@ -52,8 +52,12 @@ class MuteRequest(BaseModel):
     mute: bool | None = None  # None = toggle, True/False = explicit set
 
 
-class StateRequest(BaseModel):
-    slot: Annotated[int, Field(ge=1, le=9)] = 1
+class SaveStateRequest(BaseModel):
+    slot: Annotated[int, Field(ge=1, le=9)] = 1  # slots 1–9 only; slot 10 is autosave
+
+
+class LoadStateRequest(BaseModel):
+    slot: Annotated[int, Field(ge=1, le=10)] = 1  # slot 10 = autosave
 
 
 def _get_streaming_config() -> dict[str, Any]:
@@ -483,7 +487,7 @@ async def set_mute(platform: str, req: MuteRequest) -> JSONResponse:
 
 
 @router.post("/sessions/{platform}/save-state")
-async def save_state(platform: str, req: StateRequest) -> JSONResponse:
+async def save_state(platform: str, req: SaveStateRequest) -> JSONResponse:
     """Save game state to a slot (1–9) without stopping the emulator."""
     session = _sessions.get(platform)
     if session is None:
@@ -504,8 +508,8 @@ async def save_state(platform: str, req: StateRequest) -> JSONResponse:
 
 
 @router.post("/sessions/{platform}/load-state")
-async def load_state(platform: str, req: StateRequest) -> JSONResponse:
-    """Load game state from a slot (1–9)."""
+async def load_state(platform: str, req: LoadStateRequest) -> JSONResponse:
+    """Load game state from a slot (1–10). Slot 10 is the autosave."""
     session = _sessions.get(platform)
     if session is None:
         raise HTTPException(
