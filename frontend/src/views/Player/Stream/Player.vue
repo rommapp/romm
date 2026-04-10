@@ -173,7 +173,9 @@
           class="slot-selector"
           title="Save slot"
         >
-          <option v-for="n in 9" :key="n" :value="n">Slot {{ n }}</option>
+          <option v-for="n in capabilities.maxSlots" :key="n" :value="n">
+            Slot {{ n }}
+          </option>
         </select>
 
         <v-btn
@@ -211,6 +213,7 @@
         </v-btn>
 
         <v-btn
+          v-if="capabilities.hasAutosave"
           icon
           variant="text"
           density="compact"
@@ -396,6 +399,19 @@ const container = computed(() =>
     : null,
 );
 
+const capabilities = computed(() =>
+  streamingStore.platformCapabilities(rom.value?.platform_slug),
+);
+
+// If the platform changes mid-session and the new one has fewer slots,
+// clamp selectedSlot so we never send an out-of-range value to the broker.
+watch(
+  () => capabilities.value.maxSlots,
+  (max) => {
+    if (selectedSlot.value > max) selectedSlot.value = 1;
+  },
+);
+
 const platformLabel = computed(
   () => container.value?.label ?? rom.value?.platform_slug?.toUpperCase() ?? "",
 );
@@ -517,9 +533,9 @@ async function handlePlay(): Promise<void> {
   occupiedBy.value = null;
 
   // Build the full ROM path as it appears inside the RomM container.
-  // RomM mounts the library at /romm/library/roms, so the full path is:
-  //   /romm/library/roms/<platform_slug>/<file_name>
-  // This must match what the pcsx2 container can see at the same path.
+  // RomM mounts the library at /romm/library, so the full path is:
+  //   /romm/library/<full_path>
+  // The streaming container must mount the same library at the same path.
   const romPath = `/romm/library/${rom.value.full_path}`;
 
   try {
