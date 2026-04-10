@@ -148,7 +148,7 @@ def _call_broker(container: dict[str, Any], rom_path: str, rom_name: str) -> Non
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
             body = json.loads(resp.read())
             log.info("streaming: broker launched ROM — %s", body)
     except urllib.error.HTTPError as exc:
@@ -198,7 +198,7 @@ def _save_and_exit_broker(
     )
     timeout = 20 if wait else 5
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
             body = json.loads(resp.read())
             saved = bool(body.get("saved", False))
             log.info(
@@ -229,7 +229,7 @@ def _volume_broker(container: dict[str, Any], level: int) -> bool:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
             body = json.loads(resp.read())
             log.debug("streaming: broker volume set to %d — %s", level, body)
             return body.get("status") == "ok"
@@ -255,7 +255,7 @@ def _mute_broker(container: dict[str, Any], mute: bool | None) -> bool | None:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
             body = json.loads(resp.read())
             confirmed = body.get("mute")
             log.debug("streaming: broker mute — %s", body)
@@ -281,7 +281,7 @@ def _save_state_broker(container: dict[str, Any], slot: int) -> bool:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310
             body = json.loads(resp.read())
             log.debug("streaming: broker save-state slot=%d — %s", slot, body)
             return body.get("status") == "saving"
@@ -306,7 +306,9 @@ def _load_state_broker(container: dict[str, Any], slot: int) -> bool:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(
+            req, timeout=60
+        ) as resp:  # nosec B310 — worst-case: 9 slot cycles × ~5s xdotool timeout
             body = json.loads(resp.read())
             loaded = bool(body.get("loaded", False))
             log.debug("streaming: broker load-state slot=%d loaded=%s", slot, loaded)
@@ -326,7 +328,7 @@ def _stop_broker(container: dict[str, Any]) -> None:
         headers={**({"X-Broker-Secret": secret} if secret else {})},
     )
     try:
-        with urllib.request.urlopen(req, timeout=5):
+        with urllib.request.urlopen(req, timeout=5):  # nosec B310
             pass
     except Exception as exc:
         log.warning("streaming: could not stop broker session — %s", exc)
@@ -502,8 +504,10 @@ async def save_state(platform: str, req: SaveStateRequest) -> JSONResponse:
     else:
         log.warning("streaming: save-state — no container for platform=%s", platform)
 
+    status_code = 200 if ok else 500
     return JSONResponse(
-        {"status": "saving" if ok else "error", "slot": req.slot, "platform": platform}
+        {"status": "saving" if ok else "error", "slot": req.slot, "platform": platform},
+        status_code=status_code,
     )
 
 
