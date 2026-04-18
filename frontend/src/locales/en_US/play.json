@@ -17,6 +17,8 @@
   "no-states-available": "No states available",
   "play": "Play",
   "quit": "Quit",
+  "save-state": "Save State",
+  "load-state": "Load State",
   "save-and-quit": "Save and quit",
   "select-background-color": "Select background color",
   "select-save": "Select save",

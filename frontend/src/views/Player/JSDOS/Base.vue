@@ -7,6 +7,7 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
+import type { JsDosCI } from "@/types/jsdos";
 import { getDownloadPath } from "@/utils";
 
 const { t } = useI18n();
@@ -15,6 +16,47 @@ const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
 const scriptLoaded = ref(false);
+const dosCI = ref<JsDosCI | null>(null);
+const savingState = ref(false);
+const loadingState = ref(false);
+
+function getSaveKey(romId: number): string {
+  return `jsdos:savestate:${romId}`;
+}
+
+async function saveStateToIDB(romId: number, data: Uint8Array) {
+  const db = await openDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction("savestates", "readwrite");
+    tx.objectStore("savestates").put({ id: romId, data, timestamp: Date.now() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function loadStateFromIDB(romId: number): Promise<Uint8Array | null> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("savestates", "readonly");
+    const req = tx.objectStore("savestates").get(romId);
+    req.onsuccess = () => resolve(req.result?.data ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("jsdos-savestates", 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("savestates")) {
+        db.createObjectStore("savestates", { keyPath: "id" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
 
 async function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -66,11 +108,12 @@ function onPlay() {
     const container = document.getElementById("dos");
     if (!container) return;
 
-    const ci = await window.Dos(container, {
+    dosCI.value = await window.Dos(container, {
       url: getDownloadPath({ rom: rom.value }),
       noSidebar: true,
       onExit: () => {
         gameRunning.value = false;
+        dosCI.value = null;
       },
     });
 
@@ -80,11 +123,65 @@ function onPlay() {
   });
 }
 
+async function onSaveState() {
+  if (!dosCI.value || !rom.value) return;
+  savingState.value = true;
+  try {
+    const data = await dosCI.value.persist();
+    await saveStateToIDB(rom.value.id, data);
+  } catch (e) {
+    console.error("Failed to save state:", e);
+  } finally {
+    savingState.value = false;
+  }
+}
+
+async function onLoadState() {
+  if (!rom.value) return;
+  loadingState.value = true;
+  try {
+    const data = await loadStateFromIDB(rom.value.id);
+    if (!data) return;
+
+    const container = document.getElementById("dos");
+    if (!container) return;
+
+    if (dosCI.value) {
+      await dosCI.value.exit();
+      dosCI.value = null;
+    }
+
+    container.innerHTML = "";
+    gameRunning.value = true;
+
+    const blob = new Blob([data], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+
+    dosCI.value = await window.Dos(container, {
+      url,
+      noSidebar: true,
+      onExit: () => {
+        gameRunning.value = false;
+        dosCI.value = null;
+        URL.revokeObjectURL(url);
+      },
+    });
+  } catch (e) {
+    console.error("Failed to load state:", e);
+  } finally {
+    loadingState.value = false;
+  }
+}
+
 function onFullScreenChange() {
   fullScreenOnPlay.value = !fullScreenOnPlay.value;
 }
 
 async function onlyQuit() {
+  if (dosCI.value) {
+    await dosCI.value.exit();
+    dosCI.value = null;
+  }
   window.history.back();
 }
 
@@ -176,6 +273,37 @@ onMounted(async () => {
               </v-btn>
             </v-col>
           </v-row>
+
+          <!-- Save / Load State buttons (visible when game is running) -->
+          <v-row v-if="gameRunning" class="align-center ga-4 mt-4" no-gutters>
+            <v-col>
+              <v-btn
+                block
+                variant="outlined"
+                size="large"
+                :loading="savingState"
+                :disabled="!dosCI || loadingState"
+                prepend-icon="mdi-content-save"
+                @click="onSaveState"
+              >
+                {{ t("play.save-state") }}
+              </v-btn>
+            </v-col>
+            <v-col>
+              <v-btn
+                block
+                variant="outlined"
+                size="large"
+                :loading="loadingState"
+                :disabled="savingState"
+                prepend-icon="mdi-folder-open"
+                @click="onLoadState"
+              >
+                {{ t("play.load-state") }}
+              </v-btn>
+            </v-col>
+          </v-row>
+
           <v-row v-if="!gameRunning" class="align-center ga-4 mt-4" no-gutters>
             <v-btn
               block

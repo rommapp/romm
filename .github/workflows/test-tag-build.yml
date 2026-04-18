@@ -21,6 +21,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.3.0
 
+      - name: Read version
+        id: version
+        run: echo "version=v$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3.5.0
         with:
@@ -35,7 +39,7 @@ jobs:
           images: |
             name=ghcr.io/${{ github.repository }}/romm-test
           tags: |
-            type=match,pattern=test-*,group=0
+            type=raw,value=test-${{ steps.version.outputs.version }}
 
       - name: Build full image
         uses: docker/build-push-action@v6.18.0
