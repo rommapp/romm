@@ -9,12 +9,13 @@ export interface JsDosOptions {
   dosboxConf?: string;
   theme?: string;
   noSidebar?: boolean;
+  onEvent?: (event: string, ci: JsDosCI) => void;
   onExit?: () => void;
 }
 
 declare global {
   interface Window {
-    Dos: (element: HTMLElement, options: JsDosOptions) => Promise<JsDosCI>;
+    Dos: (element: HTMLElement, options: JsDosOptions) => Promise<void>;
   }
 }
 

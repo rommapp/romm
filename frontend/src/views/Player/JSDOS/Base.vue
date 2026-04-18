@@ -126,10 +126,15 @@ function onPlay() {
       }
     }
 
-    dosCI.value = await window.Dos(container, {
+    await window.Dos(container, {
       url: getDownloadPath({ rom: rom.value }),
       ...(dosboxConf ? { dosboxConf } : {}),
       noSidebar: true,
+      onEvent: (event: string, ci: JsDosCI) => {
+        if (event === "ci-ready") {
+          dosCI.value = ci;
+        }
+      },
       onExit: () => {
         gameRunning.value = false;
         dosCI.value = null;
@@ -176,9 +181,14 @@ async function onLoadState() {
     const blob = new Blob([new Uint8Array(data)], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);
 
-    dosCI.value = await window.Dos(container, {
+    await window.Dos(container, {
       url,
       noSidebar: true,
+      onEvent: (event: string, ci: JsDosCI) => {
+        if (event === "ci-ready") {
+          dosCI.value = ci;
+        }
+      },
       onExit: () => {
         gameRunning.value = false;
         dosCI.value = null;
