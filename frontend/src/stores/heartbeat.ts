@@ -38,6 +38,7 @@ const defaultHeartbeat: Heartbeat = {
   EMULATION: {
     DISABLE_EMULATOR_JS: false,
     DISABLE_RUFFLE_RS: false,
+    DISABLE_JS_DOS: false,
   },
   FRONTEND: {
     DISABLE_USERPASS_LOGIN: false,

@@ -14,6 +14,7 @@ import type { Events } from "@/types/emitter";
 import {
   isNintendoDSRom,
   isEJSEmulationSupported,
+  isJsDosEmulationSupported,
   isRuffleEmulationSupported,
 } from "@/utils";
 
@@ -47,6 +48,11 @@ const isEmulationSupported = computed(() => {
       configStore.config,
     ) ||
     isRuffleEmulationSupported(
+      props.rom.platform_slug,
+      heartbeatStore.value,
+      configStore.config,
+    ) ||
+    isJsDosEmulationSupported(
       props.rom.platform_slug,
       heartbeatStore.value,
       configStore.config,

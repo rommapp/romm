@@ -12,7 +12,14 @@ import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
+import {
+  isEJSEmulationSupported,
+  isJsDosEmulationSupported,
+  isRuffleEmulationSupported,
+  hasMultipleBackends,
+  getSavedBackend,
+  saveBackend,
+} from "@/utils";
 
 const props = defineProps<{ rom: SimpleRom; iconEmbedded?: boolean }>();
 const attrs = useAttrs();
@@ -40,7 +47,20 @@ const isEmulationSupported = computed(() => {
       props.rom.platform_slug,
       heartbeat.value,
       config.value,
+    ) ||
+    isJsDosEmulationSupported(
+      props.rom.platform_slug,
+      heartbeat.value,
+      config.value,
     )
+  );
+});
+
+const multipleBackends = computed(() => {
+  return hasMultipleBackends(
+    props.rom.platform_slug,
+    heartbeat.value,
+    config.value,
   );
 });
 
@@ -48,8 +68,30 @@ const { animateCD, animateCartridge } = useGameAnimation({
   rom: props.rom,
 });
 
-async function goToPlayer(rom: SimpleRom) {
-  if (
+async function goToPlayer(rom: SimpleRom, backend?: "emulatorjs" | "jsdos") {
+  if (multipleBackends.value) {
+    const chosenBackend = backend ?? getSavedBackend(rom.id) ?? "emulatorjs";
+    if (chosenBackend === "jsdos") {
+      saveBackend(rom.id, "jsdos");
+      await router.push({
+        name: ROUTES.JSDOS,
+        params: { rom: rom.id },
+      });
+    } else {
+      saveBackend(rom.id, "emulatorjs");
+      emitter?.emit("playGame", rom.id);
+      setTimeout(
+        async () => {
+          await router.push({
+            name: ROUTES.EMULATORJS,
+            params: { rom: rom.id },
+          });
+          router.go(0);
+        },
+        animateCD.value || animateCartridge.value ? ANIMATION_DELAY : 0,
+      );
+    }
+  } else if (
     isEJSEmulationSupported(rom.platform_slug, heartbeat.value, config.value)
   ) {
     emitter?.emit("playGame", rom.id);
@@ -72,6 +114,13 @@ async function goToPlayer(rom: SimpleRom) {
       name: ROUTES.RUFFLE,
       params: { rom: rom.id },
     });
+  } else if (
+    isJsDosEmulationSupported(rom.platform_slug, heartbeat.value, config.value)
+  ) {
+    await router.push({
+      name: ROUTES.JSDOS,
+      params: { rom: rom.id },
+    });
   } else if (isAprilFools.value) {
     await router.push({ name: ROUTES.APRIL_FOOLS });
   }
@@ -80,22 +129,67 @@ async function goToPlayer(rom: SimpleRom) {
 
 <template>
   <template v-if="isEmulationSupported || isAprilFools">
-    <v-btn
-      v-if="iconEmbedded"
-      v-bind="attrs"
-      :disabled="rom.missing_from_fs"
-      :aria-label="`Play ${rom.name}`"
-      icon="mdi-play"
-      @click="goToPlayer(rom)"
-    />
-    <v-btn
-      v-else
-      v-bind="attrs"
-      :disabled="rom.missing_from_fs"
-      :aria-label="`Play ${rom.name}`"
-      @click="goToPlayer(rom)"
-    >
-      <v-icon>mdi-play</v-icon>
-    </v-btn>
+    <!-- Single backend or April Fools: simple button -->
+    <template v-if="!multipleBackends">
+      <v-btn
+        v-if="iconEmbedded"
+        v-bind="attrs"
+        :disabled="rom.missing_from_fs"
+        :aria-label="`Play ${rom.name}`"
+        icon="mdi-play"
+        @click="goToPlayer(rom)"
+      />
+      <v-btn
+        v-else
+        v-bind="attrs"
+        :disabled="rom.missing_from_fs"
+        :aria-label="`Play ${rom.name}`"
+        @click="goToPlayer(rom)"
+      >
+        <v-icon>mdi-play</v-icon>
+      </v-btn>
+    </template>
+
+    <!-- Multiple backends: dropdown menu -->
+    <template v-else>
+      <v-menu v-if="iconEmbedded">
+        <template #activator="{ props: menuProps }">
+          <v-btn
+            v-bind="{ ...attrs, ...menuProps }"
+            :disabled="rom.missing_from_fs"
+            :aria-label="`Play ${rom.name}`"
+            icon="mdi-play"
+          />
+        </template>
+        <v-list>
+          <v-list-item @click="goToPlayer(rom, 'emulatorjs')">
+            <v-list-item-title>EmulatorJS (DOSBox Pure)</v-list-item-title>
+          </v-list-item>
+          <v-list-item @click="goToPlayer(rom, 'jsdos')">
+            <v-list-item-title>js-dos (DOSBox-X)</v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+      <v-menu v-else>
+        <template #activator="{ props: menuProps }">
+          <v-btn
+            v-bind="{ ...attrs, ...menuProps }"
+            :disabled="rom.missing_from_fs"
+            :aria-label="`Play ${rom.name}`"
+          >
+            <v-icon>mdi-play</v-icon>
+            <v-icon size="small">mdi-menu-down</v-icon>
+          </v-btn>
+        </template>
+        <v-list>
+          <v-list-item @click="goToPlayer(rom, 'emulatorjs')">
+            <v-list-item-title>EmulatorJS (DOSBox Pure)</v-list-item-title>
+          </v-list-item>
+          <v-list-item @click="goToPlayer(rom, 'jsdos')">
+            <v-list-item-title>js-dos (DOSBox-X)</v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+    </template>
   </template>
 </template>

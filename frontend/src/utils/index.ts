@@ -630,6 +630,54 @@ export function isRuffleEmulationSupported(
   return ["flash", "browser"].includes(slug.toLowerCase());
 }
 
+/**
+ * Check if js-dos emulation is supported for a given platform.
+ */
+export function isJsDosEmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_JS_DOS) return false;
+  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  return ["dos"].includes(slug.toLowerCase());
+}
+
+/**
+ * Check if a platform has multiple player backends available.
+ */
+export function hasMultipleBackends(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  const ejs = isEJSEmulationSupported(platformSlug, heartbeat, config);
+  const jsdos = isJsDosEmulationSupported(platformSlug, heartbeat, config);
+  return ejs && jsdos;
+}
+
+/**
+ * Get the user's saved backend preference for a specific ROM.
+ */
+export function getSavedBackend(
+  romId: number,
+): "emulatorjs" | "jsdos" | null {
+  return localStorage.getItem(`player:${romId}:backend`) as
+    | "emulatorjs"
+    | "jsdos"
+    | null;
+}
+
+/**
+ * Save the user's backend preference for a specific ROM.
+ */
+export function saveBackend(
+  romId: number,
+  backend: "emulatorjs" | "jsdos",
+) {
+  localStorage.setItem(`player:${romId}:backend`, backend);
+}
+
 export type PlayingStatus =
   | RomUserStatus
   | "backlogged"

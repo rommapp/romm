@@ -27,6 +27,7 @@ export const ROUTES = {
   ROM: "rom",
   EMULATORJS: "emulatorjs",
   RUFFLE: "ruffle",
+  JSDOS: "jsdos",
   SCAN: "scan",
   PATCHER: "patcher",
   USER_PROFILE: "user-profile",
@@ -183,6 +184,11 @@ const routes = [
         path: "rom/:rom/ruffle",
         name: ROUTES.RUFFLE,
         component: () => import("@/views/Player/RuffleRS/Base.vue"),
+      },
+      {
+        path: "rom/:rom/jsdos",
+        name: ROUTES.JSDOS,
+        component: () => import("@/views/Player/JSDOS/Base.vue"),
       },
       {
         path: "april-fools",

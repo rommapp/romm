@@ -119,6 +119,11 @@ RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION
     unzip -o "${RUFFLE_FILE}" -d /ruffle && \
     rm -f "${RUFFLE_FILE}"
 
+ARG JSDOS_VERSION=8
+RUN mkdir -p /jsdos && \
+    wget -O /jsdos/js-dos.js "https://v8.js-dos.com/${JSDOS_VERSION}/js-dos.js" && \
+    wget -O /jsdos/js-dos.css "https://v8.js-dos.com/${JSDOS_VERSION}/js-dos.css"
+
 
 # BUILD NGINX MODULE WITH MOD_ZIP
 FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS nginx-build
@@ -233,6 +238,7 @@ FROM slim-image AS full-image
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
+COPY --from=emulator-stage /jsdos ${WEBSERVER_FOLDER}/assets/jsdos
 
 
 FROM slim-image AS dev-slim

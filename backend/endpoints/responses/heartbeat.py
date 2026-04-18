@@ -29,6 +29,7 @@ class FilesystemDict(TypedDict):
 class EmulationDict(TypedDict):
     DISABLE_EMULATOR_JS: bool
     DISABLE_RUFFLE_RS: bool
+    DISABLE_JS_DOS: bool
 
 
 class FrontendDict(TypedDict):

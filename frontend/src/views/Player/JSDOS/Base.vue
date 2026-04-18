@@ -1,0 +1,244 @@
+<script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { nextTick, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
+import RomListItem from "@/components/common/Game/ListItem.vue";
+import { ROUTES } from "@/plugins/router";
+import romApi from "@/services/api/rom";
+import type { DetailedRom } from "@/stores/roms";
+import { getDownloadPath } from "@/utils";
+
+const { t } = useI18n();
+const route = useRoute();
+const rom = ref<DetailedRom | null>(null);
+const gameRunning = ref(false);
+const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
+const scriptLoaded = ref(false);
+
+async function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.body.appendChild(script);
+  });
+}
+
+async function loadStylesheet(href: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    link.onload = () => resolve();
+    link.onerror = () => reject(new Error(`Failed to load ${href}`));
+    document.head.appendChild(link);
+  });
+}
+
+async function loadJsDos() {
+  try {
+    await Promise.all([
+      loadStylesheet("/assets/jsdos/js-dos.css"),
+      loadScript("/assets/jsdos/js-dos.js"),
+    ]);
+    scriptLoaded.value = true;
+  } catch {
+    try {
+      await Promise.all([
+        loadStylesheet("https://v8.js-dos.com/latest/js-dos.css"),
+        loadScript("https://v8.js-dos.com/latest/js-dos.js"),
+      ]);
+      scriptLoaded.value = true;
+    } catch (e) {
+      console.error("Failed to load js-dos:", e);
+    }
+  }
+}
+
+function onPlay() {
+  gameRunning.value = true;
+
+  nextTick(async () => {
+    if (!rom.value) return;
+
+    const container = document.getElementById("dos");
+    if (!container) return;
+
+    const ci = await window.Dos(container, {
+      url: getDownloadPath({ rom: rom.value }),
+      noSidebar: true,
+      onExit: () => {
+        gameRunning.value = false;
+      },
+    });
+
+    if (fullScreenOnPlay.value && document.fullscreenEnabled) {
+      container.requestFullscreen?.();
+    }
+  });
+}
+
+function onFullScreenChange() {
+  fullScreenOnPlay.value = !fullScreenOnPlay.value;
+}
+
+async function onlyQuit() {
+  window.history.back();
+}
+
+onMounted(async () => {
+  const romResponse = await romApi.getRom({
+    romId: parseInt(route.params.rom as string),
+  });
+  rom.value = romResponse.data;
+
+  if (rom.value) {
+    document.title = `${rom.value.name} | Play`;
+  }
+
+  await loadJsDos();
+});
+</script>
+
+<template>
+  <v-row v-if="rom" class="align-center justify-center scroll h-100" no-gutters>
+    <v-col
+      v-if="gameRunning"
+      id="game-wrapper"
+      cols="12"
+      md="8"
+      xl="10"
+      class="bg-surface"
+      rounded
+    >
+      <div id="dos" />
+    </v-col>
+
+    <v-col
+      cols="12"
+      :sm="!gameRunning ? 10 : 10"
+      :md="!gameRunning ? 8 : 4"
+      :xl="!gameRunning ? 6 : 2"
+    >
+      <v-row no-gutters>
+        <v-col>
+          <v-img
+            class="mx-auto"
+            width="250"
+            src="/assets/js-dos.png"
+          />
+        </v-col>
+      </v-row>
+
+      <v-divider class="my-4" />
+
+      <v-row class="mb-4" no-gutters>
+        <v-col>
+          <RomListItem :rom="rom" with-filename with-size />
+        </v-col>
+      </v-row>
+
+      <v-row class="px-3 text-center" no-gutters>
+        <v-col>
+          <v-row class="align-center ga-4" no-gutters>
+            <v-col>
+              <v-btn
+                block
+                size="large"
+                :disabled="gameRunning"
+                :variant="fullScreenOnPlay ? 'flat' : 'outlined'"
+                :color="fullScreenOnPlay ? 'primary' : ''"
+                @click="onFullScreenChange"
+              >
+                <v-icon class="mr-1">
+                  {{
+                    fullScreenOnPlay
+                      ? "mdi-checkbox-outline"
+                      : "mdi-checkbox-blank-outline"
+                  }} </v-icon
+                >{{ t("play.full-screen") }}
+              </v-btn>
+            </v-col>
+            <v-col
+              cols="12"
+              :sm="gameRunning ? 12 : 7"
+              :xl="gameRunning ? 12 : 9"
+            >
+              <v-btn
+                color="primary"
+                block
+                :disabled="gameRunning || !scriptLoaded"
+                variant="outlined"
+                size="large"
+                prepend-icon="mdi-play"
+                @click="onPlay"
+              >
+                {{ t("play.play") }}
+              </v-btn>
+            </v-col>
+          </v-row>
+          <v-row v-if="!gameRunning" class="align-center ga-4 mt-4" no-gutters>
+            <v-btn
+              block
+              variant="outlined"
+              size="large"
+              prepend-icon="mdi-arrow-left"
+              @click="
+                $router.push({
+                  name: ROUTES.ROM,
+                  params: { rom: rom?.id },
+                })
+              "
+            >
+              {{ t("play.back-to-game-details") }}
+            </v-btn>
+            <v-btn
+              block
+              variant="outlined"
+              size="large"
+              prepend-icon="mdi-arrow-left"
+              @click="
+                $router.push({
+                  name: ROUTES.PLATFORM,
+                  params: { platform: rom?.platform_id },
+                })
+              "
+            >
+              {{ t("play.back-to-gallery") }}
+            </v-btn>
+          </v-row>
+          <v-btn
+            v-if="gameRunning"
+            class="mt-4"
+            block
+            variant="outlined"
+            size="large"
+            prepend-icon="mdi-exit-to-app"
+            @click="onlyQuit"
+          >
+            {{ t("play.quit") }}
+          </v-btn>
+        </v-col>
+      </v-row>
+    </v-col>
+  </v-row>
+</template>
+
+<style scoped>
+#game-wrapper {
+  height: 100%;
+}
+
+#dos {
+  height: 100%;
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  #game-wrapper {
+    height: calc(100vh - 55px);
+  }
+}
+</style>

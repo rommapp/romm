@@ -235,6 +235,7 @@ SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
 # EMULATION
 DISABLE_EMULATOR_JS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_EMULATOR_JS"))
 DISABLE_RUFFLE_RS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_RUFFLE_RS"))
+DISABLE_JS_DOS: Final[bool] = safe_str_to_bool(_get_env("DISABLE_JS_DOS"))
 
 # FRONTEND
 KIOSK_MODE: Final[bool] = safe_str_to_bool(_get_env("KIOSK_MODE"))
