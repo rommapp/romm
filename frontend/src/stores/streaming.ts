@@ -56,18 +56,19 @@ export const useStreamingStore = defineStore("streaming", () => {
    * maxSlots  — number of user-accessible save slots (slot selector range)
    * hasAutosave — whether a dedicated "load autosave" action is available
    *
-   * Dolphin (ngc, wii, wiiu): 8 direct-hotkey slots, no autosave slot.
+   * Dolphin (ngc, wii, wiiu): slots 1–7 user-accessible; slot 8 reserved for auto-save.
    * PCSX2 (ps2) and default: 9 slots + slot 10 autosave.
    */
   function platformCapabilities(slug: string | null | undefined): {
     maxSlots: number;
     hasAutosave: boolean;
+    autosaveSlot: number;
   } {
     const lower = (slug ?? "").toLowerCase();
     if (lower === "ngc" || lower === "wii" || lower === "wiiu") {
-      return { maxSlots: 8, hasAutosave: false };
+      return { maxSlots: 7, hasAutosave: true, autosaveSlot: 8 };
     }
-    return { maxSlots: 9, hasAutosave: true };
+    return { maxSlots: 9, hasAutosave: true, autosaveSlot: 10 };
   }
 
   /**

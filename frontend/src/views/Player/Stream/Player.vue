@@ -621,7 +621,10 @@ async function handleLoadAutosave(): Promise<void> {
   if (!rom.value || playerState.value !== "playing") return;
   isLoadingAutosave.value = true;
   try {
-    await streamingStore.loadState(rom.value.platform_slug, 10);
+    await streamingStore.loadState(
+      rom.value.platform_slug,
+      capabilities.value.autosaveSlot,
+    );
   } finally {
     isLoadingAutosave.value = false;
   }
