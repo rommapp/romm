@@ -23,7 +23,9 @@ jobs:
 
       - name: Read version
         id: version
-        run: echo "version=v$(cat VERSION)" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "version=test-v${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3.5.0
@@ -39,7 +41,7 @@ jobs:
           images: |
             name=ghcr.io/${{ github.repository }}/romm-test
           tags: |
-            type=raw,value=test-${{ steps.version.outputs.version }}
+            type=raw,value=${{ steps.version.outputs.version }}
 
       - name: Build full image
         uses: docker/build-push-action@v6.18.0
