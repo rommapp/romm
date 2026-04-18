@@ -6,6 +6,7 @@ export interface JsDosCI {
 
 export interface JsDosOptions {
   url: string;
+  dosboxConf?: string;
   theme?: string;
   noSidebar?: boolean;
   onExit?: () => void;

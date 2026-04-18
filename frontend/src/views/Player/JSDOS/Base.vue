@@ -108,8 +108,27 @@ function onPlay() {
     const container = document.getElementById("dos");
     if (!container) return;
 
+    // Find .conf file in rom files and load its content
+    const confFile = rom.value.files?.find((f: { file_name: string }) =>
+      f.file_name.toLowerCase().endsWith(".conf"),
+    );
+    let dosboxConf: string | undefined;
+    if (confFile) {
+      try {
+        const confUrl = getDownloadPath({
+          rom: rom.value,
+          fileIDs: [confFile.id],
+        });
+        const response = await fetch(confUrl);
+        dosboxConf = await response.text();
+      } catch (e) {
+        console.error("Failed to load dosbox conf:", e);
+      }
+    }
+
     dosCI.value = await window.Dos(container, {
       url: getDownloadPath({ rom: rom.value }),
+      ...(dosboxConf ? { dosboxConf } : {}),
       noSidebar: true,
       onExit: () => {
         gameRunning.value = false;
@@ -154,7 +173,7 @@ async function onLoadState() {
     container.innerHTML = "";
     gameRunning.value = true;
 
-    const blob = new Blob([data], { type: "application/octet-stream" });
+    const blob = new Blob([new Uint8Array(data)], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);
 
     dosCI.value = await window.Dos(container, {
