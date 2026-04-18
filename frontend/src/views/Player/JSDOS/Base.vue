@@ -123,12 +123,9 @@ onMounted(async () => {
       :xl="!gameRunning ? 6 : 2"
     >
       <v-row no-gutters>
-        <v-col>
-          <v-img
-            class="mx-auto"
-            width="250"
-            src="/assets/js-dos.png"
-          />
+        <v-col class="text-center">
+          <v-icon size="x-large" color="primary">mdi-monitor</v-icon>
+          <div class="text-h6 mt-2">js-dos</div>
         </v-col>
       </v-row>
 
