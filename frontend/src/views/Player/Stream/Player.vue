@@ -438,7 +438,11 @@ onBeforeUnmount(() => {
   if (playerState.value === "playing") {
     // Navigation away while a game is active — fire save+kill in the broker
     // background and return immediately so navigation is never held up.
-    void streamingStore.saveAndExit(rom.value?.platform_slug ?? "", 0, false);
+    void streamingStore.saveAndExit(
+      rom.value?.platform_slug ?? "",
+      capabilities.value.saveSlot,
+      false,
+    );
   } else {
     // No active game (or handleSaveAndExit already ran) — plain release is fine.
     void streamingStore.releaseSession(rom.value?.platform_slug ?? "");
@@ -587,7 +591,11 @@ async function handleSaveAndExit(): Promise<void> {
   if (!rom.value || playerState.value !== "playing") return;
   isSavingAndExiting.value = true;
   try {
-    await streamingStore.saveAndExit(rom.value.platform_slug, 0, true);
+    await streamingStore.saveAndExit(
+      rom.value.platform_slug,
+      capabilities.value.saveSlot,
+      true,
+    );
   } finally {
     isSavingAndExiting.value = false;
     playerState.value = "idle";
