@@ -440,7 +440,7 @@ onBeforeUnmount(() => {
     // background and return immediately so navigation is never held up.
     void streamingStore.saveAndExit(
       rom.value?.platform_slug ?? "",
-      capabilities.value.saveSlot,
+      capabilities.value.autosaveSlot,
       false,
     );
   } else {
@@ -593,7 +593,7 @@ async function handleSaveAndExit(): Promise<void> {
   try {
     await streamingStore.saveAndExit(
       rom.value.platform_slug,
-      capabilities.value.saveSlot,
+      capabilities.value.autosaveSlot,
       true,
     );
   } finally {
