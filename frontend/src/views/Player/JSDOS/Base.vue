@@ -4,19 +4,26 @@ import { nextTick, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import RomListItem from "@/components/common/Game/ListItem.vue";
+import type { StateSchema } from "@/__generated__";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
-import type { DetailedRom } from "@/stores/roms";
-import type { JsDosCI } from "@/types/jsdos";
+import { stateApi } from "@/services/api/state";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
+import type { DosProps, JsDosCI } from "@/types/jsdos";
 import { getDownloadPath } from "@/utils";
+import { saveJsDosState } from "./utils";
 
 const { t } = useI18n();
 const route = useRoute();
+const romsStore = storeRoms();
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
 const scriptLoaded = ref(false);
 const dosCI = ref<JsDosCI | null>(null);
+const dosProps = ref<DosProps | null>(null);
+const selectedState = ref<StateSchema | null>(null);
+const saving = ref(false);
 
 async function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -86,9 +93,26 @@ function onPlay() {
       }
     }
 
-    await window.Dos(container, {
+    // Download persist data from server if a state is selected
+    let initFsData: Uint8Array | undefined;
+    if (selectedState.value) {
+      try {
+        const { data } = await stateApi.get(
+          selectedState.value.download_path.replace("/api", ""),
+          { responseType: "arraybuffer" },
+        );
+        if (data) {
+          initFsData = new Uint8Array(data);
+        }
+      } catch (e) {
+        console.error("Failed to download js-dos state:", e);
+      }
+    }
+
+    const props = window.Dos(container as HTMLDivElement, {
       url: getDownloadPath({ rom: rom.value }),
       ...(dosboxConf ? { dosboxConf } : {}),
+      ...(initFsData ? { initFs: initFsData } : {}),
       onEvent: (event: string, ci: JsDosCI) => {
         if (event === "ci-ready") {
           dosCI.value = ci;
@@ -97,8 +121,10 @@ function onPlay() {
       onExit: () => {
         gameRunning.value = false;
         dosCI.value = null;
+        dosProps.value = null;
       },
     });
+    dosProps.value = props;
 
     if (fullScreenOnPlay.value && document.fullscreenEnabled) {
       container.requestFullscreen?.();
@@ -108,6 +134,24 @@ function onPlay() {
 
 function onFullScreenChange() {
   fullScreenOnPlay.value = !fullScreenOnPlay.value;
+}
+
+async function saveAndQuit() {
+  if (!dosCI.value || !rom.value) return;
+  saving.value = true;
+  try {
+    const persistData = await dosCI.value.persist();
+    if (persistData && persistData.length > 0) {
+      await saveJsDosState({ rom: rom.value, stateFile: persistData });
+      romsStore.update(rom.value);
+    }
+  } catch (e) {
+    console.error("Failed to save js-dos state:", e);
+  }
+  saving.value = false;
+  await dosCI.value.exit();
+  dosCI.value = null;
+  window.history.back();
 }
 
 async function onlyQuit() {
@@ -126,6 +170,14 @@ onMounted(async () => {
 
   if (rom.value) {
     document.title = `${rom.value.name} | Play`;
+
+    // Auto-select the latest js-dos state
+    const jsDosStates = rom.value.user_states.filter(
+      (s) => s.emulator === "js-dos",
+    );
+    if (jsDosStates.length > 0) {
+      selectedState.value = jsDosStates[0];
+    }
   }
 
   await loadJsDos();
@@ -207,6 +259,23 @@ onMounted(async () => {
             </v-col>
           </v-row>
 
+          <!-- State info when not running -->
+          <div v-if="!gameRunning && selectedState" class="mt-4">
+            <v-card variant="tonal" color="primary" rounded="lg">
+              <v-card-text class="pa-3 text-left">
+                <div class="text-caption text-medium-emphasis">
+                  {{ t("common.states") }}
+                </div>
+                <div class="text-body-2 text-truncate">
+                  {{ selectedState.file_name }}
+                </div>
+                <div class="text-caption text-medium-emphasis mt-1">
+                  {{ selectedState.updated_at?.substring(0, 19).replace("T", " ") }}
+                </div>
+              </v-card-text>
+            </v-card>
+          </div>
+
           <v-row v-if="!gameRunning" class="align-center ga-4 mt-4" no-gutters>
             <v-btn
               block
@@ -237,17 +306,31 @@ onMounted(async () => {
               {{ t("play.back-to-gallery") }}
             </v-btn>
           </v-row>
-          <v-btn
-            v-if="gameRunning"
-            class="mt-4"
-            block
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-exit-to-app"
-            @click="onlyQuit"
-          >
-            {{ t("play.quit") }}
-          </v-btn>
+
+          <!-- Save & Quit and Quit buttons when running -->
+          <div v-if="gameRunning" class="mt-4">
+            <v-btn
+              block
+              color="primary"
+              variant="flat"
+              size="large"
+              prepend-icon="mdi-content-save"
+              :loading="saving"
+              @click="saveAndQuit"
+            >
+              {{ t("play.save-and-quit") }}
+            </v-btn>
+            <v-btn
+              class="mt-2"
+              block
+              variant="outlined"
+              size="large"
+              prepend-icon="mdi-exit-to-app"
+              @click="onlyQuit"
+            >
+              {{ t("play.quit") }}
+            </v-btn>
+          </div>
         </v-col>
       </v-row>
     </v-col>
