@@ -119,10 +119,10 @@ RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION
     unzip -o "${RUFFLE_FILE}" -d /ruffle && \
     rm -f "${RUFFLE_FILE}"
 
-ARG JSDOS_VERSION=8
+ARG JSDOS_VERSION=8.3.20
 RUN mkdir -p /jsdos && \
-    wget -O /jsdos/js-dos.js "https://v8.js-dos.com/${JSDOS_VERSION}/js-dos.js" && \
-    wget -O /jsdos/js-dos.css "https://v8.js-dos.com/${JSDOS_VERSION}/js-dos.css"
+    wget -O /jsdos/js-dos.js "https://v8.js-dos.com/latest/js-dos.js" && \
+    wget -O /jsdos/js-dos.css "https://v8.js-dos.com/latest/js-dos.css"
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
