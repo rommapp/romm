@@ -111,6 +111,7 @@ function onPlay() {
 
     const props = window.Dos(container as HTMLDivElement, {
       url: getDownloadPath({ rom: rom.value }),
+      autoStart: true,
       ...(dosboxConf ? { dosboxConf } : {}),
       ...(initFsData ? { initFs: initFsData } : {}),
       onEvent: (event: string, ci: JsDosCI) => {
