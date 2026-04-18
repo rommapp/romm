@@ -27,6 +27,9 @@ jobs:
           VERSION=$(cat VERSION | tr -d '[:space:]')
           echo "version=test-${VERSION}" >> "$GITHUB_OUTPUT"
 
+      - name: Set version
+        run: sed -i "s/<version>/${{ steps.version.outputs.version }}/" backend/__version__.py
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3.5.0
         with:
