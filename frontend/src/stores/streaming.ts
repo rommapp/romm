@@ -68,6 +68,9 @@ export const useStreamingStore = defineStore("streaming", () => {
     if (lower === "ngc" || lower === "wii" || lower === "wiiu") {
       return { maxSlots: 7, hasAutosave: true, autosaveSlot: 8 };
     }
+    if (lower === "switch") {
+      return { maxSlots: 0, hasAutosave: false, autosaveSlot: 0 };
+    }
     return { maxSlots: 9, hasAutosave: true, autosaveSlot: 10 };
   }
 
