@@ -57,7 +57,8 @@ export const useStreamingStore = defineStore("streaming", () => {
    * hasAutosave — whether a dedicated "load autosave" action is available
    *
    * Dolphin (ngc, wii, wiiu): slots 1–7 user-accessible; slot 8 reserved for auto-save.
-   * PCSX2 (ps2) and default: 9 slots + slot 10 autosave.
+   * PCSX2 (ps2), xemu (xbox), and default: 9 slots + slot 10 autosave.
+   * Eden (switch): no save state support.
    */
   function platformCapabilities(slug: string | null | undefined): {
     maxSlots: number;
@@ -70,6 +71,9 @@ export const useStreamingStore = defineStore("streaming", () => {
     }
     if (lower === "switch") {
       return { maxSlots: 0, hasAutosave: false, autosaveSlot: 0 };
+    }
+    if (lower === "xbox") {
+      return { maxSlots: 9, hasAutosave: true, autosaveSlot: 10 };
     }
     return { maxSlots: 9, hasAutosave: true, autosaveSlot: 10 };
   }
