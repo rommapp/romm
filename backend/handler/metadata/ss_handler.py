@@ -1,4 +1,3 @@
-import base64
 import re
 from datetime import datetime
 from typing import Final, NotRequired, TypedDict
@@ -29,9 +28,6 @@ from .base_handler import (
     strip_sensitive_query_params,
 )
 
-SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
-SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
-SENSITIVE_KEYS = {"ssid", "sspassword"}
 
 
 def get_preferred_regions() -> list[str]:
@@ -71,6 +67,19 @@ ARCADES_SS_IDS: Final = [ARCADE_SS_ID, CPS1_SS_ID, CPS2_SS_ID, CPS3_SS_ID]
 
 # Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
 SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
+
+NOTGAME_NAME_PREFIX: Final = "ZZZ(NOTGAME)"
+
+_ISO_EXTENSIONS: Final = frozenset({"iso", "cue", "chd", "gdi", "cdi", "bin"})
+
+_HTML_ENTITIES: Final[dict[str, str]] = {
+    "&amp;": "&",
+    "&#x26;": "&",
+    "&#39;": "'",
+    "&nbsp;": " ",
+    "&quot;": '"',
+    "&copy;": "©",
+}
 
 ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {
     UPS.DC: ["cue", "chd", "gdi", "cdi"],
@@ -140,6 +149,29 @@ class SSRom(BaseRom):
     ss_metadata: NotRequired[SSMetadata]
 
 
+def _is_notgame(game: SSGame) -> bool:
+    if game.get("notgame") == "true":
+        return True
+    return any(
+        name.get("text", "").upper().startswith(NOTGAME_NAME_PREFIX)
+        for name in game.get("noms", [])
+    )
+
+
+def _get_rom_type(file: RomFile) -> str:
+    if not file.is_top_level:
+        return "dossier"
+    if file.file_extension.lower() in _ISO_EXTENSIONS:
+        return "iso"
+    return "rom"
+
+
+def _decode_html_entities(text: str) -> str:
+    for entity, char in _HTML_ENTITIES.items():
+        text = text.replace(entity, char)
+    return text
+
+
 def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
     preferred_media_types = get_preferred_media_types()
 
@@ -181,7 +213,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
 
             if media.get("type") == "box-2D-back" and not ss_media["box2d_back_url"]:
                 ss_media["box2d_back_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
                 if MetadataMediaType.BOX2D_BACK in preferred_media_types:
                     ss_media["box2d_back_path"] = (
@@ -189,7 +221,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "bezel-16-9" and not ss_media["bezel_url"]:
                 ss_media["bezel_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
                 if MetadataMediaType.BEZEL in preferred_media_types:
                     ss_media["bezel_path"] = (
@@ -197,11 +229,11 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "box-2D" and not ss_media["box2d_url"]:
                 ss_media["box2d_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
             elif media.get("type") == "fanart" and not ss_media["fanart_url"]:
                 ss_media["fanart_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
                 if MetadataMediaType.FANART in preferred_media_types:
                     ss_media["fanart_path"] = (
@@ -209,11 +241,11 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "box-texture" and not ss_media["fullbox_url"]:
                 ss_media["fullbox_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
             elif media.get("type") == "wheel-hd" and not ss_media["logo_url"]:
                 ss_media["logo_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
 
                 if MetadataMediaType.LOGO in preferred_media_types:
@@ -222,7 +254,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "wheel" and not ss_media["logo_url"]:
                 ss_media["logo_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
                 if MetadataMediaType.LOGO in preferred_media_types:
                     ss_media["logo_path"] = (
@@ -230,11 +262,11 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "manuel" and not ss_media["manual_url"]:
                 ss_media["manual_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
             elif media.get("type") == "screenmarquee" and not ss_media["marquee_url"]:
                 ss_media["marquee_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
                 if MetadataMediaType.MARQUEE in preferred_media_types:
                     ss_media["marquee_path"] = (
@@ -247,7 +279,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 or media.get("type") == "mixrbv2"
             ) and not ss_media["miximage_url"]:
                 ss_media["miximage_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
                 if MetadataMediaType.MIXIMAGE in preferred_media_types:
                     ss_media["miximage_path"] = (
@@ -255,7 +287,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "support-2D" and not ss_media["physical_url"]:
                 ss_media["physical_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
                 if MetadataMediaType.PHYSICAL in preferred_media_types:
                     ss_media["physical_path"] = (
@@ -263,19 +295,19 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "ss" and not ss_media["screenshot_url"]:
                 ss_media["screenshot_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
             elif media.get("type") == "box-2D-side" and not ss_media["box2d_side_url"]:
                 ss_media["box2d_side_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
             elif media.get("type") == "steamgrid" and not ss_media["steamgrid_url"]:
                 ss_media["steamgrid_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
             elif media.get("type") == "box-3D" and not ss_media["box3d_url"]:
                 ss_media["box3d_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
                 if MetadataMediaType.BOX3D in preferred_media_types:
                     ss_media["box3d_path"] = (
@@ -283,7 +315,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "sstitle" and not ss_media["title_screen_url"]:
                 ss_media["title_screen_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
                 if MetadataMediaType.TITLE_SCREEN in preferred_media_types:
                     ss_media["title_screen_path"] = (
@@ -291,7 +323,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     )
             elif media.get("type") == "video" and not ss_media["video_url"]:
                 ss_media["video_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
                 if MetadataMediaType.VIDEO in preferred_media_types:
                     ss_media["video_path"] = (
@@ -302,7 +334,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 and not ss_media["video_normalized_url"]
             ):
                 ss_media["video_normalized_url"] = strip_sensitive_query_params(
-                    media["url"], SENSITIVE_KEYS
+                    media["url"]
                 )
                 if MetadataMediaType.VIDEO_NORMALIZED in preferred_media_types:
                     ss_media["video_normalized_path"] = (
@@ -472,8 +504,8 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
     ss_id = int(game["id"]) if game.get("id") is not None else None
     game_rom: SSRom = {
         "ss_id": ss_id,
-        "name": res_name.replace(" : ", ": "),  # Normalize colons
-        "summary": res_summary,
+        "name": _decode_html_entities(res_name.replace(" : ", ": ")),
+        "summary": _decode_html_entities(res_summary),
         "url_cover": str(url_cover) if url_cover else "",
         "url_manual": str(url_manual) if url_manual else "",
         "url_screenshots": url_screenshots,
@@ -524,6 +556,11 @@ class SSHandler(MetadataHandler):
 
         games_by_name: dict[str, SSGame] = {}
         for rom in roms:
+            if _is_notgame(rom):
+                log.warning(
+                    "ScreenScraper: Received notgame entry in search results, ignoring"
+                )
+                continue
             for name in rom.get("noms", []):
                 if name["text"] not in games_by_name or int(rom["id"]) < int(
                     games_by_name[name["text"]]["id"]
@@ -602,8 +639,16 @@ class SSHandler(MetadataHandler):
             sha1=sha1_hash,
             crc=crc_hash,
             rom_size_bytes=fs_size_bytes,
+            rom_name=first_file.file_name,
+            rom_type=_get_rom_type(first_file),
         )
         if not res:
+            return SSRom(ss_id=None)
+
+        if _is_notgame(res):
+            log.warning(
+                "ScreenScraper: Received notgame entry from hash lookup, ignoring"
+            )
             return SSRom(ss_id=None)
 
         return build_ss_game(rom, res)
@@ -634,6 +679,9 @@ class SSHandler(MetadataHandler):
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
         fallback_rom = SSRom(ss_id=None)
+
+        if not search_term:
+            return fallback_rom
 
         # Support for PS2 OPL filename format
         match = PS2_OPL_REGEX.match(file_name)
@@ -756,7 +804,7 @@ class SSHandler(MetadataHandler):
         return [
             build_ss_game(rom, game)
             for game in matched_games
-            if _is_ss_region(game) and game.get("id")
+            if not _is_notgame(game) and _is_ss_region(game) and game.get("id")
         ]
 
 
