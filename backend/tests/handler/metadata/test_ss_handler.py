@@ -195,7 +195,7 @@ class TestIsNotgame:
 
 
 class TestExtractMediaSensitiveKeyStripping:
-    def test_strips_all_credential_params(self):
+    def test_strips_user_credentials_keeps_dev_credentials(self):
         config = _make_config()
         rom = MagicMock()
         rom.platform_id = 1
@@ -229,10 +229,12 @@ class TestExtractMediaSensitiveKeyStripping:
 
         url = result["box2d_url"]
         assert url is not None
+        # User credentials must not be stored
         assert "ssid" not in url
         assert "sspassword" not in url
-        assert "devid" not in url
-        assert "devpassword" not in url
+        # Dev credentials must be retained — mediaJeu.php requires them to serve images
+        assert "devid=dev" in url
+        assert "devpassword=devpass" in url
         assert "other=keep" in url
 
     def test_clean_url_unchanged(self):
