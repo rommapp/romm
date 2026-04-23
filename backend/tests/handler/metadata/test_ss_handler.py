@@ -195,11 +195,12 @@ class TestIsNotgame:
 
 
 class TestExtractMediaSensitiveKeyStripping:
-    def test_strips_user_credentials_keeps_dev_credentials(self):
+    def test_media_url_stored_as_is(self):
         config = _make_config()
         rom = MagicMock()
         rom.platform_id = 1
         rom.id = 100
+        full_url = "https://screenscraper.fr/img.png?ssid=user&sspassword=pass&devid=dev&devpassword=devpass&other=keep"
         game = cast(
             SSGame,
             {
@@ -208,7 +209,7 @@ class TestExtractMediaSensitiveKeyStripping:
                         "type": "box-2D",
                         "parent": "jeu",
                         "region": "us",
-                        "url": "https://screenscraper.fr/img.png?ssid=user&sspassword=pass&devid=dev&devpassword=devpass&other=keep",
+                        "url": full_url,
                         "crc": "",
                         "md5": "",
                         "sha1": "",
@@ -227,15 +228,8 @@ class TestExtractMediaSensitiveKeyStripping:
         ):
             result = extract_media_from_ss_game(rom, game)
 
-        url = result["box2d_url"]
-        assert url is not None
-        # User credentials must not be stored
-        assert "ssid" not in url
-        assert "sspassword" not in url
-        # Dev credentials must be retained — mediaJeu.php requires them to serve images
-        assert "devid=dev" in url
-        assert "devpassword=devpass" in url
-        assert "other=keep" in url
+        # SS media URLs are stored as-is — all credentials are needed for downloads
+        assert result["box2d_url"] == full_url
 
     def test_clean_url_unchanged(self):
         config = _make_config()
