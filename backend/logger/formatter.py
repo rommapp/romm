@@ -1,4 +1,5 @@
 import logging
+import re
 from pprint import pformat
 
 from colorama import Fore, Style, init
@@ -53,6 +54,11 @@ LOGGING_CONFIG = {
         },
     },
 }
+
+
+_CREDENTIAL_PATTERN = re.compile(
+    r"(ssid|sspassword|devid|devpassword)=[^&\s\"]*", re.IGNORECASE
+)
 
 
 def should_strip_ansi() -> bool:
@@ -116,7 +122,7 @@ class Formatter(logging.Formatter):
         }
         log_fmt = formats.get(record.levelno)
         formatter = logging.Formatter(fmt=log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
-        return formatter.format(record)
+        return _CREDENTIAL_PATTERN.sub(r"\1=***", formatter.format(record))
 
 
 def highlight(msg: str = "", color=YELLOW) -> str:
