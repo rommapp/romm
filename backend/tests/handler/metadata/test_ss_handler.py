@@ -5,10 +5,13 @@ from unittest.mock import MagicMock, patch
 
 from adapters.services.screenscraper_types import SSGame
 from config.config_manager import Config, MetadataMediaType
-from handler.metadata.ss_handler import (_decode_html_entities, _get_rom_type,
-                                         _is_notgame,
-                                         extract_media_from_ss_game,
-                                         get_preferred_regions)
+from handler.metadata.ss_handler import (
+    _decode_html_entities,
+    _get_rom_type,
+    _is_notgame,
+    extract_media_from_ss_game,
+    get_preferred_regions,
+)
 
 
 def _make_config(region_priority: list[str] | None = None) -> Config:

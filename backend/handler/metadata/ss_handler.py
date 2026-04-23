@@ -4,6 +4,8 @@ from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
 import pydash
+from unidecode import unidecode as uc
+
 from adapters.services.screenscraper import ScreenScraperService
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
@@ -12,11 +14,15 @@ from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
 from models.rom import Rom, RomFile
-from unidecode import unidecode as uc
 
-from .base_handler import (PS2_OPL_REGEX, SONY_SERIAL_REGEX,
-                           SWITCH_PRODUCT_ID_REGEX, SWITCH_TITLEDB_REGEX,
-                           BaseRom, MetadataHandler)
+from .base_handler import (
+    PS2_OPL_REGEX,
+    SONY_SERIAL_REGEX,
+    SWITCH_PRODUCT_ID_REGEX,
+    SWITCH_TITLEDB_REGEX,
+    BaseRom,
+    MetadataHandler,
+)
 from .base_handler import UniversalPlatformSlug as UPS
 
 
