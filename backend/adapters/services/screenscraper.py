@@ -91,22 +91,22 @@ class ScreenScraperService:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="ScreenScraper has blacklisted this application version. Please update RomM.",
-                )
+                ) from err
             elif err.status == 430:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="ScreenScraper daily scrape quota exhausted. Try again tomorrow.",
-                )
+                ) from err
             elif err.status == 431:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="ScreenScraper daily unrecognized-ROM quota exhausted. Try again tomorrow.",
-                )
+                ) from err
             elif err.status == 423:
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail="ScreenScraper API is currently offline.",
-                )
+                ) from err
             elif err.status == http.HTTPStatus.UNAUTHORIZED:
                 log.warning(
                     "ScreenScraper API is temporarily unavailable (server CPU >60%)"
@@ -151,22 +151,22 @@ class ScreenScraperService:
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail="ScreenScraper has blacklisted this application version. Please update RomM.",
-                    )
+                    ) from err
                 elif err.status == 430:
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail="ScreenScraper daily scrape quota exhausted. Try again tomorrow.",
-                    )
+                    ) from err
                 elif err.status == 431:
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail="ScreenScraper daily unrecognized-ROM quota exhausted. Try again tomorrow.",
-                    )
+                    ) from err
                 elif err.status == 423:
                     raise HTTPException(
                         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                         detail="ScreenScraper API is currently offline.",
-                    )
+                    ) from err
 
             log.error(err)
             return {}

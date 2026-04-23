@@ -9,13 +9,10 @@ import pytest
 import yarl
 from fastapi import HTTPException, status
 
-from adapters.services.screenscraper import (
-    LOGIN_ERROR_CHECK,
-    SS_DEV_ID,
-    SS_DEV_PASSWORD,
-    ScreenScraperService,
-    auth_middleware,
-)
+from adapters.services.screenscraper import (LOGIN_ERROR_CHECK, SS_DEV_ID,
+                                             SS_DEV_PASSWORD,
+                                             ScreenScraperService,
+                                             auth_middleware)
 
 INVALID_GAME_ID = 999999
 INVALID_SYSTEM_ID = 999999
@@ -381,7 +378,9 @@ class TestScreenScraperServiceUnit:
         mock_context.get.return_value = mock_session
 
         with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
-            result = await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+            result = await service._request(
+                "https://api.screenscraper.fr/api2/jeuInfos.php"
+            )
 
         assert result == {}
         assert mock_session.get.call_count == 1

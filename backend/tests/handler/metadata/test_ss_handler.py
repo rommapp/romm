@@ -5,13 +5,10 @@ from unittest.mock import MagicMock, patch
 
 from adapters.services.screenscraper_types import SSGame
 from config.config_manager import Config, MetadataMediaType
-from handler.metadata.ss_handler import (
-    _decode_html_entities,
-    _get_rom_type,
-    _is_notgame,
-    extract_media_from_ss_game,
-    get_preferred_regions,
-)
+from handler.metadata.ss_handler import (_decode_html_entities, _get_rom_type,
+                                         _is_notgame,
+                                         extract_media_from_ss_game,
+                                         get_preferred_regions)
 
 
 def _make_config(region_priority: list[str] | None = None) -> Config:
@@ -170,7 +167,9 @@ class TestIsNotgame:
             SSGame,
             {
                 "notgame": notgame,
-                "noms": [{"region": "ss", "text": n} for n in (names or ["Clean Game"])],
+                "noms": [
+                    {"region": "ss", "text": n} for n in (names or ["Clean Game"])
+                ],
             },
         )
 
@@ -184,7 +183,10 @@ class TestIsNotgame:
         assert _is_notgame(self._game(names=["ZZZ(notgame)"])) is True
 
     def test_zzz_notgame_long_form(self):
-        assert _is_notgame(self._game(names=["ZZZ(NOTGAME):Fichier Annexes - Non Jeux"])) is True
+        assert (
+            _is_notgame(self._game(names=["ZZZ(NOTGAME):Fichier Annexes - Non Jeux"]))
+            is True
+        )
 
     def test_zzz_prefix_only_no_match(self):
         assert _is_notgame(self._game(names=["ZZZ Game Title"])) is False
