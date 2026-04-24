@@ -347,6 +347,7 @@ async def _identify_rom(
                 md5_hash=file.md5_hash,
                 sha1_hash=file.sha1_hash,
                 ra_hash=file.ra_hash,
+                chd_sha1_hash=file.chd_sha1_hash,
             )
             for file in fs_rom["files"]
         ]

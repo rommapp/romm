@@ -17,6 +17,7 @@ export type RomFileSchema = {
     md5_hash: (string | null);
     sha1_hash: (string | null);
     ra_hash: (string | null);
+    chd_sha1_hash: (string | null);
     category: (RomFileCategory | null);
 };
 

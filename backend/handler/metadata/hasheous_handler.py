@@ -258,9 +258,16 @@ class HasheousHandler(MetadataHandler):
         if first_file is None:
             return fallback_rom
 
-        md5_hash = first_file.md5_hash
-        sha1_hash = first_file.sha1_hash
-        crc_hash = first_file.crc_hash
+        if first_file.chd_sha1_hash:
+            # For CHD files, Hasheous indexes by disc-data SHA1 only.
+            # Raw file MD5/CRC are hashes of the container and won't match.
+            md5_hash = None
+            sha1_hash = first_file.chd_sha1_hash
+            crc_hash = None
+        else:
+            md5_hash = first_file.md5_hash
+            sha1_hash = first_file.sha1_hash
+            crc_hash = first_file.crc_hash
 
         if not (md5_hash or sha1_hash or crc_hash):
             log.warning(

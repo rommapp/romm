@@ -163,6 +163,7 @@ class RomFileSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
+    chd_sha1_hash: str | None
     category: RomFileCategory | None
 
 
