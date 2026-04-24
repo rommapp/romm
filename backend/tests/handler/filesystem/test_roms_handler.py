@@ -266,6 +266,7 @@ class TestFSRomsHandler:
                 "crc_hash": "ABCD1234",
                 "md5_hash": "def456",
                 "sha1_hash": "789ghi",
+                "chd_sha1_hash": "",
             }
         )
 
@@ -291,6 +292,7 @@ class TestFSRomsHandler:
                 "crc_hash": "12345678",
                 "md5_hash": "abcdef",
                 "sha1_hash": "123456",
+                "chd_sha1_hash": "",
             }
         )
 
