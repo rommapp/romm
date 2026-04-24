@@ -55,6 +55,10 @@ class Device(BaseModel):
     mac_address: Mapped[str | None] = mapped_column(String(17))
     hostname: Mapped[str | None] = mapped_column(String(255))
 
+    # Stable identifier supplied by the client itself (install UUID, hardware ID),
+    # used to dedupe re-registrations of the same device across token resets.
+    client_device_identifier: Mapped[str | None] = mapped_column(String(255))
+
     sync_mode: Mapped[SyncMode] = mapped_column(Enum(SyncMode), default=SyncMode.API)
     sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     sync_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
