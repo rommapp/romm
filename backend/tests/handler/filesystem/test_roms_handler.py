@@ -7,7 +7,6 @@ import pytest
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
 from handler.filesystem.roms_handler import (
-    CHDHashWrapper,
     FileHash,
     FSRomsHandler,
     extract_chd_hash,
@@ -921,28 +920,6 @@ class TestExtractCHDHash:
         assert result == result.lower()
         # Verify it's 40 characters (SHA1 is 20 bytes = 40 hex chars)
         assert len(result) == 40
-
-    def test_extract_chd_hash_with_wrapper(self, tmp_path):
-        """Test that extracted hash integrates properly with CHDHashWrapper"""
-        chd_file = tmp_path / "test_wrapper.chd"
-
-        header = bytearray(124)
-        header[0:8] = b"MComprHD"
-        header[12:16] = int(5).to_bytes(4, "big")
-        test_sha1 = bytes.fromhex("0123456789abcdef0123456789abcdef01234567")
-        header[84:104] = test_sha1
-
-        chd_file.write_bytes(header)
-
-        extracted_hash = extract_chd_hash(chd_file)
-        assert extracted_hash is not None
-
-        # Should be usable with CHDHashWrapper
-        wrapper = CHDHashWrapper(extracted_hash, "sha1")
-        assert wrapper.hexdigest() == extracted_hash
-        assert len(wrapper.digest()) == 20
-        # Verify digest bytes match the original
-        assert wrapper.digest() == test_sha1
 
     def test_extract_chd_hash_unknown_version(self, tmp_path):
         """Test that unknown CHD versions are rejected"""

@@ -426,10 +426,12 @@ class FSRomsHandler(FSHandler):
                     # RAHasher can't process CHD files via the /* wildcard — it expects
                     # track files (bin/cue/etc.). For CHD-only folders, find the largest
                     # CHD and pass it directly, matching single-file CHD behaviour.
-                    chd_files = sorted(
-                        (f for f in rom_dir.iterdir() if f.suffix.lower() == ".chd"),
-                        key=lambda f: f.stat().st_size,
-                        reverse=True,
+                    chd_files = await asyncio.to_thread(
+                        lambda: sorted(
+                            (f for f in rom_dir.iterdir() if f.suffix.lower() == ".chd"),
+                            key=lambda f: f.stat().st_size,
+                            reverse=True,
+                        )
                     )
                     ra_path = (
                         str(chd_files[0])
