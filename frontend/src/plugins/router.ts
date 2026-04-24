@@ -43,6 +43,7 @@ export const ROUTES = {
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   PAIR: "pair",
+  PAIR_DEVICE: "pair-device",
   APRIL_FOOLS: "april-fools",
   CONSOLE_HOME: "console-home",
   CONSOLE_PLATFORM: "console-platform",
@@ -443,6 +444,11 @@ const routes = [
         },
       },
     ],
+  },
+  {
+    path: "/pair/device",
+    name: ROUTES.PAIR_DEVICE,
+    component: () => import("@/views/Auth/DevicePair.vue"),
   },
   {
     path: "/pair",
