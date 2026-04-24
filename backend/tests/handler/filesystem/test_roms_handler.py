@@ -701,7 +701,9 @@ class TestFSRomsHandler:
         assert len(parsed_rom_files.rom_files) == 1
         assert parsed_rom_files.crc_hash != "", "CRC should be computed from raw bytes"
         assert parsed_rom_files.md5_hash != "", "MD5 should be computed from raw bytes"
-        assert parsed_rom_files.sha1_hash != "", "SHA1 should be computed from raw bytes"
+        assert (
+            parsed_rom_files.sha1_hash != ""
+        ), "SHA1 should be computed from raw bytes"
 
         # Raw file SHA1 is NOT the header SHA1
         assert parsed_rom_files.sha1_hash != internal_sha1

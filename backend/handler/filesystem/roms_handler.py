@@ -429,11 +429,11 @@ class FSRomsHandler(FSHandler):
 
                     def _list_chd_by_size() -> list[Path]:
                         chds = [
-                            f
-                            for f in rom_dir.iterdir()
-                            if f.suffix.lower() == ".chd"
+                            f for f in rom_dir.iterdir() if f.suffix.lower() == ".chd"
                         ]
-                        return sorted(chds, key=lambda f: f.stat().st_size, reverse=True)
+                        return sorted(
+                            chds, key=lambda f: f.stat().st_size, reverse=True
+                        )
 
                     chd_files = await asyncio.to_thread(_list_chd_by_size)
                     ra_path = (
@@ -550,9 +550,7 @@ class FSRomsHandler(FSHandler):
 
             chd_sha1 = ""
             if Path(rom.fs_name).suffix.lower() == ".chd":
-                chd_sha1 = (
-                    extract_chd_hash(Path(abs_fs_path, rom.fs_name)) or ""
-                )
+                chd_sha1 = extract_chd_hash(Path(abs_fs_path, rom.fs_name)) or ""
             file_hash = FileHash(
                 crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
                 md5_hash=(
