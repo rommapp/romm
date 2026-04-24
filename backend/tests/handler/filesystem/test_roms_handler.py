@@ -660,13 +660,11 @@ class TestFSRomsHandler:
     async def test_get_rom_files_with_chd_v5_uses_internal_hash(
         self, handler: FSRomsHandler, platform, tmp_path
     ):
-        """Test that a CHD v5 file uses its internal hash and skips other hashing.
+        """Test that a CHD v5 file stores the header SHA1 in chd_sha1_hash.
 
-        This integration test verifies the complete CHD v5 hashing logic:
-        1. For valid CHD v5 files, the embedded SHA1 hash from the file header is used
-        2. CRC32 and MD5 hashes are NOT calculated from file contents
-        3. The file is not double-processed by read_basic_file
-        4. This prevents regressions in the if/elif archive type chain
+        CHD files are hashed like any other file type (CRC32, MD5, SHA1 from
+        raw bytes). The embedded disc-data SHA1 from the CHD v5 header is
+        separately stored in chd_sha1_hash for metadata providers that need it.
         """
         # Create a mock CHD v5 file in a temporary directory
         chd_file = tmp_path / "test.chd"
@@ -699,22 +697,17 @@ class TestFSRomsHandler:
         # Run the hashing process
         parsed_rom_files = await test_handler.get_rom_files(rom)
 
-        # Assert that only SHA1 is populated, and it's from the header
+        # All three raw-file hashes should be populated
         assert len(parsed_rom_files.rom_files) == 1
-        assert (
-            parsed_rom_files.sha1_hash == internal_sha1
-        ), "SHA1 should be from CHD v5 header"
-        assert parsed_rom_files.rom_files[0].sha1_hash == internal_sha1
+        assert parsed_rom_files.crc_hash != "", "CRC should be computed from raw bytes"
+        assert parsed_rom_files.md5_hash != "", "MD5 should be computed from raw bytes"
+        assert parsed_rom_files.sha1_hash != "", "SHA1 should be computed from raw bytes"
 
-        # CRC32 and MD5 should be empty/zero (not calculated)
-        assert (
-            parsed_rom_files.crc_hash == ""
-        ), f"CRC hash should be empty, got: {parsed_rom_files.crc_hash}"
-        assert (
-            parsed_rom_files.md5_hash == ""
-        ), f"MD5 hash should be empty, got: {parsed_rom_files.md5_hash}"
-        assert parsed_rom_files.rom_files[0].crc_hash == ""
-        assert parsed_rom_files.rom_files[0].md5_hash == ""
+        # Raw file SHA1 is NOT the header SHA1
+        assert parsed_rom_files.sha1_hash != internal_sha1
+
+        # Header SHA1 stored separately in chd_sha1_hash
+        assert parsed_rom_files.rom_files[0].chd_sha1_hash == internal_sha1
 
     @pytest.mark.asyncio
     async def test_get_rom_files_with_non_v5_chd_fallback_to_std_hashing(

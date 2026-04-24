@@ -428,11 +428,12 @@ class FSRomsHandler(FSHandler):
                     # CHD and pass it directly, matching single-file CHD behaviour.
 
                     def _list_chd_by_size() -> list[Path]:
-                        return sorted(
-                            (f for f in rom_dir.iterdir() if f.suffix.lower() == ".chd"),
-                            key=lambda f: f.stat().st_size,
-                            reverse=True,
-                        )
+                        chds = [
+                            f
+                            for f in rom_dir.iterdir()
+                            if f.suffix.lower() == ".chd"
+                        ]
+                        return sorted(chds, key=lambda f: f.stat().st_size, reverse=True)
 
                     chd_files = await asyncio.to_thread(_list_chd_by_size)
                     ra_path = (
