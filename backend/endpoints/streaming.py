@@ -53,11 +53,16 @@ class MuteRequest(BaseModel):
 
 
 class SaveStateRequest(BaseModel):
-    slot: Annotated[int, Field(ge=1, le=9)] = 1  # slots 1–9 only; slot 10 is autosave
+    # Range 1–9 covers PCSX2 (slots 1–9) and Dolphin (slots 1–8).
+    # The broker enforces the per-emulator ceiling; the frontend further limits
+    # the slot selector via platformCapabilities().
+    slot: Annotated[int, Field(ge=1, le=9)] = 1
 
 
 class LoadStateRequest(BaseModel):
-    slot: Annotated[int, Field(ge=1, le=10)] = 1  # slot 10 = autosave
+    # Range 1–10 covers PCSX2 (slots 1–9 + slot 10 autosave) and Dolphin (1–8).
+    # The broker enforces the per-emulator ceiling.
+    slot: Annotated[int, Field(ge=1, le=10)] = 1
 
 
 def _get_streaming_config() -> dict[str, Any]:
@@ -79,8 +84,9 @@ def _container_for_platform(platform: str) -> dict[str, Any] | None:
     cfg = _get_streaming_config()
     if not cfg.get("enabled", False):
         return None
+    lower = platform.lower()
     for entry in cfg.get("containers", []):
-        if entry.get("platform") == platform:
+        if entry.get("platform", "").lower() == lower:
             return entry
     return None
 
@@ -121,7 +127,7 @@ def _broker_url(container: dict[str, Any], path: str) -> str:
 
 def _call_broker(container: dict[str, Any], rom_path: str, rom_name: str) -> None:
     """
-    POST to the broker's /launch endpoint to tell the PCSX2 container to
+    POST to the broker's /launch endpoint to tell the emulator container to
     load a ROM. Uses only Python stdlib urllib — no extra dependencies.
 
     Raises HTTPException if the broker is unreachable or returns an error.
@@ -540,7 +546,7 @@ async def load_state(platform: str, req: LoadStateRequest) -> JSONResponse:
 @router.delete("/sessions/{platform}")
 async def release_session(platform: str) -> JSONResponse:
 
-    # Release a session. Also tells the broker to stop PCSX2.
+    # Release a session. Also tells the broker to stop the emulator.
     released = _sessions.pop(platform, None)
 
     if released is None:

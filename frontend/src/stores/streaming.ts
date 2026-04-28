@@ -51,6 +51,27 @@ export const useStreamingStore = defineStore("streaming", () => {
   }
 
   /**
+   * Returns per-platform save-state capabilities for the streaming player UI.
+   *
+   * maxSlots  — number of user-accessible save slots (slot selector range)
+   * hasAutosave — whether a dedicated "load autosave" action is available
+   *
+   * Dolphin (ngc, wii, wiiu): slots 1–7 user-accessible; slot 8 reserved for auto-save.
+   * PCSX2 (ps2) and default: 9 slots + slot 10 autosave.
+   */
+  function platformCapabilities(slug: string | null | undefined): {
+    maxSlots: number;
+    hasAutosave: boolean;
+    autosaveSlot: number;
+  } {
+    const lower = (slug ?? "").toLowerCase();
+    if (lower === "ngc" || lower === "wii" || lower === "wiiu") {
+      return { maxSlots: 7, hasAutosave: true, autosaveSlot: 8 };
+    }
+    return { maxSlots: 9, hasAutosave: true, autosaveSlot: 10 };
+  }
+
+  /**
    * Fetch streaming config from the backend once on app load.
    * Non-fatal — if it fails, streaming stays disabled and no buttons appear.
    */
@@ -252,6 +273,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     error,
     isEnabled,
     containerForPlatform,
+    platformCapabilities,
     fetchConfig,
     claimSession,
     releaseSession,
