@@ -98,6 +98,20 @@ class NetplayICEServer(TypedDict):
     credential: NotRequired[str]
 
 
+# needed for streaming
+class StreamingContainer(TypedDict):
+    platform: str
+    host: str
+    broker_host: str
+    broker_secret: str  # may remove this and have it only be an env var
+    label: str
+
+
+class StreamingConfig(TypedDict):
+    enabled: bool
+    containers: list[StreamingContainer]
+
+
 class Config:
     CONFIG_FILE_MOUNTED: bool
     CONFIG_FILE_WRITABLE: bool
@@ -130,6 +144,8 @@ class Config:
     SCAN_MEDIA: list[str]
     GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
     GAMELIST_MEDIA_IMAGE: MetadataMediaType
+    STREAMING_ENABLED: bool
+    STREAMING_CONTAINERS: list[StreamingContainer]
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -388,6 +404,10 @@ class ConfigManager:
             PEGASUS_AUTO_EXPORT_ON_SCAN=pydash.get(
                 self._raw_config, "scan.pegasus.export", False
             ),
+            STREAMING_ENABLED=pydash.get(self._raw_config, "streaming.enabled", False),
+            STREAMING_CONTAINERS=pydash.get(
+                self._raw_config, "streaming.containers", []
+            ),
         )
 
     def _get_ejs_controls(self) -> dict[str, EjsControls]:
@@ -643,6 +663,14 @@ class ConfigManager:
             log.critical(
                 f"Invalid config.yml: scan.gamelist.media.image must be one of {valid_image_options}"
             )
+            sys.exit(3)
+
+        if not isinstance(self.config.STREAMING_ENABLED, bool):
+            log.critical("Invalid config.yml: streaming.enabled must be a boolean")
+            sys.exit(3)
+
+        if not isinstance(self.config.STREAMING_CONTAINERS, list):
+            log.critical("Invalid config.yml: streaming.containers must be a list")
             sys.exit(3)
 
     def get_config(self) -> Config:

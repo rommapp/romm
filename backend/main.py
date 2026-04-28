@@ -44,6 +44,7 @@ from endpoints.screenshots import router as screenshots_router
 from endpoints.search import router as search_router
 from endpoints.states import router as states_router
 from endpoints.stats import router as stats_router
+from endpoints.streaming import router as streaming_router
 from endpoints.sync import router as sync_router
 from endpoints.tasks import router as tasks_router
 from endpoints.user import router as user_router
@@ -104,6 +105,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
             re.compile(r"^/api/client-tokens/pair/.+/status"),
             re.compile(r"^/ws"),
             re.compile(r"^/netplay"),
+            re.compile(r"^/api/streaming/.*"),
         ],
     )
 
@@ -146,6 +148,7 @@ app.include_router(firmware_router, prefix="/api")
 app.include_router(collections_router, prefix="/api")
 app.include_router(export_router, prefix="/api")
 app.include_router(netplay_router, prefix="/api")
+app.include_router(streaming_router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 app.mount("/netplay", netplay_socket_handler.socket_app)
