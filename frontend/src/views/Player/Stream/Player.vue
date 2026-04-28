@@ -103,8 +103,8 @@
         title="Game stream"
       />
 
-      <!-- Hover sensors for cross-origin fallback -->
-      <div class="player-sensor-top" @mousemove="handleMouseMove" />
+      <!-- Hover sensor for cross-origin fallback — bottom only so the top of
+           the stream is not blocked by an invisible trigger zone -->
       <div class="player-sensor-bottom" @mousemove="handleMouseMove" />
 
       <!-- Control bar — mirrors the EmulatorJS player bar style -->
@@ -829,21 +829,12 @@ function formatTime(iso: string): string {
   height: 100vh;
 }
 
-.player-sensor-top,
 .player-sensor-bottom {
   position: absolute;
   left: 0;
   width: 100%;
   z-index: 5;
   background: transparent;
-}
-
-.player-sensor-top {
-  top: 0;
-  height: 40px;
-}
-
-.player-sensor-bottom {
   bottom: 0;
   height: 80px;
 }
