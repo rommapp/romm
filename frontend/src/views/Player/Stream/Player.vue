@@ -167,68 +167,70 @@
           :disabled="isMuted"
         />
 
-        <!-- Save/load state controls -->
-        <select
-          v-model.number="selectedSlot"
-          class="slot-selector"
-          title="Save slot"
-        >
-          <option v-for="n in capabilities.maxSlots" :key="n" :value="n">
-            Slot {{ n }}
-          </option>
-        </select>
+        <!-- Save/load state controls (hidden for platforms with no save state support) -->
+        <template v-if="capabilities.maxSlots > 0">
+          <select
+            v-model.number="selectedSlot"
+            class="slot-selector"
+            title="Save slot"
+          >
+            <option v-for="n in capabilities.maxSlots" :key="n" :value="n">
+              Slot {{ n }}
+            </option>
+          </select>
 
-        <v-btn
-          icon
-          variant="text"
-          density="compact"
-          title="Save state"
-          :loading="isSavingState"
-          :disabled="
-            isSavingState ||
-            isLoadingState ||
-            isLoadingAutosave ||
-            isSavingAndExiting
-          "
-          @click="handleSaveState"
-        >
-          <v-icon size="20">mdi-content-save-outline</v-icon>
-        </v-btn>
+          <v-btn
+            icon
+            variant="text"
+            density="compact"
+            title="Save state"
+            :loading="isSavingState"
+            :disabled="
+              isSavingState ||
+              isLoadingState ||
+              isLoadingAutosave ||
+              isSavingAndExiting
+            "
+            @click="handleSaveState"
+          >
+            <v-icon size="20">mdi-content-save-outline</v-icon>
+          </v-btn>
 
-        <v-btn
-          icon
-          variant="text"
-          density="compact"
-          title="Load state"
-          :loading="isLoadingState"
-          :disabled="
-            isSavingState ||
-            isLoadingState ||
-            isLoadingAutosave ||
-            isSavingAndExiting
-          "
-          @click="handleLoadState"
-        >
-          <v-icon size="20">mdi-restore</v-icon>
-        </v-btn>
+          <v-btn
+            icon
+            variant="text"
+            density="compact"
+            title="Load state"
+            :loading="isLoadingState"
+            :disabled="
+              isSavingState ||
+              isLoadingState ||
+              isLoadingAutosave ||
+              isSavingAndExiting
+            "
+            @click="handleLoadState"
+          >
+            <v-icon size="20">mdi-restore</v-icon>
+          </v-btn>
 
-        <v-btn
-          v-if="capabilities.hasAutosave"
-          icon
-          variant="text"
-          density="compact"
-          title="Load autosave"
-          :loading="isLoadingAutosave"
-          :disabled="
-            isSavingState ||
-            isLoadingState ||
-            isLoadingAutosave ||
-            isSavingAndExiting
-          "
-          @click="handleLoadAutosave"
-        >
-          <v-icon size="20">mdi-history</v-icon>
-        </v-btn>
+          <v-btn
+            v-if="capabilities.hasAutosave"
+            icon
+            variant="text"
+            density="compact"
+            title="Load autosave"
+            :loading="isLoadingAutosave"
+            :disabled="
+              isSavingState ||
+              isLoadingState ||
+              isLoadingAutosave ||
+              isSavingAndExiting
+            "
+            @click="handleLoadAutosave"
+          >
+            <v-icon size="20">mdi-history</v-icon>
+          </v-btn>
+        </template>
 
         <v-btn
           icon
