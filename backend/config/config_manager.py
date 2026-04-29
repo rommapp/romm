@@ -108,6 +108,7 @@ class Config:
     EXCLUDED_MULTI_PARTS_EXT: list[str]
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     GAMELIST_AUTO_EXPORT_ON_SCAN: bool
+    GAMELIST_USE_ORIGINAL_MEDIA: bool
     PEGASUS_AUTO_EXPORT_ON_SCAN: bool
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
@@ -374,6 +375,9 @@ class ConfigManager:
             ),
             GAMELIST_AUTO_EXPORT_ON_SCAN=pydash.get(
                 self._raw_config, "scan.gamelist.export", False
+            ),
+            GAMELIST_USE_ORIGINAL_MEDIA=pydash.get(
+                self._raw_config, "scan.gamelist.use_original_media", False
             ),
             GAMELIST_MEDIA_THUMBNAIL=pydash.get(
                 self._raw_config,
@@ -710,6 +714,7 @@ class ConfigManager:
                 "media": self.config.SCAN_MEDIA,
                 "gamelist": {
                     "export": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
+                    "use_original_media": self.config.GAMELIST_USE_ORIGINAL_MEDIA,
                     "media": {
                         "thumbnail": self.config.GAMELIST_MEDIA_THUMBNAIL,
                         "image": self.config.GAMELIST_MEDIA_IMAGE,

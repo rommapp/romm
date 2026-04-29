@@ -96,12 +96,14 @@ XML_TAG_MAP: Final = {
     "video_url": "video",
 }
 
+def _scheme() -> str:
+    return "library" if cm.get_config().GAMELIST_USE_ORIGINAL_MEDIA else "file"
 
 def _make_file_uri(platform_dir: str, raw_text: str) -> str:
     cleaned_text = raw_text.replace("./", "")
     joined_path = Path(platform_dir, cleaned_text)
     fs_platform_handler.validate_path(str(joined_path))
-    return f"file://{joined_path.as_posix()}"
+    return f"{_scheme()}://{joined_path.as_posix()}"
 
 
 def extract_media_from_gamelist_rom(
@@ -148,7 +150,7 @@ def extract_media_from_gamelist_rom(
             if found_files:
                 # trunk-ignore(mypy/literal-required)
                 gamelist_media[media_key] = (
-                    f"file://{str(Path(found_files[0]).relative_to(fs_platform_handler.base_path))}"
+                    f"{_scheme()}://{str(Path(found_files[0]).relative_to(fs_platform_handler.base_path))}"
                 )
 
     return gamelist_media
@@ -210,6 +212,12 @@ def extract_metadata_from_gamelist_rom(
     )
 
 
+def _media_path(rom: Rom, url: str | None, media_type: MetadataMediaType, filename: str) -> str:
+    if url and url.startswith("library://"):
+        return url
+    return f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, media_type)}/{filename}"
+
+
 def populate_rom_specific_paths(
     rom_metadata: GamelistMetadata, rom: Rom
 ) -> dict[str, str]:
@@ -223,38 +231,38 @@ def populate_rom_specific_paths(
     if MetadataMediaType.BOX3D in preferred_media_types and rom_metadata.get(
         "box3d_url"
     ):
-        updated_metadata["box3d_path"] = (
-            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.BOX3D)}/box3d.png"
+        updated_metadata["box3d_path"] = _media_path(
+            rom, rom_metadata.get("box3d_url"), MetadataMediaType.BOX3D, "box3d.png"
         )
     if MetadataMediaType.MARQUEE in preferred_media_types and rom_metadata.get(
         "marquee_url"
     ):
-        updated_metadata["marquee_path"] = (
-            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MARQUEE)}/marquee.png"
+        updated_metadata["marquee_path"] = _media_path(
+            rom, rom_metadata.get("marquee_url"), MetadataMediaType.MARQUEE, "marquee.png"
         )
     if MetadataMediaType.MIXIMAGE in preferred_media_types and rom_metadata.get(
         "miximage_url"
     ):
-        updated_metadata["miximage_path"] = (
-            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
+        updated_metadata["miximage_path"] = _media_path(
+            rom, rom_metadata.get("miximage_url"), MetadataMediaType.MIXIMAGE, "miximage.png"
         )
     if MetadataMediaType.PHYSICAL in preferred_media_types and rom_metadata.get(
         "physical_url"
     ):
-        updated_metadata["physical_path"] = (
-            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.PHYSICAL)}/physical.png"
+        updated_metadata["physical_path"] = _media_path(
+            rom, rom_metadata.get("physical_url"), MetadataMediaType.PHYSICAL, "physical.png"
         )
     if MetadataMediaType.TITLE_SCREEN in preferred_media_types and rom_metadata.get(
         "title_screen_url"
     ):
-        updated_metadata["title_screen_path"] = (
-            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.TITLE_SCREEN)}/title_screen.png"
+        updated_metadata["title_screen_path"] = _media_path(
+            rom, rom_metadata.get("title_screen_url"), MetadataMediaType.TITLE_SCREEN, "title_screen.png",
         )
     if MetadataMediaType.VIDEO in preferred_media_types and rom_metadata.get(
         "video_url"
     ):
-        updated_metadata["video_path"] = (
-            f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.VIDEO)}/video.mp4"
+        updated_metadata["video_path"] = _media_path(
+            rom, rom_metadata.get("video_url"), MetadataMediaType.VIDEO, "video.mp4"
         )
 
     return updated_metadata

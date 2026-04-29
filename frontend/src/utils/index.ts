@@ -785,6 +785,7 @@ export function platformCategoryToIcon(category: string) {
 }
 
 export const FRONTEND_RESOURCES_PATH = "/assets/romm/resources";
+export const FRONTEND_LIBRARY_PATH = "/api/raw/library";
 
 export const CD_BASED_SYSTEMS = new Set([
   "3do", // 3DO
@@ -821,4 +822,10 @@ export const CD_BASED_SYSTEMS = new Set([
 
 export function isCDBasedSystem(platformSlug: string): boolean {
   return CD_BASED_SYSTEMS.has(platformSlug.toLowerCase());
+}
+
+export function mediaUrl(path: string): string {
+  return path.startsWith("library://")
+    ? `${FRONTEND_LIBRARY_PATH}/${path.slice("library://".length)}`
+    : `${FRONTEND_RESOURCES_PATH}/${path}`;
 }

@@ -4,7 +4,7 @@ import { computed } from "vue";
 import { useDisplay } from "vuetify";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
-import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { mediaUrl } from "@/utils";
 
 interface Props {
   rom: DetailedRom;
@@ -101,7 +101,7 @@ const carouselHeight = computed(() => {
       content-class="d-flex justify-center align-center"
     >
       <video
-        :src="`${FRONTEND_RESOURCES_PATH}/${rom.path_video}`"
+        :src="mediaUrl(rom.path_video)"
         class="h-full object-contain"
         controls
       />
@@ -117,7 +117,7 @@ const carouselHeight = computed(() => {
       <v-carousel-item
         v-if="path"
         :key="key"
-        :src="`${FRONTEND_RESOURCES_PATH}/${path}`"
+        :src="mediaUrl(path)"
         :class="{ pointer: enableClick }"
         @click="enableClick && emit('click')"
       />

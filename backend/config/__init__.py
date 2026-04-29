@@ -37,6 +37,7 @@ LIBRARY_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/library"
 RESOURCES_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/assets"
 FRONTEND_RESOURCES_PATH: Final[str] = "/assets/romm/resources"
+FRONTEND_LIBRARY_PATH: Final[str] = "/api/raw/library"
 
 # SEVEN ZIP
 SEVEN_ZIP_TIMEOUT: Final[int] = safe_int(_get_env("SEVEN_ZIP_TIMEOUT"), 60)

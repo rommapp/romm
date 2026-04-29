@@ -196,6 +196,9 @@ class FSResourcesHandler(FSHandler):
         if not entity:
             return None, None
 
+        if url_cover and url_cover.startswith("library://"):
+            return url_cover, url_cover
+
         # Download covers if URL provided and (overwriting or covers don't exist)
         if url_cover:
             if overwrite or not self.cover_exists(entity, CoverSize.SMALL):
@@ -372,6 +375,9 @@ class FSResourcesHandler(FSHandler):
         # Download and store new screenshots
         path_screenshots: list[str] = []
         for idx, url_screenshot in enumerate(url_screenshots):
+            if url_screenshot.startswith("library://"):
+                path_screenshots.append(url_screenshot)
+                continue
             await self._store_screenshot(rom, url_screenshot, idx)
             path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
 
@@ -476,6 +482,9 @@ class FSResourcesHandler(FSHandler):
         if not url_manual or (not overwrite and self.manual_exists(rom)):
             return rom.path_manual or None
 
+        if url_manual.startswith("library://"):
+            return url_manual
+
         # Download and store new manual
         await self._store_manual(rom, url_manual)
         return self._get_manual_path(rom)
@@ -532,6 +541,9 @@ class FSResourcesHandler(FSHandler):
         return os.path.join("roms", str(platform_id), str(rom_id), media_type.value)
 
     async def store_media_file(self, url_media: str, dest_path: str) -> None:
+        if url_media.startswith("library://") or dest_path.startswith("library://"):
+            return
+
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(dest_path)
 
