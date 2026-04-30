@@ -6,7 +6,7 @@ import logging
 import os
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -14,17 +14,6 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from config.config_manager import config_manager as cm
-
-try:
-    import config
-
-    # In RomM, the full parsed YAML is often stored in 'ROMM_CONFIG'
-    # or accessible via a function in the config module.
-    config_handler = config  # type: ignore[assignment]
-except ImportError as e:
-    config_handler = None  # type: ignore[assignment]
-    # This will tell you EXACTLY why the config is failing in your logs
-    logging.getLogger("romm").error(f"streaming: failed to import config_handler: {e}")
 
 log = logging.getLogger("romm")
 
@@ -400,7 +389,7 @@ async def claim_session(req: ClaimSessionRequest, request: Request) -> JSONRespo
     # Wrapped in asyncio.to_thread because urllib is synchronous.
     await asyncio.to_thread(_call_broker, container, req.rom_path, req.rom_name)
 
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     _sessions[req.platform] = {
         "rom_path": req.rom_path,
         "rom_name": req.rom_name,
