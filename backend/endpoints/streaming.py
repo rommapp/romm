@@ -22,6 +22,22 @@ router = APIRouter(prefix="/streaming", tags=["streaming"])
 _sessions: dict[str, dict[str, Any]] = {}
 
 
+def _container_key(container: dict[str, Any]) -> str:
+    """Stable unique key for a container, derived the same way as the broker URL."""
+    broker_host = container.get("broker_host", "").rstrip("/")
+    if broker_host:
+        return broker_host
+    # Derive from stream host the same way _broker_url does: replace port with 8000
+    from urllib.parse import urlparse, urlunparse
+
+    stream_host = container.get("host", "").rstrip("/")
+    try:
+        parsed = urlparse(stream_host)
+        return urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000")).rstrip("/")
+    except Exception:
+        return stream_host
+
+
 class ClaimSessionRequest(BaseModel):
     platform: str
     rom_path: str
@@ -375,7 +391,8 @@ async def claim_session(req: ClaimSessionRequest, request: Request) -> JSONRespo
             detail=f"No streaming container configured for platform '{req.platform}'",
         )
 
-    existing = _sessions.get(req.platform)
+    session_key = _container_key(container)
+    existing = _sessions.get(session_key)
     if existing:
         raise HTTPException(
             status_code=409,
@@ -391,7 +408,7 @@ async def claim_session(req: ClaimSessionRequest, request: Request) -> JSONRespo
     await asyncio.to_thread(_call_broker, container, req.rom_path, req.rom_name)
 
     now = datetime.now(timezone.utc).isoformat()
-    _sessions[req.platform] = {
+    _sessions[session_key] = {
         "rom_path": req.rom_path,
         "rom_name": req.rom_name,
         "claimed_at": now,
@@ -420,26 +437,25 @@ async def save_and_exit_session(platform: str, req: SaveAndExitRequest) -> JSONR
     wait=true (default): blocks until broker confirms save+kill complete.
     wait=false: broker fires save+kill in background, returns immediately.
     """
-    session = _sessions.get(platform)
+    container = _container_for_platform(platform)
+    if container is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No streaming container configured for platform '{platform}'",
+        )
+    session_key = _container_key(container)
+    session = _sessions.get(session_key)
     if session is None:
         raise HTTPException(
             status_code=404,
             detail=f"No active session for platform '{platform}'",
         )
 
-    container = _container_for_platform(platform)
-    saved = False
-    if container:
-        saved = await asyncio.to_thread(
-            _save_and_exit_broker, container, slot=req.slot, wait=req.wait
-        )
-    else:
-        log.warning(
-            "streaming: save-and-exit — no container for platform=%s, releasing without save",
-            platform,
-        )
+    saved = await asyncio.to_thread(
+        _save_and_exit_broker, container, slot=req.slot, wait=req.wait
+    )
 
-    _sessions.pop(platform, None)
+    _sessions.pop(session_key, None)
     log.info("streaming: save-and-exit — platform=%s saved=%s", platform, saved)
     return JSONResponse({"status": "ok", "saved": saved, "platform": platform})
 
@@ -447,18 +463,20 @@ async def save_and_exit_session(platform: str, req: SaveAndExitRequest) -> JSONR
 @router.post("/sessions/{platform}/volume")
 async def set_volume(platform: str, req: VolumeRequest) -> JSONResponse:
     """Set emulator audio volume (0–100). Best-effort — no 404 if broker unreachable."""
-    session = _sessions.get(platform)
+    container = _container_for_platform(platform)
+    if container is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No streaming container configured for platform '{platform}'",
+        )
+    session_key = _container_key(container)
+    session = _sessions.get(session_key)
     if session is None:
         raise HTTPException(
             status_code=404, detail=f"No active session for platform '{platform}'"
         )
 
-    container = _container_for_platform(platform)
-    ok = False
-    if container:
-        ok = await asyncio.to_thread(_volume_broker, container, req.level)
-    else:
-        log.warning("streaming: volume — no container for platform=%s", platform)
+    ok = await asyncio.to_thread(_volume_broker, container, req.level)
 
     return JSONResponse(
         {"status": "ok" if ok else "error", "level": req.level, "platform": platform}
@@ -468,18 +486,20 @@ async def set_volume(platform: str, req: VolumeRequest) -> JSONResponse:
 @router.post("/sessions/{platform}/mute")
 async def set_mute(platform: str, req: MuteRequest) -> JSONResponse:
     """Toggle or explicitly set mute state. Omit body to toggle."""
-    session = _sessions.get(platform)
+    container = _container_for_platform(platform)
+    if container is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No streaming container configured for platform '{platform}'",
+        )
+    session_key = _container_key(container)
+    session = _sessions.get(session_key)
     if session is None:
         raise HTTPException(
             status_code=404, detail=f"No active session for platform '{platform}'"
         )
 
-    container = _container_for_platform(platform)
-    confirmed: bool | None = None
-    if container:
-        confirmed = await asyncio.to_thread(_mute_broker, container, req.mute)
-    else:
-        log.warning("streaming: mute — no container for platform=%s", platform)
+    confirmed = await asyncio.to_thread(_mute_broker, container, req.mute)
 
     return JSONResponse({"status": "ok", "mute": confirmed, "platform": platform})
 
@@ -487,18 +507,20 @@ async def set_mute(platform: str, req: MuteRequest) -> JSONResponse:
 @router.post("/sessions/{platform}/save-state")
 async def save_state(platform: str, req: SaveStateRequest) -> JSONResponse:
     """Save game state to a slot (1–9) without stopping the emulator."""
-    session = _sessions.get(platform)
+    container = _container_for_platform(platform)
+    if container is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No streaming container configured for platform '{platform}'",
+        )
+    session_key = _container_key(container)
+    session = _sessions.get(session_key)
     if session is None:
         raise HTTPException(
             status_code=404, detail=f"No active session for platform '{platform}'"
         )
 
-    container = _container_for_platform(platform)
-    ok = False
-    if container:
-        ok = await asyncio.to_thread(_save_state_broker, container, req.slot)
-    else:
-        log.warning("streaming: save-state — no container for platform=%s", platform)
+    ok = await asyncio.to_thread(_save_state_broker, container, req.slot)
 
     status_code = 200 if ok else 500
     return JSONResponse(
@@ -510,18 +532,20 @@ async def save_state(platform: str, req: SaveStateRequest) -> JSONResponse:
 @router.post("/sessions/{platform}/load-state")
 async def load_state(platform: str, req: LoadStateRequest) -> JSONResponse:
     """Load game state from a slot (1–10). Slot 10 is the autosave."""
-    session = _sessions.get(platform)
+    container = _container_for_platform(platform)
+    if container is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No streaming container configured for platform '{platform}'",
+        )
+    session_key = _container_key(container)
+    session = _sessions.get(session_key)
     if session is None:
         raise HTTPException(
             status_code=404, detail=f"No active session for platform '{platform}'"
         )
 
-    container = _container_for_platform(platform)
-    ok = False
-    if container:
-        ok = await asyncio.to_thread(_load_state_broker, container, req.slot)
-    else:
-        log.warning("streaming: load-state — no container for platform=%s", platform)
+    ok = await asyncio.to_thread(_load_state_broker, container, req.slot)
 
     return JSONResponse(
         {
@@ -537,13 +561,15 @@ async def load_state(platform: str, req: LoadStateRequest) -> JSONResponse:
 async def release_session(platform: str) -> JSONResponse:
 
     # Release a session. Also tells the broker to stop the emulator.
-    released = _sessions.pop(platform, None)
+    container = _container_for_platform(platform)
+    # Fallback: streaming disabled or unconfigured — no session will be stored under this key
+    session_key = _container_key(container) if container else platform
+    released = _sessions.pop(session_key, None)
 
     if released is None:
         return JSONResponse({"status": "not_found", "platform": platform})
 
     # Best-effort stop, don't block user
-    container = _container_for_platform(platform)
     if container:
         await asyncio.to_thread(_stop_broker, container)
 
@@ -556,11 +582,11 @@ async def list_sessions() -> JSONResponse:
     """Debug — active sessions."""
     return JSONResponse(
         {
-            platform: {
+            session_key: {
                 "rom_name": s["rom_name"],
                 "claimed_at": s["claimed_at"],
             }
-            for platform, s in _sessions.items()
+            for session_key, s in _sessions.items()
         }
     )
 

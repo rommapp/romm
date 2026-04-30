@@ -33,3 +33,71 @@ def test_get_config_warns_on_missing_platform(client, caplog):
     assert response.status_code == 200
     assert response.json()["containers"] == []
     assert "missing platform/host" in caplog.text
+
+
+@pytest.mark.skip(reason="requires db")
+def test_claim_session_same_container_two_platforms_rejected(client, access_token):
+    """Dolphin serves ngc and wii from the same broker — second claim must be 409."""
+    containers = [
+        {
+            "platform": "ngc",
+            "host": "http://192.168.1.10:3000",
+            "broker_host": "http://192.168.1.10:8000",
+        },
+        {
+            "platform": "wii",
+            "host": "http://192.168.1.10:3000",
+            "broker_host": "http://192.168.1.10:8000",
+        },
+    ]
+    with patch(
+        "endpoints.streaming.cm.get_config",
+        return_value=_mock_cm(containers=containers),
+    ):
+        with patch("endpoints.streaming._call_broker"):
+            r1 = client.post(
+                "/api/streaming/sessions",
+                json={
+                    "platform": "ngc",
+                    "rom_path": "/roms/game.iso",
+                    "rom_name": "Game",
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            r2 = client.post(
+                "/api/streaming/sessions",
+                json={
+                    "platform": "wii",
+                    "rom_path": "/roms/game2.iso",
+                    "rom_name": "Game2",
+                },
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+    assert r1.status_code == 200
+    assert r2.status_code == 409
+
+
+@pytest.mark.skip(reason="requires db")
+def test_release_uses_container_key_not_platform(client, access_token):
+    """release_session must find the session by broker_host, not by platform string."""
+    container = {
+        "platform": "ngc",
+        "host": "http://192.168.1.10:3000",
+        "broker_host": "http://192.168.1.10:8000",
+    }
+    with patch(
+        "endpoints.streaming.cm.get_config",
+        return_value=_mock_cm(containers=[container]),
+    ):
+        with patch("endpoints.streaming._call_broker"):
+            client.post(
+                "/api/streaming/sessions",
+                json={"platform": "ngc", "rom_path": "/roms/g.iso", "rom_name": "G"},
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+        r = client.delete(
+            "/api/streaming/sessions/ngc",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+    assert r.status_code == 200
+    assert r.json()["status"] == "released"
