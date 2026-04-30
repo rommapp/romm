@@ -340,6 +340,7 @@ async def get_config() -> JSONResponse:
     safe_containers = []
     for c in cfg.get("containers", []):
         if not c.get("platform") or not c.get("host"):
+            log.warning("streaming: container missing platform/host — skipping: %s", c)
             continue
 
         safe_containers.append(
