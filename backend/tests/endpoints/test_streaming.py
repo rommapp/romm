@@ -1,6 +1,8 @@
+import asyncio
 import logging
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from main import app
@@ -101,3 +103,45 @@ def test_release_uses_container_key_not_platform(client, access_token):
         )
     assert r.status_code == 200
     assert r.json()["status"] == "released"
+
+
+@pytest.mark.asyncio
+@pytest.mark.skip(reason="requires db")
+async def test_concurrent_claim_only_one_succeeds(access_token):
+    """Two concurrent claims on the same container must yield exactly one 200 and one 409."""
+    container = {
+        "platform": "ps2",
+        "host": "http://192.168.1.20:3000",
+        "broker_host": "http://192.168.1.20:8000",
+    }
+
+    with patch(
+        "endpoints.streaming.cm.get_config",
+        return_value=_mock_cm(containers=[container]),
+    ):
+        with patch("endpoints.streaming._call_broker"):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as ac:
+                r1, r2 = await asyncio.gather(
+                    ac.post(
+                        "/api/streaming/sessions",
+                        json={
+                            "platform": "ps2",
+                            "rom_path": "/roms/a.iso",
+                            "rom_name": "A",
+                        },
+                        headers={"Authorization": f"Bearer {access_token}"},
+                    ),
+                    ac.post(
+                        "/api/streaming/sessions",
+                        json={
+                            "platform": "ps2",
+                            "rom_path": "/roms/b.iso",
+                            "rom_name": "B",
+                        },
+                        headers={"Authorization": f"Bearer {access_token}"},
+                    ),
+                )
+
+    assert sorted([r1.status_code, r2.status_code]) == [200, 409]

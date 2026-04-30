@@ -20,6 +20,7 @@ log = logging.getLogger("romm")
 router = APIRouter(prefix="/streaming", tags=["streaming"])
 
 _sessions: dict[str, dict[str, Any]] = {}
+_session_locks: dict[str, asyncio.Lock] = {}
 
 
 def _container_key(container: dict[str, Any]) -> str:
@@ -392,42 +393,47 @@ async def claim_session(req: ClaimSessionRequest, request: Request) -> JSONRespo
         )
 
     session_key = _container_key(container)
-    existing = _sessions.get(session_key)
-    if existing:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "message": "Session in use",
-                "rom_name": existing["rom_name"],
-                "claimed_at": existing["claimed_at"],
-            },
-        )
+    lock = _session_locks.setdefault(session_key, asyncio.Lock())
 
-    # Tell the broker to load the ROM — raises HTTPException on failure.
-    # Wrapped in asyncio.to_thread because urllib is synchronous.
-    await asyncio.to_thread(_call_broker, container, req.rom_path, req.rom_name)
+    async with lock:
+        existing = _sessions.get(session_key)
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Session in use",
+                    "rom_name": existing["rom_name"],
+                    "claimed_at": existing["claimed_at"],
+                },
+            )
 
-    now = datetime.now(timezone.utc).isoformat()
-    _sessions[session_key] = {
-        "rom_path": req.rom_path,
-        "rom_name": req.rom_name,
-        "claimed_at": now,
-        "user_id": str(request.client.host) if request.client else "unknown",
-    }
+        # Tell the broker to load the ROM — raises HTTPException on failure.
+        # Wrapped in asyncio.to_thread because urllib is synchronous.
+        await asyncio.to_thread(_call_broker, container, req.rom_path, req.rom_name)
 
-    log.info(
-        "streaming: session claimed — platform=%s rom=%s", req.platform, req.rom_name
-    )
-
-    return JSONResponse(
-        {
-            "platform": req.platform,
-            "host": container["host"],
-            "label": container.get("label", req.platform.upper()),
+        now = datetime.now(timezone.utc).isoformat()
+        _sessions[session_key] = {
+            "rom_path": req.rom_path,
             "rom_name": req.rom_name,
             "claimed_at": now,
+            "user_id": str(request.client.host) if request.client else "unknown",
         }
-    )
+
+        log.info(
+            "streaming: session claimed — platform=%s rom=%s",
+            req.platform,
+            req.rom_name,
+        )
+
+        return JSONResponse(
+            {
+                "platform": req.platform,
+                "host": container["host"],
+                "label": container.get("label", req.platform.upper()),
+                "rom_name": req.rom_name,
+                "claimed_at": now,
+            }
+        )
 
 
 @router.post("/sessions/{platform}/save-and-exit")
@@ -456,6 +462,7 @@ async def save_and_exit_session(platform: str, req: SaveAndExitRequest) -> JSONR
     )
 
     _sessions.pop(session_key, None)
+    _session_locks.pop(session_key, None)
     log.info("streaming: save-and-exit — platform=%s saved=%s", platform, saved)
     return JSONResponse({"status": "ok", "saved": saved, "platform": platform})
 
@@ -565,6 +572,7 @@ async def release_session(platform: str) -> JSONResponse:
     # Fallback: streaming disabled or unconfigured — no session will be stored under this key
     session_key = _container_key(container) if container else platform
     released = _sessions.pop(session_key, None)
+    _session_locks.pop(session_key, None)
 
     if released is None:
         return JSONResponse({"status": "not_found", "platform": platform})
@@ -596,5 +604,6 @@ async def force_release_all() -> JSONResponse:
     # Admin endpoint — force releases all active sessions
     released = list(_sessions.keys())
     _sessions.clear()
+    _session_locks.clear()
     log.info("streaming: all sessions force-released by admin — %s", released)
     return JSONResponse({"status": "released", "platforms": released})
