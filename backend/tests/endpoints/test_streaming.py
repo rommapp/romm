@@ -25,13 +25,20 @@ def _mock_cm(enabled=True, containers=None):
 
 
 def test_get_config_warns_on_missing_platform(client, caplog):
+    # The "romm" logger has propagate=False, so caplog's handler must be
+    # added directly to it rather than relying on root-logger propagation.
     bad_container = {"host": "http://192.168.1.10:3000"}  # no "platform"
-    with patch(
-        "endpoints.streaming.cm.get_config",
-        return_value=_mock_cm(containers=[bad_container]),
-    ):
-        with caplog.at_level(logging.WARNING, logger="romm"):
-            response = client.get("/api/streaming/config")
+    romm_logger = logging.getLogger("romm")
+    romm_logger.addHandler(caplog.handler)
+    try:
+        with patch(
+            "endpoints.streaming.cm.get_config",
+            return_value=_mock_cm(containers=[bad_container]),
+        ):
+            with caplog.at_level(logging.WARNING, logger="romm"):
+                response = client.get("/api/streaming/config")
+    finally:
+        romm_logger.removeHandler(caplog.handler)
     assert response.status_code == 200
     assert response.json()["containers"] == []
     assert "missing platform/host" in caplog.text
