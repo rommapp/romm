@@ -349,7 +349,13 @@ interface Rom {
   url_cover?: string | null;
 }
 
-type PlayerState = "idle" | "loading" | "playing" | "error";
+type PlayerState =
+  | "idle"
+  | "loading"
+  | "launching"
+  | "playing"
+  | "error"
+  | "exited";
 type ErrorType = "occupied" | "not_configured" | "server" | null;
 
 const route = useRoute();
@@ -437,6 +443,10 @@ onBeforeUnmount(() => {
   iframeLoadCleanup = null;
   contentWindowCleanup?.();
   contentWindowCleanup = null;
+  if (playerState.value === "exited") {
+    // handleSaveAndExit already released the session — nothing to do.
+    return;
+  }
   if (playerState.value === "playing") {
     // Navigation away while a game is active — fire save+kill in the broker
     // background and return immediately so navigation is never held up.
@@ -600,7 +610,7 @@ async function handleSaveAndExit(): Promise<void> {
     );
   } finally {
     isSavingAndExiting.value = false;
-    playerState.value = "idle";
+    playerState.value = "exited";
     containerHost.value = "";
   }
   // Outside finally so we always navigate away, even if the save failed.
