@@ -98,12 +98,10 @@ class NetplayICEServer(TypedDict):
     credential: NotRequired[str]
 
 
-# needed for streaming
 class StreamingContainer(TypedDict):
     platform: str
     host: str
     broker_host: str
-    broker_secret: str  # may remove this and have it only be an env var
     label: str
 
 

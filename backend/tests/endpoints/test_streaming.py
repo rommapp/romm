@@ -154,6 +154,12 @@ def test_release_session_requires_auth(client):
 
 
 def test_force_release_all_requires_auth(client):
-    """Unauthenticated DELETE /sessions must return 403."""
+    """Unauthenticated DELETE /sessions must return 403 (admin-only endpoint)."""
     response = client.delete("/api/streaming/sessions")
+    assert response.status_code == 403
+
+
+def test_list_sessions_requires_auth(client):
+    """Unauthenticated GET /sessions must return 403."""
+    response = client.get("/api/streaming/sessions")
     assert response.status_code == 403

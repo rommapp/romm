@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from config.config_manager import config_manager as cm
+from models.user import Role
 
 log = logging.getLogger("romm")
 
@@ -588,8 +589,10 @@ async def release_session(platform: str, request: Request) -> JSONResponse:
 
 
 @router.get("/sessions")
-async def list_sessions() -> JSONResponse:
+async def list_sessions(request: Request) -> JSONResponse:
     """Debug — active sessions."""
+    if not request.user.is_authenticated:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return JSONResponse(
         {
             session_key: {
@@ -603,7 +606,7 @@ async def list_sessions() -> JSONResponse:
 
 @router.delete("/sessions")
 async def force_release_all(request: Request) -> JSONResponse:
-    if not request.user.is_authenticated:
+    if not request.user.is_authenticated or request.user.role != Role.ADMIN:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     # Admin endpoint — force releases all active sessions
