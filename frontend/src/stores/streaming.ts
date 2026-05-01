@@ -250,7 +250,7 @@ export const useStreamingStore = defineStore("streaming", () => {
   }
 
   /**
-   * Load game state from a slot (1–9).
+   * Load game state from a slot (1–10). Slot 10 is the autosave slot on xemu and rpcs3.
    * Best-effort — never throws.
    */
   async function loadState(platform: string, slot = 1): Promise<boolean> {
