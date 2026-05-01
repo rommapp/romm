@@ -145,3 +145,15 @@ async def test_concurrent_claim_only_one_succeeds(access_token):
                 )
 
     assert sorted([r1.status_code, r2.status_code]) == [200, 409]
+
+
+def test_release_session_requires_auth(client):
+    """Unauthenticated DELETE /sessions/{platform} must return 403."""
+    response = client.delete("/api/streaming/sessions/ps2")
+    assert response.status_code == 403
+
+
+def test_force_release_all_requires_auth(client):
+    """Unauthenticated DELETE /sessions must return 403."""
+    response = client.delete("/api/streaming/sessions")
+    assert response.status_code == 403

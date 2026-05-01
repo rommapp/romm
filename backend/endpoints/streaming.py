@@ -565,7 +565,9 @@ async def load_state(platform: str, req: LoadStateRequest) -> JSONResponse:
 
 
 @router.delete("/sessions/{platform}")
-async def release_session(platform: str) -> JSONResponse:
+async def release_session(platform: str, request: Request) -> JSONResponse:
+    if not request.user.is_authenticated:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     # Release a session. Also tells the broker to stop the emulator.
     container = _container_for_platform(platform)
@@ -600,7 +602,10 @@ async def list_sessions() -> JSONResponse:
 
 
 @router.delete("/sessions")
-async def force_release_all() -> JSONResponse:
+async def force_release_all(request: Request) -> JSONResponse:
+    if not request.user.is_authenticated:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     # Admin endpoint — force releases all active sessions
     released = list(_sessions.keys())
     _sessions.clear()
