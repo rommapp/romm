@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
+import api from "@/services/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -119,24 +120,22 @@ export const useStreamingStore = defineStore("streaming", () => {
     romPath: string,
     romName: string,
   ): Promise<ActiveSession> {
-    const res = await fetch("/api/streaming/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ platform, rom_path: romPath, rom_name: romName }),
-    });
-
-    if (!res.ok) {
-      const detail = await res.json().catch(() => ({}));
+    try {
+      const { data } = await api.post<ActiveSession>("/streaming/sessions", {
+        platform,
+        rom_path: romPath,
+        rom_name: romName,
+      });
+      activeSession.value = data;
+      return data;
+    } catch (e: any) {
+      const detail = e.response?.data?.detail;
       const err = Object.assign(
-        new Error(detail?.detail?.message ?? `HTTP ${res.status}`),
-        { status: res.status, detail: detail?.detail },
+        new Error(detail?.message ?? `HTTP ${e.response?.status}`),
+        { status: e.response?.status, detail },
       );
       throw err;
     }
-
-    const session: ActiveSession = await res.json();
-    activeSession.value = session;
-    return session;
   }
 
   /**
@@ -147,7 +146,7 @@ export const useStreamingStore = defineStore("streaming", () => {
     if (!platform) return;
     activeSession.value = null;
     try {
-      await fetch(`/api/streaming/sessions/${platform}`, { method: "DELETE" });
+      await api.delete(`/streaming/sessions/${platform}`);
     } catch (err) {
       console.warn("[streaming] Could not release session:", err);
     }
@@ -167,16 +166,10 @@ export const useStreamingStore = defineStore("streaming", () => {
     if (!platform) return false;
     activeSession.value = null;
     try {
-      const res = await fetch(
-        `/api/streaming/sessions/${platform}/save-and-exit`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slot, wait }),
-        },
+      const { data } = await api.post(
+        `/streaming/sessions/${platform}/save-and-exit`,
+        { slot, wait },
       );
-      if (!res.ok) return false;
-      const data = await res.json();
       return data.saved ?? false;
     } catch (err) {
       console.warn("[streaming] Could not save-and-exit:", err);
@@ -190,10 +183,8 @@ export const useStreamingStore = defineStore("streaming", () => {
   async function setVolume(platform: string, level: number): Promise<void> {
     if (!platform) return;
     try {
-      await fetch(`/api/streaming/sessions/${platform}/volume`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ level: Math.round(level) }),
+      await api.post(`/streaming/sessions/${platform}/volume`, {
+        level: Math.round(level),
       });
     } catch (err) {
       console.warn("[streaming] Could not set volume:", err);
@@ -207,11 +198,10 @@ export const useStreamingStore = defineStore("streaming", () => {
   async function setMute(platform: string, mute?: boolean): Promise<void> {
     if (!platform) return;
     try {
-      await fetch(`/api/streaming/sessions/${platform}/mute`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mute !== undefined ? { mute } : {}),
-      });
+      await api.post(
+        `/streaming/sessions/${platform}/mute`,
+        mute !== undefined ? { mute } : {},
+      );
     } catch (err) {
       console.warn("[streaming] Could not set mute:", err);
     }
@@ -225,16 +215,10 @@ export const useStreamingStore = defineStore("streaming", () => {
   async function saveState(platform: string, slot = 1): Promise<boolean> {
     if (!platform) return false;
     try {
-      const res = await fetch(
-        `/api/streaming/sessions/${platform}/save-state`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slot }),
-        },
+      const { data } = await api.post(
+        `/streaming/sessions/${platform}/save-state`,
+        { slot },
       );
-      if (!res.ok) return false;
-      const data = await res.json();
       return data.status === "saving";
     } catch (err) {
       console.warn("[streaming] Could not save state:", err);
@@ -249,16 +233,10 @@ export const useStreamingStore = defineStore("streaming", () => {
   async function loadState(platform: string, slot = 1): Promise<boolean> {
     if (!platform) return false;
     try {
-      const res = await fetch(
-        `/api/streaming/sessions/${platform}/load-state`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slot }),
-        },
+      const { data } = await api.post(
+        `/streaming/sessions/${platform}/load-state`,
+        { slot },
       );
-      if (!res.ok) return false;
-      const data = await res.json();
       return data.loaded ?? false;
     } catch (err) {
       console.warn("[streaming] Could not load state:", err);
