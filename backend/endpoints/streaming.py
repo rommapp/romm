@@ -21,6 +21,9 @@ log = logging.getLogger("romm")
 
 router = APIRouter(prefix="/streaming", tags=["streaming"])
 
+# NOTE: in-process storage — breaks under multi-worker deployments (gunicorn/uvicorn
+# with workers > 1). Each worker has its own copy; sessions claimed in one are
+# invisible to others and the 409 guard silently stops working.
 _sessions: dict[str, dict[str, Any]] = {}
 _session_locks: dict[str, asyncio.Lock] = {}
 
@@ -82,7 +85,7 @@ def _get_streaming_config() -> dict[str, Any]:
         return {"enabled": enabled, "containers": containers}
 
     except Exception as e:
-        log.error(f"streaming: Failed to extract config from cm: {e}")
+        log.error("streaming: Failed to extract config from cm: %s", e)
         return {"enabled": False, "containers": []}
 
 
@@ -417,7 +420,7 @@ async def claim_session(req: ClaimSessionRequest, request: Request) -> JSONRespo
             "rom_path": req.rom_path,
             "rom_name": req.rom_name,
             "claimed_at": now,
-            "user_id": str(request.client.host) if request.client else "unknown",
+            "user_id": request.user.id,
         }
 
         log.info(

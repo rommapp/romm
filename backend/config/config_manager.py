@@ -105,11 +105,6 @@ class StreamingContainer(TypedDict):
     label: str
 
 
-class StreamingConfig(TypedDict):
-    enabled: bool
-    containers: list[StreamingContainer]
-
-
 class Config:
     CONFIG_FILE_MOUNTED: bool
     CONFIG_FILE_WRITABLE: bool
