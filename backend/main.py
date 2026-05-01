@@ -105,7 +105,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
             re.compile(r"^/api/client-tokens/pair/.+/status"),
             re.compile(r"^/ws"),
             re.compile(r"^/netplay"),
-            re.compile(r"^/api/streaming/.*"),
+            re.compile(r"^/api/streaming/config$"),
         ],
     )
 

@@ -98,13 +98,6 @@ export const useStreamingStore = defineStore("streaming", () => {
         enabled: data.enabled ?? false,
         containers: data.containers ?? [],
       };
-
-      console.debug(
-        "[streaming] Config loaded — enabled:",
-        config.value.enabled,
-        "platforms:",
-        config.value.containers.map((c) => c.platform),
-      );
     } catch (err) {
       error.value = String(err);
       console.warn("[streaming] Could not fetch config:", err);

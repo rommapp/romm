@@ -8,6 +8,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from typing import Annotated, Any
+from urllib.parse import urlparse, urlunparse
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -30,8 +31,6 @@ def _container_key(container: dict[str, Any]) -> str:
     if broker_host:
         return broker_host
     # Derive from stream host the same way _broker_url does: replace port with 8000
-    from urllib.parse import urlparse, urlunparse
-
     stream_host = container.get("host", "").rstrip("/")
     try:
         parsed = urlparse(stream_host)
@@ -122,8 +121,6 @@ def _broker_url(container: dict[str, Any], path: str) -> str:
         # Parse out just the scheme + hostname, replace port
         # e.g. http://192.168.1.51:3000 → http://192.168.1.51:8000
         try:
-            from urllib.parse import urlparse, urlunparse
-
             parsed = urlparse(stream_host)
             broker_host = urlunparse(parsed._replace(netloc=f"{parsed.hostname}:8000"))
         except Exception:
@@ -385,6 +382,9 @@ async def claim_session(req: ClaimSessionRequest, request: Request) -> JSONRespo
     returns 409 if the platform is already occupied
     returns 503 if the broker is unreachable
     """
+    if not request.user.is_authenticated:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     container = _container_for_platform(req.platform)
 
     if container is None:
@@ -438,12 +438,17 @@ async def claim_session(req: ClaimSessionRequest, request: Request) -> JSONRespo
 
 
 @router.post("/sessions/{platform}/save-and-exit")
-async def save_and_exit_session(platform: str, req: SaveAndExitRequest) -> JSONResponse:
+async def save_and_exit_session(
+    platform: str, req: SaveAndExitRequest, request: Request
+) -> JSONResponse:
     """
     Save game state then release the session.
     wait=true (default): blocks until broker confirms save+kill complete.
     wait=false: broker fires save+kill in background, returns immediately.
     """
+    if not request.user.is_authenticated:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     container = _container_for_platform(platform)
     if container is None:
         raise HTTPException(
@@ -469,8 +474,13 @@ async def save_and_exit_session(platform: str, req: SaveAndExitRequest) -> JSONR
 
 
 @router.post("/sessions/{platform}/volume")
-async def set_volume(platform: str, req: VolumeRequest) -> JSONResponse:
+async def set_volume(
+    platform: str, req: VolumeRequest, request: Request
+) -> JSONResponse:
     """Set emulator audio volume (0–100). Best-effort — no 404 if broker unreachable."""
+    if not request.user.is_authenticated:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     container = _container_for_platform(platform)
     if container is None:
         raise HTTPException(
@@ -492,8 +502,11 @@ async def set_volume(platform: str, req: VolumeRequest) -> JSONResponse:
 
 
 @router.post("/sessions/{platform}/mute")
-async def set_mute(platform: str, req: MuteRequest) -> JSONResponse:
+async def set_mute(platform: str, req: MuteRequest, request: Request) -> JSONResponse:
     """Toggle or explicitly set mute state. Omit body to toggle."""
+    if not request.user.is_authenticated:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     container = _container_for_platform(platform)
     if container is None:
         raise HTTPException(
@@ -513,8 +526,13 @@ async def set_mute(platform: str, req: MuteRequest) -> JSONResponse:
 
 
 @router.post("/sessions/{platform}/save-state")
-async def save_state(platform: str, req: SaveStateRequest) -> JSONResponse:
+async def save_state(
+    platform: str, req: SaveStateRequest, request: Request
+) -> JSONResponse:
     """Save game state to a slot (1–9) without stopping the emulator."""
+    if not request.user.is_authenticated:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     container = _container_for_platform(platform)
     if container is None:
         raise HTTPException(
@@ -538,8 +556,13 @@ async def save_state(platform: str, req: SaveStateRequest) -> JSONResponse:
 
 
 @router.post("/sessions/{platform}/load-state")
-async def load_state(platform: str, req: LoadStateRequest) -> JSONResponse:
+async def load_state(
+    platform: str, req: LoadStateRequest, request: Request
+) -> JSONResponse:
     """Load game state from a slot (1–10). Slot 10 is the autosave."""
+    if not request.user.is_authenticated:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     container = _container_for_platform(platform)
     if container is None:
         raise HTTPException(
