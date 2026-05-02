@@ -185,6 +185,32 @@ const routes = [
         component: () => import("@/views/Player/RuffleRS/Base.vue"),
       },
       {
+        path: "rom/:rom/patch",
+        name: ROUTES.PATCHER,
+        meta: {
+          title: i18n.global.t("common.patcher"),
+        },
+        component: () => import("@/views/Patcher.vue"),
+        beforeEnter: (async (to, _from, next) => {
+          const romsStore = storeRoms();
+
+          if (
+            !romsStore.currentRom ||
+            romsStore.currentRom.id !== parseInt(to.params.rom as string)
+          ) {
+            try {
+              const data = await romApi.getRom({
+                romId: parseInt(to.params.rom as string),
+              });
+              romsStore.setCurrentRom(data.data);
+            } catch (error) {
+              console.error(error);
+            }
+          }
+          next();
+        }) as NavigationGuardWithThis<undefined>,
+      },
+      {
         path: "april-fools",
         name: ROUTES.APRIL_FOOLS,
         component: () => import("@/views/Player/AprilFools.vue"),
@@ -196,14 +222,6 @@ const routes = [
           title: i18n.global.t("scan.scan"),
         },
         component: () => import("@/views/Scan.vue"),
-      },
-      {
-        path: "patcher",
-        name: ROUTES.PATCHER,
-        meta: {
-          title: i18n.global.t("common.patcher"),
-        },
-        component: () => import("@/views/Patcher.vue"),
       },
       {
         path: "user/:user",

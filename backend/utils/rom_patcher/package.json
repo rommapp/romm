@@ -1,0 +1,12 @@
+{
+  "name": "romm-backend-rom-patcher",
+  "private": true,
+  "description": "Isolated RomPatcher.js install used by the backend server-side patch endpoint.",
+  "license": "AGPL-3.0-only",
+  "dependencies": {
+    "rom-patcher": "github:marcrobledo/RomPatcher.js#v3.2.1"
+  },
+  "engines": {
+    "node": "24"
+  }
+}

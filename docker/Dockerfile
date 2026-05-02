@@ -39,6 +39,13 @@ COPY ./frontend ./
 RUN npm run build
 
 
+# BACKEND NODE HELPERS BUILD (server-side ROM patching via RomPatcher.js)
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS backend-node-build
+WORKDIR /backend-node/rom_patcher
+COPY ./backend/utils/rom_patcher/package*.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund
+
+
 # https://github.com/astral-sh/uv/pkgs/container/uv/452595714
 FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${UV_SHA256} AS uv-stage
 
@@ -160,6 +167,7 @@ RUN apk add --no-cache \
     libmagic \
     mariadb-connector-c \
     libpq \
+    nodejs \
     7zip \
     tzdata \
     valkey
@@ -178,6 +186,7 @@ COPY --from=python-alias /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/p
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
+COPY --from=backend-node-build /backend-node/rom_patcher/node_modules/rom-patcher/rom-patcher-js /backend/utils/rom_patcher/rom-patcher-js
 
 COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \

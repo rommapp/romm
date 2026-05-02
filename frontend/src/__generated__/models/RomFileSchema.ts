@@ -10,6 +10,7 @@ export type RomFileSchema = {
     file_path: string;
     file_size_bytes: number;
     full_path: string;
+    is_top_level: boolean;
     created_at: string;
     updated_at: string;
     last_modified: string;

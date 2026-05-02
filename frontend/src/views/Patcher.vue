@@ -1,64 +1,33 @@
 <script setup lang="ts">
-import { useDropZone } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref, onMounted, watch, computed } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import type { RomFileSchema } from "@/__generated__";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import api from "@/services/api";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
-import { type Platform } from "@/stores/platforms";
-import storePlatforms from "@/stores/platforms";
+import storePlatforms, { type Platform } from "@/stores/platforms";
+import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 
-// Declare global variables for RomPatcher
-declare global {
-  interface Window {
-    BinFile: any;
-    IPS: any;
-    UPS: any;
-    APS: any;
-    APSGBA: any;
-    BPS: any;
-    RUP: any;
-    PPF: any;
-    BDF: any;
-    PMSR: any;
-    VCDIFF: any;
-  }
-}
-
 const { t } = useI18n();
+const emitter = inject<Emitter<Events>>("emitter");
 const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
-const loadError = ref<string | null>(null);
-const coreLoaded = ref(false);
-const romFile = ref<File | null>(null);
-const patchFile = ref<File | null>(null);
-const romBin = ref<any | null>(null);
-const patchBin = ref<any | null>(null);
-const romDropZoneRef = ref<HTMLDivElement | null>(null);
-const patchDropZoneRef = ref<HTMLDivElement | null>(null);
-const romInputRef = ref<HTMLInputElement | null>(null);
-const patchInputRef = ref<HTMLInputElement | null>(null);
-const applying = ref(false);
-const statusMessage = ref<string | null>(null);
-const downloadLocally = ref(true);
-const saveIntoRomM = ref(true);
-const selectedPlatform = ref<Platform | null>(null);
-const customFileName = ref("");
-const filenamePlaceholder = ref("");
-const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
+const romsStore = storeRoms();
+const { currentRom } = storeToRefs(romsStore);
 const scanningStore = storeScanning();
 const uploadStore = storeUpload();
 
-const supportedPatchFormats = [
+const supportedPatchExtensions = [
   ".ips",
   ".ups",
   ".bps",
@@ -70,210 +39,140 @@ const supportedPatchFormats = [
   ".vcdiff",
 ];
 
-const { isOverDropZone: isOverRomDropZone } = useDropZone(romDropZoneRef, {
-  onDrop: onRomDrop,
-  multiple: false,
-  preventDefaultForUnhandled: true,
-});
+function getExt(name: string) {
+  const match = name.match(/\.[^.]+$/);
+  return match ? match[0].toLowerCase() : "";
+}
 
-const { isOverDropZone: isOverPatchDropZone } = useDropZone(patchDropZoneRef, {
-  onDrop: onPatchDrop,
-  multiple: false,
-  preventDefaultForUnhandled: true,
-});
+function isPatchFile(file: RomFileSchema) {
+  return (
+    file.category === "patch" ||
+    supportedPatchExtensions.includes(getExt(file.file_name))
+  );
+}
 
-// Computed property for ROM extension
-const romExtension = computed(() => {
-  if (!romFile.value) return "";
-  const match = romFile.value.name.match(/\.[^.]+$/);
-  return match ? match[0] : "";
-});
+const selectedRomFile = ref<RomFileSchema | null>(null);
+const selectedPatchFile = ref<RomFileSchema | null>(null);
 
-// Update filename placeholder when files change
-watch([romFile, patchFile], ([rom, patch]) => {
-  if (rom && patch) {
-    const romBaseName = rom.name.replace(/\.[^.]+$/, "");
-    const patchNameWithoutExt = patch.name.replace(/\.[^.]+$/, "");
-    filenamePlaceholder.value = `${romBaseName} (patched-${patchNameWithoutExt})`;
-  } else {
-    filenamePlaceholder.value = "";
+const downloadLocally = ref(true);
+const saveIntoRomM = ref(false);
+const selectedPlatform = ref<Platform | null>(null);
+const customFileName = ref("");
+
+const applying = ref(false);
+const loadError = ref<string | null>(null);
+const statusMessage = ref<string | null>(null);
+
+const baseFiles = computed(() =>
+  (currentRom.value?.files ?? []).filter((f) => f.category === "game"),
+);
+const patchFiles = computed(() =>
+  (currentRom.value?.files ?? []).filter(isPatchFile),
+);
+
+const romExtension = computed(() =>
+  selectedRomFile.value ? getExt(selectedRomFile.value.file_name) : "",
+);
+
+const filenamePlaceholder = computed(() => {
+  if (selectedRomFile.value && selectedPatchFile.value) {
+    const romBase = selectedRomFile.value.file_name.replace(/\.[^.]+$/, "");
+    const patchBase = selectedPatchFile.value.file_name.replace(/\.[^.]+$/, "");
+    return `${romBase} (patched-${patchBase})`;
   }
+  return "";
 });
 
-async function ensureCoreLoaded() {
-  if (coreLoaded.value) return;
-  try {
-    window.BinFile =
-      window.IPS =
-      window.UPS =
-      window.APS =
-      window.APSGBA =
-      window.BPS =
-      window.RUP =
-      window.PPF =
-      window.BDF =
-      window.PMSR =
-      window.VCDIFF =
-        null;
+watch(
+  currentRom,
+  (rom) => {
+    selectedRomFile.value = null;
+    selectedPatchFile.value = null;
+    if (!rom) return;
+    if (baseFiles.value.length === 1) {
+      selectedRomFile.value = baseFiles.value[0];
+    }
+    if (patchFiles.value.length === 1) {
+      selectedPatchFile.value = patchFiles.value[0];
+    }
+  },
+  { immediate: true },
+);
 
-    await Promise.all([
-      import("rom-patcher/rom-patcher-js/modules/BinFile.js"),
-      import("rom-patcher/rom-patcher-js/modules/HashCalculator.js"),
-      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_gba.js"),
-      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.aps_n64.js"),
-      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.bdf.js"),
-      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.bps.js"),
-      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ips.js"),
-      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.pmsr.js"),
-      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ppf.js"),
-      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.rup.js"),
-      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.ups.js"),
-      import("rom-patcher/rom-patcher-js/modules/RomPatcher.format.vcdiff.js"),
-      import("rom-patcher/rom-patcher-js/RomPatcher.js"),
-    ]);
-
-    coreLoaded.value = true;
-  } catch (e: any) {
-    loadError.value = e?.message || String(e);
+async function readErrorDetail(err: unknown): Promise<string> {
+  const anyErr = err as {
+    response?: { data?: unknown };
+    message?: string;
+  };
+  const data = anyErr?.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      const parsed = JSON.parse(text);
+      if (parsed?.detail) return parsed.detail;
+    } catch {
+      /* fallthrough */
+    }
   }
-}
-
-function setRomFile(file: File | null) {
-  romFile.value = file;
-  romBin.value = null;
-}
-
-function setPatchFile(file: File | null) {
-  patchFile.value = file;
-  patchBin.value = null;
-}
-
-function onRomInput(files: File[] | File | null) {
-  const first = Array.isArray(files) ? (files[0] ?? null) : files;
-  setRomFile(first ?? null);
-}
-
-function onPatchInput(files: File[] | File | null) {
-  const first = Array.isArray(files) ? (files[0] ?? null) : files;
-  setPatchFile(first ?? null);
-}
-
-function onRomChange(e: Event) {
-  const input = e.target as HTMLInputElement;
-  onRomInput(input.files ? Array.from(input.files) : null);
-  if (input) input.value = "";
-}
-
-function onPatchChange(e: Event) {
-  const input = e.target as HTMLInputElement;
-  onPatchInput(input.files ? Array.from(input.files) : null);
-  if (input) input.value = "";
-}
-
-function onRomDrop(files: File[] | null) {
-  onRomInput(files);
-}
-
-function onPatchDrop(files: File[] | null) {
-  onPatchInput(files);
-}
-
-function triggerRomInput() {
-  romInputRef.value?.click();
-}
-
-function triggerPatchInput() {
-  patchInputRef.value?.click();
+  if (
+    data &&
+    typeof data === "object" &&
+    "detail" in data &&
+    typeof (data as { detail: unknown }).detail === "string"
+  ) {
+    return (data as { detail: string }).detail;
+  }
+  return anyErr?.message || String(err);
 }
 
 async function patchRom() {
   loadError.value = null;
   statusMessage.value = null;
-  if (!coreLoaded.value) await ensureCoreLoaded();
-  if (!coreLoaded.value) return; // bail on error
 
-  if (!romFile.value) {
+  if (!selectedRomFile.value) {
     loadError.value = t("patcher.error-no-rom");
     return;
   }
-  if (!patchFile.value) {
+  if (!selectedPatchFile.value) {
     loadError.value = t("patcher.error-no-patch");
     return;
   }
-
   if (saveIntoRomM.value && !selectedPlatform.value) {
     loadError.value = t("patcher.error-no-platform");
     return;
   }
-
   if (!downloadLocally.value && !saveIntoRomM.value) {
     loadError.value = t("patcher.error-no-action");
     return;
   }
 
   applying.value = true;
-
   try {
-    // Read files as ArrayBuffers
-    statusMessage.value = t("patcher.status-preparing");
-    const romArrayBuffer = await romFile.value.arrayBuffer();
-    const patchArrayBuffer = await patchFile.value.arrayBuffer();
+    statusMessage.value = t("patcher.status-patching");
 
-    // Create and use web worker for patching
-    const worker = new Worker("/assets/patcherjs/patcher.worker.js");
+    const customBase = (
+      customFileName.value || filenamePlaceholder.value
+    ).trim();
+    const outputFileName = customBase + romExtension.value;
 
-    const patchedResult = await new Promise<{
-      data: Uint8Array;
-      fileName: string;
-    }>((resolve, reject) => {
-      worker.onmessage = (e) => {
-        const { type, message, patchedData, fileName, error } = e.data;
+    const response = await api.post(
+      `/roms/${selectedRomFile.value.id}/patch`,
+      {
+        patch_file_id: selectedPatchFile.value.id,
+        output_file_name: customFileName.value || undefined,
+      },
+      { responseType: "blob" },
+    );
 
-        if (type === "STATUS") {
-          statusMessage.value = message;
-        } else if (type === "SUCCESS") {
-          worker.terminate();
-          resolve({
-            data: new Uint8Array(patchedData),
-            fileName: fileName,
-          });
-        } else if (type === "ERROR") {
-          worker.terminate();
-          reject(new Error(error));
-        }
-      };
-
-      worker.onerror = (error) => {
-        worker.terminate();
-        reject(new Error(`Worker error: ${error.message}`));
-      };
-
-      // Send data to worker
-      worker.postMessage(
-        {
-          type: "PATCH",
-          romData: romArrayBuffer,
-          patchData: patchArrayBuffer,
-          romFileName: romFile.value?.name,
-          patchFileName: patchFile.value?.name,
-          customFileName: customFileName.value || "",
-        },
-        [romArrayBuffer, patchArrayBuffer],
-      ); // Transfer ownership
-    });
-
-    // Handle the patched result
-    let actions = [];
+    const blob = response.data as Blob;
+    const actions: string[] = [];
 
     if (downloadLocally.value) {
       statusMessage.value = t("patcher.status-downloading");
-      // Create blob and trigger download
-      const copy = new Uint8Array(patchedResult.data);
-      const blob = new Blob([copy], { type: "application/octet-stream" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = patchedResult.fileName;
+      a.download = outputFileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -283,7 +182,10 @@ async function patchRom() {
 
     if (saveIntoRomM.value && selectedPlatform.value) {
       statusMessage.value = t("patcher.status-uploading");
-      await uploadPatchedRom(patchedResult.data, patchedResult.fileName);
+      const file = new File([blob], outputFileName, {
+        type: "application/octet-stream",
+      });
+      await uploadPatchedFile(file, selectedPlatform.value.id);
       actions.push(t("patcher.success-uploaded"));
     }
 
@@ -294,115 +196,56 @@ async function patchRom() {
       setTimeout(() => {
         statusMessage.value = null;
       }, 3000);
-    } else {
-      statusMessage.value = null;
     }
-  } catch (err: any) {
-    loadError.value = err?.message || String(err);
+  } catch (err: unknown) {
+    loadError.value = await readErrorDetail(err);
     statusMessage.value = null;
   } finally {
     applying.value = false;
   }
 }
 
-async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
-  if (!selectedPlatform.value) {
-    throw new Error("No platform selected.");
+async function uploadPatchedFile(file: File, platformId: number) {
+  const responses = await romApi.uploadRoms({
+    filesToUpload: [file],
+    platformId,
+  });
+  const failed = responses.filter((r) => r.status === "rejected");
+  const successful = responses.filter((r) => r.status === "fulfilled");
+
+  if (successful.length === 0) {
+    const firstFailure = failed[0] as PromiseRejectedResult | undefined;
+    const detail =
+      firstFailure?.reason?.response?.data?.detail ||
+      firstFailure?.reason?.message ||
+      "Upload failed";
+    throw new Error(t("patcher.error-upload-failed", { error: detail }));
   }
-  const platformId = selectedPlatform.value.id;
 
-  // Convert the binary data to a File object
-  const copy = new Uint8Array(binaryData);
-  const file = new File([copy], fileName, { type: "application/octet-stream" });
+  if (failed.length === 0) uploadStore.reset();
 
-  // Upload the patched ROM
-  await romApi
-    .uploadRoms({
-      filesToUpload: [file],
-      platformId: platformId,
-    })
-    .then((responses) => {
-      const successfulUploads = responses.filter(
-        (d) => d.status === "fulfilled",
-      );
-      const failedUploads = responses.filter((d) => d.status === "rejected");
+  emitter?.emit("snackbarShow", {
+    msg: t("patcher.upload-success", {
+      errors: failed.length > 0 ? t("patcher.upload-errors") : "",
+    }),
+    icon: "mdi-check-bold",
+    color: "green",
+    timeout: 3000,
+  });
 
-      if (successfulUploads.length === 0) {
-        // Get detailed error message from the first failed upload
-        const firstFailure = failedUploads[0] as PromiseRejectedResult;
-        const errorDetail =
-          firstFailure?.reason?.response?.data?.detail ||
-          firstFailure?.reason?.message ||
-          "Upload failed with unknown error";
-        console.error("Upload failed:", firstFailure);
-        throw new Error(errorDetail);
-      }
+  selectedPlatform.value = null;
+  saveIntoRomM.value = false;
 
-      if (failedUploads.length === 0) {
-        uploadStore.reset();
-      }
-
-      emitter?.emit("snackbarShow", {
-        msg: t("patcher.upload-success", {
-          errors: failedUploads.length > 0 ? t("patcher.upload-errors") : "",
-        }),
-        icon: "mdi-check-bold",
-        color: "green",
-        timeout: 3000,
-      });
-
-      // Clear form after successful upload
-      romFile.value = null;
-      patchFile.value = null;
-      if (failedUploads.length === 0) {
-        uploadStore.reset();
-        // Clear form only on complete success
-        romFile.value = null;
-        patchFile.value = null;
-        romBin.value = null;
-        patchBin.value = null;
-        selectedPlatform.value = null;
-        saveIntoRomM.value = false;
-
-        scanningStore.setScanning(true);
-
-        if (!socket.connected) socket.connect();
-        setTimeout(() => {
-          socket.emit("scan", {
-            platforms: [platformId],
-            type: "quick",
-            apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
-          });
-        }, 2000);
-      }
-      patchBin.value = null;
-      selectedPlatform.value = null;
-      saveIntoRomM.value = false;
-
-      scanningStore.setScanning(true);
-
-      if (!socket.connected) socket.connect();
-      setTimeout(() => {
-        socket.emit("scan", {
-          platforms: [platformId],
-          type: "quick",
-          apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
-        });
-      }, 2000);
-    })
-    .catch(({ response, message }) => {
-      throw new Error(
-        t("patcher.error-upload-failed", {
-          error: response?.data?.detail || response?.statusText || message,
-        }),
-      );
+  scanningStore.setScanning(true);
+  if (!socket.connected) socket.connect();
+  setTimeout(() => {
+    socket.emit("scan", {
+      platforms: [platformId],
+      type: "quick",
+      apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
     });
+  }, 2000);
 }
-
-onMounted(async () => {
-  // Preload core for faster interaction
-  await ensureCoreLoaded();
-});
 </script>
 
 <template>
@@ -440,173 +283,133 @@ onMounted(async () => {
             </div>
           </v-alert>
 
-          <v-row class="mb-2" dense>
+          <v-row dense>
             <v-col cols="12" md="6">
               <v-sheet class="pa-3" rounded="lg" border color="surface">
-                <div class="text-subtitle-1">{{ t("patcher.rom-file") }}</div>
-                <div
-                  ref="romDropZoneRef"
-                  class="dropzone-container rounded-lg transition-all duration-300 ease-in-out mt-4"
-                  :class="{
-                    'dropzone-active': isOverRomDropZone,
-                    'dropzone-has-files': !!romFile,
-                  }"
-                  role="button"
-                  tabindex="0"
-                  @click="triggerRomInput"
-                  @keydown.enter.prevent="triggerRomInput"
-                  @keydown.space.prevent="triggerRomInput"
-                >
-                  <div
-                    v-if="!romFile"
-                    class="flex flex-col items-center justify-center h-full min-h-[180px] p-6 text-center transition-all duration-300 ease-in-out"
-                  >
-                    <v-icon
-                      :class="{ 'animate-pulse-glow': isOverRomDropZone }"
-                      size="40"
-                      color="primary"
-                    >
-                      {{ isOverRomDropZone ? "mdi-file" : "mdi-file-outline" }}
-                    </v-icon>
-                    <div class="text-subtitle-2 mt-3 mb-1">
-                      {{ t("patcher.drop-rom-here") }}
-                    </div>
-                    <p class="text-body-2 text-medium-emphasis mb-3">
-                      {{ t("patcher.drag-drop-rom") }}
-                    </p>
-                    <v-btn color="primary" variant="outlined" size="small">
-                      {{ t("patcher.choose-rom") }}
-                    </v-btn>
-                  </div>
-
-                  <div
-                    v-else
-                    class="d-flex align-center justify-space-between h-full min-h-[120px] px-4"
-                  >
-                    <div>
-                      <div class="text-subtitle-2">{{ romFile.name }}</div>
-                      <div class="text-caption text-medium-emphasis mt-2">
-                        <v-chip size="small" label>
-                          {{ formatBytes(romFile.size) }}
-                        </v-chip>
-                      </div>
-                    </div>
-                    <div class="d-flex align-center">
-                      <v-btn
-                        color="primary"
-                        variant="outlined"
-                        size="small"
-                        class="mr-2"
-                        @click.stop="triggerRomInput"
-                      >
-                        {{ t("patcher.replace") }}
-                      </v-btn>
-                      <v-btn
-                        icon
-                        variant="plain"
-                        @click.stop="onRomInput(null)"
-                      >
-                        <v-icon color="red"> mdi-close </v-icon>
-                      </v-btn>
-                    </div>
-                  </div>
+                <div class="text-subtitle-1 mb-3">
+                  {{ t("patcher.rom-file") }}
                 </div>
-                <input
-                  ref="romInputRef"
-                  type="file"
-                  class="sr-only"
-                  style="display: none"
-                  @change="onRomChange"
-                />
+
+                <div
+                  v-if="currentRom"
+                  class="d-flex align-center flex-wrap mb-3"
+                >
+                  <PlatformIcon
+                    :slug="currentRom.platform_slug"
+                    :name="currentRom.platform_display_name"
+                    :fs-slug="currentRom.platform_fs_slug"
+                    :size="30"
+                    class="mr-2"
+                  />
+                  <div class="d-flex flex-column">
+                    <span class="text-body-2">
+                      {{ currentRom.name ?? currentRom.fs_name }}
+                    </span>
+                    <span class="text-caption text-medium-emphasis">
+                      {{ currentRom.fs_name }}
+                    </span>
+                  </div>
+                  <MissingFromFSIcon
+                    v-if="currentRom.missing_from_fs"
+                    text="Missing from filesystem"
+                    chip
+                    chip-label
+                    chip-density="compact"
+                    class="ml-2"
+                  />
+                </div>
+
+                <v-select
+                  v-if="baseFiles.length > 1"
+                  v-model="selectedRomFile"
+                  :items="baseFiles"
+                  :label="t('patcher.select-file')"
+                  item-title="file_name"
+                  return-object
+                  variant="outlined"
+                  density="comfortable"
+                  hide-details
+                >
+                  <template #item="{ props, item }">
+                    <v-list-item
+                      v-bind="props"
+                      :title="item.raw.file_name"
+                      :subtitle="formatBytes(item.raw.file_size_bytes)"
+                    />
+                  </template>
+                </v-select>
+
+                <div
+                  v-else-if="selectedRomFile"
+                  class="d-flex align-center flex-wrap"
+                >
+                  <v-chip size="small" label class="mr-2 mb-1">
+                    {{ selectedRomFile.file_name }}
+                  </v-chip>
+                  <span class="text-caption text-medium-emphasis">
+                    {{ formatBytes(selectedRomFile.file_size_bytes) }}
+                  </span>
+                </div>
+
+                <div
+                  v-if="currentRom && baseFiles.length === 0"
+                  class="text-body-2 text-warning"
+                >
+                  {{ t("patcher.no-files") }}
+                </div>
               </v-sheet>
             </v-col>
 
             <v-col cols="12" md="6">
               <v-sheet class="pa-3" rounded="lg" border color="surface">
-                <div class="text-subtitle-1">{{ t("patcher.patch-file") }}</div>
-                <div
-                  ref="patchDropZoneRef"
-                  class="dropzone-container rounded-lg transition-all duration-300 ease-in-out mt-4"
-                  :class="{
-                    'dropzone-active': isOverPatchDropZone,
-                    'dropzone-has-files': !!patchFile,
-                  }"
-                  role="button"
-                  tabindex="0"
-                  @click="triggerPatchInput"
-                  @keydown.enter.prevent="triggerPatchInput"
-                  @keydown.space.prevent="triggerPatchInput"
-                >
-                  <div
-                    v-if="!patchFile"
-                    class="flex flex-col items-center justify-center h-full min-h-[180px] p-6 text-center transition-all duration-300 ease-in-out"
-                  >
-                    <v-icon
-                      :class="{ 'animate-pulse-glow': isOverPatchDropZone }"
-                      size="40"
-                      color="primary"
-                    >
-                      {{
-                        isOverPatchDropZone
-                          ? "mdi-file-cog"
-                          : "mdi-file-cog-outline"
-                      }}
-                    </v-icon>
-                    <div class="text-subtitle-2 mt-3 mb-1">
-                      {{ t("patcher.drop-patch-here") }}
-                    </div>
-                    <p class="text-body-2 text-medium-emphasis mb-3">
-                      {{ t("patcher.drag-drop-patch") }}
-                    </p>
-                    <v-btn color="primary" variant="outlined" size="small">
-                      {{ t("patcher.choose-patch") }}
-                    </v-btn>
-                  </div>
-
-                  <div
-                    v-else
-                    class="d-flex align-center justify-space-between h-full min-h-[120px] px-4"
-                  >
-                    <div>
-                      <div class="text-subtitle-2">{{ patchFile.name }}</div>
-                      <div class="text-caption text-medium-emphasis mt-2">
-                        <v-chip size="small" label>
-                          {{ formatBytes(patchFile.size) }}
-                        </v-chip>
-                      </div>
-                    </div>
-                    <div class="d-flex align-center">
-                      <v-btn
-                        color="primary"
-                        variant="outlined"
-                        size="small"
-                        class="mr-2"
-                        @click.stop="triggerPatchInput"
-                      >
-                        {{ t("patcher.replace") }}
-                      </v-btn>
-                      <v-btn
-                        icon
-                        variant="plain"
-                        @click.stop="onPatchInput(null)"
-                      >
-                        <v-icon color="red"> mdi-close </v-icon>
-                      </v-btn>
-                    </div>
-                  </div>
+                <div class="text-subtitle-1 mb-3">
+                  {{ t("patcher.patch-file") }}
                 </div>
-                <input
-                  ref="patchInputRef"
-                  type="file"
-                  :accept="supportedPatchFormats.join(',')"
-                  class="sr-only"
-                  style="display: none"
-                  @change="onPatchChange"
-                />
+
+                <v-select
+                  v-if="patchFiles.length > 1"
+                  v-model="selectedPatchFile"
+                  :items="patchFiles"
+                  :label="t('patcher.select-patch-file')"
+                  item-title="file_name"
+                  return-object
+                  variant="outlined"
+                  density="comfortable"
+                  hide-details
+                >
+                  <template #item="{ props, item }">
+                    <v-list-item
+                      v-bind="props"
+                      :title="item.raw.file_name"
+                      :subtitle="formatBytes(item.raw.file_size_bytes)"
+                    />
+                  </template>
+                </v-select>
+
+                <div
+                  v-else-if="selectedPatchFile"
+                  class="d-flex align-center flex-wrap"
+                >
+                  <v-chip size="small" label class="mr-2 mb-1">
+                    {{ selectedPatchFile.file_name }}
+                  </v-chip>
+                  <span class="text-caption text-medium-emphasis">
+                    {{ formatBytes(selectedPatchFile.file_size_bytes) }}
+                  </span>
+                </div>
+
+                <div
+                  v-if="currentRom && patchFiles.length === 0"
+                  class="text-body-2 text-warning"
+                >
+                  {{ t("patcher.no-patch-files") }}
+                </div>
+
                 <div class="text-subtitle-2 text-medium-emphasis mt-4">
                   {{ t("patcher.supported-formats") }}<br />
                   <v-chip
-                    v-for="format in supportedPatchFormats"
+                    v-for="format in supportedPatchExtensions"
+                    :key="format"
                     size="x-small"
                     class="mr-1 mt-1"
                     label
@@ -614,238 +417,137 @@ onMounted(async () => {
                   >
                 </div>
               </v-sheet>
-              <div class="d-flex align-center justify-space-between mt-4">
-                <v-switch
-                  v-model="downloadLocally"
-                  color="primary"
-                  inset
+            </v-col>
+          </v-row>
+
+          <v-sheet class="pa-3 mt-4" rounded="lg" border color="surface">
+            <div class="d-flex align-center justify-space-between">
+              <v-switch
+                v-model="downloadLocally"
+                color="primary"
+                inset
+                hide-details
+                :label="t('patcher.download-locally')"
+              />
+              <v-switch
+                v-model="saveIntoRomM"
+                color="primary"
+                inset
+                hide-details
+                :label="t('patcher.upload-to-romm')"
+              />
+            </div>
+
+            <v-expand-transition>
+              <div v-if="saveIntoRomM" class="mt-4">
+                <v-select
+                  v-model="selectedPlatform"
+                  :items="filteredPlatforms"
+                  :menu-props="{ maxHeight: 650 }"
+                  :label="t('common.platforms')"
+                  :disabled="!saveIntoRomM"
+                  item-title="name"
+                  return-object
+                  prepend-inner-icon="mdi-controller"
+                  variant="outlined"
+                  density="comfortable"
                   hide-details
-                  :label="t('patcher.download-locally')"
-                />
-                <v-switch
-                  v-model="saveIntoRomM"
-                  color="primary"
-                  inset
-                  hide-details
-                  :label="t('patcher.upload-to-romm')"
-                />
-              </div>
-
-              <v-expand-transition>
-                <div v-if="saveIntoRomM" class="mt-4">
-                  <v-select
-                    v-model="selectedPlatform"
-                    :items="filteredPlatforms"
-                    :menu-props="{ maxHeight: 650 }"
-                    :label="t('common.platforms')"
-                    :disabled="!saveIntoRomM"
-                    item-title="name"
-                    return-object
-                    prepend-inner-icon="mdi-controller"
-                    variant="outlined"
-                    density="comfortable"
-                    hide-details
-                    clearable
-                  >
-                    <template #item="{ props, item }">
-                      <v-list-item
-                        v-bind="props"
-                        class="py-4"
-                        :title="item.raw.name ?? ''"
-                        :subtitle="item.raw.fs_slug"
-                      >
-                        <template #prepend>
-                          <PlatformIcon
-                            :key="item.raw.slug"
-                            :size="35"
-                            :slug="item.raw.slug"
-                            :name="item.raw.name"
-                            :fs-slug="item.raw.fs_slug"
-                          />
-                        </template>
-                        <template #append>
-                          <MissingFromFSIcon
-                            v-if="item.raw.missing_from_fs"
-                            text="Missing platform from filesystem"
-                            chip
-                            chip-label
-                            chip-density="compact"
-                            class="ml-2"
-                          />
-                          <v-row
-                            v-if="item.raw.is_identified"
-                            class="text-center"
-                            no-gutters
-                          >
-                            <v-col cols="12">
-                              <v-avatar
-                                v-if="item.raw.igdb_id"
-                                variant="text"
-                                size="25"
-                                rounded
-                                class="mr-1"
-                              >
-                                <v-img src="/assets/scrappers/igdb.png" />
-                              </v-avatar>
-
-                              <v-avatar
-                                v-if="item.raw.ss_id"
-                                variant="text"
-                                size="25"
-                                rounded
-                                class="mr-1"
-                              >
-                                <v-img src="/assets/scrappers/ss.png" />
-                              </v-avatar>
-
-                              <v-avatar
-                                v-if="item.raw.moby_slug"
-                                variant="text"
-                                size="25"
-                                rounded
-                                class="mr-1"
-                              >
-                                <v-img src="/assets/scrappers/moby.png" />
-                              </v-avatar>
-
-                              <v-avatar
-                                v-if="item.raw.ra_id"
-                                variant="text"
-                                size="25"
-                                rounded
-                                class="mr-1"
-                              >
-                                <v-img src="/assets/scrappers/ra.png" />
-                              </v-avatar>
-
-                              <v-avatar
-                                v-if="item.raw.launchbox_id"
-                                variant="text"
-                                size="25"
-                                rounded
-                                class="mr-1"
-                                style="background: #185a7c"
-                              >
-                                <v-img src="/assets/scrappers/launchbox.png" />
-                              </v-avatar>
-
-                              <v-avatar
-                                v-if="item.raw.hasheous_id"
-                                variant="text"
-                                size="25"
-                                rounded
-                                class="mr-1"
-                              >
-                                <v-img src="/assets/scrappers/hasheous.png" />
-                              </v-avatar>
-
-                              <v-avatar
-                                v-if="item.raw.flashpoint_id"
-                                variant="text"
-                                size="25"
-                                rounded
-                                class="mr-1"
-                              >
-                                <v-img src="/assets/scrappers/flashpoint.png" />
-                              </v-avatar>
-
-                              <v-avatar
-                                v-if="item.raw.hltb_slug"
-                                class="bg-surface"
-                                variant="text"
-                                size="25"
-                                rounded
-                              >
-                                <v-img src="/assets/scrappers/hltb.png" />
-                              </v-avatar>
-
-                              <v-avatar
-                                v-if="item.raw.libretro_slug"
-                                class="bg-surface"
-                                variant="text"
-                                size="25"
-                                rounded
-                              >
-                                <v-img src="/assets/scrappers/libretro.png" />
-                              </v-avatar>
-                            </v-col>
-                          </v-row>
-                          <v-row v-else class="text-center" no-gutters>
-                            <v-chip color="red" size="small" label>
-                              <v-icon class="mr-1"> mdi-close </v-icon>
-                              {{ t("scan.not-identified").toUpperCase() }}
-                            </v-chip>
-                          </v-row>
-                          <v-chip class="ml-1" size="small" label>
-                            {{ item.raw.rom_count }}
-                          </v-chip>
-                        </template>
-                      </v-list-item>
-                    </template>
-                    <template #chip="{ item }">
-                      <v-chip>
+                  clearable
+                >
+                  <template #item="{ props, item }">
+                    <v-list-item
+                      v-bind="props"
+                      class="py-4"
+                      :title="item.raw.name ?? ''"
+                      :subtitle="item.raw.fs_slug"
+                    >
+                      <template #prepend>
                         <PlatformIcon
                           :key="item.raw.slug"
+                          :size="35"
                           :slug="item.raw.slug"
                           :name="item.raw.name"
                           :fs-slug="item.raw.fs_slug"
-                          :size="20"
                         />
-                        <div class="ml-1">
-                          {{ item.raw.name }}
-                        </div>
-                      </v-chip>
-                    </template>
-                  </v-select>
-                </div>
-              </v-expand-transition>
-
-              <v-text-field
-                v-model="customFileName"
-                :placeholder="filenamePlaceholder"
-                :suffix="romExtension"
-                :label="t('patcher.output-filename')"
-                variant="outlined"
-                density="compact"
-                hide-details
-                class="mt-4"
-                clearable
-              />
-
-              <div class="d-flex align-right justify-space-left mt-4">
-                <v-spacer />
-                <v-btn
-                  class="bg-toplayer text-primary"
-                  :disabled="
-                    !romFile ||
-                    !patchFile ||
-                    applying ||
-                    (!downloadLocally && !saveIntoRomM) ||
-                    (saveIntoRomM && !selectedPlatform)
-                  "
-                  :loading="applying"
-                  :variant="
-                    !romFile ||
-                    !patchFile ||
-                    applying ||
-                    (!downloadLocally && !saveIntoRomM) ||
-                    (saveIntoRomM && !selectedPlatform)
-                      ? 'plain'
-                      : 'flat'
-                  "
-                  @click="patchRom"
-                >
-                  {{
-                    downloadLocally && saveIntoRomM
-                      ? t("patcher.apply-download-upload")
-                      : saveIntoRomM
-                        ? t("patcher.apply-upload")
-                        : t("patcher.apply-download")
-                  }}
-                </v-btn>
+                      </template>
+                      <template #append>
+                        <MissingFromFSIcon
+                          v-if="item.raw.missing_from_fs"
+                          text="Missing platform from filesystem"
+                          chip
+                          chip-label
+                          chip-density="compact"
+                          class="ml-2"
+                        />
+                        <v-chip class="ml-1" size="small" label>
+                          {{ item.raw.rom_count }}
+                        </v-chip>
+                      </template>
+                    </v-list-item>
+                  </template>
+                  <template #chip="{ item }">
+                    <v-chip>
+                      <PlatformIcon
+                        :key="item.raw.slug"
+                        :slug="item.raw.slug"
+                        :name="item.raw.name"
+                        :fs-slug="item.raw.fs_slug"
+                        :size="20"
+                      />
+                      <div class="ml-1">
+                        {{ item.raw.name }}
+                      </div>
+                    </v-chip>
+                  </template>
+                </v-select>
               </div>
-            </v-col>
-          </v-row>
+            </v-expand-transition>
+
+            <v-text-field
+              v-model="customFileName"
+              :placeholder="filenamePlaceholder"
+              :suffix="romExtension"
+              :label="t('patcher.output-filename')"
+              variant="outlined"
+              density="compact"
+              hide-details
+              class="mt-4"
+              clearable
+            />
+
+            <div class="d-flex mt-4">
+              <v-spacer />
+              <v-btn
+                class="bg-toplayer text-primary"
+                :disabled="
+                  !selectedRomFile ||
+                  !selectedPatchFile ||
+                  applying ||
+                  (!downloadLocally && !saveIntoRomM) ||
+                  (saveIntoRomM && !selectedPlatform)
+                "
+                :loading="applying"
+                :variant="
+                  !selectedRomFile ||
+                  !selectedPatchFile ||
+                  applying ||
+                  (!downloadLocally && !saveIntoRomM) ||
+                  (saveIntoRomM && !selectedPlatform)
+                    ? 'plain'
+                    : 'flat'
+                "
+                @click="patchRom"
+              >
+                {{
+                  downloadLocally && saveIntoRomM
+                    ? t("patcher.apply-download-upload")
+                    : saveIntoRomM
+                      ? t("patcher.apply-upload")
+                      : t("patcher.apply-download")
+                }}
+              </v-btn>
+            </div>
+          </v-sheet>
         </v-card-text>
       </v-card>
 
@@ -862,39 +564,3 @@ onMounted(async () => {
     </v-col>
   </v-row>
 </template>
-
-<style scoped>
-.dropzone-container {
-  border: 2px dashed rgba(var(--v-theme-primary), 0.3);
-}
-
-.dropzone-container.dropzone-active {
-  border: 2px dashed rgba(var(--v-theme-primary));
-  background-color: rgba(var(--v-theme-primary), 0.05);
-}
-
-.dropzone-container.dropzone-has-files {
-  border: none;
-  background-color: rgba(var(--v-theme-surface), 0.5);
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse-glow {
-  0% {
-    transform: scale(1);
-    filter: brightness(1) drop-shadow(0 0 0 rgba(var(--v-theme-primary), 0));
-  }
-  50% {
-    transform: scale(1.1);
-    filter: brightness(1.2)
-      drop-shadow(0 0 20px rgba(var(--v-theme-primary), 0.6));
-  }
-  100% {
-    transform: scale(1);
-    filter: brightness(1) drop-shadow(0 0 0 rgba(var(--v-theme-primary), 0));
-  }
-}
-</style>

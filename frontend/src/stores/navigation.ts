@@ -45,9 +45,9 @@ export default defineStore("navigation", {
       this.reset();
       this.$router.push({ name: ROUTES.SCAN });
     },
-    goPatcher() {
+    goPatcher(romId: number) {
       this.reset();
-      this.$router.push({ name: ROUTES.PATCHER });
+      this.$router.push({ name: ROUTES.PATCHER, params: { rom: romId } });
     },
     goSearch() {
       this.reset();

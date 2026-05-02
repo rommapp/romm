@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
-from pydantic import ConfigDict, computed_field, field_validator
+from pydantic import ConfigDict, computed_field, field_validator, model_validator
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from handler.metadata.flashpoint_handler import FlashpointMetadata
@@ -156,6 +156,7 @@ class RomFileSchema(BaseModel):
     file_path: str
     file_size_bytes: int
     full_path: str
+    is_top_level: bool
     created_at: UTCDatetime
     updated_at: UTCDatetime
     last_modified: UTCDatetime
@@ -164,6 +165,12 @@ class RomFileSchema(BaseModel):
     sha1_hash: str | None
     ra_hash: str | None
     category: RomFileCategory | None
+
+    @model_validator(mode="after")
+    def default_category_for_non_nested(self) -> RomFileSchema:
+        if self.category is None and self.is_top_level:
+            self.category = RomFileCategory.GAME
+        return self
 
 
 class RomMetadataSchema(BaseModel):

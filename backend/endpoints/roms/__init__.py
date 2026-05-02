@@ -74,6 +74,7 @@ from utils.validation import ValidationError
 from .files import router as files_router
 from .manual import router as manual_router
 from .notes import router as notes_router
+from .patch import router as patch_router
 from .upload import router as upload_router
 
 router = APIRouter(
@@ -84,6 +85,7 @@ router.include_router(upload_router)
 router.include_router(files_router)
 router.include_router(manual_router)
 router.include_router(notes_router)
+router.include_router(patch_router)
 
 
 def safe_int_or_none(value: Any) -> int | None:

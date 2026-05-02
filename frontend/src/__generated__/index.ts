@@ -81,6 +81,7 @@ export type { NetplayICEServer } from './models/NetplayICEServer';
 export type { OIDCDict } from './models/OIDCDict';
 export type { OIDCLogoutResponse } from './models/OIDCLogoutResponse';
 export type { OrphanedResourcesCleanupStats } from './models/OrphanedResourcesCleanupStats';
+export type { PatchRequest } from './models/PatchRequest';
 export type { PlatformBindingPayload } from './models/PlatformBindingPayload';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { PlaySessionEntry } from './models/PlaySessionEntry';

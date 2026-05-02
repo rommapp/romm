@@ -4,7 +4,6 @@ import { URL, fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
 
 // Vuetify components to preoptimize for faster dev startup
@@ -109,14 +108,6 @@ export default defineConfig(({ mode }) => {
           savePath: "/app/.vite-plugin-mkcert",
           hosts: ["localhost", "127.0.0.1", "romm.dev"],
         }),
-      viteStaticCopy({
-        targets: [
-          {
-            src: "node_modules/rom-patcher/rom-patcher-js/**/*.js",
-            dest: "rom-patcher",
-          },
-        ],
-      }),
     ],
     define: {
       "process.env": {},
