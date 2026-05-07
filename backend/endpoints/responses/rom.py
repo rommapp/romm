@@ -147,6 +147,21 @@ class RomUserSchema(BaseModel):
         return rom_user_schema_factory()
 
 
+class RomFileAudioMetaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None
+    year: str | None = None
+    genre: str | None = None
+    track: str | None = None
+    disc: str | None = None
+    duration_seconds: float | None = None
+    has_embedded_cover: bool = False
+    cover_path: str | None = None
+
+
 class RomFileSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -164,6 +179,16 @@ class RomFileSchema(BaseModel):
     sha1_hash: str | None
     ra_hash: str | None
     category: RomFileCategory | None
+    audio_meta: RomFileAudioMetaSchema | None = None
+
+
+class SoundtrackTrackMetaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    file_id: int
+    file_name: str
+    file_size_bytes: int
+    audio_meta: RomFileAudioMetaSchema | None = None
 
 
 class RomMetadataSchema(BaseModel):
@@ -266,6 +291,8 @@ class RomSchema(BaseModel):
     url_cover: str | None
 
     has_manual: bool
+    has_manual_files: bool
+    has_soundtrack: bool
     path_manual: str | None
     url_manual: str | None
 

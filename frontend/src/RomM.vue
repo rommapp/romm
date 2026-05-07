@@ -3,6 +3,7 @@ import { useIdle, useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
+import SoundtrackMiniPlayer from "@/components/common/SoundtrackMiniPlayer.vue";
 import storeConsole from "@/stores/console";
 import storeLanguage from "@/stores/language";
 
@@ -40,6 +41,7 @@ const { idle: mouseIdle } = useIdle(100, {
         </Transition>
       </router-view>
     </v-main>
+    <SoundtrackMiniPlayer />
   </v-app>
 </template>
 

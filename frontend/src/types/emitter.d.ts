@@ -2,7 +2,7 @@ import type { SaveSchema, StateSchema } from "@/__generated__";
 import type { ClientTokenSchema } from "@/services/api/client-token";
 import type { Collection, SmartCollection } from "@/stores/collections";
 import type { Platform } from "@/stores/platforms";
-import type { SimpleRom } from "@/stores/roms";
+import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
 export type SnackbarStatus = {
@@ -80,5 +80,14 @@ export type Events = {
   showDeleteClientTokenDialog: ClientTokenSchema;
   showAboutDialog: null;
   showNoteDialog: SimpleRom;
+  showDeleteManualDialog: {
+    rom: DetailedRom;
+    isPrimary: boolean;
+    fileId?: number;
+  };
+  showManualUploadTargetDialog: {
+    rom: DetailedRom;
+    files: File[];
+  };
   playGame: number;
 };

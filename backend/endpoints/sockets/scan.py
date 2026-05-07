@@ -46,9 +46,10 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, RomFileCategory
 from tasks.tasks import update_job_meta
 from utils import emoji
+from utils.audio_tags import persist_embedded_cover
 from utils.context import initialize_context
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
@@ -343,6 +344,7 @@ async def _identify_rom(
                 file_size_bytes=file.file_size_bytes,
                 last_modified=file.last_modified,
                 category=file.category,
+                audio_meta=file.audio_meta,
                 crc_hash=file.crc_hash,
                 md5_hash=file.md5_hash,
                 sha1_hash=file.sha1_hash,
@@ -351,7 +353,25 @@ async def _identify_rom(
             for file in fs_rom["files"]
         ]
         for new_rom_file in new_rom_files:
-            db_rom_handler.add_rom_file(new_rom_file)
+            saved = db_rom_handler.add_rom_file(new_rom_file)
+            if (
+                saved.category == RomFileCategory.SOUNDTRACK
+                and saved.audio_meta
+                and saved.audio_meta.get("has_embedded_cover")
+            ):
+                abs_audio_path = fs_rom_handler.validate_path(saved.full_path)
+                cover_path = persist_embedded_cover(
+                    audio_full_path=str(abs_audio_path),
+                    platform_id=_added_rom.platform_id,
+                    rom_id=_added_rom.id,
+                    file_id=saved.id,
+                )
+                if cover_path:
+                    persisted_meta = dict(saved.audio_meta)
+                    persisted_meta["cover_path"] = cover_path
+                    db_rom_handler.update_rom_file(
+                        saved.id, {"audio_meta": persisted_meta}
+                    )
 
     # Short circuit if the scan type is hashes
     if scan_type == ScanType.HASHES:

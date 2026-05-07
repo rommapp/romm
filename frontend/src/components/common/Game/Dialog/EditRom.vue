@@ -11,6 +11,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
+import { formatBytes } from "@/utils";
 import { getMissingCoverImage } from "@/utils/covers";
 import AdditionalDetails from "./EditRom/AdditionalDetails.vue";
 import MetadataIdSection from "./EditRom/MetadataIdSection.vue";
@@ -26,10 +27,19 @@ const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const manualFiles = ref<File[]>([]);
+const soundtrackFiles = ref<File[]>([]);
 const uploadStore = storeUpload();
 const validForm = ref(false);
 const showConfirmDeleteManual = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
+
+const soundtrackTracks = computed(
+  () =>
+    rom.value?.files
+      ?.filter((f) => f.category === "soundtrack")
+      .slice()
+      .sort((a, b) => a.file_name.localeCompare(b.file_name)) ?? [],
+);
 
 emitter?.on("showEditRomDialog", (romToEdit: SimpleRom) => {
   show.value = true;
@@ -121,42 +131,77 @@ async function handleRomUpdate(
     });
 }
 
-async function uploadManuals() {
+const showUploadTargetDialog = ref(false);
+const pendingManualFiles = ref<File[]>([]);
+
+function uploadManuals() {
+  if (!rom.value || manualFiles.value.length === 0) return;
+  const files = [...manualFiles.value];
+  manualFiles.value = [];
+
+  if (rom.value.has_simple_single_file) {
+    void runManualUpload("resources", files);
+    return;
+  }
+
+  pendingManualFiles.value = files;
+  showUploadTargetDialog.value = true;
+}
+
+async function chooseUploadTarget(target: "resources" | "folder") {
+  const files = pendingManualFiles.value;
+  pendingManualFiles.value = [];
+  showUploadTargetDialog.value = false;
+  if (files.length === 0) return;
+  await runManualUpload(target, files);
+}
+
+function cancelUploadTarget() {
+  pendingManualFiles.value = [];
+  showUploadTargetDialog.value = false;
+}
+
+async function runManualUpload(target: "resources" | "folder", files: File[]) {
   if (!rom.value) return;
+  const upload =
+    target === "resources" ? romApi.uploadManuals : romApi.uploadManualFiles;
+  const successKey =
+    target === "resources"
+      ? "rom.manuals-upload-success"
+      : "rom.manual-files-upload-success";
+  const skippedKey =
+    target === "resources"
+      ? "rom.manuals-upload-skipped"
+      : "rom.manual-files-upload-skipped";
 
-  await romApi
-    .uploadManuals({
-      romId: rom.value.id,
-      filesToUpload: manualFiles.value,
-    })
-    .then((responses) => {
-      const successfulUploads = responses.filter(
-        (d) => d.status == "fulfilled",
-      );
-      const failedUploads = responses.filter((d) => d.status == "rejected");
+  await upload({ romId: rom.value.id, filesToUpload: files })
+    .then(async (responses) => {
+      const successful = responses.filter((r) => r.status === "fulfilled");
+      const failed = responses.filter((r) => r.status === "rejected");
 
-      if (failedUploads.length == 0) {
-        uploadStore.reset();
-      }
+      if (failed.length === 0) uploadStore.reset();
 
-      if (successfulUploads.length == 0) {
-        return emitter?.emit("snackbarShow", {
-          msg: t("rom.manuals-upload-skipped"),
+      if (successful.length === 0) {
+        emitter?.emit("snackbarShow", {
+          msg: t(skippedKey),
           icon: "mdi-close-circle",
           color: "orange",
           timeout: 5000,
         });
+        return;
       }
 
       emitter?.emit("snackbarShow", {
-        msg: t("rom.manuals-upload-success", {
-          count: successfulUploads.length,
-          failed: failedUploads.length,
+        msg: t(successKey, {
+          count: successful.length,
+          failed: failed.length,
         }),
         icon: "mdi-check-bold",
         color: "green",
         timeout: 3000,
       });
+
+      await refreshRomState();
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
@@ -168,7 +213,6 @@ async function uploadManuals() {
         timeout: 4000,
       });
     });
-  manualFiles.value = [];
 }
 
 function confirmRemoveManual() {
@@ -198,6 +242,90 @@ async function removeManual() {
       icon: "mdi-close-circle",
       color: "red",
     });
+  }
+}
+
+async function uploadSoundtracks() {
+  if (!rom.value) return;
+
+  await romApi
+    .uploadSoundtracks({
+      romId: rom.value.id,
+      filesToUpload: soundtrackFiles.value,
+    })
+    .then(async (responses) => {
+      const successfulUploads = responses.filter(
+        (d) => d.status == "fulfilled",
+      );
+      const failedUploads = responses.filter((d) => d.status == "rejected");
+
+      if (failedUploads.length == 0) {
+        uploadStore.reset();
+      }
+
+      if (successfulUploads.length == 0) {
+        return emitter?.emit("snackbarShow", {
+          msg: t("rom.soundtracks-upload-skipped"),
+          icon: "mdi-close-circle",
+          color: "orange",
+          timeout: 5000,
+        });
+      }
+
+      emitter?.emit("snackbarShow", {
+        msg: t("rom.soundtracks-upload-success", {
+          count: successfulUploads.length,
+          failed: failedUploads.length,
+        }),
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 3000,
+      });
+
+      await refreshRomState();
+    })
+    .catch(({ response, message }) => {
+      emitter?.emit("snackbarShow", {
+        msg: t("rom.soundtracks-upload-failed", {
+          error: response?.data?.detail || response?.statusText || message,
+        }),
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    });
+  soundtrackFiles.value = [];
+}
+
+async function removeSoundtrack(fileId: number) {
+  if (!rom.value) return;
+
+  try {
+    await romApi.removeSoundtrack({ romId: rom.value.id, fileId });
+    await refreshRomState();
+    emitter?.emit("snackbarShow", {
+      msg: t("rom.soundtrack-removed"),
+      icon: "mdi-check-bold",
+      color: "green",
+    });
+  } catch (error: any) {
+    emitter?.emit("snackbarShow", {
+      msg: t("rom.soundtrack-remove-failed", {
+        error: error.response?.data?.detail || error.message,
+      }),
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+  }
+}
+
+async function refreshRomState() {
+  if (!rom.value) return;
+  const { data } = await romApi.getRom({ romId: rom.value.id });
+  rom.value = data as UpdateRom;
+  romsStore.update(data as SimpleRom);
+  if (route.name == "rom") {
+    romsStore.currentRom = data;
   }
 }
 
@@ -409,6 +537,77 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                 <span> /romm/resources/{{ rom.path_manual }} </span>
               </v-label>
             </div>
+            <div class="d-flex align-center mt-3">
+              <v-chip
+                :variant="rom.has_soundtrack ? 'flat' : 'tonal'"
+                label
+                class="bg-toplayer px-0"
+              >
+                <span
+                  class="ml-4 flex items-center"
+                  :class="{
+                    'text-romm-red': !rom.has_soundtrack,
+                    'text-romm-green': rom.has_soundtrack,
+                  }"
+                >
+                  {{ t("rom.soundtrack") }}
+                  <v-icon class="ml-1">
+                    {{ rom.has_soundtrack ? "mdi-check" : "mdi-close" }}
+                  </v-icon>
+                </span>
+                <v-btn
+                  class="bg-toplayer ml-3"
+                  icon="mdi-cloud-upload-outline"
+                  rounded="0"
+                  size="small"
+                  :disabled="rom.has_simple_single_file"
+                  @click="triggerFileInput('soundtrack-file-input')"
+                >
+                  <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
+                  <v-file-input
+                    id="soundtrack-file-input"
+                    v-model="soundtrackFiles"
+                    accept="audio/*,.flac,.opus"
+                    hide-details
+                    multiple
+                    class="file-input"
+                    @change="uploadSoundtracks"
+                  />
+                </v-btn>
+              </v-chip>
+              <span
+                v-if="rom.has_simple_single_file"
+                class="text-caption text-medium-emphasis ml-3"
+              >
+                {{ t("rom.soundtrack-folder-only") }}
+              </span>
+            </div>
+            <v-list
+              v-if="soundtrackTracks.length > 0"
+              density="compact"
+              class="bg-toplayer rounded mt-2"
+            >
+              <v-list-item v-for="track in soundtrackTracks" :key="track.id">
+                <template #prepend>
+                  <v-icon class="mr-2">mdi-music-note</v-icon>
+                </template>
+                <v-list-item-title class="text-body-2">
+                  {{ track.file_name }}
+                </v-list-item-title>
+                <template #append>
+                  <span class="text-caption text-medium-emphasis mr-2">
+                    {{ formatBytes(track.file_size_bytes) }}
+                  </span>
+                  <v-btn
+                    icon="mdi-delete"
+                    variant="text"
+                    size="small"
+                    class="text-romm-red"
+                    @click="removeSoundtrack(track.id)"
+                  />
+                </template>
+              </v-list-item>
+            </v-list>
           </v-col>
         </v-row>
         <v-expansion-panels class="mt-6">
@@ -471,6 +670,57 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             {{ t("rom.delete-manual-button") }}
           </v-btn>
         </v-btn-group>
+      </v-row>
+    </template>
+  </RDialog>
+
+  <RDialog
+    v-model="showUploadTargetDialog"
+    icon="mdi-cloud-upload-outline"
+    :width="lgAndUp ? '520px' : '90vw'"
+  >
+    <template #content>
+      <div class="pa-4">
+        <p class="text-body-1 mb-3">
+          {{ t("rom.manual-upload-target-title") }}
+        </p>
+        <v-list class="bg-transparent" lines="two">
+          <v-list-item
+            class="bg-toplayer rounded mb-2"
+            @click="chooseUploadTarget('resources')"
+          >
+            <template #prepend>
+              <v-icon class="mr-2">mdi-database-edit-outline</v-icon>
+            </template>
+            <v-list-item-title>
+              {{ t("rom.manual-upload-target-resources-title") }}
+            </v-list-item-title>
+            <v-list-item-subtitle class="text-wrap">
+              {{ t("rom.manual-upload-target-resources-desc") }}
+            </v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item
+            class="bg-toplayer rounded"
+            @click="chooseUploadTarget('folder')"
+          >
+            <template #prepend>
+              <v-icon class="mr-2">mdi-folder-plus-outline</v-icon>
+            </template>
+            <v-list-item-title>
+              {{ t("rom.manual-upload-target-folder-title") }}
+            </v-list-item-title>
+            <v-list-item-subtitle class="text-wrap">
+              {{ t("rom.manual-upload-target-folder-desc") }}
+            </v-list-item-subtitle>
+          </v-list-item>
+        </v-list>
+      </div>
+    </template>
+    <template #footer>
+      <v-row class="justify-center my-2" no-gutters>
+        <v-btn class="bg-toplayer" @click="cancelUploadTarget">
+          {{ t("common.cancel") }}
+        </v-btn>
       </v-row>
     </template>
   </RDialog>

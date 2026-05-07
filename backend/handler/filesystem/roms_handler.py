@@ -403,6 +403,13 @@ class FSRomsHandler(FSHandler):
             None,
         )
 
+        audio_meta = None
+        if matching_category == RomFileCategory.SOUNDTRACK:
+            from utils.audio_tags import extract_audio_meta, is_allowed_audio_file
+
+            if is_allowed_audio_file(file_name):
+                audio_meta = extract_audio_meta(str(abs_file_path))
+
         return RomFile(
             rom=rom,
             rom_id=rom.id,
@@ -411,6 +418,7 @@ class FSRomsHandler(FSHandler):
             file_size_bytes=os.stat(abs_file_path).st_size,
             last_modified=os.path.getmtime(abs_file_path),
             category=matching_category,
+            audio_meta=audio_meta,
             crc_hash=file_hash["crc_hash"],
             md5_hash=file_hash["md5_hash"],
             sha1_hash=file_hash["sha1_hash"],

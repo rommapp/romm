@@ -544,6 +544,136 @@ async function removeManual({ romId }: { romId: number }) {
   return api.delete<DetailedRom>(`/roms/${romId}/manuals`);
 }
 
+async function redownloadManual({ romId }: { romId: number }) {
+  return api.post(`/roms/${romId}/manuals/redownload`);
+}
+
+async function uploadSoundtracks({
+  romId,
+  filesToUpload,
+}: {
+  romId: number;
+  filesToUpload: File[];
+}) {
+  const uploadStore = storeUpload();
+
+  const promises = filesToUpload.map((file) => {
+    const formData = new FormData();
+    formData.append(file.name, file);
+
+    uploadStore.start(file.name);
+    return new Promise((resolve, reject) => {
+      api
+        .post(`/roms/${romId}/soundtracks`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "X-Upload-Filename": file.name,
+          },
+          params: {},
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            uploadStore.update(file.name, progressEvent);
+          },
+        })
+        .then(resolve)
+        .catch((error) => {
+          uploadStore.fail(file.name, error.response?.data?.detail);
+          reject(error);
+        });
+    });
+  });
+
+  return Promise.allSettled(promises);
+}
+
+async function removeSoundtrack({
+  romId,
+  fileId,
+}: {
+  romId: number;
+  fileId: number;
+}) {
+  return api.delete(`/roms/${romId}/soundtracks/${fileId}`);
+}
+
+export interface SoundtrackAudioMeta {
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  year: string | null;
+  genre: string | null;
+  track: string | null;
+  disc: string | null;
+  duration_seconds: number | null;
+  has_embedded_cover: boolean;
+  cover_path: string | null;
+}
+
+export interface SoundtrackTrackMeta {
+  file_id: number;
+  file_name: string;
+  file_size_bytes: number;
+  audio_meta: SoundtrackAudioMeta | null;
+}
+
+async function getSoundtrackMetadata({
+  romId,
+  signal,
+}: {
+  romId: number;
+  signal?: AbortSignal;
+}) {
+  return api.get<SoundtrackTrackMeta[]>(`/roms/${romId}/soundtracks/metadata`, {
+    signal,
+  });
+}
+
+async function uploadManualFiles({
+  romId,
+  filesToUpload,
+}: {
+  romId: number;
+  filesToUpload: File[];
+}) {
+  const uploadStore = storeUpload();
+
+  const promises = filesToUpload.map((file) => {
+    const formData = new FormData();
+    formData.append(file.name, file);
+
+    uploadStore.start(file.name);
+    return new Promise((resolve, reject) => {
+      api
+        .post(`/roms/${romId}/manuals/files`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "X-Upload-Filename": file.name,
+          },
+          params: {},
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            uploadStore.update(file.name, progressEvent);
+          },
+        })
+        .then(resolve)
+        .catch((error) => {
+          uploadStore.fail(file.name, error.response?.data?.detail);
+          reject(error);
+        });
+    });
+  });
+
+  return Promise.allSettled(promises);
+}
+
+async function deleteManualFile({
+  romId,
+  fileId,
+}: {
+  romId: number;
+  fileId: number;
+}) {
+  return api.delete(`/roms/${romId}/manuals/files/${fileId}`);
+}
+
 async function updateUserRomProps({
   romId,
   data,
@@ -662,6 +792,12 @@ export default {
   updateRom,
   uploadManuals,
   removeManual,
+  redownloadManual,
+  uploadManualFiles,
+  deleteManualFile,
+  uploadSoundtracks,
+  removeSoundtrack,
+  getSoundtrackMetadata,
   updateUserRomProps,
   deleteRoms,
   createRomNote,

@@ -38,7 +38,7 @@ from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomMetadata, RomNote, RomUser
+from models.rom import Rom, RomFile, RomFileCategory, RomMetadata, RomNote, RomUser
 from utils.database import (
     json_array_contains_all,
     json_array_contains_any,
@@ -1133,7 +1133,9 @@ class DBRomsHandler(DBBaseHandler):
         rom_file: RomFile,
         session: Session = None,  # type: ignore
     ) -> RomFile:
-        return session.merge(rom_file)
+        merged = session.merge(rom_file)
+        session.flush()
+        return merged
 
     @begin_session
     def get_rom_file_by_id(
@@ -1144,12 +1146,44 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(select(RomFile).filter_by(id=id).limit(1))
 
     @begin_session
+    def get_rom_file_by_path(
+        self,
+        rom_id: int,
+        file_path: str,
+        file_name: str,
+        session: Session = None,  # type: ignore
+    ) -> RomFile | None:
+        return session.scalar(
+            select(RomFile)
+            .filter_by(rom_id=rom_id, file_path=file_path, file_name=file_name)
+            .limit(1)
+        )
+
+    @begin_session
+    def get_rom_files_by_category(
+        self,
+        rom_id: int,
+        category: RomFileCategory,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[RomFile]:
+        """Return the ROM's files for a single category, ordered by file_name."""
+        return (
+            session.scalars(
+                select(RomFile)
+                .filter_by(rom_id=rom_id, category=category)
+                .order_by(RomFile.file_name.asc())
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
     def update_rom_file(
         self,
         id: int,
         data: dict,
         session: Session = None,  # type: ignore
-    ) -> RomFile:
+    ) -> RomFile | None:
         session.execute(
             update(RomFile)
             .where(RomFile.id == id)
@@ -1157,7 +1191,7 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        return session.query(RomFile).filter_by(id=id).one()
+        return session.query(RomFile).filter_by(id=id).one_or_none()
 
     @begin_session
     def purge_rom_files(
@@ -1174,6 +1208,18 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
         return purged_rom_files
+
+    @begin_session
+    def delete_rom_file(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        session.execute(
+            delete(RomFile)
+            .where(RomFile.id == id)
+            .execution_options(synchronize_session="evaluate")
+        )
 
     # Note management methods
     @begin_session

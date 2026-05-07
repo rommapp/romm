@@ -48,6 +48,7 @@ class RomFileCategory(enum.StrEnum):
     TRANSLATION = "translation"
     PROTOTYPE = "prototype"
     CHEAT = "cheat"
+    SOUNDTRACK = "soundtrack"
 
 
 class SiblingRom(BaseModel):
@@ -78,6 +79,9 @@ class RomFile(BaseModel):
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
+    )
+    audio_meta: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=None, nullable=True
     )
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
@@ -307,6 +311,14 @@ class Rom(BaseModel):
     @cached_property
     def has_manual(self) -> bool:
         return bool(self.path_manual)
+
+    @cached_property
+    def has_manual_files(self) -> bool:
+        return any(f.category == RomFileCategory.MANUAL for f in self.files)
+
+    @cached_property
+    def has_soundtrack(self) -> bool:
+        return any(f.category == RomFileCategory.SOUNDTRACK for f in self.files)
 
     @cached_property
     def merged_screenshots(self) -> list[str]:
