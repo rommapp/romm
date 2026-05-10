@@ -795,6 +795,47 @@ class TestUpdateRawMetadata:
         assert body["ss_metadata"]["player_count"] == "1-4"
 
     @patch.object(
+        IGDBHandler,
+        "get_rom_by_id",
+        return_value=IGDBRom(igdb_id=MOCK_IGDB_ID),
+    )
+    @patch.object(
+        SSHandler,
+        "get_rom_by_id",
+        return_value=SSRom(ss_id=MOCK_SS_ID),
+    )
+    def test_update_raw_ss_genres_override_igdb_genres_in_metadatum(
+        self,
+        ss_get_rom_by_id_mock: AsyncMock,
+        igdb_get_rom_by_id_mock: AsyncMock,
+        client: TestClient,
+        access_token: str,
+        rom: Rom,
+    ):
+        """ScreenScraper genres should drive the aggregated metadatum when present."""
+        response = client.put(
+            f"/api/roms/{rom.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            data={
+                "igdb_id": str(MOCK_IGDB_ID),
+                "ss_id": str(MOCK_SS_ID),
+                "raw_igdb_metadata": json.dumps({"genres": ["Arcade", "Shooter"]}),
+                "raw_ss_metadata": json.dumps(
+                    {"genres": ["Shoot'em Up", "Shoot'em Up / Vertical"]}
+                ),
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert igdb_get_rom_by_id_mock.called
+        assert ss_get_rom_by_id_mock.called
+
+        body = response.json()
+        assert body["metadatum"]["genres"] == [
+            "Shoot'em Up",
+            "Shoot'em Up / Vertical",
+        ]
+
+    @patch.object(
         LaunchboxHandler,
         "get_rom_by_id",
         return_value=LaunchboxRom(launchbox_id=MOCK_LAUNCHBOX_ID),

@@ -7,11 +7,15 @@ from adapters.services.screenscraper_types import SSGame
 from config.config_manager import Config, MetadataMediaType
 from handler.metadata.ss_handler import (
     extract_media_from_ss_game,
+    extract_metadata_from_ss_rom,
     get_preferred_regions,
 )
 
 
-def _make_config(region_priority: list[str] | None = None) -> Config:
+def _make_config(
+    region_priority: list[str] | None = None,
+    language_priority: list[str] | None = None,
+) -> Config:
     """Build a minimal Config object for testing."""
     return Config(
         EXCLUDED_PLATFORMS=[],
@@ -25,7 +29,7 @@ def _make_config(region_priority: list[str] | None = None) -> Config:
         ROMS_FOLDER_NAME="roms",
         FIRMWARE_FOLDER_NAME="bios",
         SCAN_REGION_PRIORITY=region_priority or [],
-        SCAN_LANGUAGE_PRIORITY=["en"],
+        SCAN_LANGUAGE_PRIORITY=language_priority or ["en"],
         SCAN_MEDIA=["box2d", "box3d", "screenshot"],
         GAMELIST_MEDIA_THUMBNAIL=MetadataMediaType.BOX2D,
         GAMELIST_MEDIA_IMAGE=MetadataMediaType.SCREENSHOT,
@@ -159,3 +163,39 @@ class TestExtractMediaFromSsGame:
 
         assert result["box2d_url"] is not None
         assert "box-2D(us)" in result["box2d_url"]
+
+
+class TestExtractMetadataFromSsRom:
+    def _make_rom(self) -> MagicMock:
+        rom = MagicMock()
+        rom.platform_id = 1
+        rom.id = 100
+        return rom
+
+    def test_genres_follow_language_priority_with_english_fallback(self):
+        config = _make_config(language_priority=["de"])
+        rom = self._make_rom()
+        game = cast(
+            SSGame,
+            {
+                "genres": [
+                    {
+                        "noms": [
+                            {"langue": "fr", "text": "Shoot'em Up"},
+                            {"langue": "en", "text": "Shoot'em Up / Vertical"},
+                        ]
+                    }
+                ]
+            },
+        )
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                return_value="roms/1/100/media",
+            ),
+        ):
+            result = extract_metadata_from_ss_rom(rom, game)
+
+        assert result["genres"] == ["Shoot'em Up / Vertical"]
