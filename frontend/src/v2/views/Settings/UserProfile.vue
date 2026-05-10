@@ -271,10 +271,14 @@ onUnmounted(() => {
           <RSelect
             v-model="userToEdit.role"
             :items="roleItems"
-            :label="t('settings.role')"
+            inline-label
             required
             hide-details
           >
+            <template #label>
+              <RIcon icon="mdi-shield-account-outline" size="14" />
+              {{ t("settings.role") }}
+            </template>
             <template #selection="{ item }">
               <div class="r-v2-profile__role-line">
                 <RIcon :icon="getRoleIcon(item.value)" size="16" />
@@ -291,20 +295,36 @@ onUnmounted(() => {
           </RSelect>
         </div>
 
-        <!-- Password row — opens dialog instead of inline field. -->
-        <div class="r-v2-profile__field r-v2-profile__field--row">
-          <div class="r-v2-profile__field-label">
-            <RIcon icon="mdi-key-outline" size="14" />
-            <span>{{ t("settings.password") }}</span>
-            <span class="r-v2-profile__field-hint">••••••••</span>
-          </div>
-          <RBtn
-            variant="text"
-            prepend-icon="mdi-key-variant"
-            @click="passwordDialogOpen = true"
+        <!-- Password — visually identical to the other inline-label
+             rows, but the value is a fixed mask and the change flow is
+             driven by the dialog (opened from the append-inner button).
+             readonly + type=password keeps the field non-editable while
+             still reading semantically as a password field. -->
+        <div class="r-v2-profile__field">
+          <RTextField
+            model-value="00000000"
+            type="password"
+            inline-label
+            readonly
+            hide-details
+            autocomplete="new-password"
           >
-            {{ t("settings.change-password") }}
-          </RBtn>
+            <template #label>
+              <RIcon icon="mdi-key-outline" size="14" />
+              {{ t("settings.password") }}
+            </template>
+            <template #append-inner>
+              <RBtn
+                variant="text"
+                size="small"
+                prepend-icon="mdi-key-variant"
+                class="r-v2-profile__pwd-btn"
+                @click="passwordDialogOpen = true"
+              >
+                {{ t("settings.change-password") }}
+              </RBtn>
+            </template>
+          </RTextField>
         </div>
 
         <div class="r-v2-profile__actions">
@@ -473,33 +493,10 @@ onUnmounted(() => {
   border-bottom: none;
 }
 
-.r-v2-profile__field--row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.r-v2-profile__field-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.r-v2-profile__field-label :deep(.r-icon) {
-  color: var(--r-color-fg-muted);
-}
-.r-v2-profile__field-label > span:nth-of-type(1) {
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
-}
-.r-v2-profile__field-hint {
-  font-family: var(--r-font-family-mono, monospace);
-  font-size: 11px;
-  color: var(--r-color-fg-faint);
-  letter-spacing: 0.1em;
+/* Change-password button lives inside the password field's append-inner
+   area — keep it compact so it doesn't blow out the row height. */
+.r-v2-profile__pwd-btn {
+  margin-right: 4px;
 }
 
 .r-v2-profile__actions {

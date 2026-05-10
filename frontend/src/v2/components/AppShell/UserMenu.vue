@@ -136,7 +136,7 @@ async function onLogout() {
       </RBtn>
     </template>
 
-    <RMenuPanel width="260px">
+    <RMenuPanel width="260px" max-height="calc(100dvh - var(--r-nav-h) - 24px)">
       <RMenuHeader
         compact
         :title="user?.username ?? 'Guest'"
