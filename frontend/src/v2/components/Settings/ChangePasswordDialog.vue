@@ -128,7 +128,7 @@ async function submit() {
       <div class="r-v2-pwd-dialog__body">
         <RTextField
           v-model="newPassword"
-          inline-label
+          prefix-label
           :type="showNew ? 'text' : 'password'"
           :rules="newPasswordRules"
           :append-inner-icon="showNew ? 'mdi-eye-off' : 'mdi-eye'"
@@ -137,14 +137,14 @@ async function submit() {
           @click:append-inner="showNew = !showNew"
           @keyup.enter="submit"
         >
-          <template #label>
+          <template #prefix-label>
             <RIcon icon="mdi-key-plus" size="14" />
             {{ t("settings.new-password") }}
           </template>
         </RTextField>
         <RTextField
           v-model="confirmPassword"
-          inline-label
+          prefix-label
           :type="showConfirm ? 'text' : 'password'"
           :rules="confirmRules"
           :append-inner-icon="showConfirm ? 'mdi-eye-off' : 'mdi-eye'"
@@ -153,7 +153,7 @@ async function submit() {
           @click:append-inner="showConfirm = !showConfirm"
           @keyup.enter="submit"
         >
-          <template #label>
+          <template #prefix-label>
             <RIcon icon="mdi-key-variant" size="14" />
             {{ t("settings.repeat-password") }}
           </template>

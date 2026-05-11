@@ -51,6 +51,7 @@ export * from "./menus/RMenuPanel";
 export * from "./menus/RMenuDivider";
 export * from "./menus/RMenuHeader";
 export * from "./menus/RMenuItem";
+export * from "./menus/RMenuSearch";
 
 // Overlays
 export * from "./overlays/RCarousel";

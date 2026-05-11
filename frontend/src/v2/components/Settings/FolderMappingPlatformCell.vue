@@ -1,16 +1,24 @@
 <script setup lang="ts">
 // FolderMappingPlatformCell — editable Platform cell for the folder
-// mappings table. Pulled out of FolderMappingsSection so the RMenu's
-// activator slot lives at the SFC root (not nested inside RTable's
-// `cell.platform` slot), which is what makes the activator's ref
-// chain reach VMenu reliably; nested-slot scoping was leaving the
-// menu without an anchor and silently swallowing the click.
-import { RBtn, RMenu, RMenuItem, RMenuPanel } from "@v2/lib";
+// mappings table.
+//
+// Activator: a plain `<button>` element bound directly via `v-bind` to
+// the slot scope's activator props. Same combination GameActionBtn
+// uses in production v2 code (RMenu + activator slot + plain button).
+// VMenu's slot-injected function ref has to attach to a real DOM
+// element, and Vue 3 doesn't forward such refs cleanly through
+// wrapper components (RBtn → VBtn) when the activator is rendered
+// inside a deeply scoped parent slot (RTable's `cell.platform` slot).
+//
+// The picker is filterable via RMenuPanel's `searchable` prop, which
+// renders a built-in sticky header. `closeOnContentClick=false`
+// keeps the menu open while typing; item selection closes it
+// explicitly via `pick()`.
+import { RIcon, RMenu, RMenuItem, RMenuPanel } from "@v2/lib";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
+import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import type { Platform } from "@/stores/platforms";
-
-defineOptions({ inheritAttrs: false });
 
 type RowType = "alias" | "variant" | "auto" | null;
 
@@ -26,81 +34,148 @@ interface Props {
   supportedPlatforms: Platform[];
   canEdit: boolean;
 }
-defineProps<Props>();
+const props = defineProps<Props>();
 
-defineEmits<{
+const emit = defineEmits<{
   /** New platform slug (or undefined to clear the mapping). */
   (e: "select", slug: string | undefined): void;
 }>();
 
 const { t } = useI18n();
+
+const open = ref(false);
+const query = ref("");
+
+// Reset the search every time the menu closes so the next open
+// starts fresh — typical picker UX.
+watch(open, (v) => {
+  if (!v) query.value = "";
+});
+
+const filteredPlatforms = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  if (!q) return props.supportedPlatforms;
+  return props.supportedPlatforms.filter((p) => {
+    const name = (p.display_name || "").toLowerCase();
+    const slug = (p.slug || "").toLowerCase();
+    return name.includes(q) || slug.includes(q);
+  });
+});
+
+function pick(slug: string | undefined) {
+  emit("select", slug);
+  open.value = false;
+}
 </script>
 
 <template>
-  <RMenu v-if="canEdit">
-    <template #activator="{ props: menuProps }">
-      <RBtn
-        v-bind="menuProps"
-        variant="text"
-        size="small"
+  <RMenu
+    v-if="canEdit"
+    v-model="open"
+    location="bottom start"
+    :close-on-content-click="false"
+  >
+    <template #activator="{ props: activatorProps }">
+      <button
+        v-bind="activatorProps"
+        type="button"
         class="r-v2-fmpc__btn"
-        append-icon="mdi-chevron-down"
+        :aria-label="t('settings.platforms')"
       >
-        <PlatformIcon
+        <CachedPlatformIcon
           v-if="row.slug"
           :slug="row.slug"
           :size="20"
           class="r-v2-fmpc__icon"
         />
-        <span v-if="row.slug">{{ row.displayName }}</span>
+        <span v-if="row.slug" class="r-v2-fmpc__name">
+          {{ row.displayName }}
+        </span>
         <span v-else class="r-v2-fmpc__placeholder">—</span>
-      </RBtn>
+        <RIcon icon="mdi-chevron-down" size="14" class="r-v2-fmpc__chevron" />
+      </button>
     </template>
-    <RMenuPanel width="280px" max-height="320px">
+    <RMenuPanel
+      width="280px"
+      max-height="360px"
+      searchable
+      v-model:search="query"
+      :search-placeholder="t('common.search')"
+    >
       <RMenuItem
-        v-for="platform in supportedPlatforms"
+        v-for="platform in filteredPlatforms"
         :key="platform.slug"
         :label="platform.display_name"
-        @click="$emit('select', platform.slug)"
+        @click="pick(platform.slug)"
       >
         <template #icon>
-          <PlatformIcon :slug="platform.slug" :size="18" />
+          <CachedPlatformIcon
+            :slug="platform.slug"
+            :name="platform.display_name"
+            :size="18"
+          />
         </template>
       </RMenuItem>
+      <div
+        v-if="filteredPlatforms.length === 0"
+        class="r-v2-fmpc__empty"
+      >
+        {{ t("common.no-results") }}
+      </div>
       <RMenuItem
-        v-if="row.slug && row.type !== 'auto'"
+        v-if="!query && row.slug && row.type !== 'auto'"
         icon="mdi-delete"
         variant="danger"
         :label="t('common.delete')"
-        @click="$emit('select', undefined)"
+        @click="pick(undefined)"
       />
     </RMenuPanel>
   </RMenu>
   <span v-else class="r-v2-fmpc__readonly">
-    <PlatformIcon
+    <CachedPlatformIcon
       v-if="row.slug"
       :slug="row.slug"
       :size="20"
       class="r-v2-fmpc__icon"
     />
-    <span v-if="row.slug">{{ row.displayName }}</span>
+    <span v-if="row.slug" class="r-v2-fmpc__name">{{ row.displayName }}</span>
     <span v-else class="r-v2-fmpc__placeholder">—</span>
   </span>
 </template>
 
 <style scoped>
+/* Plain-button activator styled to read as a v2 text button. Keeps
+   parity with the previous RBtn-based look (gap, color, hover). */
 .r-v2-fmpc__btn {
-  text-transform: none !important;
-  letter-spacing: 0 !important;
-  font-weight: var(--r-font-weight-regular) !important;
-  font-size: 13px !important;
-  color: var(--r-color-fg) !important;
-}
-.r-v2-fmpc__btn :deep(.v-btn__content) {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--r-font-weight-regular);
+  color: var(--r-color-fg);
+  border-radius: var(--r-radius-sm);
+  transition: background var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-v2-fmpc__btn:hover,
+.r-v2-fmpc__btn:focus-visible {
+  background: var(--r-color-surface-hover);
 }
 .r-v2-fmpc__icon {
   flex-shrink: 0;
+}
+.r-v2-fmpc__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r-v2-fmpc__chevron {
+  color: var(--r-color-fg-muted);
 }
 .r-v2-fmpc__readonly {
   display: inline-flex;
@@ -111,5 +186,11 @@ const { t } = useI18n();
 }
 .r-v2-fmpc__placeholder {
   color: var(--r-color-fg-faint);
+}
+.r-v2-fmpc__empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--r-color-fg-muted);
 }
 </style>

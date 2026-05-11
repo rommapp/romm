@@ -5,14 +5,12 @@
 //   • Floating label (default, Vuetify-outlined) — used by Auth flows
 //     and any place where the label needs to collapse into the field
 //     when filled.
-//   • Inline label prefix (`inline-label` prop) — the v2-native look
-//     for forms inside Settings: the label sits as a slightly darker
-//     "well" on the LEFT of the field, separated by a hairline; the
-//     input value sits on the right. The label area accepts any
-//     content via the `#label` slot (text, RIcon, both…). Width is
-//     `labelWidth` (default 120px) so a stack of fields aligns
-//     vertically. Falls back to the `label` prop string if the slot
-//     is empty.
+//   • Prefix label (`prefix-label` prop) — v2-native form look. A
+//     slightly darker "well" sits on the LEFT of the field, separated
+//     by a hairline, holding whatever you pass into `#prefix-label`
+//     (icon, text, both…). The well auto-sizes to its content by
+//     default; pass `label-width` for a fixed width when you need a
+//     stack of fields to line up vertically.
 //
 // rules are typed loosely (`unknown[]`) because Vuetify's own rule
 // type is structural and works for any function returning
@@ -25,9 +23,9 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   modelValue?: string | number | null;
   label?: string;
-  /** Placeholder text — auto-suppressed when `inlineLabel` is on so the
-   *  left "well" doesn't visually duplicate. Pass it freely on the
-   *  default (floating-label) variant. */
+  /** Placeholder text — auto-suppressed when `prefixLabel` is on so
+   *  the left "well" doesn't visually duplicate. Pass it freely on
+   *  the default (floating-label) variant. */
   placeholder?: string;
   type?: string;
   variant?:
@@ -53,10 +51,14 @@ interface Props {
   clearable?: boolean;
   error?: boolean;
   errorMessages?: string | string[];
-  /** Render the label as a left "prefix" inside the field instead of
-   *  Vuetify's floating label. Use the `#label` slot for icon + text. */
-  inlineLabel?: boolean;
-  /** Width of the inline label prefix area. Default 120px. */
+  /** Render a left "prefix" well inside the field instead of
+   *  Vuetify's floating label. Use the `#prefix-label` slot for
+   *  whatever the well should display (icon, text, both…). The well
+   *  auto-sizes to its content; pass `labelWidth` when you need a
+   *  fixed width to line up a stack of fields vertically. */
+  prefixLabel?: boolean;
+  /** Optional fixed width for the prefix-label well. When unset, the
+   *  well shrinks to fit its content. Accepts any CSS length. */
   labelWidth?: string | number;
 }
 
@@ -75,19 +77,22 @@ const props = withDefaults(defineProps<Props>(), {
   hint: undefined,
   hideDetails: false,
   errorMessages: undefined,
-  inlineLabel: false,
-  labelWidth: "120px",
+  prefixLabel: false,
+  labelWidth: undefined,
 });
 
 defineEmits<{
   (e: "update:modelValue", value: string): void;
 }>();
 
-const labelWidthCss = computed(() =>
-  typeof props.labelWidth === "number"
+const labelWidthCss = computed<string | undefined>(() => {
+  if (props.labelWidth === undefined) return undefined;
+  return typeof props.labelWidth === "number"
     ? `${props.labelWidth}px`
-    : props.labelWidth,
-);
+    : props.labelWidth;
+});
+
+const hasFixedLabelWidth = computed(() => !!labelWidthCss.value);
 
 // click:append-inner / click:prepend-inner are *not* declared here on
 // purpose. Vuetify only makes the inner icon tabbable when a click
@@ -102,15 +107,18 @@ const labelWidthCss = computed(() =>
   <VTextField
     v-bind="$attrs"
     class="r-text-field"
-    :class="{ 'r-text-field--inline-label': inlineLabel }"
-    :style="inlineLabel ? { '--rtf-label-w': labelWidthCss } : undefined"
+    :class="{
+      'r-text-field--prefix-label': prefixLabel,
+      'r-text-field--prefix-label-fixed': prefixLabel && hasFixedLabelWidth,
+    }"
+    :style="
+      prefixLabel && labelWidthCss ? { '--rtf-label-w': labelWidthCss } : undefined
+    "
     :model-value="modelValue"
-    :label="inlineLabel ? undefined : label"
-    :placeholder="inlineLabel ? undefined : placeholder"
-    :type="type"
-    :variant="variant"
+    :label="prefixLabel ? undefined : label"
+    :placeholder="prefixLabel ? undefined : placeholder"
     :density="density"
-    :prepend-inner-icon="inlineLabel ? undefined : prependInnerIcon"
+    :prepend-inner-icon="prefixLabel ? undefined : prependInnerIcon"
     :append-inner-icon="appendInnerIcon"
     :autocomplete="autocomplete"
     :name="name"
@@ -126,22 +134,26 @@ const labelWidthCss = computed(() =>
     :error-messages="errorMessages"
     @update:model-value="(v) => $emit('update:modelValue', v)"
   >
-    <!-- Inline label takes over Vuetify's prepend-inner slot when on. -->
-    <template v-if="inlineLabel" #prepend-inner>
-      <span class="r-text-field__inline-label">
-        <slot name="label">{{ label }}</slot>
+    <!-- Prefix label takes over Vuetify's prepend-inner slot when on.
+         Falls back to the `label` string prop when the slot is empty. -->
+    <template v-if="prefixLabel" #prepend-inner>
+      <span class="r-text-field__prefix-label">
+        <slot name="prefix-label">{{ label }}</slot>
       </span>
     </template>
 
     <!-- Pass through every consumer slot. We filter at the iterator
          level (not inside the slot body) so VTextField doesn't see a
          second `prepend-inner` registration when we own it via the
-         v-if above; we also strip `#label` in inline-label mode so it
+         v-if above; we also strip `#label` in prefix-label mode so it
          doesn't double-paint as Vuetify's floating label. -->
     <template
       v-for="slotName in Object.keys($slots).filter(
         (s) =>
-          !(inlineLabel && (s === 'prepend-inner' || s === 'label')),
+          !(
+            prefixLabel &&
+            (s === 'prepend-inner' || s === 'label' || s === 'prefix-label')
+          ),
       )"
       #[slotName]="slotProps"
       :key="slotName"
@@ -157,7 +169,6 @@ const labelWidthCss = computed(() =>
    `--r-color-border`, swapping to brand on focus and danger on error. */
 
 .r-text-field :deep(.v-field) {
-  padding-left: 0px !important;
   border-radius: 8px;
   font-size: 14px;
   transition:
@@ -307,55 +318,77 @@ const labelWidthCss = computed(() =>
 }
 
 /* ────────────────────────────────────────────────────────────────
-   Inline-label variant — label-prefix on the left, input on the
-   right, single bordered container around both. The Vuetify
-   floating label is suppressed (we passed `:label="undefined"`)
-   and the prepend-inner slot hosts the `#label` slot content.
+   Prefix-label variant — left "well" + divider + input on the right,
+   single bordered container around both. Vuetify's floating label is
+   suppressed (`:label="undefined"`) and the prepend-inner slot hosts
+   the `#prefix-label` slot content.
+
+   Default: the well auto-sizes to its content (`width: auto`,
+   `padding-inline: 8px`). Pass `labelWidth` to switch to a fixed-
+   width well (`.r-text-field--prefix-label-fixed`) for vertical
+   alignment across a stack of fields.
+
+   `!important` on the well sizing is load-bearing — Vuetify's
+   density-specific selectors otherwise outrank our scoped rules.
    ──────────────────────────────────────────────────────────────── */
 
-.r-text-field--inline-label :deep(.v-field) {
+.r-text-field--prefix-label :deep(.v-field) {
   background: var(--r-color-surface);
   overflow: hidden;
-  /* Reset Vuetify's outline pieces so the wrapper border is one
-     continuous frame instead of the 4-piece notched look. */
   border: 1px solid var(--r-color-border);
+  /* Well needs to sit flush against the field's left edge — drop
+     Vuetify's default field padding-left only in this mode so
+     regular `prepend-inner-icon` usage keeps its breathing room. */
+  padding-left: 0 !important;
 }
-.r-text-field--inline-label :deep(.v-field__outline) {
+.r-text-field--prefix-label :deep(.v-field__outline) {
   display: none;
 }
-.r-text-field--inline-label:hover :deep(.v-field) {
+.r-text-field--prefix-label:hover :deep(.v-field) {
   border-color: var(--r-color-border-strong);
 }
-.r-text-field--inline-label :deep(.v-field--focused) {
+.r-text-field--prefix-label :deep(.v-field--focused) {
   border-color: var(--r-color-brand-primary);
 }
-.r-text-field--inline-label :deep(.v-field--error) {
+.r-text-field--prefix-label :deep(.v-field--error) {
   border-color: var(--r-color-danger);
 }
 
-/* The label "well" on the left — slightly darker bg, hairline divider
-   to the input area. */
-.r-text-field--inline-label :deep(.v-field__prepend-inner) {
-  width: var(--rtf-label-w, 120px);
-  min-width: var(--rtf-label-w, 120px);
-  padding: 0 14px;
+/* The well — auto-sized to its content by default. */
+.r-text-field--prefix-label :deep(.v-field__prepend-inner) {
+  width: auto !important;
+  min-width: auto !important;
+  padding-block: 0 !important;
+  padding-inline: 8px !important;
   align-self: stretch;
   display: flex;
   align-items: center;
+  justify-content: center;
   background: var(--r-color-bg-elevated);
   border-right: 1px solid var(--r-color-border);
   color: var(--r-color-fg-secondary);
-  /* Reset Vuetify's default top padding for prepend-inner. */
-  padding-top: 0;
 }
-.r-text-field--inline-label :deep(.v-field--focused .v-field__prepend-inner) {
+
+/* Fixed-width modifier — kicks in when the caller passes
+   `labelWidth`. More horizontal padding because the slot usually
+   holds icon + text and we want a balanced inset. */
+.r-text-field--prefix-label-fixed :deep(.v-field__prepend-inner) {
+  width: var(--rtf-label-w) !important;
+  min-width: var(--rtf-label-w) !important;
+  padding-inline: 14px !important;
+  justify-content: flex-start;
+}
+
+.r-text-field--prefix-label
+  :deep(.v-field--focused .v-field__prepend-inner) {
   border-right-color: var(--r-color-brand-primary);
 }
-.r-text-field--inline-label :deep(.v-field--error .v-field__prepend-inner) {
+.r-text-field--prefix-label
+  :deep(.v-field--error .v-field__prepend-inner) {
   border-right-color: var(--r-color-danger);
 }
 
-.r-text-field__inline-label {
+.r-text-field__prefix-label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -368,24 +401,31 @@ const labelWidthCss = computed(() =>
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.r-text-field--inline-label
+.r-text-field--prefix-label
   :deep(.v-field--focused)
-  .r-text-field__inline-label {
+  .r-text-field__prefix-label {
   color: var(--r-color-brand-primary);
 }
-.r-text-field--inline-label :deep(.v-field--error) .r-text-field__inline-label {
+.r-text-field--prefix-label
+  :deep(.v-field--error)
+  .r-text-field__prefix-label {
   color: var(--r-color-danger);
 }
 
-/* Input area — let it breathe inside the field, no extra padding-top
-   since there's no floating label to make room for. */
-.r-text-field--inline-label :deep(.v-field__field) {
+/* Input area — auto-sized well keeps a tight left padding; the
+   fixed-width variant restores the broader gap that matches the
+   wider well. */
+.r-text-field--prefix-label :deep(.v-field__field) {
   flex: 1;
   min-width: 0;
 }
-.r-text-field--inline-label :deep(.v-field__input) {
+.r-text-field--prefix-label :deep(.v-field__input) {
   padding: 10px 14px;
+  padding-inline-start: 10px !important;
   min-height: 38px;
+}
+.r-text-field--prefix-label-fixed :deep(.v-field__input) {
+  padding-inline-start: 14px !important;
 }
 
 /* Append icons (clear button etc.) sit on the right inside the input

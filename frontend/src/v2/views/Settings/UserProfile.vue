@@ -241,12 +241,12 @@ onUnmounted(() => {
         <div class="r-v2-profile__field">
           <RTextField
             v-model="userToEdit.username"
-            inline-label
+            prefix-label
             :rules="usersStore.usernameRules"
             required
             clearable
           >
-            <template #label>
+            <template #prefix-label>
               <RIcon icon="mdi-account-outline" size="14" />
               {{ t("settings.username") }}
             </template>
@@ -255,13 +255,13 @@ onUnmounted(() => {
         <div class="r-v2-profile__field">
           <RTextField
             v-model="userToEdit.email"
-            inline-label
+            prefix-label
             :rules="usersStore.emailRules"
             type="email"
             required
             clearable
           >
-            <template #label>
+            <template #prefix-label>
               <RIcon icon="mdi-email-outline" size="14" />
               {{ t("settings.email") }}
             </template>
@@ -271,11 +271,11 @@ onUnmounted(() => {
           <RSelect
             v-model="userToEdit.role"
             :items="roleItems"
-            inline-label
+            prefix-label
             required
             hide-details
           >
-            <template #label>
+            <template #prefix-label>
               <RIcon icon="mdi-shield-account-outline" size="14" />
               {{ t("settings.role") }}
             </template>
@@ -295,7 +295,7 @@ onUnmounted(() => {
           </RSelect>
         </div>
 
-        <!-- Password — visually identical to the other inline-label
+        <!-- Password — visually identical to the other prefix-label
              rows, but the value is a fixed mask and the change flow is
              driven by the dialog (opened from the append-inner button).
              readonly + type=password keeps the field non-editable while
@@ -304,12 +304,12 @@ onUnmounted(() => {
           <RTextField
             model-value="00000000"
             type="password"
-            inline-label
+            prefix-label
             readonly
             hide-details
             autocomplete="new-password"
           >
-            <template #label>
+            <template #prefix-label>
               <RIcon icon="mdi-key-outline" size="14" />
               {{ t("settings.password") }}
             </template>

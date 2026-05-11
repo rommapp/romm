@@ -266,11 +266,11 @@ onMounted(() => {
         :disabled="platformItems.length === 0"
         clearable
         hide-details
-        inline-label
+        prefix-label
         class="r-v2-missing__platform-select"
         @update:model-value="onPlatformChange"
       >
-        <template #label>
+        <template #prefix-label>
           <RIcon icon="mdi-controller" size="14" />
           {{ t("common.platform") }}
         </template>

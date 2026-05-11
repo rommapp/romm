@@ -2,11 +2,11 @@
 // UserInterface — v2-native UI preferences view.
 //
 // Sections:
-//   1. Language          (RSelect — inline-label)
+//   1. Language          (RSelect — prefix-label)
 //   2. Theme             (3-button compact picker)
 //   3. Home              (toggle grid)
-//   4. Gallery           (toggle grid + boxart RSelect inline-label)
-//   5. Virtual collections (single toggle + RSelect inline-label)
+//   4. Gallery           (toggle grid + boxart RSelect prefix-label)
+//   5. Virtual collections (single toggle + RSelect prefix-label)
 //   6. UI version        (v2-only, beta — kept last)
 //
 // The v1 "Platforms drawer" section was removed (no equivalent in v2).
@@ -130,7 +130,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
   <SettingsShell bare>
     <SettingsSection :title="t('settings.language')" icon="mdi-translate">
       <div class="r-v2-ui__field">
-        <LanguageSelector inline-label />
+        <LanguageSelector prefix-label />
       </div>
     </SettingsSection>
 
@@ -243,10 +243,10 @@ function onVirtualCollectionTypeChange(value: unknown) {
         <RSelect
           v-model="boxartStyle"
           :items="boxartStyleItems"
-          inline-label
+          prefix-label
           hide-details
         >
-          <template #label>
+          <template #prefix-label>
             <RIcon icon="mdi-image-frame" size="14" />
             {{ t("settings.boxart-style") }}
           </template>
@@ -271,11 +271,11 @@ function onVirtualCollectionTypeChange(value: unknown) {
           :model-value="virtualCollectionType"
           :items="virtualCollectionTypeItems"
           :disabled="!showVirtualCollections"
-          inline-label
+          prefix-label
           hide-details
           @update:model-value="onVirtualCollectionTypeChange"
         >
-          <template #label>
+          <template #prefix-label>
             <RIcon icon="mdi-shape-outline" size="14" />
             {{ t("settings.virtual-collection-type") }}
           </template>

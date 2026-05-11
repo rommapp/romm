@@ -95,37 +95,37 @@ function close() {
       <div class="r-v2-user-dialog__body">
         <RTextField
           v-model="user.username"
-          inline-label
+          prefix-label
           :rules="usersStore.usernameRules"
           required
           clearable
         >
-          <template #label>
+          <template #prefix-label>
             <RIcon icon="mdi-account-outline" size="14" />
             {{ t("settings.username") }}
           </template>
         </RTextField>
         <RTextField
           v-model="user.password"
-          inline-label
+          prefix-label
           :rules="usersStore.passwordRules"
           type="password"
           required
           clearable
         >
-          <template #label>
+          <template #prefix-label>
             <RIcon icon="mdi-key-outline" size="14" />
             {{ t("settings.password") }}
           </template>
         </RTextField>
         <RTextField
           v-model="user.email"
-          inline-label
+          prefix-label
           :rules="usersStore.emailRules"
           type="email"
           clearable
         >
-          <template #label>
+          <template #prefix-label>
             <RIcon icon="mdi-email-outline" size="14" />
             {{ t("settings.email") }}
           </template>

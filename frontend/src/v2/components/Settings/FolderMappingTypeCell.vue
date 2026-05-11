@@ -1,14 +1,17 @@
 <script setup lang="ts">
-// FolderMappingTypeCell — editable Type cell (alias / variant / auto)
-// for the folder mappings table. Pulled out of FolderMappingsSection
-// for the same reason as FolderMappingPlatformCell: the RMenu activator
-// slot anchors reliably only when it lives at this SFC root, not when
-// nested inside RTable's `cell.type` slot scope.
-import { RBtn, RMenu, RMenuItem, RMenuPanel, RTag } from "@v2/lib";
-import { computed } from "vue";
+// FolderMappingTypeCell — editable Type cell (alias / variant) for the
+// folder mappings table.
+//
+// Same activator strategy as FolderMappingPlatformCell: plain
+// `<button>` element bound to RMenu's activator slot props. This is
+// the proven combo from `GameActionBtn.vue` — wrapping VMenu's
+// slot-injected function ref through RBtn / VBtn breaks down in
+// nested scoped-slot contexts (RTable's `cell.type` slot), so we
+// attach the ref to a real DOM element directly. Auto rows render
+// as a static tag (system-detected, no menu).
+import { RIcon, RMenu, RMenuItem, RMenuPanel, RTag } from "@v2/lib";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-
-defineOptions({ inheritAttrs: false });
 
 type RowType = "alias" | "variant" | "auto" | null;
 
@@ -46,22 +49,27 @@ const label = computed(() => {
 });
 
 const isEditable = computed(
-  () => props.canEdit && props.row.slug && props.row.type !== null,
+  () =>
+    props.canEdit &&
+    !!props.row.slug &&
+    (props.row.type === "alias" || props.row.type === "variant"),
 );
+
+const open = ref(false);
 </script>
 
 <template>
-  <RMenu v-if="isEditable" location="bottom">
-    <template #activator="{ props: menuProps }">
-      <RBtn
-        v-bind="menuProps"
-        variant="text"
-        size="x-small"
+  <RMenu v-if="isEditable" v-model="open" location="bottom">
+    <template #activator="{ props: activatorProps }">
+      <button
+        v-bind="activatorProps"
+        type="button"
         class="r-v2-fmtc__btn"
-        append-icon="mdi-chevron-down"
+        :aria-label="t('settings.mapping-types')"
       >
         <RTag :tone="tone" :text="label" size="x-small" />
-      </RBtn>
+        <RIcon icon="mdi-chevron-down" size="14" class="r-v2-fmtc__chevron" />
+      </button>
     </template>
     <RMenuPanel width="200px">
       <RMenuItem
@@ -80,11 +88,25 @@ const isEditable = computed(
 </template>
 
 <style scoped>
+/* Plain-button activator styled to read as a clickable tag pill. */
 .r-v2-fmtc__btn {
-  text-transform: none !important;
-  letter-spacing: 0 !important;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font: inherit;
+  border-radius: var(--r-radius-sm);
+  transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-v2-fmtc__btn :deep(.v-btn__content) {
-  gap: 6px;
+.r-v2-fmtc__btn:hover,
+.r-v2-fmtc__btn:focus-visible {
+  background: var(--r-color-surface-hover);
+}
+.r-v2-fmtc__chevron {
+  color: var(--r-color-fg-muted);
 }
 </style>

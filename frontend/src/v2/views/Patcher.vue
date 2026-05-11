@@ -644,14 +644,14 @@ onMounted(async () => {
 
       <RTextField
         v-model="customFileName"
-        inline-label
+        prefix-label
         :placeholder="filenamePlaceholder"
         :suffix="romExtension"
         density="compact"
         hide-details
         clearable
       >
-        <template #label>
+        <template #prefix-label>
           <RIcon icon="mdi-file-edit-outline" size="14" />
           {{ t("patcher.output-filename") }}
         </template>

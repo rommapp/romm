@@ -6,7 +6,7 @@
 //
 // Two looks:
 //   • Default — compact pill, used on Auth/Pair shells.
-//   • `inlineLabel` — full-width inline-label field, used in Settings.
+//   • `prefixLabel` — full-width prefix-label field, used in Settings.
 import { RIcon, RSelect } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
@@ -17,9 +17,9 @@ import storeLanguage from "@/stores/language";
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  inlineLabel?: boolean;
+  prefixLabel?: boolean;
 }
-withDefaults(defineProps<Props>(), { inlineLabel: false });
+withDefaults(defineProps<Props>(), { prefixLabel: false });
 
 const { t, locale } = useI18n();
 const languageStore = storeLanguage();
@@ -44,13 +44,13 @@ const currentValue = computed({
 
 <template>
   <RSelect
-    v-if="inlineLabel"
+    v-if="prefixLabel"
     v-model="currentValue"
     :items="items"
-    inline-label
+    prefix-label
     hide-details
   >
-    <template #label>
+    <template #prefix-label>
       <RIcon icon="mdi-translate" size="14" />
       {{ t("settings.language") }}
     </template>

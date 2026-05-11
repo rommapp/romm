@@ -88,42 +88,55 @@ const rowStyle = computed(() =>
 
 <template>
   <div class="r-table" v-bind="$attrs">
-    <!-- Header row — sortable buttons share the row's grid template
-         so columns line up vertically across header + body. -->
+    <!-- Header row — each column header is a cell `<div>` containing
+         either a sort `<button>` (sortable cols) or a plain label, plus
+         an optional `header.<key>` slot for adornments (e.g. a help
+         icon next to "Type"). The sort button is the only interactive
+         element so adornments stay focusable / clickable on their own
+         without nesting buttons. -->
     <div class="r-table__header" :style="gridStyle" role="row">
-      <button
+      <div
         v-for="col in columns"
         :key="col.key"
-        type="button"
         class="r-table__header-cell"
         :class="{
-          'r-table__header-cell--sortable': col.sortable,
           'r-table__header-cell--end': col.align === 'end',
           'r-table__header-cell--center': col.align === 'center',
-          'r-table__header-cell--active':
-            col.sortable && sortKey === col.key,
         }"
+        role="columnheader"
         :aria-sort="
           col.sortable && sortKey === col.key
             ? sortDir === 'asc'
               ? 'ascending'
               : 'descending'
-            : 'none'
+            : col.sortable
+              ? 'none'
+              : undefined
         "
-        :tabindex="col.sortable ? 0 : -1"
-        :disabled="!col.sortable"
-        @click="handleSort(col)"
       >
-        <span class="r-table__header-label">{{ col.label }}</span>
-        <RIcon
-          v-if="col.sortable && sortKey === col.key"
-          :icon="
-            sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
-          "
-          size="14"
-          class="r-table__header-icon"
-        />
-      </button>
+        <button
+          v-if="col.sortable"
+          type="button"
+          class="r-table__header-sort"
+          :class="{
+            'r-table__header-sort--active': sortKey === col.key,
+          }"
+          @click="handleSort(col)"
+        >
+          <span class="r-table__header-label">{{ col.label }}</span>
+          <RIcon
+            v-if="sortKey === col.key"
+            :icon="
+              sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
+            "
+            size="14"
+            class="r-table__header-icon"
+          />
+        </button>
+        <span v-else class="r-table__header-label">{{ col.label }}</span>
+
+        <slot :name="`header.${col.key}`" :column="col" />
+      </div>
     </div>
 
     <!-- Body — skeletons / real rows / empty state, in that order. -->
@@ -230,36 +243,19 @@ const rowStyle = computed(() =>
   -webkit-backdrop-filter: blur(10px);
 }
 
+/* Outer cell — flex container holding the sort button (or static
+   label) and any consumer adornment from the `header.<key>` slot. */
 .r-table__header-cell {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  color: var(--r-color-fg-muted);
-  font-size: var(--r-font-size-xs, 10px);
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   display: inline-flex;
   align-items: center;
   gap: var(--r-space-1, 4px);
   min-width: 0;
   height: 100%;
-  cursor: default;
-  text-align: start;
-  border-radius: var(--r-radius-sm);
-  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-table__header-cell--sortable {
-  cursor: pointer;
-}
-.r-table__header-cell--sortable:hover,
-.r-table__header-cell--sortable:focus-visible {
-  color: var(--r-color-fg);
-}
-.r-table__header-cell--active {
-  color: var(--r-color-fg);
+  color: var(--r-color-fg-muted);
+  font-size: var(--r-font-size-xs, 10px);
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 .r-table__header-cell--end {
   justify-content: flex-end;
@@ -269,6 +265,36 @@ const rowStyle = computed(() =>
   justify-content: center;
   text-align: center;
 }
+
+/* Inner sort button — the only interactive piece in the header. The
+   tint flips to fg on hover/focus/active so the affordance still reads
+   exactly like the previous all-cell button. */
+.r-table__header-sort {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r-space-1, 4px);
+  min-width: 0;
+  cursor: pointer;
+  text-align: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  border-radius: var(--r-radius-sm);
+  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-table__header-sort:hover,
+.r-table__header-sort:focus-visible {
+  color: var(--r-color-fg);
+}
+.r-table__header-sort--active {
+  color: var(--r-color-fg);
+}
+
 .r-table__header-label {
   white-space: nowrap;
   overflow: hidden;

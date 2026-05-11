@@ -156,14 +156,17 @@ function setKindFilter(value: KindFilterValue) {
       v-if="showSearch"
       :model-value="search"
       :placeholder="searchPlaceholder"
-      variant="outlined"
       density="compact"
-      prepend-inner-icon="mdi-magnify"
+      prefix-label
       clearable
       hide-details
       class="gallery-toolbar__search"
       @update:model-value="(v: string) => setSearch(v ?? '')"
-    />
+    >
+    <template #prefix-label>
+        <RIcon icon="mdi-magnify" size="16" />
+      </template>
+    </RTextField>
     <RSliderBtnGroup
       v-if="showKindFilter && kindFilterItems.length > 0"
       :model-value="kindFilter"

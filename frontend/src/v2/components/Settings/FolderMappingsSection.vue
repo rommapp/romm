@@ -12,10 +12,10 @@
 // `RBtn` activators.
 import {
   RBtn,
+  RDialog,
   RIcon,
   RTable,
   RTextField,
-  RTooltip,
   type RTableColumn,
   type RTableSortPayload,
 } from "@v2/lib";
@@ -30,6 +30,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { Platform } from "@/stores/platforms";
 import FolderMappingPlatformCell from "@/v2/components/Settings/FolderMappingPlatformCell.vue";
 import FolderMappingTypeCell from "@/v2/components/Settings/FolderMappingTypeCell.vue";
+import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -44,6 +45,7 @@ const snackbar = useSnackbar();
 const supportedPlatforms = ref<Platform[]>([]);
 const search = ref("");
 const loading = ref(false);
+const helpOpen = ref(false);
 
 type RowType = "alias" | "variant" | "auto" | null;
 type SortKey = "fsSlug" | "displayName" | "type";
@@ -307,6 +309,10 @@ onMounted(async () => {
   try {
     const { data } = await platformApi.getSupportedPlatforms();
     supportedPlatforms.value = data || [];
+    // Populate the in-memory icon cache so every PlatformIcon
+    // rendered by the table rows + Platform picker reads blob URLs
+    // instead of refetching. Fires in idle time, non-blocking.
+    prefetchPlatformIcons(supportedPlatforms.value.map((p) => p.slug));
   } catch (err) {
     const e = err as {
       response?: { data?: { detail?: string }; statusText?: string };
@@ -327,41 +333,16 @@ onMounted(async () => {
     <div class="r-v2-mappings__toolbar">
       <RTextField
         v-model="search"
-        inline-label
+        prefix-label
         hide-details
         aria-label="Search folder mappings"
         class="r-v2-mappings__search"
       >
-        <template #label>
+        <template #prefix-label>
           <RIcon icon="mdi-magnify" size="14" />
           {{ t("common.search") }}
         </template>
       </RTextField>
-      <RTooltip>
-        <template #activator="{ props: tipProps }">
-          <RBtn
-            v-bind="tipProps"
-            variant="text"
-            size="small"
-            icon="mdi-information-outline"
-            class="r-v2-mappings__info-btn"
-            :aria-label="t('settings.exclusions-tooltip')"
-          />
-        </template>
-        <div class="r-v2-mappings__tip">
-          <p>
-            <strong>{{ t("settings.folder-alias") }}:</strong>
-            {{ t("settings.folder-mappings-tooltip-aliases") }}
-          </p>
-          <p>
-            <strong>{{ t("settings.platform-variant") }}:</strong>
-            {{ t("settings.folder-mappings-tooltip-variants") }}
-          </p>
-          <p class="r-v2-mappings__tip-foot">
-            {{ t("settings.folder-mappings-mutually-exclusive") }}
-          </p>
-        </div>
-      </RTooltip>
     </div>
 
     <RTable
@@ -376,6 +357,22 @@ onMounted(async () => {
       row-height="44px"
       @update:sort="onSort"
     >
+      <!-- Help affordance lives next to the "Type" header label — a
+           small `?` icon that opens the mapping-types dialog. Sits
+           where the user is most likely to wonder what alias / variant
+           mean (instead of competing with the search in the toolbar). -->
+      <template #header.type>
+        <RBtn
+          variant="text"
+          size="x-small"
+          icon="mdi-help-circle-outline"
+          class="r-v2-mappings__help-icon"
+          :aria-label="t('settings.mapping-types')"
+          :title="t('settings.mapping-types')"
+          @click="helpOpen = true"
+        />
+      </template>
+
       <template #cell.fsSlug="{ row }">
         <span class="r-v2-mappings__folder">{{ (row as Row).fsSlug }}</span>
       </template>
@@ -410,6 +407,55 @@ onMounted(async () => {
         />
       </template>
     </RTable>
+
+    <!-- Help dialog — replaces the previous toolbar tooltip. Same
+         alias/variant copy, plus a footer note about mutual exclusion.
+         Auto isn't covered here on purpose: it's system-detected and
+         users can't pick it manually. -->
+    <RDialog
+      v-model="helpOpen"
+      icon="mdi-folder-multiple-outline"
+      :width="520"
+      @close="helpOpen = false"
+    >
+      <template #header>
+        <span class="r-v2-mappings__help-title">
+          {{ t("settings.mapping-types") }}
+        </span>
+      </template>
+      <template #content>
+        <div class="r-v2-mappings__help-body">
+          <section class="r-v2-mappings__help-row">
+            <h3 class="r-v2-mappings__help-row-title">
+              {{ t("settings.folder-alias") }}
+            </h3>
+            <p>{{ t("settings.folder-mappings-tooltip-aliases") }}</p>
+          </section>
+          <section class="r-v2-mappings__help-row">
+            <h3 class="r-v2-mappings__help-row-title">
+              {{ t("settings.platform-variant") }}
+            </h3>
+            <p>{{ t("settings.folder-mappings-tooltip-variants") }}</p>
+          </section>
+          <p class="r-v2-mappings__help-foot">
+            <RIcon icon="mdi-information-outline" size="14" />
+            <span>{{ t("settings.folder-mappings-mutually-exclusive") }}</span>
+          </p>
+        </div>
+      </template>
+      <template #footer>
+        <div class="r-v2-mappings__help-footer">
+          <RBtn
+            variant="flat"
+            color="primary"
+            prepend-icon="mdi-check"
+            @click="helpOpen = false"
+          >
+            {{ t("common.got-it") }}
+          </RBtn>
+        </div>
+      </template>
+    </RDialog>
   </div>
 </template>
 
@@ -429,24 +475,23 @@ onMounted(async () => {
   flex: 1;
 }
 
-.r-v2-icon-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid var(--r-color-border);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--r-color-surface);
-  color: var(--r-color-fg-muted);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
+/* Help affordance inside the "Type" column header — a small, muted
+   icon that tints to fg on hover. Negative inline-end margin keeps it
+   visually attached to the label without enlarging the header gap. */
+.r-v2-mappings__help-icon {
+  color: var(--r-color-fg-faint) !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 0 !important;
+  margin-left: 2px !important;
 }
-.r-v2-icon-btn:hover {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
+.r-v2-mappings__help-icon:hover {
+  color: var(--r-color-fg) !important;
+  background: var(--r-color-surface-hover) !important;
+}
+.r-v2-mappings__help-icon :deep(.v-icon),
+.r-v2-mappings__help-icon :deep(.r-icon) {
+  font-size: 14px !important;
 }
 
 .r-v2-mappings__folder {
@@ -469,15 +514,56 @@ onMounted(async () => {
   ) !important;
 }
 
-.r-v2-mappings__tip {
+/* Help dialog — alias / variant explanation. Two stacked sections
+   with a footer note about mutual exclusion. */
+.r-v2-mappings__help-title {
+  font-weight: var(--r-font-weight-semibold);
+}
+.r-v2-mappings__help-body {
+  padding: 18px 24px 22px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
-  max-width: 320px;
+  gap: 18px;
 }
-.r-v2-mappings__tip-foot {
+.r-v2-mappings__help-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.r-v2-mappings__help-row-title {
   margin: 0;
-  color: var(--r-color-fg-muted);
+  font-size: 13px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--r-color-brand-primary);
+}
+.r-v2-mappings__help-row p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--r-color-fg-secondary);
+}
+.r-v2-mappings__help-foot {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent);
+  color: var(--r-color-fg-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.r-v2-mappings__help-foot :deep(.r-icon) {
+  color: var(--r-color-brand-primary);
+  margin-top: 2px;
+}
+.r-v2-mappings__help-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
 }
 </style>

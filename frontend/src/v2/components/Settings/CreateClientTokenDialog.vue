@@ -395,11 +395,11 @@ onBeforeUnmount(() => {
       <div v-if="step === 'config'" class="r-v2-tok-dialog__body">
         <RTextField
           v-model="tokenName"
-          inline-label
+          prefix-label
           density="comfortable"
           hide-details
         >
-          <template #label>
+          <template #prefix-label>
             <RIcon icon="mdi-tag-outline" size="14" />
             {{ t("settings.client-token-name") }}
           </template>

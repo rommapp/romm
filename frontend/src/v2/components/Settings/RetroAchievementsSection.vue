@@ -97,11 +97,11 @@ async function saveAndSync() {
     <div class="r-v2-ra__field">
       <RTextField
         v-model="username"
-        inline-label
+        prefix-label
         hide-details
         @keyup.enter="saveAndSync"
       >
-        <template #label>{{ t("settings.username") }}</template>
+        <template #prefix-label>{{ t("settings.username") }}</template>
       </RTextField>
     </div>
     <div class="r-v2-ra__actions">
