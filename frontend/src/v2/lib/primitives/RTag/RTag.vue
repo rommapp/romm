@@ -52,8 +52,8 @@ withDefaults(defineProps<Props>(), {
       :class="{ 'r-tag__text--mono': mono }"
     >
       <slot>{{ text }}</slot>
-      <RIcon v-if="appendIcon" :icon="appendIcon" class="r-tag__icon" />
     </span>
+    <RIcon v-if="appendIcon" :icon="appendIcon" class="r-tag__icon" />
   </span>
 </template>
 

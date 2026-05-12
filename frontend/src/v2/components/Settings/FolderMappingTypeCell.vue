@@ -70,8 +70,7 @@ const open = ref(false);
         class="r-v2-fmtc__btn"
         :aria-label="t('settings.mapping-types')"
       >
-        <RTag :tone="tone" :text="label" />
-        <RIcon icon="mdi-chevron-down" size="14" class="r-v2-fmtc__chevron" />
+        <RTag :tone="tone" :text="label" append-icon="mdi-chevron-down" />
       </button>
     </template>
     <RMenuPanel width="200px">
