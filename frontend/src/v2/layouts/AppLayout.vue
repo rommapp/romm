@@ -12,6 +12,7 @@
 import { onBeforeUnmount, onMounted, provide, ref } from "vue";
 import { useRouter } from "vue-router";
 import storeCollections from "@/stores/collections";
+import storePlatforms from "@/stores/platforms";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import GlobalDialogs from "@/v2/components/AppShell/GlobalDialogs.vue";
@@ -25,6 +26,7 @@ import { installBackMorph } from "@/v2/composables/useViewTransition";
 installPermissionsHydration();
 
 const collectionsStore = storeCollections();
+const platformsStore = storePlatforms();
 
 // Shared reactive background art — views paint covers via the injected setter.
 const layerA = ref<string | null>(null);
@@ -79,6 +81,15 @@ onMounted(() => {
   // through Home / Collections first. v1 did this in `Main.vue`.
   if (collectionsStore.allCollections.length === 0) {
     void collectionsStore.fetchCollections();
+  }
+  // Hydrate platforms for the same reason — views like MissingGames,
+  // GameDetails, etc. read `platformsStore.get(id)` to resolve a
+  // platform's display name and slug. Without this, direct loads of
+  // those views in v2 see undefined slugs and icons fall through to
+  // `default.ico`. v1 ran this in `Main.vue`; v2's AppLayout owns the
+  // same responsibility.
+  if (platformsStore.allPlatforms.length === 0) {
+    void platformsStore.fetchPlatforms();
   }
 });
 

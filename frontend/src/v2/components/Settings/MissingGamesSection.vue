@@ -24,6 +24,7 @@ import taskApi from "@/services/api/task";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, toBrowserLocale } from "@/utils";
 import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
+import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -58,12 +59,26 @@ type SortKey =
 const sortKey = ref<SortKey>("name");
 const sortDir = ref<"asc" | "desc">("asc");
 
-const platformItems = computed(() =>
-  allPlatforms.value
+// Selector only lists platforms that actually appear in the loaded
+// missing-roms result, so the filter never offers a platform that
+// would just snap the table empty. The currently-selected platform
+// is always included even when its result set is empty, so the
+// selector doesn't go blank mid-filter — the X clearable lets the
+// user back out to the unfiltered view from any state.
+const platformItems = computed(() => {
+  const ids = new Set<number>();
+  for (const r of roms.value) {
+    if (r.platform_id != null) ids.add(r.platform_id);
+  }
+  if (selectedPlatformId.value != null) {
+    ids.add(selectedPlatformId.value);
+  }
+  return allPlatforms.value
+    .filter((p) => ids.has(p.id))
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((p) => ({ title: p.name, value: p.id })),
-);
+    .map((p) => ({ title: p.name, value: p.id, slug: p.slug }));
+});
 
 const hasMore = computed(() => total.value > roms.value.length);
 
@@ -131,9 +146,7 @@ async function fetchPage(concat: boolean) {
   }
   try {
     const { data } = await romApi.getRoms({
-      platformIds: selectedPlatformId.value
-        ? [selectedPlatformId.value]
-        : null,
+      platformIds: selectedPlatformId.value ? [selectedPlatformId.value] : null,
       filterMissing: true,
       limit: PAGE_SIZE,
       offset: offset.value,
@@ -204,9 +217,7 @@ async function cleanupAll() {
     snackbar.success(t("settings.cleanup-queued"));
     setTimeout(() => void fetchPage(false), 1500);
   } catch (err) {
-    snackbar.error(
-      t("settings.couldnt-queue-cleanup", { error: String(err) }),
-    );
+    snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
   } finally {
     cleaningUp.value = false;
   }
@@ -263,7 +274,6 @@ onMounted(() => {
       <RSelect
         :model-value="selectedPlatformId"
         :items="platformItems"
-        :disabled="platformItems.length === 0"
         clearable
         hide-details
         prefix-label
@@ -273,6 +283,27 @@ onMounted(() => {
         <template #prefix-label>
           <RIcon icon="mdi-controller" size="14" />
           {{ t("common.platform") }}
+        </template>
+        <template #selection="{ item }">
+          <span class="r-v2-missing__platform-line">
+            <CachedPlatformIcon
+              :slug="item.raw.slug"
+              :name="item.title"
+              :size="18"
+            />
+            {{ item.title }}
+          </span>
+        </template>
+        <template #item="{ props: itemProps, item }">
+          <v-list-item v-bind="itemProps" :title="item.title">
+            <template #prepend>
+              <CachedPlatformIcon
+                :slug="item.raw.slug"
+                :name="item.title"
+                :size="18"
+              />
+            </template>
+          </v-list-item>
         </template>
       </RSelect>
       <RBtn
@@ -312,9 +343,7 @@ onMounted(() => {
             />
             <span v-else class="r-v2-missing__thumb-fallback">
               {{
-                (
-                  (row as SimpleRom).name ?? (row as SimpleRom).fs_name_no_ext
-                )
+                ((row as SimpleRom).name ?? (row as SimpleRom).fs_name_no_ext)
                   .slice(0, 2)
                   .toUpperCase()
               }}
@@ -340,7 +369,9 @@ onMounted(() => {
             :size="20"
           />
           <span class="r-v2-missing__platform-name">
-            {{ platformsStore.get((row as SimpleRom).platform_id)?.name ?? "—" }}
+            {{
+              platformsStore.get((row as SimpleRom).platform_id)?.name ?? "—"
+            }}
           </span>
         </span>
       </template>
@@ -418,6 +449,15 @@ onMounted(() => {
   flex: 1;
   min-width: 0;
   max-width: 360px;
+}
+
+/* Selection line inside the RSelect's value area + menu rows — icon
+   + name, identical to the cell layout in the table. */
+.r-v2-missing__platform-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 /* ----- Name cell — cover thumb + title + filename ----- */
