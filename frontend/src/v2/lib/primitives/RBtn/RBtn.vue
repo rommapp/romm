@@ -116,7 +116,7 @@ onBeforeUnmount(clearTimer);
      with any color (default/primary/error/...): the whole button —
      text, border, icon, background — brightens together on hover.
      Vuetify's own hover overlay still adds the bg lift on top. */
-  opacity: 0.7;
+  opacity: 0.8;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-btn:hover:not(.v-btn--disabled) {

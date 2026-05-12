@@ -14,7 +14,7 @@
 // surface that picks a platform — this one and MissingGames — uses
 // the same searchable, icon-decorated menu (same scrollbar, same
 // panel paint, same item layout).
-import { RIcon, RMenu, RMenuItem } from "@v2/lib";
+import { RIcon, RMenu, RMenuItem, RBtn } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
@@ -71,7 +71,7 @@ function pick(slug: string | undefined) {
     :close-on-content-click="false"
   >
     <template #activator="{ props: activatorProps }">
-      <button
+      <RBtn
         v-bind="activatorProps"
         type="button"
         class="r-v2-fmpc__btn"
@@ -88,7 +88,7 @@ function pick(slug: string | undefined) {
         </span>
         <span v-else class="r-v2-fmpc__placeholder">—</span>
         <RIcon icon="mdi-chevron-down" size="14" class="r-v2-fmpc__chevron" />
-      </button>
+      </RBtn>
     </template>
     <PlatformPickerMenu
       :platforms="platformOptions"
@@ -142,6 +142,7 @@ function pick(slug: string | undefined) {
 }
 .r-v2-fmpc__icon {
   flex-shrink: 0;
+  margin-right: 8px;
 }
 .r-v2-fmpc__name {
   white-space: nowrap;

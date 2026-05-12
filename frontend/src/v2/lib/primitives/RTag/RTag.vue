@@ -26,7 +26,14 @@ interface Props {
   /** Render the primary text in monospace (hash values etc.). */
   mono?: boolean;
   /** Colour preset. */
-  tone?: "neutral" | "brand" | "success" | "danger" | "warning" | "info";
+  tone?:
+    | "neutral"
+    | "brand"
+    | "accent"
+    | "success"
+    | "danger"
+    | "warning"
+    | "info";
   /** Size ladder shared with RBtn / RChip / Vuetify. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
 }
@@ -142,6 +149,15 @@ withDefaults(defineProps<Props>(), {
     transparent
   );
   --r-tag-bg: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
+}
+.r-tag--accent {
+  --r-tag-fg: color-mix(in srgb, var(--r-color-brand-accent) 95%, transparent);
+  --r-tag-border: color-mix(
+    in srgb,
+    var(--r-color-brand-accent) 45%,
+    transparent
+  );
+  --r-tag-bg: color-mix(in srgb, var(--r-color-brand-accent) 14%, transparent);
 }
 .r-tag--success {
   --r-tag-fg: var(--r-color-success);

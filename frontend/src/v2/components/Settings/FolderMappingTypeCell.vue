@@ -17,7 +17,7 @@
 // (slug === undefined) stay non-editable here; the user picks a
 // platform first via FolderMappingPlatformCell, which lands the row
 // as `alias` by default.
-import { RIcon, RMenu, RMenuItem, RMenuPanel, RTag } from "@v2/lib";
+import { RBtn, RMenu, RMenuItem, RMenuPanel, RTag, RIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
@@ -42,11 +42,32 @@ defineEmits<{
 
 const { t } = useI18n();
 
-type RTagTone = "neutral" | "brand" | "success" | "danger" | "warning" | "info";
+type RTagTone =
+  | "neutral"
+  | "brand"
+  | "accent"
+  | "success"
+  | "danger"
+  | "warning"
+  | "info";
 
-const tone = computed<RTagTone>(() => {
+// Vuetify recognises `primary`, `accent`, `success`, etc. via the v2
+// theme registration in `theme/vuetify.ts` — that's the colour the
+// RBtn activator paints with. `brand` (an RTag tone alias for the
+// brand-primary token) doesn't resolve in Vuetify's palette, which
+// is why the alias chip stays uncoloured if you pass it to `:color`.
+const btnColor = computed<"primary" | "accent" | "success">(() => {
+  if (props.row.type === "alias") return "primary";
+  if (props.row.type === "variant") return "accent";
+  return "success"; // auto
+});
+
+// RTag is only rendered in the readonly fallback (non-editable +
+// type set). Use the RTag-native tone vocabulary which paints from
+// the same tokens but goes through the tag's CSS rules.
+const tagTone = computed<RTagTone>(() => {
   if (props.row.type === "alias") return "brand";
-  if (props.row.type === "variant") return "info";
+  if (props.row.type === "variant") return "accent";
   return "success"; // auto
 });
 
@@ -64,14 +85,17 @@ const open = ref(false);
 <template>
   <RMenu v-if="isEditable" v-model="open" location="bottom">
     <template #activator="{ props: activatorProps }">
-      <button
+      <RBtn
         v-bind="activatorProps"
         type="button"
         class="r-v2-fmtc__btn"
+        size="small"
+        :color="btnColor"
         :aria-label="t('settings.mapping-types')"
       >
-        <RTag :tone="tone" :text="label" append-icon="mdi-chevron-down" />
-      </button>
+        <span class="r-v2-fmtc__label">{{ label }}</span>
+        <RIcon icon="mdi-chevron-down" size="14" class="r-v2-fmtc__chevron" />
+      </RBtn>
     </template>
     <RMenuPanel width="200px">
       <RMenuItem
@@ -86,7 +110,7 @@ const open = ref(false);
       />
     </RMenuPanel>
   </RMenu>
-  <RTag v-else-if="row.type" :tone="tone" :text="label" size="x-small" />
+  <RTag v-else-if="row.type" :tone="tagTone" :text="label" size="x-small" />
 </template>
 
 <style scoped>
@@ -107,8 +131,9 @@ const open = ref(false);
 .r-v2-fmtc__btn:focus-visible {
   background: var(--r-color-surface-hover);
 }
-.r-v2-fmtc__chevron {
-  color: var(--r-color-fg-muted);
-  margin-right: 4px;
+.r-v2-fmtc__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

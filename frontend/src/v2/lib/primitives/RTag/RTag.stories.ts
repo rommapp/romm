@@ -5,13 +5,22 @@ const meta: Meta<typeof RTag> = {
   title: "Primitives/RTag",
   component: RTag,
   argTypes: {
-    icon: { control: "text" },
+    prependIcon: { control: "text" },
+    appendIcon: { control: "text" },
     label: { control: "text" },
     text: { control: "text" },
     mono: { control: "boolean" },
     tone: {
       control: "select",
-      options: ["neutral", "brand", "success", "danger", "warning", "info"],
+      options: [
+        "neutral",
+        "brand",
+        "accent",
+        "success",
+        "danger",
+        "warning",
+        "info",
+      ],
     },
     size: {
       control: "select",
@@ -47,14 +56,14 @@ export const Hash: Story = {
 // Verification badges — match uses success tone, miss stays neutral.
 export const VerificationMatch: Story = {
   args: {
-    icon: "mdi-check-circle",
+    prependIcon: "mdi-check-circle",
     text: "Redump",
     tone: "success",
   },
 };
 export const VerificationMiss: Story = {
   args: {
-    icon: "mdi-close-circle-outline",
+    prependIcon: "mdi-close-circle-outline",
     text: "TOSEC",
   },
 };
