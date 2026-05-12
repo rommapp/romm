@@ -10,15 +10,18 @@
 // wrapper components (RBtn → VBtn) when the activator is rendered
 // inside a deeply scoped parent slot (RTable's `cell.platform` slot).
 //
-// The picker is filterable via RMenuPanel's `searchable` prop, which
-// renders a built-in sticky header. `closeOnContentClick=false`
-// keeps the menu open while typing; item selection closes it
-// explicitly via `pick()`.
-import { RIcon, RMenu, RMenuItem, RMenuPanel } from "@v2/lib";
-import { computed, ref, watch } from "vue";
+// The dropdown content is the shared `PlatformPickerMenu`, so every
+// surface that picks a platform — this one and MissingGames — uses
+// the same searchable, icon-decorated menu (same scrollbar, same
+// panel paint, same item layout).
+import { RIcon, RMenu, RMenuItem } from "@v2/lib";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import type { Platform } from "@/stores/platforms";
+import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
+import PlatformPickerMenu, {
+  type PlatformOption,
+} from "@/v2/components/shared/PlatformPickerMenu.vue";
 
 type RowType = "alias" | "variant" | "auto" | null;
 
@@ -44,23 +47,15 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const open = ref(false);
-const query = ref("");
 
-// Reset the search every time the menu closes so the next open
-// starts fresh — typical picker UX.
-watch(open, (v) => {
-  if (!v) query.value = "";
-});
-
-const filteredPlatforms = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  if (!q) return props.supportedPlatforms;
-  return props.supportedPlatforms.filter((p) => {
-    const name = (p.display_name || "").toLowerCase();
-    const slug = (p.slug || "").toLowerCase();
-    return name.includes(q) || slug.includes(q);
-  });
-});
+// Adapt the section's `Platform[]` to the picker's generic option
+// shape — id stays absent (we key by slug here).
+const platformOptions = computed<PlatformOption[]>(() =>
+  props.supportedPlatforms.map((p) => ({
+    slug: p.slug,
+    name: p.display_name,
+  })),
+);
 
 function pick(slug: string | undefined) {
   emit("select", slug);
@@ -95,41 +90,21 @@ function pick(slug: string | undefined) {
         <RIcon icon="mdi-chevron-down" size="14" class="r-v2-fmpc__chevron" />
       </button>
     </template>
-    <RMenuPanel
-      width="280px"
-      max-height="360px"
-      searchable
-      v-model:search="query"
+    <PlatformPickerMenu
+      :platforms="platformOptions"
       :search-placeholder="t('common.search')"
+      @select="(p) => pick(p.slug)"
     >
-      <RMenuItem
-        v-for="platform in filteredPlatforms"
-        :key="platform.slug"
-        :label="platform.display_name"
-        @click="pick(platform.slug)"
-      >
-        <template #icon>
-          <CachedPlatformIcon
-            :slug="platform.slug"
-            :name="platform.display_name"
-            :size="18"
-          />
-        </template>
-      </RMenuItem>
-      <div
-        v-if="filteredPlatforms.length === 0"
-        class="r-v2-fmpc__empty"
-      >
-        {{ t("common.no-results") }}
-      </div>
-      <RMenuItem
-        v-if="!query && row.slug && row.type !== 'auto'"
-        icon="mdi-delete"
-        variant="danger"
-        :label="t('common.delete')"
-        @click="pick(undefined)"
-      />
-    </RMenuPanel>
+      <template #footer="{ query }">
+        <RMenuItem
+          v-if="!query && row.slug && row.type !== 'auto'"
+          icon="mdi-delete"
+          variant="danger"
+          :label="t('common.delete')"
+          @click="pick(undefined)"
+        />
+      </template>
+    </PlatformPickerMenu>
   </RMenu>
   <span v-else class="r-v2-fmpc__readonly">
     <CachedPlatformIcon
@@ -144,8 +119,7 @@ function pick(slug: string | undefined) {
 </template>
 
 <style scoped>
-/* Plain-button activator styled to read as a v2 text button. Keeps
-   parity with the previous RBtn-based look (gap, color, hover). */
+/* Plain-button activator styled to read as a v2 text button. */
 .r-v2-fmpc__btn {
   appearance: none;
   background: transparent;
@@ -186,11 +160,5 @@ function pick(slug: string | undefined) {
 }
 .r-v2-fmpc__placeholder {
   color: var(--r-color-fg-faint);
-}
-.r-v2-fmpc__empty {
-  padding: 12px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--r-color-fg-muted);
 }
 </style>

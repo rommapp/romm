@@ -70,7 +70,7 @@ const open = ref(false);
         class="r-v2-fmtc__btn"
         :aria-label="t('settings.mapping-types')"
       >
-        <RTag :tone="tone" :text="label" size="x-small" />
+        <RTag :tone="tone" :text="label" />
         <RIcon icon="mdi-chevron-down" size="14" class="r-v2-fmtc__chevron" />
       </button>
     </template>
@@ -96,7 +96,6 @@ const open = ref(false);
   appearance: none;
   background: transparent;
   border: 0;
-  padding: 2px 4px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -111,5 +110,6 @@ const open = ref(false);
 }
 .r-v2-fmtc__chevron {
   color: var(--r-color-fg-muted);
+  margin-right: 4px;
 }
 </style>

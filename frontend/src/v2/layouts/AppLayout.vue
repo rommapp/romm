@@ -21,6 +21,7 @@ import { installPermissionsHydration } from "@/v2/composables/useCan";
 import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
 
 installPermissionsHydration();
@@ -87,9 +88,15 @@ onMounted(() => {
   // platform's display name and slug. Without this, direct loads of
   // those views in v2 see undefined slugs and icons fall through to
   // `default.ico`. v1 ran this in `Main.vue`; v2's AppLayout owns the
-  // same responsibility.
+  // same responsibility. Once the store is populated, kick off a
+  // background prefetch of every platform's icon so the in-memory
+  // blob cache is ready by the time any picker / table renders.
   if (platformsStore.allPlatforms.length === 0) {
-    void platformsStore.fetchPlatforms();
+    void platformsStore.fetchPlatforms().then(() => {
+      prefetchPlatformIcons(platformsStore.allPlatforms.map((p) => p.slug));
+    });
+  } else {
+    prefetchPlatformIcons(platformsStore.allPlatforms.map((p) => p.slug));
   }
 });
 

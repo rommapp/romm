@@ -9,7 +9,8 @@ import {
   RBtn,
   RChip,
   RIcon,
-  RSelect,
+  RMenu,
+  RMenuItem,
   RSpinner,
   RTable,
   type RTableColumn,
@@ -25,6 +26,9 @@ import storePlatforms from "@/stores/platforms";
 import { formatBytes, toBrowserLocale } from "@/utils";
 import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
+import PlatformPickerMenu, {
+  type PlatformOption,
+} from "@/v2/components/shared/PlatformPickerMenu.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -48,6 +52,12 @@ const initialLoading = ref(false);
 const loadingMore = ref(false);
 const cleaningUp = ref(false);
 const selectedPlatformId = ref<number | null>(null);
+const platformMenuOpen = ref(false);
+
+const selectedPlatform = computed(() => {
+  if (selectedPlatformId.value === null) return null;
+  return platformsStore.get(selectedPlatformId.value) ?? null;
+});
 
 type SortKey =
   | "name"
@@ -65,7 +75,7 @@ const sortDir = ref<"asc" | "desc">("asc");
 // is always included even when its result set is empty, so the
 // selector doesn't go blank mid-filter — the X clearable lets the
 // user back out to the unfiltered view from any state.
-const platformItems = computed(() => {
+const platformOptions = computed<PlatformOption[]>(() => {
   const ids = new Set<number>();
   for (const r of roms.value) {
     if (r.platform_id != null) ids.add(r.platform_id);
@@ -77,7 +87,7 @@ const platformItems = computed(() => {
     .filter((p) => ids.has(p.id))
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((p) => ({ title: p.name, value: p.id, slug: p.slug }));
+    .map((p) => ({ id: p.id, slug: p.slug, name: p.name }));
 });
 
 const hasMore = computed(() => total.value > roms.value.length);
@@ -170,10 +180,18 @@ async function fetchPage(concat: boolean) {
   }
 }
 
-function onPlatformChange(value: unknown) {
-  const id = typeof value === "number" ? value : null;
-  selectedPlatformId.value = id;
+function onPickPlatform(platform: PlatformOption) {
+  if (typeof platform.id === "number") {
+    selectedPlatformId.value = platform.id;
+    void fetchPage(false);
+  }
+  platformMenuOpen.value = false;
+}
+
+function onClearPlatform() {
+  selectedPlatformId.value = null;
   void fetchPage(false);
+  platformMenuOpen.value = false;
 }
 
 function onSort({ key, dir }: RTableSortPayload) {
@@ -271,41 +289,60 @@ onMounted(() => {
 <template>
   <div class="r-v2-missing">
     <div class="r-v2-missing__toolbar">
-      <RSelect
-        :model-value="selectedPlatformId"
-        :items="platformItems"
-        clearable
-        hide-details
-        prefix-label
-        class="r-v2-missing__platform-select"
-        @update:model-value="onPlatformChange"
+      <RMenu
+        v-model="platformMenuOpen"
+        location="bottom start"
+        :close-on-content-click="false"
       >
-        <template #prefix-label>
-          <RIcon icon="mdi-controller" size="14" />
-          {{ t("common.platform") }}
-        </template>
-        <template #selection="{ item }">
-          <span class="r-v2-missing__platform-line">
-            <CachedPlatformIcon
-              :slug="item.raw.slug"
-              :name="item.title"
-              :size="18"
+        <template #activator="{ props: activatorProps }">
+          <button
+            v-bind="activatorProps"
+            type="button"
+            class="r-v2-missing__platform-trigger"
+            :aria-label="t('common.platform')"
+          >
+            <span class="r-v2-missing__platform-trigger-label">
+              <RIcon icon="mdi-controller" size="14" />
+              {{ t("common.platform") }}
+            </span>
+            <span class="r-v2-missing__platform-trigger-value">
+              <template v-if="selectedPlatform">
+                <CachedPlatformIcon
+                  :slug="selectedPlatform.slug"
+                  :name="selectedPlatform.name"
+                  :size="18"
+                />
+                <span class="r-v2-missing__platform-trigger-name">
+                  {{ selectedPlatform.name }}
+                </span>
+              </template>
+              <span v-else class="r-v2-missing__platform-trigger-placeholder">
+                {{ t("common.all") }}
+              </span>
+            </span>
+            <RIcon
+              icon="mdi-chevron-down"
+              size="14"
+              class="r-v2-missing__platform-trigger-chevron"
             />
-            {{ item.title }}
-          </span>
+          </button>
         </template>
-        <template #item="{ props: itemProps, item }">
-          <v-list-item v-bind="itemProps" :title="item.title">
-            <template #prepend>
-              <CachedPlatformIcon
-                :slug="item.raw.slug"
-                :name="item.title"
-                :size="18"
-              />
-            </template>
-          </v-list-item>
-        </template>
-      </RSelect>
+        <PlatformPickerMenu
+          :platforms="platformOptions"
+          :search-placeholder="t('common.search')"
+          @select="onPickPlatform"
+        >
+          <template #footer="{ query }">
+            <RMenuItem
+              v-if="!query && selectedPlatformId !== null"
+              icon="mdi-close-circle-outline"
+              variant="danger"
+              :label="t('common.clear')"
+              @click="onClearPlatform"
+            />
+          </template>
+        </PlatformPickerMenu>
+      </RMenu>
       <RBtn
         variant="flat"
         color="danger"
@@ -445,19 +482,75 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
 }
-.r-v2-missing__platform-select {
+/* Field-style trigger — same visual weight as RTextField's prefix-
+   label variant, but it's a plain button so it can serve as an
+   RMenu activator without needing the form-field plumbing of
+   RSelect. The dropdown content is the shared PlatformPickerMenu,
+   so the menu (scrollbar, item layout, search header) matches the
+   one in FolderMappings exactly. */
+.r-v2-missing__platform-trigger {
+  appearance: none;
   flex: 1;
   min-width: 0;
   max-width: 360px;
+  height: 40px;
+  padding: 0;
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: stretch;
+  cursor: pointer;
+  font: inherit;
+  color: var(--r-color-fg);
+  overflow: hidden;
+  transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-v2-missing__platform-trigger:hover {
+  border-color: var(--r-color-border-strong);
+}
+.r-v2-missing__platform-trigger:focus-visible {
+  border-color: var(--r-color-brand-primary);
+  outline: none;
 }
 
-/* Selection line inside the RSelect's value area + menu rows — icon
-   + name, identical to the cell layout in the table. */
-.r-v2-missing__platform-line {
+.r-v2-missing__platform-trigger-label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  padding: 0 12px;
+  background: var(--r-color-bg-elevated);
+  border-right: 1px solid var(--r-color-border);
+  color: var(--r-color-fg-muted);
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.r-v2-missing__platform-trigger-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  flex: 1;
   min-width: 0;
+  font-size: 13px;
+  font-weight: var(--r-font-weight-regular);
+}
+.r-v2-missing__platform-trigger-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r-v2-missing__platform-trigger-placeholder {
+  color: var(--r-color-fg-muted);
+}
+.r-v2-missing__platform-trigger-chevron {
+  align-self: center;
+  margin-right: 10px;
+  color: var(--r-color-fg-muted);
 }
 
 /* ----- Name cell — cover thumb + title + filename ----- */

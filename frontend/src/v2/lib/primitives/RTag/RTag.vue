@@ -16,7 +16,9 @@ defineOptions({ inheritAttrs: false });
 
 interface Props {
   /** Optional MDI icon shown before the eyebrow label / text. */
-  icon?: string;
+  prependIcon?: string;
+  /** Optional MDI icon shown after the primary text. */
+  appendIcon?: string;
   /** Tiny uppercase eyebrow label (e.g. "CRC", "MD5"). */
   label?: string;
   /** Primary text. Falls back to the default slot when not set. */
@@ -30,7 +32,8 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  icon: undefined,
+  prependIcon: undefined,
+  appendIcon: undefined,
   label: undefined,
   text: undefined,
   mono: false,
@@ -41,7 +44,7 @@ withDefaults(defineProps<Props>(), {
 
 <template>
   <span class="r-tag" :class="[`r-tag--${tone}`, `r-tag--${size}`]">
-    <RIcon v-if="icon" :icon="icon" class="r-tag__icon" />
+    <RIcon v-if="prependIcon" :icon="prependIcon" class="r-tag__icon" />
     <span v-if="label" class="r-tag__label">{{ label }}</span>
     <span
       v-if="text !== undefined || $slots.default"
@@ -49,6 +52,7 @@ withDefaults(defineProps<Props>(), {
       :class="{ 'r-tag__text--mono': mono }"
     >
       <slot>{{ text }}</slot>
+      <RIcon v-if="appendIcon" :icon="appendIcon" class="r-tag__icon" />
     </span>
   </span>
 </template>
