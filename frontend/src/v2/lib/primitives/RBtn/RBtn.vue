@@ -15,6 +15,11 @@ defineOptions({ inheritAttrs: false });
 //     appears after `loadingDebounce` ms (default 200). Actions that
 //     resolve quicker than that flash never paint a spinner. Going from
 //     loading → not-loading is immediate.
+//   - `border` modifier — adds a translucent border in the current
+//     text colour. Pair with `variant="tonal"` + a `color` to get the
+//     RTag pill recipe (translucent bg + coloured border + coloured
+//     text) for chip-style activators (e.g. the Type cell in folder
+//     mappings).
 // Every Vuetify prop remains available via $attrs.
 interface Props {
   variant?: "flat" | "text" | "elevated" | "tonal" | "outlined" | "plain";
@@ -32,6 +37,10 @@ interface Props {
   prependIcon?: string;
   appendIcon?: string;
   type?: "button" | "submit" | "reset";
+  /** Adds a translucent border in the current text colour. Pairs
+   *  cleanly with `variant="tonal"` to produce an RTag-style chip
+   *  activator. */
+  border?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -47,6 +56,7 @@ const props = withDefaults(defineProps<Props>(), {
   appendIcon: undefined,
   icon: undefined,
   ripple: undefined,
+  border: false,
 });
 
 const debouncedLoading = ref(false);
@@ -86,6 +96,7 @@ onBeforeUnmount(clearTimer);
   <VBtn
     v-bind="$attrs"
     class="r-btn"
+    :class="{ 'r-btn--border': border }"
     :variant="variant"
     :color="color"
     :rounded="rounded"
@@ -141,5 +152,18 @@ onBeforeUnmount(clearTimer);
 .r-btn :deep(.v-btn__prepend),
 .r-btn :deep(.v-btn__append) {
   margin-block-start: 3px;
+}
+
+/* `border` modifier — adds a translucent border in the current text
+   colour. `currentColor` picks up VBtn's text colour, which Vuetify
+   has already painted from the `color` prop, so the border tints in
+   lock-step. Paired with `variant="tonal"` it produces the RTag
+   pill recipe (translucent bg + coloured border + coloured text)
+   for chip-style activators. */
+.r-btn--border {
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent) !important;
+}
+.r-btn--border:hover:not(.v-btn--disabled) {
+  border-color: color-mix(in srgb, currentColor 65%, transparent) !important;
 }
 </style>

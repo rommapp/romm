@@ -330,6 +330,7 @@ onMounted(() => {
         <PlatformPickerMenu
           :platforms="platformOptions"
           :search-placeholder="t('common.search')"
+          width="100%"
           @select="onPickPlatform"
         >
           <template #footer="{ query }">

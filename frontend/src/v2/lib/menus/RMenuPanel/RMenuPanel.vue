@@ -101,6 +101,7 @@ const resolvedMaxHeight = computed(() => {
   flex-shrink: 0;
   padding: 6px;
   border-bottom: 1px solid var(--r-color-border);
+  margin-bottom: 6px;
 }
 
 .r-menu-panel__body {

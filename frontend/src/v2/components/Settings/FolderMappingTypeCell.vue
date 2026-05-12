@@ -90,6 +90,8 @@ const open = ref(false);
         type="button"
         class="r-v2-fmtc__btn"
         size="small"
+        variant="tonal"
+        border
         :color="btnColor"
         :aria-label="t('settings.mapping-types')"
       >
