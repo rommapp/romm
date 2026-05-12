@@ -1562,15 +1562,14 @@ Falls back to `FakeRedis` in test mode.
 
 #### Device Sync
 
-| Variable                          | Default | Description                       |
-| --------------------------------- | ------- | --------------------------------- |
-| `ENABLE_SYNC_FOLDER_WATCHER`      | `false` | Watch sync folder for new saves   |
-| `SYNC_FOLDER_SCAN_DELAY`          | —       | Debounce for sync folder scans    |
-| `ENABLE_SYNC_PUSH_PULL`           | `false` | Enable scheduled push/pull sync   |
-| `SYNC_PUSH_PULL_CRON`             | —       | Cron schedule for push/pull       |
-| `SYNC_SSH_HOST` / `SYNC_SSH_PORT` | —       | SSH target for FILE_TRANSFER sync |
-| `SYNC_SSH_USERNAME`               | —       | SSH user                          |
-| `SYNC_SSH_PRIVATE_KEY_PATH`       | —       | SSH private key path              |
+| Variable                     | Default | Description                     |
+| ---------------------------- | ------- | ------------------------------- |
+| `ENABLE_SYNC_FOLDER_WATCHER` | `false` | Watch sync folder for new saves |
+| `SYNC_FOLDER_SCAN_DELAY`     | —       | Debounce for sync folder scans  |
+| `ENABLE_SYNC_PUSH_PULL`      | `false` | Enable scheduled push/pull sync |
+| `SYNC_PUSH_PULL_CRON`        | —       | Cron schedule for push/pull     |
+| `SYNC_SSH_KEYS_PATH`         | —       | SSH keys path                   |
+| `SYNC_SSH_KNOWN_HOSTS_PATH`  | —       | SSH known hosts path            |
 
 ### YAML Configuration (`config.yml`)
 

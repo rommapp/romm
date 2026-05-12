@@ -1,12 +1,68 @@
 import hashlib
 import os
+import threading
 import zipfile
+from typing import Final
+
+import magic
+from fastapi import HTTPException, UploadFile, status
 
 from config import ASSETS_BASE_PATH
 from logger.logger import log
 from models.user import User
 
 from .base_handler import FSHandler
+
+# Image MIME types we trust to (a) accept as avatar uploads and (b) serve
+# inline from the raw asset endpoint
+SAFE_IMAGE_MIME_TYPES: Final[dict[str, str]] = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif",
+}
+
+# libmagic loads its database on construction (~few MB read from disk), so we
+# share a single Magic instance across requests. The underlying magic_t handle
+# is not thread-safe, so guard from_buffer with a lock — endpoints that call
+# this validator may execute in worker threads under sync routes.
+_MIME_DETECTOR = magic.Magic(mime=True)
+_MIME_DETECTOR_LOCK = threading.Lock()
+
+
+def validate_image_upload(upload: UploadFile, *, label: str = "Image") -> str:
+    """Validate that an uploaded file is one of the safe image types.
+
+    Sniffs the leading bytes with libmagic and returns the trusted extension
+    matching the detected MIME type. Raises HTTPException(400) if the file
+    is not a recognized PNG/JPEG/WebP/GIF, or if MIME sniffing fails.
+    Leaves the file cursor at 0.
+    """
+    upload.file.seek(0)
+    header = upload.file.read(4096)
+    upload.file.seek(0)
+
+    try:
+        with _MIME_DETECTOR_LOCK:
+            detected_mime = _MIME_DETECTOR.from_buffer(header)
+    except magic.MagicException as exc:
+        log.error(f"libmagic failed to sniff uploaded {label.lower()}: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not determine {label.lower()} file type",
+        ) from exc
+
+    safe_extension = SAFE_IMAGE_MIME_TYPES.get(detected_mime)
+    if not safe_extension:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"{label} must be a PNG, JPEG, WebP, or GIF image "
+                f"(detected {detected_mime or 'unknown type'})"
+            ),
+        )
+
+    return safe_extension
 
 
 class FSAssetsHandler(FSHandler):

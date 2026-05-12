@@ -19,6 +19,32 @@ from utils.validation import validate_url_for_http_request
 
 from .base_handler import CoverSize, FSHandler
 
+LOCAL_FILE_SCHEMES = ("file://", "launchbox-file://")
+
+
+def _resolve_local_file_uri(uri: str) -> Path | None:
+    """Resolve a local-file URI to an absolute Path, or None if unsafe/unknown.
+
+    `file://` resolves under the ROM library root. `launchbox-file://` resolves
+    under the LaunchBox data root — LaunchBox metadata produces paths relative
+    to `/romm/launchbox`, which is not the same as the library root.
+    """
+    from handler.filesystem import fs_launchbox_handler, fs_rom_handler
+
+    if uri.startswith("launchbox-file://"):
+        try:
+            return fs_launchbox_handler.validate_path(uri[len("launchbox-file://") :])
+        except ValueError:
+            return None
+
+    if uri.startswith("file://"):
+        try:
+            return fs_rom_handler.validate_path(uri[len("file://") :])
+        except ValueError:
+            return None
+
+    return None
+
 
 def _content_type_essence(header_value: str) -> str:
     """Return the MIME type token (before parameters), lowercased."""
@@ -95,27 +121,21 @@ class FSResourcesHandler(FSHandler):
         cover_file = f"{entity.fs_resources_path}/cover"
         await self.make_directory(cover_file)
 
-        # Handle file:// URLs for gamelist.xml
-        if url_cover.startswith("file://"):
+        # Handle local-file URIs from metadata handlers (gamelist, LaunchBox)
+        if url_cover.startswith(LOCAL_FILE_SCHEMES):
             try:
-                from handler.filesystem import fs_rom_handler
-
-                validated = fs_rom_handler.validate_path(
-                    url_cover[7:]  # Remove "file://" prefix
-                )
-                if await AnyioPath(validated).exists():
-                    # Copy the file to the resources directory
-                    dest_path = f"{cover_file}/{size.value}.png"
-                    await self.copy_file(validated, dest_path)
-
-                    if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
-                        self.image_converter.convert_to_webp(
-                            self.validate_path(f"{cover_file}/{size.value}.png"),
-                            force=True,
-                        )
-                else:
-                    log.warning(f"Cover file not found: {str(validated)}")
+                resolved = _resolve_local_file_uri(url_cover)
+                if resolved is None or not await AnyioPath(resolved).exists():
+                    log.warning(f"Cover file not found: {url_cover}")
                     return None
+                dest_path = f"{cover_file}/{size.value}.png"
+                await self.copy_file(resolved, dest_path)
+
+                if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                    self.image_converter.convert_to_webp(
+                        self.validate_path(f"{cover_file}/{size.value}.png"),
+                        force=True,
+                    )
             except Exception as exc:
                 log.error(f"Unable to copy cover file {url_cover}: {str(exc)}")
                 return None
@@ -275,20 +295,14 @@ class FSResourcesHandler(FSHandler):
         screenshot_path = f"{rom.fs_resources_path}/screenshots"
         await self.make_directory(screenshot_path)
 
-        # Handle file:// URLs for gamelist.xml
-        if url_screenhot.startswith("file://"):
+        # Handle local-file URIs from metadata handlers (gamelist, LaunchBox)
+        if url_screenhot.startswith(LOCAL_FILE_SCHEMES):
             try:
-                from handler.filesystem import fs_rom_handler
-
-                validated = fs_rom_handler.validate_path(
-                    url_screenhot[7:]  # Remove "file://" prefix
-                )
-                if await AnyioPath(validated).exists():
-                    # Copy the file to the resources directory
-                    await self.copy_file(validated, f"{screenshot_path}/{idx}.jpg")
-                else:
-                    log.warning(f"Screenshot file not found: {str(validated)}")
+                resolved = _resolve_local_file_uri(url_screenhot)
+                if resolved is None or not await AnyioPath(resolved).exists():
+                    log.warning(f"Screenshot file not found: {url_screenhot}")
                     return None
+                await self.copy_file(resolved, f"{screenshot_path}/{idx}.jpg")
             except Exception as exc:
                 log.error(f"Unable to copy screenshot file {url_screenhot}: {str(exc)}")
                 return None
@@ -395,20 +409,14 @@ class FSResourcesHandler(FSHandler):
         manual_path = f"{rom.fs_resources_path}/manual"
         await self.make_directory(manual_path)
 
-        # Handle file:// URLs for gamelist.xml
-        if url_manual.startswith("file://"):
+        # Handle local-file URIs from metadata handlers (gamelist, LaunchBox)
+        if url_manual.startswith(LOCAL_FILE_SCHEMES):
             try:
-                from handler.filesystem import fs_rom_handler
-
-                validated = fs_rom_handler.validate_path(
-                    url_manual[7:]  # Remove "file://" prefix
-                )
-                if await AnyioPath(validated).exists():
-                    # Copy the file to the resources directory
-                    await self.copy_file(validated, f"{manual_path}/{rom.id}.pdf")
-                else:
-                    log.warning(f"Manual file not found: {str(validated)}")
+                resolved = _resolve_local_file_uri(url_manual)
+                if resolved is None or not await AnyioPath(resolved).exists():
+                    log.warning(f"Manual file not found: {url_manual}")
                     return None
+                await self.copy_file(resolved, f"{manual_path}/{rom.id}.pdf")
             except Exception as exc:
                 log.error(f"Unable to copy manual file {url_manual}: {str(exc)}")
                 return None
@@ -542,17 +550,12 @@ class FSResourcesHandler(FSHandler):
         # Ensure destination directory exists
         await self.make_directory(directory)
 
-        # Handle file:// URLs for gamelist.xml
-        if url_media.startswith("file://"):
+        # Handle local-file URIs from metadata handlers (gamelist, LaunchBox)
+        if url_media.startswith(LOCAL_FILE_SCHEMES):
             try:
-                from handler.filesystem import fs_rom_handler
-
-                validated = fs_rom_handler.validate_path(
-                    url_media[7:]  # Remove "file://" prefix
-                )
-                file_path = AnyioPath(validated)
-                if await file_path.exists():
-                    await self.copy_file(Path(str(file_path)), dest_path)
+                resolved = _resolve_local_file_uri(url_media)
+                if resolved is not None and await AnyioPath(resolved).exists():
+                    await self.copy_file(resolved, dest_path)
             except Exception as exc:
                 log.error(f"Unable to copy media file {url_media}: {str(exc)}")
                 return None

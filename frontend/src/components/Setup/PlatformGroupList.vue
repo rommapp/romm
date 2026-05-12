@@ -28,6 +28,17 @@ const countSelectedInGroup = (platforms: Platform[]) => {
     selectedPlatformsModel.value.includes(p.fs_slug),
   ).length;
 };
+
+const togglePlatformSelection = (platformSlug: string) => {
+  if (!props.showCheckboxes) return;
+
+  const selected = selectedPlatformsModel.value;
+  const isSelected = selected.includes(platformSlug);
+
+  selectedPlatformsModel.value = isSelected
+    ? selected.filter((slug) => slug !== platformSlug)
+    : [...selected, platformSlug];
+};
 </script>
 
 <template>
@@ -78,6 +89,7 @@ const countSelectedInGroup = (platforms: Platform[]) => {
             v-for="platform in platforms"
             :key="platform.fs_slug"
             :platform="platform"
+            @click="togglePlatformSelection(platform.fs_slug)"
           >
             <template v-if="showCheckboxes" #prepend>
               <v-checkbox
@@ -86,6 +98,7 @@ const countSelectedInGroup = (platforms: Platform[]) => {
                 hide-details
                 density="compact"
                 class="mr-2"
+                @click.stop
               />
             </template>
           </PlatformListItem>

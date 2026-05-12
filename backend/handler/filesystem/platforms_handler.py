@@ -34,27 +34,20 @@ class FSPlatformsHandler(FSHandler):
         """Detects the library structure type.
 
         Returns:
-            "LibraryStructure.A" for Structure A (roms/{platform})
-            "LibraryStructure.B" for Structure B ({platform}/roms)
-            None if no structure detected
+            "LibraryStructure.B" for Structure B ({platform}/roms) when any
+                platform has a roms subfolder.
+            "LibraryStructure.A" for Structure A (roms/{platform}) when the
+                top-level roms folder exists.
+            None if no structure detected.
         """
         cnfg = cm.get_config()
 
-        # Check if the roms folder exists (Structure A indicator)
+        if cnfg.has_structure_path_b:
+            return LibraryStructure.B
+
         roms_path = os.path.join(LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME)
         if os.path.exists(roms_path):
             return LibraryStructure.A
-
-        # Check if any platform folders with roms subfolders exist (Structure B)
-        try:
-            library_contents = os.listdir(LIBRARY_BASE_PATH)
-            for item in library_contents:
-                item_path = os.path.join(LIBRARY_BASE_PATH, item)
-                roms_subfolder = os.path.join(item_path, cnfg.ROMS_FOLDER_NAME)
-                if os.path.isdir(item_path) and os.path.exists(roms_subfolder):
-                    return LibraryStructure.B
-        except (OSError, FileNotFoundError):
-            pass
 
         return None
 
@@ -62,20 +55,16 @@ class FSPlatformsHandler(FSHandler):
         cnfg = cm.get_config()
 
         # Fallback to config hint when detection is inconclusive
-        return (
-            cnfg.ROMS_FOLDER_NAME
-            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-            else ""
-        )
+        return "" if cnfg.has_structure_path_b else cnfg.ROMS_FOLDER_NAME
 
     def get_platform_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
 
         # Fallback to config hint when detection is inconclusive
         return (
-            f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
-            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-            else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
+            f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
+            if cnfg.has_structure_path_b
+            else f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
         )
 
     async def add_platform(self, fs_slug: str) -> None:

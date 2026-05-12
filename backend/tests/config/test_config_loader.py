@@ -113,3 +113,15 @@ def test_empty_config_loader():
     assert loader.config.EJS_CONTROLS == {}
     assert loader.config.GAMELIST_MEDIA_THUMBNAIL == "box2d"
     assert loader.config.GAMELIST_MEDIA_IMAGE == "screenshot"
+
+
+def test_missing_config_file_is_created(tmp_path):
+    config_file = tmp_path / "config" / "config.yml"
+
+    loader = ConfigManager(str(config_file))
+
+    assert config_file.parent.exists()
+    assert config_file.exists()
+    assert config_file.read_text() == ""
+    assert loader.config.CONFIG_FILE_MOUNTED
+    assert loader.config.CONFIG_FILE_WRITABLE

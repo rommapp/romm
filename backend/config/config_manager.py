@@ -1,7 +1,10 @@
 import enum
+import functools
+import glob
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Final, NotRequired, TypedDict
 
 import pydash
@@ -121,7 +124,6 @@ class Config:
     ROMS_FOLDER_NAME: str
     FIRMWARE_FOLDER_NAME: str
     SKIP_HASH_CALCULATION: bool
-    HIGH_PRIO_STRUCTURE_PATH: str
     EJS_DEBUG: bool
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
@@ -142,7 +144,16 @@ class Config:
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
-        self.HIGH_PRIO_STRUCTURE_PATH = f"{LIBRARY_BASE_PATH}/{self.ROMS_FOLDER_NAME}"
+
+    @functools.cached_property
+    def has_structure_path_b(self) -> bool:
+        pattern = os.path.join(
+            LIBRARY_BASE_PATH, "*", glob.escape(self.ROMS_FOLDER_NAME)
+        )
+        for match in glob.iglob(pattern):
+            if os.path.isdir(match):
+                return True
+        return False
 
 
 class ConfigManager:
@@ -177,9 +188,7 @@ class ConfigManager:
             # Also check if the config file is writable
             self._config_file_writable = os.access(self.config_file, os.W_OK)
         except FileNotFoundError:
-            log.critical(
-                "Config file not found! Any changes made to the configuration will not persist after the application restarts."
-            )
+            self._create_missing_config_file()
         except PermissionError:
             log.warning(
                 "Config file not writable! Any changes made to the configuration will not persist after the application restarts."
@@ -188,6 +197,28 @@ class ConfigManager:
             # Set the config to default values
             self._parse_config()
             self._validate_config()
+
+    def _create_missing_config_file(self) -> None:
+        log.warning(
+            f"Config file not found, creating an empty config at {hl(self.config_file, BLUE)}"
+        )
+
+        try:
+            config_file = Path(self.config_file)
+            config_file.parent.mkdir(parents=True, exist_ok=True)
+            config_file.touch(exist_ok=True)
+
+            # Reset any previously loaded singleton state so parsing reflects
+            # the newly created empty config file.
+            self._raw_config = {}
+            self._config_file_mounted = True
+            self._config_file_writable = os.access(self.config_file, os.W_OK)
+        except PermissionError:
+            self._config_file_mounted = False
+            self._config_file_writable = False
+            log.critical(
+                "Config file not found and could not be created! Any changes made to the configuration will not persist after the application restarts."
+            )
 
     @staticmethod
     def get_db_engine() -> URL:

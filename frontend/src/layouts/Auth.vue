@@ -27,6 +27,11 @@ const heartbeatStore = storeHeartbeat();
   max-width: 100vw;
   /* align-items: unset !important; */
 }
+@-moz-document url-prefix() {
+  #container {
+    background-image: url("/assets/auth_background_static.svg");
+  }
+}
 #version {
   position: absolute !important;
   right: 15px !important;

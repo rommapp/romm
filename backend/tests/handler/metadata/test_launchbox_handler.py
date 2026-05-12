@@ -19,15 +19,24 @@ from defusedxml import ElementTree as ET
 
 from handler.metadata.launchbox_handler.handler import LaunchboxHandler
 from handler.metadata.launchbox_handler.local_source import LocalSource
-from handler.metadata.launchbox_handler.media import build_launchbox_metadata, build_rom
+from handler.metadata.launchbox_handler.media import (
+    _get_video,
+    build_launchbox_metadata,
+    build_rom,
+    populate_rom_specific_paths,
+    remote_media_req,
+)
 from handler.metadata.launchbox_handler.platforms import get_platform
 from handler.metadata.launchbox_handler.remote_source import RemoteSource
 from handler.metadata.launchbox_handler.types import (
+    LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
     LaunchboxImage,
+    LaunchboxMetadata,
+    MediaRequest,
 )
 from handler.metadata.launchbox_handler.utils import (
     coalesce,
@@ -520,6 +529,67 @@ class TestRemoteSourceGetRom:
         assert result is None
 
 
+class TestRemoteSourceGetMameEntry:
+    @pytest.fixture
+    def source(self) -> RemoteSource:
+        return RemoteSource()
+
+    async def test_cache_miss_returns_none(self, source: RemoteSource):
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, return_value=None
+        ):
+            result = await source.get_mame_entry("pacman.zip")
+        assert result is None
+
+    async def test_cache_hit_returns_dict(self, source: RemoteSource):
+        # Real LaunchBox Mame.xml indexes by stem (e.g. `wrlok_l3`, no ext)
+        # and carries `<Name>` as the full title.
+        mame_entry = {
+            "FileName": "wrlok_l3",
+            "Name": "Warlok",
+            "Year": "1982",
+        }
+        with patch.object(
+            async_cache,
+            "hget",
+            new_callable=AsyncMock,
+            return_value=json.dumps(mame_entry),
+        ) as mock_hget:
+            result = await source.get_mame_entry("wrlok_l3")
+        mock_hget.assert_called_once_with(LAUNCHBOX_MAME_KEY, "wrlok_l3")
+        assert result == mame_entry
+
+    async def test_falls_back_to_stem_when_given_filename_with_ext(
+        self, source: RemoteSource
+    ):
+        mame_entry = {"FileName": "wrlok_l3", "Name": "Warlok"}
+
+        async def fake_hget(_key, field):
+            return json.dumps(mame_entry) if field == "wrlok_l3" else None
+
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, side_effect=fake_hget
+        ) as mock_hget:
+            result = await source.get_mame_entry("wrlok_l3.zip")
+        # First lookup by raw filename (miss), then by stem (hit).
+        assert mock_hget.call_count == 2
+        assert mock_hget.call_args_list[0].args == (LAUNCHBOX_MAME_KEY, "wrlok_l3.zip")
+        assert mock_hget.call_args_list[1].args == (LAUNCHBOX_MAME_KEY, "wrlok_l3")
+        assert result == mame_entry
+
+    async def test_empty_input_returns_none(self, source: RemoteSource):
+        result = await source.get_mame_entry("")
+        assert result is None
+
+    async def test_whitespace_stripped(self, source: RemoteSource):
+        with patch.object(
+            async_cache, "hget", new_callable=AsyncMock, return_value=None
+        ) as mock_hget:
+            await source.get_mame_entry("  wrlok_l3  ")
+        # First call uses the trimmed filename.
+        assert mock_hget.call_args_list[0].args == (LAUNCHBOX_MAME_KEY, "wrlok_l3")
+
+
 class TestRemoteSourceFetchImages:
     @pytest.fixture
     def source(self) -> RemoteSource:
@@ -636,6 +706,255 @@ class TestBuildLaunchboxMetadata:
         assert meta.get("images", []) == images
 
 
+class TestGetVideo:
+    @pytest.fixture
+    def videos_dir(self, tmp_path: Path, monkeypatch) -> Path:
+        videos_root = tmp_path / "Videos"
+        videos_root.mkdir()
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.media.LAUNCHBOX_VIDEOS_DIR",
+            videos_root,
+        )
+        # file_uri_for_local_path is rooted at LAUNCHBOX_LOCAL_DIR: patch so our
+        # tmp videos sit under it and produce a well-formed URL.
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.utils.LAUNCHBOX_LOCAL_DIR",
+            tmp_path,
+        )
+        return videos_root
+
+    def _req(
+        self, fs_name: str, title: str = "", platform: str = "NES"
+    ) -> MediaRequest:
+        return MediaRequest(
+            platform_name=platform,
+            fs_name=fs_name,
+            title=title,
+            region_hint=None,
+            remote_images=None,
+            remote_enabled=False,
+        )
+
+    def test_no_platform_returns_none(self, videos_dir: Path):
+        req = MediaRequest(
+            platform_name=None,
+            fs_name="game.nes",
+            title="",
+            region_hint=None,
+            remote_images=None,
+            remote_enabled=False,
+        )
+        assert _get_video(req) is None
+
+    def test_missing_platform_dir_returns_none(self, videos_dir: Path):
+        # videos_dir has no "NES" subdirectory
+        assert _get_video(self._req("mario.nes")) is None
+
+    def test_finds_mp4_by_fs_stem(self, videos_dir: Path):
+        platform_dir = videos_dir / "NES"
+        platform_dir.mkdir()
+        (platform_dir / "Mario.mp4").write_bytes(b"")
+
+        url = _get_video(self._req("Mario.nes"))
+        assert url == "launchbox-file://Videos/NES/Mario.mp4"
+
+    def test_falls_back_to_title_stem(self, videos_dir: Path):
+        platform_dir = videos_dir / "NES"
+        platform_dir.mkdir()
+        (platform_dir / "Super Mario Bros.webm").write_bytes(b"")
+
+        url = _get_video(self._req("roms-mario-1.nes", title="Super Mario Bros"))
+        assert url == "launchbox-file://Videos/NES/Super Mario Bros.webm"
+
+    def test_multiple_extensions_tried(self, videos_dir: Path):
+        platform_dir = videos_dir / "NES"
+        platform_dir.mkdir()
+        (platform_dir / "Mario.mkv").write_bytes(b"")
+
+        url = _get_video(self._req("Mario.nes"))
+        assert url is not None
+        assert url.endswith(".mkv")
+
+    def test_no_match_returns_none(self, videos_dir: Path):
+        platform_dir = videos_dir / "NES"
+        platform_dir.mkdir()
+        (platform_dir / "Zelda.mp4").write_bytes(b"")
+
+        assert _get_video(self._req("Mario.nes")) is None
+
+
+class TestPopulateRomSpecificPaths:
+    def _rom(self) -> MagicMock:
+        rom = MagicMock()
+        rom.platform_id = 7
+        rom.id = 42
+        return rom
+
+    def test_no_video_url_is_noop(self):
+        metadata: LaunchboxMetadata = {"first_release_date": None, "images": []}
+        with patch(
+            "handler.metadata.launchbox_handler.media.get_preferred_media_types"
+        ) as mock_preferred:
+            from config.config_manager import MetadataMediaType
+
+            mock_preferred.return_value = [MetadataMediaType.VIDEO]
+            populate_rom_specific_paths(metadata, self._rom())
+        assert "video_path" not in metadata
+
+    def test_video_url_populates_path(self):
+        metadata: LaunchboxMetadata = {
+            "first_release_date": None,
+            "images": [],
+            "video_url": "launchbox-file://Videos/NES/Mario.mp4",
+        }
+        with patch(
+            "handler.metadata.launchbox_handler.media.get_preferred_media_types"
+        ) as mock_preferred:
+            from config.config_manager import MetadataMediaType
+
+            mock_preferred.return_value = [MetadataMediaType.VIDEO]
+            populate_rom_specific_paths(metadata, self._rom())
+        path = metadata.get("video_path", "")
+        assert path.endswith("/video.mp4")
+        assert "7" in path and "42" in path
+
+    def test_video_path_preserves_source_extension(self):
+        from config.config_manager import MetadataMediaType
+
+        for src_ext, expected in (
+            (".mkv", "/video.mkv"),
+            (".webm", "/video.webm"),
+            (".MOV", "/video.mov"),
+        ):
+            metadata: LaunchboxMetadata = {
+                "first_release_date": None,
+                "images": [],
+                "video_url": f"launchbox-file://Videos/NES/Mario{src_ext}",
+            }
+            with patch(
+                "handler.metadata.launchbox_handler.media.get_preferred_media_types"
+            ) as mock_preferred:
+                mock_preferred.return_value = [MetadataMediaType.VIDEO]
+                populate_rom_specific_paths(metadata, self._rom())
+            assert metadata.get("video_path", "").endswith(expected)
+
+    def test_video_not_in_preferred_media_skips(self):
+        metadata: LaunchboxMetadata = {
+            "first_release_date": None,
+            "images": [],
+            "video_url": "launchbox-file://Videos/NES/Mario.mp4",
+        }
+        with patch(
+            "handler.metadata.launchbox_handler.media.get_preferred_media_types"
+        ) as mock_preferred:
+            mock_preferred.return_value = []
+            populate_rom_specific_paths(metadata, self._rom())
+        assert "video_path" not in metadata
+
+
+class TestRemoteMediaReq:
+    def test_explicit_platform_name_wins(self):
+        req = remote_media_req(
+            remote={"Name": "Super Mario Bros.", "Platform": "Wii"},
+            remote_images=None,
+            remote_enabled=True,
+            platform_name="Nintendo Entertainment System",
+            fs_name="mario.nes",
+        )
+        assert req.platform_name == "Nintendo Entertainment System"
+        assert req.fs_name == "mario.nes"
+        assert req.title == "Super Mario Bros."
+
+    def test_falls_back_to_remote_platform(self):
+        req = remote_media_req(
+            remote={"Name": "H.E.R.O.", "Platform": "Atari 2600"},
+            remote_images=None,
+            remote_enabled=True,
+        )
+        assert req.platform_name == "Atari 2600"
+        assert req.fs_name == ""
+        assert req.title == "H.E.R.O."
+
+    def test_no_platform_available_is_none(self):
+        req = remote_media_req(
+            remote={"Name": "Some Game"},
+            remote_images=None,
+            remote_enabled=True,
+        )
+        assert req.platform_name is None
+
+
+class TestRemoteMatchLocalImages:
+    """Regression test for bug where remote-matched roms skipped local image lookup.
+
+    When a ROM matches only via the remote Metadata.xml (no local XML entry),
+    the handler previously passed platform_name=None to remote_media_req, which
+    caused _build_local_media_context to bail and never search on-disk images.
+    """
+
+    async def test_remote_match_finds_local_images(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        # Arrange: images on disk, no local XML match, remote returns a hit.
+        # Use "Clear Logo" + "Box - Front" to exercise both _get_images and
+        # _get_cover through the same remote-match path.
+        lb_root = tmp_path / "launchbox"
+        images_root = lb_root / "Images"
+        logo_dir = images_root / "Atari 2600" / "Clear Logo"
+        box_dir = images_root / "Atari 2600" / "Box - Front"
+        logo_dir.mkdir(parents=True)
+        box_dir.mkdir(parents=True)
+        (logo_dir / "H.E.R.O-01.png").write_bytes(b"")
+        (box_dir / "H.E.R.O-01.png").write_bytes(b"")
+
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.media.LAUNCHBOX_IMAGES_DIR",
+            images_root,
+        )
+        monkeypatch.setattr(
+            "handler.metadata.launchbox_handler.utils.LAUNCHBOX_LOCAL_DIR",
+            lb_root,
+        )
+
+        h = LaunchboxHandler()
+        h._local = MagicMock(spec=LocalSource)
+        h._remote = MagicMock(spec=RemoteSource)
+        h._local.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_mame_entry = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_rom = AsyncMock(  # type: ignore[method-assign]
+            return_value={
+                "DatabaseID": "42",
+                "Name": "H.E.R.O.",
+                "Platform": "Atari 2600",
+            }
+        )
+        h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
+        monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
+
+        with patch(
+            "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+        ) as mock_fs:
+            mock_fs.get_file_name_with_no_tags.return_value = "hero"
+            result = await h.get_rom("hero.a26", "atari2600")
+
+        # Assert: both the clear logo and box-front cover resolved to
+        # launchbox-file:// URLs, even though the local XML never matched.
+        assert "launchbox_metadata" in result
+        images = result["launchbox_metadata"]["images"]
+        assert len(images) == 1
+        assert "type" in images[0]
+        assert "url" in images[0]
+        assert images[0]["type"] == "Clear Logo"
+        assert images[0]["url"] == (
+            "launchbox-file://Images/Atari 2600/Clear Logo/H.E.R.O-01.png"
+        )
+        assert "url_cover" in result
+        assert result["url_cover"] == (
+            "launchbox-file://Images/Atari 2600/Box - Front/H.E.R.O-01.png"
+        )
+
+
 class TestBuildRom:
     def test_name_from_local_title(self):
         local = {"Title": "Super Mario Bros.", "Notes": "Classic platformer"}
@@ -739,6 +1058,7 @@ class TestLaunchboxHandlerGetRom:
         h._local.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.get_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_mame_entry = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))
@@ -868,6 +1188,92 @@ class TestLaunchboxHandlerGetRom:
             # fs_rom_handler.get_file_name_with_no_tags should NOT be called
             mock_fs.get_file_name_with_no_tags.assert_not_called()
 
+    async def test_arcade_mame_resolves_shortname_to_full_title(
+        self, handler: LaunchboxHandler
+    ):
+        mame_entry = {"FileName": "wrlok_l3", "Name": "Warlok"}
+        remote_entry = {"DatabaseID": "999", "Name": "Warlok"}
+        with (
+            patch.object(
+                handler._remote,
+                "get_mame_entry",
+                new=AsyncMock(return_value=mame_entry),
+            ) as mock_mame,
+            patch.object(
+                handler._remote,
+                "get_rom",
+                new=AsyncMock(return_value=remote_entry),
+            ) as mock_get_rom,
+            patch(
+                "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+            ) as mock_fs,
+        ):
+            mock_fs.get_file_name_with_no_tags.return_value = "wrlok_l3"
+            result = await handler.get_rom("wrlok_l3.zip", "arcade")
+
+        mock_mame.assert_called_once_with("wrlok_l3.zip")
+        # Search term should be the MAME Name, lowercased.
+        assert mock_get_rom.call_args.args[0] == "warlok"
+        assert result.get("name", None) == "Warlok"
+        assert result.get("launchbox_id", None) == 999
+
+    async def test_arcade_mame_miss_falls_back_to_filename_search(
+        self, handler: LaunchboxHandler
+    ):
+        with (
+            patch.object(
+                handler._remote,
+                "get_mame_entry",
+                new=AsyncMock(return_value=None),
+            ) as mock_mame,
+            patch(
+                "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+            ) as mock_fs,
+        ):
+            mock_fs.get_file_name_with_no_tags.return_value = "wrlok_l3"
+            result = await handler.get_rom("wrlok_l3.zip", "arcade")
+
+        mock_mame.assert_called_once_with("wrlok_l3.zip")
+        assert result["launchbox_id"] is None
+
+    async def test_arcade_mame_only_match_sets_fallback_name(
+        self, handler: LaunchboxHandler
+    ):
+        # MAME entry exists but Metadata.xml has no matching game: still surface
+        # the MAME name as the rom name.
+        mame_entry = {"FileName": "wrlok_l3", "Name": "Warlok"}
+        with (
+            patch.object(
+                handler._remote,
+                "get_mame_entry",
+                new=AsyncMock(return_value=mame_entry),
+            ),
+            patch(
+                "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+            ) as mock_fs,
+        ):
+            mock_fs.get_file_name_with_no_tags.return_value = "wrlok_l3"
+            result = await handler.get_rom("wrlok_l3.zip", "arcade")
+
+        assert result["launchbox_id"] is None
+        assert result.get("name", None) == "Warlok"
+
+    async def test_non_arcade_platform_skips_mame_lookup(
+        self, handler: LaunchboxHandler
+    ):
+        with (
+            patch.object(
+                handler._remote, "get_mame_entry", new=AsyncMock()
+            ) as mock_mame,
+            patch(
+                "handler.metadata.launchbox_handler.handler.fs_rom_handler"
+            ) as mock_fs,
+        ):
+            mock_fs.get_file_name_with_no_tags.return_value = "wrlok_l3"
+            await handler.get_rom("wrlok_l3.zip", "nes")
+
+        mock_mame.assert_not_called()
+
 
 class TestLaunchboxHandlerGetRomById:
     @pytest.fixture
@@ -923,6 +1329,7 @@ class TestLaunchboxHandlerSearch:
         h._local.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.get_rom = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.get_by_id = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        h._remote.get_mame_entry = AsyncMock(return_value=None)  # type: ignore[method-assign]
         h._remote.fetch_images = AsyncMock(return_value=None)  # type: ignore[method-assign]
         monkeypatch.setattr(LaunchboxHandler, "is_enabled", lambda *_: True)
         monkeypatch.setattr(async_cache, "exists", AsyncMock(return_value=True))

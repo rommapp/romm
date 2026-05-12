@@ -12,6 +12,7 @@ from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
+from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import meta_ra_handler
 from handler.metadata.ra_handler import RAUserProgression
 from logger.logger import log
@@ -387,9 +388,10 @@ async def update_user(
             ) from exc
 
     if form_data.avatar is not None and form_data.avatar.filename is not None:
+        safe_extension = validate_image_upload(form_data.avatar, label="Avatar")
+
         user_avatar_path = fs_asset_handler.build_avatar_path(user=db_user)
-        file_extension = form_data.avatar.filename.split(".")[-1]
-        file_name = f"avatar.{file_extension}"
+        file_name = f"avatar.{safe_extension}"
 
         await fs_asset_handler.write_file(
             file=form_data.avatar.file, path=user_avatar_path, filename=file_name

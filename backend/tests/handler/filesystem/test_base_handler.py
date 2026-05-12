@@ -161,6 +161,43 @@ class TestFSHandler:
             assert "game.rom" in result
             assert "data.json" in result
 
+    def test_exclude_single_files_multi_dot(self, handler: FSHandler):
+        """Test that files with multiple dots are excluded by last or compound extension"""
+        files = [
+            "game.nds",
+            "game.nds.hash.txt",
+            "game.nds.enc.hash.txt",
+            "readme.txt",
+            "game.rom",
+        ]
+
+        with patch("handler.filesystem.base_handler.cm.get_config") as mock_config:
+            # Exclude by last single extension
+            mock_config.return_value.EXCLUDED_SINGLE_EXT = ["txt"]
+            mock_config.return_value.EXCLUDED_SINGLE_FILES = []
+
+            result = handler.exclude_single_files(files)
+
+            assert "game.nds.hash.txt" not in result
+            assert "game.nds.enc.hash.txt" not in result
+            assert "readme.txt" not in result
+            assert "game.nds" in result
+            assert "game.rom" in result
+
+        with patch("handler.filesystem.base_handler.cm.get_config") as mock_config:
+            # Exclude by compound sub-extension "hash.txt"
+            mock_config.return_value.EXCLUDED_SINGLE_EXT = ["hash.txt"]
+            mock_config.return_value.EXCLUDED_SINGLE_FILES = []
+
+            result = handler.exclude_single_files(files)
+
+            assert "game.nds.hash.txt" not in result
+            assert "game.nds.enc.hash.txt" not in result
+            # "readme.txt" does NOT end in "hash.txt" — should remain
+            assert "readme.txt" in result
+            assert "game.nds" in result
+            assert "game.rom" in result
+
     async def test_make_directory(self, handler: FSHandler):
         """Test directory creation"""
         await handler.make_directory("test_dir")

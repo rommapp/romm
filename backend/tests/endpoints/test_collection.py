@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import status
@@ -6,10 +7,20 @@ from fastapi import status
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
 from handler.auth import oauth_handler
 from handler.database import db_collection_handler, db_rom_handler
+from handler.filesystem.resources_handler import FSResourcesHandler
 from models.collection import Collection
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+
+# Minimal valid PNG (1x1 transparent pixel)
+_PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n"
+    b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\rIDATx\x9cc\xfc\xff\xff?\x00\x05\xfe\x02\xfe\xa75\x81\x84"
+    b"\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -564,3 +575,79 @@ class TestAtomicBehavior:
         refreshed = db_collection_handler.get_collection(collection.id)
         assert refreshed is not None
         assert set(refreshed.rom_ids) == {rom.id, second_rom.id}
+
+
+# ---------------------------------------------------------------------------
+# Artwork upload validation
+# ---------------------------------------------------------------------------
+
+
+class TestArtworkUpload:
+    def test_add_collection_rejects_non_image_artwork(self, client, access_token: str):
+        response = client.post(
+            "/api/collections",
+            data={"name": "Bad Cover Collection"},
+            files={"artwork": ("cover.png", b"<script>alert(1)</script>", "image/png")},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+
+    @patch.object(
+        FSResourcesHandler,
+        "store_artwork",
+        new_callable=AsyncMock,
+        return_value=("path/to/big.png", "path/to/small.png"),
+    )
+    def test_add_collection_artwork_uses_detected_extension(
+        self,
+        store_artwork_mock: AsyncMock,
+        client,
+        access_token: str,
+    ):
+        response = client.post(
+            "/api/collections",
+            data={"name": "Good Cover Collection"},
+            files={"artwork": ("payload.html", _PNG_BYTES, "image/png")},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert store_artwork_mock.called
+        _, _, file_ext = store_artwork_mock.call_args.args
+        assert file_ext == "png"
+
+    def test_update_collection_rejects_non_image_artwork(
+        self, client, access_token: str, collection: Collection
+    ):
+        response = client.put(
+            f"/api/collections/{collection.id}",
+            data={"rom_ids": "[]"},
+            files={"artwork": ("cover.png", b"<script>alert(1)</script>", "image/png")},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+
+    @patch.object(
+        FSResourcesHandler,
+        "store_artwork",
+        new_callable=AsyncMock,
+        return_value=("path/to/big.png", "path/to/small.png"),
+    )
+    def test_update_collection_artwork_uses_detected_extension(
+        self,
+        store_artwork_mock: AsyncMock,
+        client,
+        access_token: str,
+        collection: Collection,
+    ):
+        response = client.put(
+            f"/api/collections/{collection.id}",
+            data={"rom_ids": "[]"},
+            files={"artwork": ("payload.html", _PNG_BYTES, "image/png")},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert store_artwork_mock.called
+        _, _, file_ext = store_artwork_mock.call_args.args
+        assert file_ext == "png"

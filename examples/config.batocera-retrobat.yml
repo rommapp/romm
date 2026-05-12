@@ -10,7 +10,9 @@ exclude:
         extensions: []
         names: []
     single_file:
-      extensions: []
+      extensions:
+        - xml
+        - txt
       names: []
 filesystem: {}
 system:
@@ -88,6 +90,7 @@ system:
     macintosh: mac
     mame: arcade
     mastersystem: sms
+    megacd: segacd
     megadrive: genesis
     megadrive-msu: genesis
     megaduck: mega-duck-slash-cougar-boy

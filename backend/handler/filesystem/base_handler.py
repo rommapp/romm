@@ -210,22 +210,24 @@ class FSHandler:
         return match.group(0) if match else ""
 
     def exclude_single_files(self, files: list[str]) -> list[str]:
-        excluded_extensions = cm.get_config().EXCLUDED_SINGLE_EXT
-        excluded_names = cm.get_config().EXCLUDED_SINGLE_FILES
+        cnfg = cm.get_config()
+        excluded_extensions = cnfg.EXCLUDED_SINGLE_EXT
+        excluded_names = cnfg.EXCLUDED_SINGLE_FILES
         excluded_files: list[str] = []
 
         for file_name in files:
-            # Split the file name to get the extension.
-            ext = self.parse_file_extension(file_name)
+            file_name_lower = file_name.lower()
 
-            # Exclude the file if it has no extension or the extension is in the excluded list.
-            if ext and ext.lower() in excluded_extensions:
+            # Check whether the filename ends with any excluded extension entry.
+            if any(file_name_lower.endswith("." + ext) for ext in excluded_extensions):
                 excluded_files.append(file_name)
+                continue
 
-            # Additionally, check if the file name mathes a pattern in the excluded list.
-            for name in excluded_names:
-                if file_name == name or fnmatch.fnmatch(file_name, name):
-                    excluded_files.append(file_name)
+            # Check if the file name matches a pattern in the excluded list.
+            if file_name in excluded_names or any(
+                fnmatch.fnmatch(file_name, name) for name in excluded_names
+            ):
+                excluded_files.append(file_name)
 
         # Return files that are not in the filtered list.
         return [f for f in files if f not in excluded_files]

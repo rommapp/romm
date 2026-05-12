@@ -313,9 +313,9 @@ class FSRomsHandler(FSHandler):
     def get_roms_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
         return (
-            f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
-            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-            else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
+            f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
+            if cnfg.has_structure_path_b
+            else f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
         )
 
     def parse_tags(self, fs_name: str) -> ParsedTags:
@@ -433,8 +433,9 @@ class FSRomsHandler(FSHandler):
             rom.platform_slug not in NON_HASHABLE_PLATFORMS and calculate_hashes
         )
 
-        excluded_file_names = cm.get_config().EXCLUDED_MULTI_PARTS_FILES
-        excluded_file_exts = cm.get_config().EXCLUDED_MULTI_PARTS_EXT
+        cnfg = cm.get_config()
+        excluded_file_names = cnfg.EXCLUDED_MULTI_PARTS_FILES
+        excluded_file_exts = cnfg.EXCLUDED_MULTI_PARTS_EXT
 
         rom_crc_c = 0
         rom_md5_h = hashlib.md5(usedforsecurity=False) if calculate_hashes else None
@@ -455,11 +456,14 @@ class FSRomsHandler(FSHandler):
             for f_path, file_name in iter_files(
                 f"{abs_fs_path}/{rom.fs_name}", recursive=True
             ):
-                # Check if file is excluded
-                ext = self.parse_file_extension(file_name)
-                if ext in excluded_file_exts:
+                # Check if file is excluded by extension.
+                file_name_lower = file_name.lower()
+                if any(
+                    file_name_lower.endswith("." + ext) for ext in excluded_file_exts
+                ):
                     continue
 
+                # Check if the file name matches a pattern in the excluded list.
                 if any(
                     file_name == exc_name or fnmatch.fnmatch(file_name, exc_name)
                     for exc_name in excluded_file_names

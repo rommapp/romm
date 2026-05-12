@@ -52,8 +52,7 @@ RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
 	RQ_REDIS_SSL=${REDIS_SSL:-0} \
 	rqscheduler \
 	--path /app/backend \
-	--pid /tmp/rq_scheduler.pid \
-	--logging_level "${LOGLEVEL:-INFO}" &
+	--pid /tmp/rq_scheduler.pid &
 
 echo "Starting RQ worker..."
 # Build Redis URL properly

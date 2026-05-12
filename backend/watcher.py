@@ -49,8 +49,6 @@ sentry_sdk.init(
 )
 tracer = trace.get_tracer(__name__)
 
-structure_level = 2 if os.path.exists(cm.get_config().HIGH_PRIO_STRUCTURE_PATH) else 1
-
 
 @enum.unique
 class EventType(enum.StrEnum):
@@ -122,11 +120,12 @@ def process_changes(changes: Sequence[Change]) -> None:
     # Filter for valid events, applying the same exclusion rules as the scanner:
     # exact-match and fnmatch patterns for files, plus excluded directory names
     # checked against every path component so events inside excluded dirs are ignored.
-    config = cm.get_config()
+    cnfg = cm.get_config()
+    structure_level = 1 if cnfg.has_structure_path_b else 2
     excluded_patterns = (
-        config.EXCLUDED_SINGLE_FILES
-        + config.EXCLUDED_MULTI_FILES
-        + config.EXCLUDED_MULTI_PARTS_FILES
+        cnfg.EXCLUDED_SINGLE_FILES
+        + cnfg.EXCLUDED_MULTI_FILES
+        + cnfg.EXCLUDED_MULTI_PARTS_FILES
     )
 
     def _is_excluded(path: str) -> bool:

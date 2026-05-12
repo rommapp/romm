@@ -49,6 +49,7 @@ from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
@@ -1317,7 +1318,7 @@ async def update_rom(
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
-            file_ext = artwork.filename.split(".")[-1]
+            file_ext = validate_image_upload(artwork, label="Artwork")
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,

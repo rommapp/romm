@@ -414,6 +414,16 @@ async def _identify_rom(
                     _added_rom.gamelist_metadata[f"{media_type.value}_path"],
                 )
 
+    # Handle special media files from LaunchBox
+    if _added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
+        preferred_media_types = get_preferred_media_types()
+        for media_type in preferred_media_types:
+            if _added_rom.launchbox_metadata.get(f"{media_type.value}_path"):
+                await fs_resource_handler.store_media_file(
+                    _added_rom.launchbox_metadata[f"{media_type.value}_url"],
+                    _added_rom.launchbox_metadata[f"{media_type.value}_path"],
+                )
+
     # Store normal and locked badges
     if _added_rom.ra_metadata and MetadataSource.RA in metadata_sources:
         for ach in _added_rom.ra_metadata.get("achievements", []):

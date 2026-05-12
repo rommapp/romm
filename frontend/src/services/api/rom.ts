@@ -67,7 +67,12 @@ async function uploadRomChunked({
           onUploadProgress: (progressEvent: AxiosProgressEvent) => {
             const chunkFraction = progressEvent.progress ?? 0;
             const overall = ((i + chunkFraction) / totalChunks) * 100;
-            uploadStore.updateChunkProgress(file.name, overall, file.size);
+            uploadStore.updateChunkProgress(
+              file.name,
+              overall,
+              file.size,
+              progressEvent.rate,
+            );
           },
         });
         lastError = null;
