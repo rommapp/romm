@@ -7,8 +7,16 @@
 // the proven combo from `GameActionBtn.vue` — wrapping VMenu's
 // slot-injected function ref through RBtn / VBtn breaks down in
 // nested scoped-slot contexts (RTable's `cell.type` slot), so we
-// attach the ref to a real DOM element directly. Auto rows render
-// as a static tag (system-detected, no menu).
+// attach the ref to a real DOM element directly.
+//
+// Editability matches v1: any row that already has a slug (whether
+// alias, variant, or auto-detected) can be retyped. Auto rows can be
+// converted to an explicit alias/variant by clicking the picker —
+// `setType()` in FolderMappingsSection handles the auto → explicit
+// transition by creating the matching binding. Unmapped rows
+// (slug === undefined) stay non-editable here; the user picks a
+// platform first via FolderMappingPlatformCell, which lands the row
+// as `alias` by default.
 import { RIcon, RMenu, RMenuItem, RMenuPanel, RTag } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -48,12 +56,7 @@ const label = computed(() => {
   return t("settings.auto-detected");
 });
 
-const isEditable = computed(
-  () =>
-    props.canEdit &&
-    !!props.row.slug &&
-    (props.row.type === "alias" || props.row.type === "variant"),
-);
+const isEditable = computed(() => props.canEdit && !!props.row.slug);
 
 const open = ref(false);
 </script>

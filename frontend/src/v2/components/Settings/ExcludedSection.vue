@@ -286,15 +286,6 @@ function onSort({ key, dir }: RTableSortPayload) {
           {{ t("common.search") }}
         </template>
       </RTextField>
-      <RBtn
-        v-if="canEdit"
-        variant="flat"
-        color="primary"
-        prepend-icon="mdi-plus"
-        @click="openCreate"
-      >
-        {{ t("common.add") }}
-      </RBtn>
     </div>
 
     <!-- Active exclusions table or empty state -->
@@ -303,15 +294,6 @@ function onSort({ key, dir }: RTableSortPayload) {
         icon="mdi-format-list-bulleted"
         :message="t('settings.exclusions-none')"
       />
-      <RBtn
-        v-if="canEdit"
-        variant="flat"
-        color="primary"
-        prepend-icon="mdi-plus"
-        @click="openCreate"
-      >
-        {{ t("common.add") }}
-      </RBtn>
     </div>
     <RTable
       v-else
@@ -347,6 +329,18 @@ function onSort({ key, dir }: RTableSortPayload) {
         />
       </template>
     </RTable>
+    <div>
+      <RBtn
+        v-if="canEdit"
+        variant="flat"
+        :block="false"
+        color="primary"
+        prepend-icon="mdi-plus"
+        @click="openCreate"
+      >
+        {{ t("common.add") }}
+      </RBtn>
+    </div>
 
     <!-- Defaults (read-only) -->
     <div v-if="defaultExclusions.length > 0" class="r-v2-excluded__defaults">
