@@ -174,7 +174,7 @@ class ConfigManager:
             # Check if the config file is mounted
             with open(self.config_file, "r") as cf:
                 self._config_file_mounted = True
-                self._raw_config = yaml.load(cf, Loader=SafeLoader) or {}
+                self._raw_config = self._safe_load_yaml(cf)
 
             # Also check if the config file is writable
             self._config_file_writable = os.access(self.config_file, os.W_OK)
@@ -188,6 +188,19 @@ class ConfigManager:
             # Set the config to default values
             self._parse_config()
             self._validate_config()
+
+    def _safe_load_yaml(self, cf) -> dict:
+        """Load YAML, falling back to an empty config on syntax errors so the
+        app can still boot with defaults rather than crashing."""
+        try:
+            return yaml.load(cf, Loader=SafeLoader) or {}
+        except yaml.YAMLError as exc:
+            log.critical(
+                f"Failed to parse {hl(self.config_file, BLUE)}: {exc}. "
+                "Falling back to default configuration, fix the YAML "
+                "syntax to apply your settings."
+            )
+            return {}
 
     def _create_missing_config_file(self) -> None:
         log.warning(
@@ -633,12 +646,19 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.media must be a list")
             sys.exit(3)
 
-        for media in self.config.SCAN_MEDIA:
-            if media not in MetadataMediaType:
-                log.critical(
-                    f"Invalid config.yml: scan.media.{media} is not a valid media type"
-                )
-                sys.exit(3)
+        # Drop unknown media types rather than exiting — a newer release may
+        # ship sample configs referencing media types this version doesn't know.
+        unknown_media = [
+            m for m in self.config.SCAN_MEDIA if m not in MetadataMediaType
+        ]
+        if unknown_media:
+            log.warning(
+                f"Ignoring unknown values in scan.media: {unknown_media}. "
+                "These may be from a newer RomM version — update to use them."
+            )
+            self.config.SCAN_MEDIA = [
+                m for m in self.config.SCAN_MEDIA if m in MetadataMediaType
+            ]
 
         valid_thumbnail_options = {
             MetadataMediaType.BOX2D,
@@ -652,10 +672,12 @@ class ConfigManager:
             )
             sys.exit(3)
         if self.config.GAMELIST_MEDIA_THUMBNAIL not in valid_thumbnail_options:
-            log.critical(
-                f"Invalid config.yml: scan.gamelist.media.thumbnail must be one of {valid_thumbnail_options}"
+            log.warning(
+                f"Unknown scan.gamelist.media.thumbnail value "
+                f"{self.config.GAMELIST_MEDIA_THUMBNAIL!r}; falling back to "
+                f"{MetadataMediaType.BOX2D.value!r}. Valid options: {sorted(o.value for o in valid_thumbnail_options)}."
             )
-            sys.exit(3)
+            self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType.BOX2D
 
         valid_image_options = {
             MetadataMediaType.TITLE_SCREEN,
@@ -671,15 +693,17 @@ class ConfigManager:
             sys.exit(3)
 
         if self.config.GAMELIST_MEDIA_IMAGE not in valid_image_options:
-            log.critical(
-                f"Invalid config.yml: scan.gamelist.media.image must be one of {valid_image_options}"
+            log.warning(
+                f"Unknown scan.gamelist.media.image value "
+                f"{self.config.GAMELIST_MEDIA_IMAGE!r}; falling back to "
+                f"{MetadataMediaType.SCREENSHOT.value!r}. Valid options: {sorted(o.value for o in valid_image_options)}."
             )
-            sys.exit(3)
+            self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType.SCREENSHOT
 
     def get_config(self) -> Config:
         try:
             with open(self.config_file, "r") as config_file:
-                self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
+                self._raw_config = self._safe_load_yaml(config_file)
         except FileNotFoundError:
             log.debug("Config file not found!")
 
