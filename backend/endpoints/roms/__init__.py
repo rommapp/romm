@@ -1256,7 +1256,7 @@ async def update_rom(
         cleaned_data.update({"ss_id": None, "ss_metadata": {}})
 
     if cleaned_data["igdb_id"] and int(cleaned_data["igdb_id"]) != rom.igdb_id:
-        igdb_rom = await meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
+        igdb_rom = await meta_igdb_handler.get_rom_by_id(rom, cleaned_data["igdb_id"])
         if igdb_rom.get("igdb_id"):
             cleaned_data.update(igdb_rom)
     elif rom.igdb_id and not cleaned_data["igdb_id"]:

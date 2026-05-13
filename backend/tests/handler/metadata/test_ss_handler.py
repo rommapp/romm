@@ -69,10 +69,11 @@ class TestGetPreferredRegions:
 class TestExtractMediaFromSsGame:
     """Tests for extract_media_from_ss_game."""
 
-    def _make_rom(self) -> MagicMock:
+    def _make_rom(self, regions: list[str] | None = None) -> MagicMock:
         rom = MagicMock()
         rom.platform_id = 1
         rom.id = 100
+        rom.regions = regions
         return rom
 
     def _make_game_with_cus_only(self) -> SSGame:

@@ -88,6 +88,34 @@ REGIONS = (
 REGIONS_BY_SHORTCODE = {region[0]: region[1] for region in REGIONS}
 REGIONS_NAME_KEYS = frozenset(region[1].lower() for region in REGIONS)
 
+# Maps full REGIONS names to lowercase shortcodes used by metadata providers
+REGION_NAME_TO_PROVIDER_SHORTCODE: dict[str, str] = {
+    "Australia": "au",
+    "Asia": "asi",
+    "Brazil": "br",
+    "Canada": "ca",
+    "China": "cn",
+    "England": "uk",
+    "Europe": "eu",
+    "Finland": "fi",
+    "France": "fr",
+    "Germany": "de",
+    "Greece": "gr",
+    "Holland": "nl",
+    "Hong Kong": "hk",
+    "Italy": "it",
+    "Japan": "jp",
+    "Korea": "kr",
+    "Netherlands": "nl",
+    "Norway": "no",
+    "Russia": "ru",
+    "Spain": "sp",
+    "Sweden": "se",
+    "Taiwan": "tw",
+    "USA": "us",
+    "World": "wor",
+}
+
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
 LANGUAGES_NAME_KEYS = frozenset(lang[1].lower() for lang in LANGUAGES)
 
