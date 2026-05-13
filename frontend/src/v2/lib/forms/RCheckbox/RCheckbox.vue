@@ -361,7 +361,7 @@ const hasLabel = computed(
 .r-checkbox__path {
   opacity: 0;
   transition:
-    stroke-dashoffset 360ms cubic-bezier(0.65, 0, 0.35, 1) 80ms,
+    stroke-dashoffset 240ms cubic-bezier(0.65, 0, 0.35, 1) 80ms,
     opacity 0ms linear 0ms;
 }
 /* Check polyline (5,12)→(10,17)→(19,7) ≈ 20.5 units of length. */
