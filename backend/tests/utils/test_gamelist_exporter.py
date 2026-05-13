@@ -1,5 +1,7 @@
 from xml.etree.ElementTree import fromstring
 
+from os import path
+
 import pytest
 
 from handler.database import db_platform_handler, db_rom_handler
@@ -40,7 +42,14 @@ def platform_with_roms(admin_user: User):
                 "companies": ["Nintendo", "Nintendo EAD"],
                 "first_release_date": 709257600,  # 1992-06-23 UTC in seconds; view *1000
                 "total_rating": 92.0,  # view uses this directly as a 0-100 igdb_rating
-            }
+            },
+            "path_cover_l": "snes/covers/super-mario-world.jpg",
+            "path_manual": "snes/manuals/super-mario-world.pdf",
+            "path_screenshots": ["snes/screenshots/super-mario-world-1.jpg"],
+            "gamelist_metadata": {
+                "player_count": "2",
+                "video_path": "snes/videos/super-mario-world.mp4",
+            },
         },
     )
 
@@ -211,3 +220,86 @@ def test_export_gamelist_xml_scrap_element(platform_with_roms):
     scrap = game.find("scrap")
     assert scrap is not None
     assert scrap.get("name") == "RomM"
+
+
+def test_export_gamelist_xml_local_thumbnail_relative_path(platform_with_roms):
+    platform, _ = platform_with_roms
+
+    exporter = GamelistExporter(local_export=True)
+    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
+    root = fromstring(xml_str)
+    game = root.findall("game")[0]
+
+    thumbnail = game.find("thumbnail")
+    assert thumbnail is not None
+    assert not path.isabs(thumbnail.text)
+
+
+@pytest.mark.parametrize("tag", ["thumbnail", "image", "video", "screenshot", "manual"])
+def test_export_gamelist_xml_local_media_relative_path(platform_with_roms, tag):
+    platform, _ = platform_with_roms
+    exporter = GamelistExporter(local_export=True)
+    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
+    root = fromstring(xml_str)
+    game = root.findall("game")[0]
+
+    elem = game.find(tag)
+    assert elem is not None
+    assert not path.isabs(elem.text)
+
+
+def test_export_gamelist_xml_local_ss_metadata_media_relative(platform_with_roms):
+    platform, roms = platform_with_roms
+
+    db_rom_handler.update_rom(
+        roms[0].id,
+        {
+            "ss_metadata": {
+                "box3d_path": "snes-ss/box3d/test.png",
+                "box2d_back_path": "snes-ss/boxback/test.png",
+                "fanart_path": "snes-ss/fanart/test.png",
+                "logo_path": "snes-ss/logo/test.png",
+                "miximage_path": "snes-ss/miximage/test.png",
+                "physical_path": "snes-ss/physical/test.png",
+                "title_screen_path": "snes-ss/titlescreen/test.png",
+                "bezel_path": "snes-ss/bezel/test.png",
+            }
+        },
+    )
+
+    exporter = GamelistExporter(local_export=True)
+    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
+    root = fromstring(xml_str)
+    game = root.findall("game")[0]
+
+    media_tags = [
+        "box3d",
+        "boxback",
+        "fanart",
+        "marquee",
+        "miximage",
+        "physicalmedia",
+        "title_screen",
+        "bezel",
+    ]
+    for tag in media_tags:
+        elem = game.find(tag)
+        assert elem is not None and elem.text is not None
+
+        assert not path.isabs(elem.text)
+
+
+def test_export_gamelist_xml_local_no_absolute_paths_anywhere(platform_with_roms):
+    """Catch-all: when local_export=True, no element text should contain
+    the FRONTEND_RESOURCES_PATH absolute prefix."""
+    platform, _ = platform_with_roms
+
+    exporter = GamelistExporter(local_export=True)
+    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
+    root = fromstring(xml_str)
+
+    for elem in root.iter():
+        if elem.text and "/assets/romm/resources" in elem.text:
+            pytest.fail(
+                f"<{elem.tag}> contains absolute FRONTEND_RESOURCES_PATH: {elem.text}"
+            )
