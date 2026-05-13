@@ -112,11 +112,15 @@ const hasFixedLabelWidth = computed(() => !!labelWidthCss.value);
       'r-text-field--prefix-label-fixed': prefixLabel && hasFixedLabelWidth,
     }"
     :style="
-      prefixLabel && labelWidthCss ? { '--rtf-label-w': labelWidthCss } : undefined
+      prefixLabel && labelWidthCss
+        ? { '--rtf-label-w': labelWidthCss }
+        : undefined
     "
     :model-value="modelValue"
     :label="prefixLabel ? undefined : label"
     :placeholder="prefixLabel ? undefined : placeholder"
+    :type="type"
+    :variant="variant"
     :density="density"
     :prepend-inner-icon="prefixLabel ? undefined : prependInnerIcon"
     :append-inner-icon="appendInnerIcon"
@@ -293,13 +297,50 @@ const hasFixedLabelWidth = computed(() => !!labelWidthCss.value);
   opacity: 0.55;
 }
 
-/* ── Underlined variant — auth flows ───────────────────────────── */
+/* ── Underlined variant — auth flows ─────────────────────────────
+.r-text-field :deep(.v-field--variant-underlined) {
+  background: transparent !important;
+  border-radius: 0;
+}
 
+.r-text-field :deep(.v-field--variant-underlined .v-field__overlay) {
+  opacity: 0 !important;
+  background: transparent !important;
+}
 .r-text-field :deep(.v-field--variant-underlined::before) {
-  border-color: var(--r-color-border);
+  border-color: var(--r-color-border-strong);
+  border-bottom-width: 1px;
+  transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-text-field
+  :deep(.v-field--variant-underlined:hover:not(.v-field--focused)::before) {
+  border-color: var(--r-color-fg-muted);
 }
 .r-text-field :deep(.v-field--variant-underlined::after) {
   border-color: var(--r-color-brand-primary);
+  border-bottom-width: 2px;
+}
+.r-text-field :deep(.v-field--variant-underlined.v-field--error::after) {
+  border-color: var(--r-color-danger);
+}
+
+.r-text-field :deep(.v-field--variant-underlined .v-field__input) {
+  min-height: 52px;
+}
+.r-text-field :deep(.v-field--variant-underlined .v-field__field) {
+  align-items: center;
+}
+.r-text-field :deep(.v-field--variant-underlined .v-field__prepend-inner),
+.r-text-field :deep(.v-field--variant-underlined .v-field__append-inner) {
+  align-items: center;
+  padding-block: 0;
+}
+.r-text-field
+  :deep(.v-field--variant-underlined .v-field-label.v-field-label--floating) {
+  top: 6px;
+}
+.r-text-field :deep(.v-field--variant-underlined .v-field-label) {
+  font-weight: var(--r-font-weight-regular);
 }
 
 /* ── Solo / filled — subtle bg, no border ──────────────────────── */
@@ -379,12 +420,10 @@ const hasFixedLabelWidth = computed(() => !!labelWidthCss.value);
   justify-content: flex-start;
 }
 
-.r-text-field--prefix-label
-  :deep(.v-field--focused .v-field__prepend-inner) {
+.r-text-field--prefix-label :deep(.v-field--focused .v-field__prepend-inner) {
   border-right-color: var(--r-color-brand-primary);
 }
-.r-text-field--prefix-label
-  :deep(.v-field--error .v-field__prepend-inner) {
+.r-text-field--prefix-label :deep(.v-field--error .v-field__prepend-inner) {
   border-right-color: var(--r-color-danger);
 }
 
@@ -406,9 +445,7 @@ const hasFixedLabelWidth = computed(() => !!labelWidthCss.value);
   .r-text-field__prefix-label {
   color: var(--r-color-brand-primary);
 }
-.r-text-field--prefix-label
-  :deep(.v-field--error)
-  .r-text-field__prefix-label {
+.r-text-field--prefix-label :deep(.v-field--error) .r-text-field__prefix-label {
   color: var(--r-color-danger);
 }
 
