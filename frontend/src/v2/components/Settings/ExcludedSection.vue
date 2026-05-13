@@ -276,14 +276,14 @@ function onSort({ key, dir }: RTableSortPayload) {
     <div class="r-v2-excluded__toolbar">
       <RTextField
         v-model="search"
-        prefix-label
+        prefix-label="inline"
+        :placeholder="t('common.search')"
         hide-details
         aria-label="Search exclusions"
         class="r-v2-excluded__search"
       >
         <template #prefix-label>
           <RIcon icon="mdi-magnify" size="14" />
-          {{ t("common.search") }}
         </template>
       </RTextField>
     </div>
@@ -400,7 +400,7 @@ function onSort({ key, dir }: RTableSortPayload) {
           </div>
           <RTextField
             v-model="newValue"
-            prefix-label
+            prefix-label="stacked"
             :disabled="!newType"
             hide-details
             @keyup.enter="submitExclusion"

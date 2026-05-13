@@ -395,7 +395,7 @@ onBeforeUnmount(() => {
       <div v-if="step === 'config'" class="r-v2-tok-dialog__body">
         <RTextField
           v-model="tokenName"
-          prefix-label
+          prefix-label="stacked"
           density="comfortable"
           hide-details
         >

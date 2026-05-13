@@ -243,7 +243,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
         <RSelect
           v-model="boxartStyle"
           :items="boxartStyleItems"
-          prefix-label
+          prefix-label="stacked"
           hide-details
         >
           <template #prefix-label>
@@ -271,7 +271,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
           :model-value="virtualCollectionType"
           :items="virtualCollectionTypeItems"
           :disabled="!showVirtualCollections"
-          prefix-label
+          prefix-label="stacked"
           hide-details
           @update:model-value="onVirtualCollectionTypeChange"
         >

@@ -1,23 +1,26 @@
 <script setup lang="ts">
-// RSelect — wraps v-select with the v2 visual language.
+// RSelect — passthrough wrapper around v-select. Without
+// `prefix-label`, the default look is whatever Vuetify renders under
+// the v2 theme — no reskin on the field itself.
 //
-// Two looks:
-//   • Default outlined (legacy) — used in places like the language
-//     picker and a handful of one-off Settings rows pre-redesign.
-//   • Prefix label (`prefix-label` prop) — v2-native form look. A
-//     slightly darker "well" sits on the LEFT of the field,
-//     separated by a hairline, holding whatever you pass into
-//     `#prefix-label`. The well auto-sizes to its content; pass
-//     `label-width` for a fixed width when you need a stack of
-//     fields to line up vertically.
+// Two v2-specific label layouts share the same `#prefix-label` slot,
+// mirroring RTextField so a stack of mixed Text/Select fields aligns
+// vertically:
 //
-// `searchable` adds an RMenuSearch sticky at the top of the
-// dropdown and filters items locally by the query — mirrors
-// RMenuPanel's `searchable` prop so RMenu and RSelect surfaces
-// feel identical.
+//   • prefix-label="stacked" — label above the field (forms).
+//   • prefix-label="inline"  — left well inside the field (chip
+//     activators, menu-style inputs).
 //
-// Mirrors RTextField so a stack of mixed Text/Select fields aligns
-// vertically.
+// `searchable` adds an RMenuSearch sticky at the top of the dropdown
+// and filters items locally by the query — mirrors RMenuPanel's
+// `searchable` prop so RMenu and RSelect surfaces feel identical.
+//
+// The dropdown (teleported outside the SFC) still gets the v2 paint
+// + RMenuItem-style rows via unscoped overrides at the bottom — that
+// part isn't a "reskin", it's the v2 menu surface vocabulary.
+//
+// `hideDetails` defaults to `"auto"` so empty rule rows don't reserve
+// vertical space — fields without errors stay compact.
 import { computed } from "vue";
 import { VSelect } from "vuetify/components/VSelect";
 import RMenuSearch from "../../menus/RMenuSearch/RMenuSearch.vue";
@@ -49,14 +52,12 @@ interface Props {
   placeholder?: string;
   chips?: boolean;
   closableChips?: boolean;
-  /** Render a left "prefix" well inside the field instead of
-   *  Vuetify's floating label. Use the `#prefix-label` slot. The
-   *  well auto-sizes to its content; pass `labelWidth` to fix a
-   *  width for vertical alignment across multiple fields. */
-  prefixLabel?: boolean;
-  /** Optional fixed width for the prefix-label well. When unset, the
-   *  well shrinks to fit its content. */
-  labelWidth?: string | number;
+  /** v2 label layout. `"stacked"` puts the label above the field
+   *  (forms); `"inline"` embeds it as a left well inside the field
+   *  (chip activators, menu-style inputs). Both consume the
+   *  `#prefix-label` slot, falling back to the `label` string prop
+   *  when the slot is empty. */
+  prefixLabel?: "stacked" | "inline";
   /** Renders an RMenuSearch sticky at the top of the dropdown and
    *  filters the items by the query. Mirrors RMenuPanel's
    *  `searchable` prop so RMenu and RSelect surfaces feel identical. */
@@ -79,12 +80,11 @@ const props = withDefaults(defineProps<Props>(), {
   density: "default",
   itemTitle: "title",
   itemValue: "value",
-  hideDetails: false,
+  hideDetails: "auto",
   prependInnerIcon: undefined,
   appendInnerIcon: undefined,
   placeholder: undefined,
-  prefixLabel: false,
-  labelWidth: undefined,
+  prefixLabel: undefined,
   searchable: false,
   search: "",
   searchPlaceholder: "",
@@ -118,15 +118,6 @@ const filteredItems = computed<unknown[]>(() => {
   );
 });
 
-const labelWidthCss = computed<string | undefined>(() => {
-  if (props.labelWidth === undefined) return undefined;
-  return typeof props.labelWidth === "number"
-    ? `${props.labelWidth}px`
-    : props.labelWidth;
-});
-
-const hasFixedLabelWidth = computed(() => !!labelWidthCss.value);
-
 // Always inject the panel content-class so the unscoped overlay
 // styles below resolve. If the caller supplies their own
 // contentClass we keep both.
@@ -139,157 +130,178 @@ const mergedMenuProps = computed(() => {
 </script>
 
 <template>
-  <VSelect
-    v-bind="$attrs"
+  <!-- When `prefix-label` is set, the wrapper is a `<label>` so clicks
+       on the label text (stacked) or the well (inline) focus the
+       field below via implicit form association. Otherwise it's a
+       plain `<div>` so we don't collide with Vuetify's internal
+       `<label>` (floating label) and end up with nested labels.
+
+       Using `<component :is>` keeps `vuejs-accessibility/label-has-for`
+       quiet — the linter only triggers on literal `<label>` tags. -->
+  <component
+    :is="prefixLabel ? 'label' : 'div'"
     class="r-select"
     :class="{
-      'r-select--prefix-label': prefixLabel,
-      'r-select--prefix-label-fixed': prefixLabel && hasFixedLabelWidth,
+      'r-select--stacked': prefixLabel === 'stacked',
+      'r-select--inline': prefixLabel === 'inline',
     }"
-    :style="
-      prefixLabel && labelWidthCss
-        ? { '--rsel-label-w': labelWidthCss }
-        : undefined
-    "
-    :model-value="modelValue"
-    :items="filteredItems as never"
-    :label="prefixLabel ? undefined : label"
-    :variant="variant"
-    :density="density"
-    :item-title="itemTitle as never"
-    :item-value="itemValue as never"
-    :multiple="multiple"
-    :clearable="clearable"
-    :disabled="disabled"
-    :readonly="readonly"
-    :hide-details="hideDetails"
-    :prepend-inner-icon="prefixLabel ? undefined : prependInnerIcon"
-    :append-inner-icon="appendInnerIcon"
-    :placeholder="prefixLabel ? undefined : placeholder"
-    :chips="chips"
-    :closable-chips="closableChips"
-    menu-icon="mdi-chevron-down"
-    :menu-props="mergedMenuProps"
-    @update:model-value="(v) => $emit('update:modelValue', v)"
   >
-    <!-- Prefix label takes over Vuetify's prepend-inner slot when on.
-         Falls back to the `label` string prop when the slot is empty. -->
-    <template v-if="prefixLabel" #prepend-inner>
-      <span class="r-select__prefix-label">
-        <slot name="prefix-label">{{ label }}</slot>
-      </span>
-    </template>
-
-    <!-- Built-in search header — rendered into VSelect's
-         `#prepend-item` slot so it sits at the top of the list and
-         pins via `position: sticky` while items scroll. The wrapper
-         div soaks pointerdown so opening the keyboard / clicking the
-         input doesn't dismiss the menu the way a normal list item
-         click would. -->
-    <template v-if="searchable" #prepend-item>
-      <div class="r-select__search" @mousedown.stop @click.stop>
-        <RMenuSearch
-          :model-value="search"
-          :placeholder="searchPlaceholder"
-          @update:model-value="(v) => $emit('update:search', v)"
-        />
-      </div>
-    </template>
-
-    <!-- Pass through every consumer slot. We filter at the iterator
-         level (not inside the slot body) so VSelect doesn't see a
-         second `prepend-inner` / `prepend-item` registration when we
-         own one via the v-if above; we also strip `#label` in
-         prefix-label mode so it doesn't double-paint as Vuetify's
-         floating label. -->
-    <template
-      v-for="slotName in Object.keys($slots).filter(
-        (s) =>
-          !(
-            prefixLabel &&
-            (s === 'prepend-inner' || s === 'label' || s === 'prefix-label')
-          ) && !(searchable && s === 'prepend-item'),
-      )"
-      #[slotName]="slotProps"
-      :key="slotName"
+    <!-- Stacked label sits above the field, left-aligned. -->
+    <span
+      v-if="prefixLabel === 'stacked'"
+      class="r-select__label r-select__label--stacked"
     >
-      <slot :name="slotName" v-bind="slotProps || {}" />
-    </template>
-  </VSelect>
+      <slot name="prefix-label">{{ label }}</slot>
+    </span>
+
+    <VSelect
+      v-bind="$attrs"
+      :model-value="modelValue"
+      :items="filteredItems as never"
+      :label="prefixLabel ? undefined : label"
+      :variant="variant"
+      :density="density"
+      :item-title="itemTitle as never"
+      :item-value="itemValue as never"
+      :multiple="multiple"
+      :clearable="clearable"
+      :disabled="disabled"
+      :readonly="readonly"
+      :hide-details="hideDetails"
+      :prepend-inner-icon="
+        prefixLabel === 'inline' ? undefined : prependInnerIcon
+      "
+      :append-inner-icon="appendInnerIcon"
+      :placeholder="placeholder"
+      :chips="chips"
+      :closable-chips="closableChips"
+      menu-icon="mdi-chevron-down"
+      :menu-props="mergedMenuProps"
+      @update:model-value="(v) => $emit('update:modelValue', v)"
+    >
+      <!-- Inline well — takes over Vuetify's prepend-inner slot. -->
+      <template v-if="prefixLabel === 'inline'" #prepend-inner>
+        <span class="r-select__label r-select__label--inline">
+          <slot name="prefix-label">{{ label }}</slot>
+        </span>
+      </template>
+
+      <!-- Built-in search header — rendered into VSelect's
+           `#prepend-item` slot so it sits at the top of the list and
+           pins via `position: sticky` while items scroll. The wrapper
+           div soaks pointerdown so opening the keyboard / clicking the
+           input doesn't dismiss the menu the way a normal list item
+           click would. -->
+      <template v-if="searchable" #prepend-item>
+        <div class="r-select__search" @mousedown.stop @click.stop>
+          <RMenuSearch
+            :model-value="search"
+            :placeholder="searchPlaceholder"
+            @update:model-value="(v) => $emit('update:search', v)"
+          />
+        </div>
+      </template>
+
+      <!-- Pass through every consumer slot. We strip `#label` and
+           `#prefix-label` whenever a v2 layout is on (we own them),
+           `#prepend-inner` in inline mode (we own it too), and
+           `#prepend-item` when `searchable` so it doesn't fight our
+           own injection above. -->
+      <template
+        v-for="slotName in Object.keys($slots).filter(
+          (s) =>
+            !(prefixLabel && (s === 'label' || s === 'prefix-label')) &&
+            !(prefixLabel === 'inline' && s === 'prepend-inner') &&
+            !(searchable && s === 'prepend-item'),
+        )"
+        #[slotName]="slotProps"
+        :key="slotName"
+      >
+        <slot :name="slotName" v-bind="slotProps || {}" />
+      </template>
+    </VSelect>
+  </component>
 </template>
 
 <style scoped>
-/* Glass-pill look — applied to every RSelect so all the page selects
-   share aesthetics (header language picker, Overview status picker,
-   Media manual picker…). Vuetify's outlined variant ships with a
-   2-piece notched border (`v-field__outline`) that we hide and replace
-   with one continuous pill border on the field itself. */
-.r-select :deep(.v-field) {
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border-strong);
-  border-radius: var(--r-radius-md);
-  color: var(--r-color-fg-secondary);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
+/* Outside the v2 layouts the wrapper is invisible — Vuetify paints
+   the field on its own and we don't touch it. Everything below only
+   applies when `prefix-label` is set. */
+
+/* ── Shared label base ──────────────────────────────────────────── */
+.r-select__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--r-color-fg-muted);
+  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-select :deep(.v-field__outline) {
-  display: none;
+
+/* Tint the label brand-primary on focus and danger on error.
+   `:has()` is supported across all current browsers; this is the
+   cleanest way to react to VSelect's internal state from the wrapper
+   without wiring focus/blur listeners. */
+.r-select:has(.v-field--focused) .r-select__label {
+  color: var(--r-color-brand-primary);
 }
-.r-select :deep(.v-field:hover) {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
+.r-select:has(.v-field--error) .r-select__label {
+  color: var(--r-color-danger);
 }
-.r-select :deep(.v-field--focused) {
-  background: var(--r-color-surface-hover);
-  border-color: var(--r-color-brand-primary);
-  color: var(--r-color-fg);
+
+/* ── Stacked variant — label above, left-aligned ───────────────── */
+.r-select--stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.r-select :deep(.v-field__input),
-.r-select :deep(.v-select__selection-text) {
-  color: inherit;
-  font-size: 12.5px;
+
+.r-select__label--stacked {
+  font-size: 12px;
   font-weight: var(--r-font-weight-medium);
-}
-.r-select :deep(.v-field__prepend-inner > .v-icon),
-.r-select :deep(.v-field__append-inner > .v-icon) {
-  opacity: 0.7;
-  color: inherit;
-}
-.r-select :deep(.v-field--focused .v-field__prepend-inner > .v-icon),
-.r-select :deep(.v-field--focused .v-field__append-inner > .v-icon) {
-  opacity: 1;
+  line-height: 1.2;
+  align-self: flex-start;
+  padding-inline-start: 2px;
 }
 
-/* ────────────────────────────────────────────────────────────────
-   Prefix-label variant — mirrors RTextField. Auto-sized well by
-   default; pass `labelWidth` to switch to a fixed-width well
-   (`.r-select--prefix-label-fixed`) for vertical alignment across
-   a stack of fields.
-   ──────────────────────────────────────────────────────────────── */
+/* ── Inline variant — well embedded inside the field ───────────── */
 
-.r-select--prefix-label :deep(.v-field) {
+/* The wrapper is a `<label>`, which is `display: inline` by default —
+   force block + width 100% so it behaves as a normal block-level
+   control, and propagate the width to Vuetify's `.v-input` so it
+   fills the wrapper even inside a flex parent. */
+.r-select--inline {
+  display: block;
+  width: 100%;
+}
+.r-select--inline :deep(.v-input) {
+  width: 100%;
+}
+
+.r-select--inline :deep(.v-field) {
   background: var(--r-color-surface);
+  overflow: hidden;
   border: 1px solid var(--r-color-border);
   border-radius: 8px;
-  overflow: hidden;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   /* Well sits flush against the field's left edge. */
   padding-left: 0 !important;
 }
-.r-select--prefix-label:hover :deep(.v-field) {
+.r-select--inline :deep(.v-field__outline) {
+  display: none;
+}
+.r-select--inline:hover :deep(.v-field) {
   border-color: var(--r-color-border-strong);
 }
-.r-select--prefix-label :deep(.v-field--focused) {
+.r-select--inline :deep(.v-field--focused) {
   border-color: var(--r-color-brand-primary);
 }
+.r-select--inline :deep(.v-field--error) {
+  border-color: var(--r-color-danger);
+}
 
-/* The well — auto-sized to its content by default. */
-.r-select--prefix-label :deep(.v-field__prepend-inner) {
+/* The well — auto-sized to its content. `!important` is load-bearing
+   because Vuetify's density-specific selectors otherwise outrank our
+   scoped rules. */
+.r-select--inline :deep(.v-field__prepend-inner) {
   width: auto !important;
   min-width: auto !important;
   padding-block: 0 !important;
@@ -302,54 +314,31 @@ const mergedMenuProps = computed(() => {
   border-right: 1px solid var(--r-color-border);
   color: var(--r-color-fg-secondary);
 }
-
-/* Fixed-width modifier — kicks in when the caller passes
-   `labelWidth`. More horizontal padding for icon + text slots. */
-.r-select--prefix-label-fixed :deep(.v-field__prepend-inner) {
-  width: var(--rsel-label-w) !important;
-  min-width: var(--rsel-label-w) !important;
-  padding-inline: 14px !important;
-  justify-content: flex-start;
-}
-
-.r-select--prefix-label :deep(.v-field--focused .v-field__prepend-inner) {
+.r-select--inline :deep(.v-field--focused .v-field__prepend-inner) {
   border-right-color: var(--r-color-brand-primary);
 }
+.r-select--inline :deep(.v-field--error .v-field__prepend-inner) {
+  border-right-color: var(--r-color-danger);
+}
 
-.r-select__prefix-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.r-select__label--inline {
   font-size: 11px;
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--r-color-fg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.r-select--prefix-label :deep(.v-field--focused) .r-select__prefix-label {
-  color: var(--r-color-brand-primary);
-}
 
-/* Input area — let it breathe inside the field. */
-.r-select--prefix-label :deep(.v-field__field) {
+.r-select--inline :deep(.v-field__field) {
   flex: 1;
   min-width: 0;
 }
-.r-select--prefix-label :deep(.v-field__input) {
+.r-select--inline :deep(.v-field__input) {
   padding: 10px 14px;
   padding-inline-start: 10px !important;
   min-height: 38px;
-  font-size: 14px;
-  color: var(--r-color-fg);
-}
-.r-select--prefix-label-fixed :deep(.v-field__input) {
-  padding-inline-start: 14px !important;
-}
-.r-select--prefix-label :deep(.v-select__selection-text) {
-  font-size: 14px;
 }
 </style>
 

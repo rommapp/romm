@@ -3,7 +3,7 @@
 // title + Create button on the right, search bar, single bordered table.
 // Delete confirmation goes through useConfirm; create + regenerate are
 // handled by the multi-step CreateClientTokenDialog component.
-import { RBtn, RIcon } from "@v2/lib";
+import { RBtn, RIcon, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -98,15 +98,19 @@ onMounted(fetchTokens);
       </RBtn>
     </header>
 
-    <div class="r-v2-search">
-      <RIcon icon="mdi-magnify" size="15" />
-      <input
-        v-model="search"
-        type="text"
-        :placeholder="t('common.search')"
-        aria-label="Search tokens"
-      />
-    </div>
+    <RTextField
+      v-model="search"
+      prefix-label="inline"
+      :placeholder="t('common.search')"
+      hide-details
+      density="compact"
+      aria-label="Search tokens"
+      class="r-v2-tok__search"
+    >
+      <template #prefix-label>
+        <RIcon icon="mdi-magnify" size="15" />
+      </template>
+    </RTextField>
 
     <div class="r-v2-table-wrap">
       <table class="r-v2-table">
@@ -188,34 +192,8 @@ onMounted(fetchTokens);
   gap: 12px;
 }
 
-.r-v2-search {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  border-radius: 8px;
-  color: var(--r-color-fg-muted);
-}
-.r-v2-search:focus-within {
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary) 50%,
-    transparent
-  );
-}
-.r-v2-search input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
-  font: inherit;
-  color: var(--r-color-fg);
-  font-size: 13px;
-}
-.r-v2-search input::placeholder {
-  color: var(--r-color-fg-faint);
+.r-v2-tok__search {
+  margin-bottom: 16px;
 }
 
 .r-v2-table-wrap {

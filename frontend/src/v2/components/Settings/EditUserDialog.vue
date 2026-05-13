@@ -117,7 +117,7 @@ function close() {
         <div class="r-v2-user-dialog__form">
           <RTextField
             v-model="user.username"
-            prefix-label
+            prefix-label="stacked"
             :rules="usersStore.usernameRules"
             required
             clearable
@@ -129,7 +129,7 @@ function close() {
           </RTextField>
           <RTextField
             v-model="user.password"
-            prefix-label
+            prefix-label="stacked"
             :placeholder="t('settings.password-placeholder')"
             type="password"
             clearable
@@ -141,7 +141,7 @@ function close() {
           </RTextField>
           <RTextField
             v-model="user.email"
-            prefix-label
+            prefix-label="stacked"
             :rules="usersStore.emailRules"
             type="email"
             required

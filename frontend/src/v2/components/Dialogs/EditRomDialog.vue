@@ -331,7 +331,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         <div class="r-v2-edit__form-col">
           <RTextField
             v-model="rom.name"
-            prefix-label
+            prefix-label="stacked"
             hide-details
             :rules="[(v: string) => !!v || t('common.required')]"
           >
@@ -342,7 +342,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           </RTextField>
           <RTextField
             v-model="rom.fs_name"
-            prefix-label
+            prefix-label="stacked"
             hide-details
             :rules="[(v: string) => !!v || t('common.required')]"
           >
@@ -367,7 +367,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             /romm/library/{{ rom.fs_path }}/{{ rom.fs_name }}
           </p>
 
-          <RTextField v-model="rom.summary" prefix-label hide-details>
+          <RTextField v-model="rom.summary" prefix-label="stacked" hide-details>
             <template #prefix-label>
               <RIcon icon="mdi-text" size="14" />
               {{ t("rom.summary") }}

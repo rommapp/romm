@@ -47,7 +47,7 @@ const currentValue = computed({
     v-if="prefixLabel"
     v-model="currentValue"
     :items="items"
-    prefix-label
+    prefix-label="stacked"
     hide-details
   >
     <template #prefix-label>

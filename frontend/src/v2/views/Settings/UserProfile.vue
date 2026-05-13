@@ -101,10 +101,6 @@ function reset() {
   if (userToEdit.value) snapshot(userToEdit.value);
 }
 
-function discard() {
-  reset();
-}
-
 function triggerFileInput() {
   fileInputRef.value?.click();
 }
@@ -241,7 +237,7 @@ onUnmounted(() => {
         <div class="r-v2-profile__field">
           <RTextField
             v-model="userToEdit.username"
-            prefix-label
+            prefix-label="stacked"
             :rules="usersStore.usernameRules"
             required
             clearable
@@ -255,7 +251,7 @@ onUnmounted(() => {
         <div class="r-v2-profile__field">
           <RTextField
             v-model="userToEdit.email"
-            prefix-label
+            prefix-label="stacked"
             :rules="usersStore.emailRules"
             type="email"
             required
@@ -271,7 +267,7 @@ onUnmounted(() => {
           <RSelect
             v-model="userToEdit.role"
             :items="roleItems"
-            prefix-label
+            prefix-label="stacked"
             required
             hide-details
           >
@@ -304,7 +300,7 @@ onUnmounted(() => {
           <RTextField
             model-value="00000000"
             type="password"
-            prefix-label
+            prefix-label="stacked"
             readonly
             hide-details
             autocomplete="new-password"
@@ -328,14 +324,6 @@ onUnmounted(() => {
         </div>
 
         <div class="r-v2-profile__actions">
-          <RBtn
-            variant="text"
-            :disabled="!isDirty || submitting"
-            prepend-icon="mdi-undo"
-            @click="discard"
-          >
-            {{ t("settings.discard") }}
-          </RBtn>
           <RBtn
             variant="flat"
             color="primary"
@@ -501,7 +489,7 @@ onUnmounted(() => {
 
 .r-v2-profile__actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
   padding: 14px 16px;
   border-top: 1px solid var(--r-color-border);

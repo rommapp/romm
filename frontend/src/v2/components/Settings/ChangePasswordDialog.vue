@@ -128,7 +128,7 @@ async function submit() {
       <div class="r-v2-pwd-dialog__body">
         <RTextField
           v-model="newPassword"
-          prefix-label
+          prefix-label="stacked"
           :type="showNew ? 'text' : 'password'"
           :rules="newPasswordRules"
           :append-inner-icon="showNew ? 'mdi-eye-off' : 'mdi-eye'"
@@ -144,7 +144,7 @@ async function submit() {
         </RTextField>
         <RTextField
           v-model="confirmPassword"
-          prefix-label
+          prefix-label="stacked"
           :type="showConfirm ? 'text' : 'password'"
           :rules="confirmRules"
           :append-inner-icon="showConfirm ? 'mdi-eye-off' : 'mdi-eye'"

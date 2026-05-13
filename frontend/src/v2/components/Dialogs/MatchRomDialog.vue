@@ -354,7 +354,8 @@ function closeDialog() {
           <RTextField
             id="r-v2-match-search"
             v-model="searchText"
-            prefix-label
+            prefix-label="inline"
+            :placeholder="t('common.search')"
             :disabled="searching"
             density="comfortable"
             hide-details
@@ -363,7 +364,6 @@ function closeDialog() {
           >
             <template #prefix-label>
               <RIcon icon="mdi-magnify" size="14" />
-              {{ t("common.search") }}
             </template>
           </RTextField>
           <RSelect

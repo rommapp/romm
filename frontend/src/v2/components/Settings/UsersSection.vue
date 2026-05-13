@@ -8,7 +8,7 @@
 // Create / edit / invite dialogs are emitter-driven and live in
 // AdminUserDialogs.vue (mounted alongside this section). Delete uses
 // useConfirm directly.
-import { RBtn, RIcon, RTooltip } from "@v2/lib";
+import { RBtn, RIcon, RTextField, RTooltip } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onMounted, ref } from "vue";
@@ -133,13 +133,18 @@ onMounted(async () => {
       </RBtn>
     </template>
     <div class="r-v2-users__search">
-      <RIcon icon="mdi-magnify" size="15" />
-      <input
+      <RTextField
         v-model="search"
-        type="text"
+        prefix-label="inline"
         :placeholder="t('common.search')"
+        hide-details
+        density="compact"
         aria-label="Search users"
-      />
+      >
+        <template #prefix-label>
+          <RIcon icon="mdi-magnify" size="15" />
+        </template>
+      </RTextField>
     </div>
     <table class="r-v2-table r-v2-users__table">
       <thead>
@@ -227,23 +232,8 @@ onMounted(async () => {
 
 <style scoped>
 .r-v2-users__search {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   padding: 12px 14px;
   border-bottom: 1px solid var(--r-color-border);
-}
-.r-v2-users__search input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
-  color: var(--r-color-fg);
-  font: inherit;
-  font-size: 13px;
-}
-.r-v2-users__search input::placeholder {
-  color: var(--r-color-fg-faint);
 }
 
 .r-v2-users__table {

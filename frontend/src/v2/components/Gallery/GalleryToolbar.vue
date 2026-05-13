@@ -157,13 +157,13 @@ function setKindFilter(value: KindFilterValue) {
       :model-value="search"
       :placeholder="searchPlaceholder"
       density="compact"
-      prefix-label
+      prefix-label="inline"
       clearable
       hide-details
       class="gallery-toolbar__search"
       @update:model-value="(v: string) => setSearch(v ?? '')"
     >
-    <template #prefix-label>
+      <template #prefix-label>
         <RIcon icon="mdi-magnify" size="16" />
       </template>
     </RTextField>

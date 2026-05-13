@@ -333,14 +333,14 @@ onMounted(async () => {
     <div class="r-v2-mappings__toolbar">
       <RTextField
         v-model="search"
-        prefix-label
+        prefix-label="inline"
+        :placeholder="t('common.search')"
         hide-details
         aria-label="Search folder mappings"
         class="r-v2-mappings__search"
       >
         <template #prefix-label>
           <RIcon icon="mdi-magnify" size="14" />
-          {{ t("common.search") }}
         </template>
       </RTextField>
     </div>

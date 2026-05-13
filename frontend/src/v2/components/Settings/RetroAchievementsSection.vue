@@ -97,7 +97,7 @@ async function saveAndSync() {
     <div class="r-v2-ra__field">
       <RTextField
         v-model="username"
-        prefix-label
+        prefix-label="stacked"
         hide-details
         @keyup.enter="saveAndSync"
       >

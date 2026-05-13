@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // RMenuSearch — small search/filter input designed to sit at the
-// top of an RMenuPanel. Visually identical to v2's prefix-label
-// fields: a compact icon-only well on the left, a divider, and the
-// query input on the right.
+// top of an RMenuPanel. Uses RTextField's `prefix-label="inline"`
+// (the chip-style well) so the magnifier icon hugs the input and
+// the whole thing stays compact in a tight menu header.
 //
 // Two ways to use it:
 //
@@ -16,8 +16,8 @@
 //      typing doesn't dismiss it; close the menu explicitly from
 //      item handlers.
 import { onMounted, ref } from "vue";
-import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RTextField from "../../forms/RTextField/RTextField.vue";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -57,7 +57,7 @@ onMounted(() => {
       ref="inputRef"
       :model-value="modelValue"
       :placeholder="placeholder"
-      prefix-label
+      prefix-label="inline"
       hide-details
       density="compact"
       autocomplete="off"

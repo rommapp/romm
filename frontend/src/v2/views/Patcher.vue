@@ -644,7 +644,7 @@ onMounted(async () => {
 
       <RTextField
         v-model="customFileName"
-        prefix-label
+        prefix-label="stacked"
         :placeholder="filenamePlaceholder"
         :suffix="romExtension"
         density="compact"
