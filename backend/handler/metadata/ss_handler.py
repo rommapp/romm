@@ -13,6 +13,7 @@ from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
+from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from logger.logger import log
 from models.rom import Rom, RomFile
 
@@ -34,12 +35,21 @@ SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 SENSITIVE_KEYS = {"ssid", "sspassword"}
 
 
-def get_preferred_regions() -> list[str]:
-    """Get preferred regions from config"""
+def get_preferred_regions(rom: Rom | None = None) -> list[str]:
+    """Get preferred regions, prepending the rom's own region tags when available."""
+    rom_codes: list[str] = []
+    if rom is not None and isinstance(rom.regions, list):
+        for region_name in rom.regions:
+            code = region_name_to_provider_shortcode(region_name)
+            if code:
+                rom_codes.append(code)
+
     config = cm.get_config()
     return list(
         dict.fromkeys(
-            config.SCAN_REGION_PRIORITY + ["us", "wor", "ss", "eu", "jp", "cus"]
+            rom_codes
+            + config.SCAN_REGION_PRIORITY
+            + ["us", "wor", "ss", "eu", "jp", "cus"]
         )
     ) + ["unk"]
 
@@ -174,7 +184,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         video_normalized_path=None,
     )
 
-    for region in get_preferred_regions():
+    for region in get_preferred_regions(rom):
         for media in game.get("medias", []):
             if media.get("region", "unk") != region or media.get("parent") != "jeu":
                 continue
@@ -409,7 +419,7 @@ def build_ss_game(rom: Rom, game: SSGame) -> SSRom:
     preferred_media_types = get_preferred_media_types()
 
     res_name = ""
-    for region in get_preferred_regions():
+    for region in get_preferred_regions(rom):
         res_name = next(
             (
                 name["text"]

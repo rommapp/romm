@@ -145,8 +145,7 @@ onBeforeUnmount(() => {
       <v-img
         ref="game-image-ref"
         class="w-full h-full"
-        :cover="!boxartStyleCover"
-        :contain="boxartStyleCover"
+        :cover="false"
         :class="{
           'opacity-0': isVideoPlaying && localVideoPath,
           transitioning: !isVideoPlaying && localVideoPath,
@@ -157,19 +156,14 @@ onBeforeUnmount(() => {
         @error="emit('loaded')"
       >
         <template #placeholder>
-          <v-img
-            eager
-            :src="smallCover || fallbackCoverImage"
-            :cover="!boxartStyleCover"
-            :contain="boxartStyleCover"
-          >
+          <v-img eager :src="smallCover || fallbackCoverImage" :cover="false">
             <template #placeholder>
-              <Skeleton :platform-id="rom.platform_id" type="image" />
+              <Skeleton type="image" />
             </template>
           </v-img>
         </template>
         <template #error>
-          <v-img cover eager :src="fallbackCoverImage" />
+          <v-img eager :src="fallbackCoverImage" />
         </template>
       </v-img>
       <div

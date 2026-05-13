@@ -22,7 +22,7 @@ export type Events = {
   showDeleteCollectionDialog: Collection;
   showDeleteSmartCollectionDialog: SmartCollection;
   showMatchRomDialog: SimpleRom;
-  showSearchCoverDialog: { term: string; platformId?: number };
+  showSearchCoverDialog: { term: string };
   updateUrlCover: string;
   showEditRomDialog: SimpleRom;
   showRefreshMetadataDialog: SimpleRom;

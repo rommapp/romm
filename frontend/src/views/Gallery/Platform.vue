@@ -215,10 +215,7 @@ onBeforeRouteUpdate(async (to, from) => {
     <template
       v-if="currentPlatform && fetchingRoms && filteredRoms.length === 0"
     >
-      <Skeleton
-        :platform-id="currentPlatform.id"
-        :rom-count="currentPlatform.rom_count"
-      />
+      <Skeleton :rom-count="currentPlatform.rom_count" />
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">

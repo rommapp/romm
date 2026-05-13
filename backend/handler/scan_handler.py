@@ -458,7 +458,7 @@ async def scan_rom(
                     f"{hl(str(h_igdb_id), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
-                return await meta_igdb_handler.get_rom_by_id(h_igdb_id)
+                return await meta_igdb_handler.get_rom_by_id(rom, h_igdb_id)
 
             # Use Playmatch matches to get the IGDB ID
             if playmatch_rom["igdb_id"] is not None:
@@ -468,16 +468,20 @@ async def scan_rom(
                     extra=LOGGER_MODULE_NAME,
                 )
 
-                return await meta_igdb_handler.get_rom_by_id(playmatch_rom["igdb_id"])
+                return await meta_igdb_handler.get_rom_by_id(
+                    rom, playmatch_rom["igdb_id"]
+                )
 
             main_platform_igdb_id = get_main_platform_igdb_id(platform)
             if scan_type == ScanType.UPDATE and rom.igdb_id:
                 # Use the ID to refetch the metadata from IGDB
-                return await meta_igdb_handler.get_rom_by_id(rom.igdb_id)
+                return await meta_igdb_handler.get_rom_by_id(rom, rom.igdb_id)
             else:
                 # If no matches found, use the file name to get the IGDB ID
                 return await meta_igdb_handler.get_rom(
-                    rom_attrs["fs_name"], main_platform_igdb_id or platform.igdb_id
+                    rom,
+                    rom_attrs["fs_name"],
+                    main_platform_igdb_id or platform.igdb_id,
                 )
 
         return IGDBRom(igdb_id=None)
