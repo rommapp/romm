@@ -215,7 +215,7 @@ onBeforeUnmount(() => {
             v-for="l in rom.languages?.slice(0, 3) ?? []"
             :key="`lang-${l}`"
             size="x-small"
-            variant="tonal"
+            variant="translucent"
           >
             {{ l }}
           </RChip>
@@ -227,7 +227,7 @@ onBeforeUnmount(() => {
             v-for="r in rom.regions?.slice(0, 3) ?? []"
             :key="`reg-${r}`"
             size="x-small"
-            variant="tonal"
+            variant="translucent"
           >
             {{ r }}
           </RChip>

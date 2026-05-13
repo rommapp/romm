@@ -144,7 +144,7 @@ watch(
             v-for="t in tags"
             :key="t"
             size="small"
-            variant="tonal"
+            variant="translucent"
             :rounded="20"
           >
             {{ t }}

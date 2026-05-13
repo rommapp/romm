@@ -51,6 +51,25 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
+    // Sidebar order: build up from atoms to compound surfaces. Primitives
+    // are the foundation everything else composes from, then form
+    // controls, structural layout pieces, data displays, and finally
+    // positioned UI (menus + overlays). Media (domain-aware icons) is
+    // last because it's the most specialised. Categories not listed
+    // here fall through to Storybook's default alphabetical sort.
+    options: {
+      storySort: {
+        order: [
+          "Primitives",
+          "Forms",
+          "Structural",
+          "Data",
+          "Menus",
+          "Overlays",
+          "Media",
+        ],
+      },
+    },
   },
   decorators: [
     withThemeByClassName({

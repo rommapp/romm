@@ -243,7 +243,7 @@ function closeDialog() {
       </RBtn>
       <div style="flex: 1" />
       <RBtn
-        variant="tonal"
+        variant="translucent"
         color="primary"
         prepend-icon="mdi-magnify-scan"
         :disabled="metadataSources.length === 0"

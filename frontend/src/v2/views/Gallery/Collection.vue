@@ -165,7 +165,7 @@ watch(
           <span class="r-eyebrow">{{ kindLabel }}</span>
         </template>
         <template v-if="description" #tags>
-          <RChip size="small" variant="tonal" :rounded="20">
+          <RChip size="small" variant="translucent" :rounded="20">
             {{ description }}
           </RChip>
         </template>

@@ -239,7 +239,7 @@ function closeDialog() {
       </RBtn>
       <div style="flex: 1" />
       <RBtn
-        variant="tonal"
+        variant="translucent"
         color="error"
         prepend-icon="mdi-delete"
         :loading="deleting"

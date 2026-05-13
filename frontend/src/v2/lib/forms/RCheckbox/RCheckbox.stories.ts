@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import RCheckbox from "./RCheckbox.vue";
 
 const meta: Meta<typeof RCheckbox> = {
@@ -7,13 +7,24 @@ const meta: Meta<typeof RCheckbox> = {
   component: RCheckbox,
   argTypes: {
     label: { control: "text" },
-    size: { control: "inline-radio", options: ["sm", "md"] },
-    density: {
-      control: "select",
-      options: ["default", "comfortable", "compact"],
+    subtitle: { control: "text" },
+    size: {
+      control: "inline-radio",
+      options: ["xs", "sm", "md", "lg"],
+    },
+    shape: {
+      control: "inline-radio",
+      options: ["square", "rounded", "circle"],
+    },
+    color: { control: "text" },
+    variant: {
+      control: "inline-radio",
+      options: ["box", "card"],
     },
     disabled: { control: "boolean" },
     indeterminate: { control: "boolean" },
+    error: { control: "boolean" },
+    errorMessages: { control: "text" },
   },
   render: (args) => ({
     components: { RCheckbox },
@@ -29,11 +40,14 @@ export default meta;
 
 type Story = StoryObj<typeof RCheckbox>;
 
+// ── Defaults ────────────────────────────────────────────────────────
+
 export const Default: Story = {
   args: { label: "Remember me" },
 };
 
 export const Checked: Story = {
+  args: { label: "Auto-login next time" },
   render: (args) => ({
     components: { RCheckbox },
     setup: () => {
@@ -42,18 +56,101 @@ export const Checked: Story = {
     },
     template: `<RCheckbox v-model="value" v-bind="args" />`,
   }),
-  args: { label: "Auto-login next time" },
 };
 
 export const Indeterminate: Story = {
   args: { label: "Some items selected", indeterminate: true },
 };
 
+export const NoLabel: Story = { args: {} };
+
+// ── Sizes ───────────────────────────────────────────────────────────
+
+export const SizeLadder: Story = {
+  name: "Size ladder (xs / sm / md / lg)",
+  render: () => ({
+    components: { RCheckbox },
+    setup: () => {
+      const xs = ref(true);
+      const sm = ref(true);
+      const md = ref(true);
+      const lg = ref(true);
+      return { xs, sm, md, lg };
+    },
+    template: `
+      <div style="display:flex;flex-direction:column;gap:10px;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
+        <RCheckbox v-model="xs" size="xs" label="xs — 12 px" />
+        <RCheckbox v-model="sm" size="sm" label="sm — 16 px" />
+        <RCheckbox v-model="md" size="md" label="md — 18 px (default)" />
+        <RCheckbox v-model="lg" size="lg" label="lg — 22 px" />
+      </div>
+    `,
+  }),
+};
+
+// ── Shapes ──────────────────────────────────────────────────────────
+
+export const ShapeLadder: Story = {
+  name: "Shape ladder (square / rounded / circle)",
+  render: () => ({
+    components: { RCheckbox },
+    setup: () => {
+      const a = ref(true);
+      const b = ref(true);
+      const c = ref(true);
+      return { a, b, c };
+    },
+    template: `
+      <div style="display:flex;flex-direction:column;gap:10px;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
+        <RCheckbox v-model="a" shape="square" label="square (default · 4 px radius)" />
+        <RCheckbox v-model="b" shape="rounded" label="rounded (8 px radius)" />
+        <RCheckbox v-model="c" shape="circle" label="circle (50% — radio-button look)" />
+      </div>
+    `,
+  }),
+};
+
+// ── Colors ──────────────────────────────────────────────────────────
+
+export const ColorLadder: Story = {
+  name: "Color ladder",
+  render: () => ({
+    components: { RCheckbox },
+    setup: () => {
+      const states = ref([
+        { color: "primary", label: "primary (default)", checked: true },
+        { color: "secondary", label: "secondary", checked: true },
+        { color: "accent", label: "accent", checked: true },
+        { color: "success", label: "success", checked: true },
+        { color: "warning", label: "warning", checked: true },
+        { color: "danger", label: "danger", checked: true },
+        { color: "info", label: "info", checked: true },
+        { color: "romm-gold", label: "romm-gold (legacy)", checked: true },
+      ]);
+      return { states };
+    },
+    template: `
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <RCheckbox
+          v-for="s in states"
+          :key="s.color"
+          v-model="s.checked"
+          :color="s.color"
+          :label="s.label"
+        />
+      </div>
+    `,
+  }),
+};
+
+// ── States ──────────────────────────────────────────────────────────
+
 export const Disabled: Story = {
   args: { label: "Disabled checkbox", disabled: true },
 };
 
 export const DisabledChecked: Story = {
+  args: { label: "Disabled and checked", disabled: true },
   render: (args) => ({
     components: { RCheckbox },
     setup: () => {
@@ -62,18 +159,10 @@ export const DisabledChecked: Story = {
     },
     template: `<RCheckbox v-model="value" v-bind="args" />`,
   }),
-  args: { label: "Disabled and checked", disabled: true },
-};
-
-export const Small: Story = {
-  args: { label: "Small checkbox", size: "sm" },
-};
-
-export const NoLabel: Story = {
-  args: {},
 };
 
 export const Error: Story = {
+  args: { label: "I agree to the terms" },
   render: (args) => ({
     components: { RCheckbox },
     setup: () => {
@@ -82,8 +171,113 @@ export const Error: Story = {
     },
     template: `<RCheckbox v-model="value" v-bind="args" :error="true" error-messages="This field is required" />`,
   }),
-  args: { label: "I agree to the terms" },
 };
+
+// ── Subtitle ────────────────────────────────────────────────────────
+
+export const WithSubtitle: Story = {
+  name: "With subtitle",
+  args: {
+    label: "Send weekly digest",
+    subtitle: "We'll email you a Friday recap of new ROMs and scans.",
+  },
+  render: (args) => ({
+    components: { RCheckbox },
+    setup: () => {
+      const value = ref(false);
+      return { args, value };
+    },
+    template: `<RCheckbox v-model="value" v-bind="args" />`,
+  }),
+};
+
+// ── Card variant ────────────────────────────────────────────────────
+
+export const CardVariant: Story = {
+  name: "Card variant",
+  render: () => ({
+    components: { RCheckbox },
+    setup: () => {
+      const a = ref(true);
+      const b = ref(false);
+      const c = ref(false);
+      return { a, b, c };
+    },
+    template: `
+      <div style="display:flex;flex-direction:column;gap:10px;width:360px">
+        <RCheckbox
+          v-model="a"
+          variant="card"
+          label="Copy token to clipboard"
+          subtitle="Shown once — keep it safe."
+        />
+        <RCheckbox
+          v-model="b"
+          variant="card"
+          label="Pair device"
+          subtitle="Scan a QR code with your phone."
+        />
+        <RCheckbox
+          v-model="c"
+          variant="card"
+          label="Email me the link"
+          subtitle="Sent to your registered address."
+        />
+      </div>
+    `,
+  }),
+};
+
+export const CardVariantColored: Story = {
+  name: "Card variant · success tone",
+  render: () => ({
+    components: { RCheckbox },
+    setup: () => {
+      const a = ref(true);
+      const b = ref(false);
+      return { a, b };
+    },
+    template: `
+      <div style="display:flex;flex-direction:column;gap:10px;width:360px">
+        <RCheckbox
+          v-model="a"
+          variant="card"
+          color="success"
+          label="Verified email"
+          subtitle="Required to recover your account."
+        />
+        <RCheckbox
+          v-model="b"
+          variant="card"
+          color="success"
+          label="Two-factor enabled"
+          subtitle="Adds a one-time code at sign-in."
+        />
+      </div>
+    `,
+  }),
+};
+
+// ── Motion ──────────────────────────────────────────────────────────
+
+export const Toggle: Story = {
+  name: "Toggle animation",
+  render: () => ({
+    components: { RCheckbox },
+    setup: () => {
+      const value = ref(false);
+      return { value };
+    },
+    template: `
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:14px;font:12px/1.4 sans-serif;color:var(--r-color-fg-muted)">
+        <RCheckbox v-model="value" label="Click me — watch the glyph spring in" />
+        <span>The check icon scales 0 → 1 with the same RSwitch overshoot easing.</span>
+      </div>
+    `,
+  }),
+};
+
+// ── Group ───────────────────────────────────────────────────────────
 
 export const Group: Story = {
   render: () => ({
@@ -95,10 +289,61 @@ export const Group: Story = {
       return { a, b, c };
     },
     template: `
-      <div style="display: flex; flex-direction: column; gap: 4px;">
+      <div style="display:flex;flex-direction:column;gap:4px">
         <RCheckbox v-model="a" label="Option A" hide-details />
         <RCheckbox v-model="b" label="Option B" hide-details />
         <RCheckbox v-model="c" label="Option C (longer label that wraps to test alignment)" hide-details />
+      </div>
+    `,
+  }),
+};
+
+// ── Real-world — "select all" indeterminate ─────────────────────────
+
+export const SelectAll: Story = {
+  name: "Select-all (indeterminate header)",
+  render: () => ({
+    components: { RCheckbox },
+    setup() {
+      const items = ref([
+        { id: 1, name: "platforms.read", checked: true },
+        { id: 2, name: "platforms.write", checked: false },
+        { id: 3, name: "roms.read", checked: true },
+        { id: 4, name: "roms.write", checked: false },
+        { id: 5, name: "users.read", checked: false },
+      ]);
+
+      const allChecked = computed(() => items.value.every((i) => i.checked));
+      const anyChecked = computed(() => items.value.some((i) => i.checked));
+      const headerIndeterminate = computed(
+        () => anyChecked.value && !allChecked.value,
+      );
+
+      function toggleAll(v: boolean) {
+        items.value.forEach((i) => {
+          i.checked = v;
+        });
+      }
+
+      return { items, allChecked, headerIndeterminate, toggleAll };
+    },
+    template: `
+      <div style="display:flex;flex-direction:column;gap:8px;width:320px;padding:16px;background:var(--r-color-bg-elevated);border:1px solid var(--r-color-border);border-radius:10px">
+        <RCheckbox
+          :model-value="allChecked"
+          :indeterminate="headerIndeterminate"
+          label="Select all scopes"
+          hide-details
+          @update:model-value="toggleAll"
+        />
+        <div style="height:1px;background:var(--r-color-border);margin:4px 0"></div>
+        <RCheckbox
+          v-for="item in items"
+          :key="item.id"
+          v-model="item.checked"
+          :label="item.name"
+          hide-details
+        />
       </div>
     `,
   }),

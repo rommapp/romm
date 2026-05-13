@@ -244,7 +244,7 @@ onMounted(async () => {
       <div id="r-v2-ruffle-stage" class="r-v2-ruffle__stage" />
       <RBtn
         class="r-v2-ruffle__quit"
-        variant="tonal"
+        variant="translucent"
         prepend-icon="mdi-exit-to-app"
         @click="onlyQuit"
       >

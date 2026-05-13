@@ -526,7 +526,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
       </RBtn>
       <div style="flex: 1" />
       <RBtn
-        variant="tonal"
+        variant="translucent"
         color="primary"
         prepend-icon="mdi-check"
         :disabled="!validForm"

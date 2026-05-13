@@ -516,7 +516,7 @@ void useLocalStorage;
 
           <RBtn
             block
-            variant="tonal"
+            variant="translucent"
             color="primary"
             :prepend-icon="currentAsset ? 'mdi-swap-horizontal' : 'mdi-plus'"
             :disabled="

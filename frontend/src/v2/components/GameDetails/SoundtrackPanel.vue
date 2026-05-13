@@ -369,7 +369,7 @@ function seekValueText(v: number): string {
             v-for="(c, i) in headerChips(activeMeta)"
             :key="`h-${i}`"
             size="small"
-            variant="tonal"
+            variant="translucent"
             :color="c.color"
             :prepend-icon="c.icon"
           >
@@ -490,7 +490,7 @@ function seekValueText(v: number): string {
                 v-for="(c, i) in rowChips(track.id)"
                 :key="`r-${track.id}-${i}`"
                 size="x-small"
-                variant="tonal"
+                variant="translucent"
                 :color="c.color"
                 :prepend-icon="c.icon"
               >

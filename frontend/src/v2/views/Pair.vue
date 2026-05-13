@@ -111,7 +111,7 @@ async function copyCode() {
         {{ formattedCode }}
       </div>
       <RBtn
-        variant="tonal"
+        variant="translucent"
         color="primary"
         prepend-icon="mdi-content-copy"
         @click="copyCode"

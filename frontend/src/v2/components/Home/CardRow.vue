@@ -158,7 +158,7 @@ onBeforeUnmount(() => {
       <RBtn
         v-if="canLeft"
         icon="mdi-chevron-left"
-        variant="tonal"
+        variant="translucent"
         class="card-row__arrow card-row__arrow--left"
         aria-label="Scroll left"
         @click="scrollBy(-1)"
@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
       <RBtn
         v-if="canRight"
         icon="mdi-chevron-right"
-        variant="tonal"
+        variant="translucent"
         class="card-row__arrow card-row__arrow--right"
         aria-label="Scroll right"
         @click="scrollBy(1)"

@@ -365,7 +365,7 @@ function onBackdropClick(event: MouseEvent) {
       <RBtn
         v-if="showArrowsResolved"
         icon="mdi-chevron-left"
-        variant="tonal"
+        variant="translucent"
         size="small"
         class="r-carousel__nav r-carousel__nav--prev"
         :aria-label="prevLabel"
@@ -375,7 +375,7 @@ function onBackdropClick(event: MouseEvent) {
       <RBtn
         v-if="showArrowsResolved"
         icon="mdi-chevron-right"
-        variant="tonal"
+        variant="translucent"
         size="small"
         class="r-carousel__nav r-carousel__nav--next"
         :aria-label="nextLabel"

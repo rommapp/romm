@@ -1,46 +1,63 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from "vue";
-import { VBtn } from "vuetify/components/VBtn";
+// RBtn — Vuetify-free. The workhorse of the v2 library.
+//
+// Polymorphic root via `<component :is>`:
+//   • `to` set → renders RouterLink
+//   • `href` set → renders <a>
+//   • otherwise → renders <button>
+// This matches Vuetify's VBtn auto-detection so call sites that use
+// `to="/foo"` or `href="https://…"` keep working unchanged.
+//
+// Variants `flat / elevated / translucent / outlined / text / plain`
+// — same shape across the lib. `border` adds a translucent
+// currentColor border on top of any variant (used to recreate the
+// RTag chip activator look). `block` stretches to 100% width.
+//
+// `icon` accepts a string (MDI class) or `true`. When set, the button
+// collapses to a square hit target (width = height). Pair with
+// `prepend-icon` / `append-icon` to get icon + label without icon-only
+// styling.
+//
+// `loading` swaps the content for an inline spinner. The flip is
+// debounced by `loadingDebounce` (default 200ms) so quick actions
+// don't paint a spinner-flash; the hide step is immediate.
+//
+// Hover / active feedback comes from a `::before` overlay tinted by
+// `currentColor` so all six variants share the same vocabulary —
+// no per-variant `:hover` rules. Active state scales down 3% for
+// a haptic press cue (RSwitch motion language).
+import { computed, onBeforeUnmount, ref, useSlots, watch } from "vue";
+import { RouterLink, type RouteLocationRaw } from "vue-router";
+import RIcon from "../RIcon/RIcon.vue";
+import RProgressCircular from "../RProgressCircular/RProgressCircular.vue";
 
 defineOptions({ inheritAttrs: false });
 
-// RBtn — thin wrapper around v-btn with RomM v2 defaults:
-//   - variant="flat" (our primary visual style)
-//   - color undefined (neutral) — `primary` is reserved for primary
-//     actions (Login, Add note, etc.). Pass `color="primary"`
-//     explicitly when the button is THE primary action of its surface.
-//   - rounded="md"
-//   - font-weight medium, no uppercase (Vuetify's default)
-//   - debounced spinner: when `loading` flips true, the spinner only
-//     appears after `loadingDebounce` ms (default 200). Actions that
-//     resolve quicker than that flash never paint a spinner. Going from
-//     loading → not-loading is immediate.
-//   - `border` modifier — adds a translucent border in the current
-//     text colour. Pair with `variant="tonal"` + a `color` to get the
-//     RTag pill recipe (translucent bg + coloured border + coloured
-//     text) for chip-style activators (e.g. the Type cell in folder
-//     mappings).
-// Every Vuetify prop remains available via $attrs.
 interface Props {
-  variant?: "flat" | "text" | "elevated" | "tonal" | "outlined" | "plain";
+  variant?: "flat" | "text" | "elevated" | "translucent" | "outlined" | "plain";
   color?: string;
   rounded?: string | number | boolean;
   loading?: boolean;
-  /** ms before the spinner appears after `loading` becomes true. */
+  /** ms before the spinner appears after `loading` flips true. */
   loadingDebounce?: number;
   disabled?: boolean;
   block?: boolean;
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   density?: "default" | "comfortable" | "compact";
+  /** `true` → square icon-only button. `string` → MDI icon rendered as
+   *  the button's sole content (icon-only). */
   icon?: string | boolean;
-  ripple?: boolean;
   prependIcon?: string;
   appendIcon?: string;
   type?: "button" | "submit" | "reset";
-  /** Adds a translucent border in the current text colour. Pairs
-   *  cleanly with `variant="tonal"` to produce an RTag-style chip
-   *  activator. */
+  /** Translucent currentColor border on top of the chosen variant. */
   border?: boolean;
+  /** Renders the button as a router-link to this route. */
+  to?: RouteLocationRaw;
+  /** Renders the button as an `<a>` href. */
+  href?: string;
+  /** Target for `<a>` mode. */
+  target?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -49,16 +66,107 @@ const props = withDefaults(defineProps<Props>(), {
   rounded: "md",
   loading: false,
   loadingDebounce: 200,
+  disabled: false,
+  block: false,
   size: "default",
   density: "default",
-  type: "button",
+  icon: undefined,
   prependIcon: undefined,
   appendIcon: undefined,
-  icon: undefined,
-  ripple: undefined,
+  type: "button",
   border: false,
+  to: undefined,
+  href: undefined,
+  target: undefined,
 });
 
+const slots = useSlots();
+
+// ── Polymorphic root ─────────────────────────────────────────────
+const elementType = computed(() => {
+  if (props.to !== undefined && props.to !== null) return RouterLink;
+  if (props.href !== undefined && props.href !== null) return "a";
+  return "button";
+});
+
+const dynamicAttrs = computed<Record<string, unknown>>(() => {
+  // For `<a>` and RouterLink, `disabled` isn't a real HTML attribute —
+  // we apply aria-disabled + pointer-events: none via CSS. For
+  // <button>, the native `disabled` attribute is the right tool.
+  if (props.to !== undefined && props.to !== null) {
+    return {
+      to: props.to,
+      ariaDisabled: props.disabled ? "true" : undefined,
+    };
+  }
+  if (props.href !== undefined && props.href !== null) {
+    return {
+      // Strip the href entirely when disabled so keyboard activation
+      // doesn't fire — links can't be `disabled` natively.
+      href: props.disabled ? undefined : props.href,
+      target: props.target,
+      ariaDisabled: props.disabled ? "true" : undefined,
+    };
+  }
+  return {
+    type: props.type,
+    disabled: props.disabled,
+  };
+});
+
+// ── Tone resolver ────────────────────────────────────────────────
+const TONE_MAP: Record<string, string> = {
+  primary: "var(--r-color-brand-primary)",
+  secondary: "var(--r-color-brand-secondary)",
+  accent: "var(--r-color-brand-accent)",
+  success: "var(--r-color-success)",
+  warning: "var(--r-color-warning)",
+  danger: "var(--r-color-danger)",
+  error: "var(--r-color-danger)",
+  info: "var(--r-color-info)",
+  "romm-red": "var(--r-color-romm-red)",
+  "romm-green": "var(--r-color-romm-green)",
+  "romm-blue": "var(--r-color-romm-blue)",
+  "romm-gold": "var(--r-color-romm-gold)",
+};
+const resolvedColor = computed<string | undefined>(() => {
+  const c = props.color;
+  if (!c) return undefined;
+  return TONE_MAP[c] ?? c;
+});
+
+// ── Rounded resolver ─────────────────────────────────────────────
+const ROUNDED_MAP: Record<string, string> = {
+  "0": "0",
+  sm: "4px",
+  md: "8px",
+  lg: "12px",
+  xl: "16px",
+  full: "999px",
+  pill: "999px",
+  circle: "50%",
+};
+const resolvedRounded = computed<string>(() => {
+  const r = props.rounded;
+  if (r === undefined || r === null || r === "") return "8px";
+  if (r === true) return "999px";
+  if (r === false) return "0";
+  if (typeof r === "number") return `${r}px`;
+  if (/^\d+(\.\d+)?$/.test(r as string)) return `${r}px`;
+  return ROUNDED_MAP[r as string] ?? String(r);
+});
+
+// ── Icon-only detection ──────────────────────────────────────────
+const iconString = computed<string | undefined>(() =>
+  typeof props.icon === "string" ? props.icon : undefined,
+);
+const isIconBtn = computed(
+  () =>
+    props.icon === true ||
+    (typeof props.icon === "string" && props.icon.length > 0),
+);
+
+// ── Debounced loading ────────────────────────────────────────────
 const debouncedLoading = ref(false);
 let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -90,80 +198,361 @@ watch(
 );
 
 onBeforeUnmount(clearTimer);
+
+// Spinner size scales with the button — readable across the ladder.
+const spinnerSize = computed(() => {
+  switch (props.size) {
+    case "x-small":
+      return 12;
+    case "small":
+      return 14;
+    case "large":
+      return 18;
+    case "x-large":
+      return 20;
+    default:
+      return 16;
+  }
+});
 </script>
 
 <template>
-  <VBtn
-    v-bind="$attrs"
+  <component
+    :is="elementType"
+    v-bind="{ ...$attrs, ...dynamicAttrs }"
     class="r-btn"
-    :class="{ 'r-btn--border': border }"
-    :variant="variant"
-    :color="color"
-    :rounded="rounded"
-    :loading="debouncedLoading"
-    :disabled="disabled"
-    :block="block"
-    :size="size"
-    :density="density"
-    :icon="icon"
-    :ripple="ripple"
-    :prepend-icon="prependIcon"
-    :append-icon="appendIcon"
-    :type="type"
+    :class="[
+      `r-btn--${variant}`,
+      `r-btn--${size}`,
+      `r-btn--density-${density}`,
+      {
+        'r-btn--has-color': !!resolvedColor,
+        'r-btn--icon': isIconBtn,
+        'r-btn--block': block,
+        'r-btn--loading': debouncedLoading,
+        'r-btn--disabled': disabled,
+        'r-btn--border': border,
+      },
+    ]"
+    :style="{
+      borderRadius: resolvedRounded,
+      '--r-btn-color': resolvedColor,
+    }"
   >
-    <template v-for="(_, slot) in $slots" #[slot]="slotProps">
-      <slot :name="slot" v-bind="slotProps || {}" />
-    </template>
-  </VBtn>
+    <!-- Loading spinner — overlays content while debouncedLoading is on.
+         Lives in absolute positioning so the button's intrinsic width
+         doesn't change between loading and idle states (no layout
+         shift mid-action). -->
+    <span v-if="debouncedLoading" class="r-btn__loader" aria-hidden="true">
+      <RProgressCircular indeterminate :size="spinnerSize" :width="2" />
+    </span>
+
+    <span
+      class="r-btn__content"
+      :class="{ 'r-btn__content--hidden': debouncedLoading }"
+    >
+      <!-- Prepend zone — slot wins over prop. -->
+      <span
+        v-if="slots.prepend || (prependIcon && !isIconBtn)"
+        class="r-btn__prepend"
+      >
+        <slot name="prepend">
+          <RIcon v-if="prependIcon" :icon="prependIcon" />
+        </slot>
+      </span>
+
+      <!-- Icon-only mode: icon takes the spot of the label. -->
+      <RIcon
+        v-if="isIconBtn && iconString"
+        :icon="iconString"
+        class="r-btn__icon"
+      />
+
+      <!-- Default label slot — hidden in icon-only mode. -->
+      <span v-if="!isIconBtn && slots.default" class="r-btn__label">
+        <slot />
+      </span>
+
+      <!-- Append zone. -->
+      <span
+        v-if="slots.append || (appendIcon && !isIconBtn)"
+        class="r-btn__append"
+      >
+        <slot name="append">
+          <RIcon v-if="appendIcon" :icon="appendIcon" />
+        </slot>
+      </span>
+    </span>
+  </component>
 </template>
 
 <style scoped>
+/* ── Base ──────────────────────────────────────────────────────── */
 .r-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  font-family: inherit;
   font-weight: var(--r-font-weight-medium);
   letter-spacing: 0;
   text-transform: none;
-  /* Slightly muted at rest, fully illuminated on hover — same feel as
-     GameActionBtn over cover art. Applied via opacity so it composes
-     with any color (default/primary/error/...): the whole button —
-     text, border, icon, background — brightens together on hover.
-     Vuetify's own hover overlay still adds the bg lift on top. */
-  opacity: 0.8;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  cursor: pointer;
+  /* Suppress native button defaults. */
+  background: transparent;
+  color: inherit;
+  outline: none;
+  /* Smooth tone / theme / state changes — RSwitch motion language. */
+  transition:
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    color var(--r-motion-fast) var(--r-motion-ease-out),
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    box-shadow var(--r-motion-fast) var(--r-motion-ease-out),
+    transform 100ms var(--r-motion-ease-out);
+}
+
+/* Hover / active overlay — single `::before` painted in currentColor
+   so it composes cleanly with any variant. No per-variant :hover
+   rules; the overlay does the work. */
+.r-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  opacity: 0;
+  border-radius: inherit;
+  pointer-events: none;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-btn:hover:not(.v-btn--disabled) {
-  opacity: 1;
+.r-btn:hover:not(.r-btn--disabled, :disabled)::before {
+  opacity: 0.1;
+}
+.r-btn:active:not(.r-btn--disabled, :disabled)::before {
+  opacity: 0.18;
 }
 
-/* Optical alignment for prepend/append icons.
-   Three things stack to push the icon above the text's optical centre:
-     1. Vuetify scales icons inside v-btn down to ~85% of text size
-        (`.v-btn .v-icon { --v-icon-size-multiplier: 0.857 }`), so the
-        icon sits in a smaller box centred on the line-box.
-     2. The Material Design Icons font draws glyphs slightly above the
-        em-square's geometric centre.
-     3. We render labels in Title Case (text-transform: none, overriding
-        Vuetify's default uppercase), so the visual mass of the label
-        lives in the x-height band — below the line-box centre — while
-        the icon stays at the geometric centre.
-   A stock v-btn hides this because uppercase text shifts the optical
-   centre back up to the cap-height. Nudging prepend/append slots 3px
-   down lines the icon up with the x-height optical centre across our
-   sizes. */
-.r-btn :deep(.v-btn__prepend),
-.r-btn :deep(.v-btn__append) {
-  margin-block-start: 3px;
+/* Press cue — subtle haptic squash. */
+.r-btn:active:not(.r-btn--disabled, :disabled) {
+  transform: scale(0.97);
 }
 
-/* `border` modifier — adds a translucent border in the current text
-   colour. `currentColor` picks up VBtn's text colour, which Vuetify
-   has already painted from the `color` prop, so the border tints in
-   lock-step. Paired with `variant="tonal"` it produces the RTag
-   pill recipe (translucent bg + coloured border + coloured text)
-   for chip-style activators. */
+/* ── Content / loader layout ──────────────────────────────────── */
+.r-btn__content {
+  display: inline-flex;
+  align-items: center;
+  gap: inherit;
+  min-width: 0;
+}
+.r-btn__content--hidden {
+  /* Keep layout, hide visually so spinner can overlay without shift. */
+  visibility: hidden;
+}
+.r-btn__loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.r-btn__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.r-btn__prepend,
+.r-btn__append,
+.r-btn__icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+/* ── Size ladder ───────────────────────────────────────────────── */
+.r-btn--x-small {
+  height: 20px;
+  padding: 0 8px;
+  font-size: 11px;
+  gap: 4px;
+}
+.r-btn--small {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+  gap: 6px;
+}
+.r-btn--default {
+  height: 36px;
+  padding: 0 16px;
+  font-size: 14px;
+  gap: 8px;
+}
+.r-btn--large {
+  height: 44px;
+  padding: 0 20px;
+  font-size: 15px;
+  gap: 10px;
+}
+.r-btn--x-large {
+  height: 52px;
+  padding: 0 24px;
+  font-size: 16px;
+  gap: 12px;
+}
+
+/* Icon size scales with text — same 1.2em ratio RIcon uses. */
+.r-btn .r-btn__prepend > .r-icon,
+.r-btn .r-btn__append > .r-icon,
+.r-btn .r-btn__icon {
+  font-size: 1.25em;
+}
+
+/* ── Density — slight height compression per Vuetify spec ──────── */
+.r-btn--density-comfortable {
+  /* -4px from default — keeps the size ladder visually predictable. */
+  height: calc(var(--r-btn-rest-h, auto) - 4px);
+}
+.r-btn--density-compact {
+  height: calc(var(--r-btn-rest-h, auto) - 8px);
+}
+/* Map each size's rest height for the density calc. */
+.r-btn--x-small {
+  --r-btn-rest-h: 20px;
+}
+.r-btn--small {
+  --r-btn-rest-h: 28px;
+}
+.r-btn--default {
+  --r-btn-rest-h: 36px;
+}
+.r-btn--large {
+  --r-btn-rest-h: 44px;
+}
+.r-btn--x-large {
+  --r-btn-rest-h: 52px;
+}
+.r-btn--density-comfortable {
+  height: calc(var(--r-btn-rest-h) - 4px);
+}
+.r-btn--density-compact {
+  height: calc(var(--r-btn-rest-h) - 8px);
+}
+
+/* ── Icon-only — square hit area ──────────────────────────────── */
+.r-btn--icon {
+  padding: 0;
+  width: var(--r-btn-rest-h);
+}
+.r-btn--icon.r-btn--density-comfortable {
+  width: calc(var(--r-btn-rest-h) - 4px);
+}
+.r-btn--icon.r-btn--density-compact {
+  width: calc(var(--r-btn-rest-h) - 8px);
+}
+
+/* ── Block — full width ────────────────────────────────────────── */
+.r-btn--block {
+  width: 100%;
+  display: flex;
+}
+
+/* ── Variant: flat — solid fill ────────────────────────────────── */
+.r-btn--flat.r-btn--has-color {
+  background: var(--r-btn-color);
+  color: white;
+}
+.r-btn--flat:not(.r-btn--has-color) {
+  background: var(--r-color-surface);
+  color: var(--r-color-fg);
+}
+
+/* ── Variant: elevated — solid + shadow ────────────────────────── */
+.r-btn--elevated.r-btn--has-color {
+  background: var(--r-btn-color);
+  color: white;
+  box-shadow: 0 2px 6px color-mix(in srgb, black 22%, transparent);
+}
+.r-btn--elevated:not(.r-btn--has-color) {
+  background: var(--r-color-surface);
+  color: var(--r-color-fg);
+  box-shadow: 0 2px 6px color-mix(in srgb, black 18%, transparent);
+}
+.r-btn--elevated:hover:not(.r-btn--disabled, :disabled) {
+  box-shadow: 0 4px 10px color-mix(in srgb, black 26%, transparent);
+}
+
+/* ── Variant: translucent — color-mix bg, coloured text ────────── */
+.r-btn--translucent.r-btn--has-color {
+  background: color-mix(in srgb, var(--r-btn-color) 16%, transparent);
+  color: var(--r-btn-color);
+}
+.r-btn--translucent:not(.r-btn--has-color) {
+  background: var(--r-color-surface);
+  color: var(--r-color-fg);
+}
+
+/* ── Variant: outlined — border + text in tone ─────────────────── */
+.r-btn--outlined {
+  background: transparent;
+}
+.r-btn--outlined.r-btn--has-color {
+  color: var(--r-btn-color);
+  border-color: color-mix(in srgb, var(--r-btn-color) 50%, transparent);
+}
+.r-btn--outlined:not(.r-btn--has-color) {
+  color: var(--r-color-fg);
+  border-color: var(--r-color-border);
+}
+
+/* ── Variant: text — transparent, coloured text only ───────────── */
+.r-btn--text {
+  background: transparent;
+}
+.r-btn--text.r-btn--has-color {
+  color: var(--r-btn-color);
+}
+.r-btn--text:not(.r-btn--has-color) {
+  color: var(--r-color-fg);
+}
+
+/* ── Variant: plain — zero chrome, inherit ─────────────────────── */
+.r-btn--plain {
+  background: transparent;
+  color: inherit;
+}
+
+/* ── `border` modifier — translucent currentColor border ───────── */
 .r-btn--border {
-  border: 1px solid color-mix(in srgb, currentColor 40%, transparent) !important;
+  border-color: color-mix(in srgb, currentColor 40%, transparent);
 }
-.r-btn--border:hover:not(.v-btn--disabled) {
-  border-color: color-mix(in srgb, currentColor 65%, transparent) !important;
+.r-btn--border:hover:not(.r-btn--disabled, :disabled) {
+  border-color: color-mix(in srgb, currentColor 65%, transparent);
+}
+
+/* ── Disabled ──────────────────────────────────────────────────── */
+.r-btn:disabled,
+.r-btn--disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ── Reduced motion — drop the press scale + hover overlay fade ── */
+@media (prefers-reduced-motion: reduce) {
+  .r-btn,
+  .r-btn::before {
+    transition: none;
+  }
+  .r-btn:active:not(.r-btn--disabled, :disabled) {
+    transform: none;
+  }
 }
 </style>

@@ -197,7 +197,9 @@ onMounted(() => {
           v-for="source in catalogs"
           :key="source.value"
           class="r-v2-meta__card"
-          :class="{ 'r-v2-meta__card--missing': statusOf(source) === 'missing' }"
+          :class="{
+            'r-v2-meta__card--missing': statusOf(source) === 'missing',
+          }"
         >
           <header class="r-v2-meta__header">
             <div class="r-v2-meta__logo">
@@ -219,7 +221,7 @@ onMounted(() => {
 
           <div class="r-v2-meta__actions">
             <RBtn
-              variant="tonal"
+              variant="translucent"
               size="small"
               prepend-icon="mdi-key-variant"
               :href="source.docsUrl"
@@ -252,7 +254,9 @@ onMounted(() => {
           v-for="source in specialised"
           :key="source.value"
           class="r-v2-meta__card"
-          :class="{ 'r-v2-meta__card--missing': statusOf(source) === 'missing' }"
+          :class="{
+            'r-v2-meta__card--missing': statusOf(source) === 'missing',
+          }"
         >
           <header class="r-v2-meta__header">
             <div class="r-v2-meta__logo">
@@ -274,7 +278,7 @@ onMounted(() => {
 
           <div class="r-v2-meta__actions">
             <RBtn
-              variant="tonal"
+              variant="translucent"
               size="small"
               prepend-icon="mdi-key-variant"
               :href="source.docsUrl"

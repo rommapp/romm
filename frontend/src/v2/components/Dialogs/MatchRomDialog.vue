@@ -511,7 +511,7 @@ function closeDialog() {
       <div style="flex: 1" />
       <RBtn
         v-if="showSelectSource"
-        variant="tonal"
+        variant="translucent"
         color="primary"
         prepend-icon="mdi-check"
         :disabled="!selectedMatchRom"

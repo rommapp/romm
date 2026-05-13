@@ -160,7 +160,6 @@ const morphStyle = computed(() => {
         icon
         size="x-small"
         variant="text"
-        :ripple="false"
         class="r-gc__platform-icon"
         :aria-label="`Browse ${platformShort}`"
         @click="onPlatformClick"

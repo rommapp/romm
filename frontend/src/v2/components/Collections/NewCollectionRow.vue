@@ -109,7 +109,7 @@ function onInput(e: Event) {
         {{ t("common.cancel") }}
       </RBtn>
       <RBtn
-        variant="tonal"
+        variant="translucent"
         color="primary"
         size="small"
         type="submit"

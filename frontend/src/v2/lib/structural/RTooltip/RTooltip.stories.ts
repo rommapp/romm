@@ -83,7 +83,7 @@ export const ParentAttach: Story = {
     components: { RTooltip, RBtn },
     template: `
       <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f;">
-        <RBtn icon="mdi-delete" variant="tonal">
+        <RBtn icon="mdi-delete" variant="translucent">
           <RTooltip activator="parent" text="Delete this item" location="top" />
         </RBtn>
       </div>

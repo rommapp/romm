@@ -39,7 +39,7 @@ const scopeCount = computed(() => {
     <template #activator="{ props: menuProps }">
       <RBtn
         v-bind="menuProps"
-        variant="tonal"
+        variant="translucent"
         size="small"
         border
         class="r-v2-scope-cell__chip"
