@@ -334,6 +334,7 @@ const rowStyle = computed(() =>
 
 .r-table__cell {
   min-width: 0;
+  min-height: 50px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

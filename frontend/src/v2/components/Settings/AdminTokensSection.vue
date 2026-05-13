@@ -1,18 +1,29 @@
 <script setup lang="ts">
-// AdminTokensSection — v2-native rebuild of v1
-// `Settings/Administration/Tokens/TokensTable.vue`. Shows every client
-// token across all users (admin scope). Admins can revoke any.
+// AdminTokensSection — admin variant of ClientApiTokens. Same table
+// shape (RTable + ScopeCell summary chip + delete confirm), but the
+// data comes from `/client-tokens/all` so every user's tokens land in
+// the same list. Adds a leading `User` column and drops the
+// regenerate action — admins can only revoke; rotating a credential
+// still belongs to the owner via the user-facing ClientApiTokens view.
 //
-// Not in the mock — kept here because it's a useful safety surface.
-// Visual matches the same settings-table pattern used elsewhere.
-import { RIcon, RTextField, RTooltip } from "@v2/lib";
+// No "Create" CTA either — admins create their own tokens through
+// their personal Client API tokens page, not here.
+import {
+  RBtn,
+  RIcon,
+  RTable,
+  RTextField,
+  RTooltip,
+  type RTableColumn,
+  type RTableSortPayload,
+} from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import clientTokenApi, {
   type ClientTokenAdminSchema,
 } from "@/services/api/client-token";
 import { formatTimestamp } from "@/utils";
-import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
+import ScopeCell from "@/v2/components/Settings/ScopeCell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -24,11 +35,44 @@ const confirm = useConfirm();
 
 const tokens = ref<ClientTokenAdminSchema[]>([]);
 const search = ref("");
+const loading = ref(true);
+
+type SortKey = "username" | "name" | "expires_at" | "last_used_at";
+const sortKey = ref<SortKey>("username");
+const sortDir = ref<"asc" | "desc">("asc");
+
+function compareNullable(a: string | null, b: string | null, asc: boolean) {
+  if (!a && !b) return 0;
+  if (!a) return asc ? 1 : -1;
+  if (!b) return asc ? -1 : 1;
+  return asc ? a.localeCompare(b) : b.localeCompare(a);
+}
+
+const sortedTokens = computed(() => {
+  const list = [...tokens.value];
+  const asc = sortDir.value === "asc";
+  list.sort((a, b) => {
+    if (sortKey.value === "username") {
+      return asc
+        ? a.username.localeCompare(b.username) ||
+            a.name.localeCompare(b.name)
+        : b.username.localeCompare(a.username) ||
+            b.name.localeCompare(a.name);
+    }
+    if (sortKey.value === "name") {
+      return asc
+        ? a.name.localeCompare(b.name)
+        : b.name.localeCompare(a.name);
+    }
+    return compareNullable(a[sortKey.value], b[sortKey.value], asc);
+  });
+  return list;
+});
 
 const filteredTokens = computed(() => {
   const q = search.value.trim().toLowerCase();
-  if (!q) return tokens.value;
-  return tokens.value.filter(
+  if (!q) return sortedTokens.value;
+  return sortedTokens.value.filter(
     (t) =>
       t.username.toLowerCase().includes(q) ||
       t.name.toLowerCase().includes(q) ||
@@ -36,12 +80,72 @@ const filteredTokens = computed(() => {
   );
 });
 
+const columns = computed<RTableColumn[]>(() => [
+  {
+    key: "username",
+    label: t("settings.tokens-admin-table-user"),
+    sortable: true,
+    width: "minmax(0, 1fr)",
+    skeletonWidth: 120,
+  },
+  {
+    key: "name",
+    label: t("common.name"),
+    sortable: true,
+    width: "minmax(0, 1fr)",
+    skeletonWidth: 140,
+  },
+  {
+    key: "scopes",
+    label: t("settings.client-token-scopes"),
+    width: "minmax(0, 2fr)",
+    skeletonWidth: 220,
+  },
+  {
+    key: "expires_at",
+    label: t("settings.users-tokens-expires"),
+    sortable: true,
+    width: "minmax(0, 1fr)",
+    skeletonWidth: 110,
+  },
+  {
+    key: "last_used_at",
+    label: t("settings.users-tokens-last-used"),
+    sortable: true,
+    width: "minmax(0, 1fr)",
+    skeletonWidth: 110,
+  },
+  {
+    key: "actions",
+    label: "",
+    width: "56px",
+    align: "end",
+    skeletonWidth: 0,
+  },
+]);
+
+function onSort({ key, dir }: RTableSortPayload) {
+  if (
+    key !== "username" &&
+    key !== "name" &&
+    key !== "expires_at" &&
+    key !== "last_used_at"
+  ) {
+    return;
+  }
+  sortKey.value = key;
+  sortDir.value = dir;
+}
+
 async function fetchTokens() {
+  loading.value = true;
   try {
     const { data } = await clientTokenApi.fetchAllTokens();
     tokens.value = data;
   } catch (err) {
     console.error(err);
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -77,182 +181,113 @@ onMounted(fetchTokens);
 </script>
 
 <template>
-  <SettingsSection title="Client API tokens (all users)" icon="mdi-key-variant">
-    <div class="r-v2-admin-tokens__search">
-      <RTextField
-        v-model="search"
-        prefix-label="inline"
-        :placeholder="t('common.search')"
-        hide-details
-        density="compact"
-        aria-label="Search tokens"
-      >
-        <template #prefix-label>
-          <RIcon icon="mdi-magnify" size="15" />
-        </template>
-      </RTextField>
-    </div>
-    <table class="r-v2-table r-v2-admin-tokens__table">
-      <thead>
-        <tr>
-          <th>User</th>
-          <th>Token name</th>
-          <th>{{ t("settings.client-token-scopes") }}</th>
-          <th>Expires</th>
-          <th>Last used</th>
-          <th class="r-v2-table__col-actions" />
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="token in filteredTokens" :key="token.id">
-          <td class="r-v2-admin-tokens__user">{{ token.username }}</td>
-          <td class="r-v2-admin-tokens__name">{{ token.name }}</td>
-          <td class="r-v2-admin-tokens__scopes">
-            <span
-              v-for="scope in token.scopes"
-              :key="scope"
-              class="r-v2-admin-tokens__scope"
-            >
-              {{ scope }}
-            </span>
-          </td>
-          <td class="r-v2-admin-tokens__meta">
-            {{
-              token.expires_at
-                ? formatTimestamp(token.expires_at, locale)
-                : t("settings.client-token-expiry-never")
-            }}
-          </td>
-          <td class="r-v2-admin-tokens__meta">
-            {{
-              token.last_used_at
-                ? formatTimestamp(token.last_used_at, locale)
-                : "—"
-            }}
-          </td>
-          <td class="r-v2-table__col-actions">
-            <RTooltip>
-              <template #activator="{ props: tipProps }">
-                <button
-                  v-bind="tipProps"
-                  type="button"
-                  class="r-v2-icon-btn r-v2-icon-btn--danger"
-                  :aria-label="t('common.delete')"
-                  @click="revoke(token)"
-                >
-                  <RIcon icon="mdi-trash-can-outline" size="14" />
-                </button>
-              </template>
-              <span>{{ t("common.delete") }}</span>
-            </RTooltip>
-          </td>
-        </tr>
-        <tr v-if="filteredTokens.length === 0">
-          <td colspan="6" class="r-v2-admin-tokens__empty">No tokens.</td>
-        </tr>
-      </tbody>
-    </table>
-  </SettingsSection>
+  <div class="r-v2-admin-tokens">
+    <RTextField
+      v-model="search"
+      prefix-label="inline"
+      :placeholder="t('common.search')"
+      hide-details
+      density="compact"
+      aria-label="Search tokens"
+      class="r-v2-admin-tokens__search"
+    >
+      <template #prefix-label>
+        <RIcon icon="mdi-magnify" size="15" />
+      </template>
+    </RTextField>
+
+    <RTable
+      :columns="columns"
+      :items="filteredTokens"
+      :item-key="(r) => (r as ClientTokenAdminSchema).id"
+      :sort-key="sortKey"
+      :sort-dir="sortDir"
+      :loading="loading"
+      empty-icon="mdi-key-outline"
+      :empty-message="t('settings.tokens-admin-empty')"
+      @update:sort="onSort"
+    >
+      <template #cell.username="{ row }">
+        <span class="r-v2-admin-tokens__user">{{
+          (row as ClientTokenAdminSchema).username
+        }}</span>
+      </template>
+      <template #cell.name="{ row }">
+        <span class="r-v2-admin-tokens__name">{{
+          (row as ClientTokenAdminSchema).name
+        }}</span>
+      </template>
+      <template #cell.scopes="{ row }">
+        <ScopeCell :scopes="(row as ClientTokenAdminSchema).scopes" />
+      </template>
+      <template #cell.expires_at="{ row }">
+        <span class="r-v2-admin-tokens__meta">
+          {{
+            (row as ClientTokenAdminSchema).expires_at
+              ? formatTimestamp(
+                  (row as ClientTokenAdminSchema).expires_at!,
+                  locale,
+                )
+              : t("settings.client-token-expiry-never")
+          }}
+        </span>
+      </template>
+      <template #cell.last_used_at="{ row }">
+        <span class="r-v2-admin-tokens__meta">
+          {{
+            (row as ClientTokenAdminSchema).last_used_at
+              ? formatTimestamp(
+                  (row as ClientTokenAdminSchema).last_used_at!,
+                  locale,
+                )
+              : "—"
+          }}
+        </span>
+      </template>
+      <template #cell.actions="{ row }">
+        <RTooltip>
+          <template #activator="{ props: tipProps }">
+            <RBtn
+              v-bind="tipProps"
+              variant="text"
+              size="small"
+              color="danger"
+              icon="mdi-trash-can-outline"
+              :aria-label="t('common.delete')"
+              @click="revoke(row as ClientTokenAdminSchema)"
+            />
+          </template>
+          <span>{{ t("common.delete") }}</span>
+        </RTooltip>
+      </template>
+    </RTable>
+  </div>
 </template>
 
 <style scoped>
-.r-v2-admin-tokens__search {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--r-color-border);
-}
-
-.r-v2-admin-tokens__table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.r-v2-table th {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
-  text-align: left;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--r-color-border);
-  background: var(--r-color-surface);
-}
-.r-v2-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--r-color-border);
-  font-size: 13px;
-  color: var(--r-color-fg);
-  vertical-align: middle;
-}
-.r-v2-table tr:last-child td {
-  border-bottom: none;
-}
-.r-v2-table tr:hover td {
-  background: var(--r-color-surface);
-}
-.r-v2-table__col-actions {
-  width: 1%;
-  text-align: right;
-  white-space: nowrap;
+.r-v2-admin-tokens {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .r-v2-admin-tokens__user {
   font-weight: var(--r-font-weight-semibold);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
 .r-v2-admin-tokens__name {
-  white-space: nowrap;
-}
-.r-v2-admin-tokens__scopes {
-  max-width: 320px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.r-v2-admin-tokens__scope {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 3px;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  font-size: 10px;
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
 .r-v2-admin-tokens__meta {
   color: var(--r-color-fg-muted);
   white-space: nowrap;
-}
-.r-v2-admin-tokens__empty {
-  text-align: center;
-  color: var(--r-color-fg-muted);
-  padding: 24px;
-}
-
-.r-v2-icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: var(--r-color-fg-muted);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-icon-btn:hover {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
-}
-.r-v2-icon-btn--danger {
-  color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
-}
-.r-v2-icon-btn--danger:hover {
-  background: color-mix(in srgb, var(--r-color-danger) 12%, transparent);
-  color: var(--r-color-danger);
 }
 </style>

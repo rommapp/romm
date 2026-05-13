@@ -238,6 +238,7 @@ onMounted(fetchTokens);
             variant="text"
             size="small"
             icon="mdi-trash-can-outline"
+            color="danger"
             :aria-label="t('common.delete')"
             :title="t('common.delete')"
             class="r-v2-tok__delete"

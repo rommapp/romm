@@ -35,6 +35,7 @@ export * from "./forms/RForm";
 export * from "./forms/RRating";
 export * from "./forms/RSelect";
 export * from "./forms/RSlider";
+export * from "./forms/RSwitch";
 export * from "./forms/RTextField";
 
 // Structural
