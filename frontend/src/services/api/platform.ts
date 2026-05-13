@@ -28,7 +28,6 @@ async function getSupportedPlatforms() {
 async function updatePlatform({ platform }: { platform: Platform }) {
   return api.put<Platform>(`/platforms/${platform.id}`, {
     custom_name: platform.custom_name,
-    aspect_ratio: platform.aspect_ratio,
   });
 }
 

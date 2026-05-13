@@ -15,7 +15,6 @@ const show = ref(false);
 const searching = ref(false);
 const searchText = ref("");
 const coverType = ref("all");
-const platformIdRef = ref<number | undefined>(undefined);
 const covers = ref<SearchCoverSchema[]>([]);
 const filteredCovers = ref<SearchCoverSchema[]>();
 const panels = ref([0]);
@@ -24,22 +23,12 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showSearchCoverDialog", handleShowSearchCoverDialog);
 
 const computedAspectRatio = computed(() => {
-  return galleryViewStore.getAspectRatio({
-    platformId: platformIdRef.value,
-    boxartStyle: "cover_path",
-  });
+  return galleryViewStore.getAspectRatio({ boxartStyle: "cover_path" });
 });
 
-function handleShowSearchCoverDialog({
-  term,
-  platformId,
-}: {
-  term: string;
-  platformId?: number;
-}) {
+function handleShowSearchCoverDialog({ term }: { term: string }) {
   searchText.value = term;
   show.value = true;
-  if (platformId) platformIdRef.value = platformId;
   if (searchText.value) searchCovers();
 }
 

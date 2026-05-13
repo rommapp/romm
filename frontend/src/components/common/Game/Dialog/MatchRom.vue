@@ -56,10 +56,7 @@ const isLaunchboxFiltered = ref(true);
 const isLibretroFiltered = ref(true);
 
 const computedAspectRatio = computed(() => {
-  return galleryViewStore.getAspectRatio({
-    platformId: rom.value?.platform_id,
-    boxartStyle: "cover_path",
-  });
+  return galleryViewStore.getAspectRatio({ boxartStyle: "cover_path" });
 });
 
 const handleShowMatchRomDialog = (romToSearch: SimpleRom) => {
