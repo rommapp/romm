@@ -428,42 +428,6 @@ const mergedMenuProps = computed(() => {
   -webkit-backdrop-filter: blur(28px);
   border-bottom: 1px solid var(--r-color-border);
 }
-
-/* Scrollbar styling on `.v-sheet` (the actual scroll container) —
-   mirrors RMenuPanel's `__body` scrollbar so a searchable RSelect
-   and a searchable RMenu look identical when scrolling. The track
-   would naturally span the entire panel height (including the area
-   behind the sticky search), which reads as a scrollbar "in" the
-   header. To match RMenuPanel — where the scrollbar only lives in
-   the items area because the header is a separate element — we use
-   `::-webkit-scrollbar-button:vertical:start` as a transparent
-   ~52px spacer that pushes the visible track + thumb to start
-   below the search. Firefox doesn't expose an equivalent hook, so
-   there it still spans the full height (graceful degradation —
-   `scrollbar-color` keeps it subtle either way). */
-.r-select__menu .v-sheet {
-  scrollbar-width: thin;
-  scrollbar-color: var(--r-color-border-strong) transparent;
-}
-.r-select__menu .v-sheet::-webkit-scrollbar {
-  width: 8px;
-}
-.r-select__menu .v-sheet::-webkit-scrollbar-track {
-  background: transparent;
-}
-.r-select__menu .v-sheet::-webkit-scrollbar-thumb {
-  background: var(--r-color-border-strong);
-  border-radius: 4px;
-}
-.r-select__menu .v-sheet::-webkit-scrollbar-thumb:hover {
-  background: var(--r-color-fg-faint);
-}
-.r-select__menu
-  .v-sheet:has(.r-select__search)::-webkit-scrollbar-button:vertical:start {
-  display: block;
-  height: 52px;
-  background: transparent;
-}
 </style>
 
 <!-- Teleport overrides — VSelect renders its menu into the

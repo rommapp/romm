@@ -1,9 +1,21 @@
 <script setup lang="ts">
 // ClientApiTokens — v2-native rewrite. Page chrome mirrors the mock:
-// title + Create button on the right, search bar, single bordered table.
+// title + Create button on the right, search bar, single RTable.
+//
 // Delete confirmation goes through useConfirm; create + regenerate are
 // handled by the multi-step CreateClientTokenDialog component.
-import { RBtn, RIcon, RTextField } from "@v2/lib";
+//
+// Scopes are rendered through ScopeTree so the row groups them by
+// scope instead of dumping flat chips — easier to scan when a token
+// carries the full grant set.
+import {
+  RBtn,
+  RIcon,
+  RTable,
+  RTextField,
+  type RTableColumn,
+  type RTableSortPayload,
+} from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -13,6 +25,7 @@ import clientTokenApi, {
 import type { Events } from "@/types/emitter";
 import { formatTimestamp } from "@/utils";
 import CreateClientTokenDialog from "@/v2/components/Settings/CreateClientTokenDialog.vue";
+import ScopeCell from "@/v2/components/Settings/ScopeCell.vue";
 import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -26,15 +39,84 @@ const tokens = ref<ClientTokenSchema[]>([]);
 const search = ref("");
 const loading = ref(false);
 
+type SortKey = "name" | "expires_at" | "last_used_at";
+const sortKey = ref<SortKey>("name");
+const sortDir = ref<"asc" | "desc">("asc");
+
+// Null timestamps sort to the end on asc, start on desc — matches the
+// "never expires" / "never used" reading: rows with values come first
+// when sorting ascending by date.
+function compareNullable(a: string | null, b: string | null, asc: boolean) {
+  if (!a && !b) return 0;
+  if (!a) return asc ? 1 : -1;
+  if (!b) return asc ? -1 : 1;
+  return asc ? a.localeCompare(b) : b.localeCompare(a);
+}
+
+const sortedTokens = computed(() => {
+  const list = [...tokens.value];
+  const asc = sortDir.value === "asc";
+  list.sort((a, b) => {
+    if (sortKey.value === "name") {
+      return asc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+    }
+    return compareNullable(a[sortKey.value], b[sortKey.value], asc);
+  });
+  return list;
+});
+
 const filteredTokens = computed(() => {
   const q = search.value.trim().toLowerCase();
-  if (!q) return tokens.value;
-  return tokens.value.filter(
+  if (!q) return sortedTokens.value;
+  return sortedTokens.value.filter(
     (t) =>
       t.name.toLowerCase().includes(q) ||
       t.scopes.some((s) => s.toLowerCase().includes(q)),
   );
 });
+
+const columns = computed<RTableColumn[]>(() => [
+  {
+    key: "name",
+    label: t("common.name"),
+    sortable: true,
+    width: "minmax(0, 1fr)",
+    skeletonWidth: 140,
+  },
+  {
+    key: "scopes",
+    label: t("settings.client-token-scopes"),
+    width: "minmax(0, 2fr)",
+    skeletonWidth: 220,
+  },
+  {
+    key: "expires_at",
+    label: "Expires",
+    sortable: true,
+    width: "minmax(0, 1fr)",
+    skeletonWidth: 110,
+  },
+  {
+    key: "last_used_at",
+    label: "Last used",
+    sortable: true,
+    width: "minmax(0, 1fr)",
+    skeletonWidth: 110,
+  },
+  {
+    key: "actions",
+    label: "",
+    width: "96px",
+    align: "end",
+    skeletonWidth: 0,
+  },
+]);
+
+function onSort({ key, dir }: RTableSortPayload) {
+  if (key !== "name" && key !== "expires_at" && key !== "last_used_at") return;
+  sortKey.value = key;
+  sortDir.value = dir;
+}
 
 async function fetchTokens() {
   loading.value = true;
@@ -87,17 +169,6 @@ onMounted(fetchTokens);
 
 <template>
   <SettingsShell bare>
-    <header class="r-v2-tok__head">
-      <RBtn
-        variant="flat"
-        color="primary"
-        prepend-icon="mdi-plus"
-        @click="openCreate"
-      >
-        {{ t("common.create") }}
-      </RBtn>
-    </header>
-
     <RTextField
       v-model="search"
       prefix-label="inline"
@@ -112,71 +183,78 @@ onMounted(fetchTokens);
       </template>
     </RTextField>
 
-    <div class="r-v2-table-wrap">
-      <table class="r-v2-table">
-        <thead>
-          <tr>
-            <th>{{ t("common.name") }}</th>
-            <th>{{ t("settings.client-token-scopes") }}</th>
-            <th>Expires</th>
-            <th>Last used</th>
-            <th class="r-v2-table__col-actions" />
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="token in filteredTokens" :key="token.id">
-            <td class="r-v2-tok__name">{{ token.name }}</td>
-            <td class="r-v2-tok__scopes">
-              <span
-                v-for="scope in token.scopes"
-                :key="scope"
-                class="r-v2-tok__scope"
-              >
-                {{ scope }}
-              </span>
-            </td>
-            <td class="r-v2-tok__meta">
-              {{
-                token.expires_at
-                  ? formatTimestamp(token.expires_at, locale)
-                  : t("settings.client-token-expiry-never")
-              }}
-            </td>
-            <td class="r-v2-tok__meta">
-              {{
-                token.last_used_at
-                  ? formatTimestamp(token.last_used_at, locale)
-                  : "—"
-              }}
-            </td>
-            <td class="r-v2-table__col-actions">
-              <button
-                type="button"
-                class="r-v2-icon-btn"
-                title="Regenerate"
-                aria-label="Regenerate token"
-                @click="openRegenerate(token)"
-              >
-                <RIcon icon="mdi-refresh" size="14" />
-              </button>
-              <button
-                type="button"
-                class="r-v2-icon-btn r-v2-icon-btn--danger"
-                :title="t('common.delete')"
-                :aria-label="t('common.delete')"
-                @click="deleteToken(token)"
-              >
-                <RIcon icon="mdi-trash-can-outline" size="14" />
-              </button>
-            </td>
-          </tr>
-          <tr v-if="!loading && filteredTokens.length === 0">
-            <td colspan="5" class="r-v2-tok__empty">
-              No tokens — create one to start pairing devices.
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <RTable
+      :columns="columns"
+      :items="filteredTokens"
+      :item-key="(r) => (r as ClientTokenSchema).id"
+      :sort-key="sortKey"
+      :sort-dir="sortDir"
+      :loading="loading"
+      empty-icon="mdi-key-outline"
+      empty-message="No tokens — create one to start pairing devices."
+      class="r-v2-tok__table"
+      @update:sort="onSort"
+    >
+      <template #cell.name="{ row }">
+        <span class="r-v2-tok__name">{{
+          (row as ClientTokenSchema).name
+        }}</span>
+      </template>
+      <template #cell.scopes="{ row }">
+        <ScopeCell :scopes="(row as ClientTokenSchema).scopes" />
+      </template>
+      <template #cell.expires_at="{ row }">
+        <span class="r-v2-tok__meta">
+          {{
+            (row as ClientTokenSchema).expires_at
+              ? formatTimestamp((row as ClientTokenSchema).expires_at!, locale)
+              : t("settings.client-token-expiry-never")
+          }}
+        </span>
+      </template>
+      <template #cell.last_used_at="{ row }">
+        <span class="r-v2-tok__meta">
+          {{
+            (row as ClientTokenSchema).last_used_at
+              ? formatTimestamp(
+                  (row as ClientTokenSchema).last_used_at!,
+                  locale,
+                )
+              : "—"
+          }}
+        </span>
+      </template>
+      <template #cell.actions="{ row }">
+        <div class="r-v2-tok__actions">
+          <RBtn
+            variant="text"
+            size="small"
+            icon="mdi-refresh"
+            aria-label="Regenerate token"
+            title="Regenerate"
+            @click="openRegenerate(row as ClientTokenSchema)"
+          />
+          <RBtn
+            variant="text"
+            size="small"
+            icon="mdi-trash-can-outline"
+            :aria-label="t('common.delete')"
+            :title="t('common.delete')"
+            class="r-v2-tok__delete"
+            @click="deleteToken(row as ClientTokenSchema)"
+          />
+        </div>
+      </template>
+    </RTable>
+    <div>
+      <RBtn
+        variant="flat"
+        color="primary"
+        prepend-icon="mdi-plus"
+        @click="openCreate"
+      >
+        {{ t("common.create") }}
+      </RBtn>
     </div>
 
     <CreateClientTokenDialog @created="fetchTokens" />
@@ -196,104 +274,29 @@ onMounted(fetchTokens);
   margin-bottom: 16px;
 }
 
-.r-v2-table-wrap {
-  border: 1px solid var(--r-color-border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--r-color-bg-elevated);
-}
-.r-v2-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.r-v2-table th {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
-  text-align: left;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--r-color-border);
-  background: var(--r-color-surface);
-}
-.r-v2-table td {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--r-color-border);
-  font-size: 13px;
-  color: var(--r-color-fg);
-  vertical-align: middle;
-}
-.r-v2-table tr:last-child td {
-  border-bottom: none;
-}
-.r-v2-table tr:hover td {
-  background: var(--r-color-surface);
-}
-.r-v2-table__col-actions {
-  width: 1%;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.r-v2-icon-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: var(--r-color-fg-muted);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-icon-btn:hover {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
-}
-.r-v2-icon-btn--danger {
-  color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
-}
-.r-v2-icon-btn--danger:hover {
-  background: color-mix(in srgb, var(--r-color-danger) 12%, transparent);
-  color: var(--r-color-danger);
-}
-
 .r-v2-tok__name {
   font-weight: var(--r-font-weight-semibold);
   white-space: nowrap;
-}
-.r-v2-tok__scopes {
-  max-width: 320px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.r-v2-tok__scope {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 3px;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  font-size: 10px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary);
-}
-.r-v2-tok__meta {
-  white-space: nowrap;
-  color: var(--r-color-fg-muted);
-}
-.r-v2-tok__empty {
-  text-align: center;
-  color: var(--r-color-fg-muted);
-  padding: 24px 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.r-v2-tok-dialog {
-  display: contents;
+.r-v2-tok__meta {
+  color: var(--r-color-fg-muted);
+  white-space: nowrap;
+}
+
+.r-v2-tok__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.r-v2-tok__delete :deep(.v-btn) {
+  color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
+}
+.r-v2-tok__delete:hover :deep(.v-btn) {
+  color: var(--r-color-danger);
+  background: color-mix(in srgb, var(--r-color-danger) 12%, transparent);
 }
 </style>

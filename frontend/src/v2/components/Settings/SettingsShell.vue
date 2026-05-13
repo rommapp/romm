@@ -92,7 +92,7 @@ setBgArt(null);
 .r-v2-settings__body--bare {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 14px;
 }
 
 @media (max-width: 1023px) {
