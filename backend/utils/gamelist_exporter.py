@@ -9,7 +9,7 @@ from os import path
 
 from fastapi import Request
 
-from config import RESOURCES_BASE_PATH, YOUTUBE_BASE_URL
+from config import FRONTEND_RESOURCES_PATH, RESOURCES_BASE_PATH, YOUTUBE_BASE_URL
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler
@@ -38,10 +38,10 @@ class GamelistExporter:
 
     def _resource_relative_path(self, rom: Rom, resource_path_part: str) -> str:
         """Convert a resource path part (e.g. "snes/covers/smw.jpg") to a path relative to the ROM's location"""
-        resource = f"{RESOURCES_BASE_PATH}/{resource_path_part}"
-        rom_path = rom.fs_path
-
-        return path.relpath(resource, start=path.dirname(rom_path))
+        if self.local_export:
+            resource_path = f"{RESOURCES_BASE_PATH}/{resource_path_part}"
+            return path.relpath(resource_path, start=path.dirname(rom.fs_path))
+        return f"{FRONTEND_RESOURCES_PATH}/{resource_path_part}"
 
     def _create_game_element(
         self, rom: Rom, request: Request | None, media_image: str, media_thumbnail: str
@@ -116,9 +116,9 @@ class GamelistExporter:
                 rom, path_video
             )
         elif rom.youtube_video_id:
-            SubElement(game, "video").text = self._resource_relative_path(
-                rom, f"{YOUTUBE_BASE_URL}/embed/{rom.youtube_video_id}"
-            )
+            SubElement(
+                game, "video"
+            ).text = f"{YOUTUBE_BASE_URL}/embed/{rom.youtube_video_id}"
 
         if rom.path_screenshots:
             SubElement(game, "screenshot").text = self._resource_relative_path(
