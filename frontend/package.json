@@ -39,6 +39,7 @@
     "storybook:test": "vitest run test/storybook.test.ts"
   },
   "dependencies": {
+    "@floating-ui/vue": "^1.1.11",
     "@mdi/font": "7.4.47",
     "@vueuse/core": "^13.7.0",
     "axios": "^1.15.0",
