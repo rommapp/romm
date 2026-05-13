@@ -40,6 +40,12 @@ watch(
 );
 
 const src = computed<string>(() => {
+  // Defensive: callers sometimes hand us `undefined` (e.g. VSelect's
+  // `#selection` slot rendering a model value that doesn't match any
+  // item, or a parent passing a transient empty slug while it
+  // hydrates). Skip straight to the terminal fallback rather than
+  // crashing on `.toLowerCase()`.
+  if (!props.slug) return "/assets/platforms/default.ico";
   const slug = props.slug.toLowerCase();
   if (step.value === 0) {
     return cached.value ?? `/assets/platforms/${slug}.svg`;
@@ -57,7 +63,7 @@ function onError() {
 </script>
 
 <template>
-  <img
+  <v-img
     :src="src"
     :alt="name || slug"
     :title="name || slug"

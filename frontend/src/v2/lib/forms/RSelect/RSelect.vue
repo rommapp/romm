@@ -191,9 +191,22 @@ const mergedMenuProps = computed(() => {
            pins via `position: sticky` while items scroll. The wrapper
            div soaks pointerdown so opening the keyboard / clicking the
            input doesn't dismiss the menu the way a normal list item
-           click would. -->
+           click would.
+
+           `@keydown.stop` (and `keyup`/`keypress` for paranoia) is
+           load-bearing: VSelect has a built-in typeahead — keystrokes
+           bubbling up to it jump-select items as the user types.
+           Stopping propagation at the wrapper keeps the input local
+           to our RMenuSearch (which already updates `search`). -->
       <template v-if="searchable" #prepend-item>
-        <div class="r-select__search" @mousedown.stop @click.stop>
+        <div
+          class="r-select__search"
+          @mousedown.stop
+          @click.stop
+          @keydown.stop
+          @keyup.stop
+          @keypress.stop
+        >
           <RMenuSearch
             :model-value="search"
             :placeholder="searchPlaceholder"
@@ -336,7 +349,7 @@ const mergedMenuProps = computed(() => {
   min-width: 0;
 }
 .r-select--inline :deep(.v-field__input) {
-  padding: 10px 14px;
+  padding: 8px 14px;
   padding-inline-start: 10px !important;
   min-height: 38px;
 }
@@ -344,16 +357,112 @@ const mergedMenuProps = computed(() => {
 
 <!-- The search header lives inside `.v-overlay__content.r-select__menu`,
      teleported outside this SFC's scope. Style it unscoped so the
-     sticky background + separator land on the rendered DOM. -->
+     layout + separator land on the rendered DOM.
+
+     Header pinned at the top, items scroll below. We use
+     `position: fixed` (not sticky) because the scroll port in
+     VSelect v3 is `.v-sheet` while the search lives inside
+     `.v-list` — sticky's containing-block + scroll-port lookup
+     produces inconsistent results across browsers in that chain
+     (confirmed empirically: computed `position: sticky` was
+     applied yet the wrapper never pinned). Fixed sidesteps the
+     ambiguity:
+
+       • `.v-overlay__content.r-select__menu` already has
+         `backdrop-filter: blur(28px)` set in global.css. Per CSS
+         spec, an ancestor with `backdrop-filter !== none`
+         establishes the containing block for descendant
+         `position: fixed`. So `top: 0; left: 0; right: 0` on the
+         search anchors to the panel's top, not the viewport — the
+         menu can sit anywhere on screen and the search stays put
+         at the menu's top edge while items scroll underneath.
+
+       • Items render in normal flow at the top of `.v-list`, so a
+         fixed search would otherwise overlap the first rows.
+         We add ~58px `padding-top` to `.v-virtual-scroll__spacer`
+         — that's a single offset at the very top of the scrollable
+         list. As the spacer's natural height grows with virtual
+         scroll, the padding stays constant, so the visible items
+         are always pushed below the search.
+
+       • `.v-list` keeps its Vuetify-default `overflow: auto` (so
+         virtualisation has its scroll port to measure against)
+         — we don't try to repurpose v-list as a layout shell, just
+         offset its content. -->
 <style>
+.r-select__menu .v-list:has(.r-select__search) {
+  padding-top: 0 !important;
+}
+.r-select__menu .r-select__search + .v-virtual-scroll__spacer {
+  /* Search wrapper height (≈52px) + 6px clear gap before the
+     first item. `padding-top` stays constant as the spacer's
+     dynamic height (virtualisation offset) grows during scroll,
+     so the gap below the fixed search is permanent.
+
+     Adjacent-sibling selector (`+`) is load-bearing: Vuetify
+     renders matching spacers both above and below the rendered
+     virtualisation window. Targeting only the spacer directly
+     after the search avoids padding the bottom one (which left
+     an empty 58px band after the last item) and avoids the
+     `:first-of-type` trap (where a sibling `.v-list__overlay`
+     `<div>` made the spacer no longer "first of type"). */
+  padding-top: 64px !important;
+}
 .r-select__menu .r-select__search {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 2;
-  padding: 6px 6px 8px;
-  background: var(--r-color-surface);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 6px;
+  /* Match the panel paint exactly — `--r-color-surface` (used
+     elsewhere as a soft glass tint) is semi-transparent and lets
+     scrolling items show through during scroll. The panel uses
+     `--r-color-panel` for its body, so the search wrapper paints
+     in the same colour to occlude rows cleanly as they scroll
+     under it. Backdrop-filter mirrors the panel's glass blur so
+     the wrapper reads as a continuation of the surface rather
+     than a sticker pasted on top. */
+  background: var(--r-color-panel);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   border-bottom: 1px solid var(--r-color-border);
-  margin: -6px -6px 6px;
+}
+
+/* Scrollbar styling on `.v-sheet` (the actual scroll container) —
+   mirrors RMenuPanel's `__body` scrollbar so a searchable RSelect
+   and a searchable RMenu look identical when scrolling. The track
+   would naturally span the entire panel height (including the area
+   behind the sticky search), which reads as a scrollbar "in" the
+   header. To match RMenuPanel — where the scrollbar only lives in
+   the items area because the header is a separate element — we use
+   `::-webkit-scrollbar-button:vertical:start` as a transparent
+   ~52px spacer that pushes the visible track + thumb to start
+   below the search. Firefox doesn't expose an equivalent hook, so
+   there it still spans the full height (graceful degradation —
+   `scrollbar-color` keeps it subtle either way). */
+.r-select__menu .v-sheet {
+  scrollbar-width: thin;
+  scrollbar-color: var(--r-color-border-strong) transparent;
+}
+.r-select__menu .v-sheet::-webkit-scrollbar {
+  width: 8px;
+}
+.r-select__menu .v-sheet::-webkit-scrollbar-track {
+  background: transparent;
+}
+.r-select__menu .v-sheet::-webkit-scrollbar-thumb {
+  background: var(--r-color-border-strong);
+  border-radius: 4px;
+}
+.r-select__menu .v-sheet::-webkit-scrollbar-thumb:hover {
+  background: var(--r-color-fg-faint);
+}
+.r-select__menu
+  .v-sheet:has(.r-select__search)::-webkit-scrollbar-button:vertical:start {
+  display: block;
+  height: 52px;
+  background: transparent;
 }
 </style>
 

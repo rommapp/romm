@@ -57,9 +57,9 @@ const roleItems = computed(() =>
   })),
 );
 
-type RoleTone = "danger" | "warning" | "info";
+type RoleTone = "brand" | "warning" | "info";
 const ROLE_TONE: Record<string, RoleTone> = {
-  admin: "danger",
+  admin: "brand",
   editor: "warning",
   viewer: "info",
 };
@@ -68,10 +68,14 @@ function roleToneFor(role: string | undefined): RoleTone {
   return "info";
 }
 
+// Header reflects the SAVED user (auth store), not the in-progress
+// edits — typing in the form fields shouldn't redraw the identity row
+// in real time; it only refreshes after Apply succeeds and
+// `auth.setCurrentUser(data)` rehydrates `user`.
 const avatarSrc = computed(() => {
   if (imagePreviewUrl.value) return imagePreviewUrl.value;
-  if (userToEdit.value?.avatar_path) {
-    return `/assets/romm/assets/${userToEdit.value.avatar_path}?ts=${userToEdit.value.updated_at}`;
+  if (user.value?.avatar_path) {
+    return `/assets/romm/assets/${user.value.avatar_path}?ts=${user.value.updated_at}`;
   }
   return defaultAvatarPath;
 });
@@ -185,7 +189,7 @@ onUnmounted(() => {
           :aria-label="t('settings.change-avatar', 'Change avatar')"
           @click="triggerFileInput"
         >
-          <img :src="avatarSrc" :alt="userToEdit.username" />
+          <img :src="avatarSrc" :alt="user?.username ?? ''" />
           <span class="r-v2-profile__avatar-edit">
             <RIcon icon="mdi-pencil" size="20" />
           </span>
@@ -201,21 +205,22 @@ onUnmounted(() => {
         <div class="r-v2-profile__identity">
           <div class="r-v2-profile__name-row">
             <span class="r-v2-profile__username">
-              {{ userToEdit.username }}
+              {{ user?.username }}
             </span>
             <RTag
-              :icon="getRoleIcon(userToEdit.role)"
-              :tone="roleToneFor(userToEdit.role)"
+              v-if="user?.role"
+              :icon="getRoleIcon(user.role)"
+              :tone="roleToneFor(user.role)"
               size="small"
               class="r-v2-profile__role-tag"
             >
-              {{ userToEdit.role }}
+              {{ user.role }}
             </RTag>
           </div>
           <div class="r-v2-profile__meta">
-            <span v-if="userToEdit.email" class="r-v2-profile__meta-item">
+            <span v-if="user?.email" class="r-v2-profile__meta-item">
               <RIcon icon="mdi-email-outline" size="12" />
-              {{ userToEdit.email }}
+              {{ user.email }}
             </span>
             <span v-if="joinedLabel" class="r-v2-profile__meta-item">
               <RIcon icon="mdi-calendar-blank-outline" size="12" />

@@ -83,7 +83,6 @@ onMounted(() => {
   top: 0;
   z-index: 1;
   display: flex;
-  background: var(--r-color-surface);
 }
 .r-menu-search__field {
   flex: 1;

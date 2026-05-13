@@ -2,73 +2,80 @@
 // FolderMappingTypeCell — editable Type cell (alias / variant) for the
 // folder mappings table.
 //
-// Same activator strategy as FolderMappingPlatformCell: plain
-// `<button>` element bound to RMenu's activator slot props. This is
-// the proven combo from `GameActionBtn.vue` — wrapping VMenu's
-// slot-injected function ref through RBtn / VBtn breaks down in
-// nested scoped-slot contexts (RTable's `cell.type` slot), so we
-// attach the ref to a real DOM element directly.
+// Implementation: a plain `RSelect` with two options. Conceptually
+// this is "pick one", same as PlatformCell — a select reads more
+// honestly than a button-activated menu and keeps the visual
+// vocabulary identical across the table.
 //
-// Editability matches v1: any row that already has a slug (whether
-// alias, variant, or auto-detected) can be retyped. Auto rows can be
-// converted to an explicit alias/variant by clicking the picker —
-// `setType()` in FolderMappingsSection handles the auto → explicit
-// transition by creating the matching binding. Unmapped rows
-// (slug === undefined) stay non-editable here; the user picks a
-// platform first via FolderMappingPlatformCell, which lands the row
-// as `alias` by default.
-import { RBtn, RMenu, RMenuItem, RMenuPanel, RTag, RIcon } from "@v2/lib";
-import { computed, ref } from "vue";
+// Editability matches v1: any row with a slug (alias / variant /
+// auto) can be retyped. Auto rows are listed as the current value
+// but Vuetify's select doesn't include "auto" in the items array, so
+// the dropdown only ever exposes the two user-selectable options
+// (alias, variant). Unmapped rows (no slug) stay non-editable — the
+// user picks a platform first via FolderMappingPlatformCell, which
+// lands the row as `alias` by default.
+//
+// The selected-value text picks up a colour token per type
+// (`brand-primary` / `accent` / `success`) so the cell still reads
+// at a glance as alias / variant / auto. Read-only fallback renders
+// an RTag with the same tone vocabulary.
+import { RIcon, RSelect, RTag } from "@v2/lib";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 
 type RowType = "alias" | "variant" | "auto" | null;
 
-interface Row {
-  fsSlug: string;
-  slug?: string;
-  displayName?: string;
-  type: RowType;
+interface TypeItem {
+  value: "alias" | "variant";
+  title: string;
+  icon: string;
 }
 
 interface Props {
-  row: Row;
+  row: { fsSlug: string; slug?: string; displayName?: string; type: RowType };
   canEdit: boolean;
 }
 const props = defineProps<Props>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: "select", type: "alias" | "variant"): void;
 }>();
 
 const { t } = useI18n();
 
-type RTagTone =
-  | "neutral"
-  | "brand"
-  | "accent"
-  | "success"
-  | "danger"
-  | "warning"
-  | "info";
+const items = computed<TypeItem[]>(() => [
+  {
+    value: "alias",
+    title: t("settings.folder-alias"),
+    icon: "mdi-label-variant",
+  },
+  {
+    value: "variant",
+    title: t("settings.platform-variant"),
+    icon: "mdi-source-branch",
+  },
+]);
 
-// Vuetify recognises `primary`, `accent`, `success`, etc. via the v2
-// theme registration in `theme/vuetify.ts` — that's the colour the
-// RBtn activator paints with. `brand` (an RTag tone alias for the
-// brand-primary token) doesn't resolve in Vuetify's palette, which
-// is why the alias chip stays uncoloured if you pass it to `:color`.
-const btnColor = computed<"primary" | "accent" | "success">(() => {
-  if (props.row.type === "alias") return "primary";
-  if (props.row.type === "variant") return "accent";
-  return "success"; // auto
+// Pass `row.type` straight through — even when it's `auto` (a value
+// not in `items`). VSelect will fall back to rendering the
+// `#selection` slot with `item.raw = "auto"`; we ignore the slot's
+// `item` and paint `label` ourselves, so the "auto-detected" pill
+// shows up regardless. Masking auto to `null` would silently drop
+// the slot call and leave the cell empty (only the chevron visible).
+const modelType = computed({
+  get: () => props.row.type,
+  set: (next) => {
+    if (next === "alias" || next === "variant") emit("select", next);
+  },
 });
 
-// RTag is only rendered in the readonly fallback (non-editable +
-// type set). Use the RTag-native tone vocabulary which paints from
-// the same tokens but goes through the tag's CSS rules.
+const isEditable = computed(() => props.canEdit && !!props.row.slug);
+
+type RTagTone = "brand" | "accent" | "success";
 const tagTone = computed<RTagTone>(() => {
   if (props.row.type === "alias") return "brand";
   if (props.row.type === "variant") return "accent";
-  return "success"; // auto
+  return "success";
 });
 
 const label = computed(() => {
@@ -76,66 +83,72 @@ const label = computed(() => {
   if (props.row.type === "variant") return t("settings.platform-variant");
   return t("settings.auto-detected");
 });
-
-const isEditable = computed(() => props.canEdit && !!props.row.slug);
-
-const open = ref(false);
 </script>
 
 <template>
-  <RMenu v-if="isEditable" v-model="open" location="bottom">
-    <template #activator="{ props: activatorProps }">
-      <RBtn
-        v-bind="activatorProps"
-        type="button"
-        class="r-v2-fmtc__btn"
-        size="small"
-        variant="tonal"
-        border
-        :color="btnColor"
-        :aria-label="t('settings.mapping-types')"
-      >
-        <span class="r-v2-fmtc__label">{{ label }}</span>
-        <RIcon icon="mdi-chevron-down" size="14" class="r-v2-fmtc__chevron" />
-      </RBtn>
+  <RSelect
+    v-if="isEditable"
+    v-model="modelType"
+    :items="items"
+    item-title="title"
+    item-value="value"
+    hide-details
+    density="compact"
+    variant="plain"
+    class="r-v2-fmtc"
+    :class="`r-v2-fmtc--${row.type ?? 'unset'}`"
+  >
+    <!-- Auto rows aren't in the items list, so VSelect's default
+         selection rendering would show empty — paint the current
+         label manually here. -->
+    <template #selection>
+      <RTag :tone="tagTone" :text="label" size="small" />
     </template>
-    <RMenuPanel width="200px">
-      <RMenuItem
-        :label="t('settings.folder-alias')"
-        icon="mdi-label-variant"
-        @click="$emit('select', 'alias')"
-      />
-      <RMenuItem
-        :label="t('settings.platform-variant')"
-        icon="mdi-source-branch"
-        @click="$emit('select', 'variant')"
-      />
-    </RMenuPanel>
-  </RMenu>
+    <template #item="{ props: itemProps, item }">
+      <v-list-item
+        v-bind="itemProps"
+        :title="(item.raw as TypeItem).title"
+        :class="`r-v2-fmtc-item--${(item.raw as TypeItem).value}`"
+      >
+        <template #prepend>
+          <RIcon :icon="(item.raw as TypeItem).icon" size="16" />
+        </template>
+      </v-list-item>
+    </template>
+  </RSelect>
   <RTag v-else-if="row.type" :tone="tagTone" :text="label" size="x-small" />
 </template>
 
 <style scoped>
-/* Plain-button activator styled to read as a clickable tag pill. */
-.r-v2-fmtc__btn {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  font: inherit;
-  border-radius: var(--r-radius-sm);
-  transition: background var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-fmtc__btn:hover,
-.r-v2-fmtc__btn:focus-visible {
-  background: var(--r-color-surface-hover);
-}
+/* Tint the selection text by current type — keeps the at-a-glance
+   colour cue we had with the chip-style button while letting the
+   field do all the heavy lifting. */
+.r-v2-fmtc :deep(.v-field__input),
+.r-v2-fmtc :deep(.v-select__selection-text),
 .r-v2-fmtc__label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: var(--r-font-weight-medium);
+}
+.r-v2-fmtc--alias .r-v2-fmtc__label {
+  color: var(--r-color-brand-primary);
+}
+.r-v2-fmtc--variant .r-v2-fmtc__label {
+  color: var(--r-color-brand-accent);
+}
+.r-v2-fmtc--auto .r-v2-fmtc__label {
+  color: var(--r-color-success);
+}
+</style>
+
+<!-- Dropdown items live in `.r-select__menu`, teleported outside the
+     scoped subtree. Colour them in an unscoped block so the same
+     brand/accent/success vocabulary the field uses extends into the
+     menu — picking "Folder alias" reads as purple in the dropdown
+     too, "Platform variant" as orange, etc. -->
+<style>
+.r-select__menu .r-v2-fmtc-item--alias {
+  color: var(--r-color-brand-primary) !important;
+}
+.r-select__menu .r-v2-fmtc-item--variant {
+  color: var(--r-color-brand-accent) !important;
 }
 </style>

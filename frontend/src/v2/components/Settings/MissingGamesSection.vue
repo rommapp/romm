@@ -3,15 +3,18 @@
 // Renders through the shared `RTable` primitive so the visual + sort
 // behaviour stays in lock-step with every other table surface in v2;
 // the cover-art / metadata cells are slotted in for an at-a-glance
-// gallery-style row. Fetches directly via the rom API with
-// `filterMissing=true`; manual "Load more" pagination at the bottom.
+// gallery-style row.
+//
+// Load model: all missing ROMs are pulled into memory on mount via
+// paginated batches (the backend caps `limit`, so we loop until
+// `data.total` is reached or the page comes back short). With the
+// full set in memory, platform filter and sort are pure client-side
+// operations on `filteredRoms` — instant, no refetch.
 import {
   RBtn,
   RChip,
   RIcon,
-  RMenu,
-  RMenuItem,
-  RSpinner,
+  RSelect,
   RTable,
   type RTableColumn,
   type RTableSortPayload,
@@ -26,13 +29,16 @@ import storePlatforms from "@/stores/platforms";
 import { formatBytes, toBrowserLocale } from "@/utils";
 import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
-import PlatformPickerMenu, {
-  type PlatformOption,
-} from "@/v2/components/shared/PlatformPickerMenu.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import type { SimpleRom } from "@/v2/stores/galleryRoms";
+
+interface PlatformItem {
+  id: number;
+  slug: string;
+  name: string;
+}
 
 defineOptions({ inheritAttrs: false });
 
@@ -43,21 +49,16 @@ const snackbar = useSnackbar();
 const confirm = useConfirm();
 const { supportsWebp } = useWebpSupport();
 
-const PAGE_SIZE = 50;
+// Batch size for the bulk load. Backend caps `limit` server-side; we
+// loop in batches until we've covered `data.total` (or the page comes
+// back short). Sized generously so most libraries finish in one shot.
+const FETCH_BATCH = 500;
 
 const roms = ref<SimpleRom[]>([]);
-const total = ref(0);
-const offset = ref(0);
 const initialLoading = ref(false);
-const loadingMore = ref(false);
 const cleaningUp = ref(false);
-const selectedPlatformId = ref<number | null>(null);
-const platformMenuOpen = ref(false);
-
-const selectedPlatform = computed(() => {
-  if (selectedPlatformId.value === null) return null;
-  return platformsStore.get(selectedPlatformId.value) ?? null;
-});
+const selectedPlatformIds = ref<number[]>([]);
+const platformSearch = ref("");
 
 type SortKey =
   | "name"
@@ -69,19 +70,14 @@ type SortKey =
 const sortKey = ref<SortKey>("name");
 const sortDir = ref<"asc" | "desc">("asc");
 
-// Selector only lists platforms that actually appear in the loaded
-// missing-roms result, so the filter never offers a platform that
-// would just snap the table empty. The currently-selected platform
-// is always included even when its result set is empty, so the
-// selector doesn't go blank mid-filter — the X clearable lets the
-// user back out to the unfiltered view from any state.
-const platformOptions = computed<PlatformOption[]>(() => {
+// Selector items are derived directly from the loaded `roms` — since
+// we hold every missing ROM in memory, the set is complete and
+// stable for the lifetime of the section. Picking a platform doesn't
+// change the option set (we filter `filteredRoms`, not `roms`).
+const platformItems = computed<PlatformItem[]>(() => {
   const ids = new Set<number>();
   for (const r of roms.value) {
     if (r.platform_id != null) ids.add(r.platform_id);
-  }
-  if (selectedPlatformId.value != null) {
-    ids.add(selectedPlatformId.value);
   }
   return allPlatforms.value
     .filter((p) => ids.has(p.id))
@@ -89,8 +85,6 @@ const platformOptions = computed<PlatformOption[]>(() => {
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((p) => ({ id: p.id, slug: p.slug, name: p.name }));
 });
-
-const hasMore = computed(() => total.value > roms.value.length);
 
 const columns = computed<RTableColumn[]>(() => [
   {
@@ -145,53 +139,41 @@ const columns = computed<RTableColumn[]>(() => [
   },
 ]);
 
-async function fetchPage(concat: boolean) {
-  if (loadingMore.value) return;
-  if (concat) {
-    loadingMore.value = true;
-  } else {
-    initialLoading.value = true;
-    offset.value = 0;
-    roms.value = [];
-  }
+// Bulk-load every missing ROM into memory. Loops in `FETCH_BATCH`-
+// sized pages so a backend `limit` cap can't truncate us silently —
+// stops as soon as a short page arrives (means we've reached the
+// end) or once `data.total` is covered.
+async function fetchAll() {
+  if (initialLoading.value) return;
+  initialLoading.value = true;
   try {
-    const { data } = await romApi.getRoms({
-      platformIds: selectedPlatformId.value ? [selectedPlatformId.value] : null,
-      filterMissing: true,
-      limit: PAGE_SIZE,
-      offset: offset.value,
-      orderBy: sortKey.value,
-      orderDir: sortDir.value,
-      groupByMetaId: false,
-    });
-    if (data.total !== null && data.total !== undefined) {
-      total.value = data.total;
+    const acc: SimpleRom[] = [];
+    let offset = 0;
+    let total: number | null = null;
+    while (true) {
+      const { data } = await romApi.getRoms({
+        filterMissing: true,
+        limit: FETCH_BATCH,
+        offset,
+        orderBy: "name",
+        orderDir: "asc",
+        groupByMetaId: false,
+      });
+      if (data.total != null) total = data.total;
+      const items = data.items ?? [];
+      acc.push(...items);
+      offset += items.length;
+      if (items.length < FETCH_BATCH) break;
+      if (total != null && offset >= total) break;
     }
-    const items = data.items ?? [];
-    roms.value = concat ? [...roms.value, ...items] : items;
-    offset.value = roms.value.length;
+    roms.value = acc;
   } catch (err) {
     snackbar.error(
       t("settings.couldnt-fetch-missing-roms", { error: String(err) }),
     );
   } finally {
     initialLoading.value = false;
-    loadingMore.value = false;
   }
-}
-
-function onPickPlatform(platform: PlatformOption) {
-  if (typeof platform.id === "number") {
-    selectedPlatformId.value = platform.id;
-    void fetchPage(false);
-  }
-  platformMenuOpen.value = false;
-}
-
-function onClearPlatform() {
-  selectedPlatformId.value = null;
-  void fetchPage(false);
-  platformMenuOpen.value = false;
 }
 
 function onSort({ key, dir }: RTableSortPayload) {
@@ -206,17 +188,61 @@ function onSort({ key, dir }: RTableSortPayload) {
   }
   sortKey.value = key;
   sortDir.value = dir;
-  void fetchPage(false);
 }
 
-const selectedPlatformName = computed(() => {
-  if (!selectedPlatformId.value) return "";
-  return platformsStore.get(selectedPlatformId.value)?.name ?? "";
+// Filter + sort happen entirely in memory now — the full `roms` set
+// is hydrated once on mount, then we derive the table data from it.
+function compareRoms(a: SimpleRom, b: SimpleRom): number {
+  const dir = sortDir.value === "asc" ? 1 : -1;
+  switch (sortKey.value) {
+    case "name": {
+      const an = a.name ?? a.fs_name_no_ext ?? "";
+      const bn = b.name ?? b.fs_name_no_ext ?? "";
+      return an.localeCompare(bn) * dir;
+    }
+    case "fs_size_bytes":
+      return ((a.fs_size_bytes ?? 0) - (b.fs_size_bytes ?? 0)) * dir;
+    case "created_at": {
+      const at = a.created_at ? Date.parse(a.created_at) : 0;
+      const bt = b.created_at ? Date.parse(b.created_at) : 0;
+      return (at - bt) * dir;
+    }
+    case "first_release_date": {
+      const at = Number(a.metadatum?.first_release_date ?? 0);
+      const bt = Number(b.metadatum?.first_release_date ?? 0);
+      return (at - bt) * dir;
+    }
+    case "average_rating": {
+      const ar = a.metadatum?.average_rating ?? 0;
+      const br = b.metadatum?.average_rating ?? 0;
+      return (ar - br) * dir;
+    }
+    default:
+      return 0;
+  }
+}
+
+const filteredRoms = computed<SimpleRom[]>(() => {
+  let r = roms.value;
+  if (selectedPlatformIds.value.length > 0) {
+    const set = new Set(selectedPlatformIds.value);
+    r = r.filter((rom) => rom.platform_id != null && set.has(rom.platform_id));
+  }
+  return [...r].sort(compareRoms);
 });
 
+// Confirmation label for cleanup — lists every selected platform's
+// name, joined by commas. Empty string when nothing is filtered.
+const selectedPlatformsLabel = computed(() =>
+  selectedPlatformIds.value
+    .map((id) => platformsStore.get(id)?.name)
+    .filter((n): n is string => !!n)
+    .join(", "),
+);
+
 async function cleanupAll() {
-  const platformLabel = selectedPlatformName.value
-    ? ` for ${selectedPlatformName.value}`
+  const platformLabel = selectedPlatformsLabel.value
+    ? ` for ${selectedPlatformsLabel.value}`
     : "";
   const ok = await confirm({
     title: t("common.confirm-deletion"),
@@ -228,12 +254,17 @@ async function cleanupAll() {
   if (!ok) return;
   cleaningUp.value = true;
   try {
-    const body = selectedPlatformId.value
-      ? { platform_id: selectedPlatformId.value }
-      : {};
+    // The task API takes a single `platform_id`. With multi-select on,
+    // the safe path is: send the id only when exactly one is picked
+    // (so cleanup matches the user's intent on a narrow filter);
+    // otherwise run unfiltered cleanup across all platforms.
+    const body =
+      selectedPlatformIds.value.length === 1
+        ? { platform_id: selectedPlatformIds.value[0] }
+        : {};
     await taskApi.runTask("cleanup_missing_roms", body);
     snackbar.success(t("settings.cleanup-queued"));
-    setTimeout(() => void fetchPage(false), 1500);
+    setTimeout(() => void fetchAll(), 1500);
   } catch (err) {
     snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
   } finally {
@@ -282,68 +313,59 @@ function ratingValue(rom: SimpleRom): string {
 }
 
 onMounted(() => {
-  void fetchPage(false);
+  void fetchAll();
 });
 </script>
 
 <template>
   <div class="r-v2-missing">
     <div class="r-v2-missing__toolbar">
-      <RMenu
-        v-model="platformMenuOpen"
-        location="bottom start"
-        :close-on-content-click="false"
+      <RSelect
+        v-model="selectedPlatformIds"
+        v-model:search="platformSearch"
+        :items="platformItems"
+        item-title="name"
+        item-value="id"
+        prefix-label="inline"
+        multiple
+        chips
+        closable-chips
+        clearable
+        searchable
+        :search-placeholder="t('common.search')"
+        :placeholder="t('common.all')"
+        hide-details
+        class="r-v2-missing__platform-select"
       >
-        <template #activator="{ props: activatorProps }">
-          <button
-            v-bind="activatorProps"
-            type="button"
-            class="r-v2-missing__platform-trigger"
-            :aria-label="t('common.platform')"
-          >
-            <span class="r-v2-missing__platform-trigger-label">
-              <RIcon icon="mdi-controller" size="14" />
-              {{ t("common.platform") }}
-            </span>
-            <span class="r-v2-missing__platform-trigger-value">
-              <template v-if="selectedPlatform">
-                <CachedPlatformIcon
-                  :slug="selectedPlatform.slug"
-                  :name="selectedPlatform.name"
-                  :size="18"
-                />
-                <span class="r-v2-missing__platform-trigger-name">
-                  {{ selectedPlatform.name }}
-                </span>
-              </template>
-              <span v-else class="r-v2-missing__platform-trigger-placeholder">
-                {{ t("common.all") }}
-              </span>
-            </span>
-            <RIcon
-              icon="mdi-chevron-down"
-              size="14"
-              class="r-v2-missing__platform-trigger-chevron"
-            />
-          </button>
+        <template #prefix-label>
+          <RIcon icon="mdi-controller" size="14" />
+          {{ t("common.platform") }}
         </template>
-        <PlatformPickerMenu
-          :platforms="platformOptions"
-          :search-placeholder="t('common.search')"
-          width="100%"
-          @select="onPickPlatform"
-        >
-          <template #footer="{ query }">
-            <RMenuItem
-              v-if="!query && selectedPlatformId !== null"
-              icon="mdi-close-circle-outline"
-              variant="danger"
-              :label="t('common.clear')"
-              @click="onClearPlatform"
+        <template #selection="{ item }">
+          <span class="r-v2-missing__platform-chip">
+            <CachedPlatformIcon
+              :slug="(item.raw as PlatformItem).slug"
+              :name="(item.raw as PlatformItem).name"
+              :size="14"
             />
-          </template>
-        </PlatformPickerMenu>
-      </RMenu>
+            <span>{{ (item.raw as PlatformItem).name }}</span>
+          </span>
+        </template>
+        <template #item="{ props: itemProps, item }">
+          <v-list-item
+            v-bind="itemProps"
+            :title="(item.raw as PlatformItem).name"
+          >
+            <template #prepend>
+              <CachedPlatformIcon
+                :slug="(item.raw as PlatformItem).slug"
+                :name="(item.raw as PlatformItem).name"
+                :size="20"
+              />
+            </template>
+          </v-list-item>
+        </template>
+      </RSelect>
       <RBtn
         variant="flat"
         color="danger"
@@ -358,7 +380,7 @@ onMounted(() => {
 
     <RTable
       :columns="columns"
-      :items="roms"
+      :items="filteredRoms"
       :item-key="(r) => (r as SimpleRom).id"
       :loading="initialLoading"
       :sort-key="sortKey"
@@ -453,21 +475,6 @@ onMounted(() => {
         </MoreMenu>
       </template>
     </RTable>
-
-    <div v-if="!initialLoading && hasMore" class="r-v2-missing__load-more">
-      <RBtn variant="flat" :loading="loadingMore" @click="fetchPage(true)">
-        <span class="r-v2-missing__load-more-label">
-          {{ t("gallery.load-more") }}
-          <span class="r-v2-missing__load-more-count">
-            {{ roms.length }} / {{ total }}
-          </span>
-        </span>
-      </RBtn>
-    </div>
-
-    <div v-if="loadingMore && !initialLoading" class="r-v2-missing__pending">
-      <RSpinner :size="22" />
-    </div>
   </div>
 </template>
 
@@ -483,75 +490,23 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
 }
-/* Field-style trigger — same visual weight as RTextField's prefix-
-   label variant, but it's a plain button so it can serve as an
-   RMenu activator without needing the form-field plumbing of
-   RSelect. The dropdown content is the shared PlatformPickerMenu,
-   so the menu (scrollbar, item layout, search header) matches the
-   one in FolderMappings exactly. */
-.r-v2-missing__platform-trigger {
-  appearance: none;
+/* Platform multi-select takes the toolbar's left side; the
+   cleanup-all button sits to its right. `flex: 1` lets the field
+   absorb the toolbar's horizontal slack; `max-width` keeps it from
+   eating the whole row on very wide screens. */
+.r-v2-missing__platform-select {
   flex: 1;
   min-width: 0;
-  max-width: 360px;
-  height: 40px;
-  padding: 0;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: stretch;
-  cursor: pointer;
-  font: inherit;
-  color: var(--r-color-fg);
-  overflow: hidden;
-  transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-missing__platform-trigger:hover {
-  border-color: var(--r-color-border-strong);
-}
-.r-v2-missing__platform-trigger:focus-visible {
-  border-color: var(--r-color-brand-primary);
-  outline: none;
+  max-width: 480px;
 }
 
-.r-v2-missing__platform-trigger-label {
+/* Each chip in the multi-select shows the platform icon + name in a
+   compact pill. Vuetify wraps these in its own `v-chip`; we only
+   style the inner span layout. */
+.r-v2-missing__platform-chip {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  background: var(--r-color-bg-elevated);
-  border-right: 1px solid var(--r-color-border);
-  color: var(--r-color-fg-muted);
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.r-v2-missing__platform-trigger-value {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: var(--r-font-weight-regular);
-}
-.r-v2-missing__platform-trigger-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-v2-missing__platform-trigger-placeholder {
-  color: var(--r-color-fg-muted);
-}
-.r-v2-missing__platform-trigger-chevron {
-  align-self: center;
-  margin-right: 10px;
-  color: var(--r-color-fg-muted);
+  gap: 6px;
 }
 
 /* ----- Name cell — cover thumb + title + filename ----- */
@@ -619,27 +574,5 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-/* ----- Footer ----- */
-.r-v2-missing__load-more {
-  display: flex;
-  justify-content: center;
-}
-.r-v2-missing__load-more-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.r-v2-missing__load-more-count {
-  font-size: 11px;
-  color: var(--r-color-fg-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.r-v2-missing__pending {
-  display: flex;
-  justify-content: center;
-  padding: 8px;
 }
 </style>

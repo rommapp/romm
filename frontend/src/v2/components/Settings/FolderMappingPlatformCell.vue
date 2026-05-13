@@ -2,26 +2,21 @@
 // FolderMappingPlatformCell — editable Platform cell for the folder
 // mappings table.
 //
-// Activator: a plain `<button>` element bound directly via `v-bind` to
-// the slot scope's activator props. Same combination GameActionBtn
-// uses in production v2 code (RMenu + activator slot + plain button).
-// VMenu's slot-injected function ref has to attach to a real DOM
-// element, and Vue 3 doesn't forward such refs cleanly through
-// wrapper components (RBtn → VBtn) when the activator is rendered
-// inside a deeply scoped parent slot (RTable's `cell.platform` slot).
+// Implementation: a plain `RSelect`. Conceptually this is what the
+// cell is — pick one platform from a list — so a select reads more
+// honestly than a button-activated menu, and we get the v2 select
+// chrome (searchable header, themed scrollbar, identical paint to
+// other selects) for free.
 //
-// The dropdown content is the shared `PlatformPickerMenu`, so every
-// surface that picks a platform — this one and MissingGames — uses
-// the same searchable, icon-decorated menu (same scrollbar, same
-// panel paint, same item layout).
-import { RIcon, RMenu, RMenuItem, RBtn } from "@v2/lib";
+// `clearable` is wired up to the section's existing "remove mapping"
+// flow: the X button only appears when the row already has a slug
+// AND the row isn't auto-detected (auto rows clear by removing the
+// binding, not by clicking the cell's X).
+import { RIcon, RSelect } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
-import PlatformPickerMenu, {
-  type PlatformOption,
-} from "@/v2/components/shared/PlatformPickerMenu.vue";
 
 type RowType = "alias" | "variant" | "auto" | null;
 
@@ -30,6 +25,11 @@ interface Row {
   slug?: string;
   displayName?: string;
   type: RowType;
+}
+
+interface PlatformItem {
+  slug: string;
+  name: string;
 }
 
 interface Props {
@@ -46,118 +46,106 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-const open = ref(false);
+const search = ref("");
 
-// Adapt the section's `Platform[]` to the picker's generic option
-// shape — id stays absent (we key by slug here).
-const platformOptions = computed<PlatformOption[]>(() =>
-  props.supportedPlatforms.map((p) => ({
-    slug: p.slug,
-    name: p.display_name,
-  })),
+const items = computed<PlatformItem[]>(() =>
+  props.supportedPlatforms
+    .map((p) => ({ slug: p.slug, name: p.display_name }))
+    .sort((a, b) => a.name.localeCompare(b.name)),
 );
 
-function pick(slug: string | undefined) {
-  emit("select", slug);
-  open.value = false;
-}
+const modelSlug = computed({
+  get: () => props.row.slug ?? null,
+  set: (next: string | null) => emit("select", next ?? undefined),
+});
 </script>
 
 <template>
-  <RMenu
+  <RSelect
     v-if="canEdit"
-    v-model="open"
-    location="bottom start"
-    :close-on-content-click="false"
+    v-model="modelSlug"
+    v-model:search="search"
+    :items="items"
+    item-title="name"
+    item-value="slug"
+    searchable
+    hide-details
+    density="compact"
+    variant="plain"
+    :placeholder="t('common.select')"
+    :search-placeholder="t('common.search')"
+    class="r-v2-fmpc"
   >
-    <template #activator="{ props: activatorProps }">
-      <RBtn
-        v-bind="activatorProps"
-        type="button"
-        class="r-v2-fmpc__btn"
-        :aria-label="t('settings.platforms')"
-      >
+    <!-- Read from `row` directly instead of the slot's `item` —
+         when the row references a platform that isn't in
+         `supportedPlatforms` (loading, removed, …), Vuetify passes
+         `item.raw` as the raw slug string and the destructure
+         crashes. `row.slug` + `row.displayName` are always coherent
+         here because the section owns both. -->
+    <template #selection>
+      <span class="r-v2-fmpc__selection">
         <CachedPlatformIcon
           v-if="row.slug"
           :slug="row.slug"
+          :name="row.displayName ?? row.slug"
           :size="20"
-          class="r-v2-fmpc__icon"
         />
-        <span v-if="row.slug" class="r-v2-fmpc__name">
-          {{ row.displayName }}
+        <span class="r-v2-fmpc__name">
+          {{ row.displayName ?? row.slug }}
         </span>
-        <span v-else class="r-v2-fmpc__placeholder">—</span>
-        <RIcon icon="mdi-chevron-down" size="14" class="r-v2-fmpc__chevron" />
-      </RBtn>
+      </span>
     </template>
-    <PlatformPickerMenu
-      :platforms="platformOptions"
-      :search-placeholder="t('common.search')"
-      @select="(p) => pick(p.slug)"
-    >
-      <template #footer="{ query }">
-        <RMenuItem
-          v-if="!query && row.slug && row.type !== 'auto'"
-          icon="mdi-delete"
-          variant="danger"
-          :label="t('common.delete')"
-          @click="pick(undefined)"
-        />
-      </template>
-    </PlatformPickerMenu>
-  </RMenu>
+    <template #item="{ props: itemProps, item }">
+      <v-list-item v-bind="itemProps" :title="(item.raw as PlatformItem).name">
+        <template #prepend>
+          <CachedPlatformIcon
+            :slug="(item.raw as PlatformItem).slug"
+            :name="(item.raw as PlatformItem).name"
+            :size="20"
+          />
+        </template>
+      </v-list-item>
+    </template>
+  </RSelect>
   <span v-else class="r-v2-fmpc__readonly">
     <CachedPlatformIcon
       v-if="row.slug"
       :slug="row.slug"
+      :name="row.displayName ?? row.slug"
       :size="20"
-      class="r-v2-fmpc__icon"
     />
     <span v-if="row.slug" class="r-v2-fmpc__name">{{ row.displayName }}</span>
     <span v-else class="r-v2-fmpc__placeholder">—</span>
+    <RIcon
+      v-if="!row.slug"
+      icon="mdi-help-circle-outline"
+      size="14"
+      class="r-v2-fmpc__placeholder"
+    />
   </span>
 </template>
 
 <style scoped>
-/* Plain-button activator styled to read as a v2 text button. */
-.r-v2-fmpc__btn {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  padding: 4px 8px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  font-weight: var(--r-font-weight-regular);
-  color: var(--r-color-fg);
-  border-radius: var(--r-radius-sm);
-  transition: background var(--r-motion-fast) var(--r-motion-ease-out);
+/* Lock the field to the column's width — Vuetify's `.v-field` sizes
+   itself to content by default, which makes each row's cell as wide
+   as its platform name. The visible width then shifts as the user
+   scrolls the table (different rows visible, different widths). */
+.r-v2-fmpc {
+  width: 100%;
 }
-.r-v2-fmpc__btn:hover,
-.r-v2-fmpc__btn:focus-visible {
-  background: var(--r-color-surface-hover);
-}
-.r-v2-fmpc__icon {
-  flex-shrink: 0;
-  margin-right: 8px;
-}
-.r-v2-fmpc__name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-v2-fmpc__chevron {
-  color: var(--r-color-fg-muted);
-}
+.r-v2-fmpc__selection,
 .r-v2-fmpc__readonly {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
   color: var(--r-color-fg);
+  min-width: 0;
+}
+.r-v2-fmpc__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .r-v2-fmpc__placeholder {
   color: var(--r-color-fg-faint);
