@@ -1,16 +1,18 @@
 <script setup lang="ts">
-// RTextField — wraps v-text-field with the v2 visual language.
+// RTextField — passthrough wrapper around v-text-field. The default
+// look is whatever Vuetify renders under the v2 theme — no reskin.
 //
-// Two looks:
-//   • Floating label (default, Vuetify-outlined) — used by Auth flows
-//     and any place where the label needs to collapse into the field
-//     when filled.
-//   • Prefix label (`prefix-label` prop) — v2-native form look. A
-//     slightly darker "well" sits on the LEFT of the field, separated
-//     by a hairline, holding whatever you pass into `#prefix-label`
-//     (icon, text, both…). The well auto-sizes to its content by
-//     default; pass `label-width` for a fixed width when you need a
-//     stack of fields to line up vertically.
+// The only v2-specific addition is the `prefix-label` variant: a
+// slightly darker "well" sits on the LEFT of the field, separated by
+// a hairline, holding whatever you pass into `#prefix-label` (icon,
+// text, both…). The well auto-sizes to its content by default; pass
+// `label-width` for a fixed width when you need a stack of fields to
+// line up vertically.
+//
+// Without `prefix-label`, all CSS below is inert and Vuetify's stock
+// variants (outlined / underlined / solo / filled / plain) paint
+// themselves from the v2-dark / v2-light theme registered in
+// `theme/vuetify.ts`.
 //
 // rules are typed loosely (`unknown[]`) because Vuetify's own rule
 // type is structural and works for any function returning
@@ -23,9 +25,6 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   modelValue?: string | number | null;
   label?: string;
-  /** Placeholder text — auto-suppressed when `prefixLabel` is on so
-   *  the left "well" doesn't visually duplicate. Pass it freely on
-   *  the default (floating-label) variant. */
   placeholder?: string;
   type?: string;
   variant?:
@@ -168,196 +167,6 @@ const hasFixedLabelWidth = computed(() => !!labelWidthCss.value);
 </template>
 
 <style scoped>
-/* ── Default outlined variant ─────────────────────────────────────
-   Override Vuetify's 4-piece outline to a flat 1px border on
-   `--r-color-border`, swapping to brand on focus and danger on error. */
-
-.r-text-field :deep(.v-field) {
-  border-radius: 8px;
-  font-size: 14px;
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    box-shadow var(--r-motion-fast) var(--r-motion-ease-out);
-}
-
-.r-text-field :deep(.v-field--variant-outlined) {
-  background: var(--r-color-surface);
-}
-
-.r-text-field :deep(.v-field--variant-outlined .v-field__outline__start),
-.r-text-field
-  :deep(.v-field--variant-outlined .v-field__outline__notch::before),
-.r-text-field :deep(.v-field--variant-outlined .v-field__outline__notch::after),
-.r-text-field :deep(.v-field--variant-outlined .v-field__outline__end) {
-  border-width: 1px;
-  border-color: var(--r-color-border);
-  opacity: 1;
-  transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-
-.r-text-field
-  :deep(.v-field--variant-outlined.v-field--focused .v-field__outline__start),
-.r-text-field
-  :deep(
-    .v-field--variant-outlined.v-field--focused .v-field__outline__notch::before
-  ),
-.r-text-field
-  :deep(
-    .v-field--variant-outlined.v-field--focused .v-field__outline__notch::after
-  ),
-.r-text-field
-  :deep(.v-field--variant-outlined.v-field--focused .v-field__outline__end) {
-  border-color: var(--r-color-brand-primary);
-}
-
-.r-text-field :deep(.v-field--variant-outlined:hover .v-field__outline__start),
-.r-text-field
-  :deep(.v-field--variant-outlined:hover .v-field__outline__notch::before),
-.r-text-field
-  :deep(.v-field--variant-outlined:hover .v-field__outline__notch::after),
-.r-text-field :deep(.v-field--variant-outlined:hover .v-field__outline__end) {
-  border-color: var(--r-color-border-strong);
-}
-
-.r-text-field
-  :deep(.v-field--variant-outlined.v-field--error .v-field__outline__start),
-.r-text-field
-  :deep(
-    .v-field--variant-outlined.v-field--error .v-field__outline__notch::before
-  ),
-.r-text-field
-  :deep(
-    .v-field--variant-outlined.v-field--error .v-field__outline__notch::after
-  ),
-.r-text-field
-  :deep(.v-field--variant-outlined.v-field--error .v-field__outline__end) {
-  border-color: var(--r-color-danger);
-}
-
-/* Floating label — small + brand on focus + danger on error. */
-.r-text-field :deep(.v-field-label) {
-  font-size: 13px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-muted);
-  letter-spacing: 0;
-}
-.r-text-field :deep(.v-field--focused .v-field-label),
-.r-text-field :deep(.v-field--active .v-field-label) {
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
-.r-text-field :deep(.v-field--focused .v-field-label) {
-  color: var(--r-color-brand-primary);
-}
-.r-text-field :deep(.v-field--error .v-field-label) {
-  color: var(--r-color-danger) !important;
-}
-
-/* Input value */
-.r-text-field :deep(.v-field__input) {
-  font-size: 14px;
-  color: var(--r-color-fg);
-  line-height: 1.4;
-  min-height: 38px;
-  padding-top: 14px;
-  padding-bottom: 6px;
-}
-.r-text-field :deep(.v-field--variant-outlined .v-field__input) {
-  padding-inline: 14px;
-}
-
-/* Inner icons */
-.r-text-field :deep(.v-field__prepend-inner > .v-icon),
-.r-text-field :deep(.v-field__append-inner > .v-icon) {
-  color: var(--r-color-fg-muted);
-  opacity: 1;
-  font-size: 18px;
-}
-.r-text-field :deep(.v-field--focused .v-field__prepend-inner > .v-icon),
-.r-text-field :deep(.v-field--focused .v-field__append-inner > .v-icon) {
-  color: var(--r-color-brand-primary);
-}
-
-/* Hint / error message row */
-.r-text-field :deep(.v-input__details) {
-  padding-inline: 14px;
-  padding-block-start: 4px;
-  min-height: 18px;
-}
-.r-text-field :deep(.v-messages__message) {
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--r-color-fg-muted);
-}
-.r-text-field :deep(.v-input--error .v-messages__message) {
-  color: var(--r-color-danger);
-}
-
-.r-text-field :deep(.v-field--disabled) {
-  opacity: 0.55;
-}
-
-/* ── Underlined variant — auth flows ─────────────────────────────
-.r-text-field :deep(.v-field--variant-underlined) {
-  background: transparent !important;
-  border-radius: 0;
-}
-
-.r-text-field :deep(.v-field--variant-underlined .v-field__overlay) {
-  opacity: 0 !important;
-  background: transparent !important;
-}
-.r-text-field :deep(.v-field--variant-underlined::before) {
-  border-color: var(--r-color-border-strong);
-  border-bottom-width: 1px;
-  transition: border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-text-field
-  :deep(.v-field--variant-underlined:hover:not(.v-field--focused)::before) {
-  border-color: var(--r-color-fg-muted);
-}
-.r-text-field :deep(.v-field--variant-underlined::after) {
-  border-color: var(--r-color-brand-primary);
-  border-bottom-width: 2px;
-}
-.r-text-field :deep(.v-field--variant-underlined.v-field--error::after) {
-  border-color: var(--r-color-danger);
-}
-
-.r-text-field :deep(.v-field--variant-underlined .v-field__input) {
-  min-height: 52px;
-}
-.r-text-field :deep(.v-field--variant-underlined .v-field__field) {
-  align-items: center;
-}
-.r-text-field :deep(.v-field--variant-underlined .v-field__prepend-inner),
-.r-text-field :deep(.v-field--variant-underlined .v-field__append-inner) {
-  align-items: center;
-  padding-block: 0;
-}
-.r-text-field
-  :deep(.v-field--variant-underlined .v-field-label.v-field-label--floating) {
-  top: 6px;
-}
-.r-text-field :deep(.v-field--variant-underlined .v-field-label) {
-  font-weight: var(--r-font-weight-regular);
-}
-
-/* ── Solo / filled — subtle bg, no border ──────────────────────── */
-
-.r-text-field :deep(.v-field--variant-solo),
-.r-text-field :deep(.v-field--variant-solo-filled),
-.r-text-field :deep(.v-field--variant-filled) {
-  background: var(--r-color-surface);
-  box-shadow: none;
-}
-.r-text-field :deep(.v-field--variant-solo.v-field--focused),
-.r-text-field :deep(.v-field--variant-solo-filled.v-field--focused),
-.r-text-field :deep(.v-field--variant-filled.v-field--focused) {
-  box-shadow: 0 0 0 1px
-    color-mix(in srgb, var(--r-color-brand-primary) 60%, transparent);
-}
-
 /* ────────────────────────────────────────────────────────────────
    Prefix-label variant — left "well" + divider + input on the right,
    single bordered container around both. Vuetify's floating label is
@@ -371,12 +180,15 @@ const hasFixedLabelWidth = computed(() => !!labelWidthCss.value);
 
    `!important` on the well sizing is load-bearing — Vuetify's
    density-specific selectors otherwise outrank our scoped rules.
+
+   Everything outside this block is left to Vuetify + the v2 theme.
    ──────────────────────────────────────────────────────────────── */
 
 .r-text-field--prefix-label :deep(.v-field) {
   background: var(--r-color-surface);
   overflow: hidden;
   border: 1px solid var(--r-color-border);
+  border-radius: 8px;
   /* Well needs to sit flush against the field's left edge — drop
      Vuetify's default field padding-left only in this mode so
      regular `prepend-inner-icon` usage keeps its breathing room. */
@@ -464,7 +276,4 @@ const hasFixedLabelWidth = computed(() => !!labelWidthCss.value);
 .r-text-field--prefix-label-fixed :deep(.v-field__input) {
   padding-inline-start: 14px !important;
 }
-
-/* Append icons (clear button etc.) sit on the right inside the input
-   area, no special styling needed. */
 </style>
