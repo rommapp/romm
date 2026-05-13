@@ -188,7 +188,7 @@ class RAHandler(MetadataHandler):
             # Write the roms result to a JSON file if older than REFRESH_RETROACHIEVEMENTS_CACHE_DAYS days
             roms = await self.ra_service.get_game_list(
                 system_id=rom.platform.ra_id,
-                only_games_with_achievements=True,
+                only_games_with_achievements=False,
                 include_hashes=True,
             )
 
