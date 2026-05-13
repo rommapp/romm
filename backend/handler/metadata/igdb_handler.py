@@ -14,7 +14,7 @@ from adapters.services.igdb_types import (
 )
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
 from config.config_manager import config_manager as cm
-from handler.filesystem.base_handler import REGION_NAME_TO_PROVIDER_SHORTCODE
+from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from handler.redis_handler import async_cache
 from logger.logger import log
 from models.rom import Rom
@@ -338,7 +338,7 @@ def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
     """
     if rom is not None and isinstance(rom.regions, list):
         for region_name in rom.regions:
-            code = REGION_NAME_TO_PROVIDER_SHORTCODE.get(region_name)
+            code = region_name_to_provider_shortcode(region_name)
             if code and code in REGION_TO_IGDB_LOCALE:
                 return REGION_TO_IGDB_LOCALE[code]
 

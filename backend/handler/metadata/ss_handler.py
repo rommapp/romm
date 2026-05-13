@@ -13,7 +13,7 @@ from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler
-from handler.filesystem.base_handler import REGION_NAME_TO_PROVIDER_SHORTCODE
+from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from logger.logger import log
 from models.rom import Rom, RomFile
 
@@ -40,7 +40,7 @@ def get_preferred_regions(rom: Rom | None = None) -> list[str]:
     rom_codes: list[str] = []
     if rom is not None and isinstance(rom.regions, list):
         for region_name in rom.regions:
-            code = REGION_NAME_TO_PROVIDER_SHORTCODE.get(region_name)
+            code = region_name_to_provider_shortcode(region_name)
             if code:
                 rom_codes.append(code)
 

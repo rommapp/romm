@@ -116,6 +116,22 @@ REGION_NAME_TO_PROVIDER_SHORTCODE: dict[str, str] = {
     "World": "wor",
 }
 
+_REGION_NAME_TO_PROVIDER_SHORTCODE_CI = {
+    k.lower(): v for k, v in REGION_NAME_TO_PROVIDER_SHORTCODE.items()
+}
+
+
+def region_name_to_provider_shortcode(region_name: str | None) -> str | None:
+    """Look up a provider shortcode for a region name (case-insensitive).
+
+    ROM filename parsing can leave region names in their raw casing
+    (e.g. "europe", "EUROPE"), so callers must normalize before lookup.
+    """
+    if not region_name:
+        return None
+    return _REGION_NAME_TO_PROVIDER_SHORTCODE_CI.get(region_name.lower())
+
+
 LANGUAGES_BY_SHORTCODE = {lang[0]: lang[1] for lang in LANGUAGES}
 LANGUAGES_NAME_KEYS = frozenset(lang[1].lower() for lang in LANGUAGES)
 
