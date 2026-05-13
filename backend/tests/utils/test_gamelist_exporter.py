@@ -1,6 +1,6 @@
 from xml.etree.ElementTree import fromstring
 
-from os import path
+from os.path import isabs
 
 import pytest
 
@@ -222,19 +222,6 @@ def test_export_gamelist_xml_scrap_element(platform_with_roms):
     assert scrap.get("name") == "RomM"
 
 
-def test_export_gamelist_xml_local_thumbnail_relative_path(platform_with_roms):
-    platform, _ = platform_with_roms
-
-    exporter = GamelistExporter(local_export=True)
-    xml_str = exporter.export_platform_to_xml(platform.id, request=None)
-    root = fromstring(xml_str)
-    game = root.findall("game")[0]
-
-    thumbnail = game.find("thumbnail")
-    assert thumbnail is not None
-    assert not path.isabs(thumbnail.text)
-
-
 @pytest.mark.parametrize("tag", ["thumbnail", "image", "video", "screenshot", "manual"])
 def test_export_gamelist_xml_local_media_relative_path(platform_with_roms, tag):
     platform, _ = platform_with_roms
@@ -245,7 +232,7 @@ def test_export_gamelist_xml_local_media_relative_path(platform_with_roms, tag):
 
     elem = game.find(tag)
     assert elem is not None
-    assert not path.isabs(elem.text)
+    assert not isabs(elem.text)
 
 
 def test_export_gamelist_xml_local_ss_metadata_media_relative(platform_with_roms):
@@ -286,7 +273,7 @@ def test_export_gamelist_xml_local_ss_metadata_media_relative(platform_with_roms
         elem = game.find(tag)
         assert elem is not None and elem.text is not None
 
-        assert not path.isabs(elem.text)
+        assert not isabs(elem.text)
 
 
 def test_export_gamelist_xml_local_no_absolute_paths_anywhere(platform_with_roms):
