@@ -4,6 +4,7 @@ from os.path import isabs
 
 import pytest
 
+from config import FRONTEND_RESOURCES_PATH
 from handler.database import db_platform_handler, db_rom_handler
 from models.platform import Platform
 from models.rom import Rom
@@ -48,7 +49,7 @@ def platform_with_roms(admin_user: User):
             "path_screenshots": ["snes/screenshots/super-mario-world-1.jpg"],
             "gamelist_metadata": {
                 "player_count": "2",
-                "video_path": "snes/videos/super-mario-world.mp4",
+                "video_path": "snes/videos/super-mario-world.mp4",  # feeds rom.path_video property
             },
         },
     )
@@ -286,7 +287,18 @@ def test_export_gamelist_xml_local_no_absolute_paths_anywhere(platform_with_roms
     root = fromstring(xml_str)
 
     for elem in root.iter():
-        if elem.text and "/assets/romm/resources" in elem.text:
+        if elem.text and FRONTEND_RESOURCES_PATH in elem.text:
             pytest.fail(
                 f"<{elem.tag}> contains absolute FRONTEND_RESOURCES_PATH: {elem.text}"
             )
+
+
+def test_export_gamelist_xml_rejects_path_traversal(platform_with_roms):
+    """Paths with traversal segments must not escape the resources directory."""
+    platform, roms = platform_with_roms
+
+    db_rom_handler.update_rom(roms[0].id, {"path_cover_l": "../../etc/passwd"})
+
+    exporter = GamelistExporter(local_export=True)
+    with pytest.raises(ValueError, match="outside resources base"):
+        exporter.export_platform_to_xml(platform.id, request=None)

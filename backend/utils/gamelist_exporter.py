@@ -39,8 +39,21 @@ class GamelistExporter:
     def _resource_relative_path(self, rom: Rom, resource_path_part: str) -> str:
         """Convert a resource path part (e.g. "snes/covers/smw.jpg") to a path relative to the ROM's location"""
         if self.local_export:
-            resource_path = f"{RESOURCES_BASE_PATH}/{resource_path_part}"
+            resources_base_path = path.abspath(RESOURCES_BASE_PATH)
+            resource_path = path.abspath(
+                path.join(RESOURCES_BASE_PATH, resource_path_part)
+            )
+
+            if (
+                path.commonpath([resources_base_path, resource_path])
+                != resources_base_path
+            ):
+                raise ValueError(
+                    f"Invalid resource path outside resources base: {resource_path_part}"
+                )
+
             return path.relpath(resource_path, start=path.dirname(rom.fs_path))
+
         return f"{FRONTEND_RESOURCES_PATH}/{resource_path_part}"
 
     def _create_game_element(
