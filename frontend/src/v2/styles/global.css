@@ -181,14 +181,11 @@ html:not([data-input])
 /* ── Shared overlay panel ──────────────────────────────────────
    Every v2 floating menu / dropdown surface composites to the SAME
    single layer (background + blur + border + radius + shadow).
-   Targeting both classes from one rule guarantees identical visuals —
-   duplicating per component allowed each one to drift. RMenu adds
-   `r-menu` to its overlay content; RSelect adds `r-select__menu`.
-   Their consumers (ScoreMenuBtn rating/difficulty popup, MoreMenu,
-   UserMenu, status pickers, language picker, etc.) pick up the look
-   for free. */
-.v-overlay__content.r-menu,
-.v-overlay__content.r-select__menu {
+   RMenu adds `r-menu` to its overlay content — its consumers
+   (ScoreMenuBtn rating/difficulty popup, MoreMenu, UserMenu, status
+   pickers, language picker, etc.) pick up the look for free.
+   RSelect ships its own surface now and doesn't go through here. */
+.v-overlay__content.r-menu {
   background: var(--r-color-panel) !important;
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
