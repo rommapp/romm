@@ -2,8 +2,8 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { defineComponent, h } from "vue";
 
 // Intro / design-token preview story. Exists to verify the Storybook pipeline
-// end-to-end (Vuetify + tokens + theme switcher) before any R-components
-// land. Replace or keep as a "Welcome" page for the design system.
+// end-to-end (tokens + theme switcher) before any R-components land.
+// Replace or keep as a "Welcome" page for the design system.
 
 const tokenSwatches = [
   {

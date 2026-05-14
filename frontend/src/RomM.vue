@@ -8,7 +8,6 @@ import SoundtrackMiniPlayer from "@/components/common/SoundtrackMiniPlayer.vue";
 import { useUiVersion } from "@/composables/useUiVersion";
 import storeConsole from "@/stores/console";
 import storeLanguage from "@/stores/language";
-import { V2_THEME_DARK, V2_THEME_LIGHT } from "@/v2/theme/vuetify";
 
 const { locale } = useI18n();
 const languageStore = storeLanguage();
@@ -40,10 +39,10 @@ const { idle: mouseIdle } = useIdle(100, {
   events: ["mousemove", "mousedown", "wheel", "touchstart"],
 });
 
-// Centralized theme resolution — the v1 "dark"/"light" themes and v2
-// "v2-dark"/"v2-light" themes live side by side in Vuetify. Picking the right
-// name based on uiVersion + user preference + system preference happens here
-// so neither the Settings UI nor the Vuetify plugin has to know about both.
+// Centralized theme resolution — Vuetify only knows the "dark" / "light"
+// pair (used by v1 surfaces and any remaining v1 components rendered
+// inside v2). v2's own colour story is driven by tokens on the .r-v2-*
+// classes below, not by Vuetify's runtime theme.
 const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
 const systemPrefersDark = ref(mediaMatch.matches);
 
@@ -59,15 +58,15 @@ onUnmounted(() => {
   mediaMatch.removeEventListener("change", handleSystemThemeChange);
 });
 
-const activeThemeName = computed(() => {
-  const prefersDark =
+const prefersDark = computed(
+  () =>
     themeSetting.value === "dark" ||
-    (themeSetting.value === "auto" && systemPrefersDark.value);
-  if (uiVersion.value === "v2") {
-    return prefersDark ? V2_THEME_DARK : V2_THEME_LIGHT;
-  }
-  return prefersDark ? "dark" : "light";
-});
+    (themeSetting.value === "auto" && systemPrefersDark.value),
+);
+
+const activeThemeName = computed<"dark" | "light">(() =>
+  prefersDark.value ? "dark" : "light",
+);
 
 watch(
   activeThemeName,
@@ -88,12 +87,12 @@ const isV2 = computed(() => uiVersion.value === "v2");
 // properties so `var(--r-color-...)` resolves inside any teleported
 // dialog/menu. v1 mode strips the classes, keeping v1 CSS unaffected.
 watch(
-  [isV2, activeThemeName],
-  ([v2, themeName]) => {
+  [isV2, prefersDark],
+  ([v2, dark]) => {
     const root = document.documentElement;
     root.classList.toggle("r-v2", v2);
-    root.classList.toggle("r-v2-dark", v2 && themeName === V2_THEME_DARK);
-    root.classList.toggle("r-v2-light", v2 && themeName === V2_THEME_LIGHT);
+    root.classList.toggle("r-v2-dark", v2 && dark);
+    root.classList.toggle("r-v2-light", v2 && !dark);
   },
   { immediate: true },
 );

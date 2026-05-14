@@ -2,8 +2,8 @@
 // RTag — small inline pill used for header tags (region / language /
 // custom tags), hash chips (label + mono value), verification badges
 // (icon + label, tone-coloured by status). Lighter than RChip — no
-// VChip min-height — and tone variants are a single prop, not parallel
-// CSS classes.
+// imposed min-height — and tone variants are a single prop, not
+// parallel CSS classes.
 //
 // Layout:  [icon]  [LABEL]  [text/slot]
 //
@@ -34,7 +34,7 @@ interface Props {
     | "danger"
     | "warning"
     | "info";
-  /** Size ladder shared with RBtn / RChip / Vuetify. */
+  /** Size ladder shared with RBtn / RChip. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
 }
 
@@ -76,9 +76,9 @@ withDefaults(defineProps<Props>(), {
   border: 1px solid transparent;
   border-radius: var(--r-radius-chip);
   font-weight: var(--r-font-weight-medium);
-  /* Match the icon's line-height (.v-icon = 1) so glyph baselines align
-     with the icon's visual centre — otherwise the inherited 1.4 from
-     .r-v2 leaves descender room that pushes text visually above the icon. */
+  /* Match the icon's line-height (1) so glyph baselines align with the
+     icon's visual centre — otherwise the inherited 1.4 from .r-v2
+     leaves descender room that pushes text visually above the icon. */
   line-height: 1;
   white-space: nowrap;
   max-width: 100%;

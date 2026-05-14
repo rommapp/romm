@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// RForm — Vuetify-free. A native `<form>` that provides a registration
-// context so descendant form fields (RTextField, RSelect, RCheckbox)
-// auto-enroll. The form aggregates their validity into `modelValue`
-// and exposes `validate()` / `reset()` to consumers.
+// RForm — native `<form>` that provides a registration context so
+// descendant form fields (RTextField, RSelect, RCheckbox) auto-enroll.
+// The form aggregates their validity into `modelValue` and exposes
+// `validate()` / `reset()` to consumers.
 //
-// Two QoL extras kept from the previous Vuetify wrapper:
+// Two QoL extras:
 //   • Enter on any field submits when the form validates clean. Spares
 //     the consumer from binding `@keyup.enter` on every input.
 //   • After a failed `validate()`, scrolls the first invalid field

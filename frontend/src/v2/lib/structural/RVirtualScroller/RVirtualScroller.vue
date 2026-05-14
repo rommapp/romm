@@ -1,8 +1,7 @@
 <script setup lang="ts">
 // RVirtualScroller — custom windowed list with exact-offset positioning.
 //
-// Replaces the previous Vuetify v-virtual-scroll wrapper. We own the
-// math: heights are reported by the consumer per item (via
+// We own the math: heights are reported by the consumer per item (via
 // `getItemHeight`), the prefix-sum offset table is built once per items
 // change, and `scrollToIndex` is `containerEl.scrollTop = ...` — no
 // estimation, no drift, lands exactly on target items.

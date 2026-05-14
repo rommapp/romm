@@ -1,10 +1,8 @@
 <script setup lang="ts">
 // RSwitch — iOS-style on/off control. A 36×20 track with a 14px knob
-// that slides on toggle, brand-primary background when on. Uses a
-// `<button role="switch">` instead of wrapping `v-switch` because the
-// Vuetify control ships with a 56px input wrapper and label chrome we
-// only ever fight against. This stays focusable, keyboard- and
-// gamepad-friendly, and keeps the visible footprint exactly 36×20.
+// that slides on toggle, brand-primary background when on. A native
+// `<button role="switch">` — focusable, keyboard- and gamepad-friendly,
+// with a visible footprint of exactly 36×20.
 //
 // Optional `label` renders to the right of the switch (clicking the
 // label toggles too). Without a label, only the switch paints — useful

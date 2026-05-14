@@ -1,8 +1,7 @@
 <script setup lang="ts">
-// PasswordField — RTextField with the show/hide eye toggle baked in.
-// The eye icon (and its click listener) is the only bit Vuetify makes
-// tab-focusable by design, so consumers don't have to re-wire it in
-// every auth / settings form.
+// PasswordField — RTextField with the show/hide eye toggle baked in,
+// so consumers don't have to re-wire the visibility toggle in every
+// auth / settings form.
 import { RTextField } from "@v2/lib";
 import { ref } from "vue";
 

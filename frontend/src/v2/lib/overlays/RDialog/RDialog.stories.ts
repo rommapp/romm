@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
+import REmptyState from "@/v2/lib/primitives/REmptyState/REmptyState.vue";
+import RProgressCircular from "@/v2/lib/primitives/RProgressCircular/RProgressCircular.vue";
 import RDialog from "./RDialog.vue";
 
 const meta: Meta<typeof RDialog> = {
@@ -10,15 +12,8 @@ const meta: Meta<typeof RDialog> = {
     icon: { control: "text" },
     width: { control: "text" },
     height: { control: "text" },
-    loadingCondition: { control: "boolean" },
-    emptyStateCondition: { control: "boolean" },
-    emptyStateType: {
-      control: "select",
-      options: [null, "game", "platform", "firmware"],
-    },
-    expandContentOnEmptyState: { control: "boolean" },
     scrollContent: { control: "boolean" },
-    showRommIcon: { control: "boolean" },
+    persistent: { control: "boolean" },
   },
 };
 
@@ -55,15 +50,14 @@ export const Basic: Story = {
   }),
 };
 
+// Loading and empty states aren't built into the primitive any more —
+// the consumer renders them inside `#content` from REmptyState /
+// RProgressCircular. These stories demonstrate the recipe.
 export const Loading: Story = {
-  args: {
-    width: "420",
-    height: "240",
-    icon: "mdi-loading",
-    loadingCondition: true,
-  },
+  name: "Loading (composed)",
+  args: { width: "420", height: "240", icon: "mdi-loading" },
   render: (args) => ({
-    components: { RDialog, RBtn },
+    components: { RDialog, RBtn, RProgressCircular },
     setup() {
       const open = ref(false);
       return { args, open };
@@ -74,6 +68,41 @@ export const Loading: Story = {
         <RDialog v-bind="args" v-model="open">
           <template #header>
             <span>Fetching…</span>
+          </template>
+          <template #content>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;min-height:140px">
+              <RProgressCircular indeterminate :size="40" />
+            </div>
+          </template>
+        </RDialog>
+      </div>
+    `,
+  }),
+};
+
+export const EmptyState: Story = {
+  name: "Empty state (composed)",
+  args: { width: "420", height: "320", icon: "mdi-search-web" },
+  render: (args) => ({
+    components: { RDialog, RBtn, REmptyState },
+    setup() {
+      const open = ref(false);
+      return { args, open };
+    },
+    template: `
+      <div class="r-v2 r-v2-dark" style="padding: 48px; background: #07070f; min-height: 300px;">
+        <RBtn @click="open = true">Open empty dialog</RBtn>
+        <RDialog v-bind="args" v-model="open">
+          <template #header>
+            <span>Match metadata</span>
+          </template>
+          <template #content>
+            <REmptyState
+              icon="mdi-disc-alert"
+              title="No results"
+              hint="The game you were looking for doesn't match any provider."
+              style="flex:1"
+            />
           </template>
         </RDialog>
       </div>

@@ -155,7 +155,7 @@ function setKindFilter(value: KindFilterValue) {
       v-if="showSearch"
       :model-value="search"
       :placeholder="searchPlaceholder"
-      density="compact"
+      density="comfortable"
       prefix-label="inline"
       clearable
       hide-details
@@ -291,24 +291,8 @@ function setKindFilter(value: KindFilterValue) {
   min-width: 0;
 }
 
-/* Vuetify's v-text-field can briefly render tall on mount (label-measurement
-   race); pin the field height so it never balloons. */
-.gallery-toolbar__search :deep(.v-field) {
-  min-height: 40px;
-  max-height: 40px;
-}
-.gallery-toolbar__search :deep(.v-field__input) {
-  min-height: 40px !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-}
-.gallery-toolbar__search :deep(.v-input__details) {
-  display: none;
-}
-
-/* Kebab — RBtn forced to a 32×32 circle. Vuetify's size="small" and
-   density="compact" set height/width via `!important` utility classes, so
-   every dimension needs `!important` here to win. */
+/* Kebab — RBtn forced to a 32×32 circle. RBtn's size/density classes set
+   height via CSS vars, so we override the box dimensions here. */
 .gallery-toolbar__kebab {
   min-width: 32px !important;
   max-width: 32px !important;
@@ -324,10 +308,6 @@ function setKindFilter(value: KindFilterValue) {
   transition:
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.gallery-toolbar__kebab :deep(.v-btn__content) {
-  padding: 0;
-  min-width: 0;
 }
 .gallery-toolbar__kebab:hover {
   background: var(--r-color-surface-hover) !important;

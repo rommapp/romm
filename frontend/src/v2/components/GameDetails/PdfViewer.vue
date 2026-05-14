@@ -7,21 +7,18 @@
 //   * Plain <button> + RIcon + RTooltip per toolbar action — vue3-pdf-app
 //     wires controls by `id`, so raw buttons keep that contract while
 //     the v2 visual is owned by our scoped CSS.
-//   * Theme detection matches v2 — names are `v2-dark` / `v2-light`.
 import { RIcon, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import VuePdfApp from "vue3-pdf-app";
-import { useDisplay, useTheme } from "vuetify";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
+import { useThemeMode } from "@/v2/composables/useThemeMode";
 
 defineProps<{ pdfUrl: string }>();
 
-const { xs } = useDisplay();
-const theme = useTheme();
+const { xs } = useBreakpoint();
+const { isLight } = useThemeMode();
 const pdfTheme = computed<"light" | "dark">(() =>
-  theme.global.name.value.endsWith("-light") ||
-  theme.global.name.value === "light"
-    ? "light"
-    : "dark",
+  isLight.value ? "light" : "dark",
 );
 
 // IDs the library reaches for to wire up the custom toolbar — must

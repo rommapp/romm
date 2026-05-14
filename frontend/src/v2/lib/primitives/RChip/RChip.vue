@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RChip — Vuetify-free. Inline-flex pill / square label with prepend +
+// RChip — inline-flex pill / square label with prepend +
 // append icons, optional close button, six variants, and the v2 size
 // ladder.
 //

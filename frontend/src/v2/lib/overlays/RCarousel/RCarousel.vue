@@ -558,8 +558,8 @@ function onBackdropClick(event: MouseEvent) {
   transform: translateY(-50%);
 }
 
-/* Inline arrows live above the stage — Vuetify-tonal RBtn already handles
-   theming, we only need to position them. */
+/* Inline arrows live above the stage — RBtn handles theming, we only
+   need to position them. */
 .r-carousel--inline .r-carousel__nav {
   position: absolute;
   top: 50%;

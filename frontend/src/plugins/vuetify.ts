@@ -4,32 +4,18 @@ import { createVuetify } from "vuetify";
 import { VDateInput } from "vuetify/labs/VDateInput";
 import "vuetify/styles";
 import { dark, light } from "@/styles/themes";
-import {
-  V2_THEME_DARK,
-  V2_THEME_LIGHT,
-  v2Dark,
-  v2Light,
-} from "@/v2/theme/vuetify";
 
-// Initial theme resolution only — runtime theme changes (including uiVersion
-// and system-preference reactions) are owned by RomM.vue so theme names stay
-// in sync with the active UI generation.
-function getInitialTheme() {
+// Initial theme resolution only — runtime theme changes are owned by
+// RomM.vue, which keeps Vuetify's name in sync with user preference.
+// v2 surfaces don't read from Vuetify's runtime theme; they read tokens
+// off `.r-v2-dark` / `.r-v2-light` on <html>.
+function getInitialTheme(): "dark" | "light" {
   const storedTheme = useLocalStorage("settings.theme", "auto");
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const storedUiVersion = useLocalStorage("settings.uiVersion", "v1");
 
-  let base: "dark" | "light";
-  if (storedTheme.value === "dark" || storedTheme.value === "light") {
-    base = storedTheme.value;
-  } else {
-    base = prefersDark ? "dark" : "light";
-  }
-
-  if (storedUiVersion.value === "v2") {
-    return base === "dark" ? V2_THEME_DARK : V2_THEME_LIGHT;
-  }
-  return base;
+  if (storedTheme.value === "dark") return "dark";
+  if (storedTheme.value === "light") return "light";
+  return prefersDark ? "dark" : "light";
 }
 
 const instance = createVuetify({
@@ -41,12 +27,7 @@ const instance = createVuetify({
   },
   theme: {
     defaultTheme: getInitialTheme(),
-    themes: {
-      dark,
-      light,
-      [V2_THEME_DARK]: v2Dark,
-      [V2_THEME_LIGHT]: v2Light,
-    },
+    themes: { dark, light },
   },
 });
 

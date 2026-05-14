@@ -9,7 +9,7 @@
 //
 // Key difference from the v1 player: metadata chips are shown per track AND
 // in the now-playing header, not just in the header.
-import { RBtn, RChip, RIcon, RSpinner } from "@v2/lib";
+import { RBtn, RChip, RIcon, RSlider, RSpinner } from "@v2/lib";
 import axios, { type AxiosRequestConfig } from "axios";
 import { storeToRefs } from "pinia";
 import {
@@ -411,15 +411,11 @@ function seekValueText(v: number): string {
         @click="player.next()"
       />
       <span class="r-v2-stp__time">{{ fmt(currentTime) }}</span>
-      <v-slider
+      <RSlider
         :model-value="currentTime"
         :max="duration || 0"
         :step="0.1"
-        density="compact"
-        hide-details
         color="primary"
-        thumb-size="14"
-        track-size="3"
         class="r-v2-stp__slider"
         aria-label="Seek"
         :aria-valuetext="seekValueText(currentTime)"

@@ -11,7 +11,6 @@
 // Items can carry an optional leading icon and an optional badge
 // (string | number). Items with `show: false` are filtered out so
 // callers can pass a single declarative source.
-import RIcon from "../../primitives/RIcon/RIcon.vue";
 import {
   computed,
   nextTick,
@@ -20,6 +19,7 @@ import {
   ref,
   watch,
 } from "vue";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
 import type { RTabNavItem } from "./types";
 
 defineOptions({ inheritAttrs: false });
@@ -27,7 +27,7 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   modelValue: string;
   items: RTabNavItem[];
-  /** Size ladder shared with RBtn / RChip / RTag / Vuetify. */
+  /** Size ladder shared with RBtn / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   variant?: "underlined" | "pill";
   orientation?: "horizontal" | "vertical";

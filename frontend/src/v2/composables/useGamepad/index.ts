@@ -125,17 +125,17 @@ export function useGamepad() {
     trigger?.click();
   }
 
-  // Navigate backwards. If a Vuetify overlay (dialog, menu, picker) is
+  // Navigate backwards. If a v1 overlay (dialog, menu, picker) is
   // active right now we defer to Escape so it closes first — one B press
   // shouldn't both dismiss the dialog AND pop a history entry. No active
   // overlay = plain router.back().
   //
   // Important: we key off `.v-overlay--active` rather than
-  // `.v-overlay__content`. Vuetify's lazy-render keeps the content
-  // element in the DOM after first activation (tooltip hovered once,
-  // menu opened once, …) so `.v-overlay__content` can linger long after
-  // the overlay is closed; `--active` is only present while the overlay
-  // is actually visible.
+  // `.v-overlay__content` because lazy-render keeps the content element
+  // in the DOM after first activation (tooltip hovered once, menu opened
+  // once, …) so `.v-overlay__content` can linger long after the overlay
+  // is closed; `--active` is only present while the overlay is actually
+  // visible.
   function goBack() {
     const hasOpenOverlay = !!document.querySelector(".v-overlay--active");
     if (hasOpenOverlay) {

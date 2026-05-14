@@ -6,8 +6,8 @@
  *
  * Scoped under .r-v2 so v1 styling is unaffected. Theme palettes live under
  * .r-v2.r-v2-dark and .r-v2.r-v2-light. The classes are toggled on <html>
- * by RomM.vue so teleported overlays (VDialog, VMenu, VTooltip) — which
- * land in <body> outside <v-app> — still resolve var(--r-color-*).
+ * by RomM.vue so teleported overlays (RDialog, RMenu, RTooltip) — which
+ * land in <body> outside the app root — still resolve var(--r-color-*).
  */
 
 .r-v2 {
@@ -166,8 +166,6 @@ html[data-input="pad"] .r-v2 {
   --r-color-cover-placeholder-bright: #252540;
   --r-color-auth-glass: rgba(13, 17, 23, 0.65);
   --r-color-toast-bg: rgba(13, 17, 23, 0.92);
-  --r-color-vuetify-surface: #15151f;
-  --r-color-vuetify-toplayer: #1f1f2b;
 }
 
 /* Light surface palette — translucent black over the off-white base. */
@@ -192,6 +190,4 @@ html[data-input="pad"] .r-v2 {
   --r-color-cover-placeholder-bright: #252540;
   --r-color-auth-glass: rgba(245, 245, 250, 0.85);
   --r-color-toast-bg: rgba(245, 245, 250, 0.95);
-  --r-color-vuetify-surface: #ffffff;
-  --r-color-vuetify-toplayer: #ebebf2;
 }

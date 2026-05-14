@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RCheckbox — Vuetify-free. Native `<input type="checkbox">` hidden
+// RCheckbox — native `<input type="checkbox">` hidden
 // inside a `<label>` so the whole row is the click target — no
 // "ghost tap area" around the box needed. The visible box renders at
 // its true size and the `gap` between box and label reads as a real

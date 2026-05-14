@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// RBtn — Vuetify-free. The workhorse of the v2 library.
+// RBtn — the workhorse of the v2 library.
 //
 // Polymorphic root via `<component :is>`:
 //   • `to` set → renders RouterLink
 //   • `href` set → renders <a>
 //   • otherwise → renders <button>
-// This matches Vuetify's VBtn auto-detection so call sites that use
-// `to="/foo"` or `href="https://…"` keep working unchanged.
+// So call sites that use `to="/foo"` or `href="https://…"` work as
+// drop-in router/anchor variants.
 //
 // Variants `flat / elevated / translucent / outlined / text / plain`
 // — same shape across the lib. `border` adds a translucent
@@ -418,7 +418,7 @@ const spinnerSize = computed(() => {
   font-size: 1.25em;
 }
 
-/* ── Density — slight height compression per Vuetify spec ──────── */
+/* ── Density — slight height compression ────────────────────────── */
 .r-btn--density-comfortable {
   /* -4px from default — keeps the size ladder visually predictable. */
   height: calc(var(--r-btn-rest-h, auto) - 4px);

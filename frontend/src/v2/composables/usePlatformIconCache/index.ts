@@ -2,11 +2,11 @@
 //
 // Why: `/assets/platforms/*.svg` is served without explicit cache
 // headers, so the browser revalidates / re-downloads on every
-// `<v-img>` mount. In tables and menus that render many
-// `PlatformIcon`s, this turns into a flood of network requests every
-// time the surface opens. Caching the raw blob and reusing a
-// `URL.createObjectURL()` URL means subsequent reads are
-// memory-local — zero network for the lifetime of the page.
+// `<img>` mount. In tables and menus that render many platform icons,
+// this turns into a flood of network requests every time the surface
+// opens. Caching the raw blob and reusing a `URL.createObjectURL()`
+// URL means subsequent reads are memory-local — zero network for the
+// lifetime of the page.
 //
 // The cache is a `reactive(Map)` so components reading via
 // `getCachedPlatformIcon(slug)` automatically re-render when
@@ -38,9 +38,9 @@ async function fetchOne(slug: string): Promise<void> {
     if (!blob.type || !blob.type.startsWith("image/")) return;
     cache.set(key, URL.createObjectURL(blob));
   } catch {
-    // Swallow — PlatformIcon's own .ico / default fallback chain
-    // handles legitimate misses on-demand when the cache miss falls
-    // through to a real <v-img>.
+    // Swallow — `CachedPlatformIcon`'s own .ico / default fallback
+    // chain handles legitimate misses on-demand when the cache miss
+    // falls through to a real `<img>` load.
   } finally {
     inflight.delete(key);
   }
@@ -49,8 +49,8 @@ async function fetchOne(slug: string): Promise<void> {
 /**
  * Drop a slug's cached entry. Called by CachedPlatformIcon when its
  * `<img>` reports a render error, so the next render falls through
- * to PlatformIcon's fallback chain (.ico → default.ico) instead of
- * leaving the broken-image glyph on screen.
+ * to its own fallback chain (.ico → default.ico) instead of leaving
+ * the broken-image glyph on screen.
  */
 export function invalidatePlatformIcon(slug: string): void {
   const key = slug.toLowerCase();

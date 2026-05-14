@@ -1,18 +1,19 @@
 <script setup lang="ts">
-// RSelect — Vuetify-free. Combines an RTextField-style activator
-// (variants, hover/focus halos, labels) with a floating menu panel
-// positioned by `@floating-ui/vue` and rendered as a teleported
-// surface in the v2 glass language.
+// RSelect — combines an RTextField-style activator (variants,
+// hover/focus halos, labels) with a floating menu panel positioned by
+// `@floating-ui/vue` and rendered as a teleported surface in the v2
+// glass language.
 //
 // Single + multi-select. Items normalise via `itemTitle` / `itemValue`
 // (string key or function) so any shape — strings, numbers, plain
 // objects — fits without per-call-site shimming. `searchable` adds a
 // sticky search input at the top of the panel.
 //
-// Slots — same names as the previous Vuetify-wrapper version so call
-// sites don't have to change the templates that ship `#selection` and
-// `#item`. The `#item` slot's `props` is spread on any element you want
-// (no need for `v-list-item`); the row default is a `<li>`.
+// Slots `#selection` and `#item`. The `#item` slot's `props` bag is
+// spread on any element you want — it carries `class` (including the
+// active/selected/disabled state), `role`, `aria-*`, click/hover
+// handlers, and the index data attribute. The row default is a `<li>`
+// styled by `.r-select__item`.
 import {
   autoUpdate,
   flip,
@@ -48,7 +49,7 @@ interface NormalisedItem {
   // `raw` + `value` are the consumer's source item / its key — we don't
   // know their shape but they do. Typing as `any` so `#selection` /
   // `#item` slot consumers can read fields off them without spamming
-  // `as` casts. Vuetify's VSelect did the same.
+  // `as` casts.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   raw: any;
   title: string;
@@ -891,8 +892,17 @@ const hasPrependInner = computed(
               :active="i === activeIndex"
               :selected="isSelected(item.value)"
               :props="{
+                class: [
+                  'r-select__item',
+                  {
+                    'r-select__item--active': i === activeIndex,
+                    'r-select__item--selected': isSelected(item.value),
+                    'r-select__item--disabled': item.disabled,
+                  },
+                ],
                 role: 'option',
                 'aria-selected': isSelected(item.value),
+                'aria-disabled': item.disabled || undefined,
                 'data-r-select-index': i,
                 tabindex: -1,
                 onClick: () => selectItem(item),
@@ -1346,6 +1356,30 @@ html[data-input="pad"] .r-select__field:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* Column wrapper for two-row items (title + subtitle). Pair with the
+   single-line `.r-select__item-title` and `.r-select__item-subtitle`
+   classes inside it — the wrapper takes the flex slot the bare title
+   would have used. */
+.r-select__item-stack {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.r-select__item-stack .r-select__item-title {
+  /* Inside the stack the title is no longer the flex slot, so drop the
+     `flex: 1` — let it size to its line height. */
+  flex: 0 0 auto;
+}
+.r-select__item-subtitle {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-medium);
+  color: var(--r-color-fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .r-select__item-check {
   color: var(--r-color-brand-primary);

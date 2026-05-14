@@ -7,13 +7,12 @@
 //
 // Order-by select sits in the section header so it's reachable
 // without scrolling through the list.
-import { RIcon, RSelect } from "@v2/lib";
+import { RIcon, RPlatformIcon, RSelect } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
-import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, regionToEmoji } from "@/utils";
@@ -137,7 +136,7 @@ function coveragePercent(matched: number, total: number): string {
         :key="platform.slug"
         class="r-v2-plat-stats__row"
       >
-        <PlatformIcon
+        <RPlatformIcon
           :slug="platform.slug"
           :name="platform.name"
           :fs-slug="platform.fs_slug"
@@ -231,7 +230,7 @@ function coveragePercent(matched: number, total: number): string {
 .r-v2-plat-stats__order {
   width: 140px;
 }
-.r-v2-plat-stats__order :deep(.v-field__input) {
+.r-v2-plat-stats__order :deep(.r-select__field) {
   font-size: 12px;
 }
 

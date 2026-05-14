@@ -1,21 +1,21 @@
 <script setup lang="ts">
-// v2 SelectSaveDialog — listens for `selectSaveDialog`, shows a grid of the
-// ROM's saves using the v1 AssetCard primitive inside a v2 RDialog. Emits
-// `saveSelected` on click (consumed by EmulatorJS view).
+// v2 SelectSaveDialog — listens for `selectSaveDialog`, shows a grid of
+// the ROM's saves and emits `saveSelected` on click (consumed by the
+// EmulatorJS view).
 import { RBtn, RDialog, RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useDisplay } from "vuetify";
 import type { SaveSchema } from "@/__generated__";
-import AssetCard from "@/components/common/Game/AssetCard.vue";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import AssetCard from "@/v2/components/Player/AssetCard.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const { mdAndUp } = useDisplay();
+const { mdAndUp } = useBreakpoint();
 const show = ref(false);
 const rom = ref<DetailedRom | null>(null);
 
@@ -59,8 +59,6 @@ function closeDialog() {
           :key="save.id"
           :asset="save"
           type="save"
-          :rom="rom"
-          :show-hover-actions="false"
           class="r-v2-save-picker__item"
           @click="onCardClick(save)"
         />

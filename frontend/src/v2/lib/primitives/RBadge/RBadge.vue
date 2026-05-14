@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RBadge — Vuetify-free. Wraps a default slot (the anchor element) and
+// RBadge — wraps a default slot (the anchor element) and
 // floats a small pill / dot / icon in one of eight positions (`top end`,
 // `bottom start`, side anchors). Built for the unread-counter, status,
 // favorite, online-indicator patterns.
@@ -34,7 +34,7 @@ type Anchor =
 interface Props {
   content?: string | number;
   /** Tone keyword / legacy `romm-*` / any CSS colour. Default `"error"`
-   *  matches Vuetify's default (red unread-count look). */
+   *  for the red unread-count look. */
   color?: string;
   /** Bare dot — ignores `content` / `icon`. */
   dot?: boolean;

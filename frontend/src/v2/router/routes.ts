@@ -2,7 +2,7 @@
 //
 // As each wave migrates a view to v2, add its lazy-imported component here
 // under the matching route name. The main router (src/plugins/router.ts)
-// injects these into the v1 route config as Vuetify named views:
+// injects these into the v1 route config as Vue Router named views:
 //
 //   components: { default: v1Component, v2: v2RouteComponents[name] }
 //

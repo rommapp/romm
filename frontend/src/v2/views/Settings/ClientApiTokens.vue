@@ -293,11 +293,13 @@ onMounted(fetchTokens);
   gap: 4px;
 }
 
-.r-v2-tok__delete :deep(.v-btn) {
-  color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
+/* Dimmed at rest, full red on hover. RBtn's text variant uses
+   `var(--r-btn-color)` for the icon colour; setting that token directly
+   on the button root drives both states without a :deep selector. */
+.r-v2-tok__delete {
+  --r-btn-color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
 }
-.r-v2-tok__delete:hover :deep(.v-btn) {
-  color: var(--r-color-danger);
-  background: color-mix(in srgb, var(--r-color-danger) 12%, transparent);
+.r-v2-tok__delete:hover {
+  --r-btn-color: var(--r-color-danger);
 }
 </style>

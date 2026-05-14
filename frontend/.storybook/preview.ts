@@ -10,12 +10,12 @@ import "../src/styles/common.css";
 import "../src/styles/fonts.css";
 import { dark, light } from "../src/styles/themes";
 import "../src/v2/styles/global.css";
-import { v2Dark, v2Light } from "../src/v2/theme/vuetify";
 
 // Each story runs inside a Vue app with Pinia + i18n + Vuetify registered.
-// The theme switcher toolbar (below) drives Vuetify's theme name, and the
-// `.r-v2-dark` / `.r-v2-light` class on <body> drives the CSS custom
-// properties used by v2 R-components.
+// v2 primitives are Vuetify-free at runtime — Vuetify stays registered only
+// because some shared dependencies still pull it in. The visible theme for
+// v2 stories comes from the `.r-v2-dark` / `.r-v2-light` class toggled on
+// <body> by the theme switcher decorator below.
 //
 // permissionsStore is hydrated with admin grants so any primitive that
 // consumes `useCan(...)` renders its enabled state. Stories that need to
@@ -27,13 +27,8 @@ setup((app) => {
   app.use(
     createVuetify({
       theme: {
-        defaultTheme: "v2-dark",
-        themes: {
-          dark,
-          light,
-          "v2-dark": v2Dark,
-          "v2-light": v2Light,
-        },
+        defaultTheme: "dark",
+        themes: { dark, light },
       },
     }),
   );

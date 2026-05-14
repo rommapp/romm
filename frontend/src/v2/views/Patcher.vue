@@ -7,9 +7,11 @@ import {
   RAlert,
   RBtn,
   RCheckbox,
+  RExpandTransition,
   RIcon,
   RPlatformIcon,
   RSelect,
+  RTag,
   RTextField,
 } from "@v2/lib";
 import { useDropZone } from "@vueuse/core";
@@ -584,7 +586,7 @@ onMounted(async () => {
         />
       </div>
 
-      <v-expand-transition>
+      <RExpandTransition>
         <RSelect
           v-if="saveIntoRomM"
           v-model="selectedPlatform"
@@ -600,47 +602,36 @@ onMounted(async () => {
           clearable
         >
           <template #item="{ props: itemProps, item }">
-            <v-list-item
-              v-bind="itemProps"
-              class="py-3"
-              :title="item.raw.name ?? ''"
-              :subtitle="item.raw.fs_slug"
-            >
-              <template #prepend>
-                <RPlatformIcon
-                  :key="item.raw.slug"
-                  :size="32"
-                  :slug="item.raw.slug"
-                  :name="item.raw.name"
-                  :fs-slug="item.raw.fs_slug"
-                />
-              </template>
-              <template #append>
-                <MissingFSBadge
-                  v-if="item.raw.missing_from_fs"
-                  text="Missing platform from filesystem"
-                  class="ml-2"
-                />
-                <v-chip class="ml-1" size="small" label>
-                  {{ item.raw.rom_count }}
-                </v-chip>
-              </template>
-            </v-list-item>
-          </template>
-          <template #chip="{ item }">
-            <v-chip>
+            <li v-bind="itemProps">
               <RPlatformIcon
                 :key="item.raw.slug"
+                :size="32"
                 :slug="item.raw.slug"
                 :name="item.raw.name"
                 :fs-slug="item.raw.fs_slug"
-                :size="18"
               />
-              <span class="ml-2">{{ item.raw.name }}</span>
-            </v-chip>
+              <div class="r-select__item-stack">
+                <div class="r-select__item-title">
+                  {{ item.raw.name ?? "" }}
+                </div>
+                <div v-if="item.raw.fs_slug" class="r-select__item-subtitle">
+                  {{ item.raw.fs_slug }}
+                </div>
+              </div>
+              <MissingFSBadge
+                v-if="item.raw.missing_from_fs"
+                text="Missing platform from filesystem"
+                class="ml-2"
+              />
+              <RTag
+                class="ml-1"
+                size="small"
+                :text="String(item.raw.rom_count)"
+              />
+            </li>
           </template>
         </RSelect>
-      </v-expand-transition>
+      </RExpandTransition>
 
       <RTextField
         v-model="customFileName"

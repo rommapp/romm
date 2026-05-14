@@ -6,17 +6,25 @@
 // The v2 rewrite keeps the v1 `GameCard` + `Skeleton` composites for
 // cover rendering (they handle procedural covers / boxart / aspect ratio
 // via galleryViewStore) and builds v2 chrome around them.
-import { RBtn, RDialog, RIcon, RSelect, RTextField } from "@v2/lib";
+import {
+  RBtn,
+  RDialog,
+  REmptyState,
+  RIcon,
+  RProgressCircular,
+  RSelect,
+  RTextField,
+} from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
-import { useDisplay } from "vuetify";
-import GameCard from "@/components/common/Game/Card/Base.vue";
 import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import GameCard from "@/v2/components/GameCard/GameCard.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
@@ -45,7 +53,7 @@ type SourceFilter = {
 };
 
 const { t } = useI18n();
-const { xs, lgAndUp } = useDisplay();
+const { xs, lgAndUp } = useBreakpoint();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
@@ -305,9 +313,6 @@ function closeDialog() {
   <RDialog
     v-model="show"
     icon="mdi-search-web"
-    :loading-condition="searching"
-    :empty-state-condition="searched && matchedRoms.length === 0"
-    empty-state-type="game"
     scroll-content
     :width="lgAndUp ? 880 : '95vw'"
     :height="xs ? '82vh' : '88vh'"
@@ -391,18 +396,26 @@ function closeDialog() {
     </template>
 
     <template #content>
-      <template v-if="!showSelectSource">
+      <!-- Loading — searching the metadata providers. -->
+      <div v-if="searching" class="r-v2-match__state">
+        <RProgressCircular indeterminate :size="40" />
+      </div>
+
+      <!-- Empty — search ran but nothing matched. -->
+      <REmptyState
+        v-else-if="searched && matchedRoms.length === 0"
+        icon="mdi-disc-alert"
+        :title="t('common.no-results')"
+        :hint="t('rom.results-found')"
+      />
+
+      <template v-else-if="!showSelectSource">
         <div v-if="rom" class="r-v2-match__grid">
           <GameCard
             v-for="matchedRom in filteredMatchedRoms"
             :key="`${matchedRom.igdb_id}-${matchedRom.moby_id}-${matchedRom.ss_id}-${matchedRom.name}`"
-            :rom="matchedRom"
-            transform-scale
-            title-on-hover
-            pointer-on-hover
-            disable-view-transition
-            :show-action-bar="false"
-            force-boxart="cover_path"
+            :rom="matchedRom as unknown as SimpleRom"
+            static
             class="r-v2-match__card"
             @click="showSources(matchedRom)"
           />
@@ -441,24 +454,13 @@ function closeDialog() {
             <GameCard
               v-for="source in sources"
               :key="source.name"
-              :rom="{
-                id: 0,
-                name: source.name,
-                platform_id: selectedMatchRom?.platform_id || 0,
-                is_identified: true,
-                is_unidentified: false,
-              }"
+              :rom="{ id: 0, name: source.name } as unknown as SimpleRom"
               :cover-src="source.url_cover"
-              :width="xs ? 150 : 200"
-              transform-scale
-              pointer-on-hover
-              disable-view-transition
-              force-boxart="cover_path"
-              :show-action-bar="false"
-              :with-border-primary="selectedCover?.name === source.name"
+              :selected="selectedCover?.name === source.name"
+              static
               @click="selectCover(source)"
             >
-              <template #append-inner-right>
+              <template #overlay>
                 <div class="r-v2-match__source-logo">
                   <img :src="source.logo_path" :alt="source.name" />
                 </div>
@@ -606,6 +608,16 @@ function closeDialog() {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 10px;
+}
+
+/* Centred slot for the loading spinner / empty state — fills the
+   remaining body height so the dialog doesn't collapse to the spinner. */
+.r-v2-match__state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
 }
 
 .r-v2-match__card {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RList — Vuetify-free. Container for a vertical stack of RListItem
+// RList — container for a vertical stack of RListItem
 // children. Plays two roles:
 //
 //   • Semantic outer — wraps the items in `role="list"` so screen

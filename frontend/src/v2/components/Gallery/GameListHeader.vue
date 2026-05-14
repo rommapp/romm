@@ -40,9 +40,8 @@ function isSortable(col: ListColumn): col is ListColumn & { key: ListSortKey } {
 function handleClick(col: ListColumn) {
   if (!isSortable(col)) return;
   // Toggle direction when re-clicking the active column; otherwise
-  // start the new column at ascending — the same affordance Vuetify's
-  // VDataTable shipped, mirrored here so users get consistent behaviour
-  // moving between gallery surfaces.
+  // start the new column at ascending — consistent behaviour with
+  // every other sortable table in the app.
   const nextDir: "asc" | "desc" =
     props.sortKey === col.key && props.sortDir === "asc" ? "desc" : "asc";
   emit("sort", { key: col.key, dir: nextDir });

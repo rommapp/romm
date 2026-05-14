@@ -6,15 +6,15 @@ import { RDialog } from "@v2/lib";
 import type { Emitter } from "mitt";
 import qrcode from "qrcode";
 import { inject, nextTick, onBeforeUnmount, ref } from "vue";
-import { useDisplay } from "vuetify";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getNintendoDSFiles, getDownloadLink, isNintendoDSFile } from "@/utils";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { colorCanvas, colorOverlay } from "@/v2/tokens";
 
 defineOptions({ inheritAttrs: false });
 
-const { lgAndUp } = useDisplay();
+const { lgAndUp } = useBreakpoint();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const emitter = inject<Emitter<Events>>("emitter");

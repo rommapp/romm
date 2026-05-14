@@ -33,7 +33,6 @@ export const colorBrand = {
   rommBlue: "#0070F3",
   rommGold: "#FFD700",
   // Light-theme brand variants (deeper for contrast on a light page).
-  // Vuetify's light theme reads these directly via the v2Light theme.
   primaryLight: "#371F69",
   secondaryLight: "#553E98",
   primaryLightHover: "#7850E6",
@@ -118,10 +117,6 @@ export const colorDark = {
   authGlass: "rgba(13, 17, 23, 0.65)",
   // Toast/notification background — opaque deep card.
   toastBg: "rgba(13, 17, 23, 0.92)",
-  // Vuetify needs solid surface tones; the translucent --r-color-surface
-  // can't be passed to the Vuetify theme as a hex.
-  vuetifySurface: "#15151f",
-  vuetifyToplayer: "#1f1f2b",
 } as const;
 
 export const colorLight = {
@@ -148,8 +143,6 @@ export const colorLight = {
   coverPlaceholderBright: "#252540",
   authGlass: "rgba(245, 245, 250, 0.85)",
   toastBg: "rgba(245, 245, 250, 0.95)",
-  vuetifySurface: "#ffffff",
-  vuetifyToplayer: "#ebebf2",
 } as const;
 
 // Cover-overlay surfaces — fixed dark glass values that never theme-flip.

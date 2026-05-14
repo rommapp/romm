@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RMenu — Vuetify-free. The only floating-menu primitive: owns the
+// RMenu — the only floating-menu primitive: owns the
 // glass panel surface, the activator wiring, optional search header,
 // click-outside / Escape / close-on-content-click, and the open
 // transition. Built on `@floating-ui/vue` for positioning, sharing the
@@ -69,7 +69,7 @@ interface Props {
   closeOnContentClick?: boolean;
   /** Open on hover instead of click (e.g. dropdown menus on a nav). */
   openOnHover?: boolean;
-  /** Vuetify-style anchor — mapped to a floating-ui placement. */
+  /** Anchor — mapped to a floating-ui placement. */
   location?: Anchor;
   /** Px gap between activator and panel. */
   offset?: number;
@@ -141,7 +141,8 @@ function close() {
   setOpen(false);
 }
 function toggle() {
-  isOpen.value ? close() : open();
+  if (isOpen.value) close();
+  else open();
 }
 
 provide(RMenuCloseKey, close);

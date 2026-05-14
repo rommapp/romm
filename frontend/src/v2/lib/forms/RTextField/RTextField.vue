@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RTextField — Vuetify-free. Native `<input>` wrapped in a styled
+// RTextField — native `<input>` wrapped in a styled
 // field container. Four visual variants — `outlined` (default),
 // `filled`, `underlined`, `plain` — and three densities driving the
 // row height via CSS vars.
@@ -36,8 +36,8 @@ defineOptions({ inheritAttrs: false });
 
 // `any` (not `unknown`) so call sites can write narrow signatures like
 // `(v: string) => true | string` without TS rejecting on variance. The
-// downside (rule callers seeing `any`) is the same trade-off Vuetify
-// ships and matches existing project rule arrays.
+// downside (rule callers seeing `any`) matches existing project rule
+// arrays.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Rule = (value: any) => true | string;
 
@@ -160,7 +160,7 @@ function runRules() {
     const v = r(props.modelValue);
     if (v !== true && typeof v === "string" && v.length) {
       out.push(v);
-      break; // Show only the first failing rule — match Vuetify behaviour.
+      break; // Show only the first failing rule.
     }
   }
   internalErrors.value = out;
@@ -269,10 +269,9 @@ const inlineLabelOn = computed(() => props.prefixLabel === "inline");
 const stackedLabelOn = computed(() => props.prefixLabel === "stacked");
 
 // When `label` is set without a `prefixLabel`, we don't render a
-// visible label (the old Vuetify floating-label slot is gone). Fall
-// back to the label as placeholder + aria-label so the field still
-// reads what it's for. Consumers wanting a visible label pass
-// `prefixLabel="stacked"` or `"inline"`.
+// visible label — fall back to the label as placeholder + aria-label
+// so the field still reads what it's for. Consumers wanting a visible
+// label pass `prefixLabel="stacked"` or `"inline"`.
 const effectivePlaceholder = computed(
   () => props.placeholder ?? (!props.prefixLabel ? props.label : undefined),
 );

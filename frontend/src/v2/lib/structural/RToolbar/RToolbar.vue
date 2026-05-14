@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RToolbar — Vuetify-free. Horizontal flex bar with four ordered
+// RToolbar — horizontal flex bar with four ordered
 // regions: `prepend → title → default → append`. Designed for app
 // bars, gallery headers, dialog title rows — anywhere you want a
 // header strip that holds a label on the left and actions on the

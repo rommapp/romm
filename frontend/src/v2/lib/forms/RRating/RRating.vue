@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RRating — Vuetify-free. A row of N icon-buttons that paint as
+// RRating — a row of N icon-buttons that paint as
 // "full" up to the model value and "empty" past it. Click sets the
 // value to that index+1; clicking the current value clears it when
 // `clearable` is on.
@@ -145,7 +145,7 @@ function onMouseLeave() {
 }
 
 // ── Size ────────────────────────────────────────────────────────
-// Vuetify size names → px sizes; numeric input passes through.
+// Size keyword ladder → px sizes; numeric input passes through.
 const SIZE_MAP: Record<string, string> = {
   "x-small": "14px",
   small: "18px",

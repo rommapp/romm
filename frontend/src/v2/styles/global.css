@@ -22,15 +22,15 @@
 /* Focus rings are modality-gated — invisible for mouse/touch so we don't
    dog-pile the hover states, visible and prominent for keyboard/pad so
    the user always knows where they are.
-   Form controls (text fields, textareas, selects, combobox inputs,
-   Vuetify's `.v-field` wrapper) are excluded from the generic rule —
-   Vuetify already paints a focus treatment on the `.v-field__outline` and
-   our outline-on-top stacks as a grey rectangle around the raw <input>.
-   Those elements style themselves through Vuetify + the theme tokens.
-   The generic rules are wrapped in `:where()` so they evaluate at the
-   lowest specificity — any component that paints its own focus state
-   (GameCard, PlatformTile, CollectionTile, …) can override with a
-   plain class selector and its rule will win. */
+   Form controls (text fields, textareas, selects, combobox inputs, plus
+   the legacy `.v-field` wrapper still used by a handful of v1-era
+   panels) are excluded from the generic rule — they paint their own
+   focus treatment, and stacking our outline on top reads as a grey
+   rectangle around the raw <input>. The generic rules are wrapped in
+   `:where()` so they evaluate at the lowest specificity — any component
+   that paints its own focus state (GameCard, PlatformTile,
+   CollectionTile, …) can override with a plain class selector and its
+   rule will win. */
 html[data-input="mouse"] :where(.r-v2 *:focus-visible),
 html[data-input="touch"] :where(.r-v2 *:focus-visible) {
   outline: none;
@@ -69,8 +69,8 @@ html[data-input="pad"]
 }
 
 /* Explicitly clear any outline on bare form controls so a lingering
-   browser default / UA stylesheet doesn't leak through. Vuetify owns
-   the visible focus state inside the field wrapper. */
+   browser default / UA stylesheet doesn't leak through. Each form
+   primitive paints its own focus state inside the wrapper. */
 .r-v2 input:focus-visible,
 .r-v2 textarea:focus-visible,
 .r-v2 select:focus-visible,

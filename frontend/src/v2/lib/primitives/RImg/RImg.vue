@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RImg — Vuetify-free. Wraps a native <img> with three slot-driven
+// RImg — wraps a native <img> with three slot-driven
 // states: `loading` (while the network fetch is in flight), `error`
 // (when load fails or src is empty), and `default` (a content overlay
 // rendered on top of the loaded image — captions, hover CTAs, etc).

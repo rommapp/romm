@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
+import RTag from "@/v2/lib/primitives/RTag/RTag.vue";
 import RCollapsible from "./RCollapsible.vue";
 
 const meta: Meta<typeof RCollapsible> = {
@@ -40,6 +41,31 @@ export const Open: Story = {
 
 export const WithIcon: Story = {
   args: { title: "With leading icon", icon: "mdi-information-outline" },
+};
+
+// `#header-append` slot — content between the title and the chevron.
+// Used by ScanPlatform for ROM-count / firmware / "not identified"
+// chips, but generic enough for any badge / counter use.
+export const WithHeaderAppend: Story = {
+  name: "Header append (chips)",
+  render: () => ({
+    components: { RCollapsible, RTag },
+    setup: () => ({ open: ref(false) }),
+    template: `
+      <div style="max-width: 380px">
+        <RCollapsible v-model="open" title="Super Nintendo" icon="mdi-controller">
+          <template #header-append>
+            <RTag tone="brand" size="x-small" text="142" />
+            <RTag tone="warning" size="x-small" icon="mdi-memory" text="3" />
+          </template>
+          <p style="margin: 0; font-size: 13px; color: var(--r-color-fg-secondary);">
+            Slot content sits between the title and the chevron — perfect for counts,
+            status pills, or quick-action buttons that should travel with the header.
+          </p>
+        </RCollapsible>
+      </div>
+    `,
+  }),
 };
 
 export const Disabled: Story = {

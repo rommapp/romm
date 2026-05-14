@@ -1,16 +1,14 @@
 <script setup lang="ts">
-// RIcon — Vuetify-free. Renders an MDI glyph via the `@mdi/font` CSS
-// pseudo-element pipeline. `font-size` drives the visual size; `color`
-// resolves either a v2 tone keyword (`"primary"`, `"success"`, …) or
-// a legacy `romm-*` name, or passes through any CSS colour value
-// (hex, rgb(...), named CSS colour). When `color` is omitted the icon
-// inherits its parent — matches Vuetify's VIcon behaviour so consumers
-// don't need to change a single call site.
+// RIcon — renders an MDI glyph via the `@mdi/font` CSS pseudo-element
+// pipeline. `font-size` drives the visual size; `color` resolves either
+// a v2 tone keyword (`"primary"`, `"success"`, …) or a legacy `romm-*`
+// name, or passes through any CSS colour value (hex, rgb(...), named
+// CSS colour). When `color` is omitted the icon inherits its parent.
 //
 // Sized via `font-size` (not `width`/`height`) because the glyph is a
 // pseudo-element on the `.mdi` class. We mirror the icon's `font-size`
 // to `width`/`height` so the wrapper is a perfect square — keeps icon
-// + text alignment in flex rows identical to what VIcon produced.
+// + text alignment in flex rows tight.
 import { computed } from "vue";
 
 defineOptions({ inheritAttrs: false });
@@ -32,9 +30,9 @@ const props = withDefaults(defineProps<Props>(), {
   color: undefined,
 });
 
-// Named size ladder mirrors Vuetify's keyword set so call sites pass
-// `"small"` / `"large"` without rounding pixel values. Numeric sizes
-// (`24`, `"24"`) are coerced to px; pre-formatted lengths pass through.
+// Named size ladder so call sites pass `"small"` / `"large"` without
+// rounding pixel values. Numeric sizes (`24`, `"24"`) are coerced to
+// px; pre-formatted lengths pass through.
 const SIZE_MAP: Record<string, string> = {
   "x-small": "12px",
   small: "16px",
@@ -52,8 +50,7 @@ const resolvedSize = computed<string | undefined>(() => {
 });
 
 // Single source of truth for v2 tone aliasing. Other primitives will
-// share this once we extract it — for now it lives here since RIcon is
-// the only consumer post-Vuetify-rip.
+// share this once we extract it.
 const TONE_MAP: Record<string, string> = {
   primary: "var(--r-color-brand-primary)",
   secondary: "var(--r-color-brand-secondary)",
@@ -106,9 +103,8 @@ const styleObj = computed(() => {
   justify-content: center;
   flex-shrink: 0;
   line-height: 1;
-  /* Inherit colour from the parent unless overridden — Vuetify's VIcon
-     did this implicitly. Keeps icon + text colour locked together
-     inside buttons / chips. */
+  /* Inherit colour from the parent unless overridden. Keeps icon +
+     text colour locked together inside buttons / chips. */
   color: inherit;
   /* Smooth the glyph everywhere the OS will let us. Without these the
      icon looks slightly heavier on Windows / Linux. */

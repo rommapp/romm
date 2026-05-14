@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RDivider — Vuetify-free. Three render modes:
+// RDivider — three render modes:
 //
 //   • Horizontal plain — a block element with `border-top` (no inner
 //     children; the border itself paints the line so the divider takes
@@ -11,9 +11,7 @@
 //     pattern from Auth / inline section breaks.
 //
 // `inset` shifts the divider rightwards 72px to align with list-item
-// text (matches Vuetify's `inset` semantics, kept for API parity even
-// though no v2 surface uses it yet). `thickness` accepts a number (px)
-// or any CSS length.
+// text. `thickness` accepts a number (px) or any CSS length.
 //
 // Colour + font defaults live on the root so the consumer can recolour
 // the divider + its text by setting `color` / `font-size` on the root

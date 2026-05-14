@@ -1,12 +1,10 @@
 <script setup lang="ts">
-// RTooltip — Vuetify-free. Positioned with `@floating-ui/vue` (the
-// only standalone dep we lean on here — battle-tested overlay math
-// with flip / shift / offset / arrow middleware). The surface itself
-// matches the v2 glass language (near-black bg, subtle border, blur),
-// driven by tokens.
+// RTooltip — positioned with `@floating-ui/vue` (the only standalone
+// dep we lean on here — battle-tested overlay math with flip / shift /
+// offset / arrow middleware). The surface itself matches the v2 glass
+// language (near-black bg, subtle border, blur), driven by tokens.
 //
-// Two activator patterns kept compatible with the previous Vuetify
-// wrapper so existing call sites don't need to be touched:
+// Two activator patterns:
 //
 //   1. Slot (most flexible):
 //      <RTooltip text="Save">
@@ -50,9 +48,8 @@ import {
 
 defineOptions({ inheritAttrs: false });
 
-// Vuetify-style anchor strings ("top", "bottom start", …) are kept
-// for API compatibility — translated to floating-ui's placement
-// vocabulary at compute time.
+// Anchor strings ("top", "bottom start", …) — translated to
+// floating-ui's placement vocabulary at compute time.
 type Anchor =
   | "top"
   | "bottom"
@@ -69,7 +66,7 @@ type Anchor =
 
 interface Props {
   text?: string;
-  /** Vuetify-style anchor; mapped to floating-ui placement internally. */
+  /** Anchor; mapped to floating-ui placement internally. */
   location?: Anchor;
   openDelay?: number | string;
   closeDelay?: number | string;

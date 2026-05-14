@@ -140,8 +140,8 @@ const HEADER = `/*
  *
  * Scoped under .r-v2 so v1 styling is unaffected. Theme palettes live under
  * .r-v2.r-v2-dark and .r-v2.r-v2-light. The classes are toggled on <html>
- * by RomM.vue so teleported overlays (VDialog, VMenu, VTooltip) — which
- * land in <body> outside <v-app> — still resolve var(--r-color-*).
+ * by RomM.vue so teleported overlays (RDialog, RMenu, RTooltip) — which
+ * land in <body> outside the app root — still resolve var(--r-color-*).
  */
 `;
 

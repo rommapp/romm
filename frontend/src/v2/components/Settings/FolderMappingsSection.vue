@@ -489,7 +489,6 @@ onMounted(async () => {
   color: var(--r-color-fg) !important;
   background: var(--r-color-surface-hover) !important;
 }
-.r-v2-mappings__help-icon :deep(.v-icon),
 .r-v2-mappings__help-icon :deep(.r-icon) {
   font-size: 14px !important;
 }

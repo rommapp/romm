@@ -13,7 +13,7 @@ interface Props {
   title?: string;
   hint?: string;
   iconSize?: string | number;
-  /** Size ladder shared with RBtn / RChip / RTag / Vuetify. */
+  /** Size ladder shared with RBtn / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
 }
 

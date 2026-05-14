@@ -78,10 +78,10 @@ const modelSlug = computed({
   >
     <!-- Read from `row` directly instead of the slot's `item` —
          when the row references a platform that isn't in
-         `supportedPlatforms` (loading, removed, …), Vuetify passes
-         `item.raw` as the raw slug string and the destructure
-         crashes. `row.slug` + `row.displayName` are always coherent
-         here because the section owns both. -->
+         `supportedPlatforms` (loading, removed, …), the slot's
+         `item.raw` falls back to the raw slug string and the
+         destructure crashes. `row.slug` + `row.displayName` are always
+         coherent here because the section owns both. -->
     <template #selection>
       <span class="r-v2-fmpc__selection">
         <CachedPlatformIcon
@@ -96,15 +96,16 @@ const modelSlug = computed({
       </span>
     </template>
     <template #item="{ props: itemProps, item }">
-      <v-list-item v-bind="itemProps" :title="(item.raw as PlatformItem).name">
-        <template #prepend>
-          <CachedPlatformIcon
-            :slug="(item.raw as PlatformItem).slug"
-            :name="(item.raw as PlatformItem).name"
-            :size="20"
-          />
-        </template>
-      </v-list-item>
+      <li v-bind="itemProps">
+        <CachedPlatformIcon
+          :slug="(item.raw as PlatformItem).slug"
+          :name="(item.raw as PlatformItem).name"
+          :size="20"
+        />
+        <span class="r-select__item-title">
+          {{ (item.raw as PlatformItem).name }}
+        </span>
+      </li>
     </template>
   </RSelect>
   <span v-else class="r-v2-fmpc__readonly">
@@ -126,10 +127,10 @@ const modelSlug = computed({
 </template>
 
 <style scoped>
-/* Lock the field to the column's width — Vuetify's `.v-field` sizes
-   itself to content by default, which makes each row's cell as wide
-   as its platform name. The visible width then shifts as the user
-   scrolls the table (different rows visible, different widths). */
+/* Lock the field to the column's width — RSelect sizes its inner
+   field to content by default, which would make each row's cell as
+   wide as its platform name. The visible width then shifts as the
+   user scrolls the table (different rows visible, different widths). */
 .r-v2-fmpc {
   width: 100%;
 }

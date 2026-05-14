@@ -5,16 +5,16 @@ import { RBtn, RDialog, RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useDisplay } from "vuetify";
 import type { StateSchema } from "@/__generated__";
-import AssetCard from "@/components/common/Game/AssetCard.vue";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import AssetCard from "@/v2/components/Player/AssetCard.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const { mdAndUp } = useDisplay();
+const { mdAndUp } = useBreakpoint();
 const show = ref(false);
 const rom = ref<DetailedRom | null>(null);
 
@@ -58,8 +58,6 @@ function closeDialog() {
           :key="state.id"
           :asset="state"
           type="state"
-          :rom="rom"
-          :show-hover-actions="false"
           class="r-v2-state-picker__item"
           @click="onCardClick(state)"
         />

@@ -19,6 +19,25 @@
 //     in sync.
 //   * Label below the card, 11.5px, truncated
 //   * Optional `hero` variant: 300×169 (16:9) + larger multi-line label
+//
+// Static mode (`static`) strips the gallery chrome — no router-link,
+// no action overlay, no rating / status / platform-icon badges, no
+// background-art highlight on hover. Click emits `@click` instead of
+// navigating. Hover scale stays by default (suppress with `noHover` for
+// purely-decorative surfaces like the edit-dialog cover preview) and
+// the view-transition reverse-paint still wires for real roms.
+// Synthetic roms (rom.id falsy) skip ALL view-transition wiring since
+// they have no destination.
+//
+// Other static-friendly props:
+//   * `coverSrc` overrides the cover URL chain — used for preview blobs
+//     (edit dialog) and external provider URLs (match dialog).
+//   * `showTitle` toggles the label below the cover — defaults true.
+//   * `selected` paints a brand-coloured outline on the cover art for
+//     pickers (match-flow source variants, multi-select galleries).
+//   * `#overlay` slot renders content on top of the cover for badges
+//     that aren't part of the default gallery overlay (e.g. metadata
+//     provider logos in the match-flow source picker).
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
@@ -41,11 +60,35 @@ interface Props {
   focused?: boolean;
   webp?: boolean;
   showPlatformIcon?: boolean;
+  /** Passive mode — root is `<article role="button">` instead of a
+   *  router-link; action overlay / rating / status / platform-icon /
+   *  bg-art highlight are all suppressed. Click emits `@click` for the
+   *  consumer to handle. Hover scale stays unless `noHover` is set. */
+  static?: boolean;
+  /** Suppress the hover scale + shadow. Use for purely-decorative
+   *  surfaces (edit-dialog cover preview) where the card isn't an
+   *  affordance. Only meaningful in `static` mode. */
+  noHover?: boolean;
+  /** Toggle the label below the cover. Defaults true to match the
+   *  gallery experience. */
+  showTitle?: boolean;
+  /** Override the resolved cover URL. Used for local preview blobs
+   *  (edit dialog) and external provider URLs (match dialog source
+   *  variants). Bypasses the path/webp/url_cover chain. */
+  coverSrc?: string | null;
+  /** Paint a brand-coloured outline to mark the card as selected
+   *  (cover-variant picker, multi-select gallery). */
+  selected?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   to: undefined,
   showPlatformIcon: true,
+  static: false,
+  noHover: false,
+  showTitle: true,
+  coverSrc: undefined,
+  selected: false,
 });
 
 const EXTENSION_REGEX = /\.(png|jpg|jpeg)$/i;
@@ -54,10 +97,19 @@ const imgError = ref(false);
 const imgLoaded = ref(false);
 
 const coverUrl = computed(() => {
+  // Explicit override wins — consumer already resolved the URL
+  // (preview blob, external provider URL, …). No webp rewrite here:
+  // the caller's URL is treated as final.
+  if (props.coverSrc != null) return props.coverSrc;
   const path = props.rom.path_cover_large ?? props.rom.path_cover_small ?? null;
   if (!path) return null;
   return props.webp ? path.replace(EXTENSION_REGEX, ".webp") : path;
 });
+
+// Synthetic roms (id = 0 / null / undefined) have no destination — skip
+// the entire view-transition wiring so we never try to morph to a
+// non-existent /rom/0 detail page.
+const isSynthetic = computed(() => !props.rom.id);
 
 const fallbackUrl = computed(() => props.rom.url_cover ?? null);
 const showFallback = computed(() => imgError.value && !!fallbackUrl.value);
@@ -72,8 +124,11 @@ const href = computed(() => props.to ?? `/rom/${props.rom.id}`);
 const setBgArt = useBackgroundArt();
 // Same handler fires on hover AND focus so keyboard/gamepad users get
 // the background cross-fade to the focused cover — mirrors what mouse
-// users see when they rest a pointer on the card.
+// users see when they rest a pointer on the card. Suppressed in static
+// mode (the card isn't part of a gallery surface where the background
+// reads as the focused cover).
 function onHighlight() {
+  if (props.static) return;
   if (coverUrl.value) setBgArt(coverUrl.value);
   else if (fallbackUrl.value) setBgArt(fallbackUrl.value);
 }
@@ -100,7 +155,17 @@ function onPlatformClick(e: MouseEvent) {
   actions.goToPlatform();
 }
 
+const emit = defineEmits<{
+  (e: "click", event: MouseEvent): void;
+}>();
+
 function onCardClick(e: MouseEvent) {
+  // Static mode: consumer owns the click. No router push, no forward
+  // morph — just hand the event off.
+  if (props.static) {
+    emit("click", e);
+    return;
+  }
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
     return;
   }
@@ -114,11 +179,22 @@ function onCardClick(e: MouseEvent) {
   );
 }
 
+function onStaticKeydown(e: KeyboardEvent) {
+  // Enter / Space activate the card when it's rendered as a plain
+  // <article role="button"> instead of a router-link.
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    emit("click", e as unknown as MouseEvent);
+  }
+}
+
 // Reverse-morph tag: when GameDetails is leaving (BackBtn / navbar /
 // browser back), `pendingMorphName` is set and we paint the matching
 // view-transition-name on the destination card so the browser can pair
-// it with the GameDetails cover.
+// it with the GameDetails cover. Synthetic roms (no real id) skip
+// this entirely — they can't be a morph destination.
 const morphStyle = computed(() => {
+  if (isSynthetic.value) return undefined;
   const name = `rom-cover-${props.rom.id}`;
   return pendingMorphName.value === name
     ? { viewTransitionName: name }
@@ -127,13 +203,24 @@ const morphStyle = computed(() => {
 </script>
 
 <template>
-  <router-link
-    :to="href"
+  <component
+    :is="static ? 'article' : 'router-link'"
+    :to="static ? undefined : href"
+    :role="static ? 'button' : undefined"
+    :tabindex="static ? 0 : undefined"
     class="r-gc"
-    :class="{ 'r-gc--hero': hero, 'r-gc--focused': focused }"
+    :class="{
+      'r-gc--hero': hero,
+      'r-gc--focused': focused,
+      'r-gc--static': static,
+      'r-gc--no-hover': noHover,
+      'r-gc--selected': selected,
+    }"
     :aria-label="title"
+    :aria-pressed="static ? selected : undefined"
     :data-rom-id="rom.id"
     @click="onCardClick"
+    @keydown="static ? onStaticKeydown($event) : undefined"
     @mouseenter="onHighlight"
     @focus="onHighlight"
   >
@@ -153,50 +240,60 @@ const morphStyle = computed(() => {
         {{ title }}
       </div>
 
-      <div v-if="ratingLabel" class="r-gc__rating">★ {{ ratingLabel }}</div>
-
-      <RBtn
-        v-if="showPlatformIcon"
-        icon
-        size="x-small"
-        variant="text"
-        class="r-gc__platform-icon"
-        :aria-label="`Browse ${platformShort}`"
-        @click="onPlatformClick"
-      >
-        <RPlatformIcon
-          :slug="rom.platform_slug"
-          :fs-slug="rom.platform_fs_slug"
-          :alt="platformShort"
-          :size="18"
-        />
-      </RBtn>
-
-      <GameActionBtn
-        :rom="rom"
-        action="status"
-        size="small"
-        orientation="vertical"
-      />
-
-      <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
-      <div class="r-gc__overlay">
-        <div class="r-gc__overlay-center">
-          <GameActionBtn :rom="rom" action="play" variant="emphasized" />
-        </div>
-
-        <div class="r-gc__overlay-bottom">
-          <GameActionBtn :rom="rom" action="download" size="small" />
-          <GameActionBtn :rom="rom" action="collection" size="small" />
-          <GameActionBtn :rom="rom" action="favorite" size="small" />
-          <GameActionBtn :rom="rom" action="more" size="small" />
-        </div>
+      <!-- Consumer-driven overlay slot — sits above the cover, below
+           the gallery chrome. Use for badges that aren't part of the
+           default overlay set (provider logos, custom status pills). -->
+      <div v-if="$slots.overlay" class="r-gc__overlay-slot">
+        <slot name="overlay" />
       </div>
+
+      <!-- Gallery chrome — all suppressed in static mode. -->
+      <template v-if="!static">
+        <div v-if="ratingLabel" class="r-gc__rating">★ {{ ratingLabel }}</div>
+
+        <RBtn
+          v-if="showPlatformIcon"
+          icon
+          size="x-small"
+          variant="text"
+          class="r-gc__platform-icon"
+          :aria-label="`Browse ${platformShort}`"
+          @click="onPlatformClick"
+        >
+          <RPlatformIcon
+            :slug="rom.platform_slug"
+            :fs-slug="rom.platform_fs_slug"
+            :alt="platformShort"
+            :size="18"
+          />
+        </RBtn>
+
+        <GameActionBtn
+          :rom="rom"
+          action="status"
+          size="small"
+          orientation="vertical"
+        />
+
+        <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
+        <div class="r-gc__overlay">
+          <div class="r-gc__overlay-center">
+            <GameActionBtn :rom="rom" action="play" variant="emphasized" />
+          </div>
+
+          <div class="r-gc__overlay-bottom">
+            <GameActionBtn :rom="rom" action="download" size="small" />
+            <GameActionBtn :rom="rom" action="collection" size="small" />
+            <GameActionBtn :rom="rom" action="favorite" size="small" />
+            <GameActionBtn :rom="rom" action="more" size="small" />
+          </div>
+        </div>
+      </template>
     </div>
-    <div class="r-gc__label">
+    <div v-if="showTitle" class="r-gc__label">
       {{ title }}
     </div>
-  </router-link>
+  </component>
 </template>
 
 <style scoped>
@@ -352,10 +449,37 @@ const morphStyle = computed(() => {
   transform: scale(1.05);
   box-shadow: var(--r-elev-3);
 }
+
+/* `noHover` suppresses the scale + shadow for purely-decorative
+   surfaces (edit-dialog cover preview). Keyboard focus still paints
+   the brand outline so the card remains reachable. */
+.r-gc--no-hover {
+  cursor: default;
+}
+.r-gc--no-hover:hover .r-gc__art,
+.r-gc--no-hover:focus-visible .r-gc__art {
+  transform: none;
+  box-shadow: none;
+}
 .r-gc:hover .r-gc__overlay,
 .r-gc:focus-visible .r-gc__overlay,
 .r-gc--focused .r-gc__overlay {
   opacity: 1;
+}
+
+/* Consumer-driven `#overlay` slot — top-right anchor by default so
+   provider logos / status pills sit out of the way of the rating
+   centred above. `pointer-events: none` lets clicks pass through to
+   the card so the consumer doesn't have to opt out per-element. */
+.r-gc__overlay-slot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
 }
 .r-gc:hover .r-gc__badge,
 .r-gc:focus-visible .r-gc__badge,
@@ -398,6 +522,17 @@ const morphStyle = computed(() => {
     0 8px 28px color-mix(in srgb, black 40%, transparent),
     0 0 0 2px var(--r-color-brand-primary),
     0 0 18px color-mix(in srgb, var(--r-color-brand-primary) 60%, transparent);
+}
+
+/* `selected` — same brand-outline language as focus, but persistent.
+   Used by cover-variant pickers and multi-select galleries to mark the
+   currently-picked card without relying on focus state. */
+.r-gc--selected .r-gc__art {
+  outline-color: var(--r-color-brand-primary);
+  box-shadow:
+    0 8px 28px color-mix(in srgb, black 40%, transparent),
+    0 0 0 2px var(--r-color-brand-primary),
+    0 0 18px color-mix(in srgb, var(--r-color-brand-primary) 50%, transparent);
 }
 
 .r-gc__label {

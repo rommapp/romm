@@ -10,6 +10,7 @@
 // every other platform-icon surface in the app falls back to), so
 // users never see the browser's broken-image icon or a Material icon
 // pretending to be a platform.
+import { RImg } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import {
   getCachedPlatformIcon,
@@ -63,12 +64,13 @@ function onError() {
 </script>
 
 <template>
-  <v-img
+  <RImg
     :src="src"
     :alt="name || slug"
     :title="name || slug"
     :width="size"
     :height="size"
+    contain
     class="r-v2-cached-platform-icon"
     @error="onError"
   />

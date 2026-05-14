@@ -9,11 +9,11 @@
 //
 // Editability matches v1: any row with a slug (alias / variant /
 // auto) can be retyped. Auto rows are listed as the current value
-// but Vuetify's select doesn't include "auto" in the items array, so
-// the dropdown only ever exposes the two user-selectable options
-// (alias, variant). Unmapped rows (no slug) stay non-editable — the
-// user picks a platform first via FolderMappingPlatformCell, which
-// lands the row as `alias` by default.
+// but the items array doesn't include "auto", so the dropdown only
+// ever exposes the two user-selectable options (alias, variant).
+// Unmapped rows (no slug) stay non-editable — the user picks a
+// platform first via FolderMappingPlatformCell, which lands the row
+// as `alias` by default.
 //
 // The selected-value text picks up a colour token per type
 // (`brand-primary` / `accent` / `success`) so the cell still reads
@@ -105,15 +105,15 @@ const label = computed(() => {
       <RTag :tone="tagTone" :text="label" size="small" />
     </template>
     <template #item="{ props: itemProps, item }">
-      <v-list-item
+      <li
         v-bind="itemProps"
-        :title="(item.raw as TypeItem).title"
         :class="`r-v2-fmtc-item--${(item.raw as TypeItem).value}`"
       >
-        <template #prepend>
-          <RIcon :icon="(item.raw as TypeItem).icon" size="16" />
-        </template>
-      </v-list-item>
+        <RIcon :icon="(item.raw as TypeItem).icon" size="16" />
+        <span class="r-select__item-title">
+          {{ (item.raw as TypeItem).title }}
+        </span>
+      </li>
     </template>
   </RSelect>
   <RTag v-else-if="row.type" :tone="tagTone" :text="label" size="x-small" />
@@ -123,8 +123,8 @@ const label = computed(() => {
 /* Tint the selection text by current type — keeps the at-a-glance
    colour cue we had with the chip-style button while letting the
    field do all the heavy lifting. */
-.r-v2-fmtc :deep(.v-field__input),
-.r-v2-fmtc :deep(.v-select__selection-text),
+.r-v2-fmtc :deep(.r-select__field),
+.r-v2-fmtc :deep(.r-select__title),
 .r-v2-fmtc__label {
   font-weight: var(--r-font-weight-medium);
 }

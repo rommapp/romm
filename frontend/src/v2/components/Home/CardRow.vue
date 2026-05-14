@@ -232,10 +232,9 @@ onBeforeUnmount(() => {
 
 /* Vertically centred, anchored to the row edges. The RBtn surface gets
    a dark scrim so the arrow has contrast over busy cover thumbnails —
-   tonal alone reads too faint without a brand color. Vuetify's own
-   underlay is hidden (opacity:0) so the scrim isn't lifted by it.
-   Override RBtn's at-rest opacity (0.7) so the 85% reading comes purely
-   from the white-secondary token applied to the icon. */
+   translucent alone reads too faint without a brand color. Override
+   RBtn's at-rest opacity (0.7) so the 85% reading comes purely from
+   the white-secondary token applied to the icon. */
 .card-row__arrow {
   position: absolute;
   top: 50%;
@@ -258,9 +257,6 @@ onBeforeUnmount(() => {
 .card-row__arrow.r-btn:hover {
   background: color-mix(in srgb, black 88%, transparent) !important;
   color: var(--r-color-overlay-fg) !important;
-}
-.card-row__arrow :deep(.v-btn__underlay) {
-  opacity: 0;
 }
 
 @media (max-width: 768px) {

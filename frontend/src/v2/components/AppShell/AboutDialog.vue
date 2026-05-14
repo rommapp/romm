@@ -1,12 +1,11 @@
 <script setup lang="ts">
 // v2 AboutDialog — emitter-driven. Replaces the v1 AboutDialog in the v2
 // GlobalDialogs stack so the "About" entry in UserMenu renders the v2 glass
-// panel instead of the legacy Vuetify card.
-import { RDialog, RIcon } from "@v2/lib";
+// panel instead of the legacy card.
+import { RDialog, RIcon, RImg } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import RIsotipo from "@/components/common/RIsotipo.vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 
@@ -86,7 +85,14 @@ void t;
           class="r-v2-about__tile"
         >
           <div class="r-v2-about__icon">
-            <RIsotipo v-if="link.isotipo" :size="18" />
+            <RImg
+              v-if="link.isotipo"
+              src="/assets/isotipo.svg"
+              alt="RomM"
+              :width="18"
+              :height="18"
+              contain
+            />
             <RIcon v-else-if="link.icon" :icon="link.icon" size="18" />
           </div>
           <div class="r-v2-about__meta">

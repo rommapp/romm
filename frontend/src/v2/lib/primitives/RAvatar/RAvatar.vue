@@ -1,19 +1,18 @@
 <script setup lang="ts">
-// RAvatar — Vuetify-free. Inline-flex container holding one of three
-// contents in priority order: `image` (renders an <img>), `icon`
-// (renders an RIcon), or the default slot (initials / arbitrary
-// content). `overflow: hidden` + the rounded radius clips the image to
-// the avatar shape automatically — no per-image border-radius needed.
+// RAvatar — inline-flex container holding one of three contents in
+// priority order: `image` (renders an <img>), `icon` (renders an
+// RIcon), or the default slot (initials / arbitrary content).
+// `overflow: hidden` + the rounded radius clips the image to the
+// avatar shape automatically — no per-image border-radius needed.
 //
 // `color` resolves through the same tone map RIcon uses (`"primary"` →
 // `var(--r-color-brand-primary)` etc., legacy `romm-*` and CSS colours
 // pass through). Pair with `variant` to control how the colour paints:
 // solid fill, translucent, outlined, or text-only.
 //
-// `size` keyword ladder mirrors Vuetify's so call sites that pass
-// `"small"` / `"large"` keep working. The font-size of any text slot
-// scales to ~40% of the avatar height — initials stay legible at every
-// size without a per-size override.
+// `size` keyword ladder (`"small"`, `"large"`, …). The font-size of
+// any text slot scales to ~40% of the avatar height — initials stay
+// legible at every size without a per-size override.
 import { computed } from "vue";
 import RIcon from "../RIcon/RIcon.vue";
 
@@ -89,7 +88,7 @@ const ROUNDED_MAP: Record<string, string> = {
 
 const resolvedRounded = computed<string>(() => {
   const r = props.rounded;
-  // Default is circle — matches Vuetify's VAvatar.
+  // Default is circle.
   if (r === undefined || r === null) return "50%";
   if (r === true) return "50%";
   if (r === false) return "0";

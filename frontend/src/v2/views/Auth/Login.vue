@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // Login — thin orchestrator. Two mutually exclusive panels gated by
-// `forgotMode`, each animated in/out with v-expand-transition (matches
-// the v1 behavior). Login + OIDC sit together; the reset form replaces
-// them when the user clicks "forgot password".
-import { RDivider } from "@v2/lib";
+// `forgotMode`, each animated in/out with RExpandTransition. Login +
+// OIDC sit together; the reset form replaces them when the user clicks
+// "forgot password".
+import { RDivider, RExpandTransition } from "@v2/lib";
 import { onMounted, ref } from "vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import LoginForm from "@/v2/components/Auth/LoginForm.vue";
@@ -36,7 +36,7 @@ onMounted(() => {
 <template>
   <AuthCard>
     <!-- Login + OIDC panel -->
-    <v-expand-transition>
+    <RExpandTransition>
       <div v-show="!forgotMode" class="r-v2-login__panel">
         <LoginForm
           v-if="!loginDisabled"
@@ -56,14 +56,14 @@ onMounted(() => {
           />
         </template>
       </div>
-    </v-expand-transition>
+    </RExpandTransition>
 
     <!-- Forgot-password panel -->
-    <v-expand-transition>
+    <RExpandTransition>
       <div v-show="forgotMode && !loginDisabled" class="r-v2-login__panel">
         <ResetForm @done="forgotMode = false" @cancel="forgotMode = false" />
       </div>
-    </v-expand-transition>
+    </RExpandTransition>
   </AuthCard>
 </template>
 

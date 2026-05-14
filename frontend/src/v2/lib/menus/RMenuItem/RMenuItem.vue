@@ -94,7 +94,7 @@ const styleVars = computed(() => {
   >
     <span class="r-menu-item__icon">
       <slot name="icon">
-        <!-- Use Vuetify v-icon glyph if `icon` is set. -->
+        <!-- Render the MDI glyph if `icon` is set. -->
         <i v-if="icon" :class="['mdi', icon]" aria-hidden="true" />
       </slot>
     </span>

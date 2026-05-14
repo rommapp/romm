@@ -2,7 +2,7 @@
 // RefreshMetadataDialog — kicks off a per-ROM metadata re-scan. Emits the
 // same `scan` socket event as the main Scan view (ScanBtn owns the
 // lifecycle socket handlers, we just emit here).
-import { RBtn, RDialog, RSelect } from "@v2/lib";
+import { RAvatar, RBtn, RDialog, RSelect, RSwitch } from "@v2/lib";
 import { useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -173,52 +173,39 @@ function closeDialog() {
           chips
         >
           <template #item="{ props: itemProps, item }">
-            <v-list-item
-              v-bind="itemProps"
-              :title="item.raw.name"
-              :subtitle="item.raw.disabled"
-              :disabled="Boolean(item.raw.disabled)"
-            >
-              <template #prepend>
-                <v-avatar size="22" rounded="1">
-                  <v-img :src="item.raw.logo_path" />
-                </v-avatar>
-              </template>
-
-              <template v-if="item.raw.value === 'launchbox'" #append>
-                <div class="r-v2-refresh__lb">
-                  <span
-                    class="text-caption"
-                    :class="{ 'r-v2-refresh__lb-dim': launchboxRemoteEnabled }"
-                  >
-                    Local
-                  </span>
-                  <v-switch
-                    v-model="launchboxRemoteEnabled"
-                    color="primary"
-                    density="compact"
-                    hide-details
-                    :disabled="!isLaunchboxSelected"
-                    @click.stop
-                    @mousedown.stop
-                  />
-                  <span
-                    class="text-caption"
-                    :class="{ 'r-v2-refresh__lb-dim': !launchboxRemoteEnabled }"
-                  >
-                    Cloud
-                  </span>
+            <li v-bind="itemProps">
+              <RAvatar :image="item.raw.logo_path" size="22" rounded="sm" />
+              <div class="r-select__item-stack">
+                <div class="r-select__item-title">{{ item.raw.name }}</div>
+                <div v-if="item.raw.disabled" class="r-select__item-subtitle">
+                  {{ item.raw.disabled }}
                 </div>
-              </template>
-            </v-list-item>
-          </template>
-          <template #chip="{ item }">
-            <v-chip>
-              <v-avatar class="mr-1" size="18" rounded="1">
-                <v-img :src="item.raw.logo_path" />
-              </v-avatar>
-              <span>{{ item.raw.name }}</span>
-            </v-chip>
+              </div>
+
+              <div
+                v-if="item.raw.value === 'launchbox'"
+                class="r-v2-refresh__lb"
+              >
+                <span
+                  class="text-caption"
+                  :class="{ 'r-v2-refresh__lb-dim': launchboxRemoteEnabled }"
+                >
+                  Local
+                </span>
+                <RSwitch
+                  v-model="launchboxRemoteEnabled"
+                  :disabled="!isLaunchboxSelected"
+                  @click.stop
+                  @mousedown.stop
+                />
+                <span
+                  class="text-caption"
+                  :class="{ 'r-v2-refresh__lb-dim': !launchboxRemoteEnabled }"
+                >
+                  Cloud
+                </span>
+              </div>
+            </li>
           </template>
         </RSelect>
 
@@ -232,7 +219,14 @@ function closeDialog() {
           hide-details
         >
           <template #item="{ props: itemProps, item }">
-            <v-list-item v-bind="itemProps" :subtitle="item.raw.subtitle" />
+            <li v-bind="itemProps">
+              <div class="r-select__item-stack">
+                <div class="r-select__item-title">{{ item.title }}</div>
+                <div v-if="item.raw.subtitle" class="r-select__item-subtitle">
+                  {{ item.raw.subtitle }}
+                </div>
+              </div>
+            </li>
           </template>
         </RSelect>
       </div>

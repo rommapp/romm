@@ -1,11 +1,10 @@
 <script setup lang="ts">
-// RCard — Vuetify-free. Plain surface container with six variants, a
-// thin loading bar, optional title / subtitle header, and the shared
-// rounded / tone / elevation resolvers from the rest of the lib.
+// RCard — plain surface container with six variants, a thin loading
+// bar, optional title / subtitle header, and the shared rounded /
+// tone / elevation resolvers from the rest of the lib.
 //
-// No default padding — Vuetify added body padding implicitly and every
-// consumer fought it back out. RCard keeps its body slot raw; pad
-// from outside or wrap an inner `<div>` (the `auth-card__inner` /
+// No default padding — RCard keeps its body slot raw; pad from outside
+// or wrap an inner `<div>` (the `auth-card__inner` /
 // `r-v2-ejs__panel-head` patterns already do this).
 //
 // Variants:

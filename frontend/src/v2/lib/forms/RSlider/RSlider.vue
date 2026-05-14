@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RSlider — Vuetify-free. Styled native `<input type="range">`. We
+// RSlider — styled native `<input type="range">`. We
 // paint the track / fill / thumb via the browser's native pseudo-
 // elements (`::-webkit-slider-runnable-track`, `::-webkit-slider-thumb`,
 // and their `::-moz-range-*` counterparts) — no overlay element fights

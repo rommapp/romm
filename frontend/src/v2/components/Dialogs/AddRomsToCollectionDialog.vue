@@ -23,7 +23,6 @@ import { RDialog, RDivider } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useDisplay } from "vuetify";
 import collectionApi from "@/services/api/collection";
 import storeCollections, {
   type Collection,
@@ -33,13 +32,14 @@ import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import CollectionPickerRow from "@/v2/components/Collections/CollectionPickerRow.vue";
 import NewCollectionRow from "@/v2/components/Collections/NewCollectionRow.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const { mdAndUp } = useDisplay();
+const { mdAndUp } = useBreakpoint();
 const show = ref(false);
 const collectionsStore = storeCollections();
 const emitter = inject<Emitter<Events>>("emitter");

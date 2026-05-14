@@ -18,7 +18,6 @@ import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useTheme } from "vuetify";
 import type { UserNoteSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
@@ -26,6 +25,7 @@ import type { DetailedRom } from "@/stores/roms";
 import storeRoms from "@/stores/roms";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
+import { useThemeMode } from "@/v2/composables/useThemeMode";
 
 defineOptions({ inheritAttrs: false });
 
@@ -37,14 +37,9 @@ const authStore = storeAuth();
 const romsStore = storeRoms();
 const route = useRoute();
 const router = useRouter();
-const theme = useTheme();
+const { isLight: isLightTheme } = useThemeMode();
 const { user } = storeToRefs(authStore);
 
-const isLightTheme = computed(
-  () =>
-    theme.global.name.value.endsWith("-light") ||
-    theme.global.name.value === "light",
-);
 const mdTheme = computed<"light" | "dark">(() =>
   isLightTheme.value ? "light" : "dark",
 );
@@ -715,17 +710,14 @@ function fmtDate(iso: string): string {
               unlocked: fg-muted (public = no special state)
      · Edit — overlay-fg (whitish, matches GameActionBtn — it's an action)
      · Delete — error (red, destructive — set on the activator above) */
-.r-v2-notes__lock-btn :deep(.v-btn__content),
-.r-v2-notes__lock-btn :deep(.v-icon) {
+.r-v2-notes__lock-btn :deep(.r-btn__content) {
   color: var(--r-color-fg-muted);
   transition: color var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-v2-notes__lock-btn--locked :deep(.v-btn__content),
-.r-v2-notes__lock-btn--locked :deep(.v-icon) {
+.r-v2-notes__lock-btn--locked :deep(.r-btn__content) {
   color: var(--r-color-brand-primary);
 }
-.r-v2-notes__edit-btn :deep(.v-btn__content),
-.r-v2-notes__edit-btn :deep(.v-icon) {
+.r-v2-notes__edit-btn :deep(.r-btn__content) {
   color: var(--r-color-overlay-fg);
 }
 .r-v2-notes__pane-foot {

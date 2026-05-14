@@ -4,7 +4,10 @@
 //   * Self-contained — pass `title` (and optionally `icon`) or use the
 //     `#header` slot. The header acts as the trigger and renders the
 //     chevron. Best for cards like "Related games" where the panel
-//     owns its own toggle row.
+//     owns its own toggle row. The `#header-prepend` slot drops content
+//     before the title (custom avatars/images that can't fit the MDI
+//     `icon` prop); `#header-append` drops content between the title
+//     and the chevron (counters, badges, status chips).
 //
 //   * Headless — no `title`/`icon`/`#header` provided. The internal
 //     header is skipped entirely; the panel is a pure animated body
@@ -18,8 +21,8 @@
 //
 // Animation uses a CSS-only grid-row trick (no JS height measurement)
 // so it works for content of any height.
-import RIcon from "../../primitives/RIcon/RIcon.vue";
 import { computed, ref, useSlots, watch } from "vue";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -95,9 +98,21 @@ function toggle() {
       @click="toggle"
     >
       <slot name="header">
+        <span
+          v-if="slots['header-prepend']"
+          class="r-collapsible__header-prepend"
+        >
+          <slot name="header-prepend" />
+        </span>
         <RIcon v-if="icon" :icon="icon" class="r-collapsible__icon" />
         <span class="r-collapsible__title">
           <slot name="title">{{ title }}</slot>
+        </span>
+        <span
+          v-if="slots['header-append']"
+          class="r-collapsible__header-append"
+        >
+          <slot name="header-append" />
         </span>
         <RIcon icon="mdi-chevron-down" class="r-collapsible__chevron" />
       </slot>
@@ -171,6 +186,14 @@ function toggle() {
 .r-collapsible__title {
   flex: 1;
   text-align: left;
+}
+
+.r-collapsible__header-prepend,
+.r-collapsible__header-append {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .r-collapsible__chevron {

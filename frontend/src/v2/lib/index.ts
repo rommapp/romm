@@ -40,6 +40,7 @@ export * from "./forms/RTextField";
 
 // Structural
 export * from "./structural/RCollapsible";
+export * from "./structural/RExpandTransition";
 export * from "./structural/RList";
 export * from "./structural/RListItem";
 export * from "./structural/RToolbar";

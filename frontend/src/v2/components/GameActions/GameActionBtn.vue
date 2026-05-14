@@ -50,7 +50,7 @@ export type GameAction =
 interface Props {
   rom: SimpleRom;
   action: GameAction;
-  /** Size ladder shared with RBtn / RChip / RTag / Vuetify. */
+  /** Size ladder shared with RBtn / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   /**
    * `glass` — dark scrim, designed to read on top of cover art

@@ -14,6 +14,7 @@ import {
   RBtn,
   RChip,
   RIcon,
+  RPlatformIcon,
   RSelect,
   RTable,
   type RTableColumn,
@@ -22,7 +23,6 @@ import {
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import romApi from "@/services/api/rom";
 import taskApi from "@/services/api/task";
 import storePlatforms from "@/stores/platforms";
@@ -352,18 +352,16 @@ onMounted(() => {
           </span>
         </template>
         <template #item="{ props: itemProps, item }">
-          <v-list-item
-            v-bind="itemProps"
-            :title="(item.raw as PlatformItem).name"
-          >
-            <template #prepend>
-              <CachedPlatformIcon
-                :slug="(item.raw as PlatformItem).slug"
-                :name="(item.raw as PlatformItem).name"
-                :size="20"
-              />
-            </template>
-          </v-list-item>
+          <li v-bind="itemProps">
+            <CachedPlatformIcon
+              :slug="(item.raw as PlatformItem).slug"
+              :name="(item.raw as PlatformItem).name"
+              :size="20"
+            />
+            <span class="r-select__item-title">
+              {{ (item.raw as PlatformItem).name }}
+            </span>
+          </li>
         </template>
       </RSelect>
       <RBtn
@@ -422,7 +420,7 @@ onMounted(() => {
 
       <template #cell.platform="{ row }">
         <span class="r-v2-missing__platform">
-          <PlatformIcon
+          <RPlatformIcon
             :slug="
               platformsStore.get((row as SimpleRom).platform_id)?.slug ?? ''
             "
@@ -501,8 +499,8 @@ onMounted(() => {
 }
 
 /* Each chip in the multi-select shows the platform icon + name in a
-   compact pill. Vuetify wraps these in its own `v-chip`; we only
-   style the inner span layout. */
+   compact pill — RSelect provides the chip surface, we only style the
+   inner span layout. */
 .r-v2-missing__platform-chip {
   display: inline-flex;
   align-items: center;

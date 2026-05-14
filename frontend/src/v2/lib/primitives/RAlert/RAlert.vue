@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RAlert — Vuetify-free. Banner with an auto-picked tone icon, title +
+// RAlert — banner with an auto-picked tone icon, title +
 // body, optional close button, and a `<Transition>` mount that fades
 // in / out so toggling visibility doesn't pop.
 //

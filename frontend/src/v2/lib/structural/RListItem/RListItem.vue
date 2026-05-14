@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RListItem — Vuetify-free. Semantic `<li>` wrapping a polymorphic
+// RListItem — semantic `<li>` wrapping a polymorphic
 // interactive inner element:
 //
 //   • `to` → RouterLink (router-aware)

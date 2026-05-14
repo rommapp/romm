@@ -280,8 +280,8 @@ onBeforeUnmount(() => {
 
 /* Button — common. Indicator owns the active background; buttons stay
    transparent so the slide reads cleanly behind them. `transform` + extra
-   transitions give the hover/press animation parity with RBtn, where
-   Vuetify's v-btn ships an overlay + slight lift by default. */
+   transitions give the hover/press animation parity with RBtn's
+   currentColor overlay + scale press cue. */
 .r-slider-btn-group__btn {
   position: relative;
   z-index: 1;
@@ -298,9 +298,9 @@ onBeforeUnmount(() => {
   transform: scale(0.94);
 }
 
-/* Segmented sizing + colors. RBtn wraps v-btn which applies `color="primary"`
-   as a `.text-primary` utility with !important — to get a neutral grey by
-   default we need equal-or-greater specificity + !important. */
+/* Segmented sizing + colors. RBtn's variant styles apply a colour by
+   default; to get a neutral grey here we override with equal-or-greater
+   specificity + !important. */
 .r-slider-btn-group--segmented .r-slider-btn-group__btn {
   min-width: 28px !important;
   min-height: 28px !important;
@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
   display: inline-grid;
   place-items: center;
 }
-.r-slider-btn-group--segmented .r-slider-btn-group__btn :deep(.v-btn__content) {
+.r-slider-btn-group--segmented .r-slider-btn-group__btn :deep(.r-btn__content) {
   min-width: 0;
 }
 .r-slider-btn-group--segmented

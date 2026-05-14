@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RProgressCircular — Vuetify-free. Pure SVG ring with two modes:
+// RProgressCircular — pure SVG ring with two modes:
 //
 //   • Indeterminate (default) — Material-style spinner. The SVG rotates
 //     continuously while the arc's `stroke-dasharray` cycles through a

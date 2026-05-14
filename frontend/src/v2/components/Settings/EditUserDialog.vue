@@ -167,11 +167,10 @@ function close() {
               </div>
             </template>
             <template #item="{ props: itemProps, item }">
-              <v-list-item v-bind="itemProps" :title="item.title">
-                <template #prepend>
-                  <RIcon :icon="getRoleIcon(item.value)" size="16" />
-                </template>
-              </v-list-item>
+              <li v-bind="itemProps">
+                <RIcon :icon="getRoleIcon(item.value)" size="16" />
+                <span class="r-select__item-title">{{ item.title }}</span>
+              </li>
             </template>
           </RSelect>
         </div>

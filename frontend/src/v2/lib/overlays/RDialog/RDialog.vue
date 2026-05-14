@@ -1,8 +1,7 @@
 <script setup lang="ts">
-// RDialog — Vuetify-free. Teleports to <body>, paints a scrim + glass
-// panel, and locks page scroll while open. The slot layout (header /
-// toolbar / prepend / content / append / empty-state / footer) is the
-// same the rest of v2 already targets — no call-site changes needed.
+// RDialog — teleports to <body>, paints a scrim + glass panel, and
+// locks page scroll while open. Slot layout: header / toolbar /
+// content / append / footer.
 //
 // Behaviour:
 //   • Escape closes (unless `persistent`).
@@ -11,11 +10,12 @@
 //     focused element on close.
 //   • `<body>` gets `overflow: hidden` while any dialog is open; we use
 //     a reference count so nested dialogs unlock correctly.
+//
+// The primitive owns surface + chrome only. Loading spinners, empty
+// states, "no results" messaging and any other app-driven content
+// belong inside the consumer's `#content` slot — composed from
+// REmptyState / RProgressCircular / RSpinner as needed.
 import { computed, nextTick, ref, useSlots, watch } from "vue";
-import EmptyFirmware from "@/components/common/EmptyStates/EmptyFirmware.vue";
-import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
-import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
-import RIsotipo from "@/components/common/RIsotipo.vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -23,12 +23,7 @@ defineOptions({ inheritAttrs: false });
 const props = withDefaults(
   defineProps<{
     modelValue: boolean;
-    loadingCondition?: boolean;
-    emptyStateCondition?: boolean;
-    emptyStateType?: string | null;
-    expandContentOnEmptyState?: boolean;
     scrollContent?: boolean;
-    showRommIcon?: boolean;
     icon?: string | null;
     width?: number | string;
     height?: number | string;
@@ -36,12 +31,7 @@ const props = withDefaults(
     persistent?: boolean;
   }>(),
   {
-    loadingCondition: false,
-    emptyStateCondition: false,
-    emptyStateType: null,
-    expandContentOnEmptyState: false,
     scrollContent: false,
-    showRommIcon: false,
     icon: null,
     width: "auto",
     height: "auto",
@@ -173,11 +163,6 @@ const panelStyle = computed(() => {
               size="18"
               class="r-dialog__lead-icon"
             />
-            <RIsotipo
-              v-if="showRommIcon"
-              :size="22"
-              class="r-dialog__lead-icon"
-            />
             <div class="r-dialog__header-slot">
               <slot name="header" />
             </div>
@@ -196,28 +181,14 @@ const panelStyle = computed(() => {
             <slot name="toolbar" />
           </div>
 
-          <!-- Prepend -->
-          <div v-if="slots.prepend" class="r-dialog__prepend">
-            <slot name="prepend" />
-          </div>
-
-          <!-- Body (or loading / empty state) -->
+          <!-- Body — content is the consumer's responsibility (loading,
+               empty, results, forms, …). The primitive just provides the
+               padded, optionally-scrollable region. -->
           <div
             class="r-dialog__body"
             :class="{ 'r-dialog__body--scroll': scrollContent }"
           >
-            <div v-if="loadingCondition" class="r-dialog__state">
-              <div class="r-dialog__spinner" aria-label="Loading" />
-            </div>
-
-            <div v-else-if="emptyStateCondition" class="r-dialog__state">
-              <EmptyGame v-if="emptyStateType === 'game'" />
-              <EmptyPlatform v-else-if="emptyStateType === 'platform'" />
-              <EmptyFirmware v-else-if="emptyStateType === 'firmware'" />
-              <slot v-else name="empty-state" />
-            </div>
-
-            <slot v-else name="content" />
+            <slot name="content" />
           </div>
 
           <!-- Append -->
@@ -314,13 +285,12 @@ const panelStyle = computed(() => {
   color: var(--r-color-fg);
 }
 
-/* ── Toolbar / prepend / append / footer ─────────────────────── */
+/* ── Toolbar / append / footer ────────────────────────────────── */
 .r-dialog__toolbar {
   padding: 8px 14px;
   background: var(--r-color-bg-elevated);
   border-bottom: 1px solid var(--r-color-border);
 }
-.r-dialog__prepend,
 .r-dialog__append {
   padding: 0;
 }
@@ -328,34 +298,12 @@ const panelStyle = computed(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  /* Symmetric padding so default content reads, and centred states
-     (loading / empty) don't drift towards the top. */
+  /* Symmetric padding so default content reads in a comfortable box. */
   padding: 18px 16px;
 }
 .r-dialog__body--scroll {
   overflow-y: auto;
   scrollbar-width: thin;
-}
-.r-dialog__state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  /* The body's own padding handles the L/R + T/B gap — the state row
-     just centres its content. */
-}
-.r-dialog__spinner {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid var(--r-color-surface-hover);
-  border-top-color: var(--r-color-brand-primary);
-  animation: r-dialog-spin 0.8s linear infinite;
-}
-@keyframes r-dialog-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 .r-dialog__footer {
   padding: 10px 14px;

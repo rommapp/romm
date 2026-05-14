@@ -6,13 +6,20 @@
 //
 // The ScanPlatform expansion body is the v1 primitive — it's feature-scoped
 // and fine to reuse inside a v2 panel until we rebuild it natively.
-import { RAlert, RBtn, RIcon, RPlatformIcon, RSelect } from "@v2/lib";
+import {
+  RAlert,
+  RAvatar,
+  RBtn,
+  RIcon,
+  RPlatformIcon,
+  RSelect,
+  RSwitch,
+  RTag,
+} from "@v2/lib";
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useDisplay } from "vuetify";
-import ScanPlatform from "@/components/Scan/ScanPlatform.vue";
 import { ROUTES } from "@/plugins/router";
 import socket from "@/services/socket";
 import storeConfig from "@/stores/config";
@@ -20,15 +27,17 @@ import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import { platformCategoryToIcon } from "@/utils";
+import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
   "scan.launchboxRemoteEnabled";
 const { t } = useI18n();
-const { xs } = useDisplay();
+const { xs } = useBreakpoint();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platformsStore = storePlatforms();
@@ -37,7 +46,17 @@ const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<number[]>([]);
-const panels = ref<number[]>([]);
+// IDs of platforms whose ScanPlatform panel is currently open. We track
+// by ID (not array index) because the order in `scanningPlatforms` can
+// shift as new platforms arrive.
+const openPlatforms = ref<Set<number>>(new Set());
+
+function setOpen(platformId: number, open: boolean) {
+  const next = new Set(openPlatforms.value);
+  if (open) next.add(platformId);
+  else next.delete(platformId);
+  openPlatforms.value = next;
+}
 const scanLog = useTemplateRef<HTMLDivElement>("scan-log");
 
 const setBgArt = useBackgroundArt();
@@ -96,13 +115,15 @@ watch(metadataOptions, (newOptions) => {
 // Auto-expand panels when a platform first reports roms or firmware.
 const platformsWithRomsKey = computed(() =>
   scanningPlatforms.value
-    .map((p) => (p.roms.length > 0 || p.firmware_count > 0 ? 1 : 0))
-    .join(""),
+    .map((p) => `${p.id}:${p.roms.length > 0 || p.firmware_count > 0 ? 1 : 0}`)
+    .join(","),
 );
 watch(platformsWithRomsKey, () => {
-  panels.value = scanningPlatforms.value
-    .map((p, index) => (p.roms.length > 0 || p.firmware_count > 0 ? index : -1))
-    .filter((index) => index !== -1);
+  openPlatforms.value = new Set(
+    scanningPlatforms.value
+      .filter((p) => p.roms.length > 0 || p.firmware_count > 0)
+      .map((p) => p.id),
+  );
 });
 
 // Auto-scroll to bottom as new platforms arrive, unless the user scrolled up.
@@ -230,20 +251,20 @@ function stopScan() {
           chips
         >
           <template #item="{ props: itemProps, item }">
-            <v-list-item v-bind="itemProps" class="py-3">
-              <template #prepend>
-                <RPlatformIcon
-                  :key="item.raw.slug"
-                  :size="32"
-                  :slug="item.raw.slug"
-                  :name="item.raw.name"
-                  :fs-slug="item.raw.fs_slug"
-                />
-              </template>
+            <li v-bind="itemProps">
+              <RPlatformIcon
+                :key="item.raw.slug"
+                :size="32"
+                :slug="item.raw.slug"
+                :name="item.raw.name"
+                :fs-slug="item.raw.fs_slug"
+              />
+              <span class="r-select__item-title">{{ item.raw.name }}</span>
               <div class="r-v2-scan__plat-item">
-                <v-icon
+                <RIcon
                   :icon="platformCategoryToIcon(item.raw.category || '')"
-                  class="text-caption text-grey"
+                  size="small"
+                  class="text-grey"
                   :title="item.raw.category"
                 />
                 <span
@@ -253,29 +274,17 @@ function stopScan() {
                   {{ item.raw.family_name }}
                 </span>
               </div>
-              <template #append>
-                <MissingFSBadge
-                  v-if="item.raw.missing_from_fs"
-                  text="Missing platform from filesystem"
-                  class="ml-2"
-                />
-                <v-chip class="ml-1" size="small" label>
-                  {{ item.raw.rom_count }}
-                </v-chip>
-              </template>
-            </v-list-item>
-          </template>
-          <template #chip="{ item }">
-            <v-chip>
-              <RPlatformIcon
-                :key="item.raw.slug"
-                :slug="item.raw.slug"
-                :name="item.raw.name"
-                :fs-slug="item.raw.fs_slug"
-                :size="18"
+              <MissingFSBadge
+                v-if="item.raw.missing_from_fs"
+                text="Missing platform from filesystem"
+                class="ml-2"
               />
-              <span class="ml-2">{{ item.raw.display_name }}</span>
-            </v-chip>
+              <RTag
+                class="ml-1"
+                size="small"
+                :text="String(item.raw.rom_count)"
+              />
+            </li>
           </template>
         </RSelect>
 
@@ -294,56 +303,43 @@ function stopScan() {
           chips
         >
           <template #item="{ props: itemProps, item }">
-            <v-list-item
-              v-bind="itemProps"
-              :title="item.raw.name"
-              :subtitle="item.raw.disabled"
-              :disabled="Boolean(item.raw.disabled)"
-            >
-              <template #prepend>
-                <v-avatar size="22" rounded="1">
-                  <v-img :src="item.raw.logo_path" />
-                </v-avatar>
-              </template>
-
-              <template v-if="item.raw.value === 'launchbox'" #append>
-                <div class="r-v2-scan__lb-toggle">
-                  <span
-                    class="text-caption"
-                    :class="{
-                      'r-v2-scan__lb-inactive': launchboxRemoteEnabled,
-                    }"
-                  >
-                    Local
-                  </span>
-                  <v-switch
-                    v-model="launchboxRemoteEnabled"
-                    color="primary"
-                    density="compact"
-                    hide-details
-                    :disabled="!isLaunchboxSelected"
-                    @click.stop
-                    @mousedown.stop
-                  />
-                  <span
-                    class="text-caption"
-                    :class="{
-                      'r-v2-scan__lb-inactive': !launchboxRemoteEnabled,
-                    }"
-                  >
-                    Cloud
-                  </span>
+            <li v-bind="itemProps">
+              <RAvatar :image="item.raw.logo_path" size="22" rounded="sm" />
+              <div class="r-select__item-stack">
+                <div class="r-select__item-title">{{ item.raw.name }}</div>
+                <div v-if="item.raw.disabled" class="r-select__item-subtitle">
+                  {{ item.raw.disabled }}
                 </div>
-              </template>
-            </v-list-item>
-          </template>
-          <template #chip="{ item }">
-            <v-chip>
-              <v-avatar class="mr-1" size="18" rounded="1">
-                <v-img :src="item.raw.logo_path" />
-              </v-avatar>
-              <span>{{ item.raw.name }}</span>
-            </v-chip>
+              </div>
+
+              <div
+                v-if="item.raw.value === 'launchbox'"
+                class="r-v2-scan__lb-toggle"
+              >
+                <span
+                  class="text-caption"
+                  :class="{
+                    'r-v2-scan__lb-inactive': launchboxRemoteEnabled,
+                  }"
+                >
+                  Local
+                </span>
+                <RSwitch
+                  v-model="launchboxRemoteEnabled"
+                  :disabled="!isLaunchboxSelected"
+                  @click.stop
+                  @mousedown.stop
+                />
+                <span
+                  class="text-caption"
+                  :class="{
+                    'r-v2-scan__lb-inactive': !launchboxRemoteEnabled,
+                  }"
+                >
+                  Cloud
+                </span>
+              </div>
+            </li>
           </template>
         </RSelect>
 
@@ -357,7 +353,14 @@ function stopScan() {
           variant="outlined"
         >
           <template #item="{ props: itemProps, item }">
-            <v-list-item v-bind="itemProps" :subtitle="item.raw.subtitle" />
+            <li v-bind="itemProps">
+              <div class="r-select__item-stack">
+                <div class="r-select__item-title">{{ item.title }}</div>
+                <div v-if="item.raw.subtitle" class="r-select__item-subtitle">
+                  {{ item.raw.subtitle }}
+                </div>
+              </div>
+            </li>
           </template>
         </RSelect>
       </div>
@@ -421,21 +424,16 @@ function stopScan() {
           }}
         </p>
       </div>
-      <v-expansion-panels
-        v-else
-        v-model="panels"
-        multiple
-        flat
-        variant="accordion"
-      >
-        <v-expansion-panel
+      <div v-else class="r-v2-scan__panels">
+        <ScanPlatform
           v-for="platform in scanningPlatforms"
           :key="platform.id"
+          :platform="platform"
+          :open="openPlatforms.has(platform.id)"
           class="r-v2-scan__panel"
-        >
-          <ScanPlatform :platform="platform" />
-        </v-expansion-panel>
-      </v-expansion-panels>
+          @update:open="(v) => setOpen(platform.id, v)"
+        />
+      </div>
     </div>
 
     <!-- Sticky stats bar -->
@@ -610,8 +608,13 @@ function stopScan() {
   max-width: 360px;
 }
 
+.r-v2-scan__panels {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .r-v2-scan__panel {
-  background: transparent !important;
+  background: transparent;
 }
 
 /* Sticky stats row. */

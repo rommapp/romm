@@ -11,8 +11,6 @@ import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
-import { useDisplay } from "vuetify";
-import GameCard from "@/components/common/Game/Card/Base.vue";
 import AdditionalDetails from "@/components/common/Game/Dialog/EditRom/AdditionalDetails.vue";
 import MetadataIdSection from "@/components/common/Game/Dialog/EditRom/MetadataIdSection.vue";
 import MetadataSections from "@/components/common/Game/Dialog/EditRom/MetadataSections.vue";
@@ -23,12 +21,14 @@ import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import { getMissingCoverImage } from "@/utils/covers";
+import GameCard from "@/v2/components/GameCard/GameCard.vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const { lgAndUp } = useDisplay();
+const { lgAndUp } = useBreakpoint();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);
@@ -275,13 +275,11 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         <!-- Cover column -->
         <div class="r-v2-edit__cover-col">
           <GameCard
-            width="220"
             :rom="rom"
             :cover-src="imagePreviewUrl"
-            disable-view-transition
-            :show-platform-icon="false"
-            :show-action-bar="false"
-            force-boxart="cover_path"
+            :show-title="false"
+            static
+            no-hover
           />
           <div class="r-v2-edit__cover-actions">
             <button

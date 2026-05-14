@@ -17,7 +17,7 @@ const sampleRom = {
 } as unknown as SimpleRom;
 
 const meta: Meta<typeof GameCard> = {
-  title: "GameCard",
+  title: "Media/GameCard",
   component: GameCard,
   argTypes: {
     hero: { control: "boolean" },
