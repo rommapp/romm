@@ -217,9 +217,11 @@ onMounted(async () => {
   }
 
   const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
-  if (storedDisc) {
-    selectedDisc.value = parseInt(storedDisc);
+  const storedDiscId = storedDisc ? parseInt(storedDisc) : null;
+  if (storedDiscId && rom.value.files.some((f) => f.id === storedDiscId)) {
+    selectedDisc.value = storedDiscId;
   } else {
+    if (storedDisc) localStorage.removeItem(`player:${rom.value.id}:disc`);
     selectedDisc.value = rom.value.files[0]?.id ?? null;
   }
 
