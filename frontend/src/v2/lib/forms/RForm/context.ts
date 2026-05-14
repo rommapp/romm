@@ -7,7 +7,7 @@
 // the registry, surfaces it via its public `validate()` / `reset()`
 // methods, and computes `modelValue` (true when every field is valid).
 import { inject, onBeforeUnmount, provide } from "vue";
-import type { ComputedRef, InjectionKey } from "vue";
+import type { InjectionKey } from "vue";
 
 export interface RFormField {
   /** Run rules on the field; return true if no rule failed. */
@@ -16,9 +16,11 @@ export interface RFormField {
   reset: () => void;
   /** Used by `scrollToFirstError` — the DOM element to focus + scroll. */
   el?: () => HTMLElement | null;
-  /** Reactive validity — `false` while the field shows an error, `true`
-   *  otherwise. The form aggregates these to drive its own `modelValue`. */
-  validity: ComputedRef<boolean>;
+  /** Read the field's current validity. Implemented as a getter (not a
+   *  Ref) so Vue's auto-unwrap inside the form's `fields` array doesn't
+   *  collapse the type signature. The form invokes it from a computed,
+   *  so reactivity still flows when the field's underlying state changes. */
+  validity: () => boolean;
 }
 
 export interface RFormApi {

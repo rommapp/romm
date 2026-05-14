@@ -45,14 +45,15 @@ defineOptions({ inheritAttrs: false });
 type Rule = (value: any) => true | string;
 
 interface NormalisedItem {
-  // `raw` is the consumer's source item — we don't know its shape but
-  // they do. Typing as `any` so `#selection` / `#item` slot consumers
-  // can read fields off it without spamming `as` casts. Vuetify's
-  // VSelect did the same.
+  // `raw` + `value` are the consumer's source item / its key — we don't
+  // know their shape but they do. Typing as `any` so `#selection` /
+  // `#item` slot consumers can read fields off them without spamming
+  // `as` casts. Vuetify's VSelect did the same.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   raw: any;
   title: string;
-  value: unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  value: any;
   disabled?: boolean;
 }
 
@@ -390,7 +391,7 @@ useRFormRegistration({
   validate,
   reset,
   el: () => activatorRef.value,
-  validity: computed(() => !hasError.value),
+  validity: () => !hasError.value,
 });
 
 watch(

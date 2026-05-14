@@ -1,24 +1,17 @@
 <script setup lang="ts">
-// RDialog — v2 dialog primitive. Wraps Vuetify's v-dialog with a
-// glass-card surface and a slot layout that matches every v2 dialog
-// (header · toolbar · prepend · content · append · empty-state · footer).
-// v1's `src/components/common/RDialog.vue` is unrelated — the v1 UI keeps
-// its own dialog primitive since we treat v1 as frozen until Wave 10.
+// RDialog — Vuetify-free. Teleports to <body>, paints a scrim + glass
+// panel, and locks page scroll while open. The slot layout (header /
+// toolbar / prepend / content / append / empty-state / footer) is the
+// same the rest of v2 already targets — no call-site changes needed.
 //
-// Slots
-//   header       title bar content (left of the close button)
-//   toolbar      optional secondary toolbar row below the header
-//   prepend      content above the main body
-//   content      main body (always rendered unless loading / empty)
-//   append       content below the main body
-//   empty-state  custom empty state (else picks by `emptyStateType`)
-//   footer       optional footer toolbar row
-//
-// Props mirror the v1 RDialog API to keep slot contents portable; that's
-// just naming — there's no runtime relationship between them.
-import { computed, useSlots } from "vue";
-import { useTheme } from "vuetify";
-import { VDialog } from "vuetify/components/VDialog";
+// Behaviour:
+//   • Escape closes (unless `persistent`).
+//   • Click on the scrim closes (unless `persistent`).
+//   • Focus moves into the dialog on open and restores to the previously
+//     focused element on close.
+//   • `<body>` gets `overflow: hidden` while any dialog is open; we use
+//     a reference count so nested dialogs unlock correctly.
+import { computed, nextTick, ref, useSlots, watch } from "vue";
 import EmptyFirmware from "@/components/common/EmptyStates/EmptyFirmware.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
@@ -39,6 +32,8 @@ const props = withDefaults(
     icon?: string | null;
     width?: number | string;
     height?: number | string;
+    /** Block close-on-scrim-click / close-on-Escape. */
+    persistent?: boolean;
   }>(),
   {
     loadingCondition: false,
@@ -50,6 +45,7 @@ const props = withDefaults(
     icon: null,
     width: "auto",
     height: "auto",
+    persistent: false,
   },
 );
 
@@ -58,119 +54,211 @@ const emit = defineEmits<{
   (e: "close"): void;
 }>();
 
-const theme = useTheme();
 const slots = useSlots();
 
-// Recomputed per render — swap between v2 tokens when the theme flips.
-const scrimColor = computed(() =>
-  theme.global.name.value.endsWith("-light") ||
-  theme.global.name.value === "light"
-    ? "white"
-    : "black",
-);
+const panelRef = ref<HTMLElement | null>(null);
+// Element that had focus before the dialog opened — focus returns here
+// when the dialog closes so keyboard users don't lose their place.
+let previouslyFocused: HTMLElement | null = null;
 
 function closeDialog() {
   emit("update:modelValue", false);
   emit("close");
 }
 
-void props;
+function onScrimClick() {
+  if (props.persistent) return;
+  closeDialog();
+}
+
+function onKeyDown(evt: KeyboardEvent) {
+  if (evt.key === "Escape" && !props.persistent) {
+    evt.stopPropagation();
+    closeDialog();
+  }
+}
+
+// ── Body scroll lock — reference-counted so nested dialogs unlock
+// correctly when the outer one is still open. ─────────────────────
+function lockBodyScroll() {
+  const cur = Number(document.body.dataset.rDialogOpenCount ?? "0") + 1;
+  document.body.dataset.rDialogOpenCount = String(cur);
+  if (cur === 1) {
+    document.body.style.overflow = "hidden";
+  }
+}
+function unlockBodyScroll() {
+  const cur = Math.max(
+    0,
+    Number(document.body.dataset.rDialogOpenCount ?? "0") - 1,
+  );
+  document.body.dataset.rDialogOpenCount = String(cur);
+  if (cur === 0) {
+    document.body.style.overflow = "";
+  }
+}
+
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (open) {
+      previouslyFocused = document.activeElement as HTMLElement | null;
+      lockBodyScroll();
+      // Defer to the next tick so the panel is mounted before we
+      // try to move focus into it.
+      nextTick(() => {
+        const focusTarget = panelRef.value?.querySelector<HTMLElement>(
+          "[autofocus], button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+        );
+        focusTarget?.focus();
+      });
+    } else {
+      unlockBodyScroll();
+      // Restore focus to the element that opened the dialog.
+      previouslyFocused?.focus?.();
+      previouslyFocused = null;
+    }
+  },
+  { immediate: false },
+);
+
+// ── Width / height resolution ───────────────────────────────────
+function asLength(v: number | string): string | undefined {
+  if (v == null || v === "" || v === "auto") return undefined;
+  return typeof v === "number" ? `${v}px` : v;
+}
+const panelStyle = computed(() => {
+  const h = asLength(props.height);
+  const w = asLength(props.width);
+  return {
+    width: w,
+    maxWidth: w,
+    minHeight: h,
+    maxHeight: h,
+  };
+});
 </script>
 
 <template>
-  <VDialog
-    :model-value="modelValue"
-    :width="width"
-    scroll-strategy="block"
-    no-click-animation
-    persistent
-    z-index="9999"
-    :scrim="scrimColor"
-    content-class="r-dialog"
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
-  >
-    <div
-      class="r-dialog__panel"
-      :style="{
-        minHeight: typeof height === 'number' ? `${height}px` : height,
-        maxHeight: typeof height === 'number' ? `${height}px` : height,
-      }"
-    >
-      <!-- Header bar -->
-      <header class="r-dialog__header">
-        <RIcon v-if="icon" :icon="icon" size="18" class="r-dialog__lead-icon" />
-        <RIsotipo v-if="showRommIcon" :size="22" class="r-dialog__lead-icon" />
-        <div class="r-dialog__header-slot">
-          <slot name="header" />
-        </div>
-        <button
-          type="button"
-          class="r-dialog__close"
-          aria-label="Close"
-          @click="closeDialog"
-        >
-          <RIcon icon="mdi-close" size="16" />
-        </button>
-      </header>
-
-      <!-- Optional secondary toolbar -->
-      <div v-if="slots.toolbar" class="r-dialog__toolbar">
-        <slot name="toolbar" />
-      </div>
-
-      <!-- Prepend -->
-      <div v-if="slots.prepend" class="r-dialog__prepend">
-        <slot name="prepend" />
-      </div>
-
-      <!-- Body (or loading / empty state) -->
+  <Teleport to="body">
+    <!-- Auto-detect mode: Vue reads the longest CSS transition
+         declared on the root (`.r-dialog`'s opacity) and unmounts when
+         that transitionend fires. The panel scales alongside via its
+         own always-on transform transition. -->
+    <Transition name="r-dialog-fade">
       <div
-        class="r-dialog__body"
-        :class="{ 'r-dialog__body--scroll': scrollContent }"
+        v-if="modelValue"
+        v-bind="$attrs"
+        class="r-dialog"
+        role="presentation"
+        @keydown="onKeyDown"
       >
-        <div v-if="loadingCondition" class="r-dialog__state">
-          <div class="r-dialog__spinner" aria-label="Loading" />
+        <!-- Scrim — fades in/out behind the panel. -->
+        <div class="r-dialog__scrim" @click="onScrimClick" />
+
+        <!-- Panel — receives focus on open. -->
+        <div
+          ref="panelRef"
+          class="r-dialog__panel"
+          role="dialog"
+          aria-modal="true"
+          tabindex="-1"
+          :style="panelStyle"
+        >
+          <!-- Header bar -->
+          <header class="r-dialog__header">
+            <RIcon
+              v-if="icon"
+              :icon="icon"
+              size="18"
+              class="r-dialog__lead-icon"
+            />
+            <RIsotipo
+              v-if="showRommIcon"
+              :size="22"
+              class="r-dialog__lead-icon"
+            />
+            <div class="r-dialog__header-slot">
+              <slot name="header" />
+            </div>
+            <button
+              type="button"
+              class="r-dialog__close"
+              aria-label="Close"
+              @click="closeDialog"
+            >
+              <RIcon icon="mdi-close" size="16" />
+            </button>
+          </header>
+
+          <!-- Optional secondary toolbar -->
+          <div v-if="slots.toolbar" class="r-dialog__toolbar">
+            <slot name="toolbar" />
+          </div>
+
+          <!-- Prepend -->
+          <div v-if="slots.prepend" class="r-dialog__prepend">
+            <slot name="prepend" />
+          </div>
+
+          <!-- Body (or loading / empty state) -->
+          <div
+            class="r-dialog__body"
+            :class="{ 'r-dialog__body--scroll': scrollContent }"
+          >
+            <div v-if="loadingCondition" class="r-dialog__state">
+              <div class="r-dialog__spinner" aria-label="Loading" />
+            </div>
+
+            <div v-else-if="emptyStateCondition" class="r-dialog__state">
+              <EmptyGame v-if="emptyStateType === 'game'" />
+              <EmptyPlatform v-else-if="emptyStateType === 'platform'" />
+              <EmptyFirmware v-else-if="emptyStateType === 'firmware'" />
+              <slot v-else name="empty-state" />
+            </div>
+
+            <slot v-else name="content" />
+          </div>
+
+          <!-- Append -->
+          <div v-if="slots.append" class="r-dialog__append">
+            <slot name="append" />
+          </div>
+
+          <!-- Footer bar -->
+          <footer v-if="slots.footer" class="r-dialog__footer">
+            <slot name="footer" />
+          </footer>
         </div>
-
-        <div v-else-if="emptyStateCondition" class="r-dialog__state">
-          <EmptyGame v-if="emptyStateType === 'game'" />
-          <EmptyPlatform v-else-if="emptyStateType === 'platform'" />
-          <EmptyFirmware v-else-if="emptyStateType === 'firmware'" />
-          <slot v-else name="empty-state" />
-        </div>
-
-        <slot v-else name="content" />
       </div>
-
-      <!-- Append -->
-      <div v-if="slots.append" class="r-dialog__append">
-        <slot name="append" />
-      </div>
-
-      <!-- Footer bar -->
-      <footer v-if="slots.footer" class="r-dialog__footer">
-        <slot name="footer" />
-      </footer>
-    </div>
-  </VDialog>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
-/* Scoped styles apply to the r-dialog__* elements inside the dialog
-   content. Vuetify teleports v-dialog to <body>, but the root class we
-   style here is emitted on the content, so scoped styles still reach it
-   via the usual data-v attribute pipeline. The outer `.r-dialog`
-   override — needed to strip Vuetify's default .v-overlay__content
-   background/radius/max-height so our 14px rounded corners show — lives
-   in global.css because it lands on a root element outside this
-   component's scope.
+/* Full-viewport container — flexbox centres the panel. No always-on
+   transition: the opacity animation is scoped to `enter-active` only,
+   so Vue's `<Transition>` doesn't wait for a phantom transitionend on
+   close. */
+.r-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: var(--r-z-dialog, 2400);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
 
-   Visual language is aligned with RMenuPanel (the v2 menu surface):
-   14px radius, deeper glass background, heavier drop shadow. Every
-   dialog on v2 now reads as a sibling of the context menus, which is
-   the mockup's unified panel look. */
+.r-dialog__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--r-color-overlay-scrim-soft);
+  /* Pointer events live here; the panel is layered above. */
+}
+
 .r-dialog__panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: var(--r-color-panel);
@@ -183,23 +271,22 @@ void props;
     0 4px 20px color-mix(in srgb, black 40%, transparent);
   overflow: hidden;
   color: var(--r-color-fg);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
 }
 
+/* ── Header ─────────────────────────────────────────────────────── */
 .r-dialog__header {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 12px 10px 12px 16px;
-  /* Softer divider than before — matches the RMenuDivider rhythm so
-     headers read as a section boundary instead of a form chrome bar. */
   border-bottom: 1px solid var(--r-color-border);
 }
-
 .r-dialog__lead-icon {
   flex-shrink: 0;
   color: var(--r-color-fg-secondary);
 }
-
 .r-dialog__header-slot {
   flex: 1;
   min-width: 0;
@@ -207,7 +294,6 @@ void props;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg);
 }
-
 .r-dialog__close {
   appearance: none;
   background: transparent;
@@ -228,37 +314,36 @@ void props;
   color: var(--r-color-fg);
 }
 
+/* ── Toolbar / prepend / append / footer ─────────────────────── */
 .r-dialog__toolbar {
   padding: 8px 14px;
   background: var(--r-color-bg-elevated);
   border-bottom: 1px solid var(--r-color-border);
 }
-
 .r-dialog__prepend,
 .r-dialog__append {
   padding: 0;
 }
-
 .r-dialog__body {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 18px 0px 0px;
+  /* Symmetric padding so default content reads, and centred states
+     (loading / empty) don't drift towards the top. */
+  padding: 18px 16px;
 }
-
 .r-dialog__body--scroll {
   overflow-y: auto;
   scrollbar-width: thin;
 }
-
 .r-dialog__state {
   display: flex;
   align-items: center;
   justify-content: center;
   flex: 1;
-  padding: 28px 0;
+  /* The body's own padding handles the L/R + T/B gap — the state row
+     just centres its content. */
 }
-
 .r-dialog__spinner {
   width: 40px;
   height: 40px;
@@ -267,13 +352,11 @@ void props;
   border-top-color: var(--r-color-brand-primary);
   animation: r-dialog-spin 0.8s linear infinite;
 }
-
 @keyframes r-dialog-spin {
   to {
     transform: rotate(360deg);
   }
 }
-
 .r-dialog__footer {
   padding: 10px 14px;
   border-top: 1px solid var(--r-color-border);
@@ -282,23 +365,30 @@ void props;
   gap: 8px;
 }
 
-/* The --r-color-panel pair flips automatically with the theme; the only
-   light-mode-specific tweak left is the foreground colour, which the
-   panel surface inherits from var(--r-color-fg) — also already paired. */
-</style>
+/* ── Open motion only ────────────────────────────────────────
+   The dialog blooms in (root fades from 0, panel springs from 0.94
+   scale). Close is intentionally instant — no `leave-*` rules and no
+   always-on transition means Vue unmounts on the same frame. */
+.r-dialog-fade-enter-from {
+  opacity: 0;
+}
+.r-dialog-fade-enter-from .r-dialog__panel {
+  transform: scale(0.94);
+}
+.r-dialog-fade-enter-active {
+  transition: opacity 220ms var(--r-motion-ease-out);
+}
+.r-dialog-fade-enter-active .r-dialog__panel {
+  transition: transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 
-<style>
-/* VDialog teleports .v-overlay__content to <body>, outside this
-   component's scoped style tree. Vuetify's default overlay content
-   wrapper ships with its own surface background, border-radius, and
-   max-height that would paint around our rounded panel and clip the
-   corners. Strip those defaults so RDialog's own radius + shadow land
-   exactly as intended. One rule here serves every RDialog in the app. */
-.v-overlay__content.r-dialog {
-  background: transparent;
-  box-shadow: none;
-  border-radius: var(--r-radius-card);
-  overflow: visible;
-  max-height: calc(100vh - 32px);
+@media (prefers-reduced-motion: reduce) {
+  .r-dialog-fade-enter-active,
+  .r-dialog-fade-enter-active .r-dialog__panel {
+    transition: opacity 120ms linear;
+  }
+  .r-dialog-fade-enter-from .r-dialog__panel {
+    transform: none;
+  }
 }
 </style>

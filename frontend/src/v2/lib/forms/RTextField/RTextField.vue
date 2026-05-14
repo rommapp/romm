@@ -18,9 +18,6 @@
 //
 // Loading replaces the trailing append-inner content with a spinner;
 // clearable shows an × that wipes the value (focus is preserved).
-import RIcon from "../../primitives/RIcon/RIcon.vue";
-import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
-import { useRFormRegistration } from "../RForm/context";
 import {
   computed,
   getCurrentInstance,
@@ -31,6 +28,9 @@ import {
   useSlots,
   watch,
 } from "vue";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
+import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
+import { useRFormRegistration } from "../RForm/context";
 
 defineOptions({ inheritAttrs: false });
 
@@ -184,7 +184,7 @@ useRFormRegistration({
   validate,
   reset,
   el: () => inputRef.value,
-  validity: computed(() => !hasError.value),
+  validity: () => !hasError.value,
 });
 
 watch(

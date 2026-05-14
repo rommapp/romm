@@ -93,7 +93,7 @@ defineExpose({ validate, reset, resetValidation });
 // Aggregate validity — flips reactively as any field gains or loses an
 // error. Initial state is `true` (no errors yet); typing into a field
 // with rules will make it `false` as soon as the first rule fails.
-const allValid = computed(() => fields.value.every((f) => f.validity.value));
+const allValid = computed(() => fields.value.every((f) => f.validity()));
 watch(allValid, (v) => emit("update:modelValue", v), { immediate: true });
 
 // ── Enter-to-submit ─────────────────────────────────────────────
