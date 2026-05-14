@@ -504,10 +504,20 @@ function onAppendInnerClick(evt: MouseEvent) {
     box-shadow var(--r-motion-med) cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* ── Variant: outlined (default) ───────────────────────────────── */
+/* ── Variants: outlined + filled (boxed) ───────────────────────── */
+/* The two boxed variants share the same border + hover halo + focus
+   halo vocabulary — the only difference is the resting background.
+   Outlined picks the elevated bg; filled picks the warmer surface. */
 .r-text-field--variant-outlined .r-text-field__field {
   border-color: var(--r-color-border);
   background: var(--r-color-bg-elevated);
+}
+.r-text-field--variant-filled .r-text-field__field {
+  /* Borderless at rest — the warmer fill alone distinguishes it from
+     outlined. Border kicks in on hover / focus, sharing the outlined
+     vocabulary from there. */
+  border-color: transparent;
+  background: var(--r-color-surface);
 }
 .r-text-field--variant-outlined:not(.r-text-field--disabled):hover
   .r-text-field__field {
@@ -516,6 +526,16 @@ function onAppendInnerClick(evt: MouseEvent) {
      Stays neutral (no brand) because the user hasn't committed yet. */
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--r-color-fg) 6%, transparent);
 }
+/* Filled hover — borderless, the whole pill lights up via a brand-tinted
+   fill instead. Keeps the variant reading as a single solid element. */
+.r-text-field--variant-filled:not(.r-text-field--disabled):hover
+  .r-text-field__field {
+  background: color-mix(
+    in srgb,
+    var(--r-tf-color) 8%,
+    var(--r-color-surface-hover)
+  );
+}
 /* Focused (= clicked-into, persistent) — brand-coloured border + halo
    stays for as long as the field holds focus. The `:not(...:disabled)`
    chain bumps specificity above the hover rule so brand wins when the
@@ -523,29 +543,21 @@ function onAppendInnerClick(evt: MouseEvent) {
 .r-text-field--variant-outlined.r-text-field--focused:not(
     .r-text-field--disabled
   )
+  .r-text-field__field,
+.r-text-field--variant-filled.r-text-field--focused:not(.r-text-field--disabled)
   .r-text-field__field {
   border-color: var(--r-tf-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--r-tf-color) 22%, transparent);
 }
-
-/* ── Variant: filled ───────────────────────────────────────────── */
-.r-text-field--variant-filled .r-text-field__field {
-  background: var(--r-color-surface);
-  border-color: transparent;
-}
-.r-text-field--variant-filled:not(.r-text-field--disabled):hover
-  .r-text-field__field {
-  background: var(--r-color-surface-hover);
-}
-/* Focused — fill stays warm + a brand underline bar and matching halo
-   persist while the field holds focus. Specificity bumped to win
-   over the hover rule above. */
 .r-text-field--variant-filled.r-text-field--focused:not(.r-text-field--disabled)
   .r-text-field__field {
-  background: var(--r-color-surface-hover);
-  box-shadow:
-    inset 0 -2px 0 var(--r-tf-color),
-    0 0 0 3px color-mix(in srgb, var(--r-tf-color) 18%, transparent);
+  /* Slightly stronger brand tint than hover so the transition into
+     focus reads as "deeper" rather than a step back. */
+  background: color-mix(
+    in srgb,
+    var(--r-tf-color) 10%,
+    var(--r-color-surface-hover)
+  );
 }
 
 /* ── Variant: underlined ───────────────────────────────────────── */
@@ -701,9 +713,6 @@ function onAppendInnerClick(evt: MouseEvent) {
 .r-text-field--error.r-text-field--variant-filled .r-text-field__field {
   border-color: var(--r-color-danger) !important;
 }
-.r-text-field--error.r-text-field--variant-filled .r-text-field__field {
-  box-shadow: inset 0 -2px 0 var(--r-color-danger);
-}
 .r-text-field--error.r-text-field--variant-underlined .r-text-field__field {
   border-bottom-color: var(--r-color-danger);
 }
@@ -751,6 +760,7 @@ function onAppendInnerClick(evt: MouseEvent) {
   line-height: 1.2;
   align-self: flex-start;
   padding-inline-start: 2px;
+  margin-bottom: 4px;
 }
 
 /* ── Inline label — embedded left well ─────────────────────────── */
