@@ -22,11 +22,6 @@ import {
   useFloating,
 } from "@floating-ui/vue";
 import type { Placement } from "@floating-ui/vue";
-import RIcon from "../../primitives/RIcon/RIcon.vue";
-import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
-import RTag from "../../primitives/RTag/RTag.vue";
-import RTextField from "../RTextField/RTextField.vue";
-import { useRFormRegistration } from "../RForm/context";
 import {
   computed,
   getCurrentInstance,
@@ -38,6 +33,11 @@ import {
   useSlots,
   watch,
 } from "vue";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
+import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
+import RTag from "../../primitives/RTag/RTag.vue";
+import { useRFormRegistration } from "../RForm/context";
+import RTextField from "../RTextField/RTextField.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -45,7 +45,12 @@ defineOptions({ inheritAttrs: false });
 type Rule = (value: any) => true | string;
 
 interface NormalisedItem {
-  raw: unknown;
+  // `raw` is the consumer's source item — we don't know its shape but
+  // they do. Typing as `any` so `#selection` / `#item` slot consumers
+  // can read fields off it without spamming `as` casts. Vuetify's
+  // VSelect did the same.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  raw: any;
   title: string;
   value: unknown;
   disabled?: boolean;

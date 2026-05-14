@@ -131,7 +131,6 @@ function clear() {
           :max="100"
           :step="step"
           :color="accent"
-          density="compact"
           value-position="thumb"
           value-suffix="%"
           @end="commitSlider"
