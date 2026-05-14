@@ -358,7 +358,7 @@ const tooltipClasses = computed(() =>
      for theme alignment. Re-declare here so the primitive is
      self-contained — scoped tokens win when both stylesheets load. */
   position: fixed;
-  z-index: var(--r-z-tooltip, 2400);
+  z-index: var(--r-z-tooltip, 2600);
   background: var(--r-color-tooltip-bg);
   border: 1px solid var(--r-color-tooltip-border);
   border-radius: 6px;

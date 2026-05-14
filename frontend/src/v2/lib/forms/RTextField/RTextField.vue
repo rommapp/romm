@@ -67,6 +67,11 @@ interface Props {
   prefixLabel?: "stacked" | "inline";
   /** Accent for focus + clearable hover. Defaults to brand-primary. */
   color?: string;
+  /** Force the focused appearance regardless of the input's own focus
+   *  state. Used by wrappers (RDateField, popover activators) that move
+   *  real focus into a teleported panel but still want the field to read
+   *  as active. Additive — internal focus also triggers the look. */
+  focused?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -93,6 +98,7 @@ const props = withDefaults(defineProps<Props>(), {
   errorMessages: () => [],
   prefixLabel: undefined,
   color: "primary",
+  focused: undefined,
 });
 
 const emit = defineEmits<{
@@ -136,13 +142,18 @@ const resolvedColor = computed<string>(
 );
 
 // ── Focus state ─────────────────────────────────────────────────
-const focused = ref(false);
+const internalFocused = ref(false);
+// External `focused` prop is additive: wrappers (RDateField) keep the
+// focused look while the real focus lives in a teleported panel.
+const focusedAppearance = computed(
+  () => internalFocused.value || !!props.focused,
+);
 function onFocus(evt: FocusEvent) {
-  focused.value = true;
+  internalFocused.value = true;
   emit("focus", evt);
 }
 function onBlur(evt: FocusEvent) {
-  focused.value = false;
+  internalFocused.value = false;
   // First blur dirties the field; from then on, rules run live so the
   // user gets responsive feedback (rather than waiting for another blur).
   dirty.value = true;
@@ -314,7 +325,7 @@ function onAppendInnerClick(evt: MouseEvent) {
       `r-text-field--variant-${variant}`,
       `r-text-field--density-${density}`,
       {
-        'r-text-field--focused': focused,
+        'r-text-field--focused': focusedAppearance,
         'r-text-field--error': hasError,
         'r-text-field--disabled': disabled,
         'r-text-field--readonly': readonly,

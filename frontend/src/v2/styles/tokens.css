@@ -135,6 +135,10 @@
   --r-list-header-h: 40px;
   --r-list-cover-w: 48px;
   --r-list-cover-h: 64px;
+  --r-z-dialog: 2400;
+  --r-z-menu: 2500;
+  --r-z-tooltip: 2600;
+  --r-z-snackbar: 2700;
 }
 
 html[data-input="key"] .r-v2 {

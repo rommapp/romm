@@ -1277,7 +1277,7 @@ html[data-input="pad"] .r-select__field:focus {
 <style>
 .r-select__panel {
   position: fixed;
-  z-index: var(--r-z-overlay, 2200);
+  z-index: var(--r-z-menu, 2500);
   display: flex;
   flex-direction: column;
   min-width: 180px;

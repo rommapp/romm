@@ -31,6 +31,7 @@ import {
   motion,
   radius,
   space,
+  zIndex,
 } from "../src/v2/tokens/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -65,6 +66,15 @@ const NAME_OVERRIDES = {
     rommGreen: "--r-color-romm-green",
     rommBlue: "--r-color-romm-blue",
     rommGold: "--r-color-romm-gold",
+  },
+  // Stacking-layer tokens drop the "-index" suffix the default generator
+  // would produce — components consume `--r-z-menu` etc., shorter and
+  // matches the convention from §VI of the constitution.
+  zIndex: {
+    dialog: "--r-z-dialog",
+    menu: "--r-z-menu",
+    tooltip: "--r-z-tooltip",
+    snackbar: "--r-z-snackbar",
   },
 } as const;
 
@@ -127,6 +137,7 @@ const SHARED: Entry[] = [
   ["--r-focus-ring-width", focus.ringWidthMouse],
   ["--r-focus-ring-offset", focus.ringOffset],
   ...entriesFor(layout, "layout", "--r-layout"),
+  ...entriesFor(zIndex, "zIndex", "--r-z-index"),
 ];
 
 const DARK: Entry[] = entriesFor(colorDark, "colorDark", "--r-color");

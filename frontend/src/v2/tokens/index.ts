@@ -265,6 +265,18 @@ export const focus = {
   ringOffset: "3px",
 } as const;
 
+// Stacking layers. Menus / dropdowns / popovers must sit ABOVE dialogs
+// so that a select or date picker opened from within an RDialog isn't
+// trapped behind the dialog surface. Tooltips ride above menus so a
+// hover-help on a menu item is still legible. Snackbars cap the stack —
+// nothing covers an active toast.
+export const zIndex = {
+  dialog: "2400",
+  menu: "2500",
+  tooltip: "2600",
+  snackbar: "2700",
+} as const;
+
 // Layout constants from the mockup.
 export const layout = {
   navHeight: "58px",
@@ -306,6 +318,7 @@ export const tokens = {
   motion,
   focus,
   layout,
+  zIndex,
 } as const;
 
 export type Tokens = typeof tokens;

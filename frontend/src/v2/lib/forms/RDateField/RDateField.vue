@@ -415,6 +415,7 @@ onBeforeUnmount(() => {
       v-bind="$attrs"
       :model-value="displayValue"
       :disabled="disabled"
+      :focused="isOpen"
       readonly
       append-inner-icon="mdi-calendar"
       :aria-haspopup="'dialog'"
@@ -564,7 +565,7 @@ onBeforeUnmount(() => {
 /* ── Calendar panel ────────────────────────────────────────────── */
 .r-date-cal {
   position: fixed;
-  z-index: var(--r-z-menu, 2200);
+  z-index: var(--r-z-menu, 2500);
   width: 280px;
   padding: 8px;
   background: var(--r-color-panel);

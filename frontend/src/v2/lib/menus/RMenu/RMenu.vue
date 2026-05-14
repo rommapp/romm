@@ -341,7 +341,7 @@ const mergedContentClass = computed(() =>
 <style scoped>
 .r-menu__panel {
   position: fixed;
-  z-index: var(--r-z-menu, 2200);
+  z-index: var(--r-z-menu, 2500);
   display: flex;
   flex-direction: column;
   /* No hard max-width — the panel grows to fit the widest item so a

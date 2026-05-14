@@ -119,7 +119,7 @@ onBeforeUnmount(() => {
   position: fixed;
   top: calc(var(--r-nav-h, 64px) + 14px);
   right: 16px;
-  z-index: 9000;
+  z-index: var(--r-z-snackbar, 2700);
   display: flex;
   flex-direction: column;
   gap: 8px;

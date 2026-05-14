@@ -577,7 +577,7 @@ const showDetails = computed(
 /* ── Suggestion panel ─────────────────────────────────────────── */
 .r-combobox-field__panel {
   position: fixed;
-  z-index: var(--r-z-menu, 2200);
+  z-index: var(--r-z-menu, 2500);
   background: var(--r-color-panel);
   border: 1px solid var(--r-color-panel-border);
   border-radius: 10px;
