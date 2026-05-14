@@ -636,7 +636,8 @@ onUnmounted(() => {
                     :class="{
                       'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-game-play-button-focus-border),_0_0_16px_var(--console-accent-secondary)]':
                         selectedZone === 'play',
-                      'opacity-60 cursor-not-allowed': isConsoleEmulationDisabled,
+                      'opacity-60 cursor-not-allowed':
+                        isConsoleEmulationDisabled,
                     }"
                     :disabled="isConsoleEmulationDisabled"
                     @click="play()"
