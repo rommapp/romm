@@ -26,6 +26,7 @@ import playSessionApi from "@/services/api/play-session";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeLanguage from "@/stores/language";
 import type { DetailedRom } from "@/stores/roms";
 import {
@@ -59,6 +60,7 @@ const router = useRouter();
 const { getBezelImagePath } = useThemeAssets();
 const authStore = storeAuth();
 const configStore = storeConfig();
+const heartbeatStore = storeHeartbeat();
 const languageStore = storeLanguage();
 const { selectedLanguage } = storeToRefs(languageStore);
 const romId = Number(route.params.rom);
@@ -726,6 +728,15 @@ let booted = false;
 onMounted(async () => {
   // Guard against duplicate mounts
   if (booted) return;
+
+  if (heartbeatStore.value.EMULATION.DISABLE_EMULATOR_JS) {
+    await router.replace({
+      name: ROUTES.CONSOLE_ROM,
+      params: { rom: romId },
+      query: route.query,
+    });
+    return;
+  }
 
   booted = true;
   await boot();
