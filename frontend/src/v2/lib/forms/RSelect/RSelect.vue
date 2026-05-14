@@ -22,7 +22,11 @@ import {
   useFloating,
 } from "@floating-ui/vue";
 import type { Placement } from "@floating-ui/vue";
-import { RIcon, RProgressCircular, RTag, RTextField } from "@v2/lib";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
+import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
+import RTag from "../../primitives/RTag/RTag.vue";
+import RTextField from "../RTextField/RTextField.vue";
+import { useRFormRegistration } from "../RForm/context";
 import {
   computed,
   getCurrentInstance,
@@ -377,6 +381,13 @@ defineExpose({
   close: closeMenu,
 });
 
+useRFormRegistration({
+  validate,
+  reset,
+  el: () => activatorRef.value,
+  validity: computed(() => !hasError.value),
+});
+
 watch(
   () => props.modelValue,
   () => {
@@ -711,13 +722,13 @@ const hasPrependInner = computed(
             v-for="(item, i) in selectedItems"
             :key="`mirror-${i}-${String(item.value)}`"
             class="r-select__chip"
-            tone="primary"
+            tone="brand"
             size="small"
             :text="item.title"
           />
           <RTag
             class="r-select__chip r-select__chip--overflow"
-            tone="primary"
+            tone="brand"
             size="small"
             :text="`+${selectedItems.length}`"
           />
@@ -735,7 +746,7 @@ const hasPrependInner = computed(
             v-for="(item, i) in visibleChips"
             :key="`${i}-${String(item.value)}`"
             class="r-select__chip"
-            tone="primary"
+            tone="brand"
             size="small"
             :text="item.title"
           >
@@ -755,7 +766,7 @@ const hasPrependInner = computed(
           <RTag
             v-if="overflowCount > 0"
             class="r-select__chip r-select__chip--overflow"
-            tone="primary"
+            tone="brand"
             size="small"
             :text="`+${overflowCount}`"
           />

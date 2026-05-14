@@ -4,7 +4,7 @@
 // save data subtabs, empty filters. Icon + title + optional hint +
 // optional `actions` slot for CTAs (primitive contract: text via
 // props/slots, no i18n inside).
-import { RIcon } from "@v2/lib";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 

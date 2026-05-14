@@ -11,7 +11,7 @@
 // Items can carry an optional leading icon and an optional badge
 // (string | number). Items with `show: false` are filtered out so
 // callers can pass a single declarative source.
-import { RIcon } from "@v2/lib";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
 import {
   computed,
   nextTick,

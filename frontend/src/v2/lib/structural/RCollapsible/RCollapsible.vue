@@ -18,7 +18,7 @@
 //
 // Animation uses a CSS-only grid-row trick (no JS height measurement)
 // so it works for content of any height.
-import { RIcon } from "@v2/lib";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
 import { computed, ref, useSlots, watch } from "vue";
 
 defineOptions({ inheritAttrs: false });

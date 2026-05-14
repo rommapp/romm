@@ -10,7 +10,7 @@
 // Tone drives text + border + tinted background colour. Use the tone
 // for state (match/miss → success/neutral) instead of inventing
 // per-feature classes.
-import { RIcon } from "@v2/lib";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
 
 defineOptions({ inheritAttrs: false });
 

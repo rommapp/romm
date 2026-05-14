@@ -18,7 +18,9 @@
 //
 // Loading replaces the trailing append-inner content with a spinner;
 // clearable shows an × that wipes the value (focus is preserved).
-import { RIcon, RProgressCircular } from "@v2/lib";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
+import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
+import { useRFormRegistration } from "../RForm/context";
 import {
   computed,
   getCurrentInstance,
@@ -175,6 +177,15 @@ function reset() {
   internalErrors.value = [];
 }
 defineExpose({ validate, reset, focus: () => inputRef.value?.focus() });
+
+// Auto-enrol with an ancestor RForm so `form.validate()` reaches us.
+// No-op when used outside a form.
+useRFormRegistration({
+  validate,
+  reset,
+  el: () => inputRef.value,
+  validity: computed(() => !hasError.value),
+});
 
 watch(
   () => props.modelValue,

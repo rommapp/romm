@@ -26,7 +26,8 @@
 // Sort emits the new (key, dir) — toggling direction on the active
 // column or starting at "asc" on a new column. The store/composable
 // owns the actual sort state; RTable is pure UI.
-import { RIcon, RSkeletonBlock } from "@v2/lib";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
+import RSkeletonBlock from "../../primitives/RSkeletonBlock/RSkeletonBlock.vue";
 import { computed } from "vue";
 import type {
   RTableColumn,

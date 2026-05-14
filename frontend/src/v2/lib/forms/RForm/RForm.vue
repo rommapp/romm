@@ -1,21 +1,22 @@
 <script setup lang="ts">
-// RForm — wrapper around Vuetify's VForm with two QoL extras:
-//   * Enter on any field submits when the form validates clean. Spares the
-//     consumer from binding @keyup.enter on every input.
-//   * After a failed validate(), scrolls the first invalid field into view
-//     and focuses it. Calls focus() on the descendant matching
-//     `[aria-invalid="true"], .v-field--error input, .v-field--error
-//     textarea`. Works with RTextField / RSelect / RCheckbox out of the box.
+// RForm — Vuetify-free. A native `<form>` that provides a registration
+// context so descendant form fields (RTextField, RSelect, RCheckbox)
+// auto-enroll. The form aggregates their validity into `modelValue`
+// and exposes `validate()` / `reset()` to consumers.
 //
-// The standard wrapper contract applies: inheritAttrs: false, $attrs forward
-// to VForm, every named slot of VForm (default included) is passed through.
-import { ref } from "vue";
-import { VForm } from "vuetify/components/VForm";
+// Two QoL extras kept from the previous Vuetify wrapper:
+//   • Enter on any field submits when the form validates clean. Spares
+//     the consumer from binding `@keyup.enter` on every input.
+//   • After a failed `validate()`, scrolls the first invalid field
+//     into view and focuses it.
+import { computed, ref, useAttrs, watch } from "vue";
+import type { RFormField } from "./context";
+import { provideRForm } from "./context";
 
 defineOptions({ inheritAttrs: false });
 
 interface Props {
-  /** v-model:value, true when every field passes its rules. */
+  /** v-model — true when every registered field passes its rules. */
   modelValue?: boolean;
   /** Disable the Enter-to-submit shortcut. */
   disableEnterSubmit?: boolean;
@@ -30,46 +31,72 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  (e: "update:modelValue", v: boolean | null): void;
+  (e: "update:modelValue", v: boolean): void;
   (e: "submit", ev: Event): void;
 }>();
 
-type FormInstance = InstanceType<typeof VForm>;
+const attrs = useAttrs();
 
-const formRef = ref<FormInstance | null>(null);
+const formRef = ref<HTMLFormElement | null>(null);
 
-async function validate() {
-  const result = await formRef.value?.validate();
-  if (!result?.valid && !props.disableScrollToError) {
-    scrollToFirstError();
-  }
-  return result;
+// ── Registry of descendant fields ───────────────────────────────
+const fields = ref<RFormField[]>([]);
+
+function register(field: RFormField) {
+  if (!fields.value.includes(field)) fields.value.push(field);
+}
+function unregister(field: RFormField) {
+  const i = fields.value.indexOf(field);
+  if (i !== -1) fields.value.splice(i, 1);
+}
+provideRForm({ register, unregister });
+
+// ── Public API ──────────────────────────────────────────────────
+async function validate(): Promise<{ valid: boolean }> {
+  const results = await Promise.all(fields.value.map((f) => f.validate()));
+  const valid = results.every(Boolean);
+  emit("update:modelValue", valid);
+  if (!valid && !props.disableScrollToError) scrollToFirstError();
+  return { valid };
 }
 
 function reset() {
-  formRef.value?.reset();
+  for (const f of fields.value) f.reset();
 }
-
 function resetValidation() {
-  formRef.value?.resetValidation();
-}
-
-function formEl(): HTMLElement | null {
-  const el = formRef.value?.$el;
-  return el instanceof HTMLElement ? el : null;
+  reset();
 }
 
 function scrollToFirstError() {
-  const root = formEl();
+  const root = formRef.value;
   if (!root) return;
-  const target = root.querySelector<HTMLElement>(
-    '.v-field--error input, .v-field--error textarea, [aria-invalid="true"]',
-  );
+  // Prefer each field's own `el()` (more accurate than a DOM query),
+  // fall back to a query for `[aria-invalid="true"]` so non-RForm-aware
+  // fields are still handled.
+  for (const f of fields.value) {
+    const el = f.el?.();
+    if (!el) continue;
+    if (el.getAttribute("aria-invalid") === "true") {
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (typeof el.focus === "function") el.focus();
+      return;
+    }
+  }
+  const target = root.querySelector<HTMLElement>('[aria-invalid="true"]');
   if (!target) return;
   target.scrollIntoView({ block: "center", behavior: "smooth" });
   if (typeof target.focus === "function") target.focus();
 }
 
+defineExpose({ validate, reset, resetValidation });
+
+// Aggregate validity — flips reactively as any field gains or loses an
+// error. Initial state is `true` (no errors yet); typing into a field
+// with rules will make it `false` as soon as the first rule fails.
+const allValid = computed(() => fields.value.every((f) => f.validity.value));
+watch(allValid, (v) => emit("update:modelValue", v), { immediate: true });
+
+// ── Enter-to-submit ─────────────────────────────────────────────
 async function onKeyDown(event: KeyboardEvent) {
   if (props.disableEnterSubmit) return;
   if (event.key !== "Enter") return;
@@ -78,24 +105,31 @@ async function onKeyDown(event: KeyboardEvent) {
   if (tag === "TEXTAREA" || event.shiftKey) return;
   event.preventDefault();
   const result = await validate();
-  if (result?.valid) emit("submit", event);
+  if (result.valid) emit("submit", event);
 }
 
-defineExpose({ validate, reset, resetValidation });
+function onSubmit(ev: Event) {
+  ev.preventDefault();
+  emit("submit", ev);
+}
 </script>
 
 <template>
-  <VForm
+  <form
     ref="formRef"
-    v-bind="$attrs"
+    v-bind="attrs"
     class="r-form"
-    :model-value="modelValue"
-    @update:model-value="emit('update:modelValue', $event)"
-    @submit.prevent="emit('submit', $event)"
+    @submit="onSubmit"
     @keydown="onKeyDown"
   >
-    <template v-for="(_, slot) in $slots" #[slot]="slotProps">
-      <slot :name="slot" v-bind="slotProps || {}" />
-    </template>
-  </VForm>
+    <slot />
+  </form>
 </template>
+
+<style scoped>
+/* RForm renders a transparent native `<form>` — no chrome of its own.
+   Consumers control layout via their own children. */
+.r-form {
+  display: contents;
+}
+</style>
