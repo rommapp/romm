@@ -445,7 +445,8 @@ const morphStyle = computed(() => {
 
 .r-gc:hover .r-gc__art,
 .r-gc:focus-visible .r-gc__art,
-.r-gc--focused .r-gc__art {
+.r-gc--focused .r-gc__art,
+.r-gc:has(.r-v2-game-btn--action-more[aria-expanded="true"]) .r-gc__art {
   transform: scale(1.05);
   box-shadow: var(--r-elev-3);
 }
@@ -463,7 +464,8 @@ const morphStyle = computed(() => {
 }
 .r-gc:hover .r-gc__overlay,
 .r-gc:focus-visible .r-gc__overlay,
-.r-gc--focused .r-gc__overlay {
+.r-gc--focused .r-gc__overlay,
+.r-gc:has(.r-v2-game-btn--action-more[aria-expanded="true"]) .r-gc__overlay {
   opacity: 1;
 }
 
@@ -484,9 +486,11 @@ const morphStyle = computed(() => {
 .r-gc:hover .r-gc__badge,
 .r-gc:focus-visible .r-gc__badge,
 .r-gc--focused .r-gc__badge,
+.r-gc:has(.r-v2-game-btn--action-more[aria-expanded="true"]) .r-gc__badge,
 .r-gc:hover .r-gc__rating,
 .r-gc:focus-visible .r-gc__rating,
-.r-gc--focused .r-gc__rating {
+.r-gc--focused .r-gc__rating,
+.r-gc:has(.r-v2-game-btn--action-more[aria-expanded="true"]) .r-gc__rating {
   opacity: 1;
 }
 
@@ -506,6 +510,8 @@ const morphStyle = computed(() => {
 .r-gc:hover :deep(.r-v2-game-btn--action-status),
 .r-gc:focus-visible :deep(.r-v2-game-btn--action-status),
 .r-gc--focused :deep(.r-v2-game-btn--action-status),
+.r-gc:has(.r-v2-game-btn--action-more[aria-expanded="true"])
+  :deep(.r-v2-game-btn--action-status),
 .r-gc :deep(.r-v2-game-btn--active-status) {
   opacity: 1;
 }
@@ -548,7 +554,8 @@ const morphStyle = computed(() => {
 }
 .r-gc:hover .r-gc__label,
 .r-gc:focus-visible .r-gc__label,
-.r-gc--focused .r-gc__label {
+.r-gc--focused .r-gc__label,
+.r-gc:has(.r-v2-game-btn--action-more[aria-expanded="true"]) .r-gc__label {
   color: var(--r-color-fg);
 }
 

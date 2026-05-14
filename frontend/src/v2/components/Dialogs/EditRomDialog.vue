@@ -6,14 +6,11 @@
 // effort. The inline confirm-delete-manual and upload-target dialogs from
 // v1 are gone; those flows route through the global v2
 // DeleteManualDialog / ManualUploadTargetDialog via the emitter.
-import { RBtn, RDialog, RIcon, RTextField } from "@v2/lib";
+import { RBtn, RCollapsible, RDialog, RIcon, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
-import AdditionalDetails from "@/components/common/Game/Dialog/EditRom/AdditionalDetails.vue";
-import MetadataIdSection from "@/components/common/Game/Dialog/EditRom/MetadataIdSection.vue";
-import MetadataSections from "@/components/common/Game/Dialog/EditRom/MetadataSections.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
@@ -21,6 +18,9 @@ import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import { getMissingCoverImage } from "@/utils/covers";
+import AdditionalDetails from "@/v2/components/EditRom/AdditionalDetails.vue";
+import MetadataIdSection from "@/v2/components/EditRom/MetadataIdSection.vue";
+import MetadataSections from "@/v2/components/EditRom/MetadataSections.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -37,6 +37,11 @@ const show = ref(false);
 // shape internally and widen at edit/emit boundaries.
 type EditableRom = DetailedRom & UpdateRom;
 const rom = ref<EditableRom | null>(null);
+// Per-section open state for the metadata accordion. Each RCollapsible
+// is independent; consumers expect to expand only what they want to
+// edit, not a single-active enforced pattern.
+const additionalOpen = ref(false);
+const metaIdsOpen = ref(false);
 const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
@@ -501,21 +506,36 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         </div>
       </div>
 
-      <!-- Metadata expansion panels (v1 composites — scope for a future polish). -->
-      <v-expansion-panels class="r-v2-edit__panels" variant="accordion">
-        <AdditionalDetails
-          :rom="rom"
-          @update:rom="handleRomUpdateFromMetadata"
-        />
-        <MetadataIdSection
-          :rom="rom"
-          @update:rom="handleRomUpdateFromMetadata"
-        />
+      <!-- Metadata accordion — each section can open/close independently. -->
+      <div class="r-v2-edit__panels">
+        <RCollapsible
+          v-model="additionalOpen"
+          icon="mdi-text-box-plus-outline"
+          title="Additional details"
+        >
+          <AdditionalDetails
+            :rom="rom"
+            @update:rom="handleRomUpdateFromMetadata"
+          />
+        </RCollapsible>
+
+        <RCollapsible
+          v-model="metaIdsOpen"
+          icon="mdi-database"
+          title="Metadata IDs"
+        >
+          <MetadataIdSection
+            :rom="rom"
+            @update:rom="handleRomUpdateFromMetadata"
+          />
+        </RCollapsible>
+
+        <!-- MetadataSections fans out its own RCollapsibles per provider. -->
         <MetadataSections
           :rom="rom"
           @update:rom="handleRomUpdateFromMetadata"
         />
-      </v-expansion-panels>
+      </div>
     </template>
 
     <template #footer>
@@ -701,6 +721,9 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
 
 .r-v2-edit__panels {
   margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 @media (max-width: 820px) {

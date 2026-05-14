@@ -261,7 +261,7 @@ function onClick(e: MouseEvent) {
       <button
         v-bind="activatorProps"
         type="button"
-        class="r-v2-game-btn"
+        class="r-v2-game-btn r-v2-game-btn--action-more"
         :class="[
           `r-v2-game-btn--${size}`,
           `r-v2-game-btn--${variant}`,
