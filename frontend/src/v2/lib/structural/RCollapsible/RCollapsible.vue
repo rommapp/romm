@@ -65,10 +65,20 @@ watch(
   },
 );
 
-// Headless when nothing implies a header — title, icon, and #header
-// slot are all absent.
+// Headless only when no header-shaped content is present — title prop
+// or slot, icon, full #header override, or any header-prepend /
+// header-append slot all count as "the consumer wants a header row".
+// (Previously we only checked `slots.header` + `props.title` + props.icon,
+// which silently hid the trigger when a caller used `#title` /
+// `#header-prepend` without also passing the `title` prop.)
 const hasHeader = computed(
-  () => Boolean(slots.header) || Boolean(props.title) || Boolean(props.icon),
+  () =>
+    Boolean(slots.header) ||
+    Boolean(slots.title) ||
+    Boolean(slots["header-prepend"]) ||
+    Boolean(slots["header-append"]) ||
+    Boolean(props.title) ||
+    Boolean(props.icon),
 );
 
 function toggle() {
