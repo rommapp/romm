@@ -191,9 +191,7 @@ class RAHandler(MetadataHandler):
                 include_hashes=True,
             )
 
-            hash_index = {
-                h.lower(): r["ID"] for r in roms for h in r.get("Hashes", ())
-            }
+            hash_index = {h.lower(): r["ID"] for r in roms for h in r.get("Hashes", ())}
 
             platform_resources_path = fs_resource_handler.get_platform_resources_path(
                 rom.platform.id
