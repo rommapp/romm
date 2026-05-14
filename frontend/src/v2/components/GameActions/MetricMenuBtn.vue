@@ -120,7 +120,6 @@ function clear() {
           size="small"
           density="compact"
           hover
-          ripple
           @update:model-value="pickRating"
         />
 
@@ -131,7 +130,7 @@ function clear() {
           :max="100"
           :step="step"
           :color="accent"
-          value-position="thumb"
+          value-position="none"
           value-suffix="%"
           @end="commitSlider"
         />

@@ -27,7 +27,7 @@ const meta: Meta<typeof RRating> = {
       const value = ref(3.5);
       return { args, value };
     },
-    template: `<RRating v-model="value" v-bind="args" />`,
+    template: `<RRating v-bind="args" v-model="value" />`,
   }),
 };
 
