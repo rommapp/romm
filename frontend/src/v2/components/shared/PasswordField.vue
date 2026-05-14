@@ -14,16 +14,10 @@ withDefaults(
     label?: string;
     autocomplete?: string;
     disabled?: boolean;
-    rules?: unknown[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rules?: Array<(value: any) => true | string>;
     prependInnerIcon?: string;
-    variant?:
-      | "filled"
-      | "outlined"
-      | "plain"
-      | "underlined"
-      | "solo"
-      | "solo-inverted"
-      | "solo-filled";
+    variant?: "outlined" | "filled" | "underlined" | "plain";
   }>(),
   {
     modelValue: "",
