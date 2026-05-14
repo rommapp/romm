@@ -48,11 +48,7 @@ export * from "./structural/RVirtualScroller";
 
 // Menus
 export * from "./menus/RMenu";
-export * from "./menus/RMenuPanel";
-export * from "./menus/RMenuDivider";
-export * from "./menus/RMenuHeader";
 export * from "./menus/RMenuItem";
-export * from "./menus/RMenuSearch";
 
 // Overlays
 export * from "./overlays/RCarousel";

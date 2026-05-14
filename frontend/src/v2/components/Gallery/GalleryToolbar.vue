@@ -10,11 +10,10 @@
 // gallery's scroll container as a glass pill.
 import {
   RBtn,
+  RDivider,
   RIcon,
   RMenu,
-  RMenuDivider,
   RMenuItem,
-  RMenuPanel,
   RSliderBtnGroup,
   RTextField,
 } from "@v2/lib";
@@ -197,7 +196,7 @@ function setKindFilter(value: KindFilterValue) {
       />
 
       <!-- Kebab mirror (same options; useful on cramped layouts). -->
-      <RMenu location="bottom end" :offset="[8, 0]">
+      <RMenu location="bottom end" :offset="8" width="220px">
         <template #activator="{ props: activatorProps }">
           <RBtn
             v-bind="activatorProps"
@@ -210,42 +209,40 @@ function setKindFilter(value: KindFilterValue) {
             <RIcon icon="mdi-dots-vertical" size="16" />
           </RBtn>
         </template>
-        <RMenuPanel width="220px">
-          <template v-if="showKindFilter && kindFilterItems.length > 0">
-            <RMenuItem
-              v-for="item in kindFilterItems"
-              :key="item.id"
-              :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
-              :icon="item.icon"
-              :variant="kindFilter === item.id ? 'active' : 'default'"
-              @click="setKindFilter(item.id)"
-            />
-            <RMenuDivider />
-          </template>
-          <template v-if="showGroupBy && groupByItems.length > 0">
-            <RMenuItem
-              v-for="item in groupByItems"
-              :key="item.id"
-              :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
-              :icon="item.icon"
-              :variant="groupByValue === item.id ? 'active' : 'default'"
-              @click="setGroupBy(item.id)"
-            />
-            <RMenuDivider />
-          </template>
+        <template v-if="showKindFilter && kindFilterItems.length > 0">
           <RMenuItem
-            label="Grid"
-            icon="mdi-view-grid-outline"
-            :variant="layoutValue === 'grid' ? 'active' : 'default'"
-            @click="setLayout('grid')"
+            v-for="item in kindFilterItems"
+            :key="item.id"
+            :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
+            :icon="item.icon"
+            :variant="kindFilter === item.id ? 'active' : 'default'"
+            @click="setKindFilter(item.id)"
           />
+          <RDivider />
+        </template>
+        <template v-if="showGroupBy && groupByItems.length > 0">
           <RMenuItem
-            label="List"
-            icon="mdi-view-list"
-            :variant="layoutValue === 'list' ? 'active' : 'default'"
-            @click="setLayout('list')"
+            v-for="item in groupByItems"
+            :key="item.id"
+            :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
+            :icon="item.icon"
+            :variant="groupByValue === item.id ? 'active' : 'default'"
+            @click="setGroupBy(item.id)"
           />
-        </RMenuPanel>
+          <RDivider />
+        </template>
+        <RMenuItem
+          label="Grid"
+          icon="mdi-view-grid-outline"
+          :variant="layoutValue === 'grid' ? 'active' : 'default'"
+          @click="setLayout('grid')"
+        />
+        <RMenuItem
+          label="List"
+          icon="mdi-view-list"
+          :variant="layoutValue === 'list' ? 'active' : 'default'"
+          @click="setLayout('list')"
+        />
       </RMenu>
     </div>
   </div>

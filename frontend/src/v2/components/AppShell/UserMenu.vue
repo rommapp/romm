@@ -13,16 +13,7 @@
 //
 // Items inherit the same scope/role gates as their target views so
 // unauthorised users don't see options they can't open.
-import {
-  RAvatar,
-  RBtn,
-  RIcon,
-  RMenu,
-  RMenuDivider,
-  RMenuHeader,
-  RMenuItem,
-  RMenuPanel,
-} from "@v2/lib";
+import { RAvatar, RBtn, RDivider, RIcon, RMenu, RMenuItem } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { getActivePinia, storeToRefs, type StateTree } from "pinia";
 import { computed, inject, ref } from "vue";
@@ -119,7 +110,13 @@ async function onLogout() {
 </script>
 
 <template>
-  <RMenu v-model="open" location="bottom end" :offset="[8, 0]">
+  <RMenu
+    v-model="open"
+    location="bottom end"
+    :offset="8"
+    width="260px"
+    max-height="calc(100dvh - var(--r-nav-h) - 24px)"
+  >
     <template #activator="{ props: menuProps }">
       <RBtn
         v-bind="menuProps"
@@ -136,159 +133,161 @@ async function onLogout() {
       </RBtn>
     </template>
 
-    <RMenuPanel width="260px" max-height="calc(100dvh - var(--r-nav-h) - 24px)">
-      <RMenuHeader
-        compact
-        :title="user?.username ?? 'Guest'"
-        :subtitle="user?.role ?? ''"
-      >
-        <template #art>
-          <RAvatar :image="avatarSrc" size="30" />
-        </template>
-      </RMenuHeader>
-
-      <RMenuDivider />
-
-      <!-- Account -->
-      <div class="r-v2-user-menu__group">
-        <div class="r-v2-user-menu__group-label">
-          {{ t("settings.group-account") }}
+    <!-- User header — inlined; the layout is feature-specific so it
+         lives at the call site, not in the lib. -->
+    <div class="r-v2-user-menu__header">
+      <RAvatar :image="avatarSrc" size="30" />
+      <div class="r-v2-user-menu__header-text">
+        <div class="r-v2-user-menu__header-title">
+          {{ user?.username ?? "Guest" }}
         </div>
-        <RMenuItem
-          v-if="canSeeProfile"
-          :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
-          icon="mdi-account-outline"
-          :label="t('common.profile')"
-          @click="open = false"
-        />
-        <RMenuItem
-          :to="{ name: ROUTES.USER_INTERFACE }"
-          icon="mdi-palette-outline"
-          :label="t('common.user-interface')"
-          @click="open = false"
-        />
-      </div>
-
-      <!-- Library -->
-      <div v-if="showLibraryGroup" class="r-v2-user-menu__group">
-        <div class="r-v2-user-menu__group-label">
-          {{ t("settings.group-library") }}
+        <div v-if="user?.role" class="r-v2-user-menu__header-sub">
+          {{ user.role }}
         </div>
-        <RMenuItem
-          v-if="canSeeLibraryMgmt"
-          :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
-          icon="mdi-table-cog"
-          :label="t('common.library-management')"
-          @click="open = false"
-        />
-        <RMenuItem
-          v-if="canSeeMetadata"
-          :to="{ name: ROUTES.METADATA_SOURCES }"
-          icon="mdi-database-cog-outline"
-          :label="t('scan.metadata-sources')"
-          @click="open = false"
-        />
-        <RMenuItem
-          v-if="canSeeApiTokens"
-          :to="{ name: ROUTES.CLIENT_API_TOKENS }"
-          icon="mdi-key-variant"
-          :label="t('settings.client-api-tokens')"
-          @click="open = false"
-        />
       </div>
+    </div>
 
-      <!-- System -->
-      <div v-if="showSystemGroup" class="r-v2-user-menu__group">
-        <div class="r-v2-user-menu__group-label">
-          {{ t("settings.group-system") }}
-        </div>
-        <RMenuItem
-          v-if="canSeeAdmin"
-          :to="{ name: ROUTES.ADMINISTRATION }"
-          icon="mdi-shield-account-outline"
-          :label="t('common.administration')"
-          @click="open = false"
-        />
-        <RMenuItem
-          v-if="isAdmin"
-          :to="{ name: ROUTES.SERVER_STATS }"
-          icon="mdi-server"
-          :label="t('common.server-stats')"
-          @click="open = false"
-        />
+    <RDivider />
+
+    <!-- Account -->
+    <div class="r-v2-user-menu__group">
+      <div class="r-v2-user-menu__group-label">
+        {{ t("settings.group-account") }}
       </div>
-
-      <!-- Tools -->
-      <div class="r-v2-user-menu__group">
-        <div class="r-v2-user-menu__group-label">
-          {{ t("settings.group-tools") }}
-        </div>
-        <RMenuItem
-          :to="{ name: ROUTES.CONTROLLER_DEBUG }"
-          icon="mdi-controller"
-          :label="t('settings.controller-debug')"
-          @click="open = false"
-        />
-      </div>
-
-      <RMenuDivider />
-
-      <!-- Actions — librarian actions, not settings, but reachable from
-           the same dropdown for convenience. Patcher is always visible
-           (no scope gate, matches v1). -->
-      <div class="r-v2-user-menu__group">
-        <RMenuItem
-          v-if="canSeeScan"
-          :to="{ name: ROUTES.SCAN }"
-          icon="mdi-magnify-scan"
-          :label="t('settings.scan')"
-          @click="open = false"
-        />
-        <!-- FIXME: v2 UploadRomDialog isn't built yet — clicking emits
-             the same event v1 listens for, so this lights up the moment
-             the dialog ships. -->
-        <RMenuItem
-          v-if="canSeeUpload"
-          icon="mdi-cloud-upload-outline"
-          :label="t('common.upload')"
-          @click="showUpload"
-        />
-        <RMenuItem
-          :to="{ name: ROUTES.PATCHER }"
-          icon="mdi-file-cog"
-          :label="t('common.patcher')"
-          @click="open = false"
-        />
-      </div>
-
-      <RMenuDivider />
-
-      <!-- About is admin-only in v1; keep that gate. About + Changelog
-           remain dialogs (no dedicated views) — see CLAUDE.md. -->
       <RMenuItem
-        v-if="isAdmin"
-        icon="mdi-help-circle-outline"
-        :label="t('common.about')"
-        @click="showAbout"
-      />
-      <!-- FIXME: no Changelog dialog/view exists yet — the item is kept
-           visible because it was part of the menu design; wire it the
-           moment the dialog ships. -->
-      <RMenuItem
-        icon="mdi-clock-outline"
-        label="Changelog"
+        v-if="canSeeProfile"
+        :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
+        icon="mdi-account-outline"
+        :label="t('common.profile')"
         @click="open = false"
       />
-
-      <RMenuDivider />
-
       <RMenuItem
-        icon="mdi-logout"
-        variant="danger"
-        :label="t('common.logout')"
-        @click="onLogout"
+        :to="{ name: ROUTES.USER_INTERFACE }"
+        icon="mdi-palette-outline"
+        :label="t('common.user-interface')"
+        @click="open = false"
       />
-    </RMenuPanel>
+    </div>
+
+    <!-- Library -->
+    <div v-if="showLibraryGroup" class="r-v2-user-menu__group">
+      <div class="r-v2-user-menu__group-label">
+        {{ t("settings.group-library") }}
+      </div>
+      <RMenuItem
+        v-if="canSeeLibraryMgmt"
+        :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
+        icon="mdi-table-cog"
+        :label="t('common.library-management')"
+        @click="open = false"
+      />
+      <RMenuItem
+        v-if="canSeeMetadata"
+        :to="{ name: ROUTES.METADATA_SOURCES }"
+        icon="mdi-database-cog-outline"
+        :label="t('scan.metadata-sources')"
+        @click="open = false"
+      />
+      <RMenuItem
+        v-if="canSeeApiTokens"
+        :to="{ name: ROUTES.CLIENT_API_TOKENS }"
+        icon="mdi-key-variant"
+        :label="t('settings.client-api-tokens')"
+        @click="open = false"
+      />
+    </div>
+
+    <!-- System -->
+    <div v-if="showSystemGroup" class="r-v2-user-menu__group">
+      <div class="r-v2-user-menu__group-label">
+        {{ t("settings.group-system") }}
+      </div>
+      <RMenuItem
+        v-if="canSeeAdmin"
+        :to="{ name: ROUTES.ADMINISTRATION }"
+        icon="mdi-shield-account-outline"
+        :label="t('common.administration')"
+        @click="open = false"
+      />
+      <RMenuItem
+        v-if="isAdmin"
+        :to="{ name: ROUTES.SERVER_STATS }"
+        icon="mdi-server"
+        :label="t('common.server-stats')"
+        @click="open = false"
+      />
+    </div>
+
+    <!-- Tools -->
+    <div class="r-v2-user-menu__group">
+      <div class="r-v2-user-menu__group-label">
+        {{ t("settings.group-tools") }}
+      </div>
+      <RMenuItem
+        :to="{ name: ROUTES.CONTROLLER_DEBUG }"
+        icon="mdi-controller"
+        :label="t('settings.controller-debug')"
+        @click="open = false"
+      />
+    </div>
+
+    <RDivider />
+
+    <!-- Actions — librarian actions, not settings, but reachable from
+           the same dropdown for convenience. Patcher is always visible
+           (no scope gate, matches v1). -->
+    <div class="r-v2-user-menu__group">
+      <RMenuItem
+        v-if="canSeeScan"
+        :to="{ name: ROUTES.SCAN }"
+        icon="mdi-magnify-scan"
+        :label="t('settings.scan')"
+        @click="open = false"
+      />
+      <!-- FIXME: v2 UploadRomDialog isn't built yet — clicking emits
+             the same event v1 listens for, so this lights up the moment
+             the dialog ships. -->
+      <RMenuItem
+        v-if="canSeeUpload"
+        icon="mdi-cloud-upload-outline"
+        :label="t('common.upload')"
+        @click="showUpload"
+      />
+      <RMenuItem
+        :to="{ name: ROUTES.PATCHER }"
+        icon="mdi-file-cog"
+        :label="t('common.patcher')"
+        @click="open = false"
+      />
+    </div>
+
+    <RDivider />
+
+    <!-- About is admin-only in v1; keep that gate. About + Changelog
+           remain dialogs (no dedicated views) — see CLAUDE.md. -->
+    <RMenuItem
+      v-if="isAdmin"
+      icon="mdi-help-circle-outline"
+      :label="t('common.about')"
+      @click="showAbout"
+    />
+    <!-- FIXME: no Changelog dialog/view exists yet — the item is kept
+           visible because it was part of the menu design; wire it the
+           moment the dialog ships. -->
+    <RMenuItem
+      icon="mdi-clock-outline"
+      label="Changelog"
+      @click="open = false"
+    />
+
+    <RDivider />
+
+    <RMenuItem
+      icon="mdi-logout"
+      variant="danger"
+      :label="t('common.logout')"
+      @click="onLogout"
+    />
   </RMenu>
 </template>
 
@@ -309,9 +308,7 @@ async function onLogout() {
   background: var(--r-color-surface-hover) !important;
 }
 
-.r-v2-user :deep(.v-btn__content) {
-  display: flex;
-  align-items: center;
+.r-v2-user :deep(.r-btn__label) {
   gap: 8px;
 }
 
@@ -348,5 +345,37 @@ async function onLogout() {
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg-muted);
   padding: 4px 12px 2px;
+}
+
+/* Inlined header — was RMenuHeader before. Identity card at the top
+   of the dropdown: avatar + username + role pill. */
+.r-v2-user-menu__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 12px;
+  min-width: 0;
+}
+.r-v2-user-menu__header-text {
+  min-width: 0;
+}
+.r-v2-user-menu__header-title {
+  font-size: 13px;
+  font-weight: var(--r-font-weight-bold);
+  color: var(--r-color-fg);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.r-v2-user-menu__header-sub {
+  font-size: 10.5px;
+  font-weight: var(--r-font-weight-semibold);
+  text-transform: capitalize;
+  color: var(--r-color-fg-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

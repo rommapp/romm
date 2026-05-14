@@ -178,27 +178,6 @@ html:not([data-input])
   color: var(--r-color-fg-muted);
 }
 
-/* ── Shared overlay panel ──────────────────────────────────────
-   Every v2 floating menu / dropdown surface composites to the SAME
-   single layer (background + blur + border + radius + shadow).
-   RMenu adds `r-menu` to its overlay content — its consumers
-   (ScoreMenuBtn rating/difficulty popup, MoreMenu, UserMenu, status
-   pickers, language picker, etc.) pick up the look for free.
-   RSelect ships its own surface now and doesn't go through here. */
-.v-overlay__content.r-menu {
-  background: var(--r-color-panel) !important;
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  border: 1px solid var(--r-color-panel-border) !important;
-  border-radius: var(--r-radius-card) !important;
-  box-shadow:
-    0 20px 60px color-mix(in srgb, black 70%, transparent),
-    0 4px 20px color-mix(in srgb, black 40%, transparent) !important;
-  color: var(--r-color-fg) !important;
-  font-family: var(--r-font-family-sans);
-  overflow: hidden;
-}
-
 /* Shimmer loading — matches the mockup's card skeleton. */
 .r-v2-shimmer {
   animation: r-v2-shimmer 1.4s ease-in-out infinite;

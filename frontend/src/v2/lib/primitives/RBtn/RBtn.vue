@@ -362,9 +362,12 @@ const spinnerSize = computed(() => {
 }
 
 .r-btn__label {
+  /* Flex so compound slot content (avatar + text + icon, etc.) aligns
+     on the same vertical centerline instead of sitting on the text
+     baseline like inline boxes would. */
+  display: inline-flex;
+  align-items: center;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .r-btn__prepend,

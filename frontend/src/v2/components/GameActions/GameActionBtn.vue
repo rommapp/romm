@@ -28,7 +28,7 @@
 //
 // `withLabel` turns the button into a pill with "Play" / "Download" /
 // etc. text next to the icon, matching the GameDetails Play CTA.
-import { RIcon, RMenu, RMenuDivider, RMenuItem, RMenuPanel } from "@v2/lib";
+import { RDivider, RIcon, RMenu, RMenuItem } from "@v2/lib";
 import { computed, ref, toRef } from "vue";
 import type { RomUserStatus } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
@@ -256,7 +256,7 @@ function onClick(e: MouseEvent) {
 
 <template>
   <!-- More — opens the shared GameActionsList dropdown. -->
-  <RMenu v-if="action === 'more'" v-model="moreOpen" :offset="[8, 0]">
+  <RMenu v-if="action === 'more'" v-model="moreOpen" :offset="8" width="260px">
     <template #activator="{ props: activatorProps }">
       <button
         v-bind="activatorProps"
@@ -276,9 +276,7 @@ function onClick(e: MouseEvent) {
         </span>
       </button>
     </template>
-    <RMenuPanel width="260px">
-      <GameActionsList :rom="rom" @close="moreOpen = false" />
-    </RMenuPanel>
+    <GameActionsList :rom="rom" @close="moreOpen = false" />
   </RMenu>
 
   <!-- Status — enum picker; icon mirrors the current value, dashed
@@ -289,7 +287,8 @@ function onClick(e: MouseEvent) {
   <RMenu
     v-else-if="action === 'status'"
     v-model="statusOpen"
-    :offset="[8, 0]"
+    :offset="8"
+    width="220px"
     :close-on-content-click="false"
   >
     <template #activator="{ props: activatorProps }">
@@ -325,66 +324,64 @@ function onClick(e: MouseEvent) {
         </span>
       </button>
     </template>
-    <RMenuPanel width="220px">
-      <!-- Enum: single-pick (radio-like). Active row tints brand. -->
-      <RMenuItem
-        v-for="key in ENUM_KEYS"
-        :key="key"
-        :icon="STATUS_ICONS[key]"
-        :variant="enumStatus === key ? 'active' : 'default'"
-        @click="pickEnum(key)"
-      >
-        {{ romStatusMap[key].text }}
-      </RMenuItem>
+    <!-- Enum: single-pick (radio-like). Active row tints brand. -->
+    <RMenuItem
+      v-for="key in ENUM_KEYS"
+      :key="key"
+      :icon="STATUS_ICONS[key]"
+      :variant="enumStatus === key ? 'active' : 'default'"
+      @click="pickEnum(key)"
+    >
+      {{ romStatusMap[key].text }}
+    </RMenuItem>
 
-      <RMenuDivider />
+    <RDivider />
 
-      <!-- Play-status flags: independent toggles (checkbox-like). Active
+    <!-- Play-status flags: independent toggles (checkbox-like). Active
            rows tint text + icon brand-primary AND show a trailing check,
            so the multi-select reads distinct from the radio-style enum. -->
-      <RMenuItem
-        v-for="key in PLAY_FLAG_KEYS"
-        :key="key"
-        :icon="STATUS_ICONS[key]"
-        :text-color="isFlagActive(key) ? 'brand-primary' : undefined"
-        :icon-color="isFlagActive(key) ? 'brand-primary' : undefined"
-        @click="toggleFlag(key)"
-      >
-        {{ romStatusMap[key].text }}
-        <template v-if="isFlagActive(key)" #append>
-          <i class="mdi mdi-check r-v2-status-menu__check" aria-hidden="true" />
-        </template>
-      </RMenuItem>
-
-      <RMenuDivider />
-
-      <!-- Visibility flag — distinct category (controls library
-           visibility, not play state) so it lives in its own section. -->
-      <RMenuItem
-        v-for="key in VISIBILITY_FLAG_KEYS"
-        :key="key"
-        :icon="STATUS_ICONS[key]"
-        :text-color="isFlagActive(key) ? 'brand-primary' : undefined"
-        :icon-color="isFlagActive(key) ? 'brand-primary' : undefined"
-        @click="toggleFlag(key)"
-      >
-        {{ romStatusMap[key].text }}
-        <template v-if="isFlagActive(key)" #append>
-          <i class="mdi mdi-check r-v2-status-menu__check" aria-hidden="true" />
-        </template>
-      </RMenuItem>
-
-      <template v-if="hasAnyStatus">
-        <RMenuDivider />
-        <RMenuItem
-          icon="mdi-close-circle-outline"
-          variant="danger"
-          @click="clearAllStatus"
-        >
-          Clear all
-        </RMenuItem>
+    <RMenuItem
+      v-for="key in PLAY_FLAG_KEYS"
+      :key="key"
+      :icon="STATUS_ICONS[key]"
+      :text-color="isFlagActive(key) ? 'brand-primary' : undefined"
+      :icon-color="isFlagActive(key) ? 'brand-primary' : undefined"
+      @click="toggleFlag(key)"
+    >
+      {{ romStatusMap[key].text }}
+      <template v-if="isFlagActive(key)" #append>
+        <i class="mdi mdi-check r-v2-status-menu__check" aria-hidden="true" />
       </template>
-    </RMenuPanel>
+    </RMenuItem>
+
+    <RDivider />
+
+    <!-- Visibility flag — distinct category (controls library
+           visibility, not play state) so it lives in its own section. -->
+    <RMenuItem
+      v-for="key in VISIBILITY_FLAG_KEYS"
+      :key="key"
+      :icon="STATUS_ICONS[key]"
+      :text-color="isFlagActive(key) ? 'brand-primary' : undefined"
+      :icon-color="isFlagActive(key) ? 'brand-primary' : undefined"
+      @click="toggleFlag(key)"
+    >
+      {{ romStatusMap[key].text }}
+      <template v-if="isFlagActive(key)" #append>
+        <i class="mdi mdi-check r-v2-status-menu__check" aria-hidden="true" />
+      </template>
+    </RMenuItem>
+
+    <template v-if="hasAnyStatus">
+      <RDivider />
+      <RMenuItem
+        icon="mdi-close-circle-outline"
+        variant="danger"
+        @click="clearAllStatus"
+      >
+        Clear all
+      </RMenuItem>
+    </template>
   </RMenu>
 
   <!-- Plain action — direct click. -->

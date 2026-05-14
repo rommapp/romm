@@ -13,7 +13,7 @@
 // Generic: caller supplies the icon pair, accent color, label and
 // kind/range. No domain knowledge — feature composite because it's only
 // consumed by the GameActions feature for now.
-import { RIcon, RMenu, RMenuPanel, RRating, RSlider } from "@v2/lib";
+import { RIcon, RMenu, RRating, RSlider } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 
 defineOptions({ inheritAttrs: false });
@@ -82,7 +82,12 @@ function clear() {
 </script>
 
 <template>
-  <RMenu v-model="open" :offset="[8, 0]" :close-on-content-click="false">
+  <RMenu
+    v-model="open"
+    :offset="8"
+    :close-on-content-click="false"
+    :width="kind === 'percent' ? '300px' : 'auto'"
+  >
     <template #activator="{ props: activatorProps }">
       <button
         v-bind="activatorProps"
@@ -98,54 +103,52 @@ function clear() {
       </button>
     </template>
 
-    <RMenuPanel :width="kind === 'percent' ? '300px' : 'auto'" padding="10px">
-      <div
-        class="r-v2-metric-menu"
-        :style="{ '--metric-accent': `var(--r-color-${accent})` }"
-      >
-        <div class="r-v2-metric-menu__header">
-          <RIcon :icon="local > 0 ? iconFull : iconEmpty" />
-          <span class="r-v2-metric-menu__label">{{ label }}</span>
-          <span class="r-v2-metric-menu__current">{{ liveLabel }}</span>
-        </div>
-
-        <RRating
-          v-if="kind === 'rating'"
-          :model-value="value"
-          :length="max"
-          :empty-icon="iconEmpty"
-          :full-icon="iconFull"
-          :color="accent"
-          :active-color="accent"
-          size="small"
-          density="compact"
-          hover
-          @update:model-value="pickRating"
-        />
-
-        <RSlider
-          v-else
-          v-model="local"
-          :min="0"
-          :max="100"
-          :step="step"
-          :color="accent"
-          value-position="none"
-          value-suffix="%"
-          @end="commitSlider"
-        />
-
-        <button
-          type="button"
-          class="r-v2-metric-menu__clear"
-          :disabled="value === 0"
-          @click="clear"
-        >
-          <RIcon icon="mdi-close" size="14" />
-          Clear {{ label.toLowerCase() }}
-        </button>
+    <div
+      class="r-v2-metric-menu"
+      :style="{ '--metric-accent': `var(--r-color-${accent})` }"
+    >
+      <div class="r-v2-metric-menu__header">
+        <RIcon :icon="local > 0 ? iconFull : iconEmpty" />
+        <span class="r-v2-metric-menu__label">{{ label }}</span>
+        <span class="r-v2-metric-menu__current">{{ liveLabel }}</span>
       </div>
-    </RMenuPanel>
+
+      <RRating
+        v-if="kind === 'rating'"
+        :model-value="value"
+        :length="max"
+        :empty-icon="iconEmpty"
+        :full-icon="iconFull"
+        :color="accent"
+        :active-color="accent"
+        size="small"
+        density="compact"
+        hover
+        @update:model-value="pickRating"
+      />
+
+      <RSlider
+        v-else
+        v-model="local"
+        :min="0"
+        :max="100"
+        :step="step"
+        :color="accent"
+        value-position="none"
+        value-suffix="%"
+        @end="commitSlider"
+      />
+
+      <button
+        type="button"
+        class="r-v2-metric-menu__clear"
+        :disabled="value === 0"
+        @click="clear"
+      >
+        <RIcon icon="mdi-close" size="14" />
+        Clear {{ label.toLowerCase() }}
+      </button>
+    </div>
   </RMenu>
 </template>
 

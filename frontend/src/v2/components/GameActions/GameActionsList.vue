@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// GameActionsList — the full RMenuItem list for a ROM, inside whatever
-// RMenuPanel mounts it. Single source of truth for the more-menu actions.
-// Consumed by every MoreMenu dropdown (on GameCard, in the GameDetails
-// header, …). Every action emits `close` after firing so the parent menu
-// can dismiss.
-import { RMenuDivider, RMenuItem } from "@v2/lib";
+// GameActionsList — the full RMenuItem list for a ROM, slotted into
+// whatever RMenu mounts it. Single source of truth for the more-menu
+// actions. Consumed by every MoreMenu dropdown (on GameCard, in the
+// GameDetails header, …). Every action emits `close` after firing so the
+// parent menu can dismiss.
+import { RDivider, RMenuItem } from "@v2/lib";
 import { computed, toRef } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import { useGameActions } from "@/v2/composables/useGameActions";
@@ -37,7 +37,7 @@ function run(fn: () => void | Promise<void>) {
     @click="run(actions.download)"
   />
 
-  <RMenuDivider />
+  <RDivider />
 
   <!-- User actions -->
   <RMenuItem
@@ -59,7 +59,7 @@ function run(fn: () => void | Promise<void>) {
     @click="run(actions.shareQR)"
   />
 
-  <RMenuDivider />
+  <RDivider />
 
   <!-- Metadata actions -->
   <RMenuItem label="Match ROM" icon="mdi-magnify" @click="run(actions.match)" />
@@ -74,7 +74,7 @@ function run(fn: () => void | Promise<void>) {
     @click="run(actions.edit)"
   />
 
-  <RMenuDivider />
+  <RDivider />
 
   <!-- Destructive -->
   <RMenuItem

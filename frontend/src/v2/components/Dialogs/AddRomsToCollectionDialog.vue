@@ -19,7 +19,7 @@
 //     circular tick when on. Clicking toggles INSTANTLY (optimistic
 //     update + API call; reverts on failure).
 //   * Empty state if no collections exist.
-import { RDialog, RMenuDivider } from "@v2/lib";
+import { RDialog, RDivider } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -208,7 +208,7 @@ function closeDialog() {
         @cancel="cancelCreate"
       />
 
-      <RMenuDivider v-if="ownedCollections.length > 0" no-gutters />
+      <RDivider v-if="ownedCollections.length > 0" />
 
       <!-- Existing collection rows — instant toggle, no commit step. -->
       <ul v-if="ownedCollections.length" class="r-v2-pick-coll__list">

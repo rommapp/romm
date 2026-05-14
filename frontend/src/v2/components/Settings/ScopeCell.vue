@@ -8,7 +8,7 @@
 // Scope rule mirrors ScopeTree: everything before the last dot, so
 // `roms.user.read` and `roms.user.write` share the `roms.user` scope;
 // single-segment permissions (`invite`, `reset`) keep their own label.
-import { RBtn, RIcon, RMenu, RMenuPanel } from "@v2/lib";
+import { RBtn, RIcon, RMenu } from "@v2/lib";
 import { computed, ref } from "vue";
 import ScopeTree from "./ScopeTree.vue";
 
@@ -33,7 +33,9 @@ const scopeCount = computed(() => {
   <RMenu
     v-model="open"
     location="bottom start"
-    :offset="[8, 0]"
+    :offset="8"
+    width="auto"
+    max-height="60dvh"
     :close-on-content-click="false"
   >
     <template #activator="{ props: menuProps }">
@@ -60,11 +62,11 @@ const scopeCount = computed(() => {
     </template>
 
     <!-- Panel width follows its content — ScopeTree's two-column grid
-         is sized to the longest domain row, so the panel hugs the tree
+         is sized to the longest domain row, so the menu hugs the tree
          instead of leaving padding on the sides. -->
-    <RMenuPanel width="auto" max-height="60dvh" padding="12px">
+    <div class="r-v2-scope-cell__body">
       <ScopeTree :scopes="scopes" />
-    </RMenuPanel>
+    </div>
   </RMenu>
 </template>
 
@@ -99,5 +101,11 @@ const scopeCount = computed(() => {
 }
 .r-v2-scope-cell__chevron--open {
   transform: rotate(180deg);
+}
+
+/* Body padding was the RMenuPanel's `padding="12px"` — kept inline so
+   ScopeTree gets breathing room. */
+.r-v2-scope-cell__body {
+  padding: 6px;
 }
 </style>
