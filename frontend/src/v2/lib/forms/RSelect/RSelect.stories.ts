@@ -216,6 +216,31 @@ export const Multiple: Story = {
   }),
 };
 
+export const MultipleOverflow: Story = {
+  name: "Multiple · dynamic overflow",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({
+      narrow: ref(["psx", "snes", "n64", "gba", "switch"]),
+      wide: ref(["psx", "snes", "n64", "gba", "switch"]),
+      items: PLATFORMS,
+    }),
+    template: `
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div style="width:240px">
+          <RSelect v-model="narrow" :items="items" multiple chips closable-chips placeholder="Pick platforms" />
+        </div>
+        <div style="width:520px">
+          <RSelect v-model="wide" :items="items" multiple chips closable-chips placeholder="Pick platforms" />
+        </div>
+        <div style="font:11px sans-serif;color:var(--r-color-fg-muted);max-width:520px">
+          Same 5 selections, different activator widths — the narrow one collapses to "+N" sooner, the wide one fits more chips. Resize the Storybook frame to watch it recompute live.
+        </div>
+      </div>
+    `,
+  }),
+};
+
 // ── Searchable ─────────────────────────────────────────────────────
 
 export const Searchable: Story = {

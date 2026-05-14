@@ -93,6 +93,9 @@ interface Props {
     | "top end";
   /** Px gap between activator and menu. */
   menuOffset?: number;
+  /** Hard cap on visible chips (defaults to ∞). Overflow is otherwise
+   *  computed dynamically based on the activator's actual width. */
+  maxVisibleChips?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -126,6 +129,7 @@ const props = withDefaults(defineProps<Props>(), {
   searchPlaceholder: "",
   menuLocation: "bottom",
   menuOffset: 6,
+  maxVisibleChips: Number.POSITIVE_INFINITY,
 });
 
 const emit = defineEmits<{
@@ -223,6 +227,91 @@ const selectedItems = computed<NormalisedItem[]>(() => {
 });
 
 const hasSelection = computed(() => selectedValues.value.length > 0);
+
+// Chip overflow — keep the activator at a single line by collapsing
+// chips that won't fit into a "+N" pill at the end of the row.
+// The fit count is measured from a hidden mirror (`measureRef`) that
+// always renders every chip; the visible row only renders the first
+// `fitChipCount` of them. ResizeObserver re-measures on width changes.
+const valueRef = ref<HTMLElement | null>(null);
+const measureRef = ref<HTMLElement | null>(null);
+const containerWidth = ref(0);
+const fitChipCount = ref<number>(Number.POSITIVE_INFINITY);
+
+const visibleChips = computed<NormalisedItem[]>(() => {
+  const cap = Math.min(fitChipCount.value, props.maxVisibleChips);
+  return selectedItems.value.slice(0, cap);
+});
+const overflowCount = computed(() =>
+  Math.max(0, selectedItems.value.length - visibleChips.value.length),
+);
+
+let resizeObserver: ResizeObserver | null = null;
+onMounted(() => {
+  if (!valueRef.value) return;
+  containerWidth.value = valueRef.value.clientWidth;
+  resizeObserver = new ResizeObserver((entries) => {
+    for (const e of entries) containerWidth.value = e.contentRect.width;
+  });
+  resizeObserver.observe(valueRef.value);
+});
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+});
+
+// Walk through the mirror's chips and stop when the next one (plus
+// the reserved overflow-pill width) would overflow the visible row.
+function recomputeFit() {
+  if (!measureRef.value || containerWidth.value === 0) {
+    fitChipCount.value = selectedItems.value.length;
+    return;
+  }
+  const chips = Array.from(
+    measureRef.value.querySelectorAll<HTMLElement>(
+      ".r-select__chip:not(.r-select__chip--overflow)",
+    ),
+  );
+  if (chips.length === 0) {
+    // Mirror hasn't painted yet (first tick of a brand-new selection).
+    // Default to showing everything until we can measure on the next
+    // pass — better than rendering only the "+N" pill.
+    fitChipCount.value = selectedItems.value.length;
+    return;
+  }
+  const overflowEl = measureRef.value.querySelector<HTMLElement>(
+    ".r-select__chip--overflow",
+  );
+  // 6 px matches `.r-select__value`'s `gap`. The overflow pill width is
+  // measured from the worst-case "+N" rendered in the mirror.
+  const gap = 6;
+  const overflowWidth = overflowEl ? overflowEl.offsetWidth : 38;
+  const available = containerWidth.value;
+
+  let used = 0;
+  let count = 0;
+  for (let i = 0; i < chips.length; i++) {
+    const w = chips[i].offsetWidth;
+    const remaining = chips.length - 1 - i;
+    const overflowReserve = remaining > 0 ? overflowWidth + gap : 0;
+    const gapNow = count > 0 ? gap : 0;
+    if (used + w + gapNow + overflowReserve > available) break;
+    used += w + gapNow;
+    count++;
+  }
+  // Always render at least one chip if any are selected — better to
+  // clip one chip with text-overflow than to show only "+N" on its own.
+  if (count === 0 && chips.length > 0) count = 1;
+  fitChipCount.value = count;
+}
+
+watch(
+  [selectedItems, containerWidth],
+  () => {
+    nextTick(recomputeFit);
+  },
+  { flush: "post" },
+);
 
 function selectItem(item: NormalisedItem) {
   if (item.disabled) return;
@@ -606,15 +695,44 @@ const hasPrependInner = computed(
         </slot>
       </span>
 
-      <span class="r-select__value">
+      <span ref="valueRef" class="r-select__value">
+        <!-- Hidden measurement mirror — renders every selected chip
+             plus a worst-case "+N" pill so we can measure widths and
+             compute how many chips actually fit in `valueRef`'s
+             current width. Absolutely positioned so it doesn't push
+             the visible row. -->
+        <span
+          v-if="multiple && chips && hasSelection"
+          ref="measureRef"
+          class="r-select__value-mirror"
+          aria-hidden="true"
+        >
+          <RTag
+            v-for="(item, i) in selectedItems"
+            :key="`mirror-${i}-${String(item.value)}`"
+            class="r-select__chip"
+            tone="primary"
+            size="small"
+            :text="item.title"
+          />
+          <RTag
+            class="r-select__chip r-select__chip--overflow"
+            tone="primary"
+            size="small"
+            :text="`+${selectedItems.length}`"
+          />
+        </span>
+
         <!-- Empty — show placeholder or label. -->
         <span v-if="!hasSelection" class="r-select__placeholder">
           {{ effectivePlaceholder }}
         </span>
-        <!-- Multi with chips — render each as a removable tag. -->
+        <!-- Multi with chips — render the visible slice as removable
+             tags; anything past `maxVisibleChips` collapses into a
+             "+N" pill so the activator stays single-line. -->
         <template v-else-if="multiple && chips">
           <RTag
-            v-for="(item, i) in selectedItems"
+            v-for="(item, i) in visibleChips"
             :key="`${i}-${String(item.value)}`"
             class="r-select__chip"
             tone="primary"
@@ -634,6 +752,13 @@ const hasPrependInner = computed(
               </button>
             </template>
           </RTag>
+          <RTag
+            v-if="overflowCount > 0"
+            class="r-select__chip r-select__chip--overflow"
+            tone="primary"
+            size="small"
+            :text="`+${overflowCount}`"
+          />
         </template>
         <!-- Single selection or multi-without-chips — defer to the
              `#selection` slot for custom rendering. Default: title. -->
@@ -898,14 +1023,33 @@ const hasPrependInner = computed(
 
 /* ── Value area ────────────────────────────────────────────────── */
 .r-select__value {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  /* Single-line — overflow chips are handled by the explicit "+N" pill
+     rather than wrapping. Keeps the activator height stable regardless
+     of selection count. */
+  flex-wrap: nowrap;
   padding: 0 var(--r-tf-pad-x);
   overflow: hidden;
+}
+
+/* Hidden measurement mirror — renders every chip + a worst-case "+N"
+   pill so JS can measure how many actually fit. `visibility: hidden`
+   keeps the layout sized so `offsetWidth` is accurate; `position:
+   absolute` keeps it out of the visible row's flex flow. */
+.r-select__value-mirror {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  gap: 6px;
+  white-space: nowrap;
 }
 .r-select__title,
 .r-select__placeholder {
@@ -985,8 +1129,7 @@ const hasPrependInner = computed(
 }
 .r-select__clear:hover {
   color: var(--r-tf-color);
-  background: color-mix(in srgb, var(--r-tf-color) 14%, transparent);
-  transform: scale(1.1);
+  transform: scale(1.2);
 }
 .r-select__clear:active {
   transform: scale(0.92);

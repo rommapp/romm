@@ -50,7 +50,11 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <span class="r-tag" :class="[`r-tag--${tone}`, `r-tag--${size}`]">
+  <span
+    v-bind="$attrs"
+    class="r-tag"
+    :class="[`r-tag--${tone}`, `r-tag--${size}`]"
+  >
     <RIcon v-if="prependIcon" :icon="prependIcon" class="r-tag__icon" />
     <span v-if="label" class="r-tag__label">{{ label }}</span>
     <span
