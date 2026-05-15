@@ -421,12 +421,20 @@ async function boot() {
   }
 
   // Disc selection persistence
-  const discId = playerStorage.disc.value
+  const storedDiscId = playerStorage.disc.value
     ? parseInt(playerStorage.disc.value)
     : null;
+  const validDiscId =
+    storedDiscId && rom.files.some((f) => f.id === storedDiscId)
+      ? storedDiscId
+      : null;
+  // Clear stale disc selection from localStorage
+  if (storedDiscId && !validDiscId) {
+    playerStorage.disc.value = null;
+  }
   window.EJS_gameUrl = getDownloadPath({
     rom: rom,
-    fileIDs: discId ? [discId] : [],
+    fileIDs: validDiscId ? [validDiscId] : [],
   });
 
   // BIOS selection persistence
