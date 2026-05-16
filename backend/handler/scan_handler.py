@@ -77,6 +77,20 @@ class MetadataSource(enum.StrEnum):
     LIBRETRO = "libretro"  # Libretro thumbnails
 
 
+# RomM-side counterparts to the providers Playmatch can return ids for via
+# /api/identify/ids. EmuReady and OpenVGDB are also in Playmatch's enum but
+# have no corresponding RomM source today.
+PLAYMATCH_SUPPORTED_SOURCES: frozenset[MetadataSource] = frozenset(
+    {
+        MetadataSource.IGDB,
+        MetadataSource.MOBY,
+        MetadataSource.SS,
+        MetadataSource.LAUNCHBOX,
+        MetadataSource.SGDB,
+    }
+)
+
+
 def get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
@@ -370,19 +384,31 @@ async def scan_rom(
         )
 
     async def fetch_playmatch_hash_match() -> PlaymatchRomMatch:
+        # Playmatch matches by file hash, so it doesn't need any platform-level
+        # external id and isn't tied to any single provider. Run it whenever
+        # Playmatch is enabled and at least one provider Playmatch can return
+        # is configured for this scan (otherwise the hash lookup is wasted).
         if (
-            MetadataSource.IGDB in metadata_sources
-            and platform.igdb_id
+            meta_playmatch_handler.is_enabled()
+            and any(
+                source in metadata_sources for source in PLAYMATCH_SUPPORTED_SOURCES
+            )
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
-                or (scan_type == ScanType.UPDATE and rom.igdb_id)
-                or (scan_type == ScanType.UNMATCHED and not rom.igdb_id)
+                or scan_type == ScanType.UPDATE
+                or scan_type == ScanType.UNMATCHED
             )
         ):
             return await meta_playmatch_handler.lookup_rom(fs_rom["files"])
 
-        return PlaymatchRomMatch(igdb_id=None)
+        return PlaymatchRomMatch(
+            igdb_id=None,
+            moby_id=None,
+            ss_id=None,
+            launchbox_id=None,
+            sgdb_id=None,
+        )
 
     async def fetch_hasheous_hash_match() -> HasheousRom:
         if (
@@ -555,7 +581,7 @@ async def scan_rom(
 
         return HLTBRom(hltb_id=None)
 
-    async def fetch_moby_rom() -> MobyGamesRom:
+    async def fetch_moby_rom(playmatch_rom: PlaymatchRomMatch) -> MobyGamesRom:
         if (
             MetadataSource.MOBY in metadata_sources
             and platform.moby_id
@@ -572,14 +598,22 @@ async def scan_rom(
         ):
             if scan_type == ScanType.UPDATE and rom.moby_id:
                 return await meta_moby_handler.get_rom_by_id(rom.moby_id)
-            else:
-                return await meta_moby_handler.get_rom(
-                    rom_attrs["fs_name"], platform_moby_id=platform.moby_id
+
+            if playmatch_rom["moby_id"] is not None:
+                log.debug(
+                    f"{hl(rom_attrs['fs_name'])} identified by Playmatch as MobyGames "
+                    f"{hl(str(playmatch_rom['moby_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+                    extra=LOGGER_MODULE_NAME,
                 )
+                return await meta_moby_handler.get_rom_by_id(playmatch_rom["moby_id"])
+
+            return await meta_moby_handler.get_rom(
+                rom_attrs["fs_name"], platform_moby_id=platform.moby_id
+            )
 
         return MobyGamesRom(moby_id=None)
 
-    async def fetch_ss_rom() -> SSRom:
+    async def fetch_ss_rom(playmatch_rom: PlaymatchRomMatch) -> SSRom:
         if (
             MetadataSource.SS in metadata_sources
             and platform.ss_id
@@ -598,6 +632,15 @@ async def scan_rom(
             if scan_type == ScanType.UPDATE and rom.ss_id:
                 return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
 
+            # Use Playmatch's hash-based id when available
+            if playmatch_rom["ss_id"] is not None:
+                log.debug(
+                    f"{hl(rom_attrs['fs_name'])} identified by Playmatch as ScreenScraper "
+                    f"{hl(str(playmatch_rom['ss_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+                    extra=LOGGER_MODULE_NAME,
+                )
+                return await meta_ss_handler.get_rom_by_id(rom, playmatch_rom["ss_id"])
+
             # Use the file hashes for lookup
             game_by_hash = await meta_ss_handler.lookup_rom(
                 rom, platform.ss_id, fs_rom["files"]
@@ -612,7 +655,9 @@ async def scan_rom(
 
         return SSRom(ss_id=None)
 
-    async def fetch_launchbox_rom(platform_slug: str) -> LaunchboxRom:
+    async def fetch_launchbox_rom(
+        platform_slug: str, playmatch_rom: PlaymatchRomMatch
+    ) -> LaunchboxRom:
         if MetadataSource.LAUNCHBOX in metadata_sources and (
             newly_added
             or scan_type == ScanType.COMPLETE
@@ -630,6 +675,18 @@ async def scan_rom(
             ):
                 launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
                     rom.launchbox_id,
+                    remote_enabled=True,
+                    fs_name=rom_attrs["fs_name"],
+                    platform_slug=platform_slug,
+                )
+            elif playmatch_rom["launchbox_id"] is not None and launchbox_remote_enabled:
+                log.debug(
+                    f"{hl(rom_attrs['fs_name'])} identified by Playmatch as LaunchBox "
+                    f"{hl(str(playmatch_rom['launchbox_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+                    extra=LOGGER_MODULE_NAME,
+                )
+                launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
+                    playmatch_rom["launchbox_id"],
                     remote_enabled=True,
                     fs_name=rom_attrs["fs_name"],
                     platform_slug=platform_slug,
@@ -731,10 +788,10 @@ async def scan_rom(
         libretro_handler_rom,
     ) = await asyncio.gather(
         fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
-        fetch_moby_rom(),
-        fetch_ss_rom(),
+        fetch_moby_rom(playmatch_hash_match),
+        fetch_ss_rom(playmatch_hash_match),
         fetch_ra_rom(hasheous_hash_match),
-        fetch_launchbox_rom(platform.slug),
+        fetch_launchbox_rom(platform.slug, playmatch_hash_match),
         fetch_hasheous_rom(hasheous_hash_match),
         fetch_flashpoint_rom(),
         fetch_hltb_rom(),
@@ -834,7 +891,7 @@ async def scan_rom(
         )
         return Rom(**rom_attrs)
 
-    async def fetch_sgdb_details() -> SGDBRom:
+    async def fetch_sgdb_details(playmatch_rom: PlaymatchRomMatch) -> SGDBRom:
         """Fetch SteamGridDB details for the ROM."""
         if MetadataSource.SGDB in metadata_sources and (
             newly_added
@@ -844,22 +901,30 @@ async def scan_rom(
         ):
             if scan_type == ScanType.UPDATE and rom.sgdb_id:
                 return await meta_sgdb_handler.get_rom_by_id(rom.sgdb_id)
-            else:
-                game_names = [
-                    igdb_handler_rom.get("name", None),
-                    hasheous_handler_rom.get("name", None),
-                    ss_handler_rom.get("name", None),
-                    moby_handler_rom.get("name", None),
-                    launchbox_handler_rom.get("name", None),
-                    gamelist_handler_rom.get("name", None),
-                    rom_attrs["fs_name_no_tags"],
-                ]
-                game_names = [name for name in game_names if name]
-                return await meta_sgdb_handler.get_details_by_names(game_names)
+
+            if playmatch_rom["sgdb_id"] is not None:
+                log.debug(
+                    f"{hl(rom_attrs['fs_name'])} identified by Playmatch as SteamGridDB "
+                    f"{hl(str(playmatch_rom['sgdb_id']), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
+                    extra=LOGGER_MODULE_NAME,
+                )
+                return await meta_sgdb_handler.get_rom_by_id(playmatch_rom["sgdb_id"])
+
+            game_names = [
+                igdb_handler_rom.get("name", None),
+                hasheous_handler_rom.get("name", None),
+                ss_handler_rom.get("name", None),
+                moby_handler_rom.get("name", None),
+                launchbox_handler_rom.get("name", None),
+                gamelist_handler_rom.get("name", None),
+                rom_attrs["fs_name_no_tags"],
+            ]
+            game_names = [name for name in game_names if name]
+            return await meta_sgdb_handler.get_details_by_names(game_names)
 
         return SGDBRom(sgdb_id=None)
 
-    sgdb_hander_rom = await fetch_sgdb_details()
+    sgdb_hander_rom = await fetch_sgdb_details(playmatch_hash_match)
     if sgdb_hander_rom.get("sgdb_id"):
         rom_attrs["sgdb_id"] = sgdb_hander_rom["sgdb_id"]
 
