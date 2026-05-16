@@ -16,12 +16,23 @@ from utils.context import ctx_httpx_client
 
 class PlaymatchProvider(str, Enum):
     IGDB = "IGDB"
+    SteamGridDB = "SteamGridDB"
+    ScreenScraper = "ScreenScraper"
+    MobyGames = "MobyGames"
+    LaunchBox = "LaunchBox"
+    EmuReady = "EmuReady"
+    OpenVGDB = "OpenVGDB"
 
 
-# (rom attribute, provider tag). Playmatch drops unknown tags server-side.
+# (rom attribute, provider tag). Tag casing matches Playmatch's MetadataProvider
+# enum names (uppercased; Playmatch parses case-insensitively but spacing and
+# underscores must match). Entries for providers Playmatch doesn't currently
+# recognize are kept on purpose: Playmatch drops unknown tags server-side, and
+# preserving them means older RomM clients keep submitting correct tags when
+# Playmatch adds support for more providers.
 _PLAYMATCH_PROVIDER_TAGS: tuple[tuple[str, str], ...] = (
     ("igdb_id", "IGDB"),
-    ("moby_id", "MOBY_GAMES"),
+    ("moby_id", "MOBYGAMES"),
     ("ss_id", "SCREENSCRAPER"),
     ("ra_id", "RETRO_ACHIEVEMENTS"),
     ("launchbox_id", "LAUNCHBOX"),
@@ -32,6 +43,18 @@ _PLAYMATCH_PROVIDER_TAGS: tuple[tuple[str, str], ...] = (
     ("libretro_id", "LIBRETRO"),
     ("sgdb_id", "STEAMGRIDDB"),
     ("gamelist_id", "GAMELIST"),
+)
+
+
+# Inbound providerName -> rom attribute, derived from _PLAYMATCH_PROVIDER_TAGS.
+# Keyed on the uppercased tag so we can match against Playmatch's CamelCase
+# MetadataProvider values (`"MobyGames"` -> `"MOBYGAMES"` -> `"moby_id"`).
+_TAG_TO_ATTR: dict[str, str] = {tag: attr for attr, tag in _PLAYMATCH_PROVIDER_TAGS}
+
+# Subset of attrs the scan handler consumes from a Playmatch lookup. Other
+# entries in _PLAYMATCH_PROVIDER_TAGS are used only for outbound suggestions.
+_LOOKUP_ROM_ATTRS: frozenset[str] = frozenset(
+    {"igdb_id", "moby_id", "ss_id", "launchbox_id", "sgdb_id"}
 )
 
 
@@ -55,6 +78,20 @@ class PlaymatchExternalMetadata(TypedDict):
 
 class PlaymatchRomMatch(TypedDict):
     igdb_id: int | None
+    moby_id: int | None
+    ss_id: int | None
+    launchbox_id: int | None
+    sgdb_id: int | None
+
+
+def _empty_playmatch_rom_match() -> PlaymatchRomMatch:
+    return PlaymatchRomMatch(
+        igdb_id=None,
+        moby_id=None,
+        ss_id=None,
+        launchbox_id=None,
+        sgdb_id=None,
+    )
 
 
 class PlaymatchHandler(MetadataHandler):
@@ -124,7 +161,7 @@ class PlaymatchHandler(MetadataHandler):
                 detail="Can't connect to Playmatch, check your internet connection",
             ) from exc
         except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
+            log.error("Error decoding JSON response from Playmatch: %s", exc)
             return {}
 
     async def lookup_rom(self, files: list[RomFile]) -> PlaymatchRomMatch:
@@ -136,14 +173,14 @@ class PlaymatchHandler(MetadataHandler):
         :raises HTTPException: If the request fails or the service is unavailable.
         """
         if not self.is_enabled():
-            return PlaymatchRomMatch(igdb_id=None)
+            return _empty_playmatch_rom_match()
 
         first_file = next(
             (file for file in files if file.file_size_bytes > 0),
             None,
         )
         if first_file is None:
-            return PlaymatchRomMatch(igdb_id=None)
+            return _empty_playmatch_rom_match()
 
         try:
             response = await self._request(
@@ -157,30 +194,43 @@ class PlaymatchHandler(MetadataHandler):
             )
         except httpx.HTTPStatusError:
             # We silently fail if the service is unavailable as this should not block the rest of RomM.
-            return PlaymatchRomMatch(igdb_id=None)
+            return _empty_playmatch_rom_match()
 
         game_match_type = response.get("gameMatchType", None)
         if game_match_type == GameMatchType.NoMatch:
             log.debug("No match found for the provided ROM file.")
-            return PlaymatchRomMatch(igdb_id=None)
+            return _empty_playmatch_rom_match()
 
         externalMetadata = response.get("externalMetadata", [])
         if len(externalMetadata) == 0:
             log.debug("No external metadata found for the matched ROM file.")
-            return PlaymatchRomMatch(igdb_id=None)
+            return _empty_playmatch_rom_match()
 
-        igdb_id = None
-
+        result = _empty_playmatch_rom_match()
         for metadata in externalMetadata:
             provider_name = metadata.get("providerName", None)
             provider_game_id = metadata.get("providerId", None)
-            if provider_name == PlaymatchProvider.IGDB and provider_game_id is not None:
-                log.debug(
-                    "Playmatch found IGDB match with IGDB ID: %s", provider_game_id
-                )
-                igdb_id = int(provider_game_id)
+            if not provider_name or provider_game_id is None:
+                continue
 
-        return PlaymatchRomMatch(igdb_id=igdb_id)
+            attr = _TAG_TO_ATTR.get(provider_name.upper())
+            if not attr or attr not in _LOOKUP_ROM_ATTRS:
+                continue
+
+            try:
+                parsed_id = int(provider_game_id)
+            except (TypeError, ValueError):
+                log.debug(
+                    "Playmatch returned non-int id for %s: %r",
+                    provider_name,
+                    provider_game_id,
+                )
+                continue
+
+            log.debug("Playmatch found %s match with id: %s", provider_name, parsed_id)
+            result[attr] = parsed_id  # type: ignore[literal-required]
+
+        return result
 
     @staticmethod
     def is_manual_match(form_fields_set: set[str]) -> bool:
