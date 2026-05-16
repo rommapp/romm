@@ -104,6 +104,17 @@ def _make_file_uri(platform_dir: str, raw_text: str) -> str:
     return f"file://{joined_path.as_posix()}"
 
 
+def _split_comma_separated_values(value: str | None) -> list[str]:
+    """Split comma separated values into clean list"""
+
+    if not value:
+        return []
+
+    split_values = value.split(",")
+
+    return pydash.compact([item.strip() for item in split_values])
+
+
 def extract_media_from_gamelist_rom(
     game: Element, platform: Platform
 ) -> GamelistMetadataMedia:
@@ -196,9 +207,18 @@ def extract_metadata_from_gamelist_rom(
     return GamelistMetadata(
         rating=rating,
         first_release_date=first_release_date,
-        companies=pydash.compact([developer, publisher]),
-        franchises=pydash.compact([family]),
-        genres=pydash.compact([genre]),
+        companies=list(
+            dict.fromkeys(
+                pydash.compact(
+                    [
+                        *_split_comma_separated_values(developer),
+                        *_split_comma_separated_values(publisher),
+                    ]
+                )
+            )
+        ),
+        franchises=_split_comma_separated_values(family),
+        genres=_split_comma_separated_values(genre),
         player_count=players,
         md5_hash=md5,
         box3d_path=None,
@@ -348,12 +368,14 @@ class GamelistHandler(MetadataHandler):
                     desc_elem.text if desc_elem is not None and desc_elem.text else ""
                 )
                 regions = (
-                    pydash.compact([region_elem.text])
+                    _split_comma_separated_values(region_elem.text)
                     if region_elem is not None
                     else []
                 )
                 languages = (
-                    pydash.compact([lang_elem.text]) if lang_elem is not None else []
+                    _split_comma_separated_values(lang_elem.text)
+                    if lang_elem is not None
+                    else []
                 )
 
                 # Build ROM data
