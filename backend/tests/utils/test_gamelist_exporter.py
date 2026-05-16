@@ -232,6 +232,7 @@ def test_export_gamelist_xml_local_media_relative_path(platform_with_roms, tag):
 
     elem = game.find(tag)
     assert elem is not None
+    assert elem.text is not None
     assert not isabs(elem.text)
 
 
@@ -299,5 +300,5 @@ def test_export_gamelist_xml_rejects_path_traversal(platform_with_roms):
     db_rom_handler.update_rom(roms[0].id, {"path_cover_l": "../../etc/passwd"})
 
     exporter = GamelistExporter(local_export=True)
-    with pytest.raises(ValueError, match="outside resources base"):
+    with pytest.raises(ValueError, match="invalid parent directory references"):
         exporter.export_platform_to_xml(platform.id, request=None)
