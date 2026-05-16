@@ -52,6 +52,7 @@ DEFAULT_EXCLUDED_FILES: Final = [
 ]
 DEFAULT_EXCLUDED_DIRS: Final = [
     "@eaDir",
+    "assets",
     "__MACOSX",
     "$RECYCLE.BIN",
     ".Trash-*",
