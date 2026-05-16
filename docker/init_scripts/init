@@ -88,14 +88,18 @@ wait_for_gunicorn_socket() {
 	fi
 }
 
-# function that runs or main process and creates a corresponding PID file,
+# Function that runs our main process and creates a corresponding PID file
 start_bin_gunicorn() {
 	# cleanup potentially leftover socket
 	rm /tmp/gunicorn.sock -f
 
-	# Wire LOGLEVEL into Gunicorn's logging config so it respects the env var
+	# Wire LOGLEVEL into Gunicorn's logging config so it respects the env var.
 	local gunicorn_level="${LOGLEVEL^^}"
-	sed -i '/\[logger_gunicorn\]/,/^\[/ s/^level=.*/level='"${gunicorn_level}"'/' /etc/gunicorn/logging.conf
+	local gunicorn_log_config="/tmp/gunicorn/logging.conf"
+	# Copy the config to a writable runtime path so this works on read-only root filesystems.
+	mkdir -p /tmp/gunicorn
+	cp /etc/gunicorn/logging.conf "${gunicorn_log_config}"
+	sed -i '/\[logger_gunicorn\]/,/^\[/ s/^level=.*/level='"${gunicorn_level}"'/' "${gunicorn_log_config}"
 
 	# commands to start our main application and store its PID to check for crashes
 	info_log "Starting backend"
@@ -118,7 +122,7 @@ start_bin_gunicorn() {
 		--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
 		--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
 		--error-logfile - \
-		--log-config /etc/gunicorn/logging.conf \
+		--log-config "${gunicorn_log_config}" \
 		main:app &
 }
 
