@@ -5,6 +5,7 @@ import pytest
 
 from config import FRONTEND_RESOURCES_PATH
 from handler.database import db_platform_handler, db_rom_handler
+from handler.filesystem import fs_platform_handler, fs_resource_handler
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
@@ -302,3 +303,110 @@ def test_export_gamelist_xml_rejects_path_traversal(platform_with_roms):
     exporter = GamelistExporter(local_export=True)
     with pytest.raises(ValueError, match="invalid parent directory references"):
         exporter.export_platform_to_xml(platform.id, request=None)
+
+
+@pytest.fixture
+def isolated_filesystem(tmp_path, monkeypatch):
+    """Redirect resource and library base paths to a temp directory so that
+    export_platform_to_file() can copy real assets and write gamelist.xml
+    without touching the host filesystem."""
+    resources_base = tmp_path / "resources"
+    library_base = tmp_path / "library"
+    monkeypatch.setattr(fs_resource_handler, "base_path", resources_base)
+    monkeypatch.setattr(fs_platform_handler, "base_path", library_base)
+    return resources_base, library_base
+
+
+async def test_export_platform_to_file_copies_assets(
+    platform_with_roms, isolated_filesystem
+):
+    """export_platform_to_file copies each media file into <platform>/assets/<subdir>/
+    and writes gamelist.xml referencing those relative paths."""
+    resources_base, library_base = isolated_filesystem
+    platform, _ = platform_with_roms
+
+    sources = {
+        "snes/covers/super-mario-world.jpg": b"cover-bytes",
+        "snes/screenshots/super-mario-world-1.jpg": b"shot-bytes",
+        "snes/manuals/super-mario-world.pdf": b"manual-bytes",
+        "snes/videos/super-mario-world.mp4": b"video-bytes",
+    }
+    for rel, content in sources.items():
+        src = resources_base / rel
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(content)
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
+        platform.fs_slug
+    )
+
+    expected_assets = {
+        "assets/covers/Super Mario World (USA).jpg": b"cover-bytes",
+        "assets/screenshots/Super Mario World (USA).jpg": b"shot-bytes",
+        "assets/manuals/Super Mario World (USA).pdf": b"manual-bytes",
+        "assets/videos/Super Mario World (USA).mp4": b"video-bytes",
+    }
+    for rel, content in expected_assets.items():
+        dest = platform_dir / rel
+        assert dest.is_file(), f"missing asset {dest}"
+        assert dest.read_bytes() == content
+
+    gamelist = platform_dir / "gamelist.xml"
+    assert gamelist.is_file()
+    game = fromstring(gamelist.read_text()).findall("game")[0]
+
+    expected_refs = {
+        "thumbnail": "./assets/covers/Super Mario World (USA).jpg",
+        "screenshot": "./assets/screenshots/Super Mario World (USA).jpg",
+        "video": "./assets/videos/Super Mario World (USA).mp4",
+        "manual": "./assets/manuals/Super Mario World (USA).pdf",
+    }
+    for tag, expected in expected_refs.items():
+        elem = game.find(tag)
+        assert elem is not None and elem.text == expected
+
+
+async def test_export_platform_to_file_omits_tags_when_copy_fails(
+    platform_with_roms, isolated_filesystem
+):
+    """When a source resource is missing, _copy_asset returns False; the
+    corresponding tag must be omitted from gamelist.xml and no asset file
+    must be written for it. Other assets still export normally."""
+    resources_base, library_base = isolated_filesystem
+    platform, _ = platform_with_roms
+
+    # Provide cover and screenshot, deliberately omit manual + video sources.
+    for rel in (
+        "snes/covers/super-mario-world.jpg",
+        "snes/screenshots/super-mario-world-1.jpg",
+    ):
+        src = resources_base / rel
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_bytes(b"X")
+
+    exporter = GamelistExporter(local_export=True)
+    assert await exporter.export_platform_to_file(platform.id, request=None) is True
+
+    platform_dir = library_base / fs_platform_handler.get_platform_fs_structure(
+        platform.fs_slug
+    )
+
+    # Successful copies present
+    assert (platform_dir / "assets/covers/Super Mario World (USA).jpg").is_file()
+    assert (platform_dir / "assets/screenshots/Super Mario World (USA).jpg").is_file()
+    # Failed copies don't produce destination files (an empty subdir may be
+    # left behind because _copy_asset mkdirs before opening the source).
+    assert not (platform_dir / "assets/manuals/Super Mario World (USA).pdf").exists()
+    assert not (platform_dir / "assets/videos/Super Mario World (USA).mp4").exists()
+
+    game = fromstring((platform_dir / "gamelist.xml").read_text()).findall("game")[0]
+    assert game.find("manual") is None
+    assert game.find("video") is None
+    assert game.find("thumbnail").text == "./assets/covers/Super Mario World (USA).jpg"
+    assert (
+        game.find("screenshot").text
+        == "./assets/screenshots/Super Mario World (USA).jpg"
+    )
