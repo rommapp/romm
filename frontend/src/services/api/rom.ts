@@ -1,4 +1,5 @@
 import type { AxiosProgressEvent } from "axios";
+import Bowser from "bowser";
 import type {
   Body_delete_roms_api_roms_delete_post as DeleteRomsInput,
   Body_update_rom_api_roms__id__put as UpdateRomInput,
@@ -27,18 +28,10 @@ type SearchRom = SearchRomSchema;
 const DOWNLOAD_CLEANUP_DELAY = 100;
 const UPLOAD_CHUNK_SIZE = 10 * 1024 * 1024; // 10MB per chunk
 const MAX_CHUNK_RETRIES = 3;
-const WEBKIT_USER_AGENT_RE = /AppleWebKit/i;
-const CHROMIUM_BROWSER_RE = /Chrome|Chromium|CriOS|Edg|OPR/i;
 
-function shouldTrackChunkUploadProgress(): boolean {
-  if (typeof navigator === "undefined") return true;
-
-  const userAgent = navigator.userAgent;
-  return !(
-    WEBKIT_USER_AGENT_RE.test(userAgent) &&
-    !CHROMIUM_BROWSER_RE.test(userAgent)
-  );
-}
+const browser = Bowser.getParser(window.navigator.userAgent);
+const engineName = browser.getEngineName();
+const trackChunkUploadProgress = engineName !== "WebKit";
 
 async function uploadRomChunked({
   platformId,
@@ -49,7 +42,6 @@ async function uploadRomChunked({
 }): Promise<void> {
   const uploadStore = storeUpload();
   const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE);
-  const trackChunkUploadProgress = shouldTrackChunkUploadProgress();
 
   const { data: startData } = await api.post("/roms/upload/start", null, {
     headers: {
