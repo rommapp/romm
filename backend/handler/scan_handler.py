@@ -77,9 +77,8 @@ class MetadataSource(enum.StrEnum):
     LIBRETRO = "libretro"  # Libretro thumbnails
 
 
-# RomM-side counterparts to the providers Playmatch can return ids for via
-# /api/identify/ids. EmuReady and OpenVGDB are also in Playmatch's enum but
-# have no corresponding RomM source today.
+# RomM sources for which Playmatch can return ids. EmuReady and OpenVGDB are
+# in Playmatch's enum but have no RomM counterpart yet.
 PLAYMATCH_SUPPORTED_SOURCES: frozenset[MetadataSource] = frozenset(
     {
         MetadataSource.IGDB,
@@ -384,10 +383,6 @@ async def scan_rom(
         )
 
     async def fetch_playmatch_hash_match() -> PlaymatchRomMatch:
-        # Playmatch matches by file hash, so it doesn't need any platform-level
-        # external id and isn't tied to any single provider. Run it whenever
-        # Playmatch is enabled and at least one provider Playmatch can return
-        # is configured for this scan (otherwise the hash lookup is wasted).
         if (
             meta_playmatch_handler.is_enabled()
             and any(

@@ -24,12 +24,10 @@ class PlaymatchProvider(str, Enum):
     OpenVGDB = "OpenVGDB"
 
 
-# (rom attribute, provider tag). Tag casing matches Playmatch's MetadataProvider
-# enum names (uppercased; Playmatch parses case-insensitively but spacing and
-# underscores must match). Entries for providers Playmatch doesn't currently
-# recognize are kept on purpose: Playmatch drops unknown tags server-side, and
-# preserving them means older RomM clients keep submitting correct tags when
-# Playmatch adds support for more providers.
+# Tag is the uppercased Playmatch MetadataProvider name. Playmatch parses it
+# case-insensitively but spacing must match. Tags Playmatch doesn't yet know
+# are kept so older RomM clients keep submitting the right tag once Playmatch
+# adds support.
 _PLAYMATCH_PROVIDER_TAGS: tuple[tuple[str, str], ...] = (
     ("igdb_id", "IGDB"),
     ("moby_id", "MOBYGAMES"),
@@ -46,13 +44,10 @@ _PLAYMATCH_PROVIDER_TAGS: tuple[tuple[str, str], ...] = (
 )
 
 
-# Inbound providerName -> rom attribute, derived from _PLAYMATCH_PROVIDER_TAGS.
-# Keyed on the uppercased tag so we can match against Playmatch's CamelCase
-# MetadataProvider values (`"MobyGames"` -> `"MOBYGAMES"` -> `"moby_id"`).
 _TAG_TO_ATTR: dict[str, str] = {tag: attr for attr, tag in _PLAYMATCH_PROVIDER_TAGS}
 
-# Subset of attrs the scan handler consumes from a Playmatch lookup. Other
-# entries in _PLAYMATCH_PROVIDER_TAGS are used only for outbound suggestions.
+# Rom attrs the scan handler actually consumes from a Playmatch lookup. Other
+# tags exist only for outbound suggestions.
 _LOOKUP_ROM_ATTRS: frozenset[str] = frozenset(
     {"igdb_id", "moby_id", "ss_id", "launchbox_id", "sgdb_id"}
 )
