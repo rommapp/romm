@@ -393,6 +393,13 @@ async def scan_rom(
             ss_id=None,
             launchbox_id=None,
             sgdb_id=None,
+            ra_id=None,
+            hasheous_id=None,
+            tgdb_id=None,
+            flashpoint_id=None,
+            hltb_id=None,
+            libretro_id=None,
+            gamelist_id=None,
         )
 
     async def fetch_hasheous_hash_match() -> HasheousRom:

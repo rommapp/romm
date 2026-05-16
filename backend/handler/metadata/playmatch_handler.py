@@ -1,6 +1,6 @@
 import json
 from enum import Enum
-from typing import NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict
 
 import httpx
 import yarl
@@ -16,39 +16,36 @@ from utils.context import ctx_httpx_client
 
 class PlaymatchProvider(str, Enum):
     IGDB = "IGDB"
-    SteamGridDB = "SteamGridDB"
-    ScreenScraper = "ScreenScraper"
-    MobyGames = "MobyGames"
-    LaunchBox = "LaunchBox"
-    EmuReady = "EmuReady"
-    OpenVGDB = "OpenVGDB"
+    STEAM_GRID_DB = "SteamGridDB"
+    SCREEN_SCRAPER = "ScreenScraper"
+    MOBY_GAMES = "MobyGames"
+    LAUNCH_BOX = "LaunchBox"
+    EMU_READY = "EmuReady"
+    OPEN_VGDB = "OpenVGDB"
 
 
-# Tag is the uppercased Playmatch MetadataProvider name. Playmatch parses it
-# case-insensitively but spacing must match. Tags Playmatch doesn't yet know
-# are kept so older RomM clients keep submitting the right tag once Playmatch
-# adds support.
-_PLAYMATCH_PROVIDER_TAGS: tuple[tuple[str, str], ...] = (
-    ("igdb_id", "IGDB"),
-    ("moby_id", "MOBYGAMES"),
-    ("ss_id", "SCREENSCRAPER"),
-    ("ra_id", "RETRO_ACHIEVEMENTS"),
-    ("launchbox_id", "LAUNCHBOX"),
-    ("hasheous_id", "HASHEOUS"),
-    ("tgdb_id", "TGDB"),
-    ("flashpoint_id", "FLASHPOINT"),
-    ("hltb_id", "HOWLONGTOBEAT"),
-    ("libretro_id", "LIBRETRO"),
-    ("sgdb_id", "STEAMGRIDDB"),
-    ("gamelist_id", "GAMELIST"),
-)
+# Tag is the uppercased Playmatch MetadataProvider name.
+# Playmatch parses it case-insensitively but spacing must match.
+# Tags Playmatch doesn't yet know are kept so older RomM clients keep
+# submitting the right tag once Playmatch adds support.
+PLAYMATCH_TAG_TO_ATTR: Final[dict[str, str]] = {
+    "IGDB": "igdb_id",
+    "MOBYGAMES": "moby_id",
+    "SCREENSCRAPER": "ss_id",
+    "RETRO_ACHIEVEMENTS": "ra_id",
+    "LAUNCHBOX": "launchbox_id",
+    "HASHEOUS": "hasheous_id",
+    "TGDB": "tgdb_id",
+    "FLASHPOINT": "flashpoint_id",
+    "HOWLONGTOBEAT": "hltb_id",
+    "LIBRETRO": "libretro_id",
+    "STEAMGRIDDB": "sgdb_id",
+    "GAMELIST": "gamelist_id",
+}
 
-
-_TAG_TO_ATTR: dict[str, str] = {tag: attr for attr, tag in _PLAYMATCH_PROVIDER_TAGS}
-
-# Rom attrs the scan handler actually consumes from a Playmatch lookup. Other
-# tags exist only for outbound suggestions.
-_LOOKUP_ROM_ATTRS: frozenset[str] = frozenset(
+# Rom attrs the scan handler actually consumes from a Playmatch lookup.
+# Other tags exist only for outbound suggestions.
+PLAYMATCH_LOOKUP_ROM_ATTRS: frozenset[str] = frozenset(
     {"igdb_id", "moby_id", "ss_id", "launchbox_id", "sgdb_id"}
 )
 
@@ -64,8 +61,8 @@ class GameMatchType(str, Enum):
     SHA256 = "SHA256"
     SHA1 = "SHA1"
     MD5 = "MD5"
-    FileNameAndSize = "FileNameAndSize"
-    NoMatch = "NoMatch"
+    FILE_NAME_AND_SIZE = "FileNameAndSize"
+    NO_MATCH = "NoMatch"
 
 
 class PlaymatchExternalMetadata(TypedDict):
@@ -84,16 +81,13 @@ class PlaymatchRomMatch(TypedDict):
     ss_id: int | None
     launchbox_id: int | None
     sgdb_id: int | None
-
-
-def _empty_playmatch_rom_match() -> PlaymatchRomMatch:
-    return PlaymatchRomMatch(
-        igdb_id=None,
-        moby_id=None,
-        ss_id=None,
-        launchbox_id=None,
-        sgdb_id=None,
-    )
+    ra_id: int | None
+    hasheous_id: int | None
+    tgdb_id: int | None
+    flashpoint_id: str | None
+    hltb_id: int | None
+    gamelist_id: str | None
+    libretro_id: str | None
 
 
 class PlaymatchHandler(MetadataHandler):
@@ -174,15 +168,30 @@ class PlaymatchHandler(MetadataHandler):
         :return: A PlaymatchRomMatch objects containing the matched ROM information.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
+        fallback_rom = PlaymatchRomMatch(
+            igdb_id=None,
+            moby_id=None,
+            ss_id=None,
+            launchbox_id=None,
+            sgdb_id=None,
+            ra_id=None,
+            hasheous_id=None,
+            tgdb_id=None,
+            flashpoint_id=None,
+            hltb_id=None,
+            gamelist_id=None,
+            libretro_id=None,
+        )
+
         if not self.is_enabled():
-            return _empty_playmatch_rom_match()
+            return fallback_rom
 
         first_file = next(
             (file for file in files if file.file_size_bytes > 0),
             None,
         )
         if first_file is None:
-            return _empty_playmatch_rom_match()
+            return fallback_rom
 
         try:
             response = await self._request(
@@ -196,58 +205,61 @@ class PlaymatchHandler(MetadataHandler):
             )
         except httpx.HTTPStatusError:
             # We silently fail if the service is unavailable as this should not block the rest of RomM.
-            return _empty_playmatch_rom_match()
+            return fallback_rom
 
         game_match_type = response.get("gameMatchType", None)
-        if game_match_type == GameMatchType.NoMatch:
+        if game_match_type == GameMatchType.NO_MATCH:
             log.debug("No match found for the provided ROM file.")
-            return _empty_playmatch_rom_match()
+            return fallback_rom
 
         externalMetadata = response.get("externalMetadata", [])
         if len(externalMetadata) == 0:
             log.debug("No external metadata found for the matched ROM file.")
-            return _empty_playmatch_rom_match()
+            return fallback_rom
 
-        result = _empty_playmatch_rom_match()
+        result = fallback_rom
         for metadata in externalMetadata:
             provider_name = metadata.get("providerName", None)
             provider_game_id = metadata.get("providerId", None)
             if not provider_name or provider_game_id is None:
                 continue
 
-            attr = _TAG_TO_ATTR.get(provider_name.upper())
-            if not attr or attr not in _LOOKUP_ROM_ATTRS:
+            attr = PLAYMATCH_TAG_TO_ATTR.get(provider_name.upper())
+            if not attr or attr not in PLAYMATCH_LOOKUP_ROM_ATTRS:
                 continue
 
             try:
                 parsed_id = int(provider_game_id)
             except (TypeError, ValueError):
                 log.debug(
-                    "Playmatch returned non-int id for %s: %r",
+                    "Playmatch returned non-int ID for %s: %r",
                     provider_name,
                     provider_game_id,
                 )
                 continue
 
             log.debug("Playmatch found %s match with id: %s", provider_name, parsed_id)
-            result[attr] = parsed_id  # type: ignore[literal-required]
+            result[attr] = parsed_id  # trunk-ignore(mypy/literal-required)
 
         return result
 
     @staticmethod
     def is_manual_match(form_fields_set: set[str]) -> bool:
         """True if the submitted form contains any Playmatch-tracked provider id field."""
-        return any(attr in form_fields_set for attr, _ in _PLAYMATCH_PROVIDER_TAGS)
+        return any(attr in form_fields_set for attr in PLAYMATCH_TAG_TO_ATTR.values())
 
     async def submit_manual_match_suggestion(self, rom: Rom) -> None:
-        """Fire-and-forget suggestion POST. No-ops if disabled or no provider IDs are set; never raises."""
+        """
+        Fire-and-forget suggestion POST.
+        No-ops if disabled or no provider IDs are set.
+        """
         try:
             if not self.is_enabled():
                 return
 
             mappings = [
                 {"provider": tag, "providerId": str(getattr(rom, attr))}
-                for attr, tag in _PLAYMATCH_PROVIDER_TAGS
+                for tag, attr in PLAYMATCH_TAG_TO_ATTR.items()
                 if getattr(rom, attr, None)
             ]
             if not mappings:
