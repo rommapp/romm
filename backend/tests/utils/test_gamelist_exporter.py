@@ -405,8 +405,9 @@ async def test_export_platform_to_file_omits_tags_when_copy_fails(
     game = fromstring((platform_dir / "gamelist.xml").read_text()).findall("game")[0]
     assert game.find("manual") is None
     assert game.find("video") is None
-    assert game.find("thumbnail").text == "./assets/covers/Super Mario World (USA).jpg"
-    assert (
-        game.find("screenshot").text
-        == "./assets/screenshots/Super Mario World (USA).jpg"
-    )
+    thumbnail = game.find("thumbnail")
+    assert thumbnail is not None
+    assert thumbnail.text == "./assets/covers/Super Mario World (USA).jpg"
+    screenshot = game.find("screenshot")
+    assert screenshot is not None
+    assert screenshot.text == "./assets/screenshots/Super Mario World (USA).jpg"
