@@ -1,13 +1,15 @@
 from datetime import UTC, datetime
+from os import path
+from pathlib import Path
 from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
     Element,
     SubElement,
     indent,
     tostring,
 )
-from os import path
 
 from fastapi import Request
+from starlette.datastructures import URLPath
 
 from config import FRONTEND_RESOURCES_PATH, RESOURCES_BASE_PATH, YOUTUBE_BASE_URL
 from config.config_manager import config_manager as cm
@@ -36,25 +38,29 @@ class GamelistExporter:
             "%Y%m%dT%H%M%S"
         )
 
-    def _resource_relative_path(self, rom: Rom, resource_path_part: str) -> str:
+    def _resource_relative_path(
+        self, request: Request | None, rom: Rom, resource_path_part: str
+    ) -> str:
         """Convert a resource path part (e.g. "snes/covers/smw.jpg") to a path relative to the ROM's location"""
         if self.local_export:
-            resources_base_path = path.abspath(RESOURCES_BASE_PATH)
-            resource_path = path.abspath(
-                path.join(RESOURCES_BASE_PATH, resource_path_part)
-            )
+            resources_base = Path(RESOURCES_BASE_PATH).resolve()
+            resource_path = (resources_base / resource_path_part).resolve()
 
-            if (
-                path.commonpath([resources_base_path, resource_path])
-                != resources_base_path
-            ):
+            if not resource_path.is_relative_to(resources_base):
                 raise ValueError(
                     f"Invalid resource path outside resources base: {resource_path_part}"
                 )
 
             return path.relpath(resource_path, start=path.dirname(rom.fs_path))
 
-        return f"{FRONTEND_RESOURCES_PATH}/{resource_path_part}"
+        if request is None:
+            raise ValueError("Request object must be provided for non-local exports")
+
+        return str(
+            URLPath(
+                f"{FRONTEND_RESOURCES_PATH}/{resource_path_part}"
+            ).make_absolute_url(request.base_url)
+        )
 
     def _create_game_element(
         self, rom: Rom, request: Request | None, media_image: str, media_thumbnail: str
@@ -89,53 +95,55 @@ class GamelistExporter:
             case "box3d":
                 if rom.ss_metadata and rom.ss_metadata.get("box3d_path"):
                     thumbnail_path = self._resource_relative_path(
-                        rom, rom.ss_metadata["box3d_path"]
+                        request, rom, rom.ss_metadata["box3d_path"]
                     )
                 elif rom.gamelist_metadata and rom.gamelist_metadata.get("box3d_path"):
                     thumbnail_path = self._resource_relative_path(
-                        rom, rom.gamelist_metadata["box3d_path"]
+                        request, rom, rom.gamelist_metadata["box3d_path"]
                     )
             case "miximage":
                 if rom.ss_metadata and rom.ss_metadata.get("miximage_path"):
                     thumbnail_path = self._resource_relative_path(
-                        rom, rom.ss_metadata["miximage_path"]
+                        request, rom, rom.ss_metadata["miximage_path"]
                     )
                 elif rom.gamelist_metadata and rom.gamelist_metadata.get(
                     "miximage_path"
                 ):
                     thumbnail_path = self._resource_relative_path(
-                        rom, rom.gamelist_metadata["miximage_path"]
+                        request, rom, rom.gamelist_metadata["miximage_path"]
                     )
             case "physical":
                 if rom.ss_metadata and rom.ss_metadata.get("physical_path"):
                     thumbnail_path = self._resource_relative_path(
-                        rom, rom.ss_metadata["physical_path"]
+                        request, rom, rom.ss_metadata["physical_path"]
                     )
                 elif rom.gamelist_metadata and rom.gamelist_metadata.get(
                     "physical_path"
                 ):
                     thumbnail_path = self._resource_relative_path(
-                        rom, rom.gamelist_metadata["physical_path"]
+                        request, rom, rom.gamelist_metadata["physical_path"]
                     )
 
         # "cover" and "box2d" both map to path_cover_l
         if thumbnail_path is None and rom.path_cover_l:
-            thumbnail_path = self._resource_relative_path(rom, rom.path_cover_l)
+            thumbnail_path = self._resource_relative_path(
+                request, rom, rom.path_cover_l
+            )
         if thumbnail_path:
             SubElement(game, "thumbnail").text = thumbnail_path
 
         if path_video := rom.path_video:
             SubElement(game, "video").text = self._resource_relative_path(
-                rom, path_video
+                request, rom, path_video
             )
         elif rom.youtube_video_id:
-            SubElement(
-                game, "video"
-            ).text = f"{YOUTUBE_BASE_URL}/embed/{rom.youtube_video_id}"
+            SubElement(game, "video").text = (
+                f"{YOUTUBE_BASE_URL}/embed/{rom.youtube_video_id}"
+            )
 
         if rom.path_screenshots:
             SubElement(game, "screenshot").text = self._resource_relative_path(
-                rom, rom.path_screenshots[0]
+                request, rom, rom.path_screenshots[0]
             )
 
         image_path: str | None = None
@@ -143,38 +151,42 @@ class GamelistExporter:
             case "title_screen":
                 if rom.ss_metadata and rom.ss_metadata.get("title_screen_path"):
                     image_path = self._resource_relative_path(
-                        rom, rom.ss_metadata["title_screen_path"]
+                        request, rom, rom.ss_metadata["title_screen_path"]
                     )
                 elif rom.gamelist_metadata and rom.gamelist_metadata.get(
                     "title_screen_path"
                 ):
                     image_path = self._resource_relative_path(
-                        rom, rom.gamelist_metadata["title_screen_path"]
+                        request, rom, rom.gamelist_metadata["title_screen_path"]
                     )
             case "miximage":
                 if rom.ss_metadata and rom.ss_metadata.get("miximage_path"):
                     image_path = self._resource_relative_path(
-                        rom, rom.ss_metadata["miximage_path"]
+                        request, rom, rom.ss_metadata["miximage_path"]
                     )
                 elif rom.gamelist_metadata and rom.gamelist_metadata.get(
                     "miximage_path"
                 ):
                     image_path = self._resource_relative_path(
-                        rom, rom.gamelist_metadata["miximage_path"]
+                        request, rom, rom.gamelist_metadata["miximage_path"]
                     )
             case "box2d":
                 if rom.path_cover_l:
-                    image_path = self._resource_relative_path(rom, rom.path_cover_l)
+                    image_path = self._resource_relative_path(
+                        request, rom, rom.path_cover_l
+                    )
 
         # "screenshot" (default) and anything else falls through to path_screenshots
         if image_path is None and rom.path_screenshots:
-            image_path = self._resource_relative_path(rom, rom.path_screenshots[0])
+            image_path = self._resource_relative_path(
+                request, rom, rom.path_screenshots[0]
+            )
         if image_path:
             SubElement(game, "image").text = image_path
 
         if rom.path_manual:
             SubElement(game, "manual").text = self._resource_relative_path(
-                rom, rom.path_manual
+                request, rom, rom.path_manual
             )
 
         # Additional metadata
@@ -217,65 +229,65 @@ class GamelistExporter:
         if rom.ss_metadata:
             if rom.ss_metadata.get("box3d_path"):
                 SubElement(game, "box3d").text = self._resource_relative_path(
-                    rom, rom.ss_metadata["box3d_path"]
+                    request, rom, rom.ss_metadata["box3d_path"]
                 )
             if rom.ss_metadata.get("box2d_back_path"):
                 SubElement(game, "boxback").text = self._resource_relative_path(
-                    rom, rom.ss_metadata["box2d_back_path"]
+                    request, rom, rom.ss_metadata["box2d_back_path"]
                 )
             if rom.ss_metadata.get("fanart_path"):
                 SubElement(game, "fanart").text = self._resource_relative_path(
-                    rom, rom.ss_metadata["fanart_path"]
+                    request, rom, rom.ss_metadata["fanart_path"]
                 )
             if rom.ss_metadata.get("logo_path"):
                 SubElement(game, "marquee").text = self._resource_relative_path(
-                    rom, rom.ss_metadata["logo_path"]
+                    request, rom, rom.ss_metadata["logo_path"]
                 )
             if rom.ss_metadata.get("miximage_path"):
                 SubElement(game, "miximage").text = self._resource_relative_path(
-                    rom, rom.ss_metadata["miximage_path"]
+                    request, rom, rom.ss_metadata["miximage_path"]
                 )
             if rom.ss_metadata.get("physical_path"):
                 SubElement(game, "physicalmedia").text = self._resource_relative_path(
-                    rom, rom.ss_metadata["physical_path"]
+                    request, rom, rom.ss_metadata["physical_path"]
                 )
             if rom.ss_metadata.get("title_screen_path"):
                 SubElement(game, "title_screen").text = self._resource_relative_path(
-                    rom, rom.ss_metadata["title_screen_path"]
+                    request, rom, rom.ss_metadata["title_screen_path"]
                 )
             if rom.ss_metadata.get("bezel_path"):
                 SubElement(game, "bezel").text = self._resource_relative_path(
-                    rom, rom.ss_metadata["bezel_path"]
+                    request, rom, rom.ss_metadata["bezel_path"]
                 )
 
         if rom.gamelist_metadata:
             if rom.gamelist_metadata.get("box3d_path"):
                 SubElement(game, "box3d").text = self._resource_relative_path(
-                    rom, rom.gamelist_metadata["box3d_path"]
+                    request, rom, rom.gamelist_metadata["box3d_path"]
                 )
             if rom.gamelist_metadata.get("box2d_back_path"):
                 SubElement(game, "boxback").text = self._resource_relative_path(
-                    rom, rom.gamelist_metadata["box2d_back_path"]
+                    request, rom, rom.gamelist_metadata["box2d_back_path"]
                 )
             if rom.gamelist_metadata.get("fanart_path"):
                 SubElement(game, "fanart").text = self._resource_relative_path(
-                    rom, rom.gamelist_metadata["fanart_path"]
+                    request, rom, rom.gamelist_metadata["fanart_path"]
                 )
             if rom.gamelist_metadata.get("marquee_path"):
                 SubElement(game, "marquee").text = self._resource_relative_path(
-                    rom, rom.gamelist_metadata["marquee_path"]
+                    request, rom, rom.gamelist_metadata["marquee_path"]
                 )
             if rom.gamelist_metadata.get("miximage_path"):
                 SubElement(game, "miximage").text = self._resource_relative_path(
-                    rom, rom.gamelist_metadata["miximage_path"]
+                    request, rom, rom.gamelist_metadata["miximage_path"]
                 )
             if rom.gamelist_metadata.get("physical_path"):
                 SubElement(game, "physicalmedia").text = self._resource_relative_path(
-                    rom, rom.gamelist_metadata["physical_path"]
+                    request, rom, rom.gamelist_metadata["physical_path"]
                 )
             if rom.gamelist_metadata.get("title_screen_path"):
                 SubElement(game, "title_screen").text = self._resource_relative_path(
-                    rom, rom.gamelist_metadata["title_screen_path"]
+                    request, rom, rom.gamelist_metadata["title_screen_path"]
                 )
 
         # Add scraping info

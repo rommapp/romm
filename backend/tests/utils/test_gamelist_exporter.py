@@ -1,6 +1,5 @@
-from xml.etree.ElementTree import fromstring
-
 from os.path import isabs
+from xml.etree.ElementTree import fromstring
 
 import pytest
 
