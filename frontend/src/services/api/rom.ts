@@ -27,6 +27,18 @@ type SearchRom = SearchRomSchema;
 const DOWNLOAD_CLEANUP_DELAY = 100;
 const UPLOAD_CHUNK_SIZE = 10 * 1024 * 1024; // 10MB per chunk
 const MAX_CHUNK_RETRIES = 3;
+const WEBKIT_USER_AGENT_RE = /AppleWebKit/i;
+const CHROMIUM_BROWSER_RE = /Chrome|Chromium|CriOS|Edg|OPR/i;
+
+function shouldTrackChunkUploadProgress(): boolean {
+  if (typeof navigator === "undefined") return true;
+
+  const userAgent = navigator.userAgent;
+  return !(
+    WEBKIT_USER_AGENT_RE.test(userAgent) &&
+    !CHROMIUM_BROWSER_RE.test(userAgent)
+  );
+}
 
 async function uploadRomChunked({
   platformId,
@@ -37,6 +49,7 @@ async function uploadRomChunked({
 }): Promise<void> {
   const uploadStore = storeUpload();
   const totalChunks = Math.ceil(file.size / UPLOAD_CHUNK_SIZE);
+  const trackChunkUploadProgress = shouldTrackChunkUploadProgress();
 
   const { data: startData } = await api.post("/roms/upload/start", null, {
     headers: {
@@ -64,17 +77,24 @@ async function uploadRomChunked({
             "X-Chunk-Index": i.toString(),
           },
           timeout: 120000,
-          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-            const chunkFraction = progressEvent.progress ?? 0;
-            const overall = ((i + chunkFraction) / totalChunks) * 100;
-            uploadStore.updateChunkProgress(
-              file.name,
-              overall,
-              file.size,
-              progressEvent.rate,
-            );
-          },
+          ...(trackChunkUploadProgress && {
+            onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+              const chunkFraction = progressEvent.progress ?? 0;
+              const overall = ((i + chunkFraction) / totalChunks) * 100;
+              uploadStore.updateChunkProgress(
+                file.name,
+                overall,
+                file.size,
+                progressEvent.rate,
+              );
+            },
+          }),
         });
+        uploadStore.updateChunkProgress(
+          file.name,
+          ((i + 1) / totalChunks) * 100,
+          file.size,
+        );
         lastError = null;
         break;
       } catch (err) {
