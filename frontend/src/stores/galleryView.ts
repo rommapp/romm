@@ -12,7 +12,6 @@ const defaultGalleryState = {
   currentView: currentViewStorage.value,
   currentBoxartStyle: boxartStyleStorage.value,
   defaultAspectRatio: 2 / 3,
-  defaultAspectRatioScreenshot: 16 / 9,
   activeFirmwareDrawer: false,
   scrolledToTop: false,
   showFabOverlay: false,
@@ -36,7 +35,7 @@ export default defineStore("galleryView", {
       if (_boxartStyle === "physical_path") return 1 / 1;
       if (_boxartStyle === "miximage_path") return 1 / 1;
 
-      return undefined;
+      return this.defaultAspectRatio;
     },
     next() {
       if (this.currentView == 2) {

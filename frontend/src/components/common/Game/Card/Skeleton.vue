@@ -16,8 +16,7 @@ const props = withDefaults(
 const galleryViewStore = storeGalleryView();
 
 const computedAspectRatio = computed(() => {
-  if (props.aspectRatio) return props.aspectRatio;
-  return galleryViewStore.getAspectRatio();
+  return props.aspectRatio || galleryViewStore.getAspectRatio();
 });
 
 const computedType = computed(() => {
