@@ -7,7 +7,6 @@ import pytest
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
 from handler.filesystem.roms_handler import (
-    CHDHashWrapper,
     FileHash,
     FSRomsHandler,
     extract_chd_hash,
@@ -259,6 +258,7 @@ class TestFSRomsHandler:
                 "crc_hash": "ABCD1234",
                 "md5_hash": "def456",
                 "sha1_hash": "789ghi",
+                "chd_sha1_hash": "",
             }
         )
 
@@ -284,6 +284,7 @@ class TestFSRomsHandler:
                 "crc_hash": "12345678",
                 "md5_hash": "abcdef",
                 "sha1_hash": "123456",
+                "chd_sha1_hash": "",
             }
         )
 
@@ -712,13 +713,11 @@ class TestFSRomsHandler:
     async def test_get_rom_files_with_chd_v5_uses_internal_hash(
         self, handler: FSRomsHandler, platform, tmp_path
     ):
-        """Test that a CHD v5 file uses its internal hash and skips other hashing.
+        """Test that a CHD v5 file stores the header SHA1 in chd_sha1_hash.
 
-        This integration test verifies the complete CHD v5 hashing logic:
-        1. For valid CHD v5 files, the embedded SHA1 hash from the file header is used
-        2. CRC32 and MD5 hashes are NOT calculated from file contents
-        3. The file is not double-processed by read_basic_file
-        4. This prevents regressions in the if/elif archive type chain
+        CHD files are hashed like any other file type (CRC32, MD5, SHA1 from
+        raw bytes). The embedded disc-data SHA1 from the CHD v5 header is
+        separately stored in chd_sha1_hash for metadata providers that need it.
         """
         # Create a mock CHD v5 file in a temporary directory
         chd_file = tmp_path / "test.chd"
@@ -751,22 +750,19 @@ class TestFSRomsHandler:
         # Run the hashing process
         parsed_rom_files = await test_handler.get_rom_files(rom)
 
-        # Assert that only SHA1 is populated, and it's from the header
+        # All three raw-file hashes should be populated
         assert len(parsed_rom_files.rom_files) == 1
+        assert parsed_rom_files.crc_hash != "", "CRC should be computed from raw bytes"
+        assert parsed_rom_files.md5_hash != "", "MD5 should be computed from raw bytes"
         assert (
-            parsed_rom_files.sha1_hash == internal_sha1
-        ), "SHA1 should be from CHD v5 header"
-        assert parsed_rom_files.rom_files[0].sha1_hash == internal_sha1
+            parsed_rom_files.sha1_hash != ""
+        ), "SHA1 should be computed from raw bytes"
 
-        # CRC32 and MD5 should be empty/zero (not calculated)
-        assert (
-            parsed_rom_files.crc_hash == ""
-        ), f"CRC hash should be empty, got: {parsed_rom_files.crc_hash}"
-        assert (
-            parsed_rom_files.md5_hash == ""
-        ), f"MD5 hash should be empty, got: {parsed_rom_files.md5_hash}"
-        assert parsed_rom_files.rom_files[0].crc_hash == ""
-        assert parsed_rom_files.rom_files[0].md5_hash == ""
+        # Raw file SHA1 is NOT the header SHA1
+        assert parsed_rom_files.sha1_hash != internal_sha1
+
+        # Header SHA1 stored separately in chd_sha1_hash
+        assert parsed_rom_files.rom_files[0].chd_sha1_hash == internal_sha1
 
     @pytest.mark.asyncio
     async def test_get_rom_files_with_non_v5_chd_fallback_to_std_hashing(
@@ -974,28 +970,6 @@ class TestExtractCHDHash:
         assert result == result.lower()
         # Verify it's 40 characters (SHA1 is 20 bytes = 40 hex chars)
         assert len(result) == 40
-
-    def test_extract_chd_hash_with_wrapper(self, tmp_path):
-        """Test that extracted hash integrates properly with CHDHashWrapper"""
-        chd_file = tmp_path / "test_wrapper.chd"
-
-        header = bytearray(124)
-        header[0:8] = b"MComprHD"
-        header[12:16] = int(5).to_bytes(4, "big")
-        test_sha1 = bytes.fromhex("0123456789abcdef0123456789abcdef01234567")
-        header[84:104] = test_sha1
-
-        chd_file.write_bytes(header)
-
-        extracted_hash = extract_chd_hash(chd_file)
-        assert extracted_hash is not None
-
-        # Should be usable with CHDHashWrapper
-        wrapper = CHDHashWrapper(extracted_hash, "sha1")
-        assert wrapper.hexdigest() == extracted_hash
-        assert len(wrapper.digest()) == 20
-        # Verify digest bytes match the original
-        assert wrapper.digest() == test_sha1
 
     def test_extract_chd_hash_unknown_version(self, tmp_path):
         """Test that unknown CHD versions are rejected"""

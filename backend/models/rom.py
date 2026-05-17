@@ -76,6 +76,7 @@ class RomFile(BaseModel):
     md5_hash: Mapped[str | None] = mapped_column(String(100))
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
+    chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
     )

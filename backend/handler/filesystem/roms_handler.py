@@ -1,3 +1,4 @@
+import asyncio
 import binascii
 import bz2
 import fnmatch
@@ -10,7 +11,7 @@ import zlib
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Any, Final, Literal, TypedDict, cast
+from typing import IO, Any, Final, Literal, TypedDict
 
 import magic
 import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
@@ -114,6 +115,7 @@ class FileHash(TypedDict):
     crc_hash: str
     md5_hash: str
     sha1_hash: str
+    chd_sha1_hash: str
 
 
 def is_compressed_file(file_path: str) -> bool:
@@ -245,34 +247,6 @@ def extract_chd_hash(file_path: Path) -> str | None:
             return sha1_bytes.hex()
     except OSError:
         return None
-
-
-class CHDHashWrapper:
-    """
-    Wrapper class that mimics hashlib hash objects but returns a pre-computed hash.
-
-    This class provides a hashlib-compatible interface for pre-computed hashes
-    extracted from CHD v5 file headers. It implements the same methods and attributes
-    as hashlib hash objects (digest(), hexdigest(), update(), and name).
-    """
-
-    def __init__(self, hash_hex: str, name: str):
-        self.hash_hex = hash_hex
-        self.name = name
-        # Store the digest as bytes
-        self._digest = bytes.fromhex(hash_hex)
-
-    def hexdigest(self) -> str:
-        """Return the hash as a hexadecimal string."""
-        return self.hash_hex
-
-    def digest(self) -> bytes:
-        """Return the hash as bytes."""
-        return self._digest
-
-    def update(self, data: bytes | bytearray) -> None:
-        """No-op update method for compatibility with hashlib interface."""
-        pass
 
 
 def category_matches(category: str, path_parts: list[str]):
@@ -414,6 +388,7 @@ class FSRomsHandler(FSHandler):
             crc_hash=file_hash["crc_hash"],
             md5_hash=file_hash["md5_hash"],
             sha1_hash=file_hash["sha1_hash"],
+            chd_sha1_hash=file_hash["chd_sha1_hash"] or None,
         )
 
     async def get_rom_files(
@@ -448,9 +423,28 @@ class FSRomsHandler(FSHandler):
             if calculate_hashes:
                 ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
                 if ra_platform and ra_platform["ra_id"]:
+                    rom_dir = Path(abs_fs_path, rom.fs_name)
+                    # RAHasher can't process CHD files via the /* wildcard — it expects
+                    # track files (bin/cue/etc.). For CHD-only folders, find the largest
+                    # CHD and pass it directly, matching single-file CHD behaviour.
+
+                    def _list_chd_by_size() -> list[Path]:
+                        chds = [
+                            f for f in rom_dir.iterdir() if f.suffix.lower() == ".chd"
+                        ]
+                        return sorted(
+                            chds, key=lambda f: f.stat().st_size, reverse=True
+                        )
+
+                    chd_files = await asyncio.to_thread(_list_chd_by_size)
+                    ra_path = (
+                        str(chd_files[0])
+                        if chd_files
+                        else f"{abs_fs_path}/{rom.fs_name}/*"
+                    )
                     rom_ra_h = await RAHasherService().calculate_hash(
                         ra_platform,
-                        f"{abs_fs_path}/{rom.fs_name}/*",
+                        ra_path,
                     )
 
             for f_path, file_name in iter_files(
@@ -478,7 +472,8 @@ class FSRomsHandler(FSHandler):
                         if is_top_level:
                             # Include this file in the main ROM hash calculation
                             crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                                self._calculate_rom_hashes(
+                                await asyncio.to_thread(
+                                    self._calculate_rom_hashes,
                                     Path(f_path, file_name),
                                     rom_crc_c,
                                     rom_md5_h,
@@ -487,7 +482,8 @@ class FSRomsHandler(FSHandler):
                             )
                         else:
                             # Calculate individual file hash only
-                            crc_c, _, md5_h, _, sha1_h, _ = self._calculate_rom_hashes(
+                            crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
+                                self._calculate_rom_hashes,
                                 Path(f_path, file_name),
                                 0,
                                 hashlib.md5(usedforsecurity=False),
@@ -498,6 +494,9 @@ class FSRomsHandler(FSHandler):
                         md5_h = hashlib.md5(usedforsecurity=False)
                         sha1_h = hashlib.sha1(usedforsecurity=False)
 
+                    chd_sha1 = ""
+                    if Path(file_name).suffix.lower() == ".chd":
+                        chd_sha1 = extract_chd_hash(Path(f_path, file_name)) or ""
                     file_hash = FileHash(
                         crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
                         md5_hash=(
@@ -510,12 +509,14 @@ class FSRomsHandler(FSHandler):
                             if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
                             else ""
                         ),
+                        chd_sha1_hash=chd_sha1,
                     )
                 else:
                     file_hash = FileHash(
                         crc_hash="",
                         md5_hash="",
                         sha1_hash="",
+                        chd_sha1_hash="",
                     )
 
                 rom_files.append(
@@ -529,8 +530,12 @@ class FSRomsHandler(FSHandler):
         elif hashable_platform:
             try:
                 crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                    self._calculate_rom_hashes(
-                        Path(abs_fs_path, rom.fs_name), rom_crc_c, rom_md5_h, rom_sha1_h
+                    await asyncio.to_thread(
+                        self._calculate_rom_hashes,
+                        Path(abs_fs_path, rom.fs_name),
+                        rom_crc_c,
+                        rom_md5_h,
+                        rom_sha1_h,
                     )
                 )
             except zlib.error:
@@ -547,6 +552,9 @@ class FSRomsHandler(FSHandler):
                         f"{abs_fs_path}/{rom.fs_name}",
                     )
 
+            chd_sha1 = ""
+            if Path(rom.fs_name).suffix.lower() == ".chd":
+                chd_sha1 = extract_chd_hash(Path(abs_fs_path, rom.fs_name)) or ""
             file_hash = FileHash(
                 crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
                 md5_hash=(
@@ -557,6 +565,7 @@ class FSRomsHandler(FSHandler):
                     if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
                     else ""
                 ),
+                chd_sha1_hash=chd_sha1,
             )
             rom_files.append(
                 self._build_rom_file(
@@ -571,6 +580,7 @@ class FSRomsHandler(FSHandler):
                 crc_hash="",
                 md5_hash="",
                 sha1_hash="",
+                chd_sha1_hash="",
             )
             rom_files.append(
                 self._build_rom_file(
@@ -646,17 +656,6 @@ class FSRomsHandler(FSHandler):
             elif extension == ".bz2" or file_type == "application/x-bzip2":
                 for chunk in read_bz2_file(file_path):
                     update_hashes(chunk)
-
-            elif extension == ".chd" or file_type == "application/x-mame-chd":
-                chd_hash = extract_chd_hash(file_path)
-                if chd_hash:
-                    sha1_h = cast(Any, CHDHashWrapper(chd_hash, name="sha1"))
-                    rom_sha1_h = cast(Any, CHDHashWrapper(chd_hash, name="sha1"))
-                else:
-                    # Not a valid v5 CHD, treat as basic file
-                    # This ensures CRC32 and MD5 are still calculated for non-v5 CHDs
-                    for chunk in read_basic_file(file_path):
-                        update_hashes(chunk)
 
             else:
                 for chunk in read_basic_file(file_path):

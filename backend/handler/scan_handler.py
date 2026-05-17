@@ -385,7 +385,7 @@ async def scan_rom(
                 or scan_type == ScanType.UNMATCHED
             )
         ):
-            return await meta_playmatch_handler.lookup_rom(fs_rom["files"])
+            return await meta_playmatch_handler.lookup_rom(fs_rom["files"] or rom.files)
 
         return PlaymatchRomMatch(
             igdb_id=None,
@@ -418,7 +418,7 @@ async def scan_rom(
             )
         ):
             return await meta_hasheous_handler.lookup_rom(
-                platform.slug, fs_rom["files"]
+                platform.slug, fs_rom["files"] or rom.files
             )
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
@@ -635,7 +635,7 @@ async def scan_rom(
 
             # Use the file hashes for lookup
             game_by_hash = await meta_ss_handler.lookup_rom(
-                rom, platform.ss_id, fs_rom["files"]
+                rom, platform.ss_id, fs_rom["files"] or rom.files
             )
             if game_by_hash.get("ss_id"):
                 return game_by_hash
