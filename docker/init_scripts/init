@@ -248,7 +248,7 @@ start_bin_watcher() {
 
 start_bin_sync_watcher() {
 	info_log "Starting sync folder watcher"
-	sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
+	local sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
 	mkdir -p "${sync_base_path}"
 	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
 		watchfiles \

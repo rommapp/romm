@@ -80,7 +80,7 @@ watchfiles \
 
 if [[ ${ENABLE_SYNC_FOLDER_WATCHER:-false} == "true" ]]; then
 	echo "Starting sync folder watcher..."
-	sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
+	local sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
 	mkdir -p "${sync_base_path}"
 	watchfiles \
 		--target-type command \
