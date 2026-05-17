@@ -82,11 +82,13 @@ async function uploadRomChunked({
             },
           }),
         });
-        uploadStore.updateChunkProgress(
-          file.name,
-          ((i + 1) / totalChunks) * 100,
-          file.size,
-        );
+        if (!trackChunkUploadProgress) {
+          uploadStore.updateChunkProgress(
+            file.name,
+            ((i + 1) / totalChunks) * 100,
+            file.size,
+          );
+        }
         lastError = null;
         break;
       } catch (err) {
