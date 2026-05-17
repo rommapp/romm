@@ -249,6 +249,7 @@ start_bin_watcher() {
 start_bin_sync_watcher() {
 	info_log "Starting sync folder watcher"
 	local sync_base_path="${SYNC_BASE_PATH:-/var/lib/romm/sync}"
+	mkdir -p "${sync_base_path}"
 	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
 		watchfiles \
 			--target-type command \

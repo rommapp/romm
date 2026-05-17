@@ -81,6 +81,7 @@ watchfiles \
 if [[ ${ENABLE_SYNC_FOLDER_WATCHER:-false} == "true" ]]; then
 	echo "Starting sync folder watcher..."
 	SYNC_BASE_PATH="${SYNC_BASE_PATH:-/var/lib/romm/sync}"
+	mkdir -p "${SYNC_BASE_PATH}"
 	watchfiles \
 		--target-type command \
 		'uv run python sync_watcher.py' \
