@@ -647,15 +647,15 @@ class ConfigManager:
             log.critical("Invalid config.yml: scan.media must be a list")
             sys.exit(3)
 
-        # Drop unknown media types rather than exiting — a newer release may
-        # ship sample configs referencing media types this version doesn't know.
+        # Drop unknown media types rather than exiting, since a newer release
+        # may ship sample configs referencing media types this version doesn't know.
         unknown_media = [
             m for m in self.config.SCAN_MEDIA if m not in MetadataMediaType
         ]
         if unknown_media:
             log.warning(
                 f"Ignoring unknown values in scan.media: {unknown_media}. "
-                "These may be from a newer RomM version — update to use them."
+                "These may be from a newer RomM version; update to use them."
             )
             self.config.SCAN_MEDIA = [
                 m for m in self.config.SCAN_MEDIA if m in MetadataMediaType

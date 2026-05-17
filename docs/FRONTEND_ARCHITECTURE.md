@@ -323,12 +323,12 @@ index.html
 ### Plugin Registration Order
 
 ```text
-1. Vuetify     — Material Design components, themes, icons
-2. Pinia       — State management (with router injection)
-3. vue-i18n    — Internationalization (17 locales)
-4. Mitt        — Event emitter (provided as 'emitter')
-5. MD Editor   — Markdown editor with XSS plugin
-6. Vue Router  — Navigation with guards
+1. Vuetify     : Material Design components, themes, icons
+2. Pinia       : State management (with router injection)
+3. vue-i18n    : Internationalization (17 locales)
+4. Mitt        : Event emitter (provided as 'emitter')
+5. MD Editor   : Markdown editor with XSS plugin
+6. Vue Router  : Navigation with guards
 ```
 
 ### Request Lifecycle
@@ -864,10 +864,10 @@ All synthesized with sine/noise blend, exponential envelopes, low-pass filter, a
 
 `utils/index.ts` provides:
 
-- `getSupportedEJSCores(platform)` — maps platforms to EmulatorJS cores
-- `isEJSEmulationSupported(rom)` — checks WebGL + server config
-- `isRuffleEmulationSupported(rom)` — checks Flash platform
-- `isCDBasedSystem(platform)` — 31 CD-based platforms for animation logic
+- `getSupportedEJSCores(platform)`: maps platforms to EmulatorJS cores
+- `isEJSEmulationSupported(rom)`: checks WebGL + server config
+- `isRuffleEmulationSupported(rom)`: checks Flash platform
+- `isCDBasedSystem(platform)`: 31 CD-based platforms for animation logic
 
 ---
 
@@ -921,7 +921,7 @@ Vuetify handles theme switching. Additional shared brand colors: `romm-red`, `ro
 
 | Code    | Language                    |
 | ------- | --------------------------- |
-| `en_US` | English (US) — default      |
+| `en_US` | English (US, default)       |
 | `en_GB` | English (UK)                |
 | `fr_FR` | French                      |
 | `de_DE` | German                      |
@@ -964,9 +964,9 @@ io({
 
 **Events consumed:**
 
-- `scan:update_stats` — live scan progress (platform/ROM counts)
-- `scan:log` — scan log messages
-- `scan:stop` — scan completion
+- `scan:update_stats`: live scan progress (platform/ROM counts)
+- `scan:log`: scan log messages
+- `scan:stop`: scan completion
 
 **Dev proxy:** Vite proxies `/ws` to backend with WebSocket upgrade support.
 
@@ -1016,34 +1016,34 @@ Request Flow with Cache:
 
 **Display:**
 
-- `formatBytes()` — human-readable sizes (B through PB)
-- `formatTimestamp()` — locale-aware dates
-- `formatRelativeDate()` — relative time strings
+- `formatBytes()`: human-readable sizes (B through PB)
+- `formatTimestamp()`: locale-aware dates
+- `formatRelativeDate()`: relative time strings
 
 **Emojis & Localization:**
 
-- `regionToEmoji()` — 50+ region codes → country flags
-- `languageToEmoji()` — 40+ language codes → country flags
+- `regionToEmoji()`: 50+ region codes → country flags
+- `languageToEmoji()`: 40+ language codes → country flags
 
 **Emulation Support:**
 
-- `getSupportedEJSCores()` — platform → EmulatorJS core mapping
-- `isEJSEmulationSupported()` — WebGL + config check
-- `isCDBasedSystem()` — 31 CD-based platforms
+- `getSupportedEJSCores()`: platform → EmulatorJS core mapping
+- `isEJSEmulationSupported()`: WebGL + config check
+- `isCDBasedSystem()`: 31 CD-based platforms
 
 **Game Status:**
 
-- `romStatusMap` — 8 statuses with emoji, text, i18n keys
+- `romStatusMap`: 8 statuses with emoji, text, i18n keys
 - Status enum: `unplayed`, `now_playing`, `backlogged`, `paused`, `completed`, `100%`, `retired`, `never_playing`
 
 **Layout:**
 
-- `views` — 3 view modes with responsive grid configurations
-- `calculateMainLayoutWidth()` — dynamic width based on drawer state
+- `views`: 3 view modes with responsive grid configurations
+- `calculateMainLayoutWidth()`: dynamic width based on drawer state
 
 **Task Display:**
 
-- `convertCronExpression()` — human-readable cron (via cronstrue)
+- `convertCronExpression()`: human-readable cron (via cronstrue)
 - Task status/type maps with colors and icons
 
 ### Cover Generation (`utils/covers.ts`)
@@ -1075,8 +1075,8 @@ Procedural SVG generation for:
 1. Tailwind CSS (`@tailwindcss/vite`)
 2. Vue 3 (`@vitejs/plugin-vue`)
 3. Vuetify auto-import (`vite-plugin-vuetify`, 57 pre-optimized components)
-4. PWA (`vite-plugin-pwa` — service worker, installable)
-5. HTTPS (`vite-plugin-mkcert` — optional dev HTTPS)
+4. PWA (`vite-plugin-pwa`, service worker, installable)
+5. HTTPS (`vite-plugin-mkcert`, optional dev HTTPS)
 6. Static copy (ROM patcher JS assets)
 
 ### Scripts

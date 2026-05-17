@@ -34,7 +34,7 @@ class _AnchorHrefParser(HTMLParser):
             # Skip sort/parent/query links exposed by Apache autoindex.
             if value.startswith(("?", "/", "#")) or ".." in value:
                 return
-            # Only keep image files — libretro stores PNGs.
+            # Only keep image files, since libretro stores PNGs.
             decoded = unquote(value)
             if decoded.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
                 self.filenames.append(decoded)

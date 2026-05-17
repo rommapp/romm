@@ -40,7 +40,7 @@ class RemoteSource:
         if not platform_name:
             return None
 
-        file_name_clean = (file_name or "").strip()
+        file_name_clean = file_name.strip()
         if not file_name_clean:
             return None
 
@@ -78,11 +78,11 @@ class RemoteSource:
     async def get_mame_entry(self, file_name: str) -> dict | None:
         """Resolve a MAME arcade filename to its LaunchBox MAME entry.
 
-        LaunchBox's Mame.xml indexes `<MameFile>` records by `<FileName>` — the
+        LaunchBox's Mame.xml indexes `<MameFile>` records by `<FileName>`, the
         MAME short name without an extension (e.g. `wrlok_l3` for `wrlok_l3.zip`).
-        The entry carries `<Name>` — the full title to search for in Metadata.xml.
+        The entry carries `<Name>`, the full title to search for in Metadata.xml.
         """
-        file_name_clean = (file_name or "").strip()
+        file_name_clean = file_name.strip()
         if not file_name_clean:
             return None
 

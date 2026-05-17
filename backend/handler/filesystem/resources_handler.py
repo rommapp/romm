@@ -26,8 +26,8 @@ def _resolve_local_file_uri(uri: str) -> Path | None:
     """Resolve a local-file URI to an absolute Path, or None if unsafe/unknown.
 
     `file://` resolves under the ROM library root. `launchbox-file://` resolves
-    under the LaunchBox data root — LaunchBox metadata produces paths relative
-    to `/romm/launchbox`, which is not the same as the library root.
+    under the LaunchBox data root, since LaunchBox metadata produces paths
+    relative to `/romm/launchbox`, which is not the same as the library root.
     """
     from handler.filesystem import fs_launchbox_handler, fs_rom_handler
 

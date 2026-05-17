@@ -12,7 +12,6 @@ const defaultGalleryState = {
   currentView: currentViewStorage.value,
   currentBoxartStyle: boxartStyleStorage.value,
   defaultAspectRatio: 2 / 3,
-  defaultAspectRatioScreenshot: 16 / 9,
   activeFirmwareDrawer: false,
   scrolledToTop: false,
   showFabOverlay: false,

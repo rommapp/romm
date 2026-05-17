@@ -70,7 +70,7 @@ def second_rom(admin_user: User, platform: Platform) -> Rom:
 
 @pytest.fixture
 def other_user_token(editor_user: User) -> str:
-    """Access token for a second user — used to test ownership checks."""
+    """Access token for a second user, used to test ownership checks."""
     return oauth_handler.create_access_token(
         data={
             "sub": editor_user.username,
@@ -238,7 +238,7 @@ class TestDeleteCollection:
 
 
 # ---------------------------------------------------------------------------
-# POST /collections/{id}/roms  —  atomic add
+# POST /collections/{id}/roms (atomic add)
 # ---------------------------------------------------------------------------
 
 
@@ -385,7 +385,7 @@ class TestAddRomsToCollection:
 
 
 # ---------------------------------------------------------------------------
-# DELETE /collections/{id}/roms  —  atomic remove
+# DELETE /collections/{id}/roms (atomic remove)
 # ---------------------------------------------------------------------------
 
 
@@ -524,7 +524,7 @@ class TestAtomicBehavior:
     ):
         """
         Simulates the corrected behavior: two separate add calls, each with a
-        single ROM, should result in both ROMs being present — even if they
+        single ROM, should result in both ROMs being present, even if they
         arrive close together. This would previously fail under the full-replace
         approach when requests arrived out of order.
         """
@@ -552,8 +552,8 @@ class TestAtomicBehavior:
         second_rom: Rom,
     ):
         """
-        Add both ROMs, remove one, add it back — final state should reflect
-        only the last operation per ROM.
+        Add both ROMs, remove one, add it back. The final state should
+        reflect only the last operation per ROM.
         """
         client.post(
             f"/api/collections/{collection.id}/roms",

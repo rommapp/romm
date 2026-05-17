@@ -286,7 +286,6 @@ onBeforeUnmount(() => {
               transitioning: !isVideoPlaying,
             }"
             :src="largeCover || fallbackCoverImage"
-            :aspect-ratio="computedAspectRatio"
             @click="handleClick"
             @touchstart="handleTouchStart"
             @touchend="handleTouchEnd"
@@ -428,7 +427,6 @@ onBeforeUnmount(() => {
                 :cover="false"
                 eager
                 :src="smallCover || fallbackCoverImage"
-                :aspect-ratio="computedAspectRatio"
               >
                 <template #placeholder>
                   <Skeleton :aspect-ratio="computedAspectRatio" type="image" />

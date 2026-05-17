@@ -213,7 +213,7 @@ SCHEDULED_RETROACHIEVEMENTS_PROGRESS_SYNC_CRON: Final[str] = _get_env(
 )
 
 # SYNC
-SYNC_BASE_PATH: Final[str] = _get_env("SYNC_BASE_PATH", f"{ROMM_BASE_PATH}/sync")
+SYNC_BASE_PATH: Final[str] = f"{ROMM_BASE_PATH}/sync"
 ENABLE_SYNC_FOLDER_WATCHER: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SYNC_FOLDER_WATCHER")
 )
@@ -226,10 +226,10 @@ SYNC_PUSH_PULL_CRON: Final[str] = _get_env(
     "*/30 * * * *",  # Every 30 minutes
 )
 SYNC_SSH_KEYS_PATH: Final[str] = _get_env(
-    "SYNC_SSH_KEYS_PATH", f"{ROMM_BASE_PATH}/sync/keys"
+    "SYNC_SSH_KEYS_PATH", f"{SYNC_BASE_PATH}/keys"
 )
 SYNC_SSH_KNOWN_HOSTS_PATH: Final[str] = _get_env(
-    "SYNC_SSH_KNOWN_HOSTS_PATH", f"{ROMM_BASE_PATH}/sync/known_hosts"
+    "SYNC_SSH_KNOWN_HOSTS_PATH", f"{SYNC_BASE_PATH}/known_hosts"
 )
 
 # EMULATION

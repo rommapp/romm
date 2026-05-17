@@ -46,7 +46,7 @@ Change = tuple[str, str]
 def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
     """Extract device_id, platform_slug, and filename from a sync incoming path.
 
-    Expected path format: {SYNC_BASE_PATH}/{device_id}/incoming/{platform_slug}/filename.ext
+    Expected path format: {ROMM_BASE_PATH}/sync/{device_id}/incoming/{platform_slug}/filename.ext
     """
     try:
         rel_path = os.path.relpath(path, start=str(fs_sync_handler.base_path))

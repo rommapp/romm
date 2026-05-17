@@ -109,7 +109,7 @@ class RAHasherService:
         # Skip the subprocess entirely when the file is an archive and the
         # RA platform needs an on-disk disc image. RAHasher would just spawn,
         # fail with "Unsupported console for buffer hash: {id}", and return
-        # nothing — paying process-spawn overhead per ROM for no result.
+        # nothing, so we'd pay process-spawn overhead per ROM for no result.
         if file_path.lower().endswith(tuple(COMPRESSED_FILE_EXTENSIONS)):
             if platform["ra_id"] in RA_BUFFER_HASH_UNSUPPORTED_IDS:
                 log.debug(

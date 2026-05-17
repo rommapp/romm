@@ -931,8 +931,8 @@ class DBRomsHandler(DBBaseHandler):
         """Retrieve a dictionary of roms by their filesystem names.
 
         Eager-loads only `platform` (used downstream by the scan loop via
-        `rom.platform_slug` / `rom.platform.fs_slug`) — deliberately
-        avoiding `with_details`, whose full relationship eager-load is
+        `rom.platform_slug` / `rom.platform.fs_slug`). This deliberately
+        avoids `with_details`, whose full relationship eager-load is
         wasted work for the scan-skip decision on large platforms.
         """
         roms = (

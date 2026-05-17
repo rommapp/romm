@@ -218,7 +218,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/backend
 
 # Declare the supported volumes
-VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/redis-data"]
+VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/romm/sync", "/redis-data"]
 
 # Expose non-privileged ports
 EXPOSE 8080 6379/tcp

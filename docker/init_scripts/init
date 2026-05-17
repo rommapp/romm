@@ -88,7 +88,7 @@ wait_for_gunicorn_socket() {
 	fi
 }
 
-# Function that runs our main process and creates a corresponding PID file
+# Runs our main process and creates a corresponding PID file
 start_bin_gunicorn() {
 	# cleanup potentially leftover socket
 	rm /tmp/gunicorn.sock -f
@@ -248,16 +248,18 @@ start_bin_watcher() {
 
 start_bin_sync_watcher() {
 	info_log "Starting sync folder watcher"
+	sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
+	mkdir -p "${sync_base_path}"
 	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
 		watchfiles \
 			--target-type command \
 			"python3 sync_watcher.py" \
-			/romm/sync &
+			"${sync_base_path}" &
 	else
 		watchfiles \
 			--target-type command \
 			"opentelemetry-instrument --service_name '${OTEL_SERVICE_NAME_PREFIX-}sync_watcher' python3 sync_watcher.py" \
-			/romm/sync &
+			"${sync_base_path}" &
 	fi
 	SYNC_WATCHER_PID=$!
 	echo "${SYNC_WATCHER_PID}" >/tmp/sync_watcher.pid

@@ -1,4 +1,4 @@
-# Intentionally malformed YAML — used to verify the loader falls back to
+# Intentionally malformed YAML, used to verify the loader falls back to
 # defaults rather than crashing on a parse error.
 
 scan:
