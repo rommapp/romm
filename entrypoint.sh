@@ -80,10 +80,11 @@ watchfiles \
 
 if [[ ${ENABLE_SYNC_FOLDER_WATCHER:-false} == "true" ]]; then
 	echo "Starting sync folder watcher..."
+	SYNC_BASE_PATH="${SYNC_BASE_PATH:-/var/lib/romm/sync}"
 	watchfiles \
 		--target-type command \
 		'uv run python sync_watcher.py' \
-		/app/romm/sync &
+		"${SYNC_BASE_PATH}" &
 fi
 
 # Start the frontend dev server
