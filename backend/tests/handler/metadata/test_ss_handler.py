@@ -2,10 +2,13 @@
 
 from typing import cast
 from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs, urlparse
 
 from adapters.services.screenscraper_types import SSGame
 from config.config_manager import Config, MetadataMediaType
 from handler.metadata.ss_handler import (
+    _get_rom_type,
+    _is_notgame,
     extract_media_from_ss_game,
     get_preferred_regions,
 )
@@ -160,3 +163,140 @@ class TestExtractMediaFromSsGame:
 
         assert result["box2d_url"] is not None
         assert "box-2D(us)" in result["box2d_url"]
+
+
+class TestIsNotgame:
+    def _game(self, notgame: str = "false", names: list[str] | None = None) -> SSGame:
+        return cast(
+            SSGame,
+            {
+                "notgame": notgame,
+                "noms": [
+                    {"region": "ss", "text": n} for n in (names or ["Clean Game"])
+                ],
+            },
+        )
+
+    def test_notgame_field_true(self):
+        assert _is_notgame(self._game(notgame="true")) is True
+
+    def test_notgame_field_false_clean_name(self):
+        assert _is_notgame(self._game(notgame="false")) is False
+
+    def test_zzz_notgame_lowercase_name(self):
+        assert _is_notgame(self._game(names=["ZZZ(notgame)"])) is True
+
+    def test_zzz_notgame_long_form(self):
+        assert (
+            _is_notgame(self._game(names=["ZZZ(NOTGAME):Fichier Annexes - Non Jeux"]))
+            is True
+        )
+
+    def test_zzz_prefix_only_no_match(self):
+        assert _is_notgame(self._game(names=["ZZZ Game Title"])) is False
+
+    def test_missing_notgame_field_clean_name(self):
+        game = cast(SSGame, {"noms": [{"region": "ss", "text": "Normal Game"}]})
+        assert _is_notgame(game) is False
+
+
+class TestExtractMediaSensitiveKeyStripping:
+    def test_media_url_credentials_stripped(self):
+        config = _make_config()
+        rom = MagicMock()
+        rom.platform_id = 1
+        rom.id = 100
+        full_url = "https://screenscraper.fr/img.png?ssid=user&sspassword=pass&devid=dev&devpassword=devpass&other=keep"
+        game = cast(
+            SSGame,
+            {
+                "medias": [
+                    {
+                        "type": "box-2D",
+                        "parent": "jeu",
+                        "region": "us",
+                        "url": full_url,
+                        "crc": "",
+                        "md5": "",
+                        "sha1": "",
+                        "size": "0",
+                        "format": "png",
+                    }
+                ]
+            },
+        )
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                return_value="roms/1/100/box2d",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        # ssid/sspassword must be stripped before storage so user creds don't
+        # end up in the DB. Dev creds and other params must be preserved so
+        # subsequent media fetches still resolve.
+        stored_url = result["box2d_url"]
+        assert stored_url is not None
+        query = parse_qs(urlparse(stored_url).query)
+        assert "ssid" not in query
+        assert "sspassword" not in query
+        assert query.get("devid") == ["dev"]
+        assert query.get("devpassword") == ["devpass"]
+        assert query.get("other") == ["keep"]
+
+    def test_clean_url_unchanged(self):
+        config = _make_config()
+        rom = MagicMock()
+        rom.platform_id = 1
+        rom.id = 100
+        clean_url = "https://screenscraper.fr/img.png?format=png"
+        game = cast(
+            SSGame,
+            {
+                "medias": [
+                    {
+                        "type": "box-2D",
+                        "parent": "jeu",
+                        "region": "us",
+                        "url": clean_url,
+                        "crc": "",
+                        "md5": "",
+                        "sha1": "",
+                        "size": "0",
+                        "format": "png",
+                    }
+                ]
+            },
+        )
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                return_value="roms/1/100/box2d",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["box2d_url"] == clean_url
+
+
+class TestGetRomType:
+    def _file(self, ext: str, top_level: bool = True) -> MagicMock:
+        f = MagicMock()
+        f.file_extension = ext
+        f.is_top_level = top_level
+        return f
+
+    def test_iso_extension(self):
+        assert _get_rom_type(self._file("iso")) == "iso"
+
+    def test_chd_extension(self):
+        assert _get_rom_type(self._file("chd")) == "iso"
+
+    def test_rom_extension(self):
+        assert _get_rom_type(self._file("nes")) == "rom"
+
+    def test_folder_based_rom(self):
+        assert _get_rom_type(self._file("bin", top_level=False)) == "dossier"
