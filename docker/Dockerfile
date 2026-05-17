@@ -197,9 +197,9 @@ COPY ./docker/gunicorn/logging.conf /etc/gunicorn/logging.conf
 # - Create base directories and make default user/group the owner.
 # - Make nginx configuration files writable by everyone for `envsubst` to work
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
-    mkdir -p /romm /redis-data /var/lib/romm/sync && \
-    chown romm:romm /romm /redis-data /var/lib/romm /var/lib/romm/sync && \
-    chmod 755 /romm /redis-data /var/lib/romm /var/lib/romm/sync && \
+    mkdir /romm /redis-data && \
+    chown romm:romm /romm /redis-data && \
+    chmod 755 /romm /redis-data && \
     chmod -R a+w /etc/nginx/conf.d
 
 
@@ -218,7 +218,7 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/backend
 
 # Declare the supported volumes
-VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/var/lib/romm/sync", "/redis-data"]
+VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/romm/sync", "/redis-data"]
 
 # Expose non-privileged ports
 EXPOSE 8080 6379/tcp
