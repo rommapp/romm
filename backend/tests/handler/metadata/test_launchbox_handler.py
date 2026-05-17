@@ -2,11 +2,11 @@
 Tests for the LaunchBox metadata handler.
 
 Covers:
-  - utils.py          — pure utility functions
-  - platforms.py      — platform slug resolution
-  - local_source.py   — LocalSource (local XML parsing + Redis index cache)
-  - remote_source.py  — RemoteSource (Redis metadata lookups)
-  - handler.py        — LaunchboxHandler orchestration
+  - utils.py:         pure utility functions
+  - platforms.py:     platform slug resolution
+  - local_source.py:  LocalSource (local XML parsing + Redis index cache)
+  - remote_source.py: RemoteSource (Redis metadata lookups)
+  - handler.py:       LaunchboxHandler orchestration
 """
 
 import json

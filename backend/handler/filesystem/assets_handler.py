@@ -24,7 +24,7 @@ SAFE_IMAGE_MIME_TYPES: Final[dict[str, str]] = {
 
 # libmagic loads its database on construction (~few MB read from disk), so we
 # share a single Magic instance across requests. The underlying magic_t handle
-# is not thread-safe, so guard from_buffer with a lock — endpoints that call
+# is not thread-safe, so guard from_buffer with a lock. Endpoints that call
 # this validator may execute in worker threads under sync routes.
 _MIME_DETECTOR = magic.Magic(mime=True)
 _MIME_DETECTOR_LOCK = threading.Lock()

@@ -193,7 +193,7 @@ class TestFSHandler:
 
             assert "game.nds.hash.txt" not in result
             assert "game.nds.enc.hash.txt" not in result
-            # "readme.txt" does NOT end in "hash.txt" — should remain
+            # "readme.txt" does NOT end in "hash.txt", so it should remain
             assert "readme.txt" in result
             assert "game.nds" in result
             assert "game.rom" in result

@@ -36,7 +36,7 @@ export default defineStore("galleryView", {
       if (_boxartStyle === "physical_path") return 1 / 1;
       if (_boxartStyle === "miximage_path") return 1 / 1;
 
-      return this.defaultAspectRatio;
+      return undefined;
     },
     next() {
       if (this.currentView == 2) {
