@@ -248,18 +248,18 @@ start_bin_watcher() {
 
 start_bin_sync_watcher() {
 	info_log "Starting sync folder watcher"
-	local sync_base_path="${SYNC_BASE_PATH:-/var/lib/romm/sync}"
-	mkdir -p "${sync_base_path}"
+	export SYNC_BASE_PATH="${SYNC_BASE_PATH:-/var/lib/romm/sync}"
+	mkdir -p "${SYNC_BASE_PATH}"
 	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
 		watchfiles \
 			--target-type command \
 			"python3 sync_watcher.py" \
-			"${sync_base_path}" &
+			"${SYNC_BASE_PATH}" &
 	else
 		watchfiles \
 			--target-type command \
 			"opentelemetry-instrument --service_name '${OTEL_SERVICE_NAME_PREFIX-}sync_watcher' python3 sync_watcher.py" \
-			"${sync_base_path}" &
+			"${SYNC_BASE_PATH}" &
 	fi
 	SYNC_WATCHER_PID=$!
 	echo "${SYNC_WATCHER_PID}" >/tmp/sync_watcher.pid
