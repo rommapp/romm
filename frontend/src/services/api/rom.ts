@@ -1,4 +1,5 @@
 import type { AxiosProgressEvent } from "axios";
+import Bowser from "bowser";
 import type {
   Body_delete_roms_api_roms_delete_post as DeleteRomsInput,
   Body_update_rom_api_roms__id__put as UpdateRomInput,
@@ -27,6 +28,10 @@ type SearchRom = SearchRomSchema;
 const DOWNLOAD_CLEANUP_DELAY = 100;
 const UPLOAD_CHUNK_SIZE = 10 * 1024 * 1024; // 10MB per chunk
 const MAX_CHUNK_RETRIES = 3;
+
+const browser = Bowser.getParser(window.navigator.userAgent);
+const engineName = browser.getEngineName();
+const trackChunkUploadProgress = engineName !== "WebKit";
 
 async function uploadRomChunked({
   platformId,
@@ -64,17 +69,26 @@ async function uploadRomChunked({
             "X-Chunk-Index": i.toString(),
           },
           timeout: 120000,
-          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-            const chunkFraction = progressEvent.progress ?? 0;
-            const overall = ((i + chunkFraction) / totalChunks) * 100;
-            uploadStore.updateChunkProgress(
-              file.name,
-              overall,
-              file.size,
-              progressEvent.rate,
-            );
-          },
+          ...(trackChunkUploadProgress && {
+            onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+              const chunkFraction = progressEvent.progress ?? 0;
+              const overall = ((i + chunkFraction) / totalChunks) * 100;
+              uploadStore.updateChunkProgress(
+                file.name,
+                overall,
+                file.size,
+                progressEvent.rate,
+              );
+            },
+          }),
         });
+        if (!trackChunkUploadProgress) {
+          uploadStore.updateChunkProgress(
+            file.name,
+            ((i + 1) / totalChunks) * 100,
+            file.size,
+          );
+        }
         lastError = null;
         break;
       } catch (err) {

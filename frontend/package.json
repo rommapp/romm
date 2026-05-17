@@ -31,6 +31,7 @@
     "@mdi/font": "7.4.47",
     "@vueuse/core": "^13.7.0",
     "axios": "^1.16.0",
+    "bowser": "^2.14.1",
     "cronstrue": "^2.57.0",
     "date-fns": "^4.1.0",
     "js-cookie": "^3.0.5",
