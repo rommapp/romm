@@ -3,7 +3,6 @@ import { defineComponent, h } from "vue";
 
 // Intro / design-token preview story. Exists to verify the Storybook pipeline
 // end-to-end (tokens + theme switcher) before any R-components land.
-// Replace or keep as a "Welcome" page for the design system.
 
 const tokenSwatches = [
   {
@@ -46,7 +45,7 @@ const tokenSwatches = [
   },
 ];
 
-const Welcome = defineComponent({
+const VisualLanguage = defineComponent({
   setup() {
     return () =>
       h(
@@ -120,9 +119,9 @@ const Welcome = defineComponent({
   },
 });
 
-const meta: Meta<typeof Welcome> = {
-  title: "Welcome",
-  component: Welcome,
+const meta: Meta<typeof VisualLanguage> = {
+  title: "Visual Language",
+  component: VisualLanguage,
   parameters: {
     layout: "fullscreen",
   },
