@@ -5,7 +5,7 @@ exclude:
   platforms: []
   roms:
     multi_file:
-      names: ["images"]
+      names: ["images", "videos"]
       parts:
         extensions: []
         names: []
