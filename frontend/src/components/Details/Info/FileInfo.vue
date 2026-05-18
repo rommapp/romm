@@ -20,7 +20,7 @@ const romInfo = ref([
   { label: "Size", value: formatBytes(props.rom.fs_size_bytes) },
   { label: "SHA-1", value: props.rom.sha1_hash },
   {
-    label: "Disc SHA-1",
+    label: "CHD SHA-1",
     value: props.rom.has_simple_single_file
       ? (props.rom.files[0]?.chd_sha1_hash ?? null)
       : null,

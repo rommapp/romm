@@ -21,7 +21,7 @@ const fileInfo = ref([
       : null,
   },
   {
-    label: "Disc SHA-1",
+    label: "CHD SHA-1",
     value: props.item.chd_sha1_hash
       ? props.item.chd_sha1_hash.substring(0, 6) +
         "..." +

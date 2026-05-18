@@ -258,7 +258,7 @@ class TestFSRomsHandler:
                 "crc_hash": "ABCD1234",
                 "md5_hash": "def456",
                 "sha1_hash": "789ghi",
-                "chd_sha1_hash": "",
+                "chd_sha1_hash": "654321",
             }
         )
 
@@ -284,7 +284,7 @@ class TestFSRomsHandler:
                 "crc_hash": "12345678",
                 "md5_hash": "abcdef",
                 "sha1_hash": "123456",
-                "chd_sha1_hash": "",
+                "chd_sha1_hash": "654321",
             }
         )
 
@@ -842,7 +842,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is not None
+        assert result
         assert isinstance(result, str)
         assert len(result) == 40  # SHA1 hex is 40 characters
         assert result == "0123456789abcdef0123456789abcdef01234567"
@@ -859,7 +859,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_v2_rejected(self, tmp_path):
         """Test that CHD v2 files are rejected"""
@@ -873,7 +873,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_v3_rejected(self, tmp_path):
         """Test that CHD v3 files are rejected"""
@@ -887,7 +887,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_v4_rejected(self, tmp_path):
         """Test that CHD v4 files are rejected"""
@@ -901,7 +901,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_invalid_magic(self, tmp_path):
         """Test that files without CHD magic signature are rejected"""
@@ -915,7 +915,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_truncated_header(self, tmp_path):
         """Test that CHD v5 file with truncated header is rejected"""
@@ -930,7 +930,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_nonexistent_file(self, tmp_path):
         """Test that non-existent files are handled gracefully"""
@@ -938,7 +938,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(nonexistent)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_empty_file(self, tmp_path):
         """Test that empty files are rejected"""
@@ -947,7 +947,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_sha1_format(self, tmp_path):
         """Test that SHA1 hash is correctly formatted as hex"""
@@ -983,7 +983,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_multiple_different_hashes(self, tmp_path):
         """Test that different SHA1 hashes are correctly extracted"""
@@ -1011,11 +1011,11 @@ class TestExtractCHDHash:
     def test_extract_chd_hash_version_boundary_cases(self, tmp_path):
         """Test version checking at boundaries (0, 1, 4, 5, 6)"""
         test_versions = [
-            (0, None),  # Version 0 should return None
-            (1, None),  # Version 1 should return None
-            (4, None),  # Version 4 should return None
+            (0, ""),  # Version 0 should return ""
+            (1, ""),  # Version 1 should return ""
+            (4, ""),  # Version 4 should return ""
             (5, "0123456789abcdef0123456789abcdef01234567"),  # Version 5 should work
-            (6, None),  # Version 6 should return None
+            (6, ""),  # Version 6 should return ""
         ]
 
         for version, expected in test_versions:
@@ -1030,10 +1030,7 @@ class TestExtractCHDHash:
 
             result = extract_chd_hash(chd_file)
 
-            if expected is None:
-                assert result is None, f"Version {version} should return None"
-            else:
-                assert result == expected, f"Version {version} should return {expected}"
+            assert result == expected, f"Version {version} should return {expected!r}"
 
     def test_extract_chd_hash_file_too_short_for_magic(self, tmp_path):
         """Test file that's too short to even contain magic + version"""
@@ -1047,7 +1044,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_permission_error(self, tmp_path):
         """Test graceful handling of permission errors"""
@@ -1064,7 +1061,7 @@ class TestExtractCHDHash:
 
         try:
             result = extract_chd_hash(chd_file)
-            assert result is None
+            assert result == ""
         finally:
             # Restore permissions for cleanup
             chd_file.chmod(0o644)
@@ -1109,7 +1106,7 @@ class TestExtractCHDHash:
         # Expected SHA1 from the header at bytes 84-103 (20 bytes, as per chd.h)
         expected_sha1 = "0167fc76f9e4312e6ab48fe980d2ce5b23f775c2"
 
-        assert result is not None
+        assert result
         assert result == expected_sha1
         assert len(result) == 40
         # Verify it matches what's in the header
@@ -1136,14 +1133,14 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is not None
+        assert result
         assert result == "0167fc76f9e4312e6ab48fe980d2ce5b23f775c2"
         assert bytes.fromhex(result) == test_sha1
 
     def test_extract_chd_hash_off_by_one_header_sizes(self, tmp_path):
         """Test boundary conditions around minimum required header size (104 bytes)"""
         test_cases = [
-            (103, None),  # 103 bytes - not enough for SHA1 region
+            (103, ""),  # 103 bytes - not enough for SHA1 region
             (
                 104,
                 "0167fc76f9e4312e6ab48fe980d2ce5b23f775c2",
@@ -1186,7 +1183,7 @@ class TestExtractCHDHash:
         result = extract_chd_hash(chd_file)
 
         # Should return None because version is not 5
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_zero_sha1(self, tmp_path):
         """Test handling of all-zero SHA1 hash (edge case but valid)"""
