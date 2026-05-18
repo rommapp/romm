@@ -1182,7 +1182,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        # Should return None because version is not 5
+        # Should return empty string because version is not 5
         assert result == ""
 
     def test_extract_chd_hash_zero_sha1(self, tmp_path):

@@ -6,6 +6,7 @@ import hashlib
 import os
 import re
 import tarfile
+import threading
 import zipfile
 import zlib
 from collections.abc import Callable, Iterator
@@ -100,6 +101,7 @@ NON_HASHABLE_PLATFORMS = frozenset(
 
 FILE_READ_CHUNK_SIZE = 1024 * 8
 _MIME_DETECTOR = magic.Magic(mime=True)
+_MIME_DETECTOR_LOCK = threading.Lock()
 
 
 class FSRom(TypedDict):
@@ -122,7 +124,8 @@ class FileHash(TypedDict):
 
 def is_compressed_file(file_path: str) -> bool:
     try:
-        file_type = _MIME_DETECTOR.from_file(file_path)
+        with _MIME_DETECTOR_LOCK:
+            file_type = _MIME_DETECTOR.from_file(file_path)
     except magic.MagicException:
         file_type = ""
 
@@ -201,7 +204,8 @@ def is_chd_file(file_path: Path) -> bool:
         return True
 
     try:
-        return _MIME_DETECTOR.from_file(file_path) == CHD_MIME_TYPE
+        with _MIME_DETECTOR_LOCK:
+            return _MIME_DETECTOR.from_file(file_path) == CHD_MIME_TYPE
     except (OSError, magic.MagicException):
         return False
 
@@ -232,7 +236,9 @@ def extract_chd_hash(file_path: Path) -> str:
         file_path: Path to the CHD file
 
     Returns:
-        SHA1 hash as hex string if valid
+        The embedded SHA1 hash as a hex string for a valid CHD v5 file, or an
+        empty string if the file is invalid, uses an unsupported CHD version,
+        is truncated, or cannot be read due to an I/O error.
     """
     try:
         with open(file_path, "rb") as f:
@@ -465,6 +471,7 @@ class FSRomsHandler(FSHandler):
                 f"{abs_fs_path}/{rom.fs_name}", recursive=True
             ):
                 # Check if file is excluded by extension.
+                f_rom_dir = Path(f_path, rom.fs_name)
                 file_name_lower = file_name.lower()
                 if any(
                     file_name_lower.endswith("." + ext) for ext in excluded_file_exts
@@ -521,8 +528,8 @@ class FSRomsHandler(FSHandler):
                             else ""
                         ),
                         chd_sha1_hash=(
-                            extract_chd_hash(rom_dir)
-                            if is_chd_file(Path(f_path, file_name))
+                            extract_chd_hash(f_rom_dir)
+                            if is_chd_file(f_rom_dir)
                             else ""
                         ),
                     )
@@ -578,9 +585,7 @@ class FSRomsHandler(FSHandler):
                     else ""
                 ),
                 chd_sha1_hash=(
-                    extract_chd_hash(rom_dir)
-                    if is_chd_file(Path(abs_fs_path, rom.fs_name))
-                    else ""
+                    extract_chd_hash(rom_dir) if is_chd_file(rom_dir) else ""
                 ),
             )
             rom_files.append(
@@ -631,10 +636,10 @@ class FSRomsHandler(FSHandler):
         rom_sha1_h: Any,
     ) -> tuple[int, int, Any, Any, Any, Any]:
         extension = Path(file_path).suffix.lower()
-        mime = magic.Magic(mime=True)
         try:
             try:
-                file_type = mime.from_file(file_path)
+                with _MIME_DETECTOR_LOCK:
+                    file_type = _MIME_DETECTOR.from_file(file_path)
             except magic.MagicException:
                 file_type = ""
 
