@@ -1,5 +1,7 @@
+import errno
 import os
 import re
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -35,6 +37,41 @@ def iter_directories(path: str, recursive: bool = False) -> Iterator[tuple[Path,
             yield Path(root), directory
         if not recursive:
             break
+
+
+# errno values that mean "hardlink not possible here, fall back to copy".
+# EXDEV: cross-device link. EPERM: filesystem doesn't permit/support hardlinks
+# (e.g. FAT32, exFAT, some network mounts). EOPNOTSUPP/ENOTSUP: same, on BSD/macOS.
+# EMLINK: source already has the maximum number of hardlinks for the filesystem.
+_LINK_FALLBACK_ERRNOS: frozenset[int] = frozenset(
+    e
+    for e in (
+        getattr(errno, "EXDEV", None),
+        getattr(errno, "EPERM", None),
+        getattr(errno, "EOPNOTSUPP", None),
+        getattr(errno, "ENOTSUP", None),
+        getattr(errno, "EMLINK", None),
+        getattr(errno, "EACCES", None),
+    )
+    if e is not None
+)
+
+
+def link_or_copy_file(source: Path, dest: Path) -> None:
+    """Hardlink ``source`` to ``dest``, falling back to a copy on cross-device
+    or unsupported-link errors. Caller is responsible for creating ``dest.parent``.
+
+    Hardlinking is preferred because it's instantaneous and uses no extra disk
+    space, but only works within a single filesystem. If linking isn't possible,
+    we transparently fall back to ``shutil.copy2`` (preserving metadata).
+    """
+    try:
+        os.link(source, dest)
+        return
+    except OSError as exc:
+        if exc.errno not in _LINK_FALLBACK_ERRNOS:
+            raise
+    shutil.copy2(source, dest)
 
 
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")

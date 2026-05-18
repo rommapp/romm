@@ -1,4 +1,5 @@
 import asyncio
+import errno
 import shutil
 import tempfile
 from io import BytesIO
@@ -515,3 +516,105 @@ class TestFSHandler:
         dirs = await handler.list_directories(".")
         for i in range(5):
             assert f"test_dir_{i}" not in dirs
+
+    async def test_copy_file_hardlinks_by_default(
+        self, handler: FSHandler, sample_file_content
+    ):
+        """copy_file defaults to allow_link=True: when source and dest are on
+        the same filesystem, the destination is a hardlink to the source."""
+        source_full = handler.base_path / "source.bin"
+        source_full.write_bytes(sample_file_content)
+
+        await handler.copy_file(source_full, "dest.bin")
+
+        dest_full = handler.base_path / "dest.bin"
+        assert dest_full.read_bytes() == sample_file_content
+        assert source_full.stat().st_ino == dest_full.stat().st_ino
+
+    async def test_copy_file_allow_link_false_does_real_copy(
+        self, handler: FSHandler, sample_file_content
+    ):
+        """allow_link=False forces a real copy — content matches but inodes
+        differ, so mutating dest won't affect source. This is the path
+        `_store_cover` uses to keep PIL's in-place resize from corrupting the
+        user's source image."""
+        source_full = handler.base_path / "source.bin"
+        source_full.write_bytes(sample_file_content)
+
+        await handler.copy_file(source_full, "dest.bin", allow_link=False)
+
+        dest_full = handler.base_path / "dest.bin"
+        assert dest_full.read_bytes() == sample_file_content
+        assert source_full.stat().st_ino != dest_full.stat().st_ino
+
+    async def test_copy_file_allow_link_falls_back_to_copy_on_exdev(
+        self, handler: FSHandler, sample_file_content
+    ):
+        """When os.link raises EXDEV (cross-filesystem), copy_file transparently
+        falls back to a real copy and the result is still a valid file."""
+        source_full = handler.base_path / "source.bin"
+        source_full.write_bytes(sample_file_content)
+
+        with patch(
+            "utils.filesystem.os.link",
+            side_effect=OSError(errno.EXDEV, "Cross-device link"),
+        ):
+            await handler.copy_file(source_full, "dest.bin")
+
+        dest_full = handler.base_path / "dest.bin"
+        assert dest_full.read_bytes() == sample_file_content
+        assert source_full.stat().st_ino != dest_full.stat().st_ino
+
+    async def test_copy_file_nonexistent_source(self, handler: FSHandler):
+        """Missing source must raise FileNotFoundError regardless of link mode."""
+        with pytest.raises(FileNotFoundError, match="Source file not found"):
+            await handler.copy_file(handler.base_path / "missing.bin", "dest.bin")
+
+
+class TestFSHandlerTolerateMissingBase:
+    """Tests for the tolerate_missing_base flag, which lets optional features
+    (like the sync folder) come up degraded instead of crashing the whole app
+    when the base path can't be created."""
+
+    def test_default_raises_on_mkdir_failure(self):
+        """Default behavior: an OSError from mkdir propagates, so misconfigured
+        critical paths (resources, library) still fail loudly at startup."""
+        with patch.object(
+            Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
+        ):
+            with pytest.raises(PermissionError):
+                FSHandler("/some/unwritable/path")
+
+    def test_tolerate_missing_base_swallows_oserror(self, tmp_path, caplog):
+        """With tolerate_missing_base=True, mkdir failure is logged but does
+        not raise — the handler instance is still constructed so module-level
+        imports don't crash."""
+        target = tmp_path / "missing"
+
+        with patch.object(
+            Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
+        ):
+            handler = FSHandler(str(target), tolerate_missing_base=True)
+
+        # Handler exists and base_path is set, even though the directory
+        # could not be created.
+        assert handler.base_path == target.resolve()
+        assert not handler.base_path.exists()
+
+    def test_tolerate_missing_base_still_creates_when_possible(self, tmp_path):
+        """tolerate_missing_base=True should not change behavior when mkdir
+        succeeds — the directory must still be created normally."""
+        target = tmp_path / "new_dir"
+        assert not target.exists()
+
+        handler = FSHandler(str(target), tolerate_missing_base=True)
+
+        assert handler.base_path.exists()
+        assert handler.base_path.is_dir()
+
+    def test_tolerate_missing_base_reraises_non_oserror(self, tmp_path):
+        """Only OSError gets swallowed; programming errors (e.g. a RuntimeError
+        from corrupted state) must still surface."""
+        with patch.object(Path, "mkdir", side_effect=RuntimeError("unexpected")):
+            with pytest.raises(RuntimeError, match="unexpected"):
+                FSHandler(str(tmp_path / "x"), tolerate_missing_base=True)

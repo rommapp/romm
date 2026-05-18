@@ -129,7 +129,10 @@ class FSResourcesHandler(FSHandler):
                     log.warning(f"Cover file not found: {url_cover}")
                     return None
                 dest_path = f"{cover_file}/{size.value}.png"
-                await self.copy_file(resolved, dest_path)
+                # allow_link=False: small-size covers get resized in place
+                # below, which would mutate the user's source image if the
+                # destination were a hardlink.
+                await self.copy_file(resolved, dest_path, allow_link=False)
 
                 if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
                     self.image_converter.convert_to_webp(

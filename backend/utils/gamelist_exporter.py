@@ -1,4 +1,3 @@
-import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
@@ -17,6 +16,7 @@ from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
 from models.rom import Rom
+from utils.filesystem import link_or_copy_file
 
 # Map gamelist asset keys to subdirectory names inside assets/
 ASSET_DIRS: dict[str, str] = {
@@ -151,14 +151,14 @@ class GamelistExporter:
         return refs
 
     def _copy_asset(self, source: Path, dest: Path) -> bool:
-        """Copy a file from source to dest. Returns True on success."""
+        """Place ``source`` at ``dest`` via hardlink (same filesystem) or copy
+        (otherwise). Returns True on success."""
         dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists():
             return True
 
         try:
-            with open(source, "rb") as src, open(dest, "wb") as dst:
-                shutil.copyfileobj(src, dst)
+            link_or_copy_file(source, dest)
             return True
         except OSError as e:
             log.warning(f"Failed to copy {source} -> {dest}: {e}")
