@@ -58,20 +58,33 @@ _LINK_FALLBACK_ERRNOS: frozenset[int] = frozenset(
 
 
 def link_or_copy_file(source: Path, dest: Path) -> None:
-    """Hardlink ``source`` to ``dest``, falling back to a copy on cross-device
-    or unsupported-link errors. Caller is responsible for creating ``dest.parent``.
+    """Place ``source`` at ``dest`` via hardlink (preferred) or copy (fallback),
+    atomically replacing ``dest`` if it already exists. Caller is responsible
+    for creating ``dest.parent``.
 
     Hardlinking is preferred because it's instantaneous and uses no extra disk
     space, but only works within a single filesystem. If linking isn't possible,
     we transparently fall back to ``shutil.copy2`` (preserving metadata).
+
+    Overwriting is atomic: we link/copy to a tempfile in dest's directory, then
+    rename it onto dest, which mirrors shutil.copy2's overwrite-on-exists
+    behavior.
     """
+    tmp_path = dest.parent / f".romm_link_tmp_{os.urandom(8).hex()}"
     try:
-        os.link(source, dest)
-        return
-    except OSError as exc:
-        if exc.errno not in _LINK_FALLBACK_ERRNOS:
-            raise
-    shutil.copy2(source, dest)
+        try:
+            os.link(source, tmp_path)
+        except OSError as exc:
+            if exc.errno not in _LINK_FALLBACK_ERRNOS:
+                raise
+            shutil.copy2(source, tmp_path)
+        os.replace(tmp_path, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")
