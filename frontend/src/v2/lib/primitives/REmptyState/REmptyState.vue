@@ -25,7 +25,7 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="r-empty-state" :class="`r-empty-state--${size}`">
+  <div v-bind="$attrs" class="r-empty-state" :class="`r-empty-state--${size}`">
     <slot name="icon">
       <RIcon :icon="icon" :size="iconSize" />
     </slot>

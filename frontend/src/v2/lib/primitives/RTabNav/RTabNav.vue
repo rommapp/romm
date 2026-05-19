@@ -136,6 +136,7 @@ onBeforeUnmount(() => {
 <template>
   <nav
     ref="navEl"
+    v-bind="$attrs"
     class="r-tab-nav"
     :class="[
       `r-tab-nav--${size}`,

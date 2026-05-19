@@ -56,6 +56,7 @@ function toggle() {
 <template>
   <component
     :is="static ? 'span' : 'button'"
+    v-bind="$attrs"
     :type="static ? undefined : 'button'"
     :role="static ? undefined : 'switch'"
     :aria-checked="static ? undefined : modelValue"

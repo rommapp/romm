@@ -20,6 +20,7 @@ import {
 } from "@v2/lib";
 import type { Ref } from "vue";
 import { computed } from "vue";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import type {
   GroupByMode,
   LayoutMode,
@@ -155,6 +156,12 @@ function setSearch(value: string) {
 function setKindFilter(value: KindFilterValue) {
   emit("update:kindFilter", value);
 }
+
+// Responsive split: at ≥ smAndUp (600px) the inline sliders carry every
+// view option; below that they collapse into the kebab menu so the
+// toolbar fits on phones without overflowing. Mutually exclusive so the
+// two paths never paint at the same time.
+const { smAndUp } = useBreakpoint();
 </script>
 
 <template>
@@ -197,94 +204,88 @@ function setKindFilter(value: KindFilterValue) {
     </RBadge>
 
     <RSliderBtnGroup
-      v-if="showKindFilter && kindFilterItems.length > 0"
+      v-if="smAndUp && showKindFilter && kindFilterItems.length > 0"
       :model-value="kindFilter"
       :items="kindFilterItems"
       variant="segmented"
       :aria-label="kindFilterAriaLabel"
-      class="gallery-toolbar__sliders"
       @update:model-value="setKindFilter"
     />
 
     <!-- View controls cluster — pushed right via margin-left: auto.
-         Above the small-screen breakpoint, the inline sliders carry
-         every option; the kebab is hidden. Below, the sliders collapse
-         and the kebab fans out the same options as a menu. -->
+         At ≥ smAndUp the inline sliders carry every option; below that
+         they collapse into the kebab menu so the toolbar fits on phones
+         without overflowing. -->
     <div class="gallery-toolbar__controls">
       <RSliderBtnGroup
-        v-if="showGroupBy"
+        v-if="smAndUp && showGroupBy"
         :model-value="groupByValue"
         :items="groupByItems"
         variant="segmented"
         aria-label="Group by"
         :disabled="layoutValue === 'list'"
-        class="gallery-toolbar__sliders"
         @update:model-value="setGroupBy"
       />
 
       <RSliderBtnGroup
+        v-if="smAndUp"
         :model-value="layoutValue"
         :items="layoutItems"
         variant="segmented"
         aria-label="Layout"
-        class="gallery-toolbar__sliders"
         @update:model-value="setLayout"
       />
 
-      <!-- Kebab mirror — only visible on small screens. Mirrors the
-           slider state: `groupBy` items disable in list mode, same way
-           the inline GroupBy slider does. Wrapped in a span so the
-           media query targets the activator (RMenu's $attrs land on
-           the teleported panel, not on its root). -->
-      <span class="gallery-toolbar__kebab">
-        <RMenu location="bottom end" :offset="8" width="220px">
-          <template #activator="{ props: activatorProps }">
-            <RBtn
-              v-bind="activatorProps"
-              variant="outlined"
-              surface
-              icon="mdi-dots-vertical"
-              rounded="circle"
-              aria-label="View options"
-            />
-          </template>
-          <template v-if="showKindFilter && kindFilterItems.length > 0">
-            <RMenuItem
-              v-for="item in kindFilterItems"
-              :key="item.id"
-              :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
-              :icon="item.icon"
-              :variant="kindFilter === item.id ? 'active' : 'default'"
-              @click="setKindFilter(item.id)"
-            />
-            <RDivider />
-          </template>
-          <template v-if="showGroupBy && groupByItems.length > 0">
-            <RMenuItem
-              v-for="item in groupByItems"
-              :key="item.id"
-              :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
-              :icon="item.icon"
-              :variant="groupByValue === item.id ? 'active' : 'default'"
-              :disabled="layoutValue === 'list'"
-              @click="setGroupBy(item.id)"
-            />
-            <RDivider />
-          </template>
-          <RMenuItem
-            label="Grid"
-            icon="mdi-view-grid-outline"
-            :variant="layoutValue === 'grid' ? 'active' : 'default'"
-            @click="setLayout('grid')"
+      <!-- Kebab mirror — only visible below smAndUp. Mirrors the slider
+           state: `groupBy` items disable in list mode, same way the
+           inline GroupBy slider does. -->
+      <RMenu v-if="!smAndUp" location="bottom end" :offset="8" width="220px">
+        <template #activator="{ props: activatorProps }">
+          <RBtn
+            v-bind="activatorProps"
+            variant="outlined"
+            surface
+            icon="mdi-dots-vertical"
+            rounded="circle"
+            aria-label="View options"
           />
+        </template>
+        <template v-if="showKindFilter && kindFilterItems.length > 0">
           <RMenuItem
-            label="List"
-            icon="mdi-view-list"
-            :variant="layoutValue === 'list' ? 'active' : 'default'"
-            @click="setLayout('list')"
+            v-for="item in kindFilterItems"
+            :key="item.id"
+            :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
+            :icon="item.icon"
+            :variant="kindFilter === item.id ? 'active' : 'default'"
+            @click="setKindFilter(item.id)"
           />
-        </RMenu>
-      </span>
+          <RDivider />
+        </template>
+        <template v-if="showGroupBy && groupByItems.length > 0">
+          <RMenuItem
+            v-for="item in groupByItems"
+            :key="item.id"
+            :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
+            :icon="item.icon"
+            :variant="groupByValue === item.id ? 'active' : 'default'"
+            :disabled="layoutValue === 'list'"
+            @click="setGroupBy(item.id)"
+          />
+          <RDivider />
+        </template>
+        <RMenuItem
+          label="Grid"
+          icon="mdi-view-grid-outline"
+          :variant="layoutValue === 'grid' ? 'active' : 'default'"
+          @click="setLayout('grid')"
+        />
+        <RMenuItem
+          label="List"
+          icon="mdi-view-list"
+          :variant="layoutValue === 'list' ? 'active' : 'default'"
+          @click="setLayout('list')"
+        />
+      </RMenu>
     </div>
   </div>
 </template>
@@ -330,20 +331,5 @@ function setKindFilter(value: KindFilterValue) {
 .gallery-toolbar__search {
   flex: 0 1 360px;
   min-width: 0;
-}
-
-/* Responsive — sliders own the wide layout, kebab takes over below
-   720px. The breakpoint matches the rest of the gallery (InfoPanel,
-   AlphaStrip, GalleryShell) which collapse around the same width. */
-.gallery-toolbar__kebab {
-  display: none;
-}
-@media (max-width: 720px) {
-  .gallery-toolbar__sliders {
-    display: none;
-  }
-  .gallery-toolbar__kebab {
-    display: inline-flex;
-  }
 }
 </style>

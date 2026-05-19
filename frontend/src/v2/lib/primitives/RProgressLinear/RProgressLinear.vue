@@ -111,6 +111,7 @@ const wrapperStyle = computed(() => {
 
 <template>
   <div
+    v-bind="$attrs"
     class="r-progress-linear"
     :class="{
       'r-progress-linear--indeterminate': indeterminate,

@@ -96,6 +96,7 @@ const tooltipText = computed(
 
 <template>
   <span
+    v-bind="$attrs"
     class="r-platform-icon"
     :style="{ width: resolvedSize, height: resolvedSize }"
   >

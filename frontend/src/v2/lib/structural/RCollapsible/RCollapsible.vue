@@ -91,6 +91,7 @@ function toggle() {
 
 <template>
   <div
+    v-bind="$attrs"
     class="r-collapsible"
     :class="{
       'r-collapsible--open': open,
