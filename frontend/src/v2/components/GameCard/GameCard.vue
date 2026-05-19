@@ -581,27 +581,25 @@ const morphStyle = computed(() => {
 }
 
 /* Mobile */
-@media (max-width: 768px) {
-  .r-gc {
-    width: 130px;
-  }
-  .r-gc__art {
-    width: 130px;
-    height: 175px;
-  }
-  .r-gc--hero {
-    width: 220px;
-  }
-  .r-gc--hero .r-gc__art {
-    width: 220px;
-    height: 124px;
-  }
-  .r-gc__label {
-    font-size: 11px;
-  }
-  /* Actions always visible on touch (no hover) */
-  .r-gc__overlay-bottom {
-    opacity: 1;
-  }
+html[data-bp~="xs"] .r-gc {
+  width: 130px;
+}
+html[data-bp~="xs"] .r-gc__art {
+  width: 130px;
+  height: 175px;
+}
+html[data-bp~="xs"] .r-gc--hero {
+  width: 220px;
+}
+html[data-bp~="xs"] .r-gc--hero .r-gc__art {
+  width: 220px;
+  height: 124px;
+}
+html[data-bp~="xs"] .r-gc__label {
+  font-size: 11px;
+}
+/* Actions always visible on touch (no hover) */
+html[data-bp~="xs"] .r-gc__overlay-bottom {
+  opacity: 1;
 }
 </style>

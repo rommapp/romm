@@ -218,13 +218,11 @@ onBeforeUnmount(() => {
   left: 0;
 }
 
-@media (max-width: 600px) {
-  .r-v2-toasts {
-    top: calc(var(--r-nav-h, 64px) + 8px);
-    left: 16px;
-    right: 16px;
-    max-width: none;
-    align-items: stretch;
-  }
+html[data-bp~="xs"] .r-v2-toasts {
+  top: calc(var(--r-nav-h, 64px) + 8px);
+  left: 16px;
+  right: 16px;
+  max-width: none;
+  align-items: stretch;
 }
 </style>

@@ -189,9 +189,6 @@ function onRowClick(e: MouseEvent) {
   background: var(--r-color-surface);
   display: grid;
   place-items: center;
-}
-
-.plat-list-row__thumb :deep(.r-platform-icon__img) {
   opacity: 0.9;
 }
 
@@ -223,12 +220,10 @@ function onRowClick(e: MouseEvent) {
   color: var(--r-color-fg-muted);
 }
 
-@media (max-width: 768px) {
-  .plat-list-row {
-    grid-template-columns: minmax(0, 1fr) 96px;
-  }
-  .plat-list-row__cell--meta {
-    display: none;
-  }
+html[data-bp~="xs"] .plat-list-row {
+  grid-template-columns: minmax(0, 1fr) 96px;
+}
+html[data-bp~="xs"] .plat-list-row__cell--meta {
+  display: none;
 }
 </style>

@@ -125,13 +125,11 @@ function isActive(letter: string): boolean {
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
 }
 
-@media (max-width: 768px) {
-  .alpha-strip {
-    width: 16px;
-  }
-  .alpha-strip__btn {
-    font-size: 7px;
-    padding: 1px 0;
-  }
+html[data-bp~="xs"] .alpha-strip {
+  width: 16px;
+}
+html[data-bp~="xs"] .alpha-strip__btn {
+  font-size: 7px;
+  padding: 1px 0;
 }
 </style>

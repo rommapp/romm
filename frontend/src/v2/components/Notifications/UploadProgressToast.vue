@@ -330,12 +330,10 @@ function clearFinished() {
     transform var(--r-motion-med) var(--r-motion-ease-out);
 }
 
-@media (max-width: 600px) {
-  .r-v2-upload {
-    left: 12px;
-    right: 12px;
-    width: auto;
-    bottom: 12px;
-  }
+html[data-bp~="xs"] .r-v2-upload {
+  left: 12px;
+  right: 12px;
+  width: auto;
+  bottom: 12px;
 }
 </style>

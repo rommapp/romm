@@ -308,10 +308,6 @@ async function onLogout() {
   background: var(--r-color-surface-hover) !important;
 }
 
-.r-v2-user :deep(.r-btn__label) {
-  gap: 8px;
-}
-
 .r-v2-user__chevron {
   color: var(--r-color-fg-muted);
 }
@@ -321,10 +317,8 @@ async function onLogout() {
   font-weight: var(--r-font-weight-medium);
 }
 
-@media (max-width: 768px) {
-  .r-v2-user__name {
-    display: none;
-  }
+html[data-bp~="xs"] .r-v2-user__name {
+  display: none;
 }
 
 /* Group section inside the dropdown — small uppercase label above each

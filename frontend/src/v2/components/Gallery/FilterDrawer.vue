@@ -437,6 +437,7 @@ function resetAll() {
               }))
             "
             multiple
+            searchable
             clearable
             hide-details
             prefix-label="stacked"

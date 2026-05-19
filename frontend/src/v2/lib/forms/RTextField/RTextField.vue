@@ -78,6 +78,12 @@ interface Props {
   multiline?: boolean;
   /** Initial visible rows when `multiline`. Default 4. */
   rows?: number;
+  /** Switch the input's typography to a monospaced "code surface" look
+   *  (mono family + tighter font-size). Use when the field holds code,
+   *  JSON, hashes, or any payload where character-aligned reading
+   *  matters. Affects the input/textarea only — labels keep the regular
+   *  family so the chrome still reads as a normal form field. */
+  mono?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -107,6 +113,7 @@ const props = withDefaults(defineProps<Props>(), {
   focused: undefined,
   multiline: false,
   rows: 4,
+  mono: false,
 });
 
 const emit = defineEmits<{
@@ -341,6 +348,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         'r-text-field--stacked': stackedLabelOn,
         'r-text-field--inline': inlineLabelOn,
         'r-text-field--multiline': multiline,
+        'r-text-field--mono': mono,
       },
     ]"
     :style="{ '--r-tf-color': resolvedColor }"
@@ -714,6 +722,15 @@ function onAppendInnerClick(evt: MouseEvent) {
 .r-text-field--multiline .r-text-field__adornment--append {
   align-self: flex-start;
   padding-top: 0;
+}
+
+/* ── Mono surface ──────────────────────────────────────────────── */
+/* Code-surface mode — applies mono family and a slightly tighter
+   font-size to the input/textarea only. Labels keep their regular
+   family so the chrome still reads as a normal form field. */
+.r-text-field--mono .r-text-field__input {
+  font-family: var(--r-font-family-mono);
+  font-size: 12px;
 }
 
 /* Trim inner padding when an adornment owns the side gap. Each side is

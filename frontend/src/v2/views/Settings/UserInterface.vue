@@ -365,10 +365,8 @@ function onVirtualCollectionTypeChange(value: unknown) {
 .r-v2-ui__toggle-grid--single {
   grid-template-columns: 1fr;
 }
-@media (max-width: 720px) {
-  .r-v2-ui__toggle-grid {
-    grid-template-columns: 1fr;
-  }
+html[data-bp~="xs"] .r-v2-ui__toggle-grid {
+  grid-template-columns: 1fr;
 }
 
 /* Theme picker: 3 buttons in a flush row inside the section body. */
@@ -409,10 +407,8 @@ function onVirtualCollectionTypeChange(value: unknown) {
   background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
   color: var(--r-color-brand-primary);
 }
-@media (max-width: 720px) {
-  .r-v2-ui__theme-row {
-    flex-direction: column;
-  }
+html[data-bp~="xs"] .r-v2-ui__theme-row {
+  flex-direction: column;
 }
 
 /* UI version cards (v2-only). */
@@ -501,9 +497,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
   font-weight: var(--r-font-weight-bold);
 }
 
-@media (max-width: 720px) {
-  .r-v2-ui__version-grid {
-    grid-template-columns: 1fr;
-  }
+html[data-bp~="xs"] .r-v2-ui__version-grid {
+  grid-template-columns: 1fr;
 }
 </style>

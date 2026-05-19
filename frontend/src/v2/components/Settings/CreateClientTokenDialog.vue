@@ -621,10 +621,8 @@ onBeforeUnmount(() => {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
-@media (max-width: 720px) {
-  .r-v2-tok-dialog__scopes-grid {
-    grid-template-columns: 1fr;
-  }
+html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
+  grid-template-columns: 1fr;
 }
 .r-v2-tok-dialog__scopes-col {
   display: flex;

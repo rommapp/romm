@@ -172,10 +172,8 @@ watch(
   place-items: center;
 }
 
-@media (max-width: 768px) {
-  .r-v2-plat__panel-icon {
-    width: 80px;
-    height: 60px;
-  }
+html[data-bp~="xs"] .r-v2-plat__panel-icon {
+  width: 80px;
+  height: 60px;
 }
 </style>

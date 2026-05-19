@@ -230,9 +230,6 @@ function coveragePercent(matched: number, total: number): string {
 .r-v2-plat-stats__order {
   width: 140px;
 }
-.r-v2-plat-stats__order :deep(.r-select__field) {
-  font-size: 12px;
-}
 
 .r-v2-plat-stats__row {
   position: relative;

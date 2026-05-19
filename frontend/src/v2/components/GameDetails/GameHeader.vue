@@ -143,9 +143,7 @@ const actions = useGameActions(() => props.rom);
   gap: 6px;
 }
 
-@media (max-width: 768px) {
-  .r-v2-det-header__title {
-    font-size: 20px;
-  }
+html[data-bp~="xs"] .r-v2-det-header__title {
+  font-size: 20px;
 }
 </style>

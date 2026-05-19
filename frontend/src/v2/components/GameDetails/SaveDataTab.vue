@@ -172,14 +172,12 @@ function fmtDate(iso: string | null) {
   gap: 12px;
 }
 
-@media (max-width: 768px) {
-  .save-data {
-    flex-direction: column;
-    gap: 14px;
-  }
-  .save-data__nav {
-    width: auto;
-  }
+html[data-bp~="xs"] .save-data {
+  flex-direction: column;
+  gap: 14px;
+}
+html[data-bp~="xs"] .save-data__nav {
+  width: auto;
 }
 
 .save-data__list {

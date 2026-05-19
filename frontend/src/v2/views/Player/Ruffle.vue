@@ -429,13 +429,11 @@ onMounted(async () => {
   }
 }
 
-@media (max-width: 720px) {
-  .r-v2-ruffle__config {
-    grid-template-columns: 1fr;
-  }
-  .r-v2-ruffle__cover {
-    max-width: 240px;
-    margin: 0 auto;
-  }
+html[data-bp~="xs"] .r-v2-ruffle__config {
+  grid-template-columns: 1fr;
+}
+html[data-bp~="xs"] .r-v2-ruffle__cover {
+  max-width: 240px;
+  margin: 0 auto;
 }
 </style>

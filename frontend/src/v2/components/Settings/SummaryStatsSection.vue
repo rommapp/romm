@@ -88,15 +88,11 @@ const cards = computed<StatCard[]>(() => [
   gap: 12px;
   padding: 16px;
 }
-@media (max-width: 720px) {
-  .r-v2-stats-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+html[data-bp~="sm-and-down"] .r-v2-stats-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-@media (max-width: 480px) {
-  .r-v2-stats-summary {
-    grid-template-columns: minmax(0, 1fr);
-  }
+html[data-bp~="xs"] .r-v2-stats-summary {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .r-v2-stats-summary__card {

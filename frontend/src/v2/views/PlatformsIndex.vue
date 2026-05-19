@@ -366,13 +366,11 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
   margin-top: 4px;
 }
 
-@media (max-width: 768px) {
-  .r-v2-pidx {
-    padding: 16px 14px 80px;
-  }
-  .r-v2-pidx__grid {
-    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-    gap: 10px;
-  }
+html[data-bp~="xs"] .r-v2-pidx {
+  padding: 16px 14px 80px;
+}
+html[data-bp~="xs"] .r-v2-pidx__grid {
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 10px;
 }
 </style>

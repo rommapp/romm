@@ -96,8 +96,8 @@ const fieldLabel = computed(() => `${props.label} ${t("rom.metadata")} JSON`);
       :readonly="!isEditing"
       multiline
       :rows="8"
+      mono
       hide-details
-      class="r-v2-raw-meta__field"
       spellcheck="false"
     />
     <div class="r-v2-raw-meta__actions">
@@ -132,13 +132,6 @@ const fieldLabel = computed(() => `${props.label} ${t("rom.metadata")} JSON`);
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-/* Mono font for the JSON payload — the field's body becomes a code
-   surface while keeping the same outlined chrome as every other input. */
-.r-v2-raw-meta__field :deep(.r-text-field__input--multiline) {
-  font-family: var(--r-font-family-mono);
-  font-size: 12px;
 }
 
 .r-v2-raw-meta__actions {

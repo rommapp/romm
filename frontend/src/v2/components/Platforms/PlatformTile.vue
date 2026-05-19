@@ -139,14 +139,11 @@ const morphStyle = computed(() =>
   height: 72px;
   display: grid;
   place-items: center;
-}
-
-.plat-tile__icon :deep(.r-platform-icon__img) {
   opacity: 0.9;
   transition: opacity var(--r-motion-fast);
 }
 
-.plat-tile:hover .plat-tile__icon :deep(.r-platform-icon__img) {
+.plat-tile:hover .plat-tile__icon {
   opacity: 1;
 }
 
@@ -162,23 +159,21 @@ const morphStyle = computed(() =>
   color: var(--r-color-fg-muted);
 }
 
-@media (max-width: 768px) {
-  .plat-tile--row {
-    width: 110px;
-  }
-  .plat-tile {
-    padding: 12px 8px 10px;
-    gap: 6px;
-  }
-  .plat-tile__icon {
-    width: 52px;
-    height: 52px;
-  }
-  .plat-tile__name {
-    font-size: 10px;
-  }
-  .plat-tile__count {
-    font-size: 9px;
-  }
+html[data-bp~="xs"] .plat-tile--row {
+  width: 110px;
+}
+html[data-bp~="xs"] .plat-tile {
+  padding: 12px 8px 10px;
+  gap: 6px;
+}
+html[data-bp~="xs"] .plat-tile__icon {
+  width: 52px;
+  height: 52px;
+}
+html[data-bp~="xs"] .plat-tile__name {
+  font-size: 10px;
+}
+html[data-bp~="xs"] .plat-tile__count {
+  font-size: 9px;
 }
 </style>

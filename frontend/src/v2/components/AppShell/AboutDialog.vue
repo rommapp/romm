@@ -175,9 +175,7 @@ void t;
   color: var(--r-color-fg);
 }
 
-@media (max-width: 520px) {
-  .r-v2-about {
-    grid-template-columns: 1fr;
-  }
+html[data-bp~="xs"] .r-v2-about {
+  grid-template-columns: 1fr;
 }
 </style>

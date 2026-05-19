@@ -62,14 +62,12 @@ const morphStyle = computed(() =>
   font-size: 13px;
 }
 
-@media (max-width: 768px) {
-  .r-v2-det-cover {
-    width: 100px;
-    margin-top: 0;
-  }
-  .r-v2-det-cover__placeholder {
-    width: 100px;
-    height: 134px;
-  }
+html[data-bp~="xs"] .r-v2-det-cover {
+  width: 100px;
+  margin-top: 0;
+}
+html[data-bp~="xs"] .r-v2-det-cover__placeholder {
+  width: 100px;
+  height: 134px;
 }
 </style>

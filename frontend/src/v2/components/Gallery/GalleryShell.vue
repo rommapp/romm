@@ -928,15 +928,13 @@ defineExpose({
   clip-path: inset(var(--r-v2-shell-toolbar-h, 64px) 0 0 0);
 }
 
-@media (max-width: 768px) {
-  .r-v2-shell__scroller {
-    padding: 0 14px 80px;
-  }
-  .r-v2-shell__header {
-    padding-top: 16px;
-  }
-  .r-v2-shell__row {
-    gap: 12px 10px;
-  }
+html[data-bp~="xs"] .r-v2-shell__scroller {
+  padding: 0 14px 80px;
+}
+html[data-bp~="xs"] .r-v2-shell__header {
+  padding-top: 16px;
+}
+html[data-bp~="xs"] .r-v2-shell__row {
+  gap: 12px 10px;
 }
 </style>

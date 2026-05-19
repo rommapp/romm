@@ -746,9 +746,7 @@ function closeDialog() {
   word-break: break-all;
 }
 
-@media (max-width: 600px) {
-  .r-v2-match__search-row {
-    grid-template-columns: 1fr;
-  }
+html[data-bp~="xs"] .r-v2-match__search-row {
+  grid-template-columns: 1fr;
 }
 </style>

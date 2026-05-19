@@ -429,6 +429,7 @@ onMounted(async () => {
             <RIcon
               icon="mdi-file-outline"
               size="40"
+              color="primary"
               :class="{ 'r-v2-patch__pulse': isOverRomDropZone }"
             />
             <p class="r-v2-patch__drop-title">
@@ -504,6 +505,7 @@ onMounted(async () => {
             <RIcon
               icon="mdi-file-cog-outline"
               size="40"
+              color="primary"
               :class="{ 'r-v2-patch__pulse': isOverPatchDropZone }"
             />
             <p class="r-v2-patch__drop-title">
@@ -794,9 +796,6 @@ onMounted(async () => {
   color: var(--r-color-fg-secondary);
   text-align: center;
 }
-.r-v2-patch__drop-empty :deep(.r-icon) {
-  color: var(--r-color-brand-primary);
-}
 .r-v2-patch__drop-title {
   margin: 6px 0 0;
   font-size: 14px;
@@ -956,12 +955,10 @@ onMounted(async () => {
   border-radius: 2px;
 }
 
-@media (max-width: 820px) {
-  .r-v2-patch__panels {
-    grid-template-columns: 1fr;
-  }
-  .r-v2-patch__drop-name {
-    max-width: 160px;
-  }
+html[data-bp~="xs"] .r-v2-patch__panels {
+  grid-template-columns: 1fr;
+}
+html[data-bp~="xs"] .r-v2-patch__drop-name {
+  max-width: 160px;
 }
 </style>

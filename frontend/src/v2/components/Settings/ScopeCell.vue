@@ -76,10 +76,6 @@ const scopeCount = computed(() => {
   letter-spacing: 0;
   text-transform: none;
 }
-.r-v2-scope-cell__chip :deep(.r-btn__content) {
-  gap: 6px;
-  font-size: 12px;
-}
 
 .r-v2-scope-cell__icon {
   color: var(--r-color-brand-primary);

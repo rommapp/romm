@@ -102,18 +102,16 @@ withDefaults(
   gap: 8px;
 }
 
-@media (max-width: 768px) {
-  .info-panel {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-    padding: 16px 0;
-  }
-  .info-panel__title {
-    font-size: var(--r-font-size-2xl);
-  }
-  .info-panel__stats {
-    gap: 16px;
-  }
+html[data-bp~="xs"] .info-panel {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+}
+html[data-bp~="xs"] .info-panel__title {
+  font-size: var(--r-font-size-2xl);
+}
+html[data-bp~="xs"] .info-panel__stats {
+  gap: 16px;
 }
 </style>

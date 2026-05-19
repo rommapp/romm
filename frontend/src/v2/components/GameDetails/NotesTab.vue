@@ -404,10 +404,9 @@ function fmtDate(iso: string): string {
                     :icon="
                       editForm.isPublic ? 'mdi-lock-open-variant' : 'mdi-lock'
                     "
-                    :class="[
-                      'r-v2-notes__lock-btn',
-                      { 'r-v2-notes__lock-btn--locked': !editForm.isPublic },
-                    ]"
+                    :color="
+                      editForm.isPublic ? 'var(--r-color-fg-muted)' : 'primary'
+                    "
                     :disabled="saving"
                     @click="editForm.isPublic = !editForm.isPublic"
                   />
@@ -473,12 +472,11 @@ function fmtDate(iso: string): string {
                         ? 'mdi-lock-open-variant'
                         : 'mdi-lock'
                     "
-                    :class="[
-                      'r-v2-notes__lock-btn',
-                      {
-                        'r-v2-notes__lock-btn--locked': !selectedNote.is_public,
-                      },
-                    ]"
+                    :color="
+                      selectedNote.is_public
+                        ? 'var(--r-color-fg-muted)'
+                        : 'primary'
+                    "
                     :loading="togglingLockId === selectedNote.id"
                     @click="toggleLock(selectedNote)"
                   />
@@ -491,7 +489,7 @@ function fmtDate(iso: string): string {
                     variant="text"
                     size="small"
                     icon="mdi-pencil-outline"
-                    class="r-v2-notes__edit-btn"
+                    color="var(--r-color-overlay-fg)"
                     @click="startEdit"
                   />
                 </template>
@@ -703,23 +701,6 @@ function fmtDate(iso: string): string {
   flex-shrink: 0;
 }
 
-/* Action-bar palette. Primary is reserved for primary actions (Add note,
-   selected note in the index, locked indicator). Secondary actions get
-   their own muted/distinct tones so the bar reads at a glance.
-     · Lock — locked: brand-primary (private = personal/protected)
-              unlocked: fg-muted (public = no special state)
-     · Edit — overlay-fg (whitish, matches GameActionBtn — it's an action)
-     · Delete — error (red, destructive — set on the activator above) */
-.r-v2-notes__lock-btn :deep(.r-btn__content) {
-  color: var(--r-color-fg-muted);
-  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-notes__lock-btn--locked :deep(.r-btn__content) {
-  color: var(--r-color-brand-primary);
-}
-.r-v2-notes__edit-btn :deep(.r-btn__content) {
-  color: var(--r-color-overlay-fg);
-}
 .r-v2-notes__pane-foot {
   font-size: var(--r-font-size-sm);
   color: var(--r-color-fg-muted);
@@ -792,12 +773,10 @@ function fmtDate(iso: string): string {
   font-style: italic;
 }
 
-@media (max-width: 768px) {
-  .r-v2-notes__body {
-    grid-template-columns: 1fr;
-  }
-  .r-v2-notes__index {
-    position: static;
-  }
+html[data-bp~="xs"] .r-v2-notes__body {
+  grid-template-columns: 1fr;
+}
+html[data-bp~="xs"] .r-v2-notes__index {
+  position: static;
 }
 </style>

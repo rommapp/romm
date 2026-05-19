@@ -323,11 +323,9 @@ const tabs = computed<RTabNavItem[]>(() => [
   font-size: 13px;
 }
 
-@media (max-width: 768px) {
-  .r-v2-det__body {
-    padding: 12px 14px 0;
-    gap: 14px;
-    align-items: flex-start;
-  }
+html[data-bp~="xs"] .r-v2-det__body {
+  padding: 12px 14px 0;
+  gap: 14px;
+  align-items: flex-start;
 }
 </style>

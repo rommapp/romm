@@ -366,7 +366,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             </template>
           </RTextField>
           <p class="r-v2-edit__path">
-            <RIcon icon="mdi-folder-file-outline" size="13" />
+            <RIcon icon="mdi-folder-file-outline" size="13" color="primary" />
             /romm/library/{{ rom.fs_path }}/{{ rom.fs_name }}
           </p>
 
@@ -434,7 +434,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             </RBtn>
           </div>
           <p v-if="rom.has_manual" class="r-v2-edit__path">
-            <RIcon icon="mdi-folder-file-outline" size="13" />
+            <RIcon icon="mdi-folder-file-outline" size="13" color="primary" />
             /romm/resources/{{ rom.path_manual }}
           </p>
 
@@ -637,10 +637,6 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
   font-family: var(--r-font-family-mono, monospace);
   word-break: break-all;
 }
-.r-v2-edit__path :deep(.r-icon) {
-  color: var(--r-color-brand-primary);
-  flex-shrink: 0;
-}
 
 .r-v2-edit__row {
   display: flex;
@@ -726,13 +722,11 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
   gap: 8px;
 }
 
-@media (max-width: 820px) {
-  .r-v2-edit {
-    grid-template-columns: 1fr;
-  }
-  .r-v2-edit__cover-col {
-    max-width: 220px;
-    margin: 0 auto;
-  }
+html[data-bp~="xs"] .r-v2-edit {
+  grid-template-columns: 1fr;
+}
+html[data-bp~="xs"] .r-v2-edit__cover-col {
+  max-width: 220px;
+  margin: 0 auto;
 }
 </style>

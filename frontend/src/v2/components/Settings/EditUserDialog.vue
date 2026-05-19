@@ -225,10 +225,8 @@ function close() {
   padding: 20px 24px;
   align-items: start;
 }
-@media (max-width: 720px) {
-  .r-v2-user-dialog__edit-grid {
-    grid-template-columns: 1fr;
-  }
+html[data-bp~="xs"] .r-v2-user-dialog__edit-grid {
+  grid-template-columns: 1fr;
 }
 .r-v2-user-dialog__form {
   display: flex;

@@ -204,18 +204,16 @@ const activeTab = computed<TabId | null>(() => {
   color: var(--r-color-fg) !important;
 }
 
-@media (max-width: 768px) {
-  .r-v2-nav {
-    padding: 0 14px;
-    justify-content: space-between;
-  }
+html[data-bp~="xs"] .r-v2-nav {
+  padding: 0 14px;
+  justify-content: space-between;
+}
 
-  .r-v2-nav__logo-word {
-    display: none;
-  }
+html[data-bp~="xs"] .r-v2-nav__logo-word {
+  display: none;
+}
 
-  .r-v2-nav__center {
-    display: none;
-  }
+html[data-bp~="xs"] .r-v2-nav__center {
+  display: none;
 }
 </style>

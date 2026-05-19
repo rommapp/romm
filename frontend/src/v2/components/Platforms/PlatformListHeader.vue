@@ -7,10 +7,10 @@
 // gallery and so the grid template lives next to its consumers.
 //
 // The three metadata columns (Family / Category / Generation) drop out
-// on narrow viewports — see the @media query below — so the row stays
-// legible on mobile without horizontal scroll. The grid template flips
-// in the same breakpoint so the cells re-align with the row's compact
-// layout.
+// on narrow viewports (see the `html[data-bp~="xs"]` rules below) so the
+// row stays legible on mobile without horizontal scroll. The grid
+// template flips in the same breakpoint so the cells re-align with the
+// row's compact layout.
 </script>
 
 <template>
@@ -71,12 +71,10 @@
   text-overflow: ellipsis;
 }
 
-@media (max-width: 768px) {
-  .plat-list-header {
-    grid-template-columns: minmax(0, 1fr) 96px;
-  }
-  .plat-list-header__cell--meta {
-    display: none;
-  }
+html[data-bp~="xs"] .plat-list-header {
+  grid-template-columns: minmax(0, 1fr) 96px;
+}
+html[data-bp~="xs"] .plat-list-header__cell--meta {
+  display: none;
 }
 </style>

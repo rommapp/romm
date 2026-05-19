@@ -17,6 +17,7 @@ import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import GlobalDialogs from "@/v2/components/AppShell/GlobalDialogs.vue";
 import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
+import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
 import { installPermissionsHydration } from "@/v2/composables/useCan";
 import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
@@ -25,6 +26,10 @@ import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
 
 installPermissionsHydration();
+// Mirror useBreakpoint() refs onto <html data-bp="…"> so scoped styles
+// can branch on viewport via `html[data-bp~="xs"] .foo { … }` instead of
+// hardcoding `@media (max-width: …)` values across every SFC.
+installBreakpointAttribute();
 
 const collectionsStore = storeCollections();
 const platformsStore = storePlatforms();

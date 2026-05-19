@@ -431,16 +431,14 @@ const showVirtualSection = computed(
   color: var(--r-color-fg-muted);
 }
 
-@media (max-width: 768px) {
-  .r-v2-cidx {
-    padding: 16px 14px 80px;
-  }
-  .r-v2-cidx__grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 16px 10px;
-  }
-  .r-v2-cidx__panel {
-    padding: 14px 14px 18px;
-  }
+html[data-bp~="xs"] .r-v2-cidx {
+  padding: 16px 14px 80px;
+}
+html[data-bp~="xs"] .r-v2-cidx__grid {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 16px 10px;
+}
+html[data-bp~="xs"] .r-v2-cidx__panel {
+  padding: 14px 14px 18px;
 }
 </style>

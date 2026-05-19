@@ -948,53 +948,49 @@ void useLocalStorage;
   }
 }
 
-@media (max-width: 1100px) {
-  .r-v2-ejs__config {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .r-v2-ejs__hero {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    align-items: center;
-    text-align: left;
-    gap: 20px;
-  }
-  .r-v2-ejs__cover {
-    max-width: 160px;
-    flex-shrink: 0;
-  }
-  .r-v2-ejs__title-block {
-    flex: 1;
-  }
-  .r-v2-ejs__eyebrow {
-    justify-content: flex-start;
-  }
-  .r-v2-ejs__play {
-    min-width: 180px;
-    margin-top: 0;
-  }
-  .r-v2-ejs__hero-links {
-    flex-direction: row;
-    margin-left: auto;
-  }
+html[data-bp~="sm-and-down"] .r-v2-ejs__config {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
-@media (max-width: 720px) {
-  .r-v2-ejs__config {
-    grid-template-columns: 1fr;
-  }
-  .r-v2-ejs__hero {
-    flex-direction: column;
-    text-align: center;
-  }
-  .r-v2-ejs__cover {
-    max-width: 200px;
-  }
-  .r-v2-ejs__eyebrow {
-    justify-content: center;
-  }
-  .r-v2-ejs__hero-links {
-    margin-left: 0;
-    justify-content: center;
-  }
+html[data-bp~="sm-and-down"] .r-v2-ejs__hero {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  text-align: left;
+  gap: 20px;
+}
+html[data-bp~="sm-and-down"] .r-v2-ejs__cover {
+  max-width: 160px;
+  flex-shrink: 0;
+}
+html[data-bp~="sm-and-down"] .r-v2-ejs__title-block {
+  flex: 1;
+}
+html[data-bp~="sm-and-down"] .r-v2-ejs__eyebrow {
+  justify-content: flex-start;
+}
+html[data-bp~="sm-and-down"] .r-v2-ejs__play {
+  min-width: 180px;
+  margin-top: 0;
+}
+html[data-bp~="sm-and-down"] .r-v2-ejs__hero-links {
+  flex-direction: row;
+  margin-left: auto;
+}
+html[data-bp~="xs"] .r-v2-ejs__config {
+  grid-template-columns: 1fr;
+}
+html[data-bp~="xs"] .r-v2-ejs__hero {
+  flex-direction: column;
+  text-align: center;
+}
+html[data-bp~="xs"] .r-v2-ejs__cover {
+  max-width: 200px;
+}
+html[data-bp~="xs"] .r-v2-ejs__eyebrow {
+  justify-content: center;
+}
+html[data-bp~="xs"] .r-v2-ejs__hero-links {
+  margin-left: 0;
+  justify-content: center;
 }
 </style>

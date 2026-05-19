@@ -259,15 +259,13 @@ onBeforeUnmount(() => {
   color: var(--r-color-overlay-fg) !important;
 }
 
-@media (max-width: 768px) {
-  .card-row__track {
-    padding: 8px 14px 16px;
-  }
-  .card-row__arrow {
-    display: none;
-  }
-  .card-row__head {
-    padding: 0 14px;
-  }
+html[data-bp~="xs"] .card-row__track {
+  padding: 8px 14px 16px;
+}
+html[data-bp~="xs"] .card-row__arrow {
+  display: none;
+}
+html[data-bp~="xs"] .card-row__head {
+  padding: 0 14px;
 }
 </style>

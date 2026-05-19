@@ -658,9 +658,7 @@ function stopScan() {
   color: var(--r-color-success);
 }
 
-@media (max-width: 960px) {
-  .r-v2-scan__fields {
-    grid-template-columns: 1fr;
-  }
+html[data-bp~="sm-and-down"] .r-v2-scan__fields {
+  grid-template-columns: 1fr;
 }
 </style>

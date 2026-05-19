@@ -123,8 +123,6 @@ const label = computed(() => {
 /* Tint the selection text by current type — keeps the at-a-glance
    colour cue we had with the chip-style button while letting the
    field do all the heavy lifting. */
-.r-v2-fmtc :deep(.r-select__field),
-.r-v2-fmtc :deep(.r-select__title),
 .r-v2-fmtc__label {
   font-weight: var(--r-font-weight-medium);
 }

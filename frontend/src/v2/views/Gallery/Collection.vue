@@ -186,10 +186,8 @@ watch(
   box-shadow: var(--r-elev-2);
 }
 
-@media (max-width: 768px) {
-  .r-v2-coll__panel-cover {
-    width: 100px;
-    height: 134px;
-  }
+html[data-bp~="xs"] .r-v2-coll__panel-cover {
+  width: 100px;
+  height: 134px;
 }
 </style>

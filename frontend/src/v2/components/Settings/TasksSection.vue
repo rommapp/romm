@@ -266,10 +266,8 @@ function statusInfo(task: TaskStatusResponse) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-@media (max-width: 720px) {
-  .r-v2-tasks__row--two-col {
-    grid-template-columns: 1fr;
-  }
+html[data-bp~="xs"] .r-v2-tasks__row--two-col {
+  grid-template-columns: 1fr;
 }
 
 .r-v2-tasks__cell {

@@ -174,9 +174,7 @@ const morphStyle = computed(() =>
   padding: 0 2px;
 }
 
-@media (max-width: 768px) {
-  .coll-tile--row {
-    width: 120px;
-  }
+html[data-bp~="xs"] .coll-tile--row {
+  width: 120px;
 }
 </style>

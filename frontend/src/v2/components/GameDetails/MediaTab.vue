@@ -669,14 +669,12 @@ async function deleteSoundtrack(fileId: number) {
   min-height: 0;
 }
 
-@media (max-width: 768px) {
-  .r-v2-media {
-    flex-direction: column;
-    gap: 14px;
-  }
-  .r-v2-media__sidebar {
-    width: auto;
-  }
+html[data-bp~="xs"] .r-v2-media {
+  flex-direction: column;
+  gap: 14px;
+}
+html[data-bp~="xs"] .r-v2-media__sidebar {
+  width: auto;
 }
 
 /* Manual viewer — fills the available panel height so the inner PDF

@@ -225,7 +225,7 @@ function closeDialog() {
           :label="t('common.exclude-on-delete')"
         />
         <p v-if="fsCount > 0" class="r-v2-del-rom__warn">
-          <RIcon icon="mdi-alert" size="14" />
+          <RIcon icon="mdi-alert" size="14" color="var(--r-color-danger-fg)" />
           <span>
             <strong>{{ t("common.warning") }}:</strong>
             {{ t("rom.delete-filesystem-warning", fsCount) }}
@@ -422,7 +422,6 @@ function closeDialog() {
   font-size: 12px;
   line-height: 1.4;
 }
-.r-v2-del-rom__warn :deep(.r-icon),
 .r-v2-del-rom__warn strong {
   color: var(--r-color-danger-fg);
 }

@@ -438,7 +438,7 @@ onMounted(async () => {
             <p>{{ t("settings.folder-mappings-tooltip-variants") }}</p>
           </section>
           <p class="r-v2-mappings__help-foot">
-            <RIcon icon="mdi-information-outline" size="14" />
+            <RIcon icon="mdi-information-outline" size="14" color="primary" />
             <span>{{ t("settings.folder-mappings-mutually-exclusive") }}</span>
           </p>
         </div>
@@ -488,9 +488,6 @@ onMounted(async () => {
 .r-v2-mappings__help-icon:hover {
   color: var(--r-color-fg) !important;
   background: var(--r-color-surface-hover) !important;
-}
-.r-v2-mappings__help-icon :deep(.r-icon) {
-  font-size: 14px !important;
 }
 
 .r-v2-mappings__folder {
@@ -554,10 +551,6 @@ onMounted(async () => {
   color: var(--r-color-fg-secondary);
   font-size: 12.5px;
   line-height: 1.5;
-}
-.r-v2-mappings__help-foot :deep(.r-icon) {
-  color: var(--r-color-brand-primary);
-  margin-top: 2px;
 }
 .r-v2-mappings__help-footer {
   display: flex;

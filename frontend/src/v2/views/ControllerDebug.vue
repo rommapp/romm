@@ -179,7 +179,11 @@ function magnitude(x: number, y: number) {
       icon="mdi-controller-off"
     >
       <div class="r-v2-ctrl__empty">
-        <RIcon icon="mdi-gamepad-variant-outline" size="40" />
+        <RIcon
+          icon="mdi-gamepad-variant-outline"
+          size="40"
+          color="var(--r-color-fg-faint)"
+        />
         <p>Press any button on your controller to wake it up.</p>
         <p class="r-v2-ctrl__hint">
           On Linux some pads require <code>evtest</code> /
@@ -303,7 +307,11 @@ function magnitude(x: number, y: number) {
           class="r-v2-ctrl__legend-row"
         >
           <span class="r-v2-ctrl__legend-from">{{ bind.button }}</span>
-          <RIcon icon="mdi-arrow-right-thin" size="12" />
+          <RIcon
+            icon="mdi-arrow-right-thin"
+            size="12"
+            color="var(--r-color-fg-faint)"
+          />
           <code class="r-v2-ctrl__legend-to">{{ bind.key }}</code>
         </div>
       </div>
@@ -464,9 +472,6 @@ function magnitude(x: number, y: number) {
   color: var(--r-color-fg-muted);
   text-align: center;
 }
-.r-v2-ctrl__empty :deep(.r-icon) {
-  color: var(--r-color-fg-faint);
-}
 .r-v2-ctrl__empty p {
   margin: 0;
   font-size: 13px;
@@ -494,14 +499,12 @@ function magnitude(x: number, y: number) {
   padding: 16px;
   align-items: start;
 }
-@media (max-width: 720px) {
-  .r-v2-ctrl__pad-body {
-    grid-template-columns: 1fr;
-  }
-  .r-v2-ctrl__sticks {
-    flex-direction: row !important;
-    justify-content: center;
-  }
+html[data-bp~="xs"] .r-v2-ctrl__pad-body {
+  grid-template-columns: 1fr;
+}
+html[data-bp~="xs"] .r-v2-ctrl__sticks {
+  flex-direction: row !important;
+  justify-content: center;
 }
 
 /* Sticks ----------------------------------------------------------- */
@@ -699,10 +702,8 @@ function magnitude(x: number, y: number) {
   display: grid;
   grid-template-columns: 1fr 1fr;
 }
-@media (max-width: 720px) {
-  .r-v2-ctrl__legend {
-    grid-template-columns: 1fr;
-  }
+html[data-bp~="xs"] .r-v2-ctrl__legend {
+  grid-template-columns: 1fr;
 }
 .r-v2-ctrl__legend-row {
   display: grid;
@@ -717,9 +718,6 @@ function magnitude(x: number, y: number) {
 .r-v2-ctrl__legend-row:nth-last-child(2):nth-child(odd) {
   /* Drop the bottom border for the last row in each column. */
   border-bottom: none;
-}
-.r-v2-ctrl__legend-row :deep(.r-icon) {
-  color: var(--r-color-fg-faint);
 }
 .r-v2-ctrl__legend-from {
   color: var(--r-color-fg-secondary);

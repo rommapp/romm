@@ -95,15 +95,13 @@ setBgArt(null);
   gap: 14px;
 }
 
-@media (max-width: 1023px) {
-  .r-v2-settings {
-    flex-direction: column;
-  }
-  .r-v2-settings__sidebar {
-    width: 100%;
-  }
-  .r-v2-settings__content {
-    padding: 24px var(--r-row-pad) 48px;
-  }
+html[data-bp~="sm-and-down"] .r-v2-settings {
+  flex-direction: column;
+}
+html[data-bp~="sm-and-down"] .r-v2-settings__sidebar {
+  width: 100%;
+}
+html[data-bp~="sm-and-down"] .r-v2-settings__content {
+  padding: 24px var(--r-row-pad) 48px;
 }
 </style>

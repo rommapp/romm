@@ -239,49 +239,52 @@ const groups = computed<Group[]>(() => {
   background: var(--r-color-surface-hover);
 }
 
-/* Below 1024px: horizontal scrollable strip — items keep their group
-   order; group labels disappear so the strip reads as a single tab row.
-   Tracks the same flush feel: no card border, just a bottom hairline. */
-@media (max-width: 1023px) {
-  .r-v2-settings-sidebar {
-    flex-direction: row;
-    align-items: center;
-    gap: 0;
-    padding: 6px var(--r-row-pad);
-    border-right: none;
-    border-bottom: 1px solid var(--r-color-border);
-    overflow-x: auto;
-    overflow-y: hidden;
-    position: static;
-    top: auto;
-    height: auto;
-  }
-  .r-v2-settings-sidebar__group {
-    flex-direction: row;
-    flex-shrink: 0;
-    align-items: center;
-    gap: 0;
-  }
-  .r-v2-settings-sidebar__group + .r-v2-settings-sidebar__group {
-    margin-top: 0;
-  }
-  .r-v2-settings-sidebar__group + .r-v2-settings-sidebar__group::before {
-    content: "";
-    width: 1px;
-    height: 18px;
-    background: var(--r-color-border);
-    margin: 0 6px;
-    flex-shrink: 0;
-  }
-  .r-v2-settings-sidebar__group-label {
-    display: none;
-  }
-  .r-v2-settings-sidebar__list {
-    flex-direction: row;
-  }
-  .r-v2-settings-sidebar__item {
-    padding: 7px 14px;
-    border-radius: var(--r-radius-pill);
-  }
+/* Below md (< 960): horizontal scrollable strip — items keep their
+   group order; group labels disappear so the strip reads as a single
+   tab row. Tracks the same flush feel: no card border, just a bottom
+   hairline. */
+html[data-bp~="sm-and-down"] .r-v2-settings-sidebar {
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  padding: 6px var(--r-row-pad);
+  border-right: none;
+  border-bottom: 1px solid var(--r-color-border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: static;
+  top: auto;
+  height: auto;
+}
+html[data-bp~="sm-and-down"] .r-v2-settings-sidebar__group {
+  flex-direction: row;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0;
+}
+html[data-bp~="sm-and-down"]
+  .r-v2-settings-sidebar__group
+  + .r-v2-settings-sidebar__group {
+  margin-top: 0;
+}
+html[data-bp~="sm-and-down"]
+  .r-v2-settings-sidebar__group
+  + .r-v2-settings-sidebar__group::before {
+  content: "";
+  width: 1px;
+  height: 18px;
+  background: var(--r-color-border);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+html[data-bp~="sm-and-down"] .r-v2-settings-sidebar__group-label {
+  display: none;
+}
+html[data-bp~="sm-and-down"] .r-v2-settings-sidebar__list {
+  flex-direction: row;
+}
+html[data-bp~="sm-and-down"] .r-v2-settings-sidebar__item {
+  padding: 7px 14px;
+  border-radius: var(--r-radius-pill);
 }
 </style>
