@@ -501,7 +501,7 @@ class FSHandler:
         self,
         source_full_path: Path,
         dest_path: str,
-        allow_link: bool = True,
+        allow_link: bool = False,
     ) -> None:
         """
         Copy a file from source to destination.
@@ -509,11 +509,9 @@ class FSHandler:
         Args:
             source_full_path: Absolute path to the source file
             dest_path: Relative path to the destination file
-            allow_link: If True (default), try a hardlink first and fall back to
-                a copy when the link isn't possible (cross-device, unsupported
-                filesystem, etc.). Pass False when the caller will mutate the
-                destination in place, since mutating a hardlinked file also
-                mutates the source — see `_store_cover`'s resize step.
+            allow_link: Try a hardlink first and fall back to
+            a copy when the link isn't possible (cross-device,
+            unsupported filesystem, etc.)
 
         Raises:
             FileNotFoundError: If source file does not exist

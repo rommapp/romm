@@ -517,15 +517,30 @@ class TestFSHandler:
         for i in range(5):
             assert f"test_dir_{i}" not in dirs
 
-    async def test_copy_file_hardlinks_by_default(
+    async def test_copy_file_does_not_hardlink_by_default(
         self, handler: FSHandler, sample_file_content
     ):
-        """copy_file defaults to allow_link=True: when source and dest are on
-        the same filesystem, the destination is a hardlink to the source."""
+        """copy_file defaults to allow_link=False: the destination is a real
+        copy, so mutating it won't affect the source. Callers must opt in to
+        hardlinking explicitly."""
         source_full = handler.base_path / "source.bin"
         source_full.write_bytes(sample_file_content)
 
         await handler.copy_file(source_full, "dest.bin")
+
+        dest_full = handler.base_path / "dest.bin"
+        assert dest_full.read_bytes() == sample_file_content
+        assert source_full.stat().st_ino != dest_full.stat().st_ino
+
+    async def test_copy_file_allow_link_true_hardlinks(
+        self, handler: FSHandler, sample_file_content
+    ):
+        """allow_link=True: when source and dest are on the same filesystem,
+        the destination is a hardlink to the source (same inode)."""
+        source_full = handler.base_path / "source.bin"
+        source_full.write_bytes(sample_file_content)
+
+        await handler.copy_file(source_full, "dest.bin", allow_link=True)
 
         dest_full = handler.base_path / "dest.bin"
         assert dest_full.read_bytes() == sample_file_content
@@ -534,10 +549,9 @@ class TestFSHandler:
     async def test_copy_file_allow_link_false_does_real_copy(
         self, handler: FSHandler, sample_file_content
     ):
-        """allow_link=False forces a real copy — content matches but inodes
-        differ, so mutating dest won't affect source. This is the path
-        `_store_cover` uses to keep PIL's in-place resize from corrupting the
-        user's source image."""
+        """allow_link=False (explicit) produces a real copy — content matches
+        but inodes differ. This matches the default but is exercised explicitly
+        to lock in the contract."""
         source_full = handler.base_path / "source.bin"
         source_full.write_bytes(sample_file_content)
 
@@ -550,8 +564,8 @@ class TestFSHandler:
     async def test_copy_file_allow_link_falls_back_to_copy_on_exdev(
         self, handler: FSHandler, sample_file_content
     ):
-        """When os.link raises EXDEV (cross-filesystem), copy_file transparently
-        falls back to a real copy and the result is still a valid file."""
+        """When allow_link=True and os.link raises EXDEV (cross-filesystem),
+        copy_file transparently falls back to a real copy."""
         source_full = handler.base_path / "source.bin"
         source_full.write_bytes(sample_file_content)
 
@@ -559,7 +573,7 @@ class TestFSHandler:
             "utils.filesystem.os.link",
             side_effect=OSError(errno.EXDEV, "Cross-device link"),
         ):
-            await handler.copy_file(source_full, "dest.bin")
+            await handler.copy_file(source_full, "dest.bin", allow_link=True)
 
         dest_full = handler.base_path / "dest.bin"
         assert dest_full.read_bytes() == sample_file_content

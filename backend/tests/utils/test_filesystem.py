@@ -76,7 +76,9 @@ class TestLinkOrCopyFile:
     def test_mutation_after_link_affects_source(self, tmp_path):
         """Document hardlink semantics: writing through the dest path with
         O_TRUNC truncates the shared inode and therefore mutates the source.
-        This is the exact hazard `_store_cover` avoids with allow_link=False."""
+        This is why callers that mutate dest in place (e.g. PIL resize) must
+        not opt into hardlinking — copy_file defaults to allow_link=False to
+        keep this hazard from being the easy path."""
         source = tmp_path / "source.bin"
         source.write_bytes(b"original")
         dest = tmp_path / "dest.bin"

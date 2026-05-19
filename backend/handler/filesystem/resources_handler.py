@@ -129,9 +129,8 @@ class FSResourcesHandler(FSHandler):
                     log.warning(f"Cover file not found: {url_cover}")
                     return None
                 dest_path = f"{cover_file}/{size.value}.png"
-                # allow_link=False: small-size covers get resized in place
-                # below, which would mutate the user's source image if the
-                # destination were a hardlink.
+                # Small-size covers get resized in place, which would mutate
+                # the user's source image if the destination were a hardlink.
                 await self.copy_file(resolved, dest_path, allow_link=False)
 
                 if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
@@ -305,7 +304,9 @@ class FSResourcesHandler(FSHandler):
                 if resolved is None or not await AnyioPath(resolved).exists():
                     log.warning(f"Screenshot file not found: {url_screenhot}")
                     return None
-                await self.copy_file(resolved, f"{screenshot_path}/{idx}.jpg")
+                await self.copy_file(
+                    resolved, f"{screenshot_path}/{idx}.jpg", allow_link=True
+                )
             except Exception as exc:
                 log.error(f"Unable to copy screenshot file {url_screenhot}: {str(exc)}")
                 return None
@@ -419,7 +420,9 @@ class FSResourcesHandler(FSHandler):
                 if resolved is None or not await AnyioPath(resolved).exists():
                     log.warning(f"Manual file not found: {url_manual}")
                     return None
-                await self.copy_file(resolved, f"{manual_path}/{rom.id}.pdf")
+                await self.copy_file(
+                    resolved, f"{manual_path}/{rom.id}.pdf", allow_link=True
+                )
             except Exception as exc:
                 log.error(f"Unable to copy manual file {url_manual}: {str(exc)}")
                 return None
@@ -558,7 +561,7 @@ class FSResourcesHandler(FSHandler):
             try:
                 resolved = _resolve_local_file_uri(url_media)
                 if resolved is not None and await AnyioPath(resolved).exists():
-                    await self.copy_file(resolved, dest_path)
+                    await self.copy_file(resolved, dest_path, allow_link=True)
             except Exception as exc:
                 log.error(f"Unable to copy media file {url_media}: {str(exc)}")
                 return None
