@@ -50,6 +50,7 @@ import {
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import AlphaStrip from "@/v2/components/Gallery/AlphaStrip.vue";
+import FilterDrawer from "@/v2/components/Gallery/FilterDrawer.vue";
 import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
 import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
 import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
@@ -94,6 +95,10 @@ interface Props {
   showPlatformBadge?: boolean;
   /** Skeleton row count painted while the very first window is loading. */
   skeletonRowCount?: number;
+  /** Surface the platforms multi-select inside the filter drawer.
+   *  False for single-platform views (Platform.vue) where the platform
+   *  context is fixed; true for cross-platform views (Collection, Search). */
+  showPlatformsInFilter?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -101,6 +106,7 @@ const props = withDefaults(defineProps<Props>(), {
   notFoundMessage: undefined,
   showPlatformBadge: true,
   skeletonRowCount: 4,
+  showPlatformsInFilter: true,
 });
 
 defineSlots<{
@@ -122,7 +128,92 @@ const route = useRoute();
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
 const scrollRestoration = storeScrollRestoration();
-const { searchTerm } = storeToRefs(galleryFilterStore);
+const {
+  searchTerm,
+  filterMatched,
+  filterFavorites,
+  filterDuplicates,
+  filterPlayables,
+  filterMissing,
+  filterVerified,
+  filterRA,
+  selectedPlatforms,
+  selectedGenres,
+  selectedFranchises,
+  selectedCollections,
+  selectedCompanies,
+  selectedAgeRatings,
+  selectedRegions,
+  selectedLanguages,
+  selectedPlayerCounts,
+  selectedStatuses,
+} = storeToRefs(galleryFilterStore);
+
+// Drawer open state — bound to FilterDrawer via v-model.
+const filterDrawerOpen = ref(false);
+
+// Active filter count — drives the toolbar badge. Counts each
+// boolean/tri-state filter that's set, plus each multi-select group
+// with at least one selection. Mirrors `FilterDrawer`'s own count so
+// the badge agrees with the drawer header.
+const filterActiveCount = computed(() => {
+  let n = 0;
+  if (filterMatched.value !== null) n += 1;
+  if (filterFavorites.value !== null) n += 1;
+  if (filterDuplicates.value !== null) n += 1;
+  if (filterPlayables.value !== null) n += 1;
+  if (filterMissing.value !== null) n += 1;
+  if (filterVerified.value !== null) n += 1;
+  if (filterRA.value !== null) n += 1;
+  if (selectedPlatforms.value.length > 0) n += 1;
+  for (const arr of [
+    selectedGenres,
+    selectedFranchises,
+    selectedCollections,
+    selectedCompanies,
+    selectedAgeRatings,
+    selectedRegions,
+    selectedLanguages,
+    selectedPlayerCounts,
+    selectedStatuses,
+  ]) {
+    if (arr.value.length > 0) n += 1;
+  }
+  return n;
+});
+
+// Filter changes → refetch the gallery. Mirrors the search debounced
+// path (invalidate windows + bootstrap initial metadata). The watch
+// fires only on subsequent changes; the initial hydration done by
+// `useGalleryFilterUrl` happens before this watch is set up and so
+// does not echo here.
+watch(
+  [
+    filterMatched,
+    filterFavorites,
+    filterDuplicates,
+    filterPlayables,
+    filterMissing,
+    filterVerified,
+    filterRA,
+    selectedPlatforms,
+    selectedGenres,
+    selectedFranchises,
+    selectedCollections,
+    selectedCompanies,
+    selectedAgeRatings,
+    selectedRegions,
+    selectedLanguages,
+    selectedPlayerCounts,
+    selectedStatuses,
+  ],
+  () => {
+    galleryRoms.invalidateWindows();
+    void galleryRoms.fetchInitialMetadata();
+  },
+  { deep: true },
+);
+
 const { supportsWebp } = useWebpSupport();
 
 const { total, charIndex, initialFetching, orderBy, orderDir } =
@@ -550,9 +641,12 @@ defineExpose({
             show-search
             :search="searchInput"
             :search-placeholder="searchPlaceholder"
+            show-filter
+            :filter-active-count="filterActiveCount"
             @update:group-by="groupBy = $event"
             @update:layout="layout = $event"
             @update:search="setSearch"
+            @click:filter="filterDrawerOpen = true"
           />
         </div>
 
@@ -657,9 +751,12 @@ defineExpose({
         show-search
         :search="searchInput"
         :search-placeholder="searchPlaceholder"
+        show-filter
+        :filter-active-count="filterActiveCount"
         @update:group-by="groupBy = $event"
         @update:layout="layout = $event"
         @update:search="setSearch"
+        @click:filter="filterDrawerOpen = true"
       />
     </div>
 
@@ -680,8 +777,19 @@ defineExpose({
       :group-by="groupBy"
       :layout="layout"
       :position="toolbarPosition"
+      show-filter
+      :filter-active-count="filterActiveCount"
       @update:group-by="groupBy = $event"
       @update:layout="layout = $event"
+      @click:filter="filterDrawerOpen = true"
+    />
+
+    <!-- FILTER DRAWER — owned by the shell so every gallery view gets
+         it for free. Forwards `showPlatformsInFilter` from the view so
+         single-platform pages can hide the platform multi-select. -->
+    <FilterDrawer
+      v-model="filterDrawerOpen"
+      :show-platforms-filter="showPlatformsInFilter"
     />
   </section>
 </template>

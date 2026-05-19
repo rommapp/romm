@@ -23,6 +23,7 @@ export * from "./primitives/RIcon";
 export * from "./primitives/RImg";
 export * from "./primitives/RLetterHeading";
 export * from "./primitives/RProgressCircular";
+export * from "./primitives/RProgressLinear";
 export * from "./primitives/RSkeletonBlock";
 export * from "./primitives/RSliderBtnGroup";
 export * from "./primitives/RSpinner";
@@ -56,6 +57,7 @@ export * from "./menus/RMenuItem";
 // Overlays
 export * from "./overlays/RCarousel";
 export * from "./overlays/RDialog";
+export * from "./overlays/RDrawer";
 
 // Data
 export * from "./data/RTable";

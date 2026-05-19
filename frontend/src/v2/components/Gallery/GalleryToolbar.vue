@@ -9,6 +9,7 @@
 // controls right-aligned. `position="floating"` docks it top-right of the
 // gallery's scroll container as a glass pill.
 import {
+  RBadge,
   RBtn,
   RDivider,
   RIcon,
@@ -65,6 +66,11 @@ const props = withDefaults(
     kindFilter?: KindFilterValue;
     kindFilterItems?: KindFilterItem[];
     kindFilterAriaLabel?: string;
+    /** Show the filter button (sits left of the view cluster). When set,
+     *  the button emits `click:filter` and renders a badge of the count.
+     *  Gallery views pass through the count from the filter store. */
+    showFilter?: boolean;
+    filterActiveCount?: number;
   }>(),
   {
     position: "header",
@@ -96,6 +102,8 @@ const props = withDefaults(
     kindFilter: "all",
     kindFilterItems: () => [],
     kindFilterAriaLabel: "Filter by kind",
+    showFilter: false,
+    filterActiveCount: 0,
   },
 );
 
@@ -104,6 +112,7 @@ const emit = defineEmits<{
   (e: "update:layout", value: LayoutMode): void;
   (e: "update:search", value: string): void;
   (e: "update:kindFilter", value: KindFilterValue): void;
+  (e: "click:filter"): void;
 }>();
 
 // Support both a Ref or a plain value — keeps consumption flexible.
@@ -166,16 +175,41 @@ function setKindFilter(value: KindFilterValue) {
         <RIcon icon="mdi-magnify" size="16" />
       </template>
     </RTextField>
+
+    <!-- Filter button — sits flush against the search field. Same disc
+         shape as the kebab (outlined icon-only RBtn); the active-count
+         chip is `RBadge` anchored top-end. -->
+    <RBadge
+      v-if="showFilter"
+      :model-value="filterActiveCount > 0"
+      :content="filterActiveCount"
+      color="primary"
+      floating
+    >
+      <RBtn
+        variant="outlined"
+        surface
+        icon="mdi-filter-variant"
+        rounded="circle"
+        aria-label="Filters"
+        @click="emit('click:filter')"
+      />
+    </RBadge>
+
     <RSliderBtnGroup
       v-if="showKindFilter && kindFilterItems.length > 0"
       :model-value="kindFilter"
       :items="kindFilterItems"
       variant="segmented"
       :aria-label="kindFilterAriaLabel"
+      class="gallery-toolbar__sliders"
       @update:model-value="setKindFilter"
     />
 
-    <!-- View controls cluster — pushed right via margin-left: auto. -->
+    <!-- View controls cluster — pushed right via margin-left: auto.
+         Above the small-screen breakpoint, the inline sliders carry
+         every option; the kebab is hidden. Below, the sliders collapse
+         and the kebab fans out the same options as a menu. -->
     <div class="gallery-toolbar__controls">
       <RSliderBtnGroup
         v-if="showGroupBy"
@@ -184,6 +218,7 @@ function setKindFilter(value: KindFilterValue) {
         variant="segmented"
         aria-label="Group by"
         :disabled="layoutValue === 'list'"
+        class="gallery-toolbar__sliders"
         @update:model-value="setGroupBy"
       />
 
@@ -192,58 +227,64 @@ function setKindFilter(value: KindFilterValue) {
         :items="layoutItems"
         variant="segmented"
         aria-label="Layout"
+        class="gallery-toolbar__sliders"
         @update:model-value="setLayout"
       />
 
-      <!-- Kebab mirror (same options; useful on cramped layouts). -->
-      <RMenu location="bottom end" :offset="8" width="220px">
-        <template #activator="{ props: activatorProps }">
-          <RBtn
-            v-bind="activatorProps"
-            variant="text"
-            density="compact"
-            size="small"
-            class="gallery-toolbar__kebab"
-            aria-label="View options"
-          >
-            <RIcon icon="mdi-dots-vertical" size="16" />
-          </RBtn>
-        </template>
-        <template v-if="showKindFilter && kindFilterItems.length > 0">
+      <!-- Kebab mirror — only visible on small screens. Mirrors the
+           slider state: `groupBy` items disable in list mode, same way
+           the inline GroupBy slider does. Wrapped in a span so the
+           media query targets the activator (RMenu's $attrs land on
+           the teleported panel, not on its root). -->
+      <span class="gallery-toolbar__kebab">
+        <RMenu location="bottom end" :offset="8" width="220px">
+          <template #activator="{ props: activatorProps }">
+            <RBtn
+              v-bind="activatorProps"
+              variant="outlined"
+              surface
+              icon="mdi-dots-vertical"
+              rounded="circle"
+              aria-label="View options"
+            />
+          </template>
+          <template v-if="showKindFilter && kindFilterItems.length > 0">
+            <RMenuItem
+              v-for="item in kindFilterItems"
+              :key="item.id"
+              :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
+              :icon="item.icon"
+              :variant="kindFilter === item.id ? 'active' : 'default'"
+              @click="setKindFilter(item.id)"
+            />
+            <RDivider />
+          </template>
+          <template v-if="showGroupBy && groupByItems.length > 0">
+            <RMenuItem
+              v-for="item in groupByItems"
+              :key="item.id"
+              :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
+              :icon="item.icon"
+              :variant="groupByValue === item.id ? 'active' : 'default'"
+              :disabled="layoutValue === 'list'"
+              @click="setGroupBy(item.id)"
+            />
+            <RDivider />
+          </template>
           <RMenuItem
-            v-for="item in kindFilterItems"
-            :key="item.id"
-            :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
-            :icon="item.icon"
-            :variant="kindFilter === item.id ? 'active' : 'default'"
-            @click="setKindFilter(item.id)"
+            label="Grid"
+            icon="mdi-view-grid-outline"
+            :variant="layoutValue === 'grid' ? 'active' : 'default'"
+            @click="setLayout('grid')"
           />
-          <RDivider />
-        </template>
-        <template v-if="showGroupBy && groupByItems.length > 0">
           <RMenuItem
-            v-for="item in groupByItems"
-            :key="item.id"
-            :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
-            :icon="item.icon"
-            :variant="groupByValue === item.id ? 'active' : 'default'"
-            @click="setGroupBy(item.id)"
+            label="List"
+            icon="mdi-view-list"
+            :variant="layoutValue === 'list' ? 'active' : 'default'"
+            @click="setLayout('list')"
           />
-          <RDivider />
-        </template>
-        <RMenuItem
-          label="Grid"
-          icon="mdi-view-grid-outline"
-          :variant="layoutValue === 'grid' ? 'active' : 'default'"
-          @click="setLayout('grid')"
-        />
-        <RMenuItem
-          label="List"
-          icon="mdi-view-list"
-          :variant="layoutValue === 'list' ? 'active' : 'default'"
-          @click="setLayout('list')"
-        />
-      </RMenu>
+        </RMenu>
+      </span>
     </div>
   </div>
 </template>
@@ -291,26 +332,18 @@ function setKindFilter(value: KindFilterValue) {
   min-width: 0;
 }
 
-/* Kebab — RBtn forced to a 32×32 circle. RBtn's size/density classes set
-   height via CSS vars, so we override the box dimensions here. */
+/* Responsive — sliders own the wide layout, kebab takes over below
+   720px. The breakpoint matches the rest of the gallery (InfoPanel,
+   AlphaStrip, GalleryShell) which collapse around the same width. */
 .gallery-toolbar__kebab {
-  min-width: 32px !important;
-  max-width: 32px !important;
-  min-height: 32px !important;
-  max-height: 32px !important;
-  width: 32px !important;
-  height: 32px !important;
-  padding: 0 !important;
-  border: 1px solid var(--r-color-border) !important;
-  background: var(--r-color-bg-elevated) !important;
-  border-radius: 50% !important;
-  color: var(--r-color-fg-secondary) !important;
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
+  display: none;
 }
-.gallery-toolbar__kebab:hover {
-  background: var(--r-color-surface-hover) !important;
-  color: var(--r-color-fg) !important;
+@media (max-width: 720px) {
+  .gallery-toolbar__sliders {
+    display: none;
+  }
+  .gallery-toolbar__kebab {
+    display: inline-flex;
+  }
 }
 </style>

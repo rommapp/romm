@@ -53,6 +53,12 @@ interface Props {
   type?: "button" | "submit" | "reset";
   /** Translucent currentColor border on top of the chosen variant. */
   border?: boolean;
+  /** Paints the lib's `--r-color-bg-elevated` token behind the button.
+   *  Composes with any variant — use it when the button needs to read
+   *  as "raised on a tinted pill" rather than "transparent on the page",
+   *  so it visually aligns with adjacent segmented `RSliderBtnGroup`
+   *  surfaces (e.g., toolbar icon buttons next to sliders). */
+  surface?: boolean;
   /** Renders the button as a router-link to this route. */
   to?: RouteLocationRaw;
   /** Renders the button as an `<a>` href. */
@@ -76,6 +82,7 @@ const props = withDefaults(defineProps<Props>(), {
   appendIcon: undefined,
   type: "button",
   border: false,
+  surface: false,
   to: undefined,
   href: undefined,
   target: undefined,
@@ -271,6 +278,7 @@ const spinnerSize = computed(() => {
         'r-btn--loading': debouncedLoading,
         'r-btn--disabled': disabled,
         'r-btn--border': border,
+        'r-btn--surface': surface,
       },
     ]"
     :style="{
@@ -609,6 +617,15 @@ const spinnerSize = computed(() => {
 }
 .r-btn--border:hover:not(.r-btn--disabled, :disabled) {
   border-color: color-mix(in srgb, currentColor 65%, transparent);
+}
+
+/* ── `surface` modifier — tinted background composed onto any
+   variant. Placed AFTER the variant rules so its single-class
+   specificity wins on source order regardless of which variant the
+   button uses (otherwise variants that set `background: transparent`
+   would override). */
+.r-btn--surface {
+  background: var(--r-color-bg-elevated);
 }
 
 /* ── Disabled ──────────────────────────────────────────────────── */

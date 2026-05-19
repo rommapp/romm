@@ -138,8 +138,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <!-- `v-bind="$attrs"` so consumer classes / data-attrs / aria flow
+       onto the cluster root. `inheritAttrs: false` is kept to keep the
+       merge explicit (otherwise event listeners would also auto-attach
+       to the root, which we don't want). -->
   <div
     ref="groupEl"
+    v-bind="$attrs"
     class="r-slider-btn-group"
     :class="[
       `r-slider-btn-group--${variant}`,
@@ -219,9 +224,12 @@ onBeforeUnmount(() => {
   border-radius: var(--r-radius-pill);
 }
 
-/* Segmented — thin 28×28 icon cluster (toolbar-style). */
+/* Segmented — thin icon cluster (toolbar-style). 3px padding around the
+   28×28 inner buttons + 1px border puts the outer pill at 36px, which
+   matches an `RBtn size="default"` sitting next to it (e.g., the disc
+   filter / kebab buttons in `GalleryToolbar`). */
 .r-slider-btn-group--segmented {
-  padding: 2px;
+  padding: 3px;
   gap: 2px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
@@ -248,8 +256,8 @@ onBeforeUnmount(() => {
 }
 
 .r-slider-btn-group--segmented .r-slider-btn-group__indicator {
-  top: 2px;
-  bottom: 2px;
+  top: 3px;
+  bottom: 3px;
 }
 .r-slider-btn-group--tab .r-slider-btn-group__indicator {
   top: 4px;

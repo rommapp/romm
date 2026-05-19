@@ -29,6 +29,7 @@ const meta: Meta<typeof RBtn> = {
     disabled: { control: "boolean" },
     block: { control: "boolean" },
     border: { control: "boolean" },
+    surface: { control: "boolean" },
     prependIcon: { control: "text" },
     appendIcon: { control: "text" },
   },
@@ -335,6 +336,29 @@ export const FormActions: Story = {
         <RBtn variant="outlined">Save draft</RBtn>
         <RBtn color="primary" prepend-icon="mdi-send">Publish</RBtn>
       </div>
+    `,
+  }),
+};
+
+// Surface modifier — pairs an outlined icon-only RBtn with an
+// `RSliderBtnGroup` segmented cluster so both share the same tinted
+// chrome. Used in `GalleryToolbar` for filter / kebab buttons.
+export const SurfaceWithSlider: Story = {
+  name: "Surface modifier (icon button next to slider)",
+  render: () => ({
+    components: { RBtn },
+    template: `
+      <div style="display:flex;gap:8px;align-items:center;padding:16px;background:var(--r-color-bg);width:max-content">
+        <RBtn variant="outlined" surface icon="mdi-filter-variant" rounded="circle" aria-label="Filters" />
+        <div style="display:inline-flex;align-items:center;gap:2px;padding:2px;background:var(--r-color-bg-elevated);border:1px solid var(--r-color-border);border-radius:999px;font-size:11px;color:var(--r-color-fg-muted)">
+          <span style="padding:4px 10px">Mock slider wrapper for comparison</span>
+        </div>
+        <RBtn variant="outlined" surface icon="mdi-dots-vertical" rounded="circle" aria-label="More" />
+      </div>
+      <p style="margin:8px 0 0 16px;font:12px monospace;color:var(--r-color-fg-muted);max-width:480px">
+        \`surface\` paints --r-color-bg-elevated so the disc-shaped icon
+        button reads as a sibling of the segmented slider next to it.
+      </p>
     `,
   }),
 };
