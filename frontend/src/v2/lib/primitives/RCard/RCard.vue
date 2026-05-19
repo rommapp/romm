@@ -269,6 +269,18 @@ const hasHeader = computed(
   animation: r-card-loading 1.4s ease-in-out infinite;
 }
 
+/* Solid-tone variants paint the whole card in --r-card-color, so the
+   bar/track must swap to currentColor (white on those variants) to
+   stay visible — without this the loader vanishes into the background. */
+.r-card--flat.r-card--has-color .r-card__loading,
+.r-card--elevated.r-card--has-color .r-card__loading {
+  background: color-mix(in srgb, currentColor 22%, transparent);
+}
+.r-card--flat.r-card--has-color .r-card__loading-bar,
+.r-card--elevated.r-card--has-color .r-card__loading-bar {
+  background: currentColor;
+}
+
 @keyframes r-card-loading {
   0% {
     transform: translateX(-100%);

@@ -24,8 +24,9 @@
 //
 // Hover / active feedback comes from a `::before` overlay tinted by
 // `currentColor` so all six variants share the same vocabulary —
-// no per-variant `:hover` rules. Active state scales down 3% for
-// a haptic press cue (RSwitch motion language).
+// no per-variant `:hover` rules. Activation paints a circular ripple
+// expanding from the input point inside a clip wrapper so it never
+// escapes the rounded silhouette nor masks the elevated shadow.
 import { computed, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import { RouterLink, type RouteLocationRaw } from "vue-router";
 import RIcon from "../RIcon/RIcon.vue";
@@ -199,6 +200,44 @@ watch(
 
 onBeforeUnmount(clearTimer);
 
+// ── Ripple ───────────────────────────────────────────────────────
+// A circular wave expands from the activation point. Pointer events
+// give us coordinates; keyboard activation falls back to the centre.
+const rippleContainer = ref<HTMLElement | null>(null);
+
+function spawnRipple(originX?: number, originY?: number) {
+  const container = rippleContainer.value;
+  if (!container || props.disabled || props.loading) return;
+  const rect = container.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+  const cx = originX ?? rect.left + rect.width / 2;
+  const cy = originY ?? rect.top + rect.height / 2;
+  // Diameter = 2× longest distance from origin to a corner, so the
+  // wave always reaches the farthest edge regardless of click point.
+  const dx = Math.max(cx - rect.left, rect.right - cx);
+  const dy = Math.max(cy - rect.top, rect.bottom - cy);
+  const size = Math.hypot(dx, dy) * 2;
+  const ripple = document.createElement("span");
+  ripple.className = "r-btn__ripple";
+  ripple.style.width = `${size}px`;
+  ripple.style.height = `${size}px`;
+  ripple.style.left = `${cx - rect.left - size / 2}px`;
+  ripple.style.top = `${cy - rect.top - size / 2}px`;
+  container.appendChild(ripple);
+  ripple.addEventListener("animationend", () => ripple.remove(), {
+    once: true,
+  });
+}
+
+function onPointerDown(e: PointerEvent) {
+  spawnRipple(e.clientX, e.clientY);
+}
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.repeat) return;
+  if (e.key === "Enter" || e.key === " ") spawnRipple();
+}
+
 // Spinner size scales with the button — readable across the ladder.
 const spinnerSize = computed(() => {
   switch (props.size) {
@@ -238,7 +277,14 @@ const spinnerSize = computed(() => {
       borderRadius: resolvedRounded,
       '--r-btn-color': resolvedColor,
     }"
+    @pointerdown="onPointerDown"
+    @keydown="onKeyDown"
   >
+    <!-- Ripple wave container — overflow-hidden + border-radius:inherit
+         keeps ripples inside the rounded silhouette without clipping
+         the button's elevation shadow (which lives on .r-btn). -->
+    <span ref="rippleContainer" class="r-btn__ripples" aria-hidden="true" />
+
     <!-- Loading spinner — overlays content while debouncedLoading is on.
          Lives in absolute positioning so the button's intrinsic width
          doesn't change between loading and idle states (no layout
@@ -312,8 +358,7 @@ const spinnerSize = computed(() => {
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out),
     border-color var(--r-motion-fast) var(--r-motion-ease-out),
-    box-shadow var(--r-motion-fast) var(--r-motion-ease-out),
-    transform 100ms var(--r-motion-ease-out);
+    box-shadow var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
 /* Hover / active overlay — single `::before` painted in currentColor
@@ -336,9 +381,31 @@ const spinnerSize = computed(() => {
   opacity: 0.18;
 }
 
-/* Press cue — subtle haptic squash. */
-.r-btn:active:not(.r-btn--disabled, :disabled) {
-  transform: scale(0.97);
+/* ── Ripple — circular wave from the activation point ─────────── */
+.r-btn__ripples {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  /* Sit between the hover overlay (::before) and the button content
+     so the wave grazes the label without burying it. */
+  z-index: 0;
+}
+.r-btn__ripples :deep(.r-btn__ripple) {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.28;
+  transform: scale(0);
+  pointer-events: none;
+  animation: r-btn-ripple 550ms var(--r-motion-ease-out) forwards;
+}
+@keyframes r-btn-ripple {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
 }
 
 /* ── Content / loader layout ──────────────────────────────────── */
@@ -347,6 +414,9 @@ const spinnerSize = computed(() => {
   align-items: center;
   gap: inherit;
   min-width: 0;
+  /* Lift above the ripple wave so text/icons stay crisp during press. */
+  position: relative;
+  z-index: 1;
 }
 .r-btn__content--hidden {
   /* Keep layout, hide visually so spinner can overlay without shift. */
@@ -359,6 +429,7 @@ const spinnerSize = computed(() => {
   align-items: center;
   justify-content: center;
   color: inherit;
+  z-index: 2;
 }
 
 .r-btn__label {
@@ -548,14 +619,15 @@ const spinnerSize = computed(() => {
   pointer-events: none;
 }
 
-/* ── Reduced motion — drop the press scale + hover overlay fade ── */
+/* ── Reduced motion — drop hover overlay fade + ripple animation ── */
 @media (prefers-reduced-motion: reduce) {
   .r-btn,
   .r-btn::before {
     transition: none;
   }
-  .r-btn:active:not(.r-btn--disabled, :disabled) {
-    transform: none;
+  .r-btn__ripples :deep(.r-btn__ripple) {
+    animation: none;
+    display: none;
   }
 }
 </style>
