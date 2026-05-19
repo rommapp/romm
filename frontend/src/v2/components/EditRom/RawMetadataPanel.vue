@@ -1,16 +1,14 @@
 <script setup lang="ts">
-// RawMetadataPanel (v2) — one collapsible per metadata provider that
-// has a stored payload. Lets admins read or hand-edit the raw JSON
-// (debug shape, override broken keys, …). Renders nothing if the rom
-// has no stored data for the configured provider.
+// RawMetadataPanel (v2) — body for the per-provider collapsibles in
+// MetadataSections. The wrapping RCollapsible (with avatar + label) is
+// owned by the parent; this component owns the textarea + action row.
 //
 // Feature composite — knows the UpdateRom shape and the emitter event
-// bus. The collapsible chrome is owned by the parent (MetadataSections
-// renders an RCollapsible around each panel), so this component only
-// owns the body + action row.
-import { RBtn } from "@v2/lib";
+// bus. Renders nothing if the rom has no stored data for the configured
+// provider.
+import { RBtn, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject, onMounted, ref, useId } from "vue";
+import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { UpdateRom } from "@/services/api/rom";
 import type { Events } from "@/types/emitter";
@@ -29,8 +27,6 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
-
-const textareaId = useId();
 
 const isEditing = ref(false);
 const metadataJson = ref("");
@@ -86,21 +82,22 @@ function saveMetadata() {
     });
   }
 }
+
+const fieldLabel = computed(() => `${props.label} ${t("rom.metadata")} JSON`);
 </script>
 
 <template>
   <div v-if="hasMetadata" class="r-v2-raw-meta">
-    <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -->
-    <label :for="textareaId" class="r-v2-raw-meta__label">
-      {{ label }} {{ t("rom.metadata") }} JSON
-    </label>
-    <textarea
-      :id="textareaId"
+    <RTextField
       v-model="metadataJson"
-      class="r-v2-raw-meta__textarea"
-      :class="{ 'r-v2-raw-meta__textarea--readonly': !isEditing }"
+      :label="fieldLabel"
+      prefix-label="stacked"
+      variant="outlined"
       :readonly="!isEditing"
-      rows="8"
+      multiline
+      :rows="8"
+      hide-details
+      class="r-v2-raw-meta__field"
       spellcheck="false"
     />
     <div class="r-v2-raw-meta__actions">
@@ -134,42 +131,14 @@ function saveMetadata() {
 .r-v2-raw-meta {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-.r-v2-raw-meta__label {
-  font-size: 12px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary);
-}
-
-.r-v2-raw-meta__textarea {
-  /* Match the RTextField outlined chrome so the panel feels consistent
-     with the rest of the dialog's inputs. */
+/* Mono font for the JSON payload — the field's body becomes a code
+   surface while keeping the same outlined chrome as every other input. */
+.r-v2-raw-meta__field :deep(.r-text-field__input--multiline) {
   font-family: var(--r-font-family-mono);
   font-size: 12px;
-  line-height: 1.45;
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--r-color-border-strong);
-  border-radius: 8px;
-  background: var(--r-color-bg-elevated);
-  color: var(--r-color-fg);
-  resize: vertical;
-  min-height: 140px;
-  outline: none;
-  transition:
-    border-color var(--r-motion-fast) var(--r-motion-ease-out),
-    box-shadow var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-raw-meta__textarea:focus-visible {
-  border-color: var(--r-color-brand-primary);
-  box-shadow: 0 0 0 3px
-    color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
-}
-.r-v2-raw-meta__textarea--readonly {
-  background: transparent;
-  cursor: default;
 }
 
 .r-v2-raw-meta__actions {

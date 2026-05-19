@@ -336,3 +336,56 @@ export const InlineSearch: Story = {
     `,
   }),
 };
+
+// ── Multiline (`<textarea>`) ──────────────────────────────────
+
+export const Multiline: Story = {
+  name: "Multiline (textarea)",
+  render: () => ({
+    components: { RTextField },
+    setup: () => ({ text: ref("") }),
+    template: `
+      <div style="width:480px">
+        <RTextField
+          v-model="text"
+          label="Notes"
+          prefix-label="stacked"
+          placeholder="Write a longer note here…"
+          multiline
+          :rows="4"
+        />
+      </div>
+    `,
+  }),
+};
+
+export const MultilineMono: Story = {
+  name: "Multiline (mono / JSON editor)",
+  render: () => ({
+    components: { RTextField },
+    setup: () => ({
+      text: ref(
+        JSON.stringify(
+          { name: "Mega Man X", platform: "snes", year: 1993 },
+          null,
+          2,
+        ),
+      ),
+    }),
+    template: `
+      <div style="width:480px">
+        <RTextField
+          v-model="text"
+          label="Raw payload"
+          prefix-label="stacked"
+          variant="outlined"
+          multiline
+          :rows="8"
+          hide-details
+          spellcheck="false"
+          style="--mono: var(--r-font-family-mono)"
+        />
+      </div>
+    `,
+  }),
+};

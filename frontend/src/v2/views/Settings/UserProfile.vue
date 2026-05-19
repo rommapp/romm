@@ -218,18 +218,30 @@ onUnmounted(() => {
             </RTag>
           </div>
           <div class="r-v2-profile__meta">
-            <span v-if="user?.email" class="r-v2-profile__meta-item">
-              <RIcon icon="mdi-email-outline" size="12" />
-              {{ user.email }}
-            </span>
-            <span v-if="joinedLabel" class="r-v2-profile__meta-item">
-              <RIcon icon="mdi-calendar-blank-outline" size="12" />
-              {{ joinedLabel }}
-            </span>
-            <span v-if="lastActiveLabel" class="r-v2-profile__meta-item">
-              <RIcon icon="mdi-clock-outline" size="12" />
-              {{ lastActiveLabel }}
-            </span>
+            <div v-if="user?.email" class="r-v2-profile__meta-row">
+              <RTag tone="plain" prepend-icon="mdi-email-outline">
+                {{ user.email }}
+              </RTag>
+            </div>
+            <div
+              v-if="joinedLabel || lastActiveLabel"
+              class="r-v2-profile__meta-row"
+            >
+              <RTag
+                v-if="joinedLabel"
+                tone="plain"
+                prepend-icon="mdi-calendar-blank-outline"
+              >
+                {{ joinedLabel }}
+              </RTag>
+              <RTag
+                v-if="lastActiveLabel"
+                tone="plain"
+                prepend-icon="mdi-clock-outline"
+              >
+                {{ lastActiveLabel }}
+              </RTag>
+            </div>
           </div>
         </div>
       </div>
@@ -455,25 +467,30 @@ onUnmounted(() => {
   letter-spacing: -0.01em;
 }
 
-/* Role tag — RTag handles the base look + tone-based tint. We just
-   nudge the casing here so it reads as a proper role badge. */
+/* Role tag — RTag handles the base look + tone-based tint. `capitalize`
+   only uppercases the first letter (e.g. "admin" → "Admin"); the prior
+   `uppercase` rendering read as a shout next to the username. */
 .r-v2-profile__role-tag {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
 }
 
-/* Secondary metadata under the username. */
+/* Secondary metadata under the username. Email sits on its own row;
+   joined + last active share the row below so the eye reads identity
+   first, history second. Each item is an `<RTag tone="plain">` — the
+   tag inherits the row's font-size and muted colour, so the metadata
+   blends into a single sentence-style block. */
 .r-v2-profile__meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
+  flex-direction: column;
+  gap: 4px;
   font-size: 12px;
   color: var(--r-color-fg-muted);
 }
-.r-v2-profile__meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.r-v2-profile__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
 }
 
 /* Field rows — hairline-divided, padding mirrors the mock. */

@@ -20,6 +20,7 @@ const meta: Meta<typeof RTag> = {
         "danger",
         "warning",
         "info",
+        "plain",
       ],
     },
     size: {
@@ -76,4 +77,23 @@ export const SlotContent: Story = {
     template: `<RTag v-bind="args"><strong>Bold</strong>&nbsp;value</RTag>`,
   }),
   args: { tone: "warning" },
+};
+
+// `plain` tone — chrome stripped, used as inline meta rows (icon + text,
+// no chip surface). Inherits parent text colour so it blends into muted
+// metadata blocks.
+export const Plain: Story = {
+  name: "Plain (no chrome)",
+  render: () => ({
+    components: { RTag },
+    template: `
+      <div style="padding:24px;display:flex;flex-direction:column;gap:6px;color:var(--r-color-fg-muted);font-size:12px">
+        <RTag tone="plain" prepend-icon="mdi-email-outline">romm@zurdi.dev</RTag>
+        <div style="display:flex;gap:14px">
+          <RTag tone="plain" prepend-icon="mdi-calendar-blank-outline">Joined 2 days ago</RTag>
+          <RTag tone="plain" prepend-icon="mdi-clock-outline">Last active just now</RTag>
+        </div>
+      </div>
+    `,
+  }),
 };

@@ -25,7 +25,10 @@ interface Props {
   text?: string | number;
   /** Render the primary text in monospace (hash values etc.). */
   mono?: boolean;
-  /** Colour preset. */
+  /** Colour preset. `plain` strips the chip chrome (border, background,
+   *  padding) and inherits the parent's text colour — use it for inline
+   *  meta rows (icon + label, no badge surface) where the surrounding
+   *  text style should win. */
   tone?:
     | "neutral"
     | "brand"
@@ -33,7 +36,8 @@ interface Props {
     | "success"
     | "danger"
     | "warning"
-    | "info";
+    | "info"
+    | "plain";
   /** Size ladder shared with RBtn / RChip. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
 }
@@ -182,5 +186,23 @@ withDefaults(defineProps<Props>(), {
   --r-tag-fg: color-mix(in srgb, var(--r-color-info) 90%, transparent);
   --r-tag-border: color-mix(in srgb, var(--r-color-info) 40%, transparent);
   --r-tag-bg: color-mix(in srgb, var(--r-color-info) 12%, transparent);
+}
+
+/* Plain — no chrome. Inherits the surrounding text colour + font
+   weight so a tag dropped into a muted meta row reads as part of the
+   sentence. The icon margin is reset so the row is exactly font-size
+   tall — anything else would push the icon out of the flow. */
+.r-tag--plain {
+  --r-tag-fg: inherit;
+  --r-tag-border: transparent;
+  --r-tag-bg: transparent;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
+  font-weight: inherit;
+}
+.r-tag--plain .r-tag__icon {
+  margin: 0;
 }
 </style>

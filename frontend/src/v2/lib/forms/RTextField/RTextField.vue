@@ -72,6 +72,12 @@ interface Props {
    *  real focus into a teleported panel but still want the field to read
    *  as active. Additive — internal focus also triggers the look. */
   focused?: boolean;
+  /** Render as a `<textarea>` instead of `<input>`. Drops the fixed
+   *  height in favour of a `rows`-driven min-height; everything else
+   *  (variants, density, validation, clearable, labels) keeps working. */
+  multiline?: boolean;
+  /** Initial visible rows when `multiline`. Default 4. */
+  rows?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -99,6 +105,8 @@ const props = withDefaults(defineProps<Props>(), {
   prefixLabel: undefined,
   color: "primary",
   focused: undefined,
+  multiline: false,
+  rows: 4,
 });
 
 const emit = defineEmits<{
@@ -116,7 +124,7 @@ const emit = defineEmits<{
 
 const slots = useSlots();
 const attrs = useAttrs();
-const inputRef = ref<HTMLInputElement | null>(null);
+const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
 // Stable id for `aria-describedby` — Vue 3.5 ships `useId`, but we're
 // on 3.4 still. The instance uid is unique per mounted component, which
 // is plenty for aria wiring.
@@ -249,7 +257,7 @@ const showClear = computed(
 const showLoading = computed(() => !!props.loading);
 
 function onInput(evt: Event) {
-  const v = (evt.target as HTMLInputElement).value;
+  const v = (evt.target as HTMLInputElement | HTMLTextAreaElement).value;
   emit("update:modelValue", v);
 }
 function clear() {
@@ -332,6 +340,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         'r-text-field--has-value': hasValue,
         'r-text-field--stacked': stackedLabelOn,
         'r-text-field--inline': inlineLabelOn,
+        'r-text-field--multiline': multiline,
       },
     ]"
     :style="{ '--r-tf-color': resolvedColor }"
@@ -378,7 +387,32 @@ function onAppendInnerClick(evt: MouseEvent) {
         </slot>
       </component>
 
+      <!-- `multiline` swaps the native `<input>` for a `<textarea>` so
+           the same chrome (variants, density, validation, clearable,
+           labels) wraps multi-line text. The other branch is left as
+           the more common single-line case so the template stays
+           grep-friendly. -->
+      <textarea
+        v-if="multiline"
+        ref="inputRef"
+        class="r-text-field__input r-text-field__input--multiline"
+        :value="modelValue ?? ''"
+        :placeholder="effectivePlaceholder"
+        :name="name"
+        :autocomplete="autocomplete"
+        :disabled="disabled"
+        :readonly="readonly"
+        :required="required"
+        :rows="rows"
+        :aria-label="effectiveAriaLabel"
+        :aria-invalid="hasError || undefined"
+        :aria-describedby="showDetails ? `${fieldId}-details` : undefined"
+        @input="onInput"
+        @focus="onFocus"
+        @blur="onBlur"
+      />
       <input
+        v-else
         ref="inputRef"
         class="r-text-field__input"
         :value="modelValue ?? ''"
@@ -649,12 +683,46 @@ function onAppendInnerClick(evt: MouseEvent) {
   cursor: not-allowed;
 }
 
-/* Trim inner padding when an adornment owns the side gap. */
-.r-text-field__adornment + .r-text-field__input,
-.r-text-field__input:has(+ .r-text-field__adornment) {
-  /* Visually balance the gap with an adornment present. */
-  padding-inline-start: 6px;
+/* ── Multiline ─────────────────────────────────────────────────── */
+/* Drop the fixed row height in favour of a `rows`-driven min-height.
+   The textarea itself takes full width and is vertically resizable so
+   power users can grow the body when editing long values. The append
+   column anchors to the top corner — placing a clearable X mid-textarea
+   would obscure the user's last line. */
+.r-text-field--multiline .r-text-field__field {
+  height: auto;
+  align-items: flex-start;
+  /* Hug the field edges symmetrically when the textarea is the only
+     direct child — the row-aligned vertical centring we lost above is
+     replaced by an inset that gives the caret room. */
+  padding-block: 8px;
 }
+.r-text-field__input--multiline {
+  /* Native textarea: line-height is the layout unit, not the field
+     height. Allow vertical-only resize so the field box can grow with
+     content without bleeding into adjacent rows. */
+  align-self: stretch;
+  resize: vertical;
+  min-height: 60px;
+  line-height: 1.5;
+  /* Padding here owns top/bottom spacing — the field box covers left/
+     right via the existing `--r-tf-pad-x`. */
+  padding-block: 0;
+  /* Textareas don't ellipsis; let the user scroll. */
+  text-overflow: clip;
+}
+.r-text-field--multiline .r-text-field__adornment--append {
+  align-self: flex-start;
+  padding-top: 0;
+}
+
+/* Trim inner padding when an adornment owns the side gap. Each side is
+   handled independently so an append adornment (clearable X, loading
+   spinner, custom #append-inner) only collapses end-padding — never
+   start-padding. The earlier `:has(+ .r-text-field__adornment)` rule
+   matched the input *adjacent to an append adornment* and incorrectly
+   shrank start-padding, causing typed text to jump left the moment a
+   clearable field gained a value. */
 .r-text-field__field:has(.r-text-field__adornment--prepend)
   .r-text-field__input {
   padding-inline-start: 6px;

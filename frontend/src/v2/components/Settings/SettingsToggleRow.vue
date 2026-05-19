@@ -1,12 +1,13 @@
 <script setup lang="ts">
 // SettingsToggleRow — a clickable row used inside a settings section's
-// toggle grid. Displays a label + description + an iOS-style switch
-// indicator on the right. The whole row is the click target so users
+// toggle grid. Displays a label + description on the left and an
+// `RSwitch` on the right. The whole row is the click target so users
 // don't have to aim at the switch itself.
 //
-// The switch is intentionally inline rather than a standalone RSwitch
-// primitive: it's only used by settings views today. If a second
-// consumer appears, promote it.
+// The visual switch is `<RSwitch static>` — purely presentational, no
+// nested button. The row's outer `<button role="switch">` owns the
+// interaction (click, keyboard, aria-checked).
+import { RSwitch } from "@v2/lib";
 import { computed } from "vue";
 
 defineOptions({ inheritAttrs: false });
@@ -55,7 +56,12 @@ function toggle() {
         {{ description }}
       </span>
     </span>
-    <span class="r-v2-toggle-row__switch" aria-hidden="true" />
+    <RSwitch
+      :model-value="modelValue"
+      :disabled="disabled"
+      class="r-v2-toggle-row__switch"
+      static
+    />
   </button>
 </template>
 
@@ -109,33 +115,11 @@ function toggle() {
   line-height: 1.4;
 }
 
-/* iOS-style switch — 36×20, with a 14px knob that slides on toggle. */
+/* Nudge the static switch down by 2px so its track aligns with the
+   label baseline — `align-items: flex-start` on the row otherwise
+   parks the switch flush at the top, above the label. */
 .r-v2-toggle-row__switch {
-  position: relative;
-  width: 36px;
-  height: 20px;
-  flex-shrink: 0;
   margin-top: 2px;
-  border-radius: 10px;
-  background: var(--r-color-border-strong);
-  transition: background var(--r-motion-base) var(--r-motion-ease-out);
-}
-.r-v2-toggle-row__switch::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--r-color-fg);
-  transition: left var(--r-motion-base) var(--r-motion-ease-out);
-}
-.r-v2-toggle-row--on .r-v2-toggle-row__switch {
-  background: var(--r-color-brand-primary);
-}
-.r-v2-toggle-row--on .r-v2-toggle-row__switch::after {
-  left: 19px;
-  background: var(--r-color-overlay-emphasis-fg);
+  flex-shrink: 0;
 }
 </style>

@@ -23,6 +23,12 @@ interface Props {
   disabled?: boolean;
   /** Accessible label for the switch when there's no visible label. */
   ariaLabel?: string;
+  /** Render as a passive `<span>` (no button semantics, no click
+   *  handler, no role). Useful when an outer wrapper already owns the
+   *  interactive surface — e.g. `SettingsToggleRow` is a button whose
+   *  whole area toggles, and the visual switch on the right is just a
+   *  state indicator. Nested `<button>`s would be invalid HTML. */
+  static?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -30,6 +36,7 @@ const props = withDefaults(defineProps<Props>(), {
   size: "default",
   disabled: false,
   ariaLabel: undefined,
+  static: false,
 });
 
 const emit = defineEmits<{
@@ -47,27 +54,30 @@ function toggle() {
 </script>
 
 <template>
-  <button
-    type="button"
-    role="switch"
-    :aria-checked="modelValue"
-    :aria-label="effectiveAriaLabel"
-    :disabled="disabled"
+  <component
+    :is="static ? 'span' : 'button'"
+    :type="static ? undefined : 'button'"
+    :role="static ? undefined : 'switch'"
+    :aria-checked="static ? undefined : modelValue"
+    :aria-label="static ? undefined : effectiveAriaLabel"
+    :aria-hidden="static ? 'true' : undefined"
+    :disabled="static ? undefined : disabled || undefined"
     class="r-switch"
     :class="[
       `r-switch--${size}`,
       {
         'r-switch--on': modelValue,
         'r-switch--disabled': disabled,
+        'r-switch--static': static,
       },
     ]"
-    @click="toggle"
+    @click="static ? undefined : toggle()"
   >
     <span class="r-switch__track" aria-hidden="true">
       <span class="r-switch__knob" />
     </span>
     <span v-if="label" class="r-switch__label">{{ label }}</span>
-  </button>
+  </component>
 </template>
 
 <style scoped>
@@ -102,6 +112,14 @@ function toggle() {
 .r-switch--disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+/* Static mode — the switch is just a visual state indicator inside a
+   bigger interactive surface. Drop pointer affordances; the outer
+   element supplies them. */
+.r-switch--static {
+  cursor: inherit;
+  pointer-events: none;
 }
 
 /* ── Track ──────────────────────────────────────────────────────── */
