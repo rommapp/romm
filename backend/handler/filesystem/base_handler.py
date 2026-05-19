@@ -16,8 +16,9 @@ from anyio import open_file
 from starlette.datastructures import UploadFile
 
 from config.config_manager import config_manager as cm
+from logger.logger import log
 from models.base import FILE_NAME_MAX_LENGTH
-from utils.filesystem import iter_directories, iter_files
+from utils.filesystem import iter_directories, iter_files, link_or_copy_file
 
 TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
 EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
@@ -148,13 +149,22 @@ class Asset(Enum):
 
 
 class FSHandler:
-    def __init__(self, base_path: str):
+    def __init__(self, base_path: str, tolerate_missing_base: bool = False):
         self.base_path = Path(base_path).resolve()
         self._locks: dict[str, asyncio.Lock] = {}
         self._lock_mutex = asyncio.Lock()
 
-        # Create base directory synchronously during initialization
-        self.base_path.mkdir(parents=True, exist_ok=True)
+        # Create base directory synchronously during initialization.
+        try:
+            self.base_path.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            if not tolerate_missing_base:
+                raise
+
+            log.warning(
+                f"Could not create or access {self.base_path}; "
+                "feature will be unavailable until the directory is writable."
+            )
 
     async def _get_file_lock(self, file_path: str) -> asyncio.Lock:
         """Get or create a lock for a specific file path."""
@@ -487,13 +497,21 @@ class FSHandler:
 
             return await open_file(full_path, "rb")
 
-    async def copy_file(self, source_full_path: Path, dest_path: str) -> None:
+    async def copy_file(
+        self,
+        source_full_path: Path,
+        dest_path: str,
+        allow_link: bool = False,
+    ) -> None:
         """
         Copy a file from source to destination.
 
         Args:
             source_full_path: Absolute path to the source file
             dest_path: Relative path to the destination file
+            allow_link: Try a hardlink first and fall back to
+            a copy when the link isn't possible (cross-device,
+            unsupported filesystem, etc.)
 
         Raises:
             FileNotFoundError: If source file does not exist
@@ -518,7 +536,10 @@ class FSHandler:
             # Create destination directory if needed
             dest_parent_anyio_path = AnyioPath(str(dest_full_path.parent))
             await dest_parent_anyio_path.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(str(source_full_path), str(dest_full_path))
+            if allow_link:
+                link_or_copy_file(source_full_path, dest_full_path)
+            else:
+                shutil.copy2(str(source_full_path), str(dest_full_path))
 
     async def move_file_or_folder(self, source_path: str, dest_path: str) -> None:
         """

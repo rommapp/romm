@@ -12,7 +12,7 @@ class FSSyncHandler(FSHandler):
     """Filesystem handler for sync folder operations (File Transfer mode)."""
 
     def __init__(self) -> None:
-        super().__init__(base_path=SYNC_BASE_PATH)
+        super().__init__(base_path=SYNC_BASE_PATH, tolerate_missing_base=True)
 
     def build_incoming_path(
         self, device_id: str, platform_slug: str | None = None

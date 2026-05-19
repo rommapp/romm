@@ -87,7 +87,7 @@ class CleanupOrphanedResourcesTask(Task):
         platform_dirs: set[int] = {
             int(entry.name)
             async for entry in roms_resources_dir.iterdir()
-            if await entry.is_dir()
+            if entry.name.isdigit() and await entry.is_dir()
         }
 
         rom_dirs_by_platform: dict[int, set[int]] = {}
@@ -97,7 +97,7 @@ class CleanupOrphanedResourcesTask(Task):
             rom_dirs_by_platform[platform_dir] = {
                 int(entry.name)
                 async for entry in platform_dir_path.iterdir()
-                if await entry.is_dir()
+                if entry.name.isdigit() and await entry.is_dir()
             }
 
         cleanup_stats.update(

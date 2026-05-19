@@ -1,9 +1,11 @@
 """Tests for filesystem sync handler."""
 
+import errno
 import os
 import shutil
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -133,3 +135,21 @@ class TestFSSyncHandler:
     def test_remove_incoming_file_nonexistent(self, handler: FSSyncHandler):
         # Should not raise for nonexistent files
         handler.remove_incoming_file("/nonexistent/path/file.sav")
+
+
+class TestFSSyncHandlerStartup:
+    """Sync is an optional feature: if /romm/sync isn't writable (bad mount,
+    wrong ownership), the app must still boot. Failures should surface when
+    sync is actually used, not at module-import time."""
+
+    def test_init_does_not_raise_when_base_path_unwritable(self):
+        """Regression test for the PermissionError on /romm/sync at boot.
+        FSSyncHandler must construct successfully even when mkdir fails."""
+        with patch.object(
+            Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
+        ):
+            handler = FSSyncHandler()
+
+        assert handler is not None
+        # base_path is set even though the directory wasn't created.
+        assert isinstance(handler.base_path, Path)
