@@ -37,6 +37,10 @@ interface Props {
   multiple?: boolean;
   searchable?: boolean;
   clearable?: boolean;
+  /** When `multiple`, render each selection as a small icon-only RTag
+   *  with an automatic "+N" overflow pill. Defaults to `true` so the
+   *  visual is consistent across every multi-platform picker; pass
+   *  `:chips="false"` for the comma-separated title fallback. */
   chips?: boolean;
   closableChips?: boolean;
   disabled?: boolean;
@@ -61,7 +65,7 @@ const props = withDefaults(defineProps<Props>(), {
   multiple: false,
   searchable: true,
   clearable: false,
-  chips: false,
+  chips: true,
   closableChips: false,
   disabled: false,
   loading: false,
@@ -86,11 +90,14 @@ const emit = defineEmits<{
 
 const slots = useSlots();
 
-// Slots we forward verbatim to RSelect. `selection` and `item` are
-// handled explicitly above so the caller can choose to override the
-// platform-row defaults or use the consumer's template wholesale.
+// Slots we forward verbatim to RSelect. `selection`, `item`, and
+// `chip` are handled explicitly above so the caller can choose to
+// override the platform-row defaults or use the consumer's template
+// wholesale.
 const forwardedSlotNames = computed(() =>
-  Object.keys(slots).filter((n) => n !== "selection" && n !== "item"),
+  Object.keys(slots).filter(
+    (n) => n !== "selection" && n !== "item" && n !== "chip",
+  ),
 );
 
 const platformByKey = computed(() => {
@@ -120,6 +127,7 @@ function onUpdate(v: unknown) {
     :searchable="searchable"
     :clearable="clearable"
     :chips="chips"
+    chip-tone="plain"
     :closable-chips="closableChips"
     :disabled="disabled"
     :loading="loading"
@@ -147,6 +155,27 @@ function onUpdate(v: unknown) {
           />
           <span class="r-v2-platsel__name">{{ slotProps.item.title }}</span>
         </span>
+      </slot>
+    </template>
+
+    <!-- Chip — when `chips` is on (multi-select) the activator
+         collapses each selection into a small RTag. PlatformSelect
+         renders just the platform icon inside the chip; RSelect
+         keeps providing the "+N" overflow pill automatically. The
+         tooltip on RPlatformIcon serves the same role the title
+         text used to (hover the chip → see the platform name). -->
+    <template #chip="slotProps">
+      <slot name="chip" v-bind="slotProps">
+        <RPlatformIcon
+          v-if="platformForValue(slotProps.item.value)"
+          :slug="platformForValue(slotProps.item.value)!.slug"
+          :fs-slug="platformForValue(slotProps.item.value)!.fs_slug"
+          :name="platformForValue(slotProps.item.value)!.display_name"
+          :title="platformForValue(slotProps.item.value)!.display_name"
+          :size="18"
+          class="r-v2-platsel__chip-icon"
+        />
+        <span v-else>{{ slotProps.item.title }}</span>
       </slot>
     </template>
 
@@ -243,5 +272,9 @@ function onUpdate(v: unknown) {
 }
 .r-v2-platsel__count {
   margin-left: 4px;
+}
+.r-v2-platsel__chip-icon {
+  display: inline-flex;
+  align-items: center;
 }
 </style>

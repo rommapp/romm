@@ -107,6 +107,19 @@ interface Props {
   /** Hard cap on visible chips (defaults to ∞). Overflow is otherwise
    *  computed dynamically based on the activator's actual width. */
   maxVisibleChips?: number;
+  /** Tone passed to the chip RTag (and its measurement mirror).
+   *  Defaults to `brand`; pass `plain` to strip the chip chrome
+   *  (PlatformSelect uses this so icon-only chips don't drown the
+   *  field in coloured pills). */
+  chipTone?:
+    | "neutral"
+    | "brand"
+    | "accent"
+    | "success"
+    | "danger"
+    | "warning"
+    | "info"
+    | "plain";
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -141,6 +154,7 @@ const props = withDefaults(defineProps<Props>(), {
   menuLocation: "bottom",
   menuOffset: 6,
   maxVisibleChips: Number.POSITIVE_INFINITY,
+  chipTone: "brand",
 });
 
 const emit = defineEmits<{
@@ -742,7 +756,10 @@ const hasPrependInner = computed(
              plus a worst-case "+N" pill so we can measure widths and
              compute how many chips actually fit in `valueRef`'s
              current width. Absolutely positioned so it doesn't push
-             the visible row. -->
+             the visible row. The `#chip` slot is rendered here as
+             well so its visible width matches the real row exactly
+             — without it the icon-only PlatformSelect chips would
+             measure as the bare title text. -->
         <span
           v-if="multiple && chips && hasSelection"
           ref="measureRef"
@@ -753,13 +770,20 @@ const hasPrependInner = computed(
             v-for="(item, i) in selectedItems"
             :key="`mirror-${i}-${String(item.value)}`"
             class="r-select__chip"
-            tone="brand"
+            :tone="chipTone"
             size="small"
-            :text="item.title"
-          />
+          >
+            <slot
+              name="chip"
+              :item="{ title: item.title, value: item.value, raw: item.raw }"
+              :index="i"
+            >
+              {{ item.title }}
+            </slot>
+          </RTag>
           <RTag
             class="r-select__chip r-select__chip--overflow"
-            tone="brand"
+            :tone="chipTone"
             size="small"
             :text="`+${selectedItems.length}`"
           />
@@ -771,16 +795,25 @@ const hasPrependInner = computed(
         </span>
         <!-- Multi with chips — render the visible slice as removable
              tags; anything past `maxVisibleChips` collapses into a
-             "+N" pill so the activator stays single-line. -->
+             "+N" pill so the activator stays single-line. The `#chip`
+             slot lets consumers swap the chip's inner content (e.g.,
+             PlatformSelect renders the platform icon only). Default
+             is the item title, matching v1 behaviour. -->
         <template v-else-if="multiple && chips">
           <RTag
             v-for="(item, i) in visibleChips"
             :key="`${i}-${String(item.value)}`"
             class="r-select__chip"
-            tone="brand"
+            :tone="chipTone"
             size="small"
-            :text="item.title"
           >
+            <slot
+              name="chip"
+              :item="{ title: item.title, value: item.value, raw: item.raw }"
+              :index="i"
+            >
+              {{ item.title }}
+            </slot>
             <template v-if="closableChips" #append>
               <button
                 type="button"
@@ -797,7 +830,7 @@ const hasPrependInner = computed(
           <RTag
             v-if="overflowCount > 0"
             class="r-select__chip r-select__chip--overflow"
-            tone="brand"
+            :tone="chipTone"
             size="small"
             :text="`+${overflowCount}`"
           />
