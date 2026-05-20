@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 import RandomBtn from "@/components/Gallery/AppBar/common/RandomBtn.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
+import ActivityBtn from "@/components/common/Navigation/ActivityBtn.vue";
 import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import ConsoleModeBtn from "@/components/common/Navigation/ConsoleModeBtn.vue";
@@ -47,6 +48,7 @@ function collapse() {
       </template>
 
       <template #append>
+        <ActivityBtn class="mr-2" />
         <PatcherBtn class="mr-2" />
         <RandomBtn class="mr-2" />
         <UploadBtn class="mr-2" />
@@ -111,6 +113,7 @@ function collapse() {
     <ConsoleModeBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
 
     <template #append>
+      <ActivityBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
       <PatcherBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
       <RandomBtn :with-tag="!mainBarCollapsed" rounded class="mt-2" block />
       <UploadBtn

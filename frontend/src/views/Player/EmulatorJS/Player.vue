@@ -13,6 +13,7 @@ import type {
 import { ROUTES } from "@/plugins/router";
 import playSessionApi from "@/services/api/play-session";
 import { saveApi as api } from "@/services/api/save";
+import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeLanguage from "@/stores/language";
@@ -56,6 +57,54 @@ const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const sessionStartTime = ref<Date | null>(null);
 const deviceIDRef = ref(authStore.user?.current_device_id ?? undefined);
+const activityHeartbeatTimer = ref<ReturnType<typeof setInterval> | null>(null);
+const ACTIVITY_HEARTBEAT_MS = 30_000;
+
+function activityDeviceId(): string {
+  return deviceIDRef.value ?? "web";
+}
+
+function emitActivityStart() {
+  if (!authStore.user) return;
+  if (!socket.connected) socket.connect();
+  socket.emit("activity:start", {
+    rom_id: romRef.value.id,
+    user_id: authStore.user.id,
+    device_id: activityDeviceId(),
+  });
+}
+
+function emitActivityHeartbeat() {
+  if (!authStore.user) return;
+  socket.emit("activity:heartbeat", {
+    rom_id: romRef.value.id,
+    user_id: authStore.user.id,
+    device_id: activityDeviceId(),
+  });
+}
+
+function emitActivityStop() {
+  if (!authStore.user) return;
+  socket.emit("activity:stop", {
+    user_id: authStore.user.id,
+    device_id: activityDeviceId(),
+  });
+}
+
+function startActivityHeartbeat() {
+  if (activityHeartbeatTimer.value) return;
+  activityHeartbeatTimer.value = setInterval(
+    emitActivityHeartbeat,
+    ACTIVITY_HEARTBEAT_MS,
+  );
+}
+
+function stopActivityHeartbeat() {
+  if (activityHeartbeatTimer.value) {
+    clearInterval(activityHeartbeatTimer.value);
+    activityHeartbeatTimer.value = null;
+  }
+}
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 const { playing, fullScreen } = storeToRefs(playingStore);
@@ -221,6 +270,8 @@ onBeforeUnmount(async () => {
   window.EJS_emulator?.callEvent("exit");
   fullScreen.value = false;
   playing.value = false;
+  stopActivityHeartbeat();
+  emitActivityStop();
 });
 
 function displayMessage(
@@ -355,6 +406,8 @@ window.EJS_onSaveState = async function ({
 
 window.EJS_onGameStart = async () => {
   sessionStartTime.value = new Date();
+  emitActivityStart();
+  startActivityHeartbeat();
   setTimeout(async () => {
     if (props.save) await loadSave(props.save);
     if (props.state) await loadState(props.state);
@@ -442,6 +495,9 @@ window.EJS_onGameStart = async () => {
 };
 
 function immediateExit() {
+  stopActivityHeartbeat();
+  emitActivityStop();
+
   if (!sessionStartTime.value) {
     return router
       .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
