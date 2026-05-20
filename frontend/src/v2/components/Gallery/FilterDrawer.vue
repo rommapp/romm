@@ -29,6 +29,7 @@ import storeGalleryFilter, {
 } from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { romStatusMap, type PlayingStatus } from "@/utils";
+import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -322,10 +323,7 @@ const LOGIC_ITEMS = computed(() => [
   },
 ]);
 
-// ── Platform multi-select (objects, not strings) ───────────────
-const platformItems = computed(() =>
-  allPlatforms.value.map((p) => ({ title: p.name ?? p.fs_slug, value: p.id })),
-);
+// ── Platform multi-select ──────────────────────────────────────
 const selectedPlatformIds = computed({
   get: () => selectedPlatforms.value.map((p) => p.id),
   set: (ids: number[]) => {
@@ -402,21 +400,21 @@ function resetAll() {
 
     <!-- ── Platforms (optional) ─────────────────────────────── -->
     <section v-if="showPlatformsFilter" class="r-v2-fd__section">
-      <h3 class="r-v2-fd__heading">{{ t("platform.platform") }}</h3>
-      <RSelect
+      <h3 class="r-v2-fd__heading">{{ t("common.platforms") }}</h3>
+      <PlatformSelect
         v-model="selectedPlatformIds"
-        :items="platformItems"
+        :items="allPlatforms"
         multiple
         clearable
         hide-details
         prefix-label="stacked"
-        :placeholder="t('platform.platforms-placeholder', 'All platforms')"
+        :placeholder="t('common.all-platforms', 'All platforms')"
       >
         <template #prefix-label>
           <RIcon icon="mdi-monitor" size="14" />
-          {{ t("platform.platform") }}
+          {{ t("common.platforms") }}
         </template>
-      </RSelect>
+      </PlatformSelect>
     </section>
 
     <!-- ── Multi-select groups + logic toggle ──────────────── -->

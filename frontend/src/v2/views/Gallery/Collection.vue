@@ -1,16 +1,22 @@
 <script setup lang="ts">
 // Collection gallery — thin orchestrator around `GalleryShell`. Owns
 // the regular/virtual/smart collection load flow and fills the shell's
-// `#header` slot with a CollectionMosaic-fronted InfoPanel.
-import { RChip } from "@v2/lib";
+// `#header` slot with a CollectionMosaic-fronted InfoPanel. A kebab
+// menu in the `#actions` slot opens the unified
+// `CollectionSettingsDrawer` (regular / smart only — virtual
+// collections are computed and have no editable fields).
+import { RBtn, RChip, RMenu, RMenuItem } from "@v2/lib";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import storeAuth from "@/stores/auth";
 import storeCollections, {
   type Collection,
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
+import CollectionSettingsDrawer from "@/v2/components/Gallery/CollectionSettingsDrawer.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
@@ -20,7 +26,9 @@ import storeGalleryRoms from "@/v2/stores/galleryRoms";
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 type CollectionKind = "regular" | "virtual" | "smart";
 
+const { t } = useI18n();
 const route = useRoute();
+const auth = storeAuth();
 const collectionsStore = storeCollections();
 const galleryRoms = storeGalleryRoms();
 const { toWebp } = useWebpSupport();
@@ -29,6 +37,44 @@ const notFound = ref(false);
 const currentKind = ref<CollectionKind>("regular");
 const currentCollection = ref<AnyCollection | null>(null);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
+const settingsOpen = ref(false);
+
+// Virtual collections are computed (no editable fields) — only
+// regular / smart get the settings entry-point.
+const editableKind = computed<"regular" | "smart" | null>(() => {
+  if (currentKind.value === "regular") return "regular";
+  if (currentKind.value === "smart") return "smart";
+  return null;
+});
+
+// Ownership gate for showing the kebab. v1 only renders the drawer's
+// edit/delete affordances for owners with `collections.write` — if the
+// user can do neither, hide the kebab entirely to avoid a dead menu.
+const isOwner = computed(() => {
+  const c = currentCollection.value as { user_id?: number | null } | null;
+  return !!c && c.user_id != null && c.user_id === auth.user?.id;
+});
+const showKebab = computed(
+  () =>
+    !!editableKind.value &&
+    isOwner.value &&
+    auth.scopes.includes("collections.write"),
+);
+
+function onSaved(updated: Collection | SmartCollection) {
+  currentCollection.value = updated;
+}
+
+// Narrowed view of `currentCollection` for the settings drawer —
+// `editableKind` guarantees we're not in the virtual branch, so we
+// can hand the drawer a `Collection | SmartCollection` reference
+// without a per-template cast (the template parser misreads the
+// union pipe as a deprecated Vue filter).
+const editableCollection = computed<Collection | SmartCollection | null>(() =>
+  editableKind.value
+    ? (currentCollection.value as Collection | SmartCollection)
+    : null,
+);
 
 const mosaicCovers = computed<string[]>(() => {
   const paths =
@@ -172,9 +218,37 @@ watch(
         <template #stats>
           <Stat :value="currentCollection.rom_count" label="Games" />
         </template>
+
+        <template v-if="showKebab" #actions>
+          <RMenu location="bottom end" :offset="6" width="220px">
+            <template #activator="{ props: activatorProps }">
+              <RBtn
+                v-bind="activatorProps"
+                variant="outlined"
+                surface
+                icon="mdi-dots-vertical"
+                rounded="circle"
+                aria-label="Collection actions"
+              />
+            </template>
+            <RMenuItem
+              :label="t('collection.settings', 'Settings…')"
+              icon="mdi-cog-outline"
+              @click="settingsOpen = true"
+            />
+          </RMenu>
+        </template>
       </InfoPanel>
     </template>
   </GalleryShell>
+
+  <CollectionSettingsDrawer
+    v-if="editableKind && editableCollection"
+    v-model="settingsOpen"
+    :kind="editableKind"
+    :collection="editableCollection"
+    @saved="onSaved"
+  />
 </template>
 
 <style scoped>

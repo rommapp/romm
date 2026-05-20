@@ -264,7 +264,7 @@ const morphStyle = computed(() => {
             :slug="rom.platform_slug"
             :fs-slug="rom.platform_fs_slug"
             :alt="platformShort"
-            :size="18"
+            :size="22"
           />
         </RBtn>
 
@@ -383,10 +383,15 @@ const morphStyle = computed(() => {
   top: 7px;
   right: 7px;
   z-index: 2;
-  width: 28px !important;
-  height: 28px !important;
-  min-width: 28px !important;
-  min-height: 28px !important;
+  /* Shrink-wrap around the platform icon. RBtn's size classes try to
+     impose a fixed `height` / `width: var(--r-btn-rest-h)` — we have
+     to defeat those so the badge always fits whatever `:size` the
+     RPlatformIcon was given (icon + 3px padding all around). */
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 3px !important;
   border-radius: 50% !important;
   background: var(--r-color-overlay-scrim-strong) !important;
   border: 1px solid var(--r-color-overlay-border) !important;
@@ -399,6 +404,14 @@ const morphStyle = computed(() => {
     background 0.12s ease,
     border-color 0.12s ease,
     transform 0.12s ease;
+}
+/* The inner button content must also shrink-wrap so the padded area
+   centres the icon symmetrically instead of letting `.r-btn__content`
+   inherit any stretched cross-axis sizing. `line-height: 0` kills the
+   stray baseline gap an inline-block image would otherwise add at the
+   bottom (cause of the "not centred" feel even at small sizes). */
+.r-gc__platform-icon :deep(.r-btn__content) {
+  line-height: 0;
 }
 .r-gc__platform-icon:hover {
   background: color-mix(in srgb, black 90%, transparent) !important;

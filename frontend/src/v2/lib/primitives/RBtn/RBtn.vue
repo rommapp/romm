@@ -315,14 +315,25 @@ const spinnerSize = computed(() => {
         </slot>
       </span>
 
-      <!-- Icon-only mode: icon takes the spot of the label. -->
+      <!-- Icon-only mode: when `icon` is a string, render the matching
+           RIcon directly. When `icon` is bare `true`, fall through to
+           the default slot so consumers can drop their own glyph in
+           (e.g. RPlatformIcon on a GameCard badge) — without this
+           branch the slot was silently dropped and the button rendered
+           empty. -->
       <RIcon
         v-if="isIconBtn && iconString"
         :icon="iconString"
         class="r-btn__icon"
       />
+      <span v-else-if="isIconBtn && slots.default" class="r-btn__icon-slot">
+        <slot />
+      </span>
 
-      <!-- Default label slot — hidden in icon-only mode. -->
+      <!-- Default label slot — used when the button isn't icon-only.
+           `.r-btn__label` carries `gap: inherit` so compound content
+           (avatar + text + chevron in UserMenu, etc.) spaces correctly
+           without each consumer having to override `:deep(.r-btn__label)`. -->
       <span v-if="!isIconBtn && slots.default" class="r-btn__label">
         <slot />
       </span>
@@ -443,10 +454,27 @@ const spinnerSize = computed(() => {
 .r-btn__label {
   /* Flex so compound slot content (avatar + text + icon, etc.) aligns
      on the same vertical centerline instead of sitting on the text
-     baseline like inline boxes would. */
+     baseline like inline boxes would. `gap: inherit` pulls the gap
+     from `.r-btn__content` (which itself inherits from `.r-btn`'s
+     `gap: 8px`) so callers like UserMenu — avatar + name + chevron in
+     one default slot — get correct spacing without a `:deep()`
+     override at the consumer. */
   display: inline-flex;
   align-items: center;
+  gap: inherit;
   min-width: 0;
+}
+
+/* Slot-driven icon-only content (e.g. `<RBtn icon><RPlatformIcon /></RBtn>`).
+   Separate class from `.r-btn__icon` so the icon-font sizing rule
+   (`.r-btn__icon { font-size: 1.25em }`) doesn't bleed into image-based
+   slot content. Just a centered inline-flex shell. */
+.r-btn__icon-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
 }
 
 .r-btn__prepend,

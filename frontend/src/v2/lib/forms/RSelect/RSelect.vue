@@ -203,9 +203,29 @@ const normalisedItems = computed<NormalisedItem[]>(() => {
   }));
 });
 
+// Internal search buffer — RSelect filters from this. The `search`
+// prop is treated as an *optional* controlled source: if the parent
+// binds `v-model:search`, we mirror the prop into internal state on
+// every change; if not, internal state is the sole source of truth.
+// Either way, `update:search` is always emitted on every keystroke so
+// parents that care can observe. This means `:searchable` just works
+// on its own — no v-model needed — and filtering survives unrelated
+// re-renders (e.g. `mouseenter` on a row updating `activeIndex`).
+const internalSearch = ref(props.search);
+watch(
+  () => props.search,
+  (v) => {
+    if (v !== internalSearch.value) internalSearch.value = v;
+  },
+);
+function setSearch(v: string) {
+  internalSearch.value = v;
+  emit("update:search", v);
+}
+
 const filteredItems = computed<NormalisedItem[]>(() => {
   if (!props.searchable) return normalisedItems.value;
-  const q = props.search.trim().toLowerCase();
+  const q = internalSearch.value.trim().toLowerCase();
   if (!q) return normalisedItems.value;
   return normalisedItems.value.filter((it) =>
     it.title.toLowerCase().includes(q),
@@ -500,6 +520,10 @@ function closeMenu() {
   // Run rules on close (acts as a "blur" for the field).
   dirty.value = true;
   runRules();
+  // Clear the search buffer so the next open starts fresh — matches
+  // user expectation for "open select → type → pick → close → reopen"
+  // not leaving a stale query that hides most rows.
+  if (props.searchable && internalSearch.value) setSearch("");
 }
 function toggleMenu() {
   if (isOpen.value) closeMenu();
@@ -861,16 +885,14 @@ const hasPrependInner = computed(
             @click.stop
           >
             <RTextField
-              :model-value="search"
+              :model-value="internalSearch"
               :placeholder="searchPlaceholder"
               prefix-label="inline"
               hide-details
               density="compact"
               autocomplete="off"
               autofocus
-              @update:model-value="
-                (v) => emit('update:search', String(v ?? ''))
-              "
+              @update:model-value="(v) => setSearch(String(v ?? ''))"
             >
               <template #prefix-label>
                 <RIcon icon="mdi-magnify" size="16" />

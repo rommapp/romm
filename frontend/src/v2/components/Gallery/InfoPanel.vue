@@ -4,7 +4,11 @@
 // composite around Stat, chips, and callsite-provided cover art.
 //
 // Slots: cover, eyebrow, title (defaults to `title` prop), tags, stats,
-// actions.
+// providers, actions.
+//
+// `providers` sits below stats — used by Platform.vue to surface the
+// external-metadata chip cluster (IGDB / SS / MobyGames / RA / …)
+// inline rather than buried in a drawer.
 //
 // IMPORTANT — no divider here. The gallery shell owns the divider
 // between the hero (header) and the toolbar so all three views
@@ -41,6 +45,9 @@ withDefaults(
       </div>
       <div v-if="$slots.stats" class="info-panel__stats">
         <slot name="stats" />
+      </div>
+      <div v-if="$slots.providers" class="info-panel__providers">
+        <slot name="providers" />
       </div>
     </div>
     <div v-if="$slots.actions" class="info-panel__actions">
@@ -93,6 +100,13 @@ withDefaults(
   display: flex;
   gap: 32px;
   flex-wrap: wrap;
+}
+
+.info-panel__providers {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
 }
 
 .info-panel__actions {

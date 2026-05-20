@@ -6,16 +6,7 @@
 //
 // The ScanPlatform expansion body is the v1 primitive — it's feature-scoped
 // and fine to reuse inside a v2 panel until we rebuild it natively.
-import {
-  RAlert,
-  RAvatar,
-  RBtn,
-  RIcon,
-  RPlatformIcon,
-  RSelect,
-  RSwitch,
-  RTag,
-} from "@v2/lib";
+import { RAlert, RAvatar, RBtn, RIcon, RSelect, RSwitch } from "@v2/lib";
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
@@ -26,9 +17,8 @@ import storeConfig from "@/stores/config";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import { platformCategoryToIcon } from "@/utils";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
-import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
+import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
@@ -235,58 +225,19 @@ function stopScan() {
     <!-- Config panel -->
     <div class="r-v2-scan__config">
       <div class="r-v2-scan__fields">
-        <RSelect
+        <PlatformSelect
           v-model="platformsToScan"
           :items="sortedPlatforms"
-          :menu-props="{ maxHeight: 650 }"
           :label="t('common.platforms')"
-          item-title="display_name"
-          item-value="id"
           prepend-inner-icon="mdi-controller"
-          variant="outlined"
           density="comfortable"
+          :icon-size="32"
           multiple
           clearable
           hide-details
           chips
-        >
-          <template #item="{ props: itemProps, item }">
-            <li v-bind="itemProps">
-              <RPlatformIcon
-                :key="item.raw.slug"
-                :size="32"
-                :slug="item.raw.slug"
-                :name="item.raw.name"
-                :fs-slug="item.raw.fs_slug"
-              />
-              <span class="r-select__item-title">{{ item.raw.name }}</span>
-              <div class="r-v2-scan__plat-item">
-                <RIcon
-                  :icon="platformCategoryToIcon(item.raw.category || '')"
-                  size="small"
-                  class="text-grey"
-                  :title="item.raw.category"
-                />
-                <span
-                  v-if="item.raw.family_name"
-                  class="text-caption text-grey"
-                >
-                  {{ item.raw.family_name }}
-                </span>
-              </div>
-              <MissingFSBadge
-                v-if="item.raw.missing_from_fs"
-                text="Missing platform from filesystem"
-                class="ml-2"
-              />
-              <RTag
-                class="ml-1"
-                size="small"
-                :text="String(item.raw.rom_count)"
-              />
-            </li>
-          </template>
-        </RSelect>
+          show-meta
+        />
 
         <RSelect
           v-model="metadataSources"
@@ -559,13 +510,6 @@ function stopScan() {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.r-v2-scan__plat-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
 }
 
 .r-v2-scan__lb-toggle {

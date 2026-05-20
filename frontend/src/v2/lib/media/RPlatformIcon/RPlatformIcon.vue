@@ -118,6 +118,12 @@ const tooltipText = computed(
 </template>
 
 <style scoped>
+/* The `size` prop sets the wrapper dimensions directly via inline
+   `width` / `height` (not a CSS var) so they survive contexts where
+   the parent collapses cross-axis (e.g. `line-height: 0` flex parents
+   inside RBtn). `min-width: 0` lets the wrapper still shrink inside
+   flex parents that are genuinely narrower — flex items otherwise
+   refuse to go below their intrinsic width. */
 .r-platform-icon {
   display: inline-flex;
   align-items: center;

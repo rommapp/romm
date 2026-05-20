@@ -2,21 +2,22 @@
 // FolderMappingPlatformCell — editable Platform cell for the folder
 // mappings table.
 //
-// Implementation: a plain `RSelect`. Conceptually this is what the
-// cell is — pick one platform from a list — so a select reads more
-// honestly than a button-activated menu, and we get the v2 select
-// chrome (searchable header, themed scrollbar, identical paint to
-// other selects) for free.
+// Uses the shared PlatformSelect with `itemKey="slug"` (the table
+// works in slug-space, not platform id) and overrides `#selection`
+// to read from the row directly — when a row references a slug that
+// isn't in `supportedPlatforms` (loading, removed, …), the default
+// selection rendering would crash on the destructure. Reading from
+// the row keeps the cell coherent in those edge states.
 //
-// `clearable` is wired up to the section's existing "remove mapping"
-// flow: the X button only appears when the row already has a slug
-// AND the row isn't auto-detected (auto rows clear by removing the
-// binding, not by clicking the cell's X).
-import { RIcon, RSelect } from "@v2/lib";
-import { computed, ref } from "vue";
+// The full supported-platforms list is owned by the parent
+// (`PlatformsStatsSection` / `FolderMappingsSection`) — fetch logic
+// stays out of this cell.
+import { RIcon } from "@v2/lib";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
+import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 
 type RowType = "alias" | "variant" | "auto" | null;
 
@@ -25,11 +26,6 @@ interface Row {
   slug?: string;
   displayName?: string;
   type: RowType;
-}
-
-interface PlatformItem {
-  slug: string;
-  name: string;
 }
 
 interface Props {
@@ -46,29 +42,25 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-const search = ref("");
-
-const items = computed<PlatformItem[]>(() =>
-  props.supportedPlatforms
-    .map((p) => ({ slug: p.slug, name: p.display_name }))
-    .sort((a, b) => a.name.localeCompare(b.name)),
+const sortedPlatforms = computed(() =>
+  [...props.supportedPlatforms].sort((a, b) =>
+    a.display_name.localeCompare(b.display_name),
+  ),
 );
 
 const modelSlug = computed({
   get: () => props.row.slug ?? null,
-  set: (next: string | null) => emit("select", next ?? undefined),
+  set: (next: unknown) =>
+    emit("select", typeof next === "string" ? next : undefined),
 });
 </script>
 
 <template>
-  <RSelect
+  <PlatformSelect
     v-if="canEdit"
     v-model="modelSlug"
-    v-model:search="search"
-    :items="items"
-    item-title="name"
-    item-value="slug"
-    searchable
+    :items="sortedPlatforms"
+    item-key="slug"
     hide-details
     density="compact"
     variant="plain"
@@ -76,12 +68,8 @@ const modelSlug = computed({
     :search-placeholder="t('common.search')"
     class="r-v2-fmpc"
   >
-    <!-- Read from `row` directly instead of the slot's `item` —
-         when the row references a platform that isn't in
-         `supportedPlatforms` (loading, removed, …), the slot's
-         `item.raw` falls back to the raw slug string and the
-         destructure crashes. `row.slug` + `row.displayName` are always
-         coherent here because the section owns both. -->
+    <!-- Drive selection rendering from `row` directly — see header
+         comment for why item.raw can't be trusted here. -->
     <template #selection>
       <span class="r-v2-fmpc__selection">
         <CachedPlatformIcon
@@ -95,19 +83,21 @@ const modelSlug = computed({
         </span>
       </span>
     </template>
+    <!-- Use the cached icon variant in the dropdown rows too — the
+         table is the heaviest consumer of platform icons in the app
+         (one per row × every folder mapping). Keeps the table and the
+         dropdown visually aligned and warm-cache fast. -->
     <template #item="{ props: itemProps, item }">
       <li v-bind="itemProps">
         <CachedPlatformIcon
-          :slug="(item.raw as PlatformItem).slug"
-          :name="(item.raw as PlatformItem).name"
+          :slug="(item.raw as Platform).slug"
+          :name="(item.raw as Platform).display_name"
           :size="20"
         />
-        <span class="r-select__item-title">
-          {{ (item.raw as PlatformItem).name }}
-        </span>
+        <span class="r-select__item-title">{{ item.title }}</span>
       </li>
     </template>
-  </RSelect>
+  </PlatformSelect>
   <span v-else class="r-v2-fmpc__readonly">
     <CachedPlatformIcon
       v-if="row.slug"
@@ -127,10 +117,11 @@ const modelSlug = computed({
 </template>
 
 <style scoped>
-/* Lock the field to the column's width — RSelect sizes its inner
-   field to content by default, which would make each row's cell as
-   wide as its platform name. The visible width then shifts as the
-   user scrolls the table (different rows visible, different widths). */
+/* Lock the field to the column's width — PlatformSelect / RSelect
+   size their inner field to content by default, which would make each
+   row's cell as wide as its platform name. The visible width then
+   shifts as the user scrolls the table (different rows visible,
+   different widths). */
 .r-v2-fmpc {
   width: 100%;
 }
