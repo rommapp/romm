@@ -80,6 +80,34 @@ class MetadataSource(enum.StrEnum):
     LIBRETRO = "libretro"  # Libretro thumbnails
 
 
+METADATA_SOURCE_FIELDS: dict[MetadataSource, dict[str, str | None]] = {
+    MetadataSource.IGDB: {"id_field": "igdb_id", "metadata_field": "igdb_metadata"},
+    MetadataSource.MOBY: {"id_field": "moby_id", "metadata_field": "moby_metadata"},
+    MetadataSource.SS: {"id_field": "ss_id", "metadata_field": "ss_metadata"},
+    MetadataSource.RA: {"id_field": "ra_id", "metadata_field": "ra_metadata"},
+    MetadataSource.LAUNCHBOX: {
+        "id_field": "launchbox_id",
+        "metadata_field": "launchbox_metadata",
+    },
+    MetadataSource.HASHEOUS: {
+        "id_field": "hasheous_id",
+        "metadata_field": "hasheous_metadata",
+    },
+    MetadataSource.FLASHPOINT: {
+        "id_field": "flashpoint_id",
+        "metadata_field": "flashpoint_metadata",
+    },
+    MetadataSource.HLTB: {"id_field": "hltb_id", "metadata_field": "hltb_metadata"},
+    MetadataSource.GAMELIST: {
+        "id_field": "gamelist_id",
+        "metadata_field": "gamelist_metadata",
+    },
+    MetadataSource.LIBRETRO: {"id_field": "libretro_id", "metadata_field": None},
+    MetadataSource.SGDB: {"id_field": "sgdb_id", "metadata_field": None},
+    MetadataSource.TGDB: {"id_field": "tgdb_id", "metadata_field": None},
+}
+
+
 def get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
@@ -791,48 +819,83 @@ async def scan_rom(
         fetch_libretro_rom(),
     )
 
-    metadata_handlers = {
-        MetadataSource.IGDB: igdb_handler_rom,
-        MetadataSource.MOBY: moby_handler_rom,
-        MetadataSource.SS: ss_handler_rom,
-        MetadataSource.RA: ra_handler_rom,
-        MetadataSource.LAUNCHBOX: launchbox_handler_rom,
-        MetadataSource.HASHEOUS: hasheous_handler_rom,
-        MetadataSource.FLASHPOINT: flashpoint_handler_rom,
-        MetadataSource.HLTB: hltb_handler_rom,
-        MetadataSource.GAMELIST: gamelist_handler_rom,
-        MetadataSource.LIBRETRO: libretro_handler_rom,
+    metadata_handlers: dict[MetadataSource, dict] = {
+        MetadataSource.IGDB: {
+            "handler": igdb_handler_rom,
+            "id_field": "igdb_id",
+            "metadata_field": "igdb_metadata",
+        },
+        MetadataSource.MOBY: {
+            "handler": moby_handler_rom,
+            "id_field": "moby_id",
+            "metadata_field": "moby_metadata",
+        },
+        MetadataSource.SS: {
+            "handler": ss_handler_rom,
+            "id_field": "ss_id",
+            "metadata_field": "ss_metadata",
+        },
+        MetadataSource.RA: {
+            "handler": ra_handler_rom,
+            "id_field": "ra_id",
+            "metadata_field": "ra_metadata",
+        },
+        MetadataSource.LAUNCHBOX: {
+            "handler": launchbox_handler_rom,
+            "id_field": "launchbox_id",
+            "metadata_field": "launchbox_metadata",
+        },
+        MetadataSource.HASHEOUS: {
+            "handler": hasheous_handler_rom,
+            "id_field": "hasheous_id",
+            "metadata_field": "hasheous_metadata",
+        },
+        MetadataSource.FLASHPOINT: {
+            "handler": flashpoint_handler_rom,
+            "id_field": "flashpoint_id",
+            "metadata_field": "flashpoint_metadata",
+        },
+        MetadataSource.HLTB: {
+            "handler": hltb_handler_rom,
+            "id_field": "hltb_id",
+            "metadata_field": "hltb_metadata",
+        },
+        MetadataSource.GAMELIST: {
+            "handler": gamelist_handler_rom,
+            "id_field": "gamelist_id",
+            "metadata_field": "gamelist_metadata",
+        },
+        MetadataSource.LIBRETRO: {
+            "handler": libretro_handler_rom,
+            "id_field": "libretro_id",
+            "metadata_field": None,
+        },
+        MetadataSource.SGDB: {
+            "handler": {},
+            "id_field": "sgdb_id",
+            "metadata_field": None,
+        },
+        MetadataSource.TGDB: {
+            "handler": {},
+            "id_field": "tgdb_id",
+            "metadata_field": None,
+        },
     }
 
     # For COMPLETE rescans, explicitly clear metadata IDs and metadata for unselected sources
     # This ensures that when a source is no longer selected, its data is removed from the ROM
     if not newly_added and scan_type == ScanType.COMPLETE:
-        # Map of metadata source to (id_field, metadata_field) tuples
-        metadata_fields_map = {
-            MetadataSource.IGDB: ("igdb_id", "igdb_metadata"),
-            MetadataSource.MOBY: ("moby_id", "moby_metadata"),
-            MetadataSource.SS: ("ss_id", "ss_metadata"),
-            MetadataSource.RA: ("ra_id", "ra_metadata"),
-            MetadataSource.LAUNCHBOX: ("launchbox_id", "launchbox_metadata"),
-            MetadataSource.HASHEOUS: ("hasheous_id", "hasheous_metadata"),
-            MetadataSource.FLASHPOINT: ("flashpoint_id", "flashpoint_metadata"),
-            MetadataSource.HLTB: ("hltb_id", "hltb_metadata"),
-            MetadataSource.GAMELIST: ("gamelist_id", "gamelist_metadata"),
-            MetadataSource.LIBRETRO: ("libretro_id", None),  # libretro has no separate metadata field
-            MetadataSource.SGDB: ("sgdb_id", None),  # sgdb has no separate metadata field
-            MetadataSource.TGDB: ("tgdb_id", None),  # tgdb has no separate metadata field
-        }
-
-        # Clear fields for sources not in the current metadata_sources list
-        for source, (id_field, metadata_field) in metadata_fields_map.items():
+        for source, fields in metadata_handlers.items():
             if source not in metadata_sources:
-                rom_attrs[id_field] = None
-                if metadata_field:
-                    rom_attrs[metadata_field] = {}
+                rom_attrs[fields["id_field"]] = None
+                if fields["metadata_field"]:
+                    rom_attrs[fields["metadata_field"]] = {}
 
     # Determine which metadata sources are available
     available_sources = [
-        name for name, handler in metadata_handlers.items() if handler.get(f"{name}_id")
+        name
+        for name, fields in metadata_handlers.items()
+        if fields["handler"].get(fields["id_field"])
     ]
 
     # Apply metadata priority order
@@ -841,7 +904,7 @@ async def scan_rom(
     )
     # Reverse priority order to apply highest priority last
     for source_name in reversed(priority_ordered):
-        handler_data = metadata_handlers[source_name]
+        handler_data = metadata_handlers[source_name]["handler"]
         # Only update fields that have valid values
         for key, field_value in handler_data.items():
             if field_value:
@@ -853,7 +916,7 @@ async def scan_rom(
     )
     # Reverse priority order to apply highest priority last
     for source_name in reversed(priority_ordered_artwork):
-        handler_data = metadata_handlers[source_name]
+        handler_data = metadata_handlers[source_name]["handler"]
         for field in ["url_cover", "url_screenshots", "url_manual"]:
             # Only update fields that have valid values
             field_value = handler_data.get(field)
@@ -957,7 +1020,9 @@ async def scan_rom(
         )
         if sgdb_cover and not manual_cover_preserved:
             cover_sources = [
-                name for name, h in metadata_handlers.items() if h.get("url_cover")
+                name
+                for name, fields in metadata_handlers.items()
+                if fields["handler"].get("url_cover")
             ]
             ranked = get_priority_ordered_metadata_sources(
                 cover_sources + [MetadataSource.SGDB], "artwork"
