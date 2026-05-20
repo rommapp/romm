@@ -34,21 +34,29 @@ SENSITIVE_KEYS = {"ssid", "sspassword"}
 
 
 def get_preferred_regions(rom: Rom | None = None) -> list[str]:
-    """Get preferred regions, prepending the rom's own region tags when available."""
+    """Get preferred regions, prepending the rom's own region tags when available.
+
+    When a rom is tagged with multiple regions (e.g. "(Japan, USA)"), the rom's
+    own tags are reordered according to the user's SCAN_REGION_PRIORITY so the
+    user's preference wins among the regions the file is actually tagged as.
+    Filename-tagged regions not present in the priority list keep their relative
+    order and follow the prioritized ones.
+    """
+    config = cm.get_config()
+    priority = config.SCAN_REGION_PRIORITY
+
     rom_codes: list[str] = []
     if rom is not None and isinstance(rom.regions, list):
         for region_name in rom.regions:
             code = region_name_to_provider_shortcode(region_name)
             if code:
                 rom_codes.append(code)
-
-    config = cm.get_config()
-    return list(
-        dict.fromkeys(
-            rom_codes
-            + config.SCAN_REGION_PRIORITY
-            + ["us", "wor", "ss", "eu", "jp", "cus"]
+        rom_codes.sort(
+            key=lambda code: priority.index(code) if code in priority else len(priority)
         )
+
+    return list(
+        dict.fromkeys(rom_codes + priority + ["us", "wor", "ss", "eu", "jp", "cus"])
     ) + ["unk"]
 
 
