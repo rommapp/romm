@@ -114,7 +114,6 @@ async def test_scan_rom_complete_clears_unselected_metadata(
         tgdb_id=None,
         ra_id=None,
         name="Mock Hasheous Game",
-        hasheous_metadata={"name": "Mock Hasheous Game"},
     )
     mock_lookup.return_value = hasheous_result
     mock_get_igdb.return_value = hasheous_result
