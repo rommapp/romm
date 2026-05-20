@@ -21,17 +21,16 @@ import {
   RMenuItem,
   RPlatformIcon,
 } from "@v2/lib";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
 import platformApi from "@/services/api/platform";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import FirmwareDrawer from "@/v2/components/Gallery/FirmwareDrawer.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
@@ -52,7 +51,6 @@ const scanningStore = storeScanning();
 const heartbeatStore = storeHeartbeat();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
-const emitter = inject<Emitter<Events>>("emitter");
 const { currentPlatform, total } = storeToRefs(galleryRoms);
 const { scanning } = storeToRefs(scanningStore);
 
@@ -252,7 +250,7 @@ watch(
 function onUploadRoms() {
   const p = currentPlatform.value;
   if (!p) return;
-  emitter?.emit("showUploadRomDialog", p as Platform);
+  router.push({ name: ROUTES.UPLOAD, query: { platform: String(p.id) } });
 }
 
 function onScan() {

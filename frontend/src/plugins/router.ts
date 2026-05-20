@@ -33,6 +33,7 @@ export const ROUTES = {
   EMULATORJS: "emulatorjs",
   RUFFLE: "ruffle",
   SCAN: "scan",
+  UPLOAD: "upload",
   PATCHER: "patcher",
   USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
@@ -277,6 +278,20 @@ const routes = [
         },
       },
       {
+        path: "upload",
+        name: ROUTES.UPLOAD,
+        meta: {
+          title: i18n.global.t("common.upload-roms", "Upload ROMs"),
+        },
+        components: {
+          // v1 has no Upload view (the dialog was its only entry point);
+          // the v2-only view is the single owner. Fall back to the same
+          // Scan component on v1 so deep-linking doesn't 404 there.
+          default: () => import("@/views/Scan.vue"),
+          v2: v2For(ROUTES.UPLOAD),
+        },
+      },
+      {
         path: "patcher",
         name: ROUTES.PATCHER,
         meta: {
@@ -475,6 +490,7 @@ const router = createRouter({
 const routePermissions: RoutePermissions[] = [
   { path: ROUTES.CLIENT_API_TOKENS, requiredScopes: ["me.write"] },
   { path: ROUTES.SCAN, requiredScopes: ["platforms.write"] },
+  { path: ROUTES.UPLOAD, requiredScopes: ["roms.write"] },
   { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
   { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
 ];

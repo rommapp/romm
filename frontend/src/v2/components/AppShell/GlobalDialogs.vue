@@ -12,7 +12,6 @@ import MatchRomDialog from "@/v2/components/Dialogs/MatchRomDialog.vue";
 import RefreshMetadataDialog from "@/v2/components/Dialogs/RefreshMetadataDialog.vue";
 import SearchCoverDialog from "@/v2/components/Dialogs/SearchCoverDialog.vue";
 import ShowQRCodeDialog from "@/v2/components/Dialogs/ShowQRCodeDialog.vue";
-import UploadRomDialog from "@/v2/components/Dialogs/UploadRomDialog.vue";
 import NotificationHost from "@/v2/components/Notifications/NotificationHost.vue";
 import UploadProgressToast from "@/v2/components/Notifications/UploadProgressToast.vue";
 import EmulatorJSCacheDialog from "@/v2/components/Player/EmulatorJSCacheDialog.vue";
@@ -35,7 +34,6 @@ defineOptions({ inheritAttrs: false });
   <RefreshMetadataDialog />
   <SearchCoverDialog />
   <ShowQRCodeDialog />
-  <UploadRomDialog />
   <AddRomsToCollectionDialog />
   <AboutDialog />
   <SelectSaveDialog />

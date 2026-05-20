@@ -1,28 +1,26 @@
 <script setup lang="ts">
-// UploadRomDialog — global emitter-driven dialog that posts ROM files
-// to a chosen platform. Mounted from GlobalDialogs; the event payload
-// is the pre-selected `Platform` (e.g. when triggered from
-// Platform.vue's kebab) or `null` (open from a generic surface, user
-// picks platform inside the dialog).
+// Upload — Library Tools view that posts ROM files to a chosen
+// platform. Replaces the old emitter-driven `UploadRomDialog`; entry
+// points (UserMenu, Platform.vue kebab) now navigate here with the
+// `?platform=<id>` query param when they have a preselection.
 //
-// Flow:
-//   1. `showUploadRomDialog(platform | null)` opens the dialog and
-//      fetches the supported-platforms list. v1 supports an id=-1
-//      sentinel meaning "the fs_slug exists but no Platform record
-//      has been created yet" — uploading auto-creates it via
-//      `platformApi.uploadPlatform({ fsSlug })`.
-//   2. User selects a platform (RSelect, searchable, with PlatformIcon
-//      in selection + item slots) and adds files via the drop zone or
-//      the native picker.
+// Flow mirrors the dialog version that came before it:
+//   1. On mount, fetch the supported-platforms catalogue (v1's
+//      sentinel id=-1 "the fs_slug exists but no Platform record yet"
+//      is preserved — uploading auto-creates the platform via
+//      `platformApi.uploadPlatform({ fsSlug })`).
+//   2. User picks a platform (PlatformSelect handles search +
+//      iconography) and adds files via drop zone or native picker.
 //   3. Upload streams through `romApi.uploadRoms` (already wired to
 //      `storeUpload` — the v2 UploadProgressToast shows the bar). On
-//      success, kick off a `socket.emit("scan")` for that platform so
-//      newly-arrived files get matched.
+//      success we stay on the view (this is a tool — users will often
+//      upload more) but clear the file list. A scan is kicked off
+//      automatically so newly arrived files get matched.
 import { RBtn, RChip, RIcon } from "@v2/lib";
 import { useDropZone } from "@vueuse/core";
-import type { Emitter } from "mitt";
-import { computed, inject, nextTick, onBeforeUnmount, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
@@ -30,22 +28,18 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
-import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
+import LibraryToolsShell from "@/v2/components/LibraryTools/LibraryToolsShell.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
-
-defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
-const emitter = inject<Emitter<Events>>("emitter");
+const route = useRoute();
 const snackbar = useSnackbar();
 const heartbeatStore = storeHeartbeat();
 const scanningStore = storeScanning();
 const uploadStore = storeUpload();
 
-const show = ref(false);
 const files = ref<File[]>([]);
 const supportedPlatforms = ref<Platform[]>([]);
 const platformsLoading = ref(false);
@@ -55,16 +49,7 @@ const uploading = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const dropZoneRef = ref<HTMLElement | null>(null);
 
-// ── Open / close lifecycle ──────────────────────────────────────
-const openHandler = (preselect: Platform | null) => {
-  show.value = true;
-  selectedPlatformId.value = preselect?.id ?? null;
-  files.value = [];
-  loadPlatforms();
-};
-emitter?.on("showUploadRomDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showUploadRomDialog", openHandler));
-
+// ── Platform list bootstrap ────────────────────────────────────
 async function loadPlatforms() {
   platformsLoading.value = true;
   try {
@@ -87,6 +72,28 @@ async function loadPlatforms() {
     platformsLoading.value = false;
   }
 }
+
+// Honour `?platform=<id>` on first paint and whenever the query
+// changes (in-app navigation between Platforms keeps the view but
+// swaps preselection). Falls back to `null` so the picker reads as
+// empty when no query is present.
+function applyPreselectFromQuery() {
+  const raw = route.query.platform;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (!value) {
+    return;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return;
+  selectedPlatformId.value = parsed;
+}
+
+onMounted(() => {
+  loadPlatforms();
+  applyPreselectFromQuery();
+});
+
+watch(() => route.query.platform, applyPreselectFromQuery);
 
 const selectedPlatform = computed<Platform | null>(() => {
   if (selectedPlatformId.value === null) return null;
@@ -182,9 +189,11 @@ async function upload() {
           apis: heartbeatStore.getEnabledMetadataOptions().map((s) => s.value),
         });
       }, 2000);
-    }
 
-    closeDialog();
+      // Clear the list so the next batch starts fresh; keep the
+      // platform selected so a user can chain uploads.
+      files.value = [];
+    }
   } catch (err) {
     const e = err as {
       response?: { data?: { detail?: string }; statusText?: string };
@@ -203,165 +212,142 @@ async function upload() {
     uploading.value = false;
   }
 }
-
-function closeDialog() {
-  if (uploading.value) return;
-  show.value = false;
-  // Defer the reset so the close animation doesn't briefly show an
-  // empty dialog before the panel slides out.
-  nextTick(() => {
-    files.value = [];
-    selectedPlatformId.value = null;
-  });
-}
 </script>
 
 <template>
-  <RDialog
-    v-model="show"
-    icon="mdi-cloud-upload-outline"
-    :width="640"
-    @close="closeDialog"
-  >
-    <template #header>
-      <span>{{ t("common.upload-roms", "Upload ROMs") }}</span>
-    </template>
+  <LibraryToolsShell active="upload">
+    <div class="r-v2-upload">
+      <!-- Platform picker -->
+      <PlatformSelect
+        v-model="selectedPlatformId"
+        :items="supportedPlatforms"
+        :placeholder="t('common.select-platform', 'Select a platform')"
+        density="comfortable"
+        prefix-label="stacked"
+        :icon-size="22"
+        :search-placeholder="t('common.search', 'Search')"
+        :disabled="platformsLoading"
+      >
+        <template #prefix-label>
+          <RIcon icon="mdi-controller" size="14" />
+          {{ t("common.platform", "Platform") }}
+        </template>
+      </PlatformSelect>
 
-    <template #content>
-      <div class="r-v2-upload-rom__body">
-        <!-- Platform picker -->
-        <PlatformSelect
-          v-model="selectedPlatformId"
-          :items="supportedPlatforms"
-          :placeholder="t('common.select-platform', 'Select a platform')"
-          density="comfortable"
-          prefix-label="stacked"
-          :icon-size="22"
-          :search-placeholder="t('common.search', 'Search')"
-          :disabled="platformsLoading"
-        >
-          <template #prefix-label>
-            <RIcon icon="mdi-controller" size="14" />
-            {{ t("common.platform", "Platform") }}
-          </template>
-        </PlatformSelect>
+      <!-- Drop zone — empty state when no files, switches to a file
+           list when populated. -->
+      <div
+        ref="dropZoneRef"
+        class="r-v2-upload__dropzone"
+        :class="{
+          'r-v2-upload__dropzone--active': isOverDropZone,
+          'r-v2-upload__dropzone--filled': files.length > 0,
+        }"
+      >
+        <div v-if="files.length === 0" class="r-v2-upload__empty">
+          <RIcon
+            :icon="
+              isOverDropZone ? 'mdi-cloud-upload' : 'mdi-cloud-upload-outline'
+            "
+            size="40"
+            color="primary"
+            :class="{ 'r-v2-upload__icon--pulse': isOverDropZone }"
+          />
+          <h3 class="r-v2-upload__empty-title">
+            {{
+              isOverDropZone
+                ? t("common.dropzone-drag-over", "Drop the files here")
+                : t("common.dropzone-title", "Drag and drop ROM files")
+            }}
+          </h3>
+          <p class="r-v2-upload__empty-hint">
+            {{
+              t(
+                "common.dropzone-description",
+                "or click below to pick files from your device",
+              )
+            }}
+          </p>
+          <RBtn
+            variant="outlined"
+            color="primary"
+            prepend-icon="mdi-plus"
+            @click="triggerPicker"
+          >
+            {{ t("common.add", "Add files") }}
+          </RBtn>
+        </div>
 
-        <!-- Drop zone — empty state when no files, switches to a file
-             list when populated. -->
-        <div
-          ref="dropZoneRef"
-          class="r-v2-upload-rom__dropzone"
-          :class="{
-            'r-v2-upload-rom__dropzone--active': isOverDropZone,
-            'r-v2-upload-rom__dropzone--filled': files.length > 0,
-          }"
-        >
-          <div v-if="files.length === 0" class="r-v2-upload-rom__empty">
-            <RIcon
-              :icon="
-                isOverDropZone ? 'mdi-cloud-upload' : 'mdi-cloud-upload-outline'
-              "
-              size="40"
-              color="primary"
-              :class="{ 'r-v2-upload-rom__icon--pulse': isOverDropZone }"
-            />
-            <h3 class="r-v2-upload-rom__empty-title">
-              {{
-                isOverDropZone
-                  ? t("common.dropzone-drag-over", "Drop the files here")
-                  : t("common.dropzone-title", "Drag and drop ROM files")
-              }}
-            </h3>
-            <p class="r-v2-upload-rom__empty-hint">
-              {{
-                t(
-                  "common.dropzone-description",
-                  "or click below to pick files from your device",
-                )
-              }}
-            </p>
+        <div v-else class="r-v2-upload__filled">
+          <header class="r-v2-upload__filled-head">
+            <span>
+              {{ t("common.upload-files-selected", { count: files.length }) }}
+            </span>
             <RBtn
-              variant="outlined"
-              color="primary"
+              variant="text"
+              size="small"
               prepend-icon="mdi-plus"
               @click="triggerPicker"
             >
-              {{ t("common.add", "Add files") }}
+              {{ t("common.add", "Add") }}
             </RBtn>
-          </div>
-
-          <div v-else class="r-v2-upload-rom__filled">
-            <header class="r-v2-upload-rom__filled-head">
-              <span>
-                {{ t("common.upload-files-selected", { count: files.length }) }}
-              </span>
+          </header>
+          <ul class="r-v2-upload__list">
+            <li v-for="f in files" :key="f.name" class="r-v2-upload__row">
+              <RIcon icon="mdi-file-outline" size="14" />
+              <span class="r-v2-upload__row-name">{{ f.name }}</span>
+              <RChip size="x-small" variant="translucent">
+                {{ formatBytes(f.size) }}
+              </RChip>
               <RBtn
                 variant="text"
-                size="small"
-                prepend-icon="mdi-plus"
-                @click="triggerPicker"
-              >
-                {{ t("common.add", "Add") }}
-              </RBtn>
-            </header>
-            <ul class="r-v2-upload-rom__list">
-              <li v-for="f in files" :key="f.name" class="r-v2-upload-rom__row">
-                <RIcon icon="mdi-file-outline" size="14" />
-                <span class="r-v2-upload-rom__row-name">{{ f.name }}</span>
-                <RChip size="x-small" variant="translucent">
-                  {{ formatBytes(f.size) }}
-                </RChip>
-                <RBtn
-                  variant="text"
-                  size="x-small"
-                  icon="mdi-close"
-                  color="danger"
-                  :aria-label="t('common.remove', 'Remove')"
-                  @click="removeFile(f.name)"
-                />
-              </li>
-            </ul>
-          </div>
+                size="x-small"
+                icon="mdi-close"
+                color="danger"
+                :aria-label="t('common.remove', 'Remove')"
+                @click="removeFile(f.name)"
+              />
+            </li>
+          </ul>
         </div>
-
-        <input
-          ref="fileInputRef"
-          type="file"
-          multiple
-          class="r-v2-upload-rom__input"
-          :aria-label="t('common.upload-roms', 'Upload ROMs')"
-          @change="onPick"
-        />
       </div>
-    </template>
 
-    <template #footer>
-      <RBtn variant="text" :disabled="uploading" @click="closeDialog">
-        {{ t("common.cancel") }}
-      </RBtn>
-      <RBtn
-        variant="flat"
-        color="primary"
-        prepend-icon="mdi-cloud-upload-outline"
-        :disabled="files.length === 0 || !selectedPlatform"
-        :loading="uploading"
-        @click="upload"
-      >
-        {{ t("common.upload") }}
-      </RBtn>
-    </template>
-  </RDialog>
+      <input
+        ref="fileInputRef"
+        type="file"
+        multiple
+        class="r-v2-upload__input"
+        :aria-label="t('common.upload-roms', 'Upload ROMs')"
+        @change="onPick"
+      />
+
+      <!-- Footer — primary CTA. No Cancel: this is a view, not a
+           dialog, the user just navigates away if they change their
+           mind. -->
+      <div class="r-v2-upload__footer">
+        <RBtn
+          variant="flat"
+          color="primary"
+          prepend-icon="mdi-cloud-upload-outline"
+          :disabled="files.length === 0 || !selectedPlatform"
+          :loading="uploading"
+          @click="upload"
+        >
+          {{ t("common.upload") }}
+        </RBtn>
+      </div>
+    </div>
+  </LibraryToolsShell>
 </template>
 
 <style scoped>
-.r-v2-upload-rom__body {
+.r-v2-upload {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 4px 4px 8px;
 }
 
-.r-v2-upload-rom__input {
+.r-v2-upload__input {
   position: absolute;
   width: 0;
   height: 0;
@@ -372,9 +358,9 @@ function closeDialog() {
 /* ── Drop zone ───────────────────────────────────────────────────
    Dashed primary border that brightens on hover-with-files and goes
    solid when the user actually drags over the zone. */
-.r-v2-upload-rom__dropzone {
+.r-v2-upload__dropzone {
   position: relative;
-  min-height: 240px;
+  min-height: 260px;
   border: 2px dashed
     color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent);
   border-radius: var(--r-radius-lg);
@@ -383,43 +369,43 @@ function closeDialog() {
     border-color var(--r-motion-fast) var(--r-motion-ease-out),
     background var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-v2-upload-rom__dropzone--active {
+.r-v2-upload__dropzone--active {
   border-color: var(--r-color-brand-primary);
   background: color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent);
 }
-.r-v2-upload-rom__dropzone--filled {
+.r-v2-upload__dropzone--filled {
   border-style: solid;
   border-color: var(--r-color-border-strong);
 }
 
 /* ── Empty state ─────────────────────────────────────────────── */
-.r-v2-upload-rom__empty {
+.r-v2-upload__empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-height: 240px;
+  min-height: 260px;
   padding: 28px 16px;
   text-align: center;
 }
-.r-v2-upload-rom__empty-title {
+.r-v2-upload__empty-title {
   margin: 6px 0 0;
   font-size: 16px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg);
 }
-.r-v2-upload-rom__empty-hint {
+.r-v2-upload__empty-hint {
   margin: 0;
   font-size: 13px;
   color: var(--r-color-fg-muted);
   max-width: 360px;
   line-height: 1.5;
 }
-.r-v2-upload-rom__icon--pulse {
-  animation: r-v2-upload-rom-pulse 1.4s ease-in-out infinite;
+.r-v2-upload__icon--pulse {
+  animation: r-v2-upload-pulse 1.4s ease-in-out infinite;
 }
-@keyframes r-v2-upload-rom-pulse {
+@keyframes r-v2-upload-pulse {
   50% {
     transform: scale(1.12);
     filter: drop-shadow(
@@ -429,13 +415,13 @@ function closeDialog() {
 }
 
 /* ── Filled state ────────────────────────────────────────────── */
-.r-v2-upload-rom__filled {
+.r-v2-upload__filled {
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.r-v2-upload-rom__filled-head {
+.r-v2-upload__filled-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -444,7 +430,7 @@ function closeDialog() {
   color: var(--r-color-fg);
 }
 
-.r-v2-upload-rom__list {
+.r-v2-upload__list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -452,10 +438,10 @@ function closeDialog() {
   border-radius: var(--r-radius-md);
   background: var(--r-color-bg-elevated);
   overflow: hidden;
-  max-height: 280px;
+  max-height: 320px;
   overflow-y: auto;
 }
-.r-v2-upload-rom__row {
+.r-v2-upload__row {
   display: grid;
   grid-template-columns: auto 1fr auto auto;
   gap: 10px;
@@ -465,12 +451,17 @@ function closeDialog() {
   color: var(--r-color-fg);
   border-bottom: 1px solid var(--r-color-border);
 }
-.r-v2-upload-rom__row:last-child {
+.r-v2-upload__row:last-child {
   border-bottom: 0;
 }
-.r-v2-upload-rom__row-name {
+.r-v2-upload__row-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.r-v2-upload__footer {
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

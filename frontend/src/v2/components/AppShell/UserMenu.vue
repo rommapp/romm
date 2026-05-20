@@ -74,13 +74,6 @@ function showAbout() {
   emitter?.emit("showAboutDialog", null);
 }
 
-function showUpload() {
-  open.value = false;
-  // The v2 UploadRomDialog isn't built yet; this event is the same one
-  // v1 listens to, so the wiring is correct for when the v2 dialog lands.
-  emitter?.emit("showUploadRomDialog", null);
-}
-
 async function onLogout() {
   open.value = false;
   try {
@@ -244,14 +237,12 @@ async function onLogout() {
         :label="t('settings.scan')"
         @click="open = false"
       />
-      <!-- FIXME: v2 UploadRomDialog isn't built yet — clicking emits
-             the same event v1 listens for, so this lights up the moment
-             the dialog ships. -->
       <RMenuItem
         v-if="canSeeUpload"
+        :to="{ name: ROUTES.UPLOAD }"
         icon="mdi-cloud-upload-outline"
         :label="t('common.upload')"
-        @click="showUpload"
+        @click="open = false"
       />
       <RMenuItem
         :to="{ name: ROUTES.PATCHER }"

@@ -26,8 +26,8 @@ import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
+import LibraryToolsShell from "@/v2/components/LibraryTools/LibraryToolsShell.vue";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
-import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -70,9 +70,6 @@ const snackbar = useSnackbar();
 const heartbeat = storeHeartbeat();
 const scanningStore = storeScanning();
 const uploadStore = storeUpload();
-
-const setBgArt = useBackgroundArt();
-setBgArt(null);
 
 const supportedPatchFormats = [
   ".ips",
@@ -377,21 +374,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="r-v2-patch">
-    <header class="r-v2-patch__head">
-      <div>
-        <span class="r-v2-patch__eyebrow">
-          <RIcon icon="mdi-file-cog-outline" size="13" />
-          Tools
-        </span>
-        <h1 class="r-v2-patch__title">
-          {{ t("patcher.title") }}
-        </h1>
-        <p class="r-v2-patch__subtitle">
-          {{ t("patcher.subtitle") }}
-        </p>
-      </div>
-    </header>
+  <LibraryToolsShell active="patcher" bare>
+    <p class="r-v2-patch__subtitle">
+      {{ t("patcher.subtitle") }}
+    </p>
 
     <div v-if="loadError || statusMessage" class="r-v2-patch__status">
       <RAlert v-if="loadError" type="error" density="compact">
@@ -669,47 +655,12 @@ onMounted(async () => {
       <span>{{ t("patcher.powered-by") }}</span>
       <img src="/assets/patcherjs/patcherjs.png" alt="patcher.js" />
     </div>
-  </section>
+  </LibraryToolsShell>
 </template>
 
 <style scoped>
-.r-v2-patch {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 24px var(--r-row-pad) 48px;
-  max-width: 1080px;
-  margin: 0 auto;
-  width: 100%;
-  min-height: calc(100vh - var(--r-nav-h));
-}
-
-.r-v2-patch__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.r-v2-patch__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-brand-primary);
-}
-
-.r-v2-patch__title {
-  margin: 4px 0 0;
-  font-size: var(--r-font-size-xl);
-  font-weight: var(--r-font-weight-bold);
-}
-
 .r-v2-patch__subtitle {
-  margin: 4px 0 0;
+  margin: 0;
   color: var(--r-color-fg-secondary);
   font-size: var(--r-font-size-sm);
   max-width: 560px;

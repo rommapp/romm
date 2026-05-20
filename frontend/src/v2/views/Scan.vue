@@ -17,9 +17,9 @@ import storeConfig from "@/stores/config";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import LibraryToolsShell from "@/v2/components/LibraryTools/LibraryToolsShell.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
-import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 
@@ -48,9 +48,6 @@ function setOpen(platformId: number, open: boolean) {
   openPlatforms.value = next;
 }
 const scanLog = useTemplateRef<HTMLDivElement>("scan-log");
-
-const setBgArt = useBackgroundArt();
-setBgArt(null);
 
 const sortedPlatforms = computed(() =>
   [...filteredPlatforms.value].sort((a, b) =>
@@ -201,17 +198,8 @@ function stopScan() {
 </script>
 
 <template>
-  <section class="r-v2-scan">
-    <header class="r-v2-scan__head">
-      <div>
-        <span class="r-v2-scan__eyebrow">
-          <RIcon icon="mdi-magnify-scan" size="13" />
-          Library
-        </span>
-        <h1 class="r-v2-scan__title">
-          {{ t("scan.scan") }}
-        </h1>
-      </div>
+  <LibraryToolsShell active="scan" bare>
+    <template #actions>
       <RBtn
         variant="text"
         size="small"
@@ -220,7 +208,7 @@ function stopScan() {
       >
         {{ t("scan.manage-library") }}
       </RBtn>
-    </header>
+    </template>
 
     <!-- Config panel -->
     <div class="r-v2-scan__config">
@@ -442,46 +430,10 @@ function stopScan() {
         </span>
       </div>
     </div>
-  </section>
+  </LibraryToolsShell>
 </template>
 
 <style scoped>
-.r-v2-scan {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 24px var(--r-row-pad) 48px;
-  min-height: calc(100vh - var(--r-nav-h));
-  max-width: 1240px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.r-v2-scan__head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.r-v2-scan__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-brand-primary);
-  margin-bottom: 2px;
-}
-
-.r-v2-scan__title {
-  margin: 0;
-  font-size: var(--r-font-size-xl);
-  font-weight: var(--r-font-weight-bold);
-}
-
 .r-v2-scan__config {
   display: flex;
   flex-direction: column;
