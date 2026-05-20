@@ -162,13 +162,12 @@ const lineStyle = computed(() => {
 
 /* ── Full-width (bleed past parent's horizontal padding) ───────────
    Negative margins pull the box outward; matching width keeps the
-   line stretched edge-to-edge. Default bleed matches RDialog body's
-   16px horizontal padding; the consumer can override
-   `--r-divider-bleed-x` on the parent when sitting inside a surface
-   that uses a different padding. */
+   line stretched edge-to-edge. The fallback (16px) matches RDialog
+   body's horizontal padding; consumers whose neighbour rows bleed
+   further (e.g. ManageCollectionsDialog's 18px row margin) set
+   `--r-divider-bleed-x` on the divider or any ancestor to override. */
 .r-divider--full-width {
-  --r-divider-bleed-x: 16px;
-  margin-inline: calc(-1 * var(--r-divider-bleed-x));
-  width: calc(100% + 2 * var(--r-divider-bleed-x));
+  margin-inline: calc(-1 * var(--r-divider-bleed-x, 16px));
+  width: calc(100% + 2 * var(--r-divider-bleed-x, 16px));
 }
 </style>

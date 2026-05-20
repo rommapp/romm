@@ -236,7 +236,11 @@ function closeDialog() {
         @cancel="cancelCreate"
       />
 
-      <RDivider v-if="ownedCollections.length > 0" full-width />
+      <RDivider
+        v-if="ownedCollections.length > 0"
+        full-width
+        style="--r-divider-bleed-x: 18px"
+      />
 
       <!-- Existing collection rows — instant toggle, no commit step. -->
       <ul v-if="ownedCollections.length" class="r-v2-mng-coll__list">

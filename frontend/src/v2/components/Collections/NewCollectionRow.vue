@@ -4,10 +4,11 @@
 // Expanded: inline name input with Create / Cancel actions.
 //
 // Stateless — the parent owns `expanded`, `name`, and `creating`. The
-// `+` tile and row frame are shared between the two states so the
-// expand animation reads as the same surface swapping its contents.
+// outer row + tile are persistent across both states so the background
+// tint and tile-active swap transition smoothly instead of remounting;
+// only the middle (label vs input) and the trailing actions toggle.
 import { RBtn, RIcon } from "@v2/lib";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, ref, useId, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
@@ -41,6 +42,12 @@ const { t } = useI18n();
 
 const input = ref<HTMLInputElement | null>(null);
 
+// Stable id so the trailing Create button (sibling of the form) can
+// submit via the `form` HTML attribute. Lets the actions live outside
+// the form node so their Vue Transition can run a clean leave when the
+// row collapses.
+const formId = useId();
+
 watch(
   () => props.expanded,
   (expanded) => {
@@ -48,8 +55,11 @@ watch(
   },
 );
 
-function onExpand() {
-  emit("update:expanded", true);
+function onRowClick() {
+  // Tile / empty-row clicks expand the row when collapsed. The inner
+  // label-button and input swallow their own clicks, so this only
+  // triggers for the row's chrome.
+  if (!props.expanded) emit("update:expanded", true);
 }
 function onCancel() {
   emit("cancel");
@@ -63,73 +73,87 @@ function onInput(e: Event) {
 </script>
 
 <template>
-  <button
-    v-if="!expanded"
-    type="button"
+  <div
     class="new-row"
+    :class="{ 'new-row--editing': expanded }"
     :style="rowStyle"
-    @click="onExpand"
+    @click="onRowClick"
   >
-    <span class="new-row__tile">
+    <span class="new-row__tile" :class="{ 'new-row__tile--active': expanded }">
       <RIcon icon="mdi-plus" size="22" />
     </span>
-    <span class="new-row__label">
+
+    <!-- Middle column: label (collapsed) or input (expanded). The swap
+         is instant; the surrounding row stays mounted so the tile and
+         background transition smoothly instead of unmounting. -->
+    <button
+      v-if="!expanded"
+      type="button"
+      class="new-row__cta"
+      @click.stop="emit('update:expanded', true)"
+    >
       {{ t("collection.new-collection", "New Collection") }}
-    </span>
-  </button>
-  <form
-    v-else
-    class="new-row new-row--editing"
-    :style="rowStyle"
-    @submit.prevent="onSubmit"
-  >
-    <span class="new-row__tile new-row__tile--active">
-      <RIcon icon="mdi-plus" size="22" />
-    </span>
-    <input
-      ref="input"
-      :value="name"
-      type="text"
-      class="new-row__input"
-      :placeholder="
-        t('collection.collection-name-placeholder', 'Collection name')
-      "
-      :disabled="creating"
-      :aria-label="t('collection.new-collection', 'New Collection')"
-      @input="onInput"
-      @keydown.esc.prevent="onCancel"
-    />
-    <div class="new-row__actions">
-      <RBtn
-        variant="text"
-        size="small"
+    </button>
+    <form
+      v-else
+      :id="formId"
+      class="new-row__form"
+      @submit.prevent="onSubmit"
+      @click.stop
+    >
+      <input
+        ref="input"
+        :value="name"
+        type="text"
+        class="new-row__input"
+        :placeholder="
+          t('collection.collection-name-placeholder', 'Collection name')
+        "
         :disabled="creating"
-        @click.prevent="onCancel"
-      >
-        {{ t("common.cancel") }}
-      </RBtn>
-      <RBtn
-        variant="translucent"
-        color="primary"
-        size="small"
-        type="submit"
-        :disabled="!name.trim() || creating"
-        :loading="creating"
-      >
-        {{ t("common.create", "Create") }}
-      </RBtn>
-    </div>
-  </form>
+        :aria-label="t('collection.new-collection', 'New Collection')"
+        @input="onInput"
+        @keydown.esc.prevent="onCancel"
+      />
+    </form>
+
+    <!-- Actions sit outside the form (Create wires via `form` attr) so
+         their Vue Transition can run a clean enter+leave when the row
+         expands/collapses without the form's unmount cutting it short. -->
+    <Transition name="new-row-actions">
+      <div v-if="expanded" class="new-row__actions" @click.stop>
+        <RBtn
+          variant="text"
+          size="small"
+          :disabled="creating"
+          @click.prevent="onCancel"
+        >
+          {{ t("common.cancel") }}
+        </RBtn>
+        <RBtn
+          variant="translucent"
+          color="primary"
+          size="small"
+          type="submit"
+          :form="formId"
+          :disabled="!name.trim() || creating"
+          :loading="creating"
+        >
+          {{ t("common.create", "Create") }}
+        </RBtn>
+      </div>
+    </Transition>
+  </div>
 </template>
 
 <style scoped>
 /* Negative horizontal margin compensates for the RDialog body padding
    so the CTA stretches edge-to-edge, matching the picker rows below. */
 .new-row {
-  appearance: none;
   display: grid;
   /* First column tracks the configurable tile width so the label always
-     starts past the tile, even when the consumer makes the tile bigger. */
+     starts past the tile, even when the consumer makes the tile bigger.
+     Third column is `auto` — sizes to the actions when present, collapses
+     to 0 when the Transition unmounts them. */
   grid-template-columns: var(--tile-w, 36px) 1fr auto;
   align-items: center;
   gap: 14px;
@@ -137,14 +161,11 @@ function onInput(e: Event) {
   margin: -18px -18px 0;
   padding: 10px 30px;
   background: transparent;
-  border: 0;
   cursor: pointer;
   color: inherit;
-  font-family: inherit;
-  text-align: left;
   transition: background var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.new-row:hover {
+.new-row:not(.new-row--editing):hover {
   background: var(--r-color-bg-elevated);
 }
 .new-row--editing {
@@ -169,16 +190,30 @@ function onInput(e: Event) {
     background var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.new-row:hover .new-row__tile,
+.new-row:not(.new-row--editing):hover .new-row__tile,
 .new-row__tile--active {
   background: color-mix(in srgb, var(--r-color-brand-primary) 28%, transparent);
   color: var(--r-color-overlay-fg);
 }
 
-.new-row__label {
+/* Label-as-button — left-aligned, no chrome so it reads as a row label
+   that happens to be focusable. */
+.new-row__cta {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
   font-size: 14px;
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-brand-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.new-row__form {
+  display: flex;
+  min-width: 0;
 }
 
 .new-row__input {
@@ -192,6 +227,7 @@ function onInput(e: Event) {
   padding: 8px 0;
   outline: none;
   min-width: 0;
+  width: 100%;
 }
 .new-row__input::placeholder {
   color: var(--r-color-fg-faint);
@@ -205,29 +241,26 @@ function onInput(e: Event) {
   flex-shrink: 0;
 }
 
-:global(.r-v2.r-v2-light) .new-row:hover {
+:global(.r-v2.r-v2-light) .new-row:not(.new-row--editing):hover {
   background: color-mix(in srgb, var(--r-color-fg) 5%, transparent);
 }
 :global(.r-v2.r-v2-light) .new-row__input::placeholder {
   color: color-mix(in srgb, var(--r-color-fg) 35%, transparent);
 }
 
-/* Cancel/Create entrance — the form mounts instantly when the user
-   clicks "New Collection"; the action pair slides in from the right
-   so the buttons read as appearing after the input is ready, not as
-   part of the row swap. CSS keyframe (not Vue Transition) so it stays
-   confined to the actions cluster and doesn't touch the row layout. */
-.new-row--editing .new-row__actions {
-  animation: new-row-actions-in 220ms var(--r-motion-ease-out) both;
+/* Cancel/Create transition — slides in from the right on expand and
+   slides back out on cancel. Both directions animate because the
+   actions cluster lives outside the form, so its Vue Transition leave
+   isn't cut short by a form unmount. */
+.new-row-actions-enter-active,
+.new-row-actions-leave-active {
+  transition:
+    opacity 180ms var(--r-motion-ease-out),
+    transform 180ms var(--r-motion-ease-out);
 }
-@keyframes new-row-actions-in {
-  from {
-    opacity: 0;
-    transform: translateX(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+.new-row-actions-enter-from,
+.new-row-actions-leave-to {
+  opacity: 0;
+  transform: translateX(8px);
 }
 </style>
