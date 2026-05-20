@@ -36,6 +36,17 @@ function run(fn: () => void | Promise<void>) {
     icon="mdi-download-outline"
     @click="run(actions.download)"
   />
+  <RMenuItem
+    label="Copy download link"
+    icon="mdi-share-variant-outline"
+    @click="run(actions.copyDownloadLink)"
+  />
+  <RMenuItem
+    v-if="actions.canShareQR.value"
+    label="Share (QR code)"
+    icon="mdi-qrcode"
+    @click="run(actions.shareQR)"
+  />
 
   <RDivider />
 
@@ -51,12 +62,6 @@ function run(fn: () => void | Promise<void>) {
     label="Manage collections"
     icon="mdi-bookmark-outline"
     @click="run(actions.manageCollections)"
-  />
-  <RMenuItem
-    v-if="actions.canShareQR.value"
-    label="Share (QR code)"
-    icon="mdi-qrcode"
-    @click="run(actions.shareQR)"
   />
 
   <RDivider />

@@ -20,7 +20,7 @@ import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
-import { getDownloadPath, isNintendoDSRom } from "@/utils";
+import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 export function useGameActions(getRom: () => SimpleRom | null | undefined) {
@@ -211,6 +211,29 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     emitter?.emit("showQRCodeDialog", rom);
   }
 
+  // Copies the API download URL (origin + /api/roms/.../content/...) so
+  // the user can paste it into another device or share it. v1 used this
+  // for handhelds that can ingest a direct download URL. Falls back to a
+  // dialog displaying the link when the Clipboard API isn't available
+  // (insecure context, older browsers).
+  async function copyDownloadLink() {
+    const rom = getRom();
+    if (!rom) return;
+    const link = getDownloadLink({ rom });
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(link);
+        snackbar.success("Download link copied to clipboard", {
+          icon: "mdi-link-variant",
+        });
+        return;
+      } catch {
+        // fall through to dialog fallback
+      }
+    }
+    emitter?.emit("showCopyDownloadLinkDialog", link);
+  }
+
   function manageCollections() {
     const rom = getRom();
     if (!rom) return;
@@ -256,6 +279,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     favorite,
     share,
     shareQR,
+    copyDownloadLink,
     manageCollections,
     refreshMetadata,
     edit,

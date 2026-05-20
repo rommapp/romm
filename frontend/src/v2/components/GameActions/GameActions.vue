@@ -45,6 +45,19 @@ const actions = useGameActions(() => romRef.value);
     />
     <GameActionBtn
       :rom="rom"
+      action="copy-link"
+      size="large"
+      variant="surface"
+    />
+    <GameActionBtn
+      v-if="actions.canShareQR.value"
+      :rom="rom"
+      action="qr"
+      size="large"
+      variant="surface"
+    />
+    <GameActionBtn
+      :rom="rom"
       action="favorite"
       size="large"
       variant="surface"

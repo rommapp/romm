@@ -3,6 +3,7 @@
 // mount-points that need to live at the layout level so they overlay
 // every route. All surfaces here are v2-native.
 import AboutDialog from "@/v2/components/Dialogs/AboutDialog.vue";
+import CopyDownloadLinkDialog from "@/v2/components/Dialogs/CopyDownloadLinkDialog.vue";
 import DeleteManualDialog from "@/v2/components/Dialogs/DeleteManualDialog.vue";
 import DeleteRomDialog from "@/v2/components/Dialogs/DeleteRomDialog.vue";
 import EditRomDialog from "@/v2/components/Dialogs/EditRomDialog.vue";
@@ -34,6 +35,7 @@ defineOptions({ inheritAttrs: false });
   <RefreshMetadataDialog />
   <SearchCoverDialog />
   <ShowQRCodeDialog />
+  <CopyDownloadLinkDialog />
   <ManageCollectionsDialog />
   <AboutDialog />
   <SelectSaveDialog />

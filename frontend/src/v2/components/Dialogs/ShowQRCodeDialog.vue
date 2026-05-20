@@ -109,7 +109,7 @@ function closeDialog() {
 }
 
 .r-v2-qr__canvas-wrap {
-  margin: 20px 0px 30px;
+  margin: 20px 0px 0px;
   padding: 6px;
   background: var(--r-color-overlay-emphasis-bg);
   border-radius: var(--r-radius-md);

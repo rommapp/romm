@@ -7,6 +7,9 @@
 // Actions:
 //   play        → router.push /rom/:id/ejs
 //   download    → direct download link click
+//   copy-link   → copy the API download URL to clipboard; falls back to
+//                 a dialog that shows the link when clipboard is denied
+//   qr          → emit showQRCodeDialog (only meaningful for NDS today)
 //   favorite    → toggleFavorite; active state when `isFavorited`
 //   collection  → open ManageCollectionsDialog; hidden if no collections
 //   status      → open status-enum picker (RMenu); icon swaps to the
@@ -44,6 +47,8 @@ defineOptions({ inheritAttrs: false });
 export type GameAction =
   | "play"
   | "download"
+  | "copy-link"
+  | "qr"
   | "favorite"
   | "collection"
   | "status"
@@ -159,6 +164,24 @@ const preset = computed<Preset>(() => {
       label: "Download",
       activeIcon: null,
       onClick: actions.download,
+      active: false,
+    };
+  }
+  if (props.action === "copy-link") {
+    return {
+      icon: "mdi-share-variant-outline",
+      label: "Copy download link",
+      activeIcon: null,
+      onClick: actions.copyDownloadLink,
+      active: false,
+    };
+  }
+  if (props.action === "qr") {
+    return {
+      icon: "mdi-qrcode",
+      label: "Share (QR code)",
+      activeIcon: null,
+      onClick: actions.shareQR,
       active: false,
     };
   }
