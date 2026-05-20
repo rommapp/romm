@@ -804,6 +804,32 @@ async def scan_rom(
         MetadataSource.LIBRETRO: libretro_handler_rom,
     }
 
+    # For COMPLETE rescans, explicitly clear metadata IDs and metadata for unselected sources
+    # This ensures that when a source is no longer selected, its data is removed from the ROM
+    if not newly_added and scan_type == ScanType.COMPLETE:
+        # Map of metadata source to (id_field, metadata_field) tuples
+        metadata_fields_map = {
+            MetadataSource.IGDB: ("igdb_id", "igdb_metadata"),
+            MetadataSource.MOBY: ("moby_id", "moby_metadata"),
+            MetadataSource.SS: ("ss_id", "ss_metadata"),
+            MetadataSource.RA: ("ra_id", "ra_metadata"),
+            MetadataSource.LAUNCHBOX: ("launchbox_id", "launchbox_metadata"),
+            MetadataSource.HASHEOUS: ("hasheous_id", "hasheous_metadata"),
+            MetadataSource.FLASHPOINT: ("flashpoint_id", "flashpoint_metadata"),
+            MetadataSource.HLTB: ("hltb_id", "hltb_metadata"),
+            MetadataSource.GAMELIST: ("gamelist_id", "gamelist_metadata"),
+            MetadataSource.LIBRETRO: ("libretro_id", None),  # libretro has no separate metadata field
+            MetadataSource.SGDB: ("sgdb_id", None),  # sgdb has no separate metadata field
+            MetadataSource.TGDB: ("tgdb_id", None),  # tgdb has no separate metadata field
+        }
+
+        # Clear fields for sources not in the current metadata_sources list
+        for source, (id_field, metadata_field) in metadata_fields_map.items():
+            if source not in metadata_sources:
+                rom_attrs[id_field] = None
+                if metadata_field:
+                    rom_attrs[metadata_field] = {}
+
     # Determine which metadata sources are available
     available_sources = [
         name for name, handler in metadata_handlers.items() if handler.get(f"{name}_id")
