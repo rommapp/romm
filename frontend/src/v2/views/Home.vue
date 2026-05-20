@@ -175,7 +175,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
       gap="16px"
     >
       <template #icon>
-        <RIcon icon="mdi-bookmark-box-multiple" size="20" />
+        <RIcon icon="mdi-bookmark-outline" size="20" />
       </template>
       <CollectionTile
         v-for="c in allCollections"

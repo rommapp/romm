@@ -26,7 +26,6 @@ import type { Events } from "@/types/emitter";
 import { formatTimestamp } from "@/utils";
 import CreateClientTokenDialog from "@/v2/components/Settings/CreateClientTokenDialog.vue";
 import ScopeCell from "@/v2/components/Settings/ScopeCell.vue";
-import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -168,7 +167,7 @@ onMounted(fetchTokens);
 </script>
 
 <template>
-  <SettingsShell bare>
+  <div>
     <RTextField
       v-model="search"
       prefix-label="inline"
@@ -259,7 +258,7 @@ onMounted(fetchTokens);
     </div>
 
     <CreateClientTokenDialog @created="fetchTokens" />
-  </SettingsShell>
+  </div>
 </template>
 
 <style scoped>

@@ -26,6 +26,10 @@ export type Events = {
   updateUrlCover: string;
   showEditRomDialog: SimpleRom;
   showRefreshMetadataDialog: SimpleRom;
+  /** v2-only — bulk refresh of multiple ROMs from the SelectionBar.
+   * The v2 RefreshMetadataDialog listens to both this and the single
+   * event; v1 keeps the single-rom contract. */
+  showRefreshMetadataDialogBulk: SimpleRom[];
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: SimpleRom[];
   showUploadRomDialog: Platform | null;

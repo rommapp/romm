@@ -1,5 +1,9 @@
 <script setup lang="ts">
-// SettingsShell — page chrome shared by every Settings route.
+// SettingsLayout — sub-layout shared by every Settings route. Mounts
+// the sidebar + content column and renders the active settings view
+// via `<router-view name="v2" />`. Replaces the old
+// `SettingsShell` wrapper-from-the-view pattern: the route tree owns
+// the chrome now, the views just render their body.
 //
 // Layout: two columns sharing a vertical hairline divider. The
 // sidebar is `position: sticky` so it follows the user as the document
@@ -8,22 +12,19 @@
 // `--r-page-max-w` so the layout never stretches beyond the same width
 // budget GameDetails uses.
 //
-// At <1024px the sidebar collapses to a horizontal scrollable strip on
-// top of the content (responsive logic lives inside SettingsSidebar).
+// `bare` is route-level: views that already provide their own section
+// cards (Administration, ServerStats, …) set `meta: { bare: true }`
+// on their route so the layout drops the outer glass panel and lets
+// the embedded cards breathe instead of double-nesting.
+import { computed } from "vue";
+import { useRoute } from "vue-router";
 import SettingsSidebar from "@/v2/components/Settings/SettingsSidebar.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 
 defineOptions({ inheritAttrs: false });
 
-defineProps<{
-  /**
-   * When true, renders the content slot directly without the default
-   * glass wrapper. Use for views that already provide their own
-   * cards/tables (e.g. Administration has UsersTable/TokensTable which
-   * are self-carded).
-   */
-  bare?: boolean;
-}>();
+const route = useRoute();
+const isBare = computed(() => route.meta?.bare === true);
 
 // Settings pages share the current cover-art background from wherever
 // the user came from. We don't paint over it; just no-op so a stale
@@ -37,13 +38,16 @@ setBgArt(null);
     <SettingsSidebar class="r-v2-settings__sidebar" />
 
     <div class="r-v2-settings__content">
-      <div v-if="bare" class="r-v2-settings__body r-v2-settings__body--bare">
-        <slot />
-      </div>
-      <div v-else class="r-v2-settings__body">
-        <div class="r-v2-settings__panel">
-          <slot />
-        </div>
+      <!-- Single router-view with a conditional wrapper class. Two
+           router-views under v-if/v-else confuse vue-router during
+           the transition — the outgoing branch unmounts before the
+           new route's view binds, and content goes stale. One
+           router-view + class swap keeps the same instance live. -->
+      <div
+        class="r-v2-settings__body"
+        :class="{ 'r-v2-settings__body--bare': isBare }"
+      >
+        <router-view name="v2" />
       </div>
     </div>
   </section>
@@ -72,12 +76,13 @@ setBgArt(null);
   padding: 32px 40px 60px;
 }
 
+/* Default body = panel mode (background + border + padding). Bare
+   views drop the panel chrome and stack their own section cards
+   directly. The `.r-v2-settings__body` class is on the wrapper for
+   both modes; the `--bare` modifier strips the panel surface. */
 .r-v2-settings__body {
   display: flex;
   flex-direction: column;
-}
-
-.r-v2-settings__panel {
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
@@ -86,12 +91,13 @@ setBgArt(null);
   padding: 18px;
 }
 
-/* Bare variant — content slot owns its own surfaces (settings views
-   with their own section cards). The wrapper panel is dropped so the
-   embedded cards don't double-nest. */
 .r-v2-settings__body--bare {
-  display: flex;
-  flex-direction: column;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 0;
   gap: 14px;
 }
 

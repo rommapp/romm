@@ -57,8 +57,6 @@ const canSeeLibraryMgmt = computed(() =>
 const canSeeMetadata = computed(() => scopes.value.includes("me.write"));
 const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
 const canSeeAdmin = computed(() => scopes.value.includes("users.write"));
-const canSeeScan = computed(() => scopes.value.includes("platforms.write"));
-const canSeeUpload = computed(() => scopes.value.includes("roms.write"));
 
 // Library + System groups can be empty for restricted scopes — gate the
 // whole region so a lone group label doesn't dangle. Account always has
@@ -220,34 +218,6 @@ async function onLogout() {
         :to="{ name: ROUTES.CONTROLLER_DEBUG }"
         icon="mdi-controller"
         :label="t('settings.controller-debug')"
-        @click="open = false"
-      />
-    </div>
-
-    <RDivider />
-
-    <!-- Actions — librarian actions, not settings, but reachable from
-           the same dropdown for convenience. Patcher is always visible
-           (no scope gate, matches v1). -->
-    <div class="r-v2-user-menu__group">
-      <RMenuItem
-        v-if="canSeeScan"
-        :to="{ name: ROUTES.SCAN }"
-        icon="mdi-magnify-scan"
-        :label="t('settings.scan')"
-        @click="open = false"
-      />
-      <RMenuItem
-        v-if="canSeeUpload"
-        :to="{ name: ROUTES.UPLOAD }"
-        icon="mdi-cloud-upload-outline"
-        :label="t('common.upload')"
-        @click="open = false"
-      />
-      <RMenuItem
-        :to="{ name: ROUTES.PATCHER }"
-        icon="mdi-file-cog"
-        :label="t('common.patcher')"
         @click="open = false"
       />
     </div>

@@ -38,6 +38,13 @@ interface Props {
   /** Tone for the check fill + active border. */
   color?: string;
   variant?: "box" | "card";
+  /** Box-only mode — drops the row's vertical breathing padding (4px
+   *  top/bottom) and the box↔label gap so the checkbox can be
+   *  positioned absolutely as a tight square. Use when the consumer
+   *  owns the surrounding chrome (e.g. a GameCard overlay or a
+   *  list-row checkbox column). Doesn't strip the label itself —
+   *  if you omit the label and slots, only the box renders. */
+  bare?: boolean;
   /** Error tone — red box + red label. */
   error?: boolean;
   errorMessages?: string | string[];
@@ -54,6 +61,7 @@ const props = withDefaults(defineProps<Props>(), {
   shape: "square",
   color: "primary",
   variant: "box",
+  bare: false,
   error: false,
   errorMessages: () => [],
 });
@@ -133,6 +141,7 @@ const hasLabel = computed(
         'r-checkbox--disabled': disabled,
         'r-checkbox--error': error,
         'r-checkbox--has-subtitle': hasSubtitle,
+        'r-checkbox--bare': bare,
       },
     ]"
     :style="{ '--r-cb-color': resolvedColor }"
@@ -254,6 +263,22 @@ const hasLabel = computed(
   /* Slight vertical breathing room so a row of checkboxes is
      touch-comfortable even without extra padding from the consumer. */
   padding: 4px 0;
+}
+
+/* Bare mode — used when the consumer (overlay chrome on a GameCard,
+   tight column on a list row) owns the surrounding padding. Drop the
+   row breathing room and the box↔label gap so the box can be sized
+   pixel-exact at the parent. The label / subtitle still render when
+   supplied; the gap returns naturally when a sibling appears. */
+.r-checkbox--bare .r-checkbox {
+  padding: 0;
+  gap: 0;
+}
+.r-checkbox--bare.r-checkbox--has-subtitle .r-checkbox,
+.r-checkbox--bare .r-checkbox:has(.r-checkbox__body) {
+  /* Restore the gap whenever body content actually renders so the
+     box doesn't kiss the label. */
+  gap: 10px;
 }
 .r-checkbox--disabled .r-checkbox {
   cursor: not-allowed;

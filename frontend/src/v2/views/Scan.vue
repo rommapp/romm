@@ -17,7 +17,6 @@ import storeConfig from "@/stores/config";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import LibraryToolsShell from "@/v2/components/LibraryTools/LibraryToolsShell.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
@@ -198,8 +197,18 @@ function stopScan() {
 </script>
 
 <template>
-  <LibraryToolsShell active="scan" bare>
-    <template #actions>
+  <div class="r-v2-scan">
+    <!-- Teleport the section CTA into the LibraryToolsLayout header
+         next to the title. The portal target lives in the layout.
+         `defer` is load-bearing: when /scan is the entry route, the
+         layout target #r-v2-lt-actions is not yet in the document at
+         this view's mount time (Vue mounts children before inserting
+         parent DOM). Without `defer`, querySelector returns null,
+         Teleport stores a broken vnode, and the next navigation away
+         crashes with "Cannot read properties of null (reading 'type'
+         / 'parentNode')" during unmount. `defer` resolves the target
+         on the next render tick, when the layout's DOM is in place. -->
+    <Teleport to="#r-v2-lt-actions" defer>
       <RBtn
         variant="text"
         size="small"
@@ -208,7 +217,7 @@ function stopScan() {
       >
         {{ t("scan.manage-library") }}
       </RBtn>
-    </template>
+    </Teleport>
 
     <!-- Config panel -->
     <div class="r-v2-scan__config">
@@ -430,7 +439,7 @@ function stopScan() {
         </span>
       </div>
     </div>
-  </LibraryToolsShell>
+  </div>
 </template>
 
 <style scoped>

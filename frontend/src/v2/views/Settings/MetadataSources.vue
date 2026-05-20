@@ -13,7 +13,6 @@ import { useI18n } from "vue-i18n";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
-import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -187,7 +186,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <SettingsShell bare>
+  <div>
     <SettingsSection
       :title="t('settings.metadata-catalogs')"
       icon="mdi-database-search-outline"
@@ -301,7 +300,7 @@ onMounted(() => {
         </article>
       </div>
     </SettingsSection>
-  </SettingsShell>
+  </div>
 </template>
 
 <style scoped>

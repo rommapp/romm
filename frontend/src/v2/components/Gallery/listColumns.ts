@@ -29,9 +29,9 @@ export type ListSortKey = Extract<
 export interface ListColumn {
   /** Sort key (matches `galleryRoms.orderBy`). `null` for non-sortable
    * display-only columns (icon labels, action menus). */
-  key: ListSortKey | "languages" | "regions" | "actions";
+  key: ListSortKey | "select" | "languages" | "regions" | "actions";
   /** Column header label. Empty string renders no text (used for the
-   * trailing actions column). */
+   * leading select column + trailing actions column). */
   label: string;
   /** Whether the column header is clickable to toggle sort. */
   sortable: boolean;
@@ -44,6 +44,7 @@ export interface ListColumn {
 }
 
 export const LIST_COLUMNS: readonly ListColumn[] = [
+  { key: "select", label: "", sortable: false, align: "start" },
   { key: "name", label: "Title", sortable: true, align: "start" },
   {
     key: "fs_size_bytes",
@@ -93,7 +94,7 @@ export const LIST_COLUMNS: readonly ListColumn[] = [
 /** Single grid template applied to both the header row and every body
  * row so columns line up vertically across the whole list. */
 export const LIST_GRID_TEMPLATE =
-  "minmax(0, 1.6fr) 88px 96px 84px 56px 110px 110px 56px";
+  "36px minmax(0, 1.6fr) 88px 96px 84px 56px 110px 110px 56px";
 
 // Numeric mirrors of the list-mode tokens so JS consumers (the
 // virtualiser, the cover skeleton block) stay synced with the rendered

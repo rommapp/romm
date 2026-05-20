@@ -122,10 +122,11 @@
   --r-motion-slow: 360ms;
   --r-motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --r-motion-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --r-motion-ease-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   --r-focus-ring-width: 2px;
   --r-focus-ring-offset: 3px;
   --r-nav-h: 58px;
-  --r-page-max-w: 1920px;
+  --r-page-max-w: 1500px;
   --r-card-art-w: 158px;
   --r-card-art-h: 213px;
   --r-hero-w: 300px;

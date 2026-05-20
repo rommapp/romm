@@ -7,7 +7,6 @@ import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCovera
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
 import api from "@/services/api";
 import PlatformsStatsSection from "@/v2/components/Settings/PlatformsStatsSection.vue";
-import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import SummaryStatsSection from "@/v2/components/Settings/SummaryStatsSection.vue";
 
 const stats = ref({
@@ -31,12 +30,12 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <SettingsShell bare>
+  <div>
     <SummaryStatsSection :stats="stats" />
     <PlatformsStatsSection
       :total-filesize="stats.TOTAL_FILESIZE_BYTES"
       :metadata-coverage="stats.METADATA_COVERAGE"
       :region-breakdown="stats.REGION_BREAKDOWN"
     />
-  </SettingsShell>
+  </div>
 </template>

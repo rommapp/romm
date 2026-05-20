@@ -13,7 +13,11 @@ interface Props {
   name: string;
   count: number;
   covers: string[];
-  checked: boolean;
+  /** Membership state of the row against the current selection:
+   *   - "off"  → none of the selected ROMs are in this collection
+   *   - "some" → some are, some aren't (bulk-only, drawn with a dash)
+   *   - "all"  → every selected ROM is already in this collection */
+  state: "off" | "some" | "all";
   busy?: boolean;
   // Thumb diameter in px. Drives both the grid first-column width and
   // the CollectionMosaic width so the label column always lines up with
@@ -33,6 +37,10 @@ defineEmits<{
 const rowStyle = computed(() => ({
   "--tile-w": `${props.tileSize}px`,
 }));
+
+const isOn = computed(() => props.state !== "off");
+const isPartial = computed(() => props.state === "some");
+const isFull = computed(() => props.state === "all");
 </script>
 
 <template>
@@ -40,11 +48,13 @@ const rowStyle = computed(() => ({
     type="button"
     class="pick-row"
     :class="{
-      'pick-row--checked': checked,
+      'pick-row--checked': isFull,
+      'pick-row--partial': isPartial,
       'pick-row--busy': busy,
     }"
     :style="rowStyle"
-    :aria-pressed="checked"
+    :aria-pressed="isFull"
+    :aria-checked="isPartial ? 'mixed' : isFull"
     :disabled="busy"
     @click="$emit('toggle')"
   >
@@ -52,7 +62,11 @@ const rowStyle = computed(() => ({
     <span class="pick-row__name">{{ name }}</span>
     <span class="pick-row__count">{{ count }}</span>
     <span class="pick-row__tick" aria-hidden="true">
-      <RIcon v-if="checked" icon="mdi-check" size="14" />
+      <RIcon
+        v-if="isOn"
+        :icon="isPartial ? 'mdi-minus' : 'mdi-check'"
+        size="14"
+      />
     </span>
   </button>
 </template>
@@ -131,6 +145,21 @@ const rowStyle = computed(() => ({
   background: var(--r-color-brand-primary);
   border-color: var(--r-color-brand-primary);
   color: var(--r-color-overlay-fg);
+}
+
+/* Indeterminate (`some`) — the brand colour reads as a hint but the
+   tick swaps to a horizontal dash so users can tell "partially in" from
+   "fully in" at a glance. */
+.pick-row--partial .pick-row__tick {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 25%, transparent);
+  border-color: var(--r-color-brand-primary);
+  color: var(--r-color-brand-primary);
+}
+.pick-row--partial {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 4%, transparent);
+}
+.pick-row--partial:hover {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 10%, transparent);
 }
 
 :global(.r-v2.r-v2-light) .pick-row__name {

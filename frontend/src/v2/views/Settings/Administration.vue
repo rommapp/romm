@@ -17,7 +17,6 @@ import AdminTokensSection from "@/v2/components/Settings/AdminTokensSection.vue"
 import CreateUserDialog from "@/v2/components/Settings/CreateUserDialog.vue";
 import EditUserDialog from "@/v2/components/Settings/EditUserDialog.vue";
 import InviteLinkDialog from "@/v2/components/Settings/InviteLinkDialog.vue";
-import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import TasksSection from "@/v2/components/Settings/TasksSection.vue";
 import UsersSection from "@/v2/components/Settings/UsersSection.vue";
 
@@ -91,7 +90,7 @@ const tabModel = computed<string>({
 </script>
 
 <template>
-  <SettingsShell bare>
+  <div>
     <RTabNav v-model="tabModel" :items="tabs" class="r-v2-admin__tabs" />
 
     <UsersSection v-if="tab === 'users'" />
@@ -101,7 +100,7 @@ const tabModel = computed<string>({
     <CreateUserDialog />
     <EditUserDialog />
     <InviteLinkDialog />
-  </SettingsShell>
+  </div>
 </template>
 
 <style scoped>

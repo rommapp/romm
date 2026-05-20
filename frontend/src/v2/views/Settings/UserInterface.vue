@@ -19,7 +19,6 @@ import { useUISettings } from "@/composables/useUISettings";
 import { useUiVersion } from "@/composables/useUiVersion";
 import storeCollections from "@/stores/collections";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
-import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
 
@@ -127,7 +126,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
 </script>
 
 <template>
-  <SettingsShell bare>
+  <div>
     <SettingsSection :title="t('settings.language')" icon="mdi-translate">
       <div class="r-v2-ui__field">
         <LanguageSelector prefix-label />
@@ -331,7 +330,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
         </div>
       </div>
     </SettingsSection>
-  </SettingsShell>
+  </div>
 </template>
 
 <style scoped>

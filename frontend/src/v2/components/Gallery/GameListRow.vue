@@ -20,17 +20,19 @@
 //   * Click → game-details navigation. Cover-thumb view transition mirrors
 //     `GameCard`'s morph so navigating from list / grid into the detail
 //     page lands on the same visual anchor.
-import { RChip, RIcon, RSkeletonBlock } from "@v2/lib";
+import { RCheckbox, RChip, RIcon, RSkeletonBlock } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { formatBytes, toBrowserLocale } from "@/utils";
 import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
+import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
 import storeGalleryRoms, { type SimpleRom } from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
   LIST_COLUMNS,
   LIST_COVER_HEIGHT_PX,
@@ -63,6 +65,8 @@ const props = withDefaults(defineProps<Props>(), {
 
 const router = useRouter();
 const galleryRoms = storeGalleryRoms();
+const selection = storeGallerySelection();
+const selectionInput = useGallerySelectionInput();
 const { morphTransition } = useViewTransition();
 const { locale } = useI18n();
 
@@ -74,6 +78,22 @@ const rom = computed<SimpleRom | null>(() => {
     ? galleryRoms.getRomAt(props.position)
     : null;
 });
+
+const isSelected = computed(() =>
+  !isStatic.value && rom.value ? selection.isSelected(rom.value.id) : false,
+);
+
+function onCheckboxClick(e: MouseEvent) {
+  e.preventDefault();
+  e.stopPropagation();
+  const item = rom.value;
+  if (!item || props.position === undefined) return;
+  if (e.shiftKey) {
+    selectionInput.handleActivate(item, props.position, e);
+    return;
+  }
+  selection.toggle(item, props.position);
+}
 
 const gridStyle = { gridTemplateColumns: LIST_GRID_TEMPLATE };
 
@@ -138,6 +158,14 @@ function navigateTo(item: SimpleRom, currentTarget: HTMLElement | null) {
 function onRowClick(e: MouseEvent) {
   const item = rom.value;
   if (!item) return;
+
+  // Selection takes precedence over navigation when the gallery is in
+  // selection mode or the user is using modifier-click. Same composable
+  // as GameCard so grid + list behave identically.
+  if (!isStatic.value && props.position !== undefined) {
+    if (selectionInput.handleActivate(item, props.position, e)) return;
+  }
+
   // Modifier keys / non-primary buttons fall through to native anchor
   // navigation so "open in new tab" still works (the `href` is wired
   // up; we just don't preventDefault here).
@@ -148,6 +176,20 @@ function onRowClick(e: MouseEvent) {
   // morph, then push the route.
   e.preventDefault();
   navigateTo(item, e.currentTarget as HTMLElement | null);
+}
+
+function onRowPointerDown(e: PointerEvent) {
+  const item = rom.value;
+  if (!item || isStatic.value || props.position === undefined) return;
+  selectionInput.handlePointerDown(item, props.position, e);
+}
+function onRowPointerMove(e: PointerEvent) {
+  if (isStatic.value) return;
+  selectionInput.handlePointerMove(e);
+}
+function onRowPointerEnd() {
+  if (isStatic.value) return;
+  selectionInput.handlePointerEnd();
 }
 
 onMounted(() => {
@@ -173,15 +215,44 @@ onBeforeUnmount(() => {
 <template>
   <a
     class="game-list-row"
-    :class="{ 'game-list-row--clickable': !!rom }"
+    :class="{
+      'game-list-row--clickable': !!rom,
+      'game-list-row--selected': isSelected,
+    }"
     :style="gridStyle"
     :href="rom ? `/rom/${rom.id}` : undefined"
     :aria-label="rom ? `Open ${rom.name ?? rom.fs_name_no_ext}` : undefined"
     :data-rom-position="position"
     :data-rom-id="rom?.id"
     @click="onRowClick"
+    @pointerdown="onRowPointerDown"
+    @pointermove="onRowPointerMove"
+    @pointerup="onRowPointerEnd"
+    @pointercancel="onRowPointerEnd"
   >
     <template v-if="rom">
+      <!-- Selection cell — leftmost column. Click toggles this row;
+           shift-click extends the range from the last toggled position.
+           Hidden at rest; reveals on row hover / focus or whenever the
+           row is selected so the user always knows which rows are
+           picked. RCheckbox provides the box / fill / draw animations
+           — same animation language as the GameCard checkbox in grid
+           mode. -->
+      <div class="game-list-row__cell game-list-row__select">
+        <RCheckbox
+          v-if="!isStatic"
+          class="game-list-row__check"
+          :model-value="isSelected"
+          shape="circle"
+          size="sm"
+          color="primary"
+          bare
+          hide-details
+          tabindex="-1"
+          @click="onCheckboxClick"
+        />
+      </div>
+
       <div class="game-list-row__cell game-list-row__title">
         <div class="game-list-row__thumb" :style="morphStyleFor(rom)">
           <img
@@ -259,7 +330,14 @@ onBeforeUnmount(() => {
            doesn't reflow on data arrival. -->
       <template v-for="col in LIST_COLUMNS" :key="String(col.key)">
         <div
-          v-if="col.key === 'name'"
+          v-if="col.key === 'select'"
+          class="game-list-row__cell game-list-row__select"
+        >
+          <!-- Empty cell during skeleton phase — no placeholder so the
+               selection chrome only appears once a real row exists. -->
+        </div>
+        <div
+          v-else-if="col.key === 'name'"
           class="game-list-row__cell game-list-row__title"
         >
           <RSkeletonBlock
@@ -313,6 +391,42 @@ onBeforeUnmount(() => {
 }
 .game-list-row--clickable:hover {
   background: var(--r-color-bg-elevated);
+}
+
+/* Selected row — brand-tinted background so the selection reads at
+   a glance without competing with the per-row hover (`bg-elevated`).
+   The two states can overlap (hover on a selected row); we stack the
+   hover delta on top of the selected tint via `color-mix`. */
+.game-list-row--selected {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
+}
+.game-list-row--selected.game-list-row--clickable:hover {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
+}
+
+/* Select cell — checkbox column. Empty when the row is in skeleton
+   mode so the chrome only appears once a real row is loaded. */
+.game-list-row__select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: visible;
+}
+
+/* RCheckbox carries its own visual language — we only own the row's
+   reveal behaviour. Hidden at rest, visible on row hover/focus and
+   whenever the row is selected. */
+.game-list-row__check {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.game-list-row:hover .game-list-row__check,
+.game-list-row:focus-within .game-list-row__check,
+.game-list-row--selected .game-list-row__check {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .game-list-row__cell {

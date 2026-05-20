@@ -83,7 +83,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   text: undefined,
-  location: "bottom",
+  location: "top",
   openDelay: 300,
   closeDelay: 0,
   modelValue: undefined,

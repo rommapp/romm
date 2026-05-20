@@ -245,7 +245,7 @@ const multiSections = computed<MultiConfig[]>(() => [
   },
   {
     label: t("platform.collection"),
-    icon: "mdi-bookmark-multiple-outline",
+    icon: "mdi-bookmark-outline",
     items: filterCollections,
     selected: selectedCollections,
     logic: collectionsLogic,

@@ -65,4 +65,14 @@ export const fallbackComponent: V2Route = () =>
 export const v2Layouts = {
   main: () => import("@/v2/layouts/AppLayout.vue"),
   auth: () => import("@/v2/layouts/AuthLayout.vue"),
+  // Sub-layouts mounted inside AppLayout via grouping parent routes.
+  // Each owns a section's chrome (sidebar / hero / etc.) and renders
+  // the active child via `<router-view name="v2" />`.
+  settings: () => import("@/v2/layouts/SettingsLayout.vue"),
+  libraryTools: () => import("@/v2/layouts/LibraryToolsLayout.vue"),
+  // Tiny `<router-view />` shim used as the `default` (v1) named-view
+  // target on those v2-only grouping parents — v1 doesn't share their
+  // chrome so it just forwards down to the child's v1 component.
+  // @deprecated v2: delete with v1 (see Passthrough.vue).
+  passthrough: () => import("@/v2/layouts/Passthrough.vue"),
 };

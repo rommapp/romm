@@ -55,6 +55,7 @@ import GalleryToolbar from "@/v2/components/Gallery/GalleryToolbar.vue";
 import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
 import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
 import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
+import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import { type ListSortKey } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
@@ -68,6 +69,7 @@ import {
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 import storeScrollRestoration from "@/v2/stores/scrollRestoration";
 
 const LIST_SORT_KEYS = new Set<string>([
@@ -127,6 +129,7 @@ useGalleryViewModeUrl();
 const route = useRoute();
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
+const gallerySelection = storeGallerySelection();
 const scrollRestoration = storeScrollRestoration();
 const {
   searchTerm,
@@ -521,10 +524,44 @@ function saveCurrentScroll(routeFullPath: string) {
 
 onBeforeRouteUpdate((_to, from) => {
   saveCurrentScroll(from.fullPath);
+  // Switching to a different gallery context (Platform A → B, Search
+  // query change that routes, Collection open) — the selection is
+  // bound to the previous context and would read as stale items if
+  // carried over. Filter / sort changes inside the same view do NOT
+  // route, so they keep the selection intact (matches the rule of
+  // "filter, select more, filter again").
+  gallerySelection.clear();
 });
 onBeforeRouteLeave((_to, from) => {
   saveCurrentScroll(from.fullPath);
+  gallerySelection.clear();
 });
+
+// Global hotkeys scoped to the gallery shell — Esc clears the
+// selection, Ctrl/Cmd+A selects every currently-loaded rom. Both are
+// guarded against editable elements so the search field's native
+// Cmd+A still selects the input text.
+function onShellKey(e: KeyboardEvent) {
+  const target = e.target as HTMLElement | null;
+  if (
+    target &&
+    (target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.tagName === "SELECT" ||
+      target.isContentEditable)
+  ) {
+    return;
+  }
+  if (e.key === "Escape" && gallerySelection.enabled) {
+    e.preventDefault();
+    gallerySelection.clear();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && (e.key === "a" || e.key === "A")) {
+    e.preventDefault();
+    gallerySelection.selectAllLoaded(galleryRoms.byPosition.values());
+  }
+}
 
 // Gallery owns its own internal scroll (the RVirtualScroller). The
 // section is sized to `100vh - --r-nav-h` exactly, but pixel-rounding
@@ -537,9 +574,15 @@ let prevBodyOverflow: string | null = null;
 onMounted(() => {
   prevBodyOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
+  window.addEventListener("keydown", onShellKey);
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener("keydown", onShellKey);
+  // Selection is gallery-scoped: leaving the shell drops it so a
+  // navigation back to a non-gallery view (Home, Settings) doesn't
+  // keep stale picks alive.
+  gallerySelection.clear();
   if (searchDebounce) clearTimeout(searchDebounce);
   if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer);
   // Cancel any per-position fetches still in flight for our last
@@ -691,6 +734,8 @@ defineExpose({
                 :rom="getRomAt(p)!"
                 :webp="supportsWebp"
                 :show-platform-badge="showPlatformBadge"
+                selectable
+                :position="p"
               />
               <GameCardSkeleton v-else />
             </template>
@@ -791,6 +836,12 @@ defineExpose({
       v-model="filterDrawerOpen"
       :show-platforms-filter="showPlatformsInFilter"
     />
+
+    <!-- SELECTION BAR — floating bottom panel surfaced whenever the
+         user has selected at least one ROM. Owns the bulk actions
+         (favorite, collections, download, refresh, delete). Stays
+         outside the scroller so it never scrolls away. -->
+    <SelectionBar />
   </section>
 </template>
 

@@ -9,8 +9,10 @@
 // Sticky positioning is owned by the parent (`GalleryShell` pins this
 // below the toolbar at `top: --r-v2-shell-toolbar-h`). The header
 // itself only paints — it doesn't manage scroll.
-import { RIcon } from "@v2/lib";
+import { RCheckbox, RIcon } from "@v2/lib";
 import { computed } from "vue";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
   LIST_COLUMNS,
   LIST_GRID_TEMPLATE,
@@ -33,6 +35,40 @@ const emit = defineEmits<{
 
 const gridStyle = computed(() => ({ gridTemplateColumns: LIST_GRID_TEMPLATE }));
 
+const galleryRoms = storeGalleryRoms();
+const selection = storeGallerySelection();
+
+// Select-all state derived from the *loaded* ROMs (sparse galleries
+// don't have everything in memory until the user scrolls there). Three
+// states drive the checkbox glyph:
+//   * "off"   — no loaded rom is selected (or there are none)
+//   * "all"   — every loaded rom is selected
+//   * "some"  — at least one but not all loaded roms are selected
+const loadedSelectionState = computed<"off" | "some" | "all">(() => {
+  const loaded = galleryRoms.byPosition;
+  if (loaded.size === 0) return "off";
+  let selected = 0;
+  for (const rom of loaded.values()) {
+    if (selection.isSelected(rom.id)) selected += 1;
+  }
+  if (selected === 0) return "off";
+  if (selected === loaded.size) return "all";
+  return "some";
+});
+
+function onSelectAllClick(e: MouseEvent) {
+  e.preventDefault();
+  e.stopPropagation();
+  const state = loadedSelectionState.value;
+  // Indeterminate behaves like "off → all" (typical file-manager UX:
+  // a tri-state checkbox click resolves to "all checked").
+  if (state === "all") {
+    selection.clear();
+  } else {
+    selection.selectAllLoaded(galleryRoms.byPosition.values());
+  }
+}
+
 function isSortable(col: ListColumn): col is ListColumn & { key: ListSortKey } {
   return col.sortable;
 }
@@ -50,35 +86,60 @@ function handleClick(col: ListColumn) {
 
 <template>
   <div class="game-list-header" :style="gridStyle" role="row">
-    <button
-      v-for="col in LIST_COLUMNS"
-      :key="String(col.key)"
-      type="button"
-      class="game-list-header__cell"
-      :class="{
-        'game-list-header__cell--sortable': col.sortable,
-        'game-list-header__cell--end': col.align === 'end',
-        'game-list-header__cell--active': col.sortable && sortKey === col.key,
-      }"
-      :aria-sort="
-        col.sortable && sortKey === col.key
-          ? sortDir === 'asc'
-            ? 'ascending'
-            : 'descending'
-          : 'none'
-      "
-      :tabindex="col.sortable ? 0 : -1"
-      :disabled="!col.sortable"
-      @click="handleClick(col)"
-    >
-      <span class="game-list-header__label">{{ col.label }}</span>
-      <RIcon
-        v-if="col.sortable && sortKey === col.key"
-        :icon="sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'"
-        size="14"
-        class="game-list-header__icon"
+    <template v-for="col in LIST_COLUMNS" :key="String(col.key)">
+      <!-- Select-all column. Tri-state checkbox: off → some → all. The
+           "loaded" qualifier is deliberate — selecting beyond what's in
+           memory would require a backend round-trip we don't have a
+           cheap path for yet. RCheckbox draws the dash glyph for the
+           indeterminate state and the tick for "all", so we just pipe
+           the derived state through and intercept the click. -->
+      <RCheckbox
+        v-if="col.key === 'select'"
+        class="game-list-header__check"
+        :model-value="loadedSelectionState === 'all'"
+        :indeterminate="loadedSelectionState === 'some'"
+        shape="circle"
+        size="sm"
+        color="primary"
+        bare
+        hide-details
+        :aria-label="
+          loadedSelectionState === 'all' ? 'Deselect all' : 'Select all loaded'
+        "
+        @click="onSelectAllClick"
       />
-    </button>
+
+      <button
+        v-else
+        type="button"
+        class="game-list-header__cell"
+        :class="{
+          'game-list-header__cell--sortable': col.sortable,
+          'game-list-header__cell--end': col.align === 'end',
+          'game-list-header__cell--active': col.sortable && sortKey === col.key,
+        }"
+        :aria-sort="
+          col.sortable && sortKey === col.key
+            ? sortDir === 'asc'
+              ? 'ascending'
+              : 'descending'
+            : 'none'
+        "
+        :tabindex="col.sortable ? 0 : -1"
+        :disabled="!col.sortable"
+        @click="handleClick(col)"
+      >
+        <span class="game-list-header__label">{{ col.label }}</span>
+        <RIcon
+          v-if="col.sortable && sortKey === col.key"
+          :icon="
+            sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'
+          "
+          size="14"
+          class="game-list-header__icon"
+        />
+      </button>
+    </template>
   </div>
 </template>
 
@@ -146,5 +207,13 @@ function handleClick(col: ListColumn) {
 .game-list-header__icon {
   flex-shrink: 0;
   color: var(--r-color-brand-primary);
+}
+
+/* Select-all checkbox sitting in the leading column. Visuals come
+   from RCheckbox in bare/circle mode — same animation language as
+   the GameCard / GameListRow checkboxes so the three reads as one
+   family. */
+.game-list-header__check {
+  margin-left: 4px;
 }
 </style>

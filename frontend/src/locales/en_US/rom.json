@@ -87,6 +87,8 @@
   "rating": "Rating",
   "redownload-manual": "Re-download scraped manual",
   "refresh-metadata": "Refresh metadata",
+  "refresh-metadata-bulk": "Refreshing metadata for {n} games…",
+  "selection-count": "{n} games",
   "regions": "Regions",
   "related-content": "Related content",
   "remove-from-collection": "Remove from collection",

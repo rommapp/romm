@@ -12,7 +12,6 @@
 import { RBtn, RIcon } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
-import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
 
 defineOptions({ inheritAttrs: false });
@@ -141,7 +140,7 @@ function magnitude(x: number, y: number) {
 </script>
 
 <template>
-  <SettingsShell bare>
+  <div>
     <!-- Status -->
     <SettingsSection title="Status" icon="mdi-pulse">
       <div class="r-v2-ctrl__status">
@@ -359,7 +358,7 @@ function magnitude(x: number, y: number) {
         Press any key or gamepad button to see events here.
       </div>
     </SettingsSection>
-  </SettingsShell>
+  </div>
 </template>
 
 <style scoped>

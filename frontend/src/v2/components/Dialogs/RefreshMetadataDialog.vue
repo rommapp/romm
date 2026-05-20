@@ -26,7 +26,11 @@ const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const show = ref(false);
-const rom = ref<SimpleRom | null>(null);
+// Accept either a single rom or an array — the SelectionBar passes
+// many at once, individual menus pass one. Internally we always
+// normalise to an array so the scan emit groups by platform without
+// branching on the input shape.
+const roms = ref<SimpleRom[]>([]);
 const heartbeat = storeHeartbeat();
 const scanningStore = storeScanning();
 const configStore = storeConfig();
@@ -106,39 +110,77 @@ const scanOptions = computed<
 ]);
 const scanType = ref<ScanType>("unmatched");
 
-const openHandler = (romToRefresh: SimpleRom) => {
-  rom.value = romToRefresh;
+const openSingle = (payload: SimpleRom) => {
+  roms.value = [payload];
   show.value = true;
 };
-emitter?.on("showRefreshMetadataDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showRefreshMetadataDialog", openHandler));
+const openBulk = (payload: SimpleRom[]) => {
+  roms.value = payload;
+  show.value = true;
+};
+emitter?.on("showRefreshMetadataDialog", openSingle);
+emitter?.on("showRefreshMetadataDialogBulk", openBulk);
+onBeforeUnmount(() => {
+  emitter?.off("showRefreshMetadataDialog", openSingle);
+  emitter?.off("showRefreshMetadataDialogBulk", openBulk);
+});
+
+const isBulk = computed(() => roms.value.length > 1);
+const subtitle = computed(() => {
+  if (roms.value.length === 1) {
+    const r = roms.value[0];
+    return r.name ?? r.fs_name;
+  }
+  if (roms.value.length > 1) {
+    return t("rom.selection-count", { n: roms.value.length });
+  }
+  return "";
+});
 
 function onScan() {
-  if (!rom.value) return;
+  if (roms.value.length === 0) return;
 
   scanningStore.setScanning(true);
   storedMetadataSources.value = metadataSources.value.map((s) => s.value);
 
-  snackbar.info(
-    `Refreshing ${rom.value.name ?? rom.value.fs_name} metadata...`,
-    { icon: "mdi-loading mdi-spin" },
-  );
+  // Group rom ids by platform — the scan socket event accepts one
+  // platform list + one rom-id list, so a selection that spans
+  // multiple platforms is fanned into N events, one per platform.
+  const byPlatform = new Map<number, number[]>();
+  for (const r of roms.value) {
+    const list = byPlatform.get(r.platform_id) ?? [];
+    list.push(r.id);
+    byPlatform.set(r.platform_id, list);
+  }
+
+  if (isBulk.value) {
+    snackbar.info(t("rom.refresh-metadata-bulk", { n: roms.value.length }), {
+      icon: "mdi-loading mdi-spin",
+    });
+  } else {
+    const r = roms.value[0];
+    snackbar.info(`Refreshing ${r.name ?? r.fs_name} metadata...`, {
+      icon: "mdi-loading mdi-spin",
+    });
+  }
 
   if (!socket.connected) socket.connect();
-  socket.emit("scan", {
-    platforms: [rom.value.platform_id],
-    roms_ids: [rom.value.id],
-    type: scanType.value,
-    apis: metadataSources.value.map((s) => s.value),
-    launchbox_remote_enabled: launchboxRemoteEnabled.value,
-  });
+  for (const [platformId, romIds] of byPlatform) {
+    socket.emit("scan", {
+      platforms: [platformId],
+      roms_ids: romIds,
+      type: scanType.value,
+      apis: metadataSources.value.map((s) => s.value),
+      launchbox_remote_enabled: launchboxRemoteEnabled.value,
+    });
+  }
 
   closeDialog();
 }
 
 function closeDialog() {
   show.value = false;
-  rom.value = null;
+  roms.value = [];
 }
 </script>
 
@@ -154,8 +196,8 @@ function closeDialog() {
     </template>
     <template #content>
       <div class="r-v2-refresh">
-        <p v-if="rom" class="r-v2-refresh__rom">
-          {{ rom.name ?? rom.fs_name }}
+        <p v-if="subtitle" class="r-v2-refresh__rom">
+          {{ subtitle }}
         </p>
 
         <RSelect

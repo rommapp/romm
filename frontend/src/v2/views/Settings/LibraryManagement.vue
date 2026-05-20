@@ -11,7 +11,6 @@ import storeConfig from "@/stores/config";
 import ExcludedSection from "@/v2/components/Settings/ExcludedSection.vue";
 import FolderMappingsSection from "@/v2/components/Settings/FolderMappingsSection.vue";
 import MissingGamesSection from "@/v2/components/Settings/MissingGamesSection.vue";
-import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 
 const { t } = useI18n();
 const route = useRoute();
@@ -77,7 +76,7 @@ const tabModel = computed<string>({
 </script>
 
 <template>
-  <SettingsShell bare>
+  <div>
     <RAlert v-if="!config.CONFIG_FILE_MOUNTED" type="error">
       <template #title>
         {{ t("settings.config-file-not-mounted-title") }}
@@ -96,7 +95,7 @@ const tabModel = computed<string>({
     <FolderMappingsSection v-if="tab === 'mapping'" />
     <ExcludedSection v-else-if="tab === 'excluded'" />
     <MissingGamesSection v-else-if="tab === 'missing'" />
-  </SettingsShell>
+  </div>
 </template>
 
 <style scoped>

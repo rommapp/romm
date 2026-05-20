@@ -61,7 +61,11 @@ function coversFor(collection: CollectionType): string[] {
 const roms = ref<SimpleRom[]>([]);
 
 const pendingCollections = ref(new Set<number>());
-const optimistic = ref(new Map<number, boolean>());
+// Optimistic state is now tri-state (off | some | all). When the user
+// clicks a row we paint the *resolved* next state immediately and
+// reconcile when the API responds — `undefined` means "fall back to
+// the collection's actual membership computed against `roms.value`".
+const optimistic = ref(new Map<number, "off" | "some" | "all">());
 
 const creating = ref(false);
 const createExpanded = ref(false);
@@ -78,38 +82,56 @@ const openHandler = (romsToAdd: SimpleRom[]) => {
 emitter?.on("showAddToCollectionDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("showAddToCollectionDialog", openHandler));
 
-function allIn(collection: Collection): boolean {
-  const ids = collection.rom_ids ?? [];
-  return roms.value.length > 0 && roms.value.every((r) => ids.includes(r.id));
-}
-
-function isChecked(collection: Collection): boolean {
+/** Resolve a collection's membership against the open dialog's
+ *  selection. "all" when every selected rom is in the collection,
+ *  "some" when at least one (but not all) is, "off" otherwise. The
+ *  "some" state only appears for bulk dialogs — a single-rom dialog
+ *  collapses to off / all. */
+function membershipState(collection: Collection): "off" | "some" | "all" {
   const override = optimistic.value.get(collection.id);
   if (override !== undefined) return override;
-  return allIn(collection);
+  if (roms.value.length === 0) return "off";
+  const ids = collection.rom_ids ?? [];
+  const idSet = new Set(ids);
+  let inCount = 0;
+  for (const rom of roms.value) {
+    if (idSet.has(rom.id)) inCount += 1;
+  }
+  if (inCount === 0) return "off";
+  if (inCount === roms.value.length) return "all";
+  return "some";
 }
 
 async function toggle(collection: Collection) {
   if (pendingCollections.value.has(collection.id)) return;
-  const wasChecked = isChecked(collection);
-  const nextChecked = !wasChecked;
+  const prevState = membershipState(collection);
+  // Cycle policy mirrors typical file-manager tri-state checkboxes:
+  //   off  → all  (add every selected rom to the collection)
+  //   some → all  (add the missing ones, no removals)
+  //   all  → off  (remove every selected rom from the collection)
+  const nextState: "off" | "all" = prevState === "all" ? "off" : "all";
+  const adding = nextState === "all";
 
-  optimistic.value.set(collection.id, nextChecked);
+  optimistic.value.set(collection.id, nextState);
   pendingCollections.value.add(collection.id);
 
+  // For the "some → all" transition we still issue an add against all
+  // selected ids — the backend de-dupes against existing membership,
+  // so this is safe and saves a per-id diff round-trip from the
+  // frontend.
   const romIds = roms.value.map((r) => r.id);
   try {
-    const { data } = nextChecked
+    const { data } = adding
       ? await collectionApi.addRomsToCollection(collection.id, romIds)
       : await collectionApi.removeRomsFromCollection(collection.id, romIds);
     collectionsStore.updateCollection(data);
     optimistic.value.delete(collection.id);
   } catch (error: unknown) {
-    optimistic.value.set(collection.id, wasChecked);
+    optimistic.value.set(collection.id, prevState);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(
       axiosErr.response?.data?.detail ??
-        (nextChecked
+        (adding
           ? t("rom.collection-add-failed", "Couldn't add to collection")
           : t(
               "rom.collection-remove-failed",
@@ -165,7 +187,7 @@ const subtitle = computed(() => {
     return roms.value[0].name ?? roms.value[0].fs_name ?? "";
   }
   if (roms.value.length > 1) {
-    return t("rom.selection-count", `${roms.value.length} games`);
+    return t("rom.selection-count", { n: roms.value.length });
   }
   return "";
 });
@@ -208,7 +230,7 @@ function closeDialog() {
         @cancel="cancelCreate"
       />
 
-      <RDivider v-if="ownedCollections.length > 0" />
+      <RDivider v-if="ownedCollections.length > 0" full-width />
 
       <!-- Existing collection rows — instant toggle, no commit step. -->
       <ul v-if="ownedCollections.length" class="r-v2-pick-coll__list">
@@ -217,7 +239,7 @@ function closeDialog() {
             :name="collection.name"
             :count="collection.rom_count"
             :covers="coversFor(collection)"
-            :checked="isChecked(collection)"
+            :state="membershipState(collection)"
             :busy="pendingCollections.has(collection.id)"
             :tile-size="46"
             @toggle="toggle(collection)"
@@ -267,7 +289,7 @@ function closeDialog() {
    reads like a menu item rather than a padded card. */
 .r-v2-pick-coll__list {
   list-style: none;
-  margin: 0 0 0 -18px;
+  margin: 0 -18px -18px;
   padding: 0px;
   display: flex;
   flex-direction: column;

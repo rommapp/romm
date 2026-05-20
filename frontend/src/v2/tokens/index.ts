@@ -256,6 +256,10 @@ export const motion = {
   slow: "360ms",
   easeOut: "cubic-bezier(0.22, 1, 0.36, 1)",
   easeInOut: "cubic-bezier(0.65, 0, 0.35, 1)",
+  // Back-out: slight overshoot at the end of the curve. Used for "juicy"
+  // micro-interactions (chevron flip, sub-pill drop-in) where a touch of
+  // bounce signals playfulness without going full cartoon.
+  easeBack: "cubic-bezier(0.34, 1.56, 0.64, 1)",
 } as const;
 
 export const focus = {

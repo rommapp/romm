@@ -9,9 +9,6 @@ import {
   RCheckbox,
   RExpandTransition,
   RIcon,
-  RPlatformIcon,
-  RSelect,
-  RTag,
   RTextField,
 } from "@v2/lib";
 import { useDropZone } from "@vueuse/core";
@@ -26,8 +23,7 @@ import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
-import LibraryToolsShell from "@/v2/components/LibraryTools/LibraryToolsShell.vue";
-import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
+import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -63,7 +59,17 @@ const applying = ref(false);
 const statusMessage = ref<string | null>(null);
 const downloadLocally = ref(true);
 const saveIntoRomM = ref(true);
-const selectedPlatform = ref<Platform | null>(null);
+// `selectedPlatformId` is the source of truth (matches PlatformSelect's
+// id-keyed v-model); `selectedPlatform` is a derived lookup that keeps
+// the rest of the file working against the full `Platform` object.
+const selectedPlatformId = ref<number | null>(null);
+const selectedPlatform = computed<Platform | null>(() => {
+  if (selectedPlatformId.value === null) return null;
+  return (
+    filteredPlatforms.value.find((p) => p.id === selectedPlatformId.value) ??
+    null
+  );
+});
 const customFileName = ref("");
 const filenamePlaceholder = ref("");
 const snackbar = useSnackbar();
@@ -317,7 +323,7 @@ async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
         uploadStore.reset();
         romFile.value = null;
         patchFile.value = null;
-        selectedPlatform.value = null;
+        selectedPlatformId.value = null;
         saveIntoRomM.value = false;
 
         scanningStore.setScanning(true);
@@ -330,7 +336,7 @@ async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
           });
         }, 2000);
       }
-      selectedPlatform.value = null;
+      selectedPlatformId.value = null;
       saveIntoRomM.value = false;
       scanningStore.setScanning(true);
       if (!socket.connected) socket.connect();
@@ -374,7 +380,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <LibraryToolsShell active="patcher" bare>
+  <div>
     <p class="r-v2-patch__subtitle">
       {{ t("patcher.subtitle") }}
     </p>
@@ -575,50 +581,18 @@ onMounted(async () => {
       </div>
 
       <RExpandTransition>
-        <RSelect
+        <PlatformSelect
           v-if="saveIntoRomM"
-          v-model="selectedPlatform"
+          v-model="selectedPlatformId"
           :items="filteredPlatforms"
-          :menu-props="{ maxHeight: 650 }"
           :label="t('common.platforms')"
-          item-title="name"
-          return-object
           prepend-inner-icon="mdi-controller"
-          variant="outlined"
           density="comfortable"
-          hide-details
+          :icon-size="32"
+          show-meta
           clearable
-        >
-          <template #item="{ props: itemProps, item }">
-            <li v-bind="itemProps">
-              <RPlatformIcon
-                :key="item.raw.slug"
-                :size="32"
-                :slug="item.raw.slug"
-                :name="item.raw.name"
-                :fs-slug="item.raw.fs_slug"
-              />
-              <div class="r-select__item-stack">
-                <div class="r-select__item-title">
-                  {{ item.raw.name ?? "" }}
-                </div>
-                <div v-if="item.raw.fs_slug" class="r-select__item-subtitle">
-                  {{ item.raw.fs_slug }}
-                </div>
-              </div>
-              <MissingFSBadge
-                v-if="item.raw.missing_from_fs"
-                text="Missing platform from filesystem"
-                class="ml-2"
-              />
-              <RTag
-                class="ml-1"
-                size="small"
-                :text="String(item.raw.rom_count)"
-              />
-            </li>
-          </template>
-        </RSelect>
+          hide-details
+        />
       </RExpandTransition>
 
       <RTextField
@@ -655,7 +629,7 @@ onMounted(async () => {
       <span>{{ t("patcher.powered-by") }}</span>
       <img src="/assets/patcherjs/patcherjs.png" alt="patcher.js" />
     </div>
-  </LibraryToolsShell>
+  </div>
 </template>
 
 <style scoped>

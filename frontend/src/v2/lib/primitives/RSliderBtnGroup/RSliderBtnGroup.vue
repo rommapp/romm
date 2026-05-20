@@ -177,7 +177,7 @@ onBeforeUnmount(() => {
           v-if="item.title"
           activator="parent"
           :text="item.title"
-          location="bottom"
+          location="top"
         />
         <slot name="item" :item="item" :active="item.id === modelValue">
           <RIcon v-if="item.icon" :icon="item.icon" size="16" />
@@ -203,7 +203,7 @@ onBeforeUnmount(() => {
           v-if="item.title"
           activator="parent"
           :text="item.title"
-          location="bottom"
+          location="top"
         />
         <slot name="item" :item="item" :active="item.id === modelValue">
           <RIcon v-if="item.icon" :icon="item.icon" size="16" />

@@ -43,13 +43,16 @@ import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useGameActions } from "@/v2/composables/useGameActions";
 import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
+import RCheckbox from "@/v2/lib/forms/RCheckbox/RCheckbox.vue";
 import RPlatformIcon from "@/v2/lib/media/RPlatformIcon/RPlatformIcon.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
+import storeGallerySelection from "@/v2/stores/gallerySelection";
 
 defineOptions({ inheritAttrs: false });
 
@@ -77,8 +80,25 @@ interface Props {
    *  variants). Bypasses the path/webp/url_cover chain. */
   coverSrc?: string | null;
   /** Paint a brand-coloured outline to mark the card as selected
-   *  (cover-variant picker, multi-select gallery). */
+   *  (cover-variant picker, multi-select gallery). When `selectable`
+   *  is true this prop is ignored — the card subscribes directly to
+   *  `gallerySelection` so a single source of truth (the store)
+   *  drives every selected card across the gallery. */
   selected?: boolean;
+  /** Opt the card into the gallery's multi-select store. When true:
+   *  the card reads its selected state from `gallerySelection`,
+   *  shows a checkbox affordance (on hover or whenever the gallery
+   *  is in selection mode), and routes its clicks through the
+   *  selection-input composable (shift = range, ctrl/cmd = toggle,
+   *  long-press on touch = enter mode). Defaults false so non-
+   *  gallery consumers (pickers, edit-dialog previews) keep their
+   *  prop-driven behaviour. */
+  selectable?: boolean;
+  /** Sparse position of the rom inside the gallery — the anchor that
+   *  shift-range selection uses. Provided by `GalleryShell`. Required
+   *  when `selectable` is true (the composable needs a position to
+   *  store/restore the range anchor). */
+  position?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -89,6 +109,8 @@ const props = withDefaults(defineProps<Props>(), {
   showTitle: true,
   coverSrc: undefined,
   selected: false,
+  selectable: false,
+  position: undefined,
 });
 
 const EXTENSION_REGEX = /\.(png|jpg|jpeg)$/i;
@@ -159,6 +181,58 @@ const emit = defineEmits<{
   (e: "click", event: MouseEvent): void;
 }>();
 
+// Gallery selection — only wired when the consumer opts in via
+// `selectable`. Outside the gallery (pickers, previews) the store
+// stays untouched so a stray match-dialog selection can't leak into
+// the gallery's selection bar.
+const selectionStore = storeGallerySelection();
+const selectionInput = useGallerySelectionInput();
+
+const isSelected = computed(() =>
+  props.selectable ? selectionStore.isSelected(props.rom.id) : props.selected,
+);
+/** True when the card should paint its checkbox affordance: any time
+ *  the gallery is in selection mode (every card shows the checkbox so
+ *  the user can see what is selected at a glance), or on hover when
+ *  selection is idle (discoverability of the multi-select feature). */
+const showCheckbox = computed(
+  () => props.selectable && !props.static && !isSynthetic.value,
+);
+const checkboxAlwaysOn = computed(
+  () => props.selectable && selectionStore.enabled,
+);
+
+function onCheckboxClick(e: MouseEvent) {
+  // The checkbox itself is a deliberate selection gesture. We bind
+  // RCheckbox in "controlled" mode (only `:model-value` — no v-model),
+  // so the native input change is purely visual; `preventDefault`
+  // here cancels the label → input click default so the input never
+  // toggles itself, and our store mutation drives the next render.
+  e.preventDefault();
+  e.stopPropagation();
+  if (props.position == null) return;
+  if (e.shiftKey) {
+    selectionInput.handleActivate(props.rom, props.position, e);
+    return;
+  }
+  selectionStore.toggle(props.rom, props.position);
+}
+
+/** Capture-phase suppressor — when the gallery is in selectable mode
+ *  AND the user is holding a modifier key, any click on the card
+ *  (overlay buttons included: download / favorite / play / more /
+ *  platform icon) is reinterpreted as a selection gesture. Without
+ *  this, shift-clicking the favourite star would toggle the favourite
+ *  AND extend the selection range — confusing. */
+function onCardClickCapture(e: MouseEvent) {
+  if (!props.selectable) return;
+  if (!(e.shiftKey || e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (props.position == null) return;
+  selectionInput.handleActivate(props.rom, props.position, e);
+}
+
 function onCardClick(e: MouseEvent) {
   // Static mode: consumer owns the click. No router push, no forward
   // morph — just hand the event off.
@@ -166,6 +240,19 @@ function onCardClick(e: MouseEvent) {
     emit("click", e);
     return;
   }
+
+  // Gallery selection takes precedence over navigation when the card
+  // opts in. Returns `true` if the click was consumed (mode active,
+  // modifier pressed, long-press just fired); we short-circuit and
+  // skip the morph + router push.
+  if (
+    props.selectable &&
+    props.position != null &&
+    selectionInput.handleActivate(props.rom, props.position, e)
+  ) {
+    return;
+  }
+
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
     return;
   }
@@ -177,6 +264,19 @@ function onCardClick(e: MouseEvent) {
       await router.push(href.value);
     },
   );
+}
+
+function onCardPointerDown(e: PointerEvent) {
+  if (!props.selectable || props.position == null) return;
+  selectionInput.handlePointerDown(props.rom, props.position, e);
+}
+function onCardPointerMove(e: PointerEvent) {
+  if (!props.selectable) return;
+  selectionInput.handlePointerMove(e);
+}
+function onCardPointerEnd() {
+  if (!props.selectable) return;
+  selectionInput.handlePointerEnd();
 }
 
 function onStaticKeydown(e: KeyboardEvent) {
@@ -214,15 +314,22 @@ const morphStyle = computed(() => {
       'r-gc--focused': focused,
       'r-gc--static': static,
       'r-gc--no-hover': noHover,
-      'r-gc--selected': selected,
+      'r-gc--selected': isSelected,
+      'r-gc--checkbox-on': checkboxAlwaysOn,
+      'r-gc--has-platform-icon': !static && showPlatformIcon,
     }"
     :aria-label="title"
-    :aria-pressed="static ? selected : undefined"
+    :aria-pressed="static ? selected : selectable ? isSelected : undefined"
     :data-rom-id="rom.id"
+    @click.capture="onCardClickCapture"
     @click="onCardClick"
     @keydown="static ? onStaticKeydown($event) : undefined"
     @mouseenter="onHighlight"
     @focus="onHighlight"
+    @pointerdown="onCardPointerDown"
+    @pointermove="onCardPointerMove"
+    @pointerup="onCardPointerEnd"
+    @pointercancel="onCardPointerEnd"
   >
     <div ref="artEl" class="r-gc__art" :style="morphStyle">
       <img
@@ -239,6 +346,27 @@ const morphStyle = computed(() => {
       <div v-else class="r-gc__placeholder">
         {{ title }}
       </div>
+
+      <!-- Selection checkbox — top-left, drawn over the cover. Hidden
+           at rest; appears on hover for discoverability, and stays
+           pinned whenever the gallery is in selection mode so the
+           user always knows which cards are picked. Uses RCheckbox
+           in bare/circle mode so the check + glow + press squash
+           animations come straight from the primitive. The wrapper
+           click intercepts the label's native input toggle so the
+           store (not the input element) drives state. -->
+      <RCheckbox
+        v-if="showCheckbox"
+        class="r-gc__check"
+        :model-value="isSelected"
+        shape="circle"
+        size="md"
+        color="primary"
+        bare
+        hide-details
+        tabindex="-1"
+        @click="onCheckboxClick"
+      />
 
       <!-- Consumer-driven overlay slot — sits above the cover, below
            the gallery chrome. Use for badges that aren't part of the
@@ -507,10 +635,14 @@ const morphStyle = computed(() => {
   opacity: 1;
 }
 
-/* Status badge — pinned to the cover's top-left corner, mirror of the
-   platform icon on the right. The actual <button> lives inside
-   GameActionBtn's RMenu activator slot, so we reach it via `:deep`
-   matching the action class. Visibility:
+/* Status badge — corner of the cover that mirrors the platform
+   icon. The actual <button> lives inside GameActionBtn's RMenu
+   activator slot, so we reach it via `:deep` matching the action
+   class. Default position (no platform icon shown): top-left.
+   When the platform icon IS shown (the normal gallery layout) the
+   badge moves to the right side, just below the platform icon, so
+   the selection checkbox can own the top-left corner unambiguously
+   and the two right-side affordances stack vertically. Visibility:
    - status set     → always visible (`--active-status`)
    - status not set → invisible by default; fades in on card hover. */
 .r-gc :deep(.r-v2-game-btn--action-status) {
@@ -519,6 +651,14 @@ const morphStyle = computed(() => {
   left: 7px;
   z-index: 2;
   opacity: 0;
+}
+.r-gc--has-platform-icon :deep(.r-v2-game-btn--action-status) {
+  /* Drop below the platform icon (top: 7px + ~28px height + 4px gap
+     ≈ 39px). Right-edge alignment matches the platform icon above
+     so the two badges read as a vertical stack. */
+  top: 40px;
+  left: auto;
+  right: 7px;
 }
 .r-gc:hover :deep(.r-v2-game-btn--action-status),
 .r-gc:focus-visible :deep(.r-v2-game-btn--action-status),
@@ -591,6 +731,47 @@ const morphStyle = computed(() => {
   white-space: normal;
   text-align: center;
   text-overflow: unset;
+}
+
+/* ── Selection checkbox ────────────────────────────────────
+   Top-left affordance. The visible chrome (box, fill, draw-in
+   tick, press squash) all comes from RCheckbox — this rule
+   only owns the positioning and the visibility fade.
+   At rest the checkbox is invisible; it fades in on hover or
+   focus, and stays pinned whenever the gallery is in selection
+   mode (`--checkbox-on`). */
+.r-gc__check {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-gc:hover .r-gc__check,
+.r-gc:focus-visible .r-gc__check,
+.r-gc--focused .r-gc__check,
+.r-gc--checkbox-on .r-gc__check,
+.r-gc--selected .r-gc__check {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Glassy scrim under the unchecked box so the outline reads over
+   busy cover art — RCheckbox's default border colour assumes a
+   plain page background, here it sits on photos. Once checked the
+   primitive's brand fill takes over and we step out of the way. */
+.r-gc__check :deep(.r-checkbox__box) {
+  background: var(--r-color-overlay-scrim-strong);
+  border-color: var(--r-color-overlay-border-strong);
+}
+.r-gc__check.r-checkbox--checked :deep(.r-checkbox__box),
+.r-gc__check.r-checkbox--indeterminate :deep(.r-checkbox__box) {
+  /* Let RCheckbox's checked styles win — clear our scrim overrides
+     so the brand fill + glow apply unmodified. */
+  background: var(--r-color-brand-primary);
+  border-color: var(--r-color-brand-primary);
 }
 
 /* Mobile */

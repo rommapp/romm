@@ -1,4 +1,17 @@
 {
   "all-loaded": "All games have been loaded",
-  "load-more": "Load more"
+  "load-more": "Load more",
+  "selection-n-selected": "{n} selected",
+  "selection-clear": "Clear selection",
+  "selection-select-all": "Select all loaded",
+  "selection-favorite": "Add to favorites",
+  "selection-unfavorite": "Remove from favorites",
+  "selection-collections": "Manage collections",
+  "selection-download": "Download",
+  "selection-refresh-metadata": "Refresh metadata",
+  "selection-delete": "Delete",
+  "selection-favorite-success": "{n} added to favorites",
+  "selection-unfavorite-success": "{n} removed from favorites",
+  "selection-favorite-fail": "Failed to update favorites",
+  "selection-download-many": "Downloading {n} games…"
 }

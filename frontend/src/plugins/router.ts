@@ -266,115 +266,165 @@ const routes = [
           v2: v2For(ROUTES.APRIL_FOOLS),
         },
       },
+      // Library Tools group — Scan / Upload / Patcher share a v2
+      // sub-layout (hero + card picker + content). v1 has no shared
+      // chrome for these, so its `default` named view falls through
+      // via `passthrough`. URL paths stay flat; the parent uses an
+      // empty path to add only a routing layer, not a URL segment.
       {
-        path: "scan",
-        name: ROUTES.SCAN,
-        meta: {
-          title: i18n.global.t("scan.scan"),
-        },
+        path: "",
         components: {
-          default: () => import("@/views/Scan.vue"),
-          v2: v2For(ROUTES.SCAN),
+          default: v2Layouts.passthrough,
+          v2: v2Layouts.libraryTools,
         },
+        children: [
+          {
+            path: "scan",
+            name: ROUTES.SCAN,
+            meta: {
+              title: i18n.global.t("scan.scan"),
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Scan.vue"),
+              v2: v2For(ROUTES.SCAN),
+            },
+          },
+          {
+            path: "upload",
+            name: ROUTES.UPLOAD,
+            meta: {
+              title: i18n.global.t("common.upload-roms", "Upload ROMs"),
+            },
+            components: {
+              // v1 has no Upload view (the dialog was its only entry
+              // point); the v2-only view is the single owner. Fall
+              // back to Scan on v1 so deep-linking doesn't 404 there.
+              default: () => import("@/views/Scan.vue"),
+              v2: v2For(ROUTES.UPLOAD),
+            },
+          },
+          {
+            path: "patcher",
+            name: ROUTES.PATCHER,
+            meta: {
+              title: i18n.global.t("common.patcher"),
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Patcher.vue"),
+              v2: v2For(ROUTES.PATCHER),
+            },
+          },
+        ],
       },
+      // Settings group — every settings route shares the same v2
+      // sub-layout (sidebar + content panel). v1 keeps its existing
+      // per-view structure via the `passthrough` default named view.
       {
-        path: "upload",
-        name: ROUTES.UPLOAD,
-        meta: {
-          title: i18n.global.t("common.upload-roms", "Upload ROMs"),
-        },
+        path: "",
         components: {
-          // v1 has no Upload view (the dialog was its only entry point);
-          // the v2-only view is the single owner. Fall back to the same
-          // Scan component on v1 so deep-linking doesn't 404 there.
-          default: () => import("@/views/Scan.vue"),
-          v2: v2For(ROUTES.UPLOAD),
+          default: v2Layouts.passthrough,
+          v2: v2Layouts.settings,
         },
-      },
-      {
-        path: "patcher",
-        name: ROUTES.PATCHER,
-        meta: {
-          title: i18n.global.t("common.patcher"),
-        },
-        components: {
-          default: () => import("@/views/Patcher.vue"),
-          v2: v2For(ROUTES.PATCHER),
-        },
-      },
-      {
-        path: "user/:user",
-        name: ROUTES.USER_PROFILE,
-        components: {
-          default: () => import("@/views/Settings/UserProfile.vue"),
-          v2: v2For(ROUTES.USER_PROFILE),
-        },
-      },
-      {
-        path: "user-interface",
-        name: ROUTES.USER_INTERFACE,
-        meta: {
-          title: i18n.global.t("common.user-interface"),
-        },
-        components: {
-          default: () => import("@/views/Settings/UserInterface.vue"),
-          v2: v2For(ROUTES.USER_INTERFACE),
-        },
-      },
-      {
-        path: "library-management",
-        name: ROUTES.LIBRARY_MANAGEMENT,
-        meta: {
-          title: i18n.global.t("common.library-management"),
-        },
-        components: {
-          default: () => import("@/views/Settings/LibraryManagement.vue"),
-          v2: v2For(ROUTES.LIBRARY_MANAGEMENT),
-        },
-      },
-      {
-        path: "metadata-sources",
-        name: ROUTES.METADATA_SOURCES,
-        meta: {
-          title: i18n.global.t("scan.metadata-sources"),
-        },
-        components: {
-          default: () => import("@/views/Settings/MetadataSources.vue"),
-          v2: v2For(ROUTES.METADATA_SOURCES),
-        },
-      },
-      {
-        path: "client-api-tokens",
-        name: ROUTES.CLIENT_API_TOKENS,
-        meta: {
-          title: i18n.global.t("settings.client-api-tokens"),
-        },
-        components: {
-          default: () => import("@/views/Settings/ClientApiTokens.vue"),
-          v2: v2For(ROUTES.CLIENT_API_TOKENS),
-        },
-      },
-      {
-        path: "administration",
-        name: ROUTES.ADMINISTRATION,
-        meta: {
-          title: i18n.global.t("common.administration"),
-        },
-        components: {
-          default: () => import("@/views/Settings/Administration.vue"),
-          v2: v2For(ROUTES.ADMINISTRATION),
-        },
-      },
-      {
-        path: "server-stats",
-        name: ROUTES.SERVER_STATS,
-        meta: {
-          title: i18n.global.t("common.server-stats"),
-        },
-        components: {
-          default: () => import("@/views/Settings/ServerStats.vue"),
-          v2: v2For(ROUTES.SERVER_STATS),
-        },
+        children: [
+          {
+            path: "user/:user",
+            name: ROUTES.USER_PROFILE,
+            meta: { bare: true },
+            components: {
+              default: () => import("@/views/Settings/UserProfile.vue"),
+              v2: v2For(ROUTES.USER_PROFILE),
+            },
+          },
+          {
+            path: "user-interface",
+            name: ROUTES.USER_INTERFACE,
+            meta: {
+              title: i18n.global.t("common.user-interface"),
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Settings/UserInterface.vue"),
+              v2: v2For(ROUTES.USER_INTERFACE),
+            },
+          },
+          {
+            path: "library-management",
+            name: ROUTES.LIBRARY_MANAGEMENT,
+            meta: {
+              title: i18n.global.t("common.library-management"),
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Settings/LibraryManagement.vue"),
+              v2: v2For(ROUTES.LIBRARY_MANAGEMENT),
+            },
+          },
+          {
+            path: "metadata-sources",
+            name: ROUTES.METADATA_SOURCES,
+            meta: {
+              title: i18n.global.t("scan.metadata-sources"),
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Settings/MetadataSources.vue"),
+              v2: v2For(ROUTES.METADATA_SOURCES),
+            },
+          },
+          {
+            path: "client-api-tokens",
+            name: ROUTES.CLIENT_API_TOKENS,
+            meta: {
+              title: i18n.global.t("settings.client-api-tokens"),
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Settings/ClientApiTokens.vue"),
+              v2: v2For(ROUTES.CLIENT_API_TOKENS),
+            },
+          },
+          {
+            path: "administration",
+            name: ROUTES.ADMINISTRATION,
+            meta: {
+              title: i18n.global.t("common.administration"),
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Settings/Administration.vue"),
+              v2: v2For(ROUTES.ADMINISTRATION),
+            },
+          },
+          {
+            path: "server-stats",
+            name: ROUTES.SERVER_STATS,
+            meta: {
+              title: i18n.global.t("common.server-stats"),
+              bare: true,
+            },
+            components: {
+              default: () => import("@/views/Settings/ServerStats.vue"),
+              v2: v2For(ROUTES.SERVER_STATS),
+            },
+          },
+          {
+            // Controller-debug lives outside the Settings sidebar
+            // but reuses the same chrome (sidebar layout + bare
+            // body) so the input system inspector reads as another
+            // settings-adjacent tool rather than a standalone view.
+            path: "controller-debug",
+            name: ROUTES.CONTROLLER_DEBUG,
+            meta: { title: "Controller debug", bare: true },
+            components: {
+              // v1 has no equivalent; redirect to home if a v1 user
+              // somehow lands here.
+              default: () => import("@/views/Home.vue"),
+              v2: v2For(ROUTES.CONTROLLER_DEBUG),
+            },
+          },
+        ],
       },
       {
         // V2-only index of platforms. V1 uses its drawer for navigation so
@@ -385,16 +435,6 @@ const routes = [
         components: {
           default: () => import("@/views/Home.vue"),
           v2: v2For(ROUTES.PLATFORMS_INDEX),
-        },
-      },
-      {
-        path: "controller-debug",
-        name: ROUTES.CONTROLLER_DEBUG,
-        meta: { title: "Controller debug" },
-        components: {
-          // v1 has no equivalent; redirect to home if a v1 user somehow lands here.
-          default: () => import("@/views/Home.vue"),
-          v2: v2For(ROUTES.CONTROLLER_DEBUG),
         },
       },
       {

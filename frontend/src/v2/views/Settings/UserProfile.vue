@@ -31,7 +31,6 @@ import { defaultAvatarPath, formatTimestamp, getRoleIcon } from "@/utils";
 import ChangePasswordDialog from "@/v2/components/Settings/ChangePasswordDialog.vue";
 import RetroAchievementsSection from "@/v2/components/Settings/RetroAchievementsSection.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
-import SettingsShell from "@/v2/components/Settings/SettingsShell.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const { t, locale } = useI18n();
@@ -179,7 +178,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <SettingsShell bare>
+  <div>
     <template v-if="userToEdit">
       <!-- Identity row — flush (no card chrome). -->
       <div class="r-v2-profile__identity-row">
@@ -380,7 +379,7 @@ onUnmounted(() => {
       v-model:open="passwordDialogOpen"
       :user-id="userToEdit?.id ?? null"
     />
-  </SettingsShell>
+  </div>
 </template>
 
 <style scoped>
