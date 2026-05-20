@@ -218,6 +218,58 @@ async def test_oidc_valid_add_user(
     assert mock_add_user.call_args.args[0].role == romm_role
 
 
+async def test_oidc_valid_add_user_with_dotted_username(
+    mocker,
+    mock_oidc_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """Test that OIDC usernames with printable chars (dots, @, etc.) are stored as-is."""
+    mock_token["userinfo"]["preferred_username"] = "john.doe@example"
+    mock_user = MagicMock(enabled=True, role=Role.VIEWER)
+    mock_add_user = mocker.patch(
+        "handler.database.db_user_handler.add_user", return_value=mock_user
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    mock_add_user.assert_called_once()
+    assert mock_add_user.call_args.args[0].username == "john.doe@example"
+    assert mock_add_user.call_args.args[0].email == mock_token["userinfo"]["email"]
+
+
+async def test_oidc_valid_add_user_with_sanitized_username(
+    mocker,
+    mock_oidc_enabled,
+    mock_token,
+    mock_openid_configuration,
+):
+    """Test that OIDC usernames with spaces are sanitized before user creation."""
+    mock_token["userinfo"]["preferred_username"] = "john doe"
+    mock_user = MagicMock(enabled=True, role=Role.VIEWER)
+    mock_add_user = mocker.patch(
+        "handler.database.db_user_handler.add_user", return_value=mock_user
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+
+    oidc_handler = OpenIDHandler()
+    await oidc_handler.get_current_active_user_from_openid_token(mock_token)
+
+    mock_add_user.assert_called_once()
+    assert mock_add_user.call_args.args[0].username == "john-doe"
+    assert mock_add_user.call_args.args[0].email == mock_token["userinfo"]["email"]
+
+
 async def test_oidc_valid_edit_user_role(
     mocker,
     mock_oidc_enabled,

@@ -17,7 +17,9 @@ class ValidationError(Exception):
 
 
 # Pre-compiled regex patterns for better performance
-USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+USERNAME_PATTERN = re.compile(r"^[\x21-\x7E]+$")
+USERNAME_INVALID_CHARS_PATTERN = re.compile(r"[^\x21-\x7E]")
+USERNAME_CONSECUTIVE_HYPHENS_PATTERN = re.compile(r"-{2,}")
 EMAIL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
@@ -68,9 +70,52 @@ def validate_username(username: str) -> None:
         raise ValidationError(msg, "Username")
 
     if not USERNAME_PATTERN.match(username):
-        msg = "Username can only contain letters, numbers, underscores, and hyphens"
+        msg = "Username must not contain spaces or control characters"
         log.error(f"Validation failed: {msg} for username: {username}")
         raise ValidationError(msg, "Username")
+
+
+def sanitize_username(username: str) -> str:
+    """Sanitize a username by replacing invalid characters with hyphens.
+
+    This is used for OIDC-provided usernames which may contain characters
+    not allowed by the standard username validation rules.
+
+    Args:
+        username (str): The username to sanitize
+
+    Returns:
+        str: The sanitized username
+
+    Raises:
+        ValidationError: If the sanitized username is still invalid (e.g., too short)
+    """
+    if not username or not username.strip():
+        msg = "Username cannot be empty"
+        log.error(msg)
+        raise ValidationError(msg, "Username")
+
+    # Encode to ASCII, ignoring non-ASCII characters
+    ascii_username = username.encode("ascii", errors="ignore").decode("ascii")
+
+    # Replace any character not in [a-zA-Z0-9_-] with a hyphen
+    sanitized = USERNAME_INVALID_CHARS_PATTERN.sub("-", ascii_username)
+
+    # Collapse multiple consecutive hyphens into one
+    sanitized = USERNAME_CONSECUTIVE_HYPHENS_PATTERN.sub("-", sanitized)
+
+    # Strip leading and trailing hyphens
+    sanitized = sanitized.strip("-")
+
+    # Truncate to maximum allowed length
+    sanitized = sanitized[:TEXT_FIELD_LENGTH]
+
+    if len(sanitized) < 3:
+        msg = f"Username '{username}' could not be sanitized to a valid username (result too short)"
+        log.error(msg)
+        raise ValidationError(msg, "Username")
+
+    return sanitized
 
 
 def validate_password(password: str) -> None:

@@ -12,7 +12,8 @@ const usernameLength = (v: string) =>
   (v.length >= 3 && v.length <= 255) || i18n.global.t("common.username-length");
 
 const usernameChars = (v: string) =>
-  /^[a-zA-Z0-9_-]*$/.test(v) || i18n.global.t("common.username-chars");
+  // eslint-disable-next-line no-control-regex
+  /^[\x21-\x7E]*$/.test(v) || i18n.global.t("common.username-chars");
 
 const passwordLength = (v: string) =>
   (v.length >= 6 && v.length <= 255) || i18n.global.t("common.password-length");

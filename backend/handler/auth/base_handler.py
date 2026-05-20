@@ -440,8 +440,25 @@ class OpenIDHandler:
                 "User with email '%s' not found, creating new user",
                 hl(email, color=CYAN),
             )
+            # Lazy import to avoid circular dependency: utils.validation imports
+            # models.user which (via handler.auth.__init__) imports this module.
+            from utils.validation import ValidationError, sanitize_username
+
+            try:
+                sanitized_username = sanitize_username(preferred_username)
+            except ValidationError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=exc.message,
+                ) from exc
+            if sanitized_username != preferred_username:
+                log.warning(
+                    "OIDC username '%s' contains invalid characters; sanitized to '%s'",
+                    preferred_username,
+                    sanitized_username,
+                )
             new_user = User(
-                username=preferred_username,
+                username=sanitized_username,
                 hashed_password=str(uuid.uuid4()),
                 email=email,
                 enabled=True,
