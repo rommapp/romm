@@ -45,6 +45,19 @@ const meta: Meta<typeof RSelect> = {
     multiple: { control: "boolean" },
     chips: { control: "boolean" },
     closableChips: { control: "boolean" },
+    chipTone: {
+      control: "select",
+      options: [
+        "neutral",
+        "brand",
+        "accent",
+        "success",
+        "danger",
+        "warning",
+        "info",
+        "plain",
+      ],
+    },
     clearable: { control: "boolean" },
     disabled: { control: "boolean" },
     readonly: { control: "boolean" },
@@ -243,7 +256,28 @@ export const MultipleOverflow: Story = {
 
 // ── Searchable ─────────────────────────────────────────────────────
 
+// `searchable` filters items internally without any v-model:search
+// binding. Drop in the prop and the menu gets a search field that
+// filters the list as you type. (Previously this required the parent
+// to wire v-model:search to a ref + manually filter `items`.)
 export const Searchable: Story = {
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({ value: ref<string | null>(null), items: PLATFORMS }),
+    template: `<div style="width:340px"><RSelect v-model="value" :items="items" searchable search-placeholder="Filter platforms" placeholder="Pick a platform" /></div>`,
+  }),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Internal search state — no `v-model:search` binding required. Parents that *do* want to react to the query can still bind `v-model:search` and it syncs both ways.",
+      },
+    },
+  },
+};
+
+export const SearchableExternal: Story = {
+  name: "Searchable · external v-model:search",
   render: () => ({
     components: { RSelect },
     setup: () => {
@@ -251,8 +285,90 @@ export const Searchable: Story = {
       const search = ref("");
       return { value, search, items: PLATFORMS };
     },
-    template: `<div style="width:340px"><RSelect v-model="value" v-model:search="search" :items="items" searchable search-placeholder="Filter platforms" placeholder="Pick a platform" /></div>`,
+    template: `
+      <div style="width:340px;display:flex;flex-direction:column;gap:8px">
+        <RSelect v-model="value" v-model:search="search" :items="items" searchable search-placeholder="Filter platforms" placeholder="Pick a platform" />
+        <span style="font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">External query: <code>{{ search || '∅' }}</code></span>
+      </div>
+    `,
   }),
+};
+
+// ── Chip tone ──────────────────────────────────────────────────────
+
+// `chipTone` controls how the selection chips render in multi mode.
+// Default `brand` paints a brand-coloured pill; `plain` strips the
+// pill background entirely (used by PlatformSelect to let icons read
+// without surrounding colour); the rest pick a semantic tone.
+export const ChipTones: Story = {
+  name: "Chip tones (multiple)",
+  render: () => ({
+    components: { RSelect },
+    setup: () => ({
+      a: ref<string[]>(["psx", "snes"]),
+      b: ref<string[]>(["psx", "snes"]),
+      c: ref<string[]>(["psx", "snes"]),
+      d: ref<string[]>(["psx", "snes"]),
+      e: ref<string[]>(["psx", "snes"]),
+      items: PLATFORMS,
+    }),
+    template: `
+      <div style="display:flex;flex-direction:column;gap:12px;width:340px;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
+        <div><span>brand (default)</span><RSelect v-model="a" :items="items" multiple chips chip-tone="brand" placeholder="Platforms" /></div>
+        <div><span>plain (no fill)</span><RSelect v-model="b" :items="items" multiple chips chip-tone="plain" placeholder="Platforms" /></div>
+        <div><span>neutral</span><RSelect v-model="c" :items="items" multiple chips chip-tone="neutral" placeholder="Platforms" /></div>
+        <div><span>success</span><RSelect v-model="d" :items="items" multiple chips chip-tone="success" placeholder="Platforms" /></div>
+        <div><span>danger</span><RSelect v-model="e" :items="items" multiple chips chip-tone="danger" placeholder="Platforms" /></div>
+      </div>
+    `,
+  }),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Use `chip-tone="plain"` when chips carry their own visual weight (e.g. PlatformSelect\'s icon-only chips) and the pill background would be visual noise.',
+      },
+    },
+  },
+};
+
+// ── Chip slot ──────────────────────────────────────────────────────
+
+// Use the `#chip` slot to fully control chip content — replace the
+// default label/title with a custom layout (icon, avatar, mini-card).
+// The slot receives the active item; styling falls back to chipTone.
+export const ChipSlotIconOnly: Story = {
+  name: "#chip slot — icon-only chips",
+  render: () => ({
+    components: { RSelect, RIcon },
+    setup: () => ({
+      value: ref<string[]>(["psx", "snes", "n64"]),
+      items: PLATFORMS,
+    }),
+    template: `
+      <div style="width:340px">
+        <RSelect v-model="value" :items="items" multiple chips chip-tone="plain" placeholder="Platforms">
+          <template #chip="{ item }">
+            <span style="display:inline-flex;align-items:center;gap:6px">
+              <RIcon
+                :icon="item.value === 'psx' ? 'mdi-playstation' : item.value === 'snes' ? 'mdi-nintendo-switch' : item.value === 'n64' ? 'mdi-nintendo-game-boy' : 'mdi-gamepad-square-outline'"
+                size="x-small"
+              />
+              <span style="font-size:11px">{{ item.title }}</span>
+            </span>
+          </template>
+        </RSelect>
+      </div>
+    `,
+  }),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "The `#chip` slot replaces only the chip content — chip-tone still controls the pill background. PlatformSelect uses this pattern to show platform icons (and only icons, with a tooltip) as compact chips.",
+      },
+    },
+  },
 };
 
 // ── Custom slots ───────────────────────────────────────────────────

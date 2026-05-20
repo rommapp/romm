@@ -214,7 +214,7 @@ async function upload() {
 </script>
 
 <template>
-  <div class="r-v2-upload">
+  <div class="r-v2-upload r-v2-section-stack">
     <!-- Platform picker -->
     <PlatformSelect
       v-model="selectedPlatformId"
@@ -338,12 +338,6 @@ async function upload() {
 </template>
 
 <style scoped>
-.r-v2-upload {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
 .r-v2-upload__input {
   position: absolute;
   width: 0;

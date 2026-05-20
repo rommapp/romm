@@ -76,7 +76,7 @@ const tabModel = computed<string>({
 </script>
 
 <template>
-  <div>
+  <div class="r-v2-section-stack">
     <RAlert v-if="!config.CONFIG_FILE_MOUNTED" type="error">
       <template #title>
         {{ t("settings.config-file-not-mounted-title") }}

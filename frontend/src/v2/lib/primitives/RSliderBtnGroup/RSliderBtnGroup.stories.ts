@@ -15,6 +15,10 @@ const meta: Meta = {
       control: "select",
       options: ["segmented", "tab"],
     },
+    orientation: {
+      control: "select",
+      options: ["horizontal", "vertical"],
+    },
     disabled: { control: "boolean" },
     ariaLabel: { control: "text" },
   },
@@ -71,6 +75,68 @@ export const Tab: Story = {
           { id: 'platforms', label: 'Platforms' },
         ]"
         @update:model-value="(v) => (active = v)"
+      />
+    `,
+  }),
+};
+
+// Vertical tab pill — same aesthetic and sliding indicator as the
+// horizontal tab variant, just stacked. Used by AppNav's Library Tools
+// sub-menu (drop-down picker for Scan / Upload / Patcher).
+export const VerticalTab: Story = {
+  args: { variant: "tab", orientation: "vertical" },
+  render: (args) => ({
+    components: { RSliderBtnGroup },
+    setup() {
+      const tool = ref<"scan" | "upload" | "patcher">("scan");
+      return { args, tool };
+    },
+    template: `
+      <div style="display: inline-block;">
+        <RSliderBtnGroup
+          v-bind="args"
+          :model-value="tool"
+          :items="[
+            { id: 'scan', icon: 'mdi-magnify-scan', label: 'Scan', ariaLabel: 'Scan' },
+            { id: 'upload', icon: 'mdi-cloud-upload-outline', label: 'Upload', ariaLabel: 'Upload' },
+            { id: 'patcher', icon: 'mdi-file-cog-outline', label: 'Patcher', ariaLabel: 'Patcher' },
+          ]"
+          style="min-width: 200px;"
+          @update:model-value="(v) => (tool = v)"
+        />
+      </div>
+    `,
+  }),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Vertical orientation stacks items in a column with the indicator sliding along the Y axis. Identical visual language to the horizontal tab pill.",
+      },
+    },
+  },
+};
+
+// Vertical segmented — icon-only column with the indicator following
+// the active item. Useful as a side rail for view switchers.
+export const VerticalSegmented: Story = {
+  args: { variant: "segmented", orientation: "vertical" },
+  render: (args) => ({
+    components: { RSliderBtnGroup },
+    setup() {
+      const view = ref<"grid" | "list" | "compact">("grid");
+      return { args, view };
+    },
+    template: `
+      <RSliderBtnGroup
+        v-bind="args"
+        :model-value="view"
+        :items="[
+          { id: 'grid', icon: 'mdi-view-grid-outline', ariaLabel: 'Grid', title: 'Grid' },
+          { id: 'list', icon: 'mdi-view-list', ariaLabel: 'List', title: 'List' },
+          { id: 'compact', icon: 'mdi-view-sequential', ariaLabel: 'Compact', title: 'Compact' },
+        ]"
+        @update:model-value="(v) => (view = v)"
       />
     `,
   }),

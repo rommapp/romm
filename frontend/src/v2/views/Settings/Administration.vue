@@ -90,8 +90,8 @@ const tabModel = computed<string>({
 </script>
 
 <template>
-  <div>
-    <RTabNav v-model="tabModel" :items="tabs" class="r-v2-admin__tabs" />
+  <div class="r-v2-section-stack">
+    <RTabNav v-model="tabModel" :items="tabs" />
 
     <UsersSection v-if="tab === 'users'" />
     <AdminTokensSection v-else-if="tab === 'tokens'" />
@@ -102,9 +102,3 @@ const tabModel = computed<string>({
     <InviteLinkDialog />
   </div>
 </template>
-
-<style scoped>
-.r-v2-admin__tabs {
-  margin-bottom: 20px;
-}
-</style>

@@ -140,7 +140,7 @@ function magnitude(x: number, y: number) {
 </script>
 
 <template>
-  <div>
+  <div class="r-v2-section-stack">
     <!-- Status -->
     <SettingsSection title="Status" icon="mdi-pulse">
       <div class="r-v2-ctrl__status">

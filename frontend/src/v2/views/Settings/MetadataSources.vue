@@ -186,7 +186,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div>
+  <div class="r-v2-section-stack">
     <SettingsSection
       :title="t('settings.metadata-catalogs')"
       icon="mdi-database-search-outline"

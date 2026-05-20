@@ -167,7 +167,7 @@ onMounted(fetchTokens);
 </script>
 
 <template>
-  <div>
+  <div class="r-v2-section-stack">
     <RTextField
       v-model="search"
       prefix-label="inline"

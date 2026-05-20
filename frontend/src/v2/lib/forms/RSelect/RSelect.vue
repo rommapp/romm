@@ -256,8 +256,22 @@ const selectedValues = computed<unknown[]>(() => {
     : [props.modelValue];
 });
 
+// Normalise a model value to its primitive identity key. In
+// `return-object` mode the modelValue holds the raw objects; we
+// extract the same key the items expose via `itemValue` so matching
+// survives even when the source array recomputes to fresh object refs
+// (e.g. a computed that maps `.map(o => ({ ...o, disabled }))` — the
+// raw identities change every tick but the underlying key doesn't).
+// For primitive modelValues this is a no-op.
+function valueOf(v: unknown): unknown {
+  if (v != null && typeof v === "object") {
+    return readKey<unknown>(v, props.itemValue as never);
+  }
+  return v;
+}
+
 function isSelected(value: unknown): boolean {
-  return selectedValues.value.some((v) => v === value);
+  return selectedValues.value.some((v) => valueOf(v) === value);
 }
 
 const selectedItems = computed<NormalisedItem[]>(() => {
@@ -265,7 +279,8 @@ const selectedItems = computed<NormalisedItem[]>(() => {
   // that has no matching item so the activator can still render
   // "off-list" selections via the `#selection` slot.
   return selectedValues.value.map((v) => {
-    const match = normalisedItems.value.find((it) => it.value === v);
+    const key = valueOf(v);
+    const match = normalisedItems.value.find((it) => it.value === key);
     if (match) return match;
     return { raw: v, title: String(v ?? ""), value: v };
   });
@@ -856,6 +871,12 @@ const hasPrependInner = computed(
         @click.stop
         @mousedown.stop
       >
+        <!-- Consumer-injected adornments. Rendered before the
+             loading / clear / chevron so they sit at the "info"
+             end of the row. The wrapper already swallows clicks
+             (`@click.stop`), so opening a tooltip / menu from a
+             slotted icon won't toggle the select. -->
+        <slot name="append-inner" />
         <RProgressCircular
           v-if="loading"
           :size="16"
@@ -877,7 +898,7 @@ const hasPrependInner = computed(
         <RIcon
           v-if="appendInnerIcon"
           :icon="appendInnerIcon"
-          class="r-select__chevron"
+          class="r-select__chevron r-chevron-toggle"
           size="x-small"
         />
       </span>
@@ -1187,12 +1208,11 @@ const hasPrependInner = computed(
   color: var(--r-color-fg-secondary);
 }
 
-/* Chevron rotates when open. */
-.r-select__chevron {
-  transition: transform var(--r-motion-med) cubic-bezier(0.34, 1.56, 0.64, 1);
-}
+/* Chevron rotation comes from the global `.r-chevron-toggle` utility
+   (rotates on `aria-expanded="true"`); only the open-state colour is
+   kept local — when the field is focused the chevron picks up the
+   accent tint. */
 .r-select--open .r-select__chevron {
-  transform: rotate(180deg);
   color: var(--r-tf-color);
 }
 
@@ -1317,7 +1337,6 @@ html[data-input="pad"] .r-select__field:focus {
   .r-select,
   .r-select__field,
   .r-select__adornment,
-  .r-select__chevron,
   .r-select__clear,
   .r-select__label,
   .r-select__details {

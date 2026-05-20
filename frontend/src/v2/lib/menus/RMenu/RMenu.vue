@@ -206,6 +206,33 @@ const { floatingStyles } = useFloating(reference, panelRef, {
   ]),
 });
 
+// ── Hover bridge ────────────────────────────────────────────────
+// When `openOnHover` is true the menu must also auto-close on
+// mouseleave. The bridge between activator and panel is the tricky
+// part: a naive mouseleave-on-activator would fire as soon as the
+// pointer moves toward the panel, killing the menu mid-traversal.
+// Solution: schedule the close on mouseleave with a short delay; any
+// mouseenter on activator OR panel cancels the pending close.
+const HOVER_CLOSE_DELAY = 140;
+let hoverCloseTimer: ReturnType<typeof setTimeout> | null = null;
+
+function cancelHoverClose() {
+  if (hoverCloseTimer != null) {
+    clearTimeout(hoverCloseTimer);
+    hoverCloseTimer = null;
+  }
+}
+
+function scheduleHoverClose() {
+  cancelHoverClose();
+  hoverCloseTimer = setTimeout(() => {
+    hoverCloseTimer = null;
+    close();
+  }, HOVER_CLOSE_DELAY);
+}
+
+onBeforeUnmount(() => cancelHoverClose());
+
 // ── Activator props ─────────────────────────────────────────────
 // Spread these onto whatever element the consumer renders. We bind
 // hover-open lazily so single-listener pattern doesn't break when the
@@ -221,7 +248,13 @@ const activatorProps = computed(() => {
     "aria-haspopup": "menu",
     "aria-expanded": isOpen.value,
   };
-  if (props.openOnHover) out.onMouseenter = () => open();
+  if (props.openOnHover) {
+    out.onMouseenter = () => {
+      cancelHoverClose();
+      open();
+    };
+    out.onMouseleave = () => scheduleHoverClose();
+  }
   return out;
 });
 
@@ -297,6 +330,11 @@ const mergedContentClass = computed(() =>
 
   <Teleport to="body">
     <Transition name="r-menu-pop">
+      <!-- eslint-disable vuejs-accessibility/mouse-events-have-key-events --
+           hover-bridge mouseenter/mouseleave have no keyboard equivalent —
+           keyboard users navigate the panel via arrow keys + Escape, which
+           are already wired up. focusin/focusout don't apply at the panel
+           level since menu items own focus, not the panel container. -->
       <div
         v-if="isOpen"
         ref="panelRef"
@@ -305,6 +343,8 @@ const mergedContentClass = computed(() =>
         :style="{ ...floatingStyles, width: widthCss, maxHeight: maxHeightCss }"
         role="menu"
         @click="onPanelClick"
+        @mouseenter="openOnHover && cancelHoverClose()"
+        @mouseleave="openOnHover && scheduleHoverClose()"
       >
         <!-- Sticky search header. `data-r-menu-no-close` keeps clicks
              on the input from triggering the panel-level close. -->

@@ -231,6 +231,23 @@ function toggle() {
   transform: translateX(calc(var(--r-switch-travel) - 4px)) scaleX(1.35);
 }
 
+/* Static mode — the switch is a passive `<span>` with `pointer-events:
+   none`, so `:active` lives on the interactive ancestor (e.g.
+   `SettingsToggleRow`'s outer `<button>`), never on `.r-switch` itself.
+   Mirror the squash from the closest active button so the haptic cue
+   still reads when the row is the click target. */
+button:active:not(:disabled)
+  .r-switch--static:not(.r-switch--disabled)
+  .r-switch__knob {
+  transform: translateX(0) scaleX(1.35);
+  transition: transform 110ms var(--r-motion-ease-out);
+}
+button:active:not(:disabled)
+  .r-switch--static.r-switch--on:not(.r-switch--disabled)
+  .r-switch__knob {
+  transform: translateX(calc(var(--r-switch-travel) - 4px)) scaleX(1.35);
+}
+
 /* ── Label ──────────────────────────────────────────────────────── */
 .r-switch__label {
   font-size: 13px;
@@ -257,10 +274,16 @@ function toggle() {
   .r-switch__label {
     transition: none;
   }
-  .r-switch:active:not(.r-switch--disabled) .r-switch__knob {
+  .r-switch:active:not(.r-switch--disabled) .r-switch__knob,
+  button:active:not(:disabled)
+    .r-switch--static:not(.r-switch--disabled)
+    .r-switch__knob {
     transform: translateX(0) scaleX(1);
   }
-  .r-switch--on:active:not(.r-switch--disabled) .r-switch__knob {
+  .r-switch--on:active:not(.r-switch--disabled) .r-switch__knob,
+  button:active:not(:disabled)
+    .r-switch--static.r-switch--on:not(.r-switch--disabled)
+    .r-switch__knob {
     transform: translateX(var(--r-switch-travel)) scaleX(1);
   }
 }

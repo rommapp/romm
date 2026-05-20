@@ -178,7 +178,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
+  <div class="r-v2-section-stack">
     <template v-if="userToEdit">
       <!-- Identity row — flush (no card chrome). -->
       <div class="r-v2-profile__identity-row">

@@ -55,8 +55,7 @@ const scopeCount = computed(() => {
         <RIcon
           icon="mdi-chevron-down"
           size="14"
-          class="r-v2-scope-cell__chevron"
-          :class="{ 'r-v2-scope-cell__chevron--open': open }"
+          class="r-v2-scope-cell__chevron r-chevron-toggle"
         />
       </RBtn>
     </template>
@@ -92,10 +91,6 @@ const scopeCount = computed(() => {
 
 .r-v2-scope-cell__chevron {
   color: var(--r-color-fg-muted);
-  transition: transform var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-scope-cell__chevron--open {
-  transform: rotate(180deg);
 }
 
 /* Body padding was the RMenuPanel's `padding="12px"` — kept inline so

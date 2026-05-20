@@ -126,7 +126,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
 </script>
 
 <template>
-  <div>
+  <div class="r-v2-section-stack">
     <SettingsSection :title="t('settings.language')" icon="mdi-translate">
       <div class="r-v2-ui__field">
         <LanguageSelector prefix-label />

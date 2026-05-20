@@ -6,7 +6,15 @@
 //
 // The ScanPlatform expansion body is the v1 primitive — it's feature-scoped
 // and fine to reuse inside a v2 panel until we rebuild it natively.
-import { RAlert, RAvatar, RBtn, RIcon, RSelect, RSwitch } from "@v2/lib";
+import {
+  RAlert,
+  RAvatar,
+  RBtn,
+  RIcon,
+  RSelect,
+  RSwitch,
+  RTooltip,
+} from "@v2/lib";
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
@@ -17,6 +25,7 @@ import storeConfig from "@/stores/config";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
@@ -47,6 +56,11 @@ function setOpen(platformId: number, open: boolean) {
   openPlatforms.value = next;
 }
 const scanLog = useTemplateRef<HTMLDivElement>("scan-log");
+
+// Reference dialog — opened from the info button in the layout
+// header (sibling of "Manage library"). Mounts the scan-type and
+// metadata-provider lookup card.
+const infoDialogOpen = ref(false);
 
 const sortedPlatforms = computed(() =>
   [...filteredPlatforms.value].sort((a, b) =>
@@ -197,7 +211,7 @@ function stopScan() {
 </script>
 
 <template>
-  <div class="r-v2-scan">
+  <div class="r-v2-scan r-v2-section-stack">
     <!-- Teleport the section CTA into the LibraryToolsLayout header
          next to the title. The portal target lives in the layout.
          `defer` is load-bearing: when /scan is the entry route, the
@@ -217,7 +231,18 @@ function stopScan() {
       >
         {{ t("scan.manage-library") }}
       </RBtn>
+      <RBtn
+        variant="text"
+        size="small"
+        prepend-icon="mdi-information-outline"
+        :aria-label="t('scan.info-dialog-title', 'Scan reference')"
+        @click="infoDialogOpen = true"
+      >
+        {{ t("common.info", "Info") }}
+      </RBtn>
     </Teleport>
+
+    <ScanInfoDialog v-model="infoDialogOpen" />
 
     <!-- Config panel -->
     <div class="r-v2-scan__config">
@@ -249,7 +274,24 @@ function stopScan() {
           clearable
           hide-details
           chips
+          chip-tone="plain"
         >
+          <!-- Icon-only chips — providers are visually distinctive by
+               logo and the field is space-constrained, so the chip
+               renders just the logo with a tooltip on hover. -->
+          <template #chip="{ item }">
+            <RTooltip :text="item.raw.name" location="bottom">
+              <template #activator="{ props: tipProps }">
+                <span
+                  v-bind="tipProps"
+                  class="r-v2-scan__provider-chip"
+                  :aria-label="item.raw.name"
+                >
+                  <RAvatar :image="item.raw.logo_path" size="18" rounded="sm" />
+                </span>
+              </template>
+            </RTooltip>
+          </template>
           <template #item="{ props: itemProps, item }">
             <li v-bind="itemProps">
               <RAvatar :image="item.raw.logo_path" size="22" rounded="sm" />
@@ -480,6 +522,14 @@ function stopScan() {
 }
 .r-v2-scan__lb-inactive {
   color: var(--r-color-fg-muted);
+}
+
+/* Provider chip — icon-only chip rendered inside the RSelect chip
+   slot. Tight padding so it shrink-wraps to the logo + minimal frame. */
+.r-v2-scan__provider-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Scan log. Pins the chrome above and the stats bar below, with a

@@ -120,7 +120,11 @@ async function onLogout() {
         <span class="r-v2-user__name">
           {{ user?.username ?? "Guest" }}
         </span>
-        <RIcon icon="mdi-chevron-down" size="16" class="r-v2-user__chevron" />
+        <RIcon
+          icon="mdi-chevron-down"
+          size="16"
+          class="r-v2-user__chevron r-chevron-toggle"
+        />
       </RBtn>
     </template>
 

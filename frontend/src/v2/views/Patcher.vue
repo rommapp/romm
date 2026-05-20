@@ -380,7 +380,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div>
+  <div class="r-v2-section-stack">
     <p class="r-v2-patch__subtitle">
       {{ t("patcher.subtitle") }}
     </p>

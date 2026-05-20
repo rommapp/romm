@@ -125,7 +125,10 @@ function toggle() {
         >
           <slot name="header-append" />
         </span>
-        <RIcon icon="mdi-chevron-down" class="r-collapsible__chevron" />
+        <RIcon
+          icon="mdi-chevron-down"
+          class="r-collapsible__chevron r-chevron-toggle"
+        />
       </slot>
     </button>
 
@@ -209,10 +212,6 @@ function toggle() {
 
 .r-collapsible__chevron {
   color: var(--r-color-fg-muted);
-  transition: transform var(--r-motion-med) var(--r-motion-ease-out);
-}
-.r-collapsible--open .r-collapsible__chevron {
-  transform: rotate(180deg);
 }
 
 /* Smooth open via grid-row trick — content height interpolates without

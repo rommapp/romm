@@ -646,6 +646,7 @@ defineExpose({
     :class="{
       'r-v2-shell--stuck': isStuck,
       'r-v2-shell--has-strip': hasAlphaStrip,
+      'r-v2-shell--list': layout === 'list',
     }"
     :style="{ '--r-v2-shell-toolbar-h': `${toolbarHeight}px` }"
   >
@@ -804,6 +805,21 @@ defineExpose({
         @click:filter="filterDrawerOpen = true"
       />
     </div>
+
+    <!-- LIST COLUMN HEADER OVERLAY — twin of the inflow list header,
+         absolute against the section just below the toolbar overlay.
+         The scroller's clip strips the toolbar AND list-header bands
+         when `--stuck` + `--list`, so rows scrolling underneath never
+         reach this pixel area — the overlay paints cleanly over the
+         section's BackgroundArt blur, no see-through cards. -->
+    <GameListHeader
+      v-if="layout === 'list' && toolbarPosition === 'header'"
+      v-show="isStuck"
+      class="r-v2-shell__list-header-overlay"
+      :sort-key="listSortKey"
+      :sort-dir="orderDir"
+      @sort="onListSort"
+    />
 
     <!-- ALPHASTRIP — A-Z jump column on the right edge of the section. -->
     <AlphaStrip
@@ -971,12 +987,37 @@ defineExpose({
   right: calc(var(--r-row-pad) + 36px);
 }
 
+/* List column header overlay — twin of `.r-v2-shell__list-header`,
+   positioned absolutely just below the toolbar overlay. Same column
+   geometry as the toolbar overlay so columns align across both
+   surfaces. z-index 4 keeps it under the toolbar overlay (5) but
+   above any in-flow content peeking through. */
+.r-v2-shell__list-header-overlay {
+  position: absolute;
+  top: var(--r-v2-shell-toolbar-h, 64px);
+  left: var(--r-row-pad);
+  right: var(--r-row-pad);
+  z-index: 4;
+}
+.r-v2-shell--has-strip .r-v2-shell__list-header-overlay {
+  right: calc(var(--r-row-pad) + 36px);
+}
+
 /* While stuck, clip the scroller's top toolbar-band so cards
    scrolling underneath the overlay are physically removed from
    that pixel area. The transparent overlay then reveals only the
-   section's background (BackgroundArt blur) — never the cards. */
+   section's background (BackgroundArt blur) — never the cards.
+
+   In list mode, extend the clip to also cover the list-header band
+   below the toolbar so rows don't bleed through the (translucent)
+   sticky column header. */
 .r-v2-shell--stuck .r-v2-shell__scroller {
   clip-path: inset(var(--r-v2-shell-toolbar-h, 64px) 0 0 0);
+}
+.r-v2-shell--stuck.r-v2-shell--list .r-v2-shell__scroller {
+  clip-path: inset(
+    calc(var(--r-v2-shell-toolbar-h, 64px) + var(--r-list-header-h)) 0 0 0
+  );
 }
 
 html[data-bp~="xs"] .r-v2-shell__scroller {

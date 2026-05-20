@@ -23,6 +23,10 @@ const props = withDefaults(
     modelValue: T | null;
     items: SliderBtnGroupItem<T>[];
     variant?: "segmented" | "tab";
+    /** Stack direction. `vertical` swaps the indicator from translateX/width
+     *  to translateY/height and changes the flex axis. Same aesthetic, same
+     *  active-pill slide — just rotated 90°. */
+    orientation?: "horizontal" | "vertical";
     ariaLabel?: string;
     /** Disable the whole cluster — dims the container and blocks clicks on
      *  every item, regardless of per-item `disabled`. */
@@ -30,6 +34,7 @@ const props = withDefaults(
   }>(),
   {
     variant: "segmented",
+    orientation: "horizontal",
     ariaLabel: undefined,
     disabled: false,
   },
@@ -41,7 +46,10 @@ const emit = defineEmits<{
 
 const groupEl = ref<HTMLElement | null>(null);
 const btnEls = new Map<T, HTMLElement | null>();
-const rect = ref({ left: 0, width: 0, visible: false });
+// Indicator geometry — axis-agnostic. `offset` is translateX on
+// horizontal and translateY on vertical; `size` is width or height
+// respectively. The orientation prop decides how these map to CSS.
+const rect = ref({ offset: 0, size: 0, visible: false });
 const animate = ref(false);
 
 function setBtnEl(id: T, inst: unknown) {
@@ -72,13 +80,30 @@ function update() {
     rect.value = { ...rect.value, visible: false };
     return;
   }
-  const gRect = g.getBoundingClientRect();
-  const eRect = el.getBoundingClientRect();
-  rect.value = {
-    left: eRect.left - gRect.left,
-    width: eRect.width,
-    visible: true,
-  };
+  // Use offsetTop/offsetLeft (layout pixels) instead of
+  // getBoundingClientRect (post-transform pixels). When this group
+  // is rendered inside a parent that runs an enter transform like
+  // `scale(0.92)` (e.g. AppNav's sub-pill drop-in animation), the
+  // bounding rect is scaled and the resulting translateY/X embeds
+  // the scale factor permanently — the indicator stays misaligned
+  // once the transition completes. offsetTop is the un-transformed
+  // distance from the offsetParent's padding edge, which is also
+  // the indicator's containing-block reference (the slider group
+  // has `position: relative`, so the slider group is the offsetParent
+  // of the buttons). Both sides now use the same coordinate space.
+  if (props.orientation === "vertical") {
+    rect.value = {
+      offset: el.offsetTop,
+      size: el.offsetHeight,
+      visible: true,
+    };
+  } else {
+    rect.value = {
+      offset: el.offsetLeft,
+      size: el.offsetWidth,
+      visible: true,
+    };
+  }
 }
 
 watch(
@@ -148,6 +173,7 @@ onBeforeUnmount(() => {
     class="r-slider-btn-group"
     :class="[
       `r-slider-btn-group--${variant}`,
+      `r-slider-btn-group--${orientation}`,
       { 'r-slider-btn-group--disabled': disabled },
     ]"
     :aria-label="ariaLabel"
@@ -157,11 +183,19 @@ onBeforeUnmount(() => {
     <span
       class="r-slider-btn-group__indicator"
       :class="{ 'r-slider-btn-group__indicator--animate': animate }"
-      :style="{
-        transform: `translateX(${rect.left}px)`,
-        width: `${rect.width}px`,
-        opacity: rect.visible && !disabled ? 1 : 0,
-      }"
+      :style="
+        orientation === 'vertical'
+          ? {
+              transform: `translateY(${rect.offset}px)`,
+              height: `${rect.size}px`,
+              opacity: rect.visible && !disabled ? 1 : 0,
+            }
+          : {
+              transform: `translateX(${rect.offset}px)`,
+              width: `${rect.size}px`,
+              opacity: rect.visible && !disabled ? 1 : 0,
+            }
+      "
       aria-hidden="true"
     />
     <template v-for="item in items" :key="item.id">
@@ -224,6 +258,17 @@ onBeforeUnmount(() => {
   border-radius: var(--r-radius-pill);
 }
 
+/* Vertical variant — stack items on the Y axis, give the container
+   the same shape as a small menu. The sliding indicator continues to
+   work (just on the Y axis) thanks to the orientation-aware measure
+   in update(). Items stretch to the container's width so they align
+   in a clean column. */
+.r-slider-btn-group--vertical {
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: var(--r-radius-lg);
+}
+
 /* Segmented — thin icon cluster (toolbar-style). 3px padding around the
    28×28 inner buttons + 1px border puts the outer pill at 36px, which
    matches an `RBtn size="default"` sitting next to it (e.g., the disc
@@ -255,19 +300,41 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-.r-slider-btn-group--segmented .r-slider-btn-group__indicator {
+.r-slider-btn-group--segmented.r-slider-btn-group--horizontal
+  .r-slider-btn-group__indicator {
   top: 3px;
   bottom: 3px;
 }
-.r-slider-btn-group--tab .r-slider-btn-group__indicator {
+.r-slider-btn-group--tab.r-slider-btn-group--horizontal
+  .r-slider-btn-group__indicator {
   top: 4px;
   bottom: 4px;
+}
+
+/* Vertical indicator — span the container's width minus its padding,
+   then animate top + height. Mirrors the horizontal case (left/right
+   span + animate left + width). `top: 0` is load-bearing: without it,
+   the indicator's static position in a column-flex layout sits after
+   the flex items, and `translateY(<offset>)` then adds to that,
+   shifting the active background downward off the active item. */
+.r-slider-btn-group--tab.r-slider-btn-group--vertical
+  .r-slider-btn-group__indicator {
+  top: 0;
+  left: 4px;
+  right: 4px;
+}
+.r-slider-btn-group--segmented.r-slider-btn-group--vertical
+  .r-slider-btn-group__indicator {
+  top: 0;
+  left: 3px;
+  right: 3px;
 }
 
 .r-slider-btn-group__indicator--animate {
   transition:
     transform var(--r-motion-med) var(--r-motion-ease-out),
     width var(--r-motion-med) var(--r-motion-ease-out),
+    height var(--r-motion-med) var(--r-motion-ease-out),
     opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
 
@@ -334,9 +401,14 @@ onBeforeUnmount(() => {
   color: var(--r-color-bg) !important;
 }
 
-/* Tab sizing + colors. */
+/* Tab sizing + colors. Min-height is set explicitly (and !important)
+   so that RBtn-rendered items (no `to`) match the height of router-
+   link items. Otherwise Vuetify's RBtn density="compact" + size=
+   "x-small" computes a shorter button than the router-link, leading
+   to a thin/short hover band on tabs that aren't router-links. */
 .r-slider-btn-group--tab .r-slider-btn-group__btn {
-  padding: 7px 22px;
+  padding: 7px 22px !important;
+  min-height: 34px !important;
   font-size: 13.5px;
   font-weight: var(--r-font-weight-medium);
   color: var(--r-color-fg-secondary) !important;

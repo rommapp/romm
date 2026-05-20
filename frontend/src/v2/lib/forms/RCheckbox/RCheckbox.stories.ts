@@ -23,6 +23,7 @@ const meta: Meta<typeof RCheckbox> = {
     },
     disabled: { control: "boolean" },
     indeterminate: { control: "boolean" },
+    bare: { control: "boolean" },
     error: { control: "boolean" },
     errorMessages: { control: "text" },
   },
@@ -256,6 +257,44 @@ export const CardVariantColored: Story = {
       </div>
     `,
   }),
+};
+
+// ── Bare ────────────────────────────────────────────────────────────
+
+// `bare` strips the row's vertical breathing padding and the box↔label
+// gap. The box stays the same; only the surrounding chrome is removed.
+// Used when the consumer owns the layout (overlay corners, list-row
+// columns, dense table cells) and wants the checkbox to sit flush.
+export const Bare: Story = {
+  name: "Bare (no breathing padding)",
+  render: () => ({
+    components: { RCheckbox },
+    setup: () => {
+      const normal = ref(true);
+      const bare = ref(true);
+      return { normal, bare };
+    },
+    template: `
+      <div style="display:flex;gap:24px;align-items:flex-start;font:11px/1.2 sans-serif;color:var(--r-color-fg-muted)">
+        <div style="display:flex;flex-direction:column;gap:8px;padding:12px;border:1px dashed var(--r-color-border);border-radius:6px">
+          <span>default (with padding)</span>
+          <RCheckbox v-model="normal" label="Default row" />
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;padding:12px;border:1px dashed var(--r-color-border);border-radius:6px">
+          <span>bare (flush)</span>
+          <RCheckbox v-model="bare" bare label="Bare row" />
+        </div>
+      </div>
+    `,
+  }),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Use `bare` when the consumer owns the surrounding layout (e.g. GameCard overlay corner, list-row checkbox column).",
+      },
+    },
+  },
 };
 
 // ── Motion ──────────────────────────────────────────────────────────

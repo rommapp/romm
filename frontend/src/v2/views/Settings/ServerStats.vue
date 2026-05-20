@@ -30,7 +30,7 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <div>
+  <div class="r-v2-section-stack">
     <SummaryStatsSection :stats="stats" />
     <PlatformsStatsSection
       :total-filesize="stats.TOTAL_FILESIZE_BYTES"
