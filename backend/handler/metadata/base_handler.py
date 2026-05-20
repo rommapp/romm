@@ -71,6 +71,10 @@ SENSITIVE_KEYS = {
     "devpassword",
     "y",
 }
+SENSITIVE_KEYS_REGEX = re.compile(
+    rf"({'|'.join(re.escape(k) for k in SENSITIVE_KEYS)})=[^&\s\"]*",
+    re.IGNORECASE,
+)
 
 
 # This caches results to avoid repeated normalization of the same search term

@@ -56,30 +56,6 @@ LOGGING_CONFIG = {
 }
 
 
-_pattern_cache: re.Pattern[str] | None = None
-
-
-def _credential_pattern() -> re.Pattern[str] | None:
-    global _pattern_cache
-    if _pattern_cache is not None:
-        return _pattern_cache
-    try:
-        # Late import: base_handler indirectly imports this module via
-        # logger.logger, so referencing it at module top would be a
-        # circular import.
-        from handler.metadata.base_handler import SENSITIVE_KEYS
-    except ImportError:
-        # base_handler is mid-load (a few boot-time log lines fire before
-        # it finishes). Skip redaction for this record; the next call
-        # after boot will populate the cache.
-        return None
-    _pattern_cache = re.compile(
-        rf"({'|'.join(re.escape(k) for k in SENSITIVE_KEYS)})=[^&\s\"]*",
-        re.IGNORECASE,
-    )
-    return _pattern_cache
-
-
 def should_strip_ansi() -> bool:
     """Determine if ANSI escape codes should be stripped."""
     # Check if an explicit environment variable is set to control color behavior
@@ -142,8 +118,13 @@ class Formatter(logging.Formatter):
         log_fmt = formats.get(record.levelno)
         formatter = logging.Formatter(fmt=log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
         output = formatter.format(record)
-        pattern = _credential_pattern()
-        return pattern.sub(r"\1=***", output) if pattern else output
+
+        try:
+            from handler.metadata.base_handler import SENSITIVE_KEYS_REGEX
+
+            return SENSITIVE_KEYS_REGEX.sub(r"\1=***", output)
+        except ImportError:
+            return output  # skip redaction on the first few boot log lines
 
 
 def highlight(msg: str = "", color=YELLOW) -> str:
