@@ -30,6 +30,7 @@ import GalleryToolbar, {
   type KindFilterValue,
 } from "@/v2/components/Gallery/GalleryToolbar.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import IndexShell from "@/v2/components/shared/IndexShell.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
@@ -242,26 +243,33 @@ const showVirtualSection = computed(
 </script>
 
 <template>
-  <section class="r-v2-cidx">
-    <PageHeader title="Collections" :count="totalCount" />
+  <IndexShell :list-mode="layout === 'list'">
+    <template #header>
+      <PageHeader title="Collections" :count="totalCount" />
+      <RDivider class="r-v2-cidx__header-divider" />
+    </template>
 
-    <RDivider class="r-v2-cidx__header-divider" />
+    <template #toolbar>
+      <GalleryToolbar
+        :group-by="groupBy"
+        :layout="layout"
+        :search="searchTerm"
+        show-search
+        search-placeholder="Search collections"
+        show-kind-filter
+        :kind-filter="kindFilter"
+        :kind-filter-items="kindFilterItems"
+        kind-filter-aria-label="Filter collections"
+        @update:group-by="groupBy = $event"
+        @update:layout="layout = $event"
+        @update:search="searchTerm = $event"
+        @update:kind-filter="kindFilter = $event"
+      />
+    </template>
 
-    <GalleryToolbar
-      :group-by="groupBy"
-      :layout="layout"
-      :search="searchTerm"
-      show-search
-      search-placeholder="Search collections"
-      show-kind-filter
-      :kind-filter="kindFilter"
-      :kind-filter-items="kindFilterItems"
-      kind-filter-aria-label="Filter collections"
-      @update:group-by="groupBy = $event"
-      @update:layout="layout = $event"
-      @update:search="searchTerm = $event"
-      @update:kind-filter="kindFilter = $event"
-    />
+    <template #listHeader>
+      <CollectionListHeader />
+    </template>
 
     <div v-if="fetchingCollections && !totalCount" class="r-v2-cidx__grid">
       <RSkeletonBlock
@@ -284,7 +292,6 @@ const showVirtualSection = computed(
     />
 
     <div v-else-if="layout === 'list'" class="r-v2-cidx__list">
-      <CollectionListHeader />
       <CollectionListRow
         v-for="c in filtered"
         :id="c.id"
@@ -378,14 +385,10 @@ const showVirtualSection = computed(
         </div>
       </section>
     </template>
-  </section>
+  </IndexShell>
 </template>
 
 <style scoped>
-.r-v2-cidx {
-  padding: 32px var(--r-row-pad) 60px;
-}
-
 /* Mirror the gallery shell's header→toolbar separator so the visual
    rhythm matches Search / Platform / Collection ROM views. */
 .r-v2-cidx__header-divider {
@@ -431,9 +434,6 @@ const showVirtualSection = computed(
   color: var(--r-color-fg-muted);
 }
 
-html[data-bp~="xs"] .r-v2-cidx {
-  padding: 16px 14px 80px;
-}
 html[data-bp~="xs"] .r-v2-cidx__grid {
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 16px 10px;

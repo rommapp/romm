@@ -29,6 +29,7 @@ import {
   prettifyPlatformCategory,
 } from "@/v2/components/Platforms/platformListColumns";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
+import IndexShell from "@/v2/components/shared/IndexShell.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
@@ -232,22 +233,29 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
 </script>
 
 <template>
-  <section class="r-v2-pidx">
-    <PageHeader title="Platforms" :count="totalCount" />
+  <IndexShell :list-mode="layout === 'list'">
+    <template #header>
+      <PageHeader title="Platforms" :count="totalCount" />
+      <RDivider class="r-v2-pidx__header-divider" />
+    </template>
 
-    <RDivider class="r-v2-pidx__header-divider" />
+    <template #toolbar>
+      <GalleryToolbar
+        :group-by="groupBy"
+        :layout="layout"
+        :search="searchTerm"
+        :group-by-items="platformGroupByItems"
+        show-search
+        search-placeholder="Search platforms"
+        @update:group-by="groupBy = $event"
+        @update:layout="layout = $event"
+        @update:search="searchTerm = $event"
+      />
+    </template>
 
-    <GalleryToolbar
-      :group-by="groupBy"
-      :layout="layout"
-      :search="searchTerm"
-      :group-by-items="platformGroupByItems"
-      show-search
-      search-placeholder="Search platforms"
-      @update:group-by="groupBy = $event"
-      @update:layout="layout = $event"
-      @update:search="searchTerm = $event"
-    />
+    <template #listHeader>
+      <PlatformListHeader />
+    </template>
 
     <div v-if="fetchingPlatforms && !totalCount" class="r-v2-pidx__grid">
       <RSkeletonBlock
@@ -269,12 +277,12 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
       :message="`No platforms match “${searchTerm}”.`"
     />
 
-    <!-- List mode — rows underneath a sticky-style column header.
-         Rows surface the same family / category / generation axes
-         the toolbar can group by, so the user reading the flat list
-         still sees what would have separated them. -->
+    <!-- List mode — rows underneath the sticky column header (rendered
+         by IndexShell via the `#listHeader` slot above). Rows surface
+         the same family / category / generation axes the toolbar can
+         group by, so the user reading the flat list still sees what
+         would have separated them. -->
     <div v-else-if="layout === 'list'" class="r-v2-pidx__list">
-      <PlatformListHeader />
       <PlatformListRow
         v-for="p in filtered"
         :key="p.id"
@@ -324,14 +332,10 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         variant="grid"
       />
     </div>
-  </section>
+  </IndexShell>
 </template>
 
 <style scoped>
-.r-v2-pidx {
-  padding: 32px var(--r-row-pad) 60px;
-}
-
 /* Mirror the gallery shell's header→toolbar separator so the visual
    rhythm matches Search / Platform / Collection ROM views. */
 .r-v2-pidx__header-divider {
@@ -366,9 +370,6 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
   margin-top: 4px;
 }
 
-html[data-bp~="xs"] .r-v2-pidx {
-  padding: 16px 14px 80px;
-}
 html[data-bp~="xs"] .r-v2-pidx__grid {
   grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
   gap: 10px;
