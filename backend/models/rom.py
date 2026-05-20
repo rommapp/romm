@@ -373,6 +373,7 @@ class Rom(BaseModel):
             and not self.flashpoint_id
             and not self.hltb_id
             and not self.gamelist_id
+            and not self.libretro_id
         )
 
     @property
