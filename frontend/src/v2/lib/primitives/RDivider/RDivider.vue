@@ -24,12 +24,22 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   vertical?: boolean;
   inset?: boolean;
+  /**
+   * Bleed past the parent's horizontal padding so the line touches
+   * the container's left/right edges. Default bleed matches RDialog
+   * body padding (16px); override per-call with the
+   * `--r-divider-bleed-x` CSS custom property on the parent when the
+   * container uses a different padding (menu panels, drawers, …).
+   * Horizontal mode only.
+   */
+  fullWidth?: boolean;
   thickness?: number | string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   vertical: false,
   inset: false,
+  fullWidth: false,
   thickness: undefined,
 });
 
@@ -70,6 +80,7 @@ const lineStyle = computed(() => {
       'r-divider--vertical': vertical,
       'r-divider--horizontal': !vertical,
       'r-divider--inset': inset,
+      'r-divider--full-width': fullWidth && !vertical,
       'r-divider--with-text': hasText,
     }"
     :style="rootStyle"
@@ -147,5 +158,17 @@ const lineStyle = computed(() => {
 /* ── Inset (list-style left margin) ────────────────────────────── */
 .r-divider--inset.r-divider--horizontal {
   margin-inline-start: 72px;
+}
+
+/* ── Full-width (bleed past parent's horizontal padding) ───────────
+   Negative margins pull the box outward; matching width keeps the
+   line stretched edge-to-edge. Default bleed matches RDialog body's
+   16px horizontal padding; the consumer can override
+   `--r-divider-bleed-x` on the parent when sitting inside a surface
+   that uses a different padding. */
+.r-divider--full-width {
+  --r-divider-bleed-x: 16px;
+  margin-inline: calc(-1 * var(--r-divider-bleed-x));
+  width: calc(100% + 2 * var(--r-divider-bleed-x));
 }
 </style>

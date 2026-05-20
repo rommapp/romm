@@ -8,7 +8,7 @@
 //   const actions = useGameActions(() => rom.value);
 //   actions.play(); actions.toggleFavorite(); …
 //   actions.isFavorite     // reactive Ref<boolean>
-//   actions.canAddToCollection  // reactive Ref<boolean>
+//   actions.canManageCollections  // reactive Ref<boolean>
 import type { Emitter } from "mitt";
 import { computed, inject } from "vue";
 import { useRouter } from "vue-router";
@@ -137,7 +137,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     }
   }
 
-  const canAddToCollection = computed(
+  const canManageCollections = computed(
     () =>
       collectionsStore.allCollections.length > 0 ||
       Boolean(collectionsStore.favoriteCollection),
@@ -211,10 +211,10 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     emitter?.emit("showQRCodeDialog", rom);
   }
 
-  function addToCollection() {
+  function manageCollections() {
     const rom = getRom();
     if (!rom) return;
-    emitter?.emit("showAddToCollectionDialog", [rom]);
+    emitter?.emit("showManageCollectionsDialog", [rom]);
   }
 
   function refreshMetadata() {
@@ -243,7 +243,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
 
   return {
     isFavorited,
-    canAddToCollection,
+    canManageCollections,
     canShareQR,
     currentStatusKey,
     setStatus,
@@ -256,7 +256,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     favorite,
     share,
     shareQR,
-    addToCollection,
+    manageCollections,
     refreshMetadata,
     edit,
     match,

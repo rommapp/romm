@@ -113,6 +113,22 @@ export const ThicknessWithText: Story = {
 
 // ── Inset ────────────────────────────────────────────────────────────
 
+export const FullWidth: Story = {
+  name: "Full-width (bleed past parent padding)",
+  args: { fullWidth: true },
+  render: (args) => ({
+    components: { RDivider },
+    setup: () => ({ args }),
+    template: `
+      <div style="width:320px;background:var(--r-color-surface);border:1px solid var(--r-color-border);border-radius:12px;padding:18px 16px;font:13px/1.4 sans-serif;color:var(--r-color-fg)">
+        <div style="padding-block:6px">Top section sits inside the 16px padding</div>
+        <RDivider v-bind="args" />
+        <div style="padding-block:6px">Bottom section — divider runs edge-to-edge</div>
+      </div>
+    `,
+  }),
+};
+
 export const Inset: Story = {
   args: { inset: true },
   render: (args) => ({

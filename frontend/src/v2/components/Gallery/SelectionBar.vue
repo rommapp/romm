@@ -16,8 +16,8 @@
 //     toggle still routes through `useGameActions` per-rom; here we
 //     bypass it to issue a single add/remove call for the whole set.
 //   * manage collections — re-uses the existing
-//     `AddRomsToCollectionDialog` (already accepts SimpleRom[]) via
-//     the `showAddToCollectionDialog` emitter event.
+//     `ManageCollectionsDialog` (already accepts SimpleRom[]) via
+//     the `showManageCollectionsDialog` emitter event.
 //   * download — iterates selected ROMs and triggers one anchor
 //     download per item. Same pattern as `useGameActions.download`.
 //   * refresh metadata — emits `showRefreshMetadataDialog` for each
@@ -108,7 +108,7 @@ async function bulkFavorite() {
 
 function manageCollections() {
   if (selection.count === 0) return;
-  emitter?.emit("showAddToCollectionDialog", selection.roms);
+  emitter?.emit("showManageCollectionsDialog", selection.roms);
 }
 
 function bulkDownload() {

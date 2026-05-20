@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// CollectionPickerRow — one row in the AddRomsToCollectionDialog. Portrait
+// CollectionPickerRow — one row in the ManageCollectionsDialog. Portrait
 // thumb + name + rom-count + brand-primary circular tick when checked.
 // Click toggles; parent owns the pending/checked state and handles the
 // API round-trip.

@@ -47,10 +47,10 @@ function run(fn: () => void | Promise<void>) {
     @click="run(actions.favorite)"
   />
   <RMenuItem
-    v-if="actions.canAddToCollection.value"
+    v-if="actions.canManageCollections.value"
     label="Manage collections"
     icon="mdi-bookmark-outline"
-    @click="run(actions.addToCollection)"
+    @click="run(actions.manageCollections)"
   />
   <RMenuItem
     v-if="actions.canShareQR.value"

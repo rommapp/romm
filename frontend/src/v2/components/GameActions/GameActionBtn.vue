@@ -8,7 +8,7 @@
 //   play        → router.push /rom/:id/ejs
 //   download    → direct download link click
 //   favorite    → toggleFavorite; active state when `isFavorited`
-//   collection  → open AddToCollectionDialog; hidden if no collections
+//   collection  → open ManageCollectionsDialog; hidden if no collections
 //   status      → open status-enum picker (RMenu); icon swaps to the
 //                 current status icon when set, dashed border when empty
 //   more        → open MoreMenu (GameActionsList dropdown)
@@ -29,9 +29,11 @@
 // `withLabel` turns the button into a pill with "Play" / "Download" /
 // etc. text next to the icon, matching the GameDetails Play CTA.
 import { RDivider, RIcon, RMenu, RMenuItem } from "@v2/lib";
-import { computed, ref, toRef } from "vue";
+import type { Emitter } from "mitt";
+import { computed, inject, onBeforeUnmount, ref, toRef } from "vue";
 import type { RomUserStatus } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 import { romStatusMap } from "@/utils";
 import type { PlayingStatus } from "@/utils";
 import GameActionsList from "@/v2/components/GameActions/GameActionsList.vue";
@@ -174,7 +176,7 @@ const preset = computed<Preset>(() => {
       icon: "mdi-bookmark-outline",
       activeIcon: null,
       label: "Manage collections",
-      onClick: actions.addToCollection,
+      onClick: actions.manageCollections,
       active: false,
     };
   }
@@ -223,6 +225,28 @@ const displayedIcon = computed(
 
 const moreOpen = ref(false);
 const statusOpen = ref(false);
+// The `collection` action opens a global dialog via emitter rather than a
+// local RMenu, so we track its "pinned" lifecycle by hand: flip true on
+// click, flip false when the dialog notifies it has closed.
+const collectionOpen = ref(false);
+const emitter = inject<Emitter<Events>>("emitter");
+const onCollectionDialogClose = () => {
+  collectionOpen.value = false;
+};
+emitter?.on("closeManageCollectionsDialog", onCollectionDialogClose);
+onBeforeUnmount(() =>
+  emitter?.off("closeManageCollectionsDialog", onCollectionDialogClose),
+);
+
+// Single signal the GameCard `:has()` selectors watch to keep the card's
+// hover state painted while an action is in flight — more menu, status
+// picker, or collection-manage dialog.
+const pinned = computed(() => {
+  if (props.action === "more") return moreOpen.value;
+  if (props.action === "status") return statusOpen.value;
+  if (props.action === "collection") return collectionOpen.value;
+  return false;
+});
 
 function pickEnum(key: RomUserStatus) {
   // Re-clicking the active enum clears just the enum — gives the user a
@@ -250,6 +274,7 @@ function onClick(e: MouseEvent) {
   if (props.action === "more" || props.action === "status") return;
   e.preventDefault();
   e.stopPropagation();
+  if (props.action === "collection") collectionOpen.value = true;
   preset.value.onClick?.();
 }
 </script>
@@ -265,7 +290,10 @@ function onClick(e: MouseEvent) {
         :class="[
           `r-v2-game-btn--${size}`,
           `r-v2-game-btn--${variant}`,
-          { 'r-v2-game-btn--labelled': withLabel },
+          {
+            'r-v2-game-btn--labelled': withLabel,
+            'r-v2-game-btn--pinned': pinned,
+          },
         ]"
         :aria-label="preset.label"
         @click.prevent.stop
@@ -306,6 +334,7 @@ function onClick(e: MouseEvent) {
             'r-v2-game-btn--active': preset.active,
             'r-v2-game-btn--active-status': preset.active,
             'r-v2-game-btn--multi-status': activeStatusIcons.length > 1,
+            'r-v2-game-btn--pinned': pinned,
           },
         ]"
         :aria-label="preset.label"
@@ -392,10 +421,12 @@ function onClick(e: MouseEvent) {
     :class="[
       `r-v2-game-btn--${size}`,
       `r-v2-game-btn--${variant}`,
+      `r-v2-game-btn--action-${action}`,
       {
         'r-v2-game-btn--labelled': withLabel,
         'r-v2-game-btn--active': preset.active,
         [`r-v2-game-btn--active-${action}`]: preset.active,
+        'r-v2-game-btn--pinned': pinned,
       },
     ]"
     :aria-label="preset.label"

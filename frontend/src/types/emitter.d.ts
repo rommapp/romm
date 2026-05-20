@@ -17,7 +17,16 @@ export type Events = {
   showDeletePlatformDialog: Platform;
   showCreateCollectionDialog: null;
   showCreateSmartCollectionDialog: null;
+  /** v1 — opens the legacy AddRoms picker. The v2 equivalent is
+   *  `showManageCollectionsDialog`; this entry stays while v1 still
+   *  consumes it.
+   *  @deprecated v2 → use `showManageCollectionsDialog`. */
   showAddToCollectionDialog: SimpleRom[];
+  /** v2 — opens ManageCollectionsDialog with the given selection. */
+  showManageCollectionsDialog: SimpleRom[];
+  /** v2 — fired by ManageCollectionsDialog when it closes, so the
+   *  GameActionBtn that opened it can drop its pinned-hover state. */
+  closeManageCollectionsDialog: null;
   showRemoveFromCollectionDialog: SimpleRom[];
   showDeleteCollectionDialog: Collection;
   showDeleteSmartCollectionDialog: SmartCollection;

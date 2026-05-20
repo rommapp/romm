@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// AddRomsToCollectionDialog — collection picker that matches the mockup's
-// menu-panel shape. Driven by the `showAddToCollectionDialog` emitter.
+// ManageCollectionsDialog — collection picker that matches the mockup's
+// menu-panel shape. Driven by the `showManageCollectionsDialog` emitter.
 //
 // Uses the v2 RDialog primitive — RDialog was updated to share the
 // RMenuPanel visual language (14px radius, deep glass, menu-style shadow)
@@ -21,7 +21,7 @@
 //   * Empty state if no collections exist.
 import { RDialog, RDivider } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import collectionApi from "@/services/api/collection";
 import storeCollections, {
@@ -79,8 +79,14 @@ const openHandler = (romsToAdd: SimpleRom[]) => {
   createExpanded.value = false;
   show.value = true;
 };
-emitter?.on("showAddToCollectionDialog", openHandler);
-onBeforeUnmount(() => emitter?.off("showAddToCollectionDialog", openHandler));
+emitter?.on("showManageCollectionsDialog", openHandler);
+onBeforeUnmount(() => emitter?.off("showManageCollectionsDialog", openHandler));
+
+// Notify any GameActionBtn that opened us so it can drop its pinned-hover
+// state — covers every close path (X, scrim, Escape, programmatic close).
+watch(show, (open) => {
+  if (!open) emitter?.emit("closeManageCollectionsDialog", null);
+});
 
 /** Resolve a collection's membership against the open dialog's
  *  selection. "all" when every selected rom is in the collection,
@@ -210,11 +216,11 @@ function closeDialog() {
          bold "Manage collections" + muted game subtitle stack. Close X
          is provided by RDialog in its own header chrome. -->
     <template #header>
-      <div class="r-v2-pick-coll__head">
-        <span class="r-v2-pick-coll__head-title">
+      <div class="r-v2-mng-coll__head">
+        <span class="r-v2-mng-coll__head-title">
           {{ t("rom.manage-collections", "Manage collections") }}
         </span>
-        <span v-if="subtitle" class="r-v2-pick-coll__head-subtitle">
+        <span v-if="subtitle" class="r-v2-mng-coll__head-subtitle">
           {{ subtitle }}
         </span>
       </div>
@@ -233,7 +239,7 @@ function closeDialog() {
       <RDivider v-if="ownedCollections.length > 0" full-width />
 
       <!-- Existing collection rows — instant toggle, no commit step. -->
-      <ul v-if="ownedCollections.length" class="r-v2-pick-coll__list">
+      <ul v-if="ownedCollections.length" class="r-v2-mng-coll__list">
         <li v-for="collection in ownedCollections" :key="collection.id">
           <CollectionPickerRow
             :name="collection.name"
@@ -247,7 +253,7 @@ function closeDialog() {
         </li>
       </ul>
 
-      <div v-else class="r-v2-pick-coll__empty">
+      <div v-else class="r-v2-mng-coll__empty">
         {{
           t(
             "collection.no-collections-yet",
@@ -262,20 +268,20 @@ function closeDialog() {
 <style scoped>
 /* Header typography — stacked title (14px bold) + subtitle (11.5px
    muted) inside RDialog's single header slot. */
-.r-v2-pick-coll__head {
+.r-v2-mng-coll__head {
   display: flex;
   flex-direction: column;
   gap: 3px;
   min-width: 0;
 }
-.r-v2-pick-coll__head-title {
+.r-v2-mng-coll__head-title {
   font-size: 14px;
   font-weight: var(--r-font-weight-bold);
   color: var(--r-color-overlay-fg);
   letter-spacing: -0.005em;
   line-height: 1.25;
 }
-.r-v2-pick-coll__head-subtitle {
+.r-v2-mng-coll__head-subtitle {
   font-size: 11.5px;
   color: var(--r-color-fg-muted);
   font-weight: var(--r-font-weight-regular);
@@ -287,7 +293,7 @@ function closeDialog() {
 
 /* Row list — edge-to-edge against RDialog's body padding so each row
    reads like a menu item rather than a padded card. */
-.r-v2-pick-coll__list {
+.r-v2-mng-coll__list {
   list-style: none;
   margin: 0 -18px -18px;
   padding: 0px;
@@ -298,7 +304,7 @@ function closeDialog() {
   overflow-y: auto;
 }
 
-.r-v2-pick-coll__empty {
+.r-v2-mng-coll__empty {
   padding: 24px 16px;
   color: var(--r-color-fg-muted);
   font-size: 13px;

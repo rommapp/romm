@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // NewCollectionRow — the "create collection" CTA row inside the
-// AddRomsToCollectionDialog. Collapsed: purple-tinted plus-tile + label.
+// ManageCollectionsDialog. Collapsed: purple-tinted plus-tile + label.
 // Expanded: inline name input with Create / Cancel actions.
 //
 // Stateless — the parent owns `expanded`, `name`, and `creating`. The
@@ -210,5 +210,24 @@ function onInput(e: Event) {
 }
 :global(.r-v2.r-v2-light) .new-row__input::placeholder {
   color: color-mix(in srgb, var(--r-color-fg) 35%, transparent);
+}
+
+/* Cancel/Create entrance — the form mounts instantly when the user
+   clicks "New Collection"; the action pair slides in from the right
+   so the buttons read as appearing after the input is ready, not as
+   part of the row swap. CSS keyframe (not Vue Transition) so it stays
+   confined to the actions cluster and doesn't touch the row layout. */
+.new-row--editing .new-row__actions {
+  animation: new-row-actions-in 220ms var(--r-motion-ease-out) both;
+}
+@keyframes new-row-actions-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 </style>
