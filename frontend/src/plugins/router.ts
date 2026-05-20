@@ -37,6 +37,7 @@ export const ROUTES = {
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   PAIR: "pair",
+  PAIR_DEVICE: "pair-device",
   APRIL_FOOLS: "april-fools",
   NOT_FOUND: "404",
   CONSOLE_HOME: "console-home",
@@ -264,6 +265,11 @@ const routes = [
         component: () => import("@/views/404.vue"),
       },
     ],
+  },
+  {
+    path: "/pair/device",
+    name: ROUTES.PAIR_DEVICE,
+    component: () => import("@/views/Auth/DevicePair.vue"),
   },
   {
     path: "/pair",

@@ -30,6 +30,7 @@ from endpoints.client_tokens import router as client_tokens_router
 from endpoints.collections import router as collections_router
 from endpoints.configs import router as configs_router
 from endpoints.device import router as device_router
+from endpoints.device_auth import router as device_auth_router
 from endpoints.export import router as export_router
 from endpoints.feeds import router as feeds_router
 from endpoints.firmware import router as firmware_router
@@ -102,6 +103,8 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
             re.compile(r"^/api/token.*"),
             re.compile(r"^/api/client-tokens/exchange"),
             re.compile(r"^/api/client-tokens/pair/.+/status"),
+            re.compile(r"^/api/auth/device/init/?$"),
+            re.compile(r"^/api/auth/device/token/?$"),
             re.compile(r"^/ws"),
             re.compile(r"^/netplay"),
         ],
@@ -129,6 +132,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
 app.include_router(client_tokens_router, prefix="/api")
 app.include_router(device_router, prefix="/api")
+app.include_router(device_auth_router, prefix="/api")
 app.include_router(play_sessions_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
 app.include_router(rom_router, prefix="/api")

@@ -8,6 +8,7 @@ export interface ClientTokenSchema {
   last_used_at: string | null;
   created_at: string;
   user_id: number;
+  device_id?: string | null;
 }
 
 export interface ClientTokenCreateSchema extends ClientTokenSchema {

@@ -150,6 +150,26 @@ class TestDeviceEndpoints:
         )
         assert get_response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_get_device_exposes_client_device_identifier(
+        self, client, access_token: str, admin_user: User
+    ):
+        device = db_device_handler.add_device(
+            Device(
+                id="test-device-cid",
+                user_id=admin_user.id,
+                name="CID Device",
+                client_device_identifier="install-uuid-abc123",
+            )
+        )
+
+        response = client.get(
+            f"/api/devices/{device.id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["client_device_identifier"] == "install-uuid-abc123"
+
 
 class TestDeviceUserIsolation:
     def test_list_devices_only_returns_own_devices(

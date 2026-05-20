@@ -42,6 +42,8 @@ class TestClientTokenCRUD:
         assert set(body["scopes"]) == {"roms.read", "assets.read"}
         assert body["expires_at"] is not None
         assert body["user_id"] == admin_user.id
+        # Manually-created tokens are unbound until a device-flow binds them
+        assert body["device_id"] is None
 
     def test_create_token_minimal(self, client, access_token, admin_user):
         response = client.post(
@@ -76,6 +78,7 @@ class TestClientTokenCRUD:
         assert names == {"Token A", "Token B"}
         for t in tokens:
             assert "raw_token" not in t
+            assert t["device_id"] is None
 
     def test_delete_token(self, client, access_token, admin_user):
         create_resp = client.post(
