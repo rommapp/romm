@@ -110,7 +110,6 @@ const lineStyle = computed(() => {
   display: block;
 }
 .r-divider--horizontal:not(.r-divider--with-text) {
-  width: 100%;
   height: 0;
   border-top: 1px solid var(--r-color-border);
 }

@@ -31,7 +31,7 @@
 // Permissions: scan and delete are gated by `useCan` so users
 // without `rom.refresh` / `rom.delete` don't see actions they can't
 // run.
-import { RBtn, RIcon, RToolbar, RTooltip } from "@v2/lib";
+import { RBtn, RIcon, RToolbar, RTooltip, RDivider } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
@@ -173,6 +173,8 @@ function clear() {
           </span>
         </div>
       </template>
+
+      <RDivider vertical />
 
       <!-- Default slot: action buttons. Order mirrors the v1 FAB:
            download → favourite → collections → refresh → delete.
