@@ -67,6 +67,9 @@ const inToolsSection = computed(
         :aria-expanded="open"
       >
         <RIcon icon="mdi-tools" size="18" />
+        <span class="r-v2-lt-menu__label">
+          {{ t("library-tools.title", "Library tools") }}
+        </span>
         <RIcon icon="mdi-chevron-down" size="14" class="r-chevron-toggle" />
       </RBtn>
     </template>
@@ -136,5 +139,8 @@ const inToolsSection = computed(
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--r-color-fg-muted);
+}
+.r-v2-lt-menu__label {
+  margin: 8px;
 }
 </style>

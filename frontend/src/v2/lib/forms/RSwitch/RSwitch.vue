@@ -158,7 +158,12 @@ function toggle() {
   border-radius: 50%;
   background: var(--r-color-fg);
   transform: translateX(0) scaleX(1);
-  transform-origin: center;
+  /* Origin sits on the outer edge of the knob in each state (left when
+     off, right when on — see `.r-switch--on .r-switch__knob`) so the
+     press squash always grows toward the centre of the track. With a
+     centred origin the off-state squash visibly bulges out the left
+     side; anchoring to the outer edge keeps growth one-sided. */
+  transform-origin: left center;
   /* Spring easing — slight overshoot then settle. The base duration is
      a touch longer than the v2 default so the spring has room to
      breathe. */
@@ -197,6 +202,7 @@ function toggle() {
 .r-switch--on .r-switch__knob {
   background: var(--r-color-overlay-emphasis-fg);
   transform: translateX(var(--r-switch-travel)) scaleX(1);
+  transform-origin: right center;
 }
 .r-switch--on .r-switch__track {
   background: var(--r-color-brand-primary);
@@ -228,7 +234,7 @@ function toggle() {
   transition: transform 110ms var(--r-motion-ease-out);
 }
 .r-switch--on:active:not(.r-switch--disabled) .r-switch__knob {
-  transform: translateX(calc(var(--r-switch-travel) - 4px)) scaleX(1.35);
+  transform: translateX(var(--r-switch-travel)) scaleX(1.35);
 }
 
 /* Static mode — the switch is a passive `<span>` with `pointer-events:
@@ -245,7 +251,7 @@ button:active:not(:disabled)
 button:active:not(:disabled)
   .r-switch--static.r-switch--on:not(.r-switch--disabled)
   .r-switch__knob {
-  transform: translateX(calc(var(--r-switch-travel) - 4px)) scaleX(1.35);
+  transform: translateX(var(--r-switch-travel)) scaleX(1.35);
 }
 
 /* ── Label ──────────────────────────────────────────────────────── */

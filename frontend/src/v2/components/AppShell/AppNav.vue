@@ -133,14 +133,13 @@ const activeTab = computed<TabId | null>(() => {
           <template #activator="{ props: tooltipProps }">
             <RBtn
               v-bind="tooltipProps"
-              prepend-icon="mdi-backup-restore"
+              icon="mdi-backup-restore"
               size="small"
               variant="text"
               class="r-v2-nav__classic"
               aria-label="Switch to classic UI"
               @click="switchToV1"
-              >Classic UI</RBtn
-            >
+            ></RBtn>
           </template>
         </RTooltip>
         <ScanningIndicator />
