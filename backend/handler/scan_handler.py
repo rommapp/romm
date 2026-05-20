@@ -80,34 +80,6 @@ class MetadataSource(enum.StrEnum):
     LIBRETRO = "libretro"  # Libretro thumbnails
 
 
-METADATA_SOURCE_FIELDS: dict[MetadataSource, dict[str, str | None]] = {
-    MetadataSource.IGDB: {"id_field": "igdb_id", "metadata_field": "igdb_metadata"},
-    MetadataSource.MOBY: {"id_field": "moby_id", "metadata_field": "moby_metadata"},
-    MetadataSource.SS: {"id_field": "ss_id", "metadata_field": "ss_metadata"},
-    MetadataSource.RA: {"id_field": "ra_id", "metadata_field": "ra_metadata"},
-    MetadataSource.LAUNCHBOX: {
-        "id_field": "launchbox_id",
-        "metadata_field": "launchbox_metadata",
-    },
-    MetadataSource.HASHEOUS: {
-        "id_field": "hasheous_id",
-        "metadata_field": "hasheous_metadata",
-    },
-    MetadataSource.FLASHPOINT: {
-        "id_field": "flashpoint_id",
-        "metadata_field": "flashpoint_metadata",
-    },
-    MetadataSource.HLTB: {"id_field": "hltb_id", "metadata_field": "hltb_metadata"},
-    MetadataSource.GAMELIST: {
-        "id_field": "gamelist_id",
-        "metadata_field": "gamelist_metadata",
-    },
-    MetadataSource.LIBRETRO: {"id_field": "libretro_id", "metadata_field": None},
-    MetadataSource.SGDB: {"id_field": "sgdb_id", "metadata_field": None},
-    MetadataSource.TGDB: {"id_field": "tgdb_id", "metadata_field": None},
-}
-
-
 def get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
