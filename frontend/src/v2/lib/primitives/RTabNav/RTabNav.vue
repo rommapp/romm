@@ -20,6 +20,7 @@ import {
   watch,
 } from "vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
+import RImg from "../../primitives/RImg/RImg.vue";
 import type { RTabNavItem } from "./types";
 
 defineOptions({ inheritAttrs: false });
@@ -157,7 +158,16 @@ onBeforeUnmount(() => {
       :aria-selected="modelValue === t.id"
       @click="$emit('update:modelValue', t.id)"
     >
-      <RIcon v-if="t.icon" :icon="t.icon" class="r-tab-nav__icon" />
+      <RImg
+        v-if="t.image"
+        :src="t.image"
+        :alt="t.label"
+        width="1em"
+        height="1em"
+        contain
+        class="r-tab-nav__image"
+      />
+      <RIcon v-else-if="t.icon" :icon="t.icon" class="r-tab-nav__icon" />
       <span class="r-tab-nav__label">{{ t.label }}</span>
       <span
         v-if="t.badge !== undefined && t.badge !== null && t.badge !== ''"
@@ -220,6 +230,20 @@ onBeforeUnmount(() => {
 }
 .r-tab-nav__icon {
   flex-shrink: 0;
+}
+/* Image variant — provider logos / brand marks. RImg owns the inner
+   <img>; we round its outer wrapper and ride opacity from "muted at
+   rest" to "full saturation on hover/active" so the brand mark stands
+   out only when it's the focus of the surface. */
+.r-tab-nav__image {
+  flex-shrink: 0;
+  border-radius: 3px;
+  opacity: 0.65;
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-tab-nav__btn:hover .r-tab-nav__image,
+.r-tab-nav__btn--active .r-tab-nav__image {
+  opacity: 1;
 }
 .r-tab-nav__label {
   flex: 1;

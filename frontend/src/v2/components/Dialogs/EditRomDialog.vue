@@ -105,6 +105,10 @@ interface ProviderConfig {
   idField: keyof SimpleRom;
   metadataField: keyof SimpleRom;
   label: string;
+  /** Public asset path for the provider logo. Surfaced in the tab nav
+   *  next to the label so the surface reads as "you're editing IGDB's
+   *  payload" without having to read the text. */
+  iconSrc: string;
 }
 
 const PROVIDERS: readonly ProviderConfig[] = [
@@ -113,42 +117,49 @@ const PROVIDERS: readonly ProviderConfig[] = [
     idField: "igdb_id",
     metadataField: "igdb_metadata",
     label: "IGDB",
+    iconSrc: "/assets/scrappers/igdb.png",
   },
   {
     tabId: "moby",
     idField: "moby_id",
     metadataField: "moby_metadata",
     label: "MobyGames",
+    iconSrc: "/assets/scrappers/moby.png",
   },
   {
     tabId: "ss",
     idField: "ss_id",
     metadataField: "ss_metadata",
     label: "ScreenScraper",
+    iconSrc: "/assets/scrappers/ss.png",
   },
   {
     tabId: "launchbox",
     idField: "launchbox_id",
     metadataField: "launchbox_metadata",
     label: "LaunchBox",
+    iconSrc: "/assets/scrappers/launchbox.png",
   },
   {
     tabId: "hasheous",
     idField: "hasheous_id",
     metadataField: "hasheous_metadata",
     label: "Hasheous",
+    iconSrc: "/assets/scrappers/hasheous.png",
   },
   {
     tabId: "flashpoint",
     idField: "flashpoint_id",
     metadataField: "flashpoint_metadata",
     label: "Flashpoint",
+    iconSrc: "/assets/scrappers/flashpoint.png",
   },
   {
     tabId: "hltb",
     idField: "hltb_id",
     metadataField: "hltb_metadata",
     label: "HLTB",
+    iconSrc: "/assets/scrappers/hltb.png",
   },
 ];
 
@@ -169,7 +180,11 @@ const tabItems = computed<RTabNavItem[]>(() => [
     label: t("rom.metadata-ids", "Metadata IDs"),
     icon: "mdi-database",
   },
-  ...visibleProviders.value.map((p) => ({ id: p.tabId, label: p.label })),
+  ...visibleProviders.value.map((p) => ({
+    id: p.tabId,
+    label: p.label,
+    image: p.iconSrc,
+  })),
 ]);
 
 const activeProvider = computed(() =>
@@ -288,30 +303,28 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             no-hover
           />
           <div class="r-v2-edit__cover-actions">
-            <button
-              type="button"
-              class="r-v2-edit__icon-btn"
+            <RBtn
+              icon="mdi-image-search-outline"
+              variant="outlined"
+              density="compact"
+              :tooltip="t('rom.search-cover', 'Search cover')"
               :disabled="
                 !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
               "
-              :title="t('rom.search-cover', 'Search cover')"
               @click="
                 emitter?.emit('showSearchCoverDialog', {
                   term: rom.name || rom.fs_name,
                   platformId: rom.platform_id,
                 })
               "
-            >
-              <RIcon icon="mdi-image-search-outline" size="16" />
-            </button>
-            <button
-              type="button"
-              class="r-v2-edit__icon-btn"
-              :title="t('rom.upload-cover', 'Upload cover')"
+            />
+            <RBtn
+              icon="mdi-pencil"
+              variant="outlined"
+              density="compact"
+              :tooltip="t('rom.upload-cover', 'Upload cover')"
               @click="coverFileInput?.click()"
-            >
-              <RIcon icon="mdi-pencil" size="16" />
-            </button>
+            />
             <input
               ref="coverFileInput"
               type="file"
@@ -320,14 +333,14 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               class="r-v2-edit__file"
               @change="previewImage"
             />
-            <button
-              type="button"
-              class="r-v2-edit__icon-btn r-v2-edit__icon-btn--danger"
-              :title="t('rom.remove-cover', 'Remove cover')"
+            <RBtn
+              icon="mdi-delete"
+              variant="outlined"
+              density="compact"
+              color="danger"
+              :tooltip="t('rom.remove-cover', 'Remove cover')"
               @click="removeArtwork"
-            >
-              <RIcon icon="mdi-delete" size="16" />
-            </button>
+            />
           </div>
         </div>
 
@@ -470,43 +483,6 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
   flex-direction: column;
   gap: 12px;
   min-width: 0;
-}
-
-/* ── Icon buttons (cover row) ─────────────────────────────────────
-   Square 32px chips that share a vocabulary with the surrounding
-   field chrome — outlined surface, tinted hover, danger variant for
-   destructive actions. Kept here (not promoted to a primitive) until
-   we have a second consumer that needs the exact same shape. */
-.r-v2-edit__icon-btn {
-  appearance: none;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border-strong);
-  color: var(--r-color-fg-secondary);
-  width: 32px;
-  height: 32px;
-  border-radius: var(--r-radius-sm);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-edit__icon-btn:hover:not(:disabled) {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
-}
-.r-v2-edit__icon-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.r-v2-edit__icon-btn--danger:hover:not(:disabled) {
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 18%,
-    transparent
-  );
-  color: var(--r-color-danger-fg);
 }
 
 .r-v2-edit__file {

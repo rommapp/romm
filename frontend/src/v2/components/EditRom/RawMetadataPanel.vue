@@ -1,7 +1,10 @@
 <script setup lang="ts">
-// RawMetadataPanel (v2) — body for the per-provider collapsibles in
-// MetadataSections. The wrapping RCollapsible (with avatar + label) is
-// owned by the parent; this component owns the textarea + action row.
+// RawMetadataPanel (v2) — textarea + action row for one provider's raw
+// metadata payload. The visible "what provider is this" affordance is
+// owned by whoever hosts the panel (today: the active tab in
+// EditRomDialog's RTabNav, which shows the provider logo + label).
+// That lets this component drop a redundant title and keep the surface
+// quiet — the JSON is the content.
 //
 // Feature composite — knows the UpdateRom shape and the emitter event
 // bus. Renders nothing if the rom has no stored data for the configured
@@ -16,6 +19,10 @@ import type { Events } from "@/types/emitter";
 interface Props {
   rom: UpdateRom;
   metadataField: keyof UpdateRom;
+  /** Provider display name. Used only for the textarea's aria-label
+   *  so screen readers still hear "IGDB metadata JSON" even though the
+   *  visible title is gone (host UI already says which provider this
+   *  panel belongs to). */
   label: string;
 }
 
@@ -83,15 +90,16 @@ function saveMetadata() {
   }
 }
 
-const fieldLabel = computed(() => `${props.label} ${t("rom.metadata")} JSON`);
+// aria-only — RTextField turns `label` into the input's aria-label when
+// no `prefix-label` is set. No visible chrome rendered for it.
+const ariaLabel = computed(() => `${props.label} ${t("rom.metadata")} JSON`);
 </script>
 
 <template>
   <div v-if="hasMetadata" class="r-v2-raw-meta">
     <RTextField
       v-model="metadataJson"
-      :label="fieldLabel"
-      prefix-label="stacked"
+      :label="ariaLabel"
       variant="outlined"
       :readonly="!isEditing"
       multiline

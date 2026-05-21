@@ -104,3 +104,32 @@ export const HiddenItems: Story = {
     ],
   },
 };
+
+// Image variant — items can carry a logo / brand mark via the `image`
+// field instead of an MDI icon. Mirrors the per-provider raw-metadata
+// tabs in EditRomDialog (IGDB / MobyGames / etc).
+export const WithImages: Story = {
+  args: {
+    size: "small",
+    modelValue: "details",
+    items: [
+      {
+        id: "details",
+        label: "Additional details",
+        icon: "mdi-text-box-plus-outline",
+      },
+      { id: "ids", label: "Metadata IDs", icon: "mdi-database" },
+      { id: "igdb", label: "IGDB", image: "/assets/scrappers/igdb.png" },
+      {
+        id: "moby",
+        label: "MobyGames",
+        image: "/assets/scrappers/moby.png",
+      },
+      {
+        id: "ss",
+        label: "ScreenScraper",
+        image: "/assets/scrappers/ss.png",
+      },
+    ],
+  },
+};
