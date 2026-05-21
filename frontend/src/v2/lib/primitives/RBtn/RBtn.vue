@@ -63,6 +63,13 @@ interface Props {
   disabled?: boolean;
   block?: boolean;
   size?: "x-small" | "small" | "default" | "large" | "x-large";
+  /** Absolute height override, sharing the scale with RTextField /
+   *  RSelect so a button placed next to a form field reads as a
+   *  visual peer at every step:
+   *    compact     = 32px (= form `density="compact"`,    = size `small`)
+   *    comfortable = 40px (= form `density="comfortable"`, = size `default`)
+   *    default     = 48px (= form `density="default"`,    = size `large`)
+   *  When unset, the size prop drives the height. */
   density?: "default" | "comfortable" | "compact";
   /** `true` → square icon-only button. `string` → MDI icon rendered as
    *  the button's sole content (icon-only). */
@@ -104,7 +111,10 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   block: false,
   size: "default",
-  density: "default",
+  // Unset by default — the size prop drives the height. Pass density
+  // explicitly when the button needs to align with a form field at a
+  // specific scale (e.g. comfortable next to RTextField comfortable).
+  density: undefined,
   icon: undefined,
   prependIcon: undefined,
   appendIcon: undefined,
@@ -301,7 +311,7 @@ const spinnerSize = computed(() => {
     :class="[
       `r-btn--${variant}`,
       `r-btn--${size}`,
-      `r-btn--density-${density}`,
+      density ? `r-btn--density-${density}` : null,
       {
         'r-btn--has-color': !!resolvedColor,
         'r-btn--icon': isIconBtn,
@@ -530,33 +540,49 @@ const spinnerSize = computed(() => {
   color: inherit;
 }
 
-/* ── Size ladder ───────────────────────────────────────────────── */
+/* ── Size ladder ───────────────────────────────────────────────────
+   Heights align with the form primitives' density scale so a
+   `<RBtn>` placed next to a `<RTextField>` / `<RSelect>` reads as a
+   visual peer at every step:
+     small   = RTextField density="compact"     = 32px
+     default = RTextField density="comfortable" = 40px (the form default)
+     large   = RTextField density="default"     = 48px
+   x-small and x-large extend the ladder beyond the form scale for
+   chip-sized and CTA buttons. Padding / font-size / gap scale with
+   size so the proportions stay readable at every step. Height is
+   driven by `--r-btn-rest-h` so icon-mode width can follow it (square
+   hit target) and the density override below can swap in a different
+   value without touching `height` directly. */
+.r-btn {
+  height: var(--r-btn-rest-h);
+}
+
 .r-btn--x-small {
-  height: 20px;
+  --r-btn-rest-h: 24px;
   padding: 0 8px;
   font-size: 11px;
   gap: 4px;
 }
 .r-btn--small {
-  height: 28px;
+  --r-btn-rest-h: 32px;
   padding: 0 12px;
   font-size: 13px;
   gap: 6px;
 }
 .r-btn--default {
-  height: 36px;
+  --r-btn-rest-h: 40px;
   padding: 0 16px;
   font-size: 14px;
   gap: 8px;
 }
 .r-btn--large {
-  height: 44px;
+  --r-btn-rest-h: 48px;
   padding: 0 20px;
   font-size: 15px;
   gap: 10px;
 }
 .r-btn--x-large {
-  height: 52px;
+  --r-btn-rest-h: 56px;
   padding: 0 24px;
   font-size: 16px;
   gap: 12px;
@@ -569,47 +595,27 @@ const spinnerSize = computed(() => {
   font-size: 1.25em;
 }
 
-/* ── Density — slight height compression ────────────────────────── */
-.r-btn--density-comfortable {
-  /* -4px from default — keeps the size ladder visually predictable. */
-  height: calc(var(--r-btn-rest-h, auto) - 4px);
-}
+/* ── Density — absolute height override ───────────────────────────
+   Mirrors RTextField / RSelect's density scale exactly so primitives
+   share the same vocabulary: `<RBtn density="comfortable">` and
+   `<RTextField density="comfortable">` produce the same height. When
+   density is set it overrides the size's natural height; size still
+   drives padding / font / gap, so a small-font dense button reads as
+   "shorter version of small" rather than "different scale entirely". */
 .r-btn--density-compact {
-  height: calc(var(--r-btn-rest-h, auto) - 8px);
-}
-/* Map each size's rest height for the density calc. */
-.r-btn--x-small {
-  --r-btn-rest-h: 20px;
-}
-.r-btn--small {
-  --r-btn-rest-h: 28px;
-}
-.r-btn--default {
-  --r-btn-rest-h: 36px;
-}
-.r-btn--large {
-  --r-btn-rest-h: 44px;
-}
-.r-btn--x-large {
-  --r-btn-rest-h: 52px;
+  --r-btn-rest-h: 32px;
 }
 .r-btn--density-comfortable {
-  height: calc(var(--r-btn-rest-h) - 4px);
+  --r-btn-rest-h: 40px;
 }
-.r-btn--density-compact {
-  height: calc(var(--r-btn-rest-h) - 8px);
+.r-btn--density-default {
+  --r-btn-rest-h: 48px;
 }
 
 /* ── Icon-only — square hit area ──────────────────────────────── */
 .r-btn--icon {
   padding: 0;
   width: var(--r-btn-rest-h);
-}
-.r-btn--icon.r-btn--density-comfortable {
-  width: calc(var(--r-btn-rest-h) - 4px);
-}
-.r-btn--icon.r-btn--density-compact {
-  width: calc(var(--r-btn-rest-h) - 8px);
 }
 
 /* ── Block — full width ────────────────────────────────────────── */

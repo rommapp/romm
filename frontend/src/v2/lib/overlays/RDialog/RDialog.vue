@@ -297,6 +297,7 @@ const panelStyle = computed(() => {
 .r-dialog__body {
   display: flex;
   flex-direction: column;
+  flex: 1 1 0;
   min-height: 0;
   /* Symmetric padding so default content reads in a comfortable box. */
   padding: 18px 16px;

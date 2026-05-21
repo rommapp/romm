@@ -1,18 +1,17 @@
 <script setup lang="ts">
-// MatchRomDialog — manual metadata match flow. Users search any text via
-// any provider, filter which providers to include, pick a result, pick a
-// cover variant, and optionally rename the file to match.
-//
-// The v2 rewrite keeps the v1 `GameCard` + `Skeleton` composites for
-// cover rendering (they handle procedural covers / boxart / aspect ratio
-// via galleryViewStore) and builds v2 chrome around them.
+// MatchRomDialog — manual metadata match flow. The shell owns search +
+// filters + the update API call; the actual "pick a match → pick a
+// cover → optional rename" step is delegated to one of three body
+// variants (see `components/MatchRom/`). The variant is currently
+// switchable at runtime via a small selector in the toolbar so the
+// design can be A/B/C compared without a code edit; once the variant
+// is locked in we drop the selector and keep the chosen body.
 import {
   RBtn,
   RDialog,
-  REmptyState,
   RIcon,
-  RProgressCircular,
   RSelect,
+  RSliderBtnGroup,
   RTextField,
 } from "@v2/lib";
 import type { Emitter } from "mitt";
@@ -23,7 +22,13 @@ import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import GameCard from "@/v2/components/GameCard/GameCard.vue";
+import MatchRomBodySplit from "@/v2/components/MatchRom/MatchRomBodySplit.vue";
+import MatchRomBodySpotlight from "@/v2/components/MatchRom/MatchRomBodySpotlight.vue";
+import MatchRomProviderFilter from "@/v2/components/MatchRom/MatchRomProviderFilter.vue";
+import type {
+  ConfirmPayload,
+  MatchVariant,
+} from "@/v2/components/MatchRom/types";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -35,14 +40,7 @@ type SourceName =
   | "Screenscraper"
   | "Flashpoint"
   | "Launchbox"
-  | "Libretro"
-  | "SteamGridDB";
-
-type MatchedSource = {
-  url_cover: string | undefined;
-  name: SourceName;
-  logo_path: string;
-};
+  | "Libretro";
 
 type SourceFilter = {
   name: SourceName;
@@ -65,12 +63,35 @@ const searched = ref(false);
 const matchedRoms = ref<SearchRom[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-const showSelectSource = ref(false);
-const renameFromSource = ref(false);
-const selectedMatchRom = ref<SearchRom | undefined>(undefined);
-const selectedCover = ref<MatchedSource | undefined>(undefined);
-const sources = ref<MatchedSource[]>([]);
 const heartbeat = storeHeartbeat();
+
+// Active body variant — the toolbar selector lets users swap between
+// the two remaining flows (Split vs Spotlight) live while we decide.
+const variant = ref<MatchVariant>("split");
+
+const variantItems: Array<{
+  id: MatchVariant;
+  icon: string;
+  ariaLabel: string;
+  title: string;
+}> = [
+  {
+    id: "spotlight",
+    icon: "mdi-view-grid-outline",
+    ariaLabel: "Spotlight layout",
+    title: "Spotlight",
+  },
+  {
+    id: "split",
+    icon: "mdi-view-split-vertical",
+    ariaLabel: "Split layout",
+    title: "Split",
+  },
+];
+
+const variantComponent = computed(() =>
+  variant.value === "spotlight" ? MatchRomBodySpotlight : MatchRomBodySplit,
+);
 
 const isIGDBFiltered = ref(true);
 const isMobyFiltered = ref(true);
@@ -163,8 +184,6 @@ emitter?.on("showMatchRomDialog", openHandler);
 onBeforeUnmount(() => emitter?.off("showMatchRomDialog", openHandler));
 
 async function searchRom() {
-  showSelectSource.value = false;
-  sources.value = [];
   if (!rom.value || searching.value) return;
 
   const inputElement = document.getElementById("r-v2-match-search");
@@ -189,91 +208,34 @@ async function searchRom() {
   }
 }
 
-function showSources(matchedRom: SearchRom) {
-  if (!rom.value) return;
-  showSelectSource.value = true;
-  selectedMatchRom.value = matchedRom;
-  sources.value = [];
-
-  const push = (url: string | undefined, name: SourceName, logo: string) => {
-    if (url) sources.value.push({ url_cover: url, name, logo_path: logo });
-  };
-  push(matchedRom.igdb_url_cover, "IGDB", "/assets/scrappers/igdb.png");
-  push(matchedRom.moby_url_cover, "Mobygames", "/assets/scrappers/moby.png");
-  push(matchedRom.ss_url_cover, "Screenscraper", "/assets/scrappers/ss.png");
-  push(matchedRom.sgdb_url_cover, "SteamGridDB", "/assets/scrappers/sgdb.png");
-  push(
-    matchedRom.flashpoint_url_cover,
-    "Flashpoint",
-    "/assets/scrappers/flashpoint.png",
-  );
-  push(
-    matchedRom.launchbox_url_cover,
-    "Launchbox",
-    "/assets/scrappers/launchbox.png",
-  );
-  push(
-    matchedRom.libretro_url_cover,
-    "Libretro",
-    "/assets/scrappers/libretro.png",
-  );
-
-  if (sources.value.length === 1) selectedCover.value = sources.value[0];
-}
-
-function selectCover(source: MatchedSource) {
-  selectedCover.value = source;
-}
-
-function confirm() {
-  if (!selectedMatchRom.value) return;
-  updateRom(selectedMatchRom.value, selectedCover.value?.url_cover);
-  closeDialog();
-}
-
-function toggleRenameAsSource() {
-  renameFromSource.value = !renameFromSource.value;
-}
-
-function backToMatched() {
-  showSelectSource.value = false;
-  selectedCover.value = undefined;
-  selectedMatchRom.value = undefined;
-  sources.value = [];
-  renameFromSource.value = false;
-}
-
-async function updateRom(selectedRom: SearchRom, urlCover: string | undefined) {
+async function onBodyConfirm(payload: ConfirmPayload) {
   if (!rom.value) return;
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
+  const { matchedRom, cover, renameFromSource } = payload;
   rom.value = {
     ...rom.value,
-    fs_name:
-      renameFromSource.value && selectedMatchRom.value
-        ? rom.value.fs_name.replace(
-            rom.value.fs_name_no_tags,
-            selectedMatchRom.value.name,
-          )
-        : rom.value.fs_name,
-    igdb_id: selectedRom.igdb_id || null,
-    ss_id: selectedRom.ss_id || null,
-    moby_id: selectedRom.moby_id || null,
-    flashpoint_id: selectedRom.flashpoint_id || null,
-    launchbox_id: selectedRom.launchbox_id || null,
-    libretro_id: selectedRom.libretro_id || null,
-    name: selectedRom.name || null,
-    slug: selectedRom.slug || null,
-    summary: selectedRom.summary || null,
+    fs_name: renameFromSource
+      ? rom.value.fs_name.replace(rom.value.fs_name_no_tags, matchedRom.name)
+      : rom.value.fs_name,
+    igdb_id: matchedRom.igdb_id || null,
+    ss_id: matchedRom.ss_id || null,
+    moby_id: matchedRom.moby_id || null,
+    flashpoint_id: matchedRom.flashpoint_id || null,
+    launchbox_id: matchedRom.launchbox_id || null,
+    libretro_id: matchedRom.libretro_id || null,
+    name: matchedRom.name || null,
+    slug: matchedRom.slug || null,
+    summary: matchedRom.summary || null,
     url_cover:
-      urlCover ||
-      selectedRom.igdb_url_cover ||
-      selectedRom.ss_url_cover ||
-      selectedRom.moby_url_cover ||
-      selectedRom.flashpoint_url_cover ||
-      selectedRom.launchbox_url_cover ||
-      selectedRom.libretro_url_cover ||
+      cover?.url_cover ||
+      matchedRom.igdb_url_cover ||
+      matchedRom.ss_url_cover ||
+      matchedRom.moby_url_cover ||
+      matchedRom.flashpoint_url_cover ||
+      matchedRom.launchbox_url_cover ||
+      matchedRom.libretro_url_cover ||
       null,
   };
 
@@ -293,6 +255,7 @@ async function updateRom(selectedRom: SearchRom, urlCover: string | undefined) {
     });
   } finally {
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    closeDialog();
   }
 }
 
@@ -301,11 +264,6 @@ function closeDialog() {
   searching.value = false;
   searched.value = false;
   searchBy.value = "Name";
-  sources.value = [];
-  showSelectSource.value = false;
-  selectedCover.value = undefined;
-  selectedMatchRom.value = undefined;
-  renameFromSource.value = false;
 }
 </script>
 
@@ -328,30 +286,44 @@ function closeDialog() {
           <span class="r-v2-match__filters-label">
             {{ t("common.filter") }}
           </span>
-          <button
+          <MatchRomProviderFilter
             v-for="f in sourceFilters"
             :key="f.name"
-            type="button"
-            class="r-v2-match__filter"
-            :class="{
-              'r-v2-match__filter--active': f.active && f.enabled,
-              'r-v2-match__filter--disabled': !f.enabled,
-            }"
-            :title="
-              f.enabled
-                ? `Filter ${f.label} matches`
-                : `${f.label} source is not enabled`
-            "
-            :disabled="!f.enabled"
-            @click="toggleSourceFilter(f.name)"
-          >
-            <img :src="f.logo" :alt="f.label" />
-          </button>
-          <div class="r-v2-match__results">
-            <span>{{ t("rom.results-found") }}</span>
-            <span class="r-v2-match__results-count">
-              {{ searching ? "…" : filteredMatchedRoms.length }}
-            </span>
+            :name="f.name"
+            :label="f.label"
+            :logo="f.logo"
+            :enabled="f.enabled"
+            :active="f.active"
+            @toggle="toggleSourceFilter(f.name)"
+          />
+
+          <!-- Right-aligned cluster — the results pill and the variant
+               switcher live together pushed to the right of the filter
+               row so the provider chips stay flush left even when the
+               pill is hidden (no search yet / mid-search). -->
+          <div class="r-v2-match__filters-end">
+            <!-- Results pill only appears once a search has actually
+                 returned (searched && !searching). Before that the chip
+                 would either say "Results found 0" (noise) or duplicate
+                 the main body's spinner (double loader). -->
+            <div v-if="searched && !searching" class="r-v2-match__results">
+              <span>{{ t("rom.results-found") }}</span>
+              <span class="r-v2-match__results-count">
+                {{ filteredMatchedRoms.length }}
+              </span>
+            </div>
+
+            <!-- A/B variant selector — temporary while we evaluate the
+                 two remaining flows. Drop the whole RSliderBtnGroup once
+                 we lock in a variant. Mirrors the gallery's grid/list
+                 switcher so users get a familiar vocabulary. -->
+            <RSliderBtnGroup
+              :model-value="variant"
+              :items="variantItems"
+              variant="segmented"
+              aria-label="Match flow variant"
+              @update:model-value="variant = $event"
+            />
           </div>
         </div>
 
@@ -396,130 +368,19 @@ function closeDialog() {
     </template>
 
     <template #content>
-      <!-- Loading — searching the metadata providers. -->
-      <div v-if="searching" class="r-v2-match__state">
-        <RProgressCircular indeterminate :size="40" />
-      </div>
-
-      <!-- Empty — search ran but nothing matched. -->
-      <REmptyState
-        v-else-if="searched && matchedRoms.length === 0"
-        icon="mdi-disc-alert"
-        :title="t('common.no-results')"
-        :hint="t('rom.results-found')"
+      <component
+        :is="variantComponent"
+        :rom="rom"
+        :results="filteredMatchedRoms"
+        :searching="searching"
+        :searched="searched"
+        @confirm="onBodyConfirm"
       />
-
-      <template v-else-if="!showSelectSource">
-        <div v-if="rom" class="r-v2-match__grid">
-          <GameCard
-            v-for="matchedRom in filteredMatchedRoms"
-            :key="`${matchedRom.igdb_id}-${matchedRom.moby_id}-${matchedRom.ss_id}-${matchedRom.name}`"
-            :rom="matchedRom as unknown as SimpleRom"
-            static
-            class="r-v2-match__card"
-            @click="showSources(matchedRom)"
-          />
-        </div>
-      </template>
-
-      <template v-else>
-        <div class="r-v2-match__detail">
-          <header class="r-v2-match__detail-head">
-            <button
-              type="button"
-              class="r-v2-match__back"
-              aria-label="Back"
-              @click="backToMatched"
-            >
-              <RIcon icon="mdi-arrow-left" size="18" />
-            </button>
-            <div>
-              <h3 class="r-v2-match__detail-title">
-                {{ selectedMatchRom?.name }}
-              </h3>
-              <p
-                v-if="selectedMatchRom?.summary"
-                class="r-v2-match__detail-summary"
-              >
-                {{ selectedMatchRom.summary }}
-              </p>
-            </div>
-          </header>
-
-          <p v-if="sources.length > 1" class="r-v2-match__sources-label">
-            {{ t("rom.select-cover-image") }}
-          </p>
-
-          <div class="r-v2-match__sources">
-            <GameCard
-              v-for="source in sources"
-              :key="source.name"
-              :rom="{ id: 0, name: source.name } as unknown as SimpleRom"
-              :cover-src="source.url_cover"
-              :selected="selectedCover?.name === source.name"
-              static
-              @click="selectCover(source)"
-            >
-              <template #overlay>
-                <div class="r-v2-match__source-logo">
-                  <img :src="source.logo_path" :alt="source.name" />
-                </div>
-              </template>
-            </GameCard>
-          </div>
-
-          <button
-            v-if="selectedMatchRom"
-            type="button"
-            class="r-v2-match__rename"
-            :class="{ 'r-v2-match__rename--disabled': !selectedCover }"
-            :aria-pressed="renameFromSource"
-            :disabled="!selectedCover"
-            @click="toggleRenameAsSource"
-          >
-            <RIcon
-              :icon="
-                renameFromSource
-                  ? 'mdi-checkbox-outline'
-                  : 'mdi-checkbox-blank-outline'
-              "
-              size="15"
-            />
-            {{ t("rom.rename-file-title", { source: selectedCover?.name }) }}
-          </button>
-
-          <p
-            v-if="rom && renameFromSource && selectedMatchRom"
-            class="r-v2-match__rename-preview"
-          >
-            {{
-              t("rom.rename-file-details", {
-                from: rom.fs_name,
-                to: rom.fs_name.replace(
-                  rom.fs_name_no_tags,
-                  selectedMatchRom.name,
-                ),
-              })
-            }}
-          </p>
-        </div>
-      </template>
     </template>
 
     <template #footer>
       <RBtn variant="text" @click="closeDialog">
         {{ t("common.cancel") }}
-      </RBtn>
-      <div style="flex: 1" />
-      <RBtn
-        v-if="showSelectSource"
-        variant="translucent"
-        color="primary"
-        prepend-icon="mdi-check"
-        :disabled="!selectedMatchRom"
-        @click="confirm"
-      >
-        {{ t("common.confirm") }}
       </RBtn>
     </template>
   </RDialog>
@@ -548,37 +409,17 @@ function closeDialog() {
   margin-right: 4px;
 }
 
-.r-v2-match__filter {
-  appearance: none;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border-strong);
-  width: 32px;
-  height: 32px;
-  border-radius: var(--r-radius-sm);
-  padding: 2px;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  opacity: 0.4;
-  transition:
-    opacity var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-match__filter img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.r-v2-match__filter--active {
-  opacity: 1;
-  border-color: var(--r-color-brand-primary);
-}
-.r-v2-match__filter--disabled {
-  cursor: not-allowed;
+.r-v2-match__filters-end {
+  /* Pushes the results pill + variant switcher to the right of the
+     filter row; stays in place even when the pill is hidden so the
+     switcher doesn't slide left/right depending on search state. */
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .r-v2-match__results {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -602,148 +443,6 @@ function closeDialog() {
   grid-template-columns: 1fr 140px auto;
   gap: 8px;
   align-items: stretch;
-}
-
-.r-v2-match__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
-}
-
-/* Centred slot for the loading spinner / empty state — fills the
-   remaining body height so the dialog doesn't collapse to the spinner. */
-.r-v2-match__state {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
-}
-
-.r-v2-match__card {
-  cursor: pointer;
-}
-
-.r-v2-match__detail {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.r-v2-match__detail-head {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  padding: 12px 14px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
-}
-
-.r-v2-match__back {
-  appearance: none;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border-strong);
-  color: var(--r-color-fg-secondary);
-  width: 32px;
-  height: 32px;
-  border-radius: var(--r-radius-sm);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.r-v2-match__back:hover {
-  background: var(--r-color-surface-hover);
-  color: var(--r-color-fg);
-}
-
-.r-v2-match__detail-title {
-  margin: 0;
-  font-size: var(--r-font-size-md);
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg);
-}
-.r-v2-match__detail-summary {
-  margin: 4px 0 0;
-  color: var(--r-color-fg-secondary);
-  font-size: 12px;
-  line-height: 1.5;
-  max-height: 120px;
-  overflow-y: auto;
-}
-
-.r-v2-match__sources-label {
-  margin: 4px 0 0;
-  text-align: center;
-  color: var(--r-color-fg-secondary);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.r-v2-match__sources {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: center;
-}
-
-.r-v2-match__source-logo {
-  width: 28px;
-  height: 28px;
-  background: color-mix(
-    in srgb,
-    var(--r-color-canvas-bg-deep) 85%,
-    transparent
-  );
-  border-radius: var(--r-radius-sm);
-  padding: 3px;
-  display: grid;
-  place-items: center;
-  margin: 4px;
-}
-.r-v2-match__source-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.r-v2-match__rename {
-  appearance: none;
-  align-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-pill);
-  font-size: 12px;
-  font-family: inherit;
-  color: var(--r-color-fg-secondary);
-  cursor: pointer;
-}
-.r-v2-match__rename:hover:not(:disabled) {
-  background: var(--r-color-surface-hover);
-}
-.r-v2-match__rename--disabled,
-.r-v2-match__rename:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.r-v2-match__rename-preview {
-  margin: 0;
-  padding: 8px 10px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-sm);
-  font-size: 11px;
-  font-family: var(--r-font-family-mono, monospace);
-  color: var(--r-color-fg-muted);
-  text-align: center;
-  word-break: break-all;
 }
 
 html[data-bp~="xs"] .r-v2-match__search-row {
