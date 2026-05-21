@@ -10,6 +10,10 @@ import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
+  playableTooltip,
+  usePlatformPlayable,
+} from "@/v2/composables/usePlatformPlayable";
+import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
@@ -33,10 +37,6 @@ interface Props {
   familyName?: string | null;
   category?: string | null;
   generation?: number | null;
-  /** Whether any ROM on this platform can run in-browser. Pre-computed
-   *  by the parent (PlatformsIndex) so the sort comparator and the row
-   *  read the same value. */
-  playable?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -45,7 +45,6 @@ const props = withDefaults(defineProps<Props>(), {
   familyName: null,
   category: null,
   generation: null,
-  playable: false,
 });
 
 const router = useRouter();
@@ -70,6 +69,9 @@ const generationLabel = computed(() =>
     ? platformGenerationLabel(props.generation)
     : null,
 );
+
+const { playable, emulator } = usePlatformPlayable(() => props.slug);
+const playableLabel = computed(() => playableTooltip(emulator.value));
 
 function onRowClick(e: MouseEvent) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
@@ -121,15 +123,13 @@ function onRowClick(e: MouseEvent) {
     <div
       class="plat-list-row__cell plat-list-row__cell--meta plat-list-row__cell--center"
     >
-      <span v-if="playable" class="plat-list-row__playable">
-        <RIcon icon="mdi-play-circle" size="18" />
-        <RTooltip
-          activator="parent"
-          text="Playable in browser"
-          location="top"
-        />
+      <span
+        class="plat-list-row__playable"
+        :class="{ 'plat-list-row__playable--off': !playable }"
+      >
+        <RIcon :icon="playable ? 'mdi-play-circle' : 'mdi-cancel'" size="18" />
+        <RTooltip activator="parent" :text="playableLabel" location="top" />
       </span>
-      <span v-else class="plat-list-row__placeholder">—</span>
     </div>
 
     <div class="plat-list-row__cell plat-list-row__cell--end">
@@ -223,6 +223,10 @@ function onRowClick(e: MouseEvent) {
   align-items: center;
   justify-content: center;
   color: var(--r-color-success);
+}
+
+.plat-list-row__playable--off {
+  color: var(--r-color-fg-faint);
 }
 
 .plat-list-row__meta {

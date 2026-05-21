@@ -391,7 +391,6 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :family-name="p.family_name ?? null"
         :category="p.category ?? null"
         :generation="p.generation ?? null"
-        :playable="playableById.get(p.id) ?? false"
       />
     </div>
 

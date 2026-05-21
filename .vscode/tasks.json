@@ -3,15 +3,14 @@
   "tasks": [
     {
       "label": "Launch frontend",
-      "type": "npm",
-      "path": "frontend",
-      "script": "dev",
+      "type": "shell",
+      "command": "cd frontend && npm i && npm run dev",
       "problemMatcher": []
     },
     {
       "label": "Launch backend",
       "type": "shell",
-      "command": "cd backend && uv run python3 main.py",
+      "command": "cd backend && uv sync --dev && uv run python3 main.py",
       "problemMatcher": []
     },
     {
