@@ -249,6 +249,41 @@ class TestFSRomsHandler:
             result = handler.exclude_multi_roms(roms)
             assert result == roms
 
+    def test_exclude_multi_roms_case_insensitive(self, handler: FSRomsHandler, config):
+        """Test exclude_multi_roms ignores case in excluded names"""
+        roms = ["Game1", "Manuals", "Game2"]
+        config.EXCLUDED_MULTI_FILES = ["manuals"]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            result = handler.exclude_multi_roms(roms)
+            assert result == ["Game1", "Game2"]
+
+    def test_exclude_multi_roms_ignores_whitespace(
+        self, handler: FSRomsHandler, config
+    ):
+        """Test exclude_multi_roms trims accidental surrounding whitespace"""
+        roms = ["Game1", "covers", "Game2"]
+        config.EXCLUDED_MULTI_FILES = [" covers "]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            result = handler.exclude_multi_roms(roms)
+            assert result == ["Game1", "Game2"]
+
+    def test_exclude_multi_roms_wildcard_patterns(self, handler: FSRomsHandler, config):
+        """Test exclude_multi_roms keeps wildcard matching with normalized config"""
+        roms = ["Game1", "Manuals", "manuals-fr", "Game2"]
+        config.EXCLUDED_MULTI_FILES = ["  manuals* "]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            result = handler.exclude_multi_roms(roms)
+            assert result == ["Game1", "Game2"]
+
     def test_build_rom_file_single_file(self, rom_single: Rom, handler: FSRomsHandler):
         """Test _build_rom_file with actual single ROM file"""
         rom_path = Path(rom_single.fs_path)
