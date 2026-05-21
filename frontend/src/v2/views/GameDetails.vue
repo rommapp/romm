@@ -132,10 +132,14 @@ const lastPlayed = computed(() => {
 // would be a lie. "Franchises" mirrors the singular→plural consistency
 // of the surrounding rows.
 const overviewSections = computed<InfoGridSection[]>(() => [
-  { label: "Genres", items: genres.value },
-  { label: "Companies", items: companies.value },
-  { label: "Franchises", items: franchises.value },
-  { label: "Collections", items: collections.value },
+  { label: "Genres", icon: "mdi-tag-multiple-outline", items: genres.value },
+  { label: "Companies", icon: "mdi-domain", items: companies.value },
+  { label: "Franchises", icon: "mdi-star-outline", items: franchises.value },
+  {
+    label: "Collections",
+    icon: "mdi-book-multiple-outline",
+    items: collections.value,
+  },
 ]);
 
 const playerCount = computed<string | null>(() => {

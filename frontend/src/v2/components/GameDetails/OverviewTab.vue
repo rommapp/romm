@@ -136,7 +136,10 @@ const hasRelated = computed(
         </div>
       </div>
 
-      <div v-if="userCollectionTiles.length" class="overview-tab__row">
+      <div
+        v-if="userCollectionTiles.length"
+        class="overview-tab__row overview-tab__row--tiles"
+      >
         <div class="overview-tab__label">RomM collections</div>
         <div class="overview-tab__field overview-tab__field--scroll-x">
           <CollectionTile
@@ -267,13 +270,20 @@ const hasRelated = computed(
   font-style: italic;
 }
 
-/* Tile-row field — the eyebrow stays vertically centred (default
-   `align-items: center` on `__row`) so the label lines up with the
-   centre of the CollectionTile column. Vertical padding gives the
-   hover-lift (translateY + elevated shadow on CollectionTile) room
-   to render before the scroll container clips it — `overflow-x: auto`
-   also clips on Y per the CSS spec, so without this the shadow and
+/* Tile-row variant — the eyebrow pins to the top of the tile column
+   (instead of centring through the ~190px-tall CollectionTile) so the
+   label hovers over the mosaic rather than drifting halfway down it.
+   Vertical padding on the scroll container gives the hover-lift
+   (CollectionTile's translateY + elevated shadow) room to render
+   before the scroll container clips it — `overflow-x: auto` also
+   clips on Y per the CSS spec, so without this the shadow and
    lifted edge get sheared off. */
+.overview-tab__row--tiles {
+  align-items: flex-start;
+}
+.overview-tab__row--tiles .overview-tab__label {
+  padding-top: 8px;
+}
 .overview-tab__field--scroll-x {
   flex-wrap: nowrap;
   gap: 18px;
