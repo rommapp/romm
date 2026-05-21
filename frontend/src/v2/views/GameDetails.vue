@@ -132,14 +132,10 @@ const lastPlayed = computed(() => {
 // would be a lie. "Franchises" mirrors the singular→plural consistency
 // of the surrounding rows.
 const overviewSections = computed<InfoGridSection[]>(() => [
-  { label: "Genres", icon: "mdi-tag-multiple-outline", items: genres.value },
-  { label: "Companies", icon: "mdi-domain", items: companies.value },
-  { label: "Franchises", icon: "mdi-star-outline", items: franchises.value },
-  {
-    label: "Collections",
-    icon: "mdi-book-multiple-outline",
-    items: collections.value,
-  },
+  { label: "Genres", items: genres.value },
+  { label: "Companies", items: companies.value },
+  { label: "Franchises", items: franchises.value },
+  { label: "Collections", items: collections.value },
 ]);
 
 const playerCount = computed<string | null>(() => {
@@ -170,8 +166,12 @@ const earnedAchievementIds = computed<ReadonlySet<string>>(() => {
 const achievementsEarned = computed(() => earnedAchievementIds.value.size);
 
 const igdb = computed(() => currentRom.value?.igdb_metadata ?? null);
-const similarGames = computed<IGDBRelatedGame[]>(
-  () => igdb.value?.similar_games ?? [],
+// IGDB ships up to ~10 similar games per title; rendering all of them
+// would dominate the overview and push HLTB/Achievements below the
+// fold. Cap to keep the section to ~2 rows of cards at typical widths.
+const SIMILAR_GAMES_MAX = 6;
+const similarGames = computed<IGDBRelatedGame[]>(() =>
+  (igdb.value?.similar_games ?? []).slice(0, SIMILAR_GAMES_MAX),
 );
 const remakes = computed<IGDBRelatedGame[]>(() => igdb.value?.remakes ?? []);
 const remasters = computed<IGDBRelatedGame[]>(

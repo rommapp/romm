@@ -1,24 +1,30 @@
 <script setup lang="ts">
 // RelatedGameCard — single card in the related-games strip.
-// On mount, looks up the game in the local RomM library by IGDB id
-// (`getRomByMetadataProvider`). When the lookup hits the card jumps
-// to the internal RomM detail page via the router (no full reload);
-// when it misses the card falls back to the IGDB game page so the
-// user can still reach metadata for games they don't own.
 //
-// Mirrors v1's per-card pattern (frontend/src/components/common/Game/
-// Card/Related.vue) — each card owns its own lookup so the parent
-// grid stays a thin renderer. We keep the root as a single `<a>`
-// throughout the card's life (not a `<RouterLink>` ↔ `<a>` swap)
-// because RTooltip resolves its reference from the slot's first
-// element on mount: swapping that element on resolution would leave
-// the tooltip anchored to a detached node and float into the
-// top-left of the viewport.
-import { RIcon, RTooltip } from "@v2/lib";
+// Reuses the gallery's GameCard in `static` mode so the cover art,
+// hover-lift, label-truncation and tooltip-on-hover read identically
+// to every other game cover in the app. The action overlay, rating
+// chip, status badge, platform icon and gallery-selection chrome are
+// all suppressed by `static + showPlatformIcon=false` — we only want
+// "a tile that looks like a game".
+//
+// IGDB → RomM cross-reference (per v1's
+// `frontend/src/components/common/Game/Card/Related.vue`): on mount
+// the card asks the backend whether the IGDB id resolves to a local
+// ROM. If it does, the click jumps to the internal detail page via
+// the router; otherwise the click opens the IGDB game page in a new
+// tab so the user can still reach metadata for games they don't own.
+import { RIcon } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import type { IGDBRelatedGame } from "@/__generated__";
+import type {
+  IGDBRelatedGame,
+  RomMetadataSchema,
+  RomUserSchema,
+} from "@/__generated__";
 import romApi from "@/services/api/rom";
+import type { SimpleRom } from "@/stores/roms";
+import GameCard from "@/v2/components/GameCard/GameCard.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -36,134 +42,183 @@ onMounted(async () => {
     });
     romId.value = res.data.id;
   } catch {
-    // Stay on the IGDB external fallback — game isn't in the
-    // local library or the endpoint denied the lookup.
+    // Stay on the IGDB external fallback — game isn't in the local
+    // library or the endpoint denied the lookup.
   }
 });
 
-const href = computed(() =>
-  inLibrary.value
-    ? `/rom/${romId.value}`
-    : `https://www.igdb.com/games/${props.game.slug}`,
-);
-const target = computed(() => (inLibrary.value ? undefined : "_blank"));
-const rel = computed(() =>
-  inLibrary.value ? undefined : "noopener noreferrer",
-);
+// Minimal SimpleRom satisfying the GameCard prop contract. id=0 marks
+// it as synthetic — GameCard skips view-transition wiring and the
+// router-link href. `static + showPlatformIcon=false` means every
+// other field that could read off the rom is gated behind a v-if and
+// never accessed, so the empty defaults are safe.
+const EMPTY_METADATA: RomMetadataSchema = {
+  rom_id: 0,
+  genres: [],
+  franchises: [],
+  collections: [],
+  companies: [],
+  game_modes: [],
+  age_ratings: [],
+  player_count: "",
+  first_release_date: null,
+  average_rating: null,
+};
+const EMPTY_USER: RomUserSchema = {
+  id: 0,
+  user_id: 0,
+  rom_id: 0,
+  created_at: "",
+  updated_at: "",
+  last_played: null,
+  is_main_sibling: false,
+  backlogged: false,
+  now_playing: false,
+  hidden: false,
+  rating: 0,
+  difficulty: 0,
+  completion: 0,
+  status: null,
+};
 
-// Modifier-key + middle-click escape so the user can still open the
-// internal link in a new tab; otherwise route internally via the
-// router so the SPA stays single-load.
+const syntheticRom = computed<SimpleRom>(() => ({
+  id: 0,
+  igdb_id: props.game.id,
+  sgdb_id: null,
+  moby_id: null,
+  ss_id: null,
+  ra_id: null,
+  launchbox_id: null,
+  hasheous_id: null,
+  tgdb_id: null,
+  flashpoint_id: null,
+  hltb_id: null,
+  gamelist_id: null,
+  libretro_id: null,
+  platform_id: 0,
+  platform_slug: "",
+  platform_fs_slug: "",
+  platform_custom_name: null,
+  platform_display_name: "",
+  fs_name: props.game.name,
+  fs_name_no_tags: props.game.name,
+  fs_name_no_ext: props.game.name,
+  fs_extension: "",
+  fs_path: "",
+  fs_size_bytes: 0,
+  name: props.game.name,
+  slug: props.game.slug,
+  summary: null,
+  alternative_names: [],
+  youtube_video_id: null,
+  metadatum: EMPTY_METADATA,
+  igdb_metadata: null,
+  moby_metadata: null,
+  ss_metadata: null,
+  launchbox_metadata: null,
+  hasheous_metadata: null,
+  flashpoint_metadata: null,
+  hltb_metadata: null,
+  gamelist_metadata: null,
+  manual_metadata: null,
+  path_cover_small: null,
+  path_cover_large: null,
+  url_cover: props.game.cover_url ?? null,
+  has_manual: false,
+  has_manual_files: false,
+  has_soundtrack: false,
+  path_manual: null,
+  url_manual: null,
+  path_video: null,
+  is_unidentified: false,
+  is_identified: false,
+  revision: null,
+  regions: [],
+  languages: [],
+  tags: [],
+  crc_hash: null,
+  md5_hash: null,
+  sha1_hash: null,
+  ra_hash: null,
+  has_simple_single_file: false,
+  has_nested_single_file: false,
+  has_multiple_files: false,
+  files: [],
+  full_path: "",
+  created_at: "",
+  updated_at: "",
+  missing_from_fs: false,
+  has_notes: false,
+  siblings: [],
+  rom_user: EMPTY_USER,
+  merged_screenshots: [],
+  merged_ra_metadata: null,
+}));
+
+// Static-mode GameCard emits @click for the consumer. Resolve the
+// destination based on the IGDB → RomM lookup result.
 function onClick(e: MouseEvent) {
-  if (!inLibrary.value) return;
-  if (e.defaultPrevented) return;
-  if (e.button !== 0) return;
-  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-  e.preventDefault();
-  void router.push(href.value);
+  if (inLibrary.value) {
+    void router.push(`/rom/${romId.value}`);
+    return;
+  }
+  // Open the IGDB external link in a new tab — preserves the current
+  // ROM's detail view so the user doesn't lose context.
+  const url = `https://www.igdb.com/games/${props.game.slug}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+  // The static-mode keyboard activator (`onStaticKeydown`) hands us a
+  // KeyboardEvent cast to MouseEvent — both go through the same path.
+  void e;
 }
 </script>
 
 <template>
-  <RTooltip :text="game.name" location="top" :open-delay="400">
-    <template #activator="{ props: activatorProps }">
-      <a
-        v-bind="activatorProps"
-        :href="href"
-        :target="target"
-        :rel="rel"
-        class="related-card"
-        :class="{ 'related-card--in-library': inLibrary }"
-        @click="onClick"
-      >
-        <div class="related-card__cover-wrap">
-          <img
-            v-if="game.cover_url"
-            class="related-card__cover"
-            :src="game.cover_url"
-            :alt="game.name"
-            loading="eager"
-          />
-          <div v-else class="related-card__cover related-card__cover--empty" />
-
-          <!-- In-library affordance — small brand-tinted dot in the
-               corner. Subtle enough that it doesn't read as a
-               "selected" state but visible enough to scan a strip
-               quickly for owned games. -->
-          <span v-if="inLibrary" class="related-card__owned" aria-hidden="true">
-            <RIcon icon="mdi-check" size="10" />
-          </span>
-        </div>
-        <div class="related-card__name">{{ game.name }}</div>
-      </a>
+  <GameCard
+    :rom="syntheticRom"
+    static
+    :show-platform-icon="false"
+    :cover-src="game.cover_url"
+    @click="onClick"
+  >
+    <!-- "Owned" tag at the top of the cover — signals the game is
+         already in the user's library. Mirrors the top-left chip
+         pattern v1 used for the related-game `type` overlay (DLC /
+         Remake / …) so the visual rhythm matches across the app. -->
+    <template v-if="inLibrary" #overlay>
+      <span class="related-card__owned">
+        <RIcon icon="mdi-check" size="11" />
+        Owned
+      </span>
     </template>
-  </RTooltip>
+  </GameCard>
 </template>
 
 <style scoped>
-.related-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  text-decoration: none;
-  color: inherit;
+/* GameCard's `#overlay` slot container is itself absolutely anchored
+   top-right; we re-anchor it to the top-left so the "Owned" pill
+   lives in the same corner v1's related-game `type` chip used to,
+   keeping the visual rhythm consistent across the app. */
+:deep(.r-gc__overlay-slot) {
+  right: auto;
+  left: 6px;
 }
 
-.related-card__cover-wrap {
-  position: relative;
-  border-radius: var(--r-radius-art);
-  overflow: hidden;
-  box-shadow: var(--r-elev-1);
-  transition:
-    transform var(--r-motion-fast) var(--r-motion-ease-out),
-    box-shadow var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.related-card:hover .related-card__cover-wrap {
-  transform: translateY(-2px);
-  box-shadow: var(--r-elev-2);
-}
-
-.related-card__cover {
-  aspect-ratio: 2 / 3;
-  width: 100%;
-  height: auto;
-  object-fit: cover;
-  display: block;
-}
-.related-card__cover--empty {
-  aspect-ratio: 2 / 3;
-  background: var(--r-color-bg-elevated);
-}
-
-/* Tiny "owned" dot — solid brand-coloured circle with a check.
-   Sits in the bottom-right of the cover so it reads as a status
-   indicator, not a selection chrome. */
+/* "Owned" pill — brand-tinted with a check glyph. Slight blur on the
+   background so it composites cleanly over bright cover art. */
 .related-card__owned {
-  position: absolute;
-  bottom: 6px;
-  right: 6px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
+  gap: 3px;
+  padding: 2px 7px 2px 5px;
+  border-radius: var(--r-radius-chip);
+  font-size: 9.5px;
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   background: var(--r-color-brand-primary);
   color: var(--r-color-overlay-fg);
-  box-shadow: 0 1px 4px color-mix(in srgb, black 50%, transparent);
-}
-
-.related-card__name {
-  font-size: 11.5px;
-  color: var(--r-color-fg-secondary);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.3;
-  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.related-card:hover .related-card__name {
-  color: var(--r-color-fg);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 1px 4px color-mix(in srgb, black 45%, transparent);
 }
 </style>

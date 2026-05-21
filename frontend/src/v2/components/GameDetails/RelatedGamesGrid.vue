@@ -42,9 +42,15 @@ defineProps<{
   color: var(--r-color-fg-faint);
 }
 
+/* Flex-wrap (not auto-fill grid) — GameCard has a fixed 158px width
+   and a hard-coded `flex-shrink: 0`, so a `1fr` track would tear the
+   layout: the column would compute below 158px on narrow viewports
+   and the cards would overflow into the next column. Flex-wrap lets
+   each card keep its native width and wrap on the available width
+   without inducing a horizontal scrollbar on the overview panel. */
 .r-v2-related__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 16px;
 }
 </style>
