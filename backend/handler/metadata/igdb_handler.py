@@ -510,11 +510,17 @@ class IGDBHandler(MetadataHandler):
             limit=self.pagination_limit,
         )
 
-        if roms_expanded:
-            # Collect all unique game IDs from the expanded search results
-            unique_game_ids = list(
-                dict.fromkeys(r["game"]["id"] for r in roms_expanded if r.get("game"))
+        # Collect all unique game IDs from the expanded search results,
+        # skipping entries without a valid game id.
+        unique_game_ids = list(
+            dict.fromkeys(
+                game_id
+                for r in roms_expanded
+                if (g := r.get("game")) and (game_id := g.get("id")) is not None
             )
+        )
+
+        if unique_game_ids:
             log.debug(
                 "Searching expanded in games endpoint for %d candidate game(s): %s",
                 len(unique_game_ids),
