@@ -113,17 +113,28 @@ watch(
       :class="{ 'match-spot__grid--dim': activeKey !== null }"
       :inert="activeKey !== null ? true : undefined"
     >
-      <GameCard
+      <!-- Wrapper carries the stagger animation. We can't paint it
+           directly on GameCard because its root is a dynamic
+           `<component :is>` and the scoped `data-v` hash doesn't
+           always reach the inner element — the animation rule never
+           matches. A plain <div> in this template's own scope
+           sidesteps that and acts as the grid cell, while GameCard
+           sits inside at its natural width. -->
+      <div
         v-for="(r, i) in results"
         :key="matchKey(r)"
-        :rom="r as unknown as SimpleRom"
-        :cover-src="firstAvailableCover(r)"
-        static
-        class="match-spot__card"
-        :class="{ 'match-spot__card--active': activeKey === matchKey(r) }"
+        class="match-spot__card-cell"
         :style="{ '--i': i }"
-        @click="open(r)"
-      />
+      >
+        <GameCard
+          :rom="r as unknown as SimpleRom"
+          :cover-src="firstAvailableCover(r)"
+          static
+          class="match-spot__card"
+          :class="{ 'match-spot__card--active': activeKey === matchKey(r) }"
+          @click="open(r)"
+        />
+      </div>
     </div>
 
     <Transition name="match-spot">
@@ -263,9 +274,7 @@ watch(
   user-select: none;
 }
 
-.match-spot__card {
-  cursor: pointer;
-  transition: opacity 220ms ease;
+.match-spot__card-cell {
   /* Stagger entrance — same vocabulary the cover-source picker uses,
      so opening the dialog and selecting a match share a consistent
      "cascading reveal" feel. `--i` is the card's index, set inline. */
@@ -282,6 +291,11 @@ watch(
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+.match-spot__card {
+  cursor: pointer;
+  transition: opacity 220ms ease;
 }
 .match-spot__card--active {
   /* The active card stays unblurred under the panel — useful as the
