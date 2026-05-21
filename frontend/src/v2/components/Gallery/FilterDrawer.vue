@@ -21,13 +21,15 @@
 // gallery is rendered. The shell controls `modelValue` and forwards
 // `showPlatformsFilter`.
 import { RBtn, RDrawer, RIcon, RSelect, RSliderBtnGroup, RTag } from "@v2/lib";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed } from "vue";
+import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
 import storeGalleryFilter, {
   type FilterLogicOperator,
 } from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import type { Events } from "@/types/emitter";
 import { romStatusMap, type PlayingStatus } from "@/utils";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 
@@ -48,6 +50,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const emitter = inject<Emitter<Events>>("emitter");
 const filter = storeGalleryFilter();
 const platformsStore = storePlatforms();
 const {
@@ -355,6 +358,14 @@ function resetAll() {
     s.setLogic("any");
   }
 }
+
+// Hand off to CreateSmartCollectionDialog — closing the drawer first
+// keeps focus management clean (the drawer's escape stack pops before
+// the dialog pushes its own).
+function saveAsSmartCollection() {
+  emit("update:modelValue", false);
+  emitter?.emit("showCreateSmartCollectionDialog", null);
+}
 </script>
 
 <template>
@@ -469,6 +480,15 @@ function resetAll() {
         {{ t("platform.reset-filters", "Reset") }}
       </RBtn>
       <div style="flex: 1" />
+      <RBtn
+        variant="text"
+        color="primary"
+        prepend-icon="mdi-playlist-plus"
+        :disabled="activeCount === 0"
+        @click="saveAsSmartCollection"
+      >
+        {{ t("collection.save-as-smart", "Save as smart") }}
+      </RBtn>
       <RBtn variant="flat" color="primary" @click="close">
         {{ t("common.close", "Close") }}
       </RBtn>

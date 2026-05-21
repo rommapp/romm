@@ -4,6 +4,7 @@
 // every route. All surfaces here are v2-native.
 import AboutDialog from "@/v2/components/Dialogs/AboutDialog.vue";
 import CopyDownloadLinkDialog from "@/v2/components/Dialogs/CopyDownloadLinkDialog.vue";
+import CreateSmartCollectionDialog from "@/v2/components/Dialogs/CreateSmartCollectionDialog.vue";
 import DeleteManualDialog from "@/v2/components/Dialogs/DeleteManualDialog.vue";
 import DeleteRomDialog from "@/v2/components/Dialogs/DeleteRomDialog.vue";
 import EditRomDialog from "@/v2/components/Dialogs/EditRomDialog.vue";
@@ -37,6 +38,7 @@ defineOptions({ inheritAttrs: false });
   <ShowQRCodeDialog />
   <CopyDownloadLinkDialog />
   <ManageCollectionsDialog />
+  <CreateSmartCollectionDialog />
   <AboutDialog />
   <SelectSaveDialog />
   <SelectStateDialog />

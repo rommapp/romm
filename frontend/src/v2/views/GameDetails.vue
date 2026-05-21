@@ -17,6 +17,7 @@ import storeRoms from "@/stores/roms";
 import { toBrowserLocale } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
 import CoverColumn from "@/v2/components/GameDetails/CoverColumn.vue";
+import FilesTab from "@/v2/components/GameDetails/FilesTab.vue";
 import GameHeader from "@/v2/components/GameDetails/GameHeader.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
 import MediaTab from "@/v2/components/GameDetails/MediaTab.vue";
@@ -206,8 +207,11 @@ const savesCount = computed(() => currentRom.value?.user_saves?.length ?? 0);
 const statesCount = computed(() => currentRom.value?.user_states?.length ?? 0);
 const saveDataCount = computed(() => savesCount.value + statesCount.value);
 
+const filesCount = computed(() => currentRom.value?.files?.length ?? 0);
+
 const tabs = computed<RTabNavItem[]>(() => [
   { id: "overview", label: "Overview" },
+  { id: "files", label: "Files", badge: filesCount.value },
   { id: "media", label: "Media" },
   { id: "notes", label: "Notes" },
   {
@@ -260,6 +264,7 @@ const tabs = computed<RTabNavItem[]>(() => [
             :remasters="remasters"
             :similar-games="similarGames"
           />
+          <FilesTab v-if="tab === 'files'" :rom="currentRom" />
           <MediaTab v-if="tab === 'media'" :rom="currentRom" />
           <NotesTab v-if="tab === 'notes'" :rom="currentRom" />
           <AchievementsTab

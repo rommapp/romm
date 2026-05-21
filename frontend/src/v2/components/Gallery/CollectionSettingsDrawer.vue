@@ -25,8 +25,9 @@
 //     placeholder mosaic.
 //   • Save → PUT /collections/:id with `artwork` and/or `url_cover` and
 //     `remove_cover` flag; on success patches the local store.
-import { RBtn, RChip, RIcon, RSwitch, RTextField } from "@v2/lib";
+import { RBtn, RChip, RIcon, RSwitch, RTag, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -38,6 +39,7 @@ import storeCollections, {
   type Collection,
   type SmartCollection,
 } from "@/stores/collections";
+import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
@@ -45,6 +47,10 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import RDrawer from "@/v2/lib/overlays/RDrawer/RDrawer.vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import {
+  summarizeSmartFilterCriteria,
+  type SmartFilterCriteria,
+} from "@/v2/utils/smartCollectionCriteria";
 
 defineOptions({ inheritAttrs: false });
 
@@ -70,6 +76,8 @@ const router = useRouter();
 const auth = storeAuth();
 const collectionsStore = storeCollections();
 const galleryRoms = storeGalleryRoms();
+const platformsStore = storePlatforms();
+const { allPlatforms } = storeToRefs(platformsStore);
 const { toWebp } = useWebpSupport();
 
 // ── Edit form state ─────────────────────────────────────────────
@@ -175,15 +183,19 @@ const mosaicFallback = computed<string[]>(() => {
   return (c.path_covers_small ?? []).slice(0, 4).map(toWebp);
 });
 
-// Smart-collection filter criteria — read-only display only. Same
-// shape v1 surfaces: each key/value rendered as a chip pair.
-const filterCriteria = computed<[string, unknown][]>(() => {
+// Smart-collection filter criteria — read-only display. The summary
+// helper translates the raw JSON into a structured list of rows the
+// drawer renders as labelled chip groups (one section per criterion).
+// Shared with CreateSmartCollectionDialog so the preview during
+// creation matches what shows up here afterwards.
+function platformLookup(id: number): string | null {
+  return allPlatforms.value.find((p) => p.id === id)?.display_name ?? null;
+}
+const filterSummary = computed(() => {
   if (props.kind !== "smart") return [];
   const c = props.collection as SmartCollection;
-  const fc = c.filter_criteria ?? {};
-  return Object.entries(fc as Record<string, unknown>).filter(
-    ([, v]) => v !== undefined && v !== null && v !== "",
-  );
+  const fc = (c.filter_criteria ?? {}) as SmartFilterCriteria;
+  return summarizeSmartFilterCriteria(fc, t, platformLookup);
 });
 
 // ── Cover actions ───────────────────────────────────────────────
@@ -451,27 +463,49 @@ async function onDelete() {
       </div>
     </section>
 
-    <!-- Smart collection: filter criteria (read-only). v1 renders one
-         chip per key/value pair; we keep that vocabulary. -->
+    <!-- Smart collection: filter criteria (read-only). One row per
+         criterion: icon + label (+ AND/OR/NONE tag for multi-select
+         groups) and the values as chips below. Matches the create-
+         dialog preview shape so users see the same vocabulary in both
+         places. -->
     <section
-      v-if="kind === 'smart' && filterCriteria.length > 0"
+      v-if="kind === 'smart' && filterSummary.length > 0"
       class="r-v2-coll-set__section"
     >
       <header class="r-v2-coll-set__section-head">
         <RIcon icon="mdi-filter-variant" size="14" />
         <span>{{ t("collection.filters", "Filters") }}</span>
       </header>
-      <div class="r-v2-coll-set__filters">
-        <RChip
-          v-for="[key, value] in filterCriteria"
-          :key="key"
-          size="small"
-          variant="translucent"
+      <ul class="r-v2-coll-set__filters">
+        <li
+          v-for="row in filterSummary"
+          :key="row.key"
+          class="r-v2-coll-set__filter-row"
         >
-          <span class="r-v2-coll-set__filter-key">{{ key }}</span>
-          <span class="r-v2-coll-set__filter-val">{{ value }}</span>
-        </RChip>
-      </div>
+          <span class="r-v2-coll-set__filter-label">
+            <RIcon :icon="row.icon" size="14" />
+            <span>{{ row.label }}</span>
+            <RTag
+              v-if="row.logic"
+              tone="brand"
+              size="x-small"
+              class="r-v2-coll-set__filter-logic"
+            >
+              {{ row.logic }}
+            </RTag>
+          </span>
+          <div v-if="row.values?.length" class="r-v2-coll-set__filter-values">
+            <RChip
+              v-for="(v, i) in row.values"
+              :key="`${row.key}-${i}`"
+              size="x-small"
+              variant="translucent"
+            >
+              {{ v }}
+            </RChip>
+          </div>
+        </li>
+      </ul>
     </section>
 
     <!-- Danger zone — owner + write scope only. -->
@@ -581,17 +615,35 @@ async function onDelete() {
 
 /* ── Filters (smart) ────────────────────────────────────────────── */
 .r-v2-coll-set__filters {
+  list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 10px;
+}
+.r-v2-coll-set__filter-row {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
-.r-v2-coll-set__filter-key {
+.r-v2-coll-set__filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--r-color-fg-secondary);
+  font-size: var(--r-font-size-sm);
   font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg);
 }
-.r-v2-coll-set__filter-val {
-  margin-left: 6px;
-  color: var(--r-color-fg-muted);
+.r-v2-coll-set__filter-logic {
+  margin-left: 4px;
+  text-transform: uppercase;
+}
+.r-v2-coll-set__filter-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 20px;
 }
 
 /* ── Danger ─────────────────────────────────────────────────────── */
