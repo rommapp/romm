@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Rename-on-match toggle — shared between Split and Spotlight bodies.
+// Rename-on-match toggle — shared between the grid and list bodies.
 //
 // Replaces the old pill button: a card-shaped surface with a real
 // switch on the right and an inline diff preview ("old.gba → new.gba")

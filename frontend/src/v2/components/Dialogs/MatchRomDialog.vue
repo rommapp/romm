@@ -1,11 +1,11 @@
 <script setup lang="ts">
 // MatchRomDialog — manual metadata match flow. The shell owns search +
 // filters + the update API call; the actual "pick a match → pick a
-// cover → optional rename" step is delegated to one of three body
-// variants (see `components/MatchRom/`). The variant is currently
-// switchable at runtime via a small selector in the toolbar so the
-// design can be A/B/C compared without a code edit; once the variant
-// is locked in we drop the selector and keep the chosen body.
+// cover → optional rename" step is delegated to one of two body
+// variants (see `components/MatchRom/`): grid (cards + overlay) or
+// list (master/detail). The variant is switchable at runtime via the
+// segmented control in the toolbar, mirroring the gallery's
+// grid/list toggle.
 import {
   RBtn,
   RDialog,
@@ -22,8 +22,8 @@ import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import MatchRomBodySplit from "@/v2/components/MatchRom/MatchRomBodySplit.vue";
-import MatchRomBodySpotlight from "@/v2/components/MatchRom/MatchRomBodySpotlight.vue";
+import MatchRomBodyGrid from "@/v2/components/MatchRom/MatchRomBodyGrid.vue";
+import MatchRomBodyList from "@/v2/components/MatchRom/MatchRomBodyList.vue";
 import MatchRomProviderFilter from "@/v2/components/MatchRom/MatchRomProviderFilter.vue";
 import type {
   ConfirmPayload,
@@ -65,9 +65,10 @@ const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const heartbeat = storeHeartbeat();
 
-// Active body variant — the toolbar selector lets users swap between
-// the two remaining flows (Split vs Spotlight) live while we decide.
-const variant = ref<MatchVariant>("split");
+// Active body variant — the toolbar selector toggles between the
+// gallery-style grid and the master/detail list, mirroring the
+// gallery's own layout switcher vocabulary.
+const variant = ref<MatchVariant>("grid");
 
 const variantItems: Array<{
   id: MatchVariant;
@@ -76,21 +77,21 @@ const variantItems: Array<{
   title: string;
 }> = [
   {
-    id: "spotlight",
+    id: "grid",
     icon: "mdi-view-grid-outline",
-    ariaLabel: "Spotlight layout",
-    title: "Spotlight",
+    ariaLabel: "Grid layout",
+    title: "Grid",
   },
   {
-    id: "split",
-    icon: "mdi-view-split-vertical",
-    ariaLabel: "Split layout",
-    title: "Split",
+    id: "list",
+    icon: "mdi-view-list",
+    ariaLabel: "List layout",
+    title: "List",
   },
 ];
 
 const variantComponent = computed(() =>
-  variant.value === "spotlight" ? MatchRomBodySpotlight : MatchRomBodySplit,
+  variant.value === "list" ? MatchRomBodyList : MatchRomBodyGrid,
 );
 
 const isIGDBFiltered = ref(true);
@@ -313,10 +314,8 @@ function closeDialog() {
               </span>
             </div>
 
-            <!-- A/B variant selector — temporary while we evaluate the
-                 two remaining flows. Drop the whole RSliderBtnGroup once
-                 we lock in a variant. Mirrors the gallery's grid/list
-                 switcher so users get a familiar vocabulary. -->
+            <!-- Layout switcher — grid vs list. Mirrors the gallery's
+                 own toggle so the vocabulary is familiar. -->
             <RSliderBtnGroup
               :model-value="variant"
               :items="variantItems"

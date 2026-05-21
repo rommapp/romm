@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Variant B — master/detail split.
+// List view — master/detail layout.
 //
 // Left column: condensed list of matches (mini cover + title + provider
 // chips). Right column: detail panel for the currently picked match —
@@ -76,7 +76,7 @@ watch(
 </script>
 
 <template>
-  <div v-if="searching" class="match-split__state">
+  <div v-if="searching" class="match-list__state">
     <RProgressCircular indeterminate :size="40" />
   </div>
 
@@ -87,7 +87,7 @@ watch(
     :hint="t('rom.results-found')"
   />
 
-  <div v-else-if="!searched" class="match-split__state">
+  <div v-else-if="!searched" class="match-list__state">
     <REmptyState
       icon="mdi-magnify-scan"
       title="Search for a match"
@@ -95,41 +95,41 @@ watch(
     />
   </div>
 
-  <div v-else class="match-split">
+  <div v-else class="match-list">
     <!-- ── Left: condensed list ──────────────────────────────── -->
-    <ul class="match-split__list" role="listbox" aria-label="Search matches">
+    <ul class="match-list__list" role="listbox" aria-label="Search matches">
       <li
         v-for="(r, i) in results"
         :key="matchKey(r)"
-        class="match-split__row-li"
+        class="match-list__row-li"
         :style="{ '--i': i }"
       >
         <button
           type="button"
-          class="match-split__row"
+          class="match-list__row"
           :class="{
-            'match-split__row--selected': selectedKey === matchKey(r),
+            'match-list__row--selected': selectedKey === matchKey(r),
           }"
           :aria-selected="selectedKey === matchKey(r)"
           @click="select(r)"
         >
-          <span class="match-split__row-cover">
+          <span class="match-list__row-cover">
             <img
               v-if="firstAvailableCover(r)"
               :src="firstAvailableCover(r) ?? undefined"
               :alt="r.name ?? 'cover'"
             />
-            <span v-else class="match-split__row-cover-placeholder">
+            <span v-else class="match-list__row-cover-placeholder">
               {{ (r.name ?? "?").charAt(0) }}
             </span>
           </span>
-          <span class="match-split__row-meta">
-            <span class="match-split__row-name">{{ r.name }}</span>
-            <span class="match-split__row-chips">
+          <span class="match-list__row-meta">
+            <span class="match-list__row-name">{{ r.name }}</span>
+            <span class="match-list__row-chips">
               <span
                 v-for="p in providerLogos(r)"
                 :key="p.name"
-                class="match-split__row-chip"
+                class="match-list__row-chip"
                 :title="p.name"
               >
                 <img :src="p.logo" :alt="p.name" />
@@ -141,37 +141,36 @@ watch(
     </ul>
 
     <!-- ── Right: detail panel ───────────────────────────────── -->
-    <Transition name="match-split-detail" mode="out-in">
+    <Transition name="match-list-detail" mode="out-in">
       <section
         v-if="selectedMatch"
         :key="selectedKey ?? '_'"
-        class="match-split__detail"
+        class="match-list__detail"
         :aria-label="`Details for ${selectedMatch.name}`"
       >
-        <header class="match-split__detail-head">
-          <h3 class="match-split__detail-title">{{ selectedMatch.name }}</h3>
-          <p v-if="selectedMatch.summary" class="match-split__detail-summary">
+        <header class="match-list__detail-head">
+          <h3 class="match-list__detail-title">{{ selectedMatch.name }}</h3>
+          <p v-if="selectedMatch.summary" class="match-list__detail-summary">
             {{ selectedMatch.summary }}
           </p>
         </header>
 
-        <div class="match-split__detail-scroll">
+        <div class="match-list__detail-scroll">
           <p
             v-if="selectedSources.length > 1"
-            class="match-split__sources-label"
+            class="match-list__sources-label"
           >
             Pick a cover
           </p>
 
-          <div class="match-split__sources">
+          <div class="match-list__sources">
             <button
               v-for="(s, i) in selectedSources"
               :key="s.name"
               type="button"
-              class="match-split__source"
+              class="match-list__source"
               :class="{
-                'match-split__source--selected':
-                  selectedSource?.name === s.name,
+                'match-list__source--selected': selectedSource?.name === s.name,
               }"
               :style="{ '--i': i }"
               @click="selectedSource = s"
@@ -179,14 +178,14 @@ watch(
               <img
                 :src="s.url_cover"
                 :alt="s.name"
-                class="match-split__source-img"
+                class="match-list__source-img"
               />
-              <span class="match-split__source-badge">
+              <span class="match-list__source-badge">
                 <img :src="s.logo_path" :alt="s.name" />
               </span>
               <span
                 v-if="selectedSource?.name === s.name"
-                class="match-split__source-check"
+                class="match-list__source-check"
                 aria-hidden
               >
                 <RIcon icon="mdi-check" size="14" />
@@ -195,7 +194,7 @@ watch(
           </div>
         </div>
 
-        <div class="match-split__detail-foot">
+        <div class="match-list__detail-foot">
           <MatchRomRenameToggle
             v-model="renameFromSource"
             :rom="rom"
@@ -203,7 +202,7 @@ watch(
             :disabled="!selectedSource"
           />
 
-          <div class="match-split__cta">
+          <div class="match-list__cta">
             <RBtn
               variant="flat"
               color="primary"
@@ -217,7 +216,7 @@ watch(
         </div>
       </section>
 
-      <div v-else class="match-split__detail-empty">
+      <div v-else class="match-list__detail-empty">
         <RIcon icon="mdi-cursor-default-click-outline" size="44" />
         <p>Select a match on the left to see covers</p>
       </div>
@@ -226,14 +225,14 @@ watch(
 </template>
 
 <style scoped>
-.match-split__state {
+.match-list__state {
   flex: 1;
   display: grid;
   place-items: center;
   min-height: 200px;
 }
 
-.match-split {
+.match-list {
   flex: 1;
   min-height: 0;
   display: grid;
@@ -242,7 +241,7 @@ watch(
 }
 
 /* ── Left column: condensed list ──────────────────────────── */
-.match-split__list {
+.match-list__list {
   list-style: none;
   margin: 0;
   padding: 4px;
@@ -258,11 +257,11 @@ watch(
   border-radius: var(--r-radius-md);
 }
 
-.match-split__row-li {
-  animation: match-split-row-in 280ms ease-out backwards;
+.match-list__row-li {
+  animation: match-list-row-in 280ms ease-out backwards;
   animation-delay: calc(var(--i, 0) * 18ms);
 }
-@keyframes match-split-row-in {
+@keyframes match-list-row-in {
   from {
     opacity: 0;
     transform: translateX(-6px);
@@ -273,7 +272,7 @@ watch(
   }
 }
 
-.match-split__row {
+.match-list__row {
   appearance: none;
   width: 100%;
   display: flex;
@@ -292,16 +291,16 @@ watch(
     border-color var(--r-motion-fast) var(--r-motion-ease-out),
     transform var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.match-split__row:hover {
+.match-list__row:hover {
   background: var(--r-color-surface-hover);
   transform: translateX(2px);
 }
-.match-split__row--selected {
+.match-list__row--selected {
   background: color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
   border-color: var(--r-color-brand-primary);
 }
 
-.match-split__row-cover {
+.match-list__row-cover {
   flex-shrink: 0;
   width: 42px;
   height: 56px;
@@ -311,19 +310,19 @@ watch(
   display: grid;
   place-items: center;
 }
-.match-split__row-cover img {
+.match-list__row-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
-.match-split__row-cover-placeholder {
+.match-list__row-cover-placeholder {
   font-size: 18px;
   font-weight: var(--r-font-weight-bold);
   color: var(--r-color-fg-muted);
 }
 
-.match-split__row-meta {
+.match-list__row-meta {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -331,7 +330,7 @@ watch(
   gap: 4px;
 }
 
-.match-split__row-name {
+.match-list__row-name {
   font-size: 13px;
   font-weight: var(--r-font-weight-semibold);
   white-space: nowrap;
@@ -339,13 +338,13 @@ watch(
   text-overflow: ellipsis;
 }
 
-.match-split__row-chips {
+.match-list__row-chips {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
 }
 
-.match-split__row-chip {
+.match-list__row-chip {
   width: 18px;
   height: 18px;
   border-radius: var(--r-radius-sm);
@@ -354,14 +353,14 @@ watch(
   display: grid;
   place-items: center;
 }
-.match-split__row-chip img {
+.match-list__row-chip img {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
 /* ── Right column: detail ─────────────────────────────────── */
-.match-split__detail {
+.match-list__detail {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -369,7 +368,7 @@ watch(
   min-height: 0;
 }
 
-.match-split__detail-scroll {
+.match-list__detail-scroll {
   /* Mini-gallery — only the covers area scrolls; head and foot stay
      pinned to the top / bottom of the detail panel. Padding gives the
      hover scale on source thumbnails room before the scroll container
@@ -386,19 +385,19 @@ watch(
   padding: 8px 4px 8px 2px;
 }
 
-.match-split__detail-head {
+.match-list__detail-head {
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
   padding: 12px 14px;
 }
-.match-split__detail-title {
+.match-list__detail-title {
   margin: 0;
   font-size: var(--r-font-size-md);
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg);
 }
-.match-split__detail-summary {
+.match-list__detail-summary {
   margin: 6px 0 0;
   font-size: 12px;
   line-height: 1.5;
@@ -408,7 +407,7 @@ watch(
   scrollbar-width: thin;
 }
 
-.match-split__sources-label {
+.match-list__sources-label {
   margin: 0;
   font-size: 10.5px;
   font-weight: var(--r-font-weight-bold);
@@ -417,13 +416,13 @@ watch(
   color: var(--r-color-fg-muted);
 }
 
-.match-split__sources {
+.match-list__sources {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
 }
 
-.match-split__source {
+.match-list__source {
   appearance: none;
   position: relative;
   background: transparent;
@@ -439,10 +438,10 @@ watch(
   animation: match-source-in 360ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
   animation-delay: calc(var(--i, 0) * 45ms + 120ms);
 }
-.match-split__source:hover {
+.match-list__source:hover {
   transform: translateY(-2px) scale(1.04);
 }
-.match-split__source--selected {
+.match-list__source--selected {
   border-color: var(--r-color-brand-primary);
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent),
@@ -460,7 +459,7 @@ watch(
   }
 }
 
-.match-split__source-img {
+.match-list__source-img {
   display: block;
   width: 110px;
   height: 148px;
@@ -468,7 +467,7 @@ watch(
   border-radius: var(--r-radius-art);
   background: var(--r-color-cover-placeholder);
 }
-.match-split__source-badge {
+.match-list__source-badge {
   position: absolute;
   top: 5px;
   left: 5px;
@@ -485,12 +484,12 @@ watch(
   display: grid;
   place-items: center;
 }
-.match-split__source-badge img {
+.match-list__source-badge img {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
-.match-split__source-check {
+.match-list__source-check {
   position: absolute;
   bottom: 6px;
   right: 6px;
@@ -504,20 +503,20 @@ watch(
   box-shadow: 0 2px 8px color-mix(in srgb, black 40%, transparent);
 }
 
-.match-split__detail-foot {
+.match-list__detail-foot {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--r-color-border);
 }
-.match-split__cta {
+.match-list__cta {
   display: flex;
   justify-content: flex-end;
 }
 
 /* ── Right column: empty state ────────────────────────────── */
-.match-split__detail-empty {
+.match-list__detail-empty {
   display: grid;
   place-items: center;
   gap: 8px;
@@ -528,32 +527,32 @@ watch(
   text-align: center;
   padding: 24px;
 }
-.match-split__detail-empty p {
+.match-list__detail-empty p {
   margin: 0;
 }
 
 /* Detail panel cross-fade when the picked match changes. */
-.match-split-detail-enter-active,
-.match-split-detail-leave-active {
+.match-list-detail-enter-active,
+.match-list-detail-leave-active {
   transition:
     opacity 200ms ease,
     transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.match-split-detail-enter-from {
+.match-list-detail-enter-from {
   opacity: 0;
   transform: translateY(8px);
 }
-.match-split-detail-leave-to {
+.match-list-detail-leave-to {
   opacity: 0;
   transform: translateY(-6px);
 }
 
 /* ── Mobile: stack columns ──────────────────────────────── */
-html[data-bp~="xs"] .match-split {
+html[data-bp~="xs"] .match-list {
   grid-template-columns: 1fr;
   gap: 12px;
 }
-html[data-bp~="xs"] .match-split__list {
+html[data-bp~="xs"] .match-list__list {
   max-height: 240px;
 }
 </style>

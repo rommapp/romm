@@ -1,7 +1,7 @@
-// Shared types + helpers for the three MatchRom body variants
-// (Drawer / Split / Spotlight). The dialog shell owns search state and
-// API calls; each body variant renders results + the per-match cover/
-// rename picker in its own visual language.
+// Shared types + helpers for the MatchRom body variants (grid /
+// list). The dialog shell owns search state and API calls; each body
+// variant renders results + the per-match cover / rename picker in
+// its own visual language.
 import type { SearchRom } from "@/stores/roms";
 
 export type SourceName =
@@ -105,4 +105,4 @@ export interface ConfirmPayload {
   renameFromSource: boolean;
 }
 
-export type MatchVariant = "split" | "spotlight";
+export type MatchVariant = "list" | "grid";

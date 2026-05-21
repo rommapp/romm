@@ -15,8 +15,13 @@
 // states, "no results" messaging and any other app-driven content
 // belong inside the consumer's `#content` slot — composed from
 // REmptyState / RProgressCircular / RSpinner as needed.
-import { computed, nextTick, ref, useSlots, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import {
+  type EscapableEntry,
+  popEscapable,
+  pushEscapable,
+} from "./escapeStack";
 
 defineOptions({ inheritAttrs: false });
 
@@ -61,12 +66,17 @@ function onScrimClick() {
   closeDialog();
 }
 
-function onKeyDown(evt: KeyboardEvent) {
-  if (evt.key === "Escape" && !props.persistent) {
-    evt.stopPropagation();
-    closeDialog();
-  }
-}
+// Per-instance entry on the shared escape stack — registered when
+// `modelValue` flips to true, removed when it flips to false (or on
+// unmount). `persistent` is read via the getter so the global listener
+// always sees the current value (the user could toggle it while the
+// dialog is open).
+const stackEntry: EscapableEntry = {
+  close: () => closeDialog(),
+  get persistent() {
+    return props.persistent;
+  },
+};
 
 // ── Body scroll lock — reference-counted so nested dialogs unlock
 // correctly when the outer one is still open. ─────────────────────
@@ -94,6 +104,7 @@ watch(
     if (open) {
       previouslyFocused = document.activeElement as HTMLElement | null;
       lockBodyScroll();
+      pushEscapable(stackEntry);
       // Defer to the next tick so the panel is mounted before we
       // try to move focus into it.
       nextTick(() => {
@@ -104,13 +115,24 @@ watch(
       });
     } else {
       unlockBodyScroll();
+      popEscapable(stackEntry);
       // Restore focus to the element that opened the dialog.
       previouslyFocused?.focus?.();
       previouslyFocused = null;
     }
   },
-  { immediate: false },
+  // `immediate: true` so dialogs that mount already open (e.g. when a
+  // consumer wraps RDialog in `v-if="entity"` and flips both `entity`
+  // and `show` in the same tick — EditRomDialog, ManageCollectionsDialog,
+  // …) still register on the escape stack. Without this the watch
+  // never sees the initial `true` and Esc silently does nothing.
+  { immediate: true },
 );
+
+// Safety net — if the component unmounts while still open (parent
+// teardown, route change), drop our stack entry so the global listener
+// never tries to close a destroyed instance.
+onBeforeUnmount(() => popEscapable(stackEntry));
 
 // ── Width / height resolution ───────────────────────────────────
 function asLength(v: number | string): string | undefined {
@@ -141,7 +163,6 @@ const panelStyle = computed(() => {
         v-bind="$attrs"
         class="r-dialog"
         role="presentation"
-        @keydown="onKeyDown"
       >
         <!-- Scrim — fades in/out behind the panel. -->
         <div class="r-dialog__scrim" @click="onScrimClick" />
@@ -297,7 +318,14 @@ const panelStyle = computed(() => {
 .r-dialog__body {
   display: flex;
   flex-direction: column;
-  flex: 1 1 0;
+  /* `flex: 1 1 auto` rather than `1 1 0` so the body's natural content
+     size is used when no explicit panel height is set (auto-height
+     dialogs sized to their content). With `basis: 0` the body would
+     collapse and the panel's `overflow: hidden` would clip everything
+     below the header/toolbar/footer. When the panel has a fixed height
+     the leftover space still flows here via `flex-grow: 1`, so the
+     footer stays pinned at the bottom. */
+  flex: 1 1 auto;
   min-height: 0;
   /* Symmetric padding so default content reads in a comfortable box. */
   padding: 18px 16px;

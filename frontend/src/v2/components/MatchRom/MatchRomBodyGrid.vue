@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// Variant C — spotlight.
+// Grid view — gallery-style layout.
 //
 // Grid of result cards stays visible at all times. Clicking a card
-// lifts it, blurs the rest of the grid and overlays a "spotlight"
-// panel anchored over the body with cover-source picker + rename +
-// confirm. Click the backdrop or press Esc to close.
+// lifts it, blurs the rest of the grid and overlays a focused panel
+// over the body with cover-source picker + rename + confirm. Click
+// the backdrop or press Esc to close.
 import { RBtn, REmptyState, RIcon, RProgressCircular } from "@v2/lib";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -18,6 +18,11 @@ import {
   matchKey,
   type MatchedSource,
 } from "@/v2/components/MatchRom/types";
+import {
+  type EscapableEntry,
+  popEscapable,
+  pushEscapable,
+} from "@/v2/lib/overlays/RDialog/escapeStack";
 
 defineOptions({ inheritAttrs: false });
 
@@ -68,18 +73,20 @@ function confirm() {
   });
 }
 
-// Esc key closes the spotlight panel without dismissing the parent
-// dialog (RDialog only sees Escape if we don't capture it first).
-function onKeyDown(e: KeyboardEvent) {
-  if (e.key === "Escape" && activeKey.value !== null) {
-    e.stopPropagation();
-    close();
-  }
-}
-if (typeof window !== "undefined") {
-  window.addEventListener("keydown", onKeyDown, true);
-  onBeforeUnmount(() => window.removeEventListener("keydown", onKeyDown, true));
-}
+// When the focus overlay is open it registers on the shared escape
+// stack — pressing Esc dismisses just the overlay, leaving the parent
+// RDialog open (the user can press Esc again to close that). Without
+// the stack, the dialog's own global Esc listener would fire first
+// and close everything at once.
+const overlayEscEntry: EscapableEntry = {
+  close: () => close(),
+  persistent: false,
+};
+watch(activeKey, (value) => {
+  if (value !== null) pushEscapable(overlayEscEntry);
+  else popEscapable(overlayEscEntry);
+});
+onBeforeUnmount(() => popEscapable(overlayEscEntry));
 
 watch(
   () => props.results,
@@ -88,7 +95,7 @@ watch(
 </script>
 
 <template>
-  <div v-if="searching" class="match-spot__state">
+  <div v-if="searching" class="match-grid__state">
     <RProgressCircular indeterminate :size="40" />
   </div>
 
@@ -99,7 +106,7 @@ watch(
     :hint="t('rom.results-found')"
   />
 
-  <div v-else-if="!searched" class="match-spot__state">
+  <div v-else-if="!searched" class="match-grid__state">
     <REmptyState
       icon="mdi-magnify-scan"
       title="Search for a match"
@@ -107,10 +114,10 @@ watch(
     />
   </div>
 
-  <div v-else class="match-spot">
+  <div v-else class="match-grid">
     <div
-      class="match-spot__grid"
-      :class="{ 'match-spot__grid--dim': activeKey !== null }"
+      class="match-grid__grid"
+      :class="{ 'match-grid__grid--dim': activeKey !== null }"
       :inert="activeKey !== null ? true : undefined"
     >
       <!-- Wrapper carries the stagger animation. We can't paint it
@@ -123,40 +130,40 @@ watch(
       <div
         v-for="(r, i) in results"
         :key="matchKey(r)"
-        class="match-spot__card-cell"
+        class="match-grid__card-cell"
         :style="{ '--i': i }"
       >
         <GameCard
           :rom="r as unknown as SimpleRom"
           :cover-src="firstAvailableCover(r)"
           static
-          class="match-spot__card"
-          :class="{ 'match-spot__card--active': activeKey === matchKey(r) }"
+          class="match-grid__card"
+          :class="{ 'match-grid__card--active': activeKey === matchKey(r) }"
           @click="open(r)"
         />
       </div>
     </div>
 
-    <Transition name="match-spot">
-      <div v-if="activeMatch" class="match-spot__overlay">
+    <Transition name="match-grid">
+      <div v-if="activeMatch" class="match-grid__overlay">
         <!-- Full-area scrim is a real <button> so clicking the dim
-             area dismisses the spotlight without tripping the lint
+             area dismisses the overlay without tripping the lint
              rule for click handlers on static elements. Tab-index -1
              keeps it out of the focus order; Escape (handled globally
              above) is the keyboard equivalent. -->
         <button
           type="button"
-          class="match-spot__scrim"
+          class="match-grid__scrim"
           tabindex="-1"
-          aria-label="Close spotlight"
+          aria-label="Close overlay"
           @click="close"
         />
         <section
-          class="match-spot__panel"
+          class="match-grid__panel"
           :aria-label="`Match details for ${activeMatch.name}`"
         >
-          <header class="match-spot__head">
-            <h3 class="match-spot__title">{{ activeMatch.name }}</h3>
+          <header class="match-grid__head">
+            <h3 class="match-grid__title">{{ activeMatch.name }}</h3>
             <RBtn
               icon="mdi-close"
               size="small"
@@ -167,22 +174,22 @@ watch(
             />
           </header>
 
-          <p v-if="activeMatch.summary" class="match-spot__summary">
+          <p v-if="activeMatch.summary" class="match-grid__summary">
             {{ activeMatch.summary }}
           </p>
 
-          <p v-if="activeSources.length > 1" class="match-spot__sources-label">
+          <p v-if="activeSources.length > 1" class="match-grid__sources-label">
             Pick a cover
           </p>
 
-          <div class="match-spot__sources">
+          <div class="match-grid__sources">
             <button
               v-for="(s, i) in activeSources"
               :key="s.name"
               type="button"
-              class="match-spot__source"
+              class="match-grid__source"
               :class="{
-                'match-spot__source--selected': selectedSource?.name === s.name,
+                'match-grid__source--selected': selectedSource?.name === s.name,
               }"
               :style="{ '--i': i }"
               @click="selectedSource = s"
@@ -190,14 +197,14 @@ watch(
               <img
                 :src="s.url_cover"
                 :alt="s.name"
-                class="match-spot__source-img"
+                class="match-grid__source-img"
               />
-              <span class="match-spot__source-badge">
+              <span class="match-grid__source-badge">
                 <img :src="s.logo_path" :alt="s.name" />
               </span>
               <span
                 v-if="selectedSource?.name === s.name"
-                class="match-spot__source-check"
+                class="match-grid__source-check"
                 aria-hidden
               >
                 <RIcon icon="mdi-check" size="14" />
@@ -205,7 +212,7 @@ watch(
             </button>
           </div>
 
-          <div class="match-spot__footer">
+          <div class="match-grid__footer">
             <MatchRomRenameToggle
               v-model="renameFromSource"
               :rom="rom"
@@ -213,7 +220,7 @@ watch(
               :disabled="!selectedSource"
             />
 
-            <div class="match-spot__cta">
+            <div class="match-grid__cta">
               <RBtn
                 variant="flat"
                 color="primary"
@@ -232,14 +239,14 @@ watch(
 </template>
 
 <style scoped>
-.match-spot__state {
+.match-grid__state {
   flex: 1;
   display: grid;
   place-items: center;
   min-height: 200px;
 }
 
-.match-spot {
+.match-grid {
   position: relative;
   flex: 1;
   min-height: 0;
@@ -247,7 +254,7 @@ watch(
   flex-direction: column;
 }
 
-.match-spot__grid {
+.match-grid__grid {
   /* Grid is the scroller — body itself doesn't scroll, so the overlay
      (absolute, anchored to the variant root) stays put while the user
      scrolls cards behind it. Padding gives GameCard's hover scale +
@@ -267,22 +274,22 @@ watch(
     filter 260ms ease,
     transform 260ms ease;
 }
-.match-spot__grid--dim {
+.match-grid__grid--dim {
   filter: blur(4px) brightness(0.55);
   transform: scale(0.985);
   pointer-events: none;
   user-select: none;
 }
 
-.match-spot__card-cell {
+.match-grid__card-cell {
   /* Stagger entrance — same vocabulary the cover-source picker uses,
      so opening the dialog and selecting a match share a consistent
      "cascading reveal" feel. `--i` is the card's index, set inline. */
-  animation: match-spot-card-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1)
+  animation: match-grid-card-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1)
     backwards;
   animation-delay: calc(var(--i, 0) * 35ms);
 }
-@keyframes match-spot-card-in {
+@keyframes match-grid-card-in {
   from {
     opacity: 0;
     transform: translateY(10px) scale(0.9);
@@ -293,21 +300,21 @@ watch(
   }
 }
 
-.match-spot__card {
+.match-grid__card {
   cursor: pointer;
   transition: opacity 220ms ease;
 }
-.match-spot__card--active {
+.match-grid__card--active {
   /* The active card stays unblurred under the panel — useful as the
      spatial anchor. We bump its z-index above the dim layer and let
-     the spotlight overlay above it carry the conversation. */
+     the overlay overlay above it carry the conversation. */
   position: relative;
   z-index: 2;
   opacity: 0;
 }
 
-/* ── Spotlight overlay ───────────────────────────────────── */
-.match-spot__overlay {
+/* ── Overlay panel ───────────────────────────────────────── */
+.match-grid__overlay {
   position: absolute;
   inset: -18px -16px;
   display: grid;
@@ -316,7 +323,7 @@ watch(
   z-index: 5;
 }
 
-.match-spot__scrim {
+.match-grid__scrim {
   position: absolute;
   inset: 0;
   appearance: none;
@@ -331,7 +338,7 @@ watch(
   -webkit-backdrop-filter: blur(2px);
 }
 
-.match-spot__panel {
+.match-grid__panel {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -353,7 +360,7 @@ watch(
     0 0 0 6px color-mix(in srgb, var(--r-color-brand-primary) 14%, transparent);
 }
 
-.match-spot__head {
+.match-grid__head {
   /* Title + close button on the same row; the summary lives outside
      this header so it can stretch to the full panel width below. */
   display: flex;
@@ -361,7 +368,7 @@ watch(
   justify-content: space-between;
   gap: 14px;
 }
-.match-spot__title {
+.match-grid__title {
   margin: 0;
   flex: 1;
   min-width: 0;
@@ -369,7 +376,7 @@ watch(
   font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg);
 }
-.match-spot__summary {
+.match-grid__summary {
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
@@ -379,7 +386,7 @@ watch(
   scrollbar-width: thin;
 }
 
-.match-spot__sources-label {
+.match-grid__sources-label {
   margin: 0;
   font-size: 10.5px;
   font-weight: var(--r-font-weight-bold);
@@ -388,14 +395,14 @@ watch(
   color: var(--r-color-fg-muted);
 }
 
-.match-spot__sources {
+.match-grid__sources {
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
   justify-content: center;
 }
 
-.match-spot__source {
+.match-grid__source {
   appearance: none;
   position: relative;
   background: transparent;
@@ -411,10 +418,10 @@ watch(
   animation: match-source-in 380ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
   animation-delay: calc(var(--i, 0) * 55ms + 140ms);
 }
-.match-spot__source:hover {
+.match-grid__source:hover {
   transform: translateY(-3px) scale(1.05);
 }
-.match-spot__source--selected {
+.match-grid__source--selected {
   border-color: var(--r-color-brand-primary);
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent),
@@ -432,7 +439,7 @@ watch(
   }
 }
 
-.match-spot__source-img {
+.match-grid__source-img {
   display: block;
   width: 120px;
   height: 162px;
@@ -440,7 +447,7 @@ watch(
   border-radius: var(--r-radius-art);
   background: var(--r-color-cover-placeholder);
 }
-.match-spot__source-badge {
+.match-grid__source-badge {
   position: absolute;
   top: 5px;
   left: 5px;
@@ -457,12 +464,12 @@ watch(
   display: grid;
   place-items: center;
 }
-.match-spot__source-badge img {
+.match-grid__source-badge img {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
-.match-spot__source-check {
+.match-grid__source-check {
   position: absolute;
   bottom: 6px;
   right: 6px;
@@ -487,36 +494,36 @@ watch(
   }
 }
 
-.match-spot__footer {
+.match-grid__footer {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding-top: 4px;
 }
-.match-spot__cta {
+.match-grid__cta {
   display: flex;
   justify-content: flex-end;
 }
 
 /* Overlay enter/leave — scrim fades, panel scales + lifts. */
-.match-spot-enter-active,
-.match-spot-leave-active {
+.match-grid-enter-active,
+.match-grid-leave-active {
   transition:
     opacity 220ms ease,
     backdrop-filter 220ms ease;
 }
-.match-spot-enter-active .match-spot__panel,
-.match-spot-leave-active .match-spot__panel {
+.match-grid-enter-active .match-grid__panel,
+.match-grid-leave-active .match-grid__panel {
   transition:
     opacity 240ms ease,
     transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.match-spot-enter-from,
-.match-spot-leave-to {
+.match-grid-enter-from,
+.match-grid-leave-to {
   opacity: 0;
 }
-.match-spot-enter-from .match-spot__panel,
-.match-spot-leave-to .match-spot__panel {
+.match-grid-enter-from .match-grid__panel,
+.match-grid-leave-to .match-grid__panel {
   opacity: 0;
   transform: scale(0.92) translateY(12px);
 }
