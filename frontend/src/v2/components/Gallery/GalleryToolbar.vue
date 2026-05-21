@@ -57,6 +57,9 @@ const props = withDefaults(
      *  to expose richer modes (family / category / generation) beyond
      *  the default flat / letter pair. */
     groupByItems?: GroupByItem[];
+    /** Direction toggle for grid-mode sort. Disabled in list mode
+     *  (list-mode sort is driven by the column-header clicks). */
+    sortDir?: Ref<"asc" | "desc"> | "asc" | "desc";
     /** Show the search field on the left. v-model:search controls its value. */
     showSearch?: boolean;
     search?: string;
@@ -96,6 +99,7 @@ const props = withDefaults(
         title: "Group by letter",
       },
     ],
+    sortDir: "asc",
     showSearch: false,
     search: "",
     searchPlaceholder: "Search…",
@@ -111,6 +115,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: "update:groupBy", value: GroupByMode): void;
   (e: "update:layout", value: LayoutMode): void;
+  (e: "update:sortDir", value: "asc" | "desc"): void;
   (e: "update:search", value: string): void;
   (e: "update:kindFilter", value: KindFilterValue): void;
   (e: "click:filter"): void;
@@ -125,6 +130,7 @@ function toValue<T>(source: Ref<T> | T): T {
 
 const groupByValue = computed(() => toValue(props.groupBy));
 const layoutValue = computed(() => toValue(props.layout));
+const sortDirValue = computed(() => toValue(props.sortDir));
 
 const layoutItems = [
   {
@@ -141,12 +147,31 @@ const layoutItems = [
   },
 ];
 
+const sortDirItems = [
+  {
+    id: "asc" as const,
+    icon: "mdi-sort-ascending",
+    ariaLabel: "Sort ascending",
+    title: "Sort ascending",
+  },
+  {
+    id: "desc" as const,
+    icon: "mdi-sort-descending",
+    ariaLabel: "Sort descending",
+    title: "Sort descending",
+  },
+];
+
 function setGroupBy(value: GroupByMode) {
   emit("update:groupBy", value);
 }
 
 function setLayout(value: LayoutMode) {
   emit("update:layout", value);
+}
+
+function setSortDir(value: "asc" | "desc") {
+  emit("update:sortDir", value);
 }
 
 function setSearch(value: string) {
@@ -229,6 +254,16 @@ const { smAndUp } = useBreakpoint();
 
       <RSliderBtnGroup
         v-if="smAndUp"
+        :model-value="sortDirValue"
+        :items="sortDirItems"
+        variant="segmented"
+        aria-label="Sort direction"
+        :disabled="layoutValue === 'list'"
+        @update:model-value="setSortDir"
+      />
+
+      <RSliderBtnGroup
+        v-if="smAndUp"
         :model-value="layoutValue"
         :items="layoutItems"
         variant="segmented"
@@ -273,6 +308,21 @@ const { smAndUp } = useBreakpoint();
           />
           <RDivider />
         </template>
+        <RMenuItem
+          label="Sort ascending"
+          icon="mdi-sort-ascending"
+          :variant="sortDirValue === 'asc' ? 'active' : 'default'"
+          :disabled="layoutValue === 'list'"
+          @click="setSortDir('asc')"
+        />
+        <RMenuItem
+          label="Sort descending"
+          icon="mdi-sort-descending"
+          :variant="sortDirValue === 'desc' ? 'active' : 'default'"
+          :disabled="layoutValue === 'list'"
+          @click="setSortDir('desc')"
+        />
+        <RDivider />
         <RMenuItem
           label="Grid"
           icon="mdi-view-grid-outline"

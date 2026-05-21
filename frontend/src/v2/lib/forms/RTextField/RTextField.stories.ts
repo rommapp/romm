@@ -30,6 +30,7 @@ const meta: Meta<typeof RTextField> = {
     readonly: { control: "boolean" },
     loading: { control: "boolean" },
     hint: { control: "text" },
+    subtitle: { control: "text" },
     error: { control: "boolean" },
     errorMessages: { control: "text" },
   },
@@ -133,6 +134,30 @@ export const InlineLabel: Story = {
     label: "Search",
     placeholder: "Find a ROM…",
   },
+};
+
+export const WithSubtitle: Story = {
+  name: "Subtitle · path under field",
+  render: () => ({
+    components: { RTextField },
+    setup: () => ({
+      filename: ref("Super Mario World (USA).sfc"),
+    }),
+    template: `
+      <div style="width:420px">
+        <RTextField
+          v-model="filename"
+          prefix-label="stacked"
+          label="Filename"
+        >
+          <template #subtitle>
+            <span style="font-size:13px;line-height:1">📁</span>
+            /romm/library/snes/Super Mario World (USA).sfc
+          </template>
+        </RTextField>
+      </div>
+    `,
+  }),
 };
 
 // ── States ──────────────────────────────────────────────────────────

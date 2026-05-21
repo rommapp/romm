@@ -507,6 +507,17 @@ function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
   void galleryRoms.fetchInitialMetadata();
 }
 
+// Grid-mode direction toggle — wires the toolbar asc/desc into the
+// same `orderDir` the list column-header sort writes to, then triggers
+// the same invalidate+refetch path. Sort axis stays whatever the list
+// last set (default "name"); grid only exposes direction.
+function onGridSortDir(dir: "asc" | "desc") {
+  if (galleryRoms.orderDir === dir) return;
+  galleryRoms.setOrderDir(dir);
+  galleryRoms.invalidateWindows();
+  void galleryRoms.fetchInitialMetadata();
+}
+
 // ── Scroll restoration ─────────────────────────────────────────────
 async function applyRestoredScroll() {
   const saved = scrollRestoration.restore(route.fullPath);
@@ -682,6 +693,7 @@ defineExpose({
             :group-by="groupBy"
             :layout="layout"
             :position="toolbarPosition"
+            :sort-dir="orderDir"
             show-search
             :search="searchInput"
             :search-placeholder="searchPlaceholder"
@@ -689,6 +701,7 @@ defineExpose({
             :filter-active-count="filterActiveCount"
             @update:group-by="groupBy = $event"
             @update:layout="layout = $event"
+            @update:sort-dir="onGridSortDir"
             @update:search="setSearch"
             @click:filter="filterDrawerOpen = true"
           />
@@ -794,6 +807,7 @@ defineExpose({
         :group-by="groupBy"
         :layout="layout"
         :position="toolbarPosition"
+        :sort-dir="orderDir"
         show-search
         :search="searchInput"
         :search-placeholder="searchPlaceholder"
@@ -801,6 +815,7 @@ defineExpose({
         :filter-active-count="filterActiveCount"
         @update:group-by="groupBy = $event"
         @update:layout="layout = $event"
+        @update:sort-dir="onGridSortDir"
         @update:search="setSearch"
         @click:filter="filterDrawerOpen = true"
       />
@@ -827,6 +842,7 @@ defineExpose({
       :available="availableLetters"
       :current="currentLetter"
       :visible="visibleLettersSet"
+      :direction="orderDir"
       @pick="scrollToLetter"
     />
 
@@ -838,10 +854,12 @@ defineExpose({
       :group-by="groupBy"
       :layout="layout"
       :position="toolbarPosition"
+      :sort-dir="orderDir"
       show-filter
       :filter-active-count="filterActiveCount"
       @update:group-by="groupBy = $event"
       @update:layout="layout = $event"
+      @update:sort-dir="onGridSortDir"
       @click:filter="filterDrawerOpen = true"
     />
 

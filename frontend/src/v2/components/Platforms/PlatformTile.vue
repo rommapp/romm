@@ -93,11 +93,8 @@ const playableLabel = computed(() => playableTooltip(emulator.value));
         :show-tooltip="false"
       />
     </div>
-    <span
-      class="plat-tile__playable"
-      :class="{ 'plat-tile__playable--off': !playable }"
-    >
-      <RIcon :icon="playable ? 'mdi-play-circle' : 'mdi-cancel'" size="16" />
+    <span v-if="playable" class="plat-tile__playable">
+      <RIcon icon="mdi-play-circle" size="16" />
       <RTooltip activator="parent" :text="playableLabel" location="top" />
     </span>
     <div class="plat-tile__name">
@@ -169,10 +166,6 @@ const playableLabel = computed(() => playableTooltip(emulator.value));
   align-items: center;
   justify-content: center;
   color: var(--r-color-success);
-}
-
-.plat-tile__playable--off {
-  color: var(--r-color-fg-faint);
 }
 
 .plat-tile:hover .plat-tile__icon {

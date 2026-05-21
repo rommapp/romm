@@ -80,12 +80,14 @@ interface Options {
   skeletonRowCount?: number;
 }
 
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#".split("");
+const ALPHABET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ@".split("");
 
 function normaliseBackendLetter(raw: string): string {
-  if (!raw) return "#";
+  if (!raw) return "@";
   const c = raw.charAt(0).toUpperCase();
-  return /[A-Z]/.test(c) ? c : "#";
+  if (/[A-Z]/.test(c)) return c;
+  if (/[0-9]/.test(c)) return "#";
+  return "@";
 }
 
 interface LetterRange {

@@ -1,26 +1,34 @@
 <script setup lang="ts">
-// EditRomDialog — v2 chrome around the ROM-edit form. Cover actions and
-// metadata expansion panels keep pulling from v1 components (GameCard +
-// AdditionalDetails / MetadataIdSection / MetadataSections) because those
-// are deep domain composites — rebuilding them natively is a separate
-// effort. The inline confirm-delete-manual and upload-target dialogs from
-// v1 are gone; those flows route through the global v2
-// DeleteManualDialog / ManualUploadTargetDialog via the emitter.
-import { RBtn, RCollapsible, RDialog, RIcon, RTextField } from "@v2/lib";
+// EditRomDialog — v2 chrome around the ROM-edit form.
+//
+// Scope: identity (name / filename / summary), cover artwork, and the
+// metadata override / raw provider tabs. Manual + soundtrack +
+// screenshots are intentionally absent — those flows now live in the
+// GameDetails Media tab (`v2/components/GameDetails/MediaTab.vue`).
+// Pulling them out of the edit dialog kept it focused on "data that
+// describes this ROM" and freed the form column from the icon-button
+// row that fought visually with the field stack.
+//
+// Layout: a hero row (cover + name/filename/summary) at the top, and a
+// tabbed editing surface below — "Details" and "Metadata IDs" are
+// always present; one tab per metadata provider with a populated ID is
+// appended dynamically (and disappears once the rom is unmatched from
+// that provider). Cover actions, AdditionalDetails and MetadataIdSection
+// remain deep domain composites pulled from the EditRom feature folder.
+import { RBtn, RDialog, RIcon, RTabNav, RTextField } from "@v2/lib";
+import type { RTabNavItem } from "@v2/lib/primitives/RTabNav/types";
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
-import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
-import { formatBytes } from "@/utils";
 import { getMissingCoverImage } from "@/utils/covers";
 import AdditionalDetails from "@/v2/components/EditRom/AdditionalDetails.vue";
 import MetadataIdSection from "@/v2/components/EditRom/MetadataIdSection.vue";
-import MetadataSections from "@/v2/components/EditRom/MetadataSections.vue";
+import RawMetadataPanel from "@/v2/components/EditRom/RawMetadataPanel.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -32,44 +40,27 @@ const { lgAndUp } = useBreakpoint();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);
-// `UpdateRom = SimpleRom & {...}` but we need DetailedRom for delegating
-// manual/upload flows to global v2 dialogs. We hold a DetailedRom-compatible
-// shape internally and widen at edit/emit boundaries.
+// `UpdateRom = SimpleRom & {...}` but we keep a DetailedRom-compatible
+// shape internally so the per-provider raw-metadata panels can read
+// their payloads. Widen at edit/emit boundaries.
 type EditableRom = DetailedRom & UpdateRom;
 const rom = ref<EditableRom | null>(null);
-// Per-section open state for the metadata accordion. Each RCollapsible
-// is independent; consumers expect to expand only what they want to
-// edit, not a single-active enforced pattern.
-const additionalOpen = ref(false);
-const metaIdsOpen = ref(false);
 const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
-const manualFiles = ref<File[]>([]);
-const soundtrackFiles = ref<File[]>([]);
-const uploadStore = storeUpload();
 const coverFileInput = ref<HTMLInputElement | null>(null);
-const manualFileInput = ref<HTMLInputElement | null>(null);
-const soundtrackFileInput = ref<HTMLInputElement | null>(null);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-
-const soundtrackTracks = computed(
-  () =>
-    rom.value?.files
-      ?.filter((f) => f.category === "soundtrack")
-      .slice()
-      .sort((a, b) => a.file_name.localeCompare(b.file_name)) ?? [],
-);
 
 const openHandler = async (romToEdit: SimpleRom) => {
   show.value = true;
   // Show the simple rom immediately so the dialog mounts; fetch the
-  // detailed version in the background so manual/soundtrack flows that
-  // rely on file arrays have real data.
+  // detailed version in the background so provider metadata panels
+  // have real data to render.
   rom.value = romToEdit as EditableRom;
   removeCover.value = false;
   imagePreviewUrl.value = "";
+  activeTab.value = "details";
   try {
     const { data } = await romApi.getRom({ romId: romToEdit.id });
     if (show.value) rom.value = data as EditableRom;
@@ -92,6 +83,106 @@ const missingCoverImage = computed(() =>
 );
 
 const validForm = computed(() => !!(rom.value?.name && rom.value?.fs_name));
+
+const isFolderRom = computed(
+  () =>
+    !!rom.value &&
+    (rom.value.has_nested_single_file || rom.value.has_multiple_files),
+);
+
+const fullPath = computed(() => {
+  if (!rom.value) return "";
+  return `/romm/library/${rom.value.fs_path}/${rom.value.fs_name}`;
+});
+
+// ── Tabbed editing surface ───────────────────────────────────────
+// "Details" + "Metadata IDs" are always present; each provider with a
+// populated id appends its own tab so the raw-JSON editing surface
+// only ever shows panels that actually have data.
+interface ProviderConfig {
+  /** Tab id — also the discriminant for the rendered panel. */
+  tabId: string;
+  idField: keyof SimpleRom;
+  metadataField: keyof SimpleRom;
+  label: string;
+}
+
+const PROVIDERS: readonly ProviderConfig[] = [
+  {
+    tabId: "igdb",
+    idField: "igdb_id",
+    metadataField: "igdb_metadata",
+    label: "IGDB",
+  },
+  {
+    tabId: "moby",
+    idField: "moby_id",
+    metadataField: "moby_metadata",
+    label: "MobyGames",
+  },
+  {
+    tabId: "ss",
+    idField: "ss_id",
+    metadataField: "ss_metadata",
+    label: "ScreenScraper",
+  },
+  {
+    tabId: "launchbox",
+    idField: "launchbox_id",
+    metadataField: "launchbox_metadata",
+    label: "LaunchBox",
+  },
+  {
+    tabId: "hasheous",
+    idField: "hasheous_id",
+    metadataField: "hasheous_metadata",
+    label: "Hasheous",
+  },
+  {
+    tabId: "flashpoint",
+    idField: "flashpoint_id",
+    metadataField: "flashpoint_metadata",
+    label: "Flashpoint",
+  },
+  {
+    tabId: "hltb",
+    idField: "hltb_id",
+    metadataField: "hltb_metadata",
+    label: "HLTB",
+  },
+];
+
+const activeTab = ref<string>("details");
+
+const visibleProviders = computed(() =>
+  rom.value ? PROVIDERS.filter((p) => rom.value?.[p.idField]) : [],
+);
+
+const tabItems = computed<RTabNavItem[]>(() => [
+  {
+    id: "details",
+    label: t("rom.additional-details", "Additional details"),
+    icon: "mdi-text-box-plus-outline",
+  },
+  {
+    id: "ids",
+    label: t("rom.metadata-ids", "Metadata IDs"),
+    icon: "mdi-database",
+  },
+  ...visibleProviders.value.map((p) => ({ id: p.tabId, label: p.label })),
+]);
+
+const activeProvider = computed(() =>
+  visibleProviders.value.find((p) => p.tabId === activeTab.value),
+);
+
+// When the active provider tab vanishes (unmatch / id wiped), fall back
+// to "details" so the content area never points at a missing tab.
+watch(tabItems, (items) => {
+  if (!items.some((t) => t.id === activeTab.value)) {
+    activeTab.value = "details";
+  }
+});
 
 function previewImage(event: Event) {
   if (!rom.value) return;
@@ -141,97 +232,6 @@ async function handleRomUpdate(
   }
 }
 
-function uploadManuals() {
-  if (!rom.value || manualFiles.value.length === 0) return;
-  const files = [...manualFiles.value];
-  manualFiles.value = [];
-  // Route through the global v2 ManualUploadTargetDialog so the
-  // resources/folder picker lives in one place. If the ROM is a simple
-  // single-file ROM the dialog skips the prompt and defaults to resources.
-  emitter?.emit("showManualUploadTargetDialog", { rom: rom.value, files });
-}
-
-function confirmRemoveManual() {
-  if (!rom.value) return;
-  emitter?.emit("showDeleteManualDialog", {
-    rom: rom.value,
-    isPrimary: true,
-    fileId: undefined,
-  });
-}
-
-async function uploadSoundtracks() {
-  if (!rom.value) return;
-  try {
-    const responses = await romApi.uploadSoundtracks({
-      romId: rom.value.id,
-      filesToUpload: soundtrackFiles.value,
-    });
-    const successful = responses.filter((d) => d.status === "fulfilled");
-    const failed = responses.filter((d) => d.status === "rejected");
-    if (failed.length === 0) uploadStore.reset();
-
-    if (successful.length === 0) {
-      snackbar.warning(t("rom.soundtracks-upload-skipped"), {
-        icon: "mdi-close-circle",
-        timeout: 5000,
-      });
-    } else {
-      snackbar.success(
-        t("rom.soundtracks-upload-success", {
-          count: successful.length,
-          failed: failed.length,
-        }),
-        { icon: "mdi-check-bold", timeout: 3000 },
-      );
-      await refreshRomState();
-    }
-  } catch (error: unknown) {
-    const axiosErr = error as {
-      response?: { data?: { detail?: string }; statusText?: string };
-      message?: string;
-    };
-    snackbar.error(
-      t("rom.soundtracks-upload-failed", {
-        error:
-          axiosErr.response?.data?.detail ??
-          axiosErr.response?.statusText ??
-          axiosErr.message,
-      }),
-      { icon: "mdi-close-circle", timeout: 4000 },
-    );
-  }
-  soundtrackFiles.value = [];
-}
-
-async function removeSoundtrack(fileId: number) {
-  if (!rom.value) return;
-  try {
-    await romApi.removeSoundtrack({ romId: rom.value.id, fileId });
-    await refreshRomState();
-    snackbar.success(t("rom.soundtrack-removed"), { icon: "mdi-check-bold" });
-  } catch (error: unknown) {
-    const axiosErr = error as {
-      response?: { data?: { detail?: string } };
-      message?: string;
-    };
-    snackbar.error(
-      t("rom.soundtrack-remove-failed", {
-        error: axiosErr.response?.data?.detail ?? axiosErr.message,
-      }),
-      { icon: "mdi-close-circle" },
-    );
-  }
-}
-
-async function refreshRomState() {
-  if (!rom.value) return;
-  const { data } = await romApi.getRom({ romId: rom.value.id });
-  rom.value = data as EditableRom;
-  romsStore.update(data as SimpleRom);
-  if (route.name === "rom") romsStore.currentRom = data;
-}
-
 async function unmatchRom() {
   if (!rom.value) return;
   await handleRomUpdate(
@@ -276,8 +276,9 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
     </template>
 
     <template #content>
-      <div class="r-v2-edit">
-        <!-- Cover column -->
+      <!-- Hero row — cover + identity fields. Everything else hangs
+           off the accordion below. -->
+      <div class="r-v2-edit__hero">
         <div class="r-v2-edit__cover-col">
           <GameCard
             :rom="rom"
@@ -330,8 +331,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           </div>
         </div>
 
-        <!-- Form column -->
-        <div class="r-v2-edit__form-col">
+        <div class="r-v2-edit__fields">
           <RTextField
             v-model="rom.name"
             prefix-label="stacked"
@@ -343,6 +343,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               {{ t("common.name") }}
             </template>
           </RTextField>
+
           <RTextField
             v-model="rom.fs_name"
             prefix-label="stacked"
@@ -351,190 +352,64 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           >
             <template #prefix-label>
               <RIcon
-                :icon="
-                  rom.has_nested_single_file || rom.has_multiple_files
-                    ? 'mdi-folder-outline'
-                    : 'mdi-file-outline'
-                "
+                :icon="isFolderRom ? 'mdi-folder-outline' : 'mdi-file-outline'"
                 size="14"
               />
-              {{
-                rom.has_nested_single_file || rom.has_multiple_files
-                  ? t("rom.folder-name")
-                  : t("rom.filename")
-              }}
+              {{ isFolderRom ? t("rom.folder-name") : t("rom.filename") }}
+            </template>
+            <template #subtitle>
+              <RIcon icon="mdi-folder-file-outline" size="13" color="primary" />
+              {{ fullPath }}
             </template>
           </RTextField>
-          <p class="r-v2-edit__path">
-            <RIcon icon="mdi-folder-file-outline" size="13" color="primary" />
-            /romm/library/{{ rom.fs_path }}/{{ rom.fs_name }}
-          </p>
 
-          <RTextField v-model="rom.summary" prefix-label="stacked" hide-details>
+          <RTextField
+            v-model="rom.summary"
+            prefix-label="stacked"
+            hide-details
+            multiline
+            :rows="3"
+          >
             <template #prefix-label>
               <RIcon icon="mdi-text" size="14" />
               {{ t("rom.summary") }}
             </template>
           </RTextField>
-
-          <!-- Manual -->
-          <div class="r-v2-edit__row">
-            <div
-              class="r-v2-edit__badge"
-              :class="{ 'r-v2-edit__badge--ok': rom.has_manual }"
-            >
-              <RIcon
-                :icon="rom.has_manual ? 'mdi-check' : 'mdi-close'"
-                size="12"
-              />
-              {{ t("rom.manual") }}
-            </div>
-            <button
-              type="button"
-              class="r-v2-edit__icon-btn"
-              :title="t('rom.upload-manual', 'Upload manual')"
-              @click="manualFileInput?.click()"
-            >
-              <RIcon icon="mdi-cloud-upload-outline" size="16" />
-            </button>
-            <input
-              ref="manualFileInput"
-              type="file"
-              accept="application/pdf"
-              multiple
-              :aria-label="t('rom.upload-manual', 'Upload manual')"
-              class="r-v2-edit__file"
-              @change="
-                ($event) => {
-                  const target = $event.target as HTMLInputElement;
-                  if (target.files) manualFiles = Array.from(target.files);
-                  uploadManuals();
-                  target.value = '';
-                }
-              "
-            />
-            <button
-              v-if="rom.has_manual"
-              type="button"
-              class="r-v2-edit__icon-btn r-v2-edit__icon-btn--danger"
-              :title="t('rom.delete-manual-button')"
-              @click="confirmRemoveManual"
-            >
-              <RIcon icon="mdi-delete" size="16" />
-            </button>
-            <div style="flex: 1" />
-            <RBtn
-              variant="outlined"
-              size="small"
-              color="error"
-              :disabled="rom.is_unidentified"
-              @click="unmatchRom"
-            >
-              {{ t("rom.unmatch") }}
-            </RBtn>
-          </div>
-          <p v-if="rom.has_manual" class="r-v2-edit__path">
-            <RIcon icon="mdi-folder-file-outline" size="13" color="primary" />
-            /romm/resources/{{ rom.path_manual }}
-          </p>
-
-          <!-- Soundtrack -->
-          <div class="r-v2-edit__row">
-            <div
-              class="r-v2-edit__badge"
-              :class="{ 'r-v2-edit__badge--ok': rom.has_soundtrack }"
-            >
-              <RIcon
-                :icon="rom.has_soundtrack ? 'mdi-check' : 'mdi-close'"
-                size="12"
-              />
-              {{ t("rom.soundtrack") }}
-            </div>
-            <button
-              type="button"
-              class="r-v2-edit__icon-btn"
-              :title="t('rom.upload-soundtrack', 'Upload soundtrack')"
-              :disabled="rom.has_simple_single_file"
-              @click="soundtrackFileInput?.click()"
-            >
-              <RIcon icon="mdi-cloud-upload-outline" size="16" />
-            </button>
-            <input
-              ref="soundtrackFileInput"
-              type="file"
-              accept="audio/*,.flac,.opus"
-              multiple
-              :aria-label="t('rom.upload-soundtrack', 'Upload soundtrack')"
-              class="r-v2-edit__file"
-              @change="
-                ($event) => {
-                  const target = $event.target as HTMLInputElement;
-                  if (target.files) soundtrackFiles = Array.from(target.files);
-                  uploadSoundtracks();
-                  target.value = '';
-                }
-              "
-            />
-            <span v-if="rom.has_simple_single_file" class="r-v2-edit__hint">
-              {{ t("rom.soundtrack-folder-only") }}
-            </span>
-          </div>
-
-          <ul v-if="soundtrackTracks.length > 0" class="r-v2-edit__tracks">
-            <li
-              v-for="track in soundtrackTracks"
-              :key="track.id"
-              class="r-v2-edit__track"
-            >
-              <RIcon icon="mdi-music-note" size="14" />
-              <span class="r-v2-edit__track-name" :title="track.file_name">
-                {{ track.file_name }}
-              </span>
-              <span class="r-v2-edit__track-size">
-                {{ formatBytes(track.file_size_bytes) }}
-              </span>
-              <button
-                type="button"
-                class="r-v2-edit__icon-btn r-v2-edit__icon-btn--danger r-v2-edit__icon-btn--xs"
-                :title="t('rom.soundtrack-removed', 'Remove track')"
-                @click="removeSoundtrack(track.id)"
-              >
-                <RIcon icon="mdi-delete" size="13" />
-              </button>
-            </li>
-          </ul>
         </div>
       </div>
 
-      <!-- Metadata accordion — each section can open/close independently. -->
+      <!-- Tabbed editing surface — "Details" + "Metadata IDs" always
+           present, one tab per provider with a populated id appended
+           after. Sits under the hero so the dialog reads top-down as
+           "identity → editing surface". -->
       <div class="r-v2-edit__panels">
-        <RCollapsible
-          v-model="additionalOpen"
-          icon="mdi-text-box-plus-outline"
-          title="Additional details"
-        >
-          <AdditionalDetails
-            :rom="rom"
-            @update:rom="handleRomUpdateFromMetadata"
-          />
-        </RCollapsible>
-
-        <RCollapsible
-          v-model="metaIdsOpen"
-          icon="mdi-database"
-          title="Metadata IDs"
-        >
-          <MetadataIdSection
-            :rom="rom"
-            @update:rom="handleRomUpdateFromMetadata"
-          />
-        </RCollapsible>
-
-        <!-- MetadataSections fans out its own RCollapsibles per provider. -->
-        <MetadataSections
-          :rom="rom"
-          @update:rom="handleRomUpdateFromMetadata"
+        <RTabNav
+          v-model="activeTab"
+          :items="tabItems"
+          variant="underlined"
+          size="small"
+          aria-label="Edit ROM sections"
         />
+        <div class="r-v2-edit__tab-content">
+          <AdditionalDetails
+            v-if="activeTab === 'details'"
+            :rom="rom"
+            @update:rom="handleRomUpdateFromMetadata"
+          />
+          <MetadataIdSection
+            v-else-if="activeTab === 'ids'"
+            :rom="rom"
+            @update:rom="handleRomUpdateFromMetadata"
+          />
+          <RawMetadataPanel
+            v-else-if="activeProvider"
+            :key="activeProvider.tabId"
+            :rom="rom"
+            :metadata-field="activeProvider.metadataField as keyof UpdateRom"
+            :label="activeProvider.label"
+            @update:rom="handleRomUpdateFromMetadata"
+          />
+        </div>
       </div>
     </template>
 
@@ -543,6 +418,15 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         {{ t("common.cancel") }}
       </RBtn>
       <div style="flex: 1" />
+      <RBtn
+        v-if="!rom.is_unidentified"
+        variant="outlined"
+        color="error"
+        prepend-icon="mdi-link-variant-off"
+        @click="unmatchRom"
+      >
+        {{ t("rom.unmatch") }}
+      </RBtn>
       <RBtn
         variant="translucent"
         color="primary"
@@ -557,7 +441,12 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
 </template>
 
 <style scoped>
-.r-v2-edit {
+/* ── Hero ──────────────────────────────────────────────────────────
+   Cover sits in a fixed-width left column; fields take the rest. The
+   `align-items: start` keeps the cover anchored to the top so taller
+   stacks of fields (or the multiline summary growing) don't drag the
+   cover down with them. */
+.r-v2-edit__hero {
   display: grid;
   grid-template-columns: 220px 1fr;
   gap: 18px;
@@ -576,6 +465,18 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
   gap: 4px;
 }
 
+.r-v2-edit__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ── Icon buttons (cover row) ─────────────────────────────────────
+   Square 32px chips that share a vocabulary with the surrounding
+   field chrome — outlined surface, tinted hover, danger variant for
+   destructive actions. Kept here (not promoted to a primitive) until
+   we have a second consumer that needs the exact same shape. */
 .r-v2-edit__icon-btn {
   appearance: none;
   background: var(--r-color-surface);
@@ -607,10 +508,6 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
   );
   color: var(--r-color-danger-fg);
 }
-.r-v2-edit__icon-btn--xs {
-  width: 24px;
-  height: 24px;
-}
 
 .r-v2-edit__file {
   position: absolute;
@@ -620,109 +517,24 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
   pointer-events: none;
 }
 
-.r-v2-edit__form-col {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-}
-
-.r-v2-edit__path {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: -4px 0 0;
-  font-size: 11px;
-  color: var(--r-color-fg-muted);
-  font-family: var(--r-font-family-mono, monospace);
-  word-break: break-all;
-}
-
-.r-v2-edit__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
-
-.r-v2-edit__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: var(--r-radius-pill);
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 12%,
-    transparent
-  );
-  border: 1px solid
-    color-mix(in srgb, var(--r-color-status-base-danger) 25%, transparent);
-  color: var(--r-color-danger-fg);
-  font-size: 12px;
-  font-weight: var(--r-font-weight-medium);
-}
-.r-v2-edit__badge--ok {
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-success) 14%,
-    transparent
-  );
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-status-base-success) 30%,
-    transparent
-  );
-  color: var(--r-color-success);
-}
-
-.r-v2-edit__hint {
-  font-size: 11px;
-  color: var(--r-color-fg-muted);
-}
-
-.r-v2-edit__tracks {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.r-v2-edit__track {
-  display: grid;
-  grid-template-columns: auto 1fr auto auto;
-  gap: 8px;
-  align-items: center;
-  padding: 6px 10px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-sm);
-  font-size: 12px;
-}
-.r-v2-edit__track-name {
-  color: var(--r-color-fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-.r-v2-edit__track-size {
-  font-size: 11px;
-  color: var(--r-color-fg-muted);
-  font-variant-numeric: tabular-nums;
-}
-
+/* ── Tab surface ─────────────────────────────────────────────────
+   The tab nav owns its own bottom border, so the only separator we
+   need above is breathing space — the hero ends, a margin of 20px
+   beats, then the tab strip begins. The tab content gets its own
+   inset so panels don't sit flush against the underlined strip. */
 .r-v2-edit__panels {
-  margin-top: 18px;
+  margin-top: 20px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
-html[data-bp~="xs"] .r-v2-edit {
+.r-v2-edit__tab-content {
+  padding-top: 16px;
+}
+
+/* ── Compact breakpoint ───────────────────────────────────────────
+   Cover stacks above the fields when the dialog is forced narrow. */
+html[data-bp~="xs"] .r-v2-edit__hero {
   grid-template-columns: 1fr;
 }
 html[data-bp~="xs"] .r-v2-edit__cover-col {

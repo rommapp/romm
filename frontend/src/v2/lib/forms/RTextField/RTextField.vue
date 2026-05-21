@@ -84,6 +84,12 @@ interface Props {
    *  matters. Affects the input/textarea only — labels keep the regular
    *  family so the chrome still reads as a normal form field. */
   mono?: boolean;
+  /** Small context line rendered just below the field box (above the
+   *  details/error row). Mono-styled — used for file paths, URLs,
+   *  hashes, or any "this is where the value resolves to" hint that
+   *  pairs with the field's value. The `#subtitle` slot wins over the
+   *  prop when both are provided; use the slot to drop in an icon. */
+  subtitle?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -114,6 +120,7 @@ const props = withDefaults(defineProps<Props>(), {
   multiline: false,
   rows: 4,
   mono: false,
+  subtitle: undefined,
 });
 
 const emit = defineEmits<{
@@ -294,6 +301,8 @@ const hasAppendInner = computed(
 const inlineLabelOn = computed(() => props.prefixLabel === "inline");
 const stackedLabelOn = computed(() => props.prefixLabel === "stacked");
 
+const hasSubtitle = computed(() => !!props.subtitle || !!slots.subtitle);
+
 // When `label` is set without a `prefixLabel`, we don't render a
 // visible label — fall back to the label as placeholder + aria-label
 // so the field still reads what it's for. Consumers wanting a visible
@@ -306,14 +315,30 @@ const effectiveAriaLabel = computed(() =>
 );
 
 // True when the parent is subscribed to a click on the adornment.
-// Vue normalises `@click:append-inner` to the key `onClick:appendInner`
-// in `$attrs`. The fallback handles older codepaths that camelCase the
-// whole name. When subscribed, the adornment renders as a focusable
-// `<button>` with hover + cursor.
+// Vue's `toHandlerKey('click:append-inner')` is `onClick:append-inner`
+// — the part after the colon is left verbatim, NOT camelised. The
+// other variants below cover camelised / capitalised forms in case a
+// parent passes the handler programmatically with a different key. When
+// subscribed, the adornment renders as a focusable `<button>` with
+// hover + cursor.
 function hasListener(name: string): boolean {
-  const camel = `on${name[0].toUpperCase()}${name.slice(1).replace(/:(\w)/g, (_, c) => `:${c.toUpperCase()}`)}`;
-  const flat = `on${name[0].toUpperCase()}${name.slice(1).replace(/:(\w)/g, (_, c) => c.toUpperCase())}`;
-  return !!attrs[camel] || !!attrs[flat];
+  // verbatim → onClick:append-inner (Vue's actual template output)
+  const verbatim = `on${name[0].toUpperCase()}${name.slice(1)}`;
+  // kebab→camel inside the arg → onClick:appendInner
+  const argCamel = `on${name[0].toUpperCase()}${name
+    .slice(1)
+    .replace(/-(\w)/g, (_, c) => c.toUpperCase())}`;
+  // capitalised after the colon → onClick:Append-inner
+  const colonCap = `on${name[0].toUpperCase()}${name
+    .slice(1)
+    .replace(/:(\w)/g, (_, c) => `:${c.toUpperCase()}`)}`;
+  // no colon, camelCase tail → onClickAppend-inner
+  const flat = `on${name[0].toUpperCase()}${name
+    .slice(1)
+    .replace(/:(\w)/g, (_, c) => c.toUpperCase())}`;
+  return (
+    !!attrs[verbatim] || !!attrs[argCamel] || !!attrs[colonCap] || !!attrs[flat]
+  );
 }
 const prependInteractive = computed(() => hasListener("click:prepend-inner"));
 const appendInteractive = computed(() => hasListener("click:append-inner"));
@@ -496,6 +521,15 @@ function onAppendInnerClick(evt: MouseEvent) {
         class="r-text-field__underline"
         aria-hidden="true"
       />
+    </div>
+
+    <!-- Subtitle — small mono context line just below the field box.
+         Used for resolved paths, URLs, hashes, or any "this value
+         points here" hint that pairs with the input. Sits between the
+         field box and the details/error row so error messages always
+         stay closest to the field. -->
+    <div v-if="hasSubtitle" class="r-text-field__subtitle">
+      <slot name="subtitle">{{ subtitle }}</slot>
     </div>
 
     <!-- Details row — error message, then hint as fallback. Always
@@ -844,6 +878,23 @@ function onAppendInnerClick(evt: MouseEvent) {
   color: var(--r-color-danger);
 }
 
+/* ── Subtitle row ──────────────────────────────────────────────── */
+/* Mono context line — paths, URLs, hashes. Sits flush below the
+   field box and aligns with the details row's padding so both rows
+   read as the same "annotation gutter". `word-break: break-all` keeps
+   long paths inside the field width instead of pushing the dialog. */
+.r-text-field__subtitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 4px;
+  font-family: var(--r-font-family-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--r-color-fg-muted);
+  word-break: break-all;
+}
+
 /* ── Label — shared base ───────────────────────────────────────── */
 .r-text-field__label {
   display: inline-flex;
@@ -931,7 +982,8 @@ html[data-input="pad"]
   .r-text-field__underline,
   .r-text-field__clear,
   .r-text-field__label,
-  .r-text-field__details {
+  .r-text-field__details,
+  .r-text-field__subtitle {
     transition: none;
   }
 }

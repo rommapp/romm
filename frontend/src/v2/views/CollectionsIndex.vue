@@ -60,6 +60,7 @@ const {
 const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
 const searchTerm = useTileSearchUrl();
+const gridSortDir = ref<"asc" | "desc">("asc");
 
 // `?kind=` URL-synced filter — same direction rules as
 // `useTileSearchUrl`: route → ref on every change, ref → router.replace
@@ -183,14 +184,21 @@ const filtered = computed<CollectionTileEntry[]>(() => {
   return byTerm;
 });
 
+// Sort comparator for grid mode — the toolbar asc/desc toggle drives
+// direction, name is the only sort axis the grid surface exposes.
+function gridCompare(a: CollectionTileEntry, b: CollectionTileEntry): number {
+  const sign = gridSortDir.value === "asc" ? 1 : -1;
+  return a.name.localeCompare(b.name) * sign;
+}
+
 // Curated = regular + smart (both real, hand-managed). Virtual is the
 // dynamic/computed kind. Splitting up front keeps every render branch
 // (flat / letter / list) free of inline kind checks.
 const curatedTiles = computed<CollectionTileEntry[]>(() =>
-  filtered.value.filter((c) => c.kind !== "virtual"),
+  [...filtered.value.filter((c) => c.kind !== "virtual")].sort(gridCompare),
 );
 const virtualTiles = computed<CollectionTileEntry[]>(() =>
-  filtered.value.filter((c) => c.kind === "virtual"),
+  [...filtered.value.filter((c) => c.kind === "virtual")].sort(gridCompare),
 );
 
 const totalCount = computed(() => tiles.value.length);
@@ -202,22 +210,38 @@ const noResults = computed(
 );
 
 type LetterGroup = { letter: string; items: CollectionTileEntry[] };
+// Bucket visual order in asc: `# A…Z @` — `#` (digits) first, `@`
+// (other symbols) last; mirrors AlphaStrip's ALPHABET. Desc flips the
+// whole sequence (`@ Z…A #`).
+const COLLECTION_BUCKET_ORDER = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ@";
 function groupByLetter(items: CollectionTileEntry[]): LetterGroup[] {
-  const sorted = [...items].sort((a, b) => a.name.localeCompare(b.name));
+  // `items` is pre-sorted by `gridCompare` (see curatedTiles /
+  // virtualTiles); Array.push + Map iteration preserve insertion order
+  // so items inside each bucket inherit that direction.
+  //
+  // Non-letter first chars split into two distinct buckets so digits
+  // and other symbols read as separate sections:
+  //   * "#" — digits (0-9)
+  //   * "@" — anything else
   const map = new Map<string, CollectionTileEntry[]>();
-  for (const c of sorted) {
+  for (const c of items) {
     const ch = c.name.charAt(0).toUpperCase();
-    const key = /[A-Z]/.test(ch) ? ch : "#";
+    let key: string;
+    if (/[A-Z]/.test(ch)) key = ch;
+    else if (/[0-9]/.test(ch)) key = "#";
+    else key = "@";
     const bucket = map.get(key);
     if (bucket) bucket.push(c);
     else map.set(key, [c]);
   }
+  const dirSign = gridSortDir.value === "asc" ? 1 : -1;
   return [...map.entries()]
-    .sort(([a], [b]) => {
-      if (a === "#") return 1;
-      if (b === "#") return -1;
-      return a.localeCompare(b);
-    })
+    .sort(
+      ([a], [b]) =>
+        (COLLECTION_BUCKET_ORDER.indexOf(a) -
+          COLLECTION_BUCKET_ORDER.indexOf(b)) *
+        dirSign,
+    )
     .map(([letter, items]) => ({ letter, items }));
 }
 const curatedLetterGroups = computed<LetterGroup[]>(() =>
@@ -253,6 +277,7 @@ const showVirtualSection = computed(
       <GalleryToolbar
         :group-by="groupBy"
         :layout="layout"
+        :sort-dir="gridSortDir"
         :search="searchTerm"
         show-search
         search-placeholder="Search collections"
@@ -262,6 +287,7 @@ const showVirtualSection = computed(
         kind-filter-aria-label="Filter collections"
         @update:group-by="groupBy = $event"
         @update:layout="layout = $event"
+        @update:sort-dir="gridSortDir = $event"
         @update:search="searchTerm = $event"
         @update:kind-filter="kindFilter = $event"
       />

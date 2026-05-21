@@ -55,55 +55,88 @@ const playableById = computed(() => {
   return map;
 });
 
-// Sort state — local to this view (the platforms index is small enough
-// that a URL round-trip is overkill; debt item if/when we make this
-// bookmarkable).
-const sortKey = ref<PlatformSortKey>("name");
-const sortDir = ref<"asc" | "desc">("asc");
+// Two independent sort states. The list view's column headers drive
+// `listSortKey` + `listSortDir`; the grid view's toolbar asc/desc toggle
+// drives `gridSortDir`, with the implicit axis tied to the active
+// groupBy (letter → name, family → family, …, none → name). Keeping
+// them separate so flipping one mode doesn't reshuffle the other.
+const listSortKey = ref<PlatformSortKey>("name");
+const listSortDir = ref<"asc" | "desc">("asc");
+const gridSortDir = ref<"asc" | "desc">("asc");
 
-function onSort({ key, dir }: { key: PlatformSortKey; dir: "asc" | "desc" }) {
-  sortKey.value = key;
-  sortDir.value = dir;
+function onListSort({
+  key,
+  dir,
+}: {
+  key: PlatformSortKey;
+  dir: "asc" | "desc";
+}) {
+  listSortKey.value = key;
+  listSortDir.value = dir;
 }
 
-// Comparator pulled out so the flat list and each bucket can share it.
-// `name` is the secondary tiebreaker for every other column so equal
-// values still land in a stable alphabetical order.
-function compare(a: Platform, b: Platform): number {
-  const dir = sortDir.value === "asc" ? 1 : -1;
+// Sort axis the grid view should use, derived from the active groupBy.
+// Grid has no column headers — the bucket axis is the natural sort axis,
+// the toolbar asc/desc toggle is the only direction control.
+const gridSortKey = computed<PlatformSortKey>(() => {
+  switch (groupBy.value) {
+    case "family":
+      return "family";
+    case "category":
+      return "category";
+    case "generation":
+      return "generation";
+    case "playable":
+      return "playable";
+    default:
+      return "name";
+  }
+});
+
+// Pure comparator parameterised by (key, dir). Both sort states feed it
+// to produce their respective sorted arrays. `name` is the secondary
+// tiebreaker for every other column so equal values still land in a
+// stable alphabetical order.
+function compareBy(
+  a: Platform,
+  b: Platform,
+  key: PlatformSortKey,
+  dir: "asc" | "desc",
+): number {
+  const sign = dir === "asc" ? 1 : -1;
   const byName = a.display_name.localeCompare(b.display_name);
-  switch (sortKey.value) {
+  switch (key) {
     case "name":
-      return byName * dir;
+      return byName * sign;
     case "family": {
       const af = a.family_name ?? "";
       const bf = b.family_name ?? "";
       const cmp = af.localeCompare(bf);
-      return (cmp || byName) * dir;
+      return (cmp || byName) * sign;
     }
     case "category": {
       const ac = a.category ?? "";
       const bc = b.category ?? "";
       const cmp = ac.localeCompare(bc);
-      return (cmp || byName) * dir;
+      return (cmp || byName) * sign;
     }
     case "generation": {
       const ag = a.generation ?? -1;
       const bg = b.generation ?? -1;
       const cmp = ag - bg;
-      return (cmp || byName) * dir;
+      return (cmp || byName) * sign;
     }
     case "playable": {
       const ap = playableById.value.get(a.id) ? 1 : 0;
       const bp = playableById.value.get(b.id) ? 1 : 0;
       const cmp = ap - bp;
-      return (cmp || byName) * dir;
+      return (cmp || byName) * sign;
     }
     case "rom_count": {
       const ar = a.rom_count ?? 0;
       const br = b.rom_count ?? 0;
       const cmp = ar - br;
-      return (cmp || byName) * dir;
+      return (cmp || byName) * sign;
     }
   }
 }
@@ -164,11 +197,19 @@ const filtered = computed<Platform[]>(() => {
   );
 });
 
-// Sorted view of the filtered list. Single source of truth feeding both
-// the flat layouts and the bucket builders (which preserve insertion
-// order, so items inside each bucket inherit this sort).
-const sorted = computed<Platform[]>(() => {
-  return [...filtered.value].sort(compare);
+// Per-mode sorted views. Grid uses the toolbar asc/desc + groupBy axis;
+// list uses the column-header click state. Buckets are always fed the
+// grid-sorted array (Map iteration preserves insertion order, so items
+// inside each bucket inherit that order).
+const sortedForGrid = computed<Platform[]>(() => {
+  return [...filtered.value].sort((a, b) =>
+    compareBy(a, b, gridSortKey.value, gridSortDir.value),
+  );
+});
+const sortedForList = computed<Platform[]>(() => {
+  return [...filtered.value].sort((a, b) =>
+    compareBy(a, b, listSortKey.value, listSortDir.value),
+  );
 });
 
 const totalCount = computed(() => filledPlatforms.value.length);
@@ -202,32 +243,34 @@ function bucketBy(
   return [...map.values()].sort(sort);
 }
 
-// Letter buckets. Non-alpha first chars roll up under "#" so Greek /
-// numeric / symbol-prefixed platform names still land in a stable
-// section.
-const letterGroups = computed<Bucket[]>(() =>
-  bucketBy(
-    sorted.value,
+// Letter buckets. Non-letter first chars split into two head buckets so
+// the user can tell digits apart from other symbols at a glance:
+//   * "#" — digits (0-9)
+//   * "@" — anything else (Greek, punctuation, etc.)
+// Order in asc: `# A…Z @` — `#` first, `@` last (matches AlphaStrip's
+// ALPHABET). Desc flips the whole sequence (`@ Z…A #`).
+const BUCKET_ORDER = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ@";
+const letterGroups = computed<Bucket[]>(() => {
+  const dirSign = gridSortDir.value === "asc" ? 1 : -1;
+  return bucketBy(
+    sortedForGrid.value,
     (p) => {
       const ch = p.display_name.charAt(0).toUpperCase();
-      const key = /[A-Z]/.test(ch) ? ch : "#";
-      return { key, label: key };
+      if (/[A-Z]/.test(ch)) return { key: ch, label: ch };
+      if (/[0-9]/.test(ch)) return { key: "#", label: "#" };
+      return { key: "@", label: "@" };
     },
-    (a, b) => {
-      // "#" sorts after letters so the alphabetical run is unbroken.
-      if (a.key === "#") return 1;
-      if (b.key === "#") return -1;
-      return a.key.localeCompare(b.key);
-    },
-  ),
-);
+    (a, b) =>
+      (BUCKET_ORDER.indexOf(a.key) - BUCKET_ORDER.indexOf(b.key)) * dirSign,
+  );
+});
 
 // Family buckets. `family_slug` is the stable id (cheap to use as a
 // Map key); `family_name` is what the user reads. Platforms without a
 // family land in "Other" and sort last.
 const familyGroups = computed<Bucket[]>(() =>
   bucketBy(
-    sorted.value,
+    sortedForGrid.value,
     (p) => {
       const slug = p.family_slug;
       const name = p.family_name;
@@ -248,7 +291,7 @@ const familyGroups = computed<Bucket[]>(() =>
 // label without altering the underlying key.
 const categoryGroups = computed<Bucket[]>(() =>
   bucketBy(
-    sorted.value,
+    sortedForGrid.value,
     (p) => {
       const c = p.category;
       if (c) return { key: c, label: prettifyPlatformCategory(c) };
@@ -267,7 +310,7 @@ const categoryGroups = computed<Bucket[]>(() =>
 // list-mode metadata column and the group heading agree word-for-word.
 const generationGroups = computed<Bucket[]>(() =>
   bucketBy(
-    sorted.value,
+    sortedForGrid.value,
     (p) => {
       const g = p.generation;
       if (typeof g === "number" && g > 0) {
@@ -292,7 +335,7 @@ const generationGroups = computed<Bucket[]>(() =>
 // top regardless of sort direction.
 const playableGroups = computed<Bucket[]>(() =>
   bucketBy(
-    sorted.value,
+    sortedForGrid.value,
     (p) =>
       playableById.value.get(p.id)
         ? { key: "playable", label: "Playable" }
@@ -336,21 +379,23 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
       <GalleryToolbar
         :group-by="groupBy"
         :layout="layout"
+        :sort-dir="gridSortDir"
         :search="searchTerm"
         :group-by-items="platformGroupByItems"
         show-search
         search-placeholder="Search platforms"
         @update:group-by="groupBy = $event"
         @update:layout="layout = $event"
+        @update:sort-dir="gridSortDir = $event"
         @update:search="searchTerm = $event"
       />
     </template>
 
     <template #listHeader>
       <PlatformListHeader
-        :sort-key="sortKey"
-        :sort-dir="sortDir"
-        @sort="onSort"
+        :sort-key="listSortKey"
+        :sort-dir="listSortDir"
+        @sort="onListSort"
       />
     </template>
 
@@ -381,7 +426,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
          would have separated them. -->
     <div v-else-if="layout === 'list'" class="r-v2-pidx__list">
       <PlatformListRow
-        v-for="p in sorted"
+        v-for="p in sortedForList"
         :key="p.id"
         :id="p.id"
         :slug="p.slug"
@@ -419,7 +464,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
     <!-- Grid mode, flat. -->
     <div v-else class="r-v2-pidx__grid">
       <PlatformTile
-        v-for="p in sorted"
+        v-for="p in sortedForGrid"
         :id="p.id"
         :key="p.id"
         :slug="p.slug"

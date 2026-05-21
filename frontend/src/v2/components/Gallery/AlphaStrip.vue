@@ -15,19 +15,33 @@ import { computed } from "vue";
 
 defineOptions({ inheritAttrs: false });
 
-const ALPHABET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+// Two non-alphabetic buckets bookend the alphabet:
+//   * `#` — digits (0-9) — sits BEFORE A
+//   * `@` — any other non-alphanumeric first character — sits AFTER Z
+// Order in asc: `# A B … Z @` — `#` at the top, `@` at the bottom.
+// When the gallery sorts desc the whole array reverses (`@` to the top,
+// `#` to the bottom) so the strip's visual order tracks the data's
+// order and the scroll-spy highlight follows the scroll direction.
+const ALPHABET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ@".split("");
 
 interface Props {
   available?: Set<string> | string[];
   current?: string;
   visible?: Set<string> | string[];
+  /** Render order — reversed when the gallery sorts descending. */
+  direction?: "asc" | "desc";
 }
 
 const props = withDefaults(defineProps<Props>(), {
   available: () => new Set<string>(),
   current: "",
   visible: () => new Set<string>(),
+  direction: "asc",
 });
+
+const letters = computed(() =>
+  props.direction === "desc" ? [...ALPHABET].reverse() : ALPHABET,
+);
 
 defineEmits<{
   (e: "pick", letter: string): void;
@@ -52,7 +66,7 @@ function isActive(letter: string): boolean {
 <template>
   <aside class="alpha-strip" aria-label="Jump to letter">
     <button
-      v-for="l in ALPHABET"
+      v-for="l in letters"
       :key="l"
       type="button"
       class="alpha-strip__btn"

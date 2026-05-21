@@ -535,7 +535,7 @@ def get_roms(
     char_index_dict = {}
     if with_char_index:
         char_index = db_rom_handler.with_char_index(
-            query=query, order_by_attr=order_by_attr
+            query=query, order_by_attr=order_by_attr, order_dir=order_dir.lower()
         )
         char_index_dict = {char: index for (char, index) in char_index}
 

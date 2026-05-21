@@ -880,6 +880,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         query: Query,
         order_by_attr: Any,
+        order_dir: str = "asc",
         session: Session = None,  # type: ignore
     ) -> list[Row[tuple[str, int]]]:
         if isinstance(order_by_attr.type, (String, Text)):
@@ -897,6 +898,15 @@ class DBRomsHandler(DBBaseHandler):
             r"(\d+)", r"00000000000\1"
         ).regexp_replace(r"0*(\d{12})", r"\1")
 
+        # Apply the same direction the main query uses so the position
+        # numbers we emit (and the per-letter min position downstream)
+        # match the actual order the client paginates over. Without this
+        # the frontend AlphaStrip would highlight the wrong letter when
+        # order_dir=desc.
+        order_window = (
+            order_by_attr.desc() if order_dir.lower() == "desc" else order_by_attr.asc()
+        )
+
         # Get the row number and first letter for each item
         subquery = (
             query.with_only_columns(Rom.id, Rom.name)  # type: ignore
@@ -906,7 +916,7 @@ class DBRomsHandler(DBBaseHandler):
                     1,
                     1,
                 ).label("letter"),
-                func.row_number().over(order_by=order_by_attr).label("position"),
+                func.row_number().over(order_by=order_window).label("position"),
             )
             .subquery()
         )
