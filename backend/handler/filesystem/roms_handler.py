@@ -424,13 +424,26 @@ class FSRomsHandler(FSHandler):
             if not rom_name.lower().endswith(".m3u"):
                 continue
 
+            single_refs: list[str] = []
+            has_multi_ref = False
+
             for ref_path in self._iter_m3u_referenced_paths(abs_fs_path, rom_name):
                 rel_path = ref_path.relative_to(abs_fs_path)
                 top_level_name = rel_path.parts[0]
                 if len(rel_path.parts) == 1 and top_level_name in single_rom_set:
-                    excluded_single_roms.add(top_level_name)
+                    single_refs.append(top_level_name)
                 elif len(rel_path.parts) > 1 and top_level_name in multi_rom_set:
-                    excluded_multi_roms.add(top_level_name)
+                    has_multi_ref = True
+
+            if has_multi_ref:
+                # Disc files live inside an existing directory ROM — the directory
+                # is the canonical multi-file ROM, so exclude the redundant flat
+                # M3U file from the library listing.
+                excluded_single_roms.add(rom_name)
+            else:
+                # Disc files are at the top level — keep the M3U as the ROM and
+                # exclude the individual disc files to avoid duplicate entries.
+                excluded_single_roms.update(single_refs)
 
         return excluded_single_roms, excluded_multi_roms
 
@@ -602,49 +615,6 @@ class FSRomsHandler(FSHandler):
                     )
                 )
         elif hashable_platform:
-            if rom.fs_name.lower().endswith(".m3u"):
-                for ref_path in self._iter_m3u_referenced_paths(abs_fs_path, rom.fs_name):
-                    try:
-                        crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
-                            self._calculate_rom_hashes,
-                            ref_path,
-                            0,
-                            hashlib.md5(usedforsecurity=False),
-                            hashlib.sha1(usedforsecurity=False),
-                        )
-                    except zlib.error:
-                        crc_c = 0
-                        md5_h = hashlib.md5(usedforsecurity=False)
-                        sha1_h = hashlib.sha1(usedforsecurity=False)
-
-                    rom_files.append(
-                        self._build_rom_file(
-                            rom=rom,
-                            rom_path=ref_path.parent.relative_to(self.base_path),
-                            file_name=ref_path.name,
-                            file_hash=FileHash(
-                                crc_hash=crc32_to_hex(crc_c)
-                                if crc_c != DEFAULT_CRC_C
-                                else "",
-                                md5_hash=(
-                                    md5_h.hexdigest()
-                                    if md5_h.digest() != DEFAULT_MD5_H_DIGEST
-                                    else ""
-                                ),
-                                sha1_hash=(
-                                    sha1_h.hexdigest()
-                                    if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
-                                    else ""
-                                ),
-                                chd_sha1_hash=(
-                                    extract_chd_hash(ref_path)
-                                    if is_chd_file(ref_path)
-                                    else ""
-                                ),
-                            ),
-                        )
-                    )
-
             try:
                 crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
                     await asyncio.to_thread(

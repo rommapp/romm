@@ -380,53 +380,12 @@ class TestFSRomsHandler:
                 assert rom_file.last_modified is not None
 
     @pytest.mark.asyncio
-    async def test_get_rom_files_m3u_includes_referenced_files(
-        self, handler: FSRomsHandler, platform: Platform, config
-    ):
-        """Test get_rom_files includes files referenced by an M3U playlist."""
-        m3u_name = "Chrono Cross.m3u"
-        m3u_path = handler.base_path / "n64/roms" / m3u_name
-        disc_dir = handler.base_path / "n64/roms/Chrono Cross"
-        disc_1 = disc_dir / "Chrono Cross (Disc 1).chd"
-        disc_2 = disc_dir / "Chrono Cross (Disc 2).chd"
-
-        os.makedirs(disc_dir, exist_ok=True)
-        disc_1.write_bytes(b"disc-1")
-        disc_2.write_bytes(b"disc-2")
-        m3u_path.write_text(
-            "Chrono Cross/Chrono Cross (Disc 1).chd\n"
-            "Chrono Cross/Chrono Cross (Disc 2).chd\n"
-        )
-
-        rom = Rom(
-            id=4,
-            fs_name=m3u_name,
-            fs_path="n64/roms",
-            fs_extension="m3u",
-            platform=platform,
-        )
-
-        try:
-            with pytest.MonkeyPatch.context() as m:
-                m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
-                parsed_rom_files = await handler.get_rom_files(rom)
-
-            file_names = [f.file_name for f in parsed_rom_files.rom_files]
-            assert "Chrono Cross (Disc 1).chd" in file_names
-            assert "Chrono Cross (Disc 2).chd" in file_names
-            assert m3u_name in file_names
-        finally:
-            m3u_path.unlink(missing_ok=True)
-            disc_1.unlink(missing_ok=True)
-            disc_2.unlink(missing_ok=True)
-            if disc_dir.exists():
-                shutil.rmtree(disc_dir)
-
-    @pytest.mark.asyncio
-    async def test_get_roms_excludes_m3u_referenced_multi_directory(
+    async def test_get_roms_excludes_m3u_flat_playlist_for_directory_rom(
         self, handler: FSRomsHandler, platform: Platform
     ):
-        """Test get_roms excludes top-level multi-ROM dirs referenced by top-level M3Us."""
+        """When a flat .m3u file references files inside a directory that also
+        exists as a top-level multi-file ROM, get_roms/count_roms must exclude
+        the redundant flat .m3u and keep the directory as the canonical ROM."""
         m3u_name = "Final Fantasy VII.m3u"
         m3u_path = handler.base_path / "n64/roms" / m3u_name
         disc_dir_name = "Final Fantasy VII"
@@ -457,8 +416,9 @@ class TestFSRomsHandler:
                 rom_count = await handler.count_roms(platform)
 
             rom_names = [rom["fs_name"] for rom in roms]
-            assert m3u_name in rom_names
-            assert disc_dir_name not in rom_names
+            # The directory is the multi-file ROM; the flat .m3u is a duplicate
+            assert disc_dir_name in rom_names
+            assert m3u_name not in rom_names
             assert rom_count == len(rom_names)
         finally:
             m3u_path.unlink(missing_ok=True)
