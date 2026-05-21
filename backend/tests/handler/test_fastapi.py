@@ -193,7 +193,6 @@ async def test_scan_rom_unmatched_fetches_ra_when_id_set_but_no_metadata(
         ra_id=2774,
         name="Jak and Daxter: The Precursor's Legacy",
         url_cover="https://media.retroachievements.org/Images/jpg",
-        ra_metadata={"achievements_count": 60},
     )
     mock_get_rom_by_id.return_value = ra_result
     mock_get_rom.return_value = RAGameRom(ra_id=None)
