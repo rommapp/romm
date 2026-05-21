@@ -7,7 +7,6 @@ import pytest
 from adapters.services.igdb_types import GameType
 from handler.metadata.igdb_handler import IGDBHandler
 
-
 GENESIS_IGDB_ID = 29
 
 
@@ -96,9 +95,9 @@ class TestSearchRomGameTypeFilter:
             )
 
         assert result is not None
-        assert result["id"] == 5379, (
-            f"Expected Ecco: The Tides of Time (id=5379), got {result.get('name')} (id={result.get('id')})"
-        )
+        assert (
+            result["id"] == 5379
+        ), f"Expected Ecco: The Tides of Time (id=5379), got {result.get('name')} (id={result.get('id')})"
 
     @pytest.mark.asyncio
     async def test_expanded_search_uses_all_results_not_just_first(self):

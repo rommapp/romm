@@ -513,9 +513,7 @@ class IGDBHandler(MetadataHandler):
         if roms_expanded:
             # Collect all unique game IDs from the expanded search results
             unique_game_ids = list(
-                dict.fromkeys(
-                    r["game"]["id"] for r in roms_expanded if r.get("game")
-                )
+                dict.fromkeys(r["game"]["id"] for r in roms_expanded if r.get("game"))
             )
             log.debug(
                 "Searching expanded in games endpoint for %d candidate game(s): %s",
