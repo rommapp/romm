@@ -9,7 +9,6 @@
 import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { usePlatformPlayable } from "@/v2/composables/usePlatformPlayable";
 import {
   pendingMorphName,
   useViewTransition,
@@ -34,6 +33,10 @@ interface Props {
   familyName?: string | null;
   category?: string | null;
   generation?: number | null;
+  /** Whether any ROM on this platform can run in-browser. Pre-computed
+   *  by the parent (PlatformsIndex) so the sort comparator and the row
+   *  read the same value. */
+  playable?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -42,6 +45,7 @@ const props = withDefaults(defineProps<Props>(), {
   familyName: null,
   category: null,
   generation: null,
+  playable: false,
 });
 
 const router = useRouter();
@@ -66,8 +70,6 @@ const generationLabel = computed(() =>
     ? platformGenerationLabel(props.generation)
     : null,
 );
-
-const { playable } = usePlatformPlayable(() => props.slug);
 
 function onRowClick(e: MouseEvent) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
@@ -97,14 +99,6 @@ function onRowClick(e: MouseEvent) {
           :size="40"
           :show-tooltip="false"
         />
-        <span v-if="playable" class="plat-list-row__playable">
-          <RIcon icon="mdi-play-circle" size="14" />
-          <RTooltip
-            activator="parent"
-            text="Playable in browser"
-            location="top"
-          />
-        </span>
       </div>
       <div class="plat-list-row__meta">
         <div class="plat-list-row__name">{{ displayName }}</div>
@@ -122,6 +116,19 @@ function onRowClick(e: MouseEvent) {
     </div>
     <div class="plat-list-row__cell plat-list-row__cell--meta">
       <span v-if="generationLabel">{{ generationLabel }}</span>
+      <span v-else class="plat-list-row__placeholder">—</span>
+    </div>
+    <div
+      class="plat-list-row__cell plat-list-row__cell--meta plat-list-row__cell--center"
+    >
+      <span v-if="playable" class="plat-list-row__playable">
+        <RIcon icon="mdi-play-circle" size="18" />
+        <RTooltip
+          activator="parent"
+          text="Playable in browser"
+          location="top"
+        />
+      </span>
       <span v-else class="plat-list-row__placeholder">—</span>
     </div>
 
@@ -144,7 +151,7 @@ function onRowClick(e: MouseEvent) {
    switch can override without an inline-style override fight). */
 .plat-list-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 160px 130px 110px 96px;
+  grid-template-columns: minmax(0, 1fr) 160px 130px 110px 88px 96px;
   align-items: center;
   gap: 0 var(--r-space-3);
   padding: 0 var(--r-space-3);
@@ -188,6 +195,11 @@ function onRowClick(e: MouseEvent) {
   justify-content: flex-end;
 }
 
+.plat-list-row__cell--center {
+  display: flex;
+  justify-content: center;
+}
+
 .plat-list-row__title {
   display: flex;
   align-items: center;
@@ -196,7 +208,6 @@ function onRowClick(e: MouseEvent) {
 }
 
 .plat-list-row__thumb {
-  position: relative;
   width: var(--r-list-cover-w);
   height: var(--r-list-cover-w);
   flex-shrink: 0;
@@ -208,18 +219,10 @@ function onRowClick(e: MouseEvent) {
 }
 
 .plat-list-row__playable {
-  position: absolute;
-  right: -3px;
-  bottom: -3px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--r-color-bg);
   color: var(--r-color-success);
-  box-shadow: 0 0 0 2px var(--r-color-bg);
 }
 
 .plat-list-row__meta {

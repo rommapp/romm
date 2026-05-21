@@ -24,6 +24,7 @@ export type GroupByMode =
   | "family"
   | "category"
   | "generation"
+  | "playable"
   | "none";
 export type LayoutMode = "grid" | "list";
 export type ToolbarPosition = "header" | "floating";

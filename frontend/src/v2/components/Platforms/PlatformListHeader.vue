@@ -1,46 +1,79 @@
 <script setup lang="ts">
 // PlatformListHeader — column-header strip for the Platforms list-mode
-// view. Mirrors GameListHeader's anatomy (sticky title row above the
-// rows, shared CSS-grid template) but without sortable columns — the
-// platforms index is small enough that fixed alphabetical order is
-// fine. Kept as a separate component for visual parity with the ROM
-// gallery and so the grid template lives next to its consumers.
+// view. Mirrors GameListHeader: shared CSS-grid template with every
+// row underneath, clickable sortable columns that toggle asc → desc.
 //
-// The three metadata columns (Family / Category / Generation) drop out
-// on narrow viewports (see the `html[data-bp~="xs"]` rules below) so the
-// row stays legible on mobile without horizontal scroll. The grid
-// template flips in the same breakpoint so the cells re-align with the
-// row's compact layout.
+// The four metadata columns (Family / Category / Generation / Playable)
+// drop out on narrow viewports (see the `html[data-bp~="xs"]` rules
+// below) so the row stays legible on mobile without horizontal scroll.
+// The grid template flips in the same breakpoint so the cells re-align
+// with the row's compact layout.
+import { RIcon } from "@v2/lib";
+import {
+  PLATFORM_COLUMNS,
+  type PlatformColumn,
+  type PlatformSortKey,
+} from "./platformListColumns";
+
+interface Props {
+  sortKey: PlatformSortKey;
+  sortDir: "asc" | "desc";
+}
+
+const props = defineProps<Props>();
+
+const emit = defineEmits<{
+  (e: "sort", payload: { key: PlatformSortKey; dir: "asc" | "desc" }): void;
+}>();
+
+function handleClick(col: PlatformColumn) {
+  if (!col.sortable) return;
+  const nextDir: "asc" | "desc" =
+    props.sortKey === col.key && props.sortDir === "asc" ? "desc" : "asc";
+  emit("sort", { key: col.key, dir: nextDir });
+}
 </script>
 
 <template>
   <div class="plat-list-header" role="row">
-    <div class="plat-list-header__cell">
-      <span class="plat-list-header__label">Name</span>
-    </div>
-    <div class="plat-list-header__cell plat-list-header__cell--meta">
-      <span class="plat-list-header__label">Family</span>
-    </div>
-    <div class="plat-list-header__cell plat-list-header__cell--meta">
-      <span class="plat-list-header__label">Category</span>
-    </div>
-    <div class="plat-list-header__cell plat-list-header__cell--meta">
-      <span class="plat-list-header__label">Generation</span>
-    </div>
-    <div class="plat-list-header__cell plat-list-header__cell--end">
-      <span class="plat-list-header__label">Games</span>
-    </div>
+    <button
+      v-for="col in PLATFORM_COLUMNS"
+      :key="col.key"
+      type="button"
+      class="plat-list-header__cell"
+      :class="{
+        'plat-list-header__cell--meta': col.meta,
+        'plat-list-header__cell--sortable': col.sortable,
+        'plat-list-header__cell--end': col.align === 'end',
+        'plat-list-header__cell--center': col.align === 'center',
+        'plat-list-header__cell--active': col.sortable && sortKey === col.key,
+      }"
+      :aria-sort="
+        col.sortable && sortKey === col.key
+          ? sortDir === 'asc'
+            ? 'ascending'
+            : 'descending'
+          : 'none'
+      "
+      :tabindex="col.sortable ? 0 : -1"
+      :disabled="!col.sortable"
+      @click="handleClick(col)"
+    >
+      <span class="plat-list-header__label">{{ col.label }}</span>
+      <RIcon
+        v-if="col.sortable && sortKey === col.key"
+        :icon="sortDir === 'asc' ? 'mdi-arrow-up-thin' : 'mdi-arrow-down-thin'"
+        size="14"
+        class="plat-list-header__icon"
+      />
+    </button>
   </div>
 </template>
 
 <style scoped>
-/* Grid template kept in lock-step with PLATFORM_LIST_GRID_TEMPLATE in
-   platformListColumns.ts (the constant is exported for the index
-   view's narrative; the header / row apply it via CSS so the
-   breakpoint switch works without an inline-style override fight). */
 .plat-list-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 160px 130px 110px 96px;
+  grid-template-columns: minmax(0, 1fr) 160px 130px 110px 88px 96px;
   align-items: center;
   gap: 0 var(--r-space-3);
   padding: 0 var(--r-space-3);
@@ -50,25 +83,58 @@
 }
 
 .plat-list-header__cell {
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  height: 100%;
-}
-
-.plat-list-header__cell--end {
-  justify-content: flex-end;
-}
-
-.plat-list-header__label {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--r-color-fg-secondary);
   font-size: var(--r-font-size-xs);
   font-weight: var(--r-font-weight-bold);
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--r-color-fg-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--r-space-1);
+  min-width: 0;
+  height: 100%;
+  cursor: default;
+  text-align: start;
+  border-radius: var(--r-radius-sm);
+  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+
+.plat-list-header__cell--end {
+  justify-content: flex-end;
+  text-align: end;
+}
+.plat-list-header__cell--center {
+  justify-content: center;
+  text-align: center;
+}
+
+.plat-list-header__cell--sortable {
+  cursor: pointer;
+}
+
+.plat-list-header__cell--sortable:hover,
+.plat-list-header__cell--sortable:focus-visible {
+  color: var(--r-color-fg);
+}
+
+.plat-list-header__cell--active {
+  color: var(--r-color-fg);
+}
+
+.plat-list-header__label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.plat-list-header__icon {
+  flex-shrink: 0;
+  color: var(--r-color-brand-primary);
 }
 
 html[data-bp~="xs"] .plat-list-header {

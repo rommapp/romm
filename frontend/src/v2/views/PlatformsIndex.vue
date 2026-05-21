@@ -16,7 +16,7 @@
 // toolbar's mode is the user's intent, not a hard requirement.
 import { RDivider, RLetterHeading, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import GalleryToolbar, {
   type GroupByItem,
@@ -26,6 +26,7 @@ import PlatformListRow from "@/v2/components/Platforms/PlatformListRow.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 import {
   platformGenerationLabel,
+  type PlatformSortKey,
   prettifyPlatformCategory,
 } from "@/v2/components/Platforms/platformListColumns";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
@@ -33,6 +34,7 @@ import IndexShell from "@/v2/components/shared/IndexShell.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
+import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 
 const platformsStore = storePlatforms();
@@ -41,6 +43,70 @@ const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
 const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
 const searchTerm = useTileSearchUrl();
+const { isPlayable } = usePlatformPlayableChecker();
+
+// Pre-compute the playable flag per platform — sort comparator and
+// every row read this map so the column, the badge on the tile, and
+// the playable bucket all agree on a single source of truth.
+const playableById = computed(() => {
+  const fn = isPlayable.value;
+  const map = new Map<number | string, boolean>();
+  for (const p of filledPlatforms.value) map.set(p.id, fn(p.slug));
+  return map;
+});
+
+// Sort state — local to this view (the platforms index is small enough
+// that a URL round-trip is overkill; debt item if/when we make this
+// bookmarkable).
+const sortKey = ref<PlatformSortKey>("name");
+const sortDir = ref<"asc" | "desc">("asc");
+
+function onSort({ key, dir }: { key: PlatformSortKey; dir: "asc" | "desc" }) {
+  sortKey.value = key;
+  sortDir.value = dir;
+}
+
+// Comparator pulled out so the flat list and each bucket can share it.
+// `name` is the secondary tiebreaker for every other column so equal
+// values still land in a stable alphabetical order.
+function compare(a: Platform, b: Platform): number {
+  const dir = sortDir.value === "asc" ? 1 : -1;
+  const byName = a.display_name.localeCompare(b.display_name);
+  switch (sortKey.value) {
+    case "name":
+      return byName * dir;
+    case "family": {
+      const af = a.family_name ?? "";
+      const bf = b.family_name ?? "";
+      const cmp = af.localeCompare(bf);
+      return (cmp || byName) * dir;
+    }
+    case "category": {
+      const ac = a.category ?? "";
+      const bc = b.category ?? "";
+      const cmp = ac.localeCompare(bc);
+      return (cmp || byName) * dir;
+    }
+    case "generation": {
+      const ag = a.generation ?? -1;
+      const bg = b.generation ?? -1;
+      const cmp = ag - bg;
+      return (cmp || byName) * dir;
+    }
+    case "playable": {
+      const ap = playableById.value.get(a.id) ? 1 : 0;
+      const bp = playableById.value.get(b.id) ? 1 : 0;
+      const cmp = ap - bp;
+      return (cmp || byName) * dir;
+    }
+    case "rom_count": {
+      const ar = a.rom_count ?? 0;
+      const br = b.rom_count ?? 0;
+      const cmp = ar - br;
+      return (cmp || byName) * dir;
+    }
+  }
+}
 
 // Toolbar group-by items — order = visual order in the segmented
 // slider (28×28 each, so 5 items still fits the toolbar comfortably on
@@ -76,6 +142,12 @@ const platformGroupByItems: GroupByItem[] = [
     ariaLabel: "Group by generation",
     title: "Group by generation",
   },
+  {
+    id: "playable",
+    icon: "mdi-play-circle-outline",
+    ariaLabel: "Group by playable",
+    title: "Group by playable",
+  },
 ];
 
 onMounted(() => {
@@ -90,6 +162,13 @@ const filtered = computed<Platform[]>(() => {
   return filledPlatforms.value.filter((p) =>
     p.display_name.toLowerCase().includes(term),
   );
+});
+
+// Sorted view of the filtered list. Single source of truth feeding both
+// the flat layouts and the bucket builders (which preserve insertion
+// order, so items inside each bucket inherit this sort).
+const sorted = computed<Platform[]>(() => {
+  return [...filtered.value].sort(compare);
 });
 
 const totalCount = computed(() => filledPlatforms.value.length);
@@ -110,17 +189,15 @@ function bucketBy(
   pick: (p: Platform) => { key: string; label: string },
   sort: (a: Bucket, b: Bucket) => number,
 ): Bucket[] {
+  // `items` is pre-sorted by the active column (see `sorted` computed);
+  // Array.push + Map iteration both preserve insertion order, so items
+  // inside each bucket inherit that sort.
   const map = new Map<string, Bucket>();
   for (const p of items) {
     const { key, label } = pick(p);
     const bucket = map.get(key);
     if (bucket) bucket.items.push(p);
     else map.set(key, { key, label, items: [p] });
-  }
-  // Sort items inside each bucket alphabetically — the user reads each
-  // bucket as its own mini-grid and expects A→Z within it.
-  for (const bucket of map.values()) {
-    bucket.items.sort((a, b) => a.display_name.localeCompare(b.display_name));
   }
   return [...map.values()].sort(sort);
 }
@@ -130,7 +207,7 @@ function bucketBy(
 // section.
 const letterGroups = computed<Bucket[]>(() =>
   bucketBy(
-    filtered.value,
+    sorted.value,
     (p) => {
       const ch = p.display_name.charAt(0).toUpperCase();
       const key = /[A-Z]/.test(ch) ? ch : "#";
@@ -150,7 +227,7 @@ const letterGroups = computed<Bucket[]>(() =>
 // family land in "Other" and sort last.
 const familyGroups = computed<Bucket[]>(() =>
   bucketBy(
-    filtered.value,
+    sorted.value,
     (p) => {
       const slug = p.family_slug;
       const name = p.family_name;
@@ -171,7 +248,7 @@ const familyGroups = computed<Bucket[]>(() =>
 // label without altering the underlying key.
 const categoryGroups = computed<Bucket[]>(() =>
   bucketBy(
-    filtered.value,
+    sorted.value,
     (p) => {
       const c = p.category;
       if (c) return { key: c, label: prettifyPlatformCategory(c) };
@@ -190,7 +267,7 @@ const categoryGroups = computed<Bucket[]>(() =>
 // list-mode metadata column and the group heading agree word-for-word.
 const generationGroups = computed<Bucket[]>(() =>
   bucketBy(
-    filtered.value,
+    sorted.value,
     (p) => {
       const g = p.generation;
       if (typeof g === "number" && g > 0) {
@@ -210,6 +287,20 @@ const generationGroups = computed<Bucket[]>(() =>
   ),
 );
 
+// Playable buckets. Two groups in a fixed order ("Playable" first, then
+// "Not playable") so the user always sees the affirmative bucket on
+// top regardless of sort direction.
+const playableGroups = computed<Bucket[]>(() =>
+  bucketBy(
+    sorted.value,
+    (p) =>
+      playableById.value.get(p.id)
+        ? { key: "playable", label: "Playable" }
+        : { key: "not_playable", label: "Not playable" },
+    (a, b) => (a.key === "playable" ? -1 : b.key === "playable" ? 1 : 0),
+  ),
+);
+
 // Active bucket list per groupBy mode. When the chosen mode produces
 // only one group ("Other" / "Unknown"), the rendering still works —
 // it's just one labelled section, no different from a flat grid with
@@ -226,6 +317,8 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
       return categoryGroups.value;
     case "generation":
       return generationGroups.value;
+    case "playable":
+      return playableGroups.value;
     default:
       return null;
   }
@@ -254,7 +347,11 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
     </template>
 
     <template #listHeader>
-      <PlatformListHeader />
+      <PlatformListHeader
+        :sort-key="sortKey"
+        :sort-dir="sortDir"
+        @sort="onSort"
+      />
     </template>
 
     <div v-if="fetchingPlatforms && !totalCount" class="r-v2-pidx__grid">
@@ -284,7 +381,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
          would have separated them. -->
     <div v-else-if="layout === 'list'" class="r-v2-pidx__list">
       <PlatformListRow
-        v-for="p in filtered"
+        v-for="p in sorted"
         :key="p.id"
         :id="p.id"
         :slug="p.slug"
@@ -294,6 +391,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :family-name="p.family_name ?? null"
         :category="p.category ?? null"
         :generation="p.generation ?? null"
+        :playable="playableById.get(p.id) ?? false"
       />
     </div>
 
@@ -322,7 +420,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
     <!-- Grid mode, flat. -->
     <div v-else class="r-v2-pidx__grid">
       <PlatformTile
-        v-for="p in filtered"
+        v-for="p in sorted"
         :id="p.id"
         :key="p.id"
         :slug="p.slug"
