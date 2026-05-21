@@ -273,9 +273,7 @@ class TestFSRomsHandler:
             result = handler.exclude_multi_roms(roms)
             assert result == ["Game1", "Game2"]
 
-    def test_exclude_multi_roms_wildcard_patterns(
-        self, handler: FSRomsHandler, config
-    ):
+    def test_exclude_multi_roms_wildcard_patterns(self, handler: FSRomsHandler, config):
         """Test exclude_multi_roms keeps wildcard matching with normalized config"""
         roms = ["Game1", "Manuals", "manuals-fr", "Game2"]
         config.EXCLUDED_MULTI_FILES = ["  manuals* "]
