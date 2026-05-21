@@ -3,8 +3,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from handler.database import db_platform_handler, db_rom_handler
-from handler.metadata import meta_hasheous_handler, meta_playmatch_handler
+from handler.metadata import meta_hasheous_handler, meta_launchbox_handler, meta_playmatch_handler, meta_ra_handler
 from handler.metadata.hasheous_handler import HasheousRom
+from handler.metadata.launchbox_handler.types import LaunchboxRom
+from handler.metadata.ra_handler import RAGameRom
 from handler.scan_handler import MetadataSource, ScanType, scan_platform, scan_rom
 from models.platform import Platform
 from models.rom import Rom, RomFile
@@ -174,3 +176,219 @@ async def test_scan_rom_complete_clears_unselected_metadata(
     assert result.ra_metadata == {}
     # Hasheous is still selected and should remain populated.
     assert result.hasheous_id == 999
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ra_handler, "get_rom_by_id", new_callable=AsyncMock)
+@patch.object(meta_ra_handler, "get_rom", new_callable=AsyncMock)
+async def test_scan_rom_unmatched_fetches_ra_when_id_set_but_no_metadata(
+    mock_get_rom, mock_get_rom_by_id, mock_playmatch_enabled
+):
+    """UNMATCHED scan must fetch RA metadata when ra_id is set manually but
+    ra_metadata is empty (the user manually set the ID)."""
+    ra_result = RAGameRom(
+        ra_id=2774,
+        name="Jak and Daxter: The Precursor's Legacy",
+        url_cover="https://media.retroachievements.org/Images/jpg",
+        ra_metadata={"achievements_count": 60},
+    )
+    mock_get_rom_by_id.return_value = ra_result
+    mock_get_rom.return_value = RAGameRom(ra_id=None)
+
+    platform = Platform(
+        id=1,
+        slug="ps2",
+        fs_slug="ps2",
+        name="PlayStation 2",
+        igdb_id=8,
+        ra_id=21,
+    )
+    platform = db_platform_handler.add_platform(platform)
+
+    # ROM has ra_id set manually but no ra_metadata (never fetched before)
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Jak and Daxter.chd",
+        fs_name_no_tags="Jak and Daxter",
+        fs_name_no_ext="Jak and Daxter",
+        fs_extension="chd",
+        fs_path="ps2",
+        name="Jak and Daxter",
+        ra_id=2774,
+        ra_metadata={},  # empty - never fetched
+        fs_size_bytes=1024,
+        tags=[],
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.UNMATCHED,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Jak and Daxter.chd",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.RA],
+            newly_added=False,
+        )
+
+    # ra_id was set manually - get_rom_by_id should be called, not get_rom
+    mock_get_rom_by_id.assert_called_once()
+    mock_get_rom.assert_not_called()
+    assert result.ra_id == 2774
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ra_handler, "get_rom_by_id", new_callable=AsyncMock)
+@patch.object(meta_ra_handler, "get_rom", new_callable=AsyncMock)
+async def test_scan_rom_unmatched_skips_ra_when_id_and_metadata_exist(
+    mock_get_rom, mock_get_rom_by_id, mock_playmatch_enabled
+):
+    """UNMATCHED scan must NOT re-fetch RA metadata when both ra_id and
+    ra_metadata are already populated."""
+    mock_get_rom_by_id.return_value = RAGameRom(ra_id=None)
+    mock_get_rom.return_value = RAGameRom(ra_id=None)
+
+    platform = Platform(
+        id=1,
+        slug="ps2",
+        fs_slug="ps2",
+        name="PlayStation 2",
+        igdb_id=8,
+        ra_id=21,
+    )
+    platform = db_platform_handler.add_platform(platform)
+
+    # ROM has both ra_id and ra_metadata populated
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Jak and Daxter.chd",
+        fs_name_no_tags="Jak and Daxter",
+        fs_name_no_ext="Jak and Daxter",
+        fs_extension="chd",
+        fs_path="ps2",
+        name="Jak and Daxter",
+        ra_id=2774,
+        ra_metadata={"achievements_count": 60},  # already populated
+        fs_size_bytes=1024,
+        tags=[],
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.UNMATCHED,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Jak and Daxter.chd",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.RA],
+            newly_added=False,
+        )
+
+    # Both ID and metadata exist - should not re-fetch
+    mock_get_rom_by_id.assert_not_called()
+    mock_get_rom.assert_not_called()
+    # Existing ra_id should be preserved
+    assert result.ra_id == 2774
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_hasheous_handler, "get_ra_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "get_igdb_game", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_unmatched_hasheous_uses_existing_ids_on_hash_fail(
+    mock_lookup, mock_get_igdb, mock_get_ra, mock_playmatch_enabled
+):
+    """UNMATCHED scan: when Hasheous hash lookup fails but hasheous_id is set
+    manually, the existing sub-IDs (igdb_id, ra_id) are passed to the metadata
+    proxy calls so enrichment can still happen."""
+    # Hash lookup returns no match
+    mock_lookup.return_value = HasheousRom(
+        hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None
+    )
+    # get_igdb_game returns an enriched rom with name/cover
+    enriched = HasheousRom(
+        hasheous_id=262940,
+        igdb_id=4614,
+        tgdb_id=None,
+        ra_id=2774,
+        name="Jak and Daxter: The Precursor's Legacy",
+        url_cover="https://example.com/cover.jpg",
+    )
+    mock_get_igdb.return_value = enriched
+    mock_get_ra.return_value = enriched
+
+    platform = Platform(
+        id=1,
+        slug="ps2",
+        fs_slug="ps2",
+        name="PlayStation 2",
+        igdb_id=8,
+        hasheous_id=87,
+        ra_id=21,
+    )
+    platform = db_platform_handler.add_platform(platform)
+
+    # ROM has hasheous_id set manually, with sub-IDs also set, but no metadata
+    rom = Rom(
+        platform_id=platform.id,
+        fs_name="Jak and Daxter.chd",
+        fs_name_no_tags="Jak and Daxter",
+        fs_name_no_ext="Jak and Daxter",
+        fs_extension="chd",
+        fs_path="ps2",
+        name="Jak and Daxter",
+        hasheous_id=262940,
+        hasheous_metadata={},  # empty
+        igdb_id=4614,
+        ra_id=2774,
+        fs_size_bytes=1024,
+        tags=[],
+    )
+    rom = db_rom_handler.add_rom(rom)
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.UNMATCHED,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Jak and Daxter.chd",
+                "flat": True,
+                "nested": False,
+                "files": [],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.HASHEOUS],
+            newly_added=False,
+        )
+
+    # Hash lookup was attempted
+    mock_lookup.assert_called_once()
+    # get_igdb_game was called with the partial HasheousRom built from existing IDs
+    mock_get_igdb.assert_called_once()
+    called_arg = mock_get_igdb.call_args[0][0]
+    assert called_arg.get("hasheous_id") == 262940
+    assert called_arg.get("igdb_id") == 4614
+    # hasheous_id should be set in the result
+    assert result.hasheous_id == 262940

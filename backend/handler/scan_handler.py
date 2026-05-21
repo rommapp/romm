@@ -412,14 +412,28 @@ async def scan_rom(
                 or (scan_type == ScanType.UPDATE and rom.hasheous_id)
                 or (
                     scan_type == ScanType.UNMATCHED
-                    and not rom.hasheous_id
+                    and (not rom.hasheous_id or not rom.hasheous_metadata)
                     and rom.platform_slug in HASHEOUS_PLATFORM_LIST
                 )
             )
         ):
-            return await meta_hasheous_handler.lookup_rom(
+            result = await meta_hasheous_handler.lookup_rom(
                 platform.slug, fs_rom["files"] or rom.files
             )
+            if result.get("hasheous_id"):
+                return result
+
+            # Hash lookup failed - if rom already has a hasheous_id set (e.g. manually),
+            # return a partial HasheousRom so downstream handlers can still use the
+            # existing IDs to fetch metadata. Only do this for existing roms (not newly
+            # added) to avoid missing required fields like `name` in rom_attrs.
+            if not newly_added and rom.hasheous_id:
+                return HasheousRom(
+                    hasheous_id=rom.hasheous_id,
+                    igdb_id=rom.igdb_id,
+                    ra_id=rom.ra_id,
+                    tgdb_id=rom.tgdb_id,
+                )
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
@@ -463,11 +477,15 @@ async def scan_rom(
                 or (scan_type == ScanType.UPDATE and rom.igdb_id)
                 or (
                     scan_type == ScanType.UNMATCHED
-                    and not rom.igdb_id
+                    and (not rom.igdb_id or not rom.igdb_metadata)
                     and rom.platform_slug in IGDB_PLATFORM_LIST
                 )
             )
         ):
+            # If the ID is already set (e.g. manually) but metadata is missing, fetch directly
+            if scan_type == ScanType.UNMATCHED and rom.igdb_id and not rom.igdb_metadata:
+                return await meta_igdb_handler.get_rom_by_id(rom, rom.igdb_id)
+
             # Use Hasheous match to get the IGDB ID
             h_igdb_id = hasheous_rom.get("igdb_id")
             if h_igdb_id:
@@ -509,7 +527,10 @@ async def scan_rom(
             newly_added
             or scan_type == ScanType.COMPLETE
             or (scan_type == ScanType.UPDATE and rom.gamelist_id)
-            or (scan_type == ScanType.UNMATCHED and not rom.gamelist_id)
+            or (
+                scan_type == ScanType.UNMATCHED
+                and (not rom.gamelist_id or not rom.gamelist_metadata)
+            )
         ):
             return await meta_gamelist_handler.get_rom(
                 rom_attrs["fs_name"], platform, rom
@@ -527,12 +548,16 @@ async def scan_rom(
                 or (scan_type == ScanType.UPDATE and rom.flashpoint_id)
                 or (
                     scan_type == ScanType.UNMATCHED
-                    and not rom.flashpoint_id
+                    and (not rom.flashpoint_id or not rom.flashpoint_metadata)
                     and platform.slug in FLASHPOINT_PLATFORM_LIST
                 )
             )
         ):
-            if scan_type == ScanType.UPDATE and rom.flashpoint_id:
+            if (scan_type == ScanType.UPDATE and rom.flashpoint_id) or (
+                scan_type == ScanType.UNMATCHED
+                and rom.flashpoint_id
+                and not rom.flashpoint_metadata
+            ):
                 return await meta_flashpoint_handler.get_rom_by_id(rom.flashpoint_id)
             else:
                 return await meta_flashpoint_handler.get_rom(
@@ -549,7 +574,10 @@ async def scan_rom(
                 newly_added
                 or scan_type == ScanType.COMPLETE
                 or (scan_type == ScanType.UPDATE and rom.libretro_id)
-                or (scan_type == ScanType.UNMATCHED and not rom.libretro_id)
+                or (
+                    scan_type == ScanType.UNMATCHED
+                    and not rom.libretro_id
+                )
             )
         ):
             return await meta_libretro_handler.get_rom(
@@ -566,7 +594,10 @@ async def scan_rom(
                 newly_added
                 or scan_type == ScanType.COMPLETE
                 or (scan_type == ScanType.UPDATE and rom.hltb_id)
-                or (scan_type == ScanType.UNMATCHED and not rom.hltb_id)
+                or (
+                    scan_type == ScanType.UNMATCHED
+                    and (not rom.hltb_id or not rom.hltb_metadata)
+                )
             )
         ):
             return await meta_hltb_handler.get_rom(rom_attrs["fs_name"], platform.slug)
@@ -583,12 +614,16 @@ async def scan_rom(
                 or (scan_type == ScanType.UPDATE and rom.moby_id)
                 or (
                     scan_type == ScanType.UNMATCHED
-                    and not rom.moby_id
+                    and (not rom.moby_id or not rom.moby_metadata)
                     and rom.platform_slug in MOBYGAMES_PLATFORM_LIST
                 )
             )
         ):
             if scan_type == ScanType.UPDATE and rom.moby_id:
+                return await meta_moby_handler.get_rom_by_id(rom.moby_id)
+
+            # If the ID is already set (e.g. manually) but metadata is missing, fetch directly
+            if scan_type == ScanType.UNMATCHED and rom.moby_id and not rom.moby_metadata:
                 return await meta_moby_handler.get_rom_by_id(rom.moby_id)
 
             if playmatch_rom["moby_id"] is not None:
@@ -615,13 +650,17 @@ async def scan_rom(
                 or (scan_type == ScanType.UPDATE and rom.ss_id)
                 or (
                     scan_type == ScanType.UNMATCHED
-                    and not rom.ss_id
+                    and (not rom.ss_id or not rom.ss_metadata)
                     and rom.platform_slug in SCREENSAVER_PLATFORM_LIST
                 )
             )
         ):
             # Use the ID to refetch metadata
             if scan_type == ScanType.UPDATE and rom.ss_id:
+                return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
+
+            # If the ID is already set (e.g. manually) but metadata is missing, fetch directly
+            if scan_type == ScanType.UNMATCHED and rom.ss_id and not rom.ss_metadata:
                 return await meta_ss_handler.get_rom_by_id(rom, rom.ss_id)
 
             # Use Playmatch's hash-based id when available
@@ -656,7 +695,7 @@ async def scan_rom(
             or (scan_type == ScanType.UPDATE and rom.launchbox_id)
             or (
                 scan_type == ScanType.UNMATCHED
-                and not rom.launchbox_id
+                and (not rom.launchbox_id or not rom.launchbox_metadata)
                 and rom.platform_slug in LAUNCHBOX_PLATFORM_LIST
             )
         ):
@@ -665,6 +704,19 @@ async def scan_rom(
                 and rom.launchbox_id
                 and launchbox_remote_enabled
             ):
+                launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
+                    rom.launchbox_id,
+                    remote_enabled=True,
+                    fs_name=rom_attrs["fs_name"],
+                    platform_slug=platform_slug,
+                )
+            elif (
+                scan_type == ScanType.UNMATCHED
+                and rom.launchbox_id
+                and not rom.launchbox_metadata
+                and launchbox_remote_enabled
+            ):
+                # ID was set manually but metadata was never fetched
                 launchbox_rom = await meta_launchbox_handler.get_rom_by_id(
                     rom.launchbox_id,
                     remote_enabled=True,
@@ -709,7 +761,7 @@ async def scan_rom(
                 or (scan_type == ScanType.UPDATE and rom.ra_id)
                 or (
                     scan_type == ScanType.UNMATCHED
-                    and not rom.ra_id
+                    and (not rom.ra_id or not rom.ra_metadata)
                     and rom.platform_slug in RA_PLATFORM_LIST
                 )
             )
@@ -724,7 +776,9 @@ async def scan_rom(
                 )
                 return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
 
-            if scan_type == ScanType.UPDATE and rom.ra_id:
+            if (scan_type == ScanType.UPDATE and rom.ra_id) or (
+                scan_type == ScanType.UNMATCHED and rom.ra_id and not rom.ra_metadata
+            ):
                 return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=rom.ra_id)
             else:
                 return await meta_ra_handler.get_rom(
@@ -743,7 +797,7 @@ async def scan_rom(
                 or (scan_type == ScanType.UPDATE and rom.hasheous_id)
                 or (
                     scan_type == ScanType.UNMATCHED
-                    and not rom.hasheous_id
+                    and (not rom.hasheous_id or not rom.hasheous_metadata)
                     and rom.platform_slug in HASHEOUS_PLATFORM_LIST
                 )
             )
