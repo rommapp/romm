@@ -374,10 +374,17 @@ class FSRomsHandler(FSHandler):
 
     def exclude_multi_roms(self, roms: list[str]) -> list[str]:
         excluded_names = cm.get_config().EXCLUDED_MULTI_FILES
-        filtered_files: list = []
+        normalized_excluded = {
+            excluded_name.strip().lower() for excluded_name in excluded_names
+        }
+        filtered_files: list[str] = []
 
         for rom in roms:
-            if rom in excluded_names:
+            normalized_rom_name = rom.strip().lower()
+            if normalized_rom_name in normalized_excluded or any(
+                fnmatch.fnmatch(normalized_rom_name, exc_name.strip().lower())
+                for exc_name in excluded_names
+            ):
                 filtered_files.append(rom)
 
         return [f for f in roms if f not in filtered_files]
