@@ -74,23 +74,27 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
 </script>
 
 <template>
-  <RDialog
-    v-model="open"
-    max-width="440"
-    persistent
-    @after-leave="payload = null"
-  >
-    <div v-if="payload" class="r-confirm">
-      <h2 class="r-confirm__title">{{ payload.title }}</h2>
-      <p v-if="payload.body" class="r-confirm__body">{{ payload.body }}</p>
+  <RDialog v-model="open" width="440" persistent>
+    <template v-if="payload" #header>
+      <span>{{ payload.title }}</span>
+    </template>
+    <template v-if="payload" #content>
+      <div class="r-confirm">
+        <p v-if="payload.body" class="r-confirm__body">{{ payload.body }}</p>
 
-      <div v-if="payload.requireTyped" class="r-confirm__typed">
-        <p class="r-confirm__typed-hint">
-          Type <strong>{{ payload.requireTyped }}</strong> to confirm.
-        </p>
-        <RTextField v-model="typed" density="comfortable" variant="outlined" />
+        <div v-if="payload.requireTyped" class="r-confirm__typed">
+          <p class="r-confirm__typed-hint">
+            Type <strong>{{ payload.requireTyped }}</strong> to confirm.
+          </p>
+          <RTextField
+            v-model="typed"
+            density="comfortable"
+            variant="outlined"
+          />
+        </div>
       </div>
-
+    </template>
+    <template v-if="payload" #footer>
       <div class="r-confirm__actions">
         <RBtn ref="cancelButtonRef" variant="text" @click="onCancel">
           {{ payload.cancelText ?? "Cancel" }}
@@ -103,7 +107,7 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
           {{ payload.confirmText ?? "Confirm" }}
         </RBtn>
       </div>
-    </div>
+    </template>
   </RDialog>
 </template>
 
@@ -112,13 +116,6 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
   display: flex;
   flex-direction: column;
   gap: var(--r-space-4);
-  padding: var(--r-space-2);
-}
-
-.r-confirm__title {
-  font-size: var(--r-font-size-xl);
-  font-weight: var(--r-font-weight-semibold);
-  margin: 0;
 }
 
 .r-confirm__body {
@@ -149,6 +146,6 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
   display: flex;
   justify-content: flex-end;
   gap: var(--r-space-2);
-  margin-top: var(--r-space-2);
+  width: 100%;
 }
 </style>

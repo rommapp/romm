@@ -9,8 +9,9 @@ import { RTabNav, type RTabNavItem } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
+import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame } from "@/__generated__";
+import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
@@ -37,6 +38,32 @@ const { toWebp } = useWebpSupport();
 const { locale } = useI18n();
 
 const setBgArt = useBackgroundArt();
+
+// Param-change navigation guard — the route's `beforeEnter` in
+// `plugins/router.ts` only fires on initial entry; navigating between
+// `/rom/123` and `/rom/456` reuses this component, so currentRom
+// would stay stale (e.g. clicking an "Owned" related game card
+// wouldn't refresh the view). Mirror the beforeEnter logic here for
+// param updates, then scroll the panel back to the top so the new
+// ROM's overview doesn't start halfway down where the user clicked.
+const panelEl = ref<HTMLElement | null>(null);
+onBeforeRouteUpdate(async (to) => {
+  const nextId = parseInt(to.params.rom as string);
+  if (Number.isNaN(nextId)) return;
+  const sameRom = romsStore.currentRom?.id === nextId;
+  if (!sameRom) {
+    try {
+      const { data } = await romApi.getRom({ romId: nextId });
+      romsStore.setCurrentRom(data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+  // Reset the per-view scroll on every navigation (even if the
+  // currentRom hasn't changed — e.g. re-entering the same ROM from
+  // its own page): the panel is the sole scroll context here.
+  panelEl.value?.scrollTo({ top: 0, behavior: "smooth" });
+});
 
 // Active tab — URL-persistent via `?tab=`.
 const tab = ref<string>((route.query.tab as string) || "overview");
@@ -224,7 +251,7 @@ const tabs = computed<RTabNavItem[]>(() => [
 
         <RTabNav v-model="tab" :items="tabs" class="r-v2-det__tabs" />
 
-        <div class="r-v2-det__panel">
+        <div ref="panelEl" class="r-v2-det__panel">
           <OverviewTab
             v-if="tab === 'overview'"
             :rom="currentRom"

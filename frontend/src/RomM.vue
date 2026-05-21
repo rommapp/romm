@@ -115,7 +115,11 @@ watch(
       </router-view>
       <router-view v-else name="v2" />
     </v-main>
-    <SoundtrackMiniPlayer />
+    <!-- v1 only: in v2 the soundtrack mini-player is mounted from
+         the v2 AppLayout (`Soundtrack/MiniPlayer.vue`) so it can use
+         v2 primitives + tokens. Two mini-players would race for the
+         audio element. -->
+    <SoundtrackMiniPlayer v-if="!isV2" />
   </v-app>
 </template>
 

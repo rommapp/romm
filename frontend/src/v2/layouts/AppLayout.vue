@@ -16,6 +16,7 @@ import storePlatforms from "@/stores/platforms";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
 import GlobalDialogs from "@/v2/components/Dialogs/GlobalDialogs.vue";
+import SoundtrackMiniPlayer from "@/v2/components/Soundtrack/MiniPlayer.vue";
 import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
 import { installBreakpointAttribute } from "@/v2/composables/useBreakpoint";
 import { installPermissionsHydration } from "@/v2/composables/useCan";
@@ -131,6 +132,7 @@ onBeforeUnmount(() => {
     </div>
 
     <GlobalDialogs />
+    <SoundtrackMiniPlayer />
   </div>
 </template>
 

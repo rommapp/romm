@@ -32,11 +32,12 @@ import useSoundtrackPlayer, {
 import { FRONTEND_RESOURCES_PATH, formatBytes } from "@/utils";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
-// The volume/mute control widget is v1 code; it writes straight to the
-// shared store so it Just Works inside our panel too. Lazy-load it so the
-// panel can ship without bringing v-slider-eager into the initial chunk.
+// Volume / mute widget — v2 native (RMenu + RSlider + RBtn). The
+// shared `useSoundtrackPlayer` store owns the volume / muted state so
+// the same widget can sit in the mini-player too without needing a
+// local model.
 const VolumeControl = defineAsyncComponent(
-  () => import("@/components/common/VolumeControl.vue"),
+  () => import("@/v2/components/Soundtrack/VolumeControl.vue"),
 );
 
 const props = defineProps<{ rom: DetailedRom }>();
@@ -306,6 +307,18 @@ function onDelete(fileId: number) {
   emit("delete-track", fileId);
 }
 
+// Mirror the saves/states pattern: synthesize an anchor click against
+// the file content endpoint so the browser routes the download with
+// the original filename instead of opening it in a new tab.
+function downloadTrack(track: { id: number; file_name: string }) {
+  const a = document.createElement("a");
+  a.href = fileUrl(track.id, track.file_name);
+  a.download = track.file_name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 // ---------- Formatters ----------
 function fmt(s: number | undefined | null) {
   if (s == null || !Number.isFinite(s) || s < 0) return "0:00";
@@ -383,9 +396,11 @@ function seekValueText(v: number): string {
       </div>
     </header>
 
-    <!-- Controls (only meaningful with an active track) -->
+    <!-- Transport controls — always rendered so the surface keeps its
+         vocabulary even before the user picks a track. Buttons that
+         can't act without a track go disabled; the volume slider stays
+         live because it controls the shared mute / level regardless. -->
     <div
-      v-if="activeTrack"
       class="r-v2-stp__controls"
       role="region"
       aria-label="Soundtrack player"
@@ -395,12 +410,15 @@ function seekValueText(v: number): string {
         size="small"
         :disabled="!hasPrevious"
         prepend-icon="mdi-skip-previous"
+        aria-label="Previous track"
         @click="player.previous()"
       />
       <RBtn
         variant="text"
-        size="large"
+        size="small"
+        :disabled="!activeTrack"
         :prepend-icon="isPlaying ? 'mdi-pause-circle' : 'mdi-play-circle'"
+        :aria-label="isPlaying ? 'Pause' : 'Play'"
         @click="player.togglePlayPause()"
       />
       <RBtn
@@ -408,6 +426,7 @@ function seekValueText(v: number): string {
         size="small"
         :disabled="!hasNext"
         prepend-icon="mdi-skip-next"
+        aria-label="Next track"
         @click="player.next()"
       />
       <span class="r-v2-stp__time">{{ fmt(currentTime) }}</span>
@@ -415,6 +434,7 @@ function seekValueText(v: number): string {
         :model-value="currentTime"
         :max="duration || 0"
         :step="0.1"
+        :disabled="!activeTrack"
         color="primary"
         class="r-v2-stp__slider"
         aria-label="Seek"
@@ -424,7 +444,7 @@ function seekValueText(v: number): string {
       <span class="r-v2-stp__time r-v2-stp__time--right">
         {{ fmt(duration) }}
       </span>
-      <VolumeControl btn-size="small" />
+      <VolumeControl size="small" />
     </div>
 
     <!-- Track list -->
@@ -507,11 +527,18 @@ function seekValueText(v: number): string {
             {{ formatBytes(track.file_size_bytes) }}
           </span>
           <RBtn
+            icon="mdi-download-outline"
             variant="text"
-            size="x-small"
+            size="small"
+            :aria-label="`Download ${trackTitleFor(track.id, track.file_name)}`"
+            @click.stop="downloadTrack(track)"
+          />
+          <RBtn
+            icon="mdi-delete-outline"
+            variant="text"
+            size="small"
             color="romm-red"
-            prepend-icon="mdi-delete"
-            aria-label="Delete track"
+            :aria-label="`Delete ${trackTitleFor(track.id, track.file_name)}`"
             @click.stop="onDelete(track.id)"
           />
         </div>

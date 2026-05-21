@@ -47,10 +47,15 @@ defineProps<{
    layout: the column would compute below 158px on narrow viewports
    and the cards would overflow into the next column. Flex-wrap lets
    each card keep its native width and wrap on the available width
-   without inducing a horizontal scrollbar on the overview panel. */
+   without inducing a horizontal scrollbar on the overview panel.
+   Horizontal padding gives the cover hover-scale (1.05) room to
+   render past the leftmost card before the surrounding scroll
+   container clips it (it has `overflow-y: auto`, which clips on
+   X too per the CSS spec). */
 .r-v2-related__grid {
   display: flex;
   flex-wrap: wrap;
   gap: 20px 16px;
+  padding: 6px 6px 4px;
 }
 </style>

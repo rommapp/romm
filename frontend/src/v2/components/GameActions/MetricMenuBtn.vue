@@ -206,6 +206,7 @@ function clear() {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 10px;
 }
 .r-v2-metric-menu__header {
   display: flex;

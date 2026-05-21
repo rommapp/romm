@@ -58,6 +58,11 @@ function close() {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 10px;
+  /* Horizontal padding gives the hover-scale (1.02) + drop shadow
+     room to render past the leftmost / rightmost thumbnail before
+     the overview's scroll container clips them (it has `overflow-y:
+     auto`, which clips on X too per the CSS spec). */
+  padding: 6px 6px 4px;
 }
 
 .r-v2-det-shots__item {

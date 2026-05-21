@@ -22,6 +22,7 @@ import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 const PdfViewer = defineAsyncComponent(
@@ -43,6 +44,7 @@ function errorMessage(err: unknown): string {
 const props = defineProps<{ rom: DetailedRom }>();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
+const confirm = useConfirm();
 const romsStore = storeRoms();
 const uploadStore = storeUpload();
 
@@ -300,6 +302,17 @@ function requestDeleteManual() {
 }
 
 async function deleteSoundtrack(fileId: number) {
+  // Mirrors the saves/states pattern in SaveDataTab — every destructive
+  // per-row action confirms before hitting the API.
+  const track = (props.rom.files ?? []).find((f) => f.id === fileId);
+  const name = track?.file_name ?? "this track";
+  const ok = await confirm({
+    title: "Delete track?",
+    body: `"${name}" will be removed from this ROM and from the file system. This can't be undone.`,
+    confirmText: "Delete track",
+    tone: "danger",
+  });
+  if (!ok) return;
   try {
     await romApi.removeSoundtrack({ romId: props.rom.id, fileId });
     await refreshRom();
@@ -428,13 +441,12 @@ async function deleteSoundtrack(fileId: number) {
                 "
               >
                 <RBtn
-                  size="small"
                   variant="outlined"
                   prepend-icon="mdi-cloud-upload-outline"
                   block
                   @click="triggerSoundtrackUpload"
                 >
-                  Upload tracks
+                  Upload
                 </RBtn>
               </template>
             </div>
