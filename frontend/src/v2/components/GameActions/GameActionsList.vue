@@ -30,7 +30,12 @@ function run(fn: () => void | Promise<void>) {
 
 <template>
   <!-- Primary actions -->
-  <RMenuItem label="Play" icon="mdi-play" @click="run(actions.play)" />
+  <RMenuItem
+    v-if="actions.canPlay.value"
+    label="Play"
+    icon="mdi-play"
+    @click="run(actions.play)"
+  />
   <RMenuItem
     label="Download"
     icon="mdi-download-outline"

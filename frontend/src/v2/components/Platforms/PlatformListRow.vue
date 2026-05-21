@@ -9,10 +9,13 @@
 import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
+import { usePlatformPlayable } from "@/v2/composables/usePlatformPlayable";
 import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
+import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 import {
   platformGenerationLabel,
   prettifyPlatformCategory,
@@ -64,6 +67,8 @@ const generationLabel = computed(() =>
     : null,
 );
 
+const { playable } = usePlatformPlayable(() => props.slug);
+
 function onRowClick(e: MouseEvent) {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
     return;
@@ -90,7 +95,16 @@ function onRowClick(e: MouseEvent) {
           :fs-slug="fsSlug"
           :alt="displayName"
           :size="40"
+          :show-tooltip="false"
         />
+        <span v-if="playable" class="plat-list-row__playable">
+          <RIcon icon="mdi-play-circle" size="14" />
+          <RTooltip
+            activator="parent"
+            text="Playable in browser"
+            location="top"
+          />
+        </span>
       </div>
       <div class="plat-list-row__meta">
         <div class="plat-list-row__name">{{ displayName }}</div>
@@ -182,6 +196,7 @@ function onRowClick(e: MouseEvent) {
 }
 
 .plat-list-row__thumb {
+  position: relative;
   width: var(--r-list-cover-w);
   height: var(--r-list-cover-w);
   flex-shrink: 0;
@@ -190,6 +205,21 @@ function onRowClick(e: MouseEvent) {
   display: grid;
   place-items: center;
   opacity: 0.9;
+}
+
+.plat-list-row__playable {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--r-color-bg);
+  color: var(--r-color-success);
+  box-shadow: 0 0 0 2px var(--r-color-bg);
 }
 
 .plat-list-row__meta {

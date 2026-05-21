@@ -13,7 +13,6 @@ import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import type { IGDBRelatedGame } from "@/__generated__";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import { toBrowserLocale } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
@@ -31,7 +30,6 @@ import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 const route = useRoute();
 const router = useRouter();
 const romsStore = storeRoms();
-const heartbeatStore = storeHeartbeat();
 const authStore = storeAuth();
 const { currentRom } = storeToRefs(romsStore);
 const { toWebp } = useWebpSupport();
@@ -142,11 +140,6 @@ watch(
   { immediate: true },
 );
 
-const canPlayEJS = computed(() => {
-  const emu = heartbeatStore.value?.EMULATION;
-  return Boolean(emu && !emu.DISABLE_EMULATOR_JS);
-});
-
 const lastPlayed = computed(() => {
   const ts = currentRom.value?.rom_user?.last_played;
   if (!ts) return null;
@@ -246,7 +239,6 @@ const tabs = computed<RTabNavItem[]>(() => [
           :regions="regions"
           :languages="languages"
           :tags="tags"
-          :can-play="canPlayEJS"
         />
 
         <RTabNav v-model="tab" :items="tabs" class="r-v2-det__tabs" />

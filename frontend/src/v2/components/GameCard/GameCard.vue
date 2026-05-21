@@ -407,7 +407,12 @@ const morphStyle = computed(() => {
         <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
-            <GameActionBtn :rom="rom" action="play" variant="emphasized" />
+            <GameActionBtn
+              v-if="actions.canPlay.value"
+              :rom="rom"
+              action="play"
+              variant="emphasized"
+            />
           </div>
 
           <div class="r-gc__overlay-bottom">

@@ -20,7 +20,6 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
   rom: SimpleRom;
-  canPlay: boolean;
 }>();
 
 const romRef = toRef(props, "rom");
@@ -30,7 +29,7 @@ const actions = useGameActions(() => romRef.value);
 <template>
   <div class="game-actions">
     <GameActionBtn
-      v-if="canPlay"
+      v-if="actions.canPlay.value"
       :rom="rom"
       action="play"
       size="large"

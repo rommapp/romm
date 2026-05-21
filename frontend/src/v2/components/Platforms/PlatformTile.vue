@@ -5,10 +5,13 @@
 import { RPlatformIcon } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
+import { usePlatformPlayable } from "@/v2/composables/usePlatformPlayable";
 import {
   pendingMorphName,
   useViewTransition,
 } from "@/v2/composables/useViewTransition";
+import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -65,6 +68,8 @@ const morphStyle = computed(() =>
     ? { viewTransitionName: morphName.value }
     : undefined,
 );
+
+const { playable } = usePlatformPlayable(() => props.slug);
 </script>
 
 <template>
@@ -81,8 +86,13 @@ const morphStyle = computed(() =>
         :fs-slug="fsSlug"
         :alt="displayName"
         :size="72"
+        :show-tooltip="false"
       />
     </div>
+    <span v-if="playable" class="plat-tile__playable">
+      <RIcon icon="mdi-play-circle" size="16" />
+      <RTooltip activator="parent" text="Playable in browser" location="top" />
+    </span>
     <div class="plat-tile__name">
       {{ displayName }}
     </div>
@@ -94,6 +104,7 @@ const morphStyle = computed(() =>
 
 <style scoped>
 .plat-tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -141,6 +152,16 @@ const morphStyle = computed(() =>
   place-items: center;
   opacity: 0.9;
   transition: opacity var(--r-motion-fast);
+}
+
+.plat-tile__playable {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--r-color-success);
 }
 
 .plat-tile:hover .plat-tile__icon {

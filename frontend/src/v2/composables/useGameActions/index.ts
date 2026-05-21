@@ -21,6 +21,7 @@ import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
 import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
+import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 export function useGameActions(getRom: () => SimpleRom | null | undefined) {
@@ -30,6 +31,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
   const collectionsStore = storeCollections();
   const romsStore = storeRoms();
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
+  const { canPlay, canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
 
   const isFavorited = computed(() => {
     const rom = getRom();
@@ -151,7 +153,11 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
   function play() {
     const rom = getRom();
     if (!rom) return;
-    router.push(`/rom/${rom.id}/ejs`);
+    if (canPlayEJS.value) {
+      router.push(`/rom/${rom.id}/ejs`);
+    } else if (canPlayRuffle.value) {
+      router.push(`/rom/${rom.id}/ruffle`);
+    }
   }
 
   const platformPath = computed(() => {
@@ -268,6 +274,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     isFavorited,
     canManageCollections,
     canShareQR,
+    canPlay,
     currentStatusKey,
     setStatus,
     setStatusEnum,

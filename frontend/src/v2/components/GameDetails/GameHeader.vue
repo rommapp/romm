@@ -24,7 +24,6 @@ const props = defineProps<{
   regions: string[];
   languages: string[];
   tags: string[];
-  canPlay: boolean;
 }>();
 
 const actions = useGameActions(() => props.rom);
@@ -91,7 +90,7 @@ const actions = useGameActions(() => props.rom);
       <RTag v-for="t in tags" :key="`t-${t}`" :text="t" size="small" />
     </div>
 
-    <GameActions :rom="rom" :can-play="canPlay" />
+    <GameActions :rom="rom" />
   </div>
 </template>
 
