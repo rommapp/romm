@@ -462,6 +462,7 @@ class IGDBHandler(MetadataHandler):
                 GameType.PORT,
                 GameType.REMAKE,
                 GameType.REMASTER,
+                GameType.STANDALONE_EXPANSION,
             )
             game_type_filter = f"& game_type=({','.join(map(str, categories))})"
         else:
@@ -510,13 +511,21 @@ class IGDBHandler(MetadataHandler):
         )
 
         if roms_expanded:
-            log.debug(
-                "Searching expanded in games endpoint for expanded game %s",
-                roms_expanded[0]["game"],
+            # Collect all unique game IDs from the expanded search results
+            unique_game_ids = list(
+                dict.fromkeys(
+                    r["game"]["id"] for r in roms_expanded if r.get("game")
+                )
             )
+            log.debug(
+                "Searching expanded in games endpoint for %d candidate game(s): %s",
+                len(unique_game_ids),
+                unique_game_ids,
+            )
+            id_filter = " | ".join(f"id={gid}" for gid in unique_game_ids)
             extra_roms = await self.igdb_service.list_games(
                 fields=GAMES_FIELDS,
-                where=f"id={roms_expanded[0]['game']['id']}",
+                where=f"({id_filter})",
                 limit=self.pagination_limit,
             )
 
