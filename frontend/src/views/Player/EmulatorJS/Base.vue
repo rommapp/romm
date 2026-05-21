@@ -56,6 +56,12 @@ const compatibleStates = computed(
       (s) => !s.emulator || s.emulator === selectedCore.value,
     ) ?? [],
 );
+const discFiles = computed(
+  () =>
+    rom.value?.files.filter(
+      (file) => !file.file_name.toLowerCase().endsWith(".m3u"),
+    ) ?? [],
+);
 
 async function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {
@@ -218,11 +224,11 @@ onMounted(async () => {
 
   const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
   const storedDiscId = storedDisc ? parseInt(storedDisc) : null;
-  if (storedDiscId && rom.value.files.some((f) => f.id === storedDiscId)) {
+  if (storedDiscId && discFiles.value.some((f) => f.id === storedDiscId)) {
     selectedDisc.value = storedDiscId;
   } else {
     if (storedDisc) localStorage.removeItem(`player:${rom.value.id}:disc`);
-    selectedDisc.value = rom.value.files[0]?.id ?? null;
+    selectedDisc.value = discFiles.value[0]?.id ?? null;
   }
 
   const storedCore = localStorage.getItem(
@@ -447,7 +453,7 @@ function openCacheDialog() {
               <!-- Configuration Section -->
               <!-- Disc Selector -->
               <v-select
-                v-if="rom.files.length > 1"
+                v-if="discFiles.length > 1"
                 v-model="selectedDisc"
                 class="mb-3"
                 hide-details
@@ -457,7 +463,7 @@ function openCacheDialog() {
                 clearable
                 :label="t('rom.file')"
                 :items="
-                  rom.files.map((f) => ({
+                  discFiles.map((f) => ({
                     title: f.file_name,
                     value: f.id,
                   }))
@@ -503,7 +509,7 @@ function openCacheDialog() {
 
               <v-divider
                 v-if="
-                  rom.files.length > 1 ||
+                  discFiles.length > 1 ||
                   supportedCores.length > 1 ||
                   firmwareOptions.length > 0
                 "

@@ -382,6 +382,58 @@ class FSRomsHandler(FSHandler):
 
         return [f for f in roms if f not in filtered_files]
 
+    def _iter_m3u_referenced_paths(self, abs_fs_path: Path, m3u_file_name: str) -> Iterator[Path]:
+        m3u_path = Path(abs_fs_path, m3u_file_name)
+        if not m3u_path.is_file():
+            return
+
+        try:
+            lines = m3u_path.read_text(encoding="utf-8-sig", errors="ignore").splitlines()
+        except OSError:
+            return
+
+        base_path = abs_fs_path.resolve()
+        for line in lines:
+            entry = line.strip()
+            if not entry or entry.startswith("#"):
+                continue
+
+            ref_path = Path(entry)
+            resolved_path = (
+                ref_path if ref_path.is_absolute() else (m3u_path.parent / ref_path)
+            ).resolve()
+
+            try:
+                resolved_path.relative_to(base_path)
+            except ValueError:
+                continue
+
+            if resolved_path.exists():
+                yield resolved_path
+
+    def _get_m3u_exclusions(
+        self, abs_fs_path: Path, fs_single_roms: list[str], fs_multi_roms: list[str]
+    ) -> tuple[set[str], set[str]]:
+        excluded_single_roms: set[str] = set()
+        excluded_multi_roms: set[str] = set()
+
+        multi_rom_set = set(fs_multi_roms)
+        single_rom_set = set(fs_single_roms)
+
+        for rom_name in fs_single_roms:
+            if not rom_name.lower().endswith(".m3u"):
+                continue
+
+            for ref_path in self._iter_m3u_referenced_paths(abs_fs_path, rom_name):
+                rel_path = ref_path.relative_to(abs_fs_path)
+                top_level_name = rel_path.parts[0]
+                if len(rel_path.parts) == 1 and top_level_name in single_rom_set:
+                    excluded_single_roms.add(top_level_name)
+                elif len(rel_path.parts) > 1 and top_level_name in multi_rom_set:
+                    excluded_multi_roms.add(top_level_name)
+
+        return excluded_single_roms, excluded_multi_roms
+
     def _build_rom_file(
         self, rom: Rom, rom_path: Path, file_name: str, file_hash: FileHash
     ) -> RomFile:
@@ -550,6 +602,49 @@ class FSRomsHandler(FSHandler):
                     )
                 )
         elif hashable_platform:
+            if rom.fs_name.lower().endswith(".m3u"):
+                for ref_path in self._iter_m3u_referenced_paths(abs_fs_path, rom.fs_name):
+                    try:
+                        crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
+                            self._calculate_rom_hashes,
+                            ref_path,
+                            0,
+                            hashlib.md5(usedforsecurity=False),
+                            hashlib.sha1(usedforsecurity=False),
+                        )
+                    except zlib.error:
+                        crc_c = 0
+                        md5_h = hashlib.md5(usedforsecurity=False)
+                        sha1_h = hashlib.sha1(usedforsecurity=False)
+
+                    rom_files.append(
+                        self._build_rom_file(
+                            rom=rom,
+                            rom_path=ref_path.parent.relative_to(self.base_path),
+                            file_name=ref_path.name,
+                            file_hash=FileHash(
+                                crc_hash=crc32_to_hex(crc_c)
+                                if crc_c != DEFAULT_CRC_C
+                                else "",
+                                md5_hash=(
+                                    md5_h.hexdigest()
+                                    if md5_h.digest() != DEFAULT_MD5_H_DIGEST
+                                    else ""
+                                ),
+                                sha1_hash=(
+                                    sha1_h.hexdigest()
+                                    if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
+                                    else ""
+                                ),
+                                chd_sha1_hash=(
+                                    extract_chd_hash(ref_path)
+                                    if is_chd_file(ref_path)
+                                    else ""
+                                ),
+                            ),
+                        )
+                    )
+
             try:
                 crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
                     await asyncio.to_thread(
@@ -704,11 +799,21 @@ class FSRomsHandler(FSHandler):
             rel_roms_path = self.get_roms_fs_structure(platform.fs_slug)
             fs_single_roms = await self.list_files(path=rel_roms_path)
             fs_multi_roms = await self.list_directories(path=rel_roms_path)
+            abs_fs_path = self.validate_path(rel_roms_path)
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
 
-        return len(self.exclude_single_files(fs_single_roms)) + len(
-            self.exclude_multi_roms(fs_multi_roms)
+        excluded_single_roms, excluded_multi_roms = self._get_m3u_exclusions(
+            abs_fs_path, fs_single_roms, fs_multi_roms
+        )
+        return len(
+            [
+                rom
+                for rom in self.exclude_single_files(fs_single_roms)
+                if rom not in excluded_single_roms
+            ]
+        ) + len(
+            [rom for rom in self.exclude_multi_roms(fs_multi_roms) if rom not in excluded_multi_roms]
         )
 
     async def get_roms(self, platform: Platform) -> list[FSRom]:
@@ -726,15 +831,22 @@ class FSRomsHandler(FSHandler):
 
             fs_single_roms = await self.list_files(path=rel_roms_path)
             fs_multi_roms = await self.list_directories(path=rel_roms_path)
+            abs_fs_path = self.validate_path(rel_roms_path)
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
+
+        excluded_single_roms, excluded_multi_roms = self._get_m3u_exclusions(
+            abs_fs_path, fs_single_roms, fs_multi_roms
+        )
 
         fs_roms: list[dict] = [
             {"fs_name": rom, "flat": True, "nested": False}
             for rom in self.exclude_single_files(fs_single_roms)
+            if rom not in excluded_single_roms
         ] + [
             {"fs_name": rom, "flat": False, "nested": True}
             for rom in self.exclude_multi_roms(fs_multi_roms)
+            if rom not in excluded_multi_roms
         ]
 
         return sorted(
