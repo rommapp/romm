@@ -29,8 +29,27 @@
 // escapes the rounded silhouette nor masks the elevated shadow.
 import { computed, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import { RouterLink, type RouteLocationRaw } from "vue-router";
+import RTooltip from "../../structural/RTooltip/RTooltip.vue";
 import RIcon from "../RIcon/RIcon.vue";
 import RProgressCircular from "../RProgressCircular/RProgressCircular.vue";
+
+// Tooltip anchor vocabulary mirrors RTooltip's. Re-declared here so
+// the `tooltipLocation` prop has a sharper type than `string`, and
+// so the editor's prop autocomplete advertises only the placements
+// that floating-ui can resolve.
+type TooltipLocation =
+  | "top"
+  | "bottom"
+  | "start"
+  | "end"
+  | "top start"
+  | "top end"
+  | "bottom start"
+  | "bottom end"
+  | "start top"
+  | "start bottom"
+  | "end top"
+  | "end bottom";
 
 defineOptions({ inheritAttrs: false });
 
@@ -65,6 +84,15 @@ interface Props {
   href?: string;
   /** Target for `<a>` mode. */
   target?: string;
+  /** Native tooltip — when set, RBtn mounts an RTooltip anchored to
+   *  itself that reveals this text on hover / focus. Skips the
+   *  `<RTooltip><template #activator>…` wrapping ceremony for the
+   *  common case of "icon-only button needs a label on hover". */
+  tooltip?: string;
+  /** Tooltip anchor; mapped to floating-ui placement internally. */
+  tooltipLocation?: TooltipLocation;
+  /** Delay (ms) before the tooltip appears on hover. */
+  tooltipOpenDelay?: number | string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -86,6 +114,9 @@ const props = withDefaults(defineProps<Props>(), {
   to: undefined,
   href: undefined,
   target: undefined,
+  tooltip: undefined,
+  tooltipLocation: "top",
+  tooltipOpenDelay: 400,
 });
 
 const slots = useSlots();
@@ -348,6 +379,19 @@ const spinnerSize = computed(() => {
         </slot>
       </span>
     </span>
+
+    <!-- Built-in tooltip. Anchored to the button itself via
+         `activator="parent"` — the placeholder span sits inside the
+         button so its `parentElement` IS the button, and floating-ui
+         positions the tooltip body off that. Renders nothing in the
+         layout when `tooltip` isn't set. -->
+    <RTooltip
+      v-if="tooltip"
+      activator="parent"
+      :text="tooltip"
+      :location="tooltipLocation"
+      :open-delay="tooltipOpenDelay"
+    />
   </component>
 </template>
 

@@ -81,8 +81,7 @@ export const Tab: Story = {
 };
 
 // Vertical tab pill — same aesthetic and sliding indicator as the
-// horizontal tab variant, just stacked. Used by AppNav's Library Tools
-// sub-menu (drop-down picker for Scan / Upload / Patcher).
+// horizontal tab variant, just stacked.
 export const VerticalTab: Story = {
   args: { variant: "tab", orientation: "vertical" },
   render: (args) => ({

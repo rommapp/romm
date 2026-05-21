@@ -57,7 +57,6 @@ const inToolsSection = computed(
         v-bind="menuProps"
         size="small"
         variant="text"
-        :title="t('library-tools.title', 'Library tools')"
         class="r-v2-lt-menu"
         :class="{
           'r-v2-lt-menu--active': inToolsSection,

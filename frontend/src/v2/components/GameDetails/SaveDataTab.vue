@@ -373,6 +373,7 @@ function fmtDate(iso: string | null) {
                 icon="mdi-download-outline"
                 variant="text"
                 size="small"
+                tooltip="Download"
                 :aria-label="`Download ${s.file_name}`"
                 @click="downloadAsset(s)"
               />
@@ -381,6 +382,7 @@ function fmtDate(iso: string | null) {
                 variant="text"
                 size="small"
                 color="romm-red"
+                tooltip="Delete"
                 :aria-label="`Delete ${s.file_name}`"
                 @click="deleteSave(s)"
               />
@@ -429,6 +431,7 @@ function fmtDate(iso: string | null) {
                 icon="mdi-download-outline"
                 variant="text"
                 size="small"
+                tooltip="Download"
                 :aria-label="`Download ${s.file_name}`"
                 @click="downloadAsset(s)"
               />
@@ -437,6 +440,7 @@ function fmtDate(iso: string | null) {
                 variant="text"
                 size="small"
                 color="romm-red"
+                tooltip="Delete"
                 :aria-label="`Delete ${s.file_name}`"
                 @click="deleteState(s)"
               />

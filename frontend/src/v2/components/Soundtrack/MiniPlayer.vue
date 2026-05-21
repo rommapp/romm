@@ -219,6 +219,7 @@ function openRom() {
             icon="mdi-open-in-new"
             variant="text"
             size="small"
+            tooltip="Open ROM"
             aria-label="Open ROM"
             @click="openRom"
           />
@@ -226,6 +227,7 @@ function openRom() {
             icon="mdi-close"
             variant="text"
             size="small"
+            tooltip="Close player"
             aria-label="Close player"
             @click="store.stop()"
           />
@@ -239,6 +241,7 @@ function openRom() {
           variant="text"
           size="small"
           :disabled="!hasPrevious"
+          tooltip="Previous track"
           aria-label="Previous track"
           @click="store.previous()"
         />
@@ -246,6 +249,7 @@ function openRom() {
           :icon="isPlaying ? 'mdi-pause-circle' : 'mdi-play-circle'"
           variant="text"
           size="large"
+          :tooltip="isPlaying ? 'Pause' : 'Play'"
           :aria-label="isPlaying ? 'Pause' : 'Play'"
           @click="store.togglePlayPause()"
         />
@@ -254,6 +258,7 @@ function openRom() {
           variant="text"
           size="small"
           :disabled="!hasNext"
+          tooltip="Next track"
           aria-label="Next track"
           @click="store.next()"
         />

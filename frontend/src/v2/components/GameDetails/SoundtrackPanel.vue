@@ -410,6 +410,7 @@ function seekValueText(v: number): string {
         size="small"
         :disabled="!hasPrevious"
         prepend-icon="mdi-skip-previous"
+        tooltip="Previous track"
         aria-label="Previous track"
         @click="player.previous()"
       />
@@ -418,6 +419,7 @@ function seekValueText(v: number): string {
         size="small"
         :disabled="!activeTrack"
         :prepend-icon="isPlaying ? 'mdi-pause-circle' : 'mdi-play-circle'"
+        :tooltip="isPlaying ? 'Pause' : 'Play'"
         :aria-label="isPlaying ? 'Pause' : 'Play'"
         @click="player.togglePlayPause()"
       />
@@ -426,6 +428,7 @@ function seekValueText(v: number): string {
         size="small"
         :disabled="!hasNext"
         prepend-icon="mdi-skip-next"
+        tooltip="Next track"
         aria-label="Next track"
         @click="player.next()"
       />
@@ -530,6 +533,7 @@ function seekValueText(v: number): string {
             icon="mdi-download-outline"
             variant="text"
             size="small"
+            tooltip="Download"
             :aria-label="`Download ${trackTitleFor(track.id, track.file_name)}`"
             @click.stop="downloadTrack(track)"
           />
@@ -538,6 +542,7 @@ function seekValueText(v: number): string {
             variant="text"
             size="small"
             color="romm-red"
+            tooltip="Delete"
             :aria-label="`Delete ${trackTitleFor(track.id, track.file_name)}`"
             @click.stop="onDelete(track.id)"
           />
