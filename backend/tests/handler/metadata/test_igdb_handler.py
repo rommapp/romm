@@ -1,6 +1,6 @@
 """Tests for the IGDB metadata handler."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -87,6 +87,7 @@ class TestSearchRomGameTypeFilter:
             patch.object(
                 handler.igdb_service,
                 "search",
+                new_callable=AsyncMock,
                 return_value=[],
             ),
         ):
@@ -141,6 +142,7 @@ class TestSearchRomGameTypeFilter:
             patch.object(
                 handler.igdb_service,
                 "search",
+                new_callable=AsyncMock,
                 return_value=expanded_results,
             ),
         ):
