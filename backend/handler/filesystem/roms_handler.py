@@ -375,29 +375,18 @@ class FSRomsHandler(FSHandler):
     def exclude_multi_roms(self, roms: list[str]) -> list[str]:
         excluded_names = cm.get_config().EXCLUDED_MULTI_FILES
         normalized_patterns = [
-            excluded_name.strip().lower()
-            for excluded_name in excluded_names
-            if excluded_name.strip()
-        ]
-
-        def has_wildcard(pattern: str) -> bool:
-            return any(char in pattern for char in ("*", "?", "["))
-
-        exact_matches = {
-            pattern for pattern in normalized_patterns if not has_wildcard(pattern)
-        }
-        wildcard_patterns = [
-            pattern for pattern in normalized_patterns if has_wildcard(pattern)
+            excluded_name.lower().strip() for excluded_name in excluded_names
         ]
 
         kept_roms: list[str] = []
         for rom in roms:
             normalized_rom_name = rom.strip().lower()
-            if normalized_rom_name in exact_matches:
+            if normalized_rom_name in normalized_patterns:
                 continue
+
             if any(
                 fnmatch.fnmatch(normalized_rom_name, pattern)
-                for pattern in wildcard_patterns
+                for pattern in normalized_patterns
             ):
                 continue
 
