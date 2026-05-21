@@ -68,6 +68,40 @@ class TestGetPreferredRegions:
 
         assert len(regions) == len(set(regions))
 
+    def test_multi_region_rom_respects_user_priority(self):
+        """For a multi-region ROM, the user's priority order wins among the
+        regions the file is tagged as."""
+        rom = MagicMock()
+        rom.regions = ["Japan", "USA"]
+        config = _make_config(region_priority=["us", "eu"])
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            regions = get_preferred_regions(rom)
+
+        assert regions.index("us") < regions.index("jp")
+
+    def test_multi_region_rom_untagged_priority_does_not_win(self):
+        """A region in SCAN_REGION_PRIORITY that the file is NOT tagged as
+        should not outrank a region the file IS tagged as."""
+        rom = MagicMock()
+        rom.regions = ["Japan", "USA"]
+        config = _make_config(region_priority=["eu", "us"])
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            regions = get_preferred_regions(rom)
+
+        assert regions.index("us") < regions.index("eu")
+        assert regions.index("jp") < regions.index("eu")
+
+    def test_multi_region_rom_unprioritized_tags_preserve_order(self):
+        """Filename regions not in the priority list keep their filename order
+        and follow the prioritized ones."""
+        rom = MagicMock()
+        rom.regions = ["Japan", "Brazil"]
+        config = _make_config(region_priority=["us"])
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            regions = get_preferred_regions(rom)
+
+        assert regions.index("jp") < regions.index("br")
+
 
 class TestExtractMediaFromSsGame:
     """Tests for extract_media_from_ss_game."""
