@@ -224,16 +224,12 @@ function stopScan() {
          on the next render tick, when the layout's DOM is in place. -->
     <Teleport to="#r-v2-lt-actions" defer>
       <RBtn
-        variant="text"
-        size="small"
         prepend-icon="mdi-table-cog"
         :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
       >
-        {{ t("scan.manage-library") }}
+        {{ t("common.library-management") }}
       </RBtn>
       <RBtn
-        variant="text"
-        size="small"
         prepend-icon="mdi-information-outline"
         :aria-label="t('scan.info-dialog-title', 'Scan reference')"
         @click="infoDialogOpen = true"
