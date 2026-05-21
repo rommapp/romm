@@ -126,12 +126,25 @@ const lastPlayed = computed(() => {
   return new Date(ts).toLocaleString();
 });
 
+// "Companies" (not "Developer") — the API field is a merged list of
+// developers + publishers + other company roles produced by the backend
+// (see flashpoint/gamelist/launchbox handlers); calling it Developer
+// would be a lie. "Franchises" mirrors the singular→plural consistency
+// of the surrounding rows.
 const overviewSections = computed<InfoGridSection[]>(() => [
   { label: "Genres", items: genres.value },
-  { label: "Developer", items: companies.value },
-  { label: "Franchise", items: franchises.value },
+  { label: "Companies", items: companies.value },
+  { label: "Franchises", items: franchises.value },
   { label: "Collections", items: collections.value },
 ]);
+
+const playerCount = computed<string | null>(() => {
+  const pc = currentRom.value?.metadatum?.player_count;
+  return pc ? pc.trim() : null;
+});
+const userCollections = computed(
+  () => currentRom.value?.user_collections ?? [],
+);
 
 const raMetadata = computed(() => currentRom.value?.merged_ra_metadata ?? null);
 const achievementsTotal = computed(
@@ -213,6 +226,8 @@ const tabs = computed<RTabNavItem[]>(() => [
             :rom="currentRom"
             :summary="currentRom.summary ?? null"
             :sections="overviewSections"
+            :player-count="playerCount"
+            :user-collections="userCollections"
             :hltb="currentRom.hltb_metadata"
             :last-played="lastPlayed"
             :screenshots="currentRom.merged_screenshots ?? []"
@@ -251,7 +266,7 @@ const tabs = computed<RTabNavItem[]>(() => [
   height: calc(100vh - var(--r-nav-h));
   display: flex;
   flex-direction: column;
-  padding-top: 50px;
+  padding-top: 20px;
 }
 
 .r-v2-det__topbar {
