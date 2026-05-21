@@ -1,10 +1,16 @@
+import os
 from datetime import datetime, timedelta, timezone
 
 import alembic.config
 import pytest
+from hypothesis import settings
 from joserfc import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+settings.register_profile("ci", max_examples=200, deadline=None)
+settings.register_profile("dev", max_examples=50, deadline=None)
+settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "dev"))
 
 from config.config_manager import ConfigManager
 from handler.auth import auth_handler

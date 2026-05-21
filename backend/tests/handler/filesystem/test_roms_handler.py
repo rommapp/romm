@@ -4,8 +4,14 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
+from handler.filesystem.base_handler import (
+    LANGUAGES_BY_SHORTCODE,
+    REGIONS_BY_SHORTCODE,
+)
 from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
@@ -1220,3 +1226,41 @@ class TestExtractCHDHash:
         assert result
         assert result == "f" * 40
         assert len(result) == 40
+
+
+KNOWN_REGION_NAMES = frozenset(REGIONS_BY_SHORTCODE.values())
+KNOWN_LANGUAGE_NAMES = frozenset(LANGUAGES_BY_SHORTCODE.values())
+
+region_code = st.sampled_from(sorted(REGIONS_BY_SHORTCODE))
+language_code = st.sampled_from(sorted(LANGUAGES_BY_SHORTCODE))
+
+
+class TestParseTagsProperties:
+    """Property-based tests for FSRomsHandler.parse_tags."""
+
+    handler = FSRomsHandler()
+
+    @given(st.text())
+    def test_never_raises_on_arbitrary_input(self, fs_name: str):
+        self.handler.parse_tags(fs_name)
+
+    @given(st.text())
+    def test_is_deterministic(self, fs_name: str):
+        assert self.handler.parse_tags(fs_name) == self.handler.parse_tags(fs_name)
+
+    @given(st.lists(region_code), st.lists(language_code))
+    def test_known_codes_map_to_known_names(self, regions, languages):
+        fs_name = "Game"
+        for code in regions:
+            fs_name += f"({code})"
+        for code in languages:
+            fs_name += f"({code})"
+        fs_name += ".rom"
+
+        parsed = self.handler.parse_tags(fs_name)
+
+        assert set(parsed.regions) <= KNOWN_REGION_NAMES
+        assert set(parsed.languages) <= KNOWN_LANGUAGE_NAMES
+        # Every supplied code resolves to its mapped full name.
+        assert {REGIONS_BY_SHORTCODE[c] for c in regions} <= set(parsed.regions)
+        assert {LANGUAGES_BY_SHORTCODE[c] for c in languages} <= set(parsed.languages)
