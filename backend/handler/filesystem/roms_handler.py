@@ -377,17 +377,17 @@ class FSRomsHandler(FSHandler):
         normalized_excluded = {
             excluded_name.strip().lower() for excluded_name in excluded_names
         }
-        filtered_files: list[str] = []
+        excluded_files: set[str] = set()
 
         for rom in roms:
             normalized_rom_name = rom.strip().lower()
             if normalized_rom_name in normalized_excluded or any(
-                fnmatch.fnmatch(normalized_rom_name, exc_name.strip().lower())
-                for exc_name in excluded_names
+                fnmatch.fnmatch(normalized_rom_name, exc_name)
+                for exc_name in normalized_excluded
             ):
-                filtered_files.append(rom)
+                excluded_files.add(rom)
 
-        return [f for f in roms if f not in filtered_files]
+        return [f for f in roms if f not in excluded_files]
 
     def _build_rom_file(
         self, rom: Rom, rom_path: Path, file_name: str, file_hash: FileHash
