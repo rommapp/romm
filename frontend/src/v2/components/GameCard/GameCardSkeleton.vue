@@ -19,12 +19,16 @@ import { RSkeletonBlock } from "@v2/lib";
 import { computed } from "vue";
 
 interface Props {
-  /** Hero variant — 16:9 art (300×169) with a larger label, matching
-   * `GameCard`'s `hero` prop. Used by the "Continue playing" Home row. */
+  /** Hero variant — 16:9 art with a larger label, matching `GameCard`'s
+   *  `hero` prop. Scales with `size` (same as GameCard). */
   hero?: boolean;
+  /** Size tier — mirrors `GameCard`'s `size` prop so a skeleton swapped
+   *  into a tiered card slot keeps the same footprint and the
+   *  virtualiser's measurements stay stable. */
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
 }
 
-const props = withDefaults(defineProps<Props>(), { hero: false });
+const props = withDefaults(defineProps<Props>(), { hero: false, size: "md" });
 
 const artWidth = computed(() =>
   props.hero ? "var(--r-hero-w)" : "var(--r-card-art-w)",
@@ -35,7 +39,13 @@ const artHeight = computed(() =>
 </script>
 
 <template>
-  <div class="r-gcs" :class="{ 'r-gcs--hero': hero }">
+  <div
+    class="r-gcs"
+    :class="[
+      size !== 'md' && `r-gcs--size-${size}`,
+      { 'r-gcs--hero': hero },
+    ]"
+  >
     <RSkeletonBlock
       :width="artWidth"
       :height="artHeight"
@@ -71,5 +81,33 @@ const artHeight = computed(() =>
 }
 .r-gcs--hero .r-gcs__label {
   height: 18px;
+}
+
+/* Size tiers — mirror GameCard's `.r-gc--size-*` overrides exactly so
+   skeleton + real card occupy the same footprint when one swaps for
+   the other in a virtualiser slot. */
+.r-gcs--size-xs {
+  --r-card-art-w: var(--r-card-art-w-xs);
+  --r-card-art-h: var(--r-card-art-h-xs);
+  --r-hero-w: var(--r-hero-w-xs);
+  --r-hero-h: var(--r-hero-h-xs);
+}
+.r-gcs--size-sm {
+  --r-card-art-w: var(--r-card-art-w-sm);
+  --r-card-art-h: var(--r-card-art-h-sm);
+  --r-hero-w: var(--r-hero-w-sm);
+  --r-hero-h: var(--r-hero-h-sm);
+}
+.r-gcs--size-lg {
+  --r-card-art-w: var(--r-card-art-w-lg);
+  --r-card-art-h: var(--r-card-art-h-lg);
+  --r-hero-w: var(--r-hero-w-lg);
+  --r-hero-h: var(--r-hero-h-lg);
+}
+.r-gcs--size-xl {
+  --r-card-art-w: var(--r-card-art-w-xl);
+  --r-card-art-h: var(--r-card-art-h-xl);
+  --r-hero-w: var(--r-hero-w-xl);
+  --r-hero-h: var(--r-hero-h-xl);
 }
 </style>

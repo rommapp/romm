@@ -62,6 +62,10 @@ interface Props {
   closableChips?: boolean;
   /** Drop the autocomplete dropdown entirely. Pure free-text input. */
   noSuggestions?: boolean;
+  /** Render a field-level X that wipes every committed chip in one
+   *  click. Sits next to the input on the right edge of the field, so
+   *  the affordance reads identically to RTextField's clearable. */
+  clearable?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -78,6 +82,7 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   closableChips: true,
   noSuggestions: false,
+  clearable: false,
 });
 
 const emit = defineEmits<{
@@ -178,6 +183,13 @@ function removeAt(index: number) {
 function removeLast() {
   if (!chips.value.length) return;
   removeAt(chips.value.length - 1);
+}
+
+function clearAll() {
+  if (!chips.value.length && !query.value) return;
+  query.value = "";
+  emit("update:modelValue", []);
+  nextTick(() => inputRef.value?.focus());
 }
 
 // ── Input wiring ───────────────────────────────────────────────
@@ -286,6 +298,13 @@ watch(suggestions, () => {
 const inlineLabelOn = computed(() => props.prefixLabel === "inline");
 const stackedLabelOn = computed(() => props.prefixLabel === "stacked");
 
+const showClear = computed(
+  () =>
+    props.clearable &&
+    !props.disabled &&
+    (chips.value.length > 0 || query.value.length > 0),
+);
+
 const errorList = computed<string[]>(() => {
   if (!props.errorMessages) return [];
   return Array.isArray(props.errorMessages)
@@ -365,6 +384,22 @@ const showDetails = computed(
           @keydown="onKeyDown"
         />
       </div>
+
+      <!-- Field-level clearable — wipes the whole chip set at once. The
+           per-chip X (`closableChips`) still removes individual chips;
+           this is the "reset the field" affordance that mirrors
+           RTextField's clearable. -->
+      <button
+        v-if="showClear"
+        type="button"
+        class="r-combobox-field__clear"
+        tabindex="-1"
+        aria-label="Clear"
+        @mousedown.prevent
+        @click.stop="clearAll"
+      >
+        <RIcon icon="mdi-close-circle" size="x-small" />
+      </button>
     </label>
 
     <Teleport to="body">
@@ -434,24 +469,61 @@ const showDetails = computed(
 }
 .r-combobox-field--density-comfortable {
   --r-cf-h: 40px;
+  --r-cf-pad-x: 12px;
 }
 .r-combobox-field--density-compact {
   --r-cf-h: 32px;
+  --r-cf-pad-x: 10px;
+  --r-cf-radius: 6px;
 }
 
 .r-combobox-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg-secondary);
+  line-height: 1.2;
+  color: var(--r-color-fg-muted);
+  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-combobox-field__label--stacked {
+  align-self: flex-start;
+  padding-inline-start: 2px;
+  margin-bottom: 4px;
+}
+.r-combobox-field:not(.r-combobox-field--disabled):focus-within
+  .r-combobox-field__label--stacked {
+  color: var(--r-cf-color);
+}
+.r-combobox-field--error .r-combobox-field__label--stacked {
+  color: var(--r-color-danger);
 }
 .r-combobox-field__label--inline {
   flex-shrink: 0;
-  align-self: center;
-  padding: 0 8px 0 var(--r-cf-pad-x);
+  align-self: stretch;
+  padding: 0 10px;
+  background: var(--r-color-bg-elevated);
+  border-right: 1px solid var(--r-color-border);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 10.5px;
-  color: var(--r-color-fg-muted);
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  font-weight: var(--r-font-weight-bold);
+  color: var(--r-color-fg-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition:
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    border-right-color var(--r-motion-fast) var(--r-motion-ease-out),
+    color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-combobox-field:not(.r-combobox-field--disabled):focus-within
+  .r-combobox-field__label--inline {
+  border-right-color: var(--r-cf-color);
+}
+.r-combobox-field--error .r-combobox-field__label--inline {
+  border-right-color: var(--r-color-danger);
 }
 
 .r-combobox-field__field {
@@ -460,48 +532,84 @@ const showDetails = computed(
   min-height: var(--r-cf-h);
   border-radius: var(--r-cf-radius);
   background: transparent;
+  border: 1px solid transparent;
   transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out),
-    box-shadow var(--r-motion-fast) var(--r-motion-ease-out);
+    background var(--r-motion-med) var(--r-motion-ease-out),
+    border-color var(--r-motion-med) var(--r-motion-ease-out),
+    box-shadow var(--r-motion-med) cubic-bezier(0.34, 1.56, 0.64, 1);
   cursor: text;
 }
 
 .r-combobox-field--variant-outlined .r-combobox-field__field {
-  border: 1px solid var(--r-color-border-strong);
+  border-color: var(--r-color-border);
+  background: var(--r-color-bg-elevated);
 }
 .r-combobox-field--variant-filled .r-combobox-field__field {
+  border-color: transparent;
   background: var(--r-color-surface);
 }
 .r-combobox-field--variant-underlined .r-combobox-field__field {
-  border-bottom: 1px solid var(--r-color-border-strong);
   border-radius: 0;
+  background: transparent;
+  border-bottom: 1px solid var(--r-color-border);
 }
 .r-combobox-field--variant-plain .r-combobox-field__field {
   background: transparent;
+  border-color: transparent;
 }
 
-/* Hover (only when not disabled / not focused). */
-.r-combobox-field:not(.r-combobox-field--disabled)
+/* Hover — neutral fg halo on outlined, brand-tinted fill on filled.
+   Mirrors RTextField so the two primitives read as siblings. */
+.r-combobox-field--variant-outlined:not(.r-combobox-field--disabled)
   .r-combobox-field__field:hover {
-  border-color: var(--r-color-border-strongest, var(--r-color-fg-muted));
-  background: color-mix(in srgb, var(--r-color-brand-primary) 5%, transparent);
+  border-color: var(--r-color-border-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--r-color-fg) 6%, transparent);
+}
+.r-combobox-field--variant-filled:not(.r-combobox-field--disabled)
+  .r-combobox-field__field:hover {
+  background: color-mix(
+    in srgb,
+    var(--r-cf-color) 8%,
+    var(--r-color-surface-hover)
+  );
+}
+.r-combobox-field--variant-underlined:not(.r-combobox-field--disabled)
+  .r-combobox-field__field:hover {
+  border-bottom-color: var(--r-color-border-strong);
 }
 
-/* Focus-within = brand outline. Higher specificity than hover. */
-.r-combobox-field:not(.r-combobox-field--disabled)
+/* Focus-within = brand outline. Halo alpha + filled bg shift mirror
+   RTextField's focused state. */
+.r-combobox-field--variant-outlined:not(.r-combobox-field--disabled)
+  .r-combobox-field__field:focus-within,
+.r-combobox-field--variant-filled:not(.r-combobox-field--disabled)
   .r-combobox-field__field:focus-within {
   border-color: var(--r-cf-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--r-cf-color) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--r-cf-color) 22%, transparent);
+}
+.r-combobox-field--variant-filled:not(.r-combobox-field--disabled)
+  .r-combobox-field__field:focus-within {
+  background: color-mix(
+    in srgb,
+    var(--r-cf-color) 10%,
+    var(--r-color-surface-hover)
+  );
 }
 
 /* Error tone. */
-.r-combobox-field--error .r-combobox-field__field {
+.r-combobox-field--error.r-combobox-field--variant-outlined
+  .r-combobox-field__field,
+.r-combobox-field--error.r-combobox-field--variant-filled
+  .r-combobox-field__field {
   border-color: var(--r-color-danger) !important;
+}
+.r-combobox-field--error.r-combobox-field--variant-underlined
+  .r-combobox-field__field {
+  border-bottom-color: var(--r-color-danger);
 }
 .r-combobox-field--error .r-combobox-field__field:focus-within {
   box-shadow: 0 0 0 3px
-    color-mix(in srgb, var(--r-color-danger) 18%, transparent) !important;
+    color-mix(in srgb, var(--r-color-danger) 22%, transparent) !important;
 }
 
 .r-combobox-field__chips {
@@ -551,6 +659,34 @@ const showDetails = computed(
   color: var(--r-color-fg-muted);
 }
 
+/* Field-level X — same vocabulary as RTextField's clearable. Sits at
+   the right edge of the field, vertically centred on the chip row. */
+.r-combobox-field__clear {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 2px;
+  margin-right: var(--r-cf-pad-x);
+  align-self: center;
+  cursor: pointer;
+  color: var(--r-color-fg-muted);
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition:
+    color var(--r-motion-fast) var(--r-motion-ease-out),
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    transform var(--r-motion-fast) cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.r-combobox-field__clear:hover {
+  color: var(--r-cf-color);
+  transform: scale(1.2);
+}
+.r-combobox-field__clear:active {
+  transform: scale(0.92);
+}
+
 /* Disabled. */
 .r-combobox-field--disabled {
   opacity: 0.55;
@@ -563,12 +699,15 @@ const showDetails = computed(
   cursor: not-allowed;
 }
 
-/* Details / hint / error row. */
+/* Details / hint / error row. Mirrors RTextField's gutter so the two
+   primitives stack with identical bottom-edge padding. */
 .r-combobox-field__details {
+  padding-inline: 4px;
   font-size: 11px;
+  line-height: 1.3;
   color: var(--r-color-fg-muted);
-  padding: 0 var(--r-cf-pad-x);
   min-height: 14px;
+  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
 }
 .r-combobox-field__details--error {
   color: var(--r-color-danger);

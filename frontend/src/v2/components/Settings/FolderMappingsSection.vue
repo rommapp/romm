@@ -424,36 +424,33 @@ onMounted(async () => {
         </span>
       </template>
       <template #content>
-        <div class="r-v2-mappings__help-body">
-          <section class="r-v2-mappings__help-row">
-            <h3 class="r-v2-mappings__help-row-title">
-              {{ t("settings.folder-alias") }}
-            </h3>
-            <p>{{ t("settings.folder-mappings-tooltip-aliases") }}</p>
-          </section>
-          <section class="r-v2-mappings__help-row">
-            <h3 class="r-v2-mappings__help-row-title">
-              {{ t("settings.platform-variant") }}
-            </h3>
-            <p>{{ t("settings.folder-mappings-tooltip-variants") }}</p>
-          </section>
-          <p class="r-v2-mappings__help-foot">
-            <RIcon icon="mdi-information-outline" size="14" color="primary" />
-            <span>{{ t("settings.folder-mappings-mutually-exclusive") }}</span>
-          </p>
-        </div>
+        <section class="r-v2-mappings__help-row">
+          <h3 class="r-v2-mappings__help-row-title">
+            {{ t("settings.folder-alias") }}
+          </h3>
+          <p>{{ t("settings.folder-mappings-tooltip-aliases") }}</p>
+        </section>
+        <section class="r-v2-mappings__help-row">
+          <h3 class="r-v2-mappings__help-row-title">
+            {{ t("settings.platform-variant") }}
+          </h3>
+          <p>{{ t("settings.folder-mappings-tooltip-variants") }}</p>
+        </section>
+        <p class="r-v2-mappings__help-foot">
+          <RIcon icon="mdi-information-outline" size="14" color="primary" />
+          <span>{{ t("settings.folder-mappings-mutually-exclusive") }}</span>
+        </p>
       </template>
       <template #footer>
-        <div class="r-v2-mappings__help-footer">
-          <RBtn
-            variant="flat"
-            color="primary"
-            prepend-icon="mdi-check"
-            @click="helpOpen = false"
-          >
-            {{ t("common.got-it") }}
-          </RBtn>
-        </div>
+        <div style="flex: 1" />
+        <RBtn
+          variant="flat"
+          color="primary"
+          prepend-icon="mdi-check"
+          @click="helpOpen = false"
+        >
+          {{ t("common.got-it") }}
+        </RBtn>
       </template>
     </RDialog>
   </div>
@@ -515,12 +512,6 @@ onMounted(async () => {
 .r-v2-mappings__help-title {
   font-weight: var(--r-font-weight-semibold);
 }
-.r-v2-mappings__help-body {
-  padding: 18px 24px 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
 .r-v2-mappings__help-row {
   display: flex;
   flex-direction: column;
@@ -551,11 +542,5 @@ onMounted(async () => {
   color: var(--r-color-fg-secondary);
   font-size: 12.5px;
   line-height: 1.5;
-}
-.r-v2-mappings__help-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 16px;
 }
 </style>

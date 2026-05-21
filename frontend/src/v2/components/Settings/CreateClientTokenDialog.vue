@@ -564,31 +564,32 @@ onBeforeUnmount(() => {
     </template>
 
     <template #footer>
-      <div class="r-v2-tok-dialog__footer">
-        <template v-if="step === 'config'">
-          <RBtn variant="text" @click="closeDialog">
-            {{ t("common.cancel") }}
-          </RBtn>
-          <RBtn
-            variant="flat"
-            color="primary"
-            :loading="loading"
-            :disabled="!configValid"
-            @click="createToken"
-          >
-            {{ t("common.create") }}
-          </RBtn>
-        </template>
-        <template v-else-if="step === 'delivery'">
-          <RBtn variant="text" @click="closeDialog">
-            {{ t("common.cancel") }}
-          </RBtn>
-        </template>
-        <template v-else>
-          <RBtn variant="text" @click="step = 'delivery'">Back</RBtn>
-          <RBtn variant="flat" color="primary" @click="closeDialog">Close</RBtn>
-        </template>
-      </div>
+      <template v-if="step === 'config'">
+        <RBtn variant="text" @click="closeDialog">
+          {{ t("common.cancel") }}
+        </RBtn>
+        <div style="flex: 1" />
+        <RBtn
+          variant="flat"
+          color="primary"
+          :loading="loading"
+          :disabled="!configValid"
+          @click="createToken"
+        >
+          {{ t("common.create") }}
+        </RBtn>
+      </template>
+      <template v-else-if="step === 'delivery'">
+        <div style="flex: 1" />
+        <RBtn variant="text" @click="closeDialog">
+          {{ t("common.cancel") }}
+        </RBtn>
+      </template>
+      <template v-else>
+        <RBtn variant="text" @click="step = 'delivery'">Back</RBtn>
+        <div style="flex: 1" />
+        <RBtn variant="flat" color="primary" @click="closeDialog">Close</RBtn>
+      </template>
     </template>
   </RDialog>
 </template>
@@ -597,8 +598,11 @@ onBeforeUnmount(() => {
 .r-v2-tok-dialog__title {
   font-weight: var(--r-font-weight-semibold);
 }
+/* Per-step body — wraps a single v-if branch inside RDialog's body.
+   Keeps the column layout so children inherit the step's gap (slightly
+   wider than the dialog's default) and an opt-in centred alignment for
+   delivery / pair steps. Padding stays in RDialog. */
 .r-v2-tok-dialog__body {
-  padding: 20px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -705,11 +709,4 @@ html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
   color: var(--r-color-fg);
 }
 
-.r-v2-tok-dialog__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 24px;
-  border-top: 1px solid var(--r-color-border);
-}
 </style>

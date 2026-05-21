@@ -287,20 +287,51 @@ export const layout = {
   rowPad: "36px",
   // Cap for the centred page content (navbar, game details body, …) on
   // ultrawide displays. Below this width the rule is a no-op.
-  pageMaxWidth: "1500px",
+  pageMaxWidth: "1920px",
+  // Default ("md") card art geometry. The gallery grid reads
+  // `--r-card-art-w` directly, so this stays the canonical size for
+  // every untiered consumer. The size-tier values below are picked up
+  // by `GameCard`'s `size` prop and override the default locally on
+  // the card via CSS vars.
   cardArtWidth: "158px",
   cardArtHeight: "213px",
+  // Card art size tiers. All maintain ratio ≈ 0.74 (boxart 2:3) so the
+  // cover never visually distorts between sizes.
+  //   xs (48 × 64)   — list-row avatars
+  //   sm (120 × 162) — dense pickers, compact mobile
+  //   md (158 × 213) — gallery default (== cardArtWidth / cardArtHeight)
+  //   lg (200 × 270) — edit-dialog cover preview
+  //   xl (240 × 324) — detail page cover column
+  cardArtWidthXs: "48px",
+  cardArtHeightXs: "64px",
+  cardArtWidthSm: "120px",
+  cardArtHeightSm: "162px",
+  cardArtWidthLg: "200px",
+  cardArtHeightLg: "270px",
+  cardArtWidthXl: "240px",
+  cardArtHeightXl: "324px",
+  // Hero (16:9) variant — scales linearly with the card art tier so
+  // `hero` reads as "wide aspect ratio at this size" instead of a
+  // standalone fixed shape. md keeps the canonical 300 × 169.
   heroCardWidth: "300px",
   heroCardHeight: "169px",
+  heroCardWidthXs: "90px",
+  heroCardHeightXs: "51px",
+  heroCardWidthSm: "230px",
+  heroCardHeightSm: "130px",
+  heroCardWidthLg: "380px",
+  heroCardHeightLg: "214px",
+  heroCardWidthXl: "460px",
+  heroCardHeightXl: "259px",
   detailCoverWidth: "240px",
   // List-mode (table) gallery geometry. `GameListRow`, `GameListHeader`
   // and `GameListSkeletonRow` all derive their pixel sizing from these,
   // and `useGalleryVirtualItems` reads `listRowHeight` so the virtualiser's
   // exact-offset math stays in lock-step with the rendered CSS.
+  // (The row thumb sizing now comes from `cardArtWidthXs / HeightXs` via
+  // `<GameCard size="xs" />` — no dedicated list-cover token.)
   listRowHeight: "80px",
   listHeaderHeight: "40px",
-  listCoverWidth: "48px",
-  listCoverHeight: "64px",
 } as const;
 
 export const tokens = {

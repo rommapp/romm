@@ -30,6 +30,7 @@ const user = ref({
   email: "",
   role: "viewer",
 });
+const confirmPassword = ref("");
 
 emitter?.on("showCreateUserDialog", () => {
   reset();
@@ -43,15 +44,23 @@ const roleItems = computed(() =>
   })),
 );
 
+const confirmPasswordRules = computed(() => [
+  (v: string) => !!v || t("settings.repeat-password-required"),
+  (v: string) =>
+    v === user.value.password || t("settings.passwords-must-match"),
+]);
+
 const formValid = computed(
   () =>
     user.value.username.trim().length >= 3 &&
     user.value.password.length >= 6 &&
+    confirmPassword.value === user.value.password &&
     /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(user.value.email),
 );
 
 function reset() {
   user.value = { username: "", password: "", email: "", role: "viewer" };
+  confirmPassword.value = "";
 }
 
 async function createUser() {
@@ -92,82 +101,94 @@ function close() {
       <span class="r-v2-user-dialog__title">Create user</span>
     </template>
     <template #content>
-      <div class="r-v2-user-dialog__body">
-        <RTextField
-          v-model="user.username"
-          prefix-label="stacked"
-          :rules="usersStore.usernameRules"
-          required
-          clearable
-        >
-          <template #prefix-label>
-            <RIcon icon="mdi-account-outline" size="14" />
-            {{ t("settings.username") }}
-          </template>
-        </RTextField>
-        <RTextField
-          v-model="user.password"
-          prefix-label="stacked"
-          :rules="usersStore.passwordRules"
-          type="password"
-          required
-          clearable
-        >
-          <template #prefix-label>
-            <RIcon icon="mdi-key-outline" size="14" />
-            {{ t("settings.password") }}
-          </template>
-        </RTextField>
-        <RTextField
-          v-model="user.email"
-          prefix-label="stacked"
-          :rules="usersStore.emailRules"
-          type="email"
-          clearable
-        >
-          <template #prefix-label>
-            <RIcon icon="mdi-email-outline" size="14" />
-            {{ t("settings.email") }}
-          </template>
-        </RTextField>
-        <RSelect
-          v-model="user.role"
-          variant="outlined"
-          :items="roleItems"
-          :label="t('settings.role')"
-          required
-          hide-details
-        >
-          <template #selection="{ item }">
-            <div class="r-v2-user-dialog__role-line">
-              <RIcon :icon="getRoleIcon(item.value)" size="16" />
-              {{ item.title }}
-            </div>
-          </template>
-          <template #item="{ props: itemProps, item }">
-            <li v-bind="itemProps">
-              <RIcon :icon="getRoleIcon(item.value)" size="16" />
-              <span class="r-select__item-title">{{ item.title }}</span>
-            </li>
-          </template>
-        </RSelect>
-      </div>
+      <RTextField
+        v-model="user.username"
+        prefix-label="stacked"
+        :rules="usersStore.usernameRules"
+        required
+        clearable
+      >
+        <template #prefix-label>
+          <RIcon icon="mdi-account-outline" size="14" />
+          {{ t("settings.username") }}
+        </template>
+      </RTextField>
+      <RTextField
+        v-model="user.password"
+        prefix-label="stacked"
+        :rules="usersStore.passwordRules"
+        type="password"
+        autocomplete="new-password"
+        required
+        clearable
+      >
+        <template #prefix-label>
+          <RIcon icon="mdi-key-outline" size="14" />
+          {{ t("settings.password") }}
+        </template>
+      </RTextField>
+      <RTextField
+        v-model="confirmPassword"
+        prefix-label="stacked"
+        :rules="confirmPasswordRules"
+        type="password"
+        autocomplete="new-password"
+        required
+        clearable
+      >
+        <template #prefix-label>
+          <RIcon icon="mdi-key-variant" size="14" />
+          {{ t("settings.repeat-password") }}
+        </template>
+      </RTextField>
+      <RTextField
+        v-model="user.email"
+        prefix-label="stacked"
+        :rules="usersStore.emailRules"
+        type="email"
+        clearable
+      >
+        <template #prefix-label>
+          <RIcon icon="mdi-email-outline" size="14" />
+          {{ t("settings.email") }}
+        </template>
+      </RTextField>
+      <RSelect
+        v-model="user.role"
+        variant="outlined"
+        :items="roleItems"
+        :label="t('settings.role')"
+        required
+        hide-details
+      >
+        <template #selection="{ item }">
+          <div class="r-v2-user-dialog__role-line">
+            <RIcon :icon="getRoleIcon(item.value)" size="16" />
+            {{ item.title }}
+          </div>
+        </template>
+        <template #item="{ props: itemProps, item }">
+          <li v-bind="itemProps">
+            <RIcon :icon="getRoleIcon(item.value)" size="16" />
+            <span class="r-select__item-title">{{ item.title }}</span>
+          </li>
+        </template>
+      </RSelect>
     </template>
     <template #footer>
-      <div class="r-v2-user-dialog__footer">
-        <RBtn variant="text" @click="close">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <RBtn
-          variant="flat"
-          color="primary"
-          :loading="submitting"
-          :disabled="!formValid"
-          @click="createUser"
-        >
-          {{ t("common.create") }}
-        </RBtn>
-      </div>
+      <RBtn variant="text" @click="close">
+        {{ t("common.cancel") }}
+      </RBtn>
+      <div style="flex: 1" />
+      <RBtn
+        variant="flat"
+        color="primary"
+        :loading="submitting"
+        :disabled="!formValid"
+        @click="createUser"
+      >
+        {{ t("common.create") }}
+      </RBtn>
     </template>
   </RDialog>
 </template>
@@ -176,23 +197,10 @@ function close() {
 .r-v2-user-dialog__title {
   font-weight: var(--r-font-weight-semibold);
 }
-.r-v2-user-dialog__body {
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
 .r-v2-user-dialog__role-line {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   text-transform: capitalize;
-}
-.r-v2-user-dialog__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 24px;
-  border-top: 1px solid var(--r-color-border);
 }
 </style>

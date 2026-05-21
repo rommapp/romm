@@ -841,8 +841,7 @@ function onAppendInnerClick(evt: MouseEvent) {
 }
 .r-text-field__clear:hover {
   color: var(--r-tf-color);
-  background: color-mix(in srgb, var(--r-tf-color) 14%, transparent);
-  transform: scale(1.1);
+  transform: scale(1.2);
 }
 .r-text-field__clear:active {
   transform: scale(0.92);

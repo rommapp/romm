@@ -125,61 +125,58 @@ async function submit() {
       </span>
     </template>
     <template #content>
-      <div class="r-v2-pwd-dialog__body">
-        <RTextField
-          v-model="newPassword"
-          prefix-label="stacked"
-          :type="showNew ? 'text' : 'password'"
-          :rules="newPasswordRules"
-          :append-inner-icon="showNew ? 'mdi-eye-off' : 'mdi-eye'"
-          autocomplete="new-password"
-          required
-          @click:append-inner="showNew = !showNew"
-          @keyup.enter="submit"
-        >
-          <template #prefix-label>
-            <RIcon icon="mdi-key-plus" size="14" />
-            {{ t("settings.new-password") }}
-          </template>
-        </RTextField>
-        <RTextField
-          v-model="confirmPassword"
-          prefix-label="stacked"
-          :type="showConfirm ? 'text' : 'password'"
-          :rules="confirmRules"
-          :append-inner-icon="showConfirm ? 'mdi-eye-off' : 'mdi-eye'"
-          autocomplete="new-password"
-          required
-          @click:append-inner="showConfirm = !showConfirm"
-          @keyup.enter="submit"
-        >
-          <template #prefix-label>
-            <RIcon icon="mdi-key-variant" size="14" />
-            {{ t("settings.repeat-password") }}
-          </template>
-        </RTextField>
-        <p class="r-v2-pwd-dialog__hint">
-          <RIcon icon="mdi-information-outline" size="14" />
-          <span>{{ t("common.password-length") }}</span>
-        </p>
-      </div>
+      <RTextField
+        v-model="newPassword"
+        prefix-label="stacked"
+        :type="showNew ? 'text' : 'password'"
+        :rules="newPasswordRules"
+        :append-inner-icon="showNew ? 'mdi-eye-off' : 'mdi-eye'"
+        autocomplete="new-password"
+        required
+        @click:append-inner="showNew = !showNew"
+        @keyup.enter="submit"
+      >
+        <template #prefix-label>
+          <RIcon icon="mdi-key-plus" size="14" />
+          {{ t("settings.new-password") }}
+        </template>
+      </RTextField>
+      <RTextField
+        v-model="confirmPassword"
+        prefix-label="stacked"
+        :type="showConfirm ? 'text' : 'password'"
+        :rules="confirmRules"
+        :append-inner-icon="showConfirm ? 'mdi-eye-off' : 'mdi-eye'"
+        autocomplete="new-password"
+        required
+        @click:append-inner="showConfirm = !showConfirm"
+        @keyup.enter="submit"
+      >
+        <template #prefix-label>
+          <RIcon icon="mdi-key-variant" size="14" />
+          {{ t("settings.repeat-password") }}
+        </template>
+      </RTextField>
+      <p class="r-v2-pwd-dialog__hint">
+        <RIcon icon="mdi-information-outline" size="14" />
+        <span>{{ t("common.password-length") }}</span>
+      </p>
     </template>
     <template #footer>
-      <div class="r-v2-pwd-dialog__footer">
-        <RBtn variant="text" @click="close">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <RBtn
-          variant="flat"
-          color="primary"
-          :loading="submitting"
-          :disabled="!canSubmit"
-          prepend-icon="mdi-check"
-          @click="submit"
-        >
-          {{ t("common.confirm") }}
-        </RBtn>
-      </div>
+      <RBtn variant="text" @click="close">
+        {{ t("common.cancel") }}
+      </RBtn>
+      <div style="flex: 1" />
+      <RBtn
+        variant="flat"
+        color="primary"
+        :loading="submitting"
+        :disabled="!canSubmit"
+        prepend-icon="mdi-check"
+        @click="submit"
+      >
+        {{ t("common.confirm") }}
+      </RBtn>
     </template>
   </RDialog>
 </template>
@@ -188,12 +185,6 @@ async function submit() {
 .r-v2-pwd-dialog__title {
   font-weight: var(--r-font-weight-semibold);
 }
-.r-v2-pwd-dialog__body {
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
 .r-v2-pwd-dialog__hint {
   margin: 0;
   display: inline-flex;
@@ -201,12 +192,5 @@ async function submit() {
   gap: 6px;
   font-size: 11px;
   color: var(--r-color-fg-muted);
-}
-.r-v2-pwd-dialog__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 24px;
-  border-top: 1px solid var(--r-color-border);
 }
 </style>

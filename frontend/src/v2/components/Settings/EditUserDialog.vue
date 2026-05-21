@@ -27,11 +27,13 @@ const snackbar = useSnackbar();
 const show = ref(false);
 const submitting = ref(false);
 const user = ref<UserItem | null>(null);
+const confirmPassword = ref("");
 const imagePreviewUrl = ref<string | undefined>(undefined);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 emitter?.on("showEditUserDialog", (toEdit) => {
   user.value = { ...toEdit, password: "", avatar: undefined };
+  confirmPassword.value = "";
   imagePreviewUrl.value = undefined;
   show.value = true;
 });
@@ -50,6 +52,24 @@ const roleItems = computed(() =>
     value: role,
   })),
 );
+
+// On edit, password is optional — empty fields leave the existing
+// password untouched. As soon as the admin types a new password we
+// demand the repeat field is filled in and matches.
+const confirmPasswordRules = computed(() => [
+  (v: string) =>
+    !user.value?.password ||
+    !!v ||
+    t("settings.repeat-password-required"),
+  (v: string) =>
+    v === (user.value?.password ?? "") || t("settings.passwords-must-match"),
+]);
+
+const passwordChangeValid = computed(() => {
+  const pw = user.value?.password ?? "";
+  if (!pw) return true; // not changing the password
+  return pw.length >= 6 && pw === confirmPassword.value;
+});
 
 function triggerFileInput() {
   fileInputRef.value?.click();
@@ -132,11 +152,27 @@ function close() {
             prefix-label="stacked"
             :placeholder="t('settings.password-placeholder')"
             type="password"
+            autocomplete="new-password"
             clearable
           >
             <template #prefix-label>
               <RIcon icon="mdi-key-outline" size="14" />
               {{ t("settings.password") }}
+            </template>
+          </RTextField>
+          <RTextField
+            v-if="user.password"
+            v-model="confirmPassword"
+            prefix-label="stacked"
+            :rules="confirmPasswordRules"
+            type="password"
+            autocomplete="new-password"
+            required
+            clearable
+          >
+            <template #prefix-label>
+              <RIcon icon="mdi-key-variant" size="14" />
+              {{ t("settings.repeat-password") }}
             </template>
           </RTextField>
           <RTextField
@@ -196,20 +232,19 @@ function close() {
       </div>
     </template>
     <template #footer>
-      <div class="r-v2-user-dialog__footer">
-        <RBtn variant="text" @click="close">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <RBtn
-          variant="flat"
-          color="primary"
-          :loading="submitting"
-          :disabled="!user.username"
-          @click="editUser"
-        >
-          {{ t("common.apply") }}
-        </RBtn>
-      </div>
+      <RBtn variant="text" @click="close">
+        {{ t("common.cancel") }}
+      </RBtn>
+      <div style="flex: 1" />
+      <RBtn
+        variant="flat"
+        color="primary"
+        :loading="submitting"
+        :disabled="!user.username || !passwordChangeValid"
+        @click="editUser"
+      >
+        {{ t("common.apply") }}
+      </RBtn>
     </template>
   </RDialog>
 </template>
@@ -222,7 +257,6 @@ function close() {
   display: grid;
   grid-template-columns: 1fr 160px;
   gap: 24px;
-  padding: 20px 24px;
   align-items: start;
 }
 html[data-bp~="xs"] .r-v2-user-dialog__edit-grid {
@@ -281,12 +315,5 @@ html[data-bp~="xs"] .r-v2-user-dialog__edit-grid {
   align-items: center;
   gap: 6px;
   text-transform: capitalize;
-}
-.r-v2-user-dialog__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 24px;
-  border-top: 1px solid var(--r-color-border);
 }
 </style>

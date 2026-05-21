@@ -373,64 +373,59 @@ function onSort({ key, dir }: RTableSortPayload) {
         </span>
       </template>
       <template #content>
-        <div class="r-v2-excluded__dialog-body">
-          <p class="r-v2-excluded__dialog-help">
-            {{ t("settings.select-exclusion-type") }}
-          </p>
-          <div class="r-v2-excluded__type-grid">
-            <button
-              v-for="def in exclusionDefs"
-              :key="def.key"
-              type="button"
-              class="r-v2-excluded__type-card"
-              :class="{
-                'r-v2-excluded__type-card--active': newType === def.key,
-              }"
-              :aria-pressed="newType === def.key"
-              @click="newType = def.key"
-            >
-              <RIcon :icon="def.icon" size="22" />
-              <span class="r-v2-excluded__type-card-title">{{
-                def.title
-              }}</span>
-              <span class="r-v2-excluded__type-card-desc">
-                {{ def.description }}
-              </span>
-            </button>
-          </div>
-          <RTextField
-            v-model="newValue"
-            prefix-label="stacked"
-            :disabled="!newType"
-            hide-details
-            @keyup.enter="submitExclusion"
+        <p class="r-v2-excluded__dialog-help">
+          {{ t("settings.select-exclusion-type") }}
+        </p>
+        <div class="r-v2-excluded__type-grid">
+          <button
+            v-for="def in exclusionDefs"
+            :key="def.key"
+            type="button"
+            class="r-v2-excluded__type-card"
+            :class="{
+              'r-v2-excluded__type-card--active': newType === def.key,
+            }"
+            :aria-pressed="newType === def.key"
+            @click="newType = def.key"
           >
-            <template #prefix-label>
-              <RIcon
-                v-if="selectedDef?.icon"
-                :icon="selectedDef.icon"
-                size="14"
-              />
-              {{ t("settings.exclusion-value") }}
-            </template>
-          </RTextField>
+            <RIcon :icon="def.icon" size="22" />
+            <span class="r-v2-excluded__type-card-title">{{ def.title }}</span>
+            <span class="r-v2-excluded__type-card-desc">
+              {{ def.description }}
+            </span>
+          </button>
         </div>
+        <RTextField
+          v-model="newValue"
+          prefix-label="stacked"
+          :disabled="!newType"
+          hide-details
+          @keyup.enter="submitExclusion"
+        >
+          <template #prefix-label>
+            <RIcon
+              v-if="selectedDef?.icon"
+              :icon="selectedDef.icon"
+              size="14"
+            />
+            {{ t("settings.exclusion-value") }}
+          </template>
+        </RTextField>
       </template>
       <template #footer>
-        <div class="r-v2-excluded__dialog-actions">
-          <RBtn variant="text" @click="closeCreate">
-            {{ t("common.cancel") }}
-          </RBtn>
-          <RBtn
-            variant="flat"
-            color="primary"
-            :loading="submitting"
-            :disabled="!newType || !newValue.trim()"
-            @click="submitExclusion"
-          >
-            {{ t("common.confirm") }}
-          </RBtn>
-        </div>
+        <RBtn variant="text" @click="closeCreate">
+          {{ t("common.cancel") }}
+        </RBtn>
+        <div style="flex: 1" />
+        <RBtn
+          variant="flat"
+          color="primary"
+          :loading="submitting"
+          :disabled="!newType || !newValue.trim()"
+          @click="submitExclusion"
+        >
+          {{ t("common.confirm") }}
+        </RBtn>
       </template>
     </RDialog>
   </div>
@@ -528,12 +523,6 @@ function onSort({ key, dir }: RTableSortPayload) {
 .r-v2-excluded__dialog-title {
   font-weight: var(--r-font-weight-semibold);
 }
-.r-v2-excluded__dialog-body {
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
 .r-v2-excluded__dialog-help {
   margin: 0;
   text-align: center;
@@ -585,12 +574,5 @@ function onSort({ key, dir }: RTableSortPayload) {
   font-size: 11px;
   color: var(--r-color-fg-muted);
   line-height: 1.4;
-}
-.r-v2-excluded__dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 24px;
-  border-top: 1px solid var(--r-color-border);
 }
 </style>

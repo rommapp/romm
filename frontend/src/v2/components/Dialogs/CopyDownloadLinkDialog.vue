@@ -70,17 +70,16 @@ async function retryCopy() {
       </div>
     </template>
     <template #footer>
-      <div class="d-flex align-center justify-end ga-2">
-        <RBtn variant="text" @click="closeDialog">Close</RBtn>
-        <RBtn
-          variant="flat"
-          color="primary"
-          prepend-icon="mdi-content-copy"
-          @click="retryCopy"
-        >
-          Try again
-        </RBtn>
-      </div>
+      <RBtn variant="text" @click="closeDialog">Close</RBtn>
+      <div style="flex: 1" />
+      <RBtn
+        variant="flat"
+        color="primary"
+        prepend-icon="mdi-content-copy"
+        @click="retryCopy"
+      >
+        Try again
+      </RBtn>
     </template>
   </RDialog>
 </template>

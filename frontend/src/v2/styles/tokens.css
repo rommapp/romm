@@ -62,14 +62,9 @@
   --r-color-overlay-emphasis-fg: #111117;
   --r-color-canvas-bg: #000000;
   --r-color-canvas-bg-deep: #0d1117;
-  --r-font-family-sans:
-    "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Inter", Roboto,
-    sans-serif;
-  --r-font-family-display:
-    "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Inter", Roboto,
-    sans-serif;
-  --r-font-family-mono:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --r-font-family-sans: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif;
+  --r-font-family-display: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif;
+  --r-font-family-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   --r-font-size-xs: 10.5px;
   --r-font-size-sm: 11.5px;
   --r-font-size-md: 13px;
@@ -129,18 +124,33 @@
   --r-page-max-w: 1920px;
   --r-card-art-w: 158px;
   --r-card-art-h: 213px;
+  --r-card-art-w-xs: 48px;
+  --r-card-art-h-xs: 64px;
+  --r-card-art-w-sm: 120px;
+  --r-card-art-h-sm: 162px;
+  --r-card-art-w-lg: 200px;
+  --r-card-art-h-lg: 270px;
+  --r-card-art-w-xl: 240px;
+  --r-card-art-h-xl: 324px;
   --r-hero-w: 300px;
   --r-hero-h: 169px;
+  --r-hero-w-xs: 90px;
+  --r-hero-h-xs: 51px;
+  --r-hero-w-sm: 230px;
+  --r-hero-h-sm: 130px;
+  --r-hero-w-lg: 380px;
+  --r-hero-h-lg: 214px;
+  --r-hero-w-xl: 460px;
+  --r-hero-h-xl: 259px;
   --r-cover-w: 240px;
   --r-list-row-h: 80px;
   --r-list-header-h: 40px;
-  --r-list-cover-w: 48px;
-  --r-list-cover-h: 64px;
   --r-z-dialog: 2400;
   --r-z-menu: 2500;
   --r-z-tooltip: 2600;
   --r-z-snackbar: 2700;
 }
+
 
 html[data-input="key"] .r-v2 {
   --r-focus-ring-width: 2.5px;

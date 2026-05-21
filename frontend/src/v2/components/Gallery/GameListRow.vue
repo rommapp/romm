@@ -25,12 +25,10 @@ import { computed, onBeforeUnmount, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { formatBytes, toBrowserLocale } from "@/utils";
+import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
-import {
-  pendingMorphName,
-  useViewTransition,
-} from "@/v2/composables/useViewTransition";
+import { useViewTransition } from "@/v2/composables/useViewTransition";
 import storeGalleryRoms, { type SimpleRom } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
@@ -97,12 +95,6 @@ function onCheckboxClick(e: MouseEvent) {
 
 const gridStyle = { gridTemplateColumns: LIST_GRID_TEMPLATE };
 
-function coverUrl(item: SimpleRom): string | null {
-  const path = item.path_cover_small ?? item.path_cover_large ?? null;
-  if (!path) return item.url_cover ?? null;
-  return props.webp ? path.replace(/\.(png|jpg|jpeg)$/i, ".webp") : path;
-}
-
 function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
   try {
@@ -135,19 +127,17 @@ function ratingValue(item: SimpleRom): string {
   return r.toFixed(1);
 }
 
-function morphStyleFor(item: SimpleRom) {
-  const name = `rom-cover-${item.id}`;
-  return pendingMorphName.value === name
-    ? { viewTransitionName: name }
-    : undefined;
-}
-
 function navigateTo(item: SimpleRom, currentTarget: HTMLElement | null) {
   const navigate = async () => {
     await router.push(`/rom/${item.id}`);
   };
+  // The thumb is the `<GameCard decorative>`'s inner art element —
+  // querying `.r-gc__art` reaches it through the GameCard wrapper.
+  // GameCard's own `morphStyle` computed paints the reverse-paint name
+  // on the same element when we come back from the detail page, so the
+  // forward morph here pairs with the reverse paint automatically.
   const thumb =
-    currentTarget?.querySelector<HTMLElement>(".game-list-row__thumb") ?? null;
+    currentTarget?.querySelector<HTMLElement>(".r-gc__art") ?? null;
   if (!thumb) {
     void navigate();
     return;
@@ -254,17 +244,14 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="game-list-row__cell game-list-row__title">
-        <div class="game-list-row__thumb" :style="morphStyleFor(rom)">
-          <img
-            v-if="coverUrl(rom)"
-            :src="coverUrl(rom) ?? undefined"
-            :alt="rom.name ?? rom.fs_name_no_ext"
-            loading="lazy"
-          />
-          <span v-else class="game-list-row__thumb-fallback">
-            {{ (rom.name ?? rom.fs_name_no_ext).slice(0, 2).toUpperCase() }}
-          </span>
-        </div>
+        <GameCard
+          :rom="rom"
+          size="xs"
+          :webp="webp"
+          decorative
+          :show-title="false"
+          :show-platform-icon="false"
+        />
         <div class="game-list-row__meta">
           <div class="game-list-row__name">
             {{ rom.name ?? rom.fs_name_no_ext }}
@@ -446,30 +433,6 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: var(--r-space-3);
   min-width: 0;
-}
-
-.game-list-row__thumb {
-  width: var(--r-list-cover-w);
-  height: var(--r-list-cover-h);
-  flex-shrink: 0;
-  border-radius: var(--r-radius-sm);
-  overflow: hidden;
-  background: var(--r-color-surface);
-  display: grid;
-  place-items: center;
-}
-
-.game-list-row__thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.game-list-row__thumb-fallback {
-  font-size: var(--r-font-size-xs);
-  font-weight: var(--r-font-weight-bold);
-  color: var(--r-color-fg-muted);
 }
 
 .game-list-row__meta {

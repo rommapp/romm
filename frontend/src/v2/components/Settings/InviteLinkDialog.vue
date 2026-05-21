@@ -88,67 +88,64 @@ function close() {
       <span class="r-v2-invite__title">{{ t("settings.invite-link") }}</span>
     </template>
     <template #content>
-      <div class="r-v2-invite__body">
-        <div class="r-v2-invite__field">
-          <span class="r-v2-invite__label">{{ t("settings.role") }}</span>
-          <div class="r-v2-invite__role-row">
-            <button
-              v-for="role in roles"
-              :key="role"
-              type="button"
-              class="r-v2-invite__role-btn"
-              :class="{
-                'r-v2-invite__role-btn--active': selectedRole === role,
-              }"
-              :aria-pressed="selectedRole === role"
-              @click="selectedRole = role"
-            >
-              <RIcon :icon="getRoleIcon(role)" size="14" />
-              {{ role.charAt(0).toUpperCase() + role.slice(1) }}
-            </button>
-          </div>
-        </div>
-
-        <div class="r-v2-invite__field">
-          <RSelect
-            v-model="selectedExpiration"
-            :items="expirationOptions"
-            label="Expires in"
-            variant="outlined"
-            density="comfortable"
-            hide-details
-          />
-        </div>
-
-        <div v-if="fullInviteLink" class="r-v2-invite__link">
-          <code>{{ fullInviteLink }}</code>
+      <div class="r-v2-invite__field">
+        <span class="r-v2-invite__label">{{ t("settings.role") }}</span>
+        <div class="r-v2-invite__role-row">
           <button
+            v-for="role in roles"
+            :key="role"
             type="button"
-            class="r-v2-invite__copy-btn"
-            aria-label="Copy link"
-            @click="copyLink"
+            class="r-v2-invite__role-btn"
+            :class="{
+              'r-v2-invite__role-btn--active': selectedRole === role,
+            }"
+            :aria-pressed="selectedRole === role"
+            @click="selectedRole = role"
           >
-            <RIcon icon="mdi-content-copy" size="14" />
+            <RIcon :icon="getRoleIcon(role)" size="14" />
+            {{ role.charAt(0).toUpperCase() + role.slice(1) }}
           </button>
         </div>
       </div>
+
+      <div class="r-v2-invite__field">
+        <RSelect
+          v-model="selectedExpiration"
+          :items="expirationOptions"
+          label="Expires in"
+          variant="outlined"
+          density="comfortable"
+          hide-details
+        />
+      </div>
+
+      <div v-if="fullInviteLink" class="r-v2-invite__link">
+        <code>{{ fullInviteLink }}</code>
+        <button
+          type="button"
+          class="r-v2-invite__copy-btn"
+          aria-label="Copy link"
+          @click="copyLink"
+        >
+          <RIcon icon="mdi-content-copy" size="14" />
+        </button>
+      </div>
     </template>
     <template #footer>
-      <div class="r-v2-invite__footer">
-        <RBtn variant="text" @click="close">
-          {{ t("common.cancel") }}
-        </RBtn>
-        <RBtn
-          variant="flat"
-          color="primary"
-          :loading="generating"
-          :disabled="!selectedRole"
-          prepend-icon="mdi-link-variant"
-          @click="createInviteLink"
-        >
-          Generate
-        </RBtn>
-      </div>
+      <RBtn variant="text" @click="close">
+        {{ t("common.cancel") }}
+      </RBtn>
+      <div style="flex: 1" />
+      <RBtn
+        variant="flat"
+        color="primary"
+        :loading="generating"
+        :disabled="!selectedRole"
+        prepend-icon="mdi-link-variant"
+        @click="createInviteLink"
+      >
+        Generate
+      </RBtn>
     </template>
   </RDialog>
 </template>
@@ -156,12 +153,6 @@ function close() {
 <style scoped>
 .r-v2-invite__title {
   font-weight: var(--r-font-weight-semibold);
-}
-.r-v2-invite__body {
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 .r-v2-invite__field {
   display: flex;
@@ -247,12 +238,5 @@ function close() {
 }
 .r-v2-invite__copy-btn:hover {
   background: var(--r-color-surface-hover);
-}
-.r-v2-invite__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 14px 24px;
-  border-top: 1px solid var(--r-color-border);
 }
 </style>

@@ -298,6 +298,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           <GameCard
             :rom="rom"
             :cover-src="imagePreviewUrl"
+            size="lg"
             :show-title="false"
             static
             no-hover
@@ -461,7 +462,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
    cover down with them. */
 .r-v2-edit__hero {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 240px 1fr;
   gap: 18px;
   align-items: start;
 }
@@ -495,11 +496,10 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
 
 /* ── Tab surface ─────────────────────────────────────────────────
    The tab nav owns its own bottom border, so the only separator we
-   need above is breathing space — the hero ends, a margin of 20px
-   beats, then the tab strip begins. The tab content gets its own
-   inset so panels don't sit flush against the underlined strip. */
+   need above is breathing space — the hero ends, the dialog body's
+   flex gap beats, then the tab strip begins. The tab content gets its
+   own inset so panels don't sit flush against the underlined strip. */
 .r-v2-edit__panels {
-  margin-top: 20px;
   display: flex;
   flex-direction: column;
 }
@@ -514,7 +514,7 @@ html[data-bp~="xs"] .r-v2-edit__hero {
   grid-template-columns: 1fr;
 }
 html[data-bp~="xs"] .r-v2-edit__cover-col {
-  max-width: 220px;
+  max-width: 240px;
   margin: 0 auto;
 }
 </style>

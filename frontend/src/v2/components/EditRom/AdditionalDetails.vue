@@ -79,6 +79,7 @@ function updateManualMetadata(
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
+      clearable
       @update:model-value="(v) => updateManualMetadata('companies', v)"
     />
     <RComboboxField
@@ -87,6 +88,7 @@ function updateManualMetadata(
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
+      clearable
       @update:model-value="(v) => updateManualMetadata('genres', v)"
     />
     <RComboboxField
@@ -95,6 +97,7 @@ function updateManualMetadata(
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
+      clearable
       @update:model-value="(v) => updateManualMetadata('franchises', v)"
     />
     <RDateField
@@ -103,6 +106,7 @@ function updateManualMetadata(
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
+      clearable
       @update:model-value="
         (d) =>
           updateManualMetadata('first_release_date', d ? d.getTime() : null)
@@ -115,6 +119,7 @@ function updateManualMetadata(
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
+      clearable
       @update:model-value="(v) => updateManualMetadata('game_modes', v)"
     />
     <RTextField
@@ -140,6 +145,7 @@ function updateManualMetadata(
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
+      clearable
       @update:model-value="
         (v) =>
           updateManualMetadata(

@@ -99,7 +99,12 @@ export const LIST_GRID_TEMPLATE =
 // Numeric mirrors of the list-mode tokens so JS consumers (the
 // virtualiser, the cover skeleton block) stay synced with the rendered
 // CSS. Token values are guaranteed to be `<number>px` strings.
+//
+// The list-row avatar is rendered by `<GameCard size="xs" />`, so the
+// cover dimensions come from the shared xs tokens — there's no
+// dedicated "list cover" token any more. Keep these JS mirrors so the
+// skeleton placeholder paints at the same footprint as the real card.
 export const LIST_ROW_HEIGHT_PX = parseInt(layout.listRowHeight, 10);
 export const LIST_HEADER_HEIGHT_PX = parseInt(layout.listHeaderHeight, 10);
-export const LIST_COVER_WIDTH_PX = parseInt(layout.listCoverWidth, 10);
-export const LIST_COVER_HEIGHT_PX = parseInt(layout.listCoverHeight, 10);
+export const LIST_COVER_WIDTH_PX = parseInt(layout.cardArtWidthXs, 10);
+export const LIST_COVER_HEIGHT_PX = parseInt(layout.cardArtHeightXs, 10);

@@ -57,6 +57,10 @@ interface Props {
   disabled?: boolean;
   /** Override the display format. Defaults to `dateStyle: medium`. */
   displayFormat?: Intl.DateTimeFormatOptions;
+  /** Render an inline X next to the calendar icon when a date is set.
+   *  Mirrors RTextField's clearable affordance so the two primitives
+   *  read as siblings on dialogs that mix text + date fields. */
+  clearable?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -69,6 +73,7 @@ const props = withDefaults(defineProps<Props>(), {
   hideFooter: false,
   disabled: false,
   displayFormat: () => ({ dateStyle: "medium" }),
+  clearable: false,
 });
 
 const emit = defineEmits<{
@@ -417,12 +422,29 @@ onBeforeUnmount(() => {
       :disabled="disabled"
       :focused="isOpen"
       readonly
-      append-inner-icon="mdi-calendar"
+      :append-inner-icon="
+        clearable && selectedDate ? undefined : 'mdi-calendar'
+      "
       :aria-haspopup="'dialog'"
       :aria-expanded="isOpen"
       role="combobox"
       @click="toggle"
-    />
+    >
+      <template v-if="clearable && selectedDate" #append-inner>
+        <!-- Inline clear — wipes the value without opening the picker.
+             `mousedown.prevent` keeps focus on the field so subsequent
+             keypresses don't surprise the user by reaching the body. -->
+        <button
+          type="button"
+          class="r-date-field__clear"
+          :aria-label="clearLabel"
+          @mousedown.prevent
+          @click.stop="clearValue"
+        >
+          <RIcon icon="mdi-close-circle" size="x-small" />
+        </button>
+      </template>
+    </RTextField>
 
     <Teleport to="body">
       <Transition name="r-date-pop">
@@ -560,6 +582,33 @@ onBeforeUnmount(() => {
 .r-date-field :deep(.r-text-field--disabled .r-text-field__field),
 .r-date-field :deep(.r-text-field--disabled .r-text-field__input) {
   cursor: not-allowed;
+}
+
+/* Clear button — mirrors the X RTextField renders for `clearable`. We
+   can't reuse the native clearable affordance because RTextField's
+   model-value here is a derived display string; clearing has to emit
+   `null` upward via the picker's own emit path. */
+.r-date-field__clear {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--r-color-fg-muted);
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  transition:
+    color var(--r-motion-fast) var(--r-motion-ease-out),
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    transform var(--r-motion-fast) cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.r-date-field__clear:hover {
+  color: var(--r-color-brand-primary);
+  transform: scale(1.2);
+}
+.r-date-field__clear:active {
+  transform: scale(0.92);
 }
 
 /* ── Calendar panel ────────────────────────────────────────────── */

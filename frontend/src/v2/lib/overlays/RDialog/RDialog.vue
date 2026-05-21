@@ -156,8 +156,15 @@ const panelStyle = computed(() => {
     <!-- Auto-detect mode: Vue reads the longest CSS transition
          declared on the root (`.r-dialog`'s opacity) and unmounts when
          that transitionend fires. The panel scales alongside via its
-         own always-on transform transition. -->
-    <Transition name="r-dialog-fade">
+         own always-on transform transition.
+         `appear` makes the enter animation fire on the dialog's first
+         mount too — consumers that gate RDialog with `v-if="entity"`
+         outside (EditRomDialog, EditUserDialog) flip the entity ref
+         AND `show` in the same tick, so without `appear` the dialog
+         mounts already-open and Vue sees no v-if transition. With it,
+         the bloom happens either way: initial-mount-with-true or a
+         subsequent false → true flip on a steady-mounted dialog. -->
+    <Transition name="r-dialog-fade" appear>
       <div
         v-if="modelValue"
         v-bind="$attrs"
@@ -327,8 +334,12 @@ const panelStyle = computed(() => {
      footer stays pinned at the bottom. */
   flex: 1 1 auto;
   min-height: 0;
-  /* Symmetric padding so default content reads in a comfortable box. */
-  padding: 18px 16px;
+  /* Padding + gap are owned here so consumers don't have to re-declare
+     a `__body` wrapper just to space their fields. Override at the
+     consumer end only when the layout genuinely differs (grids, hero
+     rows, centred icon stacks). */
+  padding: 20px 24px;
+  gap: 14px;
 }
 .r-dialog__body--scroll {
   overflow-y: auto;

@@ -61,6 +61,18 @@ interface Props {
   rom: SimpleRom;
   to?: string;
   hero?: boolean;
+  /** Card scale tier. Drives the cover art width/height via the shared
+   *  `--r-card-art-w/h` tokens, and the hero variant's `--r-hero-w/h`
+   *  when `hero` is true.
+   *    xs (48 × 64)   — list-row avatars
+   *    sm (120 × 162) — dense pickers
+   *    md (158 × 213) — gallery default (no class — keeps the global token)
+   *    lg (200 × 270) — edit-dialog preview
+   *    xl (240 × 324) — detail page cover
+   *  Hero scales linearly with size (it's just an aspect-ratio change,
+   *  not a separate scale), so `hero` + any `size` paints the 16:9
+   *  shape at that tier's footprint. */
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   focused?: boolean;
   webp?: boolean;
   showPlatformIcon?: boolean;
@@ -69,6 +81,14 @@ interface Props {
    *  bg-art highlight are all suppressed. Click emits `@click` for the
    *  consumer to handle. Hover scale stays unless `noHover` is set. */
   static?: boolean;
+  /** Fully decorative — root is a plain `<div>` with no role, no
+   *  tabindex, no router wiring, no own click handlers. The whole
+   *  card is visual content; the parent (typically an `<a>` or row
+   *  button) owns interactivity and navigation. Avoids the nested-
+   *  interactive HTML quirk when the card lives inside an anchor (eg.
+   *  list-row avatars). Implies `static` semantics: no overlay /
+   *  badges / bg highlight. */
+  decorative?: boolean;
   /** Suppress the hover scale + shadow. Use for purely-decorative
    *  surfaces (edit-dialog cover preview) where the card isn't an
    *  affordance. Only meaningful in `static` mode. */
@@ -104,8 +124,10 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   to: undefined,
+  size: "md",
   showPlatformIcon: true,
   static: false,
+  decorative: false,
   noHover: false,
   showTitle: true,
   coverSrc: undefined,
@@ -151,7 +173,7 @@ const setBgArt = useBackgroundArt();
 // mode (the card isn't part of a gallery surface where the background
 // reads as the focused cover).
 function onHighlight() {
-  if (props.static) return;
+  if (props.static || props.decorative) return;
   if (coverUrl.value) setBgArt(coverUrl.value);
   else if (fallbackUrl.value) setBgArt(fallbackUrl.value);
 }
@@ -197,10 +219,14 @@ const isSelected = computed(() =>
  *  the user can see what is selected at a glance), or on hover when
  *  selection is idle (discoverability of the multi-select feature). */
 const showCheckbox = computed(
-  () => props.selectable && !props.static && !isSynthetic.value,
+  () =>
+    props.selectable &&
+    !props.static &&
+    !props.decorative &&
+    !isSynthetic.value,
 );
 const checkboxAlwaysOn = computed(
-  () => props.selectable && selectionStore.enabled,
+  () => props.selectable && !props.decorative && selectionStore.enabled,
 );
 
 function onCheckboxClick(e: MouseEvent) {
@@ -235,6 +261,10 @@ function onCardClickCapture(e: MouseEvent) {
 }
 
 function onCardClick(e: MouseEvent) {
+  // Decorative mode: the card has no behaviour of its own. Let the
+  // event bubble untouched so the parent (typically an anchor or row
+  // button) handles navigation / selection — no emit, no morph.
+  if (props.decorative) return;
   // Static mode: consumer owns the click. No router push, no forward
   // morph — just hand the event off.
   if (props.static) {
@@ -305,26 +335,38 @@ const morphStyle = computed(() => {
 
 <template>
   <component
-    :is="static ? 'article' : 'router-link'"
-    :to="static ? undefined : href"
-    :role="static ? 'button' : undefined"
-    :tabindex="static ? 0 : undefined"
+    :is="decorative ? 'div' : static ? 'article' : 'router-link'"
+    :to="static || decorative ? undefined : href"
+    :role="static && !decorative ? 'button' : undefined"
+    :tabindex="static && !decorative ? 0 : undefined"
     class="r-gc"
-    :class="{
-      'r-gc--hero': hero,
-      'r-gc--focused': focused,
-      'r-gc--static': static,
-      'r-gc--no-hover': noHover,
-      'r-gc--selected': isSelected,
-      'r-gc--checkbox-on': checkboxAlwaysOn,
-      'r-gc--has-platform-icon': !static && showPlatformIcon,
-    }"
-    :aria-label="title"
-    :aria-pressed="static ? selected : selectable ? isSelected : undefined"
+    :class="[
+      size !== 'md' && `r-gc--size-${size}`,
+      {
+        'r-gc--hero': hero,
+        'r-gc--focused': focused,
+        'r-gc--static': static || decorative,
+        'r-gc--no-hover': noHover || decorative,
+        'r-gc--selected': isSelected,
+        'r-gc--checkbox-on': checkboxAlwaysOn,
+        'r-gc--has-platform-icon':
+          !static && !decorative && showPlatformIcon,
+      },
+    ]"
+    :aria-label="decorative ? undefined : title"
+    :aria-pressed="
+      decorative
+        ? undefined
+        : static
+          ? selected
+          : selectable
+            ? isSelected
+            : undefined
+    "
     :data-rom-id="rom.id"
     @click.capture="onCardClickCapture"
     @click="onCardClick"
-    @keydown="static ? onStaticKeydown($event) : undefined"
+    @keydown="static && !decorative ? onStaticKeydown($event) : undefined"
     @mouseenter="onHighlight"
     @focus="onHighlight"
     @pointerdown="onCardPointerDown"
@@ -376,8 +418,8 @@ const morphStyle = computed(() => {
         <slot name="overlay" />
       </div>
 
-      <!-- Gallery chrome — all suppressed in static mode. -->
-      <template v-if="!static">
+      <!-- Gallery chrome — all suppressed in static / decorative mode. -->
+      <template v-if="!static && !decorative">
         <div v-if="ratingLabel" class="r-gc__rating">★ {{ ratingLabel }}</div>
 
         <RBtn
@@ -792,20 +834,50 @@ const morphStyle = computed(() => {
   border-color: var(--r-color-brand-primary);
 }
 
-/* Mobile */
-html[data-bp~="xs"] .r-gc {
-  width: 130px;
+/* ── Size tiers ───────────────────────────────────────────────
+   Each class only overrides the `--r-card-art-w/h` (and hero pair)
+   locally on the card, so every downstream rule that already reads
+   those vars (`.r-gc { width }`, `.r-gc__art { width / height }`,
+   `.r-gc--hero .r-gc__art`) picks up the new values without
+   duplication. "md" is the default — no class — so the gallery
+   grid (which reads the global `--r-card-art-w`) stays in lock-step
+   with the un-tiered card. */
+.r-gc--size-xs {
+  --r-card-art-w: var(--r-card-art-w-xs);
+  --r-card-art-h: var(--r-card-art-h-xs);
+  --r-hero-w: var(--r-hero-w-xs);
+  --r-hero-h: var(--r-hero-h-xs);
 }
-html[data-bp~="xs"] .r-gc__art {
-  width: 130px;
-  height: 175px;
+.r-gc--size-sm {
+  --r-card-art-w: var(--r-card-art-w-sm);
+  --r-card-art-h: var(--r-card-art-h-sm);
+  --r-hero-w: var(--r-hero-w-sm);
+  --r-hero-h: var(--r-hero-h-sm);
 }
-html[data-bp~="xs"] .r-gc--hero {
-  width: 220px;
+.r-gc--size-lg {
+  --r-card-art-w: var(--r-card-art-w-lg);
+  --r-card-art-h: var(--r-card-art-h-lg);
+  --r-hero-w: var(--r-hero-w-lg);
+  --r-hero-h: var(--r-hero-h-lg);
 }
-html[data-bp~="xs"] .r-gc--hero .r-gc__art {
-  width: 220px;
-  height: 124px;
+.r-gc--size-xl {
+  --r-card-art-w: var(--r-card-art-w-xl);
+  --r-card-art-h: var(--r-card-art-h-xl);
+  --r-hero-w: var(--r-hero-w-xl);
+  --r-hero-h: var(--r-hero-h-xl);
+}
+
+/* ── Mobile ───────────────────────────────────────────────────
+   Forces a tighter footprint on phones. Only applies to the
+   default (md) card — explicit size tiers are intentional choices
+   from the consumer (an `xs` list-row avatar should stay 48px even
+   on mobile). Sets the vars instead of `width` directly so the
+   inner `.r-gc__art` rule picks them up too. */
+html[data-bp~="xs"] .r-gc:not([class*="r-gc--size-"]) {
+  --r-card-art-w: 130px;
+  --r-card-art-h: 175px;
+  --r-hero-w: 220px;
+  --r-hero-h: 124px;
 }
 html[data-bp~="xs"] .r-gc__label {
   font-size: 11px;
