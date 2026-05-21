@@ -1,18 +1,22 @@
 <script setup lang="ts">
 // RelatedGameCard — single card in the related-games strip.
 // On mount, looks up the game in the local RomM library by IGDB id
-// (`getRomByMetadataProvider`); when the lookup hits, the card links
-// internally to the RomM detail page and renders an "In library"
-// affordance (brand-tinted border + check overlay). When it misses,
-// the card falls back to the IGDB game page so the user can still
-// reach metadata for games they don't own.
+// (`getRomByMetadataProvider`). When the lookup hits the card jumps
+// to the internal RomM detail page via the router (no full reload);
+// when it misses the card falls back to the IGDB game page so the
+// user can still reach metadata for games they don't own.
 //
 // Mirrors v1's per-card pattern (frontend/src/components/common/Game/
 // Card/Related.vue) — each card owns its own lookup so the parent
-// grid stays a thin renderer.
+// grid stays a thin renderer. We keep the root as a single `<a>`
+// throughout the card's life (not a `<RouterLink>` ↔ `<a>` swap)
+// because RTooltip resolves its reference from the slot's first
+// element on mount: swapping that element on resolution would leave
+// the tooltip anchored to a detached node and float into the
+// top-left of the viewport.
 import { RIcon, RTooltip } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
-import { RouterLink } from "vue-router";
+import { useRouter } from "vue-router";
 import type { IGDBRelatedGame } from "@/__generated__";
 import romApi from "@/services/api/rom";
 
@@ -20,6 +24,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ game: IGDBRelatedGame }>();
 
+const router = useRouter();
 const romId = ref<number | null>(null);
 const inLibrary = computed(() => romId.value !== null);
 
@@ -36,26 +41,40 @@ onMounted(async () => {
   }
 });
 
-const tag = computed(() => (inLibrary.value ? RouterLink : "a"));
-const linkProps = computed(() =>
+const href = computed(() =>
   inLibrary.value
-    ? { to: `/rom/${romId.value}` }
-    : {
-        href: `https://www.igdb.com/games/${props.game.slug}`,
-        target: "_blank",
-        rel: "noopener noreferrer",
-      },
+    ? `/rom/${romId.value}`
+    : `https://www.igdb.com/games/${props.game.slug}`,
 );
+const target = computed(() => (inLibrary.value ? undefined : "_blank"));
+const rel = computed(() =>
+  inLibrary.value ? undefined : "noopener noreferrer",
+);
+
+// Modifier-key + middle-click escape so the user can still open the
+// internal link in a new tab; otherwise route internally via the
+// router so the SPA stays single-load.
+function onClick(e: MouseEvent) {
+  if (!inLibrary.value) return;
+  if (e.defaultPrevented) return;
+  if (e.button !== 0) return;
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  e.preventDefault();
+  void router.push(href.value);
+}
 </script>
 
 <template>
   <RTooltip :text="game.name" location="top" :open-delay="400">
     <template #activator="{ props: activatorProps }">
-      <component
-        :is="tag"
-        v-bind="{ ...activatorProps, ...linkProps }"
+      <a
+        v-bind="activatorProps"
+        :href="href"
+        :target="target"
+        :rel="rel"
         class="related-card"
         :class="{ 'related-card--in-library': inLibrary }"
+        @click="onClick"
       >
         <div class="related-card__cover-wrap">
           <img
@@ -67,22 +86,16 @@ const linkProps = computed(() =>
           />
           <div v-else class="related-card__cover related-card__cover--empty" />
 
-          <!-- Category tag (DLC / Remake / Expansion …). IGDB ships
-               this on every related game; surfaces what kind of
-               relationship the entry represents. -->
-          <span v-if="game.type" class="related-card__type">
-            {{ game.type }}
-          </span>
-
-          <!-- In-library badge — only shows after the lookup resolves
-               to a local ROM. Bottom-right corner so it never collides
-               with the type tag (top-left). -->
-          <span v-if="inLibrary" class="related-card__owned">
-            <RIcon icon="mdi-check" size="11" />
+          <!-- In-library affordance — small brand-tinted dot in the
+               corner. Subtle enough that it doesn't read as a
+               "selected" state but visible enough to scan a strip
+               quickly for owned games. -->
+          <span v-if="inLibrary" class="related-card__owned" aria-hidden="true">
+            <RIcon icon="mdi-check" size="10" />
           </span>
         </div>
         <div class="related-card__name">{{ game.name }}</div>
-      </component>
+      </a>
     </template>
   </RTooltip>
 </template>
@@ -110,17 +123,6 @@ const linkProps = computed(() =>
   box-shadow: var(--r-elev-2);
 }
 
-.related-card--in-library .related-card__cover-wrap {
-  /* Outline + soft glow signals ownership without crowding the card
-     with extra text — the check overlay confirms it on hover/scan. */
-  outline: 2px solid var(--r-color-brand-primary);
-  outline-offset: -2px;
-  box-shadow:
-    var(--r-elev-1),
-    0 0 0 0 var(--r-color-brand-primary),
-    0 4px 18px color-mix(in srgb, var(--r-color-brand-primary) 25%, transparent);
-}
-
 .related-card__cover {
   aspect-ratio: 2 / 3;
   width: 100%;
@@ -133,22 +135,9 @@ const linkProps = computed(() =>
   background: var(--r-color-bg-elevated);
 }
 
-.related-card__type {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  padding: 2px 7px;
-  font-size: 9.5px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--r-color-overlay-fg);
-  background: var(--r-color-overlay-scrim-strong);
-  border-radius: var(--r-radius-chip);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
+/* Tiny "owned" dot — solid brand-coloured circle with a check.
+   Sits in the bottom-right of the cover so it reads as a status
+   indicator, not a selection chrome. */
 .related-card__owned {
   position: absolute;
   bottom: 6px;
@@ -156,12 +145,12 @@ const linkProps = computed(() =>
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--r-color-brand-primary);
   color: var(--r-color-overlay-fg);
-  box-shadow: var(--r-elev-1);
+  box-shadow: 0 1px 4px color-mix(in srgb, black 50%, transparent);
 }
 
 .related-card__name {

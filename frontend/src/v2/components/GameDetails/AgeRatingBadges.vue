@@ -9,8 +9,16 @@
 // chip with a shield icon so the rating stays semantically marked
 // even without artwork.
 import { RIcon, RTooltip } from "@v2/lib";
-import { computed } from "vue";
+import { computed, reactive } from "vue";
 import type { DetailedRom } from "@/stores/roms";
+
+// IGDB hosts every rating icon at a conventional URL, but not every
+// `category_rating` combo is actually populated — old/regional ratings
+// 404 even though `igdbIconUrl` can build the URL. We track every URL
+// that 404s in this Set so the matching badge swaps to the text chip
+// fallback on the next paint, matching GameCard's "load image →
+// fall back" pattern.
+const failedImages = reactive(new Set<string>());
 
 defineOptions({ inheritAttrs: false });
 
@@ -103,12 +111,13 @@ const badges = computed<Badge[]>(() => {
     >
       <template #activator="{ props: activatorProps }">
         <img
-          v-if="b.rating_cover_url"
+          v-if="b.rating_cover_url && !failedImages.has(b.rating_cover_url)"
           v-bind="activatorProps"
           :src="b.rating_cover_url"
           :alt="b.category ? `${b.category}: ${b.rating}` : b.rating"
           class="age-ratings__img"
           loading="lazy"
+          @error="failedImages.add(b.rating_cover_url!)"
         />
         <span v-else v-bind="activatorProps" class="age-ratings__chip">
           <RIcon icon="mdi-shield-outline" size="13" />

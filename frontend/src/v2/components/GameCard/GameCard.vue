@@ -52,6 +52,7 @@ import {
 import RCheckbox from "@/v2/lib/forms/RCheckbox/RCheckbox.vue";
 import RPlatformIcon from "@/v2/lib/media/RPlatformIcon/RPlatformIcon.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
+import RTooltip from "@/v2/lib/structural/RTooltip/RTooltip.vue";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 
 defineOptions({ inheritAttrs: false });
@@ -421,6 +422,19 @@ const morphStyle = computed(() => {
     <div v-if="showTitle" class="r-gc__label">
       {{ title }}
     </div>
+    <!-- Full-name tooltip — the label below the cover truncates at one
+         line (two on hero variant), so a hover reveal is the only way
+         to see the full title without navigating in. `activator="parent"`
+         attaches to the root card element so the tooltip fires no
+         matter which part of the card the user hovers; the open delay
+         keeps it from flashing during fast scans across the gallery. -->
+    <RTooltip
+      v-if="showTitle"
+      activator="parent"
+      :text="title"
+      location="top"
+      :open-delay="500"
+    />
   </component>
 </template>
 
