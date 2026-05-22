@@ -744,45 +744,98 @@ function seekValueText(v: number): string {
   );
 }
 
-/* Playing — same border colour, but a pulsing glow halo so the row
-   reads as alive instead of merely selected. The keyframes oscillate
-   the outer ring's spread + opacity; the inner background tint also
-   breathes one shade so the row visibly "moves". */
-.r-v2-stp__row--playing {
-  animation: r-v2-stp-row-play 2s ease-in-out infinite;
-}
-@keyframes r-v2-stp-row-play {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0
-      color-mix(in srgb, var(--r-color-brand-primary) 0%, transparent);
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent),
-      var(--r-color-surface)
-    );
-  }
-  50% {
-    box-shadow: 0 0 0 4px
-      color-mix(in srgb, var(--r-color-brand-primary) 28%, transparent);
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--r-color-brand-primary) 16%, transparent),
-      var(--r-color-surface)
-    );
-  }
+/* Playing — a brand-coloured arc orbits the row's perimeter so the
+   row reads as "in motion" without any pulse or background change.
+   A ::before pseudo sits 1px outside the row (`inset: -1px`) so the
+   moving gradient only shows as a thin halo around the existing
+   border; the row's own surface covers the centre. The pseudo is
+   `z-index: -1` (below the row's children) so it never intercepts
+   pointer events; `isolation: isolate` pins z-index to this row so
+   the negative index can't reach the panel underneath. */
+/* Register `--r-stp-orbit-angle` as a typed CSS property so it can be
+   smoothly animated between angle values. Without `@property` the angle
+   would jump (custom properties default to `<*>`, which is treated as
+   a string and can't interpolate). The arc inside the conic gradient
+   then advances frame by frame and the pseudo's box stays fixed. */
+@property --r-stp-orbit-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
 }
 
-/* Buffering — runs the same pulse but faster, so a stall reads as
-   "still working" rather than the steady playing cadence. */
+.r-v2-stp__row--playing,
 .r-v2-stp__row--buffering {
-  animation: r-v2-stp-row-play 0.9s ease-in-out infinite;
+  /* Anchor for the orbit pseudo. */
+  position: relative;
+}
+.r-v2-stp__row--playing::before,
+.r-v2-stp__row--buffering::before {
+  content: "";
+  position: absolute;
+  /* The pseudo covers the row plus a 1px overshoot on every side so
+     the visible ring lands right on the row's border. Padding sets
+     the ring thickness; the mask-composite trick below clips the
+     conic gradient down to that ring. Thicker ring (3px) gives the
+     arcs more weight on the perimeter. */
+  inset: -1px;
+  padding: 3px;
+  border-radius: inherit;
+  /* Two bright arcs sitting 180° apart so the row reads as having
+     two pulses chasing each other around the perimeter. Each arc
+     spans ~25% of the circumference with a soft 40%-brand trail on
+     either side and a sharp full-brand peak in the centre. The conic
+     gradient's `from` angle is the animated custom property — the
+     pseudo's box never rotates, only the arcs travel. */
+  background: conic-gradient(
+    from var(--r-stp-orbit-angle),
+    /* Arc A — peak at 12.5% (top edge after the rotation) */
+    color-mix(in srgb, var(--r-color-brand-primary) 40%, transparent) 0%,
+    var(--r-color-brand-primary) 12.5%,
+    color-mix(in srgb, var(--r-color-brand-primary) 40%, transparent) 25%,
+    transparent 32%,
+    /* Empty quadrant */ transparent 50%,
+    /* Arc B — peak at 62.5%, exactly 180° opposite arc A */
+    color-mix(in srgb, var(--r-color-brand-primary) 40%, transparent) 57%,
+    var(--r-color-brand-primary) 62.5%,
+    color-mix(in srgb, var(--r-color-brand-primary) 40%, transparent) 75%,
+    transparent 82%,
+    transparent 100%
+  );
+  /* "Gradient border" mask: paint the conic gradient only on the
+     padding ring. The two solid masks (one clipped to `content-box`,
+     the other to the full box) are XORed — what's left is the ring
+     between them. */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: r-v2-stp-row-spin 2.4s linear infinite;
+}
+
+/* Buffering — same orbit, faster cadence so a stall reads as "still
+   working" rather than the steady playing tempo. */
+.r-v2-stp__row--buffering::before {
+  animation-duration: 0.9s;
+}
+
+@keyframes r-v2-stp-row-spin {
+  to {
+    --r-stp-orbit-angle: 360deg;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .r-v2-stp__row--playing,
-  .r-v2-stp__row--buffering {
+  .r-v2-stp__row--playing::before,
+  .r-v2-stp__row--buffering::before {
     animation: none;
+    /* Drop the moving arc for a soft static halo so playing is still
+       distinguishable from paused without motion. */
+    background: none;
     box-shadow: 0 0 0 3px
       color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent);
   }
