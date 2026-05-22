@@ -15,7 +15,15 @@
 // Layout: a single GameListHeader on top + an RVirtualScroller of
 // GameListRow/GameListSkeletonRow items below. The scroller owns its
 // own scroll, so the Settings document scroll stays separate.
-import { RBtn, RIcon, RSelect, RVirtualScroller } from "@v2/lib";
+import {
+  RBtn,
+  RIcon,
+  RMenu,
+  RMenuItem,
+  RSelect,
+  RTag,
+  RVirtualScroller,
+} from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -262,16 +270,34 @@ onBeforeUnmount(() => {
           </li>
         </template>
       </RSelect>
-      <RBtn
-        variant="flat"
-        color="danger"
-        prepend-icon="mdi-delete"
-        :loading="cleaningUp"
-        :disabled="showEmpty"
-        @click="cleanupAll"
-      >
-        {{ t("settings.cleanup-all") }}
-      </RBtn>
+      <div class="r-v2-missing__actions">
+        <RTag
+          v-if="metadataLoaded"
+          prepend-icon="mdi-folder-question-outline"
+          :text="total"
+          tone="neutral"
+        />
+        <RMenu location="bottom end" :offset="6" width="220px">
+          <template #activator="{ props: activatorProps }">
+            <RBtn
+              v-bind="activatorProps"
+              variant="outlined"
+              surface
+              icon="mdi-dots-vertical"
+              rounded="circle"
+              :loading="cleaningUp"
+              aria-label="Missing games actions"
+            />
+          </template>
+          <RMenuItem
+            :label="t('settings.cleanup-all')"
+            icon="mdi-delete-outline"
+            variant="danger"
+            :disabled="cleaningUp || showEmpty"
+            @click="cleanupAll"
+          />
+        </RMenu>
+      </div>
     </div>
 
     <div class="r-v2-missing__list">
@@ -346,6 +372,16 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Right cluster: count chip + kebab menu. `margin-left: auto` pushes
+   the group to the trailing edge regardless of how much horizontal
+   slack the platform-select absorbs. */
+.r-v2-missing__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
 }
 
 /* List frame — the column header sits at the top, the virtualiser
