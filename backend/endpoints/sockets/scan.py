@@ -11,6 +11,7 @@ from rq import Worker
 from rq.job import Job
 
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
+from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
@@ -294,6 +295,21 @@ async def _identify_rom(
                 "ra_hash": parsed_rom_files.ra_hash,
             }
         )
+
+    # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
+    # stale files (e.g. a cover from the wrong region) can't be reused. The
+    # post-scan download steps below skip downloads when a file already exists or
+    # when the source URL is unchanged, so the on-disk files must be removed here.
+    if not newly_added and scan_type == ScanType.COMPLETE:
+        await fs_resource_handler.remove_cover(rom)
+        await fs_resource_handler.remove_manual(rom)
+        await fs_resource_handler.remove_directory(
+            f"{rom.fs_resources_path}/screenshots"
+        )
+        for media_type in MetadataMediaType:
+            await fs_resource_handler.remove_media_resources_path(
+                platform.id, rom.id, media_type
+            )
 
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
