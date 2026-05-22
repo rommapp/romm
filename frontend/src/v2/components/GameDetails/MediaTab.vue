@@ -31,6 +31,22 @@ const PdfViewer = defineAsyncComponent(
 const SoundtrackPanel = defineAsyncComponent(
   () => import("@/v2/components/GameDetails/SoundtrackPanel.vue"),
 );
+const ScreenshotsTab = defineAsyncComponent(
+  () => import("@/v2/components/GameDetails/ScreenshotsTab.vue"),
+);
+
+// File extensions we treat as previewable images in the user
+// screenshots gallery. Mirrors the canonical "Web Images" set —
+// includes WebP and AVIF since modern browsers all decode them.
+const IMAGE_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "webp",
+  "gif",
+  "bmp",
+  "avif",
+]);
 
 function errorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
@@ -163,6 +179,34 @@ const manualItems = computed(() =>
 // Soundtracks live alongside the ROM folder, so single-file ROMs can't have
 // one. Mirror the v1 gate.
 const soundtrackSupported = computed(() => !props.rom.has_simple_single_file);
+
+// ---------- User screenshots (filesystem-backed) ----------
+// Upload from this tab is still pending backend work, but if the user
+// has manually dropped images into the ROM's `screenshots/` (or
+// `screenshot/`) subfolder, surface them as a gallery. URLs route
+// through the same `/api/roms/{file_id}/files/content/{name}` endpoint
+// used by manual / soundtrack downloads — no new backend needed.
+const userScreenshotUrls = computed<string[]>(() => {
+  const cacheBust = encodeURIComponent(props.rom.updated_at);
+  const out: string[] = [];
+  for (const file of props.rom.files ?? []) {
+    const rel = file.full_path
+      .replace(props.rom.full_path, "")
+      .replace(/^\//, "");
+    const firstSegment = rel.split("/")[0]?.toLowerCase();
+    if (firstSegment !== "screenshots" && firstSegment !== "screenshot") {
+      continue;
+    }
+    const ext = file.file_name.split(".").pop()?.toLowerCase() ?? "";
+    if (!IMAGE_EXTENSIONS.has(ext)) continue;
+    out.push(
+      `/api/roms/${file.id}/files/content/${encodeURIComponent(
+        file.file_name,
+      )}?v=${cacheBust}`,
+    );
+  }
+  return out;
+});
 
 // ---------- Subtab nav ----------
 // We render the subtab list manually (not via RTabNav) so we can inline
@@ -546,6 +590,15 @@ async function deleteSoundtrack(fileId: number) {
           icon="mdi-image-off-outline"
           title="Screenshots need a folder-based ROM"
           hint="Single-file ROMs can't have accompanying screenshots. Re-organise this ROM as a folder and the upload option will appear here."
+        />
+
+        <!-- If the ROM already has images in its `screenshots/` folder
+             (added manually via the filesystem, or via a future upload
+             flow), surface them as a gallery. Upload is still pending
+             backend work — see the empty state below. -->
+        <ScreenshotsTab
+          v-else-if="userScreenshotUrls.length > 0"
+          :urls="userScreenshotUrls"
         />
 
         <REmptyState

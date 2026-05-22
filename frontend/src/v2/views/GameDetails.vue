@@ -17,7 +17,7 @@ import storeRoms from "@/stores/roms";
 import { toBrowserLocale } from "@/utils";
 import AchievementsTab from "@/v2/components/GameDetails/AchievementsTab.vue";
 import CoverColumn from "@/v2/components/GameDetails/CoverColumn.vue";
-import FilesTab from "@/v2/components/GameDetails/FilesTab.vue";
+import FilesTab from "@/v2/components/GameDetails/FilesTab/FilesTab.vue";
 import GameHeader from "@/v2/components/GameDetails/GameHeader.vue";
 import type { InfoGridSection } from "@/v2/components/GameDetails/InfoGrid.vue";
 import MediaTab from "@/v2/components/GameDetails/MediaTab.vue";
@@ -341,7 +341,11 @@ const tabs = computed<RTabNavItem[]>(() => [
 
 .r-v2-det__panel {
   /* Sole scroll context within the details view: cover, header and
-     tab nav stay frozen, only the active tab's content scrolls. */
+     tab nav stay frozen, only the active tab's content scrolls.
+     `position: relative` lets self-contained tabs (FilesTab) anchor
+     an absolutely-positioned root to this panel's visible viewport
+     when they want internal scroll instead of the panel's scroll. */
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow-y: auto;

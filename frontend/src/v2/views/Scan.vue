@@ -29,7 +29,6 @@ import ScanInfoDialog from "@/v2/components/Scan/ScanInfoDialog.vue";
 import ScanPlatform from "@/v2/components/Scan/ScanPlatform.vue";
 import PlatformSelect from "@/v2/components/shared/PlatformSelect.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
-import { useSocketEvent } from "@/v2/composables/useSocketEvent";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
@@ -185,6 +184,12 @@ const scanOptions: { title: string; subtitle: string; value: ScanType }[] = [
 const scanType = ref<ScanType>("quick");
 
 function scan() {
+  // Reset stats + platform list so the navbar indicator and the stats
+  // bar start at 0 instead of inheriting the previous scan's final
+  // counters. Lifecycle (scan:done / scan:done_ko / scan:update_stats)
+  // is handled globally by `installScanLifecycle` in AppLayout — no
+  // local socket listeners needed here.
+  scanningStore.reset();
   scanningStore.setScanning(true);
   scanningPlatforms.value = [];
 
@@ -199,11 +204,6 @@ function scan() {
     launchbox_remote_enabled: launchboxRemoteEnabled.value,
   });
 }
-
-type ScanStatsPayload = typeof scanStats.value;
-useSocketEvent<ScanStatsPayload>("scan:done", (stats) => {
-  scanStats.value = stats;
-});
 
 function stopScan() {
   socket.emit("scan:stop");

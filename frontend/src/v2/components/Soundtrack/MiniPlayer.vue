@@ -12,7 +12,7 @@
 // The visible mini-card only paints when there's a track loaded AND
 // the user isn't already on the full soundtrack panel — otherwise the
 // two surfaces would race for the same playback affordance.
-import { RBtn, RIcon, RSlider, RSpinner } from "@v2/lib";
+import { RBtn, RSlider, RSpinner } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -58,7 +58,10 @@ const showMiniPlayer = computed(
 );
 
 const coverUrl = computed(
-  () => meta.value.coverUrl ?? meta.value.folderCoverUrl ?? null,
+  () =>
+    meta.value.coverUrl ??
+    meta.value.folderCoverUrl ??
+    "/assets/default/album_cover.jpg",
 );
 
 onMounted(() => {
@@ -193,13 +196,7 @@ function openRom() {
           :class="{ 'r-v2-mp__disc--spinning': isPlaying }"
           aria-hidden="true"
         >
-          <img
-            v-if="coverUrl"
-            :src="coverUrl"
-            class="r-v2-mp__disc-img"
-            alt=""
-          />
-          <RIcon v-else icon="mdi-music-note" size="32" />
+          <img :src="coverUrl" class="r-v2-mp__disc-img" alt="" />
           <div v-if="isBuffering" class="r-v2-mp__disc-buffering">
             <RSpinner :size="20" :width="2" color="white" />
           </div>
@@ -345,12 +342,28 @@ function openRom() {
 .r-v2-mp__disc--spinning .r-v2-mp__disc-img {
   animation-play-state: running;
 }
+/* Static vinyl-record spindle — gives the rotation a fixed visual
+   reference so the spin reads as motion rather than a flat circle. */
+.r-v2-mp__disc::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--r-color-bg);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, black 50%, transparent);
+}
 .r-v2-mp__disc-buffering {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
   background: color-mix(in srgb, black 45%, transparent);
+  z-index: 3;
 }
 
 @keyframes r-v2-mp-spin {

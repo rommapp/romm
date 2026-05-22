@@ -231,14 +231,6 @@ function trackDurationFor(fileId: number): number | undefined {
   return tracksMeta.value.get(fileId)?.duration_seconds ?? undefined;
 }
 
-function thumbForTrack(fileId: number): string | null {
-  return (
-    coverUrlForMeta(tracksMeta.value.get(fileId)) ??
-    folderCoverUrl.value ??
-    null
-  );
-}
-
 // Chips shown in the now-playing header.
 type ChipItem = { icon: string; label: string; color?: string };
 
@@ -456,7 +448,12 @@ function seekValueText(v: number): string {
         v-for="track in tracks"
         :key="track.id"
         class="r-v2-stp__row"
-        :class="{ 'r-v2-stp__row--active': activeTrackId === track.id }"
+        :class="{
+          'r-v2-stp__row--active': activeTrackId === track.id,
+          'r-v2-stp__row--playing':
+            activeTrackId === track.id && isPlaying && !isBuffering,
+          'r-v2-stp__row--buffering': activeTrackId === track.id && isBuffering,
+        }"
       >
         <button
           type="button"
@@ -464,36 +461,9 @@ function seekValueText(v: number): string {
           :aria-label="`Play ${trackTitleFor(track.id, track.file_name)}`"
           @click="selectTrack(track.id)"
         >
-          <div class="r-v2-stp__row-thumb">
-            <img
-              v-if="thumbForTrack(track.id)"
-              :src="thumbForTrack(track.id) ?? ''"
-              alt=""
-              loading="lazy"
-            />
-            <RIcon
-              v-else
-              :icon="
-                activeTrackId === track.id
-                  ? 'mdi-volume-high'
-                  : 'mdi-music-note'
-              "
-            />
-            <div
-              v-if="activeTrackId === track.id && isBuffering"
-              class="r-v2-stp__row-buffering"
-              aria-hidden="true"
-            >
-              <RSpinner :size="16" :width="2" color="white" />
-            </div>
-            <div
-              v-else-if="activeTrackId === track.id && isPlaying"
-              class="r-v2-stp__row-playing"
-              aria-hidden="true"
-            >
-              <RIcon icon="mdi-pause" size="18" color="white" />
-            </div>
-          </div>
+          <!-- No per-track thumb: playback state is conveyed entirely
+               by the row's border + a subtle pulsing glow when the
+               track is actually playing (vs. just selected/paused). -->
           <div class="r-v2-stp__row-meta">
             <div class="r-v2-stp__row-title">
               {{ trackTitleFor(track.id, track.file_name) }}
@@ -566,6 +536,26 @@ function seekValueText(v: number): string {
   flex-direction: column;
   gap: var(--r-space-4);
   padding: var(--r-space-5);
+  /* Soundtrack tab lives inside MediaTab's `__panel` (a flex item with
+     `flex: 1; min-height: 0`), but neither MediaTab nor the GameDetails
+     panel scroll for this child — the GameDetails panel is locked to
+     viewport height via `.r-v2-media { height: 100% }`. Without an
+     internal scroll context the last track + footer get clipped by the
+     panel's overflow boundary. Owning the scroll here (full panel
+     scrolls together — now-playing header, controls and list) keeps
+     the whole thing reachable without restructuring MediaTab's chain. */
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--r-color-border-strong) transparent;
+}
+.r-v2-stp::-webkit-scrollbar {
+  width: 4px;
+}
+.r-v2-stp::-webkit-scrollbar-thumb {
+  background: var(--r-color-border-strong);
+  border-radius: 2px;
 }
 
 /* Now playing / placeholder header */
@@ -742,6 +732,9 @@ function seekValueText(v: number): string {
   border-color: var(--r-color-brand-primary-hover);
 }
 
+/* Selected (= "this is the active track") — static primary border +
+   soft brand tint. With no thumb, the border is the only signal that
+   the row is the player's current focus. */
 .r-v2-stp__row--active {
   border-color: var(--r-color-brand-primary);
   background: linear-gradient(
@@ -751,49 +744,62 @@ function seekValueText(v: number): string {
   );
 }
 
+/* Playing — same border colour, but a pulsing glow halo so the row
+   reads as alive instead of merely selected. The keyframes oscillate
+   the outer ring's spread + opacity; the inner background tint also
+   breathes one shade so the row visibly "moves". */
+.r-v2-stp__row--playing {
+  animation: r-v2-stp-row-play 2s ease-in-out infinite;
+}
+@keyframes r-v2-stp-row-play {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0
+      color-mix(in srgb, var(--r-color-brand-primary) 0%, transparent);
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent),
+      var(--r-color-surface)
+    );
+  }
+  50% {
+    box-shadow: 0 0 0 4px
+      color-mix(in srgb, var(--r-color-brand-primary) 28%, transparent);
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--r-color-brand-primary) 16%, transparent),
+      var(--r-color-surface)
+    );
+  }
+}
+
+/* Buffering — runs the same pulse but faster, so a stall reads as
+   "still working" rather than the steady playing cadence. */
+.r-v2-stp__row--buffering {
+  animation: r-v2-stp-row-play 0.9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .r-v2-stp__row--playing,
+  .r-v2-stp__row--buffering {
+    animation: none;
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent);
+  }
+}
+
 .r-v2-stp__row-btn {
   appearance: none;
   border: 0;
   background: transparent;
   padding: var(--r-space-2) var(--r-space-3);
   flex: 1;
-  display: grid;
-  grid-template-columns: 48px 1fr;
-  gap: var(--r-space-3);
+  display: flex;
   align-items: center;
   cursor: pointer;
   color: var(--r-color-fg);
   min-width: 0;
   text-align: left;
-}
-
-.r-v2-stp__row-thumb {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--r-radius-sm);
-  overflow: hidden;
-  position: relative;
-  background: var(--r-color-bg);
-  border: 1px solid var(--r-color-border);
-  color: var(--r-color-fg-muted);
-  display: grid;
-  place-items: center;
-}
-
-.r-v2-stp__row-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.r-v2-stp__row-buffering,
-.r-v2-stp__row-playing {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, black 50%, transparent);
 }
 
 .r-v2-stp__row-meta {

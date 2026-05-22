@@ -8,7 +8,7 @@
 //
 // Metadata-provider links live in the Metadata tab, not the header.
 // Genre/franchise belong in the Overview tab info grid.
-import { RPlatformIcon, RTag } from "@v2/lib";
+import { RIcon, RPlatformIcon, RTag, RTooltip } from "@v2/lib";
 import type { DetailedRom } from "@/stores/roms";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
@@ -60,13 +60,14 @@ const actions = useGameActions(() => props.rom);
       >
         ·
       </span>
-      <RTag
-        v-if="verified"
-        icon="mdi-check-decagram"
-        text="Verified"
-        tone="success"
-        size="small"
-      />
+      <!-- Icon-only verified indicator. The check decagram is a strong
+           enough signal on its own; the "Verified" word was just noise
+           in a row that's already mostly text. RTooltip preserves the
+           label for keyboard / hover discovery. -->
+      <span v-if="verified" class="r-v2-det-header__verified">
+        <RIcon icon="mdi-check-decagram" :size="18" color="success" />
+        <RTooltip text="Verified ROM" location="top" activator="parent" />
+      </span>
     </div>
 
     <div
@@ -134,6 +135,13 @@ const actions = useGameActions(() => props.rom);
 }
 .r-v2-det-header__platform:hover {
   color: var(--r-color-fg);
+}
+
+.r-v2-det-header__verified {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .r-v2-det-header__tags {

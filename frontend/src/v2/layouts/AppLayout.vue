@@ -24,9 +24,15 @@ import { useGamepad } from "@/v2/composables/useGamepad";
 import { useGlobalHotkeys } from "@/v2/composables/useGlobalHotkeys";
 import { useInputModality } from "@/v2/composables/useInputModality";
 import { prefetchPlatformIcons } from "@/v2/composables/usePlatformIconCache";
+import { installScanLifecycle } from "@/v2/composables/useScanLifecycle";
 import { installBackMorph } from "@/v2/composables/useViewTransition";
 
 installPermissionsHydration();
+// Global scan socket → store wiring so `scanning` flips back to false on
+// `scan:done` / `scan:done_ko` and `scanStats` keeps ticking from any
+// route the user is on (navbar indicator + /scan view consume the same
+// store state).
+installScanLifecycle();
 // Mirror useBreakpoint() refs onto <html data-bp="…"> so scoped styles
 // can branch on viewport via `html[data-bp~="xs"] .foo { … }` instead of
 // hardcoding `@media (max-width: …)` values across every SFC.

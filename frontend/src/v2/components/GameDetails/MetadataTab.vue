@@ -12,6 +12,7 @@ import { computed } from "vue";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import ProviderGrid from "@/v2/components/GameDetails/ProviderGrid.vue";
+import HashChip from "@/v2/components/shared/HashChip.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -28,12 +29,15 @@ const fileRows = computed<Row[]>(() => {
   ];
 });
 
-const hashRows = computed<Row[]>(() => {
+// Hash rows accept `value: string | null` because HashChip's click-to-
+// copy contract requires the full untruncated source; missing hashes
+// render as a dash via the fallback chip below.
+const hashRows = computed<{ label: string; value: string | null }[]>(() => {
   const r = props.rom;
   return [
-    { label: "CRC", value: r.crc_hash ?? "—" },
-    { label: "MD5", value: r.md5_hash ?? "—" },
-    { label: "SHA1", value: r.sha1_hash ?? "—" },
+    { label: "CRC", value: r.crc_hash },
+    { label: "MD5", value: r.md5_hash },
+    { label: "SHA1", value: r.sha1_hash },
   ];
 });
 
@@ -72,17 +76,15 @@ const verifications = computed<Verification[]>(() => {
       </div>
     </section>
 
-    <!-- 2. Hashes -->
+    <!-- 2. Hashes — click-to-copy via HashChip; absent hashes still
+         render a "—" pill so the row layout stays predictable. -->
     <section class="metadata-tab__section">
       <h3 class="metadata-tab__heading">Hashes</h3>
       <div class="metadata-tab__inline">
-        <RTag
-          v-for="row in hashRows"
-          :key="row.label"
-          :label="row.label"
-          :text="row.value || '—'"
-          mono
-        />
+        <template v-for="row in hashRows" :key="row.label">
+          <HashChip v-if="row.value" :label="row.label" :value="row.value" />
+          <RTag v-else :label="row.label" text="—" mono />
+        </template>
       </div>
     </section>
 
