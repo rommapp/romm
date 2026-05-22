@@ -446,7 +446,9 @@ class TestFSRomsHandler:
 
         try:
             with pytest.MonkeyPatch.context() as m:
-                m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+                m.setattr(
+                    "handler.filesystem.roms_handler.cm.get_config", lambda: config
+                )
                 roms = await handler.get_roms(platform)
                 rom_count = await handler.count_roms(platform)
 
@@ -460,6 +462,66 @@ class TestFSRomsHandler:
             disc_file.unlink(missing_ok=True)
             if disc_dir.exists():
                 shutil.rmtree(disc_dir)
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_m3u_includes_referenced_discs_without_hashing(
+        self, handler: FSRomsHandler, platform: Platform
+    ):
+        """A flat .m3u ROM must expose its referenced disc files in rom_files
+        even when hashing is disabled, so the player can offer disc selection."""
+        m3u_name = "Final Fantasy IX.m3u"
+        m3u_path = handler.base_path / "n64/roms" / m3u_name
+        disc_1 = handler.base_path / "n64/roms" / "Final Fantasy IX (Disc 1).chd"
+        disc_2 = handler.base_path / "n64/roms" / "Final Fantasy IX (Disc 2).chd"
+
+        m3u_path.write_text(
+            "Final Fantasy IX (Disc 1).chd\nFinal Fantasy IX (Disc 2).chd\n"
+        )
+        disc_1.write_bytes(b"disc-1")
+        disc_2.write_bytes(b"disc-2")
+
+        rom = Rom(
+            id=42,
+            fs_name=m3u_name,
+            fs_path="n64/roms",
+            fs_extension="m3u",
+            platform=platform,
+            full_path=f"n64/roms/{m3u_name}",
+        )
+
+        config = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=[],
+            EXCLUDED_MULTI_PARTS_EXT=[],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            ROMS_FOLDER_NAME="roms",
+            FIRMWARE_FOLDER_NAME="bios",
+        )
+
+        try:
+            with pytest.MonkeyPatch.context() as m:
+                m.setattr(
+                    "handler.filesystem.roms_handler.cm.get_config", lambda: config
+                )
+                parsed = await handler.get_rom_files(rom, calculate_hashes=False)
+
+            file_names = [f.file_name for f in parsed.rom_files]
+            assert m3u_name in file_names
+            assert "Final Fantasy IX (Disc 1).chd" in file_names
+            assert "Final Fantasy IX (Disc 2).chd" in file_names
+            # Hashing disabled: no per-file hashes populated
+            for f in parsed.rom_files:
+                assert f.crc_hash == ""
+                assert f.md5_hash == ""
+                assert f.sha1_hash == ""
+        finally:
+            m3u_path.unlink(missing_ok=True)
+            disc_1.unlink(missing_ok=True)
+            disc_2.unlink(missing_ok=True)
 
     @pytest.mark.asyncio
     async def test_get_rom_files_multi_rom_multi_dot_exclusion(

@@ -394,13 +394,17 @@ class FSRomsHandler(FSHandler):
 
         return kept_roms
 
-    def _iter_m3u_referenced_paths(self, abs_fs_path: Path, m3u_file_name: str) -> Iterator[Path]:
+    def _iter_m3u_referenced_paths(
+        self, abs_fs_path: Path, m3u_file_name: str
+    ) -> Iterator[Path]:
         m3u_path = Path(abs_fs_path, m3u_file_name)
         if not m3u_path.is_file():
             return
 
         try:
-            lines = m3u_path.read_text(encoding="utf-8-sig", errors="ignore").splitlines()
+            lines = m3u_path.read_text(
+                encoding="utf-8-sig", errors="ignore"
+            ).splitlines()
         except OSError:
             return
 
@@ -420,7 +424,7 @@ class FSRomsHandler(FSHandler):
             except ValueError:
                 continue
 
-            if resolved_path.exists():
+            if resolved_path.is_file():
                 yield resolved_path
 
     def _get_m3u_exclusions(
@@ -689,6 +693,62 @@ class FSRomsHandler(FSHandler):
                 )
             )
 
+        # When the ROM is a flat .m3u playlist, the referenced disc files are
+        # hidden from the library listing (see _get_m3u_exclusions) but the
+        # player needs them as selectable disc options. Append them regardless
+        # of hashing; per-file hashes are only computed for hashable platforms.
+        if rom.fs_name.lower().endswith(".m3u"):
+            base_resolved = abs_fs_path.resolve()
+            for ref_path in self._iter_m3u_referenced_paths(abs_fs_path, rom.fs_name):
+                rel_within = ref_path.relative_to(base_resolved)
+
+                if hashable_platform:
+                    try:
+                        crc_c, _, md5_h, _, sha1_h, _ = await asyncio.to_thread(
+                            self._calculate_rom_hashes,
+                            ref_path,
+                            0,
+                            hashlib.md5(usedforsecurity=False),
+                            hashlib.sha1(usedforsecurity=False),
+                        )
+                    except zlib.error:
+                        crc_c = 0
+                        md5_h = hashlib.md5(usedforsecurity=False)
+                        sha1_h = hashlib.sha1(usedforsecurity=False)
+
+                    file_hash = FileHash(
+                        crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
+                        md5_hash=(
+                            md5_h.hexdigest()
+                            if md5_h.digest() != DEFAULT_MD5_H_DIGEST
+                            else ""
+                        ),
+                        sha1_hash=(
+                            sha1_h.hexdigest()
+                            if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
+                            else ""
+                        ),
+                        chd_sha1_hash=(
+                            extract_chd_hash(ref_path) if is_chd_file(ref_path) else ""
+                        ),
+                    )
+                else:
+                    file_hash = FileHash(
+                        crc_hash="",
+                        md5_hash="",
+                        sha1_hash="",
+                        chd_sha1_hash="",
+                    )
+
+                rom_files.append(
+                    self._build_rom_file(
+                        rom=rom,
+                        rom_path=Path(rel_roms_path, *rel_within.parts[:-1]),
+                        file_name=rel_within.name,
+                        file_hash=file_hash,
+                    )
+                )
+
         return ParsedRomFiles(
             rom_files=rom_files,
             crc_hash=crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else "",
@@ -788,14 +848,15 @@ class FSRomsHandler(FSHandler):
         excluded_single_roms, excluded_multi_roms = self._get_m3u_exclusions(
             abs_fs_path, fs_single_roms, fs_multi_roms
         )
-        return len(
-            [
-                rom
-                for rom in self.exclude_single_files(fs_single_roms)
-                if rom not in excluded_single_roms
-            ]
-        ) + len(
-            [rom for rom in self.exclude_multi_roms(fs_multi_roms) if rom not in excluded_multi_roms]
+
+        return sum(
+            1
+            for rom in self.exclude_single_files(fs_single_roms)
+            if rom not in excluded_single_roms
+        ) + sum(
+            1
+            for rom in self.exclude_multi_roms(fs_multi_roms)
+            if rom not in excluded_multi_roms
         )
 
     async def get_roms(self, platform: Platform) -> list[FSRom]:
