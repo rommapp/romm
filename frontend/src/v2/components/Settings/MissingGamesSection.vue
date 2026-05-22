@@ -1,38 +1,39 @@
 <script setup lang="ts">
-// MissingGamesSection — list of ROMs whose files are missing from disk.
-// Renders through the shared `RTable` primitive so the visual + sort
-// behaviour stays in lock-step with every other table surface in v2;
-// the cover-art / metadata cells are slotted in for an at-a-glance
-// gallery-style row.
+// MissingGamesSection — Settings tab listing every ROM whose file is
+// missing from disk. Shares the gallery's list-mode loading pipeline
+// (galleryRoms store + per-row lazy fetch) so a library of any size
+// loads in O(viewport) rather than bulk-pulling every match up front.
 //
-// Load model: all missing ROMs are pulled into memory on mount via
-// paginated batches (the backend caps `limit`, so we loop until
-// `data.total` is reached or the page comes back short). With the
-// full set in memory, platform filter and sort are pure client-side
-// operations on `filteredRoms` — instant, no refetch.
-import {
-  RBtn,
-  RChip,
-  RIcon,
-  RPlatformIcon,
-  RSelect,
-  RTable,
-  type RTableColumn,
-  type RTableSortPayload,
-} from "@v2/lib";
+// Wiring: on mount we pin `galleryFilter.filterMissing = true` and clear
+// the gallery's selected-platforms (so this tab starts from a known
+// state), then bootstrap metadata. The sortable column header and the
+// platform multi-select feed the same store inputs the real galleries
+// use; cleanup-all is the only missing-games-specific control. On
+// unmount we restore the caller's filter so the next gallery view they
+// land on doesn't inherit `filterMissing=true`.
+//
+// Layout: a single GameListHeader on top + an RVirtualScroller of
+// GameListRow/GameListSkeletonRow items below. The scroller owns its
+// own scroll, so the Settings document scroll stays separate.
+import { RBtn, RIcon, RSelect, RVirtualScroller } from "@v2/lib";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import romApi from "@/services/api/rom";
 import taskApi from "@/services/api/task";
-import storePlatforms from "@/stores/platforms";
-import { formatBytes, toBrowserLocale } from "@/utils";
-import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storePlatforms, { type Platform } from "@/stores/platforms";
+import GameListHeader from "@/v2/components/Gallery/GameListHeader.vue";
+import GameListRow from "@/v2/components/Gallery/GameListRow.vue";
+import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue";
+import {
+  LIST_ROW_HEIGHT_PX,
+  type ListSortKey,
+} from "@/v2/components/Gallery/listColumns";
 import CachedPlatformIcon from "@/v2/components/shared/CachedPlatformIcon.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import type { SimpleRom } from "@/v2/stores/galleryRoms";
+import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 interface PlatformItem {
   id: number;
@@ -42,202 +43,123 @@ interface PlatformItem {
 
 defineOptions({ inheritAttrs: false });
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
+const galleryRoms = storeGalleryRoms();
+const galleryFilter = storeGalleryFilter();
 const platformsStore = storePlatforms();
-const { allPlatforms } = storeToRefs(platformsStore);
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const { supportsWebp } = useWebpSupport();
 
-// Batch size for the bulk load. Backend caps `limit` server-side; we
-// loop in batches until we've covered `data.total` (or the page comes
-// back short). Sized generously so most libraries finish in one shot.
-const FETCH_BATCH = 500;
+const { allPlatforms } = storeToRefs(platformsStore);
+const { total, initialFetching, metadataLoaded, orderBy, orderDir } =
+  storeToRefs(galleryRoms);
+const { selectedPlatforms } = storeToRefs(galleryFilter);
 
-const roms = ref<SimpleRom[]>([]);
-const initialLoading = ref(false);
+// Caller's filter state captured on mount so we can restore it on
+// unmount — leaving `filterMissing=true` active would silently filter
+// the next gallery view to missing rows only.
+let prevFilterMissing: boolean | null = null;
+let prevSelectedPlatforms: Platform[] = [];
+
 const cleaningUp = ref(false);
-const selectedPlatformIds = ref<number[]>([]);
 const platformSearch = ref("");
 
-type SortKey =
-  | "name"
-  | "fs_size_bytes"
-  | "created_at"
-  | "first_release_date"
-  | "average_rating";
-
-const sortKey = ref<SortKey>("name");
-const sortDir = ref<"asc" | "desc">("asc");
-
-// Selector items are derived directly from the loaded `roms` — since
-// we hold every missing ROM in memory, the set is complete and
-// stable for the lifetime of the section. Picking a platform doesn't
-// change the option set (we filter `filteredRoms`, not `roms`).
-const platformItems = computed<PlatformItem[]>(() => {
-  const ids = new Set<number>();
-  for (const r of roms.value) {
-    if (r.platform_id != null) ids.add(r.platform_id);
-  }
-  return allPlatforms.value
-    .filter((p) => ids.has(p.id))
+const platformItems = computed<PlatformItem[]>(() =>
+  allPlatforms.value
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((p) => ({ id: p.id, slug: p.slug, name: p.name }));
+    .map((p) => ({ id: p.id, slug: p.slug, name: p.name })),
+);
+
+// Bridge between the chip multi-select (id[]) and the gallery filter
+// store (Platform[]). Mirrors the pattern used inside `FilterDrawer`
+// so the wire format stays consistent across surfaces. Refetch is
+// wired through the setter so it fires only on user-driven changes —
+// the mount-time reset (`setSelectedFilterPlatforms([])`) writes the
+// store directly and skips this path, avoiding a double-bootstrap.
+const selectedPlatformIds = computed<number[]>({
+  get: () => selectedPlatforms.value.map((p) => p.id),
+  set: (ids) => {
+    const next = ids
+      .map((id) => allPlatforms.value.find((p) => p.id === id))
+      .filter((p): p is Platform => !!p);
+    galleryFilter.setSelectedFilterPlatforms(next);
+    galleryRoms.invalidateWindows();
+    void galleryRoms.fetchInitialMetadata();
+  },
 });
 
-const columns = computed<RTableColumn[]>(() => [
-  {
-    key: "name",
-    label: t("common.name"),
-    sortable: true,
-    width: "minmax(0, 1.6fr)",
-    skeletonWidth: 180,
-  },
-  {
-    key: "platform",
-    label: t("common.platform"),
-    sortable: false,
-    width: "minmax(0, 1fr)",
-    skeletonWidth: 110,
-  },
-  {
-    key: "fs_size_bytes",
-    label: t("common.size-on-disk"),
-    sortable: true,
-    width: "100px",
-    skeletonWidth: 60,
-  },
-  {
-    key: "created_at",
-    label: t("settings.added-header"),
-    sortable: true,
-    width: "120px",
-    skeletonWidth: 80,
-  },
-  {
-    key: "first_release_date",
-    label: t("settings.released-header"),
-    sortable: true,
-    width: "100px",
-    skeletonWidth: 60,
-  },
-  {
-    key: "average_rating",
-    label: t("settings.rating-header"),
-    sortable: true,
-    width: "70px",
-    align: "end",
-    skeletonWidth: 30,
-  },
-  {
-    key: "actions",
-    label: "",
-    width: "56px",
-    align: "end",
-    skeletonWidth: 0,
-  },
-]);
-
-// Bulk-load every missing ROM into memory. Loops in `FETCH_BATCH`-
-// sized pages so a backend `limit` cap can't truncate us silently —
-// stops as soon as a short page arrives (means we've reached the
-// end) or once `data.total` is covered.
-async function fetchAll() {
-  if (initialLoading.value) return;
-  initialLoading.value = true;
-  try {
-    const acc: SimpleRom[] = [];
-    let offset = 0;
-    let total: number | null = null;
-    while (true) {
-      const { data } = await romApi.getRoms({
-        filterMissing: true,
-        limit: FETCH_BATCH,
-        offset,
-        orderBy: "name",
-        orderDir: "asc",
-        groupByMetaId: false,
-      });
-      if (data.total != null) total = data.total;
-      const items = data.items ?? [];
-      acc.push(...items);
-      offset += items.length;
-      if (items.length < FETCH_BATCH) break;
-      if (total != null && offset >= total) break;
-    }
-    roms.value = acc;
-  } catch (err) {
-    snackbar.error(
-      t("settings.couldnt-fetch-missing-roms", { error: String(err) }),
-    );
-  } finally {
-    initialLoading.value = false;
-  }
-}
-
-function onSort({ key, dir }: RTableSortPayload) {
+// Map `galleryRoms.orderBy` to the list header's accepted keys. The
+// store may carry a key the list mode doesn't expose (e.g.
+// `last_played`), in which case we paint no active sort.
+const listSortKey = computed<ListSortKey | null>(() => {
+  const k = orderBy.value;
   if (
-    key !== "name" &&
-    key !== "fs_size_bytes" &&
-    key !== "created_at" &&
-    key !== "first_release_date" &&
-    key !== "average_rating"
+    k === "name" ||
+    k === "fs_size_bytes" ||
+    k === "created_at" ||
+    k === "first_release_date" ||
+    k === "average_rating"
   ) {
-    return;
+    return k;
   }
-  sortKey.value = key;
-  sortDir.value = dir;
-}
-
-// Filter + sort happen entirely in memory now — the full `roms` set
-// is hydrated once on mount, then we derive the table data from it.
-function compareRoms(a: SimpleRom, b: SimpleRom): number {
-  const dir = sortDir.value === "asc" ? 1 : -1;
-  switch (sortKey.value) {
-    case "name": {
-      const an = a.name ?? a.fs_name_no_ext ?? "";
-      const bn = b.name ?? b.fs_name_no_ext ?? "";
-      return an.localeCompare(bn) * dir;
-    }
-    case "fs_size_bytes":
-      return ((a.fs_size_bytes ?? 0) - (b.fs_size_bytes ?? 0)) * dir;
-    case "created_at": {
-      const at = a.created_at ? Date.parse(a.created_at) : 0;
-      const bt = b.created_at ? Date.parse(b.created_at) : 0;
-      return (at - bt) * dir;
-    }
-    case "first_release_date": {
-      const at = Number(a.metadatum?.first_release_date ?? 0);
-      const bt = Number(b.metadatum?.first_release_date ?? 0);
-      return (at - bt) * dir;
-    }
-    case "average_rating": {
-      const ar = a.metadatum?.average_rating ?? 0;
-      const br = b.metadatum?.average_rating ?? 0;
-      return (ar - br) * dir;
-    }
-    default:
-      return 0;
-  }
-}
-
-const filteredRoms = computed<SimpleRom[]>(() => {
-  let r = roms.value;
-  if (selectedPlatformIds.value.length > 0) {
-    const set = new Set(selectedPlatformIds.value);
-    r = r.filter((rom) => rom.platform_id != null && set.has(rom.platform_id));
-  }
-  return [...r].sort(compareRoms);
+  return null;
 });
 
-// Confirmation label for cleanup — lists every selected platform's
-// name, joined by commas. Empty string when nothing is filtered.
+// Virtual items: one entry per absolute position (0 .. total) once
+// metadata is loaded; bootstrap-phase placeholders before then so the
+// table never collapses to "empty" between the fetch firing and total
+// resolving.
+type VItem =
+  | { kind: "list-row"; position: number }
+  | { kind: "skeleton"; key: number };
+
+const virtualItems = computed<VItem[]>(() => {
+  if (!metadataLoaded.value) {
+    return Array.from({ length: 8 }, (_, i) => ({
+      kind: "skeleton" as const,
+      key: i,
+    }));
+  }
+  const items: VItem[] = [];
+  for (let p = 0; p < total.value; p++) {
+    items.push({ kind: "list-row", position: p });
+  }
+  return items;
+});
+
+function vItemHeight(_item: unknown): number {
+  return LIST_ROW_HEIGHT_PX;
+}
+
+interface VListRow {
+  kind: "list-row";
+  position: number;
+}
+
+function isListRow(item: VItem): item is VListRow {
+  return item.kind === "list-row";
+}
+
+function rowPosition(item: unknown): number {
+  const v = item as VItem;
+  return isListRow(v) ? v.position : -1;
+}
+
+const showEmpty = computed(
+  () => metadataLoaded.value && !initialFetching.value && total.value === 0,
+);
+
+function onListSort({ key, dir }: { key: ListSortKey; dir: "asc" | "desc" }) {
+  galleryRoms.setOrderBy(key);
+  galleryRoms.setOrderDir(dir);
+  galleryRoms.invalidateWindows();
+  void galleryRoms.fetchInitialMetadata();
+}
+
 const selectedPlatformsLabel = computed(() =>
-  selectedPlatformIds.value
-    .map((id) => platformsStore.get(id)?.name)
-    .filter((n): n is string => !!n)
-    .join(", "),
+  selectedPlatforms.value.map((p) => p.name).join(", "),
 );
 
 async function cleanupAll() {
@@ -255,16 +177,19 @@ async function cleanupAll() {
   cleaningUp.value = true;
   try {
     // The task API takes a single `platform_id`. With multi-select on,
-    // the safe path is: send the id only when exactly one is picked
-    // (so cleanup matches the user's intent on a narrow filter);
-    // otherwise run unfiltered cleanup across all platforms.
+    // we forward the id only when exactly one platform is picked; for
+    // 0 or >1 platforms we run the unscoped cleanup so the result
+    // matches what the table is currently showing.
     const body =
-      selectedPlatformIds.value.length === 1
-        ? { platform_id: selectedPlatformIds.value[0] }
+      selectedPlatforms.value.length === 1
+        ? { platform_id: selectedPlatforms.value[0].id }
         : {};
     await taskApi.runTask("cleanup_missing_roms", body);
     snackbar.success(t("settings.cleanup-queued"));
-    setTimeout(() => void fetchAll(), 1500);
+    setTimeout(() => {
+      galleryRoms.invalidateWindows();
+      void galleryRoms.fetchInitialMetadata();
+    }, 1500);
   } catch (err) {
     snackbar.error(t("settings.couldnt-queue-cleanup", { error: String(err) }));
   } finally {
@@ -272,48 +197,21 @@ async function cleanupAll() {
   }
 }
 
-function coverUrl(rom: SimpleRom): string | null {
-  const path = rom.path_cover_small ?? rom.path_cover_large ?? null;
-  if (!path) return rom.url_cover ?? null;
-  return supportsWebp.value
-    ? path.replace(/\.(png|jpg|jpeg)$/i, ".webp")
-    : path;
-}
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return "—";
-  try {
-    return new Date(value).toLocaleDateString(toBrowserLocale(locale.value), {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return "—";
-  }
-}
-
-function releaseDate(rom: SimpleRom): string {
-  const ts = rom.metadatum?.first_release_date;
-  if (!ts) return "—";
-  return new Date(Number(ts)).toLocaleDateString(
-    toBrowserLocale(locale.value),
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    },
-  );
-}
-
-function ratingValue(rom: SimpleRom): string {
-  const r = rom.metadatum?.average_rating;
-  if (typeof r !== "number" || r <= 0) return "—";
-  return r.toFixed(1);
-}
-
 onMounted(() => {
-  void fetchAll();
+  prevFilterMissing = galleryFilter.filterMissing;
+  prevSelectedPlatforms = galleryFilter.selectedPlatforms.slice();
+  galleryRoms.resetGallery();
+  galleryFilter.setFilterMissing(true);
+  galleryFilter.setSelectedFilterPlatforms([]);
+  galleryRoms.setOrderBy("name");
+  galleryRoms.setOrderDir("asc");
+  void galleryRoms.fetchInitialMetadata();
+});
+
+onBeforeUnmount(() => {
+  galleryFilter.setFilterMissing(prevFilterMissing);
+  galleryFilter.setSelectedFilterPlatforms(prevSelectedPlatforms);
+  galleryRoms.resetGallery();
 });
 </script>
 
@@ -369,110 +267,42 @@ onMounted(() => {
         color="danger"
         prepend-icon="mdi-delete"
         :loading="cleaningUp"
-        :disabled="roms.length === 0"
+        :disabled="showEmpty"
         @click="cleanupAll"
       >
         {{ t("settings.cleanup-all") }}
       </RBtn>
     </div>
 
-    <RTable
-      :columns="columns"
-      :items="filteredRoms"
-      :item-key="(r) => (r as SimpleRom).id"
-      :loading="initialLoading"
-      :sort-key="sortKey"
-      :sort-dir="sortDir"
-      empty-icon="mdi-folder-question-outline"
-      :empty-message="t('settings.missing-games-none')"
-      row-height="64px"
-      @update:sort="onSort"
-    >
-      <template #cell.name="{ row }">
-        <div class="r-v2-missing__name-cell">
-          <div class="r-v2-missing__thumb">
-            <img
-              v-if="coverUrl(row as SimpleRom)"
-              :src="coverUrl(row as SimpleRom) ?? undefined"
-              :alt="
-                (row as SimpleRom).name ?? (row as SimpleRom).fs_name_no_ext
-              "
-              loading="lazy"
-            />
-            <span v-else class="r-v2-missing__thumb-fallback">
-              {{
-                ((row as SimpleRom).name ?? (row as SimpleRom).fs_name_no_ext)
-                  .slice(0, 2)
-                  .toUpperCase()
-              }}
-            </span>
-          </div>
-          <div class="r-v2-missing__name-meta">
-            <span class="r-v2-missing__name-title">
-              {{ (row as SimpleRom).name ?? (row as SimpleRom).fs_name_no_ext }}
-            </span>
-            <span class="r-v2-missing__name-fs">
-              {{ (row as SimpleRom).fs_name }}
-            </span>
-          </div>
-        </div>
-      </template>
+    <div class="r-v2-missing__list">
+      <GameListHeader
+        :sort-key="listSortKey"
+        :sort-dir="orderDir"
+        @sort="onListSort"
+      />
 
-      <template #cell.platform="{ row }">
-        <span class="r-v2-missing__platform">
-          <RPlatformIcon
-            :slug="
-              platformsStore.get((row as SimpleRom).platform_id)?.slug ?? ''
-            "
-            :size="20"
+      <div v-if="showEmpty" class="r-v2-missing__empty">
+        <RIcon icon="mdi-folder-question-outline" :size="48" />
+        <p>{{ t("settings.missing-games-none") }}</p>
+      </div>
+
+      <RVirtualScroller
+        v-else
+        :items="virtualItems"
+        :get-item-height="vItemHeight"
+        :overscan="25"
+        class="r-v2-missing__scroller"
+      >
+        <template #default="{ item }">
+          <GameListRow
+            v-if="isListRow(item as VItem)"
+            :position="rowPosition(item)"
+            :webp="supportsWebp"
           />
-          <span class="r-v2-missing__platform-name">
-            {{
-              platformsStore.get((row as SimpleRom).platform_id)?.name ?? "—"
-            }}
-          </span>
-        </span>
-      </template>
-
-      <template #cell.fs_size_bytes="{ row }">
-        {{
-          (row as SimpleRom).fs_size_bytes
-            ? formatBytes((row as SimpleRom).fs_size_bytes)
-            : "—"
-        }}
-      </template>
-
-      <template #cell.created_at="{ row }">
-        {{ formatDate((row as SimpleRom).created_at) }}
-      </template>
-
-      <template #cell.first_release_date="{ row }">
-        {{ releaseDate(row as SimpleRom) }}
-      </template>
-
-      <template #cell.average_rating="{ row }">
-        <RChip v-if="ratingValue(row as SimpleRom) !== '—'" size="x-small">
-          {{ ratingValue(row as SimpleRom) }}
-        </RChip>
-        <span v-else>—</span>
-      </template>
-
-      <template #cell.actions="{ row }">
-        <MoreMenu :rom="row as SimpleRom">
-          <template #activator="{ props: activatorProps }">
-            <RBtn
-              v-bind="activatorProps"
-              variant="text"
-              size="small"
-              icon
-              aria-label="More actions"
-            >
-              <RIcon icon="mdi-dots-vertical" size="18" />
-            </RBtn>
-          </template>
-        </MoreMenu>
-      </template>
-    </RTable>
+          <GameListSkeletonRow v-else />
+        </template>
+      </RVirtualScroller>
+    </div>
   </div>
 </template>
 
@@ -481,96 +311,72 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  /* Definite (NOT min-) height. `height: 100%` on `RVirtualScroller`'s
+     wrapper resolves against the parent's `height` per the CSS spec —
+     `min-height` doesn't count, the percentage falls back to `auto` and
+     the scroller's `overflow-y` never engages, so every row mounts at
+     once. Same trick GalleryShell uses with `height: calc(100vh - nav-h)`.
+     The subtraction adds up the chrome Settings stacks above this
+     section (nav 58 + content padding-top 32 + body padding-top 18 +
+     RTabNav band ~60) and leaves a bottom gap matching the horizontal
+     padding (~58px = 40px content + 18px body) so the list's bottom
+     edge reads as the visual sibling of its left/right edges. The
+     section's bottom overshoots `body`'s inner-bottom by ~20px, which
+     consumes part of `.r-v2-settings__content`'s `padding-bottom: 60px`
+     — content intrinsic still fits within `min-height: 100vh - nav-h`
+     so the page doesn't grow a document scroll. */
+  height: calc(100dvh - 226px);
+  min-height: 320px;
 }
 
 .r-v2-missing__toolbar {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
-/* Platform multi-select takes the toolbar's left side; the
-   cleanup-all button sits to its right. `flex: 1` lets the field
-   absorb the toolbar's horizontal slack; `max-width` keeps it from
-   eating the whole row on very wide screens. */
+
 .r-v2-missing__platform-select {
   flex: 1;
   min-width: 0;
   max-width: 480px;
 }
 
-/* Each chip in the multi-select shows the platform icon + name in a
-   compact pill — RSelect provides the chip surface, we only style the
-   inner span layout. */
 .r-v2-missing__platform-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-/* ----- Name cell — cover thumb + title + filename ----- */
-.r-v2-missing__name-cell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.r-v2-missing__thumb {
-  width: 36px;
-  height: 48px;
-  flex-shrink: 0;
-  border-radius: var(--r-radius-sm, 4px);
-  overflow: hidden;
-  background: var(--r-color-surface);
-  display: grid;
-  place-items: center;
-}
-.r-v2-missing__thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.r-v2-missing__thumb-fallback {
-  font-size: 10px;
-  font-weight: var(--r-font-weight-bold);
-  color: var(--r-color-fg-muted);
-}
-
-.r-v2-missing__name-meta {
-  min-width: 0;
+/* List frame — the column header sits at the top, the virtualiser
+   takes the remaining height. `min-height: 0` is load-bearing: without
+   it the flex child would refuse to shrink below its scroll content
+   and the scroller would grow the whole page instead of clipping. */
+.r-v2-missing__list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   flex: 1;
-}
-.r-v2-missing__name-title {
-  font-size: 13px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg);
-  white-space: nowrap;
+  min-height: 0;
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-md);
   overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-v2-missing__name-fs {
-  font-size: 11px;
-  color: var(--r-color-fg-muted);
-  font-family: var(--r-font-family-mono, monospace);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  background: var(--r-color-bg-elevated);
 }
 
-/* ----- Platform cell ----- */
-.r-v2-missing__platform {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
+.r-v2-missing__scroller {
+  flex: 1;
+  min-height: 0;
 }
-.r-v2-missing__platform-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+.r-v2-missing__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--r-color-fg-muted);
+  text-align: center;
 }
 </style>

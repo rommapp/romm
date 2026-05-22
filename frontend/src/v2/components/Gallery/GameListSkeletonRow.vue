@@ -12,21 +12,36 @@
 // before its position resolves) using the same per-column shapes, so
 // both flavours stay visually identical.
 import { RSkeletonBlock } from "@v2/lib";
+import { computed } from "vue";
 import {
-  LIST_COLUMNS,
+  getListColumns,
+  getListGridTemplate,
   LIST_COVER_HEIGHT_PX,
   LIST_COVER_WIDTH_PX,
-  LIST_GRID_TEMPLATE,
 } from "./listColumns";
 
 defineOptions({ inheritAttrs: false });
 
-const gridStyle = { gridTemplateColumns: LIST_GRID_TEMPLATE };
+interface Props {
+  /** Include the `platform` column. Defaults match `GameListHeader` /
+   * `GameListRow` so the bootstrap-phase skeleton stays aligned with
+   * whichever variant the surrounding list is rendering. */
+  showPlatformColumn?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  showPlatformColumn: true,
+});
+
+const columns = computed(() => getListColumns(props.showPlatformColumn));
+const gridStyle = computed(() => ({
+  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
+}));
 </script>
 
 <template>
   <div class="r-glr-skel" :style="gridStyle">
-    <template v-for="col in LIST_COLUMNS" :key="String(col.key)">
+    <template v-for="col in columns" :key="String(col.key)">
       <div v-if="col.key === 'select'" class="r-glr-skel__cell" />
       <div
         v-else-if="col.key === 'name'"
@@ -39,6 +54,13 @@ const gridStyle = { gridTemplateColumns: LIST_GRID_TEMPLATE };
         <div class="r-glr-skel__meta">
           <RSkeletonBlock width="60%" :height="12" />
           <RSkeletonBlock width="40%" :height="10" />
+        </div>
+      </div>
+
+      <div v-else-if="col.key === 'platform'" class="r-glr-skel__cell">
+        <div class="r-glr-skel__platform">
+          <RSkeletonBlock :width="18" :height="18" circle />
+          <RSkeletonBlock :width="64" :height="10" />
         </div>
       </div>
 
@@ -103,5 +125,12 @@ const gridStyle = { gridTemplateColumns: LIST_GRID_TEMPLATE };
 .r-glr-skel__pills {
   display: flex;
   gap: 3px;
+}
+
+.r-glr-skel__platform {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 </style>

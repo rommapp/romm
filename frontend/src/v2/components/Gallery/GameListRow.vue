@@ -20,22 +20,29 @@
 //   * Click → game-details navigation. Cover-thumb view transition mirrors
 //     `GameCard`'s morph so navigating from list / grid into the detail
 //     page lands on the same visual anchor.
-import { RCheckbox, RChip, RIcon, RSkeletonBlock } from "@v2/lib";
+import {
+  RCheckbox,
+  RChip,
+  RIcon,
+  RPlatformIcon,
+  RSkeletonBlock,
+} from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import storePlatforms from "@/stores/platforms";
 import { formatBytes, toBrowserLocale } from "@/utils";
-import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
+import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 import storeGalleryRoms, { type SimpleRom } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
-  LIST_COLUMNS,
+  getListColumns,
+  getListGridTemplate,
   LIST_COVER_HEIGHT_PX,
   LIST_COVER_WIDTH_PX,
-  LIST_GRID_TEMPLATE,
 } from "./listColumns";
 
 defineOptions({ inheritAttrs: false });
@@ -53,20 +60,28 @@ interface Props {
    * rewritten to .webp before the request. Wired from the shell so the
    * choice is decided once per gallery render, not per row. */
   webp?: boolean;
+  /** Include the `platform` column. Mirrors `GameListHeader` so the row
+   * stays aligned with the column header above it. */
+  showPlatformColumn?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   position: undefined,
   rom: undefined,
   webp: false,
+  showPlatformColumn: true,
 });
 
 const router = useRouter();
 const galleryRoms = storeGalleryRoms();
 const selection = storeGallerySelection();
 const selectionInput = useGallerySelectionInput();
+const platformsStore = storePlatforms();
 const { morphTransition } = useViewTransition();
 const { locale } = useI18n();
+
+const columns = computed(() => getListColumns(props.showPlatformColumn));
+const listSkeletonColumns = columns;
 
 const isStatic = computed(() => props.rom !== undefined);
 
@@ -93,7 +108,15 @@ function onCheckboxClick(e: MouseEvent) {
   selection.toggle(item, props.position);
 }
 
-const gridStyle = { gridTemplateColumns: LIST_GRID_TEMPLATE };
+const gridStyle = computed(() => ({
+  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
+}));
+
+const platformMeta = computed(() => {
+  const item = rom.value;
+  if (!item || item.platform_id == null) return null;
+  return platformsStore.get(item.platform_id) ?? null;
+});
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
@@ -136,8 +159,7 @@ function navigateTo(item: SimpleRom, currentTarget: HTMLElement | null) {
   // GameCard's own `morphStyle` computed paints the reverse-paint name
   // on the same element when we come back from the detail page, so the
   // forward morph here pairs with the reverse paint automatically.
-  const thumb =
-    currentTarget?.querySelector<HTMLElement>(".r-gc__art") ?? null;
+  const thumb = currentTarget?.querySelector<HTMLElement>(".r-gc__art") ?? null;
   if (!thumb) {
     void navigate();
     return;
@@ -260,6 +282,20 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <div
+        v-if="showPlatformColumn"
+        class="game-list-row__cell game-list-row__platform"
+      >
+        <RPlatformIcon
+          v-if="platformMeta?.slug"
+          :slug="platformMeta.slug"
+          :size="18"
+        />
+        <span class="game-list-row__platform-name">
+          {{ platformMeta?.name ?? "—" }}
+        </span>
+      </div>
+
       <div class="game-list-row__cell">
         {{ rom.fs_size_bytes ? formatBytes(rom.fs_size_bytes) : "—" }}
       </div>
@@ -315,7 +351,7 @@ onBeforeUnmount(() => {
            magic numbers in this file. Per-cell shapes (cover, pills,
            dot) mirror the real cells underneath, so the row swap
            doesn't reflow on data arrival. -->
-      <template v-for="col in LIST_COLUMNS" :key="String(col.key)">
+      <template v-for="col in listSkeletonColumns" :key="String(col.key)">
         <div
           v-if="col.key === 'select'"
           class="game-list-row__cell game-list-row__select"
@@ -334,6 +370,12 @@ onBeforeUnmount(() => {
           <div class="game-list-row__meta">
             <RSkeletonBlock width="60%" :height="12" />
             <RSkeletonBlock width="40%" :height="10" />
+          </div>
+        </div>
+        <div v-else-if="col.key === 'platform'" class="game-list-row__cell">
+          <div class="game-list-row__platform">
+            <RSkeletonBlock :width="18" :height="18" circle />
+            <RSkeletonBlock :width="64" :height="10" />
           </div>
         </div>
         <div
@@ -465,6 +507,19 @@ onBeforeUnmount(() => {
   flex-wrap: nowrap;
   gap: 3px;
   overflow: hidden;
+}
+
+.game-list-row__platform {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.game-list-row__platform-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .game-list-row__more {

@@ -101,6 +101,10 @@ interface Props {
    *  False for single-platform views (Platform.vue) where the platform
    *  context is fixed; true for cross-platform views (Collection, Search). */
   showPlatformsInFilter?: boolean;
+  /** Include the `platform` column in list mode. False on Platform.vue
+   * (every row shares the same platform); true on cross-platform views
+   * (Search, Collection, Missing games) where the column carries info. */
+  showPlatformColumn?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -109,6 +113,7 @@ const props = withDefaults(defineProps<Props>(), {
   showPlatformBadge: true,
   skeletonRowCount: 4,
   showPlatformsInFilter: true,
+  showPlatformColumn: true,
 });
 
 defineSlots<{
@@ -716,6 +721,7 @@ defineExpose({
           class="r-v2-shell__list-header"
           :sort-key="listSortKey"
           :sort-dir="orderDir"
+          :show-platform-column="showPlatformColumn"
           @sort="onListSort"
         />
       </template>
@@ -759,10 +765,12 @@ defineExpose({
             v-else-if="itemKind(item as GalleryItem) === 'list-row'"
             :position="asListRow(item as GalleryItem).position"
             :webp="supportsWebp"
+            :show-platform-column="showPlatformColumn"
           />
 
           <GameListSkeletonRow
             v-else-if="itemKind(item as GalleryItem) === 'skeleton-list-row'"
+            :show-platform-column="showPlatformColumn"
           />
 
           <div
@@ -833,6 +841,7 @@ defineExpose({
       class="r-v2-shell__list-header-overlay"
       :sort-key="listSortKey"
       :sort-dir="orderDir"
+      :show-platform-column="showPlatformColumn"
       @sort="onListSort"
     />
 

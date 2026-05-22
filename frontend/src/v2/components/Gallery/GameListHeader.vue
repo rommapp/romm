@@ -14,8 +14,8 @@ import { computed } from "vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
-  LIST_COLUMNS,
-  LIST_GRID_TEMPLATE,
+  getListColumns,
+  getListGridTemplate,
   type ListColumn,
   type ListSortKey,
 } from "./listColumns";
@@ -25,15 +25,26 @@ interface Props {
   sortKey: ListSortKey | null;
   /** Sort direction for the active key. */
   sortDir: "asc" | "desc";
+  /** Include the `platform` column. True on cross-platform surfaces
+   * (Search / Collection / Missing games); false on Platform.vue where
+   * every row shares the same platform. Mirrors the prop of the same
+   * name on `GameListRow` + `GameListSkeletonRow` so all three stay in
+   * lockstep. */
+  showPlatformColumn?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  showPlatformColumn: true,
+});
 
 const emit = defineEmits<{
   (e: "sort", payload: { key: ListSortKey; dir: "asc" | "desc" }): void;
 }>();
 
-const gridStyle = computed(() => ({ gridTemplateColumns: LIST_GRID_TEMPLATE }));
+const columns = computed(() => getListColumns(props.showPlatformColumn));
+const gridStyle = computed(() => ({
+  gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
+}));
 
 const galleryRoms = storeGalleryRoms();
 const selection = storeGallerySelection();
@@ -86,7 +97,7 @@ function handleClick(col: ListColumn) {
 
 <template>
   <div class="game-list-header" :style="gridStyle" role="row">
-    <template v-for="col in LIST_COLUMNS" :key="String(col.key)">
+    <template v-for="col in columns" :key="String(col.key)">
       <!-- Select-all column. Tri-state checkbox: off → some → all. The
            "loaded" qualifier is deliberate — selecting beyond what's in
            memory would require a backend round-trip we don't have a

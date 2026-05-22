@@ -315,6 +315,7 @@ async function onDelete() {
     not-found-message="Platform not found."
     :show-platform-badge="false"
     :show-platforms-in-filter="false"
+    :show-platform-column="false"
     :skeleton-row-count="4"
   >
     <!-- HEADER (Section 1) — platform InfoPanel: icon + name + stats
