@@ -1,11 +1,16 @@
 <script setup lang="ts">
 // Scan — library scan control + live log. The socket listeners that push
-// platforms/ROMs/firmware into `storeScanning` live in the shared
-// `ScanBtn` navigation component (mounted app-wide), so this view is pure
-// UI: read store state, render the log, emit scan/stop actions.
+// platforms/ROMs/firmware/stats into `storeScanning` live in
+// `installScanLifecycle`, wired in AppLayout, so this view is pure UI:
+// read store state, render the log, emit scan/stop actions.
 //
-// The ScanPlatform expansion body is the v1 primitive — it's feature-scoped
-// and fine to reuse inside a v2 panel until we rebuild it natively.
+// Hash matchers (Hasheous, Playmatch) are extracted from the main
+// metadata-source select and presented as a dedicated switch group below.
+// They're proxies — not standalone catalogs — and treating them as
+// regular providers obscured that. Hasheous toggles its presence in the
+// `apis` array (backend gate is `MetadataSource.HASHEOUS in apis`).
+// Playmatch toggles a separate `playmatch_enabled` flag (it has no enum
+// entry; backend gate is `playmatch_enabled and IGDB in apis`).
 import {
   RAlert,
   RAvatar,
@@ -33,6 +38,14 @@ import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 const LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY =
   "scan.launchboxRemoteEnabled";
+const LOCAL_STORAGE_HASHEOUS_ENABLED_KEY = "scan.hasheousEnabled";
+const LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY = "scan.playmatchEnabled";
+
+// Hash-matcher providers — proxies that match files by hash and feed
+// IDs into the primary catalogs (IGDB, RetroAchievements). Kept out of
+// the main provider select so users don't read them as standalone
+// sources. Order in the array drives the order in the switch group.
+const HASH_MATCHER_KEYS = ["hasheous", "playmatch"] as const;
 const { t } = useI18n();
 const { xs } = useBreakpoint();
 const scanningStore = storeScanning();
@@ -71,21 +84,76 @@ const calculateHashes = computed(
   () => !config.value.SKIP_HASH_CALCULATION || false,
 );
 
+// Catalog options — main metadata sources. Hash matchers (hasheous,
+// playmatch) are filtered out and rendered in their own switch group.
+// IGDB's heartbeat label flips to "IGDB + Playmatch" when Playmatch is
+// admin-enabled — strip the suffix here since Playmatch now has its own
+// switch tile.
 const metadataOptions = computed(() =>
-  heartbeat.getMetadataOptionsByPriority().map((option) => {
-    const requiresHashes = option.value === "hasheous" || option.value === "ra";
-    const hashingDisabled = !calculateHashes.value;
-    let disabled = option.disabled;
-    if (hashingDisabled && requiresHashes) {
-      if (option.value === "hasheous") {
-        disabled = t("scan.hasheous-requires-hashes");
-      } else if (option.value === "ra") {
+  heartbeat
+    .getMetadataOptionsByPriority()
+    .filter(
+      (option) =>
+        !(HASH_MATCHER_KEYS as readonly string[]).includes(option.value),
+    )
+    .map((option) => {
+      const requiresHashes = option.value === "ra";
+      const hashingDisabled = !calculateHashes.value;
+      let disabled = option.disabled;
+      if (hashingDisabled && requiresHashes) {
         disabled = t("scan.retroachievements-requires-hashes");
       }
-    }
-    return { ...option, disabled };
-  }),
+      const name = option.value === "igdb" ? "IGDB" : option.name;
+      return { ...option, name, disabled };
+    }),
 );
+
+interface HashMatcher {
+  value: "hasheous" | "playmatch";
+  name: string;
+  logo: string;
+  /** Reason the switch is forced off, surfaced in the hover tooltip.
+   *  null when the switch is interactable. */
+  blockedReason: string | null;
+  switchEnabled: boolean;
+}
+
+const hashMatchers = computed<HashMatcher[]>(() => {
+  const sources = heartbeat.value.METADATA_SOURCES;
+  const igdbSelected = metadataSources.value.some((s) => s.value === "igdb");
+  const noHashes = !calculateHashes.value;
+
+  const hasheousAdmin = Boolean(sources?.HASHEOUS_API_ENABLED);
+  const playmatchAdmin = Boolean(sources?.PLAYMATCH_API_ENABLED);
+
+  return [
+    {
+      value: "hasheous",
+      name: "Hasheous",
+      logo: "/assets/scrappers/hasheous.png",
+      blockedReason: !hasheousAdmin
+        ? t("scan.disabled-by-admin")
+        : noHashes
+          ? t("scan.hasheous-requires-hashes")
+          : null,
+      switchEnabled: hasheousAdmin && !noHashes,
+    },
+    {
+      value: "playmatch",
+      name: "Playmatch",
+      logo: "/assets/scrappers/playmatch.png",
+      blockedReason: !playmatchAdmin
+        ? t("scan.disabled-by-admin")
+        : !igdbSelected
+          ? t(
+              "scan.playmatch-requires-igdb",
+              "Select IGDB to enable Playmatch.",
+            )
+          : null,
+      switchEnabled: playmatchAdmin && igdbSelected,
+    },
+  ];
+});
 
 const storedMetadataSources = useLocalStorage(
   LOCAL_STORAGE_METADATA_SOURCES_KEY,
@@ -95,6 +163,18 @@ const launchboxRemoteEnabled = useLocalStorage(
   LOCAL_STORAGE_LAUNCHBOX_REMOTE_ENABLED_KEY,
   true,
 );
+// Hash-matcher switches persist independently of the main provider
+// list so toggling them doesn't churn the localStorage entry that
+// other dialogs (RefreshMetadataDialog) still read.
+const hasheousEnabled = useLocalStorage(
+  LOCAL_STORAGE_HASHEOUS_ENABLED_KEY,
+  true,
+);
+const playmatchEnabled = useLocalStorage(
+  LOCAL_STORAGE_PLAYMATCH_ENABLED_KEY,
+  true,
+);
+
 const metadataSources = ref<MetadataOption[]>(
   metadataOptions.value.filter(
     (m) => storedMetadataSources.value.includes(m.value) && !m.disabled,
@@ -110,6 +190,18 @@ watch(metadataOptions, (newOptions) => {
     newOptions.some((opt) => opt.value === s.value && !opt.disabled),
   );
 });
+
+function setHashMatcher(value: HashMatcher["value"], next: boolean) {
+  if (value === "hasheous") hasheousEnabled.value = next;
+  else playmatchEnabled.value = next;
+}
+
+function isHashMatcherOn(matcher: HashMatcher): boolean {
+  if (!matcher.switchEnabled) return false;
+  return matcher.value === "hasheous"
+    ? hasheousEnabled.value
+    : playmatchEnabled.value;
+}
 
 // Auto-expand panels when a platform first reports roms or firmware.
 const platformsWithRomsKey = computed(() =>
@@ -186,9 +278,9 @@ const scanType = ref<ScanType>("quick");
 function scan() {
   // Reset stats + platform list so the navbar indicator and the stats
   // bar start at 0 instead of inheriting the previous scan's final
-  // counters. Lifecycle (scan:done / scan:done_ko / scan:update_stats)
-  // is handled globally by `installScanLifecycle` in AppLayout — no
-  // local socket listeners needed here.
+  // counters. Lifecycle (scan:done / scan:done_ko / scan:update_stats /
+  // scan:scanning_platform / scan:scanning_rom) is handled globally by
+  // `installScanLifecycle` in AppLayout.
   scanningStore.reset();
   scanningStore.setScanning(true);
   scanningPlatforms.value = [];
@@ -197,11 +289,29 @@ function scan() {
 
   storedMetadataSources.value = metadataSources.value.map((s) => s.value);
 
+  // Build the apis payload: main catalogs + hasheous (when its switch is
+  // on and the backend accepts it as a MetadataSource enum value).
+  // Playmatch has no enum entry — it's gated server-side via the
+  // separate `playmatch_enabled` flag below.
+  const apis = metadataSources.value.map((s) => s.value);
+  const hasheousMatcher = hashMatchers.value.find(
+    (m) => m.value === "hasheous",
+  );
+  if (hasheousMatcher && isHashMatcherOn(hasheousMatcher)) {
+    apis.push("hasheous");
+  }
+  const playmatchMatcher = hashMatchers.value.find(
+    (m) => m.value === "playmatch",
+  );
+
   socket.emit("scan", {
     platforms: platformsToScan.value,
     type: scanType.value,
-    apis: metadataSources.value.map((s) => s.value),
+    apis,
     launchbox_remote_enabled: launchboxRemoteEnabled.value,
+    playmatch_enabled: playmatchMatcher
+      ? isHashMatcherOn(playmatchMatcher)
+      : false,
   });
 }
 
@@ -248,7 +358,7 @@ function stopScan() {
           :items="sortedPlatforms"
           :label="t('common.platforms')"
           prepend-inner-icon="mdi-controller"
-          density="comfortable"
+          density="compact"
           :icon-size="32"
           multiple
           clearable
@@ -264,7 +374,7 @@ function stopScan() {
           item-title="name"
           prepend-inner-icon="mdi-database-search"
           variant="outlined"
-          density="comfortable"
+          density="compact"
           multiple
           return-object
           clearable
@@ -329,13 +439,61 @@ function stopScan() {
           </template>
         </RSelect>
 
+        <!-- Hash matchers — Hasheous / Playmatch as compact switch
+             pills between the provider and scan-type selects. They're
+             proxies (hash → IGDB/RA), not standalone catalogs. Full
+             explanation lives in the Info dialog (the "Metadata
+             providers" tab covers both), so the inline UI stays terse:
+             logo + tiny switch + tooltip with the name (and the
+             blocked reason when the switch is forced off). -->
+        <div
+          class="r-v2-scan__matchers"
+          role="group"
+          aria-label="Hash matchers"
+        >
+          <RTooltip
+            v-for="matcher in hashMatchers"
+            :key="matcher.value"
+            :text="
+              matcher.blockedReason
+                ? `${matcher.name} — ${matcher.blockedReason}`
+                : matcher.name
+            "
+            location="bottom"
+          >
+            <template #activator="{ props: tipProps }">
+              <div
+                v-bind="tipProps"
+                class="r-v2-scan__matcher"
+                :class="{
+                  'r-v2-scan__matcher--off': !matcher.switchEnabled,
+                }"
+              >
+                <RAvatar
+                  :image="matcher.logo"
+                  size="16"
+                  rounded="sm"
+                  class="r-v2-scan__matcher-logo"
+                />
+                <RSwitch
+                  size="small"
+                  :model-value="isHashMatcherOn(matcher)"
+                  :disabled="!matcher.switchEnabled"
+                  :aria-label="matcher.name"
+                  @update:model-value="(v) => setHashMatcher(matcher.value, v)"
+                />
+              </div>
+            </template>
+          </RTooltip>
+        </div>
+
         <RSelect
           v-model="scanType"
           :items="scanOptions"
           :label="t('scan.scan-options')"
           prepend-inner-icon="mdi-magnify-scan"
           hide-details
-          density="comfortable"
+          density="compact"
           variant="outlined"
         >
           <template #item="{ props: itemProps, item }">
@@ -495,8 +653,14 @@ function stopScan() {
 
 .r-v2-scan__fields {
   display: grid;
-  grid-template-columns: 1.6fr 1.4fr 1fr;
-  gap: 12px;
+  /* 4 columns: platforms, providers, hash-matcher pills (auto-sized to
+     the two switches placed side-by-side), scan type. The hash-matcher
+     column shrinks to content so it doesn't steal space from the
+     selects; the selects use `minmax(0, …)` so the chip rows inside
+     them shrink instead of forcing the column to grow past its share. */
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
 }
 
 .r-v2-scan__actions {
@@ -526,6 +690,34 @@ function stopScan() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Hash matchers — two compact switch pills sitting on the same row as
+   the selects, between the provider and scan-type selects. Each pill
+   is just a logo + small switch; the Info dialog covers what they
+   mean. Centred vertically against the (taller) selects. */
+.r-v2-scan__matchers {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+}
+.r-v2-scan__matcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--r-radius-pill);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
+}
+.r-v2-scan__matcher--off {
+  opacity: 0.55;
+}
+.r-v2-scan__matcher-logo {
+  background: var(--r-color-bg-elevated);
+  flex-shrink: 0;
 }
 
 /* Scan log. Pins the chrome above and the stats bar below, with a

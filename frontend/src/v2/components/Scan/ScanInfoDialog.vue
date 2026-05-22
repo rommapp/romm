@@ -118,7 +118,7 @@ const providers: ProviderRow[] = [
     logo: `${LOGO_BASE}/igdb.png`,
     desc: "Titles, descriptions, cover art, screenshots, related games.",
     setup:
-      "Twitch account with phone 2FA. Set IGDB_CLIENT_ID and IGDB_CLIENT_SECRET.",
+      "Requires Twitch account with phone 2FA. Set IGDB_CLIENT_ID and IGDB_CLIENT_SECRET.",
   },
   {
     id: "ss",
@@ -126,15 +126,14 @@ const providers: ProviderRow[] = [
     logo: `${LOGO_BASE}/ss.png`,
     desc: "Titles, descriptions, cover art, screenshots, manuals; 3D boxes and CD/cartridge art.",
     setup:
-      "Account credentials. Set SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD.",
-    caveat: "Supports 125+ systems.",
+      "Requires ScreenScraper account. Set SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD.",
   },
   {
     id: "moby",
     name: "MobyGames",
     logo: `${LOGO_BASE}/moby.png`,
     desc: "Metadata, cover art, screenshots.",
-    setup: "Account + API key. Set MOBYGAMES_API_KEY.",
+    setup: "Requires Mobygames account. Set MOBYGAMES_API_KEY.",
     caveat: "API is a paid feature.",
   },
   {
@@ -143,55 +142,57 @@ const providers: ProviderRow[] = [
     logo: `${LOGO_BASE}/launchbox.png`,
     desc: "Community metadata, cover art, screenshots.",
     setup:
-      "LAUNCHBOX_API_ENABLED=true and ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true.",
+      "Set LAUNCHBOX_API_ENABLED=true and ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true.",
     caveat: "Matches by exact filename; requires the local XML index.",
-  },
-  {
-    id: "hasheous",
-    name: "Hasheous",
-    logo: `${LOGO_BASE}/hasheous.png`,
-    desc: "Hash-based matching; proxies IGDB data; provides RetroAchievements IDs.",
-    setup: "HASHEOUS_API_ENABLED=true. Free, open-source.",
-    caveat: "Requires file hashes — enable hash calculation in the scan.",
   },
   {
     id: "ra",
     name: "RetroAchievements",
     logo: `${LOGO_BASE}/ra.png`,
     desc: "Achievement progress and unlock data per user.",
-    setup: "Per-user API key in profile settings.",
-    caveat: "Requires file hashes — enable hash calculation in the scan.",
+    setup: "Requires Retroachievements account. Set RETROACHIEVEMENTS_API_KEY",
+    caveat: "Requires file hashes. Enable hash calculation in the scan.",
   },
   {
     id: "sgdb",
     name: "SteamGridDB",
     logo: `${LOGO_BASE}/sgdb.png`,
     desc: "Alternative cover art for any game.",
-    setup: "Steam account. Set STEAMGRIDDB_API_KEY.",
-    caveat: 'Accessed via the manual "search cover" action, not the scanner.',
-  },
-  {
-    id: "playmatch",
-    name: "PlayMatch",
-    logo: `${LOGO_BASE}/playmatch.png`,
-    desc: "Hash-based game matching paired with IGDB data.",
-    setup: "PLAYMATCH_API_ENABLED=true.",
-    caveat: "Community-hosted service.",
+    setup: "Requires SteamGridDB account. Set STEAMGRIDDB_API_KEY.",
+    caveat:
+      'Also accessed via the manual "search cover" action at the edit game menu.',
   },
   {
     id: "flashpoint",
     name: "Flashpoint",
     logo: `${LOGO_BASE}/flashpoint.png`,
     desc: "Metadata for 180,000+ flash and browser-based games.",
-    setup: "FLASHPOINT_API_ENABLED=true.",
+    setup: "Set FLASHPOINT_API_ENABLED=true.",
   },
   {
     id: "hltb",
     name: "How Long To Beat",
     logo: `${LOGO_BASE}/hltb.png`,
     desc: "Completion time estimates for 84,000+ games.",
-    setup: "HLTB_API_ENABLED=true.",
-    caveat: "Surfaces in a separate tab of the game details page.",
+    setup: "Set HLTB_API_ENABLED=true.",
+    caveat: "Surfaces in the overview tab of the game details page.",
+  },
+  {
+    id: "hasheous",
+    name: "Hasheous",
+    logo: `${LOGO_BASE}/hasheous.png`,
+    desc: "Hash-based matching; proxies IGDB data; provides RetroAchievements IDs.",
+    setup: "Set HASHEOUS_API_ENABLED=true.",
+    caveat:
+      "Community hosted service. Requires file hashes. Enable hash calculation in the config file (enabled by default).",
+  },
+  {
+    id: "playmatch",
+    name: "PlayMatch",
+    logo: `${LOGO_BASE}/playmatch.png`,
+    desc: "Hash-based game matching paired with IGDB data.",
+    setup: "Set PLAYMATCH_API_ENABLED=true.",
+    caveat: "Community-hosted service.",
   },
 ];
 

@@ -296,6 +296,7 @@ async def scan_rom(
     metadata_sources: list[str],
     newly_added: bool,
     launchbox_remote_enabled: bool = True,
+    playmatch_enabled: bool = True,
     socket_manager: socketio.AsyncRedisManager | None = None,
 ) -> Rom:
     rom_attrs = {
@@ -370,7 +371,8 @@ async def scan_rom(
 
     async def fetch_playmatch_hash_match() -> PlaymatchRomMatch:
         if (
-            MetadataSource.IGDB in metadata_sources
+            playmatch_enabled
+            and MetadataSource.IGDB in metadata_sources
             and platform.igdb_id
             and (
                 newly_added
