@@ -781,23 +781,37 @@ function seekValueText(v: number): string {
   padding: 3px;
   border-radius: inherit;
   /* Two bright arcs sitting 180° apart so the row reads as having
-     two pulses chasing each other around the perimeter. Each arc
-     spans ~25% of the circumference with a soft 40%-brand trail on
-     either side and a sharp full-brand peak in the centre. The conic
-     gradient's `from` angle is the animated custom property — the
-     pseudo's box never rotates, only the arcs travel. */
+     two pulses chasing each other. Each arc spans ~40% of the
+     circumference with a long, smooth tail-in / tail-out at six
+     intermediate opacities — that breaks up the visible staircase
+     conic gradients normally show at a small number of stops. The
+     conic gradient's `from` angle is the animated custom property
+     so only the arc pattern travels; the pseudo's box stays put. */
   background: conic-gradient(
     from var(--r-stp-orbit-angle),
-    /* Arc A — peak at 12.5% (top edge after the rotation) */
-    color-mix(in srgb, var(--r-color-brand-primary) 40%, transparent) 0%,
+    /* Arc A — peak at 12.5%, ~40% wide with a long diffuse tail. */
+    color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent) 0%,
+    color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent) 4%,
+    color-mix(in srgb, var(--r-color-brand-primary) 45%, transparent) 8%,
+    color-mix(in srgb, var(--r-color-brand-primary) 75%, transparent) 11%,
     var(--r-color-brand-primary) 12.5%,
-    color-mix(in srgb, var(--r-color-brand-primary) 40%, transparent) 25%,
+    color-mix(in srgb, var(--r-color-brand-primary) 75%, transparent) 14%,
+    color-mix(in srgb, var(--r-color-brand-primary) 45%, transparent) 17%,
+    color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent) 21%,
+    color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent) 25%,
     transparent 32%,
-    /* Empty quadrant */ transparent 50%,
-    /* Arc B — peak at 62.5%, exactly 180° opposite arc A */
-    color-mix(in srgb, var(--r-color-brand-primary) 40%, transparent) 57%,
+    /* Empty quadrant — clear separation between the two pulses. */ transparent
+      50%,
+    /* Arc B — same envelope, 180° away from arc A. */
+    color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent) 50%,
+    color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent) 54%,
+    color-mix(in srgb, var(--r-color-brand-primary) 45%, transparent) 58%,
+    color-mix(in srgb, var(--r-color-brand-primary) 75%, transparent) 61%,
     var(--r-color-brand-primary) 62.5%,
-    color-mix(in srgb, var(--r-color-brand-primary) 40%, transparent) 75%,
+    color-mix(in srgb, var(--r-color-brand-primary) 75%, transparent) 64%,
+    color-mix(in srgb, var(--r-color-brand-primary) 45%, transparent) 67%,
+    color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent) 71%,
+    color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent) 75%,
     transparent 82%,
     transparent 100%
   );
@@ -813,18 +827,184 @@ function seekValueText(v: number): string {
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   mask-composite: exclude;
+  /* Sub-pixel blur softens any residual conic-gradient banding that
+     the gradient stops alone can't fully erase. */
+  filter: blur(0.4px);
   pointer-events: none;
-  animation: r-v2-stp-row-spin 2.4s linear infinite;
+  animation: r-v2-stp-row-spin 3.2s linear infinite;
 }
 
 /* Buffering — same orbit, faster cadence so a stall reads as "still
    working" rather than the steady playing tempo. */
 .r-v2-stp__row--buffering::before {
-  animation-duration: 0.9s;
+  animation-duration: 1.2s;
 }
 
+/* `--r-stp-orbit-angle` advances non-uniformly across the cycle to
+   approximate a perimeter-uniform sweep on a wide rectangle (~10:1
+   row aspect). Each keyframe is computed by mapping a uniform
+   perimeter step `p` (in pixels) back to the conic-gradient `from`
+   angle that puts the arc peak at that perimeter point — i.e.
+   `from = atan2(s_x, H/2) − 45°` on the top edge, with analogous
+   formulas on the other three edges.
+   The previous version had only ~20 keyframes, which left big linear
+   segments at the corners: the angular velocity changed by ~10× in
+   a single jump (from "crawl on top" to "sprint across side"), and
+   the perceived motion stuttered. This version samples the perimeter
+   every ~3 % and adds extra in-between samples on either side of each
+   corner so the linear interpolation between consecutive frames stays
+   close to the true curve. The resulting velocity profile climbs and
+   drops smoothly instead of stepping. */
 @keyframes r-v2-stp-row-spin {
-  to {
+  /* Top edge — right half, from start point (45°) to the right corner.
+     Velocity gradually drops as we approach the corner. */
+  0% {
+    --r-stp-orbit-angle: 0deg;
+  }
+  2.5% {
+    --r-stp-orbit-angle: 22.7deg;
+  }
+  5% {
+    --r-stp-orbit-angle: 30.5deg;
+  }
+  7.5% {
+    --r-stp-orbit-angle: 34.3deg;
+  }
+  10% {
+    --r-stp-orbit-angle: 36.6deg;
+  }
+  12.5% {
+    --r-stp-orbit-angle: 38deg;
+  }
+  15% {
+    --r-stp-orbit-angle: 39.1deg;
+  }
+  17.5% {
+    --r-stp-orbit-angle: 39.8deg;
+  }
+  20% {
+    --r-stp-orbit-angle: 40.4deg;
+  }
+  /* Right corner area — velocity gradually picks up. Extra samples
+     here so the transition into the side doesn't read as a jump. */
+  22.5% {
+    --r-stp-orbit-angle: 41.5deg;
+  }
+  23.5% {
+    --r-stp-orbit-angle: 43.5deg;
+  }
+  24.25% {
+    --r-stp-orbit-angle: 46deg;
+  }
+  25% {
+    --r-stp-orbit-angle: 49.3deg;
+  }
+  /* Bottom edge — slow at first, then sprinting through the centre. */
+  27.5% {
+    --r-stp-orbit-angle: 49.8deg;
+  }
+  30% {
+    --r-stp-orbit-angle: 50.5deg;
+  }
+  32.5% {
+    --r-stp-orbit-angle: 51.3deg;
+  }
+  35% {
+    --r-stp-orbit-angle: 52.5deg;
+  }
+  37.5% {
+    --r-stp-orbit-angle: 54.2deg;
+  }
+  40% {
+    --r-stp-orbit-angle: 56.9deg;
+  }
+  42.5% {
+    --r-stp-orbit-angle: 61.8deg;
+  }
+  45% {
+    --r-stp-orbit-angle: 73.2deg;
+  }
+  47% {
+    --r-stp-orbit-angle: 100deg;
+  }
+  48.3% {
+    --r-stp-orbit-angle: 135deg;
+  }
+  49.5% {
+    --r-stp-orbit-angle: 170deg;
+  }
+  51.7% {
+    --r-stp-orbit-angle: 198.4deg;
+  }
+  55% {
+    --r-stp-orbit-angle: 210.5deg;
+  }
+  57.5% {
+    --r-stp-orbit-angle: 214.3deg;
+  }
+  60% {
+    --r-stp-orbit-angle: 216.6deg;
+  }
+  62.5% {
+    --r-stp-orbit-angle: 218.1deg;
+  }
+  65% {
+    --r-stp-orbit-angle: 219.1deg;
+  }
+  67.5% {
+    --r-stp-orbit-angle: 219.8deg;
+  }
+  70% {
+    --r-stp-orbit-angle: 220.4deg;
+  }
+  /* Left corner area — symmetric with the right corner. */
+  72.5% {
+    --r-stp-orbit-angle: 221.5deg;
+  }
+  73.5% {
+    --r-stp-orbit-angle: 223.5deg;
+  }
+  74.25% {
+    --r-stp-orbit-angle: 226deg;
+  }
+  75% {
+    --r-stp-orbit-angle: 229.3deg;
+  }
+  /* Top edge, left half coming back to the start position. */
+  77.5% {
+    --r-stp-orbit-angle: 229.8deg;
+  }
+  80% {
+    --r-stp-orbit-angle: 230.5deg;
+  }
+  82.5% {
+    --r-stp-orbit-angle: 231.3deg;
+  }
+  85% {
+    --r-stp-orbit-angle: 232.5deg;
+  }
+  87.5% {
+    --r-stp-orbit-angle: 234.2deg;
+  }
+  90% {
+    --r-stp-orbit-angle: 236.9deg;
+  }
+  92.5% {
+    --r-stp-orbit-angle: 241.8deg;
+  }
+  95% {
+    --r-stp-orbit-angle: 253.2deg;
+  }
+  97% {
+    --r-stp-orbit-angle: 280deg;
+  }
+  98.3% {
+    --r-stp-orbit-angle: 315deg;
+  }
+  99.5% {
+    --r-stp-orbit-angle: 350deg;
+  }
+  100% {
     --r-stp-orbit-angle: 360deg;
   }
 }
