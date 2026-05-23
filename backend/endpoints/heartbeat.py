@@ -159,6 +159,8 @@ async def metadata_heartbeat(source: str) -> bool:
             return await meta_launchbox_handler.heartbeat()
         case MetadataSource.HASHEOUS:
             return await meta_hasheous_handler.heartbeat()
+        case MetadataSource.PLAYMATCH:
+            return await meta_playmatch_handler.heartbeat()
         case MetadataSource.TGDB:
             return await meta_tgdb_handler.heartbeat()
         case MetadataSource.SGDB:

@@ -34,10 +34,7 @@ from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.libretro_handler import LIBRETRO_PLATFORM_LIST, LibretroRom
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST, MobyGamesRom
-from handler.metadata.playmatch_handler import (
-    PLAYMATCH_SUPPORTED_SOURCES,
-    PlaymatchRomMatch,
-)
+from handler.metadata.playmatch_handler import PlaymatchRomMatch
 from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAGameRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST, SSRom
@@ -78,6 +75,7 @@ class MetadataSource(enum.StrEnum):
     HLTB = "hltb"  # HowLongToBeat
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
     LIBRETRO = "libretro"  # Libretro thumbnails
+    PLAYMATCH = "playmatch"  # Playmatch
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -375,9 +373,7 @@ async def scan_rom(
     async def fetch_playmatch_hash_match() -> PlaymatchRomMatch:
         if (
             meta_playmatch_handler.is_enabled()
-            and any(
-                source in metadata_sources for source in PLAYMATCH_SUPPORTED_SOURCES
-            )
+            and MetadataSource.PLAYMATCH in metadata_sources
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
