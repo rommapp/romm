@@ -78,6 +78,7 @@ class MetadataSource(enum.StrEnum):
     HLTB = "hltb"  # HowLongToBeat
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
     LIBRETRO = "libretro"  # Libretro thumbnails
+    PLAYMATCH = "playmatch"  # Playmatch
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -375,9 +376,8 @@ async def scan_rom(
     async def fetch_playmatch_hash_match() -> PlaymatchRomMatch:
         if (
             meta_playmatch_handler.is_enabled()
-            and any(
-                source in metadata_sources for source in PLAYMATCH_SUPPORTED_SOURCES
-            )
+            and MetadataSource.PLAYMATCH in metadata_sources
+            and any(PLAYMATCH_SUPPORTED_SOURCES.intersection(metadata_sources))
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE

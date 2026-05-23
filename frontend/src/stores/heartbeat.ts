@@ -91,9 +91,7 @@ export default defineStore("heartbeat", {
     getAllMetadataOptions(): MetadataOption[] {
       return [
         {
-          name: this.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED
-            ? "IGDB + Playmatch"
-            : "IGDB",
+          name: "IGDB",
           value: "igdb",
           logo_path: "/assets/scrappers/igdb.png",
           disabled: !this.value.METADATA_SOURCES?.IGDB_API_ENABLED
@@ -105,6 +103,14 @@ export default defineStore("heartbeat", {
           value: "hasheous",
           logo_path: "/assets/scrappers/hasheous.png",
           disabled: !this.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
+            : "",
+        },
+        {
+          name: "Playmatch",
+          value: "playmatch",
+          logo_path: "/assets/scrappers/playmatch.png",
+          disabled: !this.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED
             ? i18n.global.t("scan.disabled-by-admin")
             : "",
         },
