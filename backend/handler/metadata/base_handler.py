@@ -116,6 +116,16 @@ def strip_sensitive_query_params(
     return urlunparse(parsed._replace(query=new_query))
 
 
+def restore_sensitive_query_params(url: str, params: dict[str, str]) -> str:
+    """Add back key/value pairs previously stripped by strip_sensitive_query_params."""
+    parsed = urlparse(url)
+    qsl = parse_qsl(parsed.query, keep_blank_values=True)
+    existing = {k.lower() for k in params}
+    filtered = [(k, v) for k, v in qsl if k.lower() not in existing]
+    new_query = urlencode(filtered + list(params.items()))
+    return urlunparse(parsed._replace(query=new_query))
+
+
 class MetadataHandler(abc.ABC):
     SEARCH_TERM_SPLIT_PATTERN = re.compile(r"[\:\-\/]")
     SEARCH_TERM_NORMALIZER = re.compile(r"\s*[:-]\s+")

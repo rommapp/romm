@@ -27,10 +27,26 @@ from .base_handler import (
 )
 from .base_handler import UniversalPlatformSlug as UPS
 from .base_handler import (
+    restore_sensitive_query_params,
     strip_sensitive_query_params,
 )
 
 SENSITIVE_KEYS = {"ssid", "sspassword"}
+
+
+def add_ss_auth_to_url(url: str) -> str:
+    """Re-add SS user credentials to a media URL at download time (never stored)."""
+    creds = {
+        k: v
+        for k, v in {
+            "ssid": SCREENSCRAPER_USER,
+            "sspassword": SCREENSCRAPER_PASSWORD,
+        }.items()
+        if v
+    }
+    if not creds:
+        return url
+    return restore_sensitive_query_params(url, creds)
 
 
 def get_preferred_regions(rom: Rom | None = None) -> list[str]:
