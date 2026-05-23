@@ -678,7 +678,8 @@ class FSRomsHandler(FSHandler):
                 )
 
             if archive_entries:
-                archive_mtime = os.path.getmtime(rom_dir)
+                archive_mtime = (await AnyioPath(rom_dir).stat()).st_mtime
+                assert rom_md5_h is not None and rom_sha1_h is not None
                 for internal_name, entry_size, chunks in archive_entries:
                     crc_c = 0
                     md5_h = hashlib.md5(usedforsecurity=False)

@@ -117,7 +117,11 @@ def read_7z_archive_files(
             timeout=SEVEN_ZIP_TIMEOUT,
             shell=False,  # trunk-ignore(bandit/B603)
         )
-    except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError) as e:
+    except (
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+    ) as e:
         log.error(f"Error listing 7z archive {file_path}: {e}")
         return []
 
@@ -169,11 +173,15 @@ def read_7z_archive_files(
                     while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
                         if time.monotonic() - start_time > SEVEN_ZIP_TIMEOUT:
                             process.terminate()
-                            log.error("7z extraction timed out during multi-file archive read")
+                            log.error(
+                                "7z extraction timed out during multi-file archive read"
+                            )
                             return output
                         chunks.append(chunk)
             if process.returncode != 0:
-                log.error(f"7z extraction of {name} failed with code {process.returncode}")
+                log.error(
+                    f"7z extraction of {name} failed with code {process.returncode}"
+                )
                 continue
         except (OSError, ValueError) as e:
             log.error(f"Error extracting {name} from {file_path}: {e}")
