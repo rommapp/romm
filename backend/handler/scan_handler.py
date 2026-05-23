@@ -650,6 +650,10 @@ async def scan_rom(
             if game_by_hash.get("ss_id"):
                 return game_by_hash
 
+            # Skip name search if SS explicitly flagged the ROM as notgame
+            if game_by_hash.get("notgame"):
+                return game_by_hash
+
             # Fallback to the filename
             return await meta_ss_handler.get_rom(
                 rom, rom_attrs["fs_name"], platform_ss_id=platform.ss_id

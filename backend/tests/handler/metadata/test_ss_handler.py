@@ -4,9 +4,12 @@ from typing import cast
 from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
+import pytest
+
 from adapters.services.screenscraper_types import SSGame
 from config.config_manager import Config, MetadataMediaType
 from handler.metadata.ss_handler import (
+    SSHandler,
     _get_rom_type,
     _is_notgame,
     extract_media_from_ss_game,
@@ -334,3 +337,50 @@ class TestGetRomType:
 
     def test_folder_based_rom(self):
         assert _get_rom_type(self._file("bin", top_level=False)) == "dossier"
+
+
+class TestLookupRom:
+    def _make_mock_file(self) -> MagicMock:
+        f = MagicMock()
+        f.file_size_bytes = 1024
+        f.is_top_level = True
+        f.file_extension = "bin"
+        f.md5_hash = "abc123"
+        f.sha1_hash = "def456"
+        f.crc_hash = "12345678"
+        f.file_name = "bios.bin"
+        return f
+
+    @pytest.mark.asyncio
+    async def test_returns_notgame_flag_on_notgame_field(self):
+        notgame_response = {
+            "id": "999",
+            "notgame": "true",
+            "noms": [{"region": "wor", "text": "SomeBios"}],
+        }
+        handler = SSHandler()
+        with patch.object(
+            handler.ss_service, "get_game_info", return_value=notgame_response
+        ):
+            result = await handler.lookup_rom(
+                MagicMock(platform_slug="snes"), 3, [self._make_mock_file()]
+            )
+        assert result["ss_id"] is None
+        assert result.get("notgame") is True
+
+    @pytest.mark.asyncio
+    async def test_returns_notgame_flag_on_zzz_prefix(self):
+        notgame_response = {
+            "id": "0",
+            "notgame": "false",
+            "noms": [{"region": "wor", "text": "ZZZ(NOTGAME)SomeBios"}],
+        }
+        handler = SSHandler()
+        with patch.object(
+            handler.ss_service, "get_game_info", return_value=notgame_response
+        ):
+            result = await handler.lookup_rom(
+                MagicMock(platform_slug="snes"), 3, [self._make_mock_file()]
+            )
+        assert result["ss_id"] is None
+        assert result.get("notgame") is True

@@ -99,6 +99,15 @@ ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {
 }
 
 
+def _is_notgame(game: SSGame) -> bool:
+    if game.get("notgame") == "true":
+        return True
+    return any(
+        name.get("text", "").upper().startswith(NOTGAME_NAME_PREFIX)
+        for name in game.get("noms", [])
+    )
+
+
 class SSPlatform(TypedDict):
     slug: str
     ss_id: int | None
@@ -158,15 +167,7 @@ class SSMetadata(SSMetadataMedia):
 class SSRom(BaseRom):
     ss_id: int | None
     ss_metadata: NotRequired[SSMetadata]
-
-
-def _is_notgame(game: SSGame) -> bool:
-    if game.get("notgame") == "true":
-        return True
-    return any(
-        name.get("text", "").upper().startswith(NOTGAME_NAME_PREFIX)
-        for name in game.get("noms", [])
-    )
+    notgame: NotRequired[bool]
 
 
 def _get_rom_type(file: RomFile) -> str:
@@ -654,7 +655,7 @@ class SSHandler(MetadataHandler):
             log.warning(
                 "ScreenScraper: Received notgame entry from hash lookup, ignoring"
             )
-            return SSRom(ss_id=None)
+            return SSRom(ss_id=None, notgame=True)
 
         return build_ss_game(rom, res)
 
