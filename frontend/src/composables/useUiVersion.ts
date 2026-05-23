@@ -6,13 +6,13 @@
 // We create the ref ONCE at module load and everyone imports it, giving us
 // true reactive cross-component state without a store.
 //
-// Default stays "v1" — v2 is still opt-in while we finish the parity pass.
-// Users flip forward via Settings → User Interface → UI version → New UI.
+// Default is "v2". v1 remains reachable for users who explicitly opt back
+// via Settings → User Interface → UI version → Old UI.
 import { useLocalStorage } from "@vueuse/core";
 
 export type UiVersion = "v1" | "v2";
 
-const uiVersion = useLocalStorage<UiVersion>("settings.uiVersion", "v1");
+const uiVersion = useLocalStorage<UiVersion>("settings.uiVersion", "v2");
 
 export function useUiVersion() {
   return uiVersion;

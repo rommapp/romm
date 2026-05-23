@@ -42,7 +42,8 @@ import VersionTag from "@/v2/components/shared/VersionTag.vue";
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 440px;
+  display: flex;
+  justify-content: center;
 }
 
 .r-v2-auth__lang {

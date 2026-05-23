@@ -24,6 +24,7 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   login: () => import("@/v2/views/Auth/Login.vue"),
   "reset-password": () => import("@/v2/views/Auth/ResetPassword.vue"),
   register: () => import("@/v2/views/Auth/Register.vue"),
+  setup: () => import("@/v2/views/Auth/Setup.vue"),
   // Wave 3 — Gallery
   platform: () => import("@/v2/views/Gallery/Platform.vue"),
   search: () => import("@/v2/views/Gallery/Search.vue"),
@@ -55,8 +56,6 @@ export const v2RouteComponents: Partial<Record<string, V2Route>> = {
   "collections-index": () => import("@/v2/views/CollectionsIndex.vue"),
   // V2-only dev tool — live gamepad input inspector.
   "controller-debug": () => import("@/v2/views/ControllerDebug.vue"),
-  // Setup wizard deferred — remains v1-only for now
-  // Wave 7 onwards adds the remaining routes.
 };
 
 export const fallbackComponent: V2Route = () =>
