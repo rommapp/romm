@@ -49,6 +49,13 @@ PLAYMATCH_LOOKUP_ROM_ATTRS: frozenset[str] = frozenset(
     {"igdb_id", "moby_id", "ss_id", "launchbox_id", "sgdb_id"}
 )
 
+# MetadataSource values (StrEnum) for which Playmatch can return ids. Typed as
+# strings so this module stays free of scan_handler imports. EmuReady and
+# OpenVGDB are in Playmatch's enum but have no RomM counterpart yet.
+PLAYMATCH_SUPPORTED_SOURCES: frozenset[str] = frozenset(
+    {"igdb", "moby", "ss", "launchbox", "sgdb"}
+)
+
 
 class GameMatchType(str, Enum):
     SHA256 = "SHA256"

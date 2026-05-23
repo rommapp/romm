@@ -34,7 +34,10 @@ from handler.metadata.launchbox_handler.platforms import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.launchbox_handler.types import LaunchboxRom
 from handler.metadata.libretro_handler import LIBRETRO_PLATFORM_LIST, LibretroRom
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST, MobyGamesRom
-from handler.metadata.playmatch_handler import PlaymatchRomMatch
+from handler.metadata.playmatch_handler import (
+    PLAYMATCH_SUPPORTED_SOURCES,
+    PlaymatchRomMatch,
+)
 from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAGameRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST, SSRom
@@ -374,6 +377,7 @@ async def scan_rom(
         if (
             meta_playmatch_handler.is_enabled()
             and MetadataSource.PLAYMATCH in metadata_sources
+            and any(PLAYMATCH_SUPPORTED_SOURCES.intersection(metadata_sources))
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
