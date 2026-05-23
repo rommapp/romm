@@ -888,6 +888,19 @@ async def scan_rom(
                 if fields["metadata_field"]:
                     rom_attrs[fields["metadata_field"]] = {}
 
+        # Reset artwork fields so stale values are cleared when no source supplies them
+        rom_attrs.update(
+            {
+                "url_cover": "",
+                "url_screenshots": [],
+                "url_manual": "",
+                "path_cover_s": "",
+                "path_cover_l": "",
+                "path_screenshots": [],
+                "path_manual": "",
+            }
+        )
+
     # Determine which metadata sources are available
     available_sources = [
         name
