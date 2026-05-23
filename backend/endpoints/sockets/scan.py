@@ -301,15 +301,30 @@ async def _identify_rom(
     # post-scan download steps below skip downloads when a file already exists or
     # when the source URL is unchanged, so the on-disk files must be removed here.
     if not newly_added and scan_type == ScanType.COMPLETE:
-        await fs_resource_handler.remove_cover(rom)
-        await fs_resource_handler.remove_manual(rom)
-        await fs_resource_handler.remove_directory(
-            f"{rom.fs_resources_path}/screenshots"
-        )
-        for media_type in MetadataMediaType:
-            await fs_resource_handler.remove_media_resources_path(
-                platform.id, rom.id, media_type
+        try:
+            await fs_resource_handler.remove_cover(rom)
+        except FileNotFoundError:
+            pass
+
+        try:
+            await fs_resource_handler.remove_manual(rom)
+        except FileNotFoundError:
+            pass
+
+        try:
+            await fs_resource_handler.remove_directory(
+                f"{rom.fs_resources_path}/screenshots"
             )
+        except FileNotFoundError:
+            pass
+
+        for media_type in MetadataMediaType:
+            try:
+                await fs_resource_handler.remove_media_resources_path(
+                    platform.id, rom.id, media_type
+                )
+            except FileNotFoundError:
+                pass
 
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
