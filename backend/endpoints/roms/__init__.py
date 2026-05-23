@@ -59,7 +59,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_ss_handler,
 )
-from handler.metadata.ss_handler import get_preferred_media_types
+from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -1402,7 +1402,9 @@ async def update_rom(
 
             if cleaned_data.get("ss_metadata", {}).get(f"{media_type.value}_path"):
                 await fs_resource_handler.store_media_file(
-                    cleaned_data["ss_metadata"][f"{media_type.value}_url"],
+                    add_ss_auth_to_url(
+                        cleaned_data["ss_metadata"][f"{media_type.value}_url"]
+                    ),
                     cleaned_data["ss_metadata"][f"{media_type.value}_path"],
                 )
 
