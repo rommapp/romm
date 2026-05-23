@@ -36,17 +36,16 @@ SENSITIVE_KEYS = {"ssid", "sspassword"}
 
 def add_ss_auth_to_url(url: str) -> str:
     """Re-add SS user credentials to a media URL at download time (never stored)."""
-    creds = {
-        k: v
-        for k, v in {
+    if not SCREENSCRAPER_USER or not SCREENSCRAPER_PASSWORD:
+        return url
+
+    return restore_sensitive_query_params(
+        url,
+        {
             "ssid": SCREENSCRAPER_USER,
             "sspassword": SCREENSCRAPER_PASSWORD,
-        }.items()
-        if v
-    }
-    if not creds:
-        return url
-    return restore_sensitive_query_params(url, creds)
+        },
+    )
 
 
 def get_preferred_regions(rom: Rom | None = None) -> list[str]:
