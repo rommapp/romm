@@ -4,13 +4,13 @@
     {
       "label": "Launch frontend",
       "type": "shell",
-      "command": "cd frontend && npm i && npm run dev",
+      "command": "cd frontend && npm run dev",
       "problemMatcher": []
     },
     {
       "label": "Launch backend",
       "type": "shell",
-      "command": "cd backend && uv sync --dev && uv run python3 main.py",
+      "command": "cd backend && uv run python3 main.py",
       "problemMatcher": []
     },
     {
