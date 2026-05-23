@@ -27,6 +27,7 @@ export * from "./primitives/RProgressLinear";
 export * from "./primitives/RSkeletonBlock";
 export * from "./primitives/RSliderBtnGroup";
 export * from "./primitives/RSpinner";
+export * from "./primitives/RSteps";
 export * from "./primitives/RTabNav";
 export * from "./primitives/RTag";
 

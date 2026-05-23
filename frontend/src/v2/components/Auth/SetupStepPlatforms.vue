@@ -19,6 +19,7 @@ import {
   RBtn,
   RCheckbox,
   RChip,
+  RCollapsible,
   REmptyState,
   RIcon,
   RPlatformIcon,
@@ -46,6 +47,9 @@ const { t } = useI18n();
 
 const search = ref("");
 const openGroups = ref<Set<string>>(new Set());
+// Groups that have been opened at least once. We keep their body content
+// mounted once expanded so re-opening animates smoothly without remounting.
+const mountedGroups = ref<Set<string>>(new Set());
 
 const UNIDENTIFIED = "__unidentified__";
 const SEARCH_LIMIT = 80;
@@ -218,10 +222,16 @@ function toggleAllAvailable() {
   emit("update:selectedNewPlatforms", [...set]);
 }
 
-function toggleGroupOpen(key: string) {
+function setGroupOpen(key: string, open: boolean) {
   const s = new Set(openGroups.value);
-  if (s.has(key)) s.delete(key);
-  else s.add(key);
+  if (open) {
+    s.add(key);
+    if (!mountedGroups.value.has(key)) {
+      mountedGroups.value = new Set([...mountedGroups.value, key]);
+    }
+  } else {
+    s.delete(key);
+  }
   openGroups.value = s;
 }
 
@@ -479,113 +489,108 @@ function platformFolderPath(slug: string): string {
               :key="group.key"
               class="r-setup-platforms__group"
             >
-              <header class="r-setup-platforms__group-head">
-                <RCheckbox
-                  :model-value="groupSelectedState(group.items)"
-                  :indeterminate="groupSelectedState(group.items) === null"
-                  :disabled="newSlugsInGroup(group.items).length === 0"
-                  size="sm"
-                  hide-details
-                  bare
-                  @click.stop
-                  @update:model-value="(v) => toggleGroup(group.items, v)"
-                />
-                <button
-                  type="button"
-                  class="r-setup-platforms__group-toggle"
-                  :aria-expanded="openGroups.has(group.key)"
-                  @click="toggleGroupOpen(group.key)"
-                >
-                  <RIcon
-                    :name="
-                      openGroups.has(group.key)
-                        ? 'mdi-chevron-down'
-                        : 'mdi-chevron-right'
-                    "
-                    :size="18"
-                  />
-                  <span class="r-setup-platforms__group-label">
-                    {{ group.label }}
-                  </span>
-                  <span class="r-setup-platforms__group-count">
-                    {{ group.items.length }}
-                  </span>
-                </button>
-              </header>
-
-              <!-- v-if (not v-show) keeps closed groups cheap. -->
-              <ul
-                v-if="openGroups.has(group.key)"
-                class="r-setup-platforms__items r-setup-platforms__items--nested"
+              <RCollapsible
+                :model-value="openGroups.has(group.key)"
+                @update:model-value="(v) => setGroupOpen(group.key, v)"
               >
-                <li
-                  v-for="platform in group.items"
-                  :key="platform.fs_slug"
-                  class="r-setup-platforms__item"
-                  :data-state="
-                    isSelected(platform.fs_slug) ? 'selected' : 'available'
-                  "
-                  role="checkbox"
-                  :aria-checked="isSelected(platform.fs_slug)"
-                  :tabindex="0"
-                  @click="
-                    togglePlatform(
-                      platform.fs_slug,
-                      !isSelected(platform.fs_slug),
-                    )
-                  "
-                  @keydown.space.prevent="
-                    togglePlatform(
-                      platform.fs_slug,
-                      !isSelected(platform.fs_slug),
-                    )
-                  "
-                  @keydown.enter.prevent="
-                    togglePlatform(
-                      platform.fs_slug,
-                      !isSelected(platform.fs_slug),
-                    )
-                  "
-                >
+                <template #header-prepend>
                   <RCheckbox
-                    :model-value="isSelected(platform.fs_slug)"
+                    :model-value="groupSelectedState(group.items)"
+                    :indeterminate="groupSelectedState(group.items) === null"
+                    :disabled="newSlugsInGroup(group.items).length === 0"
                     size="sm"
                     hide-details
                     bare
                     @click.stop
-                    @update:model-value="
-                      (v) => togglePlatform(platform.fs_slug, v)
+                    @update:model-value="(v) => toggleGroup(group.items, v)"
+                  />
+                </template>
+                <template #title>
+                  <span class="r-setup-platforms__group-label">
+                    {{ group.label }}
+                  </span>
+                </template>
+                <template #header-append>
+                  <span class="r-setup-platforms__group-count">
+                    {{ group.items.length }}
+                  </span>
+                </template>
+
+                <!-- Mount once on first open; keep mounted so re-opens
+                     animate smoothly without remounting all icons. -->
+                <ul
+                  v-if="mountedGroups.has(group.key)"
+                  class="r-setup-platforms__items r-setup-platforms__items--nested"
+                >
+                  <li
+                    v-for="platform in group.items"
+                    :key="platform.fs_slug"
+                    class="r-setup-platforms__item"
+                    :data-state="
+                      isSelected(platform.fs_slug) ? 'selected' : 'available'
                     "
-                  />
-                  <RPlatformIcon
-                    :slug="platform.slug"
-                    :fs-slug="platform.fs_slug"
-                    :name="platform.name"
-                    :size="26"
-                    :show-tooltip="false"
-                    class="r-setup-platforms__item-icon"
-                  />
-                  <div class="r-setup-platforms__item-body">
-                    <span class="r-setup-platforms__item-name">
-                      {{ platform.name || platform.fs_slug }}
-                    </span>
-                    <span class="r-setup-platforms__item-slug">
-                      {{ platform.fs_slug }}
-                    </span>
-                  </div>
-                  <div class="r-setup-platforms__item-state">
-                    <RChip
-                      v-if="isSelected(platform.fs_slug)"
-                      size="x-small"
-                      variant="translucent"
-                      color="success"
-                    >
-                      <RIcon name="mdi-folder-plus" :size="12" />
-                      <code>{{ platformFolderPath(platform.fs_slug) }}</code>
-                    </RChip>
-                  </div>
-                </li>
-              </ul>
+                    role="checkbox"
+                    :aria-checked="isSelected(platform.fs_slug)"
+                    :tabindex="0"
+                    @click="
+                      togglePlatform(
+                        platform.fs_slug,
+                        !isSelected(platform.fs_slug),
+                      )
+                    "
+                    @keydown.space.prevent="
+                      togglePlatform(
+                        platform.fs_slug,
+                        !isSelected(platform.fs_slug),
+                      )
+                    "
+                    @keydown.enter.prevent="
+                      togglePlatform(
+                        platform.fs_slug,
+                        !isSelected(platform.fs_slug),
+                      )
+                    "
+                  >
+                    <RCheckbox
+                      :model-value="isSelected(platform.fs_slug)"
+                      size="sm"
+                      hide-details
+                      bare
+                      @click.stop
+                      @update:model-value="
+                        (v) => togglePlatform(platform.fs_slug, v)
+                      "
+                    />
+                    <RPlatformIcon
+                      :slug="platform.slug"
+                      :fs-slug="platform.fs_slug"
+                      :name="platform.name"
+                      :size="26"
+                      :show-tooltip="false"
+                      class="r-setup-platforms__item-icon"
+                    />
+                    <div class="r-setup-platforms__item-body">
+                      <span class="r-setup-platforms__item-name">
+                        {{ platform.name || platform.fs_slug }}
+                      </span>
+                      <span class="r-setup-platforms__item-slug">
+                        {{ platform.fs_slug }}
+                      </span>
+                    </div>
+                    <div class="r-setup-platforms__item-state">
+                      <RChip
+                        v-if="isSelected(platform.fs_slug)"
+                        size="x-small"
+                        variant="translucent"
+                        color="success"
+                      >
+                        <RIcon name="mdi-folder-plus" :size="12" />
+                        <code>{{ platformFolderPath(platform.fs_slug) }}</code>
+                      </RChip>
+                    </div>
+                  </li>
+                </ul>
+              </RCollapsible>
             </li>
           </ul>
         </div>
@@ -594,19 +599,6 @@ function platformFolderPath(slug: string): string {
 
     <!-- Summary bar -->
     <div class="r-setup-platforms__summary" role="status">
-      <RIcon
-        :name="
-          selectedNewPlatforms.length > 0
-            ? 'mdi-folder-multiple-plus'
-            : 'mdi-folder-outline'
-        "
-        :size="20"
-        :color="
-          selectedNewPlatforms.length > 0
-            ? 'success'
-            : 'var(--r-color-fg-muted)'
-        "
-      />
       <span class="r-setup-platforms__summary-text">
         <strong>
           {{
@@ -641,7 +633,9 @@ function platformFolderPath(slug: string): string {
 }
 
 .r-setup-platforms__lead {
-  margin: 0;
+  margin: 0 auto;
+  max-width: 900px;
+  text-align: center;
   color: var(--r-color-fg-secondary);
   font-size: var(--r-font-size-md);
   line-height: var(--r-line-height-normal);
@@ -882,47 +876,25 @@ function platformFolderPath(slug: string): string {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--r-space-1);
+  gap: var(--r-space-2);
 }
 
 .r-setup-platforms__group {
   border-radius: var(--r-radius-md);
 }
 
-.r-setup-platforms__group-head {
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-2);
-  padding: var(--r-space-2) var(--r-space-3);
-  border-radius: var(--r-radius-md);
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-}
-
-.r-setup-platforms__group-toggle {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--r-space-2);
-  background: transparent;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  color: var(--r-color-fg);
-  cursor: pointer;
-  text-align: left;
-  min-height: 32px;
-}
-
 .r-setup-platforms__group-label {
   font-weight: var(--r-font-weight-semibold);
   font-size: var(--r-font-size-md);
+  color: var(--r-color-fg);
 }
 
 .r-setup-platforms__group-count {
-  margin-left: auto;
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-muted);
+  padding: 2px var(--r-space-2);
+  border-radius: var(--r-radius-pill);
+  background: color-mix(in srgb, var(--r-color-fg) 6%, transparent);
 }
 
 /* ── Summary ─────────────────────────────────────────────────────── */
@@ -930,10 +902,14 @@ function platformFolderPath(slug: string): string {
   display: flex;
   align-items: center;
   gap: var(--r-space-2);
-  padding: var(--r-space-3) var(--r-space-4);
+  padding: var(--r-space-3);
   border-radius: var(--r-radius-md);
   background: var(--r-color-surface);
   border: 1px solid var(--r-color-border);
+}
+
+.r-setup-platforms__summary :deep(.r-icon) {
+  flex-shrink: 0;
 }
 
 .r-setup-platforms__summary-text {
