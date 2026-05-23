@@ -19,6 +19,10 @@ import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support 
 from anyio import Path as AnyioPath
 
 from config import LIBRARY_BASE_PATH
+from config.config_manager import (
+    DEFAULT_EXCLUDED_EXTENSIONS,
+    DEFAULT_EXCLUDED_FILES,
+)
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
@@ -659,22 +663,22 @@ class FSRomsHandler(FSHandler):
                 archive_entries = await asyncio.to_thread(
                     _read_zip_archive_files,
                     rom_dir,
-                    excluded_file_names,
-                    excluded_file_exts,
+                    DEFAULT_EXCLUDED_FILES,
+                    DEFAULT_EXCLUDED_EXTENSIONS,
                 )
             elif rom_ext == ".tar":
                 archive_entries = await asyncio.to_thread(
                     _read_tar_archive_files,
                     rom_dir,
-                    excluded_file_names,
-                    excluded_file_exts,
+                    DEFAULT_EXCLUDED_FILES,
+                    DEFAULT_EXCLUDED_EXTENSIONS,
                 )
             elif rom_ext == ".7z":
                 archive_entries = await asyncio.to_thread(
                     read_7z_archive_files,
                     rom_dir,
-                    excluded_file_names,
-                    excluded_file_exts,
+                    DEFAULT_EXCLUDED_FILES,
+                    DEFAULT_EXCLUDED_EXTENSIONS,
                 )
 
             if archive_entries:
