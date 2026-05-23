@@ -212,6 +212,19 @@ const allAvailableSelected = computed(() => {
   return supportedAvailable.value.every((p) => isSelected(p.fs_slug));
 });
 
+// Tri-state for the master "Select all available" checkbox: true when
+// every selectable platform is picked, false when none are, null when
+// the selection is partial (renders as the indeterminate dash).
+const allAvailableState = computed<boolean | null>(() => {
+  if (supportedAvailable.value.length === 0) return false;
+  const picked = supportedAvailable.value.filter((p) =>
+    isSelected(p.fs_slug),
+  ).length;
+  if (picked === 0) return false;
+  if (picked === supportedAvailable.value.length) return true;
+  return null;
+});
+
 function toggleAllAvailable() {
   const set = new Set(props.selectedNewPlatforms);
   if (allAvailableSelected.value) {
@@ -384,22 +397,15 @@ function platformFolderPath(slug: string): string {
               hide-details
               class="r-setup-platforms__search"
             />
-            <RBtn
-              variant="text"
+            <RCheckbox
+              :model-value="allAvailableState"
+              :indeterminate="allAvailableState === null"
               :disabled="supportedAvailable.length === 0"
-              :prepend-icon="
-                allAvailableSelected
-                  ? 'mdi-checkbox-blank-outline'
-                  : 'mdi-check-all'
-              "
-              @click="toggleAllAvailable"
-            >
-              {{
-                allAvailableSelected
-                  ? t("setup.deselect-all")
-                  : t("setup.select-all-available")
-              }}
-            </RBtn>
+              :label="t('setup.select-all-available')"
+              size="sm"
+              hide-details
+              @update:model-value="toggleAllAvailable"
+            />
           </div>
         </header>
 
