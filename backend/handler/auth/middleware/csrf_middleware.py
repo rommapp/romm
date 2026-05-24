@@ -92,16 +92,15 @@ class CSRFMiddleware:
     async def send(self, message: Message, send: Send, scope: Scope) -> None:
         request = Request(scope)
         csrf_cookie = request.cookies.get(self.cookie_name)
+        current_user_id = request.user.id if request.user.is_authenticated else None
 
-        if csrf_cookie is None:
+        if not self._csrf_cookie_has_user(csrf_cookie, current_user_id):
             message.setdefault("headers", [])
             headers = MutableHeaders(scope=message)
 
             cookie: http.cookies.BaseCookie = http.cookies.SimpleCookie()
             cookie_name = self.cookie_name
-            cookie[cookie_name] = self._generate_csrf_token(
-                request.user.id if request.user.is_authenticated else None
-            )
+            cookie[cookie_name] = self._generate_csrf_token(current_user_id)
             cookie[cookie_name]["path"] = self.cookie_path
             cookie[cookie_name]["secure"] = self.cookie_secure
             cookie[cookie_name]["httponly"] = self.cookie_httponly
@@ -142,6 +141,19 @@ class CSRFMiddleware:
     def _generate_csrf_token(self, user_id: int | None = None) -> str:
         obj = {"token": secrets.token_urlsafe(128), "user_id": user_id}
         return cast(str, self.serializer.dumps(obj))
+
+    def _csrf_cookie_has_user(
+        self, csrf_cookie: str | None, user_id: int | None
+    ) -> bool:
+        if csrf_cookie is None:
+            return False
+
+        try:
+            decoded_csrf_cookie = self.serializer.loads(csrf_cookie)
+        except (TypeError, BadSignature):
+            return False
+
+        return decoded_csrf_cookie.get("user_id") == user_id
 
     def _csrf_tokens_match(
         self, document_cookie: str, header_cookie: str, user_id: int | None
