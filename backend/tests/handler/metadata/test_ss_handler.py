@@ -362,11 +362,11 @@ class TestLookupRom:
         with patch.object(
             handler.ss_service, "get_game_info", return_value=notgame_response
         ):
-            result = await handler.lookup_rom(
+            result, is_not_game = await handler.lookup_rom(
                 MagicMock(platform_slug="snes"), 3, [self._make_mock_file()]
             )
         assert result["ss_id"] is None
-        assert result.get("not_game") is True
+        assert is_not_game is True
 
     @pytest.mark.asyncio
     async def test_returns_notgame_flag_on_zzz_prefix(self):
@@ -379,8 +379,8 @@ class TestLookupRom:
         with patch.object(
             handler.ss_service, "get_game_info", return_value=notgame_response
         ):
-            result = await handler.lookup_rom(
+            result, is_not_game = await handler.lookup_rom(
                 MagicMock(platform_slug="snes"), 3, [self._make_mock_file()]
             )
         assert result["ss_id"] is None
-        assert result.get("not_game") is True
+        assert is_not_game is True
