@@ -82,7 +82,7 @@ class RomFile(BaseModel):
     )
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
-    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="files")
+    rom: Mapped[Rom] = relationship(back_populates="files")
 
     @cached_property
     def full_path(self) -> str:
@@ -251,6 +251,11 @@ class Rom(BaseModel):
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
+    multi_file: Mapped[bool] = mapped_column(default=False, nullable=False)
+    top_level_file_count: Mapped[int] = mapped_column(
+        Integer(), default=0, nullable=False
+    )
+
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
@@ -316,21 +321,17 @@ class Rom(BaseModel):
 
         return []
 
-    @cached_property
+    @property
     def has_simple_single_file(self) -> bool:
-        return len(self.files) == 1 and not self.files[0].is_nested
+        return not self.multi_file and self.top_level_file_count == 1
 
-    @cached_property
-    def _top_level_files(self) -> list[RomFile]:
-        return [f for f in self.files if f.is_top_level]
-
-    @cached_property
+    @property
     def has_nested_single_file(self) -> bool:
-        return not self.has_simple_single_file and len(self._top_level_files) == 1
+        return self.multi_file and self.top_level_file_count == 1
 
-    @cached_property
+    @property
     def has_multiple_files(self) -> bool:
-        return len(self._top_level_files) > 1
+        return self.top_level_file_count > 1
 
     @property
     def fs_resources_path(self) -> str:

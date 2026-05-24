@@ -7,7 +7,7 @@ import type { RomFileSchema, RomUserStatus } from "@/__generated__";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
-import type { SimpleRom } from "@/stores/roms";
+import type { DetailedRom, SimpleRom } from "@/stores/roms";
 
 /**
  * Views configuration object.
@@ -711,7 +711,7 @@ export function isNintendoDSFile(rom: SimpleRom): boolean {
   return ["cia", "nds", "3ds", "dsi"].includes(rom.fs_extension.toLowerCase());
 }
 
-export function getNintendoDSFiles(rom: SimpleRom): RomFileSchema[] {
+export function getNintendoDSFiles(rom: DetailedRom): RomFileSchema[] {
   return rom.files.filter((file) => {
     const fileName = file.file_name.toLowerCase();
     return (
@@ -736,10 +736,10 @@ export function isNintendoDSRom(rom: SimpleRom): boolean {
   )
     return false;
 
-  const hasValidExtension = isNintendoDSFile(rom);
-  const hasValidFile = getNintendoDSFiles(rom).length > 0;
-
-  return hasValidExtension || hasValidFile;
+  // Single-file roms (the common case) are identified by extension. Folder-
+  // based DS/3DS roms aren't detectable from SimpleRom alone; the QR-code
+  // dialog re-fetches the detailed rom and falls back to scanning files.
+  return isNintendoDSFile(rom);
 }
 
 export function calculateMainLayoutWidth() {

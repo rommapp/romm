@@ -25,7 +25,6 @@ from sqlalchemy.orm import (
     Query,
     QueryableAttribute,
     Session,
-    joinedload,
     load_only,
     noload,
     selectinload,
@@ -142,9 +141,7 @@ def with_details(func):
             ),
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-            ),
+            selectinload(Rom.files),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform), noload(Rom.metadatum)
             ),
@@ -560,10 +557,6 @@ class DBRomsHandler(DBBaseHandler):
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             # Sort table by metadata (first_release_date)
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            # Required for multi-file ROM actions and 3DS QR code
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-            ),
             # Show sibling rom badges on cards
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform), noload(Rom.metadatum)
@@ -940,9 +933,7 @@ class DBRomsHandler(DBBaseHandler):
                 select(Rom)
                 .options(
                     selectinload(Rom.platform),
-                    selectinload(Rom.files).options(
-                        joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-                    ),
+                    selectinload(Rom.files),
                 )
                 .where(
                     and_(
