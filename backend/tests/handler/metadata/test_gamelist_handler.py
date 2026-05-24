@@ -17,7 +17,8 @@ MOCK_METADATA = {
 
 def test_parse_gamelist_xml_includes_folder_entries(tmp_path: Path, platform: Platform):
     gamelist_path = tmp_path / "gamelist.xml"
-    gamelist_path.write_text("""<?xml version="1.0"?>
+    gamelist_path.write_text(
+        """<?xml version="1.0"?>
 <gameList>
   <folder>
     <path>./Subfolder</path>
@@ -26,7 +27,9 @@ def test_parse_gamelist_xml_includes_folder_entries(tmp_path: Path, platform: Pl
     <lang>en, fr</lang>
     <region>us, eu</region>
   </folder>
-</gameList>""", encoding="utf-8")
+</gameList>""",
+        encoding="utf-8",
+    )
     handler = GamelistHandler()
 
     with (
@@ -51,13 +54,16 @@ def test_parse_gamelist_xml_includes_folder_entries(tmp_path: Path, platform: Pl
 
 def test_parse_gamelist_xml_keeps_game_entries(tmp_path: Path, platform: Platform):
     gamelist_path = tmp_path / "gamelist.xml"
-    gamelist_path.write_text("""<?xml version="1.0"?>
+    gamelist_path.write_text(
+        """<?xml version="1.0"?>
 <gameList>
   <game>
     <path>./test-rom.zip</path>
     <name>Game Entry</name>
   </game>
-</gameList>""", encoding="utf-8")
+</gameList>""",
+        encoding="utf-8",
+    )
     handler = GamelistHandler()
 
     with (
