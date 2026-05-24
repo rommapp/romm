@@ -111,36 +111,41 @@ const LOGO_BASE = "/assets/scrappers";
 // providers page. Not derived from the heartbeat store because users
 // often need to look up a provider *before* they've configured it
 // (e.g., "what API key do I need?").
+//
+// Split into two groups to mirror the wizard's setup step:
+//   * providers — first-party services queried directly with your key.
+//   * proxies   — community-hosted hash matchers that piggy-back on
+//                 the providers to boost hit rates.
 const providers: ProviderRow[] = [
   {
     id: "igdb",
     name: "IGDB",
     logo: `${LOGO_BASE}/igdb.png`,
-    desc: "Titles, descriptions, cover art, screenshots, related games.",
+    desc: "Titles, descriptions, cover art, screenshots, and related-game data.",
     setup:
-      "Requires Twitch account with phone 2FA. Set IGDB_CLIENT_ID and IGDB_CLIENT_SECRET.",
+      "Requires a Twitch account with phone 2FA. Set IGDB_CLIENT_ID and IGDB_CLIENT_SECRET.",
   },
   {
     id: "ss",
     name: "ScreenScraper",
     logo: `${LOGO_BASE}/ss.png`,
-    desc: "Titles, descriptions, cover art, screenshots, manuals; 3D boxes and CD/cartridge art.",
+    desc: "Cover art across regions, manuals, 3D boxes, and CD/cartridge art.",
     setup:
-      "Requires ScreenScraper account. Set SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD.",
+      "Requires a ScreenScraper account. Set SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD.",
   },
   {
     id: "moby",
     name: "MobyGames",
     logo: `${LOGO_BASE}/moby.png`,
-    desc: "Metadata, cover art, screenshots.",
-    setup: "Requires Mobygames account. Set MOBYGAMES_API_KEY.",
-    caveat: "API is a paid feature.",
+    desc: "Catalogue, alternate cover art, and screenshots.",
+    setup: "Requires a MobyGames account. Set MOBYGAMES_API_KEY.",
+    caveat: "The API is a paid feature.",
   },
   {
     id: "launchbox",
     name: "LaunchBox",
     logo: `${LOGO_BASE}/launchbox.png`,
-    desc: "Community metadata, cover art, screenshots.",
+    desc: "Community metadata, cover art, and screenshots.",
     setup:
       "Set LAUNCHBOX_API_ENABLED=true and ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true.",
     caveat: "Matches by exact filename; requires the local XML index.",
@@ -150,47 +155,51 @@ const providers: ProviderRow[] = [
     name: "RetroAchievements",
     logo: `${LOGO_BASE}/ra.png`,
     desc: "Achievement progress and unlock data per user.",
-    setup: "Requires Retroachievements account. Set RETROACHIEVEMENTS_API_KEY",
-    caveat: "Requires file hashes. Enable hash calculation in the scan.",
+    setup:
+      "Requires a RetroAchievements account. Set RETROACHIEVEMENTS_API_KEY.",
+    caveat: "Requires file hashes — enable hash calculation in the scan.",
   },
   {
     id: "sgdb",
     name: "SteamGridDB",
     logo: `${LOGO_BASE}/sgdb.png`,
-    desc: "Alternative cover art for any game.",
-    setup: "Requires SteamGridDB account. Set STEAMGRIDDB_API_KEY.",
+    desc: "Alternative cover art, banners, logos, and heroes for any game.",
+    setup: "Requires a SteamGridDB account. Set STEAMGRIDDB_API_KEY.",
     caveat:
-      'Also accessed via the manual "search cover" action at the edit game menu.',
+      'Also reachable via the manual "search cover" action in the edit-game menu.',
   },
   {
     id: "flashpoint",
     name: "Flashpoint",
     logo: `${LOGO_BASE}/flashpoint.png`,
-    desc: "Metadata for 180,000+ flash and browser-based games.",
+    desc: "Metadata for 180,000+ Flash and browser-based games.",
     setup: "Set FLASHPOINT_API_ENABLED=true.",
   },
   {
     id: "hltb",
     name: "How Long To Beat",
     logo: `${LOGO_BASE}/hltb.png`,
-    desc: "Completion time estimates for 84,000+ games.",
+    desc: "Completion-time estimates for 84,000+ games.",
     setup: "Set HLTB_API_ENABLED=true.",
     caveat: "Surfaces in the overview tab of the game details page.",
   },
+];
+
+const proxies: ProviderRow[] = [
   {
     id: "hasheous",
     name: "Hasheous",
     logo: `${LOGO_BASE}/hasheous.png`,
-    desc: "Hash-based matching; proxies IGDB data; provides RetroAchievements IDs.",
+    desc: "Hash-based matcher that proxies IGDB data and supplies RetroAchievements IDs.",
     setup: "Set HASHEOUS_API_ENABLED=true.",
     caveat:
-      "Community hosted service. Requires file hashes. Enable hash calculation in the config file (enabled by default).",
+      "Community-hosted service. Requires file hashes — enable hash calculation in the config (on by default).",
   },
   {
     id: "playmatch",
     name: "PlayMatch",
     logo: `${LOGO_BASE}/playmatch.png`,
-    desc: "Hash-based game matching paired with IGDB data.",
+    desc: "Hash-based matcher paired with IGDB data.",
     setup: "Set PLAYMATCH_API_ENABLED=true.",
     caveat: "Community-hosted service.",
   },
@@ -249,37 +258,97 @@ function paragraphs(text: string): string[] {
       </div>
 
       <div v-else class="r-v2-scan-info__list">
-        <article
-          v-for="p in providers"
-          :key="p.id"
-          class="r-v2-scan-info__row r-v2-scan-info__row--provider"
-        >
-          <div class="r-v2-scan-info__row-head">
-            <RAvatar
-              :image="p.logo"
-              size="28"
-              rounded="sm"
-              class="r-v2-scan-info__logo"
-            />
-            <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
-          </div>
-          <div class="r-v2-scan-info__row-desc">
-            <p class="r-v2-scan-info__para">{{ p.desc }}</p>
-            <div class="r-v2-scan-info__meta">
-              <span class="r-v2-scan-info__pill">
-                <RIcon icon="mdi-cog-outline" size="11" />
-                {{ p.setup }}
-              </span>
-              <span
-                v-if="p.caveat"
-                class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
-              >
-                <RIcon icon="mdi-alert-circle-outline" size="11" />
-                {{ p.caveat }}
-              </span>
+        <section class="r-v2-scan-info__section">
+          <header class="r-v2-scan-info__section-head">
+            <RIcon icon="mdi-database-search" size="14" />
+            <span>{{ t("scan.info-providers", "Providers") }}</span>
+            <p class="r-v2-scan-info__section-hint">
+              {{
+                t(
+                  "scan.info-providers-hint",
+                  "First-party services queried directly with your API key.",
+                )
+              }}
+            </p>
+          </header>
+          <article
+            v-for="p in providers"
+            :key="p.id"
+            class="r-v2-scan-info__row r-v2-scan-info__row--provider"
+          >
+            <div class="r-v2-scan-info__row-head">
+              <RAvatar
+                :image="p.logo"
+                size="28"
+                rounded="sm"
+                class="r-v2-scan-info__logo"
+              />
+              <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
             </div>
-          </div>
-        </article>
+            <div class="r-v2-scan-info__row-desc">
+              <p class="r-v2-scan-info__para">{{ p.desc }}</p>
+              <div class="r-v2-scan-info__meta">
+                <span class="r-v2-scan-info__pill">
+                  <RIcon icon="mdi-cog-outline" size="11" />
+                  {{ p.setup }}
+                </span>
+                <span
+                  v-if="p.caveat"
+                  class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
+                >
+                  <RIcon icon="mdi-alert-circle-outline" size="11" />
+                  {{ p.caveat }}
+                </span>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="r-v2-scan-info__section">
+          <header class="r-v2-scan-info__section-head">
+            <RIcon icon="mdi-shuffle-variant" size="14" />
+            <span>{{ t("scan.info-proxies", "Match proxies") }}</span>
+            <p class="r-v2-scan-info__section-hint">
+              {{
+                t(
+                  "scan.info-proxies-hint",
+                  "Community-hosted hash matchers that improve hits using file hashes.",
+                )
+              }}
+            </p>
+          </header>
+          <article
+            v-for="p in proxies"
+            :key="p.id"
+            class="r-v2-scan-info__row r-v2-scan-info__row--provider"
+          >
+            <div class="r-v2-scan-info__row-head">
+              <RAvatar
+                :image="p.logo"
+                size="28"
+                rounded="sm"
+                class="r-v2-scan-info__logo"
+              />
+              <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
+            </div>
+            <div class="r-v2-scan-info__row-desc">
+              <p class="r-v2-scan-info__para">{{ p.desc }}</p>
+              <div class="r-v2-scan-info__meta">
+                <span class="r-v2-scan-info__pill">
+                  <RIcon icon="mdi-cog-outline" size="11" />
+                  {{ p.setup }}
+                </span>
+                <span
+                  v-if="p.caveat"
+                  class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
+                >
+                  <RIcon icon="mdi-alert-circle-outline" size="11" />
+                  {{ p.caveat }}
+                </span>
+              </div>
+            </div>
+          </article>
+        </section>
       </div>
     </template>
 
@@ -301,7 +370,39 @@ function paragraphs(text: string): string[] {
 .r-v2-scan-info__list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 20px;
+}
+
+/* Section grouping inside the providers tab — header + rows. The
+   header is intentionally lightweight: small caps, muted icon, and an
+   inline hint that explains the section in one sentence. */
+.r-v2-scan-info__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.r-v2-scan-info__section-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  color: var(--r-color-fg-secondary);
+}
+
+.r-v2-scan-info__section-head > span {
+  font-size: 11px;
+  font-weight: var(--r-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.r-v2-scan-info__section-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--r-color-fg-muted);
 }
 .r-v2-scan-info__row {
   display: grid;

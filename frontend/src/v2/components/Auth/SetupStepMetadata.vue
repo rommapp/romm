@@ -48,18 +48,18 @@ const catalogs = computed<Source[]>(() => {
       disabled: !m.IGDB_API_ENABLED,
     },
     {
-      key: "moby",
-      name: "MobyGames",
-      logoPath: "/assets/scrappers/moby.png",
-      descKey: "setup.provider-moby-desc",
-      disabled: !m.MOBY_API_ENABLED,
-    },
-    {
       key: "ss",
       name: "ScreenScraper",
       logoPath: "/assets/scrappers/ss.png",
       descKey: "setup.provider-ss-desc",
       disabled: !m.SS_API_ENABLED,
+    },
+    {
+      key: "moby",
+      name: "MobyGames",
+      logoPath: "/assets/scrappers/moby.png",
+      descKey: "setup.provider-moby-desc",
+      disabled: !m.MOBY_API_ENABLED,
     },
     {
       key: "launchbox",
@@ -70,7 +70,7 @@ const catalogs = computed<Source[]>(() => {
     },
     {
       key: "flashpoint",
-      name: "Flashpoint Archive",
+      name: "Flashpoint",
       logoPath: "/assets/scrappers/flashpoint.png",
       descKey: "setup.provider-flashpoint-desc",
       disabled: !m.FLASHPOINT_API_ENABLED,
@@ -117,7 +117,7 @@ const proxies = computed<Source[]>(() => {
     },
     {
       key: "playmatch",
-      name: "Playmatch",
+      name: "PlayMatch",
       logoPath: "/assets/scrappers/playmatch.png",
       descKey: "setup.proxy-playmatch-desc",
       disabled: !m.PLAYMATCH_API_ENABLED,
