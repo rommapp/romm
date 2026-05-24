@@ -16,9 +16,12 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    and_,
     func,
+    or_,
+    select,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -82,7 +85,7 @@ class RomFile(BaseModel):
     )
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
-    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="files")
+    rom: Mapped[Rom] = relationship(back_populates="files")
 
     @cached_property
     def full_path(self) -> str:
@@ -316,21 +319,22 @@ class Rom(BaseModel):
 
         return []
 
-    @cached_property
+    if TYPE_CHECKING:
+        # Defined out-of-line at module scope via column_property
+        multi_file: Mapped[bool]
+        top_level_file_count: Mapped[int]
+
+    @property
     def has_simple_single_file(self) -> bool:
-        return len(self.files) == 1 and not self.files[0].is_nested
+        return not self.multi_file and self.top_level_file_count == 1
 
-    @cached_property
-    def _top_level_files(self) -> list[RomFile]:
-        return [f for f in self.files if f.is_top_level]
-
-    @cached_property
+    @property
     def has_nested_single_file(self) -> bool:
-        return not self.has_simple_single_file and len(self._top_level_files) == 1
+        return self.multi_file and self.top_level_file_count == 1
 
-    @cached_property
+    @property
     def has_multiple_files(self) -> bool:
-        return len(self._top_level_files) > 1
+        return self.top_level_file_count > 1
 
     @property
     def fs_resources_path(self) -> str:
@@ -440,6 +444,43 @@ class Rom(BaseModel):
 
     def __repr__(self) -> str:
         return f"{self.fs_name} ({self.id})"
+
+
+# Correlated scalar subqueries against rom_files, deferred and opt-in via `undefer`
+# Revisit (real columns, JOIN/aggregate, or added indexes) if gallery latency regresses
+_rom_full_path = func.concat(Rom.fs_path, "/", Rom.fs_name)
+
+Rom.multi_file = column_property(
+    select(RomFile.id)
+    .where(
+        and_(
+            RomFile.rom_id == Rom.id,
+            RomFile.file_path != Rom.fs_path,
+        )
+    )
+    .correlate_except(RomFile)
+    .exists()
+    .select()
+    .scalar_subquery(),
+    deferred=True,
+)
+
+Rom.top_level_file_count = column_property(
+    select(func.count(RomFile.id))
+    .where(
+        and_(
+            RomFile.rom_id == Rom.id,
+            or_(
+                func.concat(RomFile.file_path, "/", RomFile.file_name)
+                == _rom_full_path,
+                RomFile.file_path == _rom_full_path,
+            ),
+        )
+    )
+    .correlate_except(RomFile)
+    .scalar_subquery(),
+    deferred=True,
+)
 
 
 class RomUserStatus(enum.StrEnum):

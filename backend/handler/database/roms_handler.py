@@ -25,10 +25,10 @@ from sqlalchemy.orm import (
     Query,
     QueryableAttribute,
     Session,
-    joinedload,
     load_only,
     noload,
     selectinload,
+    undefer,
 )
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select
@@ -142,14 +142,14 @@ def with_details(func):
             ),
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-            ),
+            selectinload(Rom.files),
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform), noload(Rom.metadatum)
             ),
             selectinload(Rom.collections),
             selectinload(Rom.notes),
+            undefer(Rom.multi_file),
+            undefer(Rom.top_level_file_count),
         )
         return func(*args, **kwargs)
 
@@ -549,6 +549,7 @@ class DBRomsHandler(DBBaseHandler):
         player_counts_logic: str = "any",
         user_id: int | None = None,
         updated_after: datetime | None = None,
+        include_file_stats: bool = False,
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
@@ -560,10 +561,6 @@ class DBRomsHandler(DBBaseHandler):
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             # Sort table by metadata (first_release_date)
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            # Required for multi-file ROM actions and 3DS QR code
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-            ),
             # Show sibling rom badges on cards
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform), noload(Rom.metadatum)
@@ -571,6 +568,14 @@ class DBRomsHandler(DBBaseHandler):
             # Show notes indicator on cards
             selectinload(Rom.notes),
         )
+
+        # Correlated subqueries and only undefer when the caller serializes the
+        # gallery-card flags. Feeds and filter-value lookups don't need them.
+        if include_file_stats:
+            query = query.options(
+                undefer(Rom.multi_file),
+                undefer(Rom.top_level_file_count),
+            )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
         if platform_ids:
@@ -940,9 +945,7 @@ class DBRomsHandler(DBBaseHandler):
                 select(Rom)
                 .options(
                     selectinload(Rom.platform),
-                    selectinload(Rom.files).options(
-                        joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-                    ),
+                    selectinload(Rom.files),
                 )
                 .where(
                     and_(
