@@ -38,7 +38,7 @@ from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomMetadata, RomNote, RomUser
+from models.rom import Rom, RomFile, RomMetadata, RomNote, RomUser, SiblingRom
 from utils.database import (
     json_array_contains_all,
     json_array_contains_any,
@@ -146,7 +146,14 @@ def with_details(func):
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
             ),
             selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform), noload(Rom.metadatum)
+                load_only(
+                    Rom.id,
+                    Rom.name,
+                    Rom.fs_name_no_tags,
+                    Rom.fs_name_no_ext,
+                ),
+                noload(Rom.platform),
+                noload(Rom.metadatum),
             ),
             selectinload(Rom.collections),
             selectinload(Rom.notes),
@@ -194,6 +201,33 @@ class DBRomsHandler(DBBaseHandler):
         if not ids:
             return []
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
+
+    @begin_session
+    def get_sibling_ids_for_roms(
+        self,
+        rom_ids: Iterable[int],
+        *,
+        session: Session = None,  # type: ignore
+    ) -> dict[int, list[int]]:
+        """Return {rom_id: [sibling_rom_id, ...]} for the given rom IDs.
+
+        Single query against the sibling_roms view, projecting only the two
+        id columns — no Rom row hydration.
+        """
+        ids = list(rom_ids)
+        if not ids:
+            return {}
+
+        rows = session.execute(
+            select(SiblingRom.rom_id, SiblingRom.sibling_rom_id).where(
+                SiblingRom.rom_id.in_(ids)
+            )
+        ).all()
+
+        result: dict[int, list[int]] = {rom_id: [] for rom_id in ids}
+        for rom_id, sibling_rom_id in rows:
+            result[rom_id].append(sibling_rom_id)
+        return result
 
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
@@ -564,10 +598,8 @@ class DBRomsHandler(DBBaseHandler):
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
             ),
-            # Show sibling rom badges on cards
-            selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform), noload(Rom.metadatum)
-            ),
+            # Sibling badges are populated separately via get_sibling_ids_for_roms
+            # to avoid hydrating full Rom rows (including JSON metadata) per sibling.
             # Show notes indicator on cards
             selectinload(Rom.notes),
         )

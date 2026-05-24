@@ -296,7 +296,6 @@ class RomSchema(BaseModel):
     missing_from_fs: bool
     has_notes: bool
 
-    siblings: list[SiblingRomSchema]
     rom_user: RomUserSchema
     merged_screenshots: list[str]
     merged_ra_metadata: RomRAMetadata | None
@@ -304,15 +303,6 @@ class RomSchema(BaseModel):
     @classmethod
     def populate_properties(cls, db_rom: Rom, request: Request) -> Rom:
         db_rom.rom_user = RomUserSchema.for_user(request.user.id, db_rom)  # type: ignore
-        db_rom.siblings = [  # type: ignore
-            SiblingRomSchema(
-                id=s.id,
-                name=s.name,
-                fs_name_no_tags=s.fs_name_no_tags,
-                fs_name_no_ext=s.fs_name_no_ext,
-            )
-            for s in db_rom.sibling_roms
-        ]
         db_rom.has_notes = any(  # type: ignore
             note.is_public or note.user_id == request.user.id for note in db_rom.notes
         )
@@ -329,10 +319,6 @@ class RomSchema(BaseModel):
     @field_validator("files")
     def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
         return sorted(v, key=lambda x: x.file_name)
-
-    @field_validator("siblings")
-    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
-        return sorted(v, key=lambda x: x.sort_comparator)
 
 
 class SiblingRomSchema(BaseModel):
@@ -355,9 +341,13 @@ class SiblingRomSchema(BaseModel):
 
 
 class SimpleRomSchema(RomSchema):
+    siblings: list[int] = []
+
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request)
+        # `sibling_ids` is set on each Rom by the list endpoint before serialization.
+        db_rom.siblings = getattr(db_rom, "sibling_ids", [])  # type: ignore
         return cls.model_validate(db_rom)
 
     @classmethod
@@ -387,16 +377,30 @@ class UserCollectionSchema(BaseModel):
 
 
 class DetailedRomSchema(RomSchema):
+    siblings: list[SiblingRomSchema] = []
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
     user_screenshots: list[ScreenshotSchema]
     user_collections: list[UserCollectionSchema]
     all_user_notes: list[UserNoteSchema]
 
+    @field_validator("siblings")
+    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
+        return sorted(v, key=lambda x: x.sort_comparator)
+
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
         user_id = request.user.id
         db_rom = cls.populate_properties(db_rom, request)
+        db_rom.siblings = [  # type: ignore
+            SiblingRomSchema(
+                id=s.id,
+                name=s.name,
+                fs_name_no_tags=s.fs_name_no_tags,
+                fs_name_no_ext=s.fs_name_no_ext,
+            )
+            for s in db_rom.sibling_roms
+        ]
 
         db_rom.user_saves = [  # type: ignore
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id

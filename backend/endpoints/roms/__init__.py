@@ -569,12 +569,20 @@ def get_roms(
     with sync_session.begin() as session:
         rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
 
+        def _transform(items):
+            sibling_ids_by_rom = db_rom_handler.get_sibling_ids_for_roms(
+                [i.id for i in items]
+            )
+            for rom in items:
+                rom.sibling_ids = sibling_ids_by_rom.get(rom.id, [])
+            return [
+                SimpleRomSchema.from_orm_with_request(i, request) for i in items
+            ]
+
         return paginate(
             session,
             query,
-            transformer=lambda items: [
-                SimpleRomSchema.from_orm_with_request(i, request) for i in items
-            ],
+            transformer=_transform,
             additional_data={
                 "char_index": char_index_dict,
                 "rom_id_index": rom_id_index,
