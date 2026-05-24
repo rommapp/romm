@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 import uuid
 from pathlib import Path
 from typing import Final, NotRequired, TypedDict
@@ -303,6 +304,33 @@ class GamelistHandler(MetadataHandler):
         """Clear the gamelist cache"""
         self._gamelist_cache.clear()
 
+    def _parse_xml_without_alternative_emulator(
+        self, gamelist_path: Path
+    ) -> Element | None:
+        """Fallback parser that strips ES-DE alternativeEmulator tags when malformed."""
+        try:
+            xml_content = gamelist_path.read_text(encoding="utf-8", errors="replace")
+            sanitized_content = re.sub(
+                r"<alternativeEmulator\b[^>]*/>",
+                "",
+                xml_content,
+            )
+            sanitized_content = re.sub(
+                r"<alternativeEmulator\b[^>]*>.*?</alternativeEmulator>",
+                "",
+                sanitized_content,
+                flags=re.DOTALL,
+            )
+            return ET.fromstring(sanitized_content)
+        except ET.ParseError as e:
+            log.warning(
+                f"Failed to parse gamelist.xml fallback at {gamelist_path}: {e}"
+            )
+        except Exception as e:
+            log.error(f"Error reading gamelist.xml fallback at {gamelist_path}: {e}")
+
+        return None
+
     @classmethod
     def is_enabled(cls) -> bool:
         return True
@@ -339,9 +367,17 @@ class GamelistHandler(MetadataHandler):
         try:
             tree = ET.parse(gamelist_path)
             root = tree.getroot()
-            if root is None:
-                return roms_data
+        except ET.ParseError as e:
+            log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
+            root = self._parse_xml_without_alternative_emulator(gamelist_path)
+        except Exception as e:
+            log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
+            root = None
 
+        if root is None:
+            return roms_data
+
+        try:
             for game in root.findall("game"):
                 path_elem = game.find("path")
                 if path_elem is None or path_elem.text is None:
@@ -418,8 +454,6 @@ class GamelistHandler(MetadataHandler):
 
             # Cache the parsed data for this platform
             self._gamelist_cache[cache_key] = roms_data
-        except ET.ParseError as e:
-            log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
         except Exception as e:
             log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
 
