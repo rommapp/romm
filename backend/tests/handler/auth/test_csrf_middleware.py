@@ -242,8 +242,12 @@ class TestCSRFMiddleware:
 
     def test_user_id_mismatch_fails(self) -> None:
         """Tokens issued for one user must not validate for another."""
+
         # We simulate two users by calling _generate_csrf_token with different IDs
-        mw = CSRFMiddleware(app=lambda s, r, se: None, secret="test")
+        async def noop_app(scope, receive, send):
+            pass
+
+        mw = CSRFMiddleware(app=noop_app, secret="test")
         user1_token = mw._generate_csrf_token(user_id=1)
 
         # user1_token should not validate for user_id=2
@@ -293,6 +297,10 @@ class TestCSRFMiddleware:
 
     def test_bad_signature_returns_false(self) -> None:
         """_csrf_tokens_match should return False on BadSignature."""
-        mw = CSRFMiddleware(app=lambda s, r, se: None, secret="test")
+
+        async def noop_app(scope, receive, send):
+            pass
+
+        mw = CSRFMiddleware(app=noop_app, secret="test")
         ok = mw._csrf_tokens_match("bad-token", "bad-token", user_id=None)
         assert ok is False

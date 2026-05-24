@@ -90,6 +90,10 @@ class CSRFMiddleware:
         await self.app(scope, receive, send)
 
     async def send(self, message: Message, send: Send, scope: Scope) -> None:
+        if message["type"] != "http.response.start":
+            await send(message)
+            return
+
         request = Request(scope)
         csrf_cookie = request.cookies.get(self.cookie_name)
         current_user_id = request.user.id if request.user.is_authenticated else None
