@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-from handler.filesystem.sync_handler import FSSyncHandler
+from handler.filesystem.sync_handler import FSSyncHandler, get_fs_sync_handler
 
 
 class TestFSSyncHandler:
@@ -137,19 +137,20 @@ class TestFSSyncHandler:
         handler.remove_incoming_file("/nonexistent/path/file.sav")
 
 
-class TestFSSyncHandlerStartup:
+class TestFSSyncHandlerLazyFactory:
     """Sync is an optional feature: if /romm/sync isn't writable (bad mount,
-    wrong ownership), the app must still boot. Failures should surface when
-    sync is actually used, not at module-import time."""
+    wrong ownership), the app must still boot. The factory defers construction
+    until first use so the error surfaces at the call site, not at startup."""
 
-    def test_init_does_not_raise_when_base_path_unwritable(self):
-        """Regression test for the PermissionError on /romm/sync at boot.
-        FSSyncHandler must construct successfully even when mkdir fails."""
-        with patch.object(
-            Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
-        ):
-            handler = FSSyncHandler()
-
-        assert handler is not None
-        # base_path is set even though the directory wasn't created.
-        assert isinstance(handler.base_path, Path)
+    def test_factory_raises_at_call_time_when_unwritable(self):
+        """Regression for the PermissionError on /romm/sync at boot: the
+        failure must surface from the factory call, not from module import."""
+        get_fs_sync_handler.cache_clear()
+        try:
+            with patch.object(
+                Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
+            ):
+                with pytest.raises(PermissionError):
+                    get_fs_sync_handler()
+        finally:
+            get_fs_sync_handler.cache_clear()
