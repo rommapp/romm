@@ -20,6 +20,17 @@ from .base_handler import BaseRom, MetadataHandler
 
 # https://github.com/Aloshi/EmulationStation/blob/master/GAMELISTS.md#reference
 
+# ES-DE writes a top-level <alternativeEmulator> sibling to <gameList>, which produces
+# invalid multi-root XML. These patterns strip both self-closing and paired forms so the
+# remaining document can be parsed.
+ALTERNATIVE_EMULATOR_SELF_CLOSING_RE: Final = re.compile(
+    r"<alternativeEmulator\b[^>]*/>"
+)
+ALTERNATIVE_EMULATOR_PAIRED_RE: Final = re.compile(
+    r"<alternativeEmulator\b[^>]*>.*?</alternativeEmulator>",
+    re.DOTALL,
+)
+
 
 def get_preferred_media_types() -> list[MetadataMediaType]:
     """Get preferred media types from config"""
@@ -310,16 +321,11 @@ class GamelistHandler(MetadataHandler):
         """Fallback parser that strips ES-DE alternativeEmulator tags when malformed."""
         try:
             xml_content = gamelist_path.read_text(encoding="utf-8", errors="replace")
-            sanitized_content = re.sub(
-                r"<alternativeEmulator\b[^>]*/>",
-                "",
-                xml_content,
+            sanitized_content = ALTERNATIVE_EMULATOR_SELF_CLOSING_RE.sub(
+                "", xml_content
             )
-            sanitized_content = re.sub(
-                r"<alternativeEmulator\b[^>]*>.*?</alternativeEmulator>",
-                "",
-                sanitized_content,
-                flags=re.DOTALL,
+            sanitized_content = ALTERNATIVE_EMULATOR_PAIRED_RE.sub(
+                "", sanitized_content
             )
             return ET.fromstring(sanitized_content)
         except ET.ParseError as e:
