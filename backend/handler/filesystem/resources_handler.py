@@ -29,11 +29,13 @@ def _resolve_local_file_uri(uri: str) -> Path | None:
     under the LaunchBox data root, since LaunchBox metadata produces paths
     relative to `/romm/launchbox`, which is not the same as the library root.
     """
-    from handler.filesystem import fs_launchbox_handler, fs_rom_handler
+    from handler.filesystem import fs_rom_handler, get_fs_launchbox_handler
 
     if uri.startswith("launchbox-file://"):
         try:
-            return fs_launchbox_handler.validate_path(uri[len("launchbox-file://") :])
+            return get_fs_launchbox_handler().validate_path(
+                uri[len("launchbox-file://") :]
+            )
         except ValueError:
             return None
 

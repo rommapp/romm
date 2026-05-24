@@ -16,7 +16,6 @@ from anyio import open_file
 from starlette.datastructures import UploadFile
 
 from config.config_manager import config_manager as cm
-from logger.logger import log
 from models.base import FILE_NAME_MAX_LENGTH
 from utils.filesystem import iter_directories, iter_files, link_or_copy_file
 
@@ -149,22 +148,11 @@ class Asset(Enum):
 
 
 class FSHandler:
-    def __init__(self, base_path: str, tolerate_missing_base: bool = False):
+    def __init__(self, base_path: str):
         self.base_path = Path(base_path).resolve()
         self._locks: dict[str, asyncio.Lock] = {}
         self._lock_mutex = asyncio.Lock()
-
-        # Create base directory synchronously during initialization.
-        try:
-            self.base_path.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            if not tolerate_missing_base:
-                raise
-
-            log.warning(
-                f"Could not create or access {self.base_path}; "
-                "feature will be unavailable until the directory is writable."
-            )
+        self.base_path.mkdir(parents=True, exist_ok=True)
 
     async def _get_file_lock(self, file_path: str) -> asyncio.Lock:
         """Get or create a lock for a specific file path."""

@@ -585,50 +585,13 @@ class TestFSHandler:
             await handler.copy_file(handler.base_path / "missing.bin", "dest.bin")
 
 
-class TestFSHandlerTolerateMissingBase:
-    """Tests for the tolerate_missing_base flag, which lets optional features
-    (like the sync folder) come up degraded instead of crashing the whole app
-    when the base path can't be created."""
-
-    def test_default_raises_on_mkdir_failure(self):
-        """Default behavior: an OSError from mkdir propagates, so misconfigured
-        critical paths (resources, library) still fail loudly at startup."""
+class TestFSHandlerInit:
+    def test_raises_on_mkdir_failure(self):
+        """OSError from mkdir propagates, so misconfigured paths fail loudly
+        at construction time. Optional features should defer construction
+        (e.g. via a lazy factory) rather than swallow the error."""
         with patch.object(
             Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
         ):
             with pytest.raises(PermissionError):
                 FSHandler("/some/unwritable/path")
-
-    def test_tolerate_missing_base_swallows_oserror(self, tmp_path, caplog):
-        """With tolerate_missing_base=True, mkdir failure is logged but does
-        not raise — the handler instance is still constructed so module-level
-        imports don't crash."""
-        target = tmp_path / "missing"
-
-        with patch.object(
-            Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
-        ):
-            handler = FSHandler(str(target), tolerate_missing_base=True)
-
-        # Handler exists and base_path is set, even though the directory
-        # could not be created.
-        assert handler.base_path == target.resolve()
-        assert not handler.base_path.exists()
-
-    def test_tolerate_missing_base_still_creates_when_possible(self, tmp_path):
-        """tolerate_missing_base=True should not change behavior when mkdir
-        succeeds — the directory must still be created normally."""
-        target = tmp_path / "new_dir"
-        assert not target.exists()
-
-        handler = FSHandler(str(target), tolerate_missing_base=True)
-
-        assert handler.base_path.exists()
-        assert handler.base_path.is_dir()
-
-    def test_tolerate_missing_base_reraises_non_oserror(self, tmp_path):
-        """Only OSError gets swallowed; programming errors (e.g. a RuntimeError
-        from corrupted state) must still surface."""
-        with patch.object(Path, "mkdir", side_effect=RuntimeError("unexpected")):
-            with pytest.raises(RuntimeError, match="unexpected"):
-                FSHandler(str(tmp_path / "x"), tolerate_missing_base=True)
