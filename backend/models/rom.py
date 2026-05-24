@@ -446,12 +446,8 @@ class Rom(BaseModel):
         return f"{self.fs_name} ({self.id})"
 
 
-# Gallery-card flags derived from rom_files, computed by the database as
-# correlated subqueries so the list endpoint never has to load the rom_files
-# rows themselves. Deferred so single-row queries that don't read the flags
-# (scan, file CRUD, etc.) don't pay for the subqueries; the gallery list and
-# detail endpoints opt in via `undefer`. Defined out-of-line because they
-# reference both Rom and RomFile.
+# Correlated scalar subqueries against rom_files, deferred and opt-in via `undefer`
+# Revisit (real columns, JOIN/aggregate, or added indexes) if gallery latency regresses
 _rom_full_path = func.concat(Rom.fs_path, "/", Rom.fs_name)
 
 Rom.multi_file = column_property(

@@ -549,6 +549,7 @@ class DBRomsHandler(DBBaseHandler):
         player_counts_logic: str = "any",
         user_id: int | None = None,
         updated_after: datetime | None = None,
+        include_file_stats: bool = False,
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
@@ -566,10 +567,15 @@ class DBRomsHandler(DBBaseHandler):
             ),
             # Show notes indicator on cards
             selectinload(Rom.notes),
-            # Gallery card needs file types and counts
-            undefer(Rom.multi_file),
-            undefer(Rom.top_level_file_count),
         )
+
+        # Correlated subqueries and only undefer when the caller serializes the
+        # gallery-card flags. Feeds and filter-value lookups don't need them.
+        if include_file_stats:
+            query = query.options(
+                undefer(Rom.multi_file),
+                undefer(Rom.top_level_file_count),
+            )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
         if platform_ids:
