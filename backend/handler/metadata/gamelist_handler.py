@@ -315,28 +315,6 @@ class GamelistHandler(MetadataHandler):
         """Clear the gamelist cache"""
         self._gamelist_cache.clear()
 
-    def _parse_xml_without_alternative_emulator(
-        self, gamelist_path: Path
-    ) -> Element | None:
-        """Fallback parser that strips ES-DE alternativeEmulator tags when malformed."""
-        try:
-            xml_content = gamelist_path.read_text(encoding="utf-8", errors="replace")
-            sanitized_content = ALTERNATIVE_EMULATOR_SELF_CLOSING_RE.sub(
-                "", xml_content
-            )
-            sanitized_content = ALTERNATIVE_EMULATOR_PAIRED_RE.sub(
-                "", sanitized_content
-            )
-            return ET.fromstring(sanitized_content)
-        except ET.ParseError as e:
-            log.warning(
-                f"Failed to parse gamelist.xml fallback at {gamelist_path}: {e}"
-            )
-        except Exception as e:
-            log.error(f"Error reading gamelist.xml fallback at {gamelist_path}: {e}")
-
-        return None
-
     @classmethod
     def is_enabled(cls) -> bool:
         return True
@@ -371,11 +349,13 @@ class GamelistHandler(MetadataHandler):
         roms_data: dict[str, GamelistRom] = {}
 
         try:
-            tree = ET.parse(gamelist_path)
-            root = tree.getroot()
+            xml_content = gamelist_path.read_text(encoding="utf-8", errors="replace")
+            xml_content = ALTERNATIVE_EMULATOR_SELF_CLOSING_RE.sub("", xml_content)
+            xml_content = ALTERNATIVE_EMULATOR_PAIRED_RE.sub("", xml_content)
+            root: Element | None = ET.fromstring(xml_content)
         except ET.ParseError as e:
             log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
-            root = self._parse_xml_without_alternative_emulator(gamelist_path)
+            root = None
         except Exception as e:
             log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
             root = None
