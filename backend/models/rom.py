@@ -319,6 +319,11 @@ class Rom(BaseModel):
 
         return []
 
+    if TYPE_CHECKING:
+        # Defined out-of-line at module scope via column_property
+        multi_file: Mapped[bool]
+        top_level_file_count: Mapped[int]
+
     @property
     def has_simple_single_file(self) -> bool:
         return not self.multi_file and self.top_level_file_count == 1

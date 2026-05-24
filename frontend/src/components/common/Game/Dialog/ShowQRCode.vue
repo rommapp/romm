@@ -4,37 +4,27 @@ import qrcode from "qrcode";
 import { inject, nextTick, ref } from "vue";
 import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
-import romApi from "@/services/api/rom";
-import type { SimpleRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getNintendoDSFiles, getDownloadLink, isNintendoDSFile } from "@/utils";
 
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-const rom = ref<SimpleRom>({} as SimpleRom);
+const rom = ref<DetailedRom>({} as DetailedRom);
 
-emitter?.on("showQRCodeDialog", async (romToView: SimpleRom) => {
+emitter?.on("showQRCodeDialog", async (romToView: DetailedRom) => {
   show.value = true;
   rom.value = romToView;
 
   await nextTick();
 
   const isNDSFile = isNintendoDSFile(romToView);
-  let fileIDs: number[] = [];
-  if (!isNDSFile) {
-    // Folder-based DS/3DS rom: fetch the detailed rom so we can pick the
-    // primary playable file. SimpleRom no longer carries the file list.
-    const { data: detailed } = await romApi.getRom({ romId: romToView.id });
-    const matchingFiles = getNintendoDSFiles(detailed);
-    if (matchingFiles[0]) {
-      fileIDs = [matchingFiles[0].id];
-    }
-  }
+  const matchingFiles = getNintendoDSFiles(romToView);
 
   const downloadLink = getDownloadLink({
     rom: romToView,
-    fileIDs,
+    fileIDs: isNDSFile ? [] : [matchingFiles[0].id],
   });
 
   const qrCode = document.getElementById("qr-code");

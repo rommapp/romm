@@ -728,7 +728,7 @@ export function getNintendoDSFiles(rom: DetailedRom): RomFileSchema[] {
  * @param rom The ROM object.
  * @returns {boolean} True if the ROM is a valid game, otherwise false.
  */
-export function isNintendoDSRom(rom: SimpleRom): boolean {
+export function isNintendoDSRom(rom: DetailedRom): boolean {
   if (
     !["3ds", "nds", "new-nintendo-3ds", "nintendo-dsi"].includes(
       rom.platform_slug,
@@ -736,10 +736,10 @@ export function isNintendoDSRom(rom: SimpleRom): boolean {
   )
     return false;
 
-  // Single-file roms (the common case) are identified by extension. Folder-
-  // based DS/3DS roms aren't detectable from SimpleRom alone; the QR-code
-  // dialog re-fetches the detailed rom and falls back to scanning files.
-  return isNintendoDSFile(rom);
+  const hasValidExtension = isNintendoDSFile(rom);
+  const hasValidFile = getNintendoDSFiles(rom).length > 0;
+
+  return hasValidExtension || hasValidFile;
 }
 
 export function calculateMainLayoutWidth() {
