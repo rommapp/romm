@@ -644,10 +644,10 @@ async def scan_rom(
                 return await meta_ss_handler.get_rom_by_id(rom, playmatch_rom["ss_id"])
 
             # Use the file hashes for lookup
-            game_by_hash = await meta_ss_handler.lookup_rom(
+            game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
                 rom, platform.ss_id, fs_rom["files"] or rom.files
             )
-            if game_by_hash.get("ss_id"):
+            if game_by_hash.get("ss_id") or is_not_game:
                 return game_by_hash
 
             # Fallback to the filename
