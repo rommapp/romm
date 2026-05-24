@@ -26,7 +26,7 @@ def test_parse_gamelist_xml_includes_folder_entries(tmp_path: Path, platform: Pl
     <lang>en, fr</lang>
     <region>us, eu</region>
   </folder>
-</gameList>""")
+</gameList>""", encoding="utf-8")
     handler = GamelistHandler()
 
     with (
@@ -57,7 +57,7 @@ def test_parse_gamelist_xml_keeps_game_entries(tmp_path: Path, platform: Platfor
     <path>./test-rom.zip</path>
     <name>Game Entry</name>
   </game>
-</gameList>""")
+</gameList>""", encoding="utf-8")
     handler = GamelistHandler()
 
     with (
