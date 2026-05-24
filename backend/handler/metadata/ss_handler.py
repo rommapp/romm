@@ -27,10 +27,25 @@ from .base_handler import (
 )
 from .base_handler import UniversalPlatformSlug as UPS
 from .base_handler import (
+    restore_sensitive_query_params,
     strip_sensitive_query_params,
 )
 
 SENSITIVE_KEYS = {"ssid", "sspassword"}
+
+
+def add_ss_auth_to_url(url: str) -> str:
+    """Re-add SS user credentials to a media URL at download time (never stored)."""
+    if not SCREENSCRAPER_USER or not SCREENSCRAPER_PASSWORD:
+        return url
+
+    return restore_sensitive_query_params(
+        url,
+        {
+            "ssid": SCREENSCRAPER_USER,
+            "sspassword": SCREENSCRAPER_PASSWORD,
+        },
+    )
 
 
 def get_preferred_regions(rom: Rom | None = None) -> list[str]:
@@ -99,7 +114,7 @@ ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {
 }
 
 
-def _is_not_game(game: SSGame) -> bool:
+def _is_notgame(game: SSGame) -> bool:
     if game.get("notgame") == "true":
         return True
     return any(
@@ -561,7 +576,7 @@ class SSHandler(MetadataHandler):
 
         games_by_name: dict[str, SSGame] = {}
         for rom in roms:
-            if _is_not_game(rom):
+            if _is_notgame(rom):
                 log.warning(
                     "ScreenScraper: Received notgame entry in search results, ignoring"
                 )
@@ -650,7 +665,7 @@ class SSHandler(MetadataHandler):
         if not res:
             return SSRom(ss_id=None), False
 
-        if _is_not_game(res):
+        if _is_notgame(res):
             log.warning(
                 "ScreenScraper: Received notgame entry from hash lookup, ignoring"
             )
@@ -809,7 +824,7 @@ class SSHandler(MetadataHandler):
         return [
             build_ss_game(rom, game)
             for game in matched_games
-            if not _is_not_game(game) and _is_ss_region(game) and game.get("id")
+            if not _is_notgame(game) and _is_ss_region(game) and game.get("id")
         ]
 
 

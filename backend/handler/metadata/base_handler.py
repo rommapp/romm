@@ -106,6 +106,7 @@ def _normalize_search_term(
 def strip_sensitive_query_params(
     url: str, sensitive_keys: set[str] = SENSITIVE_KEYS
 ) -> str:
+    """Remove sensitive query parameters from a URL."""
     parsed = urlparse(url)
     qsl = parse_qsl(parsed.query, keep_blank_values=True)
 
@@ -113,6 +114,18 @@ def strip_sensitive_query_params(
     keep = [(k, v) for k, v in qsl if k.lower() not in keys_lower]
 
     new_query = urlencode(keep, doseq=True)
+    return urlunparse(parsed._replace(query=new_query))
+
+
+def restore_sensitive_query_params(url: str, params: dict[str, str]) -> str:
+    """Add back key/value pairs previously stripped by strip_sensitive_query_params."""
+    parsed = urlparse(url)
+    qsl = parse_qsl(parsed.query, keep_blank_values=True)
+
+    existing = {k.lower() for k in params}
+    filtered = [(k, v) for k, v in qsl if k.lower() not in existing]
+
+    new_query = urlencode(filtered + list(params.items()))
     return urlunparse(parsed._replace(query=new_query))
 
 

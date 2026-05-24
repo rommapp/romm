@@ -11,7 +11,8 @@ from config.config_manager import Config, MetadataMediaType
 from handler.metadata.ss_handler import (
     SSHandler,
     _get_rom_type,
-    _is_not_game,
+    _is_notgame,
+    add_ss_auth_to_url,
     extract_media_from_ss_game,
     get_preferred_regions,
 )
@@ -215,26 +216,26 @@ class TestIsNotgame:
         )
 
     def test_notgame_field_true(self):
-        assert _is_not_game(self._game(notgame="true")) is True
+        assert _is_notgame(self._game(notgame="true")) is True
 
     def test_notgame_field_false_clean_name(self):
-        assert _is_not_game(self._game(notgame="false")) is False
+        assert _is_notgame(self._game(notgame="false")) is False
 
     def test_zzz_notgame_lowercase_name(self):
-        assert _is_not_game(self._game(names=["ZZZ(notgame)"])) is True
+        assert _is_notgame(self._game(names=["ZZZ(notgame)"])) is True
 
     def test_zzz_notgame_long_form(self):
         assert (
-            _is_not_game(self._game(names=["ZZZ(NOTGAME):Fichier Annexes - Non Jeux"]))
+            _is_notgame(self._game(names=["ZZZ(NOTGAME):Fichier Annexes - Non Jeux"]))
             is True
         )
 
     def test_zzz_prefix_only_no_match(self):
-        assert _is_not_game(self._game(names=["ZZZ Game Title"])) is False
+        assert _is_notgame(self._game(names=["ZZZ Game Title"])) is False
 
     def test_missing_notgame_field_clean_name(self):
         game = cast(SSGame, {"noms": [{"region": "ss", "text": "Normal Game"}]})
-        assert _is_not_game(game) is False
+        assert _is_notgame(game) is False
 
 
 class TestExtractMediaSensitiveKeyStripping:
@@ -317,6 +318,142 @@ class TestExtractMediaSensitiveKeyStripping:
             result = extract_media_from_ss_game(rom, game)
 
         assert result["box2d_url"] == clean_url
+
+
+class TestAddSsAuthToUrl:
+    """Tests for add_ss_auth_to_url — re-attaches user creds at download time."""
+
+    def test_appends_credentials_when_configured(self):
+        """With both user and password set, creds are appended to the URL."""
+        url = "https://screenscraper.fr/img.png?systemeid=1&romnom=Game.zip"
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+        ):
+            result = add_ss_auth_to_url(url)
+
+        query = parse_qs(urlparse(result).query)
+        assert query.get("ssid") == ["user1"]
+        assert query.get("sspassword") == ["pw1"]
+        # Other params are preserved
+        assert query.get("systemeid") == ["1"]
+        assert query.get("romnom") == ["Game.zip"]
+
+    def test_no_op_when_user_missing(self):
+        """If SCREENSCRAPER_USER is unset, the URL is returned unchanged."""
+        url = "https://screenscraper.fr/img.png?systemeid=1"
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", ""),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+        ):
+            result = add_ss_auth_to_url(url)
+
+        assert result == url
+
+    def test_no_op_when_password_missing(self):
+        """If SCREENSCRAPER_PASSWORD is unset, the URL is returned unchanged."""
+        url = "https://screenscraper.fr/img.png?systemeid=1"
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", ""),
+        ):
+            result = add_ss_auth_to_url(url)
+
+        assert result == url
+
+    def test_does_not_duplicate_existing_credentials(self):
+        """Pre-existing ssid/sspassword on the URL are replaced, not duplicated."""
+        url = "https://screenscraper.fr/img.png?ssid=old&sspassword=oldpw&keep=1"
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "new"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "newpw"),
+        ):
+            result = add_ss_auth_to_url(url)
+
+        query = parse_qs(urlparse(result).query)
+        # Exactly one occurrence of each, with the new values
+        assert query.get("ssid") == ["new"]
+        assert query.get("sspassword") == ["newpw"]
+        assert query.get("keep") == ["1"]
+
+    def test_handles_stripped_url_from_extract_media(self):
+        """A URL that's already had ssid/sspassword stripped (the storage form)
+        gets credentials re-attached cleanly, with dev creds and other params
+        left intact."""
+        # Shape mirrors what extract_media_from_ss_game persists
+        stripped_url = (
+            "https://screenscraper.fr/img.png?devid=dev&devpassword=devpw&other=keep"
+        )
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+        ):
+            result = add_ss_auth_to_url(stripped_url)
+
+        query = parse_qs(urlparse(result).query)
+        assert query.get("ssid") == ["user1"]
+        assert query.get("sspassword") == ["pw1"]
+        assert query.get("devid") == ["dev"]
+        assert query.get("devpassword") == ["devpw"]
+        assert query.get("other") == ["keep"]
+
+    def test_strip_then_reauth_roundtrip(self):
+        """End-to-end: storing media strips user creds; download-time auth
+        restores them without leaking creds into intermediate state."""
+        config = _make_config()
+        rom = MagicMock()
+        rom.platform_id = 1
+        rom.id = 100
+        original_url = (
+            "https://screenscraper.fr/img.png"
+            "?ssid=scanner-user&sspassword=scanner-pw&systemeid=1"
+        )
+        game = cast(
+            SSGame,
+            {
+                "medias": [
+                    {
+                        "type": "box-2D",
+                        "parent": "jeu",
+                        "region": "us",
+                        "url": original_url,
+                        "crc": "",
+                        "md5": "",
+                        "sha1": "",
+                        "size": "0",
+                        "format": "png",
+                    }
+                ]
+            },
+        )
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                return_value="roms/1/100/box2d",
+            ),
+        ):
+            extracted = extract_media_from_ss_game(rom, game)
+
+        stored_url = extracted["box2d_url"]
+        assert stored_url is not None
+
+        # Stored URL must not carry user creds
+        stored_query = parse_qs(urlparse(stored_url).query)
+        assert "ssid" not in stored_query
+        assert "sspassword" not in stored_query
+
+        # At download time, add_ss_auth_to_url re-attaches the *current* creds
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "download-user"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "download-pw"),
+        ):
+            download_url = add_ss_auth_to_url(stored_url)
+
+        download_query = parse_qs(urlparse(download_url).query)
+        assert download_query.get("ssid") == ["download-user"]
+        assert download_query.get("sspassword") == ["download-pw"]
+        assert download_query.get("systemeid") == ["1"]
 
 
 class TestGetRomType:

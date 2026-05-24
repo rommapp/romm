@@ -32,7 +32,7 @@ from handler.filesystem import (
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
-from handler.metadata.ss_handler import get_preferred_media_types
+from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
     MetadataSource,
@@ -179,13 +179,17 @@ def _should_scan_rom(
                 (
                     scan_type == ScanType.UPDATE
                     and rom.is_identified
-                    and any(getattr(rom, f"{source}_id") for source in metadata_sources)
+                    and any(
+                        getattr(rom, f"{source}_id", None)
+                        for source in metadata_sources
+                    )
                 )
                 # Unmatched scan should scan ROMs that are not identified by the selected metadata sources
                 or (
                     scan_type == ScanType.UNMATCHED
                     and any(
-                        not getattr(rom, f"{source}_id") for source in metadata_sources
+                        not getattr(rom, f"{source}_id", None)
+                        for source in metadata_sources
                     )
                 )
             )
@@ -432,7 +436,9 @@ async def _identify_rom(
         for media_type in preferred_media_types:
             if _added_rom.ss_metadata.get(f"{media_type.value}_path"):
                 await fs_resource_handler.store_media_file(
-                    _added_rom.ss_metadata[f"{media_type.value}_url"],
+                    add_ss_auth_to_url(
+                        _added_rom.ss_metadata[f"{media_type.value}_url"]
+                    ),
                     _added_rom.ss_metadata[f"{media_type.value}_path"],
                 )
 
