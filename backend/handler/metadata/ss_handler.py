@@ -99,7 +99,7 @@ ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {
 }
 
 
-def _is_notgame(game: SSGame) -> bool:
+def _is_not_game(game: SSGame) -> bool:
     if game.get("notgame") == "true":
         return True
     return any(
@@ -167,7 +167,7 @@ class SSMetadata(SSMetadataMedia):
 class SSRom(BaseRom):
     ss_id: int | None
     ss_metadata: NotRequired[SSMetadata]
-    notgame: NotRequired[bool]
+    not_game: NotRequired[bool]
 
 
 def _get_rom_type(file: RomFile) -> str:
@@ -562,7 +562,7 @@ class SSHandler(MetadataHandler):
 
         games_by_name: dict[str, SSGame] = {}
         for rom in roms:
-            if _is_notgame(rom):
+            if _is_not_game(rom):
                 log.warning(
                     "ScreenScraper: Received notgame entry in search results, ignoring"
                 )
@@ -651,11 +651,11 @@ class SSHandler(MetadataHandler):
         if not res:
             return SSRom(ss_id=None)
 
-        if _is_notgame(res):
+        if _is_not_game(res):
             log.warning(
                 "ScreenScraper: Received notgame entry from hash lookup, ignoring"
             )
-            return SSRom(ss_id=None, notgame=True)
+            return SSRom(ss_id=None, not_game=True)
 
         return build_ss_game(rom, res)
 
@@ -810,7 +810,7 @@ class SSHandler(MetadataHandler):
         return [
             build_ss_game(rom, game)
             for game in matched_games
-            if not _is_notgame(game) and _is_ss_region(game) and game.get("id")
+            if not _is_not_game(game) and _is_ss_region(game) and game.get("id")
         ]
 
 

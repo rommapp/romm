@@ -11,7 +11,7 @@ from config.config_manager import Config, MetadataMediaType
 from handler.metadata.ss_handler import (
     SSHandler,
     _get_rom_type,
-    _is_notgame,
+    _is_not_game,
     extract_media_from_ss_game,
     get_preferred_regions,
 )
@@ -215,26 +215,26 @@ class TestIsNotgame:
         )
 
     def test_notgame_field_true(self):
-        assert _is_notgame(self._game(notgame="true")) is True
+        assert _is_not_game(self._game(notgame="true")) is True
 
     def test_notgame_field_false_clean_name(self):
-        assert _is_notgame(self._game(notgame="false")) is False
+        assert _is_not_game(self._game(notgame="false")) is False
 
     def test_zzz_notgame_lowercase_name(self):
-        assert _is_notgame(self._game(names=["ZZZ(notgame)"])) is True
+        assert _is_not_game(self._game(names=["ZZZ(notgame)"])) is True
 
     def test_zzz_notgame_long_form(self):
         assert (
-            _is_notgame(self._game(names=["ZZZ(NOTGAME):Fichier Annexes - Non Jeux"]))
+            _is_not_game(self._game(names=["ZZZ(NOTGAME):Fichier Annexes - Non Jeux"]))
             is True
         )
 
     def test_zzz_prefix_only_no_match(self):
-        assert _is_notgame(self._game(names=["ZZZ Game Title"])) is False
+        assert _is_not_game(self._game(names=["ZZZ Game Title"])) is False
 
     def test_missing_notgame_field_clean_name(self):
         game = cast(SSGame, {"noms": [{"region": "ss", "text": "Normal Game"}]})
-        assert _is_notgame(game) is False
+        assert _is_not_game(game) is False
 
 
 class TestExtractMediaSensitiveKeyStripping:
@@ -366,7 +366,7 @@ class TestLookupRom:
                 MagicMock(platform_slug="snes"), 3, [self._make_mock_file()]
             )
         assert result["ss_id"] is None
-        assert result.get("notgame") is True
+        assert result.get("not_game") is True
 
     @pytest.mark.asyncio
     async def test_returns_notgame_flag_on_zzz_prefix(self):
@@ -383,4 +383,4 @@ class TestLookupRom:
                 MagicMock(platform_slug="snes"), 3, [self._make_mock_file()]
             )
         assert result["ss_id"] is None
-        assert result.get("notgame") is True
+        assert result.get("not_game") is True

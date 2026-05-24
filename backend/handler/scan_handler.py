@@ -651,7 +651,8 @@ async def scan_rom(
                 return game_by_hash
 
             # Skip name search if SS explicitly flagged the ROM as notgame
-            if game_by_hash.get("notgame"):
+            if game_by_hash.get("not_game"):
+                game_by_hash.pop("not_game", None)
                 return game_by_hash
 
             # Fallback to the filename
