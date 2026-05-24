@@ -64,9 +64,17 @@ error_log() {
 
 # Commands to run initial startup tasks
 run_startup() {
-	if ! PYTHONPATH="/backend:${PYTHONPATH-}" opentelemetry-instrument \
-		--service_name "${OTEL_SERVICE_NAME_PREFIX-}startup" \
-		python3 /backend/startup.py; then
+	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
+		PYTHONPATH="/backend:${PYTHONPATH-}" python3 /backend/startup.py
+	elif command -v opentelemetry-instrument >/dev/null 2>&1; then
+		PYTHONPATH="/backend:${PYTHONPATH-}" opentelemetry-instrument \
+			--service_name "${OTEL_SERVICE_NAME_PREFIX-}startup" \
+			python3 /backend/startup.py
+	else
+		warn_log "opentelemetry-instrument not found, starting without OpenTelemetry instrumentation"
+		PYTHONPATH="/backend:${PYTHONPATH-}" python3 /backend/startup.py
+	fi
+	if [[ $? -ne 0 ]]; then
 		error_log "Startup script failed, exiting"
 	fi
 }
@@ -107,23 +115,58 @@ start_bin_gunicorn() {
 	export PYTHONUNBUFFERED=1
 	export PYTHONDONTWRITEBYTECODE=1
 
-	opentelemetry-instrument \
-		--service_name "${OTEL_SERVICE_NAME_PREFIX-}api" \
+	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
 		gunicorn \
-		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
-		--bind=unix:/tmp/gunicorn.sock \
-		--pid=/tmp/gunicorn.pid \
-		--forwarded-allow-ips="*" \
-		--worker-class uvicorn_worker.UvicornWorker \
-		--workers "${WEB_SERVER_CONCURRENCY:-1}" \
-		--timeout "${WEB_SERVER_TIMEOUT:-300}" \
-		--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
-		--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
-		--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
-		--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
-		--error-logfile - \
-		--log-config "${gunicorn_log_config}" \
-		main:app &
+			--bind=0.0.0.0:"${DEV_PORT:-5000}" \
+			--bind=unix:/tmp/gunicorn.sock \
+			--pid=/tmp/gunicorn.pid \
+			--forwarded-allow-ips="*" \
+			--worker-class uvicorn_worker.UvicornWorker \
+			--workers "${WEB_SERVER_CONCURRENCY:-1}" \
+			--timeout "${WEB_SERVER_TIMEOUT:-300}" \
+			--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
+			--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
+			--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
+			--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
+			--error-logfile - \
+			--log-config "${gunicorn_log_config}" \
+			main:app &
+	elif command -v opentelemetry-instrument >/dev/null 2>&1; then
+		opentelemetry-instrument \
+			--service_name "${OTEL_SERVICE_NAME_PREFIX-}api" \
+			gunicorn \
+			--bind=0.0.0.0:"${DEV_PORT:-5000}" \
+			--bind=unix:/tmp/gunicorn.sock \
+			--pid=/tmp/gunicorn.pid \
+			--forwarded-allow-ips="*" \
+			--worker-class uvicorn_worker.UvicornWorker \
+			--workers "${WEB_SERVER_CONCURRENCY:-1}" \
+			--timeout "${WEB_SERVER_TIMEOUT:-300}" \
+			--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
+			--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
+			--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
+			--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
+			--error-logfile - \
+			--log-config "${gunicorn_log_config}" \
+			main:app &
+	else
+		warn_log "opentelemetry-instrument not found, starting gunicorn without OpenTelemetry instrumentation"
+		gunicorn \
+			--bind=0.0.0.0:"${DEV_PORT:-5000}" \
+			--bind=unix:/tmp/gunicorn.sock \
+			--pid=/tmp/gunicorn.pid \
+			--forwarded-allow-ips="*" \
+			--worker-class uvicorn_worker.UvicornWorker \
+			--workers "${WEB_SERVER_CONCURRENCY:-1}" \
+			--timeout "${WEB_SERVER_TIMEOUT:-300}" \
+			--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
+			--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
+			--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
+			--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
+			--error-logfile - \
+			--log-config "${gunicorn_log_config}" \
+			main:app &
+	fi
 }
 
 # Commands to start nginx (handling PID creation internally)
