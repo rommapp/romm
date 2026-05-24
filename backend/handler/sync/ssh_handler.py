@@ -11,6 +11,7 @@ device's sync_config.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import os
 import tempfile
@@ -51,12 +52,12 @@ class SSHSyncHandler:
         self.keys_path = Path(SYNC_SSH_KEYS_PATH)
         try:
             self.keys_path.mkdir(parents=True, exist_ok=True)
-        except OSError:
-            log.warning(
-                f"Could not create or access {self.keys_path}; "
-                "push-pull sync will be unavailable until the directory is writable "
-                "or keys are mounted at this path."
-            )
+        except OSError as e:
+            raise RuntimeError(
+                f"SSH keys directory {self.keys_path} is not writable ({e}). "
+                "Mount a writable volume at this path, or set SYNC_SSH_KEYS_PATH "
+                "to a writable location, to use push-pull sync."
+            ) from e
 
     def _resolve_key_path(self, device_id: str, sync_config: dict) -> str | None:
         """Resolve the SSH key path for a device.
@@ -231,4 +232,12 @@ class SSHSyncHandler:
             log.info(f"Deleted remote file: {remote_path}")
 
 
-ssh_sync_handler = SSHSyncHandler()
+@functools.cache
+def get_ssh_sync_handler() -> SSHSyncHandler:
+    """Lazily instantiate the SSH sync handler on first use.
+
+    Deferred so that startup doesn't fail when push-pull sync is unconfigured
+    or the keys directory is not writable. The handler raises a clear error
+    at call time if the directory cannot be created.
+    """
+    return SSHSyncHandler()
