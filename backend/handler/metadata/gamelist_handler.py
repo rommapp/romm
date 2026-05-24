@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 import uuid
 from pathlib import Path
 from typing import Final, NotRequired, TypedDict
@@ -18,6 +19,17 @@ from models.rom import Rom
 from .base_handler import BaseRom, MetadataHandler
 
 # https://github.com/Aloshi/EmulationStation/blob/master/GAMELISTS.md#reference
+
+# ES-DE writes a top-level <alternativeEmulator> sibling to <gameList>, which produces
+# invalid multi-root XML. These patterns strip both self-closing and paired forms so the
+# remaining document can be parsed.
+ALTERNATIVE_EMULATOR_SELF_CLOSING_RE: Final = re.compile(
+    r"<alternativeEmulator\b[^>]*/>"
+)
+ALTERNATIVE_EMULATOR_PAIRED_RE: Final = re.compile(
+    r"<alternativeEmulator\b[^>]*>.*?</alternativeEmulator>",
+    re.DOTALL,
+)
 
 
 def get_preferred_media_types() -> list[MetadataMediaType]:
@@ -337,11 +349,21 @@ class GamelistHandler(MetadataHandler):
         roms_data: dict[str, GamelistRom] = {}
 
         try:
-            tree = ET.parse(gamelist_path)
-            root = tree.getroot()
-            if root is None:
-                return roms_data
+            xml_content = gamelist_path.read_text(encoding="utf-8", errors="replace")
+            xml_content = ALTERNATIVE_EMULATOR_SELF_CLOSING_RE.sub("", xml_content)
+            xml_content = ALTERNATIVE_EMULATOR_PAIRED_RE.sub("", xml_content)
+            root: Element | None = ET.fromstring(xml_content)
+        except ET.ParseError as e:
+            log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
+            root = None
+        except Exception as e:
+            log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
+            root = None
 
+        if root is None:
+            return roms_data
+
+        try:
             for game in root.findall("game"):
                 path_elem = game.find("path")
                 if path_elem is None or path_elem.text is None:
@@ -418,8 +440,6 @@ class GamelistHandler(MetadataHandler):
 
             # Cache the parsed data for this platform
             self._gamelist_cache[cache_key] = roms_data
-        except ET.ParseError as e:
-            log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
         except Exception as e:
             log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
 
