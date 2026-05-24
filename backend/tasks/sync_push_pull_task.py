@@ -65,7 +65,6 @@ async def run_push_pull_sync(
 
 async def _sync_device(device: Device, session_id: int | None = None) -> dict:
     """Perform push-pull sync for a single device."""
-    ssh_sync_handler = get_ssh_sync_handler()
     sync_config = device.sync_config or {}
     if not sync_config.get("ssh_host"):
         log.warning(f"Push-pull device {device.id} has no ssh_host configured")
@@ -103,6 +102,7 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict:
     )
 
     try:
+        ssh_sync_handler = get_ssh_sync_handler()
         conn = await ssh_sync_handler.connect(sync_config, device_id=device.id)
     except Exception as e:
         log.error(f"Push-pull: failed to connect to device {device.id}: {e}")
