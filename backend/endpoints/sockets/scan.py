@@ -389,24 +389,6 @@ async def _identify_rom(
         for new_rom_file in new_rom_files:
             db_rom_handler.add_rom_file(new_rom_file)
 
-        # Refresh denormalized file stats used by the gallery view, so the
-        # list endpoint doesn't have to load rom_files to render cards.
-        rom_full_path = f"{_added_rom.fs_path}/{_added_rom.fs_name}"
-        db_rom_handler.update_rom(
-            _added_rom.id,
-            {
-                "multi_file": any(
-                    f.file_path != _added_rom.fs_path for f in new_rom_files
-                ),
-                "top_level_file_count": sum(
-                    1
-                    for f in new_rom_files
-                    if f"{f.file_path}/{f.file_name}" == rom_full_path
-                    or f.file_path == rom_full_path
-                ),
-            },
-        )
-
     # Short circuit if the scan type is hashes
     if scan_type == ScanType.HASHES:
         return

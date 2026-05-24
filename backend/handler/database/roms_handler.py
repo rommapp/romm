@@ -28,6 +28,7 @@ from sqlalchemy.orm import (
     load_only,
     noload,
     selectinload,
+    undefer,
 )
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select
@@ -147,6 +148,11 @@ def with_details(func):
             ),
             selectinload(Rom.collections),
             selectinload(Rom.notes),
+            # Compute gallery-card flags from rom_files via correlated
+            # subqueries so the detail endpoint can serialize them without
+            # walking the (potentially huge) files collection.
+            undefer(Rom.multi_file),
+            undefer(Rom.top_level_file_count),
         )
         return func(*args, **kwargs)
 
@@ -563,6 +569,11 @@ class DBRomsHandler(DBBaseHandler):
             ),
             # Show notes indicator on cards
             selectinload(Rom.notes),
+            # Gallery card needs has_simple_single_file / has_nested_single_file /
+            # has_multiple_files. Compute via correlated subqueries against
+            # rom_files instead of loading the full file list.
+            undefer(Rom.multi_file),
+            undefer(Rom.top_level_file_count),
         )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform

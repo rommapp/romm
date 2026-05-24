@@ -16,9 +16,12 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    and_,
     func,
+    or_,
+    select,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -251,11 +254,6 @@ class Rom(BaseModel):
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
-    multi_file: Mapped[bool] = mapped_column(default=False, nullable=False)
-    top_level_file_count: Mapped[int] = mapped_column(
-        Integer(), default=0, nullable=False
-    )
-
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
@@ -441,6 +439,47 @@ class Rom(BaseModel):
 
     def __repr__(self) -> str:
         return f"{self.fs_name} ({self.id})"
+
+
+# Gallery-card flags derived from rom_files, computed by the database as
+# correlated subqueries so the list endpoint never has to load the rom_files
+# rows themselves. Deferred so single-row queries that don't read the flags
+# (scan, file CRUD, etc.) don't pay for the subqueries; the gallery list and
+# detail endpoints opt in via `undefer`. Defined out-of-line because they
+# reference both Rom and RomFile.
+_rom_full_path = func.concat(Rom.fs_path, "/", Rom.fs_name)
+
+Rom.multi_file = column_property(
+    select(RomFile.id)
+    .where(
+        and_(
+            RomFile.rom_id == Rom.id,
+            RomFile.file_path != Rom.fs_path,
+        )
+    )
+    .correlate_except(RomFile)
+    .exists()
+    .select()
+    .scalar_subquery(),
+    deferred=True,
+)
+
+Rom.top_level_file_count = column_property(
+    select(func.count(RomFile.id))
+    .where(
+        and_(
+            RomFile.rom_id == Rom.id,
+            or_(
+                func.concat(RomFile.file_path, "/", RomFile.file_name)
+                == _rom_full_path,
+                RomFile.file_path == _rom_full_path,
+            ),
+        )
+    )
+    .correlate_except(RomFile)
+    .scalar_subquery(),
+    deferred=True,
+)
 
 
 class RomUserStatus(enum.StrEnum):
