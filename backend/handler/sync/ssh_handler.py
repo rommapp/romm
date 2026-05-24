@@ -49,7 +49,14 @@ class SSHSyncHandler:
 
     def __init__(self) -> None:
         self.keys_path = Path(SYNC_SSH_KEYS_PATH)
-        self.keys_path.mkdir(parents=True, exist_ok=True)
+        try:
+            self.keys_path.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            log.warning(
+                f"Could not create or access {self.keys_path}; "
+                "push-pull sync will be unavailable until the directory is writable "
+                "or keys are mounted at this path."
+            )
 
     def _resolve_key_path(self, device_id: str, sync_config: dict) -> str | None:
         """Resolve the SSH key path for a device.
