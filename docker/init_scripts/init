@@ -68,8 +68,6 @@ error_log() {
 # "${arr[*]@Q}" to embed as a shell-quoted prefix string.
 otel_prefix() {
 	local -n out_arr="$1"
-	# shellcheck disable=SC2034  # nameref binds out_arr to caller variable
-	out_arr=()
 	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then return 0; fi
 	if ! command -v opentelemetry-instrument >/dev/null 2>&1; then
 		warn_log "opentelemetry-instrument not found, starting $2 without OpenTelemetry instrumentation"
