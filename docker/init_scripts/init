@@ -62,19 +62,34 @@ error_log() {
 	exit 1
 }
 
+# Emit the opentelemetry-instrument wrapper as NUL-delimited argv tokens, or
+# nothing if OTEL is disabled or the wrapper binary is missing.
+otel_prefix() {
+	local service="$1"
+	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then return 0; fi
+	if ! command -v opentelemetry-instrument >/dev/null 2>&1; then
+		# stderr so it doesn't pollute the captured argv tokens
+		warn_log "opentelemetry-instrument not found, starting ${service} without OpenTelemetry instrumentation" >&2
+		return 0
+	fi
+	printf '%s\0' opentelemetry-instrument --service_name "${OTEL_SERVICE_NAME_PREFIX-}${service}"
+}
+
+# Emit the opentelemetry-instrument wrapper as a shell-string prefix (with
+# trailing space), for embedding inside `watchfiles --target-type command`.
+otel_prefix_str() {
+	local service="$1"
+	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]] || ! command -v opentelemetry-instrument >/dev/null 2>&1; then
+		return 0
+	fi
+	printf "opentelemetry-instrument --service_name '%s%s' " "${OTEL_SERVICE_NAME_PREFIX-}" "${service}"
+}
+
 # Commands to run initial startup tasks
 run_startup() {
-	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
-		PYTHONPATH="/backend:${PYTHONPATH-}" python3 /backend/startup.py
-	elif command -v opentelemetry-instrument >/dev/null 2>&1; then
-		PYTHONPATH="/backend:${PYTHONPATH-}" opentelemetry-instrument \
-			--service_name "${OTEL_SERVICE_NAME_PREFIX-}startup" \
-			python3 /backend/startup.py
-	else
-		warn_log "opentelemetry-instrument not found, starting without OpenTelemetry instrumentation"
-		PYTHONPATH="/backend:${PYTHONPATH-}" python3 /backend/startup.py
-	fi
-	if [[ $? -ne 0 ]]; then
+	local -a wrap=()
+	mapfile -d '' wrap < <(otel_prefix startup)
+	if ! PYTHONPATH="/backend:${PYTHONPATH-}" "${wrap[@]}" python3 /backend/startup.py; then
 		error_log "Startup script failed, exiting"
 	fi
 }
@@ -115,58 +130,23 @@ start_bin_gunicorn() {
 	export PYTHONUNBUFFERED=1
 	export PYTHONDONTWRITEBYTECODE=1
 
-	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
-		gunicorn \
-			--bind=0.0.0.0:"${DEV_PORT:-5000}" \
-			--bind=unix:/tmp/gunicorn.sock \
-			--pid=/tmp/gunicorn.pid \
-			--forwarded-allow-ips="*" \
-			--worker-class uvicorn_worker.UvicornWorker \
-			--workers "${WEB_SERVER_CONCURRENCY:-1}" \
-			--timeout "${WEB_SERVER_TIMEOUT:-300}" \
-			--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
-			--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
-			--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
-			--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
-			--error-logfile - \
-			--log-config "${gunicorn_log_config}" \
-			main:app &
-	elif command -v opentelemetry-instrument >/dev/null 2>&1; then
-		opentelemetry-instrument \
-			--service_name "${OTEL_SERVICE_NAME_PREFIX-}api" \
-			gunicorn \
-			--bind=0.0.0.0:"${DEV_PORT:-5000}" \
-			--bind=unix:/tmp/gunicorn.sock \
-			--pid=/tmp/gunicorn.pid \
-			--forwarded-allow-ips="*" \
-			--worker-class uvicorn_worker.UvicornWorker \
-			--workers "${WEB_SERVER_CONCURRENCY:-1}" \
-			--timeout "${WEB_SERVER_TIMEOUT:-300}" \
-			--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
-			--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
-			--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
-			--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
-			--error-logfile - \
-			--log-config "${gunicorn_log_config}" \
-			main:app &
-	else
-		warn_log "opentelemetry-instrument not found, starting gunicorn without OpenTelemetry instrumentation"
-		gunicorn \
-			--bind=0.0.0.0:"${DEV_PORT:-5000}" \
-			--bind=unix:/tmp/gunicorn.sock \
-			--pid=/tmp/gunicorn.pid \
-			--forwarded-allow-ips="*" \
-			--worker-class uvicorn_worker.UvicornWorker \
-			--workers "${WEB_SERVER_CONCURRENCY:-1}" \
-			--timeout "${WEB_SERVER_TIMEOUT:-300}" \
-			--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
-			--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
-			--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
-			--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
-			--error-logfile - \
-			--log-config "${gunicorn_log_config}" \
-			main:app &
-	fi
+	local -a wrap=()
+	mapfile -d '' wrap < <(otel_prefix api)
+	"${wrap[@]}" gunicorn \
+		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
+		--bind=unix:/tmp/gunicorn.sock \
+		--pid=/tmp/gunicorn.pid \
+		--forwarded-allow-ips="*" \
+		--worker-class uvicorn_worker.UvicornWorker \
+		--workers "${WEB_SERVER_CONCURRENCY:-1}" \
+		--timeout "${WEB_SERVER_TIMEOUT:-300}" \
+		--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
+		--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
+		--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
+		--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
+		--error-logfile - \
+		--log-config "${gunicorn_log_config}" \
+		main:app &
 }
 
 # Commands to start nginx (handling PID creation internally)
@@ -272,19 +252,10 @@ start_bin_rq_worker() {
 
 start_bin_watcher() {
 	info_log "Starting watcher"
-	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
-		# Skip opentelemetry-instrument when OTEL is disabled to ensure
-		# WATCHFILES_CHANGES env var is properly passed to watcher.py
-		watchfiles \
-			--target-type command \
-			"python3 watcher.py" \
-			/romm/library &
-	else
-		watchfiles \
-			--target-type command \
-			"opentelemetry-instrument --service_name '${OTEL_SERVICE_NAME_PREFIX-}watcher' python3 watcher.py" \
-			/romm/library &
-	fi
+	watchfiles \
+		--target-type command \
+		"$(otel_prefix_str watcher)python3 watcher.py" \
+		/romm/library &
 	WATCHER_PID=$!
 	echo "${WATCHER_PID}" >/tmp/watcher.pid
 }
@@ -293,17 +264,10 @@ start_bin_sync_watcher() {
 	info_log "Starting sync folder watcher"
 	sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
 	mkdir -p "${sync_base_path}"
-	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
-		watchfiles \
-			--target-type command \
-			"python3 sync_watcher.py" \
-			"${sync_base_path}" &
-	else
-		watchfiles \
-			--target-type command \
-			"opentelemetry-instrument --service_name '${OTEL_SERVICE_NAME_PREFIX-}sync_watcher' python3 sync_watcher.py" \
-			"${sync_base_path}" &
-	fi
+	watchfiles \
+		--target-type command \
+		"$(otel_prefix_str sync_watcher)python3 sync_watcher.py" \
+		"${sync_base_path}" &
 	SYNC_WATCHER_PID=$!
 	echo "${SYNC_WATCHER_PID}" >/tmp/sync_watcher.pid
 }
