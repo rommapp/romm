@@ -342,7 +342,7 @@ class GamelistHandler(MetadataHandler):
             if root is None:
                 return roms_data
 
-            for game in root.findall("game"):
+            for game in root.findall("game") + root.findall("folder"):
                 path_elem = game.find("path")
                 if path_elem is None or path_elem.text is None:
                     continue
