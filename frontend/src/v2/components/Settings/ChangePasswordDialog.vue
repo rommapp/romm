@@ -5,11 +5,12 @@
 //
 // Mounted by UserProfile via local `v-model:open` (no emitter event)
 // because nothing else in the app needs to trigger this dialog.
-import { RBtn, RIcon, RTextField } from "@v2/lib";
+import { RBtn, RIcon } from "@v2/lib";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
+import PasswordField from "@/v2/components/shared/PasswordField.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 
@@ -33,8 +34,6 @@ const snackbar = useSnackbar();
 const newPassword = ref("");
 const confirmPassword = ref("");
 const submitting = ref(false);
-const showNew = ref(false);
-const showConfirm = ref(false);
 
 watch(
   () => props.open,
@@ -42,8 +41,6 @@ watch(
     if (open) {
       newPassword.value = "";
       confirmPassword.value = "";
-      showNew.value = false;
-      showConfirm.value = false;
     }
   },
 );
@@ -125,38 +122,34 @@ async function submit() {
       </span>
     </template>
     <template #content>
-      <RTextField
+      <PasswordField
         v-model="newPassword"
         prefix-label="stacked"
-        :type="showNew ? 'text' : 'password'"
         :rules="newPasswordRules"
-        :append-inner-icon="showNew ? 'mdi-eye-off' : 'mdi-eye'"
+        :prepend-inner-icon="undefined"
         autocomplete="new-password"
         required
-        @click:append-inner="showNew = !showNew"
         @keyup.enter="submit"
       >
         <template #prefix-label>
           <RIcon icon="mdi-key-plus" size="14" />
           {{ t("settings.new-password") }}
         </template>
-      </RTextField>
-      <RTextField
+      </PasswordField>
+      <PasswordField
         v-model="confirmPassword"
         prefix-label="stacked"
-        :type="showConfirm ? 'text' : 'password'"
         :rules="confirmRules"
-        :append-inner-icon="showConfirm ? 'mdi-eye-off' : 'mdi-eye'"
+        :prepend-inner-icon="undefined"
         autocomplete="new-password"
         required
-        @click:append-inner="showConfirm = !showConfirm"
         @keyup.enter="submit"
       >
         <template #prefix-label>
           <RIcon icon="mdi-key-variant" size="14" />
           {{ t("settings.repeat-password") }}
         </template>
-      </RTextField>
+      </PasswordField>
       <p class="r-v2-pwd-dialog__hint">
         <RIcon icon="mdi-information-outline" size="14" />
         <span>{{ t("common.password-length") }}</span>

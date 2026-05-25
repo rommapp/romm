@@ -23,9 +23,11 @@ import {
   REmptyState,
   RIcon,
   RPlatformIcon,
+  RSliderBtnGroup,
   RTag,
   RTextField,
 } from "@v2/lib";
+import type { SliderBtnGroupItem } from "@v2/lib";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SetupLibraryInfo } from "@/services/api/setup";
@@ -105,6 +107,58 @@ const detectedPlatforms = computed<Array<Platform & { unidentified: boolean }>>(
 const totalDetectedGames = computed(() =>
   props.libraryInfo.existing_platforms.reduce((s, p) => s + p.rom_count, 0),
 );
+
+// ── Detected-pane filter ───────────────────────────────────────────
+//
+// When the library has both identified and unidentified folders, give
+// the user a way to narrow the list. The slider is hidden when there's
+// nothing to filter (no unidentified folders).
+
+type DetectedFilter = "all" | "identified" | "unidentified";
+const detectedFilter = ref<DetectedFilter>("all");
+
+const identifiedDetectedCount = computed(
+  () => detectedPlatforms.value.filter((p) => !p.unidentified).length,
+);
+const unidentifiedDetectedCount = computed(
+  () => detectedPlatforms.value.filter((p) => p.unidentified).length,
+);
+
+const showDetectedFilter = computed(
+  () =>
+    identifiedDetectedCount.value > 0 && unidentifiedDetectedCount.value > 0,
+);
+
+const detectedFilterItems = computed<SliderBtnGroupItem<DetectedFilter>[]>(
+  () => [
+    {
+      id: "all",
+      icon: "mdi-folder-multiple-outline",
+      title: t("setup.filter-all"),
+      ariaLabel: t("setup.filter-all"),
+    },
+    {
+      id: "identified",
+      icon: "mdi-folder-check",
+      title: t("setup.identified"),
+      ariaLabel: t("setup.identified"),
+    },
+    {
+      id: "unidentified",
+      icon: "mdi-folder-question-outline",
+      title: t("setup.unidentified"),
+      ariaLabel: t("setup.unidentified"),
+    },
+  ],
+);
+
+const filteredDetectedPlatforms = computed(() => {
+  if (detectedFilter.value === "identified")
+    return detectedPlatforms.value.filter((p) => !p.unidentified);
+  if (detectedFilter.value === "unidentified")
+    return detectedPlatforms.value.filter((p) => p.unidentified);
+  return detectedPlatforms.value;
+});
 
 // ── Supported (selectable) platforms ───────────────────────────────
 //
@@ -301,34 +355,44 @@ function platformFolderPath(slug: string): string {
       <section class="r-setup-platforms__pane">
         <header class="r-setup-platforms__section-head">
           <h3 class="r-setup-platforms__section-title">
-            <RIcon name="mdi-folder-check" color="primary" :size="16" />
             <span>{{ t("setup.detected-platforms") }}</span>
-            <RChip size="x-small" variant="translucent" color="primary">
+            <RChip
+              size="x-small"
+              variant="translucent"
+              color="primary"
+              prepend-icon="mdi-gamepad-variant-outline"
+              :aria-label="t('setup.platforms')"
+            >
               {{ detectedPlatformCount }}
-              {{
-                detectedPlatformCount === 1
-                  ? t("setup.platform")
-                  : t("setup.platforms")
-              }}
             </RChip>
-            <RChip size="x-small" variant="translucent">
+            <RChip
+              size="x-small"
+              variant="translucent"
+              prepend-icon="mdi-disc"
+              :aria-label="t('setup.games')"
+            >
               {{ totalDetectedGames }}
-              {{
-                totalDetectedGames === 1 ? t("setup.game") : t("setup.games")
-              }}
             </RChip>
           </h3>
+          <div v-if="showDetectedFilter" class="r-setup-platforms__toolbar">
+            <RSliderBtnGroup
+              v-model="detectedFilter"
+              :items="detectedFilterItems"
+              variant="segmented"
+              :aria-label="t('setup.detected-platforms')"
+            />
+          </div>
         </header>
 
         <div class="r-setup-platforms__pane-scroll">
           <REmptyState
-            v-if="detectedPlatforms.length === 0"
+            v-if="filteredDetectedPlatforms.length === 0"
             icon="mdi-folder-search-outline"
             :title="t('setup.no-structure-detected')"
           />
           <ul v-else class="r-setup-platforms__items">
             <li
-              v-for="platform in detectedPlatforms"
+              v-for="platform in filteredDetectedPlatforms"
               :key="platform.fs_slug"
               class="r-setup-platforms__item"
               data-state="detected"
@@ -350,26 +414,29 @@ function platformFolderPath(slug: string): string {
                 </span>
               </div>
               <div class="r-setup-platforms__item-state">
-                <RTag
-                  v-if="platform.unidentified"
-                  size="x-small"
-                  tone="warning"
-                >
-                  {{ t("setup.unidentified") }}
-                </RTag>
+                <template v-if="platform.unidentified">
+                  <RTag size="x-small" tone="warning">
+                    {{ t("setup.unidentified") }}
+                  </RTag>
+                  <RChip
+                    size="x-small"
+                    variant="translucent"
+                    color="warning"
+                    prepend-icon="mdi-disc"
+                    :aria-label="t('setup.games')"
+                  >
+                    {{ romCountBySlug.get(platform.fs_slug) ?? 0 }}
+                  </RChip>
+                </template>
                 <RChip
                   v-else
                   size="x-small"
                   variant="translucent"
                   color="primary"
+                  prepend-icon="mdi-disc"
+                  :aria-label="t('setup.games')"
                 >
-                  {{
-                    t(
-                      "setup.platform-detected-with-games",
-                      { count: romCountBySlug.get(platform.fs_slug) ?? 0 },
-                      romCountBySlug.get(platform.fs_slug) ?? 0,
-                    )
-                  }}
+                  {{ romCountBySlug.get(platform.fs_slug) ?? 0 }}
                 </RChip>
               </div>
             </li>
@@ -381,31 +448,39 @@ function platformFolderPath(slug: string): string {
       <section class="r-setup-platforms__pane">
         <header class="r-setup-platforms__section-head">
           <h3 class="r-setup-platforms__section-title">
-            <RIcon name="mdi-folder-plus-outline" :size="16" />
             <span>{{ t("setup.supported-platforms") }}</span>
-            <RChip size="x-small" variant="translucent">
+            <RChip
+              size="x-small"
+              variant="translucent"
+              prepend-icon="mdi-gamepad-variant-outline"
+              :aria-label="t('setup.platforms')"
+            >
               {{ supportedAvailable.length }}
             </RChip>
           </h3>
           <div class="r-setup-platforms__toolbar">
-            <RTextField
-              v-model="search"
-              density="comfortable"
-              variant="outlined"
-              prepend-inner-icon="mdi-magnify"
-              :placeholder="t('setup.platforms-search-placeholder')"
-              hide-details
-              class="r-setup-platforms__search"
-            />
             <RCheckbox
               :model-value="allAvailableState"
               :indeterminate="allAvailableState === null"
               :disabled="supportedAvailable.length === 0"
-              :label="t('setup.select-all-available')"
+              :label="t('setup.select-all')"
               size="sm"
               hide-details
               @update:model-value="toggleAllAvailable"
             />
+            <RTextField
+              v-model="search"
+              density="comfortable"
+              prefix-label="inline"
+              clearable
+              :placeholder="t('setup.platforms-search-placeholder')"
+              hide-details
+              class="r-setup-platforms__search"
+            >
+              <template #prefix-label>
+                <RIcon icon="mdi-magnify" size="16" />
+              </template>
+            </RTextField>
           </div>
         </header>
 
@@ -761,13 +836,12 @@ function platformFolderPath(slug: string): string {
   display: flex;
   align-items: center;
   gap: var(--r-space-3);
-  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .r-setup-platforms__search {
-  flex: 1 1 240px;
-  min-width: 200px;
-  max-width: 360px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* ── Items list (shared) ─────────────────────────────────────────── */
@@ -867,6 +941,7 @@ function platformFolderPath(slug: string): string {
 .r-setup-platforms__item-state {
   display: flex;
   align-items: center;
+  gap: var(--r-space-2);
 }
 
 .r-setup-platforms__item-state code {

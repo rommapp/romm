@@ -13,7 +13,7 @@
 //                   whether the configured key actually works
 // The combined status pill maps these to one of: disabled, missing /
 // invalid key, checking, available.
-import { RIcon, RImg, RTag } from "@v2/lib";
+import { RImg, RTag } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -198,11 +198,6 @@ onMounted(() => {
       <div class="r-setup-metadata__group">
         <header class="r-setup-metadata__group-head">
           <div class="r-setup-metadata__group-title">
-            <RIcon
-              name="mdi-database-search-outline"
-              :size="16"
-              color="primary"
-            />
             <span>{{ t("setup.metadata-catalogs") }}</span>
           </div>
           <p class="r-setup-metadata__group-hint">
@@ -245,7 +240,6 @@ onMounted(() => {
       <div class="r-setup-metadata__group">
         <header class="r-setup-metadata__group-head">
           <div class="r-setup-metadata__group-title">
-            <RIcon name="mdi-puzzle-outline" :size="16" color="primary" />
             <span>{{ t("setup.metadata-specialised") }}</span>
           </div>
           <p class="r-setup-metadata__group-hint">
@@ -288,7 +282,6 @@ onMounted(() => {
       <div class="r-setup-metadata__group">
         <header class="r-setup-metadata__group-head">
           <div class="r-setup-metadata__group-title">
-            <RIcon name="mdi-shuffle-variant" :size="16" color="primary" />
             <span>{{ t("setup.metadata-proxies") }}</span>
           </div>
           <p class="r-setup-metadata__group-hint">

@@ -30,6 +30,7 @@ import {
 } from "vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
+import RTooltip from "../../structural/RTooltip/RTooltip.vue";
 import { useRFormRegistration } from "../RForm/context";
 
 defineOptions({ inheritAttrs: false });
@@ -50,6 +51,13 @@ interface Props {
   density?: "default" | "comfortable" | "compact";
   prependInnerIcon?: string;
   appendInnerIcon?: string;
+  /** Tooltip text shown on hover/focus over the prepend-inner
+   *  adornment. Useful for clickable adornments (copy buttons, etc.)
+   *  to label their action. */
+  prependInnerTooltip?: string;
+  /** Tooltip text shown on hover/focus over the append-inner
+   *  adornment. The canonical use is the password-reveal eye icon. */
+  appendInnerTooltip?: string;
   autocomplete?: string;
   name?: string;
   rules?: Rule[];
@@ -101,6 +109,8 @@ const props = withDefaults(defineProps<Props>(), {
   density: "comfortable",
   prependInnerIcon: undefined,
   appendInnerIcon: undefined,
+  prependInnerTooltip: undefined,
+  appendInnerTooltip: undefined,
   autocomplete: undefined,
   name: undefined,
   rules: () => [],
@@ -315,13 +325,17 @@ const effectiveAriaLabel = computed(() =>
 );
 
 // True when the parent is subscribed to a click on the adornment.
-// Vue's `toHandlerKey('click:append-inner')` is `onClick:append-inner`
-// — the part after the colon is left verbatim, NOT camelised. The
-// other variants below cover camelised / capitalised forms in case a
-// parent passes the handler programmatically with a different key. When
-// subscribed, the adornment renders as a focusable `<button>` with
-// hover + cursor.
+// `click:prepend-inner` / `click:append-inner` are declared emits, so
+// Vue strips them from `useAttrs()` — we have to look at the raw
+// vnode props (which always carry the parent's listener regardless of
+// whether the child declared the event). We check several casing
+// variants in case the parent passed the handler programmatically with
+// a different key. When subscribed, the adornment renders as a
+// focusable `<button>` with hover + cursor.
+const instance = getCurrentInstance();
 function hasListener(name: string): boolean {
+  const props = instance?.vnode.props as Record<string, unknown> | null;
+  if (!props) return false;
   // verbatim → onClick:append-inner (Vue's actual template output)
   const verbatim = `on${name[0].toUpperCase()}${name.slice(1)}`;
   // kebab→camel inside the arg → onClick:appendInner
@@ -337,18 +351,20 @@ function hasListener(name: string): boolean {
     .slice(1)
     .replace(/:(\w)/g, (_, c) => c.toUpperCase())}`;
   return (
-    !!attrs[verbatim] || !!attrs[argCamel] || !!attrs[colonCap] || !!attrs[flat]
+    !!props[verbatim] || !!props[argCamel] || !!props[colonCap] || !!props[flat]
   );
 }
 const prependInteractive = computed(() => hasListener("click:prepend-inner"));
 const appendInteractive = computed(() => hasListener("click:append-inner"));
 
 function onPrependInnerClick(evt: MouseEvent) {
-  if (!prependInteractive.value) return;
+  // Always emit — emit() is a no-op when nothing's subscribed. The
+  // listener-detection above only governs the visual treatment
+  // (button vs span, hover, focus ring); it must never block the
+  // click from reaching the parent.
   emit("click:prepend-inner", evt);
 }
 function onAppendInnerClick(evt: MouseEvent) {
-  if (!appendInteractive.value) return;
   emit("click:append-inner", evt);
 }
 </script>
@@ -418,6 +434,12 @@ function onAppendInnerClick(evt: MouseEvent) {
             size="x-small"
           />
         </slot>
+        <RTooltip
+          v-if="prependInnerTooltip"
+          activator="parent"
+          :text="prependInnerTooltip"
+          location="top"
+        />
       </component>
 
       <!-- `multiline` swaps the native `<input>` for a `<textarea>` so
@@ -511,6 +533,12 @@ function onAppendInnerClick(evt: MouseEvent) {
             size="x-small"
           />
         </slot>
+        <RTooltip
+          v-if="appendInnerTooltip && !showLoading && !showClear"
+          activator="parent"
+          :text="appendInnerTooltip"
+          location="top"
+        />
       </component>
 
       <!-- Underline track — only painted for `underlined` variant.

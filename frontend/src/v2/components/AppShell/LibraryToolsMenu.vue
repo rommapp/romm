@@ -81,7 +81,7 @@ const inToolsSection = computed(
 
     <RMenuItem
       :to="{ name: ROUTES.SCAN }"
-      icon="mdi-magnify-scan"
+      icon="mdi-radar"
       :label="t('scan.scan')"
       :disabled="!canScan"
       @click="open = false"

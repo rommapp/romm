@@ -44,11 +44,6 @@ export const ROUTES = {
   SERVER_STATS: "server-stats",
   PAIR: "pair",
   APRIL_FOOLS: "april-fools",
-  // V2-only routes (no v1 equivalent — v1 uses its drawer for these).
-  PLATFORMS_INDEX: "platforms-index",
-  COLLECTIONS_INDEX: "collections-index",
-  CONTROLLER_DEBUG: "controller-debug",
-  NOT_FOUND: "404",
   CONSOLE_HOME: "console-home",
   CONSOLE_PLATFORM: "console-platform",
   CONSOLE_COLLECTION: "console-collection",
@@ -56,6 +51,11 @@ export const ROUTES = {
   CONSOLE_VIRTUAL_COLLECTION: "console-virtual-collection",
   CONSOLE_ROM: "console-rom",
   CONSOLE_PLAY: "console-play",
+  // V2-only routes (no v1 equivalent — v1 uses its drawer for these).
+  PLATFORMS_INDEX: "platforms-index",
+  COLLECTIONS_INDEX: "collections-index",
+  CONTROLLER_DEBUG: "controller-debug",
+  NOT_FOUND: "404",
 } as const;
 
 // Resolve the v2 component for a given route name, falling back to the
@@ -576,9 +576,9 @@ router.beforeEach(async (to, _from, next) => {
 
   try {
     // Handle setup wizard
-    if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
-      return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();
-    }
+    // if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
+    //   return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();
+    // }
 
     // Handle authentication — unauth'd users visiting a non-exempt route
     // land on /login. Without this branch, they fall through to the

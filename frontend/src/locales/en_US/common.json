@@ -32,6 +32,8 @@
   "name": "Name",
   "password-length": "Password must be between 6 and 255 characters",
   "patcher": "Patcher",
+  "hide-password": "Hide password",
+  "show-password": "Show password",
   "platform": "Platform",
   "platforms": "Platforms",
   "platforms-n": "{n} Platform | {n} Platforms",

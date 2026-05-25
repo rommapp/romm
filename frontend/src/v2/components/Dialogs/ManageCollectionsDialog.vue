@@ -236,11 +236,7 @@ function closeDialog() {
         @cancel="cancelCreate"
       />
 
-      <RDivider
-        v-if="ownedCollections.length > 0"
-        full-width
-        style="--r-divider-bleed-x: 18px"
-      />
+      <RDivider v-if="ownedCollections.length > 0" full-width />
 
       <!-- Existing collection rows — instant toggle, no commit step. -->
       <ul v-if="ownedCollections.length" class="r-v2-mng-coll__list">
@@ -295,12 +291,13 @@ function closeDialog() {
   max-width: 360px;
 }
 
-/* Row list — edge-to-edge against RDialog's body padding so each row
-   reads like a menu item rather than a padded card. */
+/* Row list — sits flush against the dialog edges. This dialog drops
+   the standard RDialog body padding (see the `:deep(.r-dialog__body)`
+   override below) so rows read as menu items, not as padded cards. */
 .r-v2-mng-coll__list {
   list-style: none;
-  margin: 0 -18px -18px;
-  padding: 0px;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -313,5 +310,13 @@ function closeDialog() {
   color: var(--r-color-fg-muted);
   font-size: 13px;
   text-align: center;
+}
+
+/* This dialog renders edge-to-edge rows that act as menu items, so we
+   strip the standard RDialog body padding + gap. Header and footer
+   keep their own chrome padding, untouched. */
+:deep(.r-dialog__body) {
+  padding: 0;
+  gap: 0;
 }
 </style>

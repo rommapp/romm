@@ -251,8 +251,9 @@ onMounted(loadLibraryInfo);
 
     <footer class="r-v2-setup__footer">
       <RBtn
+        v-if="!isFirstStep"
         variant="text"
-        :disabled="isFirstStep || submitting"
+        :disabled="submitting"
         prepend-icon="mdi-chevron-left"
         @click="prev"
       >

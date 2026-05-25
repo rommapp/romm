@@ -146,8 +146,9 @@ function onInput(e: Event) {
 </template>
 
 <style scoped>
-/* Negative horizontal margin compensates for the RDialog body padding
-   so the CTA stretches edge-to-edge, matching the picker rows below. */
+/* Edge-to-edge CTA row matching the picker rows below. The host
+   dialog (`ManageCollectionsDialog`) drops the standard RDialog body
+   padding, so no negative-margin compensation is needed here. */
 .new-row {
   display: grid;
   /* First column tracks the configurable tile width so the label always
@@ -157,8 +158,8 @@ function onInput(e: Event) {
   grid-template-columns: var(--tile-w, 36px) 1fr auto;
   align-items: center;
   gap: 14px;
-  width: calc(100% + 36px);
-  margin: -18px -18px 0;
+  width: 100%;
+  margin: 0;
   padding: 10px 30px;
   background: transparent;
   cursor: pointer;
