@@ -3,20 +3,27 @@
 // `Settings/ServerStats/PlatformsStats.vue`. Per-platform breakdown
 // rows: icon · name + meta (games count, metadata coverage chips,
 // region chips with expand/collapse) · size + percentage of total ·
-// width-based fill bar at the bottom of each row.
+// progress bar that doubles as the row divider.
 //
-// Order-by select sits in the section header so it's reachable
-// without scrolling through the list.
-import { RIcon, RPlatformIcon, RSelect } from "@v2/lib";
+// Toolbar mirrors GalleryToolbar's pattern: inline-prefix search on
+// the left, icon-only segmented sort on the right. No card chrome —
+// this section sits flush in the page; only the Summary section above
+// keeps a surface.
+import {
+  RIcon,
+  RPlatformIcon,
+  RProgressLinear,
+  RSliderBtnGroup,
+  RTextField,
+} from "@v2/lib";
+import type { SliderBtnGroupItem } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
-import { useI18n } from "vue-i18n";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, regionToEmoji } from "@/utils";
-import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -27,30 +34,55 @@ interface Props {
 }
 const props = defineProps<Props>();
 
-const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { allPlatforms } = storeToRefs(platformsStore);
 const heartbeat = storeHeartbeat();
 
 type OrderBy = "name" | "size" | "count";
 const orderBy = ref<OrderBy>("name");
+const searchQuery = ref("");
 
-const orderItems = [
-  { title: "Name", value: "name" },
-  { title: "Size", value: "size" },
-  { title: "Games", value: "count" },
+const orderItems: SliderBtnGroupItem<OrderBy>[] = [
+  {
+    id: "name",
+    icon: "mdi-sort-alphabetical-variant",
+    ariaLabel: "Sort by name",
+    title: "Name",
+  },
+  {
+    id: "size",
+    icon: "mdi-harddisk",
+    ariaLabel: "Sort by size",
+    title: "Size",
+  },
+  {
+    id: "count",
+    icon: "mdi-numeric",
+    ariaLabel: "Sort by game count",
+    title: "Games",
+  },
 ];
 
 const sortedPlatforms = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  let list = [...allPlatforms.value];
+  if (q) {
+    list = list.filter(
+      (p) =>
+        p.display_name.toLowerCase().includes(q) ||
+        p.name.toLowerCase().includes(q) ||
+        p.slug.toLowerCase().includes(q),
+    );
+  }
   if (orderBy.value === "size") {
-    return [...allPlatforms.value].sort(
+    return list.sort(
       (a, b) => Number(b.fs_size_bytes) - Number(a.fs_size_bytes),
     );
   }
   if (orderBy.value === "count") {
-    return [...allPlatforms.value].sort((a, b) => b.rom_count - a.rom_count);
+    return list.sort((a, b) => b.rom_count - a.rom_count);
   }
-  return [...allPlatforms.value].sort((a, b) =>
+  return list.sort((a, b) =>
     a.display_name.localeCompare(b.display_name, undefined, {
       sensitivity: "base",
     }),
@@ -117,18 +149,31 @@ function coveragePercent(matched: number, total: number): string {
 </script>
 
 <template>
-  <SettingsSection :title="t('common.platforms')" icon="mdi-controller">
-    <template #header-actions>
-      <RSelect
+  <section class="r-v2-plat-stats-section">
+    <div class="r-v2-plat-stats__toolbar">
+      <RTextField
+        :model-value="searchQuery"
+        placeholder="Search platforms"
+        density="comfortable"
+        prefix-label="inline"
+        clearable
+        hide-details
+        class="r-v2-plat-stats__search"
+        @update:model-value="(v) => (searchQuery = (v as string) ?? '')"
+      >
+        <template #prefix-label>
+          <RIcon icon="mdi-magnify" size="16" />
+        </template>
+      </RTextField>
+      <RSliderBtnGroup
         :model-value="orderBy"
         :items="orderItems"
-        density="compact"
-        variant="outlined"
-        hide-details
+        variant="segmented"
+        aria-label="Order platforms by"
         class="r-v2-plat-stats__order"
-        @update:model-value="(v) => (orderBy = v as OrderBy)"
+        @update:model-value="(v) => (orderBy = v)"
       />
-    </template>
+    </div>
 
     <div class="r-v2-plat-stats">
       <div
@@ -191,7 +236,7 @@ function coveragePercent(matched: number, total: number): string {
               >
                 {{
                   expandedRegions.has(platform.id)
-                    ? "−"
+                    ? "-"
                     : "+" + getHiddenRegionCount(platform.id)
                 }}
               </button>
@@ -206,42 +251,67 @@ function coveragePercent(matched: number, total: number): string {
             {{ platformPercentage(platform.fs_size_bytes).toFixed(1) }}%
           </div>
         </div>
-        <div class="r-v2-plat-stats__bar">
-          <div
-            class="r-v2-plat-stats__bar-fill"
-            :style="{ width: platformPercentage(platform.fs_size_bytes) + '%' }"
-          />
-        </div>
+        <RProgressLinear
+          :model-value="platformPercentage(platform.fs_size_bytes)"
+          :height="3"
+          :rounded="false"
+          color="primary"
+          class="r-v2-plat-stats__bar"
+        />
       </div>
       <div v-if="sortedPlatforms.length === 0" class="r-v2-plat-stats__empty">
         <RIcon icon="mdi-folder-question" size="22" />
-        <span>No platforms.</span>
+        <span>{{
+          searchQuery.trim() ? "No matching platforms." : "No platforms."
+        }}</span>
       </div>
     </div>
-  </SettingsSection>
+  </section>
 </template>
 
 <style scoped>
+.r-v2-plat-stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.r-v2-plat-stats__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Search width mirrors GalleryToolbar — bounded so the sort cluster
+   stays comfortably visible on wide screens but the field collapses
+   gracefully when the panel narrows. */
+.r-v2-plat-stats__search {
+  flex: 0 1 360px;
+  min-width: 0;
+}
+
+.r-v2-plat-stats__order {
+  margin-left: auto;
+}
+
 .r-v2-plat-stats {
   display: flex;
   flex-direction: column;
 }
 
-.r-v2-plat-stats__order {
-  width: 140px;
-}
-
 .r-v2-plat-stats__row {
-  position: relative;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 14px;
+  column-gap: 14px;
+  row-gap: 12px;
   align-items: center;
-  padding: 14px 16px 16px;
-  border-bottom: 1px solid var(--r-color-border);
+  padding-top: 14px;
 }
-.r-v2-plat-stats__row:last-child {
-  border-bottom: none;
+.r-v2-plat-stats__row:first-child {
+  padding-top: 0;
+}
+.r-v2-plat-stats__row:last-child .r-v2-plat-stats__bar {
+  display: none;
 }
 
 .r-v2-plat-stats__icon {
@@ -322,18 +392,7 @@ function coveragePercent(matched: number, total: number): string {
 }
 
 .r-v2-plat-stats__bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  background: var(--r-color-border);
   grid-column: 1 / -1;
-}
-.r-v2-plat-stats__bar-fill {
-  height: 100%;
-  background: var(--r-color-brand-primary);
-  transition: width var(--r-motion-base) var(--r-motion-ease-out);
 }
 
 .r-v2-plat-stats__empty {
