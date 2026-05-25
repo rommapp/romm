@@ -205,18 +205,23 @@ const dashOffset = computed(() => 100 - progressValue.value);
 }
 
 @keyframes r-pc-dash {
-  /* pathLength=100 → dash values are percentages of the circle. */
+  /* pathLength=100 → dash values are percentages of the circle.
+     Three-phase grow → slide → shrink loop. The trick that makes the
+     loop seamless: at 100% the arc collapses back to a 1-unit dot at
+     offset -100 — visually the same spot (and same length) as the
+     0% keyframe's dot at offset 0. Without this matched start/end the
+     dash would jump abruptly when the iteration restarts. */
   0% {
     stroke-dasharray: 1, 100;
     stroke-dashoffset: 0;
   }
   50% {
-    stroke-dasharray: 60, 100;
-    stroke-dashoffset: -15;
+    stroke-dasharray: 75, 100;
+    stroke-dashoffset: -25;
   }
   100% {
-    stroke-dasharray: 60, 100;
-    stroke-dashoffset: -75;
+    stroke-dasharray: 1, 100;
+    stroke-dashoffset: -100;
   }
 }
 

@@ -707,11 +707,45 @@ const spinnerSize = computed(() => {
 }
 
 /* ── Disabled ──────────────────────────────────────────────────── */
+/* Disabled buttons drop their brand fill in favour of a neutral
+   muted surface — leaving the brand colour at low opacity reads as
+   "translucent primary" rather than "off-limits", and on a flat
+   primary button the loader bleeds into the muted purple. Each
+   coloured variant has its own override below.
+   Opacity is held back from the loader so the spinner stays bright
+   while a disabled-loading button is in flight (typical case: a CTA
+   that locks itself the moment its async action starts). */
 .r-btn:disabled,
 .r-btn--disabled {
   cursor: not-allowed;
-  opacity: 0.45;
   pointer-events: none;
+}
+.r-btn--disabled:not(.r-btn--loading),
+.r-btn:disabled:not(.r-btn--loading) {
+  opacity: 0.55;
+}
+
+.r-btn--flat.r-btn--has-color.r-btn--disabled,
+.r-btn--flat.r-btn--has-color:disabled,
+.r-btn--elevated.r-btn--has-color.r-btn--disabled,
+.r-btn--elevated.r-btn--has-color:disabled {
+  background: var(--r-color-surface);
+  color: var(--r-color-fg-muted);
+  box-shadow: none;
+}
+.r-btn--translucent.r-btn--has-color.r-btn--disabled,
+.r-btn--translucent.r-btn--has-color:disabled {
+  background: var(--r-color-surface);
+  color: var(--r-color-fg-muted);
+}
+.r-btn--outlined.r-btn--has-color.r-btn--disabled,
+.r-btn--outlined.r-btn--has-color:disabled {
+  color: var(--r-color-fg-muted);
+  border-color: var(--r-color-border);
+}
+.r-btn--text.r-btn--has-color.r-btn--disabled,
+.r-btn--text.r-btn--has-color:disabled {
+  color: var(--r-color-fg-muted);
 }
 
 /* ── Reduced motion — drop hover overlay fade + ripple animation ── */

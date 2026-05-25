@@ -51,29 +51,30 @@ const counterLabel = computed(() => {
   if (!hasTotal.value) return null;
   return `${scanned.value} / ${total.value}`;
 });
-
-const tooltipText = computed(() => {
-  const base = t("scan.scanning-library", "Scanning library — click to view");
-  return counterLabel.value ? `${base} (${counterLabel.value} ROMs)` : base;
-});
 </script>
 
 <template>
   <Transition name="r-scan-indicator">
-    <RTooltip v-if="visible" :text="tooltipText" location="bottom">
+    <RTooltip
+      v-if="visible"
+      :text="t('scan.scanning-library', 'Scanning library. Click to view')"
+      location="bottom"
+    >
       <template #activator="{ props: tooltipProps }">
         <router-link
           v-bind="tooltipProps"
           :to="{ name: ROUTES.SCAN }"
           class="r-scan-indicator"
-          :aria-label="tooltipText"
+          :aria-label="
+            t('scan.scanning-library', 'Scanning library. Click to view')
+          "
         >
           <span class="r-scan-indicator__row">
             <RSpinner size="14" color="primary" />
             <span class="r-scan-indicator__label">
               {{ t("scan.scanning", "Scanning") }}
             </span>
-            <span v-if="counterLabel" class="r-scan-indicator__counter">
+            <span v-if="counterLabel">
               {{ counterLabel }}
             </span>
           </span>
@@ -148,15 +149,6 @@ const tooltipText = computed(() => {
 
 .r-scan-indicator__label {
   white-space: nowrap;
-}
-
-/* Tabular numerals so the counter doesn't shimmy as digits tick up. */
-.r-scan-indicator__counter {
-  font-variant-numeric: tabular-nums;
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: var(--r-radius-pill);
-  background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
 }
 
 /* Pinned to the pill's bottom edge; the pill's `overflow: hidden`

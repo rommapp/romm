@@ -912,7 +912,11 @@ function stopScan() {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   overflow: hidden;
-  height: calc(100vh - var(--r-nav-h) - 90px);
+  /* LibraryToolsLayout adds 60px top + 60px bottom padding around the
+     grid; AppLayout main reserves --r-nav-h for the fixed navbar.
+     Subtracting (nav + 120) keeps the column flush with the available
+     viewport so the page itself never scrolls. */
+  height: calc(100vh - var(--r-nav-h) - 120px);
   min-height: 540px;
 }
 
@@ -994,7 +998,6 @@ function stopScan() {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  cursor: help;
   min-width: 64px;
 }
 .r-v2-scan-live__chip--alt {
