@@ -145,6 +145,201 @@ export function loadEmulatorJSState(state: Uint8Array) {
   window.EJS_emulator.gameManager.loadState(state);
 }
 
+type FullscreenCapableHTMLElement = typeof HTMLElement.prototype & {
+  webkitRequestFullscreen?: () => void;
+};
+
+const IOS_FULLSCREEN_NAV_SELECTOR =
+  ".v-app-bar, .v-bottom-navigation, .v-navigation-drawer";
+
+function isIOSFullscreenShimRequired() {
+  return (
+    /iP(ad|hone|od)/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+function restoreProperty(
+  target: object,
+  property: PropertyKey,
+  descriptor?: PropertyDescriptor,
+) {
+  if (descriptor) {
+    Object.defineProperty(target, property, descriptor);
+    return;
+  }
+
+  Reflect.deleteProperty(target, property);
+}
+
+export function installIOSFullscreenShim() {
+  if (!isIOSFullscreenShimRequired()) {
+    return () => {};
+  }
+
+  const htmlElementPrototype =
+    HTMLElement.prototype as FullscreenCapableHTMLElement;
+  const fullscreenEnabledDescriptor = Object.getOwnPropertyDescriptor(
+    document,
+    "fullscreenEnabled",
+  );
+  const fullscreenElementDescriptor = Object.getOwnPropertyDescriptor(
+    document,
+    "fullscreenElement",
+  );
+  const exitFullscreenDescriptor = Object.getOwnPropertyDescriptor(
+    document,
+    "exitFullscreen",
+  );
+  const requestFullscreenDescriptor = Object.getOwnPropertyDescriptor(
+    htmlElementPrototype,
+    "requestFullscreen",
+  );
+  const webkitRequestFullscreenDescriptor = Object.getOwnPropertyDescriptor(
+    htmlElementPrototype,
+    "webkitRequestFullscreen",
+  );
+  const navDisplayMap = new Map<
+    HTMLElement,
+    { value: string; priority: string }
+  >();
+
+  let pseudoElement: HTMLElement | null = null;
+  let originalStyle = "";
+  let hadStyleAttribute = false;
+
+  const dispatchFullscreenChange = (element: HTMLElement | null) => {
+    document.dispatchEvent(new Event("fullscreenchange"));
+    element?.dispatchEvent(new Event("fullscreenchange"));
+  };
+
+  const hideNavigation = () => {
+    document
+      .querySelectorAll<HTMLElement>(IOS_FULLSCREEN_NAV_SELECTOR)
+      .forEach((element) => {
+        navDisplayMap.set(element, {
+          value: element.style.getPropertyValue("display"),
+          priority: element.style.getPropertyPriority("display"),
+        });
+        element.style.setProperty("display", "none", "important");
+      });
+  };
+
+  const showNavigation = () => {
+    navDisplayMap.forEach((display, element) => {
+      if (display.value) {
+        element.style.setProperty("display", display.value, display.priority);
+      } else {
+        element.style.removeProperty("display");
+      }
+    });
+    navDisplayMap.clear();
+  };
+
+  const setFullscreenElement = (element: HTMLElement | null) => {
+    Object.defineProperty(document, "fullscreenElement", {
+      configurable: true,
+      get: () => element,
+    });
+  };
+
+  const exitPseudoFullscreen = () => {
+    if (!pseudoElement) {
+      return Promise.resolve();
+    }
+
+    const currentElement = pseudoElement;
+
+    if (hadStyleAttribute) {
+      currentElement.setAttribute("style", originalStyle);
+    } else {
+      currentElement.removeAttribute("style");
+    }
+
+    showNavigation();
+    setFullscreenElement(null);
+    pseudoElement = null;
+    originalStyle = "";
+    hadStyleAttribute = false;
+    dispatchFullscreenChange(currentElement);
+
+    return Promise.resolve();
+  };
+
+  const enterPseudoFullscreen = (element: HTMLElement) => {
+    if (pseudoElement === element) {
+      return Promise.resolve();
+    }
+
+    if (pseudoElement) {
+      void exitPseudoFullscreen();
+    }
+
+    pseudoElement = element;
+    hadStyleAttribute = element.hasAttribute("style");
+    originalStyle = element.getAttribute("style") ?? "";
+    element.style.cssText =
+      `${originalStyle}${originalStyle ? ";" : ""}` +
+      "position:fixed!important;top:0!important;left:0!important;" +
+      "width:100vw!important;height:100svh!important;z-index:99999!important;" +
+      "background:#000!important;";
+
+    hideNavigation();
+    setFullscreenElement(element);
+    dispatchFullscreenChange(element);
+
+    return Promise.resolve();
+  };
+
+  Object.defineProperty(document, "fullscreenEnabled", {
+    configurable: true,
+    get: () => true,
+  });
+  setFullscreenElement(null);
+  Object.defineProperty(document, "exitFullscreen", {
+    configurable: true,
+    value: () => exitPseudoFullscreen(),
+    writable: true,
+  });
+  Object.defineProperty(htmlElementPrototype, "requestFullscreen", {
+    configurable: true,
+    value: function requestFullscreen(this: HTMLElement) {
+      return enterPseudoFullscreen(this);
+    },
+    writable: true,
+  });
+
+  if (
+    webkitRequestFullscreenDescriptor ||
+    "webkitRequestFullscreen" in htmlElementPrototype
+  ) {
+    Object.defineProperty(htmlElementPrototype, "webkitRequestFullscreen", {
+      configurable: true,
+      value: function webkitRequestFullscreen(this: HTMLElement) {
+        void enterPseudoFullscreen(this);
+      },
+      writable: true,
+    });
+  }
+
+  return () => {
+    void exitPseudoFullscreen();
+    restoreProperty(
+      htmlElementPrototype,
+      "webkitRequestFullscreen",
+      webkitRequestFullscreenDescriptor,
+    );
+    restoreProperty(
+      htmlElementPrototype,
+      "requestFullscreen",
+      requestFullscreenDescriptor,
+    );
+    restoreProperty(document, "exitFullscreen", exitFullscreenDescriptor);
+    restoreProperty(document, "fullscreenElement", fullscreenElementDescriptor);
+    restoreProperty(document, "fullscreenEnabled", fullscreenEnabledDescriptor);
+  };
+}
+
 export function createQuickLoadButton(): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
