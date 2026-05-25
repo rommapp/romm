@@ -29,9 +29,14 @@ from exceptions.fs_exceptions import (
     RomsNotFoundException,
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from logger.logger import log
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
-from utils.archive_7zip import process_file_7z, read_7z_archive_files
+from utils.archive_7zip import (
+    SevenZipExtractError,
+    iter_7z_archive_files,
+    process_file_7z,
+)
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS, iter_files
 from utils.hashing import crc32_to_hex
 
@@ -202,52 +207,41 @@ def read_bz2_file(file_path: Path) -> Iterator[bytes]:
             yield chunk
 
 
-def _read_zip_archive_files(
-    file_path: Path,
-    excluded_names: list[str],
-    excluded_exts: list[str],
-) -> list[tuple[str, int, list[bytes]]]:
-    """Read all eligible zip entries in ASCII path order.
+ARCHIVE_EXTENSIONS: Final = frozenset({".zip", ".tar", ".7z"})
 
-    Returns [(internal_name, file_size_bytes, chunks)] or [] on error.
-    """
-    results: list[tuple[str, int, list[bytes]]] = []
+
+def _is_excluded_archive_entry(name: str) -> bool:
+    """Apply the hardcoded default exclusions to an internal archive path."""
+    base = Path(name).name
+    lower = base.lower()
+    if any(lower.endswith("." + ext) for ext in DEFAULT_EXCLUDED_EXTENSIONS):
+        return True
+    return any(
+        base == exc or fnmatch.fnmatch(base, exc) for exc in DEFAULT_EXCLUDED_FILES
+    )
+
+
+def _iter_zip_entries(
+    file_path: Path,
+) -> Iterator[tuple[str, int, Iterator[bytes]]]:
     try:
         with zipfile.ZipFile(file_path, "r") as z:
-            entries = sorted(z.infolist(), key=lambda e: e.filename)
-            for entry in entries:
-                if entry.is_dir():
-                    continue
-                name = entry.filename
-                base_name = Path(name).name
-                lower = base_name.lower()
-                if any(lower.endswith("." + ext) for ext in excluded_exts):
-                    continue
-                if any(
-                    base_name == exc or fnmatch.fnmatch(base_name, exc)
-                    for exc in excluded_names
-                ):
-                    continue
-                chunks: list[bytes] = []
+            members = sorted(
+                (e for e in z.infolist() if not e.is_dir()),
+                key=lambda e: e.filename,
+            )
+            for entry in members:
                 with z.open(entry, "r") as f:
-                    while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                        chunks.append(chunk)
-                results.append((name, entry.file_size, chunks))
+                    yield entry.filename, entry.file_size, iter(
+                        lambda f=f: f.read(FILE_READ_CHUNK_SIZE), b""
+                    )
     except zipfile.BadZipFile:
-        pass
-    return results
+        return
 
 
-def _read_tar_archive_files(
+def _iter_tar_entries(
     file_path: Path,
-    excluded_names: list[str],
-    excluded_exts: list[str],
-) -> list[tuple[str, int, list[bytes]]]:
-    """Read all eligible tar entries (handles .tar/.tar.gz/.tar.bz2/.tar.xz) in ASCII path order.
-
-    Returns [(internal_name, file_size_bytes, chunks)] or [] on error.
-    """
-    results: list[tuple[str, int, list[bytes]]] = []
+) -> Iterator[tuple[str, int, Iterator[bytes]]]:
     try:
         with tarfile.open(file_path, "r") as tf:
             members = sorted(
@@ -255,26 +249,40 @@ def _read_tar_archive_files(
                 key=lambda m: m.name,
             )
             for member in members:
-                name = member.name
-                base_name = Path(name).name
-                lower = base_name.lower()
-                if any(lower.endswith("." + ext) for ext in excluded_exts):
-                    continue
-                if any(
-                    base_name == exc or fnmatch.fnmatch(base_name, exc)
-                    for exc in excluded_names
-                ):
-                    continue
                 ef = tf.extractfile(member)
                 if ef is None:
                     continue
-                chunks: list[bytes] = []
-                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                    chunks.append(chunk)
-                results.append((name, member.size, chunks))
+                yield member.name, member.size, iter(
+                    lambda ef=ef: ef.read(FILE_READ_CHUNK_SIZE), b""
+                )
     except tarfile.ReadError:
-        pass
-    return results
+        return
+
+
+_ARCHIVE_SOURCES: Final = {
+    ".zip": _iter_zip_entries,
+    ".tar": _iter_tar_entries,
+    ".7z": iter_7z_archive_files,
+}
+
+
+def _iter_archive_entries(
+    file_path: Path, ext: str
+) -> Iterator[tuple[str, int, Iterator[bytes]]]:
+    """Yield (name, size, chunk_iter) for every eligible archive entry, in ASCII name order.
+
+    Eligibility is determined by the hardcoded default exclusions; user-configured
+    EXCLUDED_MULTI_PARTS filters are intentionally ignored, as archives are assumed
+    to be curated ROM sets where every file is relevant. The consumer must fully
+    drain each chunk_iter before requesting the next entry.
+    """
+    source = _ARCHIVE_SOURCES.get(ext)
+    if source is None:
+        return
+    for name, size, chunks in source(file_path):
+        if _is_excluded_archive_entry(name):
+            continue
+        yield name, size, chunks
 
 
 def is_chd_file(file_path: Path) -> bool:
@@ -516,6 +524,70 @@ class FSRomsHandler(FSHandler):
             chd_sha1_hash=file_hash["chd_sha1_hash"],
         )
 
+    def _hash_archive_entries(
+        self,
+        rom: Rom,
+        archive_path: Path,
+        rom_path: Path,
+        rom_crc_c: int,
+        rom_md5_h: Any,
+        rom_sha1_h: Any,
+    ) -> tuple[list[RomFile], int, Any, Any] | None:
+        """Build a RomFile per eligible internal archive entry, folding bytes into composite hashes.
+
+        Returns ``None`` when the archive is empty, malformed, all-excluded, or fails
+        mid-extraction — the caller should then fall back to single-file hashing of the
+        archive itself. Composite accumulators are returned as fresh copies so the caller
+        can swap them in atomically; failed runs leave the originals untouched.
+        """
+        archive_mtime = archive_path.stat().st_mtime
+        archive_ext = archive_path.suffix.lower()
+        # Work on copies so a partial failure leaves the caller's accumulators clean.
+        rom_md5_h = rom_md5_h.copy()
+        rom_sha1_h = rom_sha1_h.copy()
+        files: list[RomFile] = []
+        try:
+            for name, size, chunks in _iter_archive_entries(archive_path, archive_ext):
+                crc_c = 0
+                md5_h = hashlib.md5(usedforsecurity=False)
+                sha1_h = hashlib.sha1(usedforsecurity=False)
+                for chunk in chunks:
+                    crc_c = binascii.crc32(chunk, crc_c)
+                    md5_h.update(chunk)
+                    sha1_h.update(chunk)
+                    rom_crc_c = binascii.crc32(chunk, rom_crc_c)
+                    rom_md5_h.update(chunk)
+                    rom_sha1_h.update(chunk)
+                files.append(
+                    self._build_rom_file(
+                        rom=rom,
+                        rom_path=rom_path,
+                        file_name=name,
+                        file_hash=FileHash(
+                            crc_hash=(
+                                crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else ""
+                            ),
+                            md5_hash=(
+                                md5_h.hexdigest()
+                                if md5_h.digest() != DEFAULT_MD5_H_DIGEST
+                                else ""
+                            ),
+                            sha1_hash=(
+                                sha1_h.hexdigest()
+                                if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
+                                else ""
+                            ),
+                            chd_sha1_hash="",
+                        ),
+                        file_size_bytes=size,
+                        last_modified=archive_mtime,
+                    )
+                )
+        except SevenZipExtractError as e:
+            log.error(f"Aborting per-file hashing of {archive_path}: {e}")
+            return None
+        return (files, rom_crc_c, rom_md5_h, rom_sha1_h) if files else None
+
     async def get_rom_files(
         self, rom: Rom, calculate_hashes: bool = True
     ) -> ParsedRomFiles:
@@ -654,109 +726,15 @@ class FSRomsHandler(FSHandler):
                         file_hash=file_hash,
                     )
                 )
-        elif hashable_platform and rom_ext in {".zip", ".tar", ".7z"}:
-            # Multi-file archive: compute per-file individual hashes + composite,
-            # mirroring the folder-based multi-part ROM behaviour above.
-            archive_entries: list[tuple[str, int, list[bytes]]] = []
-
-            if rom_ext == ".zip":
-                archive_entries = await asyncio.to_thread(
-                    _read_zip_archive_files,
-                    rom_dir,
-                    DEFAULT_EXCLUDED_FILES,
-                    DEFAULT_EXCLUDED_EXTENSIONS,
-                )
-            elif rom_ext == ".tar":
-                archive_entries = await asyncio.to_thread(
-                    _read_tar_archive_files,
-                    rom_dir,
-                    DEFAULT_EXCLUDED_FILES,
-                    DEFAULT_EXCLUDED_EXTENSIONS,
-                )
-            elif rom_ext == ".7z":
-                archive_entries = await asyncio.to_thread(
-                    read_7z_archive_files,
-                    rom_dir,
-                    DEFAULT_EXCLUDED_FILES,
-                    DEFAULT_EXCLUDED_EXTENSIONS,
-                )
-
-            if archive_entries:
-                archive_mtime = (await AnyioPath(rom_dir).stat()).st_mtime
-                assert rom_md5_h is not None and rom_sha1_h is not None
-                for internal_name, entry_size, chunks in archive_entries:
-                    crc_c = 0
-                    md5_h = hashlib.md5(usedforsecurity=False)
-                    sha1_h = hashlib.sha1(usedforsecurity=False)
-                    for chunk in chunks:
-                        crc_c = binascii.crc32(chunk, crc_c)
-                        md5_h.update(chunk)
-                        sha1_h.update(chunk)
-                        rom_crc_c = binascii.crc32(chunk, rom_crc_c)
-                        rom_md5_h.update(chunk)
-                        rom_sha1_h.update(chunk)
-                    file_hash = FileHash(
-                        crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
-                        md5_hash=(
-                            md5_h.hexdigest()
-                            if md5_h.digest() != DEFAULT_MD5_H_DIGEST
-                            else ""
-                        ),
-                        sha1_hash=(
-                            sha1_h.hexdigest()
-                            if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
-                            else ""
-                        ),
-                        chd_sha1_hash="",
-                    )
-                    rom_files.append(
-                        self._build_rom_file(
-                            rom=rom,
-                            rom_path=Path(rel_roms_path),
-                            file_name=internal_name,
-                            file_hash=file_hash,
-                            file_size_bytes=entry_size,
-                            last_modified=archive_mtime,
-                        )
-                    )
-            else:
-                # Empty, malformed, or all-excluded archive: hash the archive file itself
-                try:
-                    crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                        await asyncio.to_thread(
-                            self._calculate_rom_hashes,
-                            rom_dir,
-                            rom_crc_c,
-                            rom_md5_h,
-                            rom_sha1_h,
-                        )
-                    )
-                except zlib.error:
-                    crc_c = 0
-                    md5_h = hashlib.md5(usedforsecurity=False)
-                    sha1_h = hashlib.sha1(usedforsecurity=False)
-                file_hash = FileHash(
-                    crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
-                    md5_hash=(
-                        md5_h.hexdigest()
-                        if md5_h.digest() != DEFAULT_MD5_H_DIGEST
-                        else ""
-                    ),
-                    sha1_hash=(
-                        sha1_h.hexdigest()
-                        if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
-                        else ""
-                    ),
-                    chd_sha1_hash="",
-                )
-                rom_files.append(
-                    self._build_rom_file(
-                        rom=rom,
-                        rom_path=Path(rel_roms_path),
-                        file_name=rom.fs_name,
-                        file_hash=file_hash,
-                    )
-                )
+        elif hashable_platform and rom_ext in ARCHIVE_EXTENSIONS and (
+            archive_result := await asyncio.to_thread(
+                self._hash_archive_entries,
+                rom, rom_dir, Path(rel_roms_path),
+                rom_crc_c, rom_md5_h, rom_sha1_h,
+            )
+        ) is not None:
+            archive_files, rom_crc_c, rom_md5_h, rom_sha1_h = archive_result
+            rom_files.extend(archive_files)
         elif hashable_platform:
             try:
                 crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (

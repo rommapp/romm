@@ -1,9 +1,8 @@
 # trunk-ignore-all(bandit/B404)
 
-import fnmatch
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 from config import SEVEN_ZIP_TIMEOUT
@@ -11,6 +10,49 @@ from logger.logger import log
 
 SEVEN_ZIP_PATH = "/usr/bin/7zz"
 FILE_READ_CHUNK_SIZE = 1024 * 8
+
+
+class SevenZipExtractError(Exception):
+    """Raised when a 7z entry could not be extracted cleanly (timeout, bad exit, OS error)."""
+
+
+def _list_7z_entries(file_path: Path) -> list[tuple[str, int]]:
+    """Return [(internal_name, size_bytes)] for every file (not dir) in a 7z archive."""
+    try:
+        result = subprocess.run(
+            [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=SEVEN_ZIP_TIMEOUT,
+            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+        )
+    except (
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+    ) as e:
+        log.error(f"Error listing 7z archive {file_path}: {e}")
+        return []
+
+    entries: list[tuple[str, int]] = []
+    name: str | None = None
+    size = 0
+    for line in result.stdout.split("\n"):
+        line = line.lstrip()
+        if line.startswith("Path = "):
+            name = line.split(" = ", 1)[1]
+        elif line.startswith("Size = "):
+            try:
+                size = int(line.split(" = ", 1)[1].strip())
+            except ValueError:
+                size = 0
+        elif line.startswith("Attributes = "):
+            attrs = line.split(" = ", 1)[1].strip()
+            if name and not attrs.startswith("D"):
+                entries.append((name, size))
+            name, size = None, 0
+    return entries
 
 
 def process_file_7z(
@@ -25,167 +67,59 @@ def process_file_7z(
         fn_hash_update: Callback to update hashes with data chunks
     """
 
+    entries = _list_7z_entries(file_path)
+    if not entries:
+        return False
+
+    largest_file, _ = max(entries, key=lambda e: e[1])
+    log.debug(f"Extracting {largest_file} from {file_path}...")
+
     try:
-        result = subprocess.run(
-            [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=SEVEN_ZIP_TIMEOUT,
-            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
-        )
-
-        lines = result.stdout.split("\n")
-
-        largest_file = None
-        largest_size = 0
-        current_file = None
-        current_size = 0
-
-        for line in lines:
-            line = line.lstrip()
-            if line.startswith("Path = "):
-                current_file = line.split(" = ", 1)[1]
-            elif line.startswith("Size = "):
-                try:
-                    current_size = int(line.split(" = ")[1].strip())
-                except ValueError:
-                    current_size = 0
-            elif line.startswith("Attributes = "):
-                # Check if this is a file (not a folder)
-                attrs = line.split(" = ")[1].strip()
-                if current_file and not attrs.startswith("D"):  # D indicates directory
-                    if current_size > largest_size:
-                        largest_size = current_size
-                        largest_file = current_file
-
-        if not largest_file:
-            return False
-
-        log.debug(f"Extracting {largest_file} from {file_path}...")
-
-        start_decompression_time = time.monotonic()
-
-        with subprocess.Popen(
-            [SEVEN_ZIP_PATH, "e", str(file_path), largest_file, "-so", "-y"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
-        ) as process:
-            if process.stdout:
-                while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
-                    elapsed_time = time.monotonic() - start_decompression_time
-
-                    if elapsed_time > SEVEN_ZIP_TIMEOUT:
-                        process.terminate()
-                        log.error("7z extraction timed out")
-                        return False
-
-                    fn_hash_update(chunk)
-
-        if process.returncode != 0:
-            log.error(f"7z extraction failed with return code {process.returncode}")
-            return False
-
+        for chunk in _stream_7z_entry(
+            file_path, largest_file, time.monotonic() + SEVEN_ZIP_TIMEOUT
+        ):
+            fn_hash_update(chunk)
         return True
-
-    except (
-        subprocess.TimeoutExpired,
-        subprocess.CalledProcessError,
-        FileNotFoundError,
-    ) as e:
-        log.error(f"Error processing 7z file: {e}")
+    except SevenZipExtractError as e:
+        log.error(f"7z extraction failed: {e}")
         return False
 
 
-def read_7z_archive_files(
-    file_path: Path,
-    excluded_names: list[str],
-    excluded_exts: list[str],
-) -> list[tuple[str, int, list[bytes]]]:
-    """Read all eligible files from a 7z archive, sorted by internal path (ASCII).
-
-    Returns a list of (internal_name, file_size_bytes, chunks) tuples, or an
-    empty list on failure or if no eligible files are found.
-    """
+def _stream_7z_entry(
+    file_path: Path, entry_name: str, deadline: float
+) -> Iterator[bytes]:
+    """Yield chunks of a single 7z entry; raises SevenZipExtractError on failure."""
     try:
-        result = subprocess.run(
-            [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=SEVEN_ZIP_TIMEOUT,
-            shell=False,  # trunk-ignore(bandit/B603)
+        process = subprocess.Popen(
+            [SEVEN_ZIP_PATH, "e", str(file_path), entry_name, "-so", "-y"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
         )
-    except (
-        subprocess.TimeoutExpired,
-        subprocess.CalledProcessError,
-        FileNotFoundError,
-    ) as e:
-        log.error(f"Error listing 7z archive {file_path}: {e}")
-        return []
+    except (OSError, ValueError) as e:
+        raise SevenZipExtractError(str(e)) from e
 
-    entries: list[tuple[str, int]] = []
-    current_file: str | None = None
-    current_size = 0
+    with process:
+        assert process.stdout is not None
+        while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
+            if time.monotonic() > deadline:
+                process.terminate()
+                raise SevenZipExtractError(f"7z extraction of {entry_name} timed out")
+            yield chunk
 
-    for line in result.stdout.split("\n"):
-        line = line.lstrip()
-        if line.startswith("Path = "):
-            current_file = line.split(" = ", 1)[1]
-        elif line.startswith("Size = "):
-            try:
-                current_size = int(line.split(" = ")[1].strip())
-            except ValueError:
-                current_size = 0
-        elif line.startswith("Attributes = "):
-            attrs = line.split(" = ")[1].strip()
-            if current_file and not attrs.startswith("D"):
-                base_name = Path(current_file).name
-                lower = base_name.lower()
-                if not any(lower.endswith("." + ext) for ext in excluded_exts):
-                    if not any(
-                        base_name == exc or fnmatch.fnmatch(base_name, exc)
-                        for exc in excluded_names
-                    ):
-                        entries.append((current_file, current_size))
-            current_file = None
-            current_size = 0
+    if process.returncode != 0:
+        raise SevenZipExtractError(
+            f"7z extraction of {entry_name} failed with code {process.returncode}"
+        )
 
-    entries.sort(key=lambda e: e[0])
 
-    if not entries:
-        return []
+def iter_7z_archive_files(
+    file_path: Path,
+) -> Iterator[tuple[str, int, Iterator[bytes]]]:
+    """Yield (name, size, chunk_iter) for every file in a 7z archive, in ASCII name order.
 
-    output: list[tuple[str, int, list[bytes]]] = []
-    start_time = time.monotonic()
-
-    for name, size in entries:
-        chunks: list[bytes] = []
-        try:
-            with subprocess.Popen(
-                [SEVEN_ZIP_PATH, "e", str(file_path), name, "-so", "-y"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                shell=False,  # trunk-ignore(bandit/B603)
-            ) as process:
-                if process.stdout:
-                    while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
-                        if time.monotonic() - start_time > SEVEN_ZIP_TIMEOUT:
-                            process.terminate()
-                            log.error(
-                                "7z extraction timed out during multi-file archive read"
-                            )
-                            return output
-                        chunks.append(chunk)
-            if process.returncode != 0:
-                log.error(
-                    f"7z extraction of {name} failed with code {process.returncode}"
-                )
-                continue
-        except (OSError, ValueError) as e:
-            log.error(f"Error extracting {name} from {file_path}: {e}")
-            continue
-        output.append((name, size, chunks))
-
-    return output
+    Consumers should catch :class:`SevenZipExtractError` raised mid-iteration.
+    """
+    deadline = time.monotonic() + SEVEN_ZIP_TIMEOUT
+    for name, size in sorted(_list_7z_entries(file_path)):
+        yield name, size, _stream_7z_entry(file_path, name, deadline)
