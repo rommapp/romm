@@ -69,7 +69,7 @@ export type Events = {
   filterRoms: null;
   firmwareDrawerShow: null;
   sortBarShow: null;
-  showQRCodeDialog: SimpleRom;
+  showQRCodeDialog: DetailedRom;
   selectSaveDialog: DetailedRom;
   selectStateDialog: DetailedRom;
   saveSelected: SaveSchema;

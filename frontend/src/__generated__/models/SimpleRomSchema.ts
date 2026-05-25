@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ManualMetadata } from './ManualMetadata';
-import type { RomFileSchema } from './RomFileSchema';
 import type { RomFlashpointMetadata } from './RomFlashpointMetadata';
 import type { RomGamelistMetadata } from './RomGamelistMetadata';
 import type { RomHasheousMetadata } from './RomHasheousMetadata';
@@ -76,7 +75,6 @@ export type SimpleRomSchema = {
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;
-    files: Array<RomFileSchema>;
     full_path: string;
     created_at: string;
     updated_at: string;

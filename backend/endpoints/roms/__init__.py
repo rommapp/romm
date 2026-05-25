@@ -528,6 +528,7 @@ def get_roms(
         player_counts_logic=player_counts_logic,
         group_by_meta_id=group_by_meta_id,
         updated_after=updated_after,
+        include_file_stats=True,
     )
 
     # Get the char index for the roms

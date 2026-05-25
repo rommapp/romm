@@ -289,7 +289,6 @@ class RomSchema(BaseModel):
     has_simple_single_file: bool
     has_nested_single_file: bool
     has_multiple_files: bool
-    files: list[RomFileSchema]
     full_path: str
     created_at: UTCDatetime
     updated_at: UTCDatetime
@@ -315,10 +314,6 @@ class RomSchema(BaseModel):
     @field_validator("alternative_names")
     def sort_alternative_names(cls, v: list[str]) -> list[str]:
         return sorted(v)
-
-    @field_validator("files")
-    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
-        return sorted(v, key=lambda x: x.file_name)
 
 
 class SiblingRomSchema(BaseModel):
@@ -380,6 +375,7 @@ class UserCollectionSchema(BaseModel):
 class DetailedRomSchema(RomSchema):
     siblings: list[SiblingRomSchema]
     sibling_ids: list[int]
+    files: list[RomFileSchema]
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
     user_screenshots: list[ScreenshotSchema]
@@ -389,6 +385,10 @@ class DetailedRomSchema(RomSchema):
     @field_validator("siblings")
     def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
         return sorted(v, key=lambda x: x.sort_comparator)
+
+    @field_validator("files")
+    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
+        return sorted(v, key=lambda x: x.file_name)
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:

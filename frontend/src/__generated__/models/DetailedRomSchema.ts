@@ -82,7 +82,6 @@ export type DetailedRomSchema = {
     has_simple_single_file: boolean;
     has_nested_single_file: boolean;
     has_multiple_files: boolean;
-    files: Array<RomFileSchema>;
     full_path: string;
     created_at: string;
     updated_at: string;
@@ -93,6 +92,7 @@ export type DetailedRomSchema = {
     merged_ra_metadata: (RomRAMetadata | null);
     siblings: Array<SiblingRomSchema>;
     sibling_ids: Array<number>;
+    files: Array<RomFileSchema>;
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;
     user_screenshots: Array<ScreenshotSchema>;
