@@ -5,10 +5,11 @@
 // menu in the `#actions` slot opens the unified
 // `CollectionSettingsDrawer` (regular / smart only — virtual
 // collections are computed and have no editable fields).
-import { RBtn, RChip, RMenu, RMenuItem } from "@v2/lib";
+import { RBtn, RChip, RDivider, RMenu, RMenuItem } from "@v2/lib";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { onBeforeRouteUpdate, useRoute } from "vue-router";
+import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
 import storeCollections, {
   type Collection,
@@ -20,6 +21,8 @@ import CollectionSettingsDrawer from "@/v2/components/Gallery/CollectionSettings
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
+import { useConfirm } from "@/v2/composables/useConfirm";
+import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
@@ -28,7 +31,10 @@ type CollectionKind = "regular" | "virtual" | "smart";
 
 const { t } = useI18n();
 const route = useRoute();
+const router = useRouter();
 const auth = storeAuth();
+const confirm = useConfirm();
+const snackbar = useSnackbar();
 const collectionsStore = storeCollections();
 const galleryRoms = storeGalleryRoms();
 const { toWebp } = useWebpSupport();
@@ -38,6 +44,7 @@ const currentKind = ref<CollectionKind>("regular");
 const currentCollection = ref<AnyCollection | null>(null);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
 const settingsOpen = ref(false);
+const deleting = ref(false);
 
 // Virtual collections are computed (no editable fields) — only
 // regular / smart get the settings entry-point.
@@ -178,6 +185,58 @@ watch(
     loadForRoute(kindFromRoute(name), String(id));
   },
 );
+
+// ── Delete ──────────────────────────────────────────────────────
+// Mirrors the Platform.vue admin-kebab pattern: confirm dialog with
+// `requireTyped` on the collection name, then API call → store
+// remove → snackbar → navigate back to the index. Lives at the view
+// level (not in the settings drawer) so the destructive affordance
+// sits alongside Settings in the kebab menu — same vocabulary the
+// user sees on every other gallery surface.
+async function onDelete() {
+  const c = currentCollection.value;
+  if (!c || !editableKind.value) return;
+  const ok = await confirm({
+    title: t("collection.delete-collection", "Delete collection"),
+    body: `This removes "${c.name}" (${c.rom_count} ROMs in the collection). The ROM files themselves are not deleted.`,
+    confirmText: t("collection.delete-collection", "Delete collection"),
+    tone: "danger",
+    requireTyped: c.name,
+  });
+  if (!ok) return;
+
+  deleting.value = true;
+  try {
+    if (editableKind.value === "smart") {
+      await collectionApi.deleteSmartCollection((c as SmartCollection).id);
+      collectionsStore.removeSmartCollection(c as SmartCollection);
+    } else {
+      await collectionApi.deleteCollection({ collection: c as Collection });
+      collectionsStore.removeCollection(c as Collection);
+    }
+    snackbar.success(`Collection "${c.name}" deleted`, {
+      icon: "mdi-check-bold",
+    });
+    settingsOpen.value = false;
+    router.push({ name: "collections" });
+  } catch (err) {
+    const e = err as {
+      response?: { data?: { msg?: string; detail?: string } };
+      message?: string;
+    };
+    snackbar.error(
+      `Failed to delete collection: ${
+        e?.response?.data?.msg ||
+        e?.response?.data?.detail ||
+        e?.message ||
+        "unknown error"
+      }`,
+      { icon: "mdi-close-circle" },
+    );
+  } finally {
+    deleting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -235,6 +294,14 @@ watch(
               :label="t('collection.settings', 'Settings…')"
               icon="mdi-cog-outline"
               @click="settingsOpen = true"
+            />
+            <RDivider />
+            <RMenuItem
+              :label="t('collection.delete-collection', 'Delete collection')"
+              icon="mdi-delete-outline"
+              variant="danger"
+              :disabled="deleting"
+              @click="onDelete"
             />
           </RMenu>
         </template>

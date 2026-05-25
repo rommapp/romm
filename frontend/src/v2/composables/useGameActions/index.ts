@@ -15,12 +15,12 @@ import { useRouter } from "vue-router";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import romApi from "@/services/api/rom";
-import storeCollections from "@/stores/collections";
 import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
 import { getDownloadLink, getDownloadPath, isNintendoDSRom } from "@/utils";
+import { useCan } from "@/v2/composables/useCan";
 import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
@@ -28,8 +28,9 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
   const router = useRouter();
   const emitter = inject<Emitter<Events>>("emitter");
   const snackbar = useSnackbar();
-  const collectionsStore = storeCollections();
   const romsStore = storeRoms();
+  const canCreateCollection = useCan("collection.create");
+  const canEditCollection = useCan("collection.edit");
   const { isFavorite, toggleFavorite } = useFavoriteToggle(emitter);
   const { canPlay, canPlayEJS, canPlayRuffle } = useCanPlay(getRom);
 
@@ -139,10 +140,13 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     }
   }
 
+  // Permission-driven, not state-driven. The previous "count > 0"
+  // check hid the entry exactly when the user needed it most — to
+  // create the first collection from a ROM (ManageCollectionsDialog
+  // bundles toggle + create flows in one surface). Backend rejects
+  // unauthorised writes regardless, so this gate is purely UX.
   const canManageCollections = computed(
-    () =>
-      collectionsStore.allCollections.length > 0 ||
-      Boolean(collectionsStore.favoriteCollection),
+    () => canCreateCollection.value || canEditCollection.value,
   );
 
   const canShareQR = computed(() => {

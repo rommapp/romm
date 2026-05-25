@@ -11,6 +11,8 @@
 import { RIcon, RPlatformIcon, RTag, RTooltip } from "@v2/lib";
 import type { DetailedRom } from "@/stores/roms";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
+import MainSiblingToggle from "@/v2/components/GameDetails/MainSiblingToggle.vue";
+import VersionSwitcher from "@/v2/components/GameDetails/VersionSwitcher.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
 
 defineOptions({ inheritAttrs: false });
@@ -91,6 +93,11 @@ const actions = useGameActions(() => props.rom);
       <RTag v-for="t in tags" :key="`t-${t}`" :text="t" size="small" />
     </div>
 
+    <div v-if="rom.siblings.length > 0" class="r-v2-det-header__versions">
+      <VersionSwitcher :rom="rom" />
+      <MainSiblingToggle :rom="rom" />
+    </div>
+
     <GameActions :rom="rom" />
   </div>
 </template>
@@ -148,6 +155,13 @@ const actions = useGameActions(() => props.rom);
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.r-v2-det-header__versions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 html[data-bp~="xs"] .r-v2-det-header__title {

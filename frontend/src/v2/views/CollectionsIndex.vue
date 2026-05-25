@@ -107,8 +107,8 @@ const kindFilterItems: KindFilterItem[] = [
   {
     id: "regular",
     icon: "mdi-bookmark-outline",
-    ariaLabel: "Curated collections",
-    title: "Curated collections",
+    ariaLabel: "Collections",
+    title: "Collections",
   },
   {
     id: "virtual",
@@ -209,6 +209,33 @@ const noResults = computed(
     filtered.value.length === 0,
 );
 
+// Empty-state payload for the post-load "nothing matches" case. Split
+// by which axis is responsible (search vs. kind filter vs. both) so
+// the message is specific and the empty-search "match ""." footgun
+// stays off the screen — when there's no search term at all the copy
+// shifts to a "no collections of this kind yet" headline.
+const trimmedSearch = computed(() => searchTerm.value.trim());
+const emptyState = computed<{ icon: string; message: string } | null>(() => {
+  if (!noResults.value) return null;
+  const term = trimmedSearch.value;
+  if (term) {
+    return {
+      icon: "mdi-bookmark-multiple-outline",
+      message: `No collections match “${term}”.`,
+    };
+  }
+  if (kindFilter.value === "regular") {
+    return { icon: "mdi-bookmark-outline", message: "No collections yet." };
+  }
+  if (kindFilter.value === "virtual") {
+    return { icon: "mdi-bookmark-box-outline", message: "No collections yet." };
+  }
+  return {
+    icon: "mdi-bookmark-multiple-outline",
+    message: "No collections yet.",
+  };
+});
+
 type LetterGroup = { letter: string; items: CollectionTileEntry[] };
 // Bucket visual order in asc: `# A…Z @` — `#` (digits) first, `@`
 // (other symbols) last; mirrors AlphaStrip's ALPHABET. Desc flips the
@@ -264,10 +291,22 @@ const showCuratedSection = computed(
 const showVirtualSection = computed(
   () => layout.value === "grid" && virtualTiles.value.length > 0,
 );
+
+// Drives `IndexShell`'s sticky list-header band — only render the
+// column header when the list itself is on screen (list layout + a
+// row to show). Skipping it during the skeleton / empty / no-match
+// states keeps an orphan header from floating above an empty viewport.
+const showListHeader = computed(
+  () =>
+    layout.value === "list" &&
+    !fetchingCollections.value &&
+    totalCount.value > 0 &&
+    filtered.value.length > 0,
+);
 </script>
 
 <template>
-  <IndexShell :list-mode="layout === 'list'">
+  <IndexShell :list-mode="showListHeader">
     <template #header>
       <PageHeader title="Collections" :count="totalCount" />
       <RDivider class="r-v2-cidx__header-divider" />
@@ -313,8 +352,9 @@ const showVirtualSection = computed(
     />
 
     <EmptyState
-      v-else-if="noResults"
-      :message="`No collections match “${searchTerm}”.`"
+      v-else-if="emptyState"
+      :icon="emptyState.icon"
+      :message="emptyState.message"
     />
 
     <div v-else-if="layout === 'list'" class="r-v2-cidx__list">
@@ -336,7 +376,7 @@ const showVirtualSection = computed(
            view. Stays out of the way when nothing curated matches. -->
       <section v-if="showCuratedSection" class="r-v2-cidx__panel">
         <h3 class="r-v2-cidx__panel-title">
-          <RIcon icon="mdi-bookmark" class="r-v2-cidx__panel-icon" />Curated
+          <RIcon icon="mdi-bookmark" class="r-v2-cidx__panel-icon" />Collections
         </h3>
         <template v-if="showLetterGroups">
           <template v-for="g in curatedLetterGroups" :key="`cur-${g.letter}`">

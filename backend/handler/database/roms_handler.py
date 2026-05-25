@@ -144,7 +144,13 @@ def with_details(func):
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             selectinload(Rom.files),
             selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform), noload(Rom.metadatum)
+                noload(Rom.platform),
+                noload(Rom.metadatum),
+                # Per-sibling is_main_sibling resolution for the
+                # SiblingRomSchema needs each sibling's RomUser for the
+                # request user — the relationship is `lazy="raise"`, so
+                # it has to be eager-loaded here.
+                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             ),
             selectinload(Rom.collections),
             selectinload(Rom.notes),
@@ -565,7 +571,11 @@ class DBRomsHandler(DBBaseHandler):
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             # Show sibling rom badges on cards
             selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform), noload(Rom.metadatum)
+                noload(Rom.platform),
+                noload(Rom.metadatum),
+                # Required so SiblingRomSchema.is_main_sibling can be
+                # computed per sibling for the request user.
+                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             ),
             # Show notes indicator on cards
             selectinload(Rom.notes),

@@ -148,7 +148,9 @@ function onInput(e: Event) {
 <style scoped>
 /* Edge-to-edge CTA row matching the picker rows below. The host
    dialog (`ManageCollectionsDialog`) drops the standard RDialog body
-   padding, so no negative-margin compensation is needed here. */
+   padding AND we drop the row's horizontal padding too, so the tile
+   and actions go flush with the dialog walls — same "menu items, not
+   padded cards" idiom as RMenu. */
 .new-row {
   display: grid;
   /* First column tracks the configurable tile width so the label always
@@ -160,7 +162,7 @@ function onInput(e: Event) {
   gap: 14px;
   width: 100%;
   margin: 0;
-  padding: 10px 30px;
+  padding: 10px 16px;
   background: transparent;
   cursor: pointer;
   color: inherit;

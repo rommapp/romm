@@ -336,6 +336,10 @@ class RomSchema(BaseModel):
                 name=s.name,
                 fs_name_no_tags=s.fs_name_no_tags,
                 fs_name_no_ext=s.fs_name_no_ext,
+                is_main_sibling=any(
+                    ru.user_id == request.user.id and ru.is_main_sibling
+                    for ru in s.rom_users
+                ),
             )
             for s in db_rom.sibling_roms
         ]
@@ -362,6 +366,7 @@ class SiblingRomSchema(BaseModel):
     name: str | None
     fs_name_no_tags: str
     fs_name_no_ext: str
+    is_main_sibling: bool
 
     @computed_field  # type: ignore
     @property

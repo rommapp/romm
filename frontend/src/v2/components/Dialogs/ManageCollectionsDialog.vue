@@ -32,6 +32,7 @@ import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import CollectionPickerRow from "@/v2/components/Collections/CollectionPickerRow.vue";
 import NewCollectionRow from "@/v2/components/Collections/NewCollectionRow.vue";
+import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -200,6 +201,15 @@ const subtitle = computed(() => {
 
 const ownedCollections = computed(() => collectionsStore.ownedCollections);
 
+// Header cover thumbnail — single-rom invocations get the game's cover
+// alongside the title (same `<GameCard size="xs" decorative>` shape
+// the list-mode row uses, so the header reads as a sibling of the
+// gallery surface). Bulk invocations stay text-only since one cover
+// can't represent the selection.
+const singleRom = computed(() =>
+  roms.value.length === 1 ? roms.value[0] : null,
+);
+
 function closeDialog() {
   roms.value = [];
   optimistic.value = new Map();
@@ -211,18 +221,34 @@ function closeDialog() {
 </script>
 
 <template>
-  <RDialog v-model="show" :width="mdAndUp ? 440 : '95vw'" @close="closeDialog">
+  <RDialog
+    v-model="show"
+    :width="mdAndUp ? 440 : '95vw'"
+    class="r-v2-mng-coll-dialog"
+    @close="closeDialog"
+  >
     <!-- Two-line title block replaces the single-line default so the
          bold "Manage collections" + muted game subtitle stack. Close X
          is provided by RDialog in its own header chrome. -->
     <template #header>
       <div class="r-v2-mng-coll__head">
-        <span class="r-v2-mng-coll__head-title">
-          {{ t("rom.manage-collections", "Manage collections") }}
-        </span>
-        <span v-if="subtitle" class="r-v2-mng-coll__head-subtitle">
-          {{ subtitle }}
-        </span>
+        <GameCard
+          v-if="singleRom"
+          class="r-v2-mng-coll__head-cover"
+          :rom="singleRom"
+          size="xs"
+          decorative
+          :show-title="false"
+          :show-platform-icon="false"
+        />
+        <div class="r-v2-mng-coll__head-text">
+          <span class="r-v2-mng-coll__head-title">
+            {{ t("rom.manage-collections", "Manage collections") }}
+          </span>
+          <span v-if="subtitle" class="r-v2-mng-coll__head-subtitle">
+            {{ subtitle }}
+          </span>
+        </div>
       </div>
     </template>
 
@@ -266,9 +292,18 @@ function closeDialog() {
 </template>
 
 <style scoped>
-/* Header typography — stacked title (14px bold) + subtitle (11.5px
-   muted) inside RDialog's single header slot. */
+/* Header — optional GameCard thumbnail + stacked title (14px bold) +
+   subtitle (11.5px muted) inside RDialog's single header slot. */
 .r-v2-mng-coll__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.r-v2-mng-coll__head-cover {
+  flex-shrink: 0;
+}
+.r-v2-mng-coll__head-text {
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -288,7 +323,7 @@ function closeDialog() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 360px;
+  max-width: 320px;
 }
 
 /* Row list — sits flush against the dialog edges. This dialog drops
@@ -311,11 +346,16 @@ function closeDialog() {
   font-size: 13px;
   text-align: center;
 }
+</style>
 
-/* This dialog renders edge-to-edge rows that act as menu items, so we
-   strip the standard RDialog body padding + gap. Header and footer
-   keep their own chrome padding, untouched. */
-:deep(.r-dialog__body) {
+<!-- Unscoped overrides — `.r-dialog__body` is rendered (and teleported)
+     by RDialog with its own data-v hash, so a scoped `:deep()` rule
+     from this component doesn't actually land on it. The unscoped
+     selector targets the body via a class we attach to RDialog's root
+     overlay (flows through `v-bind="$attrs"`), keeping the override
+     localised to this dialog. -->
+<style>
+.r-v2-mng-coll-dialog .r-dialog__body {
   padding: 0;
   gap: 0;
 }

@@ -6,13 +6,16 @@
 //
 //   * regular → name / description / public, cover artwork
 //     (SteamGridDB search · file upload · remove), filter_criteria not
-//     applicable, delete
+//     applicable.
 //   * smart   → name / description / public, filter_criteria displayed
 //     read-only (matches v1 — editing the criteria isn't surfaced in
-//     the drawer), delete
+//     the drawer).
 //
 // Virtual collections never open this drawer — they're computed and
 // have no editable fields.
+//
+// Delete lives in `Collection.vue`'s kebab menu (mirroring the Platform
+// admin pattern), not here — the drawer is purely "edit this".
 //
 // Cover artwork flow:
 //   • Search → emits `showSearchCoverDialog` (global SearchCoverDialog
@@ -30,7 +33,6 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 import collectionApi, {
   type UpdatedCollection,
 } from "@/services/api/collection";
@@ -42,7 +44,6 @@ import storeCollections, {
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
-import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import RDrawer from "@/v2/lib/overlays/RDrawer/RDrawer.vue";
@@ -65,14 +66,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "update:modelValue", v: boolean): void;
   (e: "saved", c: Collection | SmartCollection): void;
-  (e: "deleted"): void;
 }>();
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
-const confirm = useConfirm();
-const router = useRouter();
 const auth = storeAuth();
 const collectionsStore = storeCollections();
 const galleryRoms = storeGalleryRoms();
@@ -95,7 +93,6 @@ const pendingUrlCover = ref<string | null>(null);
 const previewDataUrl = ref<string | null>(null);
 const removeCover = ref(false);
 const saving = ref(false);
-const deleting = ref(false);
 
 // Hidden file input — clicked programmatically by the "Upload" action.
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -299,53 +296,6 @@ async function save() {
 function discard() {
   snapshot();
 }
-
-// ── Delete ──────────────────────────────────────────────────────
-async function onDelete() {
-  if (!canEdit.value) return;
-  const c = props.collection;
-  const ok = await confirm({
-    title: t("collection.delete-collection", "Delete collection"),
-    body: `This removes "${c.name}" (${c.rom_count} ROMs in the collection). The ROM files themselves are not deleted.`,
-    confirmText: t("collection.delete-collection", "Delete collection"),
-    tone: "danger",
-    requireTyped: c.name,
-  });
-  if (!ok) return;
-
-  deleting.value = true;
-  try {
-    if (props.kind === "smart") {
-      await collectionApi.deleteSmartCollection((c as SmartCollection).id);
-      collectionsStore.removeSmartCollection(c as SmartCollection);
-    } else {
-      await collectionApi.deleteCollection({ collection: c as Collection });
-      collectionsStore.removeCollection(c as Collection);
-    }
-    snackbar.success(`Collection "${c.name}" deleted`, {
-      icon: "mdi-check-bold",
-    });
-    emit("deleted");
-    emit("update:modelValue", false);
-    router.push({ name: "collections" });
-  } catch (err) {
-    const e = err as {
-      response?: { data?: { msg?: string; detail?: string } };
-      message?: string;
-    };
-    snackbar.error(
-      `Failed to delete collection: ${
-        e?.response?.data?.msg ||
-        e?.response?.data?.detail ||
-        e?.message ||
-        "unknown error"
-      }`,
-      { icon: "mdi-close-circle" },
-    );
-  } finally {
-    deleting.value = false;
-  }
-}
 </script>
 
 <template>
@@ -508,26 +458,6 @@ async function onDelete() {
       </ul>
     </section>
 
-    <!-- Danger zone — owner + write scope only. -->
-    <section
-      v-if="canEdit"
-      class="r-v2-coll-set__section r-v2-coll-set__danger"
-    >
-      <header class="r-v2-coll-set__section-head r-v2-coll-set__danger-head">
-        <RIcon icon="mdi-alert" size="14" />
-        <span>{{ t("collection.danger-zone", "Danger zone") }}</span>
-      </header>
-      <RBtn
-        variant="outlined"
-        color="danger"
-        prepend-icon="mdi-delete-outline"
-        :loading="deleting"
-        @click="onDelete"
-      >
-        {{ t("collection.delete-collection", "Delete collection") }}
-      </RBtn>
-    </section>
-
     <template v-if="canEdit" #footer>
       <RBtn variant="text" :disabled="!dirty || saving" @click="discard">
         {{ t("common.discard", "Discard") }}
@@ -644,14 +574,5 @@ async function onDelete() {
   flex-wrap: wrap;
   gap: 4px;
   padding-left: 20px;
-}
-
-/* ── Danger ─────────────────────────────────────────────────────── */
-.r-v2-coll-set__danger {
-  padding-top: 12px;
-  border-top: 1px solid var(--r-color-border);
-}
-.r-v2-coll-set__danger-head {
-  color: var(--r-color-danger);
 }
 </style>

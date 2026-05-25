@@ -36,7 +36,6 @@ const {
   showCollections,
   // Gallery
   groupRoms,
-  showSiblings,
   showRegions,
   showLanguages,
   showStatus,
@@ -93,10 +92,7 @@ const uiVersionCards = computed(() => [
     value: "v2" as const,
     title: t("settings.ui-version-new", "New UI"),
     icon: "mdi-star-four-points",
-    blurb: t(
-      "settings.ui-version-new-blurb",
-      "The new design language — switch is instant.",
-    ),
+    blurb: t("settings.ui-version-new-blurb", "The new RomM experience."),
     beta: true,
   },
 ]);
@@ -191,12 +187,11 @@ function onVirtualCollectionTypeChange(value: unknown) {
           :title="t('settings.group-roms')"
           :description="t('settings.group-roms-desc')"
         />
-        <SettingsToggleRow
-          v-model="showSiblings"
-          :title="t('settings.show-siblings')"
-          :description="t('settings.show-siblings-desc')"
-          :disabled="!groupRoms"
-        />
+        <!-- `showSiblings` (v1) was dropped: v2 folds the sibling-count
+             chip into `groupRoms` itself — when the gallery groups, the
+             chip appears; when it doesn't, every version shows
+             separately so the chip would be noise. The shared
+             `useUISettings` key stays for v1 only; remove when v1 dies. -->
         <SettingsToggleRow
           v-model="showGameTitle"
           :title="t('settings.show-game-titles')"

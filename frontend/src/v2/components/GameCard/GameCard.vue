@@ -42,6 +42,7 @@ import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
+import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useGameActions } from "@/v2/composables/useGameActions";
@@ -349,8 +350,7 @@ const morphStyle = computed(() => {
         'r-gc--no-hover': noHover || decorative,
         'r-gc--selected': isSelected,
         'r-gc--checkbox-on': checkboxAlwaysOn,
-        'r-gc--has-platform-icon':
-          !static && !decorative && showPlatformIcon,
+        'r-gc--has-platform-icon': !static && !decorative && showPlatformIcon,
       },
     ]"
     :aria-label="decorative ? undefined : title"
@@ -445,6 +445,8 @@ const morphStyle = computed(() => {
           size="small"
           orientation="vertical"
         />
+
+        <SiblingBadge :rom="rom" />
 
         <!-- Hover overlay — action buttons are the shared GameActionBtn. -->
         <div class="r-gc__overlay">
@@ -648,7 +650,8 @@ const morphStyle = computed(() => {
 .r-gc:hover .r-gc__art,
 .r-gc:focus-visible .r-gc__art,
 .r-gc--focused .r-gc__art,
-.r-gc:has(.r-v2-game-btn--pinned) .r-gc__art {
+.r-gc:has(.r-v2-game-btn--pinned) .r-gc__art,
+.r-gc:has(.sibling-badge--pinned) .r-gc__art {
   transform: scale(1.05);
   box-shadow: var(--r-elev-3);
 }
@@ -667,7 +670,8 @@ const morphStyle = computed(() => {
 .r-gc:hover .r-gc__overlay,
 .r-gc:focus-visible .r-gc__overlay,
 .r-gc--focused .r-gc__overlay,
-.r-gc:has(.r-v2-game-btn--pinned) .r-gc__overlay {
+.r-gc:has(.r-v2-game-btn--pinned) .r-gc__overlay,
+.r-gc:has(.sibling-badge--pinned) .r-gc__overlay {
   opacity: 1;
 }
 
@@ -689,10 +693,12 @@ const morphStyle = computed(() => {
 .r-gc:focus-visible .r-gc__badge,
 .r-gc--focused .r-gc__badge,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__badge,
+.r-gc:has(.sibling-badge--pinned) .r-gc__badge,
 .r-gc:hover .r-gc__rating,
 .r-gc:focus-visible .r-gc__rating,
 .r-gc--focused .r-gc__rating,
-.r-gc:has(.r-v2-game-btn--pinned) .r-gc__rating {
+.r-gc:has(.r-v2-game-btn--pinned) .r-gc__rating,
+.r-gc:has(.sibling-badge--pinned) .r-gc__rating {
   opacity: 1;
 }
 
@@ -725,8 +731,32 @@ const morphStyle = computed(() => {
 .r-gc:focus-visible :deep(.r-v2-game-btn--action-status),
 .r-gc--focused :deep(.r-v2-game-btn--action-status),
 .r-gc:has(.r-v2-game-btn--pinned) :deep(.r-v2-game-btn--action-status),
+.r-gc:has(.sibling-badge--pinned) :deep(.r-v2-game-btn--action-status),
 .r-gc :deep(.r-v2-game-btn--active-status) {
   opacity: 1;
+}
+
+/* Sibling-versions badge — right-side stack with the platform icon
+   and status badge. With a platform icon present (the normal gallery
+   layout) the chip drops below it; without one it takes the top-right
+   corner. When the sibling badge IS present, the status badge slides
+   one more notch down so all three affordances read as a clean
+   vertical column. */
+.r-gc :deep(.sibling-badge) {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 3;
+}
+.r-gc--has-platform-icon :deep(.sibling-badge) {
+  top: 40px;
+}
+.r-gc--has-platform-icon:has(.sibling-badge)
+  :deep(.r-v2-game-btn--action-status) {
+  /* Sibling pill is ~35px tall (top 40 → bottom 75); the status badge
+     sits 5px below to keep the same rhythm as the platform-icon →
+     sibling gap. */
+  top: 80px;
 }
 
 /* Keyboard / gamepad focus — paint the outline in the brand colour and
@@ -768,7 +798,8 @@ const morphStyle = computed(() => {
 .r-gc:hover .r-gc__label,
 .r-gc:focus-visible .r-gc__label,
 .r-gc--focused .r-gc__label,
-.r-gc:has(.r-v2-game-btn--action-more[aria-expanded="true"]) .r-gc__label {
+.r-gc:has(.r-v2-game-btn--action-more[aria-expanded="true"]) .r-gc__label,
+.r-gc:has(.sibling-badge--pinned) .r-gc__label {
   color: var(--r-color-fg);
 }
 
