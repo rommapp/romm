@@ -1,3 +1,4 @@
+import Bowser from "bowser";
 import { type SaveSchema } from "@/__generated__";
 import { type StateSchema } from "@/__generated__";
 import saveApi from "@/services/api/save";
@@ -145,31 +146,27 @@ export function loadEmulatorJSState(state: Uint8Array) {
   window.EJS_emulator.gameManager.loadState(state);
 }
 
-type FullscreenCapableHTMLElement = typeof HTMLElement.prototype & {
-  webkitRequestFullscreen?: () => void;
-};
-
 const IOS_FULLSCREEN_NAV_SELECTOR =
   ".v-app-bar, .v-bottom-navigation, .v-navigation-drawer";
+const IOS_FULLSCREEN_STYLE = `
+  [data-ios-fullscreen-active] {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100svh !important;
+    z-index: 99999 !important;
+    background: #000 !important;
+  }
+  [data-ios-fullscreen-hidden] { display: none !important; }
+`;
 
 function isIOSFullscreenShimRequired() {
+  const osName = Bowser.getParser(navigator.userAgent).getOSName(true);
   return (
-    /iP(ad|hone|od)/.test(navigator.userAgent) ||
+    osName === "ios" ||
+    // iPadOS 13+ reports as macOS with touch support, so fall back to that check.
     (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
   );
-}
-
-function restoreProperty(
-  target: object,
-  property: PropertyKey,
-  descriptor?: PropertyDescriptor,
-) {
-  if (descriptor) {
-    Object.defineProperty(target, property, descriptor);
-    return;
-  }
-
-  Reflect.deleteProperty(target, property);
 }
 
 export function installIOSFullscreenShim() {
@@ -177,166 +174,85 @@ export function installIOSFullscreenShim() {
     return () => {};
   }
 
-  const htmlElementPrototype =
-    HTMLElement.prototype as FullscreenCapableHTMLElement;
-  const fullscreenEnabledDescriptor = Object.getOwnPropertyDescriptor(
-    document,
-    "fullscreenEnabled",
-  );
-  const fullscreenElementDescriptor = Object.getOwnPropertyDescriptor(
-    document,
-    "fullscreenElement",
-  );
-  const exitFullscreenDescriptor = Object.getOwnPropertyDescriptor(
-    document,
-    "exitFullscreen",
-  );
-  const requestFullscreenDescriptor = Object.getOwnPropertyDescriptor(
-    htmlElementPrototype,
-    "requestFullscreen",
-  );
-  const webkitRequestFullscreenDescriptor = Object.getOwnPropertyDescriptor(
-    htmlElementPrototype,
-    "webkitRequestFullscreen",
-  );
-  const navDisplayMap = new Map<
-    HTMLElement,
-    { value: string; priority: string }
-  >();
-
-  let pseudoElement: HTMLElement | null = null;
-  let originalStyle = "";
-  let hadStyleAttribute = false;
-
-  const dispatchFullscreenChange = (element: HTMLElement | null) => {
-    document.dispatchEvent(new Event("fullscreenchange"));
-    element?.dispatchEvent(new Event("fullscreenchange"));
+  const proto = HTMLElement.prototype;
+  const overrides: Array<{
+    target: object;
+    key: PropertyKey;
+    prev?: PropertyDescriptor;
+  }> = [];
+  const override = (
+    target: object,
+    key: PropertyKey,
+    descriptor: PropertyDescriptor,
+  ) => {
+    overrides.push({
+      target,
+      key,
+      prev: Object.getOwnPropertyDescriptor(target, key),
+    });
+    Object.defineProperty(target, key, { configurable: true, ...descriptor });
   };
 
-  const hideNavigation = () => {
+  const styleEl = document.createElement("style");
+  styleEl.textContent = IOS_FULLSCREEN_STYLE;
+  document.head.appendChild(styleEl);
+
+  let fullscreenElement: HTMLElement | null = null;
+
+  const dispatchChange = (target: HTMLElement) => {
+    document.dispatchEvent(new Event("fullscreenchange"));
+    target.dispatchEvent(new Event("fullscreenchange"));
+  };
+
+  const enter = (el: HTMLElement) => {
+    if (fullscreenElement === el) return Promise.resolve();
+    if (fullscreenElement) void exit();
+
+    el.setAttribute("data-ios-fullscreen-active", "");
     document
       .querySelectorAll<HTMLElement>(IOS_FULLSCREEN_NAV_SELECTOR)
-      .forEach((element) => {
-        navDisplayMap.set(element, {
-          value: element.style.getPropertyValue("display"),
-          priority: element.style.getPropertyPriority("display"),
-        });
-        element.style.setProperty("display", "none", "important");
-      });
-  };
-
-  const showNavigation = () => {
-    navDisplayMap.forEach((display, element) => {
-      if (display.value) {
-        element.style.setProperty("display", display.value, display.priority);
-      } else {
-        element.style.removeProperty("display");
-      }
-    });
-    navDisplayMap.clear();
-  };
-
-  const setFullscreenElement = (element: HTMLElement | null) => {
-    Object.defineProperty(document, "fullscreenElement", {
-      configurable: true,
-      get: () => element,
-    });
-  };
-
-  const exitPseudoFullscreen = () => {
-    if (!pseudoElement) {
-      return Promise.resolve();
-    }
-
-    const currentElement = pseudoElement;
-
-    if (hadStyleAttribute) {
-      currentElement.setAttribute("style", originalStyle);
-    } else {
-      currentElement.removeAttribute("style");
-    }
-
-    showNavigation();
-    setFullscreenElement(null);
-    pseudoElement = null;
-    originalStyle = "";
-    hadStyleAttribute = false;
-    dispatchFullscreenChange(currentElement);
-
+      .forEach((nav) => nav.setAttribute("data-ios-fullscreen-hidden", ""));
+    fullscreenElement = el;
+    dispatchChange(el);
     return Promise.resolve();
   };
 
-  const enterPseudoFullscreen = (element: HTMLElement) => {
-    if (pseudoElement === element) {
-      return Promise.resolve();
-    }
-
-    if (pseudoElement) {
-      void exitPseudoFullscreen();
-    }
-
-    pseudoElement = element;
-    hadStyleAttribute = element.hasAttribute("style");
-    originalStyle = element.getAttribute("style") ?? "";
-    element.style.cssText =
-      `${originalStyle}${originalStyle ? ";" : ""}` +
-      "position:fixed!important;top:0!important;left:0!important;" +
-      "width:100vw!important;height:100svh!important;z-index:99999!important;" +
-      "background:#000!important;";
-
-    hideNavigation();
-    setFullscreenElement(element);
-    dispatchFullscreenChange(element);
-
+  const exit = () => {
+    const el = fullscreenElement;
+    if (!el) return Promise.resolve();
+    el.removeAttribute("data-ios-fullscreen-active");
+    document
+      .querySelectorAll<HTMLElement>("[data-ios-fullscreen-hidden]")
+      .forEach((nav) => nav.removeAttribute("data-ios-fullscreen-hidden"));
+    fullscreenElement = null;
+    dispatchChange(el);
     return Promise.resolve();
   };
 
-  Object.defineProperty(document, "fullscreenEnabled", {
-    configurable: true,
-    get: () => true,
-  });
-  setFullscreenElement(null);
-  Object.defineProperty(document, "exitFullscreen", {
-    configurable: true,
-    value: () => exitPseudoFullscreen(),
+  override(document, "fullscreenEnabled", { get: () => true });
+  override(document, "fullscreenElement", { get: () => fullscreenElement });
+  override(document, "exitFullscreen", { value: exit, writable: true });
+  override(proto, "requestFullscreen", {
+    value: function (this: HTMLElement) {
+      return enter(this);
+    },
     writable: true,
   });
-  Object.defineProperty(htmlElementPrototype, "requestFullscreen", {
-    configurable: true,
-    value: function requestFullscreen(this: HTMLElement) {
-      return enterPseudoFullscreen(this);
+  override(proto, "webkitRequestFullscreen", {
+    value: function (this: HTMLElement) {
+      void enter(this);
     },
     writable: true,
   });
 
-  if (
-    webkitRequestFullscreenDescriptor ||
-    "webkitRequestFullscreen" in htmlElementPrototype
-  ) {
-    Object.defineProperty(htmlElementPrototype, "webkitRequestFullscreen", {
-      configurable: true,
-      value: function webkitRequestFullscreen(this: HTMLElement) {
-        void enterPseudoFullscreen(this);
-      },
-      writable: true,
-    });
-  }
-
   return () => {
-    void exitPseudoFullscreen();
-    restoreProperty(
-      htmlElementPrototype,
-      "webkitRequestFullscreen",
-      webkitRequestFullscreenDescriptor,
-    );
-    restoreProperty(
-      htmlElementPrototype,
-      "requestFullscreen",
-      requestFullscreenDescriptor,
-    );
-    restoreProperty(document, "exitFullscreen", exitFullscreenDescriptor);
-    restoreProperty(document, "fullscreenElement", fullscreenElementDescriptor);
-    restoreProperty(document, "fullscreenEnabled", fullscreenEnabledDescriptor);
+    void exit();
+    styleEl.remove();
+    while (overrides.length) {
+      const { target, key, prev } = overrides.pop()!;
+      if (prev) Object.defineProperty(target, key, prev);
+      else Reflect.deleteProperty(target, key);
+    }
   };
 }
 
