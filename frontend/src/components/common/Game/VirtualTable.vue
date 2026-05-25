@@ -310,10 +310,10 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
                 </v-avatar>
               </v-chip>
               <v-chip
-                v-if="item.siblings.length > 0 && showSiblings"
+                v-if="item.sibling_ids.length > 0 && showSiblings"
                 class="translucent mr-1 px-1 item-chip"
                 size="x-small"
-                :title="`${item.siblings.length} sibling(s)`"
+                :title="`${item.sibling_ids.length} sibling(s)`"
               >
                 <v-icon>mdi-card-multiple-outline</v-icon>
               </v-chip>

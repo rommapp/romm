@@ -87,10 +87,11 @@ export type DetailedRomSchema = {
     updated_at: string;
     missing_from_fs: boolean;
     has_notes: boolean;
-    siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
+    siblings: Array<SiblingRomSchema>;
+    sibling_ids: Array<number>;
     files: Array<RomFileSchema>;
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;
