@@ -210,6 +210,11 @@ def read_bz2_file(file_path: Path) -> Iterator[bytes]:
 ARCHIVE_EXTENSIONS: Final = frozenset({".zip", ".tar", ".7z"})
 
 
+def _chunked(stream: IO[bytes]) -> Iterator[bytes]:
+    """Yield FILE_READ_CHUNK_SIZE-sized reads from ``stream`` until EOF."""
+    return iter(lambda: stream.read(FILE_READ_CHUNK_SIZE), b"")
+
+
 def _is_excluded_archive_entry(name: str) -> bool:
     """Apply the hardcoded default exclusions to an internal archive path."""
     base = Path(name).name
@@ -232,9 +237,7 @@ def _iter_zip_entries(
             )
             for entry in members:
                 with z.open(entry, "r") as f:
-                    yield entry.filename, entry.file_size, iter(
-                        lambda f=f: f.read(FILE_READ_CHUNK_SIZE), b""
-                    )
+                    yield entry.filename, entry.file_size, _chunked(f)
     except zipfile.BadZipFile:
         return
 
@@ -252,9 +255,7 @@ def _iter_tar_entries(
                 ef = tf.extractfile(member)
                 if ef is None:
                     continue
-                yield member.name, member.size, iter(
-                    lambda ef=ef: ef.read(FILE_READ_CHUNK_SIZE), b""
-                )
+                yield member.name, member.size, _chunked(ef)
     except tarfile.ReadError:
         return
 
@@ -625,15 +626,13 @@ class FSRomsHandler(FSHandler):
                     # RAHasher can't process CHD files via the /* wildcard and instead expects
                     # track files (bin/cue/etc.). For CHD-only folders, find the largest
                     # CHD and pass it directly, matching single-file CHD behaviour.
-
-                    def _largest_chd_file() -> Path | None:
-                        chds = [f for f in rom_dir.iterdir() if is_chd_file(f)]
-                        sorted_chds = sorted(
-                            chds, key=lambda f: f.stat().st_size, reverse=True
+                    chd_file = await asyncio.to_thread(
+                        lambda: max(
+                            (f for f in rom_dir.iterdir() if is_chd_file(f)),
+                            key=lambda f: f.stat().st_size,
+                            default=None,
                         )
-                        return sorted_chds[0] if sorted_chds else None
-
-                    chd_file = await asyncio.to_thread(_largest_chd_file)
+                    )
                     ra_path = (
                         str(chd_file)
                         if chd_file and chd_file.is_file()
