@@ -7,6 +7,7 @@
 // Provider chip logic and cover-fallback selection live here.
 import { RImg, RTag } from "@v2/lib";
 import { useI18n } from "vue-i18n";
+import { ROUTES } from "@/plugins/router";
 import type { SimpleRom } from "@/stores/roms";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -62,7 +63,10 @@ function coverFor(rom: SimpleRom): string {
 </script>
 
 <template>
-  <div class="r-v2-scan-platform__rom">
+  <router-link
+    :to="{ name: ROUTES.ROM, params: { rom: props.rom.id } }"
+    class="r-v2-scan-platform__rom"
+  >
     <RImg
       :src="coverFor(props.rom)"
       :alt="props.rom.name || props.rom.fs_name"
@@ -112,7 +116,7 @@ function coverFor(rom: SimpleRom): string {
         </span>
       </template>
     </div>
-  </div>
+  </router-link>
 </template>
 
 <style scoped>
@@ -127,6 +131,18 @@ function coverFor(rom: SimpleRom): string {
      border = 65px. */
   box-sizing: border-box;
   height: 65px;
+  /* The row is a router-link to the ROM detail page. Strip the default
+     link chrome so it reads as a regular row, and give it a hover tint
+     to signal it's a click target. */
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-v2-scan-platform__rom:hover,
+.r-v2-scan-platform__rom:focus-visible {
+  background: var(--r-color-surface-hover);
+  outline: none;
 }
 .r-v2-scan-platform__cover {
   flex-shrink: 0;

@@ -100,88 +100,89 @@ interface ProviderRow {
   /** Logo path under /assets/scrappers/. Matches the same scheme the
    *  heartbeat store uses so consumers and reference share assets. */
   logo: string;
-  desc: string;
-  setup: string;
-  caveat?: string;
+  /** Locale key for the description. Shared with the setup wizard's
+   *  Step 3 so both views show the exact same text. */
+  descKey: string;
+  /** Locale key for the "how to configure" / env-var hint. */
+  setupKey: string;
+  /** Locale key for the optional warning / caveat pill. */
+  caveatKey?: string;
 }
 
 const LOGO_BASE = "/assets/scrappers";
 
-// Static reference set — kept in sync with docs.romm.app's metadata
-// providers page. Not derived from the heartbeat store because users
-// often need to look up a provider *before* they've configured it
-// (e.g., "what API key do I need?").
-//
-// Split into two groups to mirror the wizard's setup step:
-//   * providers — first-party services queried directly with your key.
-//   * proxies   — community-hosted hash matchers that piggy-back on
-//                 the providers to boost hit rates.
-const providers: ProviderRow[] = [
+// Static reference set — every text string lives under the wizard's
+// `setup.*` locale namespace so the Setup Wizard's Step 3 and this
+// dialog never drift. Split into three groups, also mirroring the
+// wizard:
+//   * generalProviders   — full-record catalogs (IGDB, MobyGames, …)
+//   * specificProviders  — single-dimension sources (achievements,
+//                          cover art, completion times)
+//   * proxies            — community hash matchers
+const generalProviders: ProviderRow[] = [
   {
     id: "igdb",
     name: "IGDB",
     logo: `${LOGO_BASE}/igdb.png`,
-    desc: "Titles, descriptions, cover art, screenshots, and related-game data.",
-    setup:
-      "Requires a Twitch account with phone 2FA. Set IGDB_CLIENT_ID and IGDB_CLIENT_SECRET.",
+    descKey: "setup.provider-igdb-desc",
+    setupKey: "setup.provider-igdb-setup",
   },
   {
     id: "ss",
     name: "ScreenScraper",
     logo: `${LOGO_BASE}/ss.png`,
-    desc: "Cover art across regions, manuals, 3D boxes, and CD/cartridge art.",
-    setup:
-      "Requires a ScreenScraper account. Set SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD.",
+    descKey: "setup.provider-ss-desc",
+    setupKey: "setup.provider-ss-setup",
   },
   {
     id: "moby",
     name: "MobyGames",
     logo: `${LOGO_BASE}/moby.png`,
-    desc: "Catalogue, alternate cover art, and screenshots.",
-    setup: "Requires a MobyGames account. Set MOBYGAMES_API_KEY.",
-    caveat: "The API is a paid feature.",
+    descKey: "setup.provider-moby-desc",
+    setupKey: "setup.provider-moby-setup",
+    caveatKey: "setup.provider-moby-caveat",
   },
   {
     id: "launchbox",
     name: "LaunchBox",
     logo: `${LOGO_BASE}/launchbox.png`,
-    desc: "Community metadata, cover art, and screenshots.",
-    setup:
-      "Set LAUNCHBOX_API_ENABLED=true and ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA=true.",
-    caveat: "Matches by exact filename; requires the local XML index.",
-  },
-  {
-    id: "ra",
-    name: "RetroAchievements",
-    logo: `${LOGO_BASE}/ra.png`,
-    desc: "Achievement progress and unlock data per user.",
-    setup:
-      "Requires a RetroAchievements account. Set RETROACHIEVEMENTS_API_KEY.",
-    caveat: "Requires file hashes — enable hash calculation in the scan.",
-  },
-  {
-    id: "sgdb",
-    name: "SteamGridDB",
-    logo: `${LOGO_BASE}/sgdb.png`,
-    desc: "Alternative cover art, banners, logos, and heroes for any game.",
-    setup: "Requires a SteamGridDB account. Set STEAMGRIDDB_API_KEY.",
-    caveat:
-      'Also reachable via the manual "search cover" action in the edit-game menu.',
+    descKey: "setup.provider-launchbox-desc",
+    setupKey: "setup.provider-launchbox-setup",
+    caveatKey: "setup.provider-launchbox-caveat",
   },
   {
     id: "flashpoint",
     name: "Flashpoint",
     logo: `${LOGO_BASE}/flashpoint.png`,
-    desc: "Metadata for 180,000+ Flash and browser-based games.",
-    setup: "Set FLASHPOINT_API_ENABLED=true.",
+    descKey: "setup.provider-flashpoint-desc",
+    setupKey: "setup.provider-flashpoint-setup",
+  },
+];
+
+const specificProviders: ProviderRow[] = [
+  {
+    id: "ra",
+    name: "RetroAchievements",
+    logo: `${LOGO_BASE}/ra.png`,
+    descKey: "setup.provider-ra-desc",
+    setupKey: "setup.provider-ra-setup",
+    caveatKey: "setup.provider-ra-caveat",
+  },
+  {
+    id: "sgdb",
+    name: "SteamGridDB",
+    logo: `${LOGO_BASE}/sgdb.png`,
+    descKey: "setup.provider-sgdb-desc",
+    setupKey: "setup.provider-sgdb-setup",
+    caveatKey: "setup.provider-sgdb-caveat",
   },
   {
     id: "hltb",
     name: "How Long To Beat",
     logo: `${LOGO_BASE}/hltb.png`,
-    desc: "Completion-time estimates for 84,000+ games.",
-    setup: "Set HLTB_API_ENABLED=true.",
-    caveat: "Surfaces in the overview tab of the game details page.",
+    descKey: "setup.provider-hltb-desc",
+    setupKey: "setup.provider-hltb-setup",
+    caveatKey: "setup.provider-hltb-caveat",
   },
 ];
 
@@ -190,18 +191,17 @@ const proxies: ProviderRow[] = [
     id: "hasheous",
     name: "Hasheous",
     logo: `${LOGO_BASE}/hasheous.png`,
-    desc: "Hash-based matcher that proxies IGDB data and supplies RetroAchievements IDs.",
-    setup: "Set HASHEOUS_API_ENABLED=true.",
-    caveat:
-      "Community-hosted service. Requires file hashes — enable hash calculation in the config (on by default).",
+    descKey: "setup.proxy-hasheous-desc",
+    setupKey: "setup.proxy-hasheous-setup",
+    caveatKey: "setup.proxy-hasheous-caveat",
   },
   {
     id: "playmatch",
     name: "PlayMatch",
     logo: `${LOGO_BASE}/playmatch.png`,
-    desc: "Hash-based matcher paired with IGDB data.",
-    setup: "Set PLAYMATCH_API_ENABLED=true.",
-    caveat: "Community-hosted service.",
+    descKey: "setup.proxy-playmatch-desc",
+    setupKey: "setup.proxy-playmatch-setup",
+    caveatKey: "setup.proxy-playmatch-caveat",
   },
 ];
 
@@ -258,21 +258,19 @@ function paragraphs(text: string): string[] {
       </div>
 
       <div v-else class="r-v2-scan-info__list">
+        <!-- General providers — full-record catalogs. Section labels
+             and per-provider strings come from the same `setup.*`
+             locale keys the Setup Wizard's Step 3 uses, so the two
+             views stay in sync. -->
         <section class="r-v2-scan-info__section">
           <header class="r-v2-scan-info__section-head">
-            <RIcon icon="mdi-database-search" size="14" />
-            <span>{{ t("scan.info-providers", "Providers") }}</span>
+            <span>{{ t("setup.metadata-catalogs") }}</span>
             <p class="r-v2-scan-info__section-hint">
-              {{
-                t(
-                  "scan.info-providers-hint",
-                  "First-party services queried directly with your API key.",
-                )
-              }}
+              {{ t("setup.metadata-catalogs-hint") }}
             </p>
           </header>
           <article
-            v-for="p in providers"
+            v-for="p in generalProviders"
             :key="p.id"
             class="r-v2-scan-info__row r-v2-scan-info__row--provider"
           >
@@ -286,35 +284,71 @@ function paragraphs(text: string): string[] {
               <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
             </div>
             <div class="r-v2-scan-info__row-desc">
-              <p class="r-v2-scan-info__para">{{ p.desc }}</p>
+              <p class="r-v2-scan-info__para">{{ t(p.descKey) }}</p>
               <div class="r-v2-scan-info__meta">
                 <span class="r-v2-scan-info__pill">
                   <RIcon icon="mdi-cog-outline" size="11" />
-                  {{ p.setup }}
+                  {{ t(p.setupKey) }}
                 </span>
                 <span
-                  v-if="p.caveat"
+                  v-if="p.caveatKey"
                   class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
                 >
                   <RIcon icon="mdi-alert-circle-outline" size="11" />
-                  {{ p.caveat }}
+                  {{ t(p.caveatKey) }}
                 </span>
               </div>
             </div>
           </article>
         </section>
 
+        <!-- Specific providers — single-dimension sources. -->
         <section class="r-v2-scan-info__section">
           <header class="r-v2-scan-info__section-head">
-            <RIcon icon="mdi-shuffle-variant" size="14" />
-            <span>{{ t("scan.info-proxies", "Match proxies") }}</span>
+            <span>{{ t("setup.metadata-specialised") }}</span>
             <p class="r-v2-scan-info__section-hint">
-              {{
-                t(
-                  "scan.info-proxies-hint",
-                  "Community-hosted hash matchers that improve hits using file hashes.",
-                )
-              }}
+              {{ t("setup.metadata-specialised-hint") }}
+            </p>
+          </header>
+          <article
+            v-for="p in specificProviders"
+            :key="p.id"
+            class="r-v2-scan-info__row r-v2-scan-info__row--provider"
+          >
+            <div class="r-v2-scan-info__row-head">
+              <RAvatar
+                :image="p.logo"
+                size="28"
+                rounded="sm"
+                class="r-v2-scan-info__logo"
+              />
+              <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
+            </div>
+            <div class="r-v2-scan-info__row-desc">
+              <p class="r-v2-scan-info__para">{{ t(p.descKey) }}</p>
+              <div class="r-v2-scan-info__meta">
+                <span class="r-v2-scan-info__pill">
+                  <RIcon icon="mdi-cog-outline" size="11" />
+                  {{ t(p.setupKey) }}
+                </span>
+                <span
+                  v-if="p.caveatKey"
+                  class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
+                >
+                  <RIcon icon="mdi-alert-circle-outline" size="11" />
+                  {{ t(p.caveatKey) }}
+                </span>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <!-- Proxies — community hash matchers. -->
+        <section class="r-v2-scan-info__section">
+          <header class="r-v2-scan-info__section-head">
+            <span>{{ t("setup.metadata-proxies") }}</span>
+            <p class="r-v2-scan-info__section-hint">
+              {{ t("setup.metadata-proxies-hint") }}
             </p>
           </header>
           <article
@@ -332,18 +366,18 @@ function paragraphs(text: string): string[] {
               <h4 class="r-v2-scan-info__row-name">{{ p.name }}</h4>
             </div>
             <div class="r-v2-scan-info__row-desc">
-              <p class="r-v2-scan-info__para">{{ p.desc }}</p>
+              <p class="r-v2-scan-info__para">{{ t(p.descKey) }}</p>
               <div class="r-v2-scan-info__meta">
                 <span class="r-v2-scan-info__pill">
                   <RIcon icon="mdi-cog-outline" size="11" />
-                  {{ p.setup }}
+                  {{ t(p.setupKey) }}
                 </span>
                 <span
-                  v-if="p.caveat"
+                  v-if="p.caveatKey"
                   class="r-v2-scan-info__pill r-v2-scan-info__pill--warn"
                 >
                   <RIcon icon="mdi-alert-circle-outline" size="11" />
-                  {{ p.caveat }}
+                  {{ t(p.caveatKey) }}
                 </span>
               </div>
             </div>

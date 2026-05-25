@@ -42,5 +42,12 @@
   "unmatched-games": "Unmatched games",
   "unmatched-games-desc": "Scan games with missing metadata matches",
   "update-metadata": "Update metadata",
-  "update-metadata-desc": "Update metadata for matched games"
+  "update-metadata-desc": "Update metadata for matched games",
+  "section-platforms": "Platforms",
+  "section-metadata": "Metadata",
+  "section-providers": "Providers",
+  "section-providers-general": "General",
+  "section-providers-specific": "Specific",
+  "section-proxies": "Proxies",
+  "section-scan-type": "Scan type"
 }

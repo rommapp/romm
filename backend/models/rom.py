@@ -21,7 +21,13 @@ from sqlalchemy import (
     or_,
     select,
 )
-from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
+from sqlalchemy.orm import (
+    Mapped,
+    column_property,
+    declared_attr,
+    mapped_column,
+    relationship,
+)
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import (
@@ -316,13 +322,46 @@ class Rom(BaseModel):
     def has_manual(self) -> bool:
         return bool(self.path_manual)
 
-    @cached_property
-    def has_manual_files(self) -> bool:
-        return any(f.category == RomFileCategory.MANUAL for f in self.files)
+    # `has_manual_files` and `has_soundtrack` come from correlated
+    # `EXISTS` subqueries against rom_files filtered by category.
+    # `@declared_attr` lets us define the column_property inside the
+    # class while still referencing `cls.id` (resolved after the
+    # mapping is built). Deferred + opt-in via `undefer` from the
+    # gallery query so we don't force a `Rom.files` load (the
+    # relationship is `lazy="raise"` for that endpoint).
+    @declared_attr
+    def has_manual_files(cls) -> Mapped[bool]:
+        return column_property(
+            select(RomFile.id)
+            .where(
+                and_(
+                    RomFile.rom_id == cls.id,
+                    RomFile.category == RomFileCategory.MANUAL,
+                )
+            )
+            .correlate_except(RomFile)
+            .exists()
+            .select()
+            .scalar_subquery(),
+            deferred=True,
+        )
 
-    @cached_property
-    def has_soundtrack(self) -> bool:
-        return any(f.category == RomFileCategory.SOUNDTRACK for f in self.files)
+    @declared_attr
+    def has_soundtrack(cls) -> Mapped[bool]:
+        return column_property(
+            select(RomFile.id)
+            .where(
+                and_(
+                    RomFile.rom_id == cls.id,
+                    RomFile.category == RomFileCategory.SOUNDTRACK,
+                )
+            )
+            .correlate_except(RomFile)
+            .exists()
+            .select()
+            .scalar_subquery(),
+            deferred=True,
+        )
 
     @cached_property
     def merged_screenshots(self) -> list[str]:

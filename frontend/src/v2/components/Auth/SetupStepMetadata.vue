@@ -13,7 +13,7 @@
 //                   whether the configured key actually works
 // The combined status pill maps these to one of: disabled, missing /
 // invalid key, checking, available.
-import { RImg, RTag } from "@v2/lib";
+import { RIcon, RImg, RTag } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -32,6 +32,12 @@ interface Source {
   name: string;
   logoPath: string;
   descKey: string;
+  /** Locale key for the env-var / config instructions. Shared with
+   *  the Scan view's info dialog so both surfaces show the same
+   *  setup hint per provider. */
+  setupKey: string;
+  /** Optional locale key for a warning / caveat pill. Shared too. */
+  caveatKey?: string;
   disabled: boolean;
 }
 
@@ -45,6 +51,7 @@ const catalogs = computed<Source[]>(() => {
       name: "IGDB",
       logoPath: "/assets/scrappers/igdb.png",
       descKey: "setup.provider-igdb-desc",
+      setupKey: "setup.provider-igdb-setup",
       disabled: !m.IGDB_API_ENABLED,
     },
     {
@@ -52,6 +59,7 @@ const catalogs = computed<Source[]>(() => {
       name: "ScreenScraper",
       logoPath: "/assets/scrappers/ss.png",
       descKey: "setup.provider-ss-desc",
+      setupKey: "setup.provider-ss-setup",
       disabled: !m.SS_API_ENABLED,
     },
     {
@@ -59,6 +67,8 @@ const catalogs = computed<Source[]>(() => {
       name: "MobyGames",
       logoPath: "/assets/scrappers/moby.png",
       descKey: "setup.provider-moby-desc",
+      setupKey: "setup.provider-moby-setup",
+      caveatKey: "setup.provider-moby-caveat",
       disabled: !m.MOBY_API_ENABLED,
     },
     {
@@ -66,6 +76,8 @@ const catalogs = computed<Source[]>(() => {
       name: "LaunchBox",
       logoPath: "/assets/scrappers/launchbox.png",
       descKey: "setup.provider-launchbox-desc",
+      setupKey: "setup.provider-launchbox-setup",
+      caveatKey: "setup.provider-launchbox-caveat",
       disabled: !m.LAUNCHBOX_API_ENABLED,
     },
     {
@@ -73,6 +85,7 @@ const catalogs = computed<Source[]>(() => {
       name: "Flashpoint",
       logoPath: "/assets/scrappers/flashpoint.png",
       descKey: "setup.provider-flashpoint-desc",
+      setupKey: "setup.provider-flashpoint-setup",
       disabled: !m.FLASHPOINT_API_ENABLED,
     },
   ];
@@ -86,6 +99,8 @@ const specialised = computed<Source[]>(() => {
       name: "RetroAchievements",
       logoPath: "/assets/scrappers/ra.png",
       descKey: "setup.provider-ra-desc",
+      setupKey: "setup.provider-ra-setup",
+      caveatKey: "setup.provider-ra-caveat",
       disabled: !m.RA_API_ENABLED,
     },
     {
@@ -93,6 +108,8 @@ const specialised = computed<Source[]>(() => {
       name: "SteamGridDB",
       logoPath: "/assets/scrappers/sgdb.png",
       descKey: "setup.provider-sgdb-desc",
+      setupKey: "setup.provider-sgdb-setup",
+      caveatKey: "setup.provider-sgdb-caveat",
       disabled: !m.STEAMGRIDDB_API_ENABLED,
     },
     {
@@ -100,6 +117,8 @@ const specialised = computed<Source[]>(() => {
       name: "HowLongToBeat",
       logoPath: "/assets/scrappers/hltb.png",
       descKey: "setup.provider-hltb-desc",
+      setupKey: "setup.provider-hltb-setup",
+      caveatKey: "setup.provider-hltb-caveat",
       disabled: !m.HLTB_API_ENABLED,
     },
   ];
@@ -113,6 +132,8 @@ const proxies = computed<Source[]>(() => {
       name: "Hasheous",
       logoPath: "/assets/scrappers/hasheous.png",
       descKey: "setup.proxy-hasheous-desc",
+      setupKey: "setup.proxy-hasheous-setup",
+      caveatKey: "setup.proxy-hasheous-caveat",
       disabled: !m.HASHEOUS_API_ENABLED,
     },
     {
@@ -120,6 +141,8 @@ const proxies = computed<Source[]>(() => {
       name: "PlayMatch",
       logoPath: "/assets/scrappers/playmatch.png",
       descKey: "setup.proxy-playmatch-desc",
+      setupKey: "setup.proxy-playmatch-setup",
+      caveatKey: "setup.proxy-playmatch-caveat",
       disabled: !m.PLAYMATCH_API_ENABLED,
     },
   ];
@@ -224,6 +247,19 @@ onMounted(() => {
               <span class="r-setup-metadata__item-desc">
                 {{ t(source.descKey) }}
               </span>
+              <div class="r-setup-metadata__item-meta">
+                <span class="r-setup-metadata__pill">
+                  <RIcon icon="mdi-cog-outline" size="11" />
+                  {{ t(source.setupKey) }}
+                </span>
+                <span
+                  v-if="source.caveatKey"
+                  class="r-setup-metadata__pill r-setup-metadata__pill--warn"
+                >
+                  <RIcon icon="mdi-alert-circle-outline" size="11" />
+                  {{ t(source.caveatKey) }}
+                </span>
+              </div>
             </div>
             <RTag
               size="small"
@@ -266,6 +302,19 @@ onMounted(() => {
               <span class="r-setup-metadata__item-desc">
                 {{ t(source.descKey) }}
               </span>
+              <div class="r-setup-metadata__item-meta">
+                <span class="r-setup-metadata__pill">
+                  <RIcon icon="mdi-cog-outline" size="11" />
+                  {{ t(source.setupKey) }}
+                </span>
+                <span
+                  v-if="source.caveatKey"
+                  class="r-setup-metadata__pill r-setup-metadata__pill--warn"
+                >
+                  <RIcon icon="mdi-alert-circle-outline" size="11" />
+                  {{ t(source.caveatKey) }}
+                </span>
+              </div>
             </div>
             <RTag
               size="small"
@@ -308,6 +357,19 @@ onMounted(() => {
               <span class="r-setup-metadata__item-desc">
                 {{ t(source.descKey) }}
               </span>
+              <div class="r-setup-metadata__item-meta">
+                <span class="r-setup-metadata__pill">
+                  <RIcon icon="mdi-cog-outline" size="11" />
+                  {{ t(source.setupKey) }}
+                </span>
+                <span
+                  v-if="source.caveatKey"
+                  class="r-setup-metadata__pill r-setup-metadata__pill--warn"
+                >
+                  <RIcon icon="mdi-alert-circle-outline" size="11" />
+                  {{ t(source.caveatKey) }}
+                </span>
+              </div>
             </div>
             <RTag
               size="small"
@@ -445,5 +507,43 @@ onMounted(() => {
   font-size: var(--r-font-size-xs);
   color: var(--r-color-fg-muted);
   line-height: var(--r-line-height-normal);
+}
+
+/* Setup / caveat pills — same vocabulary as the Scan view's info
+   dialog (the source-of-truth locale keys live in `setup.*`, used
+   by both surfaces). Wrap so dense env-var instructions can flow
+   onto a second line on narrow viewports. */
+.r-setup-metadata__item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--r-space-1);
+  margin-top: var(--r-space-1);
+}
+.r-setup-metadata__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--r-radius-sm);
+  background: var(--r-color-surface);
+  border: 1px solid var(--r-color-border);
+  font-size: var(--r-font-size-xs);
+  color: var(--r-color-fg-muted);
+  font-family:
+    var(--r-font-family-mono, ui-monospace), SFMono-Regular, monospace;
+}
+.r-setup-metadata__pill--warn {
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-warning) 14%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-status-base-warning) 36%,
+    transparent
+  );
+  color: var(--r-color-warning);
+  font-family: inherit;
 }
 </style>

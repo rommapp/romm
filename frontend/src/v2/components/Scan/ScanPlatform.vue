@@ -3,13 +3,12 @@
 // Scan view. Header shows the platform icon + name + per-platform
 // chips (ROM count, firmware count, "not identified" badge).
 //
-// Body: lists every newly-scanned ROM via ScanPlatformRow. Switches to
-// RVirtualScroller once the ROM count crosses VIRT_THRESHOLD so an
-// initial scan with hundreds of games per platform keeps the DOM size
-// bounded and scroll smooth. The threshold is high enough that small
-// platforms keep the natural inline layout (no fixed-height scroll
-// box), and low enough that big platforms get virtualised before the
-// browser starts struggling.
+// Body: lists every newly-scanned ROM via ScanPlatformRow, always
+// inside an RVirtualScroller. Using the virtual scroller unconditionally
+// keeps the body surface aligned with its content height regardless of
+// the row count — an initial scan with hundreds of games per platform
+// gets bounded DOM size, and small platforms still get the same flush
+// surface (no late "growing into" the right shape as rows stream in).
 import { RCollapsible, RPlatformIcon, RTag, RVirtualScroller } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -31,22 +30,25 @@ defineEmits<{
 
 const { t } = useI18n();
 
-// Above this row count, the body switches to the virtual scroller with
-// a bounded viewport. Below it, we keep the plain inline list so small
-// platforms don't get a redundant scrollbar.
-const VIRT_THRESHOLD = 50;
 // Row height baked into ScanPlatformRow's scoped styles (8px padding +
 // 48px cover + 8px padding + 1px border). Kept here as a constant so
 // `getItemHeight` and the row style stay in sync.
 const ROW_HEIGHT = 65;
-// Bounded viewport for the virtualised list — tall enough to read a
-// real chunk of the scan, short enough that the parent log can still
-// show neighbour platforms above and below.
-const VIRT_VIEWPORT_PX = 480;
+// Cap the virtual scroller's viewport so it never overruns the right
+// pane. Up to this many rows render at natural height; above the cap
+// the container scrolls internally.
+const MAX_VIEWPORT_ROWS = 8;
 
-const shouldVirtualise = computed(
-  () => props.platform.roms.length >= VIRT_THRESHOLD,
-);
+// Use the natural cumulative height up to the cap so small / empty
+// platforms don't show a tall empty box. Above the cap we lock to the
+// max so streaming hundreds of rows can't push the panel off-screen.
+const viewportHeight = computed(() => {
+  const rows = Math.min(props.platform.roms.length, MAX_VIEWPORT_ROWS);
+  // Always reserve at least one row's height so the body has visible
+  // surface even when there are no ROMs yet (the "no new roms" empty
+  // state still needs somewhere to sit).
+  return Math.max(rows, 1) * ROW_HEIGHT;
+});
 
 function getItemHeight() {
   return ROW_HEIGHT;
@@ -89,15 +91,20 @@ function getItemHeight() {
       />
     </template>
 
-    <!-- Virtualised path — only when the platform has crossed the
-         threshold. RVirtualScroller absolutely positions each row, so
-         we wrap it in our own surface (background, top border) instead
-         of leaning on the <ul> styling. -->
+    <!-- Always virtualised — keeps the body surface flush with its
+         content height regardless of how many rows have streamed in,
+         and bounds the DOM size on big platforms. -->
+    <div
+      v-if="platform.roms.length === 0 && platform.firmware_count === 0"
+      class="r-v2-scan-platform__empty"
+    >
+      {{ t("scan.no-new-roms") }}
+    </div>
     <RVirtualScroller
-      v-if="shouldVirtualise"
+      v-else
       :items="platform.roms"
       :get-item-height="getItemHeight"
-      :height="VIRT_VIEWPORT_PX"
+      :height="viewportHeight"
       :overscan="10"
       class="r-v2-scan-platform__virtual"
     >
@@ -105,33 +112,10 @@ function getItemHeight() {
         <ScanPlatformRow :rom="item as SimpleRom" />
       </template>
     </RVirtualScroller>
-
-    <!-- Plain path — small platforms keep the natural inline list. -->
-    <ul v-else class="r-v2-scan-platform__rom-list">
-      <li v-for="rom in platform.roms" :key="rom.id">
-        <ScanPlatformRow :rom="rom" />
-      </li>
-      <li
-        v-if="platform.roms.length === 0 && platform.firmware_count === 0"
-        class="r-v2-scan-platform__empty"
-      >
-        {{ t("scan.no-new-roms") }}
-      </li>
-    </ul>
   </RCollapsible>
 </template>
 
 <style scoped>
-.r-v2-scan-platform__rom-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: var(--r-color-bg-elevated);
-}
-
 .r-v2-scan-platform__virtual {
   background: var(--r-color-bg-elevated);
   /* Top border so the first virtual row's border-top isn't the only

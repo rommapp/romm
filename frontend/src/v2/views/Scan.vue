@@ -214,6 +214,31 @@ function isHashMatcherOn(matcher: HashMatcher): boolean {
     : playmatchEnabled.value;
 }
 
+// Provider categorisation — mirrors the split used by the setup
+// wizard's metadata step. General catalogs ship a full game record
+// (title, artwork, descriptions); specific sources add a single
+// domain dimension (achievements, completion times, custom art).
+// Each group renders its own RSelect; both share `metadataSources`
+// as the model. RSelect's `show-all-option` is subset-safe — toggling
+// All in one group doesn't touch the other.
+const GENERAL_PROVIDER_KEYS = new Set([
+  "igdb",
+  "ss",
+  "moby",
+  "launchbox",
+  "flashpoint",
+  "gamelist",
+  "libretro",
+]);
+const SPECIFIC_PROVIDER_KEYS = new Set(["ra", "sgdb", "hltb"]);
+
+const generalProviders = computed<MetadataOption[]>(() =>
+  metadataOptions.value.filter((o) => GENERAL_PROVIDER_KEYS.has(o.value)),
+);
+const specificProviders = computed<MetadataOption[]>(() =>
+  metadataOptions.value.filter((o) => SPECIFIC_PROVIDER_KEYS.has(o.value)),
+);
+
 // Auto-expand a platform's panel the moment it starts reporting roms
 // or firmware. We track by `id:hasContent` so the watch fires only on
 // the 0 → 1 transition, not per-ROM.
@@ -425,155 +450,279 @@ function stopScan() {
       </div>
 
       <div class="r-v2-scan-card__fields">
-        <PlatformSelect
-          v-model="platformsToScan"
-          :items="sortedPlatforms"
-          :label="t('common.platforms')"
-          prepend-inner-icon="mdi-controller"
-          :icon-size="32"
-          multiple
-          clearable
-          hide-details
-          chips
-          show-meta
-        />
+        <!-- 1. Platform controls -->
+        <section class="r-v2-scan-card__section">
+          <h3 class="r-v2-scan-card__section-title">
+            {{ t("scan.section-platforms") }}
+          </h3>
+          <PlatformSelect
+            v-model="platformsToScan"
+            :items="sortedPlatforms"
+            :label="t('common.platforms')"
+            prepend-inner-icon="mdi-controller"
+            :icon-size="32"
+            multiple
+            clearable
+            hide-details
+            chips
+            show-meta
+            show-all-option
+          />
+        </section>
 
-        <RSelect
-          v-model="metadataSources"
-          :items="metadataOptions"
-          :label="t('scan.metadata-sources')"
-          item-title="name"
-          prepend-inner-icon="mdi-database-search"
-          variant="outlined"
-          multiple
-          return-object
-          clearable
-          hide-details
-          chips
-          chip-tone="plain"
-        >
-          <template #chip="{ item }">
-            <RTooltip :text="item.raw.name" location="bottom">
-              <template #activator="{ props: tipProps }">
-                <span
-                  v-bind="tipProps"
-                  class="r-v2-scan-card__provider-chip"
-                  :aria-label="item.raw.name"
-                >
-                  <RAvatar :image="item.raw.logo_path" size="18" rounded="sm" />
-                </span>
-              </template>
-            </RTooltip>
-          </template>
-          <template #item="{ props: itemProps, item }">
-            <li v-bind="itemProps">
-              <RAvatar :image="item.raw.logo_path" size="22" rounded="sm" />
-              <div class="r-select__item-stack">
-                <div class="r-select__item-title">
-                  {{ item.raw.name }}
-                </div>
-                <div v-if="item.raw.disabled" class="r-select__item-subtitle">
-                  {{ item.raw.disabled }}
-                </div>
-              </div>
+        <!-- 2. Metadata controls — providers (2.1) + proxies (2.2)
+             share one section so it reads as "data we pull from
+             external sources". -->
+        <section class="r-v2-scan-card__section">
+          <h3 class="r-v2-scan-card__section-title">
+            {{ t("scan.section-metadata") }}
+          </h3>
 
-              <div
-                v-if="item.raw.value === 'launchbox'"
-                class="r-v2-scan-card__lb-toggle"
+          <!-- 2.1 providers — two RSelects sharing the same
+               `metadataSources` model, one per category. The
+               primitive's `show-all-option` is subset-safe so the
+               "All" toggle in one group only affects that group's
+               items. -->
+          <div class="r-v2-scan-card__subsection">
+            <span class="r-v2-scan-card__subsection-label">
+              {{ t("scan.section-providers") }}
+            </span>
+
+            <div class="r-v2-scan-card__providers-group">
+              <span class="r-v2-scan-card__providers-group-label">
+                {{ t("scan.section-providers-general") }}
+              </span>
+              <RSelect
+                v-model="metadataSources"
+                :items="generalProviders"
+                :label="t('scan.section-providers-general')"
+                item-title="name"
+                prepend-inner-icon="mdi-database-search"
+                variant="outlined"
+                multiple
+                return-object
+                clearable
+                hide-details
+                chips
+                chip-tone="plain"
+                show-all-option
               >
-                <span
-                  class="text-caption"
-                  :class="{
-                    'r-v2-scan-card__lb-inactive': launchboxRemoteEnabled,
-                  }"
-                >
-                  Local
-                </span>
-                <RSwitch
-                  v-model="launchboxRemoteEnabled"
-                  :disabled="!isLaunchboxSelected"
-                  @click.stop
-                  @mousedown.stop
-                />
-                <span
-                  class="text-caption"
-                  :class="{
-                    'r-v2-scan-card__lb-inactive': !launchboxRemoteEnabled,
-                  }"
-                >
-                  Cloud
-                </span>
-              </div>
-            </li>
-          </template>
-        </RSelect>
+                <template #chip="{ item }">
+                  <RTooltip :text="item.raw.name" location="bottom">
+                    <template #activator="{ props: tipProps }">
+                      <span
+                        v-bind="tipProps"
+                        class="r-v2-scan-card__provider-chip"
+                        :aria-label="item.raw.name"
+                      >
+                        <RAvatar
+                          :image="item.raw.logo_path"
+                          size="18"
+                          rounded="sm"
+                        />
+                      </span>
+                    </template>
+                  </RTooltip>
+                </template>
+                <template #item="{ props: itemProps, item }">
+                  <li v-bind="itemProps">
+                    <RAvatar
+                      :image="item.raw.logo_path"
+                      size="22"
+                      rounded="sm"
+                    />
+                    <div class="r-select__item-stack">
+                      <div class="r-select__item-title">
+                        {{ item.raw.name }}
+                      </div>
+                      <div
+                        v-if="item.raw.disabled"
+                        class="r-select__item-subtitle"
+                      >
+                        {{ item.raw.disabled }}
+                      </div>
+                    </div>
 
-        <!-- Hash-matcher switch pills. See header comment for the
-             behaviour summary; the Info dialog covers what they do. -->
-        <div
-          class="r-v2-scan-card__matchers"
-          role="group"
-          aria-label="Hash matchers"
-        >
-          <RTooltip
-            v-for="matcher in hashMatchers"
-            :key="matcher.value"
-            :text="
-              matcher.blockedReason
-                ? `${matcher.name} — ${matcher.blockedReason}`
-                : matcher.name
-            "
-            location="bottom"
+                    <!-- LaunchBox: Local/Cloud inline toggle inside its
+                       dropdown row. Disabled until LaunchBox itself
+                       is selected. -->
+                    <div
+                      v-if="item.raw.value === 'launchbox'"
+                      class="r-v2-scan-card__lb-toggle"
+                      @click.stop
+                      @mousedown.stop
+                    >
+                      <span
+                        class="r-v2-scan-card__lb-label"
+                        :class="{
+                          'r-v2-scan-card__lb-inactive': launchboxRemoteEnabled,
+                        }"
+                      >
+                        Local
+                      </span>
+                      <RSwitch
+                        v-model="launchboxRemoteEnabled"
+                        :disabled="!isLaunchboxSelected"
+                      />
+                      <span
+                        class="r-v2-scan-card__lb-label"
+                        :class="{
+                          'r-v2-scan-card__lb-inactive':
+                            !launchboxRemoteEnabled,
+                        }"
+                      >
+                        Cloud
+                      </span>
+                    </div>
+                  </li>
+                </template>
+              </RSelect>
+            </div>
+
+            <div
+              v-if="specificProviders.length"
+              class="r-v2-scan-card__providers-group"
+            >
+              <span class="r-v2-scan-card__providers-group-label">
+                {{ t("scan.section-providers-specific") }}
+              </span>
+              <RSelect
+                v-model="metadataSources"
+                :items="specificProviders"
+                :label="t('scan.section-providers-specific')"
+                item-title="name"
+                prepend-inner-icon="mdi-trophy-outline"
+                variant="outlined"
+                multiple
+                return-object
+                clearable
+                hide-details
+                chips
+                chip-tone="plain"
+                show-all-option
+              >
+                <template #chip="{ item }">
+                  <RTooltip :text="item.raw.name" location="bottom">
+                    <template #activator="{ props: tipProps }">
+                      <span
+                        v-bind="tipProps"
+                        class="r-v2-scan-card__provider-chip"
+                        :aria-label="item.raw.name"
+                      >
+                        <RAvatar
+                          :image="item.raw.logo_path"
+                          size="18"
+                          rounded="sm"
+                        />
+                      </span>
+                    </template>
+                  </RTooltip>
+                </template>
+                <template #item="{ props: itemProps, item }">
+                  <li v-bind="itemProps">
+                    <RAvatar
+                      :image="item.raw.logo_path"
+                      size="22"
+                      rounded="sm"
+                    />
+                    <div class="r-select__item-stack">
+                      <div class="r-select__item-title">
+                        {{ item.raw.name }}
+                      </div>
+                      <div
+                        v-if="item.raw.disabled"
+                        class="r-select__item-subtitle"
+                      >
+                        {{ item.raw.disabled }}
+                      </div>
+                    </div>
+                  </li>
+                </template>
+              </RSelect>
+            </div>
+          </div>
+
+          <!-- 2.2 proxies (hash matchers) -->
+          <div class="r-v2-scan-card__subsection">
+            <span class="r-v2-scan-card__subsection-label">
+              {{ t("scan.section-proxies") }}
+            </span>
+            <div
+              class="r-v2-scan-card__matchers"
+              role="group"
+              aria-label="Hash matchers"
+            >
+              <RTooltip
+                v-for="matcher in hashMatchers"
+                :key="matcher.value"
+                :text="
+                  matcher.blockedReason
+                    ? `${matcher.name}: ${matcher.blockedReason}`
+                    : matcher.name
+                "
+                location="bottom"
+              >
+                <template #activator="{ props: tipProps }">
+                  <div
+                    v-bind="tipProps"
+                    class="r-v2-scan-card__matcher"
+                    :class="{
+                      'r-v2-scan-card__matcher--off': !matcher.switchEnabled,
+                    }"
+                  >
+                    <RAvatar
+                      :image="matcher.logo"
+                      size="16"
+                      rounded="sm"
+                      class="r-v2-scan-card__matcher-logo"
+                    />
+                    <RSwitch
+                      :model-value="isHashMatcherOn(matcher)"
+                      :disabled="!matcher.switchEnabled"
+                      :aria-label="matcher.name"
+                      @update:model-value="
+                        (v) => setHashMatcher(matcher.value, v)
+                      "
+                    />
+                  </div>
+                </template>
+              </RTooltip>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. Scan type controls -->
+        <section class="r-v2-scan-card__section">
+          <h3 class="r-v2-scan-card__section-title">
+            {{ t("scan.section-scan-type") }}
+          </h3>
+          <RSelect
+            v-model="scanType"
+            :items="scanOptions"
+            :label="t('scan.scan-options')"
+            prepend-inner-icon="mdi-magnify-scan"
+            hide-details
+            variant="outlined"
           >
-            <template #activator="{ props: tipProps }">
-              <div
-                v-bind="tipProps"
-                class="r-v2-scan-card__matcher"
-                :class="{
-                  'r-v2-scan-card__matcher--off': !matcher.switchEnabled,
-                }"
-              >
-                <RAvatar
-                  :image="matcher.logo"
-                  size="16"
-                  rounded="sm"
-                  class="r-v2-scan-card__matcher-logo"
-                />
-                <RSwitch
-                  :model-value="isHashMatcherOn(matcher)"
-                  :disabled="!matcher.switchEnabled"
-                  :aria-label="matcher.name"
-                  @update:model-value="(v) => setHashMatcher(matcher.value, v)"
-                />
-              </div>
+            <template #item="{ props: itemProps, item }">
+              <li v-bind="itemProps">
+                <div class="r-select__item-stack">
+                  <div class="r-select__item-title">
+                    {{ item.title }}
+                  </div>
+                  <div v-if="item.raw.subtitle" class="r-select__item-subtitle">
+                    {{ item.raw.subtitle }}
+                  </div>
+                </div>
+              </li>
             </template>
-          </RTooltip>
-        </div>
-
-        <RSelect
-          v-model="scanType"
-          :items="scanOptions"
-          :label="t('scan.scan-options')"
-          prepend-inner-icon="mdi-magnify-scan"
-          hide-details
-          variant="outlined"
-        >
-          <template #item="{ props: itemProps, item }">
-            <li v-bind="itemProps">
-              <div class="r-select__item-stack">
-                <div class="r-select__item-title">
-                  {{ item.title }}
-                </div>
-                <div v-if="item.raw.subtitle" class="r-select__item-subtitle">
-                  {{ item.raw.subtitle }}
-                </div>
-              </div>
-            </li>
-          </template>
-        </RSelect>
+          </RSelect>
+        </section>
       </div>
 
-      <footer class="r-v2-scan-card__cta">
+      <!-- 4. Action buttons — untitled; the divider above marks the
+           boundary between "config" and "actions" without a label. -->
+      <footer class="r-v2-scan-card__section r-v2-scan-card__cta">
         <div class="r-v2-scan-card__hints">
           <RAlert
             v-if="metadataSources.length === 0"
@@ -828,12 +977,55 @@ function stopScan() {
 .r-v2-scan-card__fields {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  /* Matches the parent card's 18px gap so every divider — between
+     fields-internal sections AND between __fields/__cta — has the
+     same breathing room above and below. */
+  gap: 18px;
+}
+
+/* Each numbered section in the config card: small uppercase label
+   above its content, divided from the next section by a hairline
+   border-top. The first section inside `__fields` drops the border
+   so the head row doesn't sit under a stray line; the `__cta` footer
+   keeps its border because it sits below `__fields` and the divider
+   separates "configuration" from "actions". */
+.r-v2-scan-card__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--r-color-border);
+}
+.r-v2-scan-card__section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.r-v2-scan-card__section-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: var(--r-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--r-color-fg-muted);
+}
+
+/* Sub-section inside Metadata (providers / proxies). Tightly spaced
+   so they read as siblings of the same section, separated by a small
+   muted label rather than a divider. */
+.r-v2-scan-card__subsection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.r-v2-scan-card__subsection-label {
+  font-size: 10.5px;
+  font-weight: var(--r-font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--r-color-fg-faint);
 }
 
 .r-v2-scan-card__cta {
-  display: flex;
-  flex-direction: column;
   align-items: stretch;
   gap: 8px;
 }
@@ -853,30 +1045,40 @@ function stopScan() {
   display: none;
 }
 
-/* Provider chip — icon-only chip inside the RSelect chip slot. */
+/* Providers split into General / Specific groups. Each group has a
+   tiny inline caption above its RSelect — same visual rhythm as the
+   subsection label, indented one level deeper. */
+.r-v2-scan-card__providers-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.r-v2-scan-card__providers-group + .r-v2-scan-card__providers-group {
+  margin-top: 8px;
+}
+.r-v2-scan-card__providers-group-label {
+  font-size: 10px;
+  font-weight: var(--r-font-weight-medium);
+  letter-spacing: 0.04em;
+  color: var(--r-color-fg-faint);
+}
+
+/* Provider chip in the activator — icon-only avatar so a multi-select
+   doesn't drown the field in coloured pills. The `#chip` slot renders
+   into RSelect's RTag. */
 .r-v2-scan-card__provider-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.r-v2-scan-card__lb-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.r-v2-scan-card__lb-inactive {
-  color: var(--r-color-fg-muted);
-}
-
-/* Hash matchers — compact pills sitting between provider + scan-type
-   selects. Each pill is logo + small switch + tooltip; the Info
-   dialog covers the meaning. In the stacked field layout they sit
-   as a small row inside the column. */
+/* Hash-matcher proxies — compact icon + switch pills (kept as direct
+   pills since there are only two and a select would be overkill). */
 .r-v2-scan-card__matchers {
   display: flex;
   flex-direction: row;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   align-self: flex-start;
 }
@@ -895,6 +1097,22 @@ function stopScan() {
 .r-v2-scan-card__matcher-logo {
   background: var(--r-color-bg-elevated);
   flex-shrink: 0;
+}
+
+/* LaunchBox Local/Cloud toggle inline inside its dropdown item. */
+.r-v2-scan-card__lb-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.r-v2-scan-card__lb-label {
+  font-size: 11px;
+  color: var(--r-color-fg);
+  white-space: nowrap;
+}
+.r-v2-scan-card__lb-inactive {
+  color: var(--r-color-fg-muted);
 }
 
 /* === Live area (right column) ================================

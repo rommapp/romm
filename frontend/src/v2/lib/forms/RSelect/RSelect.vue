@@ -34,6 +34,7 @@ import {
   useSlots,
   watch,
 } from "vue";
+import RDivider from "../../primitives/RDivider/RDivider.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RProgressCircular from "../../primitives/RProgressCircular/RProgressCircular.vue";
 import RTag from "../../primitives/RTag/RTag.vue";
@@ -70,6 +71,10 @@ interface Props {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   itemValue?: string | ((item: any) => unknown);
   multiple?: boolean;
+  /** When true, the model holds the raw item objects instead of their
+   *  `itemValue` keys. Read paths (selection comparisons, chip
+   *  rendering, isSelected) are mode-agnostic — only emits change. */
+  returnObject?: boolean;
   chips?: boolean;
   closableChips?: boolean;
   clearable?: boolean;
@@ -120,6 +125,15 @@ interface Props {
     | "warning"
     | "info"
     | "plain";
+  /** Multi-select only: render a synthetic "All" row at the top of the
+   *  menu (with a divider below) that toggles every item on / off. When
+   *  no items are selected and this is on, the activator displays the
+   *  `allOptionLabel` text instead of the placeholder — the empty
+   *  selection reads as "every item" rather than "nothing picked". */
+  showAllOption?: boolean;
+  /** Label used by the "All" row in the menu and as the activator
+   *  display when nothing is selected. Defaults to "All". */
+  allOptionLabel?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -132,6 +146,7 @@ const props = withDefaults(defineProps<Props>(), {
   itemTitle: "title",
   itemValue: "value",
   multiple: false,
+  returnObject: false,
   chips: false,
   closableChips: false,
   clearable: false,
@@ -155,6 +170,8 @@ const props = withDefaults(defineProps<Props>(), {
   menuOffset: 6,
   maxVisibleChips: Number.POSITIVE_INFINITY,
   chipTone: "brand",
+  showAllOption: false,
+  allOptionLabel: "All",
 });
 
 const emit = defineEmits<{
@@ -275,18 +292,24 @@ function isSelected(value: unknown): boolean {
 }
 
 const selectedItems = computed<NormalisedItem[]>(() => {
-  // Look up each model value against the items; preserve any value
-  // that has no matching item so the activator can still render
-  // "off-list" selections via the `#selection` slot.
-  return selectedValues.value.map((v) => {
-    const key = valueOf(v);
-    const match = normalisedItems.value.find((it) => it.value === key);
-    if (match) return match;
-    return { raw: v, title: String(v ?? ""), value: v };
-  });
+  // Only surface model values that are present in *this* select's
+  // items — keeps two subset selects sharing one model from each
+  // rendering the other's chips. Foreign values (no match) are
+  // dropped on the floor; if you genuinely need off-list rendering,
+  // include the value in your items list.
+  const byValue = new Map(normalisedItems.value.map((it) => [it.value, it]));
+  const out: NormalisedItem[] = [];
+  for (const v of selectedValues.value) {
+    const match = byValue.get(valueOf(v));
+    if (match) out.push(match);
+  }
+  return out;
 });
 
-const hasSelection = computed(() => selectedValues.value.length > 0);
+// Scoped to *this* select's items via `selectedItems` so two subset
+// selects sharing a model don't each think they have a selection just
+// because the sibling added something.
+const hasSelection = computed(() => selectedItems.value.length > 0);
 
 // Chip overflow — keep the activator at a single line by collapsing
 // chips that won't fit into a "+N" pill at the end of the row.
@@ -373,26 +396,135 @@ watch(
   { flush: "post" },
 );
 
+// What goes into the model when this select pushes an item — the raw
+// object in returnObject mode, the primitive value otherwise. Read
+// paths always re-extract the key via `valueOf` so the model can
+// be mixed (e.g., consumer-seeded with one shape, user-toggled in
+// the other).
+function emitValueOf(item: NormalisedItem): unknown {
+  return props.returnObject ? item.raw : item.value;
+}
+
 function selectItem(item: NormalisedItem) {
   if (item.disabled) return;
   if (props.multiple) {
+    // Picking an individual while All-mode is active flips the mode
+    // off automatically — All and individuals are mutually exclusive,
+    // but the transition is one-click instead of "first deselect All,
+    // then pick". We preserve any model values that aren't part of
+    // *this* select's items so two RSelects can share a single model
+    // (e.g., general + specific provider selects on the Scan view)
+    // without clobbering each other.
+    if (props.showAllOption && isAllSelected.value) {
+      isAllSelected.value = false;
+      const ownSet = new Set(ownSelectableValues.value);
+      const preserved = Array.isArray(props.modelValue)
+        ? (props.modelValue as unknown[]).filter((v) => !ownSet.has(valueOf(v)))
+        : [];
+      emit("update:modelValue", [...preserved, emitValueOf(item)]);
+      return;
+    }
     const cur = Array.isArray(props.modelValue)
       ? [...(props.modelValue as unknown[])]
       : [];
-    const idx = cur.findIndex((v) => v === item.value);
-    if (idx === -1) cur.push(item.value);
+    const idx = cur.findIndex((v) => valueOf(v) === item.value);
+    if (idx === -1) cur.push(emitValueOf(item));
     else cur.splice(idx, 1);
     emit("update:modelValue", cur);
   } else {
-    emit("update:modelValue", item.value);
+    emit("update:modelValue", emitValueOf(item));
     closeMenu();
+  }
+}
+
+// ── "All" pseudo-row (multi-select only) ───────────────────────
+//
+// When `showAllOption` is on, the menu prepends a synthetic "All" row
+// that is **mutually exclusive** with picking individual items. The
+// exclusion is enforced via auto-transitions, not disabled clicks, so
+// the user never has to "first uncheck X to pick Y":
+//
+//   * Pick an individual while All-mode is on → All flips off and the
+//     individual becomes the only selection.
+//   * Pick All while individuals are selected → All flips on and the
+//     individual list is cleared.
+//
+// Defaulting `isAllSelected = true` when the parent boots with an
+// empty modelValue means the natural "no selection = all" semantics
+// of the consumer (e.g. scan platforms) reads as All from the start.
+// The parent doesn't need a separate v-model: empty modelValue keeps
+// the same backend meaning either way; this state only governs the
+// menu / chip UX.
+//
+// Hidden while the user is filtering — choosing "All" in a filtered
+// menu would silently reach outside the visible rows.
+const showAllRow = computed(
+  () => props.multiple && props.showAllOption && !internalSearch.value.trim(),
+);
+
+// All non-disabled item values exposed by *this* select. Used by the
+// "All" toggle to scope its changes to its own items, so two selects
+// sharing a model don't step on each other.
+const ownSelectableValues = computed<unknown[]>(() =>
+  normalisedItems.value.filter((it) => !it.disabled).map((it) => it.value),
+);
+
+function hasOwnSelection(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  const ownSet = new Set(ownSelectableValues.value);
+  return (value as unknown[]).some((v) => ownSet.has(valueOf(v)));
+}
+
+function isInitialAllSelected(): boolean {
+  if (!props.multiple || !props.showAllOption) return false;
+  const v = props.modelValue;
+  if (v == null) return true;
+  if (Array.isArray(v)) return !hasOwnSelection(v);
+  return false;
+}
+
+const isAllSelected = ref(isInitialAllSelected());
+
+// When the parent pushes a model that contains any of *this* select's
+// items, leave All-mode automatically — those items are individual
+// selections that can't coexist with All. Foreign items (from a
+// sibling select sharing the model) don't trip this.
+watch(
+  () => props.modelValue,
+  (next) => {
+    if (Array.isArray(next) && hasOwnSelection(next)) {
+      isAllSelected.value = false;
+    }
+  },
+);
+
+function toggleAllItems() {
+  if (!props.multiple || !props.showAllOption) return;
+  if (isAllSelected.value) {
+    // Drop All-mode without touching individuals (they're already
+    // empty since All was on). The user can now pick from the list.
+    isAllSelected.value = false;
+  } else {
+    // Switching INTO All-mode strips *this* select's items from the
+    // model so the mutual-exclusion invariant holds locally. Items
+    // owned by a sibling select stay put.
+    isAllSelected.value = true;
+    if (Array.isArray(props.modelValue)) {
+      const ownSet = new Set(ownSelectableValues.value);
+      const preserved = (props.modelValue as unknown[]).filter(
+        (v) => !ownSet.has(valueOf(v)),
+      );
+      emit("update:modelValue", preserved);
+    } else {
+      emit("update:modelValue", []);
+    }
   }
 }
 
 function removeSelection(value: unknown) {
   if (props.multiple) {
     const cur = Array.isArray(props.modelValue)
-      ? (props.modelValue as unknown[]).filter((v) => v !== value)
+      ? (props.modelValue as unknown[]).filter((v) => valueOf(v) !== value)
       : [];
     emit("update:modelValue", cur);
   } else {
@@ -401,7 +533,27 @@ function removeSelection(value: unknown) {
 }
 
 function clear() {
-  emit("update:modelValue", props.multiple ? [] : null);
+  if (props.multiple && props.showAllOption) {
+    // Clearing while All-mode is on drops back to the neutral
+    // "nothing picked, both choices available" state instead of
+    // re-arming All implicitly.
+    isAllSelected.value = false;
+  }
+  if (props.multiple) {
+    // Only strip *this* select's items from the model so a sibling
+    // select sharing the same v-model keeps its selection.
+    if (Array.isArray(props.modelValue)) {
+      const ownSet = new Set(ownSelectableValues.value);
+      const preserved = (props.modelValue as unknown[]).filter(
+        (v) => !ownSet.has(valueOf(v)),
+      );
+      emit("update:modelValue", preserved);
+    } else {
+      emit("update:modelValue", []);
+    }
+  } else {
+    emit("update:modelValue", null);
+  }
   emit("clear");
 }
 
@@ -804,8 +956,30 @@ const hasPrependInner = computed(
           />
         </span>
 
-        <!-- Empty — show placeholder or label. -->
-        <span v-if="!hasSelection" class="r-select__placeholder">
+        <!-- All-mode active → render a single "All" chip in place of
+             the regular selection. Closable so the user can drop All
+             without opening the menu. -->
+        <RTag
+          v-if="isAllSelected && multiple && showAllOption"
+          class="r-select__chip r-select__chip--all"
+          :tone="chipTone"
+          size="small"
+        >
+          {{ allOptionLabel }}
+          <template v-if="closableChips" #append>
+            <button
+              type="button"
+              class="r-select__chip-close"
+              tabindex="-1"
+              aria-label="Remove"
+              @mousedown.prevent
+              @click.stop="isAllSelected = false"
+            >
+              <RIcon icon="mdi-close" size="x-small" />
+            </button>
+          </template>
+        </RTag>
+        <span v-else-if="!hasSelection" class="r-select__placeholder">
           {{ effectivePlaceholder }}
         </span>
         <!-- Multi with chips — render the visible slice as removable
@@ -955,6 +1129,37 @@ const hasPrependInner = computed(
           </div>
 
           <ul class="r-select__list">
+            <!-- Synthetic "All" row — multi-select only, suppressed
+                 while the user is filtering. Sits above the regular
+                 items and is separated by a divider so it reads as a
+                 meta action rather than a list item. -->
+            <template v-if="showAllRow">
+              <li
+                class="r-select__item r-select__item--all"
+                :class="{ 'r-select__item--selected': isAllSelected }"
+                role="option"
+                :aria-selected="isAllSelected"
+                tabindex="-1"
+                @click="toggleAllItems"
+                @mouseenter="activeIndex = -1"
+              >
+                <span class="r-select__item-title">{{ allOptionLabel }}</span>
+                <RIcon
+                  v-if="isAllSelected"
+                  icon="mdi-check"
+                  class="r-select__item-check"
+                  size="x-small"
+                />
+              </li>
+              <li
+                v-if="filteredItems.length"
+                class="r-select__divider"
+                aria-hidden="true"
+              >
+                <RDivider />
+              </li>
+            </template>
+
             <li v-if="!filteredItems.length" class="r-select__empty">
               <slot name="no-data">No options</slot>
             </li>
@@ -1162,6 +1367,26 @@ const hasPrependInner = computed(
 }
 .r-select__placeholder {
   color: var(--r-color-fg-faint);
+}
+
+/* Synthetic "All" row in the menu — slightly emphasised so it reads
+   as a meta action rather than just another item. The divider sits
+   on a non-interactive li with reset padding. */
+.r-select__item--all {
+  font-weight: var(--r-font-weight-semibold);
+}
+/* The All row is hovered via CSS — `activeIndex` is reserved for the
+   filtered-items list (keyboard navigation), so we can't piggyback on
+   the `--active` class here. */
+.r-select__item--all:hover {
+  background: var(--r-color-surface);
+  color: var(--r-color-fg);
+}
+.r-select__divider {
+  padding: 0;
+  margin: 4px 0;
+  pointer-events: none;
+  list-style: none;
 }
 
 /* When an adornment is present on either side, trim the inner gap so
