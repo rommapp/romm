@@ -3,12 +3,12 @@
 // Scan view. Header shows the platform icon + name + per-platform
 // chips (ROM count, firmware count, "not identified" badge).
 //
-// Body: lists every newly-scanned ROM via ScanPlatformRow, always
-// inside an RVirtualScroller. Using the virtual scroller unconditionally
-// keeps the body surface aligned with its content height regardless of
-// the row count — an initial scan with hundreds of games per platform
-// gets bounded DOM size, and small platforms still get the same flush
-// surface (no late "growing into" the right shape as rows stream in).
+// Body: lists every newly-scanned ROM via ScanPlatformRow, rendered
+// inside an RVirtualScroller whose viewport always equals the total
+// content height. No internal scroll — the parent scan log handles
+// overflow. The scroller stays in the loop anyway because its
+// transform-based row positioning avoids reflowing existing rows
+// as new ones stream in during a live scan.
 import { RCollapsible, RPlatformIcon, RTag, RVirtualScroller } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -34,20 +34,15 @@ const { t } = useI18n();
 // 48px cover + 8px padding + 1px border). Kept here as a constant so
 // `getItemHeight` and the row style stay in sync.
 const ROW_HEIGHT = 65;
-// Cap the virtual scroller's viewport so it never overruns the right
-// pane. Up to this many rows render at natural height; above the cap
-// the container scrolls internally.
-const MAX_VIEWPORT_ROWS = 8;
 
-// Use the natural cumulative height up to the cap so small / empty
-// platforms don't show a tall empty box. Above the cap we lock to the
-// max so streaming hundreds of rows can't push the panel off-screen.
+// Viewport always matches the cumulative content height so the
+// collapsible body grows naturally with the ROM list — no internal
+// scroll. The parent scan log handles overflow. RVirtualScroller is
+// still useful here because its `transform: translateY` positioning
+// avoids reflowing existing rows as new ones stream in.
 const viewportHeight = computed(() => {
-  const rows = Math.min(props.platform.roms.length, MAX_VIEWPORT_ROWS);
-  // Always reserve at least one row's height so the body has visible
-  // surface even when there are no ROMs yet (the "no new roms" empty
-  // state still needs somewhere to sit).
-  return Math.max(rows, 1) * ROW_HEIGHT;
+  const rows = Math.max(props.platform.roms.length, 1);
+  return rows * ROW_HEIGHT;
 });
 
 function getItemHeight() {
@@ -116,17 +111,13 @@ function getItemHeight() {
 </template>
 
 <style scoped>
+/* Row separator is already painted by ScanPlatformRow's own
+   `border-top`, so the virtual scroller itself stays chrome-less —
+   no extra border or background would cause its content height to
+   mismatch its inline `height:` style (border-box reserves the
+   border out of the content area and triggers a spurious scroll). */
 .r-v2-scan-platform__virtual {
-  background: var(--r-color-bg-elevated);
-  /* Top border so the first virtual row's border-top isn't the only
-     visual boundary with the collapsible header. */
-  border-top: 1px solid var(--r-color-border);
-}
-/* The first row inside the virtual scroller already paints a top
-   border via ScanPlatformRow — collapse it so we don't double up the
-   border thickness right under the collapsible header. */
-.r-v2-scan-platform__virtual :deep(.r-v2-scan-platform__rom) {
-  border-top: 1px solid var(--r-color-border);
+  background: transparent;
 }
 
 .r-v2-scan-platform__empty {

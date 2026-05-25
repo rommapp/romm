@@ -19,6 +19,12 @@
 // flush with a trigger element placed directly above it (the trigger
 // is responsible for dropping its own bottom radius).
 //
+// Body content is rendered flush with the panel edges — no built-in
+// inset. Consumers add their own padding to the slotted content (a
+// wrapper `<div class="...">` works fine). This keeps lists and
+// virtual scrollers edge-to-edge by default while text-heavy bodies
+// can opt into whatever inset they want.
+//
 // Animation uses a CSS-only grid-row trick (no JS height measurement)
 // so it works for content of any height.
 import { computed, ref, useSlots, watch } from "vue";
@@ -231,15 +237,9 @@ function toggle() {
   min-height: 0;
 }
 
-/* Default content padding only when there's a header — applied to the
-   first child (not to .content itself) so the grid item can collapse
-   to 0px when closed. Padding on the item would force min-content >= 0,
-   leaking the first line of content under the header.
-   In headless mode the consumer drives padding so the panel can blend
-   with custom triggers. */
-.r-collapsible:not(.r-collapsible--headless)
-  .r-collapsible__content
-  > :first-child {
-  padding: 0 var(--r-space-5) var(--r-space-5);
-}
+/* The body sits flush against the panel edges by default — consumers
+   own any inset they want, applied to the slotted content. Padding on
+   the grid item itself is intentionally avoided: it would force
+   `min-content >= 0`, leaking the first line under the header during
+   the collapsed-row transition. */
 </style>
