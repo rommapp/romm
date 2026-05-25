@@ -1,19 +1,16 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import EmptyManualMatch from "@/components/common/EmptyStates/EmptyManualMatch.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
-import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom, type SearchRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { getMissingCoverImage } from "@/utils/covers";
 
 type MatchedSource = {
   url_cover: string | undefined;
@@ -33,7 +30,6 @@ const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
-const galleryViewStore = storeGalleryView();
 const searching = ref(false);
 const route = useRoute();
 const searchText = ref("");
@@ -55,13 +51,6 @@ const isFlashpointFiltered = ref(true);
 const isLaunchboxFiltered = ref(true);
 const isLibretroFiltered = ref(true);
 
-const computedAspectRatio = computed(() => {
-  return galleryViewStore.getAspectRatio({
-    platformId: rom.value?.platform_id,
-    boxartStyle: "cover_path",
-  });
-});
-
 const handleShowMatchRomDialog = (romToSearch: SimpleRom) => {
   rom.value = romToSearch;
   show.value = true;
@@ -71,10 +60,6 @@ const handleShowMatchRomDialog = (romToSearch: SimpleRom) => {
     : romToSearch.fs_name_no_tags;
 };
 emitter?.on("showMatchRomDialog", handleShowMatchRomDialog);
-
-const missingCoverImage = computed(() =>
-  getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
-);
 
 function toggleSourceFilter(source: MatchedSource["name"]) {
   if (source == "IGDB" && heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED) {

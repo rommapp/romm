@@ -8,11 +8,9 @@ import { views } from "@/utils";
 
 const props = withDefaults(
   defineProps<{
-    platformId?: number;
     romCount?: number;
   }>(),
   {
-    platformId: undefined,
     romCount: RECENT_ROMS_LIMIT,
   },
 );
@@ -37,7 +35,7 @@ const { fetchLimit } = storeToRefs(romsStore);
           :lg="views[currentView]['size-lg']"
           :xl="views[currentView]['size-xl']"
         >
-          <Skeleton :platform-id="props.platformId" />
+          <Skeleton />
         </v-col>
       </v-row>
 

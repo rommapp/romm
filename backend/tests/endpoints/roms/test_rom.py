@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
 from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
@@ -125,6 +126,54 @@ def test_update_rom_reparses_tags_on_fs_name_change(
     assert body["regions"] == []
     assert body["revision"] == "1"
     assert body["tags"] == []
+
+
+# Minimal valid PNG (1x1 transparent pixel)
+_PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n"
+    b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\rIDATx\x9cc\xfc\xff\xff?\x00\x05\xfe\x02\xfe\xa75\x81\x84"
+    b"\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def test_update_rom_rejects_non_image_artwork(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        files={"artwork": ("cover.png", b"<script>alert(1)</script>", "image/png")},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+
+
+@patch.object(
+    FSResourcesHandler,
+    "store_artwork",
+    new_callable=AsyncMock,
+    return_value=("path/to/big.png", "path/to/small.png"),
+)
+def test_update_rom_artwork_uses_detected_extension(
+    store_artwork_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        files={"artwork": ("payload.html", _PNG_BYTES, "image/png")},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    # The handler is called with the trusted extension from libmagic, not the
+    # extension parsed off the user-supplied filename.
+    assert store_artwork_mock.called
+    _, _, file_ext = store_artwork_mock.call_args.args
+    assert file_ext == "png"
 
 
 def test_delete_roms(client: TestClient, access_token: str, rom: Rom):

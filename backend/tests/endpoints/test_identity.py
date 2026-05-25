@@ -151,6 +151,45 @@ def test_update_user(client, access_token: str, editor_user: User):
     assert user["role"] == "viewer"
 
 
+def test_update_user_rejects_non_image_avatar(
+    client, access_token: str, editor_user: User
+):
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        files={"avatar": ("avatar.png", b"<script>alert(1)</script>", "image/png")},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "PNG, JPEG, WebP, or GIF" in response.json()["detail"]
+
+
+def test_update_user_accepts_png_avatar(
+    client, access_token: str, editor_user: User, tmp_path, monkeypatch
+):
+    # Redirect ASSETS_BASE_PATH to a per-test tmp dir so the written avatar
+    # doesn't leak into the repo's romm_test/ tree.
+    from handler.filesystem import fs_asset_handler
+
+    monkeypatch.setattr(fs_asset_handler, "base_path", str(tmp_path))
+
+    # Minimal valid PNG (1x1 transparent pixel)
+    png_bytes = (
+        b"\x89PNG\r\n\x1a\n"
+        b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+        b"\x00\x00\x00\rIDATx\x9cc\xfc\xff\xff?\x00\x05\xfe\x02\xfe\xa75\x81\x84"
+        b"\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    response = client.put(
+        f"/api/users/{editor_user.id}",
+        files={"avatar": ("payload.html", png_bytes, "image/png")},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    # Server picks the extension from the detected MIME, not the user-supplied filename.
+    assert response.json()["avatar_path"].endswith("avatar.png")
+
+
 def test_delete_user(client, access_token: str, editor_user: User):
     response = client.delete(
         f"/api/users/{editor_user.id}",

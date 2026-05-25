@@ -7,7 +7,7 @@ import type { RomFileSchema, RomUserStatus } from "@/__generated__";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
-import type { SimpleRom } from "@/stores/roms";
+import type { DetailedRom, SimpleRom } from "@/stores/roms";
 
 /**
  * Views configuration object.
@@ -711,7 +711,7 @@ export function isNintendoDSFile(rom: SimpleRom): boolean {
   return ["cia", "nds", "3ds", "dsi"].includes(rom.fs_extension.toLowerCase());
 }
 
-export function getNintendoDSFiles(rom: SimpleRom): RomFileSchema[] {
+export function getNintendoDSFiles(rom: DetailedRom): RomFileSchema[] {
   return rom.files.filter((file) => {
     const fileName = file.file_name.toLowerCase();
     return (
@@ -728,7 +728,7 @@ export function getNintendoDSFiles(rom: SimpleRom): RomFileSchema[] {
  * @param rom The ROM object.
  * @returns {boolean} True if the ROM is a valid game, otherwise false.
  */
-export function isNintendoDSRom(rom: SimpleRom): boolean {
+export function isNintendoDSRom(rom: DetailedRom): boolean {
   if (
     !["3ds", "nds", "new-nintendo-3ds", "nintendo-dsi"].includes(
       rom.platform_slug,

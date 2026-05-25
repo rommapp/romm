@@ -43,13 +43,13 @@ Comprehensive documentation of the RomM backend: a FastAPI-based server powering
 
 RomM's backend is responsible for:
 
-- **Library scanning** — detecting platforms and ROMs from the filesystem
-- **Metadata enrichment** — pulling game info from 10+ external providers
-- **User management** — roles, authentication, per-user game tracking
-- **Asset management** — saves, save states, screenshots, firmware/BIOS
-- **Device sync** — cross-device save synchronization
-- **Netplay** — real-time multiplayer room coordination
-- **Feed generation** — Tinfoil, WebRcade, PKGi, and other custom formats
+- **Library scanning**: detecting platforms and ROMs from the filesystem
+- **Metadata enrichment**: pulling game info from 10+ external providers
+- **User management**: roles, authentication, per-user game tracking
+- **Asset management**: saves, save states, screenshots, firmware/BIOS
+- **Device sync**: cross-device save synchronization
+- **Netplay**: real-time multiplayer room coordination
+- **Feed generation**: Tinfoil, WebRcade, PKGi, and other custom formats
 
 ---
 
@@ -378,13 +378,13 @@ Request →  CORS → CSRF → Authentication → Session (Redis) → Context Va
 Response ← CORS ← CSRF ← Authentication ← Session (Redis) ← Context Vars ← Endpoint
 ```
 
-| Layer | Middleware                 | Purpose                                            |
-| ----- | -------------------------- | -------------------------------------------------- |
-| 1     | `CORSMiddleware`           | Allow cross-origin requests (all origins)          |
-| 2     | `CSRFMiddleware`           | Token-based CSRF protection (cookie + header)      |
-| 3     | `AuthenticationMiddleware` | `HybridAuthBackend` — Basic, Bearer, Session, OIDC |
-| 4     | `RedisSessionMiddleware`   | Cookie-based sessions stored in Redis              |
-| 5     | `set_context_middleware`   | Inject aiohttp/httpx clients into context vars     |
+| Layer | Middleware                 | Purpose                                           |
+| ----- | -------------------------- | ------------------------------------------------- |
+| 1     | `CORSMiddleware`           | Allow cross-origin requests (all origins)         |
+| 2     | `CSRFMiddleware`           | Token-based CSRF protection (cookie + header)     |
+| 3     | `AuthenticationMiddleware` | `HybridAuthBackend`: Basic, Bearer, Session, OIDC |
+| 4     | `RedisSessionMiddleware`   | Cookie-based sessions stored in Redis             |
+| 5     | `set_context_middleware`   | Inject aiohttp/httpx clients into context vars    |
 
 ### Request Flow
 
@@ -547,7 +547,7 @@ Constants: `FILE_NAME_MAX_LENGTH=450`, `FILE_PATH_MAX_LENGTH=1000`, `FILE_EXTENS
 
 #### ROMs
 
-**Table:** `roms` — the central entity
+**Table:** `roms` (the central entity)
 
 | Column Group          | Columns                                                                                                                                                                                   | Notes                   |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
@@ -585,7 +585,7 @@ Tracks individual files within a ROM (archives can contain multiple files).
 
 #### ROM Metadata (Aggregated)
 
-**Table:** `roms_metadata` — aggregated metadata from all providers
+**Table:** `roms_metadata` (aggregated metadata from all providers)
 
 | Column               | Type                        |
 | -------------------- | --------------------------- |
@@ -604,7 +604,7 @@ Tracks individual files within a ROM (archives can contain multiple files).
 
 #### ROM User Data
 
-**Table:** `rom_user` — per-user, per-ROM tracking
+**Table:** `rom_user` (per-user, per-ROM tracking)
 
 | Column               | Type         | Notes                                                                 |
 | -------------------- | ------------ | --------------------------------------------------------------------- |
@@ -638,7 +638,7 @@ Tracks individual files within a ROM (archives can contain multiple files).
 
 #### Collections
 
-**Table:** `collections` — manually curated ROM lists
+**Table:** `collections` (manually curated ROM lists)
 
 | Column                        | Type        | Notes     |
 | ----------------------------- | ----------- | --------- |
@@ -652,7 +652,7 @@ Tracks individual files within a ROM (archives can contain multiple files).
 
 Linked to ROMs via `collections_roms` join table (M:M).
 
-**Table:** `smart_collections` — dynamic, filter-based
+**Table:** `smart_collections` (dynamic, filter-based)
 
 | Column            | Type    | Notes                   |
 | ----------------- | ------- | ----------------------- |
@@ -660,7 +660,7 @@ Linked to ROMs via `collections_roms` join table (M:M).
 | `rom_ids`         | JSON    | Cached matching ROM IDs |
 | `rom_count`       | Integer | Cached count            |
 
-**View:** `virtual_collections` — database view, read-only, excluded from migrations.
+**View:** `virtual_collections` (database view, read-only, excluded from migrations).
 
 ---
 
@@ -672,7 +672,7 @@ All three share a similar structure:
 | ------------- | ---------------------------------- | ------------------- |
 | `saves`       | `emulator`, `slot`, `content_hash` | Device sync support |
 | `states`      | `emulator`                         | Save states         |
-| `screenshots` | —                                  | In-game captures    |
+| `screenshots` |                                    | In-game captures    |
 
 Common columns: `id`, `rom_id` (FK), `user_id` (FK), `file_name`, `file_path`, `file_size_bytes`, `missing_from_fs`
 
@@ -693,7 +693,7 @@ Saves additionally link to `device_save_sync` for cross-device tracking.
 | `sync_enabled`                                 | Boolean     |                                     |
 | `last_seen`                                    | Timestamp   |                                     |
 
-**Table:** `device_save_sync` — tracks per-device, per-save sync state
+**Table:** `device_save_sync` (tracks per-device, per-save sync state)
 
 | Column                  | Type         |
 | ----------------------- | ------------ |
@@ -705,7 +705,7 @@ Saves additionally link to `device_save_sync` for cross-device tracking.
 
 #### Client Tokens
 
-**Table:** `client_tokens` — long-lived API tokens
+**Table:** `client_tokens` (long-lived API tokens)
 
 | Column         | Type         | Notes                        |
 | -------------- | ------------ | ---------------------------- |
@@ -1025,15 +1025,15 @@ The codebase exposes roughly **175 HTTP routes** and **11 WebSocket handlers** a
 ### Scope Definitions
 
 ```text
-me.read / me.write           — Own profile
-roms.read / roms.write       — ROM data
-platforms.read / platforms.write — Platform data
-assets.read / assets.write   — Saves, states, screenshots
-devices.read / devices.write — Device management
-firmware.read / firmware.write — BIOS files
-collections.read / collections.write — Collections
-users.read / users.write     — User management (admin)
-tasks.run                    — Task execution
+me.read / me.write           : Own profile
+roms.read / roms.write       : ROM data
+platforms.read / platforms.write : Platform data
+assets.read / assets.write   : Saves, states, screenshots
+devices.read / devices.write : Device management
+firmware.read / firmware.write : BIOS files
+collections.read / collections.write : Collections
+users.read / users.write     : User management (admin)
+tasks.run                    : Task execution
 ```
 
 ### CSRF Protection
@@ -1056,7 +1056,7 @@ tasks.run                    — Task execution
 
 ### 8.1 Scan Handler (`handler/scan_handler.py`)
 
-The core of RomM — orchestrates library scanning and metadata enrichment.
+The core of RomM. Orchestrates library scanning and metadata enrichment.
 
 **Scan Types:**
 
@@ -1185,7 +1185,7 @@ Tracks per-user playtime events ingested from clients (web player, console mode,
 
 ### 8.7 Device Sync Sessions
 
-Coordinates save/state synchronization between devices using three sync modes (`API`, `FILE_TRANSFER`, `PUSH_PULL`). `SyncSession` tracks the lifecycle of a push/pull operation (including optional SSH-based file transfer — see `SYNC_SSH_*` env vars). Endpoints live in `endpoints/sync.py`; state is stored in the `sync_sessions` table.
+Coordinates save/state synchronization between devices using three sync modes (`API`, `FILE_TRANSFER`, `PUSH_PULL`). `SyncSession` tracks the lifecycle of a push/pull operation (including optional SSH-based file transfer; see `SYNC_SSH_*` env vars). Endpoints live in `endpoints/sync.py`; state is stored in the `sync_sessions` table.
 
 ### 8.8 Socket Handler (`handler/socket_handler.py`)
 
@@ -1302,7 +1302,7 @@ Client  ←──Socket.IO──→  FastAPI (python-socketio)  ←──Redis P
 | ------------------- | ------------------ | --------------------------- |
 | `scan:update_stats` | `ScanStats` object | Each ROM/platform processed |
 | `scan:log`          | Log message        | Scan log entries            |
-| `scan:stop`         | —                  | Scan completed or cancelled |
+| `scan:stop`         |                    | Scan completed or cancelled |
 
 ### Netplay (`/netplay`)
 
@@ -1476,10 +1476,10 @@ Falls back to `FakeRedis` in test mode.
 | Variable         | Default   | Description                         |
 | ---------------- | --------- | ----------------------------------- |
 | `ROMM_DB_DRIVER` | `mariadb` | `mariadb`, `mysql`, or `postgresql` |
-| `DB_HOST`        | —         | Database host                       |
+| `DB_HOST`        |           | Database host                       |
 | `DB_PORT`        | `3306`    | Database port                       |
-| `DB_USER`        | —         | Database user                       |
-| `DB_PASSWD`      | —         | Database password                   |
+| `DB_USER`        |           | Database user                       |
+| `DB_PASSWD`      |           | Database password                   |
 | `DB_NAME`        | `romm`    | Database name                       |
 
 #### Redis
@@ -1488,8 +1488,8 @@ Falls back to `FakeRedis` in test mode.
 | ---------------- | ----------- | --------------------- |
 | `REDIS_HOST`     | `127.0.0.1` | Redis host            |
 | `REDIS_PORT`     | `6379`      | Redis port            |
-| `REDIS_USERNAME` | —           | Redis username (ACL)  |
-| `REDIS_PASSWORD` | —           | Redis password        |
+| `REDIS_USERNAME` |             | Redis username (ACL)  |
+| `REDIS_PASSWORD` |             | Redis password        |
 | `REDIS_DB`       | `0`         | Redis database number |
 | `REDIS_SSL`      | `false`     | Enable SSL            |
 
@@ -1497,7 +1497,7 @@ Falls back to `FakeRedis` in test mode.
 
 | Variable                             | Default   | Description                           |
 | ------------------------------------ | --------- | ------------------------------------- |
-| `ROMM_AUTH_SECRET_KEY`               | —         | **Required.** JWT/session signing key |
+| `ROMM_AUTH_SECRET_KEY`               |           | **Required.** JWT/session signing key |
 | `OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS`  | `1800`    | 30 minutes                            |
 | `OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS` | `604800`  | 7 days                                |
 | `SESSION_MAX_AGE_SECONDS`            | `1209600` | 14 days                               |
@@ -1511,16 +1511,16 @@ Falls back to `FakeRedis` in test mode.
 | Variable                        | Default              | Description                     |
 | ------------------------------- | -------------------- | ------------------------------- |
 | `OIDC_ENABLED`                  | `false`              | Enable OpenID Connect           |
-| `OIDC_PROVIDER`                 | —                    | Provider URL                    |
-| `OIDC_CLIENT_ID`                | —                    | Client ID                       |
-| `OIDC_CLIENT_SECRET`            | —                    | Client secret                   |
-| `OIDC_REDIRECT_URI`             | —                    | Redirect URI                    |
+| `OIDC_PROVIDER`                 |                      | Provider URL                    |
+| `OIDC_CLIENT_ID`                |                      | Client ID                       |
+| `OIDC_CLIENT_SECRET`            |                      | Client secret                   |
+| `OIDC_REDIRECT_URI`             |                      | Redirect URI                    |
 | `OIDC_USERNAME_ATTRIBUTE`       | `preferred_username` | Username claim                  |
-| `OIDC_CLAIM_ROLES`              | —                    | Roles claim name                |
-| `OIDC_ROLE_VIEWER/EDITOR/ADMIN` | —                    | Role mappings                   |
-| `OIDC_TLS_CACERTFILE`           | —                    | Custom CA bundle for OIDC calls |
+| `OIDC_CLAIM_ROLES`              |                      | Roles claim name                |
+| `OIDC_ROLE_VIEWER/EDITOR/ADMIN` |                      | Role mappings                   |
+| `OIDC_TLS_CACERTFILE`           |                      | Custom CA bundle for OIDC calls |
 | `OIDC_RP_INITIATED_LOGOUT`      | `false`              | Send logout to OIDC provider    |
-| `OIDC_END_SESSION_ENDPOINT`     | —                    | End-session URL override        |
+| `OIDC_END_SESSION_ENDPOINT`     |                      | End-session URL override        |
 
 #### API Keys
 
@@ -1551,26 +1551,25 @@ Falls back to `FakeRedis` in test mode.
 | -------------------------------------- | ----------- | ------------------------------- |
 | `SCAN_TIMEOUT`                         | `14400`     | 4-hour scan timeout             |
 | `SCAN_WORKERS`                         | `1`         | Concurrent scan workers         |
-| `TASK_TIMEOUT`                         | —           | RQ job timeout for manual tasks |
-| `TASK_RESULT_TTL`                      | —           | How long to keep job results    |
+| `TASK_TIMEOUT`                         |             | RQ job timeout for manual tasks |
+| `TASK_RESULT_TTL`                      |             | How long to keep job results    |
 | `ENABLE_SCHEDULED_RESCAN`              | `false`     | Auto library rescan             |
 | `SCHEDULED_RESCAN_CRON`                | `0 3 * * *` | Rescan schedule                 |
 | `ENABLE_RESCAN_ON_FILESYSTEM_CHANGE`   | `false`     | Watch for file changes          |
 | `RESCAN_ON_FILESYSTEM_CHANGE_DELAY`    | `5`         | Debounce delay (minutes)        |
-| `SEVEN_ZIP_TIMEOUT`                    | —           | Timeout for 7-Zip extraction    |
-| `REFRESH_RETROACHIEVEMENTS_CACHE_DAYS` | —           | RA cache TTL (days)             |
+| `SEVEN_ZIP_TIMEOUT`                    |             | Timeout for 7-Zip extraction    |
+| `REFRESH_RETROACHIEVEMENTS_CACHE_DAYS` |             | RA cache TTL (days)             |
 
 #### Device Sync
 
-| Variable                          | Default | Description                       |
-| --------------------------------- | ------- | --------------------------------- |
-| `ENABLE_SYNC_FOLDER_WATCHER`      | `false` | Watch sync folder for new saves   |
-| `SYNC_FOLDER_SCAN_DELAY`          | —       | Debounce for sync folder scans    |
-| `ENABLE_SYNC_PUSH_PULL`           | `false` | Enable scheduled push/pull sync   |
-| `SYNC_PUSH_PULL_CRON`             | —       | Cron schedule for push/pull       |
-| `SYNC_SSH_HOST` / `SYNC_SSH_PORT` | —       | SSH target for FILE_TRANSFER sync |
-| `SYNC_SSH_USERNAME`               | —       | SSH user                          |
-| `SYNC_SSH_PRIVATE_KEY_PATH`       | —       | SSH private key path              |
+| Variable                     | Default | Description                     |
+| ---------------------------- | ------- | ------------------------------- |
+| `ENABLE_SYNC_FOLDER_WATCHER` | `false` | Watch sync folder for new saves |
+| `SYNC_FOLDER_SCAN_DELAY`     |         | Debounce for sync folder scans  |
+| `ENABLE_SYNC_PUSH_PULL`      | `false` | Enable scheduled push/pull sync |
+| `SYNC_PUSH_PULL_CRON`        |         | Cron schedule for push/pull     |
+| `SYNC_SSH_KEYS_PATH`         |         | SSH keys path                   |
+| `SYNC_SSH_KNOWN_HOSTS_PATH`  |         | SSH known hosts path            |
 
 ### YAML Configuration (`config.yml`)
 
@@ -1628,12 +1627,12 @@ Managed by `ConfigManager` (singleton pattern) which reads, validates, and write
 
 ```text
 Exception
-├── AuthCredentialsException          # 401 — Incorrect credentials
-├── AuthenticationSchemeException      # 401 — Invalid auth scheme
-├── UserDisabledException             # 401 — Account disabled
-├── OAuthCredentialsException         # 401 — Invalid OAuth token
-├── OIDCDisabledException             # 500 — OIDC not configured
-├── OIDCNotConfiguredException        # 500 — OIDC feature disabled
+├── AuthCredentialsException          # 401: Incorrect credentials
+├── AuthenticationSchemeException      # 401: Invalid auth scheme
+├── UserDisabledException             # 401: Account disabled
+├── OAuthCredentialsException         # 401: Invalid OAuth token
+├── OIDCDisabledException             # 500: OIDC not configured
+├── OIDCNotConfiguredException        # 500: OIDC feature disabled
 │
 ├── PlatformNotFoundInDatabaseException    # 404
 ├── RomNotFoundInDatabaseException         # 404

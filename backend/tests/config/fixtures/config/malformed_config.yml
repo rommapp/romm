@@ -1,0 +1,9 @@
+# Intentionally malformed YAML, used to verify the loader falls back to
+# defaults rather than crashing on a parse error.
+
+scan:
+  media:
+    - box2d
+   - screenshot  # bad indentation, will fail to parse
+  gamelist:
+   export: true

@@ -97,7 +97,9 @@ async function loginOIDC() {
 }
 
 onMounted(async () => {
-  if (oidcEnabled && oidcAutologin) {
+  const params = new URLSearchParams(window.location.search);
+  const bypassAutologin = params.get("bypass_autologin") === "true";
+  if (oidcEnabled && oidcAutologin && !bypassAutologin) {
     loginOIDC();
   }
 });

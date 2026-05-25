@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 import uuid
 from pathlib import Path
 from typing import Final, NotRequired, TypedDict
@@ -18,6 +19,17 @@ from models.rom import Rom
 from .base_handler import BaseRom, MetadataHandler
 
 # https://github.com/Aloshi/EmulationStation/blob/master/GAMELISTS.md#reference
+
+# ES-DE writes a top-level <alternativeEmulator> sibling to <gameList>, which produces
+# invalid multi-root XML. These patterns strip both self-closing and paired forms so the
+# remaining document can be parsed.
+ALTERNATIVE_EMULATOR_SELF_CLOSING_RE: Final = re.compile(
+    r"<alternativeEmulator\b[^>]*/>"
+)
+ALTERNATIVE_EMULATOR_PAIRED_RE: Final = re.compile(
+    r"<alternativeEmulator\b[^>]*>.*?</alternativeEmulator>",
+    re.DOTALL,
+)
 
 
 def get_preferred_media_types() -> list[MetadataMediaType]:
@@ -102,6 +114,17 @@ def _make_file_uri(platform_dir: str, raw_text: str) -> str:
     joined_path = Path(platform_dir, cleaned_text)
     fs_platform_handler.validate_path(str(joined_path))
     return f"file://{joined_path.as_posix()}"
+
+
+def _split_comma_separated_values(value: str | None) -> list[str]:
+    """Split comma separated values into clean list"""
+
+    if not value:
+        return []
+
+    split_values = value.split(",")
+
+    return pydash.compact([item.strip() for item in split_values])
 
 
 def extract_media_from_gamelist_rom(
@@ -196,9 +219,18 @@ def extract_metadata_from_gamelist_rom(
     return GamelistMetadata(
         rating=rating,
         first_release_date=first_release_date,
-        companies=pydash.compact([developer, publisher]),
-        franchises=pydash.compact([family]),
-        genres=pydash.compact([genre]),
+        companies=list(
+            dict.fromkeys(
+                pydash.compact(
+                    [
+                        *_split_comma_separated_values(developer),
+                        *_split_comma_separated_values(publisher),
+                    ]
+                )
+            )
+        ),
+        franchises=_split_comma_separated_values(family),
+        genres=_split_comma_separated_values(genre),
         player_count=players,
         md5_hash=md5,
         box3d_path=None,
@@ -317,12 +349,25 @@ class GamelistHandler(MetadataHandler):
         roms_data: dict[str, GamelistRom] = {}
 
         try:
-            tree = ET.parse(gamelist_path)
-            root = tree.getroot()
-            if root is None:
-                return roms_data
+            xml_content = gamelist_path.read_text(encoding="utf-8", errors="replace")
+            xml_content = ALTERNATIVE_EMULATOR_SELF_CLOSING_RE.sub("", xml_content)
+            xml_content = ALTERNATIVE_EMULATOR_PAIRED_RE.sub("", xml_content)
+            root: Element | None = ET.fromstring(xml_content)
+        except ET.ParseError as e:
+            log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
+            root = None
+        except Exception as e:
+            log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
+            root = None
 
-            for game in root.findall("game"):
+        if root is None:
+            return roms_data
+
+        try:
+            for game in root:
+                if game.tag not in ("game", "folder"):
+                    continue
+
                 path_elem = game.find("path")
                 if path_elem is None or path_elem.text is None:
                     continue
@@ -348,12 +393,14 @@ class GamelistHandler(MetadataHandler):
                     desc_elem.text if desc_elem is not None and desc_elem.text else ""
                 )
                 regions = (
-                    pydash.compact([region_elem.text])
+                    _split_comma_separated_values(region_elem.text)
                     if region_elem is not None
                     else []
                 )
                 languages = (
-                    pydash.compact([lang_elem.text]) if lang_elem is not None else []
+                    _split_comma_separated_values(lang_elem.text)
+                    if lang_elem is not None
+                    else []
                 )
 
                 # Build ROM data
@@ -396,8 +443,6 @@ class GamelistHandler(MetadataHandler):
 
             # Cache the parsed data for this platform
             self._gamelist_cache[cache_key] = roms_data
-        except ET.ParseError as e:
-            log.warning(f"Failed to parse gamelist.xml at {gamelist_path}: {e}")
         except Exception as e:
             log.error(f"Error reading gamelist.xml at {gamelist_path}: {e}")
 

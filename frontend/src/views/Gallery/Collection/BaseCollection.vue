@@ -237,7 +237,7 @@ onBeforeRouteUpdate(async (to, from) => {
           <v-col
             v-for="rom in filteredRoms"
             :key="rom.id"
-            class="pa-1 align-self-end"
+            class="pa-1 align-self-center"
             :cols="views[currentView]['size-cols']"
             :sm="views[currentView]['size-sm']"
             :md="views[currentView]['size-md']"

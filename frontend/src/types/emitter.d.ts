@@ -31,7 +31,7 @@ export type Events = {
   showDeleteCollectionDialog: Collection;
   showDeleteSmartCollectionDialog: SmartCollection;
   showMatchRomDialog: SimpleRom;
-  showSearchCoverDialog: { term: string; platformId?: number };
+  showSearchCoverDialog: { term: string };
   updateUrlCover: string;
   showEditRomDialog: SimpleRom;
   showRefreshMetadataDialog: SimpleRom;
@@ -82,7 +82,7 @@ export type Events = {
   filterRoms: null;
   firmwareDrawerShow: null;
   sortBarShow: null;
-  showQRCodeDialog: SimpleRom;
+  showQRCodeDialog: DetailedRom;
   selectSaveDialog: DetailedRom;
   selectStateDialog: DetailedRom;
   saveSelected: SaveSchema;

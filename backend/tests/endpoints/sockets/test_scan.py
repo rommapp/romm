@@ -180,7 +180,7 @@ class TestShouldScanRom:
             assert result is True
 
     def test_no_scan_when_rom_id_not_in_list(self, rom: Rom):
-        """When roms_ids is non-empty, scan is scoped — roms outside the list are skipped for every scan type"""
+        """When roms_ids is non-empty, scan is scoped: roms outside the list are skipped for every scan type"""
         rom.id = 4
         rom.igdb_id = None
         rom.moby_id = None

@@ -23,7 +23,7 @@ class TestExtractDeviceAndPlatform:
     @pytest.fixture(autouse=True)
     def patch_base_path(self, handler: FSSyncHandler, temp_dir):
         handler.base_path = Path(temp_dir)
-        with patch("sync_watcher.fs_sync_handler", handler):
+        with patch("sync_watcher.get_fs_sync_handler", return_value=handler):
             yield
 
     def test_extract_valid_incoming_path(self, temp_dir):
@@ -77,7 +77,7 @@ class TestEnsureConflictsDir:
     @pytest.fixture(autouse=True)
     def patch_base_path(self, handler: FSSyncHandler, temp_dir):
         handler.base_path = Path(temp_dir)
-        with patch("sync_watcher.fs_sync_handler", handler):
+        with patch("sync_watcher.get_fs_sync_handler", return_value=handler):
             yield
 
     def test_creates_directory_and_returns_path(self, temp_dir):

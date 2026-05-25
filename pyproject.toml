@@ -14,11 +14,11 @@ dependencies = [
   "PyYAML ~= 6.0",
   "SQLAlchemy[mariadb-connector,mysql-connector,postgresql-psycopg] ~= 2.0",
   "Unidecode ~= 1.3",
-  "aiohttp ~= 3.12",
+  "aiohttp~=3.13",
   "asyncssh ~= 2.17",
   "alembic ~= 1.16",
   "anyio ~= 4.4",
-  "authlib ~= 1.6.5",
+  "authlib~=1.6.12",
   "colorama ~= 0.4",
   "defusedxml ~= 0.7",
   "fastapi-pagination[sqlalchemy] ~= 0.15",
@@ -46,7 +46,7 @@ dependencies = [
   "python-magic ~= 0.4",
   "python-socketio ~= 5.11",
   "redis ~= 6.2",
-  "rq ~= 2.1",
+  "rq ~= 2.7",
   # TODO: Move back to upstream `rq-scheduler`, when support for username and SSL settings is added.
   #       Related PR: https://github.com/rq/rq-scheduler/pull/325
   "rq-scheduler @ git+https://github.com/adamantike/rq-scheduler.git@feat/script-options-username-ssl",

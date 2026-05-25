@@ -47,6 +47,7 @@ export default defineStore("upload", {
       filename: string,
       overallPercent: number,
       totalBytes: number,
+      rate?: number,
     ) {
       const file = this.files.find((f) => f.filename === filename);
       if (!file) return;
@@ -54,6 +55,7 @@ export default defineStore("upload", {
       file.progress = overallPercent;
       file.total = totalBytes;
       file.loaded = (overallPercent / 100) * totalBytes;
+      file.rate = rate ?? file.rate;
       file.finished = overallPercent >= 100;
     },
     fail(filename: string, reason: string) {

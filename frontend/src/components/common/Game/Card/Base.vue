@@ -158,10 +158,7 @@ const {
 });
 
 const computedAspectRatio = computed(() => {
-  return galleryViewStore.getAspectRatio({
-    platformId: props.rom.platform_id,
-    boxartStyle: boxartStyle.value,
-  });
+  return galleryViewStore.getAspectRatio({ boxartStyle: boxartStyle.value });
 });
 
 const fallbackCoverImage = computed(() =>
@@ -281,8 +278,7 @@ onBeforeUnmount(() => {
           <v-img
             ref="game-image-ref"
             :key="romsStore.isSimpleRom(rom) ? rom.id : rom.name"
-            :cover="!boxartStyleCover"
-            :contain="boxartStyleCover"
+            :cover="false"
             content-class="d-flex flex-column justify-space-between"
             :class="{
               pointer: pointerOnHover,
@@ -290,7 +286,6 @@ onBeforeUnmount(() => {
               transitioning: !isVideoPlaying,
             }"
             :src="largeCover || fallbackCoverImage"
-            :aspect-ratio="computedAspectRatio"
             @click="handleClick"
             @touchstart="handleTouchStart"
             @touchend="handleTouchEnd"
@@ -429,25 +424,18 @@ onBeforeUnmount(() => {
             </div>
             <template #placeholder>
               <v-img
-                :cover="!boxartStyleCover"
-                :contain="boxartStyleCover"
+                :cover="false"
                 eager
                 :src="smallCover || fallbackCoverImage"
-                :aspect-ratio="computedAspectRatio"
               >
                 <template #placeholder>
-                  <Skeleton
-                    :platform-id="rom.platform_id"
-                    :aspect-ratio="computedAspectRatio"
-                    type="image"
-                  />
+                  <Skeleton :aspect-ratio="computedAspectRatio" type="image" />
                 </template>
               </v-img>
             </template>
             <template #error>
               <v-img
-                :cover="!boxartStyleCover"
-                :contain="boxartStyleCover"
+                :cover="false"
                 eager
                 :src="fallbackCoverImage"
                 :aspect-ratio="computedAspectRatio"

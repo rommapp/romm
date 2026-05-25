@@ -178,6 +178,7 @@ class RomFileSchema(BaseModel):
     md5_hash: str | None
     sha1_hash: str | None
     ra_hash: str | None
+    chd_sha1_hash: str | None
     category: RomFileCategory | None
     audio_meta: RomFileAudioMetaSchema | None = None
 
@@ -315,7 +316,6 @@ class RomSchema(BaseModel):
     has_simple_single_file: bool
     has_nested_single_file: bool
     has_multiple_files: bool
-    files: list[RomFileSchema]
     full_path: str
     created_at: UTCDatetime
     updated_at: UTCDatetime
@@ -351,10 +351,6 @@ class RomSchema(BaseModel):
     @field_validator("alternative_names")
     def sort_alternative_names(cls, v: list[str]) -> list[str]:
         return sorted(v)
-
-    @field_validator("files")
-    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
-        return sorted(v, key=lambda x: x.file_name)
 
     @field_validator("siblings")
     def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
@@ -413,11 +409,16 @@ class UserCollectionSchema(BaseModel):
 
 
 class DetailedRomSchema(RomSchema):
+    files: list[RomFileSchema]
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
     user_screenshots: list[ScreenshotSchema]
     user_collections: list[UserCollectionSchema]
     all_user_notes: list[UserNoteSchema]
+
+    @field_validator("files")
+    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
+        return sorted(v, key=lambda x: x.file_name)
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:

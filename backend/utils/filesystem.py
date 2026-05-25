@@ -1,5 +1,7 @@
+import errno
 import os
 import re
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -35,6 +37,54 @@ def iter_directories(path: str, recursive: bool = False) -> Iterator[tuple[Path,
             yield Path(root), directory
         if not recursive:
             break
+
+
+# errno values that mean "hardlink not possible here, fall back to copy".
+# EXDEV: cross-device link. EPERM: filesystem doesn't permit/support hardlinks
+# (e.g. FAT32, exFAT, some network mounts). EOPNOTSUPP/ENOTSUP: same, on BSD/macOS.
+# EMLINK: source already has the maximum number of hardlinks for the filesystem.
+_LINK_FALLBACK_ERRNOS: frozenset[int] = frozenset(
+    e
+    for e in (
+        getattr(errno, "EXDEV", None),
+        getattr(errno, "EPERM", None),
+        getattr(errno, "EOPNOTSUPP", None),
+        getattr(errno, "ENOTSUP", None),
+        getattr(errno, "EMLINK", None),
+        getattr(errno, "EACCES", None),
+    )
+    if e is not None
+)
+
+
+def link_or_copy_file(source: Path, dest: Path) -> None:
+    """Place ``source`` at ``dest`` via hardlink (preferred) or copy (fallback),
+    atomically replacing ``dest`` if it already exists. Caller is responsible
+    for creating ``dest.parent``.
+
+    Hardlinking is preferred because it's instantaneous and uses no extra disk
+    space, but only works within a single filesystem. If linking isn't possible,
+    we transparently fall back to ``shutil.copy2`` (preserving metadata).
+
+    Overwriting is atomic: we link/copy to a tempfile in dest's directory, then
+    rename it onto dest, which mirrors shutil.copy2's overwrite-on-exists
+    behavior.
+    """
+    tmp_path = dest.parent / f".romm_link_tmp_{os.urandom(8).hex()}"
+    try:
+        try:
+            os.link(source, tmp_path)
+        except OSError as exc:
+            if exc.errno not in _LINK_FALLBACK_ERRNOS:
+                raise
+            shutil.copy2(source, tmp_path)
+        os.replace(tmp_path, dest)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")

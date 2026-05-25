@@ -49,6 +49,7 @@ from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
@@ -58,7 +59,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_ss_handler,
 )
-from handler.metadata.ss_handler import get_preferred_media_types
+from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -529,6 +530,7 @@ def get_roms(
         player_counts_logic=player_counts_logic,
         group_by_meta_id=group_by_meta_id,
         updated_after=updated_after,
+        include_file_stats=True,
     )
 
     # Get the char index for the roms
@@ -1283,7 +1285,7 @@ async def update_rom(
         cleaned_data.update({"ss_id": None, "ss_metadata": {}})
 
     if cleaned_data["igdb_id"] and int(cleaned_data["igdb_id"]) != rom.igdb_id:
-        igdb_rom = await meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
+        igdb_rom = await meta_igdb_handler.get_rom_by_id(rom, cleaned_data["igdb_id"])
         if igdb_rom.get("igdb_id"):
             cleaned_data.update(igdb_rom)
     elif rom.igdb_id and not cleaned_data["igdb_id"]:
@@ -1345,7 +1347,7 @@ async def update_rom(
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
-            file_ext = artwork.filename.split(".")[-1]
+            file_ext = validate_image_upload(artwork, label="Artwork")
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
@@ -1429,7 +1431,9 @@ async def update_rom(
 
             if cleaned_data.get("ss_metadata", {}).get(f"{media_type.value}_path"):
                 await fs_resource_handler.store_media_file(
-                    cleaned_data["ss_metadata"][f"{media_type.value}_url"],
+                    add_ss_auth_to_url(
+                        cleaned_data["ss_metadata"][f"{media_type.value}_url"]
+                    ),
                     cleaned_data["ss_metadata"][f"{media_type.value}_path"],
                 )
 

@@ -9,7 +9,7 @@ from typing import Any
 
 from config import ENABLE_SYNC_FOLDER_WATCHER
 from handler.database import db_device_handler
-from handler.filesystem import fs_sync_handler
+from handler.filesystem import get_fs_sync_handler
 from logger.logger import log
 from models.device import SyncMode
 from tasks.tasks import Task, TaskType
@@ -38,6 +38,7 @@ class SyncFolderScanTask(Task):
             log.info("No file_transfer devices found")
             return {"status": "no_devices"}
 
+        fs_sync_handler = get_fs_sync_handler()
         total_files = 0
         for device in devices:
             if not device.sync_enabled:

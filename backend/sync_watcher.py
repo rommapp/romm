@@ -27,7 +27,7 @@ from handler.database import (
     db_save_handler,
     db_sync_session_handler,
 )
-from handler.filesystem import fs_asset_handler, fs_sync_handler
+from handler.filesystem import fs_asset_handler, get_fs_sync_handler
 from handler.sync.comparison import compare_save_state
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -46,8 +46,9 @@ Change = tuple[str, str]
 def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
     """Extract device_id, platform_slug, and filename from a sync incoming path.
 
-    Expected path format: {SYNC_BASE_PATH}/{device_id}/incoming/{platform_slug}/filename.ext
+    Expected path format: {ROMM_BASE_PATH}/sync/{device_id}/incoming/{platform_slug}/filename.ext
     """
+    fs_sync_handler = get_fs_sync_handler()
     try:
         rel_path = os.path.relpath(path, start=str(fs_sync_handler.base_path))
         parts = rel_path.split(os.sep)
@@ -62,6 +63,7 @@ def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
 
 
 def _ensure_conflicts_dir(device_id: str, platform_slug: str) -> str:
+    fs_sync_handler = get_fs_sync_handler()
     conflicts_dir = str(
         fs_sync_handler.base_path
         / fs_sync_handler.build_conflicts_path(device_id, platform_slug)
@@ -206,6 +208,8 @@ def _process_incoming_file(
 ) -> None:
     """Process a single incoming file from a device's sync folder."""
     from endpoints.sockets.sync import emit_sync_conflict
+
+    fs_sync_handler = get_fs_sync_handler()
 
     # Look up platform
     platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
