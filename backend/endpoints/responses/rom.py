@@ -394,16 +394,22 @@ class DetailedRomSchema(RomSchema):
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
         user_id = request.user.id
         db_rom = cls.populate_properties(db_rom, request)
-        db_rom.siblings = [  # type: ignore
-            SiblingRomSchema(
-                id=s.id,
-                name=s.name,
-                fs_name_no_tags=s.fs_name_no_tags,
-                fs_name_no_ext=s.fs_name_no_ext,
-            )
-            for s in db_rom.sibling_roms
-        ]
-        db_rom.sibling_ids = [s.id for s in db_rom.siblings]  # type: ignore
+
+        sorted_siblings = sorted(
+            (
+                SiblingRomSchema(
+                    id=s.id,
+                    name=s.name,
+                    fs_name_no_tags=s.fs_name_no_tags,
+                    fs_name_no_ext=s.fs_name_no_ext,
+                )
+                for s in db_rom.sibling_roms
+            ),
+            key=lambda x: x.sort_comparator,
+        )
+        db_rom.siblings = sorted_siblings  # type: ignore
+        db_rom.sibling_ids = [s.id for s in sorted_siblings]  # type: ignore
+
         db_rom.user_saves = [  # type: ignore
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]

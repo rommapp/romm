@@ -222,10 +222,11 @@ class DBRomsHandler(DBBaseHandler):
             )
         ).all()
 
-        result: dict[int, list[int]] = {rom_id: [] for rom_id in rom_ids}
+        buckets: dict[int, set[int]] = {rom_id: set() for rom_id in rom_ids}
         for rom_id, sibling_rom_id in rows:
-            result[rom_id].append(sibling_rom_id)
-        return result
+            buckets[rom_id].add(sibling_rom_id)
+
+        return {rom_id: sorted(ids) for rom_id, ids in buckets.items()}
 
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
