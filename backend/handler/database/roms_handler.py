@@ -205,26 +205,24 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_sibling_ids_for_roms(
         self,
-        rom_ids: Iterable[int],
+        rom_ids: list[int],
         *,
         session: Session = None,  # type: ignore
     ) -> dict[int, list[int]]:
         """Return {rom_id: [sibling_rom_id, ...]} for the given rom IDs.
 
-        Single query against the sibling_roms view, projecting only the two
-        id columns — no Rom row hydration.
+        Single query against the sibling_roms view, projecting only the two `id` columns.
         """
-        ids = list(rom_ids)
-        if not ids:
+        if not rom_ids:
             return {}
 
         rows = session.execute(
             select(SiblingRom.rom_id, SiblingRom.sibling_rom_id).where(
-                SiblingRom.rom_id.in_(ids)
+                SiblingRom.rom_id.in_(rom_ids)
             )
         ).all()
 
-        result: dict[int, list[int]] = {rom_id: [] for rom_id in ids}
+        result: dict[int, list[int]] = {rom_id: [] for rom_id in rom_ids}
         for rom_id, sibling_rom_id in rows:
             result[rom_id].append(sibling_rom_id)
         return result
@@ -598,9 +596,7 @@ class DBRomsHandler(DBBaseHandler):
             selectinload(Rom.files).options(
                 joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
             ),
-            # Sibling badges are populated separately via get_sibling_ids_for_roms
-            # to avoid hydrating full Rom rows (including JSON metadata) per sibling.
-            # Show notes indicator on cards
+            # Notes indicator on cards
             selectinload(Rom.notes),
         )
 

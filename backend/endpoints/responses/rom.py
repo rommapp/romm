@@ -341,19 +341,20 @@ class SiblingRomSchema(BaseModel):
 
 
 class SimpleRomSchema(RomSchema):
-    siblings: list[int] = []
+    sibling_ids: list[int]
 
     @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
+    def from_orm_with_request(
+        cls, db_rom: Rom, request: Request, sibling_ids: list[int] | None = None
+    ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request)
-        # `sibling_ids` is set on each Rom by the list endpoint before serialization.
-        db_rom.siblings = getattr(db_rom, "sibling_ids", [])  # type: ignore
+        db_rom.sibling_ids = sibling_ids or []  # type: ignore
         return cls.model_validate(db_rom)
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
-        db_rom.siblings = []  # type: ignore
+        db_rom.sibling_ids = []  # type: ignore
         db_rom.has_notes = False  # type: ignore
         return cls.model_validate(db_rom)
 
@@ -377,7 +378,8 @@ class UserCollectionSchema(BaseModel):
 
 
 class DetailedRomSchema(RomSchema):
-    siblings: list[SiblingRomSchema] = []
+    siblings: list[SiblingRomSchema]
+    sibling_ids: list[int]
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
     user_screenshots: list[ScreenshotSchema]
@@ -401,7 +403,7 @@ class DetailedRomSchema(RomSchema):
             )
             for s in db_rom.sibling_roms
         ]
-
+        db_rom.sibling_ids = [s.id for s in db_rom.siblings]  # type: ignore
         db_rom.user_saves = [  # type: ignore
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]

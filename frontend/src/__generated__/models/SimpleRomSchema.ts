@@ -82,9 +82,9 @@ export type SimpleRomSchema = {
     updated_at: string;
     missing_from_fs: boolean;
     has_notes: boolean;
-    siblings: Array<number>;
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
+    sibling_ids: Array<number>;
 };
 
