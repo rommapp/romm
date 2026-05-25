@@ -337,7 +337,10 @@ const spinnerSize = computed(() => {
     <!-- Loading spinner — overlays content while debouncedLoading is on.
          Lives in absolute positioning so the button's intrinsic width
          doesn't change between loading and idle states (no layout
-         shift mid-action). -->
+         shift mid-action). Spinner keeps RProgressCircular's
+         brand-primary default; the disabled-colour overrides below
+         mute the background so the arc reads clearly against a neutral
+         surface during a disabled-loading state. -->
     <span v-if="debouncedLoading" class="r-btn__loader" aria-hidden="true">
       <RProgressCircular indeterminate :size="spinnerSize" :width="2" />
     </span>
@@ -712,9 +715,12 @@ const spinnerSize = computed(() => {
    "translucent primary" rather than "off-limits", and on a flat
    primary button the loader bleeds into the muted purple. Each
    coloured variant has its own override below.
-   Opacity is held back from the loader so the spinner stays bright
-   while a disabled-loading button is in flight (typical case: a CTA
-   that locks itself the moment its async action starts). */
+   The mute applies in BOTH disabled-only and disabled+loading states:
+   the neutral surface gives the brand-primary spinner a high-contrast
+   background to draw against. The 0.55 opacity carve-out, on the
+   other hand, only applies when NOT loading — fading a disabled-only
+   button reads as "off-limits", while a disabled-loading button needs
+   its spinner at full brightness to signal "action in flight". */
 .r-btn:disabled,
 .r-btn--disabled {
   cursor: not-allowed;

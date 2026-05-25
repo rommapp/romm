@@ -325,6 +325,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                 emitter?.emit('showSearchCoverDialog', {
                   term: rom.name || rom.fs_name,
                   platformId: rom.platform_id,
+                  rom,
                 })
               "
             />

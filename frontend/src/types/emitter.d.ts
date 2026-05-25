@@ -31,7 +31,15 @@ export type Events = {
   showDeleteCollectionDialog: Collection;
   showDeleteSmartCollectionDialog: SmartCollection;
   showMatchRomDialog: SimpleRom;
-  showSearchCoverDialog: { term: string };
+  /** v2 — `rom` is optional; when provided, the dialog also fetches
+   *  per-provider covers via `/search/roms` so the user can pick the
+   *  IGDB / MobyGames / Screenscraper / … artwork without going
+   *  through the manual-match flow. Collection-cover edits omit it. */
+  showSearchCoverDialog: {
+    term: string;
+    platformId?: number;
+    rom?: SimpleRom;
+  };
   updateUrlCover: string;
   showEditRomDialog: SimpleRom;
   showRefreshMetadataDialog: SimpleRom;
