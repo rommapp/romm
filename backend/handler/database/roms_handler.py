@@ -202,12 +202,11 @@ class DBRomsHandler(DBBaseHandler):
             return []
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
 
-    @begin_session
     def get_sibling_ids_for_roms(
         self,
         rom_ids: list[int],
         *,
-        session: Session = None,  # type: ignore
+        session: Session,
     ) -> dict[int, list[int]]:
         """Return {rom_id: [sibling_rom_id, ...]} for the given rom IDs.
 

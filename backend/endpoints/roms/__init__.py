@@ -571,7 +571,7 @@ def get_roms(
 
         def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
             sibling_ids_by_rom = db_rom_handler.get_sibling_ids_for_roms(
-                [i.id for i in items]
+                [i.id for i in items], session=session
             )
 
             return [
