@@ -854,9 +854,41 @@ function platformFolderPath(slug: string): string {
   gap: var(--r-space-1);
 }
 
+/* Inside the manufacturer-group collapsible — rows go edge-to-edge,
+   no outer inset. Each row strips its card chrome (border, radius,
+   background) and switches to a top-border separator so the body of
+   the collapsible reads as a flat list rather than a stack of small
+   cards (matches the Scan view's ScanPlatform body). */
 .r-setup-platforms__items--nested {
-  padding-left: var(--r-space-6);
-  margin-top: var(--r-space-2);
+  padding: 0;
+  margin-top: 0;
+  gap: 0;
+}
+
+.r-setup-platforms__items--nested .r-setup-platforms__item {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  border-top: 1px solid var(--r-color-border);
+  padding: var(--r-space-2) var(--r-space-3);
+}
+.r-setup-platforms__items--nested .r-setup-platforms__item:first-child {
+  border-top: 0;
+}
+
+/* Selected / available hover states stay informative but lose the
+   border-color shift (no border to colour). */
+.r-setup-platforms__items--nested
+  .r-setup-platforms__item[data-state="selected"] {
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-success) 10%,
+    transparent
+  );
+}
+.r-setup-platforms__items--nested
+  .r-setup-platforms__item[data-state="available"]:hover {
+  background: var(--r-color-surface-hover);
 }
 
 .r-setup-platforms__item {
