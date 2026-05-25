@@ -18,11 +18,59 @@
 // drive rendering from external state (FolderMapping reads from `row`
 // rather than `items` so the cell still renders during loading or
 // when the row points at a slug not in the catalogue).
-import { RIcon, RPlatformIcon, RSelect, RTag } from "@v2/lib";
+import { RAvatar, RIcon, RPlatformIcon, RSelect, RTag } from "@v2/lib";
 import { computed, useSlots } from "vue";
+import { useI18n } from "vue-i18n";
 import type { Platform } from "@/stores/platforms";
 import { platformCategoryToIcon } from "@/utils";
 import MissingFSBadge from "@/v2/components/shared/MissingFSBadge.vue";
+
+// Per-platform scrapper match indicators — mini avatar per metadata
+// source the platform has an ID for. Mixed `_id` / `_slug` fields
+// because the PlatformSchema only exposes one of the two per source
+// (e.g. moby is keyed by slug, igdb by both). Keep in sync with v1's
+// platform-row template and the heartbeat store's source list.
+const PLATFORM_SCRAPPERS: ReadonlyArray<{
+  key: keyof Platform;
+  logo: string;
+  name: string;
+  bg?: string;
+}> = [
+  { key: "igdb_id", logo: "/assets/scrappers/igdb.png", name: "IGDB" },
+  { key: "ss_id", logo: "/assets/scrappers/ss.png", name: "ScreenScraper" },
+  { key: "moby_slug", logo: "/assets/scrappers/moby.png", name: "MobyGames" },
+  { key: "ra_id", logo: "/assets/scrappers/ra.png", name: "RetroAchievements" },
+  {
+    key: "launchbox_id",
+    logo: "/assets/scrappers/launchbox.png",
+    name: "LaunchBox",
+    bg: "#185a7c",
+  },
+  {
+    key: "hasheous_id",
+    logo: "/assets/scrappers/hasheous.png",
+    name: "Hasheous",
+  },
+  {
+    key: "flashpoint_id",
+    logo: "/assets/scrappers/flashpoint.png",
+    name: "Flashpoint",
+  },
+  {
+    key: "hltb_slug",
+    logo: "/assets/scrappers/hltb.png",
+    name: "HowLongToBeat",
+  },
+  {
+    key: "libretro_slug",
+    logo: "/assets/scrappers/libretro.png",
+    name: "Libretro",
+  },
+];
+
+function activeScrappers(p: Platform) {
+  return PLATFORM_SCRAPPERS.filter((s) => Boolean(p[s.key]));
+}
 
 defineOptions({ inheritAttrs: false });
 
@@ -88,6 +136,7 @@ const emit = defineEmits<{
   ): void;
 }>();
 
+const { t } = useI18n();
 const slots = useSlots();
 
 // Slots we forward verbatim to RSelect. `selection`, `item`, and
@@ -194,6 +243,11 @@ function onUpdate(v: unknown) {
           <span class="r-select__item-title">{{ slotProps.item.title }}</span>
           <template v-if="showMeta">
             <span class="r-v2-platsel__meta">
+              <RTag
+                size="x-small"
+                class="r-v2-platsel__fs-slug"
+                :text="(slotProps.item.raw as Platform).fs_slug"
+              />
               <RIcon
                 v-if="(slotProps.item.raw as Platform).category"
                 :icon="
@@ -203,6 +257,7 @@ function onUpdate(v: unknown) {
                 "
                 size="small"
                 class="r-v2-platsel__meta-icon"
+                :title="(slotProps.item.raw as Platform).category || ''"
               />
               <span
                 v-if="(slotProps.item.raw as Platform).family_name"
@@ -215,6 +270,35 @@ function onUpdate(v: unknown) {
               v-if="(slotProps.item.raw as Platform).missing_from_fs"
               text="Missing platform from filesystem"
               class="r-v2-platsel__missing"
+            />
+            <!-- Scrapper match indicators — one mini avatar per
+                 source the platform has an ID for. Mirrors v1's
+                 right-side avatar strip so the user sees at a glance
+                 which catalogs already know this platform. When the
+                 platform isn't matched at all, a red "Not identified"
+                 chip replaces the strip. -->
+            <span
+              v-if="(slotProps.item.raw as Platform).is_identified"
+              class="r-v2-platsel__scrappers"
+            >
+              <RAvatar
+                v-for="s in activeScrappers(slotProps.item.raw as Platform)"
+                :key="s.key as string"
+                :image="s.logo"
+                size="20"
+                rounded="sm"
+                :title="s.name"
+                :style="s.bg ? { background: s.bg } : undefined"
+                class="r-v2-platsel__scrapper"
+              />
+            </span>
+            <RTag
+              v-else
+              size="x-small"
+              tone="danger"
+              icon="mdi-close"
+              class="r-v2-platsel__not-identified"
+              :text="t('scan.not-identified').toUpperCase()"
             />
             <RTag
               class="r-v2-platsel__count"
@@ -271,6 +355,24 @@ function onUpdate(v: unknown) {
   margin-left: 4px;
 }
 .r-v2-platsel__count {
+  margin-left: 4px;
+}
+.r-v2-platsel__fs-slug {
+  font-family: var(--r-font-family-mono);
+  font-size: 10.5px;
+  text-transform: lowercase;
+}
+.r-v2-platsel__scrappers {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+.r-v2-platsel__scrapper {
+  background: var(--r-color-surface);
+  flex-shrink: 0;
+}
+.r-v2-platsel__not-identified {
   margin-left: 4px;
 }
 .r-v2-platsel__chip-icon {

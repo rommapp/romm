@@ -115,7 +115,7 @@ const metadataOptions = computed(() =>
       const hashingDisabled = !calculateHashes.value;
       let disabled = option.disabled;
       if (hashingDisabled && requiresHashes) {
-        disabled = t("scan.retroachievements-requires-hashes");
+        disabled = t("scan.requires-hashes", { source: option.name });
       }
       const name = option.value === "igdb" ? "IGDB" : option.name;
       return { ...option, name, disabled };
@@ -148,7 +148,7 @@ const hashMatchers = computed<HashMatcher[]>(() => {
       blockedReason: !hasheousAdmin
         ? t("scan.disabled-by-admin")
         : noHashes
-          ? t("scan.hasheous-requires-hashes")
+          ? t("scan.requires-hashes", { source: "Hasheous" })
           : null,
       switchEnabled: hasheousAdmin && !noHashes,
     },
@@ -156,15 +156,20 @@ const hashMatchers = computed<HashMatcher[]>(() => {
       value: "playmatch",
       name: "Playmatch",
       logo: "/assets/scrappers/playmatch.png",
+      // Playmatch is hash-based — same gate as Hasheous — plus the
+      // backend requires IGDB in `apis` for its server-side join, so
+      // we surface that as a secondary gate.
       blockedReason: !playmatchAdmin
         ? t("scan.disabled-by-admin")
-        : !igdbSelected
-          ? t(
-              "scan.playmatch-requires-igdb",
-              "Select IGDB to enable Playmatch.",
-            )
-          : null,
-      switchEnabled: playmatchAdmin && igdbSelected,
+        : noHashes
+          ? t("scan.requires-hashes", { source: "Playmatch" })
+          : !igdbSelected
+            ? t(
+                "scan.playmatch-requires-igdb",
+                "Select IGDB to enable Playmatch.",
+              )
+            : null,
+      switchEnabled: playmatchAdmin && !noHashes && igdbSelected,
     },
   ];
 });
@@ -738,7 +743,23 @@ function stopScan() {
             density="compact"
             :icon="false"
           >
-            {{ t("scan.hash-calculation-disabled") }}
+            <span class="r-v2-scan-card__hash-alert">
+              {{ t("scan.hash-calculation-disabled") }}
+              <RTooltip location="bottom">
+                <template #activator="{ props: tipProps }">
+                  <RIcon
+                    v-bind="tipProps"
+                    icon="mdi-information-outline"
+                    size="14"
+                    class="r-v2-scan-card__hash-info"
+                  />
+                </template>
+                <span
+                  class="r-v2-scan-card__hash-info-text"
+                  v-html="t('scan.hashes-disabled-tooltip')"
+                />
+              </RTooltip>
+            </span>
           </RAlert>
         </div>
 
@@ -1043,6 +1064,20 @@ function stopScan() {
 }
 .r-v2-scan-card__hints:empty {
   display: none;
+}
+.r-v2-scan-card__hash-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.r-v2-scan-card__hash-info {
+  cursor: help;
+  color: var(--r-color-warning);
+  opacity: 0.85;
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-v2-scan-card__hash-info:hover {
+  opacity: 1;
 }
 
 /* Providers split into General / Specific groups. Each group has a
