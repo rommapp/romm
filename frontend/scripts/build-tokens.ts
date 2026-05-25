@@ -85,6 +85,7 @@ const NAME_OVERRIDES = {
   // would produce — components consume `--r-z-menu` etc., shorter and
   // matches the convention from §VI of the constitution.
   zIndex: {
+    drawer: "--r-z-drawer",
     dialog: "--r-z-dialog",
     menu: "--r-z-menu",
     tooltip: "--r-z-tooltip",

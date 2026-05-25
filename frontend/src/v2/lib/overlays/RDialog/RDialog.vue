@@ -56,6 +56,19 @@ const panelRef = ref<HTMLElement | null>(null);
 // when the dialog closes so keyboard users don't lose their place.
 let previouslyFocused: HTMLElement | null = null;
 
+// Stack depth at the moment this dialog opened (number of OTHER dialogs
+// already open). Drives a per-instance z-index bump so a dialog opened
+// from inside another dialog always paints above its parent surface,
+// regardless of Teleport mount order. Reset to 0 on close.
+const stackDepth = ref(0);
+const dialogStyle = computed<Record<string, string> | undefined>(() =>
+  stackDepth.value > 0
+    ? {
+        zIndex: `calc(var(--r-z-dialog, 2400) + ${stackDepth.value * 10})`,
+      }
+    : undefined,
+);
+
 function closeDialog() {
   emit("update:modelValue", false);
   emit("close");
@@ -103,6 +116,10 @@ watch(
   (open) => {
     if (open) {
       previouslyFocused = document.activeElement as HTMLElement | null;
+      // Snapshot the open-dialog count BEFORE incrementing it via
+      // lockBodyScroll(), so the first dialog reads depth 0 and any
+      // subsequent dialog sees the previous ones and stacks on top.
+      stackDepth.value = Number(document.body.dataset.rDialogOpenCount ?? "0");
       lockBodyScroll();
       pushEscapable(stackEntry);
       // Defer to the next tick so the panel is mounted before we
@@ -116,6 +133,7 @@ watch(
     } else {
       unlockBodyScroll();
       popEscapable(stackEntry);
+      stackDepth.value = 0;
       // Restore focus to the element that opened the dialog.
       previouslyFocused?.focus?.();
       previouslyFocused = null;
@@ -170,6 +188,7 @@ const panelStyle = computed(() => {
         v-bind="$attrs"
         class="r-dialog"
         role="presentation"
+        :style="dialogStyle"
       >
         <!-- Scrim — fades in/out behind the panel. -->
         <div class="r-dialog__scrim" @click="onScrimClick" />

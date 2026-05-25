@@ -62,9 +62,14 @@
   --r-color-overlay-emphasis-fg: #111117;
   --r-color-canvas-bg: #000000;
   --r-color-canvas-bg-deep: #0d1117;
-  --r-font-family-sans: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif;
-  --r-font-family-display: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif;
-  --r-font-family-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  --r-font-family-sans:
+    "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Inter", Roboto,
+    sans-serif;
+  --r-font-family-display:
+    "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, "Inter", Roboto,
+    sans-serif;
+  --r-font-family-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --r-font-size-xs: 10.5px;
   --r-font-size-sm: 11.5px;
   --r-font-size-md: 13px;
@@ -145,12 +150,12 @@
   --r-cover-w: 240px;
   --r-list-row-h: 80px;
   --r-list-header-h: 40px;
+  --r-z-drawer: 2300;
   --r-z-dialog: 2400;
   --r-z-menu: 2500;
   --r-z-tooltip: 2600;
   --r-z-snackbar: 2700;
 }
-
 
 html[data-input="key"] .r-v2 {
   --r-focus-ring-width: 2.5px;

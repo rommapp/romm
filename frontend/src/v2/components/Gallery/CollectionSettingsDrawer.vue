@@ -333,30 +333,27 @@ function discard() {
         </div>
         <div v-if="canEdit" class="r-v2-coll-set__cover-actions">
           <RBtn
-            variant="text"
-            size="small"
-            prepend-icon="mdi-image-search-outline"
+            icon="mdi-image-search-outline"
+            variant="outlined"
+            density="compact"
+            :tooltip="t('rom.search-cover', 'Search cover')"
             @click="openSearchCover"
-          >
-            {{ t("rom.search-cover", "Search cover") }}
-          </RBtn>
+          />
           <RBtn
-            variant="text"
-            size="small"
-            prepend-icon="mdi-cloud-upload-outline"
+            icon="mdi-pencil"
+            variant="outlined"
+            density="compact"
+            :tooltip="t('rom.upload-cover', 'Upload cover')"
             @click="triggerFileInput"
-          >
-            {{ t("rom.upload-cover", "Upload") }}
-          </RBtn>
+          />
           <RBtn
-            variant="text"
-            size="small"
+            icon="mdi-delete"
+            variant="outlined"
+            density="compact"
             color="danger"
-            prepend-icon="mdi-delete-outline"
+            :tooltip="t('common.remove', 'Remove')"
             @click="clearArtwork"
-          >
-            {{ t("common.remove", "Remove") }}
-          </RBtn>
+          />
           <input
             ref="fileInputRef"
             type="file"
@@ -493,10 +490,14 @@ function discard() {
 }
 
 /* ── Cover ──────────────────────────────────────────────────────── */
+/* Same shape as `EditRomDialog.r-v2-edit__cover-col`: a centred column
+   with the cover thumb stacked over a row of icon-only action buttons.
+   Keeps both surfaces (edit ROM + collection settings) visually aligned. */
 .r-v2-coll-set__cover {
   display: flex;
-  gap: 14px;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   padding: 14px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
@@ -518,10 +519,7 @@ function discard() {
 }
 .r-v2-coll-set__cover-actions {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
+  gap: 4px;
 }
 .r-v2-coll-set__file {
   position: absolute;

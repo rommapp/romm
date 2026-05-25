@@ -31,11 +31,17 @@ const emptyMessage = computed(() =>
 );
 
 onMounted(async () => {
-  // Global search — drop ALL gallery scoping from previous views.
+  // Global search — drop ALL gallery scoping from previous views, then
+  // flag the gallery as "currently in a search context" so the store's
+  // `onGalleryView` getter resolves true and `groupByMetaId` honours
+  // the user's `groupRoms` preference. Without this the search results
+  // never collapse siblings, even with grouping enabled.
+  //
   // Bootstrap metadata only; both grid and list mode hydrate rows via
   // the per-position fetch path (grid: shell viewport-sync; list:
   // GameListRow's onMounted). No big initial batch.
   galleryRoms.resetGallery();
+  galleryRoms.currentSearch = true;
   await galleryRoms.fetchInitialMetadata();
   initialSearch.value = true;
   await nextTick();

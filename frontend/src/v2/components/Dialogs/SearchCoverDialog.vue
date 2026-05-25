@@ -13,7 +13,7 @@
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import type { SearchCoverSchema } from "@/__generated__";
+import type { SearchCoverSchema, SGDBResource } from "@/__generated__";
 import sgdbApi from "@/services/api/sgdb";
 import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -22,6 +22,7 @@ import RTextField from "@/v2/lib/forms/RTextField/RTextField.vue";
 import RDialog from "@/v2/lib/overlays/RDialog/RDialog.vue";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 import REmptyState from "@/v2/lib/primitives/REmptyState/REmptyState.vue";
+import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
 import RSpinner from "@/v2/lib/primitives/RSpinner/RSpinner.vue";
 import RCollapsible from "@/v2/lib/structural/RCollapsible/RCollapsible.vue";
 
@@ -47,16 +48,30 @@ const coverTypeItems = [
 
 // Filter happens after the search returns — splitting the source list
 // and the visible list keeps the type-filter snappy without re-hitting
-// the API for every flip.
+// the API for every flip. SGDB sometimes returns a game entry with an
+// empty `resources` array (matched the title but no covers in the
+// requested set); we drop those unconditionally so the accordion
+// doesn't render an empty section.
 const filteredCovers = computed<SearchCoverSchema[]>(() => {
-  if (coverType.value === "all") return covers.value;
-  return covers.value
-    .map((game) => ({
-      ...game,
-      resources: game.resources.filter((r) => r.type === coverType.value),
-    }))
-    .filter((g) => g.resources.length > 0);
+  const base =
+    coverType.value === "all"
+      ? covers.value
+      : covers.value.map((game) => ({
+          ...game,
+          resources: game.resources.filter((r) => r.type === coverType.value),
+        }));
+  return base.filter((g) => g.resources.length > 0);
 });
+
+// SGDB animated covers ship their `thumb` as a `.webm` clip — an `<img>`
+// element can't render those (broken-image icon). Detect by type or
+// extension and swap to a `<video>` for those resources so the preview
+// actually plays.
+function isAnimated(resource: SGDBResource): boolean {
+  return (
+    resource.type === "animated" || /\.(webm|mp4)(\?|$)/i.test(resource.thumb)
+  );
+}
 
 const hasResults = computed(() => filteredCovers.value.length > 0);
 const showEmpty = computed(
@@ -118,6 +133,7 @@ function closeDialog() {
     v-model="show"
     icon="mdi-image-search-outline"
     :width="900"
+    scroll-content
     @close="closeDialog"
   >
     <template #header>
@@ -130,11 +146,16 @@ function closeDialog() {
           v-model="searchText"
           :placeholder="t('common.search', 'Search')"
           density="comfortable"
+          prefix-label="inline"
           clearable
           hide-details
           class="r-v2-sgdb__search"
           @keyup.enter="doSearch"
-        />
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-magnify" size="16" />
+          </template>
+        </RTextField>
         <RSelect
           v-model="coverType"
           :items="coverTypeItems"
@@ -181,7 +202,17 @@ function closeDialog() {
                 class="r-v2-sgdb__cover"
                 @click="pickCover(resource.url)"
               >
+                <video
+                  v-if="isAnimated(resource)"
+                  :src="resource.thumb"
+                  class="r-v2-sgdb__cover-img"
+                  autoplay
+                  loop
+                  muted
+                  playsinline
+                />
                 <img
+                  v-else
                   :src="resource.thumb"
                   :alt="game.name"
                   loading="lazy"
@@ -237,6 +268,12 @@ function closeDialog() {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Trailing spacer — Chrome doesn't include the flex parent's
+     `padding-bottom` in the scroll area when the body uses
+     `overflow-y: auto` with flex layout, so the last collapsible sits
+     flush against the dialog edge. A bottom padding on the inner
+     stack restores the breathing room reliably across browsers. */
+  padding-bottom: 8px;
 }
 
 .r-v2-sgdb__grid {

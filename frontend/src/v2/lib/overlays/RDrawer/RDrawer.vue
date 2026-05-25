@@ -210,7 +210,7 @@ const transitionName = computed(() =>
 .r-drawer {
   position: fixed;
   inset: 0;
-  z-index: var(--r-z-dialog, 2400);
+  z-index: var(--r-z-drawer, 2300);
   display: flex;
   pointer-events: none;
 }

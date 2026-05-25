@@ -120,6 +120,13 @@ interface State {
   currentCollection: Collection | null;
   currentVirtualCollection: VirtualCollection | null;
   currentSmartCollection: SmartCollection | null;
+  /** True while the global Search view owns the gallery. Distinct from
+   * the platform/collection scopes (those carry an entity); search has
+   * no entity, just a free-text term in `galleryFilter.searchTerm`.
+   * Drives `onGalleryView` so `groupByMetaId` applies on Search too —
+   * MissingGamesSection (Settings) intentionally leaves this `false`
+   * so each missing file shows as its own row, never collapsed. */
+  currentSearch: boolean;
   total: number;
   charIndex: Record<string, number>;
   romIdIndex: number[];
@@ -148,6 +155,7 @@ const defaults = (): State => ({
   currentCollection: null,
   currentVirtualCollection: null,
   currentSmartCollection: null,
+  currentSearch: false,
   total: 0,
   charIndex: {},
   romIdIndex: [],
@@ -174,7 +182,8 @@ export default defineStore("v2GalleryRoms", {
         state.currentPlatform ||
         state.currentCollection ||
         state.currentVirtualCollection ||
-        state.currentSmartCollection
+        state.currentSmartCollection ||
+        state.currentSearch
       ),
     /** True when at least the first window has loaded. */
     hasInitial: (state) => state.loadedWindows.size > 0,
@@ -217,6 +226,7 @@ export default defineStore("v2GalleryRoms", {
       this.currentCollection = null;
       this.currentVirtualCollection = null;
       this.currentSmartCollection = null;
+      this.currentSearch = false;
       this.total = 0;
       this.charIndex = {};
       this.romIdIndex = [];
