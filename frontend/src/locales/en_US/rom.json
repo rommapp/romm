@@ -145,6 +145,7 @@
   "update-default-failed": "Failed to update default version",
   "update-success": "ROM updated successfully!",
   "updated": "Updated",
+  "updating": "Updating ROM…",
   "upload-manual": "Upload manual",
   "upload-soundtrack": "Upload soundtrack",
   "upload-tracks": "Upload tracks"

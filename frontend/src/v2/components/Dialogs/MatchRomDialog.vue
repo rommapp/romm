@@ -12,6 +12,7 @@ import {
   RIcon,
   RSelect,
   RSliderBtnGroup,
+  RSpinner,
   RTextField,
 } from "@v2/lib";
 import type { Emitter } from "mitt";
@@ -56,6 +57,12 @@ const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
 const searching = ref(false);
+// In-flight flag for the post-pick `updateRom` call. v1 leaned on the
+// global `showLoadingDialog` event for feedback, but v2 has no listener
+// for it, so the dialog used to close instantly and the user had no
+// idea the network call was running. Keeping the dialog open with a
+// spinner overlay matches the v2 pattern (inline loading, §VI.B).
+const matching = ref(false);
 const route = useRoute();
 const searchText = ref("");
 const searchBy = ref<"Name" | "ID">("Name");
@@ -210,9 +217,8 @@ async function searchRom() {
 }
 
 async function onBodyConfirm(payload: ConfirmPayload) {
-  if (!rom.value) return;
-  show.value = false;
-  emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
+  if (!rom.value || matching.value) return;
+  matching.value = true;
 
   const { matchedRom, cover, renameFromSource } = payload;
   rom.value = {
@@ -255,7 +261,7 @@ async function onBodyConfirm(payload: ConfirmPayload) {
       icon: "mdi-close-circle",
     });
   } finally {
-    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    matching.value = false;
     closeDialog();
   }
 }
@@ -275,6 +281,7 @@ function closeDialog() {
     scroll-content
     :width="lgAndUp ? 880 : '95vw'"
     :height="xs ? '82vh' : '88vh'"
+    :persistent="matching"
     @close="closeDialog"
   >
     <template #header>
@@ -367,18 +374,35 @@ function closeDialog() {
     </template>
 
     <template #content>
-      <component
-        :is="variantComponent"
-        :rom="rom"
-        :results="filteredMatchedRoms"
-        :searching="searching"
-        :searched="searched"
-        @confirm="onBodyConfirm"
-      />
+      <div class="r-v2-match__body">
+        <component
+          :is="variantComponent"
+          :rom="rom"
+          :results="filteredMatchedRoms"
+          :searching="searching"
+          :searched="searched"
+          @confirm="onBodyConfirm"
+        />
+        <!-- Saving overlay — covers the body with a centered spinner so
+             the user sees the update is in flight. The dialog stays
+             modal (no scrim click / Escape) until closeDialog runs in
+             the `finally` of `onBodyConfirm`. -->
+        <div
+          v-if="matching"
+          class="r-v2-match__saving"
+          role="status"
+          aria-live="polite"
+        >
+          <RSpinner :size="36" />
+          <span class="r-v2-match__saving-label">
+            {{ t("rom.updating", "Updating ROM…") }}
+          </span>
+        </div>
+      </div>
     </template>
 
     <template #footer>
-      <RBtn variant="text" @click="closeDialog">
+      <RBtn variant="text" :disabled="matching" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
     </template>
@@ -386,6 +410,42 @@ function closeDialog() {
 </template>
 
 <style scoped>
+/* Saving-overlay anchor — has to pass the dialog body's column layout
+   through (`flex: 1`, `min-height: 0`, `display: flex; flex-direction:
+   column`) so the variant inside still sees the same shape it would
+   have as a direct child of `.r-dialog__body`. Without this, grid /
+   list bodies that rely on `flex: 1` to fill the dialog collapse to
+   their content size — the grid's secondary detail panel anchors to
+   the wrong rect (it's `position: absolute` against `.match-grid`),
+   and the list's two columns lose their internal scroll. */
+.r-v2-match__body {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.r-v2-match__saving {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: color-mix(in srgb, var(--r-color-bg) 65%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: var(--r-color-fg);
+  z-index: 1;
+}
+
+.r-v2-match__saving-label {
+  font-size: 13px;
+  color: var(--r-color-fg-secondary);
+}
+
 .r-v2-match__toolbar {
   display: flex;
   flex-direction: column;

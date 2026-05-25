@@ -49,6 +49,14 @@ const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const coverFileInput = ref<HTMLInputElement | null>(null);
+// In-flight flag for the PUT — drives the footer button's spinner so
+// the user sees the action is running. v1 leaned on a global
+// `showLoadingDialog` event for the same feedback, but v2 has no
+// listener for it (intentionally — inline `:loading` on the control
+// itself is the v2 pattern, see CLAUDE.md §VI.B), so the emit was a
+// no-op and the dialog appeared frozen during slow uploads / SGDB
+// fetches.
+const saving = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 
@@ -229,7 +237,8 @@ async function handleRomUpdate(
   options: { rom: UpdateRom; removeCover?: boolean; unmatch?: boolean },
   successMessage: string,
 ) {
-  emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
+  if (saving.value) return;
+  saving.value = true;
   try {
     const { data } = await romApi.updateRom(options);
     snackbar.success(successMessage, { icon: "mdi-check-bold" });
@@ -242,7 +251,7 @@ async function handleRomUpdate(
       icon: "mdi-close-circle",
     });
   } finally {
-    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    saving.value = false;
     closeDialog();
   }
 }
@@ -428,7 +437,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
     </template>
 
     <template #footer>
-      <RBtn variant="text" @click="closeDialog">
+      <RBtn variant="text" :disabled="saving" @click="closeDialog">
         {{ t("common.cancel") }}
       </RBtn>
       <div style="flex: 1" />
@@ -437,6 +446,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         variant="outlined"
         color="error"
         prepend-icon="mdi-link-variant-off"
+        :loading="saving"
+        :disabled="saving"
         @click="unmatchRom"
       >
         {{ t("rom.unmatch") }}
@@ -445,7 +456,8 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         variant="translucent"
         color="primary"
         prepend-icon="mdi-check"
-        :disabled="!validForm"
+        :loading="saving"
+        :disabled="!validForm || saving"
         @click="updateRom"
       >
         {{ t("common.apply") }}
