@@ -105,6 +105,8 @@ def build_admin_schema(token: ClientToken) -> ClientTokenAdminSchema:
         created_at=token.created_at,
         user_id=token.user_id,
         username=token.user.username,
+        user_avatar_path=token.user.avatar_path,
+        user_updated_at=token.user.updated_at,
     )
 
 

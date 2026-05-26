@@ -22,7 +22,7 @@ import { useI18n } from "vue-i18n";
 import clientTokenApi, {
   type ClientTokenAdminSchema,
 } from "@/services/api/client-token";
-import { formatTimestamp } from "@/utils";
+import { defaultAvatarPath, formatTimestamp } from "@/utils";
 import ScopeCell from "@/v2/components/Settings/ScopeCell.vue";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -41,6 +41,12 @@ type SortKey = "username" | "name" | "expires_at" | "last_used_at";
 const sortKey = ref<SortKey>("username");
 const sortDir = ref<"asc" | "desc">("asc");
 
+function avatarSrc(token: ClientTokenAdminSchema) {
+  return token.user_avatar_path
+    ? `/assets/romm/assets/${token.user_avatar_path}?ts=${token.user_updated_at}`
+    : defaultAvatarPath;
+}
+
 function compareNullable(a: string | null, b: string | null, asc: boolean) {
   if (!a && !b) return 0;
   if (!a) return asc ? 1 : -1;
@@ -54,15 +60,11 @@ const sortedTokens = computed(() => {
   list.sort((a, b) => {
     if (sortKey.value === "username") {
       return asc
-        ? a.username.localeCompare(b.username) ||
-            a.name.localeCompare(b.name)
-        : b.username.localeCompare(a.username) ||
-            b.name.localeCompare(a.name);
+        ? a.username.localeCompare(b.username) || a.name.localeCompare(b.name)
+        : b.username.localeCompare(a.username) || b.name.localeCompare(a.name);
     }
     if (sortKey.value === "name") {
-      return asc
-        ? a.name.localeCompare(b.name)
-        : b.name.localeCompare(a.name);
+      return asc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
     }
     return compareNullable(a[sortKey.value], b[sortKey.value], asc);
   });
@@ -208,9 +210,14 @@ onMounted(fetchTokens);
       @update:sort="onSort"
     >
       <template #cell.username="{ row }">
-        <span class="r-v2-admin-tokens__user">{{
-          (row as ClientTokenAdminSchema).username
-        }}</span>
+        <div class="r-v2-admin-tokens__user">
+          <img
+            :src="avatarSrc(row as ClientTokenAdminSchema)"
+            :alt="(row as ClientTokenAdminSchema).username"
+            class="r-v2-admin-tokens__avatar"
+          />
+          <span>{{ (row as ClientTokenAdminSchema).username }}</span>
+        </div>
       </template>
       <template #cell.name="{ row }">
         <span class="r-v2-admin-tokens__name">{{
@@ -272,10 +279,23 @@ onMounted(fetchTokens);
 }
 
 .r-v2-admin-tokens__user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-weight: var(--r-font-weight-semibold);
+  min-width: 0;
+}
+.r-v2-admin-tokens__user span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.r-v2-admin-tokens__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .r-v2-admin-tokens__name {

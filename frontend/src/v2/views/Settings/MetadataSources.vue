@@ -1,6 +1,8 @@
 <script setup lang="ts">
-// MetadataSources — v2-native rewrite. Provider tiles grouped by
-// category (game catalogs vs. specialised sources). Each tile shows:
+// MetadataSources — v2-native rewrite. Provider tiles grouped into
+// three categories (general catalogs, specialised sources, match
+// proxies) matching the split used in the Setup wizard. Each tile
+// shows:
 //   • A circular logo
 //   • Provider name + tone-coloured `RTag` status chip
 //     (missing key / invalid key / connected / checking)
@@ -30,6 +32,7 @@ const heartbeatStatus = ref<Record<string, boolean | undefined>>({
   flashpoint: undefined,
   hltb: undefined,
   sgdb: undefined,
+  playmatch: undefined,
 });
 
 type SourceStatus = "missing" | "invalid" | "ok" | "pending";
@@ -59,15 +62,6 @@ const catalogs = computed<Source[]>(() => [
     heartbeat: heartbeatStatus.value.igdb,
   },
   {
-    name: "MobyGames",
-    value: "moby",
-    logo: "/assets/scrappers/moby.png",
-    website: "https://www.mobygames.com",
-    docsUrl: "https://www.mobygames.com/info/api/",
-    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
-    heartbeat: heartbeatStatus.value.moby,
-  },
-  {
     name: "ScreenScraper",
     value: "ss",
     logo: "/assets/scrappers/ss.png",
@@ -77,13 +71,13 @@ const catalogs = computed<Source[]>(() => [
     heartbeat: heartbeatStatus.value.ss,
   },
   {
-    name: "Hasheous",
-    value: "hasheous",
-    logo: "/assets/scrappers/hasheous.png",
-    website: "https://hasheous.org",
-    docsUrl: "https://hasheous.org/index.html?page=apidocs",
-    disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED,
-    heartbeat: heartbeatStatus.value.hasheous,
+    name: "MobyGames",
+    value: "moby",
+    logo: "/assets/scrappers/moby.png",
+    website: "https://www.mobygames.com",
+    docsUrl: "https://www.mobygames.com/info/api/",
+    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
+    heartbeat: heartbeatStatus.value.moby,
   },
   {
     name: "LaunchBox",
@@ -138,6 +132,27 @@ const specialised = computed<Source[]>(() => [
   },
 ]);
 
+const proxies = computed<Source[]>(() => [
+  {
+    name: "Hasheous",
+    value: "hasheous",
+    logo: "/assets/scrappers/hasheous.png",
+    website: "https://hasheous.org",
+    docsUrl: "https://hasheous.org/index.html?page=apidocs",
+    disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED,
+    heartbeat: heartbeatStatus.value.hasheous,
+  },
+  {
+    name: "PlayMatch",
+    value: "playmatch",
+    logo: "/assets/scrappers/playmatch.png",
+    website: "https://github.com/RetroRealm/playmatch",
+    docsUrl: "https://github.com/RetroRealm/playmatch",
+    disabled: !heartbeat.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED,
+    heartbeat: heartbeatStatus.value.playmatch,
+  },
+]);
+
 function statusOf(source: Source): SourceStatus {
   if (source.disabled) return "missing";
   if (source.heartbeat === true) return "ok";
@@ -168,7 +183,7 @@ function statusLabel(status: SourceStatus): string {
 }
 
 async function fetchAllHeartbeats() {
-  const all = [...catalogs.value, ...specialised.value];
+  const all = [...catalogs.value, ...specialised.value, ...proxies.value];
   await Promise.all(
     all
       .filter((source) => !source.disabled)
@@ -251,6 +266,63 @@ onMounted(() => {
       <div class="r-v2-meta__grid">
         <article
           v-for="source in specialised"
+          :key="source.value"
+          class="r-v2-meta__card"
+          :class="{
+            'r-v2-meta__card--missing': statusOf(source) === 'missing',
+          }"
+        >
+          <header class="r-v2-meta__header">
+            <div class="r-v2-meta__logo">
+              <img :src="source.logo" :alt="source.name" />
+            </div>
+            <div class="r-v2-meta__head-text">
+              <span class="r-v2-meta__name">{{ source.name }}</span>
+              <span v-if="source.subtitle" class="r-v2-meta__subtitle">
+                {{ source.subtitle }}
+              </span>
+              <RTag
+                :tone="statusTone(statusOf(source))"
+                :icon="statusIcon(statusOf(source))"
+                :text="statusLabel(statusOf(source))"
+                size="x-small"
+              />
+            </div>
+          </header>
+
+          <div class="r-v2-meta__actions">
+            <RBtn
+              variant="translucent"
+              size="small"
+              prepend-icon="mdi-key-variant"
+              :href="source.docsUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {{ t("settings.metadata-get-key") }}
+            </RBtn>
+            <RBtn
+              variant="text"
+              size="small"
+              prepend-icon="mdi-open-in-new"
+              :href="source.website"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {{ t("settings.metadata-website") }}
+            </RBtn>
+          </div>
+        </article>
+      </div>
+    </SettingsSection>
+
+    <SettingsSection
+      :title="t('settings.metadata-proxies')"
+      icon="mdi-swap-horizontal-bold"
+    >
+      <div class="r-v2-meta__grid">
+        <article
+          v-for="source in proxies"
           :key="source.value"
           class="r-v2-meta__card"
           :class="{
