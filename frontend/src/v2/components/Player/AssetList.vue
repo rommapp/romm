@@ -129,14 +129,17 @@ const emptyLabel = computed(() =>
 
 .r-asset-list__items {
   margin: 0;
-  padding: 0;
+  /* Top padding gives the first row breathing room and absorbs the
+     -1px lift on hover/active so it never clips against the panel
+     edge. Bottom padding keeps the same gutter at the other end. */
+  padding: 4px 0;
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 4px;
   overflow-y: auto;
   min-height: 0;
-  max-height: 300px;
+  max-height: 380px;
   scrollbar-color: var(--r-color-border-strong) transparent;
   scrollbar-width: thin;
 }
@@ -182,15 +185,6 @@ const emptyLabel = computed(() =>
 .r-asset-list__item--active .r-asset-list__row {
   border-color: var(--r-color-brand-primary);
   background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
-}
-.r-asset-list__item--active .r-asset-list__row::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--r-color-brand-primary);
 }
 
 .r-asset-list__icon {

@@ -141,9 +141,34 @@ async function onPlay() {
     });
   }
 
+  // The Vite dev server (and many SPA hosts) returns 200 + index.html
+  // when a static asset is missing. A <script> tag happily "loads" that
+  // — onload fires, the promise resolves — and only later the parser
+  // throws `Unexpected token '<'` as an uncaught error, so our CDN
+  // fallback never runs. Pre-flight the URL to make sure the body is
+  // actually JS before injecting the script tag.
+  async function isJsResource(url: string): Promise<boolean> {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return false;
+      const ct = res.headers.get("content-type") ?? "";
+      if (/javascript|ecmascript/i.test(ct)) return true;
+      if (/text\/html/i.test(ct)) return false;
+      // Content-Type may be absent (older servers); sniff the body.
+      const text = await res.clone().text();
+      return !text.trimStart().startsWith("<");
+    } catch {
+      return false;
+    }
+  }
+
   async function attemptLoad(path: string) {
+    const loaderUrl = `${path}/loader.js`;
+    if (!(await isJsResource(loaderUrl))) {
+      throw new Error(`Loader at ${loaderUrl} did not return JavaScript`);
+    }
     window.EJS_pathtodata = path;
-    await loadScript(`${path}/loader.js`);
+    await loadScript(loaderUrl);
   }
 
   try {

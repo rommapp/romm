@@ -1,16 +1,18 @@
 <script setup lang="ts">
 // Big "now showing" preview of the asset the user is about to resume
-// from. Two distinct treatments:
+// from. All three variants (state filled, save filled, empty) share a
+// single skeleton — a 16:9 "stage" on top and a metadata strip below.
+// Keeping the dimensions fixed prevents the AssetStrip/AssetList from
+// jumping when the user switches tabs or clears the selection.
 //
-// • State: a 16:9 stage dominated by the screenshot (or a placeholder
-//   when the user never captured one). Metadata sits below the stage.
+// What changes inside the stage:
+//   • State: screenshot (or placeholder when none was captured).
+//   • Save: a featured save graphic — saves never carry a screenshot,
+//     so we lean on the icon + decorative backdrop.
+//   • Empty: the empty-state art for the active type.
 //
-// • Save: a featured horizontal card with a large save icon and the
-//   metadata laid out inline — saves never carry a screenshot, so the
-//   stage area would be wasted space. Pair with <AssetList> below.
-//
-// Renders an empty state when nothing is selected — distinct from "no
-// items available", which the chooser components own.
+// The metadata strip carries the filename + chips + exact timestamp
+// when something is selected, or the start-fresh hint when empty.
 import { RIcon, RTag, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -57,136 +59,101 @@ const emptyText = computed(() =>
   <div class="r-asset-preview">
     <p class="r-asset-preview__eyebrow">{{ heading }}</p>
 
-    <!-- ── State filled ────────────────────────────────────── -->
+    <!-- ── Stage — same 16:9 dimensions across all variants ───── -->
     <div
-      v-if="asset && type === 'state'"
-      class="r-asset-preview__filled r-asset-preview__filled--state"
+      class="r-asset-preview__stage"
+      :class="{
+        'r-asset-preview__stage--save': type === 'save' && asset,
+        'r-asset-preview__stage--empty': !asset,
+      }"
     >
-      <div class="r-asset-preview__stage">
+      <!-- State: screenshot or placeholder. -->
+      <template v-if="asset && type === 'state'">
         <div
           v-if="screenshotUrl"
           class="r-asset-preview__stage-img"
           :style="{ backgroundImage: `url(${screenshotUrl})` }"
         />
-        <div v-else class="r-asset-preview__stage-placeholder">
+        <div v-else class="r-asset-preview__stage-fill">
           <RIcon icon="mdi-image-off-outline" size="64" />
           <p>{{ t("play.no-screenshot-available") }}</p>
         </div>
-        <button
-          type="button"
-          class="r-asset-preview__clear"
-          :aria-label="t('common.clear')"
-          @click="$emit('clear')"
-        >
-          <RIcon icon="mdi-close" size="14" />
-        </button>
+      </template>
+
+      <!-- Save: big icon + decorative backdrop. -->
+      <div
+        v-else-if="asset && type === 'save'"
+        class="r-asset-preview__stage-fill"
+      >
+        <div class="r-asset-preview__save-medallion">
+          <RIcon icon="mdi-content-save" size="56" />
+        </div>
       </div>
 
-      <div class="r-asset-preview__meta">
-        <p class="r-asset-preview__name">
-          {{ asset.file_name }}
-          <RTooltip activator="parent" location="top" :open-delay="400">
-            <div class="r-asset-preview__tip">
-              <span class="r-asset-preview__tip-name">
-                {{ asset.file_name }}
-              </span>
-              <span class="r-asset-preview__tip-sub">
-                {{ t("rom.updated") }}:
-                {{ formatTimestamp(asset.updated_at, locale) }}
-              </span>
-            </div>
-          </RTooltip>
-        </p>
-        <div class="r-asset-preview__chips">
-          <span class="r-asset-preview__chip">
-            <RIcon icon="mdi-clock-outline" size="12" />
-            {{ formatRelativeDate(asset.updated_at) }}
-          </span>
-          <span class="r-asset-preview__chip">
-            <RIcon icon="mdi-weight" size="12" />
-            {{ formatBytes(asset.file_size_bytes) }}
-          </span>
-          <RTag
-            v-if="asset.emulator"
-            tone="warning"
-            size="x-small"
-            :text="asset.emulator"
+      <!-- Empty: friendly art for the active type. -->
+      <div v-else class="r-asset-preview__stage-fill">
+        <div class="r-asset-preview__empty-art">
+          <RIcon
+            :icon="
+              type === 'save' ? 'mdi-content-save-outline' : 'mdi-image-area'
+            "
+            size="40"
           />
         </div>
-        <p class="r-asset-preview__exact">
-          <RIcon icon="mdi-calendar-clock" size="11" />
-          {{ formatTimestamp(asset.updated_at, locale) }}
-        </p>
+        <p class="r-asset-preview__empty-title">{{ emptyText }}</p>
       </div>
+
+      <!-- Clear button — only when something is selected. -->
+      <button
+        v-if="asset"
+        type="button"
+        class="r-asset-preview__clear"
+        :aria-label="t('common.clear')"
+        @click="$emit('clear')"
+      >
+        <RIcon icon="mdi-close" size="14" />
+      </button>
     </div>
 
-    <!-- ── Save filled ─────────────────────────────────────── -->
-    <div
-      v-else-if="asset && type === 'save'"
-      class="r-asset-preview__filled r-asset-preview__filled--save"
-    >
-      <div class="r-asset-preview__save-card">
-        <div class="r-asset-preview__save-icon" aria-hidden="true">
-          <RIcon icon="mdi-content-save" size="44" />
-        </div>
-        <div class="r-asset-preview__save-meta">
-          <p class="r-asset-preview__name">
-            {{ asset.file_name }}
-            <RTooltip activator="parent" location="top" :open-delay="400">
-              <div class="r-asset-preview__tip">
-                <span class="r-asset-preview__tip-name">
-                  {{ asset.file_name }}
-                </span>
-                <span class="r-asset-preview__tip-sub">
-                  {{ t("rom.updated") }}:
-                  {{ formatTimestamp(asset.updated_at, locale) }}
-                </span>
-              </div>
-            </RTooltip>
-          </p>
-          <div class="r-asset-preview__chips">
-            <span class="r-asset-preview__chip">
-              <RIcon icon="mdi-clock-outline" size="12" />
-              {{ formatRelativeDate(asset.updated_at) }}
+    <!-- ── Meta — filled when selected, hint when empty ──────── -->
+    <div v-if="asset" class="r-asset-preview__meta">
+      <p class="r-asset-preview__name">
+        {{ asset.file_name }}
+        <RTooltip activator="parent" location="top" :open-delay="400">
+          <div class="r-asset-preview__tip">
+            <span class="r-asset-preview__tip-name">
+              {{ asset.file_name }}
             </span>
-            <span class="r-asset-preview__chip">
-              <RIcon icon="mdi-weight" size="12" />
-              {{ formatBytes(asset.file_size_bytes) }}
+            <span class="r-asset-preview__tip-sub">
+              {{ t("rom.updated") }}:
+              {{ formatTimestamp(asset.updated_at, locale) }}
             </span>
-            <RTag
-              v-if="asset.emulator"
-              tone="warning"
-              size="x-small"
-              :text="asset.emulator"
-            />
           </div>
-          <p class="r-asset-preview__exact">
-            <RIcon icon="mdi-calendar-clock" size="11" />
-            {{ formatTimestamp(asset.updated_at, locale) }}
-          </p>
-        </div>
-        <button
-          type="button"
-          class="r-asset-preview__clear r-asset-preview__clear--inline"
-          :aria-label="t('common.clear')"
-          @click="$emit('clear')"
-        >
-          <RIcon icon="mdi-close" size="14" />
-        </button>
-      </div>
-    </div>
-
-    <!-- ── Empty ───────────────────────────────────────────── -->
-    <div v-else class="r-asset-preview__empty">
-      <div class="r-asset-preview__empty-art">
-        <RIcon
-          :icon="
-            type === 'save' ? 'mdi-content-save-outline' : 'mdi-image-area'
-          "
-          size="56"
+        </RTooltip>
+      </p>
+      <div class="r-asset-preview__chips">
+        <span class="r-asset-preview__chip">
+          <RIcon icon="mdi-clock-outline" size="12" />
+          {{ formatRelativeDate(asset.updated_at) }}
+        </span>
+        <span class="r-asset-preview__chip">
+          <RIcon icon="mdi-weight" size="12" />
+          {{ formatBytes(asset.file_size_bytes) }}
+        </span>
+        <RTag
+          v-if="asset.emulator"
+          tone="warning"
+          size="x-small"
+          :text="asset.emulator"
         />
       </div>
-      <p class="r-asset-preview__empty-title">{{ emptyText }}</p>
+      <p class="r-asset-preview__exact">
+        <RIcon icon="mdi-calendar-clock" size="11" />
+        {{ formatTimestamp(asset.updated_at, locale) }}
+      </p>
+    </div>
+
+    <div v-else class="r-asset-preview__meta r-asset-preview__meta--empty">
       <p class="r-asset-preview__empty-hint">
         {{ t("play.start-fresh-hint") }}
       </p>
@@ -210,18 +177,14 @@ const emptyText = computed(() =>
   color: var(--r-color-fg-secondary);
 }
 
-/* ── State filled ─────────────────────────────────────────── */
-
-.r-asset-preview__filled {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+/* ── Stage (shared shell) ─────────────────────────────────── */
 
 .r-asset-preview__stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  /* Flatter than 16:9 — the preview is a teaser, not a feature, and
+     a shorter stage leaves the AssetList/AssetStrip below more room. */
+  aspect-ratio: 5 / 2;
   border-radius: var(--r-radius-md);
   overflow: hidden;
   background: var(--r-color-cover-placeholder);
@@ -230,13 +193,33 @@ const emptyText = computed(() =>
     0 12px 28px color-mix(in srgb, black 35%, transparent),
     0 0 0 1px color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent);
 }
+
+/* Save and empty variants use the surface backdrop instead of the
+   cover-placeholder gradient — they're "panels" not screenshots. */
+.r-asset-preview__stage--save,
+.r-asset-preview__stage--empty {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--r-color-brand-primary) 8%, var(--r-color-surface)),
+    var(--r-color-surface)
+  );
+  box-shadow: 0 8px 22px color-mix(in srgb, black 25%, transparent);
+}
+
+.r-asset-preview__stage--empty {
+  border-style: dashed;
+  background: var(--r-color-surface);
+  box-shadow: none;
+}
+
 .r-asset-preview__stage-img {
   position: absolute;
   inset: 0;
   background-size: cover;
   background-position: center;
 }
-.r-asset-preview__stage-placeholder {
+
+.r-asset-preview__stage-fill {
   position: absolute;
   inset: 0;
   display: flex;
@@ -245,15 +228,53 @@ const emptyText = computed(() =>
   align-items: center;
   justify-content: center;
   color: var(--r-color-fg-muted);
+  padding: 16px;
+  text-align: center;
+}
+.r-asset-preview__stage-fill p {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* State placeholder backdrop (no screenshot) inherits the cover-
+   placeholder gradient on the base stage; just dim the foreground. */
+.r-asset-preview__stage:not(.r-asset-preview__stage--save):not(
+    .r-asset-preview__stage--empty
+  )
+  .r-asset-preview__stage-fill {
   background: linear-gradient(
     135deg,
     var(--r-color-cover-placeholder),
     var(--r-color-cover-placeholder-bright)
   );
 }
-.r-asset-preview__stage-placeholder p {
-  margin: 0;
-  font-size: 12px;
+
+/* Save medallion — brand-tinted circle behind the save icon. Sized
+   to feel like a badge inside the shorter stage, not a hero element. */
+.r-asset-preview__save-medallion {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--r-color-brand-primary) 22%, transparent);
+  color: var(--r-color-brand-primary);
+}
+
+/* Empty-state art — small circular badge with the type's icon. */
+.r-asset-preview__empty-art {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--r-color-bg-elevated);
+  color: var(--r-color-fg-muted);
+}
+.r-asset-preview__empty-title {
+  font-size: 13px !important;
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg);
 }
 
 .r-asset-preview__clear {
@@ -281,18 +302,17 @@ const emptyText = computed(() =>
   );
 }
 
-/* The save card's clear button sits inside the card (no stage), so it
-   uses the surface palette rather than the dark overlay variant. */
-.r-asset-preview__clear--inline {
-  position: static;
+/* On save / empty stages the overlay-style clear button reads too
+   heavy against a light surface; switch to a tonal pill. */
+.r-asset-preview__stage--save .r-asset-preview__clear,
+.r-asset-preview__stage--empty .r-asset-preview__clear {
   border-color: var(--r-color-border);
-  background: var(--r-color-surface);
+  background: var(--r-color-bg-elevated);
   color: var(--r-color-fg-secondary);
-  align-self: flex-start;
-  flex-shrink: 0;
   backdrop-filter: none;
 }
-.r-asset-preview__clear--inline:hover {
+.r-asset-preview__stage--save .r-asset-preview__clear:hover,
+.r-asset-preview__stage--empty .r-asset-preview__clear:hover {
   background: color-mix(
     in srgb,
     var(--r-color-status-base-danger) 18%,
@@ -301,50 +321,21 @@ const emptyText = computed(() =>
   color: var(--r-color-danger-fg);
 }
 
-/* ── Save filled (featured card) ──────────────────────────── */
-
-.r-asset-preview__save-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 16px;
-  align-items: center;
-  padding: 16px;
-  border-radius: var(--r-radius-md);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--r-color-brand-primary) 8%, var(--r-color-surface)),
-    var(--r-color-surface)
-  );
-  border: 1px solid var(--r-color-border);
-  box-shadow: 0 8px 22px color-mix(in srgb, black 25%, transparent);
-  min-height: 130px;
-}
-
-.r-asset-preview__save-icon {
-  display: grid;
-  place-items: center;
-  width: 72px;
-  height: 72px;
-  border-radius: var(--r-radius-md);
-  background: color-mix(in srgb, var(--r-color-brand-primary) 20%, transparent);
-  color: var(--r-color-brand-primary);
-  flex-shrink: 0;
-}
-
-.r-asset-preview__save-meta {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* ── Shared meta ──────────────────────────────────────────── */
+/* ── Meta (shared shell) ──────────────────────────────────── */
 
 .r-asset-preview__meta {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 0 2px;
+  /* Reserve the row even when content is shorter, so the strip below
+     doesn't shift between filled and empty. Worst case so far is
+     name + wrapped chips + exact = ~3 lines @ ~22px each. */
+  min-height: 70px;
+}
+.r-asset-preview__meta--empty {
+  display: flex;
+  align-items: center;
 }
 
 .r-asset-preview__name {
@@ -385,6 +376,13 @@ const emptyText = computed(() =>
   font-variant-numeric: tabular-nums;
 }
 
+.r-asset-preview__empty-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--r-color-fg-muted);
+  max-width: 360px;
+}
+
 .r-asset-preview__tip {
   display: flex;
   flex-direction: column;
@@ -399,42 +397,5 @@ const emptyText = computed(() =>
 .r-asset-preview__tip-sub {
   font-size: 11px;
   opacity: 0.85;
-}
-
-/* ── Empty state ──────────────────────────────────────────── */
-
-.r-asset-preview__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 36px 20px;
-  text-align: center;
-  border: 1px dashed var(--r-color-border);
-  border-radius: var(--r-radius-md);
-  min-height: 220px;
-}
-.r-asset-preview__empty-art {
-  display: grid;
-  place-items: center;
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  background: var(--r-color-surface);
-  color: var(--r-color-fg-muted);
-  margin-bottom: 4px;
-}
-.r-asset-preview__empty-title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-fg);
-}
-.r-asset-preview__empty-hint {
-  margin: 0;
-  font-size: 12px;
-  color: var(--r-color-fg-muted);
-  max-width: 260px;
 }
 </style>
