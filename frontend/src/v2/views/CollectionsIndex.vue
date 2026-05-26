@@ -36,6 +36,7 @@ import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 type Kind = "regular" | "virtual" | "smart";
@@ -131,8 +132,7 @@ onMounted(() => {
 });
 
 function coversFor(c: AnyCollection): string[] {
-  const paths = (c as { path_covers_small?: string[] }).path_covers_small ?? [];
-  return paths.slice(0, 4).map(toWebp);
+  return collectionCoverList(c, toWebp);
 }
 
 const tiles = computed<CollectionTileEntry[]>(() => {

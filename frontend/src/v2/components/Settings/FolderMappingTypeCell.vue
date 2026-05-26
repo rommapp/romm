@@ -57,11 +57,10 @@ const items = computed<TypeItem[]>(() => [
 ]);
 
 // Pass `row.type` straight through — even when it's `auto` (a value
-// not in `items`). VSelect will fall back to rendering the
-// `#selection` slot with `item.raw = "auto"`; we ignore the slot's
-// `item` and paint `label` ourselves, so the "auto-detected" pill
-// shows up regardless. Masking auto to `null` would silently drop
-// the slot call and leave the cell empty (only the chevron visible).
+// not in `items`). RSelect drops foreign values from `selectedItems`,
+// so `hasSelection` becomes false and the `#placeholder` slot fires —
+// we paint the auto pill there, while alias/variant flow through
+// `#selection` as before.
 const modelType = computed({
   get: () => props.row.type,
   set: (next) => {
@@ -98,10 +97,13 @@ const label = computed(() => {
     class="r-v2-fmtc"
     :class="`r-v2-fmtc--${row.type ?? 'unset'}`"
   >
-    <!-- Auto rows aren't in the items list, so VSelect's default
-         selection rendering would show empty — paint the current
-         label manually here. -->
     <template #selection>
+      <RTag :tone="tagTone" :text="label" size="small" />
+    </template>
+    <!-- Auto rows aren't in the items list, so RSelect treats them as
+         "no selection" and renders the placeholder slot — paint the
+         auto-detected pill there. -->
+    <template #placeholder>
       <RTag :tone="tagTone" :text="label" size="small" />
     </template>
     <template #item="{ props: itemProps, item }">

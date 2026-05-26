@@ -22,6 +22,7 @@ import CardRow from "@/v2/components/Home/CardRow.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 import { useGridNav } from "@/v2/composables/useGridNav";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 const { t } = useI18n();
 
@@ -132,8 +133,11 @@ const favoriteRoms = computed<SimpleRom[]>(() => {
 });
 
 // Pick a small set of cover URLs to seed the collection tile mosaic.
-function collectionCovers(pathCovers: string[] | undefined): string[] {
-  return (pathCovers ?? []).slice(0, 4).map(toWebp);
+function collectionCovers(c: {
+  path_cover_small?: string | null;
+  path_covers_small?: string[];
+}): string[] {
+  return collectionCoverList(c, toWebp);
 }
 </script>
 
@@ -337,7 +341,7 @@ function collectionCovers(pathCovers: string[] | undefined): string[] {
           :to="`/collection/${c.id}`"
           :name="c.name"
           :rom-count="c.rom_count"
-          :covers="collectionCovers(c.path_covers_small ?? [])"
+          :covers="collectionCovers(c)"
           variant="row"
         />
       </CardRow>

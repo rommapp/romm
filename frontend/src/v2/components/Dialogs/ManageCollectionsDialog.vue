@@ -36,6 +36,7 @@ import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 defineOptions({ inheritAttrs: false });
 
@@ -47,16 +48,8 @@ const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const { toWebp } = useWebpSupport();
 
-// Mirrors CollectionsIndex.coversFor — prefers the multi-cover array,
-// falls back to the single cover when that's all we have so a regular
-// collection's one custom cover still renders. Webp-swapped when the
-// backend supports it.
 function coversFor(collection: CollectionType): string[] {
-  const multi =
-    (collection as { path_covers_small?: string[] }).path_covers_small ?? [];
-  const single = collection.path_cover_small ?? null;
-  const list = multi.length ? multi.slice(0, 4) : single ? [single] : [];
-  return list.map(toWebp);
+  return collectionCoverList(collection, toWebp);
 }
 
 const roms = ref<SimpleRom[]>([]);

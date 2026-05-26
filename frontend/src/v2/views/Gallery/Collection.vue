@@ -25,6 +25,7 @@ import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
+import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 type CollectionKind = "regular" | "virtual" | "smart";
@@ -84,10 +85,12 @@ const editableCollection = computed<Collection | SmartCollection | null>(() =>
 );
 
 const mosaicCovers = computed<string[]>(() => {
-  const paths =
-    (currentCollection.value as { path_covers_small?: string[] } | null)
-      ?.path_covers_small ?? [];
-  return paths.slice(0, 4).map(toWebp);
+  const c = currentCollection.value as {
+    path_cover_small?: string | null;
+    path_covers_small?: string[];
+  } | null;
+  if (!c) return [];
+  return collectionCoverList(c, toWebp);
 });
 
 const description = computed(

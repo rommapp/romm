@@ -36,6 +36,7 @@ import PlayerCountBadge from "@/v2/components/GameDetails/PlayerCountBadge.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
 import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 defineOptions({ inheritAttrs: false });
 
@@ -81,12 +82,11 @@ type CollectionTileEntry = {
 const userCollectionTiles = computed<CollectionTileEntry[]>(() =>
   props.userCollections.map((c) => {
     const full = collectionsStore.getCollection(c.id);
-    const covers = (full?.path_covers_small ?? []).slice(0, 4).map(toWebp);
     return {
       id: c.id,
       name: full?.name ?? c.name,
       rom_count: full?.rom_count ?? 0,
-      covers,
+      covers: full ? collectionCoverList(full, toWebp) : [],
       link: `/collection/${c.id}`,
     };
   }),

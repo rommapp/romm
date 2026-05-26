@@ -980,7 +980,7 @@ const hasPrependInner = computed(
           </template>
         </RTag>
         <span v-else-if="!hasSelection" class="r-select__placeholder">
-          {{ effectivePlaceholder }}
+          <slot name="placeholder">{{ effectivePlaceholder }}</slot>
         </span>
         <!-- Multi with chips — render the visible slice as removable
              tags; anything past `maxVisibleChips` collapses into a
