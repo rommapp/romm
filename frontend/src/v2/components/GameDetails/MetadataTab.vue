@@ -34,11 +34,20 @@ const fileRows = computed<Row[]>(() => {
 // render as a dash via the fallback chip below.
 const hashRows = computed<{ label: string; value: string | null }[]>(() => {
   const r = props.rom;
-  return [
+  // CHD SHA-1 lives on the file, not the ROM — surface it at ROM level
+  // only when the ROM is a single CHD file. Skipped (not dashed) when
+  // not applicable since most ROMs aren't CHDs.
+  const chdSha1 = r.has_simple_single_file
+    ? (r.files[0]?.chd_sha1_hash ?? null)
+    : null;
+  const rows: { label: string; value: string | null }[] = [
     { label: "CRC", value: r.crc_hash },
     { label: "MD5", value: r.md5_hash },
     { label: "SHA1", value: r.sha1_hash },
+    { label: "RA", value: r.ra_hash },
   ];
+  if (chdSha1) rows.splice(3, 0, { label: "CHD SHA-1", value: chdSha1 });
+  return rows;
 });
 
 type Verification = { label: string; match: boolean };

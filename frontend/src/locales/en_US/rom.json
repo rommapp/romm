@@ -93,6 +93,8 @@
   "refresh-update-desc": "Update metadata from providers that haven't matched this ROM yet",
   "refresh-update-desc-bulk": "Update metadata from providers that haven't matched these ROMs yet",
   "refresh-complete-desc": "Overwrite metadata from all selected providers",
+  "refresh-hashes-desc": "Recalculate the file hashes (CRC, MD5, SHA-1) for this ROM",
+  "refresh-hashes-desc-bulk": "Recalculate the file hashes (CRC, MD5, SHA-1) for the selected ROMs",
   "selection-count": "{n} games",
   "regions": "Regions",
   "related-content": "Related content",

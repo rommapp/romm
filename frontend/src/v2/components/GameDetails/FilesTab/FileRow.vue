@@ -79,8 +79,10 @@ const audioDuration = computed(() =>
 const hasAnyHash = computed(
   () =>
     Boolean(props.file.sha1_hash) ||
+    Boolean(props.file.chd_sha1_hash) ||
     Boolean(props.file.md5_hash) ||
-    Boolean(props.file.crc_hash),
+    Boolean(props.file.crc_hash) ||
+    Boolean(props.file.ra_hash),
 );
 </script>
 
@@ -150,6 +152,12 @@ const hasAnyHash = computed(
           compact
         />
         <HashChip
+          v-if="file.chd_sha1_hash"
+          label="CHD SHA-1"
+          :value="file.chd_sha1_hash"
+          compact
+        />
+        <HashChip
           v-if="file.md5_hash"
           label="MD5"
           :value="file.md5_hash"
@@ -159,6 +167,12 @@ const hasAnyHash = computed(
           v-if="file.crc_hash"
           label="CRC"
           :value="file.crc_hash"
+          compact
+        />
+        <HashChip
+          v-if="file.ra_hash"
+          label="RA"
+          :value="file.ra_hash"
           compact
         />
       </div>

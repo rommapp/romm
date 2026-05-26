@@ -200,19 +200,24 @@ function isHashMatcherOn(matcher: HashMatcher): boolean {
     : playmatchEnabled.value;
 }
 
-// Per-ROM scan types — the Scan view's "new platforms" / "quick" /
-// "hashes" options don't apply to an already-ingested ROM. We keep
-// `unmatched` (re-fetch from providers that haven't matched yet) and
-// `complete` (wipe + rematch from scratch) which are the two
-// destructive vs. non-destructive choices that actually map to per-
-// ROM intent.
-type ScanType = "unmatched" | "complete";
+// Per-ROM scan types — the Scan view's "new platforms" / "quick"
+// options don't apply to an already-ingested ROM. We keep `unmatched`
+// (re-fetch from providers that haven't matched yet), `hashes`
+// (recalculate file hashes only — useful when files changed on disk
+// or hashing was disabled at scan time), and `complete` (wipe +
+// rematch from scratch).
+type ScanType = "unmatched" | "hashes" | "complete";
 
 const isBulk = computed(() => roms.value.length > 1);
 
-const scanOptions = computed<
-  { title: string; subtitle: string; value: ScanType }[]
->(() => [
+interface ScanOption {
+  title: string;
+  subtitle: string;
+  value: ScanType;
+  disabled?: string;
+}
+
+const scanOptions = computed<ScanOption[]>(() => [
   {
     title: t("scan.update-metadata"),
     subtitle: isBulk.value
@@ -221,12 +226,30 @@ const scanOptions = computed<
     value: "unmatched",
   },
   {
+    title: t("scan.hashes"),
+    subtitle: isBulk.value
+      ? t("rom.refresh-hashes-desc-bulk")
+      : t("rom.refresh-hashes-desc"),
+    value: "hashes",
+    disabled: calculateHashes.value
+      ? undefined
+      : t("scan.hash-calculation-disabled"),
+  },
+  {
     title: t("scan.complete-rescan"),
     subtitle: t("rom.refresh-complete-desc"),
     value: "complete",
   },
 ]);
 const scanType = ref<ScanType>("unmatched");
+
+// Reset scan type back to the safe default if the current selection
+// becomes disabled (e.g. user toggles SKIP_HASH_CALCULATION while the
+// dialog is open and `hashes` was selected).
+watch(scanOptions, (options) => {
+  const current = options.find((o) => o.value === scanType.value);
+  if (current?.disabled) scanType.value = "unmatched";
+});
 
 const openSingle = (payload: SimpleRom) => {
   roms.value = [payload];
@@ -588,8 +611,11 @@ function closeDialog() {
               <li v-bind="itemProps">
                 <div class="r-select__item-stack">
                   <div class="r-select__item-title">{{ item.title }}</div>
-                  <div v-if="item.raw.subtitle" class="r-select__item-subtitle">
-                    {{ item.raw.subtitle }}
+                  <div
+                    v-if="item.raw.disabled || item.raw.subtitle"
+                    class="r-select__item-subtitle"
+                  >
+                    {{ item.raw.disabled || item.raw.subtitle }}
                   </div>
                 </div>
               </li>

@@ -19,13 +19,20 @@ interface RomHash {
   label: string;
   value: string | null;
 }
-const hashes = computed<RomHash[]>(() =>
-  [
+const hashes = computed<RomHash[]>(() => {
+  // CHD SHA-1 lives on the file, not the ROM — surface it at ROM level
+  // only when the ROM is a single CHD file (mirrors v1's FileInfo).
+  const chdSha1 = props.rom.has_simple_single_file
+    ? (props.rom.files[0]?.chd_sha1_hash ?? null)
+    : null;
+  return [
     { label: "SHA-1", value: props.rom.sha1_hash },
+    { label: "CHD SHA-1", value: chdSha1 },
     { label: "MD5", value: props.rom.md5_hash },
     { label: "CRC", value: props.rom.crc_hash },
-  ].filter((h) => h.value),
-);
+    { label: "RA", value: props.rom.ra_hash },
+  ].filter((h) => h.value);
+});
 </script>
 
 <template>
