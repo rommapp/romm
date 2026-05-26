@@ -396,13 +396,21 @@ async def _identify_rom(
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
         overwrite=_added_rom.url_cover != rom.url_cover,
-        url_cover=_added_rom.url_cover,
+        url_cover=(
+            add_ss_auth_to_url(_added_rom.url_cover)
+            if _added_rom.url_cover
+            else _added_rom.url_cover
+        ),
     )
 
     path_manual = await fs_resource_handler.get_manual(
         rom=_added_rom,
         overwrite=_added_rom.url_manual != rom.url_manual,
-        url_manual=_added_rom.url_manual,
+        url_manual=(
+            add_ss_auth_to_url(_added_rom.url_manual)
+            if _added_rom.url_manual
+            else _added_rom.url_manual
+        ),
     )
 
     screenshots_changed = pydash.xor(
@@ -411,7 +419,9 @@ async def _identify_rom(
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
         rom=_added_rom,
         overwrite=bool(screenshots_changed),
-        url_screenshots=_added_rom.url_screenshots,
+        url_screenshots=[
+            add_ss_auth_to_url(u) for u in (_added_rom.url_screenshots or [])
+        ],
     )
 
     _added_rom.path_cover_s = path_cover_s
