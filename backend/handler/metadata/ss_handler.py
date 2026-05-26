@@ -2,7 +2,7 @@ import html
 import re
 from datetime import datetime
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import pydash
 from unidecode import unidecode as uc
@@ -34,13 +34,32 @@ from .base_handler import (
 SENSITIVE_KEYS = {"ssid", "sspassword"}
 
 
+def _is_screenscraper_host(url: str) -> bool:
+    """True only if the URL's hostname is screenscraper.fr or a subdomain.
+
+    Substring matching would let an attacker-controlled host like
+    screenscraper.fr.evil.example receive the user's credentials.
+    """
+    try:
+        host = urlparse(url).hostname
+    except ValueError:
+        return False
+
+    if not host:
+        return False
+
+    return host.lower() == "screenscraper.fr" or host.lower().endswith(
+        ".screenscraper.fr"
+    )
+
+
 def add_ss_auth_to_url(url: str | None) -> str:
     """Re-add SS user credentials to a media URL at download time (never stored).
 
     Only injects credentials for screenscraper.fr URLs; returns other URLs
     unchanged to avoid leaking credentials to third-party sources.
     """
-    if not url or "screenscraper.fr" not in url:
+    if not url or not _is_screenscraper_host(url):
         return url or ""
 
     if not SCREENSCRAPER_USER or not SCREENSCRAPER_PASSWORD:
