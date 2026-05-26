@@ -1,10 +1,8 @@
 <script setup lang="ts">
-// PlatformSettingsDrawer — right-anchored RDrawer surfaced from the
-// kebab menu in Platform.vue's InfoPanel. Replaces v1's
-// `PlatformInfoDrawer` but keeps only the genuine "settings" content:
-// details table + cover-style picker. Provider chips moved inline to
-// the InfoPanel; primary actions (Scan / Delete / Upload / Firmware)
-// live in the parent kebab menu.
+// SettingsTab — platform-scoped settings rendered as the `Settings`
+// tab inside Platform.vue. Surfaces the details table + cover-style
+// picker. Same content as the previous `PlatformSettingsDrawer`, now
+// rendered inline in the platform view.
 //
 // Mutation paths:
 //   • `aspect_ratio` → `platformApi.updatePlatform({ platform: { …, aspect_ratio } })`
@@ -14,7 +12,7 @@
 // Read-only data:
 //   • Details table — same fields v1 exposed (name, slug, fs_slug,
 //     category, generation, family, size). All sourced from the
-//     `currentPlatform` ref so a backend sync re-renders automatically.
+//     `platform` prop so a backend sync re-renders automatically.
 import { RChip, RIcon } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -22,18 +20,12 @@ import platformApi from "@/services/api/platform";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { formatBytes } from "@/utils";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import RDrawer from "@/v2/lib/overlays/RDrawer/RDrawer.vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
-  modelValue: boolean;
   platform: Platform;
-}>();
-
-defineEmits<{
-  (e: "update:modelValue", v: boolean): void;
 }>();
 
 const { t } = useI18n();
@@ -41,7 +33,6 @@ const snackbar = useSnackbar();
 const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 
-// ── Details table ───────────────────────────────────────────────
 type DetailRow = { label: string; value: string };
 const details = computed<DetailRow[]>(() => {
   const p = props.platform;
@@ -67,9 +58,8 @@ const details = computed<DetailRow[]>(() => {
   return rows;
 });
 
-// ── Aspect ratio ────────────────────────────────────────────────
-// Same platform-specific options v1 exposes — DVD / Blu-ray / DS / PSP
-// / Switch families each get their natural-fit aspect on top of the
+// Aspect ratio — platform-specific options. DVD / Blu-ray / DS / PSP
+// / Switch families each add their natural-fit aspect on top of the
 // universal 2:3 / 3:4 / 1:1 / 16:11 baseline.
 const DVD_PLATFORMS = new Set([
   "dvd-player",
@@ -160,8 +150,6 @@ async function setAspect(option: AspectOption) {
       platform: { ...props.platform, aspect_ratio: option.name },
     });
     platformsStore.update(data);
-    // Keep the gallery view's `currentPlatform` in sync so the chip
-    // re-renders without waiting for a backend refetch.
     if (galleryRoms.currentPlatform?.id === data.id) {
       galleryRoms.setCurrentPlatform(data);
     }
@@ -184,17 +172,7 @@ async function setAspect(option: AspectOption) {
 </script>
 
 <template>
-  <RDrawer
-    :model-value="modelValue"
-    :width="420"
-    icon="mdi-cog"
-    @update:model-value="$emit('update:modelValue', $event)"
-  >
-    <template #header>
-      <span>{{ platform.display_name }}</span>
-    </template>
-
-    <!-- Details -->
+  <div class="r-v2-plat-settings">
     <section class="r-v2-plat-settings__section">
       <header class="r-v2-plat-settings__section-head">
         <RIcon icon="mdi-information-outline" size="14" />
@@ -212,7 +190,6 @@ async function setAspect(option: AspectOption) {
       </div>
     </section>
 
-    <!-- Cover style -->
     <section class="r-v2-plat-settings__section">
       <header class="r-v2-plat-settings__section-head">
         <RIcon icon="mdi-aspect-ratio" size="14" />
@@ -246,12 +223,24 @@ async function setAspect(option: AspectOption) {
         </button>
       </div>
     </section>
-  </RDrawer>
+  </div>
 </template>
 
 <style scoped>
-.r-v2-plat-settings__section {
-  margin-bottom: 18px;
+.r-v2-plat-settings {
+  display: grid;
+  /* Two-column layout — details on the left, cover-style picker on
+     the right. Collapses to a single column on narrow viewports so
+     the aspect grid keeps reasonable card sizing. */
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .r-v2-plat-settings {
+    grid-template-columns: 1fr;
+  }
 }
 
 .r-v2-plat-settings__section-head {
@@ -277,9 +266,9 @@ async function setAspect(option: AspectOption) {
 }
 .r-v2-plat-settings__detail-row {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns: 140px 1fr;
   gap: 12px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   font-size: 12px;
   border-bottom: 1px solid var(--r-color-border);
 }
@@ -297,7 +286,7 @@ async function setAspect(option: AspectOption) {
 /* ── Aspect ratio grid ─────────────────────────────────────────── */
 .r-v2-plat-settings__aspects {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 10px;
 }
 .r-v2-plat-settings__aspect {

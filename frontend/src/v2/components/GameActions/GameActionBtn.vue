@@ -31,7 +31,7 @@
 //
 // `withLabel` turns the button into a pill with "Play" / "Download" /
 // etc. text next to the icon, matching the GameDetails Play CTA.
-import { RDivider, RIcon, RMenu, RMenuItem } from "@v2/lib";
+import { RDivider, RIcon, RMenu, RMenuItem, RTooltip } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref, toRef } from "vue";
 import type { RomUserStatus } from "@/__generated__";
@@ -325,6 +325,12 @@ function onClick(e: MouseEvent) {
         <span v-if="withLabel" class="r-v2-game-btn__label">
           {{ preset.label }}
         </span>
+        <RTooltip
+          v-if="!withLabel"
+          activator="parent"
+          :text="preset.label"
+          location="top"
+        />
       </button>
     </template>
     <GameActionsList :rom="rom" @close="moreOpen = false" />
@@ -374,6 +380,12 @@ function onClick(e: MouseEvent) {
         <span v-if="withLabel" class="r-v2-game-btn__label">
           {{ preset.label }}
         </span>
+        <RTooltip
+          v-if="!withLabel"
+          activator="parent"
+          :text="preset.label"
+          location="top"
+        />
       </button>
     </template>
     <!-- Enum: single-pick (radio-like). Active row tints brand. -->
@@ -459,6 +471,12 @@ function onClick(e: MouseEvent) {
     <span v-if="withLabel" class="r-v2-game-btn__label">
       {{ preset.label }}
     </span>
+    <RTooltip
+      v-if="!withLabel"
+      activator="parent"
+      :text="preset.label"
+      location="top"
+    />
   </button>
 </template>
 

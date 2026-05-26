@@ -1,42 +1,37 @@
 <script setup lang="ts">
-// Platform gallery — thin orchestrator around `GalleryShell`. Owns the
-// platform-specific load flow (route param → ensure platforms loaded →
-// setCurrentPlatform → fetchWindowAt(0)) and fills the shell's
-// `#header` slot with an InfoPanel. Everything else (virtualizer,
-// toolbar, AlphaStrip, dwell, scroll restoration, list mode) lives in
-// the shell so any cross-view fix lands once for all three views.
+// Platform view — owns the platform-specific load flow (route param →
+// ensure platforms loaded → setCurrentPlatform → fetch metadata) and
+// the three-tab surface that sits above the gallery:
+//   • Library  — the gallery (delegated to `GalleryShell`).
+//   • Firmware — `FirmwareTab` (upload / download / delete firmware).
+//   • Settings — `SettingsTab` (details + cover-style picker).
 //
-// Admin entry point: a kebab `RMenu` in the InfoPanel's `#actions`
-// slot exposes the actions that v1 surfaced through PlatformInfoDrawer
-// (Scan / Delete / Settings…). Scan dispatches the socket event and
-// flips `scanningStore.scanning`; Settings opens
-// `PlatformSettingsDrawer` (details + cover style); Delete goes through
-// `useConfirm` with a typed-confirm prompt and then
-// `platformApi.deletePlatform`, then routes away on success.
-import {
-  RBtn,
-  RChip,
-  RDivider,
-  RMenu,
-  RMenuItem,
-  RPlatformIcon,
-} from "@v2/lib";
+// Layout choice: `PlatformHead` (InfoPanel + RTabNav) lives INSIDE the
+// scrolling container of whichever branch is active. On Library, it
+// rides in `GalleryShell`'s `#header` slot so it scrolls away with
+// the cards and the toolbar pins below it — the same vocabulary the
+// pre-tabs gallery had. On Firmware / Settings it sits in a plain
+// scroll wrapper above the tab body, so the user gets a single
+// natural scroll for the whole page.
+//
+// Action ribbon (Edit / Upload / Scan / Delete) lives inside the head
+// component; the buttons emit events that this view turns into
+// dialogs or navigations.
+import { RDivider, type RTabNavItem } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 import platformApi from "@/services/api/platform";
-import socket from "@/services/socket";
-import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
-import storeScanning from "@/stores/scanning";
 import { formatBytes } from "@/utils";
-import FirmwareDrawer from "@/v2/components/Gallery/FirmwareDrawer.vue";
+import EditPlatformDialog from "@/v2/components/Gallery/EditPlatformDialog.vue";
+import FirmwareTab from "@/v2/components/Gallery/FirmwareTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
-import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
-import PlatformSettingsDrawer from "@/v2/components/Gallery/PlatformSettingsDrawer.vue";
-import Stat from "@/v2/components/shared/Stat.vue";
+import PlatformHead from "@/v2/components/Gallery/PlatformHead.vue";
+import ScanPlatformDialog from "@/v2/components/Gallery/ScanPlatformDialog.vue";
+import SettingsTab from "@/v2/components/Gallery/SettingsTab.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useConfirm } from "@/v2/composables/useConfirm";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
@@ -47,24 +42,67 @@ const route = useRoute();
 const router = useRouter();
 const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
-const scanningStore = storeScanning();
-const heartbeatStore = storeHeartbeat();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const { currentPlatform, total } = storeToRefs(galleryRoms);
-const { scanning } = storeToRefs(scanningStore);
 
 const notFound = ref(false);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
-const settingsOpen = ref(false);
-const firmwareOpen = ref(false);
 const deleting = ref(false);
+const editOpen = ref(false);
+const scanOpen = ref(false);
 
 // Permissions — `useCan` is reactive against the grants store, so the
-// menu items disable/hide automatically when the user's role changes.
+// ribbon buttons hide automatically when the user's role changes.
 const canEditPlatform = useCan("platform.edit");
 const canDeletePlatform = useCan("platform.delete");
 const canScan = useCan("library.scan");
+
+// ── Tabs ─────────────────────────────────────────────────────────
+// URL-persistent via `?tab=` (mirrors the GameDetails pattern). The
+// default tab is `library`.
+type TabId = "library" | "firmware" | "settings";
+const VALID_TABS = new Set<TabId>(["library", "firmware", "settings"]);
+
+function parseTab(v: unknown): TabId {
+  return typeof v === "string" && VALID_TABS.has(v as TabId)
+    ? (v as TabId)
+    : "library";
+}
+
+const tab = ref<TabId>(parseTab(route.query.tab));
+watch(tab, (value) => {
+  if (route.query.tab !== value) {
+    router.replace({
+      path: route.path,
+      query: { ...route.query, tab: value },
+    });
+  }
+});
+watch(
+  () => route.query.tab,
+  (value) => {
+    const next = parseTab(value);
+    if (next !== tab.value) tab.value = next;
+  },
+);
+
+const tabs = computed<RTabNavItem[]>(() => [
+  { id: "library", label: t("common.library", "Library") },
+  { id: "firmware", label: t("platform.firmware-bios", "Firmware / BIOS") },
+  { id: "settings", label: t("platform.settings", "Settings") },
+]);
+
+const headLabels = computed(() => ({
+  edit: t("platform.edit-platform", "Edit platform"),
+  upload: t("platform.upload-roms", "Upload ROMs"),
+  scan: t("scan.scan", "Scan platform"),
+  delete: t("platform.delete-platform", "Delete platform"),
+}));
+
+function onTabChange(next: string) {
+  tab.value = next as TabId;
+}
 
 const tags = computed<string[]>(() => {
   const p = currentPlatform.value;
@@ -82,10 +120,8 @@ const platformStats = computed<StatRow[]>(() => {
   if (!p) return [];
   const rows: StatRow[] = [
     { label: "In Library", value: String(p.rom_count ?? total.value) },
+    { label: "On Disk", value: formatBytes(p.fs_size_bytes ?? 0) },
   ];
-  if (p.fs_size_bytes) {
-    rows.push({ label: "On Disk", value: formatBytes(p.fs_size_bytes) });
-  }
   if (p.firmware_count) {
     rows.push({ label: "Firmware", value: String(p.firmware_count) });
   }
@@ -210,22 +246,39 @@ async function ensurePlatforms() {
 
 async function loadForId(platformId: number) {
   await ensurePlatforms();
-  const platform = platformsStore.allPlatforms.find((p) => p.id === platformId);
-  if (!platform) {
+  const cached = platformsStore.allPlatforms.find((p) => p.id === platformId);
+  if (!cached) {
     notFound.value = true;
     return;
   }
   notFound.value = false;
-  if (currentPlatform.value?.id !== platform.id) {
+  if (currentPlatform.value?.id !== cached.id) {
     galleryRoms.resetGallery();
-    galleryRoms.setCurrentPlatform(platform);
+    galleryRoms.setCurrentPlatform(cached);
   }
-  document.title = platform.display_name;
+  document.title = cached.display_name;
   // Bootstrap metadata only; grid (shell viewport-sync) and list
   // (GameListRow's onMounted) both hydrate rows per-position from here.
   await galleryRoms.fetchInitialMetadata();
   await nextTick();
   shellRef.value?.applyRestoredScroll();
+  // Refresh the platform record in the background so the Firmware
+  // and Settings tabs see the live state (firmware list, fs_size,
+  // verification flags). The cached `allPlatforms` only holds what
+  // `/platforms` returned on first load; firmware uploaded from other
+  // sessions or other surfaces would otherwise look empty here.
+  try {
+    const { data: fresh } = await platformApi.getPlatform(platformId);
+    if (fresh) {
+      platformsStore.update(fresh);
+      if (galleryRoms.currentPlatform?.id === fresh.id) {
+        galleryRoms.setCurrentPlatform(fresh);
+      }
+    }
+  } catch {
+    // Non-fatal — the cached snapshot stays in place, and the tabs
+    // surface what's already known. Logged by the axios interceptor.
+  }
 }
 
 onMounted(() => {
@@ -253,19 +306,14 @@ function onUploadRoms() {
   router.push({ name: ROUTES.UPLOAD, query: { platform: String(p.id) } });
 }
 
+function onEdit() {
+  if (!currentPlatform.value) return;
+  editOpen.value = true;
+}
+
 function onScan() {
-  const p = currentPlatform.value;
-  if (!p) return;
-  scanningStore.setScanning(true);
-  if (!socket.connected) socket.connect();
-  socket.emit("scan", {
-    platforms: [p.id],
-    type: "quick",
-    apis: heartbeatStore.getEnabledMetadataOptions().map((s) => s.value),
-  });
-  snackbar.info(`Scanning ${p.display_name}…`, {
-    icon: "mdi-loading mdi-spin",
-  });
+  if (!currentPlatform.value) return;
+  scanOpen.value = true;
 }
 
 async function onDelete() {
@@ -306,7 +354,11 @@ async function onDelete() {
 </script>
 
 <template>
+  <!-- LIBRARY — full GalleryShell with PlatformHead in #header so the
+       head band scrolls naturally with the cards and the toolbar pins
+       below it. Same scroll vocabulary as the pre-tabs gallery. -->
   <GalleryShell
+    v-if="tab === 'library'"
     ref="shellRef"
     :has-header="!!currentPlatform"
     :search-placeholder="'Filter this platform…'"
@@ -318,196 +370,106 @@ async function onDelete() {
     :show-platform-column="false"
     :skeleton-row-count="4"
   >
-    <!-- HEADER (Section 1) — platform InfoPanel: icon + name + stats
-         (rom count, on-disk size, firmware count) + category / family /
-         generation chips. The shell measures this slot's height
-         automatically so the toolbar's natural offset always matches
-         the InfoPanel's actual rendered bottom edge. -->
     <template #header>
-      <InfoPanel v-if="currentPlatform" :title="currentPlatform.display_name">
-        <template #cover>
-          <div
-            class="r-v2-plat__panel-icon"
-            :style="{
-              viewTransitionName: `platform-icon-${currentPlatform.id}`,
-            }"
-          >
-            <RPlatformIcon
-              :slug="currentPlatform.slug"
-              :fs-slug="currentPlatform.fs_slug"
-              :alt="currentPlatform.display_name"
-              :size="148"
-            />
-          </div>
-        </template>
-        <template v-if="tags.length" #tags>
-          <RChip
-            v-for="tag in tags"
-            :key="tag"
-            size="small"
-            variant="translucent"
-            :rounded="20"
-          >
-            {{ tag }}
-          </RChip>
-        </template>
-        <template v-if="platformStats.length" #stats>
-          <Stat
-            v-for="s in platformStats"
-            :key="s.label"
-            :value="s.value"
-            :label="s.label"
-          />
-        </template>
-        <template v-if="providerChips.length" #providers>
-          <a
-            v-for="chip in providerChips"
-            :key="chip.key"
-            :href="chip.href ?? undefined"
-            :target="chip.href ? '_blank' : undefined"
-            rel="noopener noreferrer"
-            :title="chip.title"
-            class="r-v2-plat__provider"
-            :class="{ 'r-v2-plat__provider--passive': !chip.href }"
-          >
-            <img
-              :src="chip.asset"
-              :alt="chip.title ?? chip.key"
-              class="r-v2-plat__provider-logo"
-            />
-            <span v-if="chip.label" class="r-v2-plat__provider-label">
-              {{ chip.label }}
-            </span>
-          </a>
-        </template>
-
-        <!-- Admin kebab — Scan / Settings / Firmware (placeholder) /
-             Delete. Each item gates on its own `useCan` check; the
-             menu itself stays visible so non-admins still see what
-             the surface offers. -->
-        <template #actions>
-          <RMenu location="bottom end" :offset="6" width="220px">
-            <template #activator="{ props: activatorProps }">
-              <RBtn
-                v-bind="activatorProps"
-                variant="outlined"
-                surface
-                icon="mdi-dots-vertical"
-                rounded="circle"
-                aria-label="Platform actions"
-              />
-            </template>
-            <RMenuItem
-              v-if="canEditPlatform"
-              :label="t('platform.upload-roms', 'Upload ROMs')"
-              icon="mdi-cloud-upload-outline"
-              @click="onUploadRoms"
-            />
-            <RMenuItem
-              :label="t('scan.scan', 'Scan platform')"
-              icon="mdi-magnify-scan"
-              :disabled="!canScan || scanning"
-              @click="onScan"
-            />
-            <RMenuItem
-              :label="t('platform.firmware', 'Firmware')"
-              icon="mdi-memory"
-              @click="firmwareOpen = true"
-            />
-            <RMenuItem
-              :label="t('platform.settings', 'Settings…')"
-              icon="mdi-cog-outline"
-              @click="settingsOpen = true"
-            />
-            <RDivider v-if="canDeletePlatform" />
-            <RMenuItem
-              v-if="canDeletePlatform"
-              :label="t('platform.delete-platform', 'Delete platform')"
-              icon="mdi-delete-outline"
-              variant="danger"
-              :disabled="deleting"
-              @click="onDelete"
-            />
-          </RMenu>
-        </template>
-      </InfoPanel>
+      <PlatformHead
+        v-if="currentPlatform"
+        :platform="currentPlatform"
+        :tab="tab"
+        :tabs="tabs"
+        :tags="tags"
+        :stats="platformStats"
+        :providers="providerChips"
+        :can-edit="canEditPlatform"
+        :can-scan="canScan"
+        :can-delete="canDeletePlatform"
+        :labels="headLabels"
+        :deleting="deleting"
+        @update:tab="onTabChange"
+        @edit="onEdit"
+        @upload="onUploadRoms"
+        @scan="onScan"
+        @delete="onDelete"
+      />
     </template>
   </GalleryShell>
 
-  <!-- Settings & Firmware drawers — mounted at the view level so they
-       survive scroll restoration without remounting. -->
-  <PlatformSettingsDrawer
+  <!-- FIRMWARE / SETTINGS — plain scroll wrapper that hosts the same
+       PlatformHead above the tab body. Whole page scrolls together so
+       the user keeps the head band, the divider, and the tab content
+       in one natural scroll surface. -->
+  <section v-else class="r-v2-plat-tabs">
+    <div class="r-v2-plat-tabs__scroll">
+      <PlatformHead
+        v-if="currentPlatform"
+        :platform="currentPlatform"
+        :tab="tab"
+        :tabs="tabs"
+        :tags="tags"
+        :stats="platformStats"
+        :providers="providerChips"
+        :can-edit="canEditPlatform"
+        :can-scan="canScan"
+        :can-delete="canDeletePlatform"
+        :labels="headLabels"
+        :deleting="deleting"
+        @update:tab="onTabChange"
+        @edit="onEdit"
+        @upload="onUploadRoms"
+        @scan="onScan"
+        @delete="onDelete"
+      />
+      <RDivider class="r-v2-plat-tabs__divider" />
+      <div v-if="currentPlatform" class="r-v2-plat-tabs__panel">
+        <FirmwareTab v-if="tab === 'firmware'" :platform="currentPlatform" />
+        <SettingsTab
+          v-else-if="tab === 'settings'"
+          :platform="currentPlatform"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- Per-platform dialogs — mounted at the view level so they
+       survive tab switches without remounting. Each gates on
+       `currentPlatform` so we never pass a `null` to the dialog body. -->
+  <EditPlatformDialog
     v-if="currentPlatform"
-    v-model="settingsOpen"
+    v-model="editOpen"
     :platform="currentPlatform"
   />
-  <FirmwareDrawer
+  <ScanPlatformDialog
     v-if="currentPlatform"
-    v-model="firmwareOpen"
+    v-model="scanOpen"
     :platform="currentPlatform"
   />
 </template>
 
 <style scoped>
-.r-v2-plat__panel-icon {
-  width: 200px;
-  height: 148px;
-  display: grid;
-  place-items: center;
+/* Firmware / Settings branch — single scroll wrapper that owns the
+   page scroll. The PlatformHead and the tab body scroll together as
+   one surface, so the user gets the same natural scroll feel as the
+   Library tab (where GalleryShell handles it). */
+.r-v2-plat-tabs {
+  height: calc(100vh - var(--r-nav-h));
+  overflow: hidden;
+  position: relative;
 }
 
-html[data-bp~="xs"] .r-v2-plat__panel-icon {
-  width: 80px;
-  height: 60px;
-}
-/* Clamp the inner icon to the shrunken panel at xs — RPlatformIcon
-   uses inline `width`/`height` from its `size` prop with no max
-   constraints, so we override here. */
-html[data-bp~="xs"] .r-v2-plat__panel-icon :deep(.r-platform-icon) {
-  width: 100% !important;
-  height: 100% !important;
+.r-v2-plat-tabs__scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 32px var(--r-row-pad) 60px;
 }
 
-/* ── Provider chip cluster ───────────────────────────────────────
-   Compact pill that pairs the provider's logo with its remote ID.
-   `--passive` (Flashpoint / HLTB / Libretro — no public lookup URL)
-   drops the hover lift since clicking does nothing. */
-.r-v2-plat__provider {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 10px 2px 4px;
-  border-radius: var(--r-radius-pill);
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  color: var(--r-color-fg-secondary);
-  font-size: 11px;
-  font-weight: var(--r-font-weight-medium);
-  font-variant-numeric: tabular-nums;
-  text-decoration: none;
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out),
-    transform var(--r-motion-fast) var(--r-motion-ease-out);
+.r-v2-plat-tabs__divider {
+  margin: 0 0 24px;
 }
-.r-v2-plat__provider:hover:not(.r-v2-plat__provider--passive) {
-  background: var(--r-color-surface-hover);
-  border-color: var(--r-color-border-strong);
-  color: var(--r-color-fg);
-  transform: translateY(-1px);
-}
-.r-v2-plat__provider--passive {
-  cursor: default;
-  pointer-events: none;
-}
-.r-v2-plat__provider-logo {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-.r-v2-plat__provider-label {
-  white-space: nowrap;
+
+.r-v2-plat-tabs__panel {
+  /* Tab body — Firmware / Settings render their own internal layouts
+     (lists, two-column grids). The wrapper just provides breathing
+     room and stops the inner content from running edge-to-edge with
+     the head's icon column. */
+  min-height: 0;
 }
 </style>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// FirmwareDrawer — right-anchored RDrawer that lists every firmware
-// file associated with a platform and lets admins upload, download, or
-// delete files. Replaces v1's `FirmwareDrawer` (bottom-anchored v-data-
-// table-virtual) with a v2-native vertical list inside RDrawer.
+// FirmwareTab — platform-scoped firmware manager rendered as the
+// `Firmware` tab inside Platform.vue. Lists every firmware file
+// associated with the platform and lets admins upload, download, or
+// delete files. Same content surface as the previous
+// `FirmwareDrawer`, but now lives inline in the platform view.
 //
 // Mutation paths (all routed through `firmwareApi`):
 //   • Upload  → `UploadFirmwareDialog` (file picker → multipart POST)
@@ -26,18 +27,12 @@ import DeleteFirmwareDialog from "@/v2/components/Gallery/DeleteFirmwareDialog.v
 import UploadFirmwareDialog from "@/v2/components/Gallery/UploadFirmwareDialog.vue";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
-import RDrawer from "@/v2/lib/overlays/RDrawer/RDrawer.vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{
-  modelValue: boolean;
   platform: Platform;
-}>();
-
-defineEmits<{
-  (e: "update:modelValue", v: boolean): void;
 }>();
 
 const { t } = useI18n();
@@ -46,7 +41,6 @@ const platformsStore = storePlatforms();
 const galleryRoms = storeGalleryRoms();
 const canWrite = useCan("platform.edit");
 
-// Selection set — backed by ID so re-renders don't break the picker.
 const selectedIds = ref<Set<number>>(new Set());
 
 const firmwareList = computed<FirmwareSchema[]>(
@@ -83,7 +77,6 @@ function toggleOne(id: number) {
   selectedIds.value = next;
 }
 
-// ── Upload ──────────────────────────────────────────────────────
 const uploadOpen = ref(false);
 function openUpload() {
   uploadOpen.value = true;
@@ -92,10 +85,6 @@ function onUploaded(updated: FirmwareSchema[]) {
   syncFirmware(updated);
 }
 
-// ── Download (per-row + bulk) ───────────────────────────────────
-// A native anchor click is enough — the backend serves the file with
-// `Content-Disposition: attachment`. Bulk download just triggers each
-// file in sequence; browsers handle the download queue.
 function downloadOne(f: FirmwareSchema) {
   const a = document.createElement("a");
   a.href = `/api/firmware/${f.id}/content/${f.file_name}`;
@@ -106,7 +95,6 @@ function downloadSelected() {
   for (const f of selectedFirmware.value) downloadOne(f);
 }
 
-// ── Delete (single + bulk) ──────────────────────────────────────
 const deleteOpen = ref(false);
 const pendingDelete = ref<FirmwareSchema[]>([]);
 
@@ -119,17 +107,14 @@ function onDeleted(deletedIds: number[]) {
     (f) => !deletedIds.includes(f.id),
   );
   syncFirmware(remaining);
-  // Drop any selection that points at a now-deleted row.
   const next = new Set(selectedIds.value);
   for (const id of deletedIds) next.delete(id);
   selectedIds.value = next;
 }
 
-// Persist firmware changes back into the platform record so both the
-// drawer and the InfoPanel's `firmware_count` re-render. `firmware_count`
-// is a readonly derived field on PlatformSchema — recomputed by the
-// backend — so we send the new array and trust the next refetch to
-// reconcile. For this session we just patch the local store optimistically.
+// `firmware_count` is a readonly derived field on PlatformSchema —
+// patched locally so the InfoPanel stat reacts instantly; a future
+// refetch reconciles.
 function syncFirmware(next: FirmwareSchema[]) {
   const updated: Platform = {
     ...props.platform,
@@ -142,7 +127,6 @@ function syncFirmware(next: FirmwareSchema[]) {
   }
 }
 
-// ── Delete error / success handlers ─────────────────────────────
 function onDeleteError(err: unknown) {
   const e = err as {
     response?: { data?: { detail?: string } };
@@ -156,8 +140,6 @@ function onDeleteError(err: unknown) {
   );
 }
 
-// Centralised delete call so the dialog stays focused on UI logic.
-// Exposed through a slot binding so the dialog can `await` it.
 async function performDelete(
   firmware: FirmwareSchema[],
   deleteFromFs: number[],
@@ -177,21 +159,7 @@ async function performDelete(
 </script>
 
 <template>
-  <RDrawer
-    :model-value="modelValue"
-    :width="520"
-    icon="mdi-memory"
-    @update:model-value="$emit('update:modelValue', $event)"
-  >
-    <template #header>
-      <span
-        >{{ platform.display_name }} ·
-        {{ t("platform.firmware", "Firmware") }}</span
-      >
-    </template>
-
-    <!-- Toolbar — bulk actions + select-all toggle. Sits inside the
-         body so it scrolls with the list on very small screens. -->
+  <div class="r-v2-fw">
     <header
       v-if="firmwareList.length > 0"
       class="r-v2-fw__toolbar"
@@ -241,9 +209,6 @@ async function performDelete(
       </div>
     </header>
 
-    <!-- File list — one row per firmware. Each row toggles its own
-         selection via checkbox; per-row icons handle the
-         single-file flow without touching selection. -->
     <ul v-if="firmwareList.length > 0" class="r-v2-fw__list">
       <li
         v-for="f in firmwareList"
@@ -335,8 +300,6 @@ async function performDelete(
       </li>
     </ul>
 
-    <!-- Empty state — boxed illustration when the platform has no
-         firmware, mirrors what Search.vue uses for zero hits. -->
     <REmptyState
       v-else
       variant="boxed"
@@ -356,7 +319,7 @@ async function performDelete(
         </RBtn>
       </template>
     </REmptyState>
-  </RDrawer>
+  </div>
 
   <UploadFirmwareDialog
     v-model="uploadOpen"
@@ -372,17 +335,19 @@ async function performDelete(
 </template>
 
 <style scoped>
-/* ── Toolbar ─────────────────────────────────────────────────────
-   Sticky-ish header above the list — uses an `--active` modifier
-   that brand-tints the strip when something is selected, so the
-   bulk-action target is obvious. */
+.r-v2-fw {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Toolbar ───────────────────────────────────────────────────── */
 .r-v2-fw__toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
-  margin-bottom: 10px;
   background: var(--r-color-bg-elevated);
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-md);
@@ -405,9 +370,7 @@ async function performDelete(
   gap: 2px;
 }
 
-/* ── List ────────────────────────────────────────────────────────
-   Plain `<ul>` reset, hairline-divided rows. Selected rows pick up a
-   subtle brand tint to match the toolbar's `--active` look. */
+/* ── List ──────────────────────────────────────────────────────── */
 .r-v2-fw__list {
   list-style: none;
   margin: 0;
