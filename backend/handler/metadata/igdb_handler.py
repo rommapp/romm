@@ -133,8 +133,48 @@ def build_related_game(
     )
 
 
+def select_preferred_release_date(
+    rom: Game,
+    preferred_regions: list[int],
+    platform_igdb_id: int | None,
+) -> int | None:
+    release_dates = rom.get("release_dates", [])
+    assert mark_list_expanded(release_dates)
+
+    candidates: list[tuple[int | None, int]] = []
+    for release_date in release_dates:
+        date = release_date.get("date")
+        if not isinstance(date, int):
+            continue
+
+        platform = release_date.get("platform")
+        if platform_igdb_id is not None:
+            if isinstance(platform, dict):
+                if platform.get("id") != platform_igdb_id:
+                    continue
+            elif isinstance(platform, int) and platform != platform_igdb_id:
+                continue
+
+        region = release_date.get("region")
+        region_id = region if isinstance(region, int) else None
+        candidates.append((region_id, date))
+
+    if not candidates:
+        return rom.get("first_release_date", None)
+
+    for preferred_region in preferred_regions:
+        preferred_dates = [date for region_id, date in candidates if region_id == preferred_region]
+        if preferred_dates:
+            return min(preferred_dates)
+
+    return min(date for _, date in candidates)
+
+
 def extract_metadata_from_igdb_rom(
-    self: MetadataHandler, rom: Game, platform_igdb_id: int | None
+    self: MetadataHandler,
+    rom: Game,
+    platform_igdb_id: int | None,
+    preferred_release_regions: list[int],
 ) -> IGDBMetadata:
     age_ratings = rom.get("age_ratings", [])
     alternative_names = rom.get("alternative_names", [])
@@ -210,7 +250,9 @@ def extract_metadata_from_igdb_rom(
             "youtube_video_id": videos[0].get("video_id") if videos else None,
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
-            "first_release_date": rom.get("first_release_date", None),
+            "first_release_date": select_preferred_release_date(
+                rom, preferred_release_regions, platform_igdb_id
+            ),
             "genres": [g.get("name", "") for g in genres if g.get("name")],
             "franchises": pydash.compact(
                 [franchise.get("name") if franchise else None]
@@ -326,6 +368,17 @@ REGION_TO_IGDB_LOCALE: dict[str, str | None] = {
     "tw": "zh-TW",  # Taiwan (Traditional Chinese)
 }
 
+REGION_TO_IGDB_RELEASE_DATE: dict[str, int] = {
+    "eu": 1,  # Europe
+    "us": 2,  # North America
+    "jp": 5,  # Japan
+    "cn": 6,  # China
+    "tw": 7,  # Asia
+    "wor": 8,  # Worldwide
+    "kr": 9,  # Korea
+    "br": 10,  # Brazil
+}
+
 
 def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
     """Get IGDB locale, preferring the rom's own region tag when available.
@@ -348,6 +401,30 @@ def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
             return REGION_TO_IGDB_LOCALE[region.lower()]
 
     return None
+
+
+def get_igdb_preferred_release_regions(rom: Rom | None = None) -> list[int]:
+    config = cm.get_config()
+    priority = config.SCAN_REGION_PRIORITY
+
+    rom_codes: list[str] = []
+    if rom is not None and isinstance(rom.regions, list):
+        for region_name in rom.regions:
+            code = region_name_to_provider_shortcode(region_name)
+            if code:
+                rom_codes.append(code)
+        rom_codes.sort(
+            key=lambda code: priority.index(code) if code in priority else len(priority)
+        )
+
+    ordered_codes = list(
+        dict.fromkeys(rom_codes + priority + ["us", "wor", "eu", "jp", "kr", "cn", "tw"])
+    )
+    return [
+        REGION_TO_IGDB_RELEASE_DATE[code]
+        for code in ordered_codes
+        if code in REGION_TO_IGDB_RELEASE_DATE
+    ]
 
 
 def extract_localized_data(rom: Game, preferred_locale: str | None) -> tuple[str, str]:
@@ -398,6 +475,7 @@ def build_igdb_rom(
     handler: "IGDBHandler",
     rom: Game,
     preferred_locale: str | None,
+    preferred_release_regions: list[int],
     platform_igdb_id: int | None,
 ) -> "IGDBRom":
     """Build an IGDBRom from IGDB game data with localization support.
@@ -428,7 +506,9 @@ def build_igdb_rom(
             handler.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
             for s in rom_screenshots
         ],
-        igdb_metadata=extract_metadata_from_igdb_rom(handler, rom, platform_igdb_id),
+        igdb_metadata=extract_metadata_from_igdb_rom(
+            handler, rom, platform_igdb_id, preferred_release_regions
+        ),
     )
 
 
@@ -707,7 +787,11 @@ class IGDBHandler(MetadataHandler):
             return fallback_rom
 
         return build_igdb_rom(
-            self, res, get_igdb_preferred_locale(rom=rom), platform_igdb_id
+            self,
+            res,
+            get_igdb_preferred_locale(rom=rom),
+            get_igdb_preferred_release_regions(rom=rom),
+            platform_igdb_id,
         )
 
     async def get_rom_by_id(self, rom: Rom, igdb_id: int) -> IGDBRom:
@@ -722,7 +806,13 @@ class IGDBHandler(MetadataHandler):
         if not roms:
             return IGDBRom(igdb_id=None)
 
-        return build_igdb_rom(self, roms[0], get_igdb_preferred_locale(rom=rom), None)
+        return build_igdb_rom(
+            self,
+            roms[0],
+            get_igdb_preferred_locale(rom=rom),
+            get_igdb_preferred_release_regions(rom=rom),
+            None,
+        )
 
     async def get_matched_rom_by_id(self, rom: Rom, igdb_id: int) -> IGDBRom | None:
         if not self.is_enabled():
@@ -784,8 +874,11 @@ class IGDBHandler(MetadataHandler):
         ]
 
         preferred_locale = get_igdb_preferred_locale(rom=rom)
+        preferred_release_regions = get_igdb_preferred_release_regions(rom=rom)
         return [
-            build_igdb_rom(self, rom, preferred_locale, platform_igdb_id)
+            build_igdb_rom(
+                self, rom, preferred_locale, preferred_release_regions, platform_igdb_id
+            )
             for rom in matched_roms
         ]
 
@@ -874,6 +967,9 @@ GAMES_FIELDS = (
     "total_rating",
     "aggregated_rating",
     "first_release_date",
+    "release_dates.date",
+    "release_dates.region",
+    "release_dates.platform.id",
     "artworks.url",
     "cover.url",
     "screenshots.url",

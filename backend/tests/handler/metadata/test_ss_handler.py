@@ -14,6 +14,7 @@ from handler.metadata.ss_handler import (
     _is_notgame,
     add_ss_auth_to_url,
     extract_media_from_ss_game,
+    extract_metadata_from_ss_rom,
     get_preferred_regions,
 )
 
@@ -201,6 +202,35 @@ class TestExtractMediaFromSsGame:
 
         assert result["box2d_url"] is not None
         assert "box-2D(us)" in result["box2d_url"]
+
+
+class TestExtractMetadataFromSsRom:
+    def _make_rom(self, regions: list[str] | None = None) -> MagicMock:
+        rom = MagicMock()
+        rom.platform_id = 1
+        rom.id = 100
+        rom.regions = regions
+        return rom
+
+    def test_release_date_prefers_tagged_region(self):
+        config = _make_config(region_priority=[])
+        rom = self._make_rom(regions=["Japan", "USA"])
+        game = cast(
+            SSGame,
+            {
+                "dates": [
+                    {"region": "us", "text": "1990-02-12"},
+                    {"region": "jp", "text": "1988-10-23"},
+                    {"region": "eu", "text": "1991-08-29"},
+                ],
+                "medias": [],
+            },
+        )
+
+        with patch("handler.metadata.ss_handler.cm.get_config", return_value=config):
+            metadata = extract_metadata_from_ss_rom(rom, game)
+
+        assert metadata["first_release_date"] == 593568000
 
 
 class TestIsNotgame:

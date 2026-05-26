@@ -374,18 +374,32 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         except (ValueError, TypeError):
             return ""
 
+    def _parse_date(date_text: str) -> int | None:
+        try:
+            return int(datetime.strptime(date_text, "%Y-%m-%d").timestamp())
+        except ValueError:
+            try:
+                return int(datetime.strptime(date_text, "%Y").timestamp())
+            except ValueError:
+                return None
+
     def _get_lowest_date(dates: list[SSGameDate]) -> int | None:
+        if not dates:
+            return None
+
+        for region in get_preferred_regions(rom):
+            region_dates = [d for d in dates if d.get("region", "unk") == region]
+            lowest_region_date = min(
+                region_dates, default=None, key=lambda v: v.get("text", "")
+            )
+            if lowest_region_date:
+                return _parse_date(lowest_region_date.get("text", ""))
+
         lowest_date = min(dates, default=None, key=lambda v: v.get("text", ""))
         if not lowest_date:
             return None
 
-        try:
-            return int(datetime.strptime(lowest_date["text"], "%Y-%m-%d").timestamp())
-        except ValueError:
-            try:
-                return int(datetime.strptime(lowest_date["text"], "%Y").timestamp())
-            except ValueError:
-                return None
+        return _parse_date(lowest_date.get("text", ""))
 
     def _get_genres(game: SSGame) -> list[str]:
         return [
