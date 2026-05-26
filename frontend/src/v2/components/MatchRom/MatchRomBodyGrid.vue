@@ -51,6 +51,16 @@ const activeSources = computed<MatchedSource[]>(() =>
   activeMatch.value ? getMatchSources(activeMatch.value) : [],
 );
 
+// Confirm gate — `selectedSource` is required only when the picked
+// match actually has covers to choose from. Match results that ship
+// without any provider cover (e.g. IGDB metadata-only entries) would
+// otherwise leave the button permanently disabled.
+const canConfirm = computed(
+  () =>
+    !!activeMatch.value &&
+    (activeSources.value.length === 0 || !!selectedSource.value),
+);
+
 function open(r: SearchRom) {
   activeKey.value = matchKey(r);
   const sources = getMatchSources(r);
@@ -65,7 +75,7 @@ function close() {
 }
 
 function confirm() {
-  if (!activeMatch.value || !selectedSource.value) return;
+  if (!canConfirm.value || !activeMatch.value) return;
   emit("confirm", {
     matchedRom: activeMatch.value,
     cover: selectedSource.value,
@@ -182,7 +192,15 @@ watch(
             Pick a cover
           </p>
 
-          <div class="match-grid__sources">
+          <p
+            v-if="activeSources.length === 0"
+            class="match-grid__sources-empty"
+          >
+            This match doesn't include cover artwork. You can still apply it —
+            the ROM keeps its existing cover.
+          </p>
+
+          <div v-if="activeSources.length" class="match-grid__sources">
             <button
               v-for="(s, i) in activeSources"
               :key="s.name"
@@ -217,7 +235,6 @@ watch(
               v-model="renameFromSource"
               :rom="rom"
               :matched-name="activeMatch.name"
-              :disabled="!selectedSource"
             />
 
             <div class="match-grid__cta">
@@ -225,7 +242,7 @@ watch(
                 variant="flat"
                 color="primary"
                 prepend-icon="mdi-check"
-                :disabled="!selectedSource"
+                :disabled="!canConfirm"
                 @click="confirm"
               >
                 Match this game
@@ -393,6 +410,17 @@ watch(
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--r-color-fg-muted);
+}
+
+.match-grid__sources-empty {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--r-color-fg-muted);
+  background: var(--r-color-bg-elevated);
+  border: 1px dashed var(--r-color-border);
+  border-radius: var(--r-radius-md);
 }
 
 .match-grid__sources {

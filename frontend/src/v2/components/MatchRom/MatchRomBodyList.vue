@@ -45,6 +45,16 @@ const selectedSources = computed<MatchedSource[]>(() =>
   selectedMatch.value ? getMatchSources(selectedMatch.value) : [],
 );
 
+// Confirm gate — `selectedSource` is required only when the picked
+// match actually has covers to choose from. Match results that ship
+// without any provider cover (e.g. IGDB metadata-only entries) would
+// otherwise leave the button permanently disabled.
+const canConfirm = computed(
+  () =>
+    !!selectedMatch.value &&
+    (selectedSources.value.length === 0 || !!selectedSource.value),
+);
+
 function providerLogos(r: SearchRom): Array<{ name: string; logo: string }> {
   return getMatchSources(r).map((s) => ({ name: s.name, logo: s.logo_path }));
 }
@@ -57,7 +67,7 @@ function select(r: SearchRom) {
 }
 
 function confirm() {
-  if (!selectedMatch.value || !selectedSource.value) return;
+  if (!canConfirm.value || !selectedMatch.value) return;
   emit("confirm", {
     matchedRom: selectedMatch.value,
     cover: selectedSource.value,
@@ -163,7 +173,15 @@ watch(
             Pick a cover
           </p>
 
-          <div class="match-list__sources">
+          <p
+            v-if="selectedSources.length === 0"
+            class="match-list__sources-empty"
+          >
+            This match doesn't include cover artwork. You can still apply it —
+            the ROM keeps its existing cover.
+          </p>
+
+          <div v-if="selectedSources.length" class="match-list__sources">
             <button
               v-for="(s, i) in selectedSources"
               :key="s.name"
@@ -199,7 +217,6 @@ watch(
             v-model="renameFromSource"
             :rom="rom"
             :matched-name="selectedMatch.name"
-            :disabled="!selectedSource"
           />
 
           <div class="match-list__cta">
@@ -207,7 +224,7 @@ watch(
               variant="flat"
               color="primary"
               prepend-icon="mdi-check"
-              :disabled="!selectedSource"
+              :disabled="!canConfirm"
               @click="confirm"
             >
               Match this game
@@ -414,6 +431,17 @@ watch(
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--r-color-fg-muted);
+}
+
+.match-list__sources-empty {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--r-color-fg-muted);
+  background: var(--r-color-bg-elevated);
+  border: 1px dashed var(--r-color-border);
+  border-radius: var(--r-radius-md);
 }
 
 .match-list__sources {

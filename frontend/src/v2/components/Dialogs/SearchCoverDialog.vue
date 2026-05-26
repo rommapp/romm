@@ -98,8 +98,14 @@ function isAnimated(resource: SGDBResource): boolean {
 
 const hasSgdbResults = computed(() => filteredCovers.value.length > 0);
 const hasProviderCovers = computed(() => providerCovers.value.length > 0);
+// Provider covers (IGDB / Moby / SS / …) are static artwork only — they
+// don't carry an animated variant. Hide the panel when the user filters
+// to "animated" so it doesn't leak through and break the filter promise.
+const showProviderCovers = computed(
+  () => hasProviderCovers.value && coverType.value !== "animated",
+);
 const hasResults = computed(
-  () => hasSgdbResults.value || hasProviderCovers.value,
+  () => hasSgdbResults.value || showProviderCovers.value,
 );
 const showEmpty = computed(
   () => !searching.value && searchText.value.length > 0 && !hasResults.value,
@@ -302,7 +308,7 @@ function closeDialog() {
                logo overlays the card so the user can read at a
                glance whose artwork they're picking. -->
           <RCollapsible
-            v-if="hasProviderCovers"
+            v-if="showProviderCovers"
             :title="t('rom.providers-covers', 'Other providers')"
             default-open
           >

@@ -111,7 +111,13 @@ const openHandler = () => {
       selectedStatuses: galleryFilter.selectedStatuses,
       statusesLogic: galleryFilter.statusesLogic,
     },
-    galleryRoms.currentPlatform,
+    {
+      currentPlatform: galleryRoms.currentPlatform,
+      currentCollectionId: galleryRoms.currentCollection?.id ?? null,
+      currentVirtualCollectionId:
+        galleryRoms.currentVirtualCollection?.id ?? null,
+      currentSmartCollectionId: galleryRoms.currentSmartCollection?.id ?? null,
+    },
   );
 
   if (!hasAnySmartFilterCriteria(next)) {
@@ -136,14 +142,29 @@ onBeforeUnmount(() =>
   emitter?.off("showCreateSmartCollectionDialog", openHandler),
 );
 
-// Platform-id → display-name lookup so the summary renders "SNES"
-// instead of `#1`. Returns null when the store hasn't hydrated yet.
+// Platform / collection lookups so the summary renders human-readable
+// names ("SNES", "Castlevania") instead of `#1`. Each returns null when
+// the store hasn't hydrated yet.
 function platformLookup(id: number): string | null {
   return allPlatforms.value.find((p) => p.id === id)?.display_name ?? null;
 }
+function collectionLookup(id: number): string | null {
+  return collectionsStore.getCollection(id)?.name ?? null;
+}
+function virtualCollectionLookup(id: string): string | null {
+  return collectionsStore.getVirtualCollection(id)?.name ?? null;
+}
+function smartCollectionLookup(id: number): string | null {
+  return collectionsStore.getSmartCollection(id)?.name ?? null;
+}
 
 const summary = computed(() =>
-  summarizeSmartFilterCriteria(snapshot.value, t, platformLookup),
+  summarizeSmartFilterCriteria(snapshot.value, t, {
+    platform: platformLookup,
+    collection: collectionLookup,
+    virtualCollection: virtualCollectionLookup,
+    smartCollection: smartCollectionLookup,
+  }),
 );
 
 function close() {

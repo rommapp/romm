@@ -443,6 +443,7 @@ function fmtDate(iso: string): string {
             :theme="mdTheme"
             language="en-US"
             :preview="false"
+            :toolbars-exclude="['save', 'github']"
             class="r-v2-notes__editor"
           />
         </template>

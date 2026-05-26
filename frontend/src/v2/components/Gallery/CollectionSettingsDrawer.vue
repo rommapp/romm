@@ -188,11 +188,25 @@ const mosaicFallback = computed<string[]>(() => {
 function platformLookup(id: number): string | null {
   return allPlatforms.value.find((p) => p.id === id)?.display_name ?? null;
 }
+function collectionLookup(id: number): string | null {
+  return collectionsStore.getCollection(id)?.name ?? null;
+}
+function virtualCollectionLookup(id: string): string | null {
+  return collectionsStore.getVirtualCollection(id)?.name ?? null;
+}
+function smartCollectionLookup(id: number): string | null {
+  return collectionsStore.getSmartCollection(id)?.name ?? null;
+}
 const filterSummary = computed(() => {
   if (props.kind !== "smart") return [];
   const c = props.collection as SmartCollection;
   const fc = (c.filter_criteria ?? {}) as SmartFilterCriteria;
-  return summarizeSmartFilterCriteria(fc, t, platformLookup);
+  return summarizeSmartFilterCriteria(fc, t, {
+    platform: platformLookup,
+    collection: collectionLookup,
+    virtualCollection: virtualCollectionLookup,
+    smartCollection: smartCollectionLookup,
+  });
 });
 
 // ── Cover actions ───────────────────────────────────────────────

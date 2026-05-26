@@ -21,6 +21,12 @@ export type FilterLogic = "any" | "all" | "none";
 export interface SmartFilterCriteria {
   search_term?: string;
   platform_ids?: number[];
+  /** Captures "inside a regular collection" when the smart collection was
+   *  created — so applying extra filters inside Castlevania produces a
+   *  smart collection scoped to Castlevania, not the whole library. */
+  collection_id?: number;
+  virtual_collection_id?: string;
+  smart_collection_id?: number;
   matched?: boolean;
   favorite?: boolean;
   duplicate?: boolean;
@@ -82,17 +88,29 @@ export interface GalleryFilterSnapshot {
 }
 
 /**
+ * Optional route-level context the user is currently navigating in.
+ * These aren't toggles in the filter drawer — they come from the URL
+ * (`/platform/:slug`, `/collection/:id`, …) — but the smart collection
+ * still needs to capture them so it stays scoped to that view.
+ */
+export interface GalleryContext {
+  currentPlatform?: Platform | null;
+  currentCollectionId?: number | null;
+  currentVirtualCollectionId?: string | null;
+  currentSmartCollectionId?: number | null;
+}
+
+/**
  * Serialize the active gallery filter state into the JSON shape the
  * backend stores on `smart_collection.filter_criteria`.
  *
- * The fallback `currentPlatform` argument covers the Platform.vue case:
- * the user is on `/platform/:slug` so the platform filter isn't a
- * multi-select selection but the route context — we still want it
- * captured.
+ * `context` captures the route the user is on (platform / collection /
+ * virtual / smart) so a smart collection created inside Castlevania
+ * stays scoped to Castlevania, not the whole library.
  */
 export function buildSmartFilterCriteria(
   snap: GalleryFilterSnapshot,
-  currentPlatform?: Platform | null,
+  context: GalleryContext = {},
 ): SmartFilterCriteria {
   const out: SmartFilterCriteria = {};
 
@@ -100,8 +118,18 @@ export function buildSmartFilterCriteria(
 
   if (snap.selectedPlatforms.length > 0) {
     out.platform_ids = snap.selectedPlatforms.map((p) => p.id);
-  } else if (currentPlatform) {
-    out.platform_ids = [currentPlatform.id];
+  } else if (context.currentPlatform) {
+    out.platform_ids = [context.currentPlatform.id];
+  }
+
+  if (context.currentCollectionId != null) {
+    out.collection_id = context.currentCollectionId;
+  }
+  if (context.currentVirtualCollectionId != null) {
+    out.virtual_collection_id = context.currentVirtualCollectionId;
+  }
+  if (context.currentSmartCollectionId != null) {
+    out.smart_collection_id = context.currentSmartCollectionId;
   }
 
   if (snap.filterMatched) out.matched = true;
@@ -168,11 +196,21 @@ export interface SmartCriteriaSummaryItem {
 }
 
 // Maps each storage key to its (icon, label, kind).
-//   - "list":   array of strings → values chip list
-//   - "bool":   true flag → no values, label says it all
-//   - "search": single string → values = [searchTerm]
+//   - "list":     array of strings → values chip list
+//   - "bool":     true flag → no values, label says it all
+//   - "search":   single string → values = [searchTerm]
 //   - "platforms": ids → values = mapper(id)
-type FieldKind = "list" | "bool" | "search" | "platforms";
+//   - "collection":      single id (number) → values = [mapper(id)]
+//   - "virtual-collection": single id (string) → values = [mapper(id)]
+//   - "smart-collection":   single id (number) → values = [mapper(id)]
+type FieldKind =
+  | "list"
+  | "bool"
+  | "search"
+  | "platforms"
+  | "collection"
+  | "virtual-collection"
+  | "smart-collection";
 interface FieldSpec {
   storage: keyof SmartFilterCriteria;
   logicStorage?: keyof SmartFilterCriteria;
@@ -197,6 +235,27 @@ const FIELDS: FieldSpec[] = [
     labelKey: "common.platforms",
     defaultLabel: "Platforms",
     kind: "platforms",
+  },
+  {
+    storage: "collection_id",
+    icon: "mdi-bookmark-outline",
+    labelKey: "platform.collection",
+    defaultLabel: "Collection",
+    kind: "collection",
+  },
+  {
+    storage: "virtual_collection_id",
+    icon: "mdi-bookmark-box",
+    labelKey: "common.virtual-collection",
+    defaultLabel: "Virtual collection",
+    kind: "virtual-collection",
+  },
+  {
+    storage: "smart_collection_id",
+    icon: "mdi-bookmark-multiple-outline",
+    labelKey: "common.smart-collection",
+    defaultLabel: "Smart collection",
+    kind: "smart-collection",
   },
   {
     storage: "favorite",
@@ -321,19 +380,34 @@ const FIELDS: FieldSpec[] = [
   },
 ];
 
+export interface SummaryLookups {
+  /** Platform id → display name. */
+  platform?: (id: number) => string | null;
+  /** Regular collection id → display name. */
+  collection?: (id: number) => string | null;
+  /** Virtual collection id → display name. */
+  virtualCollection?: (id: string) => string | null;
+  /** Smart collection id → display name. */
+  smartCollection?: (id: number) => string | null;
+}
+
 /**
  * Translate `filter_criteria` into a structured list of rows the UI can
  * render. Callers pass:
- *   - `t`     — vue-i18n composer for labels.
- *   - `platformLookup` — id → display name (so the chips read "SNES"
- *     instead of `{1}`). Pass a no-op `() => null` when platforms aren't
- *     loaded; the row falls back to the numeric id.
+ *   - `t`       — vue-i18n composer for labels.
+ *   - `lookups` — id → display name resolvers for platforms / collections.
+ *     Each is optional; rows fall back to a `#id` chip when missing.
+ *
+ * The legacy `(id) => string | null` shape (platforms-only) stays
+ * supported so older call sites don't break before migration.
  */
 export function summarizeSmartFilterCriteria(
   criteria: SmartFilterCriteria,
   t: Composer["t"],
-  platformLookup?: (id: number) => string | null,
+  lookups?: SummaryLookups | ((id: number) => string | null),
 ): SmartCriteriaSummaryItem[] {
+  const resolved: SummaryLookups =
+    typeof lookups === "function" ? { platform: lookups } : (lookups ?? {});
   const out: SmartCriteriaSummaryItem[] = [];
   for (const f of FIELDS) {
     const raw = criteria[f.storage];
@@ -350,9 +424,36 @@ export function summarizeSmartFilterCriteria(
     } else if (f.kind === "platforms") {
       if (Array.isArray(raw) && raw.length > 0) {
         const values = (raw as number[]).map(
-          (id) => platformLookup?.(id) ?? `#${id}`,
+          (id) => resolved.platform?.(id) ?? `#${id}`,
         );
         out.push({ key: f.storage, icon: f.icon, label, values });
+      }
+    } else if (f.kind === "collection") {
+      if (typeof raw === "number") {
+        out.push({
+          key: f.storage,
+          icon: f.icon,
+          label,
+          values: [resolved.collection?.(raw) ?? `#${raw}`],
+        });
+      }
+    } else if (f.kind === "virtual-collection") {
+      if (typeof raw === "string" && raw.length > 0) {
+        out.push({
+          key: f.storage,
+          icon: f.icon,
+          label,
+          values: [resolved.virtualCollection?.(raw) ?? raw],
+        });
+      }
+    } else if (f.kind === "smart-collection") {
+      if (typeof raw === "number") {
+        out.push({
+          key: f.storage,
+          icon: f.icon,
+          label,
+          values: [resolved.smartCollection?.(raw) ?? `#${raw}`],
+        });
       }
     } else if (f.kind === "list") {
       if (Array.isArray(raw) && raw.length > 0) {
