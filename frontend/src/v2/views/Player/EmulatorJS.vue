@@ -51,6 +51,7 @@ import AssetStrip from "@/v2/components/Player/AssetStrip.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
+import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 
 // Reuse v1's heavy emulator integration — do NOT rewrite this. Lazy so the
 // bundle doesn't pull in the EJS shims until we actually mount the player.
@@ -78,6 +79,7 @@ const selectedCore = ref<string | null>(null);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
+const removeIOSFullscreenShim = ref<(() => void) | null>(null);
 
 declare global {
   interface Navigator {
@@ -112,6 +114,9 @@ watch(
 );
 
 async function onPlay() {
+  removeIOSFullscreenShim.value?.();
+  removeIOSFullscreenShim.value = installIOSFullscreenShim();
+
   if (rom.value && auth.scopes.includes("roms.user.write")) {
     romApi.updateUserRomProps({
       romId: rom.value.id,
@@ -181,6 +186,8 @@ async function onPlay() {
     playing.value = true;
     fullScreen.value = fullscreenOnPlay.value;
   } catch (err) {
+    removeIOSFullscreenShim.value?.();
+    removeIOSFullscreenShim.value = null;
     console.error("[Play] Emulator load failure:", err);
   }
 }
@@ -321,6 +328,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.EJS_emulator?.callEvent("exit");
+  removeIOSFullscreenShim.value?.();
+  removeIOSFullscreenShim.value = null;
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);
 });

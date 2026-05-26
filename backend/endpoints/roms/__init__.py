@@ -573,15 +573,17 @@ def get_roms(
         rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
 
         def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
-            sibling_ids_by_rom = db_rom_handler.get_sibling_ids_for_roms(
-                [i.id for i in items], session=session
+            sibling_data_by_rom = db_rom_handler.get_sibling_data_for_roms(
+                [i.id for i in items],
+                user_id=request.user.id,
+                session=session,
             )
 
             return [
                 SimpleRomSchema.from_orm_with_request(
                     db_rom=item,
                     request=request,
-                    sibling_ids=sibling_ids_by_rom.get(item.id, []),
+                    sibling_data=sibling_data_by_rom.get(item.id, []),
                 )
                 for item in items
             ]

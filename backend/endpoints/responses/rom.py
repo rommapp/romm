@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import NotRequired, TypedDict, get_type_hints
+from typing import Any, NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
 from pydantic import ConfigDict, computed_field, field_validator
@@ -329,22 +329,6 @@ class RomSchema(BaseModel):
     @classmethod
     def populate_properties(cls, db_rom: Rom, request: Request) -> Rom:
         db_rom.rom_user = RomUserSchema.for_user(request.user.id, db_rom)  # type: ignore
-        db_rom.siblings = sorted(  # type: ignore
-            (
-                SiblingRomSchema(
-                    id=s.id,
-                    name=s.name,
-                    fs_name_no_tags=s.fs_name_no_tags,
-                    fs_name_no_ext=s.fs_name_no_ext,
-                    is_main_sibling=any(
-                        ru.user_id == request.user.id and ru.is_main_sibling
-                        for ru in s.rom_users
-                    ),
-                )
-                for s in db_rom.sibling_roms
-            ),
-            key=lambda x: x.sort_comparator,
-        )
         db_rom.has_notes = any(  # type: ignore
             note.is_public or note.user_id == request.user.id for note in db_rom.notes
         )
@@ -381,19 +365,62 @@ class SiblingRomSchema(BaseModel):
 
 class SimpleRomSchema(RomSchema):
     sibling_ids: list[int]
+    siblings: list[SiblingRomSchema]
 
     @classmethod
     def from_orm_with_request(
-        cls, db_rom: Rom, request: Request, sibling_ids: list[int] | None = None
+        cls,
+        db_rom: Rom,
+        request: Request,
+        sibling_data: list[dict[str, Any]] | None = None,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request)
-        db_rom.sibling_ids = sibling_ids or []  # type: ignore
+
+        # List endpoint passes `sibling_data` from get_sibling_data_for_roms
+        # (no sibling Rom hydration). Single-rom endpoints (loaded via the
+        # `with_details` decorator) fall back to the eager-loaded relationship.
+        if sibling_data is not None:
+            siblings_sorted = sorted(
+                (
+                    SiblingRomSchema(
+                        id=s["id"],
+                        name=s["name"],
+                        fs_name_no_tags=s["fs_name_no_tags"],
+                        fs_name_no_ext=s["fs_name_no_ext"],
+                        is_main_sibling=s["is_main_sibling"],
+                    )
+                    for s in sibling_data
+                ),
+                key=lambda x: x.sort_comparator,
+            )
+        else:
+            user_id = request.user.id
+            siblings_sorted = sorted(
+                (
+                    SiblingRomSchema(
+                        id=s.id,
+                        name=s.name,
+                        fs_name_no_tags=s.fs_name_no_tags,
+                        fs_name_no_ext=s.fs_name_no_ext,
+                        is_main_sibling=any(
+                            ru.user_id == user_id and ru.is_main_sibling
+                            for ru in s.rom_users
+                        ),
+                    )
+                    for s in db_rom.sibling_roms
+                ),
+                key=lambda x: x.sort_comparator,
+            )
+
+        db_rom.siblings = siblings_sorted  # type: ignore
+        db_rom.sibling_ids = [s.id for s in siblings_sorted]  # type: ignore
         return cls.model_validate(db_rom)
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
         db_rom.sibling_ids = []  # type: ignore
+        db_rom.siblings = []  # type: ignore
         db_rom.has_notes = False  # type: ignore
         return cls.model_validate(db_rom)
 
@@ -435,6 +462,22 @@ class DetailedRomSchema(RomSchema):
         user_id = request.user.id
         db_rom = cls.populate_properties(db_rom, request)
 
+        db_rom.siblings = sorted(  # type: ignore
+            (
+                SiblingRomSchema(
+                    id=s.id,
+                    name=s.name,
+                    fs_name_no_tags=s.fs_name_no_tags,
+                    fs_name_no_ext=s.fs_name_no_ext,
+                    is_main_sibling=any(
+                        ru.user_id == user_id and ru.is_main_sibling
+                        for ru in s.rom_users
+                    ),
+                )
+                for s in db_rom.sibling_roms
+            ),
+            key=lambda x: x.sort_comparator,
+        )
         db_rom.sibling_ids = [s.id for s in db_rom.siblings]  # type: ignore
 
         db_rom.user_saves = [  # type: ignore
