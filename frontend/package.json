@@ -98,6 +98,8 @@
     "vue-tsc": "^2.2.8"
   },
   "engines": {
-    "node": "24"
-  }
+    "node": "24",
+    "npm": ">=11.10"
+  },
+  "packageManager": "npm@11.13.0"
 }
