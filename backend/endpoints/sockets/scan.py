@@ -396,32 +396,23 @@ async def _identify_rom(
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
         overwrite=_added_rom.url_cover != rom.url_cover,
-        url_cover=(
-            add_ss_auth_to_url(_added_rom.url_cover)
-            if _added_rom.url_cover
-            else _added_rom.url_cover
-        ),
+        url_cover=add_ss_auth_to_url(_added_rom.url_cover),
     )
 
     path_manual = await fs_resource_handler.get_manual(
         rom=_added_rom,
         overwrite=_added_rom.url_manual != rom.url_manual,
-        url_manual=(
-            add_ss_auth_to_url(_added_rom.url_manual)
-            if _added_rom.url_manual
-            else _added_rom.url_manual
-        ),
+        url_manual=add_ss_auth_to_url(_added_rom.url_manual),
     )
 
     screenshots_changed = pydash.xor(
         _added_rom.url_screenshots or [], rom.url_screenshots or []
     )
+    url_screenshots = _added_rom.url_screenshots or []
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
         rom=_added_rom,
         overwrite=bool(screenshots_changed),
-        url_screenshots=[
-            add_ss_auth_to_url(u) for u in (_added_rom.url_screenshots or [])
-        ],
+        url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
     )
 
     _added_rom.path_cover_s = path_cover_s
@@ -444,12 +435,12 @@ async def _identify_rom(
     if _added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
         preferred_media_types = get_preferred_media_types()
         for media_type in preferred_media_types:
-            if _added_rom.ss_metadata.get(f"{media_type.value}_path"):
+            media_path = _added_rom.ss_metadata.get(f"{media_type.value}_path")
+            media_url = _added_rom.ss_metadata.get(f"{media_type.value}_url")
+            if media_path and media_url:
                 await fs_resource_handler.store_media_file(
-                    add_ss_auth_to_url(
-                        _added_rom.ss_metadata[f"{media_type.value}_url"]
-                    ),
-                    _added_rom.ss_metadata[f"{media_type.value}_path"],
+                    add_ss_auth_to_url(media_url),
+                    media_path,
                 )
 
     # Handle special media files from ES-DE gamelist.xml

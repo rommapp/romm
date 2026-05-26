@@ -37,14 +37,15 @@ SENSITIVE_KEYS = {"ssid", "sspassword"}
 SS_DOMAIN = "screenscraper.fr"
 
 
-def add_ss_auth_to_url(url: str) -> str:
+def add_ss_auth_to_url(url: str | None) -> str:
     """Re-add SS user credentials to a media URL at download time (never stored).
 
     Only injects credentials for screenscraper.fr URLs; returns other URLs
     unchanged to avoid leaking credentials to third-party sources.
     """
     if not url or SS_DOMAIN not in url:
-        return url
+        return url or ""
+
     if not SCREENSCRAPER_USER or not SCREENSCRAPER_PASSWORD:
         return url
 
