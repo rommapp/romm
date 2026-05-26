@@ -397,6 +397,50 @@ class TestAddSsAuthToUrl:
         assert query.get("devpassword") == ["devpw"]
         assert query.get("other") == ["keep"]
 
+    def test_rejects_lookalike_and_attacker_hosts(self):
+        """Credentials must only be injected when the hostname is exactly
+        screenscraper.fr or a subdomain. A substring match would leak creds
+        to attacker-controlled domains."""
+        hostile_urls = [
+            # Suffix attack: hostname ends with attacker-controlled domain
+            "https://screenscraper.fr.evil.example/img.png",
+            # Substring in path/query of unrelated host
+            "https://evil.example/?u=screenscraper.fr",
+            "https://evil.example/screenscraper.fr/img.png",
+            # Credentials in userinfo pointing at attacker host
+            "https://screenscraper.fr@evil.example/img.png",
+            # Prefix attack
+            "https://notscreenscraper.fr/img.png",
+        ]
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+        ):
+            for url in hostile_urls:
+                result = add_ss_auth_to_url(url)
+                assert result == url, f"Credentials leaked to {url!r}"
+                assert "ssid" not in parse_qs(urlparse(result).query)
+                assert "sspassword" not in parse_qs(urlparse(result).query)
+
+    def test_accepts_screenscraper_subdomains(self):
+        """Subdomains of screenscraper.fr (e.g. api.screenscraper.fr) are
+        treated as the same trust boundary and receive credentials."""
+        urls = [
+            "https://screenscraper.fr/img.png",
+            "https://api.screenscraper.fr/api2/foo",
+            "https://www.screenscraper.fr/img.png",
+            "https://SCREENSCRAPER.FR/img.png",  # case-insensitive host
+        ]
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+        ):
+            for url in urls:
+                result = add_ss_auth_to_url(url)
+                query = parse_qs(urlparse(result).query)
+                assert query.get("ssid") == ["user1"], f"Creds missing on {url!r}"
+                assert query.get("sspassword") == ["pw1"], f"Creds missing on {url!r}"
+
     def test_strip_then_reauth_roundtrip(self):
         """End-to-end: storing media strips user creds; download-time auth
         restores them without leaking creds into intermediate state."""

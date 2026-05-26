@@ -1282,7 +1282,7 @@ async def update_rom(
             path_screenshots = await fs_resource_handler.get_rom_screenshots(
                 rom=rom,
                 overwrite=bool(screenshots_changed),
-                url_screenshots=cleaned_data.get("url_screenshots", []),
+                url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
             )
             cleaned_data.update(
                 {"path_screenshots": path_screenshots, "url_screenshots": []}
@@ -1353,7 +1353,7 @@ async def update_rom(
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     entity=rom,
                     overwrite=url_cover != rom.url_cover,
-                    url_cover=str(url_cover),
+                    url_cover=add_ss_auth_to_url(url_cover),
                 )
                 cleaned_data.update(
                     {
@@ -1373,7 +1373,7 @@ async def update_rom(
         path_manual = await fs_resource_handler.get_manual(
             rom=rom,
             overwrite=url_manual != rom.url_manual,
-            url_manual=str(url_manual) if url_manual else None,
+            url_manual=add_ss_auth_to_url(url_manual),
         )
         cleaned_data.update(
             {
@@ -1413,12 +1413,16 @@ async def update_rom(
                     media_type,
                 )
 
-            if cleaned_data.get("ss_metadata", {}).get(f"{media_type.value}_path"):
+            media_path = cleaned_data.get("ss_metadata", {}).get(
+                f"{media_type.value}_path"
+            )
+            media_url = cleaned_data.get("ss_metadata", {}).get(
+                f"{media_type.value}_url"
+            )
+            if media_path and media_url:
                 await fs_resource_handler.store_media_file(
-                    add_ss_auth_to_url(
-                        cleaned_data["ss_metadata"][f"{media_type.value}_url"]
-                    ),
-                    cleaned_data["ss_metadata"][f"{media_type.value}_path"],
+                    add_ss_auth_to_url(media_url),
+                    media_path,
                 )
 
     log.debug(

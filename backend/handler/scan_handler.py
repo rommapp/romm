@@ -1045,7 +1045,7 @@ async def scan_rom(
         extra=LOGGER_MODULE_NAME,
     )
 
-    if rom.has_nested_single_file or rom.has_multiple_files:
+    if fs_rom["nested"]:
         for file in fs_rom["files"]:
             log.info(
                 f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",
