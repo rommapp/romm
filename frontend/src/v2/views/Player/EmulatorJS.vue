@@ -4,6 +4,12 @@
 // resolution) is ported verbatim from `src/views/Player/EmulatorJS/Base.vue`
 // so behaviour stays identical; only the chrome is v2.
 //
+// Layout — three columns:
+//   1. Hero: cover + title + Play CTA + back links.
+//   2. Resume: tabs (Saves/States), big <AssetPreview> of the selected
+//      asset, and an <AssetStrip> below to swap between options inline.
+//   3. Setup: disc / core / firmware + fullscreen + clear-cache.
+//
 // The running state mounts the v1 <Player> component (600 lines of EJS
 // wiring — not worth rewriting). The v1 SelectSaveDialog / SelectStateDialog
 // + CacheDialog are mounted in GlobalDialogs so the emitter bridge works.
@@ -15,7 +21,7 @@ import {
   RSelect,
   RSliderBtnGroup,
 } from "@v2/lib";
-import { useEventListener, useLocalStorage } from "@vueuse/core";
+import { useEventListener } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import {
@@ -38,7 +44,10 @@ import storeConfig from "@/stores/config";
 import storePlaying from "@/stores/playing";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { formatBytes, formatRelativeDate, getSupportedEJSCores } from "@/utils";
+import { getSupportedEJSCores } from "@/utils";
+import AssetList from "@/v2/components/Player/AssetList.vue";
+import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
+import AssetStrip from "@/v2/components/Player/AssetStrip.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
@@ -291,12 +300,6 @@ onBeforeUnmount(() => {
   emitter?.off("stateSelected", selectState);
 });
 
-function openStateDialog() {
-  if (rom.value) emitter?.emit("selectStateDialog", rom.value);
-}
-function openSaveDialog() {
-  if (rom.value) emitter?.emit("selectSaveDialog", rom.value);
-}
 function openCacheDialog() {
   emitter?.emit("openEmulatorJSCacheDialog", null);
 }
@@ -342,46 +345,39 @@ function setAssetTab(id: AssetTab) {
   isSavesTabSelected.value = id === "save";
 }
 
-type AssetPreview = {
-  kind: AssetTab;
-  name: string;
-  size: string;
-  when: string;
-  screenshot?: string | null;
-};
+function pickAsset(asset: SaveSchema | StateSchema) {
+  if (isSavesTabSelected.value) selectSave(asset as SaveSchema);
+  else selectState(asset as StateSchema);
+}
 
-const currentAsset = computed<AssetPreview | null>(() => {
-  if (isSavesTabSelected.value) {
-    const s = selectedSave.value;
-    if (!s) return null;
-    return {
-      kind: "save",
-      name: s.file_name,
-      size: formatBytes(s.file_size_bytes),
-      when: formatRelativeDate(s.updated_at),
-    };
-  }
-  const st = selectedState.value;
-  if (!st) return null;
-  return {
-    kind: "state",
-    name: st.file_name,
-    size: formatBytes(st.file_size_bytes),
-    when: formatRelativeDate(st.updated_at),
-    screenshot: st.screenshot?.download_path ?? null,
-  };
-});
+function clearSelectedAsset() {
+  if (isSavesTabSelected.value) unselectSave();
+  else unselectState();
+}
 
-// Ensure we don't need to touch the unused-import lint.
-void useLocalStorage;
+const activeAssets = computed<(SaveSchema | StateSchema)[]>(() =>
+  isSavesTabSelected.value
+    ? (rom.value?.user_saves ?? [])
+    : compatibleStates.value,
+);
+
+const selectedAssetId = computed(() =>
+  isSavesTabSelected.value
+    ? (selectedSave.value?.id ?? null)
+    : (selectedState.value?.id ?? null),
+);
+
+const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
+  isSavesTabSelected.value ? selectedSave.value : selectedState.value,
+);
 </script>
 
 <template>
   <section v-if="rom" class="r-v2-ejs">
     <!-- Pre-game configuration -->
     <div v-if="!gameRunning" class="r-v2-ejs__config">
-      <!-- Hero: cover + title + play CTA -->
-      <aside class="r-v2-ejs__hero">
+      <!-- Hero: cover + title + Play CTA -->
+      <RCard class="r-v2-ejs__panel r-v2-ejs__hero" variant="flat">
         <div class="r-v2-ejs__cover">
           <img
             v-if="coverUrl"
@@ -395,12 +391,8 @@ void useLocalStorage;
           <div class="r-v2-ejs__cover-glow" aria-hidden="true" />
         </div>
         <div class="r-v2-ejs__title-block">
-          <h1 class="r-v2-ejs__title">
-            {{ title }}
-          </h1>
-          <p class="r-v2-ejs__subtitle">
-            {{ platformLabel }}
-          </p>
+          <h1 class="r-v2-ejs__title">{{ title }}</h1>
+          <p class="r-v2-ejs__subtitle">{{ platformLabel }}</p>
         </div>
         <RBtn
           size="x-large"
@@ -431,10 +423,10 @@ void useLocalStorage;
             {{ t("play.back-to-gallery") }}
           </RBtn>
         </div>
-      </aside>
+      </RCard>
 
-      <!-- Saves / States panel -->
-      <RCard class="r-v2-ejs__panel" variant="flat">
+      <!-- Resume: tabs + preview + horizontal strip -->
+      <RCard class="r-v2-ejs__panel r-v2-ejs__resume" variant="flat">
         <div class="r-v2-ejs__panel-head">
           <RSliderBtnGroup
             variant="tab"
@@ -445,111 +437,53 @@ void useLocalStorage;
           />
         </div>
 
-        <div class="r-v2-ejs__tab-body">
-          <div v-if="currentAsset" class="r-v2-ejs__asset">
-            <div
-              v-if="currentAsset.screenshot"
-              class="r-v2-ejs__asset-thumb"
-              :style="{ backgroundImage: `url(${currentAsset.screenshot})` }"
-            />
-            <div
-              v-else
-              class="r-v2-ejs__asset-thumb r-v2-ejs__asset-thumb--placeholder"
-            >
-              <RIcon
-                :icon="
-                  currentAsset.kind === 'save'
-                    ? 'mdi-content-save'
-                    : 'mdi-file-outline'
-                "
-                size="32"
-              />
-            </div>
-            <div class="r-v2-ejs__asset-meta">
-              <p class="r-v2-ejs__asset-name" :title="currentAsset.name">
-                {{ currentAsset.name }}
-              </p>
-              <div class="r-v2-ejs__asset-chips">
-                <span class="r-v2-ejs__asset-chip">
-                  <RIcon icon="mdi-clock-outline" size="12" />
-                  {{ currentAsset.when }}
-                </span>
-                <span class="r-v2-ejs__asset-chip">
-                  <RIcon icon="mdi-weight" size="12" />
-                  {{ currentAsset.size }}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              class="r-v2-ejs__asset-clear"
-              :aria-label="
-                currentAsset.kind === 'save'
-                  ? t('play.no-save-selected')
-                  : t('play.no-state-selected')
-              "
-              @click="
-                currentAsset.kind === 'save' ? unselectSave() : unselectState()
-              "
-            >
-              <RIcon icon="mdi-close" size="14" />
-            </button>
-          </div>
+        <div class="r-v2-ejs__resume-body">
+          <AssetPreview
+            :asset="selectedAsset"
+            :type="activeAssetTab"
+            @clear="clearSelectedAsset"
+          />
 
-          <div v-else class="r-v2-ejs__empty">
-            <RIcon
-              :icon="
-                isSavesTabSelected
-                  ? 'mdi-content-save-outline'
-                  : 'mdi-file-outline'
-              "
-              size="36"
-            />
-            <p>
-              {{
-                isSavesTabSelected
-                  ? t("play.no-save-selected")
-                  : t("play.no-state-selected")
-              }}
-            </p>
-          </div>
-
-          <RBtn
-            block
-            variant="translucent"
-            color="primary"
-            :prepend-icon="currentAsset ? 'mdi-swap-horizontal' : 'mdi-plus'"
-            :disabled="
-              isSavesTabSelected
-                ? rom.user_saves.length === 0
-                : compatibleStates.length === 0
-            "
-            @click="isSavesTabSelected ? openSaveDialog() : openStateDialog()"
+          <div
+            v-if="activeAssets.length > 0"
+            class="r-v2-ejs__strip-label"
+            aria-hidden="true"
           >
-            {{
-              isSavesTabSelected
-                ? rom.user_saves.length === 0
-                  ? t("play.no-saves-available")
-                  : selectedSave
-                    ? t("play.change-save")
-                    : t("play.select-save")
-                : compatibleStates.length === 0
-                  ? t("play.no-states-available")
-                  : selectedState
-                    ? t("play.change-state")
-                    : t("play.select-state")
-            }}
-          </RBtn>
+            <span>{{
+              activeAssetTab === "save"
+                ? t("play.all-saves")
+                : t("play.all-states")
+            }}</span>
+            <span class="r-v2-ejs__strip-count">{{ activeAssets.length }}</span>
+          </div>
+
+          <!-- Saves render as a vertical list (no screenshot ⇒ density);
+               states keep the horizontal tile strip (screenshot is the
+               point). -->
+          <AssetList
+            v-if="activeAssetTab === 'save'"
+            :assets="activeAssets"
+            type="save"
+            :selected-id="selectedAssetId"
+            @select="pickAsset"
+          />
+          <AssetStrip
+            v-else
+            :assets="activeAssets"
+            type="state"
+            :selected-id="selectedAssetId"
+            @select="pickAsset"
+          />
         </div>
       </RCard>
 
-      <!-- Settings panel -->
-      <RCard class="r-v2-ejs__panel" variant="flat">
+      <!-- Setup: disc / core / firmware / fullscreen / clear cache -->
+      <RCard class="r-v2-ejs__panel r-v2-ejs__setup" variant="flat">
         <div class="r-v2-ejs__panel-head r-v2-ejs__panel-head--label">
           <RIcon icon="mdi-cog-outline" size="14" />
           <span>{{ t("common.settings") }}</span>
         </div>
-        <div class="r-v2-ejs__settings">
+        <div class="r-v2-ejs__setup-body">
           <RSelect
             v-if="rom.files.length > 1"
             v-model="selectedDisc"
@@ -585,15 +519,13 @@ void useLocalStorage;
               firmwareOptions.map((f) => ({ title: f.file_name, value: f }))
             "
           />
-
           <RCheckbox
             v-model="fullscreenOnPlay"
             :label="t('play.full-screen')"
             hide-details
           />
         </div>
-
-        <div class="r-v2-ejs__panel-foot">
+        <div class="r-v2-ejs__setup-foot">
           <RBtn
             variant="text"
             size="small"
@@ -607,7 +539,7 @@ void useLocalStorage;
       </RCard>
 
       <div class="r-v2-ejs__brand">
-        <span>Powered by</span>
+        <span>{{ t("play.powered-by") }}</span>
         <img
           src="/assets/emulatorjs/emulatorjs-logotype.svg"
           alt="EmulatorJS"
@@ -640,116 +572,22 @@ void useLocalStorage;
   padding: 32px var(--r-row-pad) 48px;
 }
 
-/* Pre-game layout — hero | saves/states | settings. */
+/* Pre-game layout — hero | resume | setup. The resume column owns
+   most of the visual weight because the user's primary question is
+   "which save/state am I about to resume from?". */
 .r-v2-ejs__config {
   display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(0, 1fr);
-  gap: 24px;
-  max-width: 1200px;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1.4fr) minmax(
+      220px,
+      240px
+    );
+  gap: 20px;
+  max-width: 1280px;
   margin: 0 auto;
-  align-items: start;
-}
-
-/* Hero column — cover, title, primary Play button. */
-.r-v2-ejs__hero {
-  display: flex;
-  flex-direction: column;
   align-items: stretch;
-  gap: 14px;
-  text-align: center;
 }
 
-.r-v2-ejs__cover {
-  position: relative;
-  width: 100%;
-  max-width: 260px;
-  margin: 0 auto;
-}
-
-.r-v2-ejs__cover-glow {
-  position: absolute;
-  inset: 12px;
-  background: radial-gradient(
-    120% 120% at 50% 60%,
-    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent),
-    transparent 70%
-  );
-  filter: blur(30px);
-  z-index: -1;
-  pointer-events: none;
-}
-
-.r-v2-ejs__cover-img {
-  width: 100%;
-  border-radius: var(--r-radius-lg);
-  box-shadow:
-    0 18px 36px color-mix(in srgb, black 55%, transparent),
-    0 0 0 1px var(--r-color-border);
-  display: block;
-}
-
-.r-v2-ejs__cover-placeholder {
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  border-radius: var(--r-radius-lg);
-  background: var(--r-color-cover-placeholder);
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  color: var(--r-color-fg-faint);
-  font-size: 13px;
-  text-align: center;
-}
-
-.r-v2-ejs__title-block {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 0 4px;
-}
-
-.r-v2-ejs__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  font-weight: var(--r-font-weight-semibold);
-  color: var(--r-color-brand-primary);
-  margin-bottom: 2px;
-}
-
-.r-v2-ejs__title {
-  margin: 0;
-  font-size: var(--r-font-size-xl);
-  font-weight: var(--r-font-weight-bold);
-  line-height: 1.15;
-}
-
-.r-v2-ejs__subtitle {
-  margin: 0;
-  font-size: var(--r-font-size-sm);
-  color: var(--r-color-fg-muted);
-}
-
-.r-v2-ejs__play {
-  margin-top: 8px;
-  font-weight: var(--r-font-weight-semibold) !important;
-  letter-spacing: 0.02em;
-  box-shadow: 0 10px 24px
-    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
-}
-
-.r-v2-ejs__hero-links {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 4px;
-}
-
-/* Glass panels — share language with info-panel + dialog. */
+/* Shared glass-panel skin — single visual vocabulary across panels. */
 .r-v2-ejs__panel {
   background: var(--r-color-bg-elevated) !important;
   border: 1px solid var(--r-color-border) !important;
@@ -777,133 +615,135 @@ void useLocalStorage;
   color: var(--r-color-fg-secondary);
 }
 
-.r-v2-ejs__tab-body {
+/* ── Hero column ─────────────────────────────────────────── */
+.r-v2-ejs__hero {
   padding: 16px;
+  gap: 12px;
+  text-align: center;
+}
+
+.r-v2-ejs__cover {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  margin: 0 auto;
+}
+.r-v2-ejs__cover-glow {
+  position: absolute;
+  inset: 12px;
+  background: radial-gradient(
+    120% 120% at 50% 60%,
+    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent),
+    transparent 70%
+  );
+  filter: blur(30px);
+  z-index: -1;
+  pointer-events: none;
+}
+.r-v2-ejs__cover-img {
+  width: 100%;
+  border-radius: var(--r-radius-md);
+  box-shadow:
+    0 18px 36px color-mix(in srgb, black 55%, transparent),
+    0 0 0 1px var(--r-color-border);
+  display: block;
+}
+.r-v2-ejs__cover-placeholder {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--r-radius-md);
+  background: var(--r-color-cover-placeholder);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  color: var(--r-color-fg-faint);
+  font-size: 13px;
+  text-align: center;
+}
+
+.r-v2-ejs__title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 4px 0;
+}
+.r-v2-ejs__title {
+  margin: 0;
+  font-size: var(--r-font-size-lg);
+  font-weight: var(--r-font-weight-bold);
+  line-height: 1.2;
+}
+.r-v2-ejs__subtitle {
+  margin: 0;
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-muted);
+}
+
+.r-v2-ejs__play {
+  margin-top: 4px;
+  font-weight: var(--r-font-weight-semibold) !important;
+  letter-spacing: 0.02em;
+  box-shadow: 0 10px 24px
+    color-mix(in srgb, var(--r-color-brand-primary) 35%, transparent);
+}
+.r-v2-ejs__hero-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid var(--r-color-border);
+}
+
+/* ── Resume column ───────────────────────────────────────── */
+.r-v2-ejs__resume {
+  min-height: 420px;
+}
+.r-v2-ejs__resume-body {
+  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  min-height: 220px;
+  flex: 1;
 }
-
-/* Asset preview card — v2-native, replaces the old v1 AssetCard. */
-.r-v2-ejs__asset {
-  position: relative;
-  display: grid;
-  grid-template-columns: 80px 1fr auto;
-  gap: 12px;
-  align-items: center;
-  padding: 10px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-md);
-}
-
-.r-v2-ejs__asset-thumb {
-  width: 80px;
-  aspect-ratio: 4 / 3;
-  border-radius: var(--r-radius-sm);
-  background-size: cover;
-  background-position: center;
-  background-color: var(--r-color-cover-placeholder);
-}
-.r-v2-ejs__asset-thumb--placeholder {
-  display: grid;
-  place-items: center;
-  color: var(--r-color-fg-muted);
-}
-
-.r-v2-ejs__asset-meta {
-  min-width: 0;
+.r-v2-ejs__strip-label {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.r-v2-ejs__asset-name {
-  margin: 0;
-  font-size: 13px;
-  font-weight: var(--r-font-weight-medium);
-  color: var(--r-color-fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.r-v2-ejs__asset-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.r-v2-ejs__asset-chip {
-  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  background: var(--r-color-bg-elevated);
-  border: 1px solid var(--r-color-border);
-  border-radius: var(--r-radius-pill);
-  font-size: 11px;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: var(--r-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--r-color-fg-secondary);
+  margin-top: 4px;
 }
-
-.r-v2-ejs__asset-clear {
-  appearance: none;
-  border: 0;
+.r-v2-ejs__strip-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
   background: var(--r-color-surface);
+  border-radius: var(--r-radius-pill);
+  font-size: 10px;
+  font-weight: var(--r-font-weight-semibold);
   color: var(--r-color-fg-secondary);
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-ejs__asset-clear:hover {
-  background: color-mix(
-    in srgb,
-    var(--r-color-status-base-danger) 18%,
-    transparent
-  );
-  color: var(--r-color-danger-fg);
 }
 
-.r-v2-ejs__empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 28px 0;
-  color: var(--r-color-fg-muted);
-  text-align: center;
-  border: 1px dashed var(--r-color-border);
-  border-radius: var(--r-radius-md);
-}
-.r-v2-ejs__empty p {
-  margin: 0;
-  font-size: 13px;
-}
-
-.r-v2-ejs__settings {
-  padding: 16px;
+/* ── Setup column ────────────────────────────────────────── */
+.r-v2-ejs__setup-body {
+  padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   flex: 1;
 }
-
-.r-v2-ejs__panel-foot {
-  padding: 6px 10px 10px;
+.r-v2-ejs__setup-foot {
   border-top: 1px solid var(--r-color-border);
-  display: flex;
-  justify-content: flex-start;
+  padding: 6px 10px 10px;
 }
 
+/* ── Footer brand ────────────────────────────────────────── */
 .r-v2-ejs__brand {
   grid-column: 1 / -1;
   display: flex;
@@ -920,7 +760,7 @@ void useLocalStorage;
   opacity: 0.8;
 }
 
-/* Running state — full bleed minus the nav. */
+/* ── Running state ───────────────────────────────────────── */
 .r-v2-ejs__stage {
   position: fixed;
   inset: var(--r-nav-h) 0 0 0;
@@ -928,7 +768,7 @@ void useLocalStorage;
   z-index: 1;
 }
 
-/* Initial ROM fetch */
+/* ── Initial ROM fetch ───────────────────────────────────── */
 .r-v2-ejs__loading {
   min-height: calc(100vh - var(--r-nav-h));
   display: grid;
@@ -948,49 +788,42 @@ void useLocalStorage;
   }
 }
 
+/* ── Responsive ──────────────────────────────────────────── */
+html[data-bp~="md-and-down"] .r-v2-ejs__config {
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+}
+html[data-bp~="md-and-down"] .r-v2-ejs__setup {
+  grid-column: 1 / -1;
+}
+html[data-bp~="md-and-down"] .r-v2-ejs__setup-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
 html[data-bp~="sm-and-down"] .r-v2-ejs__config {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 1fr;
 }
 html[data-bp~="sm-and-down"] .r-v2-ejs__hero {
-  grid-column: 1 / -1;
   flex-direction: row;
-  align-items: center;
+  flex-wrap: wrap;
   text-align: left;
-  gap: 20px;
+  align-items: center;
 }
 html[data-bp~="sm-and-down"] .r-v2-ejs__cover {
-  max-width: 160px;
+  max-width: 130px;
   flex-shrink: 0;
 }
 html[data-bp~="sm-and-down"] .r-v2-ejs__title-block {
   flex: 1;
 }
-html[data-bp~="sm-and-down"] .r-v2-ejs__eyebrow {
-  justify-content: flex-start;
-}
 html[data-bp~="sm-and-down"] .r-v2-ejs__play {
-  min-width: 180px;
-  margin-top: 0;
+  flex: 1 1 100%;
 }
 html[data-bp~="sm-and-down"] .r-v2-ejs__hero-links {
+  flex: 1 1 100%;
   flex-direction: row;
-  margin-left: auto;
-}
-html[data-bp~="xs"] .r-v2-ejs__config {
-  grid-template-columns: 1fr;
-}
-html[data-bp~="xs"] .r-v2-ejs__hero {
-  flex-direction: column;
-  text-align: center;
-}
-html[data-bp~="xs"] .r-v2-ejs__cover {
-  max-width: 200px;
-}
-html[data-bp~="xs"] .r-v2-ejs__eyebrow {
-  justify-content: center;
-}
-html[data-bp~="xs"] .r-v2-ejs__hero-links {
-  margin-left: 0;
-  justify-content: center;
+  border-top: 1px solid var(--r-color-border);
+  padding-top: 4px;
 }
 </style>
