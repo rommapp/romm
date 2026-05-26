@@ -136,6 +136,7 @@ DEP002 = [ # DEP002 rule: Project should not contain unused dependencies
 [tool.uv]
 package = false
 exclude-newer = "7 days"
+exclude-newer-package = { starlette = "2026-05-22" }
 
 [tool.ty.environment]
 root = ["./backend"]

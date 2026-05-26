@@ -7,11 +7,11 @@ resolution-markers = [
 ]
 
 [options]
+exclude-newer = "2026-05-19T23:25:59.141495Z"
 exclude-newer-span = "P7D"
 
 [options.exclude-newer-package]
-starlette = "2026-05-23T00:00:00Z"
-fastapi = "2026-05-23T00:00:00Z"
+starlette = "2026-05-23T04:00:00Z"
 
 [[package]]
 name = "aiohappyeyeballs"
