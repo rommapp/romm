@@ -14,9 +14,8 @@
 // scroll wrapper above the tab body, so the user gets a single
 // natural scroll for the whole page.
 //
-// Action ribbon (Edit / Upload / Scan / Delete) lives inside the head
-// component; the buttons emit events that this view turns into
-// dialogs or navigations.
+// Action ribbon (Upload / Scan) lives inside the head component;
+// Edit (custom_name) and Delete moved inline into the Settings tab.
 import { RDivider, type RTabNavItem } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
@@ -26,7 +25,6 @@ import { ROUTES } from "@/plugins/router";
 import platformApi from "@/services/api/platform";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import { formatBytes } from "@/utils";
-import EditPlatformDialog from "@/v2/components/Gallery/EditPlatformDialog.vue";
 import FirmwareTab from "@/v2/components/Gallery/FirmwareTab.vue";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import PlatformHead from "@/v2/components/Gallery/PlatformHead.vue";
@@ -49,13 +47,11 @@ const { currentPlatform, total } = storeToRefs(galleryRoms);
 const notFound = ref(false);
 const shellRef = ref<InstanceType<typeof GalleryShell> | null>(null);
 const deleting = ref(false);
-const editOpen = ref(false);
 const scanOpen = ref(false);
 
 // Permissions — `useCan` is reactive against the grants store, so the
 // ribbon buttons hide automatically when the user's role changes.
 const canEditPlatform = useCan("platform.edit");
-const canDeletePlatform = useCan("platform.delete");
 const canScan = useCan("library.scan");
 
 // ── Tabs ─────────────────────────────────────────────────────────
@@ -94,10 +90,8 @@ const tabs = computed<RTabNavItem[]>(() => [
 ]);
 
 const headLabels = computed(() => ({
-  edit: t("platform.edit-platform", "Edit platform"),
   upload: t("platform.upload-roms", "Upload ROMs"),
   scan: t("scan.scan", "Scan platform"),
-  delete: t("platform.delete-platform", "Delete platform"),
 }));
 
 function onTabChange(next: string) {
@@ -306,11 +300,6 @@ function onUploadRoms() {
   router.push({ name: ROUTES.UPLOAD, query: { platform: String(p.id) } });
 }
 
-function onEdit() {
-  if (!currentPlatform.value) return;
-  editOpen.value = true;
-}
-
 function onScan() {
   if (!currentPlatform.value) return;
   scanOpen.value = true;
@@ -381,14 +370,10 @@ async function onDelete() {
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
-        :can-delete="canDeletePlatform"
         :labels="headLabels"
-        :deleting="deleting"
         @update:tab="onTabChange"
-        @edit="onEdit"
         @upload="onUploadRoms"
         @scan="onScan"
-        @delete="onDelete"
       />
     </template>
   </GalleryShell>
@@ -409,14 +394,10 @@ async function onDelete() {
         :providers="providerChips"
         :can-edit="canEditPlatform"
         :can-scan="canScan"
-        :can-delete="canDeletePlatform"
         :labels="headLabels"
-        :deleting="deleting"
         @update:tab="onTabChange"
-        @edit="onEdit"
         @upload="onUploadRoms"
         @scan="onScan"
-        @delete="onDelete"
       />
       <RDivider class="r-v2-plat-tabs__divider" />
       <div v-if="currentPlatform" class="r-v2-plat-tabs__panel">
@@ -424,19 +405,16 @@ async function onDelete() {
         <SettingsTab
           v-else-if="tab === 'settings'"
           :platform="currentPlatform"
+          :deleting="deleting"
+          @delete="onDelete"
         />
       </div>
     </div>
   </section>
 
-  <!-- Per-platform dialogs — mounted at the view level so they
-       survive tab switches without remounting. Each gates on
-       `currentPlatform` so we never pass a `null` to the dialog body. -->
-  <EditPlatformDialog
-    v-if="currentPlatform"
-    v-model="editOpen"
-    :platform="currentPlatform"
-  />
+  <!-- Per-platform scan dialog — mounted at the view level so it
+       survives tab switches without remounting. Gates on `currentPlatform`
+       so we never pass a `null` to the dialog body. -->
   <ScanPlatformDialog
     v-if="currentPlatform"
     v-model="scanOpen"

@@ -48,24 +48,18 @@ defineProps<{
    *  of the page. */
   canEdit: boolean;
   canScan: boolean;
-  canDelete: boolean;
   /** Label text — passed in so the parent owns i18n and this stays a
    *  presentational composite (no `useI18n` here). */
   labels: {
-    edit: string;
     upload: string;
     scan: string;
-    delete: string;
   };
-  deleting?: boolean;
 }>();
 
 defineEmits<{
   (e: "update:tab", v: string): void;
-  (e: "edit"): void;
   (e: "upload"): void;
   (e: "scan"): void;
-  (e: "delete"): void;
 }>();
 </script>
 
@@ -131,21 +125,12 @@ defineEmits<{
       </a>
     </template>
 
-    <!-- Action ribbon — Edit / Upload / Scan / Delete. Same circular
-         icon-button vocabulary as the GameDetails action row. Tooltips
-         ride RBtn's built-in `tooltip` prop (the default slot is
-         dropped on icon-only buttons). -->
+    <!-- Action ribbon — Upload / Scan only. Edit and Delete moved
+         inline into the Settings tab (the editable `custom_name` lives
+         next to the read-only details there, and Delete sits in the
+         tab's danger zone). Same circular icon-button vocabulary as
+         the GameDetails action row. -->
     <template #actions>
-      <RBtn
-        v-if="canEdit"
-        variant="outlined"
-        surface
-        icon="mdi-pencil-outline"
-        rounded="circle"
-        :aria-label="labels.edit"
-        :tooltip="labels.edit"
-        @click="$emit('edit')"
-      />
       <RBtn
         v-if="canEdit"
         variant="outlined"
@@ -165,19 +150,6 @@ defineEmits<{
         :aria-label="labels.scan"
         :tooltip="labels.scan"
         @click="$emit('scan')"
-      />
-      <RBtn
-        v-if="canDelete"
-        variant="outlined"
-        surface
-        color="danger"
-        icon="mdi-delete-outline"
-        rounded="circle"
-        :aria-label="labels.delete"
-        :tooltip="labels.delete"
-        :disabled="deleting"
-        :loading="deleting"
-        @click="$emit('delete')"
       />
     </template>
   </InfoPanel>

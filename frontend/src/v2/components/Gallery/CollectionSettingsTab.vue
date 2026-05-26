@@ -1,27 +1,26 @@
 <script setup lang="ts">
-// CollectionSettingsDrawer — right-anchored RDrawer that replaces v1's
-// `CollectionInfoDrawer` (regular collections) and
-// `SmartCollectionInfoDrawer` (smart collections). One component, two
-// branches:
+// CollectionSettingsTab — collection-scoped settings rendered as the
+// `Settings` tab inside Collection.vue. Same content surface as the
+// previous `CollectionSettingsDrawer`, now lives inline in the
+// collection view. One component, two branches (drawer-era split):
 //
 //   * regular → name / description / public, cover artwork
-//     (SteamGridDB search · file upload · remove), filter_criteria not
-//     applicable.
+//     (SteamGridDB search · file upload · remove), filter_criteria
+//     not applicable.
 //   * smart   → name / description / public, filter_criteria displayed
-//     read-only (matches v1 — editing the criteria isn't surfaced in
-//     the drawer).
+//     read-only (editing the criteria isn't surfaced here — happens
+//     via the create-smart-collection flow).
 //
-// Virtual collections never open this drawer — they're computed and
-// have no editable fields.
-//
-// Delete lives in `Collection.vue`'s kebab menu (mirroring the Platform
-// admin pattern), not here — the drawer is purely "edit this".
+// Delete moved into this tab's danger zone (was a kebab menu item in
+// the pre-tabs design). The destructive flow is still owned by the
+// parent view — `@delete` emit triggers the confirm + router
+// navigation in `Collection.vue`.
 //
 // Cover artwork flow:
 //   • Search → emits `showSearchCoverDialog` (global SearchCoverDialog
 //     handles it). On selection it emits `updateUrlCover` which we
-//     hear while the drawer is open and stash as the pending
-//     `url_cover` (the preview swaps to the SGDB grid URL).
+//     stash as the pending `url_cover` (the preview swaps to the SGDB
+//     grid URL).
 //   • Upload → native file picker, FileReader for preview, sets
 //     `pendingArtwork` (File).
 //   • Remove → marks `removeCover = true`, preview drops to the
@@ -31,7 +30,7 @@
 import { RBtn, RChip, RIcon, RSwitch, RTag, RTextField } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { computed, inject, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import collectionApi, {
   type UpdatedCollection,
@@ -46,7 +45,6 @@ import type { Events } from "@/types/emitter";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
-import RDrawer from "@/v2/lib/overlays/RDrawer/RDrawer.vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import {
   summarizeSmartFilterCriteria,
@@ -58,14 +56,14 @@ defineOptions({ inheritAttrs: false });
 type Kind = "regular" | "smart";
 
 const props = defineProps<{
-  modelValue: boolean;
   kind: Kind;
   collection: Collection | SmartCollection;
+  deleting?: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: "update:modelValue", v: boolean): void;
   (e: "saved", c: Collection | SmartCollection): void;
+  (e: "delete"): void;
 }>();
 
 const { t } = useI18n();
@@ -94,7 +92,6 @@ const previewDataUrl = ref<string | null>(null);
 const removeCover = ref(false);
 const saving = ref(false);
 
-// Hidden file input — clicked programmatically by the "Upload" action.
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 // Ownership / permission gate. Both v1 drawers gate edit / delete on
@@ -108,6 +105,7 @@ const isOwner = computed(() => {
 const canEdit = computed(
   () => isOwner.value && auth.scopes.includes("collections.write"),
 );
+const canDelete = canEdit;
 
 const dirty = computed(() => {
   const c = props.collection;
@@ -121,37 +119,10 @@ const dirty = computed(() => {
   );
 });
 
-// Reset the form every time the drawer opens. We don't clear on close
-// in case the user re-opens before navigating — but on `open` flip we
-// always re-snapshot from the live collection so concurrent backend
-// updates surface.
-watch(
-  () => props.modelValue,
-  (open) => {
-    if (open) snapshot();
-  },
-  { immediate: true },
-);
-
-// External listener: SearchCoverDialog emits `updateUrlCover` with the
-// chosen URL. We adopt it as the pending cover and let the user keep
-// editing other fields before saving. Only honour the event while we
-// own focus (open) so EditRomDialog's listener isn't trampled.
-const onUrlCover = (url: string) => {
-  if (!props.modelValue) return;
-  pendingUrlCover.value = url;
-  pendingArtwork.value = null;
-  previewDataUrl.value = url;
-  removeCover.value = false;
-};
-watch(
-  () => props.modelValue,
-  (open) => {
-    if (open) emitter?.on("updateUrlCover", onUrlCover);
-    else emitter?.off("updateUrlCover", onUrlCover);
-  },
-);
-
+// Snapshot on mount AND whenever the underlying collection identity
+// changes (route swap, socket-driven backend update). Keeps the form
+// in sync with the canonical record without trampling in-flight edits
+// while a save is running.
 function snapshot() {
   const c = props.collection;
   form.value = {
@@ -165,9 +136,31 @@ function snapshot() {
   removeCover.value = false;
 }
 
+watch(
+  () => props.collection.id,
+  () => {
+    if (!saving.value) snapshot();
+  },
+);
+
+// External listener: SearchCoverDialog emits `updateUrlCover` with the
+// chosen URL. Active only while this tab is mounted.
+const onUrlCover = (url: string) => {
+  pendingUrlCover.value = url;
+  pendingArtwork.value = null;
+  previewDataUrl.value = url;
+  removeCover.value = false;
+};
+
+onMounted(() => {
+  snapshot();
+  emitter?.on("updateUrlCover", onUrlCover);
+});
+onBeforeUnmount(() => {
+  emitter?.off("updateUrlCover", onUrlCover);
+});
+
 // ── Cover preview ───────────────────────────────────────────────
-// Pick the right source: pending (user just picked something) → local
-// preview → existing artwork → mosaic fallback.
 const coverSrc = computed<string | null>(() => {
   if (removeCover.value) return null;
   if (previewDataUrl.value) return previewDataUrl.value;
@@ -181,10 +174,7 @@ const mosaicFallback = computed<string[]>(() => {
 });
 
 // Smart-collection filter criteria — read-only display. The summary
-// helper translates the raw JSON into a structured list of rows the
-// drawer renders as labelled chip groups (one section per criterion).
-// Shared with CreateSmartCollectionDialog so the preview during
-// creation matches what shows up here afterwards.
+// helper translates the raw JSON into a structured list of rows.
 function platformLookup(id: number): string | null {
   return allPlatforms.value.find((p) => p.id === id)?.display_name ?? null;
 }
@@ -313,19 +303,10 @@ function discard() {
 </script>
 
 <template>
-  <RDrawer
-    :model-value="modelValue"
-    :width="460"
-    icon="mdi-cog"
-    @update:model-value="$emit('update:modelValue', $event)"
-  >
-    <template #header>
-      <span>{{ collection.name }}</span>
-    </template>
-
+  <div class="r-v2-coll-set">
     <!-- Cover artwork — regular collections only. Smart collections
-         derive their cover from the contained ROMs at runtime, so
-         giving the user an upload UI here would be misleading. -->
+         derive their cover from the contained ROMs at runtime, so an
+         upload UI here would be misleading. -->
     <section v-if="kind === 'regular'" class="r-v2-coll-set__section">
       <header class="r-v2-coll-set__section-head">
         <RIcon icon="mdi-image-outline" size="14" />
@@ -421,14 +402,25 @@ function discard() {
             "
           />
         </div>
+        <div v-if="canEdit && dirty" class="r-v2-coll-set__form-actions">
+          <RBtn variant="text" :disabled="saving" @click="discard">
+            {{ t("common.discard", "Discard") }}
+          </RBtn>
+          <RBtn
+            variant="flat"
+            color="primary"
+            prepend-icon="mdi-check"
+            :disabled="!form.name.trim()"
+            :loading="saving"
+            @click="save"
+          >
+            {{ t("common.apply", "Apply") }}
+          </RBtn>
+        </div>
       </div>
     </section>
 
-    <!-- Smart collection: filter criteria (read-only). One row per
-         criterion: icon + label (+ AND/OR/NONE tag for multi-select
-         groups) and the values as chips below. Matches the create-
-         dialog preview shape so users see the same vocabulary in both
-         places. -->
+    <!-- Smart collection: filter criteria (read-only). -->
     <section
       v-if="kind === 'smart' && filterSummary.length > 0"
       class="r-v2-coll-set__section"
@@ -469,28 +461,54 @@ function discard() {
       </ul>
     </section>
 
-    <template v-if="canEdit" #footer>
-      <RBtn variant="text" :disabled="!dirty || saving" @click="discard">
-        {{ t("common.discard", "Discard") }}
-      </RBtn>
-      <RBtn
-        variant="flat"
-        color="primary"
-        prepend-icon="mdi-check"
-        :disabled="!dirty || !form.name.trim()"
-        :loading="saving"
-        @click="save"
-      >
-        {{ t("common.apply", "Apply") }}
-      </RBtn>
-    </template>
-  </RDrawer>
+    <!-- Danger zone — destructive actions kept visually separated.
+         Delete itself routes through the parent (confirm dialog +
+         navigation lives in Collection.vue). -->
+    <section
+      v-if="canDelete"
+      class="r-v2-coll-set__section r-v2-coll-set__danger"
+    >
+      <header class="r-v2-coll-set__section-head r-v2-coll-set__danger-head">
+        <RIcon icon="mdi-alert-outline" size="14" />
+        <span>{{ t("collection.danger-zone", "Danger zone") }}</span>
+      </header>
+      <div class="r-v2-coll-set__danger-row">
+        <div class="r-v2-coll-set__danger-copy">
+          <p class="r-v2-coll-set__danger-title">
+            {{ t("collection.delete-collection", "Delete collection") }}
+          </p>
+          <p class="r-v2-coll-set__danger-hint">
+            {{
+              t(
+                "collection.delete-collection-hint",
+                "Removes the collection from RomM. The ROM files themselves are not deleted.",
+              )
+            }}
+          </p>
+        </div>
+        <RBtn
+          variant="outlined"
+          color="danger"
+          prepend-icon="mdi-delete-outline"
+          :loading="deleting"
+          :disabled="deleting"
+          @click="emit('delete')"
+        >
+          {{ t("common.delete", "Delete") }}
+        </RBtn>
+      </div>
+    </section>
+  </div>
 </template>
 
 <style scoped>
-.r-v2-coll-set__section {
-  margin-bottom: 20px;
+.r-v2-coll-set {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 720px;
 }
+
 .r-v2-coll-set__section-head {
   display: flex;
   align-items: center;
@@ -504,9 +522,6 @@ function discard() {
 }
 
 /* ── Cover ──────────────────────────────────────────────────────── */
-/* Same shape as `EditRomDialog.r-v2-edit__cover-col`: a centred column
-   with the cover thumb stacked over a row of icon-only action buttons.
-   Keeps both surfaces (edit ROM + collection settings) visually aligned. */
 .r-v2-coll-set__cover {
   display: flex;
   flex-direction: column;
@@ -554,6 +569,11 @@ function discard() {
   align-items: center;
   gap: 8px;
 }
+.r-v2-coll-set__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 
 /* ── Filters (smart) ────────────────────────────────────────────── */
 .r-v2-coll-set__filters {
@@ -586,5 +606,43 @@ function discard() {
   flex-wrap: wrap;
   gap: 4px;
   padding-left: 20px;
+}
+
+/* ── Danger zone ───────────────────────────────────────────────── */
+.r-v2-coll-set__danger {
+  padding: 14px;
+  background: color-mix(
+    in srgb,
+    var(--r-color-status-base-danger) 6%,
+    transparent
+  );
+  border: 1px solid
+    color-mix(in srgb, var(--r-color-status-base-danger) 35%, transparent);
+  border-radius: var(--r-radius-md);
+}
+.r-v2-coll-set__danger-head {
+  color: var(--r-color-status-base-danger);
+}
+.r-v2-coll-set__danger-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.r-v2-coll-set__danger-copy {
+  flex: 1;
+  min-width: 0;
+}
+.r-v2-coll-set__danger-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg);
+}
+.r-v2-coll-set__danger-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--r-color-fg-muted);
+  line-height: 1.4;
 }
 </style>

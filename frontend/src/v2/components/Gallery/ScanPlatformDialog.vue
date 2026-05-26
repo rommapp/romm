@@ -304,11 +304,7 @@ function onScan() {
               {{ platform.display_name }}
             </p>
             <p class="r-v2-scan-plat__rom-count">
-              {{
-                t("platform.rom-count", "{n} ROMs", {
-                  n: platform.rom_count ?? 0,
-                })
-              }}
+              {{ t("platform.rom-count", { n: platform.rom_count ?? 0 }) }}
             </p>
           </div>
         </div>

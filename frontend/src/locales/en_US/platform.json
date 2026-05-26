@@ -7,6 +7,7 @@
   "company": "Company",
   "danger-zone": "Danger zone",
   "delete-platform": "Delete platform",
+  "delete-platform-hint": "Removes the platform and its ROM database entries. Files on disk are NOT deleted.",
   "edit-platform": "Edit platform",
   "rom-count": "{n} ROM | {n} ROMs",
   "updated": "Platform updated",
