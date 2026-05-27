@@ -11,6 +11,7 @@ import { ROUTES } from "@/plugins/router";
 import type { SimpleRom } from "@/stores/roms";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import { activeProviders } from "@/v2/utils/metadataProviders";
 
 defineOptions({ inheritAttrs: false });
 
@@ -20,36 +21,6 @@ const props = defineProps<{
 
 const { t } = useI18n();
 const { toWebp } = useWebpSupport();
-
-interface Provider {
-  key: string;
-  title: string;
-  logo: string;
-  bg?: string;
-}
-const PROVIDERS: readonly Provider[] = [
-  { key: "hasheous_id", title: "Verified with Hasheous", logo: "hasheous.png" },
-  { key: "igdb_id", title: "IGDB match", logo: "igdb.png" },
-  { key: "ss_id", title: "ScreenScraper match", logo: "ss.png" },
-  { key: "moby_id", title: "MobyGames match", logo: "moby.png" },
-  {
-    key: "launchbox_id",
-    title: "LaunchBox match",
-    logo: "launchbox.png",
-    bg: "#185a7c",
-  },
-  { key: "ra_id", title: "RetroAchievements match", logo: "ra.png" },
-  { key: "flashpoint_id", title: "Flashpoint match", logo: "flashpoint.png" },
-  { key: "hltb_id", title: "HowLongToBeat match", logo: "hltb.png" },
-  { key: "gamelist_id", title: "ES-DE match", logo: "esde.png" },
-  { key: "libretro_id", title: "Libretro match", logo: "libretro.png" },
-];
-
-function activeProviders(rom: SimpleRom) {
-  return PROVIDERS.filter((p) =>
-    Boolean((rom as Record<string, unknown>)[p.key]),
-  );
-}
 
 function coverFor(rom: SimpleRom): string {
   if (rom.path_cover_small) return toWebp(rom.path_cover_small);

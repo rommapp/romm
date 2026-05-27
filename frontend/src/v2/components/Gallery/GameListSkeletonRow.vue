@@ -57,10 +57,10 @@ const gridStyle = computed(() => ({
         </div>
       </div>
 
-      <div v-else-if="col.key === 'platform'" class="r-glr-skel__cell">
+      <div v-else-if="col.key === 'platform_id'" class="r-glr-skel__cell">
         <div class="r-glr-skel__platform">
-          <RSkeletonBlock :width="18" :height="18" circle />
-          <RSkeletonBlock :width="64" :height="10" />
+          <RSkeletonBlock :width="24" :height="24" circle />
+          <RSkeletonBlock :width="100" :height="10" />
         </div>
       </div>
 

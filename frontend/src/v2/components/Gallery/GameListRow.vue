@@ -23,21 +23,22 @@
 import {
   RCheckbox,
   RChip,
-  RIcon,
   RPlatformIcon,
   RSkeletonBlock,
+  RTooltip,
 } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import storePlatforms from "@/stores/platforms";
 import { formatBytes, toBrowserLocale } from "@/utils";
-import MoreMenu from "@/v2/components/GameActions/MoreMenu.vue";
+import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 import storeGalleryRoms, { type SimpleRom } from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
+import { activeProviders } from "@/v2/utils/metadataProviders";
 import {
   getListColumns,
   getListGridTemplate,
@@ -46,6 +47,12 @@ import {
 } from "./listColumns";
 
 defineOptions({ inheritAttrs: false });
+
+// Cap on how many language/region chips render before the `+N` overflow
+// chip kicks in. Tuned so 4-chip lists fit on a single wrapped line
+// inside the pills cell; longer lists stack to a second line with the
+// `+N` chip pinned at the end. Full list lives in the RTooltip.
+const PILLS_VISIBLE = 4;
 
 interface Props {
   /** Absolute position in the active gallery (0-indexed). Drives the
@@ -78,7 +85,7 @@ const selection = storeGallerySelection();
 const selectionInput = useGallerySelectionInput();
 const platformsStore = storePlatforms();
 const { morphTransition } = useViewTransition();
-const { locale, t } = useI18n();
+const { locale } = useI18n();
 
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const listSkeletonColumns = columns;
@@ -116,6 +123,11 @@ const platformMeta = computed(() => {
   const item = rom.value;
   if (!item || item.platform_id == null) return null;
   return platformsStore.get(item.platform_id) ?? null;
+});
+
+const providers = computed(() => {
+  const item = rom.value;
+  return item ? activeProviders(item) : [];
 });
 
 function formatDate(value: string | null | undefined): string {
@@ -280,6 +292,26 @@ onBeforeUnmount(() => {
             {{ rom.name ?? rom.fs_name_no_ext }}
           </div>
           <div class="game-list-row__filename">{{ rom.fs_name }}</div>
+          <div
+            v-if="providers.length > 0"
+            class="game-list-row__providers"
+            @click.stop
+          >
+            <span
+              v-for="provider in providers"
+              :key="provider.key"
+              class="game-list-row__provider"
+              :title="provider.title"
+              :style="provider.bg ? { background: provider.bg } : undefined"
+            >
+              <img
+                :src="`/assets/scrappers/${provider.logo}`"
+                :alt="provider.title"
+                width="14"
+                height="14"
+              />
+            </span>
+          </div>
         </div>
       </div>
 
@@ -290,7 +322,7 @@ onBeforeUnmount(() => {
         <RPlatformIcon
           v-if="platformMeta?.slug"
           :slug="platformMeta.slug"
-          :size="18"
+          :size="24"
         />
         <span class="game-list-row__platform-name">
           {{ platformMeta?.name ?? "—" }}
@@ -304,45 +336,67 @@ onBeforeUnmount(() => {
       <div class="game-list-row__cell">{{ releaseDate(rom) }}</div>
       <div class="game-list-row__cell">{{ ratingValue(rom) }}</div>
 
-      <div class="game-list-row__cell">
+      <div class="game-list-row__cell game-list-row__cell--pills">
         <div class="game-list-row__pills">
           <RChip
-            v-for="l in rom.languages?.slice(0, 3) ?? []"
+            v-for="l in (rom.languages ?? []).slice(0, PILLS_VISIBLE)"
             :key="`lang-${l}`"
             size="x-small"
             variant="translucent"
           >
             {{ l }}
           </RChip>
+          <RChip
+            v-if="(rom.languages?.length ?? 0) > PILLS_VISIBLE"
+            size="x-small"
+            variant="translucent"
+          >
+            +{{ (rom.languages?.length ?? 0) - PILLS_VISIBLE }}
+          </RChip>
         </div>
+        <RTooltip
+          v-if="(rom.languages?.length ?? 0) > PILLS_VISIBLE"
+          activator="parent"
+          :text="rom.languages?.join(', ')"
+          location="top"
+        />
       </div>
-      <div class="game-list-row__cell">
+      <div class="game-list-row__cell game-list-row__cell--pills">
         <div class="game-list-row__pills">
           <RChip
-            v-for="r in rom.regions?.slice(0, 3) ?? []"
+            v-for="r in (rom.regions ?? []).slice(0, PILLS_VISIBLE)"
             :key="`reg-${r}`"
             size="x-small"
             variant="translucent"
           >
             {{ r }}
           </RChip>
+          <RChip
+            v-if="(rom.regions?.length ?? 0) > PILLS_VISIBLE"
+            size="x-small"
+            variant="translucent"
+          >
+            +{{ (rom.regions?.length ?? 0) - PILLS_VISIBLE }}
+          </RChip>
         </div>
+        <RTooltip
+          v-if="(rom.regions?.length ?? 0) > PILLS_VISIBLE"
+          activator="parent"
+          :text="rom.regions?.join(', ')"
+          location="top"
+        />
       </div>
 
       <div class="game-list-row__cell game-list-row__cell--end">
-        <MoreMenu :rom="rom">
-          <template #activator="{ props: activatorProps }">
-            <button
-              v-bind="activatorProps"
-              type="button"
-              class="game-list-row__more"
-              :aria-label="t('rom.more-actions')"
-              @click.stop
-            >
-              <RIcon icon="mdi-dots-vertical" size="18" />
-            </button>
-          </template>
-        </MoreMenu>
+        <div class="game-list-row__actions" @click.stop>
+          <GameActionBtn
+            :rom="rom"
+            action="favorite"
+            size="small"
+            variant="bare"
+          />
+          <GameActionBtn :rom="rom" action="more" size="small" variant="bare" />
+        </div>
       </div>
     </template>
 
@@ -373,10 +427,10 @@ onBeforeUnmount(() => {
             <RSkeletonBlock width="40%" :height="10" />
           </div>
         </div>
-        <div v-else-if="col.key === 'platform'" class="game-list-row__cell">
+        <div v-else-if="col.key === 'platform_id'" class="game-list-row__cell">
           <div class="game-list-row__platform">
-            <RSkeletonBlock :width="18" :height="18" circle />
-            <RSkeletonBlock :width="64" :height="10" />
+            <RSkeletonBlock :width="24" :height="24" circle />
+            <RSkeletonBlock :width="100" :height="10" />
           </div>
         </div>
         <div
@@ -503,11 +557,45 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
 }
 
+.game-list-row__providers {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.game-list-row__provider {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--r-color-surface);
+  flex-shrink: 0;
+}
+
+.game-list-row__provider img {
+  display: block;
+  object-fit: contain;
+}
+
+/* Pills cell — chips wrap to multiple lines inside the cell when they
+   don't fit on a single row, so short language/region lists read as a
+   single horizontal strip and longer lists stack vertically. The cell
+   keeps `overflow: hidden` (defense against extreme lists) and the
+   row's fixed 80px height clips anything past ~3 wrapped lines; the
+   full list is available via the cell's `title` tooltip. */
+.game-list-row__cell--pills {
+  white-space: normal;
+}
 .game-list-row__pills {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  align-content: center;
   gap: 3px;
-  overflow: hidden;
+  max-height: 100%;
 }
 
 .game-list-row__platform {
@@ -523,24 +611,9 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
 }
 
-.game-list-row__more {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  padding: var(--r-space-1);
-  border-radius: var(--r-radius-sm);
+.game-list-row__actions {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  color: var(--r-color-fg-muted);
-  cursor: pointer;
-  transition:
-    color var(--r-motion-fast) var(--r-motion-ease-out),
-    background var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.game-list-row__more:hover,
-.game-list-row__more:focus-visible {
-  color: var(--r-color-fg);
-  background: var(--r-color-surface-hover);
+  gap: 4px;
 }
 </style>

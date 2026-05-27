@@ -46,6 +46,7 @@ export type SimpleRom = SimpleRomSchema;
 export type GalleryOrderKey =
   | "name"
   | "fs_name"
+  | "platform_id"
   | "fs_size_bytes"
   | "created_at"
   | "updated_at"

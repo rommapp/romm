@@ -20,6 +20,7 @@ import { layout } from "@/v2/tokens";
 export type ListSortKey = Extract<
   GalleryOrderKey,
   | "name"
+  | "platform_id"
   | "fs_size_bytes"
   | "created_at"
   | "first_release_date"
@@ -29,13 +30,7 @@ export type ListSortKey = Extract<
 export interface ListColumn {
   /** Sort key (matches `galleryRoms.orderBy`). `null` for non-sortable
    * display-only columns (icon labels, action menus). */
-  key:
-    | ListSortKey
-    | "select"
-    | "platform"
-    | "languages"
-    | "regions"
-    | "actions";
+  key: ListSortKey | "select" | "languages" | "regions" | "actions";
   /** Column header label. Empty string renders no text (used for the
    * leading select column + trailing actions column). */
   label: string;
@@ -60,11 +55,11 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
   ];
   if (showPlatform) {
     cols.push({
-      key: "platform",
+      key: "platform_id",
       label: "Platform",
-      sortable: false,
+      sortable: true,
       align: "start",
-      skeletonWidth: 80,
+      skeletonWidth: 100,
     });
   }
   cols.push(
@@ -119,8 +114,8 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
  * is inserted between `name` and `fs_size_bytes` when present so column
  * order matches the array. */
 export function getListGridTemplate(showPlatform: boolean): string {
-  const platformTrack = showPlatform ? " 110px" : "";
-  return `36px minmax(0, 1.6fr)${platformTrack} 88px 96px 84px 56px 110px 110px 56px`;
+  const platformTrack = showPlatform ? " 170px" : "";
+  return `36px minmax(0, 1.6fr)${platformTrack} 88px 96px 84px 56px 110px 110px 88px`;
 }
 
 /** Default exports — the cross-platform variant. Used by the bootstrap-

@@ -28,6 +28,9 @@
 //   glass      → default translucent frosted-glass pill
 //   surface    → translucent grey, page-background friendly (Details)
 //   emphasized → white-on-dark (used by Play in card + details)
+//   bare       → no background or border, just the icon (list rows /
+//                inline strips where the row's own surface frames the
+//                control)
 //
 // `withLabel` turns the button into a pill with "Play" / "Download" /
 // etc. text next to the icon, matching the GameDetails Play CTA.
@@ -69,8 +72,10 @@ interface Props {
    *             (GameDetails header where the buttons sit on the
    *             page background, not over a cover).
    * `emphasized` — primary white-on-dark CTA (Play).
+   * `bare` — no chrome; just the icon. For list rows where the row's
+   *          own surface already frames the control.
    */
-  variant?: "glass" | "surface" | "emphasized";
+  variant?: "glass" | "surface" | "emphasized" | "bare";
   withLabel?: boolean;
   /**
    * Status-only: when several status states are active, the button
@@ -598,6 +603,22 @@ function onClick(e: MouseEvent) {
 .r-v2-game-btn--surface:hover {
   background: var(--r-color-surface-hover);
   border-color: var(--r-color-border-strong);
+  color: var(--r-color-fg);
+}
+
+/* Bare — no chrome. The active-state colour swap (`--active-favorite`
+   etc.) still applies because it overrides `color` only. Hover paints a
+   subtle surface tint so the hit-target reads. */
+.r-v2-game-btn--bare {
+  background: transparent;
+  border-color: transparent;
+  color: var(--r-color-fg-muted);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.r-v2-game-btn--bare:hover {
+  background: var(--r-color-surface-hover);
+  border-color: transparent;
   color: var(--r-color-fg);
 }
 
