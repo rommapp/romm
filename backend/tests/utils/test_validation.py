@@ -1,5 +1,8 @@
 """Tests for validation utilities."""
 
+import socket
+from unittest.mock import patch
+
 import pytest
 
 from utils.validation import (
@@ -10,6 +13,16 @@ from utils.validation import (
     validate_url_for_http_request,
     validate_username,
 )
+
+
+def _mock_getaddrinfo(ip: str):
+    """Return a getaddrinfo replacement that resolves any hostname to `ip`."""
+    family = socket.AF_INET6 if ":" in ip else socket.AF_INET
+
+    def _fake(host, port, *args, **kwargs):
+        return [(family, socket.SOCK_STREAM, 0, "", (ip, port or 0))]
+
+    return _fake
 
 
 class TestValidateAsciiOnly:
@@ -165,11 +178,73 @@ class TestValidateUrlForHttpRequest:
 
     def test_valid_http_urls(self):
         """Test that valid HTTP/HTTPS URLs pass validation."""
-        validate_url_for_http_request("http://example.com", "test_url")
-        validate_url_for_http_request("https://example.com", "test_url")
-        validate_url_for_http_request("http://example.com/path", "test_url")
-        validate_url_for_http_request("https://example.com/path?query=1", "test_url")
-        validate_url_for_http_request("http://subdomain.example.com", "test_url")
+        with patch(
+            "utils.validation.socket.getaddrinfo",
+            side_effect=_mock_getaddrinfo("93.184.216.34"),
+        ):
+            validate_url_for_http_request("http://example.com", "test_url")
+            validate_url_for_http_request("https://example.com", "test_url")
+            validate_url_for_http_request("http://example.com/path", "test_url")
+            validate_url_for_http_request(
+                "https://example.com/path?query=1", "test_url"
+            )
+            validate_url_for_http_request("http://subdomain.example.com", "test_url")
+
+    def test_invalid_hostname_resolves_to_loopback(self):
+        """A DNS name that resolves to 127.0.0.1 must be rejected (SSRF bypass)."""
+        with patch(
+            "utils.validation.socket.getaddrinfo",
+            side_effect=_mock_getaddrinfo("127.0.0.1"),
+        ):
+            with pytest.raises(ValidationError) as exc_info:
+                validate_url_for_http_request(
+                    "http://127.0.0.1.nip.io/secret", "test_url"
+                )
+            assert (
+                "hostname resolves to a private" in exc_info.value.message
+            )
+
+    def test_invalid_hostname_resolves_to_private_ip(self):
+        """A DNS name that resolves to an RFC1918 address must be rejected."""
+        with patch(
+            "utils.validation.socket.getaddrinfo",
+            side_effect=_mock_getaddrinfo("10.0.0.5"),
+        ):
+            with pytest.raises(ValidationError) as exc_info:
+                validate_url_for_http_request("http://internal.example.com", "test_url")
+            assert "hostname resolves to a private" in exc_info.value.message
+
+    def test_invalid_hostname_resolves_to_link_local(self):
+        """A DNS name that resolves to the cloud metadata IP must be rejected."""
+        with patch(
+            "utils.validation.socket.getaddrinfo",
+            side_effect=_mock_getaddrinfo("169.254.169.254"),
+        ):
+            with pytest.raises(ValidationError) as exc_info:
+                validate_url_for_http_request("http://metadata.example.com", "test_url")
+            assert "hostname resolves to a private" in exc_info.value.message
+
+    def test_invalid_hostname_resolves_to_private_ipv6(self):
+        """A DNS name that resolves to an IPv6 ULA must be rejected."""
+        with patch(
+            "utils.validation.socket.getaddrinfo",
+            side_effect=_mock_getaddrinfo("fc00::1"),
+        ):
+            with pytest.raises(ValidationError) as exc_info:
+                validate_url_for_http_request("http://ipv6.example.com", "test_url")
+            assert "hostname resolves to a private" in exc_info.value.message
+
+    def test_invalid_hostname_unresolvable(self):
+        """A DNS name that cannot be resolved must be rejected."""
+        with patch(
+            "utils.validation.socket.getaddrinfo",
+            side_effect=socket.gaierror("Name or service not known"),
+        ):
+            with pytest.raises(ValidationError) as exc_info:
+                validate_url_for_http_request(
+                    "http://nonexistent.invalid", "test_url"
+                )
+            assert "could not be resolved" in exc_info.value.message
 
     def test_invalid_empty_url(self):
         """Test that empty URLs fail validation."""
@@ -231,7 +306,7 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://10.0.0.1", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
@@ -239,7 +314,7 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://192.168.1.1", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
@@ -247,14 +322,14 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://172.16.0.1", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://172.31.255.254", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
@@ -264,14 +339,14 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://127.0.0.2", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://127.255.255.255", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
@@ -281,7 +356,7 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://[fe80::1]", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
@@ -289,14 +364,14 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://[fc00::1]", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://[fd00::1]", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
@@ -305,12 +380,12 @@ class TestValidateUrlForHttpRequest:
         # IPv4 multicast: 224.0.0.0/4
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://224.0.0.1", "test_url")
-        assert "multicast addresses are not allowed" in exc_info.value.message
+        assert "private, internal, reserved, or multicast IP addresses are not allowed" in exc_info.value.message
 
         # IPv6 multicast: ff00::/8
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://[ff02::1]", "test_url")
-        assert "multicast addresses are not allowed" in exc_info.value.message
+        assert "private, internal, reserved, or multicast IP addresses are not allowed" in exc_info.value.message
 
     def test_invalid_internal_tlds(self):
         """Test that internal TLDs fail validation."""
@@ -332,7 +407,7 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://0x7f000001", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
@@ -340,7 +415,7 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://2130706433", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
@@ -348,7 +423,7 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://127.1", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
@@ -356,7 +431,7 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://0x0a000001", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
@@ -364,7 +439,7 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://3232235777", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 
@@ -372,7 +447,7 @@ class TestValidateUrlForHttpRequest:
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://0xa9fea9fe", "test_url")
         assert (
-            "private, internal, and reserved IP addresses are not allowed"
+            "private, internal, reserved, or multicast IP addresses are not allowed"
             in exc_info.value.message
         )
 

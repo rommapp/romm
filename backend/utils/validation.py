@@ -130,6 +130,20 @@ RESERVED_HOSTNAMES = [
 ]
 
 
+def _is_forbidden_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Return True if the IP address is in a range that must not be reached
+    by a server-side HTTP request (private, loopback, link-local, reserved,
+    or multicast)."""
+    return (
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_reserved
+        or ip.is_multicast
+        or ip.is_unspecified
+    )
+
+
 def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
     """Validate URL to prevent Server-Side Request Forgery (SSRF) attacks.
 
@@ -138,10 +152,8 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
     - If the host is a literal IP address, it is not private/internal/reserved
     - The host is not a reserved hostname (localhost, 127.0.0.1, etc.)
     - The host does not use internal TLDs (.local, .internal, .localhost)
-
-    Note: This function does NOT perform DNS resolution. Domain names that resolve
-    to private IPs will not be detected (DNS rebinding/internal DNS bypass possible).
-    It only checks literal IP addresses in the hostname.
+    - The host, if a domain name, does not resolve via DNS to a private,
+      loopback, link-local, reserved, or multicast address
 
     Args:
         url (str): The URL to validate
@@ -184,17 +196,13 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
     try:
         ip = ipaddress.ip_address(hostname)
 
-        # Block private/internal/link-local IP addresses
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-            msg = f"Invalid {field_name}: private, internal, and reserved IP addresses are not allowed"
+        if _is_forbidden_ip(ip):
+            msg = f"Invalid {field_name}: private, internal, reserved, or multicast IP addresses are not allowed"
             log.error(f"SSRF prevention: {msg} - IP '{ip}'")
             raise ValidationError(msg, field_name)
 
-        # Block multicast addresses
-        if ip.is_multicast:
-            msg = f"Invalid {field_name}: multicast addresses are not allowed"
-            log.error(f"SSRF prevention: {msg} - IP '{ip}'")
-            raise ValidationError(msg, field_name)
+        # Literal IP — DNS resolution is not needed, allow it.
+        return
 
     except ValueError as e:
         # ipaddress.ip_address() only handles standard notation. HTTP clients
@@ -205,15 +213,13 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
             packed = socket.inet_aton(hostname)
             ip = ipaddress.IPv4Address(packed)
 
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-                msg = f"Invalid {field_name}: private, internal, and reserved IP addresses are not allowed"
+            if _is_forbidden_ip(ip):
+                msg = f"Invalid {field_name}: private, internal, reserved, or multicast IP addresses are not allowed"
                 log.error(f"SSRF prevention: {msg} - IP '{ip}'")
                 raise ValidationError(msg, field_name)
 
-            if ip.is_multicast:
-                msg = f"Invalid {field_name}: multicast addresses are not allowed"
-                log.error(f"SSRF prevention: {msg} - IP '{ip}'")
-                raise ValidationError(msg, field_name)
+            # Non-standard IPv4 literal — already validated above, allow it.
+            return
 
         except OSError:
             pass  # Not an IP address at all - fall through to domain name checks
@@ -227,3 +233,32 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
             msg = f"Invalid {field_name}: internal domain names are not allowed"
             log.error(f"SSRF prevention: {msg} - hostname '{hostname}'")
             raise ValidationError(msg, field_name) from e
+
+    # Resolve the hostname via DNS and reject any answer that points at a
+    # private/loopback/link-local/reserved/multicast address. Without this
+    # check, an attacker-controlled (or wildcard) DNS name such as
+    # `127.0.0.1.nip.io` slips past the literal-IP checks above and the
+    # subsequent HTTP request reaches an internal target (SSRF).
+    try:
+        addr_infos = socket.getaddrinfo(
+            hostname, parsed.port, type=socket.SOCK_STREAM
+        )
+    except socket.gaierror as e:
+        msg = f"Invalid {field_name}: hostname could not be resolved"
+        log.error(f"SSRF prevention: {msg} - hostname '{hostname}': {e}")
+        raise ValidationError(msg, field_name) from e
+
+    for *_, sockaddr in addr_infos:
+        try:
+            resolved_ip = ipaddress.ip_address(sockaddr[0])
+        except ValueError:
+            continue
+        if _is_forbidden_ip(resolved_ip):
+            msg = (
+                f"Invalid {field_name}: hostname resolves to a private, "
+                f"internal, reserved, or multicast IP address"
+            )
+            log.error(
+                f"SSRF prevention: {msg} - hostname '{hostname}' -> '{resolved_ip}'"
+            )
+            raise ValidationError(msg, field_name)
