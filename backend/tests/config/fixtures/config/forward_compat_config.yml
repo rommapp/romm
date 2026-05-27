@@ -1,0 +1,17 @@
+# Config file containing values that a future RomM release might ship but
+# which this version doesn't yet know about. Used to verify the loader
+# tolerates unknown enum/option values instead of refusing to boot.
+
+scan:
+  media:
+    - box2d
+    - some_future_media_type
+    - screenshot
+  gamelist:
+    media:
+      thumbnail: "some_future_thumbnail"
+      image: "some_future_image"
+
+future_top_level_section:
+  enabled: true
+  setting: "value"

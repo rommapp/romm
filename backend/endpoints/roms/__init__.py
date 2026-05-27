@@ -4,7 +4,7 @@ from base64 import b64encode
 from datetime import datetime, timezone
 from io import BytesIO
 from stat import S_IFREG
-from typing import Annotated, Any
+from typing import Annotated, Any, Sequence
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -49,6 +49,7 @@ from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
+from handler.filesystem.assets_handler import validate_image_upload
 from handler.metadata import (
     meta_flashpoint_handler,
     meta_igdb_handler,
@@ -58,7 +59,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_ss_handler,
 )
-from handler.metadata.ss_handler import get_preferred_media_types
+from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -529,6 +530,7 @@ def get_roms(
         player_counts_logic=player_counts_logic,
         group_by_meta_id=group_by_meta_id,
         updated_after=updated_after,
+        include_file_stats=True,
     )
 
     # Get the char index for the roms
@@ -570,12 +572,24 @@ def get_roms(
     with sync_session.begin() as session:
         rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
 
+        def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
+            sibling_ids_by_rom = db_rom_handler.get_sibling_ids_for_roms(
+                [i.id for i in items], session=session
+            )
+
+            return [
+                SimpleRomSchema.from_orm_with_request(
+                    db_rom=item,
+                    request=request,
+                    sibling_ids=sibling_ids_by_rom.get(item.id, []),
+                )
+                for item in items
+            ]
+
         return paginate(
             session,
             query,
-            transformer=lambda items: [
-                SimpleRomSchema.from_orm_with_request(i, request) for i in items
-            ],
+            transformer=_transform,
             additional_data={
                 "char_index": char_index_dict,
                 "rom_id_index": rom_id_index,
@@ -1257,7 +1271,7 @@ async def update_rom(
         cleaned_data.update({"ss_id": None, "ss_metadata": {}})
 
     if cleaned_data["igdb_id"] and int(cleaned_data["igdb_id"]) != rom.igdb_id:
-        igdb_rom = await meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
+        igdb_rom = await meta_igdb_handler.get_rom_by_id(rom, cleaned_data["igdb_id"])
         if igdb_rom.get("igdb_id"):
             cleaned_data.update(igdb_rom)
     elif rom.igdb_id and not cleaned_data["igdb_id"]:
@@ -1270,7 +1284,7 @@ async def update_rom(
             path_screenshots = await fs_resource_handler.get_rom_screenshots(
                 rom=rom,
                 overwrite=bool(screenshots_changed),
-                url_screenshots=cleaned_data.get("url_screenshots", []),
+                url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
             )
             cleaned_data.update(
                 {"path_screenshots": path_screenshots, "url_screenshots": []}
@@ -1319,7 +1333,7 @@ async def update_rom(
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
-            file_ext = artwork.filename.split(".")[-1]
+            file_ext = validate_image_upload(artwork, label="Artwork")
             artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
@@ -1341,7 +1355,7 @@ async def update_rom(
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     entity=rom,
                     overwrite=url_cover != rom.url_cover,
-                    url_cover=str(url_cover),
+                    url_cover=add_ss_auth_to_url(url_cover),
                 )
                 cleaned_data.update(
                     {
@@ -1361,7 +1375,7 @@ async def update_rom(
         path_manual = await fs_resource_handler.get_manual(
             rom=rom,
             overwrite=url_manual != rom.url_manual,
-            url_manual=str(url_manual) if url_manual else None,
+            url_manual=add_ss_auth_to_url(url_manual),
         )
         cleaned_data.update(
             {
@@ -1401,10 +1415,16 @@ async def update_rom(
                     media_type,
                 )
 
-            if cleaned_data.get("ss_metadata", {}).get(f"{media_type.value}_path"):
+            media_path = cleaned_data.get("ss_metadata", {}).get(
+                f"{media_type.value}_path"
+            )
+            media_url = cleaned_data.get("ss_metadata", {}).get(
+                f"{media_type.value}_url"
+            )
+            if media_path and media_url:
                 await fs_resource_handler.store_media_file(
-                    cleaned_data["ss_metadata"][f"{media_type.value}_url"],
-                    cleaned_data["ss_metadata"][f"{media_type.value}_path"],
+                    add_ss_auth_to_url(media_url),
+                    media_path,
                 )
 
     log.debug(

@@ -64,6 +64,9 @@ const descriptionOverlayRef = useTemplateRef<HTMLDivElement>(
   "description-overlay-ref",
 );
 const detailsOverlayRef = useTemplateRef<HTMLDivElement>("details-overlay-ref");
+const isConsoleEmulationDisabled = computed(
+  () => heartbeatStore.value.EMULATION.DISABLE_EMULATOR_JS,
+);
 
 const releaseDate = computed(() => {
   if (!rom.value?.metadatum.first_release_date) return null;
@@ -351,7 +354,7 @@ function handleAction(action: InputAction): boolean {
 }
 
 async function play() {
-  if (!rom.value) return;
+  if (!rom.value || isConsoleEmulationDisabled.value) return;
 
   romApi
     .updateUserRomProps({
@@ -633,7 +636,10 @@ onUnmounted(() => {
                     :class="{
                       'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-game-play-button-focus-border),_0_0_16px_var(--console-accent-secondary)]':
                         selectedZone === 'play',
+                      'opacity-60 cursor-not-allowed':
+                        isConsoleEmulationDisabled,
                     }"
+                    :disabled="isConsoleEmulationDisabled"
                     @click="play()"
                   >
                     <span class="text-lg md:text-xl">▶</span>

@@ -40,6 +40,7 @@ export type { ClientTokenCreateSchema } from './models/ClientTokenCreateSchema';
 export type { ClientTokenExchangePayload } from './models/ClientTokenExchangePayload';
 export type { ClientTokenPairSchema } from './models/ClientTokenPairSchema';
 export type { ClientTokenSchema } from './models/ClientTokenSchema';
+export type { CollectionRomsPayload } from './models/CollectionRomsPayload';
 export type { CollectionSchema } from './models/CollectionSchema';
 export type { ConfigResponse } from './models/ConfigResponse';
 export type { ConversionStats } from './models/ConversionStats';

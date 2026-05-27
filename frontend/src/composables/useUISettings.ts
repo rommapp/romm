@@ -1,7 +1,7 @@
 import { useLocalStorage } from "@vueuse/core";
 import type { RemovableRef } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { watch, ref } from "vue";
+import { effectScope, watch, ref } from "vue";
 import type { UserSchema } from "@/__generated__";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -173,7 +173,7 @@ function createUISettings() {
 export function useUISettings() {
   // Return singleton instance
   if (!uiSettingsInstance) {
-    uiSettingsInstance = createUISettings();
+    uiSettingsInstance = effectScope(true).run(createUISettings)!;
   }
   return uiSettingsInstance;
 }

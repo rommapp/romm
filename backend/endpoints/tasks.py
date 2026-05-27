@@ -147,7 +147,7 @@ def _build_task_status_response(
 
     common_data = {
         "task_name": task_name,
-        "task_id": job.get_id(),
+        "task_id": job.id,
         "status": job.get_status(),
         "created_at": created_at,
         "enqueued_at": enqueued_at,
@@ -386,7 +386,7 @@ async def run_single_task(
 
     return {
         "task_name": task_instance.title,
-        "task_id": job.get_id(),
+        "task_id": job.id,
         "status": job.get_status() or JobStatus.QUEUED,
         "created_at": (
             job.created_at.isoformat()

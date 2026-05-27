@@ -21,7 +21,7 @@ from handler.database import (
 )
 from handler.filesystem import fs_asset_handler
 from handler.sync.comparison import compare_save_state
-from handler.sync.ssh_handler import ssh_sync_handler
+from handler.sync.ssh_handler import get_ssh_sync_handler
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.device import Device, SyncMode
@@ -102,6 +102,7 @@ async def _sync_device(device: Device, session_id: int | None = None) -> dict:
     )
 
     try:
+        ssh_sync_handler = get_ssh_sync_handler()
         conn = await ssh_sync_handler.connect(sync_config, device_id=device.id)
     except Exception as e:
         log.error(f"Push-pull: failed to connect to device {device.id}: {e}")
@@ -227,6 +228,7 @@ async def _process_remote_save(
     remote_save,
 ) -> str:
     """Process a single remote save file. Returns action taken."""
+    ssh_sync_handler = get_ssh_sync_handler()
     # Look up platform
     platform = db_platform_handler.get_platform_by_fs_slug(remote_save.platform_slug)
     if not platform:
@@ -340,6 +342,7 @@ async def _push_missing_saves(
     save_directories: list[dict],
 ) -> int:
     """Push server saves that are missing from the device."""
+    ssh_sync_handler = get_ssh_sync_handler()
     pushed = 0
 
     # Build set of remote filenames per platform

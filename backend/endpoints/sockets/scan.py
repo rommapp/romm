@@ -11,6 +11,7 @@ from rq import Worker
 from rq.job import Job
 
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT, SCAN_WORKERS, TASK_RESULT_TTL
+from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from endpoints.responses import TaskType
 from endpoints.responses.platform import PlatformSchema
@@ -31,7 +32,7 @@ from handler.filesystem import (
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_gamelist_handler, meta_hltb_handler
-from handler.metadata.ss_handler import get_preferred_media_types
+from handler.metadata.ss_handler import add_ss_auth_to_url, get_preferred_media_types
 from handler.redis_handler import get_job_func_name, high_prio_queue, redis_client
 from handler.scan_handler import (
     MetadataSource,
@@ -179,13 +180,17 @@ def _should_scan_rom(
                 (
                     scan_type == ScanType.UPDATE
                     and rom.is_identified
-                    and any(getattr(rom, f"{source}_id") for source in metadata_sources)
+                    and any(
+                        getattr(rom, f"{source}_id", None)
+                        for source in metadata_sources
+                    )
                 )
                 # Unmatched scan should scan ROMs that are not identified by the selected metadata sources
                 or (
                     scan_type == ScanType.UNMATCHED
                     and any(
-                        not getattr(rom, f"{source}_id") for source in metadata_sources
+                        not getattr(rom, f"{source}_id", None)
+                        for source in metadata_sources
                     )
                 )
             )
@@ -296,6 +301,36 @@ async def _identify_rom(
             }
         )
 
+    # For a COMPLETE rescan, wipe all downloaded resources before re-fetching so
+    # stale files (e.g. a cover from the wrong region) can't be reused. The
+    # post-scan download steps below skip downloads when a file already exists or
+    # when the source URL is unchanged, so the on-disk files must be removed here.
+    if not newly_added and scan_type == ScanType.COMPLETE:
+        try:
+            await fs_resource_handler.remove_cover(rom)
+        except FileNotFoundError:
+            pass
+
+        try:
+            await fs_resource_handler.remove_manual(rom)
+        except FileNotFoundError:
+            pass
+
+        try:
+            await fs_resource_handler.remove_directory(
+                f"{rom.fs_resources_path}/screenshots"
+            )
+        except FileNotFoundError:
+            pass
+
+        for media_type in MetadataMediaType:
+            try:
+                await fs_resource_handler.remove_media_resources_path(
+                    platform.id, rom.id, media_type
+                )
+            except FileNotFoundError:
+                pass
+
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
         scan_type=scan_type,
@@ -349,6 +384,7 @@ async def _identify_rom(
                 md5_hash=file.md5_hash,
                 sha1_hash=file.sha1_hash,
                 ra_hash=file.ra_hash,
+                chd_sha1_hash=file.chd_sha1_hash,
             )
             for file in fs_rom["files"]
         ]
@@ -380,22 +416,23 @@ async def _identify_rom(
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
         overwrite=_added_rom.url_cover != rom.url_cover,
-        url_cover=_added_rom.url_cover,
+        url_cover=add_ss_auth_to_url(_added_rom.url_cover),
     )
 
     path_manual = await fs_resource_handler.get_manual(
         rom=_added_rom,
         overwrite=_added_rom.url_manual != rom.url_manual,
-        url_manual=_added_rom.url_manual,
+        url_manual=add_ss_auth_to_url(_added_rom.url_manual),
     )
 
     screenshots_changed = pydash.xor(
         _added_rom.url_screenshots or [], rom.url_screenshots or []
     )
+    url_screenshots = _added_rom.url_screenshots or []
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
         rom=_added_rom,
         overwrite=bool(screenshots_changed),
-        url_screenshots=_added_rom.url_screenshots,
+        url_screenshots=[add_ss_auth_to_url(u) for u in url_screenshots],
     )
 
     _added_rom.path_cover_s = path_cover_s
@@ -418,10 +455,12 @@ async def _identify_rom(
     if _added_rom.ss_metadata and MetadataSource.SS in metadata_sources:
         preferred_media_types = get_preferred_media_types()
         for media_type in preferred_media_types:
-            if _added_rom.ss_metadata.get(f"{media_type.value}_path"):
+            media_path = _added_rom.ss_metadata.get(f"{media_type.value}_path")
+            media_url = _added_rom.ss_metadata.get(f"{media_type.value}_url")
+            if media_path and media_url:
                 await fs_resource_handler.store_media_file(
-                    _added_rom.ss_metadata[f"{media_type.value}_url"],
-                    _added_rom.ss_metadata[f"{media_type.value}_path"],
+                    add_ss_auth_to_url(media_url),
+                    media_path,
                 )
 
     # Handle special media files from ES-DE gamelist.xml
@@ -432,6 +471,16 @@ async def _identify_rom(
                 await fs_resource_handler.store_media_file(
                     _added_rom.gamelist_metadata[f"{media_type.value}_url"],
                     _added_rom.gamelist_metadata[f"{media_type.value}_path"],
+                )
+
+    # Handle special media files from LaunchBox
+    if _added_rom.launchbox_metadata and MetadataSource.LAUNCHBOX in metadata_sources:
+        preferred_media_types = get_preferred_media_types()
+        for media_type in preferred_media_types:
+            if _added_rom.launchbox_metadata.get(f"{media_type.value}_path"):
+                await fs_resource_handler.store_media_file(
+                    _added_rom.launchbox_metadata[f"{media_type.value}_url"],
+                    _added_rom.launchbox_metadata[f"{media_type.value}_path"],
                 )
 
     # Store normal and locked badges

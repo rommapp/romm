@@ -54,6 +54,8 @@ class LaunchboxMetadata(TypedDict):
     genres: NotRequired[list[str]]
     companies: NotRequired[list[str]]
     images: list[LaunchboxImage]
+    video_url: NotRequired[str]
+    video_path: NotRequired[str]
 
 
 class LaunchboxRom(BaseRom):

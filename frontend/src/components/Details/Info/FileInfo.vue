@@ -19,6 +19,12 @@ const romUser = ref(props.rom.rom_user);
 const romInfo = ref([
   { label: "Size", value: formatBytes(props.rom.fs_size_bytes) },
   { label: "SHA-1", value: props.rom.sha1_hash },
+  {
+    label: "CHD SHA-1",
+    value: props.rom.has_simple_single_file
+      ? (props.rom.files[0]?.chd_sha1_hash ?? null)
+      : null,
+  },
   { label: "MD5", value: props.rom.md5_hash },
   { label: "CRC", value: props.rom.crc_hash },
   { label: "Revision", value: props.rom.revision },

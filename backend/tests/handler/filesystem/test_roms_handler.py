@@ -7,7 +7,6 @@ import pytest
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
 from handler.filesystem.roms_handler import (
-    CHDHashWrapper,
     FileHash,
     FSRomsHandler,
     extract_chd_hash,
@@ -102,56 +101,48 @@ class TestFSRomsHandler:
         """Test that FSRomsHandler initializes with LIBRARY_BASE_PATH"""
         assert handler.base_path == Path(LIBRARY_BASE_PATH).resolve()
 
-    def test_get_roms_fs_structure_normal_structure(self, handler: FSRomsHandler):
-        """Test get_roms_fs_structure with normal structure"""
+    def test_get_roms_fs_structure_structure_b(self, handler: FSRomsHandler):
+        """Test get_roms_fs_structure with Structure B ({platform}/roms)"""
         fs_slug = "n64"
+        cnfg = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=[],
+            EXCLUDED_MULTI_PARTS_EXT=[],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            ROMS_FOLDER_NAME="roms",
+            FIRMWARE_FOLDER_NAME="bios",
+        )
+        cnfg.has_structure_path_b = True
 
         with pytest.MonkeyPatch.context() as m:
-            m.setattr(
-                "handler.filesystem.roms_handler.cm.get_config",
-                lambda: Config(
-                    EXCLUDED_PLATFORMS=[],
-                    EXCLUDED_SINGLE_EXT=[],
-                    EXCLUDED_SINGLE_FILES=[],
-                    EXCLUDED_MULTI_FILES=[],
-                    EXCLUDED_MULTI_PARTS_EXT=[],
-                    EXCLUDED_MULTI_PARTS_FILES=[],
-                    PLATFORMS_BINDING={},
-                    PLATFORMS_VERSIONS={},
-                    ROMS_FOLDER_NAME="roms",
-                    FIRMWARE_FOLDER_NAME="bios",
-                ),
-            )
-            m.setattr("os.path.exists", lambda x: False)  # Simulate normal structure
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
 
             result = handler.get_roms_fs_structure(fs_slug)
             assert result == f"{fs_slug}/roms"
 
-    def test_get_roms_fs_structure_high_priority_structure(
-        self, handler: FSRomsHandler
-    ):
-        """Test get_roms_fs_structure with high priority structure"""
+    def test_get_roms_fs_structure_structure_a(self, handler: FSRomsHandler):
+        """Test get_roms_fs_structure with Structure A (roms/{platform})"""
         fs_slug = "n64"
+        cnfg = Config(
+            EXCLUDED_PLATFORMS=[],
+            EXCLUDED_SINGLE_EXT=[],
+            EXCLUDED_SINGLE_FILES=[],
+            EXCLUDED_MULTI_FILES=[],
+            EXCLUDED_MULTI_PARTS_EXT=[],
+            EXCLUDED_MULTI_PARTS_FILES=[],
+            PLATFORMS_BINDING={},
+            PLATFORMS_VERSIONS={},
+            ROMS_FOLDER_NAME="roms",
+            FIRMWARE_FOLDER_NAME="bios",
+        )
+        cnfg.has_structure_path_b = False
 
         with pytest.MonkeyPatch.context() as m:
-            m.setattr(
-                "handler.filesystem.roms_handler.cm.get_config",
-                lambda: Config(
-                    EXCLUDED_PLATFORMS=[],
-                    EXCLUDED_SINGLE_EXT=[],
-                    EXCLUDED_SINGLE_FILES=[],
-                    EXCLUDED_MULTI_FILES=[],
-                    EXCLUDED_MULTI_PARTS_EXT=[],
-                    EXCLUDED_MULTI_PARTS_FILES=[],
-                    PLATFORMS_BINDING={},
-                    PLATFORMS_VERSIONS={},
-                    ROMS_FOLDER_NAME="roms",
-                    FIRMWARE_FOLDER_NAME="bios",
-                ),
-            )
-            m.setattr(
-                "os.path.exists", lambda x: True
-            )  # Simulate high priority structure
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: cnfg)
 
             result = handler.get_roms_fs_structure(fs_slug)
             assert result == f"roms/{fs_slug}"
@@ -258,6 +249,41 @@ class TestFSRomsHandler:
             result = handler.exclude_multi_roms(roms)
             assert result == roms
 
+    def test_exclude_multi_roms_case_insensitive(self, handler: FSRomsHandler, config):
+        """Test exclude_multi_roms ignores case in excluded names"""
+        roms = ["Game1", "Manuals", "Game2"]
+        config.EXCLUDED_MULTI_FILES = ["manuals"]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            result = handler.exclude_multi_roms(roms)
+            assert result == ["Game1", "Game2"]
+
+    def test_exclude_multi_roms_ignores_whitespace(
+        self, handler: FSRomsHandler, config
+    ):
+        """Test exclude_multi_roms trims accidental surrounding whitespace"""
+        roms = ["Game1", "covers", "Game2"]
+        config.EXCLUDED_MULTI_FILES = [" covers "]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            result = handler.exclude_multi_roms(roms)
+            assert result == ["Game1", "Game2"]
+
+    def test_exclude_multi_roms_wildcard_patterns(self, handler: FSRomsHandler, config):
+        """Test exclude_multi_roms keeps wildcard matching with normalized config"""
+        roms = ["Game1", "Manuals", "manuals-fr", "Game2"]
+        config.EXCLUDED_MULTI_FILES = ["  manuals* "]
+
+        with pytest.MonkeyPatch.context() as m:
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            result = handler.exclude_multi_roms(roms)
+            assert result == ["Game1", "Game2"]
+
     def test_build_rom_file_single_file(self, rom_single: Rom, handler: FSRomsHandler):
         """Test _build_rom_file with actual single ROM file"""
         rom_path = Path(rom_single.fs_path)
@@ -267,6 +293,7 @@ class TestFSRomsHandler:
                 "crc_hash": "ABCD1234",
                 "md5_hash": "def456",
                 "sha1_hash": "789ghi",
+                "chd_sha1_hash": "654321",
             }
         )
 
@@ -292,6 +319,7 @@ class TestFSRomsHandler:
                 "crc_hash": "12345678",
                 "md5_hash": "abcdef",
                 "sha1_hash": "123456",
+                "chd_sha1_hash": "654321",
             }
         )
 
@@ -385,6 +413,64 @@ class TestFSRomsHandler:
                 assert isinstance(rom_file, RomFile)
                 assert rom_file.file_size_bytes > 0
                 assert rom_file.last_modified is not None
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_multi_rom_multi_dot_exclusion(
+        self, handler: FSRomsHandler, rom_multi
+    ):
+        """Multi-dot filenames in a multi-part dir are excluded by simple or compound ext rules."""
+        multi_dot_file = (
+            handler.base_path / "n64/roms/Super Mario 64 (J) (Rev A)/game.n64.hash.txt"
+        )
+        multi_dot_file.write_text("hash data")
+
+        try:
+            # Exclude by the last single extension "txt"
+            config_txt = Config(
+                EXCLUDED_PLATFORMS=[],
+                EXCLUDED_SINGLE_EXT=[],
+                EXCLUDED_SINGLE_FILES=[],
+                EXCLUDED_MULTI_FILES=[],
+                EXCLUDED_MULTI_PARTS_EXT=["txt"],
+                EXCLUDED_MULTI_PARTS_FILES=[],
+                PLATFORMS_BINDING={},
+                PLATFORMS_VERSIONS={},
+                ROMS_FOLDER_NAME="roms",
+                FIRMWARE_FOLDER_NAME="bios",
+            )
+            with pytest.MonkeyPatch.context() as m:
+                m.setattr(
+                    "handler.filesystem.roms_handler.cm.get_config", lambda: config_txt
+                )
+                parsed = await handler.get_rom_files(rom_multi)
+                file_names = [rf.file_name for rf in parsed.rom_files]
+                assert "game.n64.hash.txt" not in file_names
+                assert "Super Mario 64 (J) (Rev A) [Part 1].z64" in file_names
+
+            # Exclude by the compound extension "hash.txt"
+            config_compound = Config(
+                EXCLUDED_PLATFORMS=[],
+                EXCLUDED_SINGLE_EXT=[],
+                EXCLUDED_SINGLE_FILES=[],
+                EXCLUDED_MULTI_FILES=[],
+                EXCLUDED_MULTI_PARTS_EXT=["hash.txt"],
+                EXCLUDED_MULTI_PARTS_FILES=[],
+                PLATFORMS_BINDING={},
+                PLATFORMS_VERSIONS={},
+                ROMS_FOLDER_NAME="roms",
+                FIRMWARE_FOLDER_NAME="bios",
+            )
+            with pytest.MonkeyPatch.context() as m:
+                m.setattr(
+                    "handler.filesystem.roms_handler.cm.get_config",
+                    lambda: config_compound,
+                )
+                parsed = await handler.get_rom_files(rom_multi)
+                file_names = [rf.file_name for rf in parsed.rom_files]
+                assert "game.n64.hash.txt" not in file_names
+                assert "Super Mario 64 (J) (Rev A) [Part 1].z64" in file_names
+        finally:
+            multi_dot_file.unlink(missing_ok=True)
 
     async def test_rename_fs_rom_same_name(self, handler: FSRomsHandler):
         """Test rename_fs_rom when old and new names are the same"""
@@ -510,7 +596,7 @@ class TestFSRomsHandler:
         assert parsed_tags.revision == "B"
         assert parsed_tags.version == ""
 
-    def test_platform_specific_behavior(self, handler: FSRomsHandler):
+    def test_platform_specific_behavior(self, handler: FSRomsHandler, config):
         """Test platform-specific behavior differences"""
         # Create mock platforms - one hashable, one non-hashable
         hashable_platform = Mock(spec=Platform)
@@ -521,12 +607,15 @@ class TestFSRomsHandler:
         non_hashable_platform.fs_slug = "n64"
         non_hashable_platform.slug = "nintendo-64"
 
-        # Test ROM file structure paths
-        hashable_path = handler.get_roms_fs_structure(hashable_platform.fs_slug)
-        non_hashable_path = handler.get_roms_fs_structure(non_hashable_platform.fs_slug)
+        config.has_structure_path_b = True
 
         with pytest.MonkeyPatch.context() as m:
-            m.setattr("os.path.exists", lambda x: False)  # Normal structure
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
+
+            hashable_path = handler.get_roms_fs_structure(hashable_platform.fs_slug)
+            non_hashable_path = handler.get_roms_fs_structure(
+                non_hashable_platform.fs_slug
+            )
 
             assert hashable_path == f"{hashable_platform.fs_slug}/roms"
             assert non_hashable_path == f"{non_hashable_platform.fs_slug}/roms"
@@ -548,20 +637,20 @@ class TestFSRomsHandler:
             assert "Super Mario 64 (J) (Rev A)" in filtered_dirs
             assert "Test Multi Rom [USA]" in filtered_dirs
 
-    def test_rom_fs_structure_consistency(self, handler: FSRomsHandler):
+    def test_rom_fs_structure_consistency(self, handler: FSRomsHandler, config):
         """Test that ROM filesystem structure is consistent across methods"""
         fs_slug = "gba"
 
         with pytest.MonkeyPatch.context() as m:
-            # Test with normal structure
-            m.setattr("os.path.exists", lambda x: False)
+            m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
 
+            # Test with Structure B
+            config.has_structure_path_b = True
             structure = handler.get_roms_fs_structure(fs_slug)
             assert structure == f"{fs_slug}/roms"
 
-            # Test with high priority structure
-            m.setattr("os.path.exists", lambda x: True)
-
+            # Test with Structure A
+            config.has_structure_path_b = False
             structure = handler.get_roms_fs_structure(fs_slug)
             assert structure == f"roms/{fs_slug}"
 
@@ -659,13 +748,11 @@ class TestFSRomsHandler:
     async def test_get_rom_files_with_chd_v5_uses_internal_hash(
         self, handler: FSRomsHandler, platform, tmp_path
     ):
-        """Test that a CHD v5 file uses its internal hash and skips other hashing.
+        """Test that a CHD v5 file stores the header SHA1 in chd_sha1_hash.
 
-        This integration test verifies the complete CHD v5 hashing logic:
-        1. For valid CHD v5 files, the embedded SHA1 hash from the file header is used
-        2. CRC32 and MD5 hashes are NOT calculated from file contents
-        3. The file is not double-processed by read_basic_file
-        4. This prevents regressions in the if/elif archive type chain
+        CHD files are hashed like any other file type (CRC32, MD5, SHA1 from
+        raw bytes). The embedded disc-data SHA1 from the CHD v5 header is
+        separately stored in chd_sha1_hash for metadata providers that need it.
         """
         # Create a mock CHD v5 file in a temporary directory
         chd_file = tmp_path / "test.chd"
@@ -698,22 +785,19 @@ class TestFSRomsHandler:
         # Run the hashing process
         parsed_rom_files = await test_handler.get_rom_files(rom)
 
-        # Assert that only SHA1 is populated, and it's from the header
+        # All three raw-file hashes should be populated
         assert len(parsed_rom_files.rom_files) == 1
+        assert parsed_rom_files.crc_hash != "", "CRC should be computed from raw bytes"
+        assert parsed_rom_files.md5_hash != "", "MD5 should be computed from raw bytes"
         assert (
-            parsed_rom_files.sha1_hash == internal_sha1
-        ), "SHA1 should be from CHD v5 header"
-        assert parsed_rom_files.rom_files[0].sha1_hash == internal_sha1
+            parsed_rom_files.sha1_hash != ""
+        ), "SHA1 should be computed from raw bytes"
 
-        # CRC32 and MD5 should be empty/zero (not calculated)
-        assert (
-            parsed_rom_files.crc_hash == ""
-        ), f"CRC hash should be empty, got: {parsed_rom_files.crc_hash}"
-        assert (
-            parsed_rom_files.md5_hash == ""
-        ), f"MD5 hash should be empty, got: {parsed_rom_files.md5_hash}"
-        assert parsed_rom_files.rom_files[0].crc_hash == ""
-        assert parsed_rom_files.rom_files[0].md5_hash == ""
+        # Raw file SHA1 is NOT the header SHA1
+        assert parsed_rom_files.sha1_hash != internal_sha1
+
+        # Header SHA1 stored separately in chd_sha1_hash
+        assert parsed_rom_files.rom_files[0].chd_sha1_hash == internal_sha1
 
     @pytest.mark.asyncio
     async def test_get_rom_files_with_non_v5_chd_fallback_to_std_hashing(
@@ -793,7 +877,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is not None
+        assert result
         assert isinstance(result, str)
         assert len(result) == 40  # SHA1 hex is 40 characters
         assert result == "0123456789abcdef0123456789abcdef01234567"
@@ -810,7 +894,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_v2_rejected(self, tmp_path):
         """Test that CHD v2 files are rejected"""
@@ -824,7 +908,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_v3_rejected(self, tmp_path):
         """Test that CHD v3 files are rejected"""
@@ -838,7 +922,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_v4_rejected(self, tmp_path):
         """Test that CHD v4 files are rejected"""
@@ -852,7 +936,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_invalid_magic(self, tmp_path):
         """Test that files without CHD magic signature are rejected"""
@@ -866,7 +950,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_truncated_header(self, tmp_path):
         """Test that CHD v5 file with truncated header is rejected"""
@@ -881,7 +965,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_nonexistent_file(self, tmp_path):
         """Test that non-existent files are handled gracefully"""
@@ -889,7 +973,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(nonexistent)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_empty_file(self, tmp_path):
         """Test that empty files are rejected"""
@@ -898,7 +982,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_sha1_format(self, tmp_path):
         """Test that SHA1 hash is correctly formatted as hex"""
@@ -922,28 +1006,6 @@ class TestExtractCHDHash:
         # Verify it's 40 characters (SHA1 is 20 bytes = 40 hex chars)
         assert len(result) == 40
 
-    def test_extract_chd_hash_with_wrapper(self, tmp_path):
-        """Test that extracted hash integrates properly with CHDHashWrapper"""
-        chd_file = tmp_path / "test_wrapper.chd"
-
-        header = bytearray(124)
-        header[0:8] = b"MComprHD"
-        header[12:16] = int(5).to_bytes(4, "big")
-        test_sha1 = bytes.fromhex("0123456789abcdef0123456789abcdef01234567")
-        header[84:104] = test_sha1
-
-        chd_file.write_bytes(header)
-
-        extracted_hash = extract_chd_hash(chd_file)
-        assert extracted_hash is not None
-
-        # Should be usable with CHDHashWrapper
-        wrapper = CHDHashWrapper(extracted_hash, "sha1")
-        assert wrapper.hexdigest() == extracted_hash
-        assert len(wrapper.digest()) == 20
-        # Verify digest bytes match the original
-        assert wrapper.digest() == test_sha1
-
     def test_extract_chd_hash_unknown_version(self, tmp_path):
         """Test that unknown CHD versions are rejected"""
         chd_file = tmp_path / "test_unknown.chd"
@@ -956,7 +1018,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_multiple_different_hashes(self, tmp_path):
         """Test that different SHA1 hashes are correctly extracted"""
@@ -984,11 +1046,11 @@ class TestExtractCHDHash:
     def test_extract_chd_hash_version_boundary_cases(self, tmp_path):
         """Test version checking at boundaries (0, 1, 4, 5, 6)"""
         test_versions = [
-            (0, None),  # Version 0 should return None
-            (1, None),  # Version 1 should return None
-            (4, None),  # Version 4 should return None
+            (0, ""),  # Version 0 should return ""
+            (1, ""),  # Version 1 should return ""
+            (4, ""),  # Version 4 should return ""
             (5, "0123456789abcdef0123456789abcdef01234567"),  # Version 5 should work
-            (6, None),  # Version 6 should return None
+            (6, ""),  # Version 6 should return ""
         ]
 
         for version, expected in test_versions:
@@ -1003,10 +1065,7 @@ class TestExtractCHDHash:
 
             result = extract_chd_hash(chd_file)
 
-            if expected is None:
-                assert result is None, f"Version {version} should return None"
-            else:
-                assert result == expected, f"Version {version} should return {expected}"
+            assert result == expected, f"Version {version} should return {expected!r}"
 
     def test_extract_chd_hash_file_too_short_for_magic(self, tmp_path):
         """Test file that's too short to even contain magic + version"""
@@ -1020,7 +1079,7 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is None
+        assert result == ""
 
     def test_extract_chd_hash_permission_error(self, tmp_path):
         """Test graceful handling of permission errors"""
@@ -1037,7 +1096,7 @@ class TestExtractCHDHash:
 
         try:
             result = extract_chd_hash(chd_file)
-            assert result is None
+            assert result == ""
         finally:
             # Restore permissions for cleanup
             chd_file.chmod(0o644)
@@ -1082,7 +1141,7 @@ class TestExtractCHDHash:
         # Expected SHA1 from the header at bytes 84-103 (20 bytes, as per chd.h)
         expected_sha1 = "0167fc76f9e4312e6ab48fe980d2ce5b23f775c2"
 
-        assert result is not None
+        assert result
         assert result == expected_sha1
         assert len(result) == 40
         # Verify it matches what's in the header
@@ -1109,14 +1168,14 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        assert result is not None
+        assert result
         assert result == "0167fc76f9e4312e6ab48fe980d2ce5b23f775c2"
         assert bytes.fromhex(result) == test_sha1
 
     def test_extract_chd_hash_off_by_one_header_sizes(self, tmp_path):
         """Test boundary conditions around minimum required header size (104 bytes)"""
         test_cases = [
-            (103, None),  # 103 bytes - not enough for SHA1 region
+            (103, ""),  # 103 bytes - not enough for SHA1 region
             (
                 104,
                 "0167fc76f9e4312e6ab48fe980d2ce5b23f775c2",
@@ -1158,8 +1217,8 @@ class TestExtractCHDHash:
 
         result = extract_chd_hash(chd_file)
 
-        # Should return None because version is not 5
-        assert result is None
+        # Should return empty string because version is not 5
+        assert result == ""
 
     def test_extract_chd_hash_zero_sha1(self, tmp_path):
         """Test handling of all-zero SHA1 hash (edge case but valid)"""

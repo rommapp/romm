@@ -301,6 +301,94 @@ class TestScreenScraperServiceUnit:
         assert result == {}
 
     @pytest.mark.asyncio
+    async def test_request_blacklisted_raises_403(self, service):
+        """Test that HTTP 426 (blacklisted version) raises HTTP 403."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=426
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        assert "blacklisted" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_request_daily_quota_exhausted_raises_429(self, service):
+        """Test that HTTP 430 (daily scrape quota) raises HTTP 429."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=430
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "daily scrape quota" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_request_unrecognized_rom_quota_exhausted_raises_429(self, service):
+        """Test that HTTP 431 (unrecognized ROM quota) raises HTTP 429."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=431
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert "unrecognized" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_request_api_offline_raises_503(self, service):
+        """Test that HTTP 423 (API offline) raises HTTP 503."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=423
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "offline" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_request_cpu_throttle_returns_empty_dict(self, service):
+        """Test that HTTP 401 (server CPU throttle) returns empty dict without retrying."""
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=http.HTTPStatus.UNAUTHORIZED,
+        )
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            result = await service._request(
+                "https://api.screenscraper.fr/api2/jeuInfos.php"
+            )
+
+        assert result == {}
+        assert mock_session.get.call_count == 1
+
+    @pytest.mark.asyncio
     async def test_get_game_info_with_crc(self, service):
         """Test get_game_info with CRC parameter."""
         mock_response = {

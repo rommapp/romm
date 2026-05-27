@@ -14,8 +14,10 @@ from adapters.services.igdb_types import (
 )
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
 from config.config_manager import config_manager as cm
+from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from handler.redis_handler import async_cache
 from logger.logger import log
+from models.rom import Rom
 from utils.context import ctx_httpx_client
 
 from .base_handler import (
@@ -325,18 +327,22 @@ REGION_TO_IGDB_LOCALE: dict[str, str | None] = {
 }
 
 
-def get_igdb_preferred_locale() -> str | None:
-    """Get IGDB locale from scan.priority.region configuration.
+def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
+    """Get IGDB locale, preferring the rom's own region tag when available.
 
     Maps region priority codes to IGDB's game_localizations region identifiers.
-    Returns the first matching region from the priority list, or None for default.
+    Checks the rom's tagged regions first, then falls back to scan.priority.region.
 
     Returns:
         IGDB region identifier (e.g., "ja-JP", "EU") or None for default
     """
-    config = cm.get_config()
+    if rom is not None and isinstance(rom.regions, list):
+        for region_name in rom.regions:
+            code = region_name_to_provider_shortcode(region_name)
+            if code and code in REGION_TO_IGDB_LOCALE:
+                return REGION_TO_IGDB_LOCALE[code]
 
-    # Check each region in priority order and return first match
+    config = cm.get_config()
     for region in config.SCAN_REGION_PRIORITY:
         if region.lower() in REGION_TO_IGDB_LOCALE:
             return REGION_TO_IGDB_LOCALE[region.lower()]
@@ -456,6 +462,7 @@ class IGDBHandler(MetadataHandler):
                 GameType.PORT,
                 GameType.REMAKE,
                 GameType.REMASTER,
+                GameType.STANDALONE_EXPANSION,
             )
             game_type_filter = f"& game_type=({','.join(map(str, categories))})"
         else:
@@ -503,14 +510,26 @@ class IGDBHandler(MetadataHandler):
             limit=self.pagination_limit,
         )
 
-        if roms_expanded:
-            log.debug(
-                "Searching expanded in games endpoint for expanded game %s",
-                roms_expanded[0]["game"],
+        # Collect all unique game IDs from the expanded search results,
+        # skipping entries without a valid game id.
+        unique_game_ids = list(
+            dict.fromkeys(
+                game_id
+                for r in roms_expanded
+                if (g := r.get("game")) and (game_id := g.get("id")) is not None
             )
+        )
+
+        if unique_game_ids:
+            log.debug(
+                "Searching expanded in games endpoint for %d candidate game(s): %s",
+                len(unique_game_ids),
+                unique_game_ids,
+            )
+            id_filter = " | ".join(f"id={gid}" for gid in unique_game_ids)
             extra_roms = await self.igdb_service.list_games(
                 fields=GAMES_FIELDS,
-                where=f"id={roms_expanded[0]['game']['id']}",
+                where=f"({id_filter})",
                 limit=self.pagination_limit,
             )
 
@@ -587,7 +606,7 @@ class IGDBHandler(MetadataHandler):
 
         return IGDBPlatform(igdb_id=None, slug=slug)
 
-    async def get_rom(self, fs_name: str, platform_igdb_id: int) -> IGDBRom:
+    async def get_rom(self, rom: Rom, fs_name: str, platform_igdb_id: int) -> IGDBRom:
         from handler.filesystem import fs_rom_handler
 
         if not self.is_enabled():
@@ -600,7 +619,7 @@ class IGDBHandler(MetadataHandler):
         igdb_id_from_tag = self.extract_igdb_id_from_filename(fs_name)
         if igdb_id_from_tag:
             log.debug(f"Found IGDB ID tag in filename: {igdb_id_from_tag}")
-            rom_by_id = await self.get_rom_by_id(igdb_id_from_tag)
+            rom_by_id = await self.get_rom_by_id(rom, igdb_id_from_tag)
             if rom_by_id["igdb_id"]:
                 log.debug(
                     f"Successfully matched ROM by IGDB ID tag: {fs_name} -> {igdb_id_from_tag}"
@@ -678,18 +697,20 @@ class IGDBHandler(MetadataHandler):
         search_term = self.normalize_search_term(search_term)
 
         log.debug("Searching for %s on IGDB with game_type", search_term)
-        rom = await self._search_rom(search_term, platform_igdb_id, with_game_type=True)
-        if not rom:
+        res = await self._search_rom(search_term, platform_igdb_id, with_game_type=True)
+        if not res:
             log.debug("Searching for %s on IGDB without game_type", search_term)
-            rom = await self._search_rom(search_term, platform_igdb_id)
+            res = await self._search_rom(search_term, platform_igdb_id)
 
         # IGDB search is fuzzy so no need to split the search term by special characters
-        if not rom:
+        if not res:
             return fallback_rom
 
-        return build_igdb_rom(self, rom, get_igdb_preferred_locale(), platform_igdb_id)
+        return build_igdb_rom(
+            self, res, get_igdb_preferred_locale(rom=rom), platform_igdb_id
+        )
 
-    async def get_rom_by_id(self, igdb_id: int) -> IGDBRom:
+    async def get_rom_by_id(self, rom: Rom, igdb_id: int) -> IGDBRom:
         if not self.is_enabled():
             return IGDBRom(igdb_id=None)
 
@@ -701,17 +722,17 @@ class IGDBHandler(MetadataHandler):
         if not roms:
             return IGDBRom(igdb_id=None)
 
-        return build_igdb_rom(self, roms[0], get_igdb_preferred_locale(), None)
+        return build_igdb_rom(self, roms[0], get_igdb_preferred_locale(rom=rom), None)
 
-    async def get_matched_rom_by_id(self, igdb_id: int) -> IGDBRom | None:
+    async def get_matched_rom_by_id(self, rom: Rom, igdb_id: int) -> IGDBRom | None:
         if not self.is_enabled():
             return None
 
-        rom = await self.get_rom_by_id(igdb_id)
-        return rom if rom["igdb_id"] else None
+        result = await self.get_rom_by_id(rom, igdb_id)
+        return result if result["igdb_id"] else None
 
     async def get_matched_roms_by_name(
-        self, search_term: str, platform_igdb_id: int | None
+        self, rom: Rom, search_term: str, platform_igdb_id: int | None
     ) -> list[IGDBRom]:
         if not self.is_enabled():
             return []
@@ -762,7 +783,7 @@ class IGDBHandler(MetadataHandler):
             if rom["id"] not in unique_ids
         ]
 
-        preferred_locale = get_igdb_preferred_locale()
+        preferred_locale = get_igdb_preferred_locale(rom=rom)
         return [
             build_igdb_rom(self, rom, preferred_locale, platform_igdb_id)
             for rom in matched_roms

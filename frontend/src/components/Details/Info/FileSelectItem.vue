@@ -21,6 +21,14 @@ const fileInfo = ref([
       : null,
   },
   {
+    label: "CHD SHA-1",
+    value: props.item.chd_sha1_hash
+      ? props.item.chd_sha1_hash.substring(0, 6) +
+        "..." +
+        props.item.chd_sha1_hash.substring(props.item.chd_sha1_hash.length - 6)
+      : null,
+  },
+  {
     label: "MD5",
     value: props.item.md5_hash
       ? props.item.md5_hash.substring(0, 6) +
