@@ -72,6 +72,11 @@ function showAbout() {
   emitter?.emit("showAboutDialog", null);
 }
 
+function showChangelog() {
+  open.value = false;
+  emitter?.emit("showChangelogDialog", null);
+}
+
 async function onLogout() {
   open.value = false;
   try {
@@ -236,13 +241,10 @@ async function onLogout() {
       :label="t('common.about')"
       @click="showAbout"
     />
-    <!-- FIXME: no Changelog dialog/view exists yet — the item is kept
-           visible because it was part of the menu design; wire it the
-           moment the dialog ships. -->
     <RMenuItem
       icon="mdi-clock-outline"
       :label="t('common.changelog')"
-      @click="open = false"
+      @click="showChangelog"
     />
 
     <RDivider />

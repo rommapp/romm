@@ -100,6 +100,7 @@ export type Events = {
   showRegenerateClientTokenDialog: ClientTokenSchema;
   showDeleteClientTokenDialog: ClientTokenSchema;
   showAboutDialog: null;
+  showChangelogDialog: null;
   showNoteDialog: SimpleRom;
   showDeleteManualDialog: {
     rom: DetailedRom;

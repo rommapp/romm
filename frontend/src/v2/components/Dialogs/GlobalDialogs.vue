@@ -3,6 +3,7 @@
 // mount-points that need to live at the layout level so they overlay
 // every route. All surfaces here are v2-native.
 import AboutDialog from "@/v2/components/Dialogs/AboutDialog.vue";
+import ChangelogDialog from "@/v2/components/Dialogs/ChangelogDialog.vue";
 import CopyDownloadLinkDialog from "@/v2/components/Dialogs/CopyDownloadLinkDialog.vue";
 import CreateSmartCollectionDialog from "@/v2/components/Dialogs/CreateSmartCollectionDialog.vue";
 import DeleteManualDialog from "@/v2/components/Dialogs/DeleteManualDialog.vue";
@@ -42,6 +43,7 @@ defineOptions({ inheritAttrs: false });
   <ManageCollectionsDialog />
   <CreateSmartCollectionDialog />
   <AboutDialog />
+  <ChangelogDialog />
   <SelectSaveDialog />
   <SelectStateDialog />
   <EmulatorJSCacheDialog />

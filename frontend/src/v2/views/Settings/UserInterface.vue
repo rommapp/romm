@@ -39,9 +39,6 @@ const {
   showRegions,
   showLanguages,
   showStatus,
-  showActionBar,
-  showGameTitle,
-  enable3DEffect,
   disableAnimations,
   enableExperimentalCache,
   boxartStyle,
@@ -176,7 +173,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
       </div>
     </SettingsSection>
 
-    <!-- Gallery: 10 toggles + boxart-style select -->
+    <!-- Gallery: 7 toggles + boxart-style select -->
     <SettingsSection :title="t('settings.gallery')" icon="mdi-view-grid">
       <div class="r-v2-ui__toggle-grid">
         <SettingsToggleRow
@@ -189,16 +186,6 @@ function onVirtualCollectionTypeChange(value: unknown) {
              chip appears; when it doesn't, every version shows
              separately so the chip would be noise. The shared
              `useUISettings` key stays for v1 only; remove when v1 dies. -->
-        <SettingsToggleRow
-          v-model="showGameTitle"
-          :title="t('settings.show-game-titles')"
-          :description="t('settings.show-game-titles-desc')"
-        />
-        <SettingsToggleRow
-          v-model="showActionBar"
-          :title="t('settings.show-actionbar')"
-          :description="t('settings.show-actionbar-desc')"
-        />
         <SettingsToggleRow
           v-model="showStatus"
           :title="t('settings.show-status')"
@@ -213,11 +200,6 @@ function onVirtualCollectionTypeChange(value: unknown) {
           v-model="showLanguages"
           :title="t('settings.show-languages')"
           :description="t('settings.show-languages-desc')"
-        />
-        <SettingsToggleRow
-          v-model="enable3DEffect"
-          :title="t('settings.enable-3d-effect')"
-          :description="t('settings.enable-3d-effect-desc')"
         />
         <SettingsToggleRow
           v-model="disableAnimations"
