@@ -1,11 +1,11 @@
 <script setup lang="ts">
 // RandomPickWidget — picks a random ROM from the library and surfaces
-// it on the Home dashboard. Body: cover + name + "Open" CTA. Reroll
-// button in the card's top-right action slot reshuffles without
-// navigating. Two API calls per pick: one to learn the library total,
-// one to fetch the selected offset; same approach the v1 RandomBtn
-// uses. The pick is intentionally not cached so each mount re-shuffles.
-import { RIcon, RImg } from "@v2/lib";
+// it on the Home dashboard. Body: cover + name + an "Open" / reroll
+// button pair. Reroll reshuffles in place without navigating. Two API
+// calls per pick: one to learn the library total, one to fetch the
+// selected offset; same approach the v1 RandomBtn uses. The pick is
+// intentionally not cached so each mount re-shuffles.
+import { RBtn, RImg } from "@v2/lib";
 import { onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -81,23 +81,24 @@ onMounted(reroll);
              scattering the reroll up in the card's top-right action
              slot. -->
         <div class="r-v2-widget-pick__actions">
-          <button
-            type="button"
-            class="r-v2-widget-pick__open"
+          <RBtn
+            variant="outlined"
+            surface
+            size="x-small"
+            prepend-icon="mdi-open-in-new"
             @click="openPick"
           >
-            <RIcon icon="mdi-open-in-new" size="12" />
-            <span>{{ t("home.widget-random-pick-open") }}</span>
-          </button>
-          <button
-            type="button"
-            class="r-v2-widget-pick__reroll"
-            :title="t('home.widget-random-pick-reroll')"
+            {{ t("home.widget-random-pick-open") }}
+          </RBtn>
+          <RBtn
+            variant="outlined"
+            surface
+            size="x-small"
+            icon="mdi-dice-multiple-outline"
+            :tooltip="t('home.widget-random-pick-reroll')"
             :aria-label="t('home.widget-random-pick-reroll')"
             @click="reroll"
-          >
-            <RIcon icon="mdi-dice-multiple-outline" size="14" />
-          </button>
+          />
         </div>
       </div>
     </div>
@@ -146,42 +147,6 @@ onMounted(reroll);
   align-items: center;
   gap: 6px;
   margin-top: auto;
-}
-
-.r-v2-widget-pick__open,
-.r-v2-widget-pick__reroll {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border-strong);
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--r-color-fg);
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-widget-pick__open:hover,
-.r-v2-widget-pick__reroll:hover {
-  background: var(--r-color-surface-hover);
-}
-
-.r-v2-widget-pick__open {
-  gap: 5px;
-  padding: 4px 10px;
-  font-size: 11.5px;
-  font-weight: var(--r-font-weight-semibold);
-}
-
-.r-v2-widget-pick__reroll {
-  width: 26px;
-  height: 26px;
-  color: var(--r-color-fg-secondary);
-}
-.r-v2-widget-pick__reroll:hover {
-  color: var(--r-color-fg);
 }
 
 .r-v2-widget-pick__empty {
