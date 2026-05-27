@@ -3,11 +3,14 @@
 // main + extras, completionist, all styles). Each column: uppercase label,
 // big value, optional "N players" subcount.
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RomHLTBMetadata } from "@/__generated__";
 
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ metadata: RomHLTBMetadata | null | undefined }>();
+
+const { t } = useI18n();
 
 type Entry = { label: string; value: string; count: number | null };
 
@@ -33,10 +36,10 @@ const entries = computed<Entry[]>(() => {
   if (!m) return [];
   const out: Entry[] = [];
   const candidates: [string, number | undefined, number | undefined][] = [
-    ["Main Story", m.main_story, m.main_story_count],
-    ["Main + Extras", m.main_plus_extra, m.main_plus_extra_count],
-    ["Completionist", m.completionist, m.completionist_count],
-    ["All Styles", m.all_styles, m.all_styles_count],
+    [t("rom.main-story"), m.main_story, m.main_story_count],
+    [t("rom.main-plus-extra"), m.main_plus_extra, m.main_plus_extra_count],
+    [t("rom.completionist"), m.completionist, m.completionist_count],
+    [t("rom.all-styles"), m.all_styles, m.all_styles_count],
   ];
   for (const [label, value, count] of candidates) {
     const v = formatHours(value);
@@ -56,7 +59,7 @@ const entries = computed<Entry[]>(() => {
         {{ e.value }}
       </div>
       <div v-if="e.count" class="r-v2-det-hltb__sub">
-        {{ e.count.toLocaleString() }} players
+        {{ t("rom.players-n", { n: e.count.toLocaleString() }) }}
       </div>
     </div>
   </div>

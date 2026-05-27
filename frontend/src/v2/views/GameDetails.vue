@@ -34,7 +34,7 @@ const romsStore = storeRoms();
 const authStore = storeAuth();
 const { currentRom } = storeToRefs(romsStore);
 const { toWebp } = useWebpSupport();
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 const setBgArt = useBackgroundArt();
 
@@ -153,10 +153,10 @@ const lastPlayed = computed(() => {
 // would be a lie. "Franchises" mirrors the singular→plural consistency
 // of the surrounding rows.
 const overviewSections = computed<InfoGridSection[]>(() => [
-  { label: "Genres", items: genres.value },
-  { label: "Companies", items: companies.value },
-  { label: "Franchises", items: franchises.value },
-  { label: "Collections", items: collections.value },
+  { label: t("rom.genres"), items: genres.value },
+  { label: t("rom.companies"), items: companies.value },
+  { label: t("rom.franchises"), items: franchises.value },
+  { label: t("rom.collections"), items: collections.value },
 ]);
 
 const playerCount = computed<string | null>(() => {
@@ -210,21 +210,21 @@ const saveDataCount = computed(() => savesCount.value + statesCount.value);
 const filesCount = computed(() => currentRom.value?.files?.length ?? 0);
 
 const tabs = computed<RTabNavItem[]>(() => [
-  { id: "overview", label: "Overview" },
-  { id: "files", label: "Files", badge: filesCount.value },
-  { id: "media", label: "Media" },
-  { id: "notes", label: "Notes" },
+  { id: "overview", label: t("rom.tab-overview") },
+  { id: "files", label: t("rom.tab-files"), badge: filesCount.value },
+  { id: "media", label: t("rom.media") },
+  { id: "notes", label: t("rom.tab-notes") },
   {
     id: "achievements",
-    label: "Achievements",
+    label: t("rom.tab-achievements"),
     badge: `${achievementsEarned.value}/${achievementsTotal.value}`,
   },
   {
     id: "save-data",
-    label: "Save data",
+    label: t("rom.save-data"),
     badge: saveDataCount.value,
   },
-  { id: "metadata", label: "Metadata" },
+  { id: "metadata", label: t("rom.metadata") },
 ]);
 </script>
 
@@ -280,7 +280,7 @@ const tabs = computed<RTabNavItem[]>(() => [
   </section>
 
   <section v-else class="r-v2-det__empty">
-    <p>Loading ROM…</p>
+    <p>{{ t("rom.loading-rom") }}</p>
   </section>
 </template>
 

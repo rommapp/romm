@@ -172,7 +172,7 @@ const selectedPlatformsLabel = computed(() =>
 
 async function cleanupAll() {
   const platformLabel = selectedPlatformsLabel.value
-    ? ` for ${selectedPlatformsLabel.value}`
+    ? ` ${t("common.for")} ${selectedPlatformsLabel.value}`
     : "";
   const ok = await confirm({
     title: t("common.confirm-deletion"),
@@ -286,7 +286,7 @@ onBeforeUnmount(() => {
               icon="mdi-dots-vertical"
               rounded="circle"
               :loading="cleaningUp"
-              aria-label="Missing games actions"
+              :aria-label="t('settings.missing-games-actions')"
             />
           </template>
           <RMenuItem

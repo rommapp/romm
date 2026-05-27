@@ -7,10 +7,13 @@
 import { RBtn, RIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 const uploadStore = storeUpload();
 const { files } = storeToRefs(uploadStore);
@@ -43,7 +46,7 @@ function clearFinished() {
       v-if="files.length > 0"
       class="r-v2-upload"
       role="region"
-      aria-label="Upload progress"
+      :aria-label="t('common.upload-progress')"
     >
       <header class="r-v2-upload__head">
         <div class="r-v2-upload__summary">
@@ -58,18 +61,31 @@ function clearFinished() {
             size="16"
           />
           <span v-if="activeCount > 0">
-            Uploading {{ activeCount }} file{{ activeCount === 1 ? "" : "s" }}
+            {{
+              t("common.uploading-files-n", activeCount, {
+                named: { n: activeCount },
+              })
+            }}
           </span>
           <span v-else-if="failedCount > 0">
-            {{ finishedCount }} done · {{ failedCount }} failed
+            {{
+              t("common.upload-stats", {
+                done: finishedCount,
+                failed: failedCount,
+              })
+            }}
           </span>
-          <span v-else> {{ finishedCount }} uploaded </span>
+          <span v-else>
+            {{ t("common.uploaded-n", { n: finishedCount }) }}
+          </span>
         </div>
         <button
           type="button"
           class="r-v2-upload__toggle"
           :aria-label="
-            collapsed ? 'Expand upload panel' : 'Collapse upload panel'
+            collapsed
+              ? t('common.upload-expand-panel')
+              : t('common.upload-collapse-panel')
           "
           :aria-expanded="!collapsed"
           @click="collapsed = !collapsed"
@@ -146,7 +162,7 @@ function clearFinished() {
           color="primary"
           @click="clearFinished"
         >
-          Clear finished
+          {{ t("common.clear-finished") }}
         </RBtn>
       </footer>
     </div>

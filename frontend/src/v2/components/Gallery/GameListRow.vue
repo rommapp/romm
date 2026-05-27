@@ -78,7 +78,7 @@ const selection = storeGallerySelection();
 const selectionInput = useGallerySelectionInput();
 const platformsStore = storePlatforms();
 const { morphTransition } = useViewTransition();
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const listSkeletonColumns = columns;
@@ -335,7 +335,7 @@ onBeforeUnmount(() => {
               v-bind="activatorProps"
               type="button"
               class="game-list-row__more"
-              aria-label="More actions"
+              :aria-label="t('rom.more-actions')"
               @click.stop
             >
               <RIcon icon="mdi-dots-vertical" size="18" />

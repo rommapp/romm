@@ -1,4 +1,15 @@
 {
   "continue-playing": "Játék folytatása",
-  "recently-added": "Nemrég hozzáadott"
+  "recently-added": "Nemrég hozzáadott",
+  "empty-headline": "A könyvtárad üres",
+  "empty-hint": "Válaszd ki, hogyan szeretnéd hozzáadni az első játékaidat. A másikat később is használhatod.",
+  "empty-upload-title": "Kézi feltöltés",
+  "empty-upload-desc": "Húzd ide a ROM fájlokat, vagy válaszd ki őket a számítógépedről. Akkor hasznos, ha néhány játékot magad szeretnél hozzáadni.",
+  "empty-scan-title": "Könyvtár szkennelése",
+  "empty-scan-desc": "Már elhelyezted a játékaidat a könyvtár mappájában? Indíts szkennelést a felismerésükhöz és a metaadatok letöltéséhez.",
+  "empty-upload-cta": "Játékok feltöltése",
+  "empty-scan-cta": "Szkennelés indítása",
+  "empty-detected-platforms": "{count} platform észlelve | {count} platform észlelve",
+  "empty-detected-games": "{count} játék észlelve | {count} játék észlelve",
+  "no-games-yet": "Még nincsenek hozzáadott játékok."
 }

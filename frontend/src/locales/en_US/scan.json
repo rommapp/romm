@@ -50,5 +50,18 @@
   "section-providers-general": "General",
   "section-providers-specific": "Specific",
   "section-proxies": "Proxies",
-  "section-scan-type": "Scan type"
+  "section-scan-type": "Scan type",
+  "scanning": "Scanning",
+  "scanning-library": "Scanning library. Click to view",
+  "title": "Library scan",
+  "info-dialog-title": "Scan reference",
+  "scan-complete": "Scan complete",
+  "live-progress": "Live progress",
+  "empty-hint": "Pick a scan configuration on the left and hit Scan to see live progress here.",
+  "empty-hint-scanning": "Platforms will appear here as the scanner discovers them.",
+  "hash-matchers": "Hash matchers",
+  "abort-scan": "Abort scan",
+  "identifying": "Identifying",
+  "info-full-docs": "Full documentation",
+  "scan-types": "Scan types"
 }

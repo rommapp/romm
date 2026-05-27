@@ -12,5 +12,14 @@
   "reset-sent": "Linkul de resetare a fost trimis. Contactează administratorul.",
   "send-reset-link": "Trimite link de resetare",
   "setup-wizard": "Asistent de configurare",
-  "username": "Nume utilizator"
+  "username": "Nume utilizator",
+  "passwords-do-not-match": "Parolele nu coincid",
+  "login-failed": "Autentificare eșuată",
+  "unable-to-login": "Nu s-a putut realiza autentificarea: {error}",
+  "reset-failed": "Resetare eșuată",
+  "unable-to-reset-password": "Nu s-a putut reseta parola: {error}",
+  "reset-link-failed": "Nu s-a putut trimite linkul de resetare",
+  "register-success": "Utilizator înregistrat cu succes",
+  "register-failed": "Nu s-a putut înregistra utilizatorul: {error}",
+  "avatar-save-warning": "Contul a fost creat, dar avatarul nu a putut fi salvat: {error}. Îl poți seta mai târziu din setările profilului."
 }

@@ -379,7 +379,7 @@ function onScan() {
                         'r-v2-scan-plat__lb-inactive': launchboxRemoteEnabled,
                       }"
                     >
-                      Local
+                      {{ t("platform.local-source") }}
                     </span>
                     <RSwitch
                       v-model="launchboxRemoteEnabled"
@@ -391,7 +391,7 @@ function onScan() {
                         'r-v2-scan-plat__lb-inactive': !launchboxRemoteEnabled,
                       }"
                     >
-                      Cloud
+                      {{ t("platform.cloud-source") }}
                     </span>
                   </div>
                 </li>
@@ -468,7 +468,7 @@ function onScan() {
           <div
             class="r-v2-scan-plat__matchers"
             role="group"
-            aria-label="Hash matchers"
+            :aria-label="t('rom.hash-matchers')"
           >
             <RTooltip
               v-for="matcher in hashMatchers"

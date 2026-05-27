@@ -9,6 +9,7 @@
 // Metadata-provider links live in the Metadata tab, not the header.
 // Genre/franchise belong in the Overview tab info grid.
 import { RIcon, RPlatformIcon, RTag, RTooltip } from "@v2/lib";
+import { useI18n } from "vue-i18n";
 import type { DetailedRom } from "@/stores/roms";
 import GameActions from "@/v2/components/GameActions/GameActions.vue";
 import MainSiblingToggle from "@/v2/components/GameDetails/MainSiblingToggle.vue";
@@ -16,6 +17,8 @@ import VersionSwitcher from "@/v2/components/GameDetails/VersionSwitcher.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -46,7 +49,7 @@ const actions = useGameActions(() => props.rom);
         v-if="actions.platformPath.value"
         :to="actions.platformPath.value"
         class="r-v2-det-header__platform"
-        :aria-label="`Browse ${platformLabel}`"
+        :aria-label="t('platform.browse-platform', { platform: platformLabel })"
       >
         <RPlatformIcon
           :slug="rom.platform_slug"
@@ -68,7 +71,11 @@ const actions = useGameActions(() => props.rom);
            label for keyboard / hover discovery. -->
       <span v-if="verified" class="r-v2-det-header__verified">
         <RIcon icon="mdi-check-decagram" :size="18" color="success" />
-        <RTooltip text="Verified ROM" location="top" activator="parent" />
+        <RTooltip
+          :text="t('rom.verified-rom')"
+          location="top"
+          activator="parent"
+        />
       </span>
     </div>
 

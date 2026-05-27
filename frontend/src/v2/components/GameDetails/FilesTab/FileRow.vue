@@ -14,11 +14,14 @@
 // category, so we toggle them off there.
 import { RBtn, RCheckbox, RChip, RIcon } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RomFileCategory, RomFileSchema } from "@/__generated__";
 import { formatBytes } from "@/utils";
 import HashChip from "@/v2/components/shared/HashChip.vue";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 const props = defineProps<{
   file: RomFileSchema;
@@ -44,25 +47,35 @@ const emit = defineEmits<{
 // Shared category metadata — kept inline (instead of importing from
 // FilesTab) so this row is self-contained. The chip / icon are only
 // rendered when the parent says so, so the lookup stays cheap.
-const CATEGORY_META: Record<RomFileCategory, { label: string; icon: string }> =
-  {
-    game: { label: "Game", icon: "mdi-gamepad-variant-outline" },
-    dlc: { label: "DLC", icon: "mdi-puzzle-outline" },
-    update: { label: "Update", icon: "mdi-update" },
-    patch: { label: "Patch", icon: "mdi-bandage" },
-    mod: { label: "Mod", icon: "mdi-tools" },
-    hack: { label: "Hack", icon: "mdi-pencil-ruler" },
-    translation: { label: "Translation", icon: "mdi-translate" },
-    demo: { label: "Demo", icon: "mdi-flask-outline" },
-    prototype: { label: "Prototype", icon: "mdi-test-tube" },
-    cheat: { label: "Cheat", icon: "mdi-incognito" },
-    manual: { label: "Manual", icon: "mdi-book-open-page-variant-outline" },
-    soundtrack: { label: "Soundtrack", icon: "mdi-music-note-outline" },
-  };
+const CATEGORY_META = computed<
+  Record<RomFileCategory, { label: string; icon: string }>
+>(() => ({
+  game: { label: t("rom.category-game"), icon: "mdi-gamepad-variant-outline" },
+  dlc: { label: t("rom.category-dlc"), icon: "mdi-puzzle-outline" },
+  update: { label: t("rom.category-update"), icon: "mdi-update" },
+  patch: { label: t("rom.category-patch"), icon: "mdi-bandage" },
+  mod: { label: t("rom.category-mod"), icon: "mdi-tools" },
+  hack: { label: t("rom.category-hack"), icon: "mdi-pencil-ruler" },
+  translation: {
+    label: t("rom.category-translation"),
+    icon: "mdi-translate",
+  },
+  demo: { label: t("rom.category-demo"), icon: "mdi-flask-outline" },
+  prototype: { label: t("rom.category-prototype"), icon: "mdi-test-tube" },
+  cheat: { label: t("rom.category-cheat"), icon: "mdi-incognito" },
+  manual: {
+    label: t("rom.manual"),
+    icon: "mdi-book-open-page-variant-outline",
+  },
+  soundtrack: {
+    label: t("rom.soundtrack"),
+    icon: "mdi-music-note-outline",
+  },
+}));
 
 const categoryMeta = computed(() => {
   if (!props.file.category) return null;
-  return CATEGORY_META[props.file.category as RomFileCategory] ?? null;
+  return CATEGORY_META.value[props.file.category as RomFileCategory] ?? null;
 });
 
 function formatDuration(seconds: number | null | undefined): string | null {
@@ -98,7 +111,7 @@ const hasAnyHash = computed(
         size="sm"
         hide-details
         bare
-        :aria-label="`Select ${relativePath}`"
+        :aria-label="t('rom.select-file', { path: relativePath })"
         @update:model-value="emit('toggle')"
       />
     </span>
@@ -183,16 +196,16 @@ const hasAnyHash = computed(
         icon="mdi-download-outline"
         variant="text"
         size="small"
-        tooltip="Download file"
-        :aria-label="`Download ${relativePath}`"
+        :tooltip="t('rom.download-file')"
+        :aria-label="t('rom.download-named', { name: relativePath })"
         @click="emit('download')"
       />
       <RBtn
         icon="mdi-link-variant"
         variant="text"
         size="small"
-        tooltip="Copy download link"
-        :aria-label="`Copy download link for ${relativePath}`"
+        :tooltip="t('rom.copy-download-link-title')"
+        :aria-label="t('rom.copy-link-for', { path: relativePath })"
         @click="emit('copyLink')"
       />
     </div>

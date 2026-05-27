@@ -6,12 +6,14 @@
 import { RTag } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import GalleryShell from "@/v2/components/Gallery/GalleryShell.vue";
 import EmptyState from "@/v2/components/shared/EmptyState.vue";
 import PageHeader from "@/v2/components/shared/PageHeader.vue";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 
+const { t } = useI18n();
 const galleryRoms = storeGalleryRoms();
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
@@ -26,8 +28,8 @@ const showStandaloneEmpty = computed(
 
 const emptyMessage = computed(() =>
   searchTerm.value
-    ? `No games match "${searchTerm.value}".`
-    : "No games match your search.",
+    ? t("rom.no-games-match-query", { query: searchTerm.value })
+    : t("rom.no-games-match"),
 );
 
 onMounted(async () => {
@@ -53,14 +55,14 @@ onMounted(async () => {
   <GalleryShell
     ref="shellRef"
     :has-header="true"
-    search-placeholder="Search by name, filename, hash…"
+    :search-placeholder="t('rom.search-placeholder')"
     :empty-message="emptyMessage"
     :skeleton-row-count="4"
   >
     <!-- HEADER (Section 1) — title + result-count chip. The shell
          auto-measures this slot; no need to declare a height. -->
     <template #header>
-      <PageHeader title="Search">
+      <PageHeader :title="t('common.search')">
         <template #count>
           <RTag v-if="initialSearch && !initialFetching" :text="total" />
         </template>

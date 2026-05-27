@@ -76,7 +76,7 @@ const isPublic = ref(false);
 // CTA is what gets saved.
 const snapshot = ref<SmartFilterCriteria>({});
 
-const nameRules = [required(t("common.required", "Required"))];
+const nameRules = [required(t("common.required"))];
 
 const openHandler = () => {
   // v1 guarded with a snackbar warning here — keep that behaviour so
@@ -121,13 +121,9 @@ const openHandler = () => {
   );
 
   if (!hasAnySmartFilterCriteria(next)) {
-    snackbar.warning(
-      t(
-        "collection.smart-no-filters",
-        "Apply some filters before creating a smart collection.",
-      ),
-      { icon: "mdi-information" },
-    );
+    snackbar.warning(t("collection.smart-no-filters"), {
+      icon: "mdi-information",
+    });
     return;
   }
 
@@ -176,13 +172,7 @@ async function submit() {
   if (!name.value.trim()) return;
   const trimmed = name.value.trim();
   if (collectionsStore.smartCollections.some((c) => c.name === trimmed)) {
-    snackbar.error(
-      t(
-        "collection.name-exists",
-        `A collection called "${trimmed}" already exists.`,
-      ),
-      { icon: "mdi-close-circle" },
-    );
+    snackbar.error(t("collection.name-exists"), { icon: "mdi-close-circle" });
     return;
   }
 
@@ -197,10 +187,7 @@ async function submit() {
       },
     });
     collectionsStore.addSmartCollection(data);
-    snackbar.success(
-      t("collection.smart-created", `Smart collection "${data.name}" created.`),
-      { icon: "mdi-check-bold" },
-    );
+    snackbar.success(t("collection.smart-created"), { icon: "mdi-check-bold" });
     show.value = false;
     router.push({
       name: ROUTES.SMART_COLLECTION,
@@ -212,11 +199,11 @@ async function submit() {
       message?: string;
     };
     snackbar.error(
-      `${t("collection.smart-create-failed", "Failed to create smart collection")}: ${
+      `${t("collection.smart-create-failed")}: ${
         e?.response?.data?.msg ||
         e?.response?.data?.detail ||
         e?.message ||
-        "unknown error"
+        t("common.unknown-error")
       }`,
       { icon: "mdi-close-circle" },
     );
@@ -234,9 +221,7 @@ async function submit() {
     @close="close"
   >
     <template #header>
-      <span>{{
-        t("collection.create-smart-collection", "Create smart collection")
-      }}</span>
+      <span>{{ t("collection.create-smart-collection") }}</span>
     </template>
 
     <template #content>
@@ -246,36 +231,34 @@ async function submit() {
           <div class="r-v2-csc__fields">
             <RTextField
               v-model="name"
-              :placeholder="t('collection.name', 'Name')"
+              :placeholder="t('collection.name')"
               prefix-label="stacked"
               :rules="nameRules"
               required
               autofocus
             >
               <template #prefix-label>
-                {{ t("collection.name", "Name") }}
+                {{ t("collection.name") }}
               </template>
             </RTextField>
 
             <RTextField
               v-model="description"
-              :placeholder="t('collection.description', 'Description')"
+              :placeholder="t('collection.description')"
               prefix-label="stacked"
               multiline
               :rows="3"
               hide-details
             >
               <template #prefix-label>
-                {{ t("collection.description", "Description") }}
+                {{ t("collection.description") }}
               </template>
             </RTextField>
 
             <RSwitch
               v-model="isPublic"
               :label="
-                isPublic
-                  ? t('collection.public', 'Public')
-                  : t('collection.private', 'Private')
+                isPublic ? t('collection.public') : t('collection.private')
               "
             />
           </div>
@@ -284,9 +267,7 @@ async function submit() {
           <aside class="r-v2-csc__preview">
             <header class="r-v2-csc__preview-head">
               <RIcon icon="mdi-filter-variant" size="14" />
-              <span>{{
-                t("collection.current-filters", "Current filters")
-              }}</span>
+              <span>{{ t("collection.current-filters") }}</span>
             </header>
             <ul class="r-v2-csc__preview-list">
               <li
@@ -325,7 +306,7 @@ async function submit() {
 
     <template #footer>
       <RBtn variant="text" :disabled="submitting" @click="close">
-        {{ t("common.cancel", "Cancel") }}
+        {{ t("common.cancel") }}
       </RBtn>
       <RBtn
         variant="flat"
@@ -335,7 +316,7 @@ async function submit() {
         :loading="submitting"
         @click="submit"
       >
-        {{ t("common.create", "Create") }}
+        {{ t("common.create") }}
       </RBtn>
     </template>
   </RDialog>

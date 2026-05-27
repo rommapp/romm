@@ -61,13 +61,13 @@ const inToolsSection = computed(
         :class="{
           'r-v2-lt-menu--active': inToolsSection,
         }"
-        :aria-label="t('library-tools.title', 'Library tools')"
+        :aria-label="t('common.library-tools')"
         aria-haspopup="menu"
         :aria-expanded="open"
       >
         <RIcon icon="mdi-tools" size="18" />
         <span class="r-v2-lt-menu__label">
-          {{ t("library-tools.title", "Library tools") }}
+          {{ t("common.library-tools") }}
         </span>
         <RIcon icon="mdi-chevron-down" size="14" class="r-chevron-toggle" />
       </RBtn>
@@ -76,7 +76,7 @@ const inToolsSection = computed(
     <!-- Section header — same eyebrow styling as UserMenu groups so
          the two dropdowns read as siblings. -->
     <div class="r-v2-lt-menu__header">
-      {{ t("library-tools.title", "Library tools") }}
+      {{ t("common.library-tools") }}
     </div>
 
     <RMenuItem
@@ -89,7 +89,7 @@ const inToolsSection = computed(
     <RMenuItem
       :to="{ name: ROUTES.UPLOAD }"
       icon="mdi-cloud-upload-outline"
-      :label="t('common.upload-roms', 'Upload ROMs')"
+      :label="t('common.upload-roms')"
       :disabled="!canUpload"
       @click="open = false"
     />

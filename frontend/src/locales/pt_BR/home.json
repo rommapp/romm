@@ -1,4 +1,15 @@
 {
   "continue-playing": "Continuar assistindo",
-  "recently-added": "Recentemente adicionados"
+  "recently-added": "Recentemente adicionados",
+  "empty-headline": "Sua biblioteca está vazia",
+  "empty-hint": "Escolha como você gostaria de adicionar seus primeiros jogos. Você pode fazer o outro a qualquer momento.",
+  "empty-upload-title": "Enviar manualmente",
+  "empty-upload-desc": "Arraste e solte arquivos de ROM ou escolha-os do seu computador. Ideal quando você quer adicionar alguns jogos manualmente.",
+  "empty-scan-title": "Varrer biblioteca",
+  "empty-scan-desc": "Já colocou seus jogos na pasta da biblioteca? Execute uma varredura para detectá-los e buscar metadados.",
+  "empty-upload-cta": "Enviar jogos",
+  "empty-scan-cta": "Executar varredura",
+  "empty-detected-platforms": "{count} plataforma detectada | {count} plataformas detectadas",
+  "empty-detected-games": "{count} jogo detectado | {count} jogos detectados",
+  "no-games-yet": "Nenhum jogo adicionado ainda."
 }

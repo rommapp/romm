@@ -100,14 +100,18 @@ watch(
   <div v-else-if="!searched" class="match-list__state">
     <REmptyState
       icon="mdi-magnify-scan"
-      title="Search for a match"
-      hint="Adjust the name above and hit Search to look up metadata across the enabled providers."
+      :title="t('rom.match-search-title')"
+      :hint="t('rom.match-search-hint')"
     />
   </div>
 
   <div v-else class="match-list">
     <!-- ── Left: condensed list ──────────────────────────────── -->
-    <ul class="match-list__list" role="listbox" aria-label="Search matches">
+    <ul
+      class="match-list__list"
+      role="listbox"
+      :aria-label="t('common.search')"
+    >
       <li
         v-for="(r, i) in results"
         :key="matchKey(r)"
@@ -156,7 +160,7 @@ watch(
         v-if="selectedMatch"
         :key="selectedKey ?? '_'"
         class="match-list__detail"
-        :aria-label="`Details for ${selectedMatch.name}`"
+        :aria-label="t('rom.details')"
       >
         <header class="match-list__detail-head">
           <h3 class="match-list__detail-title">{{ selectedMatch.name }}</h3>
@@ -170,15 +174,14 @@ watch(
             v-if="selectedSources.length > 1"
             class="match-list__sources-label"
           >
-            Pick a cover
+            {{ t("rom.pick-cover") }}
           </p>
 
           <p
             v-if="selectedSources.length === 0"
             class="match-list__sources-empty"
           >
-            This match doesn't include cover artwork. You can still apply it —
-            the ROM keeps its existing cover.
+            {{ t("rom.match-no-cover-info") }}
           </p>
 
           <div v-if="selectedSources.length" class="match-list__sources">
@@ -227,7 +230,7 @@ watch(
               :disabled="!canConfirm"
               @click="confirm"
             >
-              Match this game
+              {{ t("rom.match-this-game") }}
             </RBtn>
           </div>
         </div>
@@ -235,7 +238,7 @@ watch(
 
       <div v-else class="match-list__detail-empty">
         <RIcon icon="mdi-cursor-default-click-outline" size="44" />
-        <p>Select a match on the left to see covers</p>
+        <p>{{ t("rom.match-select-prompt") }}</p>
       </div>
     </Transition>
   </div>

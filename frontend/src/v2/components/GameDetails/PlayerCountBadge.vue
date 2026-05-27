@@ -14,10 +14,13 @@
 // still render with an appropriate "more than one person" affordance.
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ value: string }>();
+
+const { t } = useI18n();
 
 const maxPlayers = computed<number | null>(() => {
   const matches = props.value.match(/\d+/g);
@@ -36,8 +39,8 @@ const icon = computed(() => {
 
 const label = computed(() => {
   const n = maxPlayers.value;
-  if (n === 1) return "Single player";
-  if (n !== null && n > 1) return `${props.value} players`;
+  if (n === 1) return t("rom.single-player");
+  if (n !== null && n > 1) return t("rom.players-n", { n: props.value });
   return props.value;
 });
 </script>

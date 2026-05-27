@@ -6,8 +6,11 @@
 // (caller passes a CSS color value, typically a token reference).
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 interface Props {
   name: string;
@@ -56,7 +59,9 @@ const isClickable = computed(() => isLinked.value && Boolean(props.href));
     </div>
     <div class="provider-card__id">
       <span v-if="isLinked">{{ id }}</span>
-      <span v-else class="provider-card__unlinked">Not linked</span>
+      <span v-else class="provider-card__unlinked">
+        {{ t("common.not-linked") }}
+      </span>
     </div>
   </component>
 </template>

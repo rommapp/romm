@@ -92,7 +92,7 @@ function onInput(e: Event) {
       class="new-row__cta"
       @click.stop="emit('update:expanded', true)"
     >
-      {{ t("collection.new-collection", "New Collection") }}
+      {{ t("collection.create-collection") }}
     </button>
     <form
       v-else
@@ -106,11 +106,9 @@ function onInput(e: Event) {
         :value="name"
         type="text"
         class="new-row__input"
-        :placeholder="
-          t('collection.collection-name-placeholder', 'Collection name')
-        "
+        :placeholder="t('collection.name-placeholder')"
         :disabled="creating"
-        :aria-label="t('collection.new-collection', 'New Collection')"
+        :aria-label="t('collection.create-collection')"
         @input="onInput"
         @keydown.esc.prevent="onCancel"
       />
@@ -138,7 +136,7 @@ function onInput(e: Event) {
           :disabled="!name.trim() || creating"
           :loading="creating"
         >
-          {{ t("common.create", "Create") }}
+          {{ t("common.create") }}
         </RBtn>
       </div>
     </Transition>

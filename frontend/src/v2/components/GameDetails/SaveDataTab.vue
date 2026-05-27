@@ -12,6 +12,7 @@
 import { RBtn, RCollapsible, REmptyState, RIcon } from "@v2/lib";
 import axios from "axios";
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type {
   DetailedRomSchema,
@@ -29,6 +30,7 @@ import { useSnackbar } from "@/v2/composables/useSnackbar";
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ rom: DetailedRomSchema }>();
+const { t } = useI18n();
 
 // ---------- Subtab state (URL-persisted via `?subtab=`) ----------
 const validSubtabs = ["saves", "states"] as const;
@@ -77,10 +79,10 @@ const states = computed<StateSchema[]>(() => props.rom.user_states ?? []);
 
 // ---------- Subtab nav definitions ----------
 type SubtabDef = { id: Subtab; label: string; icon: string };
-const subtabDefs: SubtabDef[] = [
-  { id: "saves", label: "Saves", icon: "mdi-content-save-outline" },
-  { id: "states", label: "States", icon: "mdi-camera-outline" },
-];
+const subtabDefs = computed<SubtabDef[]>(() => [
+  { id: "saves", label: t("rom.saves-tab"), icon: "mdi-content-save-outline" },
+  { id: "states", label: t("rom.states-tab"), icon: "mdi-camera-outline" },
+]);
 
 // Inline action panel under the active subtab only renders when the
 // list has entries — empty states own the Upload CTA so there's no
@@ -142,12 +144,16 @@ async function onSaveUpload(event: Event) {
 
     if (successful > 0) {
       snackbar.success(
-        `Uploaded ${successful} save${successful === 1 ? "" : "s"}${failed ? `, ${failed} failed` : ""}.`,
+        failed
+          ? t("rom.saves-uploaded-with-failed", { n: successful, failed })
+          : t("rom.saves-uploaded-n", successful, {
+              named: { n: successful },
+            }),
         { icon: "mdi-check-bold" },
       );
       await refreshRom();
     } else {
-      snackbar.warning("No saves were uploaded.", {
+      snackbar.warning(t("rom.no-saves-uploaded"), {
         icon: "mdi-close-circle",
       });
     }
@@ -173,12 +179,16 @@ async function onStateUpload(event: Event) {
 
     if (successful > 0) {
       snackbar.success(
-        `Uploaded ${successful} state${successful === 1 ? "" : "s"}${failed ? `, ${failed} failed` : ""}.`,
+        failed
+          ? t("rom.states-uploaded-with-failed", { n: successful, failed })
+          : t("rom.states-uploaded-n", successful, {
+              named: { n: successful },
+            }),
         { icon: "mdi-check-bold" },
       );
       await refreshRom();
     } else {
-      snackbar.warning("No states were uploaded.", {
+      snackbar.warning(t("rom.no-states-uploaded"), {
         icon: "mdi-close-circle",
       });
     }
@@ -202,18 +212,18 @@ function downloadAsset(asset: { download_path: string; file_name: string }) {
 
 async function deleteSave(save: SaveSchema) {
   const ok = await confirm({
-    title: "Delete save?",
-    body: `"${save.file_name}" will be removed from this ROM and from the file system. This can't be undone.`,
-    confirmText: "Delete save",
+    title: t("rom.delete-save-title"),
+    body: t("rom.delete-save-body-named", { name: save.file_name }),
+    confirmText: t("rom.delete-save"),
     tone: "danger",
   });
   if (!ok) return;
   try {
     await saveApi.deleteSaves({ saves: [save] });
-    snackbar.success("Save deleted.", { icon: "mdi-check-bold" });
+    snackbar.success(t("rom.save-deleted"), { icon: "mdi-check-bold" });
     await refreshRom();
   } catch (error) {
-    snackbar.error(`Couldn't delete save: ${errorMessage(error)}`, {
+    snackbar.error(t("rom.cant-delete-save", { error: errorMessage(error) }), {
       icon: "mdi-close-circle",
     });
   }
@@ -221,18 +231,18 @@ async function deleteSave(save: SaveSchema) {
 
 async function deleteState(state: StateSchema) {
   const ok = await confirm({
-    title: "Delete state?",
-    body: `"${state.file_name}" will be removed from this ROM and from the file system. This can't be undone.`,
-    confirmText: "Delete state",
+    title: t("rom.delete-state-title"),
+    body: t("rom.delete-state-body-named", { name: state.file_name }),
+    confirmText: t("rom.delete-state"),
     tone: "danger",
   });
   if (!ok) return;
   try {
     await stateApi.deleteStates({ states: [state] });
-    snackbar.success("State deleted.", { icon: "mdi-check-bold" });
+    snackbar.success(t("rom.state-deleted"), { icon: "mdi-check-bold" });
     await refreshRom();
   } catch (error) {
-    snackbar.error(`Couldn't delete state: ${errorMessage(error)}`, {
+    snackbar.error(t("rom.cant-delete-state", { error: errorMessage(error) }), {
       icon: "mdi-close-circle",
     });
   }
@@ -251,7 +261,7 @@ function fmtDate(iso: string | null) {
     type="file"
     multiple
     class="r-v2-saves__file-input"
-    aria-label="Upload saves"
+    :aria-label="t('rom.upload-saves')"
     @change="onSaveUpload"
   />
   <input
@@ -259,7 +269,7 @@ function fmtDate(iso: string | null) {
     type="file"
     multiple
     class="r-v2-saves__file-input"
-    aria-label="Upload states"
+    :aria-label="t('rom.upload-states')"
     @change="onStateUpload"
   />
 
@@ -270,39 +280,39 @@ function fmtDate(iso: string | null) {
         role="tablist"
         aria-orientation="vertical"
       >
-        <li v-for="t in subtabDefs" :key="t.id" class="r-v2-saves__subtab">
+        <li v-for="tab in subtabDefs" :key="tab.id" class="r-v2-saves__subtab">
           <button
             type="button"
             role="tab"
             class="r-v2-saves__subtab-btn"
             :class="{
-              'r-v2-saves__subtab-btn--active': subTab === t.id,
+              'r-v2-saves__subtab-btn--active': subTab === tab.id,
               'r-v2-saves__subtab-btn--joined':
-                subTab === t.id && hasSubtabActions(t.id),
+                subTab === tab.id && hasSubtabActions(tab.id),
             }"
-            :aria-selected="subTab === t.id"
-            @click="subTab = t.id"
+            :aria-selected="subTab === tab.id"
+            @click="subTab = tab.id"
           >
-            <RIcon :icon="t.icon" size="16" />
-            <span class="r-v2-saves__subtab-label">{{ t.label }}</span>
+            <RIcon :icon="tab.icon" size="16" />
+            <span class="r-v2-saves__subtab-label">{{ tab.label }}</span>
             <span
               v-if="
-                (t.id === 'saves' && saves.length) ||
-                (t.id === 'states' && states.length)
+                (tab.id === 'saves' && saves.length) ||
+                (tab.id === 'states' && states.length)
               "
               class="r-v2-saves__subtab-badge"
             >
-              {{ t.id === "saves" ? saves.length : states.length }}
+              {{ tab.id === "saves" ? saves.length : states.length }}
             </span>
           </button>
 
           <RCollapsible
-            :model-value="subTab === t.id && hasSubtabActions(t.id)"
+            :model-value="subTab === tab.id && hasSubtabActions(tab.id)"
             attached
             class="r-v2-saves__subtab-panel"
           >
             <div class="r-v2-saves__subtab-panel-inner">
-              <template v-if="t.id === 'saves' && saves.length > 0">
+              <template v-if="tab.id === 'saves' && saves.length > 0">
                 <RBtn
                   variant="outlined"
                   prepend-icon="mdi-cloud-upload-outline"
@@ -311,10 +321,10 @@ function fmtDate(iso: string | null) {
                   :disabled="uploadingSaves"
                   @click="triggerSaveUpload"
                 >
-                  Upload
+                  {{ t("common.upload") }}
                 </RBtn>
               </template>
-              <template v-else-if="t.id === 'states' && states.length > 0">
+              <template v-else-if="tab.id === 'states' && states.length > 0">
                 <RBtn
                   variant="outlined"
                   prepend-icon="mdi-cloud-upload-outline"
@@ -323,7 +333,7 @@ function fmtDate(iso: string | null) {
                   :disabled="uploadingStates"
                   @click="triggerStateUpload"
                 >
-                  Upload
+                  {{ t("common.upload") }}
                 </RBtn>
               </template>
             </div>
@@ -338,8 +348,8 @@ function fmtDate(iso: string | null) {
         <REmptyState
           v-if="saves.length === 0"
           icon="mdi-content-save-outline"
-          title="No saves yet"
-          hint="Saves uploaded for this ROM will appear here."
+          :title="t('rom.saves-empty')"
+          :hint="t('rom.saves-empty-hint')"
         >
           <template #actions>
             <RBtn
@@ -349,7 +359,7 @@ function fmtDate(iso: string | null) {
               :disabled="uploadingSaves"
               @click="triggerSaveUpload"
             >
-              Upload saves
+              {{ t("rom.upload-saves") }}
             </RBtn>
           </template>
         </REmptyState>
@@ -373,8 +383,8 @@ function fmtDate(iso: string | null) {
                 icon="mdi-download-outline"
                 variant="text"
                 size="small"
-                tooltip="Download"
-                :aria-label="`Download ${s.file_name}`"
+                :tooltip="t('common.download')"
+                :aria-label="t('rom.download-named', { name: s.file_name })"
                 @click="downloadAsset(s)"
               />
               <RBtn
@@ -382,8 +392,8 @@ function fmtDate(iso: string | null) {
                 variant="text"
                 size="small"
                 color="romm-red"
-                tooltip="Delete"
-                :aria-label="`Delete ${s.file_name}`"
+                :tooltip="t('common.delete')"
+                :aria-label="t('rom.delete-save')"
                 @click="deleteSave(s)"
               />
             </div>
@@ -396,8 +406,8 @@ function fmtDate(iso: string | null) {
         <REmptyState
           v-if="states.length === 0"
           icon="mdi-camera-outline"
-          title="No states yet"
-          hint="Save states uploaded for this ROM will appear here."
+          :title="t('rom.states-empty')"
+          :hint="t('rom.states-empty-hint')"
         >
           <template #actions>
             <RBtn
@@ -407,7 +417,7 @@ function fmtDate(iso: string | null) {
               :disabled="uploadingStates"
               @click="triggerStateUpload"
             >
-              Upload states
+              {{ t("rom.upload-states") }}
             </RBtn>
           </template>
         </REmptyState>
@@ -431,8 +441,8 @@ function fmtDate(iso: string | null) {
                 icon="mdi-download-outline"
                 variant="text"
                 size="small"
-                tooltip="Download"
-                :aria-label="`Download ${s.file_name}`"
+                :tooltip="t('common.download')"
+                :aria-label="t('rom.download-named', { name: s.file_name })"
                 @click="downloadAsset(s)"
               />
               <RBtn
@@ -440,8 +450,8 @@ function fmtDate(iso: string | null) {
                 variant="text"
                 size="small"
                 color="romm-red"
-                tooltip="Delete"
-                :aria-label="`Delete ${s.file_name}`"
+                :tooltip="t('common.delete')"
+                :aria-label="t('rom.delete-state')"
                 @click="deleteState(s)"
               />
             </div>

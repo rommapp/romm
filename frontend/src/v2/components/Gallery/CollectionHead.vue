@@ -17,6 +17,7 @@
 // tab (editable form + danger zone), matching the Platform layout.
 import { RChip, RTabNav } from "@v2/lib";
 import type { RTabNavItem } from "@v2/lib";
+import { useI18n } from "vue-i18n";
 import type {
   Collection,
   SmartCollection,
@@ -27,6 +28,8 @@ import InfoPanel from "@/v2/components/Gallery/InfoPanel.vue";
 import Stat from "@/v2/components/shared/Stat.vue";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
 
@@ -72,7 +75,7 @@ defineEmits<{
     </template>
 
     <template #stats>
-      <Stat :value="collection.rom_count" label="Games" />
+      <Stat :value="collection.rom_count" :label="t('common.games')" />
     </template>
   </InfoPanel>
 

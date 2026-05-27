@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { RBtn } from "@v2/lib";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useUiVersion } from "@/composables/useUiVersion";
 
+const { t } = useI18n();
 const route = useRoute();
 const uiVersion = useUiVersion();
 
@@ -13,12 +15,15 @@ function switchToV1() {
 
 <template>
   <section class="r-v2-notready">
-    <h1>Not available in the new UI yet</h1>
-    <p>
-      <code>{{ route.fullPath }}</code> hasn't been migrated to v2. Switch back
-      to v1 to use it, or navigate to a v2-ready route.
-    </p>
-    <RBtn color="primary" @click="switchToV1"> Switch back to v1 </RBtn>
+    <h1>{{ t("common.v2-not-available-title") }}</h1>
+    <i18n-t keypath="common.v2-not-migrated" tag="p">
+      <template #view>
+        <code>{{ route.fullPath }}</code>
+      </template>
+    </i18n-t>
+    <RBtn color="primary" @click="switchToV1">
+      {{ t("common.v2-switch-back") }}
+    </RBtn>
   </section>
 </template>
 

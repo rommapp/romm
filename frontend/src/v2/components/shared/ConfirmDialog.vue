@@ -21,9 +21,12 @@ import {
   onMounted,
   ref,
 } from "vue";
+import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 type Payload = Events["showConfirm"];
 
@@ -83,9 +86,15 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
         <p v-if="payload.body" class="r-confirm__body">{{ payload.body }}</p>
 
         <div v-if="payload.requireTyped" class="r-confirm__typed">
-          <p class="r-confirm__typed-hint">
-            Type <strong>{{ payload.requireTyped }}</strong> to confirm.
-          </p>
+          <i18n-t
+            keypath="common.type-to-confirm"
+            tag="p"
+            class="r-confirm__typed-hint"
+          >
+            <template #label>
+              <strong>{{ payload.requireTyped }}</strong>
+            </template>
+          </i18n-t>
           <RTextField
             v-model="typed"
             density="comfortable"
@@ -97,14 +106,14 @@ onBeforeUnmount(() => emitter?.off("showConfirm", onShow));
     <template v-if="payload" #footer>
       <div class="r-confirm__actions">
         <RBtn ref="cancelButtonRef" variant="text" @click="onCancel">
-          {{ payload.cancelText ?? "Cancel" }}
+          {{ payload.cancelText ?? t("common.cancel") }}
         </RBtn>
         <RBtn
           :color="confirmColor"
           :disabled="confirmDisabled"
           @click="onConfirm"
         >
-          {{ payload.confirmText ?? "Confirm" }}
+          {{ payload.confirmText ?? t("common.confirm") }}
         </RBtn>
       </div>
     </template>

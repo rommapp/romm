@@ -11,6 +11,7 @@
 // rating/difficulty trigger an RRating popup, completion triggers an
 // RSlider popup. Writes are optimistic via useGameActions.setScore.
 import { toRef } from "vue";
+import { useI18n } from "vue-i18n";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import MetricMenuBtn from "@/v2/components/GameActions/MetricMenuBtn.vue";
@@ -22,6 +23,7 @@ const props = defineProps<{
   rom: SimpleRom;
 }>();
 
+const { t } = useI18n();
 const romRef = toRef(props, "rom");
 const actions = useGameActions(() => romRef.value);
 </script>
@@ -75,7 +77,7 @@ const actions = useGameActions(() => romRef.value);
     <MetricMenuBtn
       v-if="rom.rom_user"
       kind="percent"
-      label="Completion"
+      :label="t('rom.metric-completion')"
       icon-full="mdi-progress-check"
       icon-empty="mdi-progress-helper"
       accent="brand-primary"
@@ -85,7 +87,7 @@ const actions = useGameActions(() => romRef.value);
     />
     <MetricMenuBtn
       v-if="rom.rom_user"
-      label="Rating"
+      :label="t('rom.metric-rating')"
       icon-full="mdi-star"
       icon-empty="mdi-star-outline"
       accent="warning"
@@ -94,7 +96,7 @@ const actions = useGameActions(() => romRef.value);
     />
     <MetricMenuBtn
       v-if="rom.rom_user"
-      label="Difficulty"
+      :label="t('rom.metric-difficulty')"
       icon-full="mdi-chili-mild"
       icon-empty="mdi-chili-mild-outline"
       accent="danger"

@@ -15,8 +15,11 @@
 // consumed by the GameActions feature for now.
 import { RIcon, RMenu, RRating, RSlider } from "@v2/lib";
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 interface Props {
   kind?: "rating" | "percent";
@@ -146,7 +149,7 @@ function clear() {
         @click="clear"
       >
         <RIcon icon="mdi-close" size="14" />
-        Clear {{ label.toLowerCase() }}
+        {{ t("rom.clear-field", { field: label.toLowerCase() }) }}
       </button>
     </div>
   </RMenu>

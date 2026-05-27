@@ -4,6 +4,7 @@
 // "Smart" or "Virtual" badge. `variant` controls sizing ("row" = 150px
 // fixed, "grid" = fills cell).
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import {
@@ -36,6 +37,8 @@ const props = withDefaults(defineProps<Props>(), {
   kind: "regular",
   id: undefined,
 });
+
+const { t } = useI18n();
 
 const kindLabel = computed(() =>
   props.kind === "smart" ? "Smart" : props.kind === "virtual" ? "Virtual" : "",
@@ -89,7 +92,7 @@ const morphStyle = computed(() =>
       {{ name }}
     </div>
     <div class="coll-tile__count">
-      {{ romCount }} {{ romCount === 1 ? "game" : "games" }}
+      {{ t("collection.games-count", romCount, { named: { n: romCount } }) }}
     </div>
   </router-link>
 </template>

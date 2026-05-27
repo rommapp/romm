@@ -6,6 +6,7 @@ import { RDialog } from "@v2/lib";
 import type { Emitter } from "mitt";
 import qrcode from "qrcode";
 import { inject, nextTick, onBeforeUnmount, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getNintendoDSFiles, getDownloadLink, isNintendoDSFile } from "@/utils";
@@ -14,6 +15,7 @@ import { colorCanvas, colorOverlay } from "@/v2/tokens";
 
 defineOptions({ inheritAttrs: false });
 
+const { t } = useI18n();
 const { lgAndUp } = useBreakpoint();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
@@ -57,7 +59,7 @@ function closeDialog() {
 <template>
   <RDialog v-model="show" icon="mdi-qrcode" width="380" @close="closeDialog">
     <template #header>
-      <span>Scan to download</span>
+      <span>{{ t("rom.qr-scan-to-download") }}</span>
     </template>
     <template #content>
       <div class="r-v2-qr">

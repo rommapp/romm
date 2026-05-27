@@ -10,6 +10,7 @@
 // commit (Save button on EditRomDialog).
 import { RComboboxField, RDateField, RTextField } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { UpdateRom } from "@/services/api/rom";
 
 const props = defineProps<{ rom: UpdateRom }>();
@@ -17,6 +18,8 @@ const props = defineProps<{ rom: UpdateRom }>();
 const emit = defineEmits<{
   "update:rom": [rom: UpdateRom];
 }>();
+
+const { t } = useI18n();
 
 // Age-rating items are pre-built once from the rating systems we
 // surface. Stored as "SYSTEM:RATING" so a single string captures both
@@ -42,12 +45,12 @@ const AGE_RATING_ITEMS = AGE_RATING_SYSTEMS.flatMap(({ system, ratings }) =>
   ratings.map((r) => `${system} - ${r}`),
 );
 
-const GAME_MODE_ITEMS = [
-  "Single player",
-  "Multiplayer",
-  "Co-operative",
-  "Split screen",
-];
+const GAME_MODE_ITEMS = computed(() => [
+  t("rom.game-mode-single-player"),
+  t("rom.game-mode-multiplayer"),
+  t("rom.game-mode-co-operative"),
+  t("rom.game-mode-split-screen"),
+]);
 
 const manual = computed(() => props.rom.manual_metadata || {});
 
@@ -75,7 +78,7 @@ function updateManualMetadata(
   <div class="r-v2-additional">
     <RComboboxField
       :model-value="manual.companies ?? []"
-      label="Companies"
+      :label="t('rom.companies')"
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
@@ -84,7 +87,7 @@ function updateManualMetadata(
     />
     <RComboboxField
       :model-value="manual.genres ?? []"
-      label="Genres"
+      :label="t('rom.genres')"
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
@@ -93,7 +96,7 @@ function updateManualMetadata(
     />
     <RComboboxField
       :model-value="manual.franchises ?? []"
-      label="Franchises"
+      :label="t('rom.franchises')"
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
@@ -102,7 +105,7 @@ function updateManualMetadata(
     />
     <RDateField
       :model-value="manual.first_release_date ?? null"
-      label="Released at"
+      :label="t('rom.released-at')"
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
@@ -115,7 +118,7 @@ function updateManualMetadata(
     <RComboboxField
       :model-value="manual.game_modes ?? []"
       :items="GAME_MODE_ITEMS"
-      label="Game modes"
+      :label="t('rom.game-modes')"
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
@@ -124,7 +127,7 @@ function updateManualMetadata(
     />
     <RTextField
       :model-value="manual.youtube_video_id ?? ''"
-      label="YouTube video ID"
+      :label="t('rom.youtube-video-id')"
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"
@@ -141,7 +144,7 @@ function updateManualMetadata(
     <RComboboxField
       :model-value="ageRatingsView"
       :items="AGE_RATING_ITEMS"
-      label="Age ratings"
+      :label="t('rom.age-ratings')"
       prefix-label="stacked"
       variant="outlined"
       density="comfortable"

@@ -241,7 +241,7 @@ async function onLogout() {
            moment the dialog ships. -->
     <RMenuItem
       icon="mdi-clock-outline"
-      label="Changelog"
+      :label="t('common.changelog')"
       @click="open = false"
     />
 

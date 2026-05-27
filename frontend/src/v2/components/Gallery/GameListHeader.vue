@@ -11,6 +11,7 @@
 // itself only paints — it doesn't manage scroll.
 import { RCheckbox, RIcon } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
 import {
@@ -41,6 +42,7 @@ const emit = defineEmits<{
   (e: "sort", payload: { key: ListSortKey; dir: "asc" | "desc" }): void;
 }>();
 
+const { t } = useI18n();
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const gridStyle = computed(() => ({
   gridTemplateColumns: getListGridTemplate(props.showPlatformColumn),
@@ -115,7 +117,9 @@ function handleClick(col: ListColumn) {
         bare
         hide-details
         :aria-label="
-          loadedSelectionState === 'all' ? 'Deselect all' : 'Select all loaded'
+          loadedSelectionState === 'all'
+            ? t('gallery.selection-deselect-all')
+            : t('gallery.selection-select-all')
         "
         @click="onSelectAllClick"
       />

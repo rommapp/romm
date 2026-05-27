@@ -63,11 +63,11 @@ const covers = ref<SearchCoverSchema[]>([]);
 const sourceRom = ref<SimpleRom | null>(null);
 const providerCovers = ref<MatchedSource[]>([]);
 
-const coverTypeItems = [
-  { title: "All", value: "all" },
-  { title: "Static", value: "static" },
-  { title: "Animated", value: "animated" },
-];
+const coverTypeItems = computed(() => [
+  { title: t("rom.cover-type-all"), value: "all" },
+  { title: t("rom.cover-type-static"), value: "static" },
+  { title: t("rom.cover-type-animated"), value: "animated" },
+]);
 
 // Filter happens after the search returns — splitting the source list
 // and the visible list keeps the type-filter snappy without re-hitting
@@ -179,9 +179,12 @@ async function doSearch() {
         message?: string;
       };
       snackbar.error(
-        `Cover search failed: ${
-          e?.response?.data?.detail || e?.message || "unknown error"
-        }`,
+        t("rom.cover-search-failed", {
+          error:
+            e?.response?.data?.detail ||
+            e?.message ||
+            t("common.unknown-error"),
+        }),
         { icon: "mdi-close-circle" },
       );
     }
@@ -251,14 +254,14 @@ function closeDialog() {
     @close="closeDialog"
   >
     <template #header>
-      <span>{{ t("rom.search-cover", "Search cover") }}</span>
+      <span>{{ t("rom.search-cover") }}</span>
     </template>
 
     <template #content>
       <div class="r-v2-sgdb__toolbar">
         <RTextField
           v-model="searchText"
-          :placeholder="t('common.search', 'Search')"
+          :placeholder="t('common.search')"
           density="comfortable"
           prefix-label="inline"
           clearable
@@ -285,7 +288,7 @@ function closeDialog() {
           :disabled="!searchText.trim() || searching"
           @click="doSearch"
         >
-          {{ t("common.search", "Search") }}
+          {{ t("common.search") }}
         </RBtn>
       </div>
 
@@ -298,7 +301,7 @@ function closeDialog() {
           v-else-if="showEmpty"
           variant="boxed"
           icon="mdi-emoticon-confused-outline"
-          :message="t('rom.no-covers-found', 'No covers match this search.')"
+          :message="t('rom.no-covers-found')"
         />
 
         <div v-else-if="hasResults" class="r-v2-sgdb__results">
@@ -309,7 +312,7 @@ function closeDialog() {
                glance whose artwork they're picking. -->
           <RCollapsible
             v-if="showProviderCovers"
-            :title="t('rom.providers-covers', 'Other providers')"
+            :title="t('rom.providers-covers')"
             default-open
           >
             <div class="r-v2-sgdb__grid">
@@ -378,12 +381,7 @@ function closeDialog() {
           v-else
           variant="boxed"
           icon="mdi-image-search-outline"
-          :message="
-            t(
-              'rom.search-cover-hint',
-              'Type a title and press Enter to search SteamGridDB.',
-            )
-          "
+          :message="t('rom.search-cover-hint')"
         />
       </div>
     </template>

@@ -9,10 +9,13 @@
 // visual affordance.
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { SimpleRom } from "@/stores/roms";
 import RSwitch from "@/v2/lib/forms/RSwitch/RSwitch.vue";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 const props = defineProps<{
   modelValue: boolean;
@@ -56,7 +59,7 @@ function toggle() {
     >
       <span class="rename-toggle__label">
         <RIcon icon="mdi-file-edit-outline" size="15" />
-        <span>Rename file on disk</span>
+        <span>{{ t("rom.match-rename-on-disk") }}</span>
       </span>
       <!-- Stop propagation so the switch click doesn't double-toggle
            via the parent button's handler. -->

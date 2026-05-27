@@ -284,7 +284,7 @@ async function patchRom() {
 }
 
 async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
-  if (!selectedPlatform.value) throw new Error("No platform selected.");
+  if (!selectedPlatform.value) throw new Error(t("patcher.error-no-platform"));
   const platformId = selectedPlatform.value.id;
 
   const copy = new Uint8Array(binaryData);
@@ -303,7 +303,9 @@ async function uploadPatchedRom(binaryData: Uint8Array, fileName: string) {
         const errorDetail =
           firstFailure?.reason?.response?.data?.detail ||
           firstFailure?.reason?.message ||
-          "Upload failed with unknown error";
+          t("patcher.error-upload-failed", {
+            error: t("common.unknown-error"),
+          });
         console.error("Upload failed:", firstFailure);
         throw new Error(errorDetail);
       }
@@ -458,7 +460,7 @@ onMounted(async () => {
               <button
                 type="button"
                 class="r-v2-patch__drop-clear"
-                aria-label="Clear"
+                :aria-label="t('common.clear')"
                 @click.stop="onRomInput(null)"
               >
                 <RIcon icon="mdi-close" size="14" />
@@ -534,7 +536,7 @@ onMounted(async () => {
               <button
                 type="button"
                 class="r-v2-patch__drop-clear"
-                aria-label="Clear"
+                :aria-label="t('common.clear')"
                 @click.stop="onPatchInput(null)"
               >
                 <RIcon icon="mdi-close" size="14" />

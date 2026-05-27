@@ -95,6 +95,7 @@ export const colorDark = {
   fgSecondary: "rgba(255, 255, 255, 0.75)",
   fgMuted: "rgba(255, 255, 255, 0.45)",
   fgFaint: "rgba(255, 255, 255, 0.25)",
+  fgFaintHard: "rgba(255, 255, 255, 0.05)",
   border: "rgba(255, 255, 255, 0.07)",
   borderStrong: "rgba(255, 255, 255, 0.15)",
   // Used by global.css to draw the focus ring; translucent over dark surfaces.

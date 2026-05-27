@@ -51,7 +51,7 @@ const passwordDialogOpen = ref(false);
 
 const roleItems = computed(() =>
   ["viewer", "editor", "admin"].map((role) => ({
-    title: role.charAt(0).toUpperCase() + role.slice(1),
+    title: t(`settings.role-${role}`),
     value: role,
   })),
 );
@@ -125,9 +125,10 @@ async function applyChanges() {
   submitting.value = true;
   try {
     const { data } = await userApi.updateUser(userToEdit.value);
-    snackbar.success(`User ${data.username} updated successfully`, {
-      icon: "mdi-check-bold",
-    });
+    snackbar.success(
+      t("settings.user-updated-successfully", { username: data.username }),
+      { icon: "mdi-check-bold" },
+    );
     usersStore.update(data);
     if (data.id === auth.user?.id) auth.setCurrentUser(data);
     emitter?.emit("refreshDrawer", null);
@@ -139,9 +140,10 @@ async function applyChanges() {
       message?: string;
     };
     snackbar.error(
-      `Unable to edit user: ${
-        e?.response?.data?.detail || e?.response?.statusText || e?.message
-      }`,
+      t("settings.unable-to-edit-user", {
+        detail:
+          e?.response?.data?.detail || e?.response?.statusText || e?.message,
+      }),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -168,7 +170,7 @@ const lastActiveLabel = computed(() =>
 onMounted(() => {
   reset();
   if (userToEdit.value) {
-    document.title = `${userToEdit.value.username} | Profile`;
+    document.title = `${userToEdit.value.username} | ${t("common.profile")}`;
   }
 });
 
@@ -185,7 +187,7 @@ onUnmounted(() => {
         <button
           type="button"
           class="r-v2-profile__avatar"
-          :aria-label="t('settings.change-avatar', 'Change avatar')"
+          :aria-label="t('settings.change-avatar')"
           @click="triggerFileInput"
         >
           <img :src="avatarSrc" :alt="user?.username ?? ''" />
@@ -198,7 +200,7 @@ onUnmounted(() => {
           type="file"
           accept="image/*"
           class="r-v2-profile__file"
-          :aria-label="t('settings.change-avatar', 'Change avatar')"
+          :aria-label="t('settings.change-avatar')"
           @change="previewImage"
         />
         <div class="r-v2-profile__identity">
@@ -247,7 +249,7 @@ onUnmounted(() => {
 
       <!-- Account details -->
       <SettingsSection
-        :title="t('settings.account-details', 'Account details')"
+        :title="t('settings.account-details')"
         icon="mdi-account"
       >
         <div class="r-v2-profile__field">

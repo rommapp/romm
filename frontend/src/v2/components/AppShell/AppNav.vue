@@ -13,6 +13,7 @@
 // focused on browsing destinations.
 import { RBtn, RSliderBtnGroup, RTooltip, RImg } from "@v2/lib";
 import { onBeforeUnmount, onMounted, ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useUiVersion } from "@/composables/useUiVersion";
 import LibraryToolsMenu from "@/v2/components/AppShell/LibraryToolsMenu.vue";
@@ -21,6 +22,7 @@ import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
 
 defineOptions({ inheritAttrs: false });
 
+const { t } = useI18n();
 const route = useRoute();
 const uiVersion = useUiVersion();
 
@@ -55,25 +57,25 @@ type TabId = "home" | "platforms" | "collections" | "search";
 // and the pill collapses to icon-only without changing markup.
 // `ariaLabel` mirrors the visible label so the icon-only xs variant
 // still names each link to screen readers / focus rings.
-const tabs = [
+const tabs = computed(() => [
   {
     id: "home" as const,
-    label: "Home",
-    ariaLabel: "Home",
+    label: t("common.home"),
+    ariaLabel: t("common.home"),
     icon: "mdi-home-outline",
     to: "/",
   },
   {
     id: "platforms" as const,
-    label: "Platforms",
-    ariaLabel: "Platforms",
+    label: t("common.platforms"),
+    ariaLabel: t("common.platforms"),
     icon: "mdi-controller",
     to: "/platforms",
   },
   {
     id: "collections" as const,
-    label: "Collections",
-    ariaLabel: "Collections",
+    label: t("common.collections"),
+    ariaLabel: t("common.collections"),
     // Same glyph GameCard uses for its "add to collection" action —
     // keeps the icon stable across every generic "Collections"
     // surface so users learn it as the collections symbol.
@@ -82,12 +84,12 @@ const tabs = [
   },
   {
     id: "search" as const,
-    label: "Search",
-    ariaLabel: "Search",
+    label: t("common.search"),
+    ariaLabel: t("common.search"),
     icon: "mdi-magnify",
     to: "/search",
   },
-];
+]);
 
 const activeTab = computed<TabId | null>(() => {
   const path = route.path;
@@ -102,7 +104,7 @@ const activeTab = computed<TabId | null>(() => {
 <template>
   <header class="r-v2-nav-bar" :class="{ 'r-v2-nav-bar--scrolled': scrolled }">
     <nav class="r-v2-nav">
-      <router-link to="/" class="r-v2-nav__logo" aria-label="Home">
+      <router-link to="/" class="r-v2-nav__logo" :aria-label="t('common.home')">
         <RImg
           src="/assets/isotipo.svg"
           alt="RomM isotipo"
@@ -124,12 +126,12 @@ const activeTab = computed<TabId | null>(() => {
           :model-value="activeTab"
           :items="tabs"
           variant="tab"
-          aria-label="Primary navigation"
+          :aria-label="t('common.primary-navigation')"
         />
       </div>
 
       <div class="r-v2-nav__right">
-        <RTooltip text="Switch to classic UI" location="bottom">
+        <RTooltip :text="t('common.switch-classic-ui')" location="bottom">
           <template #activator="{ props: tooltipProps }">
             <RBtn
               v-bind="tooltipProps"
@@ -137,7 +139,7 @@ const activeTab = computed<TabId | null>(() => {
               size="small"
               variant="text"
               class="r-v2-nav__classic"
-              aria-label="Switch to classic UI"
+              :aria-label="t('common.switch-classic-ui')"
               @click="switchToV1"
             ></RBtn>
           </template>

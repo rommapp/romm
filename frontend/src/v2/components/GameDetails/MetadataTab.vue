@@ -9,6 +9,7 @@
 //   4. Metadata sources — ProviderGrid (linked + unlinked).
 import { RTag } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
 import ProviderGrid from "@/v2/components/GameDetails/ProviderGrid.vue";
@@ -18,14 +19,16 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ rom: DetailedRom }>();
 
+const { t } = useI18n();
+
 type Row = { label: string; value: string };
 
 const fileRows = computed<Row[]>(() => {
   const r = props.rom;
   const size = r.fs_size_bytes != null ? formatBytes(r.fs_size_bytes) : "—";
   return [
-    { label: "File name", value: r.fs_name },
-    { label: "Size", value: size },
+    { label: t("rom.filename"), value: r.fs_name },
+    { label: t("common.size"), value: size },
   ];
 });
 
@@ -76,7 +79,7 @@ const verifications = computed<Verification[]>(() => {
   <div class="metadata-tab">
     <!-- 1. File info -->
     <section class="metadata-tab__section">
-      <h3 class="metadata-tab__heading">File info</h3>
+      <h3 class="metadata-tab__heading">{{ t("rom.file-info") }}</h3>
       <div class="metadata-tab__rows">
         <div v-for="row in fileRows" :key="row.label" class="metadata-tab__row">
           <div class="metadata-tab__label">{{ row.label }}</div>
@@ -88,7 +91,7 @@ const verifications = computed<Verification[]>(() => {
     <!-- 2. Hashes — click-to-copy via HashChip; absent hashes still
          render a "—" pill so the row layout stays predictable. -->
     <section class="metadata-tab__section">
-      <h3 class="metadata-tab__heading">Hashes</h3>
+      <h3 class="metadata-tab__heading">{{ t("rom.hashes-label") }}</h3>
       <div class="metadata-tab__inline">
         <template v-for="row in hashRows" :key="row.label">
           <HashChip v-if="row.value" :label="row.label" :value="row.value" />
@@ -99,7 +102,7 @@ const verifications = computed<Verification[]>(() => {
 
     <!-- 3. Verification -->
     <section class="metadata-tab__section">
-      <h3 class="metadata-tab__heading">Verification</h3>
+      <h3 class="metadata-tab__heading">{{ t("rom.verification") }}</h3>
       <div class="metadata-tab__inline">
         <RTag
           v-for="v in verifications"
@@ -113,7 +116,9 @@ const verifications = computed<Verification[]>(() => {
 
     <!-- 4. Provider links -->
     <section class="metadata-tab__section">
-      <h3 class="metadata-tab__heading">Metadata sources</h3>
+      <h3 class="metadata-tab__heading">
+        {{ t("rom.metadata-sources-label") }}
+      </h3>
       <ProviderGrid :rom="rom" />
     </section>
   </div>

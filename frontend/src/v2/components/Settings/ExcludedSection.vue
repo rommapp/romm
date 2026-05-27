@@ -216,10 +216,12 @@ async function submitExclusion() {
     if (configStore.isExclusionType(newType.value)) {
       configStore.addExclusion(newType.value, newValue.value.trim());
     }
-    snackbar.success("Exclusion added");
+    snackbar.success(t("settings.exclusion-added"));
     closeCreate();
   } catch (err) {
-    snackbar.error(`Could not add exclusion: ${(err as Error).message}`);
+    snackbar.error(
+      t("settings.unable-to-add-exclusion", { error: (err as Error).message }),
+    );
   } finally {
     submitting.value = false;
   }
@@ -235,7 +237,11 @@ async function removeRow(row: Row) {
       configStore.removeExclusion(row.value, row.type);
     }
   } catch (err) {
-    snackbar.error(`Could not remove exclusion: ${(err as Error).message}`);
+    snackbar.error(
+      t("settings.unable-to-remove-exclusion", {
+        error: (err as Error).message,
+      }),
+    );
   }
 }
 
@@ -279,7 +285,7 @@ function onSort({ key, dir }: RTableSortPayload) {
         prefix-label="inline"
         :placeholder="t('common.search')"
         hide-details
-        aria-label="Search exclusions"
+        :aria-label="t('settings.search-exclusions')"
         class="r-v2-excluded__search"
       >
         <template #prefix-label>

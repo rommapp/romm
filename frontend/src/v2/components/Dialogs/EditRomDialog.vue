@@ -180,12 +180,12 @@ const visibleProviders = computed(() =>
 const tabItems = computed<RTabNavItem[]>(() => [
   {
     id: "details",
-    label: t("rom.additional-details", "Additional details"),
+    label: t("rom.additional-details"),
     icon: "mdi-text-box-plus-outline",
   },
   {
     id: "ids",
-    label: t("rom.metadata-ids", "Metadata IDs"),
+    label: t("rom.metadata-ids"),
     icon: "mdi-database",
   },
   ...visibleProviders.value.map((p) => ({
@@ -247,7 +247,7 @@ async function handleRomUpdate(
   } catch (error: unknown) {
     console.error(error);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
-    snackbar.error(axiosErr.response?.data?.detail ?? "Update failed", {
+    snackbar.error(axiosErr.response?.data?.detail ?? t("rom.update-failed"), {
       icon: "mdi-close-circle",
     });
   } finally {
@@ -296,7 +296,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
     @close="closeDialog"
   >
     <template #header>
-      <span>{{ t("rom.edit-rom", "Edit ROM") }}</span>
+      <span>{{ t("rom.edit-rom") }}</span>
     </template>
 
     <template #content>
@@ -317,7 +317,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               icon="mdi-image-search-outline"
               variant="outlined"
               density="compact"
-              :tooltip="t('rom.search-cover', 'Search cover')"
+              :tooltip="t('rom.search-cover')"
               :disabled="
                 !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
               "
@@ -333,14 +333,14 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               icon="mdi-pencil"
               variant="outlined"
               density="compact"
-              :tooltip="t('rom.upload-cover', 'Upload cover')"
+              :tooltip="t('rom.upload-cover')"
               @click="coverFileInput?.click()"
             />
             <input
               ref="coverFileInput"
               type="file"
               accept="image/*"
-              :aria-label="t('rom.upload-cover', 'Upload cover')"
+              :aria-label="t('rom.upload-cover')"
               class="r-v2-edit__file"
               @change="previewImage"
             />
@@ -349,7 +349,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               variant="outlined"
               density="compact"
               color="danger"
-              :tooltip="t('rom.remove-cover', 'Remove cover')"
+              :tooltip="t('rom.remove-cover')"
               @click="removeArtwork"
             />
           </div>
@@ -412,7 +412,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           :items="tabItems"
           variant="underlined"
           size="small"
-          aria-label="Edit ROM sections"
+          :aria-label="t('rom.edit-rom-sections')"
         />
         <div class="r-v2-edit__tab-content">
           <AdditionalDetails

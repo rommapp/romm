@@ -20,6 +20,7 @@ import {
 } from "@v2/lib";
 import type { Ref } from "vue";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import type {
   GroupByMode,
@@ -28,6 +29,8 @@ import type {
 } from "@/v2/composables/useGalleryMode";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 export type KindFilterValue = "all" | "regular" | "virtual";
 export interface KindFilterItem {
@@ -79,34 +82,20 @@ const props = withDefaults(
   {
     position: "header",
     showGroupBy: true,
-    // Inline default — flat + by-letter, the universal pair every
-    // gallery surface (Platform / Collection / Search) supports. Index
-    // views (PlatformsIndex) override this with a richer list. Cannot
-    // reference an outer const here: `withDefaults`' factory is hoisted
-    // outside `setup()`, so any module-scope identifier it touched
-    // would explode at compile time.
-    groupByItems: () => [
-      {
-        id: "none",
-        icon: "mdi-view-agenda-outline",
-        ariaLabel: "Flat view",
-        title: "Flat view",
-      },
-      {
-        id: "letter",
-        icon: "mdi-alphabetical-variant",
-        ariaLabel: "Group by letter",
-        title: "Group by letter",
-      },
-    ],
+    // Default groupBy items live in a setup-scope computed
+    // (`defaultGroupByItems`) so labels go through `t()`. The
+    // `withDefaults` factory is hoisted outside `setup()` and cannot
+    // reference identifiers, so we leave the default empty here and
+    // substitute downstream through `effectiveGroupByItems`.
+    groupByItems: () => [],
     sortDir: "asc",
     showSearch: false,
     search: "",
-    searchPlaceholder: "Search…",
+    searchPlaceholder: "",
     showKindFilter: false,
     kindFilter: "all",
     kindFilterItems: () => [],
-    kindFilterAriaLabel: "Filter by kind",
+    kindFilterAriaLabel: "",
     showFilter: false,
     filterActiveCount: 0,
   },
@@ -132,35 +121,66 @@ const groupByValue = computed(() => toValue(props.groupBy));
 const layoutValue = computed(() => toValue(props.layout));
 const sortDirValue = computed(() => toValue(props.sortDir));
 
-const layoutItems = [
+const layoutItems = computed(() => [
   {
     id: "grid" as const,
     icon: "mdi-view-grid-outline",
-    ariaLabel: "Grid",
-    title: "Grid",
+    ariaLabel: t("gallery.view-grid"),
+    title: t("gallery.view-grid"),
   },
   {
     id: "list" as const,
     icon: "mdi-view-list",
-    ariaLabel: "List",
-    title: "List",
+    ariaLabel: t("gallery.view-list"),
+    title: t("gallery.view-list"),
   },
-];
+]);
 
-const sortDirItems = [
+const sortDirItems = computed(() => [
   {
     id: "asc" as const,
     icon: "mdi-sort-ascending",
-    ariaLabel: "Sort ascending",
-    title: "Sort ascending",
+    ariaLabel: t("gallery.sort-ascending"),
+    title: t("gallery.sort-ascending"),
   },
   {
     id: "desc" as const,
     icon: "mdi-sort-descending",
-    ariaLabel: "Sort descending",
-    title: "Sort descending",
+    ariaLabel: t("gallery.sort-descending"),
+    title: t("gallery.sort-descending"),
   },
-];
+]);
+
+// Default group-by items (used when the parent doesn't override
+// `groupByItems`). Computed so the labels track the active locale.
+const defaultGroupByItems = computed<GroupByItem[]>(() => [
+  {
+    id: "none",
+    icon: "mdi-view-agenda-outline",
+    ariaLabel: t("gallery.view-flat"),
+    title: t("gallery.view-flat"),
+  },
+  {
+    id: "letter",
+    icon: "mdi-alphabetical-variant",
+    ariaLabel: t("gallery.view-grouped"),
+    title: t("gallery.view-grouped"),
+  },
+]);
+
+const effectiveGroupByItems = computed<GroupByItem[]>(() =>
+  props.groupByItems.length > 0
+    ? props.groupByItems
+    : defaultGroupByItems.value,
+);
+
+const effectiveSearchPlaceholder = computed(
+  () => props.searchPlaceholder || `${t("common.search")}…`,
+);
+
+const effectiveKindFilterAriaLabel = computed(
+  () => props.kindFilterAriaLabel || t("gallery.filters"),
+);
 
 function setGroupBy(value: GroupByMode) {
   emit("update:groupBy", value);
@@ -195,7 +215,7 @@ const { smAndUp } = useBreakpoint();
     <RTextField
       v-if="showSearch"
       :model-value="search"
-      :placeholder="searchPlaceholder"
+      :placeholder="effectiveSearchPlaceholder"
       density="comfortable"
       prefix-label="inline"
       clearable
@@ -223,7 +243,7 @@ const { smAndUp } = useBreakpoint();
         surface
         icon="mdi-filter-variant"
         rounded="circle"
-        aria-label="Filters"
+        :aria-label="t('gallery.filters')"
         @click="emit('click:filter')"
       />
     </RBadge>
@@ -233,7 +253,7 @@ const { smAndUp } = useBreakpoint();
       :model-value="kindFilter"
       :items="kindFilterItems"
       variant="segmented"
-      :aria-label="kindFilterAriaLabel"
+      :aria-label="effectiveKindFilterAriaLabel"
       @update:model-value="setKindFilter"
     />
 
@@ -245,9 +265,9 @@ const { smAndUp } = useBreakpoint();
       <RSliderBtnGroup
         v-if="smAndUp && showGroupBy"
         :model-value="groupByValue"
-        :items="groupByItems"
+        :items="effectiveGroupByItems"
         variant="segmented"
-        aria-label="Group by"
+        :aria-label="t('settings.platforms-drawer-group-by')"
         :disabled="layoutValue === 'list'"
         @update:model-value="setGroupBy"
       />
@@ -257,7 +277,7 @@ const { smAndUp } = useBreakpoint();
         :model-value="sortDirValue"
         :items="sortDirItems"
         variant="segmented"
-        aria-label="Sort direction"
+        :aria-label="t('gallery.sort-ascending')"
         :disabled="layoutValue === 'list'"
         @update:model-value="setSortDir"
       />
@@ -267,7 +287,7 @@ const { smAndUp } = useBreakpoint();
         :model-value="layoutValue"
         :items="layoutItems"
         variant="segmented"
-        aria-label="Layout"
+        :aria-label="t('common.type')"
         @update:model-value="setLayout"
       />
 
@@ -282,7 +302,7 @@ const { smAndUp } = useBreakpoint();
             surface
             icon="mdi-dots-vertical"
             rounded="circle"
-            aria-label="View options"
+            :aria-label="t('platform.change-view')"
           />
         </template>
         <template v-if="showKindFilter && kindFilterItems.length > 0">
@@ -296,9 +316,9 @@ const { smAndUp } = useBreakpoint();
           />
           <RDivider />
         </template>
-        <template v-if="showGroupBy && groupByItems.length > 0">
+        <template v-if="showGroupBy && effectiveGroupByItems.length > 0">
           <RMenuItem
-            v-for="item in groupByItems"
+            v-for="item in effectiveGroupByItems"
             :key="item.id"
             :label="item.label ?? item.title ?? item.ariaLabel ?? item.id"
             :icon="item.icon"
@@ -309,14 +329,14 @@ const { smAndUp } = useBreakpoint();
           <RDivider />
         </template>
         <RMenuItem
-          label="Sort ascending"
+          :label="t('gallery.sort-ascending')"
           icon="mdi-sort-ascending"
           :variant="sortDirValue === 'asc' ? 'active' : 'default'"
           :disabled="layoutValue === 'list'"
           @click="setSortDir('asc')"
         />
         <RMenuItem
-          label="Sort descending"
+          :label="t('gallery.sort-descending')"
           icon="mdi-sort-descending"
           :variant="sortDirValue === 'desc' ? 'active' : 'default'"
           :disabled="layoutValue === 'list'"
@@ -324,13 +344,13 @@ const { smAndUp } = useBreakpoint();
         />
         <RDivider />
         <RMenuItem
-          label="Grid"
+          :label="t('gallery.view-grid')"
           icon="mdi-view-grid-outline"
           :variant="layoutValue === 'grid' ? 'active' : 'default'"
           @click="setLayout('grid')"
         />
         <RMenuItem
-          label="List"
+          :label="t('gallery.view-list')"
           icon="mdi-view-list"
           :variant="layoutValue === 'list' ? 'active' : 'default'"
           @click="setLayout('list')"

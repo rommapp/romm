@@ -122,10 +122,13 @@ const abilities = [
         <button
           type="button"
           class="r-setup-admin__avatar"
-          :aria-label="t('settings.change-avatar', 'Change avatar')"
+          :aria-label="t('settings.change-avatar')"
           @click="triggerFilePick"
         >
-          <img :src="avatarSrc" :alt="draft.username || 'avatar'" />
+          <img
+            :src="avatarSrc"
+            :alt="draft.username || t('settings.change-avatar')"
+          />
           <span class="r-setup-admin__avatar-edit">
             <RIcon name="mdi-camera" :size="22" />
           </span>
@@ -135,7 +138,7 @@ const abilities = [
           type="file"
           accept="image/*"
           class="r-setup-admin__file"
-          :aria-label="t('settings.change-avatar', 'Change avatar')"
+          :aria-label="t('settings.change-avatar')"
           @change="onAvatarPicked"
         />
         <RTooltip>
@@ -148,11 +151,11 @@ const abilities = [
               color="danger"
               class="r-setup-admin__avatar-trash"
               :disabled="!draft.avatar"
-              :aria-label="t('common.remove', 'Remove')"
+              :aria-label="t('common.remove')"
               @click="clearAvatar"
             />
           </template>
-          <span>{{ t("common.remove", "Remove") }}</span>
+          <span>{{ t("common.remove") }}</span>
         </RTooltip>
       </div>
 

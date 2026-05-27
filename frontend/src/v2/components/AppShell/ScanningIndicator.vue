@@ -57,7 +57,7 @@ const counterLabel = computed(() => {
   <Transition name="r-scan-indicator">
     <RTooltip
       v-if="visible"
-      :text="t('scan.scanning-library', 'Scanning library. Click to view')"
+      :text="t('scan.scanning-library')"
       location="bottom"
     >
       <template #activator="{ props: tooltipProps }">
@@ -65,14 +65,12 @@ const counterLabel = computed(() => {
           v-bind="tooltipProps"
           :to="{ name: ROUTES.SCAN }"
           class="r-scan-indicator"
-          :aria-label="
-            t('scan.scanning-library', 'Scanning library. Click to view')
-          "
+          :aria-label="t('scan.scanning-library')"
         >
           <span class="r-scan-indicator__row">
             <RSpinner size="14" color="primary" />
             <span class="r-scan-indicator__label">
-              {{ t("scan.scanning", "Scanning") }}
+              {{ t("scan.scanning") }}
             </span>
             <span v-if="counterLabel">
               {{ counterLabel }}

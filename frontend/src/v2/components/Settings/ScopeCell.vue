@@ -10,12 +10,15 @@
 // single-segment permissions (`invite`, `reset`) keep their own label.
 import { RBtn, RIcon, RMenu } from "@v2/lib";
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import ScopeTree from "./ScopeTree.vue";
 
 interface Props {
   scopes: readonly string[];
 }
 const props = defineProps<Props>();
+
+const { t } = useI18n();
 
 const open = ref(false);
 
@@ -27,6 +30,12 @@ const scopeCount = computed(() => {
   }
   return set.size;
 });
+
+const scopeLabel = computed(() =>
+  scopeCount.value === 1
+    ? t("settings.scope-singular")
+    : t("settings.scope-plural"),
+);
 </script>
 
 <template>
@@ -45,12 +54,12 @@ const scopeCount = computed(() => {
         size="small"
         border
         class="r-v2-scope-cell__chip"
-        :aria-label="`${scopeCount} ${scopeCount === 1 ? 'scope' : 'scopes'}`"
+        :aria-label="`${scopeCount} ${scopeLabel}`"
       >
         <RIcon icon="mdi-key-outline" size="14" class="r-v2-scope-cell__icon" />
         <span class="r-v2-scope-cell__count">{{ scopeCount }}</span>
         <span class="r-v2-scope-cell__label">
-          {{ scopeCount === 1 ? "scope" : "scopes" }}
+          {{ scopeLabel }}
         </span>
         <RIcon
           icon="mdi-chevron-down"

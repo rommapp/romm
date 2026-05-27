@@ -16,6 +16,7 @@ import { RBtn, RSlider, RSpinner } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import type { Events } from "@/types/emitter";
@@ -23,6 +24,7 @@ import VolumeControl from "@/v2/components/Soundtrack/VolumeControl.vue";
 
 defineOptions({ inheritAttrs: false });
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -130,7 +132,7 @@ function onError() {
   // Snackbar payload still uses v1's `snackbarShow` event shape —
   // when v1 is removed, switch to `useSnackbar()` here.
   emitter?.emit("snackbarShow", {
-    msg: "Couldn't play this track.",
+    msg: t("rom.cant-play-track"),
     icon: "mdi-alert",
     color: "red",
     timeout: 3000,
@@ -147,7 +149,10 @@ function fmt(s: number) {
 }
 
 function seekValueText(v: number): string {
-  return `${fmt(v)} of ${fmt(duration.value)}`;
+  return t("rom.seek-progress", {
+    current: fmt(v),
+    duration: fmt(duration.value),
+  });
 }
 
 function openRom() {
@@ -187,7 +192,7 @@ function openRom() {
       v-if="showMiniPlayer && track"
       class="r-v2-mp"
       role="region"
-      aria-label="Soundtrack player"
+      :aria-label="t('rom.soundtrack-player')"
     >
       <!-- Top row: cover + meta + close/open-rom -->
       <div class="r-v2-mp__top">
@@ -216,16 +221,16 @@ function openRom() {
             icon="mdi-open-in-new"
             variant="text"
             size="small"
-            tooltip="Open ROM"
-            aria-label="Open ROM"
+            :tooltip="t('rom.soundtrack-open-rom-tooltip')"
+            :aria-label="t('rom.soundtrack-open-rom-tooltip')"
             @click="openRom"
           />
           <RBtn
             icon="mdi-close"
             variant="text"
             size="small"
-            tooltip="Close player"
-            aria-label="Close player"
+            :tooltip="t('rom.soundtrack-close-player')"
+            :aria-label="t('rom.soundtrack-close-player')"
             @click="store.stop()"
           />
         </div>
@@ -238,16 +243,20 @@ function openRom() {
           variant="text"
           size="small"
           :disabled="!hasPrevious"
-          tooltip="Previous track"
-          aria-label="Previous track"
+          :tooltip="t('rom.soundtrack-previous')"
+          :aria-label="t('rom.soundtrack-previous')"
           @click="store.previous()"
         />
         <RBtn
           :icon="isPlaying ? 'mdi-pause-circle' : 'mdi-play-circle'"
           variant="text"
           size="large"
-          :tooltip="isPlaying ? 'Pause' : 'Play'"
-          :aria-label="isPlaying ? 'Pause' : 'Play'"
+          :tooltip="
+            isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+          "
+          :aria-label="
+            isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+          "
           @click="store.togglePlayPause()"
         />
         <RBtn
@@ -255,8 +264,8 @@ function openRom() {
           variant="text"
           size="small"
           :disabled="!hasNext"
-          tooltip="Next track"
-          aria-label="Next track"
+          :tooltip="t('rom.soundtrack-next')"
+          :aria-label="t('rom.soundtrack-next')"
           @click="store.next()"
         />
         <span class="r-v2-mp__transport-spacer" />
@@ -272,7 +281,7 @@ function openRom() {
           :step="0.1"
           color="primary"
           class="r-v2-mp__seek-slider"
-          aria-label="Seek"
+          :aria-label="t('rom.soundtrack-seek')"
           :aria-valuetext="seekValueText(currentTime)"
           @update:model-value="(v: number) => store.seek(v)"
         />

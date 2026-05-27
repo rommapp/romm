@@ -20,5 +20,12 @@
   "save-and-quit": "저장하고 종료",
   "select-background-color": "배경색 선택",
   "select-save": "세이브 선택",
-  "select-state": "상태 선택"
+  "select-state": "상태 선택",
+  "all-saves": "모든 세이브",
+  "all-states": "모든 상태",
+  "no-screenshot-available": "사용 가능한 스크린샷이 없습니다",
+  "powered-by": "제공",
+  "resume-from-save": "세이브에서 이어하기",
+  "resume-from-state": "상태에서 이어하기",
+  "start-fresh-hint": "아래에서 하나를 선택하여 이어 하거나, 실행을 눌러 새로 시작하세요."
 }

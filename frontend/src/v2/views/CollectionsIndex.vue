@@ -16,6 +16,7 @@
 import { RDivider, RLetterHeading, RSkeletonBlock, RIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import storeCollections, {
   type Collection,
@@ -25,6 +26,7 @@ import storeCollections, {
 import CollectionListHeader from "@/v2/components/Collections/CollectionListHeader.vue";
 import CollectionListRow from "@/v2/components/Collections/CollectionListRow.vue";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
+import type { CollectionListSortKey } from "@/v2/components/Collections/collectionListColumns";
 import GalleryToolbar, {
   type KindFilterItem,
   type KindFilterValue,
@@ -49,6 +51,7 @@ type CollectionTileEntry = {
   kind: Kind;
 };
 
+const { t } = useI18n();
 const collectionsStore = storeCollections();
 const { toWebp } = useWebpSupport();
 const {
@@ -61,7 +64,21 @@ const {
 const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
 const searchTerm = useTileSearchUrl();
-const gridSortDir = ref<"asc" | "desc">("asc");
+// Unified sort state across grid + list modes. Grid mode only exposes
+// the direction toggle (toolbar); list mode lets the column-header
+// click drive both axis and direction. Mirrors GalleryShell's pattern
+// where list-mode header clicks and grid-mode dir-toggle write to the
+// same orderBy/orderDir.
+const sortKey = ref<CollectionListSortKey>("name");
+const sortDir = ref<"asc" | "desc">("asc");
+
+function onListSort(payload: {
+  key: CollectionListSortKey;
+  dir: "asc" | "desc";
+}) {
+  sortKey.value = payload.key;
+  sortDir.value = payload.dir;
+}
 
 // `?kind=` URL-synced filter — same direction rules as
 // `useTileSearchUrl`: route → ref on every change, ref → router.replace
@@ -184,21 +201,38 @@ const filtered = computed<CollectionTileEntry[]>(() => {
   return byTerm;
 });
 
-// Sort comparator for grid mode — the toolbar asc/desc toggle drives
-// direction, name is the only sort axis the grid surface exposes.
-function gridCompare(a: CollectionTileEntry, b: CollectionTileEntry): number {
-  const sign = gridSortDir.value === "asc" ? 1 : -1;
-  return a.name.localeCompare(b.name) * sign;
+// Sort comparator driven by the active `sortKey` + `sortDir`. Used by
+// both list mode (column-header sort) and grid mode (toolbar dir
+// toggle, axis stays whatever list-mode last set — default "name").
+// Sort by `name` falls back to localeCompare; ties on `kind` /
+// `rom_count` resolve to name asc so the ordering is deterministic.
+const KIND_ORDER: Record<Kind, number> = { regular: 0, smart: 1, virtual: 2 };
+function compareTiles(a: CollectionTileEntry, b: CollectionTileEntry): number {
+  const sign = sortDir.value === "asc" ? 1 : -1;
+  let cmp: number;
+  if (sortKey.value === "name") {
+    cmp = a.name.localeCompare(b.name);
+  } else if (sortKey.value === "kind") {
+    cmp = KIND_ORDER[a.kind] - KIND_ORDER[b.kind];
+    if (cmp === 0) cmp = a.name.localeCompare(b.name);
+  } else {
+    cmp = a.rom_count - b.rom_count;
+    if (cmp === 0) cmp = a.name.localeCompare(b.name);
+  }
+  return cmp * sign;
 }
 
 // Curated = regular + smart (both real, hand-managed). Virtual is the
 // dynamic/computed kind. Splitting up front keeps every render branch
 // (flat / letter / list) free of inline kind checks.
 const curatedTiles = computed<CollectionTileEntry[]>(() =>
-  [...filtered.value.filter((c) => c.kind !== "virtual")].sort(gridCompare),
+  [...filtered.value.filter((c) => c.kind !== "virtual")].sort(compareTiles),
 );
 const virtualTiles = computed<CollectionTileEntry[]>(() =>
-  [...filtered.value.filter((c) => c.kind === "virtual")].sort(gridCompare),
+  [...filtered.value.filter((c) => c.kind === "virtual")].sort(compareTiles),
+);
+const sortedTiles = computed<CollectionTileEntry[]>(() =>
+  [...filtered.value].sort(compareTiles),
 );
 
 const totalCount = computed(() => tiles.value.length);
@@ -221,18 +255,24 @@ const emptyState = computed<{ icon: string; message: string } | null>(() => {
   if (term) {
     return {
       icon: "mdi-bookmark-multiple-outline",
-      message: `No collections match “${term}”.`,
+      message: t("collection.no-collections-search", { query: term }),
     };
   }
   if (kindFilter.value === "regular") {
-    return { icon: "mdi-bookmark-outline", message: "No collections yet." };
+    return {
+      icon: "mdi-bookmark-outline",
+      message: t("collection.no-collections-yet"),
+    };
   }
   if (kindFilter.value === "virtual") {
-    return { icon: "mdi-bookmark-box-outline", message: "No collections yet." };
+    return {
+      icon: "mdi-bookmark-box-outline",
+      message: t("collection.no-collections-yet"),
+    };
   }
   return {
     icon: "mdi-bookmark-multiple-outline",
-    message: "No collections yet.",
+    message: t("collection.no-collections-yet"),
   };
 });
 
@@ -242,7 +282,7 @@ type LetterGroup = { letter: string; items: CollectionTileEntry[] };
 // whole sequence (`@ Z…A #`).
 const COLLECTION_BUCKET_ORDER = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ@";
 function groupByLetter(items: CollectionTileEntry[]): LetterGroup[] {
-  // `items` is pre-sorted by `gridCompare` (see curatedTiles /
+  // `items` is pre-sorted by `compareTiles` (see curatedTiles /
   // virtualTiles); Array.push + Map iteration preserve insertion order
   // so items inside each bucket inherit that direction.
   //
@@ -261,7 +301,7 @@ function groupByLetter(items: CollectionTileEntry[]): LetterGroup[] {
     if (bucket) bucket.push(c);
     else map.set(key, [c]);
   }
-  const dirSign = gridSortDir.value === "asc" ? 1 : -1;
+  const dirSign = sortDir.value === "asc" ? 1 : -1;
   return [...map.entries()]
     .sort(
       ([a], [b]) =>
@@ -308,7 +348,7 @@ const showListHeader = computed(
 <template>
   <IndexShell :list-mode="showListHeader">
     <template #header>
-      <PageHeader title="Collections" :count="totalCount" />
+      <PageHeader :title="t('common.collections')" :count="totalCount" />
       <RDivider class="r-v2-cidx__header-divider" />
     </template>
 
@@ -316,24 +356,28 @@ const showListHeader = computed(
       <GalleryToolbar
         :group-by="groupBy"
         :layout="layout"
-        :sort-dir="gridSortDir"
+        :sort-dir="sortDir"
         :search="searchTerm"
         show-search
-        search-placeholder="Search collections"
+        :search-placeholder="t('collection.search-collection')"
         show-kind-filter
         :kind-filter="kindFilter"
         :kind-filter-items="kindFilterItems"
-        kind-filter-aria-label="Filter collections"
+        :kind-filter-aria-label="t('gallery.filters')"
         @update:group-by="groupBy = $event"
         @update:layout="layout = $event"
-        @update:sort-dir="gridSortDir = $event"
+        @update:sort-dir="sortDir = $event"
         @update:search="searchTerm = $event"
         @update:kind-filter="kindFilter = $event"
       />
     </template>
 
     <template #listHeader>
-      <CollectionListHeader />
+      <CollectionListHeader
+        :sort-key="sortKey"
+        :sort-dir="sortDir"
+        @sort="onListSort"
+      />
     </template>
 
     <div v-if="fetchingCollections && !totalCount" class="r-v2-cidx__grid">
@@ -359,7 +403,7 @@ const showListHeader = computed(
 
     <div v-else-if="layout === 'list'" class="r-v2-cidx__list">
       <CollectionListRow
-        v-for="c in filtered"
+        v-for="c in sortedTiles"
         :id="c.id"
         :key="`${c.kind}-${c.id}`"
         :to="c.link"

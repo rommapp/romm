@@ -90,14 +90,14 @@ const columns = computed<RTableColumn[]>(() => [
   },
   {
     key: "expires_at",
-    label: "Expires",
+    label: t("settings.users-tokens-expires"),
     sortable: true,
     width: "minmax(0, 1fr)",
     skeletonWidth: 110,
   },
   {
     key: "last_used_at",
-    label: "Last used",
+    label: t("settings.users-tokens-last-used"),
     sortable: true,
     width: "minmax(0, 1fr)",
     skeletonWidth: 110,
@@ -157,7 +157,10 @@ async function deleteToken(token: ClientTokenSchema) {
       message?: string;
     };
     snackbar.error(
-      `Unable to delete token: ${e?.response?.data?.detail || e?.response?.statusText || e?.message}`,
+      t("settings.unable-to-delete-token", {
+        detail:
+          e?.response?.data?.detail || e?.response?.statusText || e?.message,
+      }),
       { icon: "mdi-close-circle" },
     );
   }
@@ -174,7 +177,7 @@ onMounted(fetchTokens);
       :placeholder="t('common.search')"
       hide-details
       density="compact"
-      aria-label="Search tokens"
+      :aria-label="t('settings.search-tokens')"
       class="r-v2-tok__search"
     >
       <template #prefix-label>
@@ -190,7 +193,7 @@ onMounted(fetchTokens);
       :sort-dir="sortDir"
       :loading="loading"
       empty-icon="mdi-key-outline"
-      empty-message="No tokens — create one to start pairing devices."
+      :empty-message="t('settings.no-tokens-help')"
       class="r-v2-tok__table"
       @update:sort="onSort"
     >
@@ -229,8 +232,8 @@ onMounted(fetchTokens);
             variant="text"
             size="small"
             icon="mdi-refresh"
-            aria-label="Regenerate token"
-            title="Regenerate"
+            :aria-label="t('settings.regenerate-token')"
+            :title="t('settings.regenerate-token-tooltip')"
             @click="openRegenerate(row as ClientTokenSchema)"
           />
           <RBtn

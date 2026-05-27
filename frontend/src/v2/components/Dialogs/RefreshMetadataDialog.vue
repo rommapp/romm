@@ -178,10 +178,7 @@ const hashMatchers = computed<HashMatcher[]>(() => {
         : noHashes
           ? t("scan.requires-hashes", { source: "Playmatch" })
           : !igdbSelected
-            ? t(
-                "scan.playmatch-requires-igdb",
-                "Select IGDB to enable Playmatch.",
-              )
+            ? t("scan.playmatch-requires-igdb")
             : null,
       switchEnabled: playmatchAdmin && !noHashes && igdbSelected,
     },
@@ -301,7 +298,7 @@ function onScan() {
     });
   } else {
     const r = roms.value[0];
-    snackbar.info(`Refreshing ${r.name ?? r.fs_name} metadata...`, {
+    snackbar.info(t("rom.refreshing-metadata", { name: r.name ?? r.fs_name }), {
       icon: "mdi-loading mdi-spin",
     });
   }
@@ -464,7 +461,7 @@ function closeDialog() {
                         'r-v2-refresh__lb-inactive': launchboxRemoteEnabled,
                       }"
                     >
-                      Local
+                      {{ t("rom.launchbox-local") }}
                     </span>
                     <RSwitch
                       v-model="launchboxRemoteEnabled"
@@ -476,7 +473,7 @@ function closeDialog() {
                         'r-v2-refresh__lb-inactive': !launchboxRemoteEnabled,
                       }"
                     >
-                      Cloud
+                      {{ t("rom.launchbox-cloud") }}
                     </span>
                   </div>
                 </li>
@@ -553,7 +550,7 @@ function closeDialog() {
           <div
             class="r-v2-refresh__matchers"
             role="group"
-            aria-label="Hash matchers"
+            :aria-label="t('scan.hash-matchers')"
           >
             <RTooltip
               v-for="matcher in hashMatchers"

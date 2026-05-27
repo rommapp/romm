@@ -17,6 +17,7 @@
 import { RDivider, RLetterHeading, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import GalleryToolbar, {
   type GroupByItem,
@@ -37,6 +38,7 @@ import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 
+const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
 
@@ -371,7 +373,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
 <template>
   <IndexShell :list-mode="layout === 'list'">
     <template #header>
-      <PageHeader title="Platforms" :count="totalCount" />
+      <PageHeader :title="t('common.platforms')" :count="totalCount" />
       <RDivider class="r-v2-pidx__header-divider" />
     </template>
 
@@ -383,7 +385,7 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
         :search="searchTerm"
         :group-by-items="platformGroupByItems"
         show-search
-        search-placeholder="Search platforms"
+        :search-placeholder="t('platform.search-platform')"
         @update:group-by="groupBy = $event"
         @update:layout="layout = $event"
         @update:sort-dir="gridSortDir = $event"
@@ -411,12 +413,12 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
 
     <EmptyState
       v-else-if="!totalCount"
-      message="No platforms found. Run a scan to populate your library."
+      :message="t('platform.no-platforms-empty')"
     />
 
     <EmptyState
       v-else-if="noResults"
-      :message="`No platforms match “${searchTerm}”.`"
+      :message="t('platform.no-platforms-search', { query: searchTerm })"
     />
 
     <!-- List mode — rows underneath the sticky column header (rendered

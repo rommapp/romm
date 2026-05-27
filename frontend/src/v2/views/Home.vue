@@ -239,7 +239,7 @@ function collectionCovers(c: {
       <!-- Continue playing -->
       <CardRow
         v-if="continuePlayingRoms.length || fetchingContinue"
-        title="Continue playing"
+        :title="t('home.continue-playing')"
         :count="continuePlayingRoms.length"
       >
         <template #icon>
@@ -260,7 +260,7 @@ function collectionCovers(c: {
       </CardRow>
 
       <!-- Recently added -->
-      <CardRow title="Recently added" :count="recentRoms.length">
+      <CardRow :title="t('home.recently-added')" :count="recentRoms.length">
         <template #icon>
           <RIcon icon="mdi-shimmer" size="20" />
         </template>
@@ -268,7 +268,7 @@ function collectionCovers(c: {
           <GameCardSkeleton v-for="n in 6" :key="`rs-${n}`" />
         </template>
         <div v-else-if="!recentRoms.length" class="r-v2-home__empty">
-          No games added yet.
+          {{ t("home.no-games-yet") }}
         </div>
         <template v-else>
           <GameCard
@@ -298,7 +298,11 @@ function collectionCovers(c: {
     </CardRow> -->
 
       <!-- Platforms -->
-      <CardRow title="Platforms" :count="filledPlatforms.length" gap="16px">
+      <CardRow
+        :title="t('common.platforms')"
+        :count="filledPlatforms.length"
+        gap="16px"
+      >
         <template #icon>
           <RIcon icon="mdi-controller" size="20" />
         </template>
@@ -327,7 +331,7 @@ function collectionCovers(c: {
       <!-- Collections -->
       <CardRow
         v-if="allCollections.length || fetchingCollections"
-        title="Collections"
+        :title="t('common.collections')"
         :count="allCollections.length"
         gap="16px"
       >

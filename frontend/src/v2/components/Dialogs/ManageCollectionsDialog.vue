@@ -132,11 +132,8 @@ async function toggle(collection: Collection) {
     snackbar.error(
       axiosErr.response?.data?.detail ??
         (adding
-          ? t("rom.collection-add-failed", "Couldn't add to collection")
-          : t(
-              "rom.collection-remove-failed",
-              "Couldn't remove from collection",
-            )),
+          ? t("rom.collection-add-failed")
+          : t("rom.collection-remove-failed")),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -148,13 +145,7 @@ async function createNewCollection() {
   const name = newName.value.trim();
   if (!name || creating.value) return;
   if (collectionsStore.ownedCollections.some((c) => c.name === name)) {
-    snackbar.error(
-      t(
-        "collection.name-exists",
-        `A collection called "${name}" already exists.`,
-      ),
-      { icon: "mdi-close-circle" },
-    );
+    snackbar.error(t("collection.name-exists"), { icon: "mdi-close-circle" });
     return;
   }
   creating.value = true;
@@ -169,7 +160,7 @@ async function createNewCollection() {
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
     snackbar.error(
-      axiosErr.response?.data?.detail ?? "Failed to create collection",
+      axiosErr.response?.data?.detail ?? t("collection.create-failed"),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -236,7 +227,7 @@ function closeDialog() {
         />
         <div class="r-v2-mng-coll__head-text">
           <span class="r-v2-mng-coll__head-title">
-            {{ t("rom.manage-collections", "Manage collections") }}
+            {{ t("rom.manage-collections") }}
           </span>
           <span v-if="subtitle" class="r-v2-mng-coll__head-subtitle">
             {{ subtitle }}
@@ -273,12 +264,7 @@ function closeDialog() {
       </ul>
 
       <div v-else class="r-v2-mng-coll__empty">
-        {{
-          t(
-            "collection.no-collections-yet",
-            "No collections yet. Create one above.",
-          )
-        }}
+        {{ t("collection.no-collections-yet-hint") }}
       </div>
     </template>
   </RDialog>

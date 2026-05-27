@@ -131,7 +131,10 @@ const groups = computed<Group[]>(() => {
 </script>
 
 <template>
-  <nav class="r-v2-settings-sidebar" aria-label="Settings sections">
+  <nav
+    class="r-v2-settings-sidebar"
+    :aria-label="t('settings.settings-sections')"
+  >
     <div
       v-for="group in groups"
       :key="group.key"

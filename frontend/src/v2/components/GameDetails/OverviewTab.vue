@@ -20,6 +20,7 @@
 // — see GameActionBtn (status) and MetricMenuBtn.
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type {
   IGDBRelatedGame,
   RomHLTBMetadata,
@@ -68,6 +69,7 @@ const hasQuickFacts = computed(
 // store already holds — so we can render real CollectionTile mosaics
 // instead of stripped chips. Falls back to a bare entry if the store
 // is empty (e.g. deep-link before the AppLayout fetch resolves).
+const { t } = useI18n();
 const collectionsStore = storeCollections();
 const { toWebp } = useWebpSupport();
 
@@ -118,19 +120,19 @@ const hasRelated = computed(
       class="overview-tab__facts"
     >
       <div v-if="lastPlayed" class="overview-tab__row">
-        <div class="overview-tab__label">Last played</div>
+        <div class="overview-tab__label">{{ t("rom.last-played") }}</div>
         <div class="overview-tab__field">{{ lastPlayed }}</div>
       </div>
 
       <div v-if="playerCount" class="overview-tab__row">
-        <div class="overview-tab__label">Players</div>
+        <div class="overview-tab__label">{{ t("rom.player-count") }}</div>
         <div class="overview-tab__field">
           <PlayerCountBadge :value="playerCount" />
         </div>
       </div>
 
       <div v-if="hasAgeRatings" class="overview-tab__row">
-        <div class="overview-tab__label">Age rating</div>
+        <div class="overview-tab__label">{{ t("rom.age-rating") }}</div>
         <div class="overview-tab__field">
           <AgeRatingBadges :rom="rom" />
         </div>
@@ -140,7 +142,7 @@ const hasRelated = computed(
         v-if="userCollectionTiles.length"
         class="overview-tab__row overview-tab__row--tiles"
       >
-        <div class="overview-tab__label">RomM collections</div>
+        <div class="overview-tab__label">{{ t("rom.collections") }}</div>
         <div class="overview-tab__field overview-tab__field--scroll-x">
           <CollectionTile
             v-for="c in userCollectionTiles"

@@ -10,11 +10,13 @@
 import { RIcon, RTooltip } from "@v2/lib";
 import { computed } from "vue";
 import VuePdfApp from "vue3-pdf-app";
+import { useI18n } from "vue-i18n";
 import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useThemeMode } from "@/v2/composables/useThemeMode";
 
 defineProps<{ pdfUrl: string }>();
 
+const { t } = useI18n();
 const { xs } = useBreakpoint();
 const { isLight } = useThemeMode();
 const pdfTheme = computed<"light" | "dark">(() =>
@@ -40,7 +42,7 @@ const ids = {
 <template>
   <div class="r-v2-pdfv">
     <div class="r-v2-pdfv__toolbar">
-      <RTooltip text="Toggle sidebar">
+      <RTooltip :text="t('rom.pdf-toggle-sidebar')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.sidebarToggle"
@@ -55,7 +57,7 @@ const ids = {
 
       <span class="r-v2-pdfv__sep" aria-hidden="true" />
 
-      <RTooltip text="First page">
+      <RTooltip :text="t('common.first-page')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.firstPage"
@@ -68,7 +70,7 @@ const ids = {
         </template>
       </RTooltip>
 
-      <RTooltip v-if="!xs" text="Previous page">
+      <RTooltip v-if="!xs" :text="t('common.previous-page')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.previousPage"
@@ -85,11 +87,11 @@ const ids = {
         :id="ids.pageNumber"
         type="number"
         class="r-v2-pdfv__page-input"
-        aria-label="Page"
+        :aria-label="t('common.page')"
       />
       <span :id="ids.numPages" class="r-v2-pdfv__page-total" />
 
-      <RTooltip v-if="!xs" text="Next page">
+      <RTooltip v-if="!xs" :text="t('common.next-page')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.nextPage"
@@ -102,7 +104,7 @@ const ids = {
         </template>
       </RTooltip>
 
-      <RTooltip text="Last page">
+      <RTooltip :text="t('common.last-page')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.lastPage"
@@ -117,7 +119,7 @@ const ids = {
 
       <span class="r-v2-pdfv__spacer" />
 
-      <RTooltip text="Zoom in">
+      <RTooltip :text="t('common.zoom-in')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.zoomIn"
@@ -130,7 +132,7 @@ const ids = {
         </template>
       </RTooltip>
 
-      <RTooltip text="Zoom out">
+      <RTooltip :text="t('common.zoom-out')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.zoomOut"
@@ -145,7 +147,7 @@ const ids = {
 
       <span class="r-v2-pdfv__spacer" />
 
-      <RTooltip text="Download">
+      <RTooltip :text="t('common.download')">
         <template #activator="{ props: activator }">
           <button
             :id="ids.download"

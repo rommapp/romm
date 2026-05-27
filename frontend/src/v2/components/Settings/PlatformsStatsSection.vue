@@ -19,6 +19,7 @@ import {
 import type { SliderBtnGroupItem } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { MetadataCoverageItem } from "@/__generated__/models/MetadataCoverageItem";
 import type { RegionBreakdownItem } from "@/__generated__/models/RegionBreakdownItem";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -34,6 +35,7 @@ interface Props {
 }
 const props = defineProps<Props>();
 
+const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { allPlatforms } = storeToRefs(platformsStore);
 const heartbeat = storeHeartbeat();
@@ -42,26 +44,26 @@ type OrderBy = "name" | "size" | "count";
 const orderBy = ref<OrderBy>("name");
 const searchQuery = ref("");
 
-const orderItems: SliderBtnGroupItem<OrderBy>[] = [
+const orderItems = computed<SliderBtnGroupItem<OrderBy>[]>(() => [
   {
     id: "name",
     icon: "mdi-sort-alphabetical-variant",
-    ariaLabel: "Sort by name",
-    title: "Name",
+    ariaLabel: t("settings.sort-by-name"),
+    title: t("settings.sort-name"),
   },
   {
     id: "size",
     icon: "mdi-harddisk",
-    ariaLabel: "Sort by size",
-    title: "Size",
+    ariaLabel: t("settings.sort-by-size"),
+    title: t("settings.sort-size"),
   },
   {
     id: "count",
     icon: "mdi-numeric",
-    ariaLabel: "Sort by game count",
-    title: "Games",
+    ariaLabel: t("settings.sort-by-game-count"),
+    title: t("settings.sort-games"),
   },
-];
+]);
 
 const sortedPlatforms = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -153,7 +155,7 @@ function coveragePercent(matched: number, total: number): string {
     <div class="r-v2-plat-stats__toolbar">
       <RTextField
         :model-value="searchQuery"
-        placeholder="Search platforms"
+        :placeholder="t('settings.search-platforms')"
         density="comfortable"
         prefix-label="inline"
         clearable
@@ -169,7 +171,7 @@ function coveragePercent(matched: number, total: number): string {
         :model-value="orderBy"
         :items="orderItems"
         variant="segmented"
-        aria-label="Order platforms by"
+        :aria-label="t('settings.order-platforms-by')"
         class="r-v2-plat-stats__order"
         @update:model-value="(v) => (orderBy = v)"
       />
@@ -194,7 +196,11 @@ function coveragePercent(matched: number, total: number): string {
           </div>
           <div class="r-v2-plat-stats__meta">
             <span class="r-v2-plat-stats__count">
-              {{ platform.rom_count }} games
+              {{
+                t("settings.platform-count-games", {
+                  count: platform.rom_count,
+                })
+              }}
             </span>
             <template
               v-if="orderedCoverageByPlatform[String(platform.id)]?.length > 0"
@@ -262,7 +268,9 @@ function coveragePercent(matched: number, total: number): string {
       <div v-if="sortedPlatforms.length === 0" class="r-v2-plat-stats__empty">
         <RIcon icon="mdi-folder-question" size="22" />
         <span>{{
-          searchQuery.trim() ? "No matching platforms." : "No platforms."
+          searchQuery.trim()
+            ? t("settings.no-matching-platforms")
+            : t("settings.no-platforms")
         }}</span>
       </div>
     </div>

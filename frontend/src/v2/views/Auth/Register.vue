@@ -32,7 +32,7 @@ async function register() {
       password.value,
       token,
     );
-    snackbar.success("User registered successfully", {
+    snackbar.success(t("login.register-success"), {
       icon: "mdi-check-circle",
       timeout: 5000,
     });
@@ -43,7 +43,9 @@ async function register() {
       message?: string;
     };
     snackbar.error(
-      `Unable to register user: ${response?.data?.detail || message}`,
+      t("login.register-failed", {
+        error: response?.data?.detail || message || "",
+      }),
       { icon: "mdi-close-circle", timeout: 5000 },
     );
   } finally {

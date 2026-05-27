@@ -1,4 +1,15 @@
 {
   "continue-playing": "プレイを継続",
-  "recently-added": "最近追加"
+  "recently-added": "最近追加",
+  "empty-headline": "ライブラリは空です",
+  "empty-hint": "最初のゲームを追加する方法を選んでください。もう一方の方法はいつでも後で行えます。",
+  "empty-upload-title": "手動でアップロード",
+  "empty-upload-desc": "ROMファイルをドラッグ&ドロップするか、コンピュータから選択します。自分で少数のゲームを追加するのに最適です。",
+  "empty-scan-title": "ライブラリをスキャン",
+  "empty-scan-desc": "ライブラリフォルダにゲームを配置済みですか？スキャンを実行して検出し、メタデータを取得します。",
+  "empty-upload-cta": "ゲームをアップロード",
+  "empty-scan-cta": "スキャンを実行",
+  "empty-detected-platforms": "{count}件のプラットフォームを検出 | {count}件のプラットフォームを検出",
+  "empty-detected-games": "{count}件のゲームを検出 | {count}件のゲームを検出",
+  "no-games-yet": "ゲームはまだ追加されていません。"
 }

@@ -171,8 +171,8 @@ async function performDelete(
         hide-details
         :label="
           selectedIds.size > 0
-            ? `${selectedIds.size} selected`
-            : `${firmwareList.length} files`
+            ? t('gallery.firmware-selected-count', { count: selectedIds.size })
+            : t('gallery.firmware-files-count', { count: firmwareList.length })
         "
         @update:model-value="toggleAll"
       />

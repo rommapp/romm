@@ -84,14 +84,14 @@ watch(
 );
 
 const tabs = computed<RTabNavItem[]>(() => [
-  { id: "library", label: t("common.library", "Library") },
-  { id: "firmware", label: t("platform.firmware-bios", "Firmware / BIOS") },
-  { id: "settings", label: t("platform.settings", "Settings") },
+  { id: "library", label: t("common.library") },
+  { id: "firmware", label: t("platform.firmware-bios") },
+  { id: "settings", label: t("platform.settings") },
 ]);
 
 const headLabels = computed(() => ({
-  upload: t("platform.upload-roms", "Upload ROMs"),
-  scan: t("scan.scan", "Scan platform"),
+  upload: t("platform.upload-roms"),
+  scan: t("platform.scan-platform"),
 }));
 
 function onTabChange(next: string) {
@@ -104,7 +104,8 @@ const tags = computed<string[]>(() => {
   const out: string[] = [];
   if (p.category) out.push(p.category);
   if (p.family_name) out.push(p.family_name);
-  if (p.generation && p.generation > 0) out.push(`Generation ${p.generation}`);
+  if (p.generation && p.generation > 0)
+    out.push(t("rom.generation-n", { n: p.generation }));
   return out;
 });
 
@@ -113,11 +114,17 @@ const platformStats = computed<StatRow[]>(() => {
   const p = currentPlatform.value;
   if (!p) return [];
   const rows: StatRow[] = [
-    { label: "In Library", value: String(p.rom_count ?? total.value) },
-    { label: "On Disk", value: formatBytes(p.fs_size_bytes ?? 0) },
+    {
+      label: t("platform.in-library"),
+      value: String(p.rom_count ?? total.value),
+    },
+    { label: t("platform.on-disk"), value: formatBytes(p.fs_size_bytes ?? 0) },
   ];
   if (p.firmware_count) {
-    rows.push({ label: "Firmware", value: String(p.firmware_count) });
+    rows.push({
+      label: t("common.firmware"),
+      value: String(p.firmware_count),
+    });
   }
   return rows;
 });

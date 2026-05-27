@@ -143,7 +143,7 @@ const boolFilters: BoolFilterConfig[] = [
     yesIcon: "mdi-content-duplicate",
     noIcon: "mdi-checkbox-multiple-blank-outline",
     yesAria: t("platform.show-duplicates-only"),
-    noAria: t("platform.show-non-duplicates-only"),
+    noAria: t("platform.show-not-duplicates-only"),
     value: filterDuplicates,
   },
   {
@@ -152,7 +152,7 @@ const boolFilters: BoolFilterConfig[] = [
     yesIcon: "mdi-controller",
     noIcon: "mdi-controller-off",
     yesAria: t("platform.show-playables-only"),
-    noAria: t("platform.show-non-playables-only"),
+    noAria: t("platform.show-not-playables-only"),
     value: filterPlayables,
   },
   {
@@ -161,7 +161,7 @@ const boolFilters: BoolFilterConfig[] = [
     yesIcon: "mdi-file-question-outline",
     noIcon: "mdi-file-check-outline",
     yesAria: t("platform.show-missing-only"),
-    noAria: t("platform.show-existing-only"),
+    noAria: t("platform.show-not-missing-only"),
     value: filterMissing,
   },
   {
@@ -179,7 +179,7 @@ const boolFilters: BoolFilterConfig[] = [
     yesIcon: "mdi-trophy",
     noIcon: "mdi-trophy-outline",
     yesAria: t("platform.show-ra-only"),
-    noAria: t("platform.show-no-ra-only"),
+    noAria: t("platform.show-not-ra-only"),
     value: filterRA,
   },
 ];
@@ -193,7 +193,7 @@ function triItems(cfg: BoolFilterConfig) {
       id: "all" as const,
       icon: "mdi-circle-outline",
       ariaLabel: t("platform.show-all"),
-      title: t("platform.show-all"),
+      title: t("common.all"),
     },
     {
       id: "yes" as const,
@@ -377,7 +377,7 @@ function saveAsSmartCollection() {
     @update:model-value="(v) => emit('update:modelValue', v)"
   >
     <template #header>
-      <span>{{ t("platform.filters", "Filters") }}</span>
+      <span>{{ t("platform.filters") }}</span>
       <RTag v-if="activeCount > 0" tone="brand" size="x-small">
         {{ activeCount }}
       </RTag>
@@ -386,7 +386,7 @@ function saveAsSmartCollection() {
     <!-- ── Boolean tri-state filters ────────────────────────── -->
     <section class="r-v2-fd__section">
       <h3 class="r-v2-fd__heading">
-        {{ t("platform.show", "Show") }}
+        {{ t("platform.show") }}
       </h3>
       <div class="r-v2-fd__bool-rows">
         <div
@@ -419,7 +419,7 @@ function saveAsSmartCollection() {
         clearable
         hide-details
         prefix-label="stacked"
-        :placeholder="t('common.all-platforms', 'All platforms')"
+        :placeholder="t('common.all-platforms')"
       >
         <template #prefix-label>
           <RIcon icon="mdi-monitor" size="14" />
@@ -430,7 +430,7 @@ function saveAsSmartCollection() {
 
     <!-- ── Multi-select groups + logic toggle ──────────────── -->
     <section class="r-v2-fd__section">
-      <h3 class="r-v2-fd__heading">{{ t("platform.tags", "Tags") }}</h3>
+      <h3 class="r-v2-fd__heading">{{ t("platform.tags") }}</h3>
       <div class="r-v2-fd__multi-rows">
         <div
           v-for="s in multiSections"
@@ -477,7 +477,7 @@ function saveAsSmartCollection() {
         :disabled="activeCount === 0"
         @click="resetAll"
       >
-        {{ t("platform.reset-filters", "Reset") }}
+        {{ t("platform.reset-filters") }}
       </RBtn>
       <div style="flex: 1" />
       <RBtn
@@ -487,10 +487,10 @@ function saveAsSmartCollection() {
         :disabled="activeCount === 0"
         @click="saveAsSmartCollection"
       >
-        {{ t("collection.save-as-smart", "Save as smart") }}
+        {{ t("collection.save-as-smart") }}
       </RBtn>
       <RBtn variant="flat" color="primary" @click="close">
-        {{ t("common.close", "Close") }}
+        {{ t("common.close") }}
       </RBtn>
     </template>
   </RDrawer>

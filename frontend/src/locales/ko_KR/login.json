@@ -12,5 +12,14 @@
   "reset-sent": "재설정 링크가 전송되었습니다. 관리자에게 문의하세요.",
   "send-reset-link": "재설정 링크 보내기",
   "setup-wizard": "설정 마법사",
-  "username": "아이디"
+  "username": "아이디",
+  "passwords-do-not-match": "비밀번호가 일치하지 않습니다",
+  "login-failed": "로그인 실패",
+  "unable-to-login": "로그인할 수 없습니다: {error}",
+  "reset-failed": "재설정 실패",
+  "unable-to-reset-password": "비밀번호를 재설정할 수 없습니다: {error}",
+  "reset-link-failed": "재설정 링크를 보낼 수 없습니다",
+  "register-success": "사용자가 성공적으로 등록되었습니다",
+  "register-failed": "사용자를 등록할 수 없습니다: {error}",
+  "avatar-save-warning": "계정이 생성되었지만 아바타를 저장할 수 없습니다: {error}. 나중에 프로필 설정에서 설정할 수 있습니다."
 }

@@ -48,7 +48,7 @@ const avatarSrc = computed(() => {
 
 const roleItems = computed(() =>
   ["viewer", "editor", "admin"].map((role) => ({
-    title: role.charAt(0).toUpperCase() + role.slice(1),
+    title: t(`settings.role-${role}`),
     value: role,
   })),
 );
@@ -58,9 +58,7 @@ const roleItems = computed(() =>
 // demand the repeat field is filled in and matches.
 const confirmPasswordRules = computed(() => [
   (v: string) =>
-    !user.value?.password ||
-    !!v ||
-    t("settings.repeat-password-required"),
+    !user.value?.password || !!v || t("settings.repeat-password-required"),
   (v: string) =>
     v === (user.value?.password ?? "") || t("settings.passwords-must-match"),
 ]);
@@ -92,7 +90,7 @@ async function editUser() {
   submitting.value = true;
   try {
     const { data } = await userApi.updateUser(user.value);
-    snackbar.success(`User ${data.username} updated`, {
+    snackbar.success(t("settings.user-updated", { username: data.username }), {
       icon: "mdi-check-bold",
     });
     usersStore.update(data);
@@ -105,9 +103,10 @@ async function editUser() {
       message?: string;
     };
     snackbar.error(
-      `Unable to edit user: ${
-        e?.response?.data?.detail || e?.response?.statusText || e?.message
-      }`,
+      t("settings.unable-to-edit-user", {
+        detail:
+          e?.response?.data?.detail || e?.response?.statusText || e?.message,
+      }),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -213,7 +212,7 @@ function close() {
         <button
           type="button"
           class="r-v2-user-dialog__avatar"
-          :aria-label="t('settings.change-avatar', 'Change avatar')"
+          :aria-label="t('settings.change-avatar')"
           @click="triggerFileInput"
         >
           <img :src="avatarSrc" :alt="user.username" />
@@ -226,7 +225,7 @@ function close() {
           type="file"
           accept="image/*"
           class="r-v2-user-dialog__file"
-          :aria-label="t('settings.change-avatar', 'Change avatar')"
+          :aria-label="t('settings.change-avatar')"
           @change="previewImage"
         />
       </div>

@@ -154,7 +154,10 @@ async function fetchTokens() {
 async function revoke(token: ClientTokenAdminSchema) {
   const ok = await confirm({
     title: t("common.confirm-deletion"),
-    body: `Revoke token "${token.name}" for ${token.username}?`,
+    body: t("settings.revoke-token-confirm", {
+      name: token.name,
+      username: token.username,
+    }),
     confirmText: t("common.delete"),
     tone: "danger",
   });
@@ -171,9 +174,10 @@ async function revoke(token: ClientTokenAdminSchema) {
       message?: string;
     };
     snackbar.error(
-      `Unable to revoke token: ${
-        e?.response?.data?.detail || e?.response?.statusText || e?.message
-      }`,
+      t("settings.unable-to-revoke-token", {
+        detail:
+          e?.response?.data?.detail || e?.response?.statusText || e?.message,
+      }),
       { icon: "mdi-close-circle" },
     );
   }
@@ -190,7 +194,7 @@ onMounted(fetchTokens);
       :placeholder="t('common.search')"
       hide-details
       density="compact"
-      aria-label="Search tokens"
+      :aria-label="t('settings.search-tokens')"
       class="r-v2-admin-tokens__search"
     >
       <template #prefix-label>

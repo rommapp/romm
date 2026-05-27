@@ -16,6 +16,7 @@
 // tab so the user can still reach metadata for games they don't own.
 import { RIcon } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type {
   IGDBRelatedGame,
@@ -30,6 +31,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ game: IGDBRelatedGame }>();
 
+const { t } = useI18n();
 const router = useRouter();
 const romId = ref<number | null>(null);
 const inLibrary = computed(() => romId.value !== null);
@@ -187,7 +189,7 @@ function onClick(e: MouseEvent) {
     <template v-if="inLibrary" #overlay>
       <span class="related-card__owned">
         <RIcon icon="mdi-check" size="11" />
-        Owned
+        {{ t("common.owned") }}
       </span>
     </template>
   </GameCard>

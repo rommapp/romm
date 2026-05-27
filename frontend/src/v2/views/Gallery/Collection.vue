@@ -123,11 +123,9 @@ watch(showSettingsTab, (allowed) => {
 });
 
 const tabs = computed<RTabNavItem[]>(() => {
-  const out: RTabNavItem[] = [
-    { id: "library", label: t("common.library", "Library") },
-  ];
+  const out: RTabNavItem[] = [{ id: "library", label: t("common.library") }];
   if (showSettingsTab.value) {
-    out.push({ id: "settings", label: t("collection.settings", "Settings") });
+    out.push({ id: "settings", label: t("collection.settings") });
   }
   return out;
 });
@@ -298,10 +296,10 @@ async function onDelete() {
     v-if="tab === 'library'"
     ref="shellRef"
     :has-header="!!currentCollection"
-    search-placeholder="Filter this collection…"
-    empty-message="This collection is empty."
+    :search-placeholder="t('collection.search-collection')"
+    :empty-message="t('collection.empty')"
     :not-found="notFound"
-    not-found-message="Collection not found."
+    :not-found-message="t('collection.not-found')"
     :skeleton-row-count="4"
   >
     <template #header>

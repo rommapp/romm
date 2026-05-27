@@ -111,12 +111,16 @@ const scopeColumns = computed<{ left: ScopeGroup[]; right: ScopeGroup[] }>(
     const other = userScopes.value.filter((s) => !grouped.has(s));
 
     const left: ScopeGroup[] = [];
-    if (personal.length > 0) left.push({ label: "Personal", scopes: personal });
-    if (admin.length > 0) left.push({ label: "Administration", scopes: admin });
-    if (other.length > 0) left.push({ label: "Other", scopes: other });
+    if (personal.length > 0)
+      left.push({ label: t("settings.scope-personal"), scopes: personal });
+    if (admin.length > 0)
+      left.push({ label: t("settings.scope-administration"), scopes: admin });
+    if (other.length > 0)
+      left.push({ label: t("settings.scope-other"), scopes: other });
 
     const right: ScopeGroup[] = [];
-    if (library.length > 0) right.push({ label: "Library", scopes: library });
+    if (library.length > 0)
+      right.push({ label: t("settings.scope-library"), scopes: library });
     return { left, right };
   },
 );
@@ -142,11 +146,13 @@ const formattedPairCode = computed(() => {
 });
 
 const dialogTitle = computed(() => {
-  if (step.value === "config") return "Create new API token";
+  if (step.value === "config") return t("settings.create-new-api-token");
   if (step.value === "delivery")
-    return isRegenerate.value ? "Regenerate token" : "Deliver token";
-  if (step.value === "copy") return "Copy token";
-  return "Pair device";
+    return isRegenerate.value
+      ? t("settings.regenerate-token-title")
+      : t("settings.deliver-token");
+  if (step.value === "copy") return t("settings.copy-token-title");
+  return t("settings.pair-device");
 });
 
 emitter?.on("showCreateClientTokenDialog", () => {
@@ -208,9 +214,10 @@ async function createToken() {
     });
   } catch (err) {
     const e = err as { response?: { data?: { detail?: string } } };
-    snackbar.error(e?.response?.data?.detail || "Failed to create token", {
-      icon: "mdi-close-circle",
-    });
+    snackbar.error(
+      e?.response?.data?.detail || t("settings.failed-to-create-token"),
+      { icon: "mdi-close-circle" },
+    );
   } finally {
     loading.value = false;
   }
@@ -231,9 +238,10 @@ async function doRegenerate() {
     });
   } catch (err) {
     const e = err as { response?: { data?: { detail?: string } } };
-    snackbar.error(e?.response?.data?.detail || "Failed to regenerate token", {
-      icon: "mdi-close-circle",
-    });
+    snackbar.error(
+      e?.response?.data?.detail || t("settings.failed-to-regenerate-token"),
+      { icon: "mdi-close-circle" },
+    );
     show.value = false;
   } finally {
     loading.value = false;
@@ -268,7 +276,8 @@ async function startPairing() {
     pairLoading.value = false;
     const e = err as { response?: { data?: { detail?: string } } };
     snackbar.error(
-      e?.response?.data?.detail || "Failed to generate pairing code",
+      e?.response?.data?.detail ||
+        t("settings.failed-to-generate-pairing-code"),
       { icon: "mdi-close-circle" },
     );
     step.value = "delivery";
@@ -319,9 +328,10 @@ async function regeneratePairCode() {
   } catch (err) {
     pairLoading.value = false;
     const e = err as { response?: { data?: { detail?: string } } };
-    snackbar.error(e?.response?.data?.detail || "Failed to regenerate code", {
-      icon: "mdi-close-circle",
-    });
+    snackbar.error(
+      e?.response?.data?.detail || t("settings.failed-to-regenerate-code"),
+      { icon: "mdi-close-circle" },
+    );
   }
 }
 
@@ -467,8 +477,8 @@ onBeforeUnmount(() => {
         <p class="r-v2-tok-dialog__intro">
           {{
             isRegenerate
-              ? "Your previous token has been revoked and a new one generated. Choose how to deliver it:"
-              : "Your token has been created. Choose how to deliver it:"
+              ? t("settings.delivery-intro-regenerate")
+              : t("settings.delivery-intro")
           }}
         </p>
         <p class="r-v2-tok-dialog__warn">
@@ -481,7 +491,7 @@ onBeforeUnmount(() => {
             prepend-icon="mdi-content-copy"
             @click="step = 'copy'"
           >
-            Copy token
+            {{ t("settings.copy-token") }}
           </RBtn>
           <RBtn
             variant="flat"
@@ -489,7 +499,7 @@ onBeforeUnmount(() => {
             prepend-icon="mdi-qrcode"
             @click="startPairing"
           >
-            Pair device
+            {{ t("settings.pair-device") }}
           </RBtn>
         </div>
       </div>
@@ -557,7 +567,7 @@ onBeforeUnmount(() => {
             prepend-icon="mdi-refresh"
             @click="regeneratePairCode"
           >
-            Regenerate code
+            {{ t("settings.regenerate-code") }}
           </RBtn>
         </template>
       </div>
@@ -586,9 +596,13 @@ onBeforeUnmount(() => {
         </RBtn>
       </template>
       <template v-else>
-        <RBtn variant="text" @click="step = 'delivery'">Back</RBtn>
+        <RBtn variant="text" @click="step = 'delivery'">
+          {{ t("common.back") }}
+        </RBtn>
         <div style="flex: 1" />
-        <RBtn variant="flat" color="primary" @click="closeDialog">Close</RBtn>
+        <RBtn variant="flat" color="primary" @click="closeDialog">
+          {{ t("common.close") }}
+        </RBtn>
       </template>
     </template>
   </RDialog>
@@ -708,5 +722,4 @@ html[data-bp~="xs"] .r-v2-tok-dialog__scopes-grid {
   margin: 4px 0;
   color: var(--r-color-fg);
 }
-
 </style>

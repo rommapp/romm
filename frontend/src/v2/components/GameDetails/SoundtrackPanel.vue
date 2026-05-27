@@ -20,6 +20,7 @@ import {
   ref,
   watch,
 } from "vue";
+import { useI18n } from "vue-i18n";
 import romApi, {
   type SoundtrackAudioMeta,
   type SoundtrackTrackMeta,
@@ -46,6 +47,7 @@ const emit = defineEmits<{
   (e: "delete-track", fileId: number): void;
 }>();
 
+const { t } = useI18n();
 const snackbar = useSnackbar();
 
 const player = useSoundtrackPlayer();
@@ -156,7 +158,7 @@ async function loadAllMetadata() {
   } catch (err: unknown) {
     const maybeCfg = err as { config?: AxiosRequestConfig };
     if (axios.isCancel(err) || maybeCfg.config?.signal?.aborted) return;
-    snackbar.error("Couldn't load soundtrack metadata.", {
+    snackbar.error(t("rom.cant-load-soundtrack-meta"), {
       icon: "mdi-alert",
       timeout: 3000,
     });
@@ -245,8 +247,15 @@ function headerChips(meta: SoundtrackAudioMeta | undefined): ChipItem[] {
   if (meta.genre)
     items.push({ icon: "mdi-music-clef-treble", label: meta.genre });
   if (meta.track)
-    items.push({ icon: "mdi-numeric", label: `Track ${meta.track}` });
-  if (meta.disc) items.push({ icon: "mdi-disc", label: `Disc ${meta.disc}` });
+    items.push({
+      icon: "mdi-numeric",
+      label: t("rom.chip-track-n", { n: meta.track }),
+    });
+  if (meta.disc)
+    items.push({
+      icon: "mdi-disc",
+      label: t("rom.chip-disc-n", { n: meta.disc }),
+    });
   return items;
 }
 
@@ -322,7 +331,10 @@ function fmt(s: number | undefined | null) {
 }
 
 function seekValueText(v: number): string {
-  return `${fmt(v)} of ${fmt(duration.value)}`;
+  return t("rom.seek-progress", {
+    current: fmt(v),
+    duration: fmt(duration.value),
+  });
 }
 </script>
 
@@ -354,17 +366,19 @@ function seekValueText(v: number): string {
         <div class="r-v2-stp__now-eyebrow">
           <span v-if="isLoadingMeta">
             <RSpinner :size="14" />
-            Loading metadata…
+            {{ t("rom.loading-metadata") }}
           </span>
           <span v-else-if="activeTrack">
-            {{ isPlaying ? "Now playing" : "Paused" }}
+            {{ isPlaying ? t("rom.now-playing") : t("rom.paused") }}
           </span>
           <span v-else>
-            {{ tracks.length }} track{{ tracks.length === 1 ? "" : "s" }}
+            {{
+              t("rom.tracks-n", tracks.length, { named: { n: tracks.length } })
+            }}
           </span>
         </div>
         <h3 class="r-v2-stp__now-title">
-          {{ activeTrack ? activeTitle : "Pick a track to start playing" }}
+          {{ activeTrack ? activeTitle : t("rom.pick-track-prompt") }}
         </h3>
         <div v-if="activeMeta?.artist" class="r-v2-stp__now-artist">
           {{ activeMeta.artist }}
@@ -382,8 +396,7 @@ function seekValueText(v: number): string {
           </RChip>
         </div>
         <div v-else-if="!activeTrack" class="r-v2-stp__now-hint">
-          Album art, artist and track metadata will appear here once you start
-          playing.
+          {{ t("rom.soundtrack-placeholder-hint") }}
         </div>
       </div>
     </header>
@@ -395,15 +408,15 @@ function seekValueText(v: number): string {
     <div
       class="r-v2-stp__controls"
       role="region"
-      aria-label="Soundtrack player"
+      :aria-label="t('rom.soundtrack-player')"
     >
       <RBtn
         variant="text"
         size="small"
         :disabled="!hasPrevious"
         prepend-icon="mdi-skip-previous"
-        tooltip="Previous track"
-        aria-label="Previous track"
+        :tooltip="t('rom.soundtrack-previous')"
+        :aria-label="t('rom.soundtrack-previous')"
         @click="player.previous()"
       />
       <RBtn
@@ -411,8 +424,12 @@ function seekValueText(v: number): string {
         size="small"
         :disabled="!activeTrack"
         :prepend-icon="isPlaying ? 'mdi-pause-circle' : 'mdi-play-circle'"
-        :tooltip="isPlaying ? 'Pause' : 'Play'"
-        :aria-label="isPlaying ? 'Pause' : 'Play'"
+        :tooltip="
+          isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+        "
+        :aria-label="
+          isPlaying ? t('rom.soundtrack-pause') : t('rom.soundtrack-play')
+        "
         @click="player.togglePlayPause()"
       />
       <RBtn
@@ -420,8 +437,8 @@ function seekValueText(v: number): string {
         size="small"
         :disabled="!hasNext"
         prepend-icon="mdi-skip-next"
-        tooltip="Next track"
-        aria-label="Next track"
+        :tooltip="t('rom.soundtrack-next')"
+        :aria-label="t('rom.soundtrack-next')"
         @click="player.next()"
       />
       <span class="r-v2-stp__time">{{ fmt(currentTime) }}</span>
@@ -432,7 +449,7 @@ function seekValueText(v: number): string {
         :disabled="!activeTrack"
         color="primary"
         class="r-v2-stp__slider"
-        aria-label="Seek"
+        :aria-label="t('rom.soundtrack-seek')"
         :aria-valuetext="seekValueText(currentTime)"
         @update:model-value="(v: number) => player.seek(v)"
       />
@@ -458,7 +475,11 @@ function seekValueText(v: number): string {
         <button
           type="button"
           class="r-v2-stp__row-btn"
-          :aria-label="`Play ${trackTitleFor(track.id, track.file_name)}`"
+          :aria-label="
+            t('rom.play-track', {
+              title: trackTitleFor(track.id, track.file_name),
+            })
+          "
           @click="selectTrack(track.id)"
         >
           <!-- No per-track thumb: playback state is conveyed entirely
@@ -503,8 +524,12 @@ function seekValueText(v: number): string {
             icon="mdi-download-outline"
             variant="text"
             size="small"
-            tooltip="Download"
-            :aria-label="`Download ${trackTitleFor(track.id, track.file_name)}`"
+            :tooltip="t('common.download')"
+            :aria-label="
+              t('rom.download-named', {
+                name: trackTitleFor(track.id, track.file_name),
+              })
+            "
             @click.stop="downloadTrack(track)"
           />
           <RBtn
@@ -512,8 +537,8 @@ function seekValueText(v: number): string {
             variant="text"
             size="small"
             color="romm-red"
-            tooltip="Delete"
-            :aria-label="`Delete ${trackTitleFor(track.id, track.file_name)}`"
+            :tooltip="t('common.delete')"
+            :aria-label="t('rom.soundtrack-delete-track')"
             @click.stop="onDelete(track.id)"
           />
         </div>
@@ -523,8 +548,12 @@ function seekValueText(v: number): string {
     <!-- Footer -->
     <footer class="r-v2-stp__footer">
       <span v-if="totalDurationSeconds > 0" class="r-v2-stp__footer-total">
-        {{ tracks.length }} track{{ tracks.length === 1 ? "" : "s" }} ·
-        {{ fmt(totalDurationSeconds) }}
+        {{
+          t("rom.tracks-summary", {
+            count: tracks.length,
+            duration: fmt(totalDurationSeconds),
+          })
+        }}
       </span>
     </footer>
   </div>

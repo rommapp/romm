@@ -164,10 +164,7 @@ const hashMatchers = computed<HashMatcher[]>(() => {
         : noHashes
           ? t("scan.requires-hashes", { source: "Playmatch" })
           : !igdbSelected
-            ? t(
-                "scan.playmatch-requires-igdb",
-                "Select IGDB to enable Playmatch.",
-              )
+            ? t("scan.playmatch-requires-igdb")
             : null,
       switchEnabled: playmatchAdmin && !noHashes && igdbSelected,
     },
@@ -367,10 +364,9 @@ const hasResults = computed(
 );
 
 const liveStatusLabel = computed(() => {
-  if (scanning.value) return t("scan.scanning", "Scanning");
-  if (scanningPlatforms.value.length > 0)
-    return t("scan.scan-complete", "Scan complete");
-  return t("scan.live-progress", "Live progress");
+  if (scanning.value) return t("scan.scanning");
+  if (scanningPlatforms.value.length > 0) return t("scan.scan-complete");
+  return t("scan.live-progress");
 });
 
 // Progress bar — determinate once totals are known, indeterminate
@@ -442,14 +438,14 @@ function stopScan() {
     <section
       class="r-v2-scan-card"
       :class="{ 'r-v2-scan-card--locked': scanning }"
-      :aria-label="t('scan.title', 'Library scan')"
+      :aria-label="t('scan.title')"
     >
       <div class="r-v2-scan-card__head">
         <RBtn
           icon="mdi-information-outline"
           variant="text"
           size="small"
-          :aria-label="t('scan.info-dialog-title', 'Scan reference')"
+          :aria-label="t('scan.info-dialog-title')"
           @click="infoDialogOpen = true"
         />
       </div>
@@ -563,7 +559,7 @@ function stopScan() {
                           'r-v2-scan-card__lb-inactive': launchboxRemoteEnabled,
                         }"
                       >
-                        Local
+                        {{ t("rom.launchbox-local") }}
                       </span>
                       <RSwitch
                         v-model="launchboxRemoteEnabled"
@@ -576,7 +572,7 @@ function stopScan() {
                             !launchboxRemoteEnabled,
                         }"
                       >
-                        Cloud
+                        {{ t("rom.launchbox-cloud") }}
                       </span>
                     </div>
                   </li>
@@ -655,7 +651,7 @@ function stopScan() {
             <div
               class="r-v2-scan-card__matchers"
               role="group"
-              aria-label="Hash matchers"
+              :aria-label="t('scan.hash-matchers')"
             >
               <RTooltip
                 v-for="matcher in hashMatchers"
@@ -773,7 +769,7 @@ function stopScan() {
           :disabled="!canStartScan"
           @click="scan"
         >
-          {{ scanning ? t("scan.scanning", "Scanning") : t("scan.scan") }}
+          {{ scanning ? t("scan.scanning") : t("scan.scan") }}
         </RBtn>
 
         <RBtn
@@ -881,7 +877,7 @@ function stopScan() {
         </div>
 
         <div v-if="scanning" class="r-v2-scan-live__actions">
-          <RTooltip :text="t('scan.abort', 'Abort scan')" location="bottom">
+          <RTooltip :text="t('scan.abort-scan')" location="bottom">
             <template #activator="{ props: tipProps }">
               <RBtn
                 v-bind="tipProps"
@@ -889,7 +885,7 @@ function stopScan() {
                 variant="text"
                 color="danger"
                 size="small"
-                :aria-label="t('scan.abort', 'Abort scan')"
+                :aria-label="t('scan.abort-scan')"
                 @click="stopScan"
               />
             </template>
@@ -917,15 +913,7 @@ function stopScan() {
           </div>
           <p class="r-v2-scan-live__empty-hint">
             {{
-              scanning
-                ? t(
-                    "scan.empty-hint-scanning",
-                    "Platforms will appear here as the scanner discovers them.",
-                  )
-                : t(
-                    "scan.empty-hint",
-                    "Pick a scan configuration on the left and hit Scan scan to see live progress here.",
-                  )
+              scanning ? t("scan.empty-hint-scanning") : t("scan.empty-hint")
             }}
           </p>
         </div>

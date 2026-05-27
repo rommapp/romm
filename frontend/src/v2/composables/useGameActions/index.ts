@@ -11,6 +11,7 @@
 //   actions.canManageCollections  // reactive Ref<boolean>
 import type { Emitter } from "mitt";
 import { computed, inject } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { RomUserData, RomUserStatus } from "@/__generated__";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
@@ -25,6 +26,7 @@ import { useCanPlay } from "@/v2/composables/useCanPlay";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 export function useGameActions(getRom: () => SimpleRom | null | undefined) {
+  const { t } = useI18n();
   const router = useRouter();
   const emitter = inject<Emitter<Events>>("emitter");
   const snackbar = useSnackbar();
@@ -67,7 +69,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     } catch {
       Object.assign(rom.rom_user, before);
       romsStore.update(rom);
-      snackbar.error("Failed to update status", {
+      snackbar.error(t("rom.snackbar-update-status-failed"), {
         icon: "mdi-alert-circle-outline",
       });
     }
@@ -106,7 +108,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     } catch {
       Object.assign(rom.rom_user, before);
       romsStore.update(rom);
-      snackbar.error("Failed to update status", {
+      snackbar.error(t("rom.snackbar-update-status-failed"), {
         icon: "mdi-alert-circle-outline",
       });
     }
@@ -134,7 +136,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     } catch {
       Object.assign(rom.rom_user, before);
       romsStore.update(rom);
-      snackbar.error(`Failed to update ${field}`, {
+      snackbar.error(t("rom.snackbar-update-field-failed", { field }), {
         icon: "mdi-alert-circle-outline",
       });
     }
@@ -207,7 +209,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
         return;
       }
       await navigator.clipboard.writeText(url);
-      snackbar.success("Link copied to clipboard", {
+      snackbar.success(t("rom.snackbar-link-copied"), {
         icon: "mdi-link-variant",
       });
     } catch {
@@ -233,7 +235,7 @@ export function useGameActions(getRom: () => SimpleRom | null | undefined) {
     if (navigator.clipboard && window.isSecureContext) {
       try {
         await navigator.clipboard.writeText(link);
-        snackbar.success("Download link copied to clipboard", {
+        snackbar.success(t("rom.snackbar-download-link-copied"), {
           icon: "mdi-link-variant",
         });
         return;

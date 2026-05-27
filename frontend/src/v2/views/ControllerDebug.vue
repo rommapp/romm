@@ -11,11 +11,13 @@
 // path; the real input loop keeps running in the background.
 import { RBtn, RIcon } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
 
 defineOptions({ inheritAttrs: false });
 
+const { t } = useI18n();
 const { modality } = useInputModality();
 
 // Standard Gamepad button labels matching the W3C Gamepad API numbering.
@@ -142,17 +144,21 @@ function magnitude(x: number, y: number) {
 <template>
   <div class="r-v2-section-stack">
     <!-- Status -->
-    <SettingsSection title="Status" icon="mdi-pulse">
+    <SettingsSection :title="t('rom.status')" icon="mdi-pulse">
       <div class="r-v2-ctrl__status">
         <div class="r-v2-ctrl__status-row">
-          <span class="r-v2-ctrl__status-label">Modality</span>
+          <span class="r-v2-ctrl__status-label">
+            {{ t("settings.controller-debug-modality") }}
+          </span>
           <span class="r-v2-ctrl__pill" :class="`r-v2-ctrl__pill--${modality}`">
             <RIcon :icon="modalityIcon" size="13" />
             {{ modality }}
           </span>
         </div>
         <div class="r-v2-ctrl__status-row">
-          <span class="r-v2-ctrl__status-label">Connected gamepads</span>
+          <span class="r-v2-ctrl__status-label">
+            {{ t("settings.controller-debug-connected-gamepads") }}
+          </span>
           <span
             class="r-v2-ctrl__pill"
             :class="
@@ -174,7 +180,7 @@ function magnitude(x: number, y: number) {
     <!-- No pad — help state -->
     <SettingsSection
       v-if="pads.length === 0"
-      title="No gamepad detected"
+      :title="t('settings.controller-debug-no-gamepad')"
       icon="mdi-controller-off"
     >
       <div class="r-v2-ctrl__empty">
@@ -183,7 +189,7 @@ function magnitude(x: number, y: number) {
           size="40"
           color="var(--r-color-fg-faint)"
         />
-        <p>Press any button on your controller to wake it up.</p>
+        <p>{{ t("settings.controller-debug-wake-hint") }}</p>
         <p class="r-v2-ctrl__hint">
           On Linux some pads require <code>evtest</code> /
           <code>joydev</code> permissions.
@@ -199,7 +205,9 @@ function magnitude(x: number, y: number) {
       icon="mdi-controller"
     >
       <template #header-actions>
-        <span class="r-v2-ctrl__pad-slot">Slot {{ pad.index }}</span>
+        <span class="r-v2-ctrl__pad-slot">
+          {{ t("settings.controller-debug-slot", { n: pad.index }) }}
+        </span>
         <span class="r-v2-ctrl__tag">{{ pad.mapping }}</span>
         <span
           class="r-v2-ctrl__pill"
@@ -209,7 +217,7 @@ function magnitude(x: number, y: number) {
               : 'r-v2-ctrl__pill--danger'
           "
         >
-          {{ pad.connected ? "online" : "offline" }}
+          {{ pad.connected ? t("common.online") : t("common.offline") }}
         </span>
       </template>
 
@@ -241,7 +249,11 @@ function magnitude(x: number, y: number) {
               />
             </div>
             <p class="r-v2-ctrl__stick-label">
-              {{ stickIdx === 0 ? "Left stick" : "Right stick" }}
+              {{
+                stickIdx === 0
+                  ? t("settings.controller-debug-left-stick")
+                  : t("settings.controller-debug-right-stick")
+              }}
             </p>
             <p class="r-v2-ctrl__stick-values">
               X {{ (pad.axes[stickIdx] ?? 0).toFixed(2) }} · Y
@@ -274,7 +286,9 @@ function magnitude(x: number, y: number) {
 
         <!-- Raw axes fallback (if >4 axes present) -->
         <div v-if="pad.axes.length > 4" class="r-v2-ctrl__axes">
-          <div class="r-v2-ctrl__axes-title">All axes</div>
+          <div class="r-v2-ctrl__axes-title">
+            {{ t("settings.controller-debug-all-axes") }}
+          </div>
           <div v-for="(value, i) in pad.axes" :key="i" class="r-v2-ctrl__axis">
             <span class="r-v2-ctrl__axis-idx">Axis {{ i }}</span>
             <div class="r-v2-ctrl__axis-track">
@@ -296,7 +310,7 @@ function magnitude(x: number, y: number) {
 
     <!-- Mapping legend -->
     <SettingsSection
-      title="Gamepad → keyboard mapping"
+      :title="t('settings.controller-debug-mapping-title')"
       icon="mdi-swap-horizontal"
     >
       <div class="r-v2-ctrl__legend">
@@ -317,7 +331,10 @@ function magnitude(x: number, y: number) {
     </SettingsSection>
 
     <!-- Keydown log -->
-    <SettingsSection title="Keyboard event feed" icon="mdi-console-line">
+    <SettingsSection
+      :title="t('settings.controller-debug-keyboard-feed-title')"
+      icon="mdi-console-line"
+    >
       <template #header-actions>
         <RBtn
           size="small"
@@ -355,7 +372,7 @@ function magnitude(x: number, y: number) {
         </li>
       </ul>
       <div v-else class="r-v2-ctrl__log-empty">
-        Press any key or gamepad button to see events here.
+        {{ t("settings.controller-debug-empty-feed") }}
       </div>
     </SettingsSection>
   </div>

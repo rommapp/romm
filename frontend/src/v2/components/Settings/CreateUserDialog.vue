@@ -39,7 +39,7 @@ emitter?.on("showCreateUserDialog", () => {
 
 const roleItems = computed(() =>
   ["viewer", "editor", "admin"].map((role) => ({
-    title: role.charAt(0).toUpperCase() + role.slice(1),
+    title: t(`settings.role-${role}`),
     value: role,
   })),
 );
@@ -69,7 +69,7 @@ async function createUser() {
   try {
     const { data } = await userApi.createUser(user.value);
     usersStore.add(data);
-    snackbar.success(`User ${data.username} created`, {
+    snackbar.success(t("settings.user-created", { username: data.username }), {
       icon: "mdi-check-bold",
     });
     show.value = false;
@@ -80,9 +80,10 @@ async function createUser() {
       message?: string;
     };
     snackbar.error(
-      `Unable to create user: ${
-        e?.response?.data?.detail || e?.response?.statusText || e?.message
-      }`,
+      t("settings.unable-to-create-user", {
+        detail:
+          e?.response?.data?.detail || e?.response?.statusText || e?.message,
+      }),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -98,7 +99,9 @@ function close() {
 <template>
   <RDialog v-model="show" icon="mdi-account-plus" :width="540" @close="close">
     <template #header>
-      <span class="r-v2-user-dialog__title">Create user</span>
+      <span class="r-v2-user-dialog__title">{{
+        t("settings.create-user")
+      }}</span>
     </template>
     <template #content>
       <RTextField

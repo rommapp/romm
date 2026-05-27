@@ -42,6 +42,7 @@ import {
   RTooltip,
 } from "@v2/lib";
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type {
   DetailedRomSchema,
@@ -59,6 +60,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ rom: DetailedRomSchema }>();
 
+const { t } = useI18n();
 const snackbar = useSnackbar();
 const route = useRoute();
 const router = useRouter();
@@ -69,21 +71,31 @@ const romsStore = storeRoms();
 // value). Folder→icon resolution lives in `FOLDER_META` below — it
 // extends this with plural names and a couple of well-known folders
 // (e.g. `screenshots/`) that aren't backend categories.
-const CATEGORY_META: Record<RomFileCategory, { label: string; icon: string }> =
-  {
-    game: { label: "Game", icon: "mdi-gamepad-variant-outline" },
-    dlc: { label: "DLC", icon: "mdi-puzzle-outline" },
-    update: { label: "Update", icon: "mdi-update" },
-    patch: { label: "Patch", icon: "mdi-bandage" },
-    mod: { label: "Mod", icon: "mdi-tools" },
-    hack: { label: "Hack", icon: "mdi-pencil-ruler" },
-    translation: { label: "Translation", icon: "mdi-translate" },
-    demo: { label: "Demo", icon: "mdi-flask-outline" },
-    prototype: { label: "Prototype", icon: "mdi-test-tube" },
-    cheat: { label: "Cheat", icon: "mdi-incognito" },
-    manual: { label: "Manual", icon: "mdi-book-open-page-variant-outline" },
-    soundtrack: { label: "Soundtrack", icon: "mdi-music-note-outline" },
-  };
+const CATEGORY_META = computed<
+  Record<RomFileCategory, { label: string; icon: string }>
+>(() => ({
+  game: { label: t("rom.category-game"), icon: "mdi-gamepad-variant-outline" },
+  dlc: { label: t("rom.category-dlc"), icon: "mdi-puzzle-outline" },
+  update: { label: t("rom.category-update"), icon: "mdi-update" },
+  patch: { label: t("rom.category-patch"), icon: "mdi-bandage" },
+  mod: { label: t("rom.category-mod"), icon: "mdi-tools" },
+  hack: { label: t("rom.category-hack"), icon: "mdi-pencil-ruler" },
+  translation: {
+    label: t("rom.category-translation"),
+    icon: "mdi-translate",
+  },
+  demo: { label: t("rom.category-demo"), icon: "mdi-flask-outline" },
+  prototype: { label: t("rom.category-prototype"), icon: "mdi-test-tube" },
+  cheat: { label: t("rom.category-cheat"), icon: "mdi-incognito" },
+  manual: {
+    label: t("rom.manual"),
+    icon: "mdi-book-open-page-variant-outline",
+  },
+  soundtrack: {
+    label: t("rom.soundtrack"),
+    icon: "mdi-music-note-outline",
+  },
+}));
 
 // Folder-name → label/icon map. Includes both singular and plural
 // forms (the backend matches either, e.g. `cheats/` and `cheat/`
@@ -95,36 +107,45 @@ interface FolderMeta {
   label: string;
   icon: string;
 }
-const FOLDER_META: Record<string, FolderMeta> = {
-  // Backend categories — singular and plural variants.
-  game: CATEGORY_META.game,
-  games: CATEGORY_META.game,
-  dlc: CATEGORY_META.dlc,
-  dlcs: CATEGORY_META.dlc,
-  update: CATEGORY_META.update,
-  updates: CATEGORY_META.update,
-  patch: CATEGORY_META.patch,
-  patches: CATEGORY_META.patch,
-  mod: CATEGORY_META.mod,
-  mods: CATEGORY_META.mod,
-  hack: CATEGORY_META.hack,
-  hacks: CATEGORY_META.hack,
-  translation: CATEGORY_META.translation,
-  translations: CATEGORY_META.translation,
-  demo: CATEGORY_META.demo,
-  demos: CATEGORY_META.demo,
-  prototype: CATEGORY_META.prototype,
-  prototypes: CATEGORY_META.prototype,
-  cheat: CATEGORY_META.cheat,
-  cheats: CATEGORY_META.cheat,
-  manual: CATEGORY_META.manual,
-  manuals: CATEGORY_META.manual,
-  soundtrack: CATEGORY_META.soundtrack,
-  soundtracks: CATEGORY_META.soundtrack,
-  // Non-category folders that conventionally appear in ROM directories.
-  screenshot: { label: "Screenshots", icon: "mdi-image-multiple-outline" },
-  screenshots: { label: "Screenshots", icon: "mdi-image-multiple-outline" },
-};
+const FOLDER_META = computed<Record<string, FolderMeta>>(() => {
+  const c = CATEGORY_META.value;
+  return {
+    // Backend categories — singular and plural variants.
+    game: c.game,
+    games: c.game,
+    dlc: c.dlc,
+    dlcs: c.dlc,
+    update: c.update,
+    updates: c.update,
+    patch: c.patch,
+    patches: c.patch,
+    mod: c.mod,
+    mods: c.mod,
+    hack: c.hack,
+    hacks: c.hack,
+    translation: c.translation,
+    translations: c.translation,
+    demo: c.demo,
+    demos: c.demo,
+    prototype: c.prototype,
+    prototypes: c.prototype,
+    cheat: c.cheat,
+    cheats: c.cheat,
+    manual: c.manual,
+    manuals: c.manual,
+    soundtrack: c.soundtrack,
+    soundtracks: c.soundtrack,
+    // Non-category folders that conventionally appear in ROM directories.
+    screenshot: {
+      label: t("rom.screenshots"),
+      icon: "mdi-image-multiple-outline",
+    },
+    screenshots: {
+      label: t("rom.screenshots"),
+      icon: "mdi-image-multiple-outline",
+    },
+  };
+});
 
 const ROOT = "__root__" as const;
 type Subtab = "all" | typeof ROOT | string;
@@ -185,7 +206,7 @@ const filesByFolder = computed(() => {
 // generic folder icon and the raw folder name (preserving the on-disk
 // casing).
 function folderMeta(folder: string): FolderMeta | null {
-  return FOLDER_META[folder.toLowerCase()] ?? null;
+  return FOLDER_META.value[folder.toLowerCase()] ?? null;
 }
 
 // Backend `RomFileCategory` derived from a folder name — used to
@@ -193,17 +214,17 @@ function folderMeta(folder: string): FolderMeta | null {
 // (`cheats/` → `cheat`).
 function folderToCategory(folder: string): RomFileCategory | null {
   const lower = folder.toLowerCase();
-  const meta = FOLDER_META[lower];
+  const meta = FOLDER_META.value[lower];
   if (!meta) return null;
   // Look up the matching enum value by reverse-mapping the label.
-  for (const key of Object.keys(CATEGORY_META) as RomFileCategory[]) {
-    if (CATEGORY_META[key] === meta) return key;
+  for (const key of Object.keys(CATEGORY_META.value) as RomFileCategory[]) {
+    if (CATEGORY_META.value[key] === meta) return key;
   }
   return null;
 }
 
 function folderLabel(folder: string): string {
-  if (folder === ROOT) return "Root";
+  if (folder === ROOT) return t("rom.folder-root");
   return folderMeta(folder)?.label ?? folder;
 }
 
@@ -223,7 +244,7 @@ const subtabDefs = computed<SubtabDef[]>(() => {
   const out: SubtabDef[] = [
     {
       id: "all",
-      label: "All files",
+      label: t("rom.all-files"),
       icon: "mdi-folder-multiple-outline",
       count: files.value.length,
     },
@@ -235,7 +256,7 @@ const subtabDefs = computed<SubtabDef[]>(() => {
   if (rootList && rootList.length > 0) {
     out.push({
       id: ROOT,
-      label: "Root",
+      label: t("rom.folder-root"),
       icon: folderIcon(ROOT),
       count: rootList.length,
     });
@@ -411,11 +432,11 @@ const selectedFiles = computed<RomFileSchema[]>(() =>
 async function copyDownloadLink(url: string) {
   try {
     await navigator.clipboard.writeText(url);
-    snackbar.success("Download link copied to clipboard.", {
+    snackbar.success(t("rom.download-link-copied"), {
       icon: "mdi-check-bold",
     });
   } catch {
-    snackbar.error("Couldn't copy download link.", {
+    snackbar.error(t("rom.download-link-copy-failed"), {
       icon: "mdi-close-circle",
     });
   }
@@ -475,7 +496,7 @@ const uploadingSoundtrack = ref(false);
 
 const uploadDisabledReason = computed<string | null>(() => {
   if (props.rom.has_simple_single_file) {
-    return "Uploads need a folder-based ROM.";
+    return t("rom.upload-needs-folder");
   }
   return null;
 });
@@ -514,14 +535,19 @@ async function onManualUpload(event: Event) {
     const failed = responses.length - successful;
     if (successful > 0) {
       snackbar.success(
-        `Uploaded ${successful} manual file${successful === 1 ? "" : "s"}${
-          failed ? `, ${failed} failed` : ""
-        }.`,
+        failed
+          ? t("rom.manual-files-uploaded-with-failed", {
+              n: successful,
+              failed,
+            })
+          : t("rom.manual-files-uploaded-n", successful, {
+              named: { n: successful },
+            }),
         { icon: "mdi-check-bold" },
       );
       await refreshRom();
     } else {
-      snackbar.warning("No files were uploaded.", {
+      snackbar.warning(t("rom.no-files-uploaded"), {
         icon: "mdi-close-circle",
       });
     }
@@ -546,14 +572,16 @@ async function onSoundtrackUpload(event: Event) {
     const failed = responses.length - successful;
     if (successful > 0) {
       snackbar.success(
-        `Uploaded ${successful} track${successful === 1 ? "" : "s"}${
-          failed ? `, ${failed} failed` : ""
-        }.`,
+        failed
+          ? t("rom.tracks-uploaded-with-failed", { n: successful, failed })
+          : t("rom.tracks-uploaded-n", successful, {
+              named: { n: successful },
+            }),
         { icon: "mdi-check-bold" },
       );
       await refreshRom();
     } else {
-      snackbar.warning("No tracks were uploaded.", {
+      snackbar.warning(t("rom.no-tracks-uploaded"), {
         icon: "mdi-close-circle",
       });
     }
@@ -577,8 +605,7 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
   if (!target) {
     return {
       enabled: false,
-      reason:
-        "Uploading to this folder isn't supported yet. Coming once the backend exposes a generic file-upload endpoint.",
+      reason: t("rom.upload-not-supported-here"),
       loading: false,
     };
   }
@@ -608,7 +635,7 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
     accept="application/pdf"
     multiple
     class="r-v2-files__file-input"
-    aria-label="Upload manual files"
+    :aria-label="t('rom.upload-manual-files')"
     @change="onManualUpload"
   />
   <input
@@ -617,7 +644,7 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
     accept="audio/*,.flac,.opus"
     multiple
     class="r-v2-files__file-input"
-    aria-label="Upload soundtrack files"
+    :aria-label="t('rom.upload-soundtrack-files')"
     @change="onSoundtrackUpload"
   />
 
@@ -628,27 +655,28 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
         role="tablist"
         aria-orientation="vertical"
       >
-        <li v-for="t in subtabDefs" :key="t.id" class="r-v2-files__subtab">
+        <li v-for="tab in subtabDefs" :key="tab.id" class="r-v2-files__subtab">
           <button
             type="button"
             role="tab"
             class="r-v2-files__subtab-btn"
             :class="{
-              'r-v2-files__subtab-btn--active': subTab === t.id,
-              'r-v2-files__subtab-btn--joined': subTab === t.id && t.count > 0,
+              'r-v2-files__subtab-btn--active': subTab === tab.id,
+              'r-v2-files__subtab-btn--joined':
+                subTab === tab.id && tab.count > 0,
             }"
-            :aria-selected="subTab === t.id"
-            @click="subTab = t.id"
+            :aria-selected="subTab === tab.id"
+            @click="subTab = tab.id"
           >
-            <RIcon :icon="t.icon" size="16" />
-            <span class="r-v2-files__subtab-label">{{ t.label }}</span>
-            <span v-if="t.count > 0" class="r-v2-files__subtab-badge">
-              {{ t.count }}
+            <RIcon :icon="tab.icon" size="16" />
+            <span class="r-v2-files__subtab-label">{{ tab.label }}</span>
+            <span v-if="tab.count > 0" class="r-v2-files__subtab-badge">
+              {{ tab.count }}
             </span>
           </button>
 
           <RCollapsible
-            :model-value="subTab === t.id && t.count > 0"
+            :model-value="subTab === tab.id && tab.count > 0"
             attached
             class="r-v2-files__subtab-panel"
           >
@@ -659,7 +687,7 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
                 block
                 @click="downloadSubtab"
               >
-                Download all
+                {{ t("rom.download-all") }}
               </RBtn>
               <RBtn
                 variant="outlined"
@@ -667,7 +695,7 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
                 block
                 @click="copySubtabLink"
               >
-                Copy link
+                {{ t("rom.copy-link-action") }}
               </RBtn>
 
               <!-- Upload — wired only for Manual / Soundtrack folders;
@@ -678,15 +706,15 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
                   variant="outlined"
                   prepend-icon="mdi-cloud-upload-outline"
                   block
-                  :disabled="!uploadStateForSubtab(t.id).enabled"
-                  :loading="uploadStateForSubtab(t.id).loading"
+                  :disabled="!uploadStateForSubtab(tab.id).enabled"
+                  :loading="uploadStateForSubtab(tab.id).loading"
                   @click="triggerUpload"
                 >
-                  Upload
+                  {{ t("common.upload") }}
                 </RBtn>
                 <RTooltip
-                  v-if="uploadStateForSubtab(t.id).reason"
-                  :text="uploadStateForSubtab(t.id).reason ?? ''"
+                  v-if="uploadStateForSubtab(tab.id).reason"
+                  :text="uploadStateForSubtab(tab.id).reason ?? ''"
                   location="bottom"
                   activator="parent"
                 />
@@ -715,10 +743,19 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
           />
           <span class="r-v2-files__toolbar-status">
             <template v-if="selectedCount > 0">
-              {{ selectedCount }} of {{ filteredCount }} selected
+              {{
+                t("rom.files-selected-of", {
+                  selected: selectedCount,
+                  total: filteredCount,
+                })
+              }}
             </template>
             <template v-else>
-              {{ filteredCount }} file{{ filteredCount === 1 ? "" : "s" }}
+              {{
+                t("rom.files-count-n", filteredCount, {
+                  named: { n: filteredCount },
+                })
+              }}
             </template>
           </span>
         </div>
@@ -730,7 +767,7 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
             size="small"
             @click="downloadSelected"
           >
-            Download selected
+            {{ t("rom.download-selected") }}
           </RBtn>
           <RBtn
             variant="outlined"
@@ -738,7 +775,7 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
             size="small"
             @click="copySelectedLink"
           >
-            Copy link
+            {{ t("rom.copy-link-action") }}
           </RBtn>
           <RBtn
             variant="text"
@@ -746,7 +783,7 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
             size="small"
             @click="clearSelection"
           >
-            Clear
+            {{ t("common.clear") }}
           </RBtn>
         </div>
       </div>
@@ -755,8 +792,8 @@ function uploadStateForSubtab(id: Subtab): SubtabUploadState {
       <REmptyState
         v-if="filteredFiles.length === 0"
         icon="mdi-folder-off-outline"
-        title="No files in this category"
-        hint="Switch to another category from the sidebar to see this ROM's other files."
+        :title="t('rom.no-files-in-category')"
+        :hint="t('rom.no-files-in-category-hint')"
       />
 
       <ul v-else class="r-v2-files__list">

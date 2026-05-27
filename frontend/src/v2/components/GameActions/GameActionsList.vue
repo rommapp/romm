@@ -6,6 +6,7 @@
 // parent menu can dismiss.
 import { RDivider, RMenuItem } from "@v2/lib";
 import { computed, toRef } from "vue";
+import { useI18n } from "vue-i18n";
 import type { SimpleRom } from "@/stores/roms";
 import { useGameActions } from "@/v2/composables/useGameActions";
 
@@ -15,11 +16,14 @@ const props = defineProps<{ rom: SimpleRom | null }>();
 
 const emit = defineEmits<{ (e: "close"): void }>();
 
+const { t } = useI18n();
 const romRef = toRef(props, "rom");
 const actions = useGameActions(() => romRef.value);
 
 const favLabel = computed(() =>
-  actions.isFavorited.value ? "Remove from favorites" : "Add to favorites",
+  actions.isFavorited.value
+    ? t("rom.remove-from-favorites")
+    : t("rom.add-to-favorites"),
 );
 
 function run(fn: () => void | Promise<void>) {
@@ -32,23 +36,23 @@ function run(fn: () => void | Promise<void>) {
   <!-- Primary actions -->
   <RMenuItem
     v-if="actions.canPlay.value"
-    label="Play"
+    :label="t('rom.play')"
     icon="mdi-play"
     @click="run(actions.play)"
   />
   <RMenuItem
-    label="Download"
+    :label="t('rom.download')"
     icon="mdi-download-outline"
     @click="run(actions.download)"
   />
   <RMenuItem
-    label="Copy download link"
+    :label="t('rom.copy-link')"
     icon="mdi-share-variant-outline"
     @click="run(actions.copyDownloadLink)"
   />
   <RMenuItem
     v-if="actions.canShareQR.value"
-    label="Share (QR code)"
+    :label="t('rom.share-qr')"
     icon="mdi-qrcode"
     @click="run(actions.shareQR)"
   />
@@ -64,7 +68,7 @@ function run(fn: () => void | Promise<void>) {
   />
   <RMenuItem
     v-if="actions.canManageCollections.value"
-    label="Manage collections"
+    :label="t('rom.manage-collections')"
     icon="mdi-bookmark-outline"
     @click="run(actions.manageCollections)"
   />
@@ -72,14 +76,18 @@ function run(fn: () => void | Promise<void>) {
   <RDivider />
 
   <!-- Metadata actions -->
-  <RMenuItem label="Match ROM" icon="mdi-magnify" @click="run(actions.match)" />
   <RMenuItem
-    label="Refresh metadata"
+    :label="t('rom.match-rom')"
+    icon="mdi-magnify"
+    @click="run(actions.match)"
+  />
+  <RMenuItem
+    :label="t('rom.refresh-metadata')"
     icon="mdi-refresh"
     @click="run(actions.refreshMetadata)"
   />
   <RMenuItem
-    label="Edit"
+    :label="t('common.edit')"
     icon="mdi-pencil-outline"
     @click="run(actions.edit)"
   />
@@ -88,7 +96,7 @@ function run(fn: () => void | Promise<void>) {
 
   <!-- Destructive -->
   <RMenuItem
-    label="Delete"
+    :label="t('common.delete')"
     icon="mdi-trash-can-outline"
     variant="danger"
     @click="run(actions.remove)"

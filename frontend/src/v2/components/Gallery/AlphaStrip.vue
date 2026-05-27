@@ -12,8 +12,11 @@
 // When both are set, `visible` wins visually because it reflects the real
 // scroll position.
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 // Two non-alphabetic buckets bookend the alphabet:
 //   * `#` — digits (0-9) — sits BEFORE A
@@ -64,7 +67,7 @@ function isActive(letter: string): boolean {
 </script>
 
 <template>
-  <aside class="alpha-strip" aria-label="Jump to letter">
+  <aside class="alpha-strip" :aria-label="t('gallery.jump-to-letter')">
     <button
       v-for="l in letters"
       :key="l"
@@ -105,7 +108,7 @@ function isActive(letter: string): boolean {
   font-family: inherit;
   font-size: 12px;
   font-weight: var(--r-font-weight-bold);
-  color: var(--r-color-fg-faint);
+  color: var(--r-color-fg-faint-hard);
   cursor: default;
   line-height: 1;
   padding: 3px;

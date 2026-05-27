@@ -54,8 +54,8 @@ async function submit() {
       response?.data?.detail ||
       message ||
       response?.statusText ||
-      "Login failed";
-    snackbar.error(`Unable to login: ${errorMessage}`, {
+      t("login.login-failed");
+    snackbar.error(t("login.unable-to-login", { error: errorMessage }), {
       icon: "mdi-close-circle",
     });
     console.error(

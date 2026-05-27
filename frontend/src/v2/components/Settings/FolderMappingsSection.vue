@@ -336,7 +336,7 @@ onMounted(async () => {
         prefix-label="inline"
         :placeholder="t('common.search')"
         hide-details
-        aria-label="Search folder mappings"
+        :aria-label="t('settings.search-folder-mappings')"
         class="r-v2-mappings__search"
       >
         <template #prefix-label>

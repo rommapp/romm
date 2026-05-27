@@ -80,19 +80,16 @@ function setVersion(value: "v1" | "v2") {
 const uiVersionCards = computed(() => [
   {
     value: "v1" as const,
-    title: t("settings.ui-version-classic", "Classic UI"),
+    title: t("settings.ui-version-classic"),
     icon: "mdi-star-outline",
-    blurb: t(
-      "settings.ui-version-classic-blurb",
-      "The familiar RomM interface.",
-    ),
+    blurb: t("settings.ui-version-classic-blurb"),
     beta: false,
   },
   {
     value: "v2" as const,
-    title: t("settings.ui-version-new", "New UI"),
+    title: t("settings.ui-version-new"),
     icon: "mdi-star-four-points",
-    blurb: t("settings.ui-version-new-blurb", "The new RomM experience."),
+    blurb: t("settings.ui-version-new-blurb"),
     beta: true,
   },
 ]);
@@ -105,14 +102,14 @@ const boxartStyleItems = computed(() => [
   { title: t("settings.boxart-miximage"), value: "miximage_path" },
 ]);
 
-const virtualCollectionTypeItems = [
-  { title: "IGDB Collection", value: "collection" },
-  { title: "Franchise", value: "franchise" },
-  { title: "Genre", value: "genre" },
-  { title: "Play Mode", value: "mode" },
-  { title: "Developer", value: "company" },
-  { title: "All (slow)", value: "all" },
-];
+const virtualCollectionTypeItems = computed(() => [
+  { title: t("settings.vc-collection"), value: "collection" },
+  { title: t("settings.vc-franchise"), value: "franchise" },
+  { title: t("settings.vc-genre"), value: "genre" },
+  { title: t("settings.vc-mode"), value: "mode" },
+  { title: t("settings.vc-company"), value: "company" },
+  { title: t("settings.vc-all"), value: "all" },
+]);
 
 function onVirtualCollectionTypeChange(value: unknown) {
   const next = typeof value === "string" ? value : String(value ?? "");
@@ -278,18 +275,10 @@ function onVirtualCollectionTypeChange(value: unknown) {
     </SettingsSection>
 
     <!-- UI version (v2-only, beta) — kept last for parity. -->
-    <SettingsSection
-      :title="t('settings.ui-version', 'UI version')"
-      icon="mdi-new-box"
-    >
+    <SettingsSection :title="t('settings.ui-version')" icon="mdi-new-box">
       <div class="r-v2-ui__field">
         <p class="r-v2-ui__desc">
-          {{
-            t(
-              "settings.ui-version-desc",
-              "Preview the new RomM UI (beta). Switching is instant and you can flip back at any time.",
-            )
-          }}
+          {{ t("settings.ui-version-desc") }}
         </p>
         <div class="r-v2-ui__version-grid">
           <button
@@ -311,7 +300,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
                 <span class="r-v2-ui__version-title">{{ card.title }}</span>
                 <RTag
                   v-if="card.beta"
-                  :label="t('common.beta', 'Beta')"
+                  :label="t('common.beta')"
                   tone="warning"
                   size="x-small"
                 />

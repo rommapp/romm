@@ -40,22 +40,22 @@ const cards = computed<StatCard[]>(() => [
   {
     icon: "mdi-disc",
     value: props.stats.ROMS.toLocaleString(),
-    label: "Games",
+    label: t("settings.games-label"),
   },
   {
     icon: "mdi-content-save",
     value: props.stats.SAVES.toLocaleString(),
-    label: "Saves",
+    label: t("settings.saves"),
   },
   {
     icon: "mdi-file-cabinet",
     value: props.stats.STATES.toLocaleString(),
-    label: "States",
+    label: t("settings.states"),
   },
   {
     icon: "mdi-image-multiple-outline",
     value: props.stats.SCREENSHOTS.toLocaleString(),
-    label: "Screenshots",
+    label: t("settings.screenshots"),
   },
   {
     icon: "mdi-harddisk",
@@ -66,7 +66,7 @@ const cards = computed<StatCard[]>(() => [
 </script>
 
 <template>
-  <SettingsSection title="Summary" icon="mdi-chart-bar">
+  <SettingsSection :title="t('settings.summary')" icon="mdi-chart-bar">
     <div class="r-v2-stats-summary">
       <div
         v-for="card in cards"

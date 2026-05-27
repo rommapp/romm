@@ -8,10 +8,13 @@
 import { RIcon } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import storeNotifications from "@/stores/notifications";
 import type { Events, SnackbarStatus } from "@/types/emitter";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 type ToastTone = "success" | "error" | "warning" | "info";
 
@@ -104,7 +107,7 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="r-v2-toast__close"
-          aria-label="Dismiss"
+          :aria-label="t('common.dismiss')"
           @click="dismiss(toast.id)"
         >
           <RIcon icon="mdi-close" size="14" />

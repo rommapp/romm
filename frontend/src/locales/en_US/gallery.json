@@ -13,5 +13,17 @@
   "selection-favorite-success": "{n} added to favorites",
   "selection-unfavorite-success": "{n} removed from favorites",
   "selection-favorite-fail": "Failed to update favorites",
-  "selection-download-many": "Downloading {n} games…"
+  "selection-download-many": "Downloading {n} games…",
+  "filters": "Filters",
+  "firmware-files-count": "{count} files",
+  "firmware-selected-count": "{count} selected",
+  "selection-deselect-all": "Deselect all",
+  "sort-ascending": "Sort ascending",
+  "sort-descending": "Sort descending",
+  "view-flat": "Flat view",
+  "view-grid": "Grid",
+  "view-grouped": "Group by letter",
+  "view-list": "List",
+  "jump-to-letter": "Jump to letter",
+  "jump-to": "Jump to {letter}"
 }

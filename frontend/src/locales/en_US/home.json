@@ -10,5 +10,6 @@
   "empty-upload-cta": "Upload games",
   "empty-scan-cta": "Run scan",
   "empty-detected-platforms": "{count} platform detected | {count} platforms detected",
-  "empty-detected-games": "{count} game detected | {count} games detected"
+  "empty-detected-games": "{count} game detected | {count} games detected",
+  "no-games-yet": "No games added yet."
 }

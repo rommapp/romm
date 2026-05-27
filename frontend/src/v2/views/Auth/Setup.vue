@@ -166,9 +166,9 @@ async function finishWizard() {
           message?: string;
         };
         snackbar.warning(
-          `Account created, but the avatar couldn't be saved: ${
-            e.response?.data?.detail ?? e.message ?? ""
-          }. You can set it later from profile settings.`,
+          t("login.avatar-save-warning", {
+            error: e.response?.data?.detail ?? e.message ?? "",
+          }),
           { icon: "mdi-alert-circle" },
         );
       }

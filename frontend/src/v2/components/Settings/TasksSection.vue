@@ -61,7 +61,9 @@ function isTaskRunning(name: string) {
 async function runTask(name: string, title: string) {
   try {
     await taskApi.runTask(name);
-    snackbar.success(`Task '${title}' started…`, { icon: "mdi-check-bold" });
+    snackbar.success(t("settings.task-started", { title }), {
+      icon: "mdi-check-bold",
+    });
   } catch (err) {
     const e = err as {
       response?: { data?: { detail?: string }; statusText?: string };
@@ -71,7 +73,7 @@ async function runTask(name: string, title: string) {
       e?.response?.data?.detail ||
         e?.response?.statusText ||
         e?.message ||
-        "Task failed",
+        t("settings.task-failed"),
       { icon: "mdi-close-circle" },
     );
   }
@@ -167,8 +169,8 @@ function statusInfo(task: TaskStatusResponse) {
             type="button"
             class="r-v2-tasks__run-btn"
             :disabled="isTaskRunning(task.name)"
-            :aria-label="`Run ${task.title}`"
-            :title="`Run ${task.title}`"
+            :aria-label="t('settings.run-task', { title: task.title })"
+            :title="t('settings.run-task', { title: task.title })"
             @click="runTask(task.name, task.title)"
           >
             <RIcon icon="mdi-play" size="14" />
@@ -195,8 +197,8 @@ function statusInfo(task: TaskStatusResponse) {
             type="button"
             class="r-v2-tasks__run-btn"
             :disabled="isTaskRunning(task.name)"
-            :aria-label="`Run ${task.title}`"
-            :title="`Run ${task.title}`"
+            :aria-label="t('settings.run-task', { title: task.title })"
+            :title="t('settings.run-task', { title: task.title })"
             @click="runTask(task.name, task.title)"
           >
             <RIcon icon="mdi-play" size="14" />
@@ -240,7 +242,7 @@ function statusInfo(task: TaskStatusResponse) {
       disabled
     >
       <RSpinner :size="14" />
-      Loading…
+      {{ t("common.loading-ellipsis") }}
     </RBtn>
   </SettingsSection>
 </template>

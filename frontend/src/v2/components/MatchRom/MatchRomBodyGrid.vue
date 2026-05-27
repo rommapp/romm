@@ -119,8 +119,8 @@ watch(
   <div v-else-if="!searched" class="match-grid__state">
     <REmptyState
       icon="mdi-magnify-scan"
-      title="Search for a match"
-      hint="Adjust the name above and hit Search to look up metadata across the enabled providers."
+      :title="t('rom.match-search-title')"
+      :hint="t('rom.match-search-hint')"
     />
   </div>
 
@@ -165,21 +165,18 @@ watch(
           type="button"
           class="match-grid__scrim"
           tabindex="-1"
-          aria-label="Close overlay"
+          :aria-label="t('common.close')"
           @click="close"
         />
-        <section
-          class="match-grid__panel"
-          :aria-label="`Match details for ${activeMatch.name}`"
-        >
+        <section class="match-grid__panel" :aria-label="t('rom.details')">
           <header class="match-grid__head">
             <h3 class="match-grid__title">{{ activeMatch.name }}</h3>
             <RBtn
               icon="mdi-close"
               size="small"
               variant="outlined"
-              aria-label="Close"
-              tooltip="Close"
+              :aria-label="t('common.close')"
+              :tooltip="t('common.close')"
               @click="close"
             />
           </header>
@@ -189,15 +186,14 @@ watch(
           </p>
 
           <p v-if="activeSources.length > 1" class="match-grid__sources-label">
-            Pick a cover
+            {{ t("rom.pick-cover") }}
           </p>
 
           <p
             v-if="activeSources.length === 0"
             class="match-grid__sources-empty"
           >
-            This match doesn't include cover artwork. You can still apply it —
-            the ROM keeps its existing cover.
+            {{ t("rom.match-no-cover-info") }}
           </p>
 
           <div v-if="activeSources.length" class="match-grid__sources">
@@ -245,7 +241,7 @@ watch(
                 :disabled="!canConfirm"
                 @click="confirm"
               >
-                Match this game
+                {{ t("rom.match-this-game") }}
               </RBtn>
             </div>
           </div>

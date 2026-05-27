@@ -4,7 +4,7 @@
 // expiry, generates an invite URL, and shows it in a copyable field.
 import { RBtn, RIcon, RSelect } from "@v2/lib";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import userApi from "@/services/api/user";
 import type { Events } from "@/types/emitter";
@@ -25,15 +25,15 @@ const selectedRole = ref<string | null>(null);
 const selectedExpiration = ref<number>(86400);
 
 const roles = ["viewer", "editor", "admin"];
-const expirationOptions = [
-  { title: "1 hour", value: 3600 },
-  { title: "6 hours", value: 21600 },
-  { title: "12 hours", value: 43200 },
-  { title: "1 day", value: 86400 },
-  { title: "3 days", value: 259200 },
-  { title: "7 days", value: 604800 },
-  { title: "30 days", value: 2592000 },
-];
+const expirationOptions = computed(() => [
+  { title: t("settings.expiry-1h"), value: 3600 },
+  { title: t("settings.expiry-6h"), value: 21600 },
+  { title: t("settings.expiry-12h"), value: 43200 },
+  { title: t("settings.expiry-1d"), value: 86400 },
+  { title: t("settings.expiry-3d"), value: 259200 },
+  { title: t("settings.expiry-7d"), value: 604800 },
+  { title: t("settings.expiry-30d"), value: 2592000 },
+]);
 
 emitter?.on("showCreateInviteLinkDialog", () => {
   selectedRole.value = null;
@@ -51,16 +51,19 @@ async function createInviteLink() {
       expiration: selectedExpiration.value,
     });
     fullInviteLink.value = `${window.location.origin}/register?token=${data.token}`;
-    snackbar.success("Invite link created", { icon: "mdi-check-bold" });
+    snackbar.success(t("settings.invite-link-created"), {
+      icon: "mdi-check-bold",
+    });
   } catch (err) {
     const e = err as {
       response?: { data?: { detail?: string }; statusText?: string };
       message?: string;
     };
     snackbar.error(
-      `Unable to create invite link: ${
-        e?.response?.data?.detail || e?.response?.statusText || e?.message
-      }`,
+      t("settings.unable-to-create-invite-link", {
+        detail:
+          e?.response?.data?.detail || e?.response?.statusText || e?.message,
+      }),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -71,7 +74,7 @@ async function createInviteLink() {
 async function copyLink() {
   try {
     await navigator.clipboard.writeText(fullInviteLink.value);
-    snackbar.success("Link copied to clipboard", { icon: "mdi-check-bold" });
+    snackbar.success(t("settings.link-copied"), { icon: "mdi-check-bold" });
   } catch {
     /* clipboard unavailable */
   }
@@ -112,7 +115,7 @@ function close() {
         <RSelect
           v-model="selectedExpiration"
           :items="expirationOptions"
-          label="Expires in"
+          :label="t('settings.expires-in')"
           variant="outlined"
           density="comfortable"
           hide-details
@@ -124,7 +127,7 @@ function close() {
         <button
           type="button"
           class="r-v2-invite__copy-btn"
-          aria-label="Copy link"
+          :aria-label="t('settings.copy-link')"
           @click="copyLink"
         >
           <RIcon icon="mdi-content-copy" size="14" />
@@ -144,7 +147,7 @@ function close() {
         prepend-icon="mdi-link-variant"
         @click="createInviteLink"
       >
-        Generate
+        {{ t("common.generate") }}
       </RBtn>
     </template>
   </RDialog>

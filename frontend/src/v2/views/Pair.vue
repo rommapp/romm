@@ -8,8 +8,10 @@
 import { RBtn, RIcon } from "@v2/lib";
 import axios from "axios";
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 
+const { t } = useI18n();
 const route = useRoute();
 
 const code = computed(() => (route.query.code as string) || "");
@@ -38,15 +40,14 @@ async function exchange(pairCode: string): Promise<string> {
 onMounted(async () => {
   if (!code.value) {
     status.value = "error";
-    errorMessage.value = "No pairing code provided.";
+    errorMessage.value = t("settings.pair-no-code");
     return;
   }
 
   if (callback.value) {
     if (!isCustomScheme(callback.value)) {
       status.value = "error";
-      errorMessage.value =
-        "Only custom URL schemes are supported for callbacks (no http/https).";
+      errorMessage.value = t("settings.pair-scheme-error");
       return;
     }
 
@@ -61,7 +62,7 @@ onMounted(async () => {
         response?: { data?: { detail?: string } };
       };
       errorMessage.value =
-        axiosErr.response?.data?.detail ?? "Failed to exchange pairing code.";
+        axiosErr.response?.data?.detail ?? t("settings.pair-exchange-failed");
     }
     return;
   }
@@ -87,8 +88,11 @@ async function copyCode() {
 <template>
   <div class="r-v2-pair">
     <div v-if="status === 'exchanging'" class="r-v2-pair__state">
-      <div class="r-v2-pair__spinner" aria-label="Exchanging" />
-      <p class="r-v2-pair__body">Exchanging pairing code…</p>
+      <div
+        class="r-v2-pair__spinner"
+        :aria-label="t('settings.pair-exchanging')"
+      />
+      <p class="r-v2-pair__body">{{ t("settings.pair-exchanging") }}</p>
     </div>
 
     <div v-else-if="status === 'error'" class="r-v2-pair__state">
@@ -105,9 +109,12 @@ async function copyCode() {
         <RIcon icon="mdi-key-variant" size="32" />
       </div>
       <p class="r-v2-pair__body">
-        Enter this code on your device to complete pairing:
+        {{ t("settings.pair-enter-code-prompt") }}
       </p>
-      <div class="r-v2-pair__code" aria-label="Pairing code">
+      <div
+        class="r-v2-pair__code"
+        :aria-label="t('settings.pair-enter-code-prompt')"
+      >
         {{ formattedCode }}
       </div>
       <RBtn
@@ -116,11 +123,10 @@ async function copyCode() {
         prepend-icon="mdi-content-copy"
         @click="copyCode"
       >
-        Copy code
+        {{ t("common.copy-code") }}
       </RBtn>
       <p class="r-v2-pair__hint">
-        This code expires shortly. Return to the web interface to generate a new
-        one if needed.
+        {{ t("settings.pair-expires-shortly") }}
       </p>
     </div>
   </div>

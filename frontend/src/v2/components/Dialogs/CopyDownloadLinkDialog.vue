@@ -8,11 +8,13 @@
 import { RBtn, RDialog } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { Events } from "@/types/emitter";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 
 defineOptions({ inheritAttrs: false });
 
+const { t } = useI18n();
 const show = ref(false);
 const link = ref("");
 const emitter = inject<Emitter<Events>>("emitter");
@@ -35,7 +37,7 @@ async function retryCopy() {
   if (navigator.clipboard && window.isSecureContext) {
     try {
       await navigator.clipboard.writeText(link.value);
-      snackbar.success("Download link copied to clipboard", {
+      snackbar.success(t("rom.snackbar-download-link-copied"), {
         icon: "mdi-link-variant",
       });
       closeDialog();
@@ -44,7 +46,7 @@ async function retryCopy() {
       // stays open so the user can still select the text manually
     }
   }
-  snackbar.error("Clipboard not available — select the link manually", {
+  snackbar.error(t("rom.cant-copy-link"), {
     icon: "mdi-alert-circle-outline",
   });
 }
@@ -58,19 +60,18 @@ async function retryCopy() {
     @close="closeDialog"
   >
     <template #header>
-      <span>Copy download link</span>
+      <span>{{ t("rom.copy-link") }}</span>
     </template>
     <template #content>
       <div class="r-v2-copy-link">
         <p class="r-v2-copy-link__hint">
-          Clipboard is not available in this context. Select the link below to
-          copy it manually.
+          {{ t("common.clipboard-unavailable") }}
         </p>
         <code class="r-v2-copy-link__box">{{ link }}</code>
       </div>
     </template>
     <template #footer>
-      <RBtn variant="text" @click="closeDialog">Close</RBtn>
+      <RBtn variant="text" @click="closeDialog">{{ t("common.close") }}</RBtn>
       <div style="flex: 1" />
       <RBtn
         variant="flat"
@@ -78,7 +79,7 @@ async function retryCopy() {
         prepend-icon="mdi-content-copy"
         @click="retryCopy"
       >
-        Try again
+        {{ t("common.try-again") }}
       </RBtn>
     </template>
   </RDialog>

@@ -53,10 +53,13 @@ async function resetPassword() {
       response?.data?.detail ||
       message ||
       response?.statusText ||
-      "Reset failed";
-    snackbar.error(`Unable to reset password: ${errorMessage}`, {
-      icon: "mdi-close-circle",
-    });
+      t("login.reset-failed");
+    snackbar.error(
+      t("login.unable-to-reset-password", { error: errorMessage }),
+      {
+        icon: "mdi-close-circle",
+      },
+    );
   } finally {
     submitting.value = false;
   }
@@ -84,7 +87,7 @@ async function resetPassword() {
         v-if="passwordsMismatch"
         type="error"
         density="compact"
-        :text="t('login.passwords-do-not-match', 'Passwords do not match')"
+        :text="t('login.passwords-do-not-match')"
       />
 
       <RBtn

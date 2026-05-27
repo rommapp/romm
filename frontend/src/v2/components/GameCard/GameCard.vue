@@ -39,6 +39,7 @@
 //     that aren't part of the default gallery overlay (e.g. metadata
 //     provider logos in the match-flow source picker).
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
@@ -160,6 +161,7 @@ const isSynthetic = computed(() => !props.rom.id);
 const fallbackUrl = computed(() => props.rom.url_cover ?? null);
 const showFallback = computed(() => imgError.value && !!fallbackUrl.value);
 
+const { t } = useI18n();
 const title = computed(() => props.rom.name || props.rom.fs_name_no_ext);
 const platformShort = computed(
   () => props.rom.platform_custom_name || props.rom.platform_display_name,
@@ -428,7 +430,9 @@ const morphStyle = computed(() => {
           size="x-small"
           variant="text"
           class="r-gc__platform-icon"
-          :aria-label="`Browse ${platformShort}`"
+          :aria-label="
+            t('platform.browse-platform', { platform: platformShort })
+          "
           @click="onPlatformClick"
         >
           <RPlatformIcon

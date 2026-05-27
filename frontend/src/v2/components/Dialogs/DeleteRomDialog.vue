@@ -121,9 +121,12 @@ async function deleteRoms() {
   } catch (error: unknown) {
     console.error(error);
     const axiosErr = error as { response?: { data?: { detail?: string } } };
-    snackbar.error(axiosErr.response?.data?.detail ?? "Failed to delete ROMs", {
-      icon: "mdi-close-circle",
-    });
+    snackbar.error(
+      axiosErr.response?.data?.detail ?? t("rom.delete-roms-failed"),
+      {
+        icon: "mdi-close-circle",
+      },
+    );
   } finally {
     deleting.value = false;
   }
@@ -167,7 +170,7 @@ function closeDialog() {
             "
             size="14"
           />
-          {{ allOnFs ? "Unselect all" : "Select all for disk" }}
+          {{ allOnFs ? t("rom.unselect-all") : t("rom.select-all-disk") }}
         </button>
       </div>
     </template>
@@ -203,7 +206,7 @@ function closeDialog() {
             type="button"
             class="r-v2-del-rom__fs-toggle"
             :aria-pressed="romsToDeleteFromFs.includes(rom.id)"
-            :aria-label="`Delete ${rom.fs_name} from disk`"
+            :aria-label="t('rom.delete-from-disk-aria', { name: rom.fs_name })"
             :class="{
               'r-v2-del-rom__fs-toggle--on': romsToDeleteFromFs.includes(
                 rom.id,
@@ -212,7 +215,7 @@ function closeDialog() {
             @click="toggleRomOnFs(rom.id)"
           >
             <RIcon icon="mdi-harddisk-remove" size="14" />
-            Delete file
+            {{ t("rom.delete-file") }}
           </button>
         </li>
       </ul>

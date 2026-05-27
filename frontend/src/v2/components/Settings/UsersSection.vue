@@ -71,9 +71,7 @@ const sortedUsers = computed(() => {
         : b.username.localeCompare(a.username);
     }
     if (sortKey.value === "role") {
-      return asc
-        ? a.role.localeCompare(b.role)
-        : b.role.localeCompare(a.role);
+      return asc ? a.role.localeCompare(b.role) : b.role.localeCompare(a.role);
     }
     return compareNullable(a[sortKey.value], b[sortKey.value], asc);
   });
@@ -176,10 +174,12 @@ async function toggleEnabled(user: User, enabled: boolean) {
       response?: { data?: { detail?: string }; statusText?: string };
       message?: string;
     };
+    const detail =
+      e?.response?.data?.detail || e?.response?.statusText || e?.message;
     snackbar.error(
-      `Unable to ${enabled ? "enable" : "disable"} user: ${
-        e?.response?.data?.detail || e?.response?.statusText || e?.message
-      }`,
+      enabled
+        ? t("settings.unable-to-enable-user", { detail })
+        : t("settings.unable-to-disable-user", { detail }),
       { icon: "mdi-close-circle" },
     );
   }
@@ -188,7 +188,7 @@ async function toggleEnabled(user: User, enabled: boolean) {
 async function deleteUser(user: User) {
   const ok = await confirm({
     title: t("common.confirm-deletion"),
-    body: `Delete user "${user.username}"? This cannot be undone.`,
+    body: t("settings.delete-user-confirm", { username: user.username }),
     confirmText: t("common.delete"),
     tone: "danger",
     requireTyped: user.username,
@@ -197,7 +197,7 @@ async function deleteUser(user: User) {
   try {
     await userApi.deleteUser(user);
     usersStore.remove(user.id);
-    snackbar.success(`User ${user.username} successfully removed`, {
+    snackbar.success(t("settings.user-removed", { username: user.username }), {
       icon: "mdi-check-bold",
     });
   } catch (err) {
@@ -206,9 +206,11 @@ async function deleteUser(user: User) {
       message?: string;
     };
     snackbar.error(
-      `Unable to delete user ${user.username}: ${
-        e?.response?.data?.detail || e?.response?.statusText || e?.message
-      }`,
+      t("settings.unable-to-delete-user", {
+        username: user.username,
+        detail:
+          e?.response?.data?.detail || e?.response?.statusText || e?.message,
+      }),
       { icon: "mdi-close-circle" },
     );
   }
@@ -236,7 +238,7 @@ onMounted(async () => {
       :placeholder="t('common.search')"
       hide-details
       density="compact"
-      aria-label="Search users"
+      :aria-label="t('settings.search-users')"
       class="r-v2-users__search"
     >
       <template #prefix-label>
@@ -292,8 +294,8 @@ onMounted(async () => {
           :disabled="(row as User).id === auth.user?.id"
           :aria-label="
             (row as User).enabled
-              ? `Disable ${(row as User).username}`
-              : `Enable ${(row as User).username}`
+              ? t('settings.disable-user', { username: (row as User).username })
+              : t('settings.enable-user', { username: (row as User).username })
           "
           @update:model-value="(v) => toggleEnabled(row as User, v)"
         />
@@ -334,20 +336,20 @@ onMounted(async () => {
 
     <div class="r-v2-users__footer">
       <RBtn
-      variant="flat"
-      color="primary"
-      prepend-icon="mdi-plus"
-      @click="emitter?.emit('showCreateUserDialog', null)"
+        variant="flat"
+        color="primary"
+        prepend-icon="mdi-plus"
+        @click="emitter?.emit('showCreateUserDialog', null)"
       >
-      {{ t("common.add") }}
-    </RBtn>
-    <RBtn
-      variant="text"
-      prepend-icon="mdi-share-variant"
-      @click="emitter?.emit('showCreateInviteLinkDialog')"
-    >
-      {{ t("settings.invite-link") }}
-    </RBtn>
+        {{ t("common.add") }}
+      </RBtn>
+      <RBtn
+        variant="text"
+        prepend-icon="mdi-share-variant"
+        @click="emitter?.emit('showCreateInviteLinkDialog')"
+      >
+        {{ t("settings.invite-link") }}
+      </RBtn>
     </div>
   </div>
 </template>

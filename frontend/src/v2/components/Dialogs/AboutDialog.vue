@@ -37,31 +37,29 @@ type Link = {
 const links: Link[] = [
   {
     isotipo: true,
-    label: "RomM version",
+    label: t("common.about-version"),
     value: heartbeatStore.value.SYSTEM.VERSION,
     href: `https://github.com/rommapp/romm/releases/tag/${heartbeatStore.value.SYSTEM.VERSION}`,
   },
   {
     icon: "mdi-code-braces",
-    label: "Source code",
+    label: t("common.about-source-code"),
     value: "GitHub",
     href: "https://github.com/rommapp/romm",
   },
   {
     icon: "mdi-file-document-outline",
-    label: "Documentation",
+    label: t("common.about-documentation"),
     value: "docs.romm.app",
     href: "https://docs.romm.app",
   },
   {
     icon: "mdi-account-group",
-    label: "Community",
+    label: t("common.about-community"),
     value: "Discord",
     href: "https://discord.com/invite/P5HtHnhUDH",
   },
 ];
-
-void t;
 </script>
 
 <template>
@@ -72,7 +70,7 @@ void t;
     @close="closeDialog"
   >
     <template #header>
-      <span>About RomM</span>
+      <span>{{ t("common.about-romm") }}</span>
     </template>
     <template #content>
       <div class="r-v2-about">

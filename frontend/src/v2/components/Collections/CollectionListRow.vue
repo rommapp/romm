@@ -8,6 +8,7 @@
 // name includes the kind so regular/virtual/smart with overlapping
 // numeric ids never collide.
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import CollectionMosaic from "@/v2/components/Collections/CollectionMosaic.vue";
 import {
@@ -35,6 +36,7 @@ const props = withDefaults(defineProps<Props>(), {
   kind: "regular",
 });
 
+const { t } = useI18n();
 const router = useRouter();
 const coverEl = ref<HTMLElement | null>(null);
 const { morphTransition } = useViewTransition();
@@ -70,7 +72,7 @@ function onRowClick(e: MouseEvent) {
     class="coll-list-row"
     :style="gridStyle"
     :href="to"
-    :aria-label="`Open ${name}`"
+    :aria-label="t('rom.open-game', { name })"
     @click="onRowClick"
   >
     <div class="coll-list-row__cell coll-list-row__title">
@@ -92,10 +94,7 @@ function onRowClick(e: MouseEvent) {
     </div>
 
     <div class="coll-list-row__cell coll-list-row__cell--end">
-      {{ romCount }}
-      <span class="coll-list-row__count-unit">{{
-        romCount === 1 ? "game" : "games"
-      }}</span>
+      {{ t("collection.games-count", romCount, { named: { n: romCount } }) }}
     </div>
   </a>
 </template>
@@ -145,8 +144,8 @@ function onRowClick(e: MouseEvent) {
 }
 
 .coll-list-row__thumb {
-  width: var(--r-list-cover-w);
-  height: var(--r-list-cover-h);
+  width: var(--r-card-art-w-xs);
+  height: var(--r-card-art-h-xs);
   flex-shrink: 0;
   border-radius: var(--r-radius-sm);
   overflow: hidden;

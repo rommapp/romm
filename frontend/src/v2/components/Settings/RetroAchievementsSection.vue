@@ -80,7 +80,7 @@ async function saveAndSync() {
 </script>
 
 <template>
-  <SettingsSection title="RetroAchievements" icon="mdi-trophy">
+  <SettingsSection :title="t('settings.retroachievements')" icon="mdi-trophy">
     <template #header-actions>
       <RTag
         :icon="isLinked ? 'mdi-link-variant' : 'mdi-link-variant-off'"

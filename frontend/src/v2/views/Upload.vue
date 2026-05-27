@@ -62,9 +62,10 @@ async function loadPlatforms() {
       message?: string;
     };
     snackbar.error(
-      `Unable to load platforms: ${
-        e?.response?.data?.detail || e?.message || "unknown error"
-      }`,
+      t("common.unable-to-load-platforms", {
+        error:
+          e?.response?.data?.detail || e?.message || t("common.unknown-error"),
+      }),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -151,7 +152,7 @@ async function upload() {
         fsSlug: platform.fs_slug,
       });
       platformId = created.id;
-      snackbar.success(`Platform ${platform.name} created`, {
+      snackbar.success(t("common.platform-created", { name: platform.name }), {
         icon: "mdi-check-bold",
       });
     }
@@ -165,15 +166,15 @@ async function upload() {
     const fail = responses.filter((r) => r.status === "rejected").length;
 
     if (ok === 0) {
-      snackbar.warning("All files skipped, nothing uploaded.", {
+      snackbar.warning(t("common.all-files-skipped"), {
         icon: "mdi-information-outline",
       });
     } else {
       if (fail === 0) uploadStore.reset();
       snackbar.success(
         fail === 0
-          ? `${ok} files uploaded · starting scan`
-          : `${ok} uploaded · ${fail} skipped/failed · starting scan`,
+          ? t("common.uploaded-and-scanning", { ok })
+          : t("common.uploaded-with-failed", { ok, fail }),
         { icon: "mdi-check-bold" },
       );
 
@@ -199,12 +200,13 @@ async function upload() {
       message?: string;
     };
     snackbar.error(
-      `Unable to upload roms: ${
-        e?.response?.data?.detail ||
-        e?.response?.statusText ||
-        e?.message ||
-        "unknown error"
-      }`,
+      t("common.unable-to-upload-roms", {
+        error:
+          e?.response?.data?.detail ||
+          e?.response?.statusText ||
+          e?.message ||
+          t("common.unknown-error"),
+      }),
       { icon: "mdi-close-circle" },
     );
   } finally {
@@ -219,16 +221,16 @@ async function upload() {
     <PlatformSelect
       v-model="selectedPlatformId"
       :items="supportedPlatforms"
-      :placeholder="t('common.select-platform', 'Select a platform')"
+      :placeholder="t('common.select-platform')"
       density="comfortable"
       prefix-label="stacked"
       :icon-size="22"
-      :search-placeholder="t('common.search', 'Search')"
+      :search-placeholder="t('common.search')"
       :disabled="platformsLoading"
     >
       <template #prefix-label>
         <RIcon icon="mdi-controller" size="14" />
-        {{ t("common.platform", "Platform") }}
+        {{ t("common.platform") }}
       </template>
     </PlatformSelect>
 
@@ -254,17 +256,12 @@ async function upload() {
         <h3 class="r-v2-upload__empty-title">
           {{
             isOverDropZone
-              ? t("common.dropzone-drag-over", "Drop the files here")
-              : t("common.dropzone-title", "Drag and drop ROM files")
+              ? t("common.dropzone-drag-over")
+              : t("common.dropzone-title")
           }}
         </h3>
         <p class="r-v2-upload__empty-hint">
-          {{
-            t(
-              "common.dropzone-description",
-              "or click below to pick files from your device",
-            )
-          }}
+          {{ t("common.dropzone-description") }}
         </p>
         <RBtn
           variant="outlined"
@@ -272,7 +269,7 @@ async function upload() {
           prepend-icon="mdi-plus"
           @click="triggerPicker"
         >
-          {{ t("common.add", "Add files") }}
+          {{ t("common.add") }}
         </RBtn>
       </div>
 
@@ -287,7 +284,7 @@ async function upload() {
             prepend-icon="mdi-plus"
             @click="triggerPicker"
           >
-            {{ t("common.add", "Add") }}
+            {{ t("common.add") }}
           </RBtn>
         </header>
         <ul class="r-v2-upload__list">
@@ -302,7 +299,7 @@ async function upload() {
               size="x-small"
               icon="mdi-close"
               color="danger"
-              :aria-label="t('common.remove', 'Remove')"
+              :aria-label="t('common.remove')"
               @click="removeFile(f.name)"
             />
           </li>
@@ -315,7 +312,7 @@ async function upload() {
       type="file"
       multiple
       class="r-v2-upload__input"
-      :aria-label="t('common.upload-roms', 'Upload ROMs')"
+      :aria-label="t('common.upload-roms')"
       @change="onPick"
     />
 

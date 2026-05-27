@@ -4,10 +4,13 @@
 // navigation, a thumbnail strip, and keyboard / gamepad arrows.
 import { RCarousel } from "@v2/lib";
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
 
 defineProps<{ urls: string[] }>();
+
+const { t } = useI18n();
 
 const lightboxIndex = ref(0);
 const lightboxOpen = ref(false);
@@ -28,10 +31,14 @@ function close() {
       :key="src"
       type="button"
       class="r-v2-det-shots__item"
-      :aria-label="`Open screenshot ${i + 1}`"
+      :aria-label="t('rom.screenshot-num-open', { n: i + 1 })"
       @click="open(i)"
     >
-      <img :src="src" :alt="`Screenshot ${i + 1}`" loading="lazy" />
+      <img
+        :src="src"
+        :alt="t('rom.screenshot-num', { n: i + 1 })"
+        loading="lazy"
+      />
     </button>
   </section>
 
@@ -41,14 +48,20 @@ function close() {
     :items="urls"
     fullscreen
     show-thumbnails
-    aria-label="Screenshot lightbox"
+    :aria-label="t('rom.screenshots')"
     @close="close"
   >
     <template #default="{ item, index }">
-      <img :src="item as string" :alt="`Screenshot ${index + 1}`" />
+      <img
+        :src="item as string"
+        :alt="t('rom.screenshot-num', { n: index + 1 })"
+      />
     </template>
     <template #thumbnail="{ item, index }">
-      <img :src="item as string" :alt="`Screenshot ${index + 1} thumbnail`" />
+      <img
+        :src="item as string"
+        :alt="t('rom.screenshot-num-thumb', { n: index + 1 })"
+      />
     </template>
   </RCarousel>
 </template>

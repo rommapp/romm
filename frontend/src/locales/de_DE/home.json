@@ -1,4 +1,15 @@
 {
   "continue-playing": "Weiter spielen",
-  "recently-added": "Kürzlich hinzugefügt"
+  "recently-added": "Kürzlich hinzugefügt",
+  "empty-headline": "Deine Bibliothek ist leer",
+  "empty-hint": "Wähle, wie du deine ersten Spiele hinzufügen möchtest. Den anderen Weg kannst du später nehmen.",
+  "empty-upload-title": "Manuell hochladen",
+  "empty-upload-desc": "ROM-Dateien hierher ziehen oder vom Computer auswählen. Ideal, wenn du selbst ein paar Spiele hinzufügen möchtest.",
+  "empty-scan-title": "Bibliothek scannen",
+  "empty-scan-desc": "Spiele bereits im Bibliotheksordner abgelegt? Starte einen Scan, um sie zu erkennen und Metadaten zu laden.",
+  "empty-upload-cta": "Spiele hochladen",
+  "empty-scan-cta": "Scan starten",
+  "empty-detected-platforms": "{count} Plattform erkannt | {count} Plattformen erkannt",
+  "empty-detected-games": "{count} Spiel erkannt | {count} Spiele erkannt",
+  "no-games-yet": "Noch keine Spiele hinzugefügt."
 }

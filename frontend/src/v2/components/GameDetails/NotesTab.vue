@@ -17,6 +17,7 @@ import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import type { UserNoteSchema } from "@/__generated__";
 import romApi from "@/services/api/rom";
@@ -31,6 +32,7 @@ defineOptions({ inheritAttrs: false });
 
 const props = defineProps<{ rom: DetailedRom }>();
 
+const { t } = useI18n();
 const snackbar = useSnackbar();
 const confirm = useConfirm();
 const authStore = storeAuth();
@@ -169,7 +171,7 @@ const titleErrors = computed<string[]>(() => {
   const conflict = allNotes.value.some(
     (n) => n.title === trimmed && n.id !== form.id,
   );
-  return conflict ? ["A note with this title already exists"] : [];
+  return conflict ? [t("rom.notes-title-exists")] : [];
 });
 
 const canSave = computed(() => {
@@ -227,10 +229,10 @@ async function saveEdit() {
     }
     await refreshRom();
     editForm.value = null;
-    snackbar.success("Note saved", { icon: "mdi-check-circle" });
+    snackbar.success(t("rom.notes-saved"), { icon: "mdi-check-circle" });
   } catch (err) {
     console.error("Note save failed:", err);
-    snackbar.error("Could not save note", { icon: "mdi-close-circle" });
+    snackbar.error(t("rom.notes-cant-save"), { icon: "mdi-close-circle" });
   } finally {
     saving.value = false;
   }
@@ -248,7 +250,7 @@ async function toggleLock(note: UserNoteSchema) {
     await refreshRom();
   } catch (err) {
     console.error("Note visibility toggle failed:", err);
-    snackbar.error("Could not change note visibility", {
+    snackbar.error(t("rom.notes-cant-toggle-visibility"), {
       icon: "mdi-close-circle",
     });
   } finally {
@@ -259,9 +261,9 @@ async function toggleLock(note: UserNoteSchema) {
 async function removeNote(note: UserNoteSchema) {
   if (!isOwn(note)) return;
   const ok = await confirm({
-    title: "Delete note?",
-    body: `"${note.title}" will be permanently removed.`,
-    confirmText: "Delete",
+    title: t("rom.notes-delete-title"),
+    body: t("rom.notes-delete-body", { title: note.title }),
+    confirmText: t("common.delete"),
     tone: "danger",
   });
   if (!ok) return;
@@ -274,10 +276,10 @@ async function removeNote(note: UserNoteSchema) {
     if (selectedNoteId.value === null) {
       selectedNoteId.value = defaultSelection();
     }
-    snackbar.success("Note deleted", { icon: "mdi-check-circle" });
+    snackbar.success(t("rom.notes-deleted"), { icon: "mdi-check-circle" });
   } catch (err) {
     console.error("Note delete failed:", err);
-    snackbar.error("Could not delete note", { icon: "mdi-close-circle" });
+    snackbar.error(t("rom.notes-cant-delete"), { icon: "mdi-close-circle" });
   }
 }
 
@@ -302,8 +304,8 @@ function fmtDate(iso: string): string {
     <REmptyState
       v-if="!hasAnyNotes && !editForm"
       icon="mdi-note-text-outline"
-      title="No notes yet"
-      hint="Capture tips, walkthroughs or anything else worth remembering about this game."
+      :title="t('rom.notes-empty-title')"
+      :hint="t('rom.notes-empty-hint')"
     >
       <template v-if="canCreate" #actions>
         <RBtn
@@ -312,7 +314,7 @@ function fmtDate(iso: string): string {
           prepend-icon="mdi-plus"
           @click="startAdd"
         >
-          Add your first note
+          {{ t("rom.notes-add-first") }}
         </RBtn>
       </template>
     </REmptyState>
@@ -320,7 +322,7 @@ function fmtDate(iso: string): string {
     <div v-else class="r-v2-notes__body">
       <aside class="r-v2-notes__index">
         <template v-if="myNotes.length > 0">
-          <div class="r-v2-notes__group-label">My notes</div>
+          <div class="r-v2-notes__group-label">{{ t("rom.my-notes") }}</div>
           <ul class="r-v2-notes__group">
             <li v-for="n in myNotes" :key="n.id">
               <button
@@ -351,12 +353,14 @@ function fmtDate(iso: string): string {
           class="r-v2-notes__add-btn"
           @click="startAdd"
         >
-          Add note
+          {{ t("rom.notes-add") }}
         </RBtn>
 
         <template v-if="communityNotes.length > 0">
           <RDivider />
-          <div class="r-v2-notes__group-label">Community</div>
+          <div class="r-v2-notes__group-label">
+            {{ t("rom.notes-community") }}
+          </div>
           <ul class="r-v2-notes__group">
             <li v-for="n in communityNotes" :key="n.id">
               <button
@@ -386,7 +390,7 @@ function fmtDate(iso: string): string {
               ref="titleFieldRef"
               v-model="editForm.title"
               :error-messages="titleErrors"
-              placeholder="Note title"
+              :placeholder="t('rom.notes-title-placeholder')"
               hide-details="auto"
               density="compact"
               class="r-v2-notes__title-field"
@@ -394,7 +398,11 @@ function fmtDate(iso: string): string {
             />
             <div class="r-v2-notes__actions">
               <RTooltip
-                :text="editForm.isPublic ? 'Make private' : 'Make public'"
+                :text="
+                  editForm.isPublic
+                    ? t('rom.make-private')
+                    : t('rom.make-public')
+                "
               >
                 <template #activator="{ props: activator }">
                   <RBtn
@@ -418,7 +426,7 @@ function fmtDate(iso: string): string {
                 :disabled="saving"
                 @click="cancelEdit"
               >
-                Cancel
+                {{ t("common.cancel") }}
               </RBtn>
               <RBtn
                 variant="flat"
@@ -429,7 +437,7 @@ function fmtDate(iso: string): string {
                 :disabled="!canSave"
                 @click="saveEdit"
               >
-                Save
+                {{ t("common.save") }}
               </RBtn>
             </div>
           </header>
@@ -461,7 +469,11 @@ function fmtDate(iso: string): string {
             </div>
             <div v-if="isSelectedOwn" class="r-v2-notes__actions">
               <RTooltip
-                :text="selectedNote.is_public ? 'Make private' : 'Make public'"
+                :text="
+                  selectedNote.is_public
+                    ? t('rom.make-private')
+                    : t('rom.make-public')
+                "
               >
                 <template #activator="{ props: activator }">
                   <RBtn
@@ -483,7 +495,7 @@ function fmtDate(iso: string): string {
                   />
                 </template>
               </RTooltip>
-              <RTooltip text="Edit note">
+              <RTooltip :text="t('rom.notes-edit')">
                 <template #activator="{ props: activator }">
                   <RBtn
                     v-bind="activator"
@@ -495,7 +507,7 @@ function fmtDate(iso: string): string {
                   />
                 </template>
               </RTooltip>
-              <RTooltip text="Delete note">
+              <RTooltip :text="t('rom.notes-delete')">
                 <template #activator="{ props: activator }">
                   <RBtn
                     v-bind="activator"
@@ -521,7 +533,11 @@ function fmtDate(iso: string): string {
             class="r-v2-notes__preview"
           />
           <footer class="r-v2-notes__pane-foot">
-            Updated {{ fmtDate(selectedNote.updated_at) }}
+            {{
+              t("rom.notes-updated-at", {
+                date: fmtDate(selectedNote.updated_at),
+              })
+            }}
           </footer>
         </template>
 
@@ -529,8 +545,8 @@ function fmtDate(iso: string): string {
           v-else
           size="small"
           icon="mdi-note-search-outline"
-          title="Pick a note from the list"
-          hint="Or add a new one with the button above."
+          :title="t('rom.notes-pick-title')"
+          :hint="t('rom.notes-pick-hint')"
         />
       </section>
     </div>

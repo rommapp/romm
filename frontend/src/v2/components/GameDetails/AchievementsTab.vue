@@ -4,9 +4,12 @@
 // auth.user.ra_progression so it stays reactive); rows look up by
 // `badge_id` against the set in O(1).
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RAGameRomAchievement, RomRAMetadata } from "@/__generated__";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 const props = withDefaults(
   defineProps<{
@@ -67,12 +70,38 @@ function badgeSrc(a: RAGameRomAchievement) {
 function toggleStatus(target: StatusFilter) {
   statusFilter.value = statusFilter.value === target ? "all" : target;
 }
+
+function typeFilterLabel(f: TypeFilter): string {
+  switch (f) {
+    case "all":
+      return t("rom.achievements-filter-all");
+    case "progression":
+      return t("rom.achievements-filter-progression");
+    case "missable":
+      return t("rom.achievements-filter-missable");
+    case "win_condition":
+      return t("rom.achievements-filter-win-condition");
+  }
+}
+
+function achievementTypeLabel(type: string | null | undefined): string {
+  switch (type) {
+    case "progression":
+      return t("rom.achievements-type-progression");
+    case "missable":
+      return t("rom.achievements-type-missable");
+    case "win_condition":
+      return t("rom.achievements-type-win-condition");
+    default:
+      return type ?? "";
+  }
+}
 </script>
 
 <template>
   <section class="r-v2-det-ach">
     <div v-if="!achievements.length" class="r-v2-det-ach__empty">
-      No RetroAchievements data for this game.
+      {{ t("rom.achievements-no-data") }}
     </div>
 
     <template v-else>
@@ -81,25 +110,31 @@ function toggleStatus(target: StatusFilter) {
           <div class="r-v2-det-ach__stat-val">
             {{ earnedCount }} / {{ achievements.length }}
           </div>
-          <div class="r-v2-det-ach__stat-lbl">Achievements</div>
+          <div class="r-v2-det-ach__stat-lbl">{{ t("rom.achievements") }}</div>
         </div>
         <div class="r-v2-det-ach__stat">
           <div class="r-v2-det-ach__stat-val">
             {{ totalPoints }}
           </div>
-          <div class="r-v2-det-ach__stat-lbl">Total Points</div>
+          <div class="r-v2-det-ach__stat-lbl">
+            {{ t("rom.achievements-total-points") }}
+          </div>
         </div>
         <div v-if="progressionCount" class="r-v2-det-ach__stat">
           <div class="r-v2-det-ach__stat-val">
             {{ progressionCount }}
           </div>
-          <div class="r-v2-det-ach__stat-lbl">Progression</div>
+          <div class="r-v2-det-ach__stat-lbl">
+            {{ t("rom.achievements-progression") }}
+          </div>
         </div>
         <div v-if="missableCount" class="r-v2-det-ach__stat">
           <div class="r-v2-det-ach__stat-val r-v2-det-ach__stat-val--missable">
             {{ missableCount }}
           </div>
-          <div class="r-v2-det-ach__stat-lbl">Missable</div>
+          <div class="r-v2-det-ach__stat-lbl">
+            {{ t("rom.achievements-missable") }}
+          </div>
         </div>
       </header>
 
@@ -117,7 +152,7 @@ function toggleStatus(target: StatusFilter) {
           :class="{ 'r-v2-det-ach__filter--active': typeFilter === f }"
           @click="typeFilter = f"
         >
-          {{ f === "all" ? "All" : f.replace("_", " ") }}
+          {{ typeFilterLabel(f) }}
         </button>
         <span class="r-v2-det-ach__filter-sep" />
         <button
@@ -126,7 +161,7 @@ function toggleStatus(target: StatusFilter) {
           :class="{ 'r-v2-det-ach__filter--active': statusFilter === 'earned' }"
           @click="toggleStatus('earned')"
         >
-          ✓ Earned
+          ✓ {{ t("rom.achievements-earned") }}
         </button>
         <button
           type="button"
@@ -134,7 +169,7 @@ function toggleStatus(target: StatusFilter) {
           :class="{ 'r-v2-det-ach__filter--active': statusFilter === 'locked' }"
           @click="toggleStatus('locked')"
         >
-          ⊘ Locked
+          ⊘ {{ t("rom.achievements-locked") }}
         </button>
       </div>
 
@@ -165,13 +200,15 @@ function toggleStatus(target: StatusFilter) {
             </div>
           </div>
           <div class="r-v2-det-ach__right">
-            <div class="r-v2-det-ach__points">{{ a.points ?? 0 }} pts</div>
+            <div class="r-v2-det-ach__points">
+              {{ t("rom.achievements-points-n", { n: a.points ?? 0 }) }}
+            </div>
             <span
               v-if="a.type"
               class="r-v2-det-ach__type"
               :class="`r-v2-det-ach__type--${a.type}`"
             >
-              {{ a.type.replace("_", " ") }}
+              {{ achievementTypeLabel(a.type) }}
             </span>
           </div>
         </article>

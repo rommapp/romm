@@ -34,6 +34,7 @@
 import { RDivider, RIcon, RMenu, RMenuItem, RTooltip } from "@v2/lib";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref, toRef } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RomUserStatus } from "@/__generated__";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -43,6 +44,8 @@ import GameActionsList from "@/v2/components/GameActions/GameActionsList.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 export type GameAction =
   | "play"
@@ -152,7 +155,7 @@ const preset = computed<Preset>(() => {
   if (props.action === "play") {
     return {
       icon: "mdi-play",
-      label: "Play",
+      label: t("rom.play"),
       activeIcon: null,
       onClick: actions.play,
       active: false,
@@ -161,7 +164,7 @@ const preset = computed<Preset>(() => {
   if (props.action === "download") {
     return {
       icon: "mdi-download-outline",
-      label: "Download",
+      label: t("rom.download"),
       activeIcon: null,
       onClick: actions.download,
       active: false,
@@ -170,7 +173,7 @@ const preset = computed<Preset>(() => {
   if (props.action === "copy-link") {
     return {
       icon: "mdi-share-variant-outline",
-      label: "Copy download link",
+      label: t("rom.copy-link"),
       activeIcon: null,
       onClick: actions.copyDownloadLink,
       active: false,
@@ -179,7 +182,7 @@ const preset = computed<Preset>(() => {
   if (props.action === "qr") {
     return {
       icon: "mdi-qrcode",
-      label: "Share (QR code)",
+      label: t("rom.share-qr"),
       activeIcon: null,
       onClick: actions.shareQR,
       active: false,
@@ -189,7 +192,9 @@ const preset = computed<Preset>(() => {
     return {
       icon: "mdi-heart-outline",
       activeIcon: "mdi-heart",
-      label: actions.isFavorited.value ? "Remove favorite" : "Favorite",
+      label: actions.isFavorited.value
+        ? t("rom.remove-favorite")
+        : t("rom.favorite"),
       onClick: actions.favorite,
       active: actions.isFavorited.value,
     };
@@ -198,7 +203,7 @@ const preset = computed<Preset>(() => {
     return {
       icon: "mdi-bookmark-outline",
       activeIcon: null,
-      label: "Manage collections",
+      label: t("rom.manage-collections"),
       onClick: actions.manageCollections,
       active: false,
     };
@@ -215,14 +220,14 @@ const preset = computed<Preset>(() => {
     let label: string;
     if (count === 0) {
       icon = STATUS_EMPTY_ICON;
-      label = "Set status";
+      label = t("rom.set-status");
     } else if (count === 1 && hk) {
       icon = STATUS_ICONS[hk];
-      label = `Status: ${romStatusMap[hk].text}`;
+      label = t("rom.status-current", { label: romStatusMap[hk].text });
     } else {
       // Multi: template renders the icon stack instead of preset.icon.
       icon = activeStatusIcons.value[0] ?? STATUS_EMPTY_ICON;
-      label = `Status: ${count} active`;
+      label = t("rom.status-active-count", { count });
     }
     return {
       icon,
@@ -236,7 +241,7 @@ const preset = computed<Preset>(() => {
   return {
     icon: "mdi-dots-horizontal",
     activeIcon: null,
-    label: "More actions",
+    label: t("rom.more-actions"),
     onClick: null,
     active: false,
   };
@@ -443,7 +448,7 @@ function onClick(e: MouseEvent) {
         variant="danger"
         @click="clearAllStatus"
       >
-        Clear all
+        {{ t("rom.clear-all") }}
       </RMenuItem>
     </template>
   </RMenu>

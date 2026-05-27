@@ -16,6 +16,7 @@ import { RBtn, RCollapsible, REmptyState, RIcon, RSelect } from "@v2/lib";
 import axios from "axios";
 import type { Emitter } from "mitt";
 import { computed, defineAsyncComponent, inject, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import romApi from "@/services/api/rom";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
@@ -63,6 +64,7 @@ const snackbar = useSnackbar();
 const confirm = useConfirm();
 const romsStore = storeRoms();
 const uploadStore = storeUpload();
+const { t } = useI18n();
 
 // ---------- Subtab state ----------
 // Mirrored to `?subtab=` so the SoundtrackMiniPlayer can detect when the full
@@ -124,7 +126,7 @@ const manualEntries = computed<ManualEntry[]>(() => {
   if (props.rom.has_manual && props.rom.path_manual) {
     entries.push({
       id: "primary",
-      label: "Scraped manual",
+      label: t("rom.scraped-manual"),
       url: `${FRONTEND_RESOURCES_PATH}/${props.rom.path_manual}?v=${cacheBust}`,
       isPrimary: true,
     });
@@ -214,19 +216,23 @@ const userScreenshotUrls = computed<string[]>(() => {
 // list reads as "tab + its expanded panel", not "tabs above + a separate
 // actions block". RTabNav stays a navigation-only primitive.
 type SubtabDef = { id: Subtab; label: string; icon: string };
-const subtabDefs: SubtabDef[] = [
-  { id: "manual", label: "Manual", icon: "mdi-book-open-page-variant-outline" },
+const subtabDefs = computed<SubtabDef[]>(() => [
+  {
+    id: "manual",
+    label: t("rom.manual"),
+    icon: "mdi-book-open-page-variant-outline",
+  },
   {
     id: "soundtrack",
-    label: "Soundtrack",
+    label: t("rom.soundtrack"),
     icon: "mdi-music-note-outline",
   },
   {
     id: "screenshots",
-    label: "Screenshots",
+    label: t("rom.screenshots"),
     icon: "mdi-image-multiple-outline",
   },
-];
+]);
 
 // Whether the active subtab has any inline actions worth rendering.
 // Drives the empty-panel skip so we don't paint a stray padding block.
@@ -264,7 +270,7 @@ function triggerScreenshotUpload() {
 async function onScreenshotUpload(event: Event) {
   const input = event.target as HTMLInputElement;
   input.value = "";
-  snackbar.info("Screenshot uploads are coming soon.", {
+  snackbar.info(t("rom.screenshot-uploads-coming-soon"), {
     icon: "mdi-information-outline",
   });
 }
@@ -305,12 +311,16 @@ async function onSoundtrackUpload(event: Event) {
 
   if (successful > 0) {
     snackbar.success(
-      `Uploaded ${successful} track${successful === 1 ? "" : "s"}${failed ? `, ${failed} failed` : ""}.`,
+      failed
+        ? t("rom.tracks-uploaded-with-failed", { n: successful, failed })
+        : t("rom.tracks-uploaded-n", successful, {
+            named: { n: successful },
+          }),
       { icon: "mdi-check-bold", timeout: 3000 },
     );
     await refreshRom();
   } else {
-    snackbar.warning("No tracks were uploaded.", {
+    snackbar.warning(t("rom.no-tracks-uploaded"), {
       icon: "mdi-close-circle",
       timeout: 5000,
     });
@@ -323,11 +333,16 @@ async function redownloadManual() {
   try {
     await romApi.redownloadManual({ romId: props.rom.id });
     await refreshRom();
-    snackbar.success("Manual re-downloaded.", { icon: "mdi-check-bold" });
-  } catch (error: unknown) {
-    snackbar.error(`Manual re-download failed: ${errorMessage(error)}`, {
-      icon: "mdi-close-circle",
+    snackbar.success(t("rom.manual-redownloaded"), {
+      icon: "mdi-check-bold",
     });
+  } catch (error: unknown) {
+    snackbar.error(
+      t("rom.manual-redownload-failed", { error: errorMessage(error) }),
+      {
+        icon: "mdi-close-circle",
+      },
+    );
   } finally {
     redownloadingManual.value = false;
   }
@@ -349,22 +364,27 @@ async function deleteSoundtrack(fileId: number) {
   // Mirrors the saves/states pattern in SaveDataTab — every destructive
   // per-row action confirms before hitting the API.
   const track = (props.rom.files ?? []).find((f) => f.id === fileId);
-  const name = track?.file_name ?? "this track";
+  const name = track?.file_name ?? "";
   const ok = await confirm({
-    title: "Delete track?",
-    body: `"${name}" will be removed from this ROM and from the file system. This can't be undone.`,
-    confirmText: "Delete track",
+    title: t("rom.delete-track-title"),
+    body: name
+      ? t("rom.delete-track-body-named", { name })
+      : t("rom.delete-track-body"),
+    confirmText: t("rom.soundtrack-delete-track"),
     tone: "danger",
   });
   if (!ok) return;
   try {
     await romApi.removeSoundtrack({ romId: props.rom.id, fileId });
     await refreshRom();
-    snackbar.success("Track removed.", { icon: "mdi-check-bold" });
+    snackbar.success(t("rom.soundtrack-removed"), { icon: "mdi-check-bold" });
   } catch (error: unknown) {
-    snackbar.error(`Couldn't remove track: ${errorMessage(error)}`, {
-      icon: "mdi-close-circle",
-    });
+    snackbar.error(
+      t("rom.soundtrack-remove-failed", { error: errorMessage(error) }),
+      {
+        icon: "mdi-close-circle",
+      },
+    );
   }
 }
 </script>
@@ -377,7 +397,7 @@ async function deleteSoundtrack(fileId: number) {
     accept="application/pdf"
     multiple
     class="r-v2-media__file-input"
-    aria-label="Upload manual"
+    :aria-label="t('rom.upload-manual')"
     @change="onManualUpload"
   />
   <input
@@ -386,7 +406,7 @@ async function deleteSoundtrack(fileId: number) {
     accept="audio/*,.flac,.opus"
     multiple
     class="r-v2-media__file-input"
-    aria-label="Upload soundtrack"
+    :aria-label="t('rom.upload-soundtrack')"
     @change="onSoundtrackUpload"
   />
   <input
@@ -395,7 +415,7 @@ async function deleteSoundtrack(fileId: number) {
     accept="image/*"
     multiple
     class="r-v2-media__file-input"
-    aria-label="Upload screenshots"
+    :aria-label="t('rom.upload-screenshots')"
     @change="onScreenshotUpload"
   />
 
@@ -407,37 +427,37 @@ async function deleteSoundtrack(fileId: number) {
         aria-orientation="vertical"
       >
         <li
-          v-for="t in subtabDefs"
-          :key="t.id"
+          v-for="tab in subtabDefs"
+          :key="tab.id"
           class="r-v2-media__subtab"
-          :class="{ 'r-v2-media__subtab--active': subTab === t.id }"
+          :class="{ 'r-v2-media__subtab--active': subTab === tab.id }"
         >
           <button
             type="button"
             role="tab"
             class="r-v2-media__subtab-btn"
             :class="{
-              'r-v2-media__subtab-btn--active': subTab === t.id,
+              'r-v2-media__subtab-btn--active': subTab === tab.id,
               'r-v2-media__subtab-btn--joined':
-                subTab === t.id && hasSubtabActions(t.id),
+                subTab === tab.id && hasSubtabActions(tab.id),
             }"
-            :aria-selected="subTab === t.id"
-            @click="subTab = t.id"
+            :aria-selected="subTab === tab.id"
+            @click="subTab = tab.id"
           >
-            <RIcon :icon="t.icon" size="16" />
-            <span class="r-v2-media__subtab-label">{{ t.label }}</span>
+            <RIcon :icon="tab.icon" size="16" />
+            <span class="r-v2-media__subtab-label">{{ tab.label }}</span>
           </button>
 
           <!-- Inline controls panel — RCollapsible drives the open/close
                animation; `attached` removes its top radius/border so it
                sits flush with the active subtab button above. -->
           <RCollapsible
-            :model-value="subTab === t.id && hasSubtabActions(t.id)"
+            :model-value="subTab === tab.id && hasSubtabActions(tab.id)"
             attached
             class="r-v2-media__subtab-panel"
           >
             <div class="r-v2-media__subtab-panel-inner">
-              <template v-if="t.id === 'manual' && manualEntries.length > 0">
+              <template v-if="tab.id === 'manual' && manualEntries.length > 0">
                 <RSelect
                   v-if="manualEntries.length > 1"
                   v-model="selectedManualId"
@@ -452,7 +472,7 @@ async function deleteSoundtrack(fileId: number) {
                   block
                   @click="triggerManualUpload"
                 >
-                  Upload
+                  {{ t("common.upload") }}
                 </RBtn>
                 <RBtn
                   v-if="rom.url_manual"
@@ -463,7 +483,7 @@ async function deleteSoundtrack(fileId: number) {
                   :disabled="redownloadingManual"
                   @click="redownloadManual"
                 >
-                  Re-download
+                  {{ t("rom.redownload") }}
                 </RBtn>
                 <RBtn
                   v-if="selectedManual"
@@ -473,13 +493,13 @@ async function deleteSoundtrack(fileId: number) {
                   block
                   @click="requestDeleteManual"
                 >
-                  Delete
+                  {{ t("common.delete") }}
                 </RBtn>
               </template>
 
               <template
                 v-else-if="
-                  t.id === 'soundtrack' &&
+                  tab.id === 'soundtrack' &&
                   soundtrackSupported &&
                   rom.has_soundtrack
                 "
@@ -490,7 +510,7 @@ async function deleteSoundtrack(fileId: number) {
                   block
                   @click="triggerSoundtrackUpload"
                 >
-                  Upload
+                  {{ t("common.upload") }}
                 </RBtn>
               </template>
             </div>
@@ -511,7 +531,7 @@ async function deleteSoundtrack(fileId: number) {
         <REmptyState
           v-if="manualEntries.length === 0"
           icon="mdi-book-open-page-variant-outline"
-          title="No manual yet"
+          :title="t('rom.manual-empty')"
         >
           <template #actions>
             <RBtn
@@ -519,7 +539,7 @@ async function deleteSoundtrack(fileId: number) {
               prepend-icon="mdi-cloud-upload-outline"
               @click="triggerManualUpload"
             >
-              Upload manual
+              {{ t("rom.upload-manual") }}
             </RBtn>
             <RBtn
               v-if="rom.url_manual"
@@ -529,7 +549,7 @@ async function deleteSoundtrack(fileId: number) {
               :disabled="redownloadingManual"
               @click="redownloadManual"
             >
-              Re-download
+              {{ t("rom.redownload") }}
             </RBtn>
           </template>
         </REmptyState>
@@ -548,14 +568,14 @@ async function deleteSoundtrack(fileId: number) {
         <REmptyState
           v-if="!soundtrackSupported"
           icon="mdi-music-off"
-          title="Soundtrack needs a folder-based ROM"
-          hint="Single-file ROMs can't have accompanying tracks. Re-organise this ROM as a folder and the upload option will appear here."
+          :title="t('rom.soundtrack-no-folder')"
+          :hint="t('rom.soundtrack-folder-hint')"
         />
 
         <REmptyState
           v-else-if="!rom.has_soundtrack"
           icon="mdi-music-note-outline"
-          title="No soundtrack yet"
+          :title="t('rom.soundtrack-empty')"
         >
           <template #actions>
             <RBtn
@@ -563,7 +583,7 @@ async function deleteSoundtrack(fileId: number) {
               prepend-icon="mdi-cloud-upload-outline"
               @click="triggerSoundtrackUpload"
             >
-              Upload soundtrack
+              {{ t("rom.upload-soundtrack") }}
             </RBtn>
           </template>
         </REmptyState>
@@ -588,8 +608,8 @@ async function deleteSoundtrack(fileId: number) {
         <REmptyState
           v-if="rom.has_simple_single_file"
           icon="mdi-image-off-outline"
-          title="Screenshots need a folder-based ROM"
-          hint="Single-file ROMs can't have accompanying screenshots. Re-organise this ROM as a folder and the upload option will appear here."
+          :title="t('rom.screenshots-no-folder')"
+          :hint="t('rom.screenshots-folder-hint')"
         />
 
         <!-- If the ROM already has images in its `screenshots/` folder
@@ -604,8 +624,8 @@ async function deleteSoundtrack(fileId: number) {
         <REmptyState
           v-else
           icon="mdi-image-multiple-outline"
-          title="Upload your own screenshots"
-          hint="Capture and keep your favourite moments here. Backend support is on the way."
+          :title="t('rom.screenshots-upload-cta')"
+          :hint="t('rom.screenshots-cta-hint')"
         >
           <template #actions>
             <RBtn
@@ -613,7 +633,7 @@ async function deleteSoundtrack(fileId: number) {
               prepend-icon="mdi-cloud-upload-outline"
               @click="triggerScreenshotUpload"
             >
-              Upload screenshots
+              {{ t("rom.upload-screenshots") }}
             </RBtn>
           </template>
         </REmptyState>

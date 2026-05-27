@@ -234,7 +234,7 @@ onMounted(async () => {
       </RCard>
 
       <div class="r-v2-ruffle__brand">
-        <span>Powered by</span>
+        <span>{{ t("play.powered-by") }}</span>
         <img src="/assets/ruffle/ruffle.svg" alt="Ruffle" />
       </div>
     </div>
@@ -254,7 +254,7 @@ onMounted(async () => {
   </section>
 
   <section v-else class="r-v2-ruffle__loading">
-    <div class="r-v2-ruffle__spinner" aria-label="Loading" />
+    <div class="r-v2-ruffle__spinner" :aria-label="t('common.loading')" />
   </section>
 </template>
 

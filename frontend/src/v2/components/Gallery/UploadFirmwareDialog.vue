@@ -129,21 +129,27 @@ async function upload() {
     @close="closeDialog"
   >
     <template #header>
-      <span>{{ t("platform.upload-firmware", "Upload firmware") }}</span>
+      <span>{{ t("platform.upload-firmware") }}</span>
     </template>
 
     <template #content>
       <div class="r-v2-upload-fw">
-        <p class="r-v2-upload-fw__hint">
-          Adding firmware to <strong>{{ platform.display_name }}</strong>
-        </p>
+        <i18n-t
+          keypath="platform.adding-firmware"
+          tag="p"
+          class="r-v2-upload-fw__hint"
+        >
+          <template #platform>
+            <strong>{{ platform.display_name }}</strong>
+          </template>
+        </i18n-t>
 
         <input
           ref="fileInputRef"
           type="file"
           multiple
           class="r-v2-upload-fw__input"
-          :aria-label="t('platform.upload-firmware', 'Upload firmware')"
+          :aria-label="t('platform.upload-firmware')"
           @change="onPick"
         />
 

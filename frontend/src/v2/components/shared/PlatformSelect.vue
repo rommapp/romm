@@ -268,7 +268,7 @@ function onUpdate(v: unknown) {
             </span>
             <MissingFSBadge
               v-if="(slotProps.item.raw as Platform).missing_from_fs"
-              text="Missing platform from filesystem"
+              :text="t('rom.missing-platform')"
               class="r-v2-platsel__missing"
             />
             <!-- Scrapper match indicators — one mini avatar per

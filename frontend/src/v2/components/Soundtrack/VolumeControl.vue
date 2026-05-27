@@ -13,10 +13,13 @@
 import { RMenu, RSlider } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import RBtn from "@/v2/lib/primitives/RBtn/RBtn.vue";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 withDefaults(
   defineProps<{
@@ -54,7 +57,7 @@ const sliderValue = computed({
         :icon="icon"
         variant="text"
         :size="size"
-        :aria-label="muted ? 'Unmute' : 'Mute'"
+        :aria-label="muted ? t('rom.volume-unmute') : t('rom.volume-mute')"
         @click="player.toggleMute()"
       />
     </template>
@@ -65,7 +68,7 @@ const sliderValue = computed({
         :max="100"
         :step="1"
         color="primary"
-        aria-label="Volume"
+        :aria-label="t('rom.soundtrack-volume')"
         class="r-v2-volume__slider"
       />
       <span class="r-v2-volume__value">{{ sliderValue }}</span>

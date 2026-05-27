@@ -12,8 +12,11 @@
 // vertically centred with it (flex align-items:center on the head).
 import { RBtn, RTag } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 interface Props {
   title?: string;
@@ -160,7 +163,7 @@ onBeforeUnmount(() => {
         icon="mdi-chevron-left"
         variant="translucent"
         class="card-row__arrow card-row__arrow--left"
-        aria-label="Scroll left"
+        :aria-label="t('common.scroll-left')"
         @click="scrollBy(-1)"
       />
       <RBtn
@@ -168,7 +171,7 @@ onBeforeUnmount(() => {
         icon="mdi-chevron-right"
         variant="translucent"
         class="card-row__arrow card-row__arrow--right"
-        aria-label="Scroll right"
+        :aria-label="t('common.scroll-right')"
         @click="scrollBy(1)"
       />
 

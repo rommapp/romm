@@ -4,6 +4,7 @@
 // recurring feature pattern that three views use verbatim.
 import { RIcon } from "@v2/lib";
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
 
@@ -13,9 +14,12 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  label: "Back",
+  label: "",
   to: undefined,
 });
+
+const { t } = useI18n();
+const effectiveLabel = computed(() => props.label || t("common.back"));
 
 defineEmits<{
   (e: "click", event: MouseEvent): void;
@@ -34,7 +38,7 @@ const tag = computed(() => (props.to ? "router-link" : "button"));
     @click="(e: MouseEvent) => $emit('click', e)"
   >
     <RIcon icon="mdi-chevron-left" size="16" />
-    <span>{{ label }}</span>
+    <span>{{ effectiveLabel }}</span>
   </component>
 </template>
 

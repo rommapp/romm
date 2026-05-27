@@ -13,8 +13,11 @@
 // would require !important overrides on the primitive — see the
 // "selectable surface" precedent we keep across the dialog flows.
 import { RTooltip } from "@v2/lib";
+import { useI18n } from "vue-i18n";
 
 defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
 
 defineProps<{
   name: string;
@@ -45,7 +48,9 @@ const emit = defineEmits<{
     <RTooltip
       activator="parent"
       :text="
-        enabled ? `Filter ${label} matches` : `${label} source is not enabled`
+        enabled
+          ? t('rom.match-filter-provider', { label })
+          : t('rom.match-provider-disabled', { label })
       "
       :open-delay="400"
     />

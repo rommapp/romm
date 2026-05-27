@@ -77,25 +77,27 @@ const heartbeat = storeHeartbeat();
 // gallery's own layout switcher vocabulary.
 const variant = ref<MatchVariant>("grid");
 
-const variantItems: Array<{
-  id: MatchVariant;
-  icon: string;
-  ariaLabel: string;
-  title: string;
-}> = [
+const variantItems = computed<
+  Array<{
+    id: MatchVariant;
+    icon: string;
+    ariaLabel: string;
+    title: string;
+  }>
+>(() => [
   {
     id: "grid",
     icon: "mdi-view-grid-outline",
-    ariaLabel: "Grid layout",
-    title: "Grid",
+    ariaLabel: t("rom.match-rom-grid-label"),
+    title: t("rom.match-rom-grid-title"),
   },
   {
     id: "list",
     icon: "mdi-view-list",
-    ariaLabel: "List layout",
-    title: "List",
+    ariaLabel: t("rom.match-rom-list-label"),
+    title: t("rom.match-rom-list-title"),
   },
-];
+]);
 
 const variantComponent = computed(() =>
   variant.value === "list" ? MatchRomBodyList : MatchRomBodyGrid,
@@ -207,7 +209,7 @@ async function searchRom() {
     matchedRoms.value = response.data;
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
-    snackbar.error(axiosErr.response?.data?.detail ?? "Search failed", {
+    snackbar.error(axiosErr.response?.data?.detail ?? t("rom.search-failed"), {
       icon: "mdi-close-circle",
     });
   } finally {
@@ -252,12 +254,14 @@ async function onBodyConfirm(payload: ConfirmPayload) {
 
   try {
     const { data } = await romApi.updateRom({ rom: rom.value });
-    snackbar.success("Rom updated successfully!", { icon: "mdi-check-bold" });
+    snackbar.success(t("rom.rom-updated-successfully"), {
+      icon: "mdi-check-bold",
+    });
     romsStore.update(data as SimpleRom);
     if (route.name === "rom") romsStore.currentRom = data;
   } catch (error: unknown) {
     const axiosErr = error as { response?: { data?: { detail?: string } } };
-    snackbar.error(axiosErr.response?.data?.detail ?? "Update failed", {
+    snackbar.error(axiosErr.response?.data?.detail ?? t("rom.update-failed"), {
       icon: "mdi-close-circle",
     });
   } finally {
@@ -327,7 +331,7 @@ function closeDialog() {
               :model-value="variant"
               :items="variantItems"
               variant="segmented"
-              aria-label="Match flow variant"
+              :aria-label="t('rom.match-flow-variant')"
               @update:model-value="variant = $event"
             />
           </div>
@@ -352,11 +356,14 @@ function closeDialog() {
           <RSelect
             v-model="searchBy"
             :disabled="searching"
-            :label="t('rom.by')"
+            :label="t('rom.match-by-label')"
             variant="outlined"
             density="comfortable"
             hide-details
-            :items="['ID', 'Name']"
+            :items="[
+              { title: t('rom.search-by-id'), value: 'ID' },
+              { title: t('rom.search-by-name'), value: 'Name' },
+            ]"
             class="r-v2-match__by"
           />
           <RBtn
@@ -395,7 +402,7 @@ function closeDialog() {
         >
           <RSpinner :size="36" />
           <span class="r-v2-match__saving-label">
-            {{ t("rom.updating", "Updating ROM…") }}
+            {{ t("rom.updating") }}
           </span>
         </div>
       </div>

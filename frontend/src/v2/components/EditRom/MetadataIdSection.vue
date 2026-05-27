@@ -8,6 +8,8 @@
 // Feature composite — knows UpdateRom; lives under
 // `components/EditRom/` next to its siblings.
 import { RTextField } from "@v2/lib";
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import type { UpdateRom } from "@/services/api/rom";
 
 const props = defineProps<{ rom: UpdateRom }>();
@@ -15,6 +17,8 @@ const props = defineProps<{ rom: UpdateRom }>();
 const emit = defineEmits<{
   "update:rom": [rom: UpdateRom];
 }>();
+
+const { t } = useI18n();
 
 // `field` is keyof UpdateRom; the parsed value is `number | string |
 // null` — most providers use numeric ids, Flashpoint stores a string.
@@ -38,17 +42,29 @@ interface IdField {
   type: "number" | "string";
 }
 
-const FIELDS: IdField[] = [
-  { key: "igdb_id", label: "IGDB ID", type: "number" },
-  { key: "moby_id", label: "MobyGames ID", type: "number" },
-  { key: "ss_id", label: "ScreenScraper ID", type: "number" },
-  { key: "ra_id", label: "RetroAchievements ID", type: "number" },
-  { key: "launchbox_id", label: "LaunchBox ID", type: "number" },
-  { key: "sgdb_id", label: "SteamGridDB ID", type: "number" },
-  { key: "hasheous_id", label: "Hasheous ID", type: "number" },
-  { key: "flashpoint_id", label: "Flashpoint ID", type: "string" },
-  { key: "hltb_id", label: "HowLongToBeat ID", type: "number" },
-];
+const FIELDS = computed<IdField[]>(() => [
+  { key: "igdb_id", label: t("rom.provider-igdb-id"), type: "number" },
+  { key: "moby_id", label: t("rom.provider-mobygames-id"), type: "number" },
+  { key: "ss_id", label: t("rom.provider-screenscraper-id"), type: "number" },
+  {
+    key: "ra_id",
+    label: t("rom.provider-retroachievements-id"),
+    type: "number",
+  },
+  {
+    key: "launchbox_id",
+    label: t("rom.provider-launchbox-id"),
+    type: "number",
+  },
+  { key: "sgdb_id", label: t("rom.provider-steamgriddb-id"), type: "number" },
+  { key: "hasheous_id", label: t("rom.provider-hasheous-id"), type: "number" },
+  {
+    key: "flashpoint_id",
+    label: t("rom.provider-flashpoint-id"),
+    type: "string",
+  },
+  { key: "hltb_id", label: t("rom.provider-howlongtobeat-id"), type: "number" },
+]);
 
 function modelFor(field: IdField): string {
   const v = props.rom[field.key];

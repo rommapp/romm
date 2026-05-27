@@ -30,7 +30,7 @@ async function submit() {
     emit("done");
   } catch (error) {
     console.error("Error sending reset link: ", error);
-    snackbar.error("Could not send reset link", { icon: "mdi-alert-circle" });
+    snackbar.error(t("login.reset-link-failed"), { icon: "mdi-alert-circle" });
   } finally {
     sending.value = false;
   }

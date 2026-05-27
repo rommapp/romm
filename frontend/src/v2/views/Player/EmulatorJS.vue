@@ -466,7 +466,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
             variant="tab"
             :model-value="activeAssetTab"
             :items="assetTabs"
-            aria-label="Load save or state"
+            :aria-label="t('rom.load-save-or-state')"
             @update:model-value="setAssetTab"
           />
         </div>
@@ -595,7 +595,7 @@ const selectedAsset = computed<SaveSchema | StateSchema | null>(() =>
   </section>
 
   <section v-else class="r-v2-ejs__loading">
-    <div class="r-v2-ejs__spinner" aria-label="Loading" />
+    <div class="r-v2-ejs__spinner" :aria-label="t('common.loading')" />
   </section>
 </template>
 
