@@ -399,18 +399,10 @@ class FSRomsHandler(FSHandler):
                         md5_h = hashlib.md5(usedforsecurity=False)
                         sha1_h = hashlib.sha1(usedforsecurity=False)
 
-                    file_hash = FileHash(
-                        crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
-                        md5_hash=(
-                            md5_h.hexdigest()
-                            if md5_h.digest() != DEFAULT_MD5_H_DIGEST
-                            else ""
-                        ),
-                        sha1_hash=(
-                            sha1_h.hexdigest()
-                            if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
-                            else ""
-                        ),
+                    file_hash = _make_file_hash(
+                        crc_c,
+                        md5_h,
+                        sha1_h,
                         chd_sha1_hash=(
                             extract_chd_hash(f_rom_dir)
                             if is_chd_file(f_rom_dir)
@@ -483,20 +475,7 @@ class FSRomsHandler(FSHandler):
                     crc_c = 0
                     md5_h = hashlib.md5(usedforsecurity=False)
                     sha1_h = hashlib.sha1(usedforsecurity=False)
-                file_hash = FileHash(
-                    crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
-                    md5_hash=(
-                        md5_h.hexdigest()
-                        if md5_h.digest() != DEFAULT_MD5_H_DIGEST
-                        else ""
-                    ),
-                    sha1_hash=(
-                        sha1_h.hexdigest()
-                        if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
-                        else ""
-                    ),
-                    chd_sha1_hash="",
-                )
+                file_hash = _make_file_hash(crc_c, md5_h, sha1_h)
                 rom_files.append(
                     self._build_rom_file(
                         rom=rom,
@@ -530,16 +509,10 @@ class FSRomsHandler(FSHandler):
                         f"{abs_fs_path}/{rom.fs_name}",
                     )
 
-            file_hash = FileHash(
-                crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
-                md5_hash=(
-                    md5_h.hexdigest() if md5_h.digest() != DEFAULT_MD5_H_DIGEST else ""
-                ),
-                sha1_hash=(
-                    sha1_h.hexdigest()
-                    if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
-                    else ""
-                ),
+            file_hash = _make_file_hash(
+                crc_c,
+                md5_h,
+                sha1_h,
                 chd_sha1_hash=(
                     extract_chd_hash(rom_dir) if is_chd_file(rom_dir) else ""
                 ),
