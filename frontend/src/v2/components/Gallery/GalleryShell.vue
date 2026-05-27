@@ -66,6 +66,7 @@ import {
   useGalleryVirtualItems,
   type GalleryItem,
 } from "@/v2/composables/useGalleryVirtualItems";
+import { useGridNav } from "@/v2/composables/useGridNav";
 import { useResponsiveColumns } from "@/v2/composables/useResponsiveColumns";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import storeGalleryRoms from "@/v2/stores/galleryRoms";
@@ -236,6 +237,23 @@ const { columns } = useResponsiveColumns(sectionEl, {
   cardWidth: 158,
   gap: 12,
   inset: 108,
+});
+
+// 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
+//   * Grid mode — rows are `.r-v2-shell__row` (the per-virtualizer-item
+//     wrapper around the row's GameCards). ArrowLeft/Right within a row,
+//     ArrowUp/Down jumps to the same column in the next row.
+//   * List mode — each `.game-list-row` is both row and cell. ArrowLeft/
+//     Right is no-op (single cell per row); ArrowUp/Down moves between
+//     rows.
+// Both call sites resolve `current()` against the same focused element
+// and only the matching one actually moves focus, so they don't fight.
+// Virtualised rows past the overscan window simply aren't in the DOM —
+// nav clamps at the boundary; scrolling past mounts more rows.
+useGridNav(sectionEl, { rowSelector: ".r-v2-shell__row" });
+useGridNav(sectionEl, {
+  rowSelector: ".game-list-row",
+  getCells: (row) => [row],
 });
 
 const loadingInitial = computed(

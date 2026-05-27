@@ -6,9 +6,11 @@
 // `<CardRow>` stacks.
 //
 // Mechanics:
-//   * Rows are discovered by `.card-row__track` descendants of the given
-//     root element. That's the scroll track CardRow owns.
-//   * Cells are the direct DOM children of each track.
+//   * Rows are discovered via `rowSelector` (default `.card-row__track`).
+//     Any descendant of the root matching that selector is treated as a
+//     row. The default matches CardRow's scroll track; consumers like
+//     GalleryShell pass their own row class.
+//   * Cells are the direct DOM children of each row container.
 //   * The focusable target for a cell is the cell itself if it matches a
 //     focusable selector, otherwise the first focusable descendant.
 //   * ArrowLeft / ArrowRight → prev / next cell in the current row.
@@ -23,8 +25,14 @@
 //     immediately land somewhere useful.
 //   * `useGamepad` itself dispatches keydowns — so everything here is
 //     plain keyboard code; gamepad users transparently benefit.
+//
+// For wrapping CSS grids (PlatformsIndex / CollectionsIndex) — where
+// there are no per-row DOM containers — use `useWrapGridNav` instead;
+// it detects rows spatially from cell rects.
 import { onBeforeUnmount, onMounted, watch, type Ref } from "vue";
+import { useRoute } from "vue-router";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import storeFocusRestoration from "@/v2/stores/focusRestoration";
 
 const FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -35,21 +43,51 @@ const FOCUSABLE_SELECTOR = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
-export function useGridNav(rootRef: Ref<HTMLElement | null>) {
+export interface UseGridNavOptions {
+  /** Selector that resolves to one DOM element per logical row.
+   *  Defaults to `.card-row__track` (CardRow's scroll track). */
+  rowSelector?: string;
+  /** Returns the cells of a given row. Defaults to the row's direct
+   *  children. Pass `(row) => [row]` for list-mode rows where the row
+   *  element itself is the single focusable cell. */
+  getCells?: (row: HTMLElement) => HTMLElement[];
+}
+
+export function useGridNav(
+  rootRef: Ref<HTMLElement | null>,
+  options: UseGridNavOptions = {},
+) {
+  const rowSelector = options.rowSelector ?? ".card-row__track";
+  const getCells =
+    options.getCells ??
+    ((row: HTMLElement) =>
+      Array.from(row.children).filter(
+        (c): c is HTMLElement => c instanceof HTMLElement,
+      ));
   const { modality } = useInputModality();
+  const route = useRoute();
+  const focusStore = storeFocusRestoration();
   let preferredCol = 0;
+
+  // Walk up from `node` looking for a `[data-focus-key]` carrier. Tiles
+  // mark their root with this so focus can survive navigation.
+  function focusKeyOf(node: HTMLElement | null): string | null {
+    let cursor: HTMLElement | null = node;
+    while (cursor && cursor !== rootRef.value) {
+      const key = cursor.getAttribute("data-focus-key");
+      if (key) return key;
+      cursor = cursor.parentElement;
+    }
+    return null;
+  }
 
   function rows(): HTMLElement[] {
     if (!rootRef.value) return [];
-    return Array.from(
-      rootRef.value.querySelectorAll<HTMLElement>(".card-row__track"),
-    );
+    return Array.from(rootRef.value.querySelectorAll<HTMLElement>(rowSelector));
   }
 
   function cells(row: HTMLElement): HTMLElement[] {
-    return Array.from(row.children).filter(
-      (c): c is HTMLElement => c instanceof HTMLElement,
-    );
+    return getCells(row);
   }
 
   function focusableIn(el: HTMLElement): HTMLElement {
@@ -133,6 +171,28 @@ export function useGridNav(rootRef: Ref<HTMLElement | null>) {
     }
   }
 
+  // Restore focus to the tile the user had selected last time they were
+  // on this route. Walks every (row, cell) pair looking for one whose
+  // `[data-focus-key]` matches the saved value. Falls back to `null`
+  // when the saved tile is gone (filter changed, item deleted, …); the
+  // caller is responsible for the `focusFirst` fallback.
+  function focusSaved(): boolean {
+    const savedKey = focusStore.restore(route.fullPath);
+    if (!savedKey) return false;
+    const rs = rows();
+    for (let r = 0; r < rs.length; r++) {
+      const cs = cells(rs[r]);
+      for (let c = 0; c < cs.length; c++) {
+        if (focusKeyOf(cs[c]) === savedKey) {
+          preferredCol = c;
+          focusAt(r, c, { verticalJump: true });
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   function onKey(e: KeyboardEvent) {
     if (
       e.key !== "ArrowLeft" &&
@@ -190,11 +250,24 @@ export function useGridNav(rootRef: Ref<HTMLElement | null>) {
     if (modality.value !== "pad") return;
     if (!rootRef.value) return;
     if (rootRef.value.contains(document.activeElement)) return;
+    if (focusSaved()) return;
     focusFirst();
+  }
+
+  // Capture the active tile's `[data-focus-key]` whenever focus moves
+  // inside the grid (arrow nav, mouse, click). The next mount on this
+  // same route restores it.
+  function onFocusIn(e: FocusEvent) {
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (!rootRef.value?.contains(target)) return;
+    const key = focusKeyOf(target);
+    if (key) focusStore.save(route.fullPath, key);
   }
 
   onMounted(() => {
     window.addEventListener("keydown", onKey);
+    window.addEventListener("focusin", onFocusIn);
     if (rootRef.value) {
       observer = new MutationObserver(() => maybeAutofocus());
       observer.observe(rootRef.value, { childList: true, subtree: true });
@@ -204,6 +277,7 @@ export function useGridNav(rootRef: Ref<HTMLElement | null>) {
 
   onBeforeUnmount(() => {
     window.removeEventListener("keydown", onKey);
+    window.removeEventListener("focusin", onFocusIn);
     observer?.disconnect();
     observer = null;
   });

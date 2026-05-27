@@ -236,6 +236,7 @@ onBeforeUnmount(() => {
     :aria-label="rom ? `Open ${rom.name ?? rom.fs_name_no_ext}` : undefined"
     :data-rom-position="position"
     :data-rom-id="rom?.id"
+    :data-focus-key="rom ? `rom-${rom.id}` : undefined"
     @click="onRowClick"
     @pointerdown="onRowPointerDown"
     @pointermove="onRowPointerMove"

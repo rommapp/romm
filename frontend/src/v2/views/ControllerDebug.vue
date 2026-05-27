@@ -12,6 +12,8 @@
 import { RBtn, RIcon } from "@v2/lib";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import ControllerPad from "@/v2/components/ControllerDebug/ControllerPad.vue";
+import type { GamepadSnapshot } from "@/v2/components/ControllerDebug/types";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
 import { useInputModality } from "@/v2/composables/useInputModality";
 
@@ -19,27 +21,6 @@ defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
 const { modality } = useInputModality();
-
-// Standard Gamepad button labels matching the W3C Gamepad API numbering.
-const BUTTON_LABELS: Record<number, string> = {
-  0: "A / ✕",
-  1: "B / ○",
-  2: "X / □",
-  3: "Y / △",
-  4: "LB / L1",
-  5: "RB / R1",
-  6: "LT / L2",
-  7: "RT / R2",
-  8: "Back / Share",
-  9: "Start / Options",
-  10: "L-stick click",
-  11: "R-stick click",
-  12: "D-pad Up",
-  13: "D-pad Down",
-  14: "D-pad Left",
-  15: "D-pad Right",
-  16: "Home / PS",
-};
 
 // useGamepad's mapping legend — keep in sync with the composable.
 const KEYBIND_LEGEND: { button: string; key: string }[] = [
@@ -55,16 +36,6 @@ const KEYBIND_LEGEND: { button: string; key: string }[] = [
   { button: "LB / L1", key: "← prev AppNav section" },
   { button: "RB / R1", key: "→ next AppNav section" },
 ];
-
-interface GamepadSnapshot {
-  key: string;
-  index: number;
-  id: string;
-  mapping: string;
-  connected: boolean;
-  buttons: { pressed: boolean; value: number }[];
-  axes: number[];
-}
 
 const pads = ref<GamepadSnapshot[]>([]);
 const rafId = ref<number>(0);
@@ -134,10 +105,6 @@ onBeforeUnmount(() => {
 function formatTime(t: number) {
   const d = new Date(t);
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}.${d.getMilliseconds().toString().padStart(3, "0")}`;
-}
-
-function magnitude(x: number, y: number) {
-  return Math.min(1, Math.sqrt(x * x + y * y));
 }
 </script>
 
@@ -221,89 +188,27 @@ function magnitude(x: number, y: number) {
         </span>
       </template>
 
-      <div class="r-v2-ctrl__pad-body">
-        <!-- Sticks -->
-        <div class="r-v2-ctrl__sticks">
-          <div
-            v-for="stickIdx in [0, 2]"
-            :key="stickIdx"
-            class="r-v2-ctrl__stick"
-          >
-            <div class="r-v2-ctrl__stick-ring">
-              <div class="r-v2-ctrl__stick-deadzone" />
-              <div class="r-v2-ctrl__stick-axis r-v2-ctrl__stick-axis--h" />
-              <div class="r-v2-ctrl__stick-axis r-v2-ctrl__stick-axis--v" />
-              <div
-                class="r-v2-ctrl__stick-dot"
-                :style="{
-                  left: `${50 + (pad.axes[stickIdx] ?? 0) * 50}%`,
-                  top: `${50 + (pad.axes[stickIdx + 1] ?? 0) * 50}%`,
-                  opacity:
-                    magnitude(
-                      pad.axes[stickIdx] ?? 0,
-                      pad.axes[stickIdx + 1] ?? 0,
-                    ) > 0.05
-                      ? 1
-                      : 0.45,
-                }"
-              />
-            </div>
-            <p class="r-v2-ctrl__stick-label">
-              {{
-                stickIdx === 0
-                  ? t("settings.controller-debug-left-stick")
-                  : t("settings.controller-debug-right-stick")
-              }}
-            </p>
-            <p class="r-v2-ctrl__stick-values">
-              X {{ (pad.axes[stickIdx] ?? 0).toFixed(2) }} · Y
-              {{ (pad.axes[stickIdx + 1] ?? 0).toFixed(2) }}
-            </p>
-          </div>
-        </div>
+      <ControllerPad :pad="pad" />
 
-        <!-- Buttons grid -->
-        <div class="r-v2-ctrl__buttons">
-          <div
-            v-for="(btn, i) in pad.buttons"
-            :key="i"
-            class="r-v2-ctrl__btn"
-            :class="{ 'r-v2-ctrl__btn--pressed': btn.pressed }"
-          >
-            <span class="r-v2-ctrl__btn-idx">#{{ i }}</span>
-            <span class="r-v2-ctrl__btn-label">
-              {{ BUTTON_LABELS[i] ?? "—" }}
-            </span>
-            <span class="r-v2-ctrl__btn-value">
-              {{ btn.value.toFixed(2) }}
-            </span>
+      <!-- Raw axes fallback (if more than the standard 4 present) -->
+      <div v-if="pad.axes.length > 4" class="r-v2-ctrl__axes">
+        <div class="r-v2-ctrl__axes-title">
+          {{ t("settings.controller-debug-all-axes") }}
+        </div>
+        <div v-for="(value, i) in pad.axes" :key="i" class="r-v2-ctrl__axis">
+          <span class="r-v2-ctrl__axis-idx">Axis {{ i }}</span>
+          <div class="r-v2-ctrl__axis-track">
             <div
-              class="r-v2-ctrl__btn-fill"
-              :style="{ transform: `scaleX(${btn.value})` }"
+              class="r-v2-ctrl__axis-fill"
+              :style="{
+                left: `${50 - Math.abs(value) * 50 * (value < 0 ? 1 : 0)}%`,
+                width: `${Math.abs(value) * 50}%`,
+              }"
             />
           </div>
-        </div>
-
-        <!-- Raw axes fallback (if >4 axes present) -->
-        <div v-if="pad.axes.length > 4" class="r-v2-ctrl__axes">
-          <div class="r-v2-ctrl__axes-title">
-            {{ t("settings.controller-debug-all-axes") }}
-          </div>
-          <div v-for="(value, i) in pad.axes" :key="i" class="r-v2-ctrl__axis">
-            <span class="r-v2-ctrl__axis-idx">Axis {{ i }}</span>
-            <div class="r-v2-ctrl__axis-track">
-              <div
-                class="r-v2-ctrl__axis-fill"
-                :style="{
-                  left: `${50 - Math.abs(value) * 50 * (value < 0 ? 1 : 0)}%`,
-                  width: `${Math.abs(value) * 50}%`,
-                }"
-              />
-            </div>
-            <span class="r-v2-ctrl__axis-value">
-              {{ value.toFixed(3) }}
-            </span>
-          </div>
+          <span class="r-v2-ctrl__axis-value">
+            {{ value.toFixed(3) }}
+          </span>
         </div>
       </div>
     </SettingsSection>
@@ -507,163 +412,9 @@ function magnitude(x: number, y: number) {
   font-size: 11px;
 }
 
-/* Pad body --------------------------------------------------------- */
-.r-v2-ctrl__pad-body {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 18px;
-  padding: 16px;
-  align-items: start;
-}
-html[data-bp~="xs"] .r-v2-ctrl__pad-body {
-  grid-template-columns: 1fr;
-}
-html[data-bp~="xs"] .r-v2-ctrl__sticks {
-  flex-direction: row !important;
-  justify-content: center;
-}
-
-/* Sticks ----------------------------------------------------------- */
-.r-v2-ctrl__sticks {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  align-items: center;
-}
-.r-v2-ctrl__stick {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-.r-v2-ctrl__stick-ring {
-  position: relative;
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-}
-.r-v2-ctrl__stick-deadzone {
-  position: absolute;
-  inset: 35%;
-  border-radius: 50%;
-  border: 1px dashed var(--r-color-border-strong);
-}
-/* Faint cross-hair so the centre is readable at a glance. */
-.r-v2-ctrl__stick-axis {
-  position: absolute;
-  background: var(--r-color-border);
-  opacity: 0.5;
-}
-.r-v2-ctrl__stick-axis--h {
-  top: 50%;
-  left: 8%;
-  right: 8%;
-  height: 1px;
-}
-.r-v2-ctrl__stick-axis--v {
-  top: 8%;
-  bottom: 8%;
-  left: 50%;
-  width: 1px;
-}
-.r-v2-ctrl__stick-dot {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--r-color-brand-primary);
-  box-shadow: 0 0 12px
-    color-mix(in srgb, var(--r-color-brand-primary) 60%, transparent);
-  transform: translate(-50%, -50%);
-  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-ctrl__stick-label {
-  margin: 6px 0 0;
-  font-size: 11px;
-  font-weight: var(--r-font-weight-bold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--r-color-fg-muted);
-}
-.r-v2-ctrl__stick-values {
-  margin: 0;
-  font-size: 10px;
-  font-family: var(--r-font-family-mono, monospace);
-  color: var(--r-color-fg-faint);
-}
-
-/* Buttons grid ----------------------------------------------------- */
-.r-v2-ctrl__buttons {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 6px;
-  align-self: start;
-}
-.r-v2-ctrl__btn {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  background: var(--r-color-surface);
-  border: 1px solid var(--r-color-border);
-  border-radius: 8px;
-  font-size: 11px;
-  overflow: hidden;
-  transition:
-    background var(--r-motion-fast) var(--r-motion-ease-out),
-    border-color var(--r-motion-fast) var(--r-motion-ease-out);
-}
-.r-v2-ctrl__btn--pressed {
-  background: color-mix(in srgb, var(--r-color-brand-primary) 16%, transparent);
-  border-color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary) 50%,
-    transparent
-  );
-}
-.r-v2-ctrl__btn-fill {
-  position: absolute;
-  inset: 0;
-  background: color-mix(in srgb, var(--r-color-brand-primary) 12%, transparent);
-  transform-origin: left center;
-  transform: scaleX(0);
-  transition: transform 40ms linear;
-  pointer-events: none;
-  z-index: 0;
-}
-.r-v2-ctrl__btn-idx,
-.r-v2-ctrl__btn-label,
-.r-v2-ctrl__btn-value {
-  position: relative;
-  z-index: 1;
-}
-.r-v2-ctrl__btn-idx {
-  font-family: var(--r-font-family-mono, monospace);
-  color: var(--r-color-fg-faint);
-  font-size: 10px;
-}
-.r-v2-ctrl__btn-label {
-  color: var(--r-color-fg);
-  font-weight: var(--r-font-weight-medium);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.r-v2-ctrl__btn-value {
-  font-family: var(--r-font-family-mono, monospace);
-  font-size: 10px;
-  color: var(--r-color-fg-muted);
-}
-
 /* Axes (overflow > 4) ---------------------------------------------- */
 .r-v2-ctrl__axes {
-  grid-column: 1 / -1;
-  padding-top: 12px;
-  margin-top: 6px;
+  padding: 12px 16px 16px;
   border-top: 1px solid var(--r-color-border);
 }
 .r-v2-ctrl__axes-title {

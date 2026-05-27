@@ -82,6 +82,7 @@ const playableLabel = computed(() => playableTooltip(emulator.value));
     v-bind="$attrs"
     class="plat-tile"
     :class="[`plat-tile--${variant}`]"
+    :data-focus-key="id != null ? `platform-${id}` : undefined"
     @click="onTileClick"
   >
     <div ref="iconEl" class="plat-tile__icon" :style="morphStyle">
@@ -126,7 +127,12 @@ const playableLabel = computed(() => playableTooltip(emulator.value));
     transform var(--r-motion-fast);
 }
 
-.plat-tile:hover,
+/* Hover is gated to mouse/touch modality so a cursor parked from a
+   previous mouse session doesn't compete with the focused tile when the
+   user is driving with a gamepad. Focus-visible reads in every modality
+   (subject to global.css's outline rules). */
+html[data-input="mouse"] .plat-tile:hover,
+html[data-input="touch"] .plat-tile:hover,
 .plat-tile:focus-visible {
   background: var(--r-color-surface);
   border-color: var(--r-color-border-strong);
@@ -168,7 +174,9 @@ const playableLabel = computed(() => playableTooltip(emulator.value));
   color: var(--r-color-success);
 }
 
-.plat-tile:hover .plat-tile__icon {
+html[data-input="mouse"] .plat-tile:hover .plat-tile__icon,
+html[data-input="touch"] .plat-tile:hover .plat-tile__icon,
+.plat-tile:focus-visible .plat-tile__icon {
   opacity: 1;
 }
 

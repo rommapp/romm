@@ -29,7 +29,21 @@ export function useInputModality() {
 
     applyAttribute(modality.value);
 
-    const onMouse = () => setModality("mouse");
+    // Mouse handlers — split because, once the user is on a gamepad,
+    // we want the mouse to "disappear": tiny accidental nudges of a
+    // couch-side mouse shouldn't paint hover states on top of the
+    // focused tile. Only a deliberate click (mousedown) flips the
+    // modality back to mouse; mousemove / wheel are ignored while
+    // in pad mode.
+    const onMouseMove = () => {
+      if (modality.value === "pad") return;
+      setModality("mouse");
+    };
+    const onMouseDown = () => setModality("mouse");
+    const onWheel = () => {
+      if (modality.value === "pad") return;
+      setModality("mouse");
+    };
     const onTouch = () => setModality("touch");
     const onKey = (e: KeyboardEvent) => {
       // Ignore modifier-only presses and clicks that happen to be keyboard-
@@ -50,17 +64,17 @@ export function useInputModality() {
     // type takes over.
     const onGamepad = () => setModality("pad");
 
-    window.addEventListener("mousemove", onMouse, { passive: true });
-    window.addEventListener("mousedown", onMouse, { passive: true });
-    window.addEventListener("wheel", onMouse, { passive: true });
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    window.addEventListener("mousedown", onMouseDown, { passive: true });
+    window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("touchstart", onTouch, { passive: true });
     window.addEventListener("keydown", onKey);
     window.addEventListener("gamepadconnected", onGamepad);
 
     onBeforeUnmount(() => {
-      window.removeEventListener("mousemove", onMouse);
-      window.removeEventListener("mousedown", onMouse);
-      window.removeEventListener("wheel", onMouse);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("wheel", onWheel);
       window.removeEventListener("touchstart", onTouch);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("gamepadconnected", onGamepad);

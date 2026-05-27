@@ -100,6 +100,18 @@ html:not([data-input])
   color: var(--r-color-overlay-fg);
 }
 
+/* Hide the mouse cursor when the user is driving the UI with a gamepad —
+   the cursor parked over a tile would otherwise compete visually with
+   the focused-tile selection state. The cursor reappears as soon as the
+   user clicks (useInputModality flips back to "mouse" on mousedown;
+   mousemove / wheel are ignored while in pad mode). */
+html[data-input="pad"],
+html[data-input="pad"] body,
+html[data-input="pad"] .r-v2,
+html[data-input="pad"] .r-v2 * {
+  cursor: none !important;
+}
+
 /* ── Background art layers ─────────────────────────────────────
    Two layers (A / B) so we can cross-fade between backdrops when the user
    hovers a new game without a flash. The overlay blends the blur down so

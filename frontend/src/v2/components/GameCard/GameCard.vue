@@ -366,6 +366,7 @@ const morphStyle = computed(() => {
             : undefined
     "
     :data-rom-id="rom.id"
+    :data-focus-key="!decorative && !static ? `rom-${rom.id}` : undefined"
     @click.capture="onCardClickCapture"
     @click="onCardClick"
     @keydown="static && !decorative ? onStaticKeydown($event) : undefined"
@@ -651,7 +652,12 @@ const morphStyle = computed(() => {
   transition: opacity 0.12s ease;
 }
 
-.r-gc:hover .r-gc__art,
+/* Hover-driven art scale gated to mouse/touch — a cursor parked from a
+   previous mouse session shouldn't compete with the focused card when
+   the user is on a gamepad. Focus / pinned / sibling-pinned states
+   trigger the same effect in every modality. */
+html[data-input="mouse"] .r-gc:hover .r-gc__art,
+html[data-input="touch"] .r-gc:hover .r-gc__art,
 .r-gc:focus-visible .r-gc__art,
 .r-gc--focused .r-gc__art,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__art,
@@ -671,7 +677,8 @@ const morphStyle = computed(() => {
   transform: none;
   box-shadow: none;
 }
-.r-gc:hover .r-gc__overlay,
+html[data-input="mouse"] .r-gc:hover .r-gc__overlay,
+html[data-input="touch"] .r-gc:hover .r-gc__overlay,
 .r-gc:focus-visible .r-gc__overlay,
 .r-gc--focused .r-gc__overlay,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__overlay,
@@ -693,12 +700,14 @@ const morphStyle = computed(() => {
   gap: 4px;
   pointer-events: none;
 }
-.r-gc:hover .r-gc__badge,
+html[data-input="mouse"] .r-gc:hover .r-gc__badge,
+html[data-input="touch"] .r-gc:hover .r-gc__badge,
 .r-gc:focus-visible .r-gc__badge,
 .r-gc--focused .r-gc__badge,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__badge,
 .r-gc:has(.sibling-badge--pinned) .r-gc__badge,
-.r-gc:hover .r-gc__rating,
+html[data-input="mouse"] .r-gc:hover .r-gc__rating,
+html[data-input="touch"] .r-gc:hover .r-gc__rating,
 .r-gc:focus-visible .r-gc__rating,
 .r-gc--focused .r-gc__rating,
 .r-gc:has(.r-v2-game-btn--pinned) .r-gc__rating,
@@ -731,7 +740,8 @@ const morphStyle = computed(() => {
   left: auto;
   right: 7px;
 }
-.r-gc:hover :deep(.r-v2-game-btn--action-status),
+html[data-input="mouse"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
+html[data-input="touch"] .r-gc:hover :deep(.r-v2-game-btn--action-status),
 .r-gc:focus-visible :deep(.r-v2-game-btn--action-status),
 .r-gc--focused :deep(.r-v2-game-btn--action-status),
 .r-gc:has(.r-v2-game-btn--pinned) :deep(.r-v2-game-btn--action-status),
@@ -799,7 +809,8 @@ const morphStyle = computed(() => {
   padding: 0 1px;
   text-align: center;
 }
-.r-gc:hover .r-gc__label,
+html[data-input="mouse"] .r-gc:hover .r-gc__label,
+html[data-input="touch"] .r-gc:hover .r-gc__label,
 .r-gc:focus-visible .r-gc__label,
 .r-gc--focused .r-gc__label,
 .r-gc:has(.r-v2-game-btn--action-more[aria-expanded="true"]) .r-gc__label,
@@ -844,7 +855,8 @@ const morphStyle = computed(() => {
   pointer-events: none;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-gc:hover .r-gc__check,
+html[data-input="mouse"] .r-gc:hover .r-gc__check,
+html[data-input="touch"] .r-gc:hover .r-gc__check,
 .r-gc:focus-visible .r-gc__check,
 .r-gc--focused .r-gc__check,
 .r-gc--checkbox-on .r-gc__check,

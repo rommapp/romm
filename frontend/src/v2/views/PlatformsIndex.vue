@@ -37,6 +37,7 @@ import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import { usePlatformPlayableChecker } from "@/v2/composables/usePlatformPlayable";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
+import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
@@ -46,6 +47,13 @@ const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
 const searchTerm = useTileSearchUrl();
 const { isPlayable } = usePlatformPlayableChecker();
+
+// Spatial 2D arrow / gamepad nav across the wrapping tiles grid. List-mode
+// rows are anchor-based and tab through natively; the spatial nav only
+// targets `.plat-tile` in grid mode (which is the only place tiles render
+// — list mode emits `.plat-list-row`).
+const gridRoot = ref<HTMLElement | null>(null);
+useWrapGridNav(gridRoot, { cellSelector: ".plat-tile" });
 
 // Pre-compute the playable flag per platform — sort comparator and
 // every row read this map so the column, the badge on the tile, and
@@ -401,80 +409,82 @@ const groupedBuckets = computed<Bucket[] | null>(() => {
       />
     </template>
 
-    <div v-if="fetchingPlatforms && !totalCount" class="r-v2-pidx__grid">
-      <RSkeletonBlock
-        v-for="n in 16"
-        :key="`sk-${n}`"
-        width="100%"
-        height="140px"
-        rounded="card"
+    <div ref="gridRoot">
+      <div v-if="fetchingPlatforms && !totalCount" class="r-v2-pidx__grid">
+        <RSkeletonBlock
+          v-for="n in 16"
+          :key="`sk-${n}`"
+          width="100%"
+          height="140px"
+          rounded="card"
+        />
+      </div>
+
+      <EmptyState
+        v-else-if="!totalCount"
+        :message="t('platform.no-platforms-empty')"
       />
-    </div>
 
-    <EmptyState
-      v-else-if="!totalCount"
-      :message="t('platform.no-platforms-empty')"
-    />
-
-    <EmptyState
-      v-else-if="noResults"
-      :message="t('platform.no-platforms-search', { query: searchTerm })"
-    />
-
-    <!-- List mode — rows underneath the sticky column header (rendered
-         by IndexShell via the `#listHeader` slot above). Rows surface
-         the same family / category / generation axes the toolbar can
-         group by, so the user reading the flat list still sees what
-         would have separated them. -->
-    <div v-else-if="layout === 'list'" class="r-v2-pidx__list">
-      <PlatformListRow
-        v-for="p in sortedForList"
-        :key="p.id"
-        :id="p.id"
-        :slug="p.slug"
-        :fs-slug="p.fs_slug"
-        :display-name="p.display_name"
-        :rom-count="p.rom_count"
-        :family-name="p.family_name ?? null"
-        :category="p.category ?? null"
-        :generation="p.generation ?? null"
+      <EmptyState
+        v-else-if="noResults"
+        :message="t('platform.no-platforms-search', { query: searchTerm })"
       />
-    </div>
 
-    <!-- Grid mode, grouped — letter uses RLetterHeading (large
-         single-character glyph); family / category / generation use
-         a compact section heading so multi-word labels read cleanly. -->
-    <div v-else-if="groupedBuckets">
-      <template v-for="g in groupedBuckets" :key="g.key">
-        <RLetterHeading v-if="groupBy === 'letter'" :label="g.label" />
-        <h3 v-else class="r-v2-pidx__group-heading">{{ g.label }}</h3>
-        <div class="r-v2-pidx__grid">
-          <PlatformTile
-            v-for="p in g.items"
-            :id="p.id"
-            :key="p.id"
-            :slug="p.slug"
-            :fs-slug="p.fs_slug"
-            :display-name="p.display_name"
-            :rom-count="p.rom_count"
-            variant="grid"
-          />
-        </div>
-      </template>
-    </div>
+      <!-- List mode — rows underneath the sticky column header (rendered
+           by IndexShell via the `#listHeader` slot above). Rows surface
+           the same family / category / generation axes the toolbar can
+           group by, so the user reading the flat list still sees what
+           would have separated them. -->
+      <div v-else-if="layout === 'list'" class="r-v2-pidx__list">
+        <PlatformListRow
+          v-for="p in sortedForList"
+          :key="p.id"
+          :id="p.id"
+          :slug="p.slug"
+          :fs-slug="p.fs_slug"
+          :display-name="p.display_name"
+          :rom-count="p.rom_count"
+          :family-name="p.family_name ?? null"
+          :category="p.category ?? null"
+          :generation="p.generation ?? null"
+        />
+      </div>
 
-    <!-- Grid mode, flat. -->
-    <div v-else class="r-v2-pidx__grid">
-      <PlatformTile
-        v-for="p in sortedForGrid"
-        :id="p.id"
-        :key="p.id"
-        :slug="p.slug"
-        :fs-slug="p.fs_slug"
-        :display-name="p.display_name"
-        :rom-count="p.rom_count"
-        variant="grid"
-      />
+      <!-- Grid mode, grouped — letter uses RLetterHeading (large
+           single-character glyph); family / category / generation use
+           a compact section heading so multi-word labels read cleanly. -->
+      <div v-else-if="groupedBuckets">
+        <template v-for="g in groupedBuckets" :key="g.key">
+          <RLetterHeading v-if="groupBy === 'letter'" :label="g.label" />
+          <h3 v-else class="r-v2-pidx__group-heading">{{ g.label }}</h3>
+          <div class="r-v2-pidx__grid">
+            <PlatformTile
+              v-for="p in g.items"
+              :id="p.id"
+              :key="p.id"
+              :slug="p.slug"
+              :fs-slug="p.fs_slug"
+              :display-name="p.display_name"
+              :rom-count="p.rom_count"
+              variant="grid"
+            />
+          </div>
+        </template>
+      </div>
+
+      <!-- Grid mode, flat. -->
+      <div v-else class="r-v2-pidx__grid">
+        <PlatformTile
+          v-for="p in sortedForGrid"
+          :id="p.id"
+          :key="p.id"
+          :slug="p.slug"
+          :fs-slug="p.fs_slug"
+          :display-name="p.display_name"
+          :rom-count="p.rom_count"
+          variant="grid"
+        />
+      </div>
     </div>
   </IndexShell>
 </template>

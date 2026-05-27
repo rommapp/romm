@@ -38,6 +38,7 @@ import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
 import { useTileSearchUrl } from "@/v2/composables/useTileSearchUrl";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
+import { useWrapGridNav } from "@/v2/composables/useWrapGridNav";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
 type AnyCollection = Collection | VirtualCollection | SmartCollection;
@@ -64,6 +65,13 @@ const {
 const { groupBy, layout } = useGalleryMode();
 useGalleryViewModeUrl();
 const searchTerm = useTileSearchUrl();
+
+// Spatial 2D arrow / gamepad nav across the wrapping tiles grid. The
+// composable spans both the curated panel and the virtual section so
+// ArrowDown crosses the section heading naturally. List mode falls
+// through because `.coll-tile` only renders in grid mode.
+const gridRoot = ref<HTMLElement | null>(null);
+useWrapGridNav(gridRoot, { cellSelector: ".coll-tile" });
 // Unified sort state across grid + list modes. Grid mode only exposes
 // the direction toggle (toolbar); list mode lets the column-header
 // click drive both axis and direction. Mirrors GalleryShell's pattern
@@ -380,121 +388,129 @@ const showListHeader = computed(
       />
     </template>
 
-    <div v-if="fetchingCollections && !totalCount" class="r-v2-cidx__grid">
-      <RSkeletonBlock
-        v-for="n in 12"
-        :key="`sk-${n}`"
-        width="100%"
-        height="150px"
-        rounded="lg"
+    <div ref="gridRoot">
+      <div v-if="fetchingCollections && !totalCount" class="r-v2-cidx__grid">
+        <RSkeletonBlock
+          v-for="n in 12"
+          :key="`sk-${n}`"
+          width="100%"
+          height="150px"
+          rounded="lg"
+        />
+      </div>
+
+      <EmptyState
+        v-else-if="!totalCount"
+        message="You don't have any collections yet. Favourite a game or create one from any ROM's action bar to populate this view."
       />
-    </div>
 
-    <EmptyState
-      v-else-if="!totalCount"
-      message="You don't have any collections yet. Favourite a game or create one from any ROM's action bar to populate this view."
-    />
-
-    <EmptyState
-      v-else-if="emptyState"
-      :icon="emptyState.icon"
-      :message="emptyState.message"
-    />
-
-    <div v-else-if="layout === 'list'" class="r-v2-cidx__list">
-      <CollectionListRow
-        v-for="c in sortedTiles"
-        :id="c.id"
-        :key="`${c.kind}-${c.id}`"
-        :to="c.link"
-        :name="c.name"
-        :rom-count="c.rom_count"
-        :covers="c.covers"
-        :kind="c.kind"
+      <EmptyState
+        v-else-if="emptyState"
+        :icon="emptyState.icon"
+        :message="emptyState.message"
       />
-    </div>
 
-    <template v-else>
-      <!-- Curated panel — regular + smart in a translucent container,
+      <div v-else-if="layout === 'list'" class="r-v2-cidx__list">
+        <CollectionListRow
+          v-for="c in sortedTiles"
+          :id="c.id"
+          :key="`${c.kind}-${c.id}`"
+          :to="c.link"
+          :name="c.name"
+          :rom-count="c.rom_count"
+          :covers="c.covers"
+          :kind="c.kind"
+        />
+      </div>
+
+      <template v-else>
+        <!-- Curated panel — regular + smart in a translucent container,
            mirroring the related-games panel surface in the game detail
            view. Stays out of the way when nothing curated matches. -->
-      <section v-if="showCuratedSection" class="r-v2-cidx__panel">
-        <h3 class="r-v2-cidx__panel-title">
-          <RIcon icon="mdi-bookmark" class="r-v2-cidx__panel-icon" />Collections
-        </h3>
-        <template v-if="showLetterGroups">
-          <template v-for="g in curatedLetterGroups" :key="`cur-${g.letter}`">
-            <RLetterHeading :label="g.letter" />
-            <div class="r-v2-cidx__grid">
-              <CollectionTile
-                v-for="c in g.items"
-                :id="c.id"
-                :key="`${c.kind}-${c.id}`"
-                :to="c.link"
-                :name="c.name"
-                :rom-count="c.rom_count"
-                :covers="c.covers"
-                :kind="c.kind"
-                variant="grid"
-              />
-            </div>
+        <section v-if="showCuratedSection" class="r-v2-cidx__panel">
+          <h3 class="r-v2-cidx__panel-title">
+            <RIcon
+              icon="mdi-bookmark"
+              class="r-v2-cidx__panel-icon"
+            />Collections
+          </h3>
+          <template v-if="showLetterGroups">
+            <template v-for="g in curatedLetterGroups" :key="`cur-${g.letter}`">
+              <RLetterHeading :label="g.letter" />
+              <div class="r-v2-cidx__grid">
+                <CollectionTile
+                  v-for="c in g.items"
+                  :id="c.id"
+                  :key="`${c.kind}-${c.id}`"
+                  :to="c.link"
+                  :name="c.name"
+                  :rom-count="c.rom_count"
+                  :covers="c.covers"
+                  :kind="c.kind"
+                  variant="grid"
+                />
+              </div>
+            </template>
           </template>
-        </template>
-        <div v-else class="r-v2-cidx__grid">
-          <CollectionTile
-            v-for="c in curatedTiles"
-            :id="c.id"
-            :key="`${c.kind}-${c.id}`"
-            :to="c.link"
-            :name="c.name"
-            :rom-count="c.rom_count"
-            :covers="c.covers"
-            :kind="c.kind"
-            variant="grid"
-          />
-        </div>
-      </section>
+          <div v-else class="r-v2-cidx__grid">
+            <CollectionTile
+              v-for="c in curatedTiles"
+              :id="c.id"
+              :key="`${c.kind}-${c.id}`"
+              :to="c.link"
+              :name="c.name"
+              :rom-count="c.rom_count"
+              :covers="c.covers"
+              :kind="c.kind"
+              variant="grid"
+            />
+          </div>
+        </section>
 
-      <!-- Virtual section — loose grid, no panel. The visual absence of
+        <!-- Virtual section — loose grid, no panel. The visual absence of
            a container is the contrast point against the curated panel
            above. -->
-      <section v-if="showVirtualSection" class="r-v2-cidx__virtual">
-        <h3 v-if="showCuratedSection" class="r-v2-cidx__section-title">
-          <RIcon icon="mdi-bookmark-box" class="r-v2-cidx__panel-icon" />Virtual
-        </h3>
-        <template v-if="showLetterGroups">
-          <template v-for="g in virtualLetterGroups" :key="`vir-${g.letter}`">
-            <RLetterHeading :label="g.letter" />
-            <div class="r-v2-cidx__grid">
-              <CollectionTile
-                v-for="c in g.items"
-                :id="c.id"
-                :key="`${c.kind}-${c.id}`"
-                :to="c.link"
-                :name="c.name"
-                :rom-count="c.rom_count"
-                :covers="c.covers"
-                :kind="c.kind"
-                variant="grid"
-              />
-            </div>
+        <section v-if="showVirtualSection" class="r-v2-cidx__virtual">
+          <h3 v-if="showCuratedSection" class="r-v2-cidx__section-title">
+            <RIcon
+              icon="mdi-bookmark-box"
+              class="r-v2-cidx__panel-icon"
+            />Virtual
+          </h3>
+          <template v-if="showLetterGroups">
+            <template v-for="g in virtualLetterGroups" :key="`vir-${g.letter}`">
+              <RLetterHeading :label="g.letter" />
+              <div class="r-v2-cidx__grid">
+                <CollectionTile
+                  v-for="c in g.items"
+                  :id="c.id"
+                  :key="`${c.kind}-${c.id}`"
+                  :to="c.link"
+                  :name="c.name"
+                  :rom-count="c.rom_count"
+                  :covers="c.covers"
+                  :kind="c.kind"
+                  variant="grid"
+                />
+              </div>
+            </template>
           </template>
-        </template>
-        <div v-else class="r-v2-cidx__grid">
-          <CollectionTile
-            v-for="c in virtualTiles"
-            :id="c.id"
-            :key="`${c.kind}-${c.id}`"
-            :to="c.link"
-            :name="c.name"
-            :rom-count="c.rom_count"
-            :covers="c.covers"
-            :kind="c.kind"
-            variant="grid"
-          />
-        </div>
-      </section>
-    </template>
+          <div v-else class="r-v2-cidx__grid">
+            <CollectionTile
+              v-for="c in virtualTiles"
+              :id="c.id"
+              :key="`${c.kind}-${c.id}`"
+              :to="c.link"
+              :name="c.name"
+              :rom-count="c.rom_count"
+              :covers="c.covers"
+              :kind="c.kind"
+              variant="grid"
+            />
+          </div>
+        </section>
+      </template>
+    </div>
   </IndexShell>
 </template>
 

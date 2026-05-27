@@ -82,6 +82,7 @@ const morphStyle = computed(() =>
     v-bind="$attrs"
     class="coll-tile"
     :class="[`coll-tile--${variant}`]"
+    :data-focus-key="id != null ? `collection-${kind}-${id}` : undefined"
     @click="onTileClick"
   >
     <div ref="coverEl" class="coll-tile__cover" :style="morphStyle">
@@ -122,7 +123,10 @@ const morphStyle = computed(() =>
     box-shadow var(--r-motion-fast);
 }
 
-.coll-tile:hover .coll-tile__cover,
+/* Hover gated to mouse/touch — keeps a parked cursor from competing
+   with the focused tile when driving with a gamepad. */
+html[data-input="mouse"] .coll-tile:hover .coll-tile__cover,
+html[data-input="touch"] .coll-tile:hover .coll-tile__cover,
 .coll-tile:focus-visible .coll-tile__cover {
   transform: translateY(-2px);
   box-shadow: var(--r-elev-2);
