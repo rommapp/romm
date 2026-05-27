@@ -200,9 +200,7 @@ class TestValidateUrlForHttpRequest:
                 validate_url_for_http_request(
                     "http://127.0.0.1.nip.io/secret", "test_url"
                 )
-            assert (
-                "hostname resolves to a private" in exc_info.value.message
-            )
+            assert "hostname resolves to a private" in exc_info.value.message
 
     def test_invalid_hostname_resolves_to_private_ip(self):
         """A DNS name that resolves to an RFC1918 address must be rejected."""
@@ -241,9 +239,7 @@ class TestValidateUrlForHttpRequest:
             side_effect=socket.gaierror("Name or service not known"),
         ):
             with pytest.raises(ValidationError) as exc_info:
-                validate_url_for_http_request(
-                    "http://nonexistent.invalid", "test_url"
-                )
+                validate_url_for_http_request("http://nonexistent.invalid", "test_url")
             assert "could not be resolved" in exc_info.value.message
 
     def test_invalid_empty_url(self):
@@ -380,12 +376,18 @@ class TestValidateUrlForHttpRequest:
         # IPv4 multicast: 224.0.0.0/4
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://224.0.0.1", "test_url")
-        assert "private, internal, reserved, or multicast IP addresses are not allowed" in exc_info.value.message
+        assert (
+            "private, internal, reserved, or multicast IP addresses are not allowed"
+            in exc_info.value.message
+        )
 
         # IPv6 multicast: ff00::/8
         with pytest.raises(ValidationError) as exc_info:
             validate_url_for_http_request("http://[ff02::1]", "test_url")
-        assert "private, internal, reserved, or multicast IP addresses are not allowed" in exc_info.value.message
+        assert (
+            "private, internal, reserved, or multicast IP addresses are not allowed"
+            in exc_info.value.message
+        )
 
     def test_invalid_internal_tlds(self):
         """Test that internal TLDs fail validation."""

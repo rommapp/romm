@@ -240,9 +240,7 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
     # `127.0.0.1.nip.io` slips past the literal-IP checks above and the
     # subsequent HTTP request reaches an internal target (SSRF).
     try:
-        addr_infos = socket.getaddrinfo(
-            hostname, parsed.port, type=socket.SOCK_STREAM
-        )
+        addr_infos = socket.getaddrinfo(hostname, parsed.port, type=socket.SOCK_STREAM)
     except socket.gaierror as e:
         msg = f"Invalid {field_name}: hostname could not be resolved"
         log.error(f"SSRF prevention: {msg} - hostname '{hostname}': {e}")
