@@ -28,6 +28,7 @@ import {
   computed,
   defineAsyncComponent,
   inject,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -50,6 +51,7 @@ import AssetPreview from "@/v2/components/Player/AssetPreview.vue";
 import AssetStrip from "@/v2/components/Player/AssetStrip.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useFullscreenPref } from "@/v2/composables/useFullscreenPref";
+import { useInputModality } from "@/v2/composables/useInputModality";
 import type { SliderBtnGroupItem } from "@/v2/lib/primitives/RSliderBtnGroup/types";
 import { installIOSFullscreenShim } from "@/views/Player/EmulatorJS/utils";
 
@@ -68,6 +70,16 @@ const playingStore = storePlaying();
 const configStore = storeConfig();
 const { playing, fullScreen } = storeToRefs(playingStore);
 const { fullscreenOnPlay } = useFullscreenPref();
+const { modality } = useInputModality();
+
+// Ref the Play CTA so we can imperatively focus it on enter (and again
+// when the user comes back from a running session). RBtn forwards to
+// its rendered <button>/<a>, but resolving the DOM node via a class
+// query is simpler and survives the lazy-load of the inner element.
+function focusPlayButton() {
+  const btn = document.querySelector<HTMLElement>(".r-v2-ejs__play");
+  btn?.focus({ preventScroll: true });
+}
 
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
@@ -258,6 +270,7 @@ onMounted(async () => {
 
   emitter?.on("saveSelected", selectSave);
   emitter?.on("stateSelected", selectState);
+  window.addEventListener("gamepad:buttondown", onGamepadButton);
 
   if ("keyboard" in navigator) {
     useEventListener(document, "fullscreenchange", () => {
@@ -324,7 +337,32 @@ onMounted(async () => {
 
   selectedFirmware.value =
     biosFromStorage ?? biosFromConfig ?? biosFromSingleOption ?? null;
+
+  // Autofocus the Play CTA so gamepad/keyboard users land on the
+  // primary action without an extra Tab. Mouse / touch keep the
+  // default no-autofocus behaviour.
+  if (modality.value === "pad" || modality.value === "key") {
+    await nextTick();
+    focusPlayButton();
+  }
 });
+
+// When the user exits the running game (Player unmount flips
+// `gameRunning` false), put focus back on Play so a Start-Play loop
+// stays on the pad.
+watch(gameRunning, (running, prev) => {
+  if (prev && !running) {
+    nextTick(focusPlayButton);
+  }
+});
+
+// Y toggles the saves/states tab — view-local binding wired through
+// the `gamepad:buttondown` window event dispatched by useGamepad.
+function onGamepadButton(e: CustomEvent<{ name?: string }>) {
+  if (e.detail?.name !== "y") return;
+  if (gameRunning.value) return;
+  setAssetTab(activeAssetTab.value === "save" ? "state" : "save");
+}
 
 onBeforeUnmount(() => {
   window.EJS_emulator?.callEvent("exit");
@@ -332,6 +370,7 @@ onBeforeUnmount(() => {
   removeIOSFullscreenShim.value = null;
   emitter?.off("saveSelected", selectSave);
   emitter?.off("stateSelected", selectState);
+  window.removeEventListener("gamepad:buttondown", onGamepadButton);
 });
 
 function openCacheDialog() {

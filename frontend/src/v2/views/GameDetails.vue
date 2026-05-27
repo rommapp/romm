@@ -26,6 +26,7 @@ import NotesTab from "@/v2/components/GameDetails/NotesTab.vue";
 import OverviewTab from "@/v2/components/GameDetails/OverviewTab.vue";
 import SaveDataTab from "@/v2/components/GameDetails/SaveDataTab.vue";
 import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
+import { useRightStickScroll } from "@/v2/composables/useRightStickScroll";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 
 const route = useRoute();
@@ -46,6 +47,12 @@ const setBgArt = useBackgroundArt();
 // param updates, then scroll the panel back to the top so the new
 // ROM's overview doesn't start halfway down where the user clicked.
 const panelEl = ref<HTMLElement | null>(null);
+
+// Right stick scrolls the tab panel — D-pad / A move focus across the
+// action ribbon, right stick scrolls long tabs (Overview, Achievements)
+// without needing to leave the ribbon focus.
+useRightStickScroll(panelEl);
+
 onBeforeRouteUpdate(async (to) => {
   const nextId = parseInt(to.params.rom as string);
   if (Number.isNaN(nextId)) return;

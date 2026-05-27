@@ -2,10 +2,9 @@
 // ManageCollectionsDialog — collection picker that matches the mockup's
 // menu-panel shape. Driven by the `showManageCollectionsDialog` emitter.
 //
-// Uses the v2 RDialog primitive — RDialog was updated to share the
-// RMenuPanel visual language (14px radius, deep glass, menu-style shadow)
-// so this picker reads as a sibling of the user menu / ROM context menu.
-// No direct VDialog here; every v2 dialog flows through the primitive.
+// Uses the v2 RDialog primitive — RDialog shares the RMenu visual
+// language (14px radius, deep glass, menu-style shadow) so this picker
+// reads as a sibling of the user menu / ROM context menu.
 //
 // Shape (top → bottom):
 //   * Bold "Manage collections" title + muted game subtitle in the

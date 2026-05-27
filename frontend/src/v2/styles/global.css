@@ -22,15 +22,13 @@
 /* Focus rings are modality-gated — invisible for mouse/touch so we don't
    dog-pile the hover states, visible and prominent for keyboard/pad so
    the user always knows where they are.
-   Form controls (text fields, textareas, selects, combobox inputs, plus
-   the legacy `.v-field` wrapper still used by a handful of v1-era
-   panels) are excluded from the generic rule — they paint their own
-   focus treatment, and stacking our outline on top reads as a grey
-   rectangle around the raw <input>. The generic rules are wrapped in
-   `:where()` so they evaluate at the lowest specificity — any component
-   that paints its own focus state (GameCard, PlatformTile,
-   CollectionTile, …) can override with a plain class selector and its
-   rule will win. */
+   Form controls (text fields, textareas, selects, combobox inputs) are
+   excluded from the generic rule — they paint their own focus treatment,
+   and stacking our outline on top reads as a grey rectangle around the
+   raw <input>. The generic rules are wrapped in `:where()` so they
+   evaluate at the lowest specificity — any component that paints its
+   own focus state (GameCard, PlatformTile, CollectionTile, …) can
+   override with a plain class selector and its rule will win. */
 html[data-input="mouse"] :where(.r-v2 *:focus-visible),
 html[data-input="touch"] :where(.r-v2 *:focus-visible) {
   outline: none;
@@ -41,14 +39,14 @@ html[data-input="key"]
     .r-v2
       *:focus-visible:not(input):not(textarea):not(select):not(
         [contenteditable="true"]
-      ):not(.v-field):not(.v-field__input):not(.v-field__field)
+      )
   ),
 html[data-input="pad"]
   :where(
     .r-v2
       *:focus-visible:not(input):not(textarea):not(select):not(
         [contenteditable="true"]
-      ):not(.v-field):not(.v-field__input):not(.v-field__field)
+      )
   ) {
   outline: var(--r-focus-ring-width) solid var(--r-color-focus);
   outline-offset: var(--r-focus-ring-offset);
@@ -60,7 +58,7 @@ html[data-input="pad"]
     .r-v2
       *:focus-visible:not(input):not(textarea):not(select):not(
         [contenteditable="true"]
-      ):not(.v-field):not(.v-field__input):not(.v-field__field)
+      )
   ) {
   outline-width: 3px;
   outline-offset: 3px;
@@ -74,10 +72,7 @@ html[data-input="pad"]
 .r-v2 input:focus-visible,
 .r-v2 textarea:focus-visible,
 .r-v2 select:focus-visible,
-.r-v2 [contenteditable="true"]:focus-visible,
-.r-v2 .v-field:focus-visible,
-.r-v2 .v-field__input:focus-visible,
-.r-v2 .v-field__field:focus-visible {
+.r-v2 [contenteditable="true"]:focus-visible {
   outline: none;
   box-shadow: none;
 }
@@ -89,7 +84,7 @@ html:not([data-input])
     .r-v2
       *:focus-visible:not(input):not(textarea):not(select):not(
         [contenteditable="true"]
-      ):not(.v-field):not(.v-field__input):not(.v-field__field)
+      )
   ) {
   outline: var(--r-focus-ring-width) solid var(--r-color-focus);
   outline-offset: var(--r-focus-ring-offset);

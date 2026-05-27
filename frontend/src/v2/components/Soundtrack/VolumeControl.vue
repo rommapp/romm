@@ -1,7 +1,6 @@
 <script setup lang="ts">
 // VolumeControl — v2-native volume button + hover-revealed slider.
-// Replaces the v1 VolumeControl (Vuetify `v-menu` + `v-slider`) used
-// in the soundtrack panel and mini-player. The shared
+// Used in the soundtrack panel and mini-player. The shared
 // `useSoundtrackPlayer` store owns volume / muted state; this widget
 // is just a controller.
 //

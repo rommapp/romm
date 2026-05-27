@@ -25,6 +25,10 @@
 import { onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useInputModality } from "@/v2/composables/useInputModality";
+import {
+  closeTopEscapable,
+  hasOpenEscapable,
+} from "@/v2/lib/overlays/RDialog/escapeStack.js";
 
 // AppNav tab order — must match the `tabs` list in
 // `src/v2/components/AppShell/AppNav.vue`. LB/RB cycle through these.
@@ -37,6 +41,45 @@ const SECTION_NAV_DISABLED_PATHS = new Set<string>(["/controller-debug"]);
 const INITIAL_DELAY_MS = 350;
 const REPEAT_MS = 120;
 const AXIS_THRESHOLD = 0.5;
+
+// Standard-mapping button index → short symbolic name. Used as the
+// `name` field on the `gamepad:buttondown` custom event so views can
+// filter without memorising W3C indices. Kept exhaustive over the
+// standard 0..16 range; anything past that ships as `name: undefined`.
+const BUTTON_NAMES: Record<number, string> = {
+  0: "a",
+  1: "b",
+  2: "x",
+  3: "y",
+  4: "lb",
+  5: "rb",
+  6: "lt",
+  7: "rt",
+  8: "back",
+  9: "start",
+  10: "l3",
+  11: "r3",
+  12: "dpad-up",
+  13: "dpad-down",
+  14: "dpad-left",
+  15: "dpad-right",
+  16: "home",
+};
+
+export interface GamepadButtonEventDetail {
+  /** W3C standard-mapping button index. */
+  index: number;
+  /** Symbolic name (e.g. "y", "rt", "dpad-up"). Undefined past 16. */
+  name?: string;
+}
+
+// Augment the global event map so listeners get typed `detail`s
+// without per-call-site casts.
+declare global {
+  interface WindowEventMap {
+    "gamepad:buttondown": CustomEvent<GamepadButtonEventDetail>;
+  }
+}
 
 type Binding = { key: string; code?: string };
 
@@ -125,21 +168,18 @@ export function useGamepad() {
     trigger?.click();
   }
 
-  // Navigate backwards. If a v1 overlay (dialog, menu, picker) is
-  // active right now we defer to Escape so it closes first — one B press
-  // shouldn't both dismiss the dialog AND pop a history entry. No active
-  // overlay = plain router.back().
+  // Navigate backwards. If any v2 overlay (RDialog, RMenu, RDrawer, …)
+  // is currently open we close the topmost one first — one B press
+  // shouldn't both dismiss an overlay AND pop a history entry. With
+  // nothing open it falls through to `router.back()`.
   //
-  // Important: we key off `.v-overlay--active` rather than
-  // `.v-overlay__content` because lazy-render keeps the content element
-  // in the DOM after first activation (tooltip hovered once, menu opened
-  // once, …) so `.v-overlay__content` can linger long after the overlay
-  // is closed; `--active` is only present while the overlay is actually
-  // visible.
+  // Source of truth is the shared escape stack in
+  // `lib/overlays/RDialog/escapeStack.ts` — every escapable surface
+  // pushes itself there while open, so this check is Vuetify-free and
+  // doesn't depend on any DOM marker class.
   function goBack() {
-    const hasOpenOverlay = !!document.querySelector(".v-overlay--active");
-    if (hasOpenOverlay) {
-      dispatchKey({ key: "Escape", code: "Escape" });
+    if (hasOpenEscapable()) {
+      closeTopEscapable();
       return;
     }
     router.back();
@@ -221,21 +261,31 @@ export function useGamepad() {
           ),
         );
 
-        // Buttons. Two tracks:
+        // Buttons. Three tracks, evaluated in order:
         //   * BUTTON_MAP → synthetic keyboard event, with repeat cadence.
         //   * BUTTON_ACTIONS → one-shot callback, fires on press edge only.
-        // A button listed in both would prefer the synthetic key path; in
-        // practice they're disjoint.
+        //   * Always — emit a `gamepad:buttondown` CustomEvent so views
+        //     can opt into per-button bindings without needing to touch
+        //     useGamepad (e.g. the Player view subscribes to Y to flip
+        //     the saves/states tab).
+        // A button can be in any combination; press-edge always emits the
+        // CustomEvent regardless of built-in semantics.
         for (let i = 0; i < pad.buttons.length; i++) {
           const button = pad.buttons[i];
           const binding = BUTTON_MAP[i];
           const action = BUTTON_ACTIONS[i];
-          if (!binding && !action) continue;
           const prev = (st.buttons[i] ||= { pressed: false, nextRepeatAt: 0 });
           if (button.pressed) {
             if (!prev.pressed) {
               if (binding) dispatchKey(binding);
               else action?.();
+              // Fire the CustomEvent on every press edge so views can
+              // bind to buttons we don't otherwise reserve.
+              window.dispatchEvent(
+                new CustomEvent("gamepad:buttondown", {
+                  detail: { index: i, name: BUTTON_NAMES[i] },
+                }),
+              );
               onAnyInput();
               prev.pressed = true;
               prev.nextRepeatAt = t + INITIAL_DELAY_MS;

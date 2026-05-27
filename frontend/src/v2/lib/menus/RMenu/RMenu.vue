@@ -34,6 +34,7 @@ import {
 import type { Placement } from "@floating-ui/vue";
 import {
   computed,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   provide,
@@ -42,7 +43,13 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { useInputModality } from "@/v2/composables/useInputModality";
 import RTextField from "../../forms/RTextField/RTextField.vue";
+import {
+  type EscapableEntry,
+  popEscapable,
+  pushEscapable,
+} from "../../overlays/RDialog/escapeStack.js";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import { RMenuCloseKey } from "./context";
 
@@ -272,23 +279,36 @@ function onDocPointerDown(evt: PointerEvent) {
   close();
 }
 
-// ── Escape ──────────────────────────────────────────────────────
-function onDocKeyDown(evt: KeyboardEvent) {
-  if (!isOpen.value) return;
-  if (evt.key === "Escape") {
-    evt.stopPropagation();
-    close();
-  }
-}
+// ── Escape / B-button dismissal ────────────────────────────────
+// Register on the shared overlay-escape stack so a single global
+// listener handles Esc across menus, dialogs, drawers — and so
+// `useGamepad`'s B-back action can close the topmost overlay without
+// reaching into the DOM. LIFO ordering means nested menus close one
+// at a time (the inner-most first), matching the previous per-instance
+// `document.keydown` behaviour.
+const escEntry: EscapableEntry = {
+  close: () => close(),
+  persistent: false,
+};
+
+watch(
+  () => isOpen.value,
+  (open) => {
+    if (open) pushEscapable(escEntry);
+    else popEscapable(escEntry);
+  },
+);
 
 onMounted(() => {
   reference.value = activatorWrapper.value?.firstElementChild ?? null;
   document.addEventListener("pointerdown", onDocPointerDown, true);
-  document.addEventListener("keydown", onDocKeyDown, true);
 });
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", onDocPointerDown, true);
-  document.removeEventListener("keydown", onDocKeyDown, true);
+  // Safety: if we unmount while open (route change while the menu is
+  // visible) drop our entry so the stack doesn't dereference a dead
+  // close function.
+  popEscapable(escEntry);
 });
 
 // Re-read the reference if the slot content changes (e.g., v-if flips).
@@ -313,6 +333,66 @@ function onPanelClick(evt: MouseEvent) {
 
 const mergedContentClass = computed(() =>
   ["r-menu__panel", props.contentClass].filter(Boolean).join(" "),
+);
+
+// ── Keyboard / gamepad in-panel navigation ─────────────────────
+// Items are <button> / <router-link> rendered via RMenuItem — they're
+// natively focusable, but the panel itself doesn't react to ArrowUp /
+// ArrowDown. Add a panel-level handler so D-pad / left-stick (mapped to
+// arrows by `useGamepad`) cycle through the items.
+function focusableMenuItems(): HTMLElement[] {
+  const panel = panelRef.value;
+  if (!panel) return [];
+  return Array.from(panel.querySelectorAll<HTMLElement>(".r-menu-item")).filter(
+    (el) =>
+      !el.hasAttribute("disabled") &&
+      !el.classList.contains("r-menu-item--disabled") &&
+      el.offsetParent !== null,
+  );
+}
+
+function onPanelKeydown(evt: KeyboardEvent) {
+  if (evt.key !== "ArrowUp" && evt.key !== "ArrowDown") return;
+  const items = focusableMenuItems();
+  if (items.length === 0) return;
+  const activeIdx = items.findIndex((el) => el === document.activeElement);
+  let nextIdx: number;
+  if (evt.key === "ArrowDown") {
+    nextIdx = activeIdx === -1 ? 0 : (activeIdx + 1) % items.length;
+  } else {
+    nextIdx =
+      activeIdx === -1
+        ? items.length - 1
+        : (activeIdx - 1 + items.length) % items.length;
+  }
+  evt.preventDefault();
+  items[nextIdx]?.focus();
+}
+
+// Autofocus the first menu item when the panel opens via keyboard or
+// gamepad — mouse users keep the legacy "menu opens, pointer drives"
+// behaviour so an opened-by-hover menu doesn't yank focus away from
+// whatever the user was about to click. Skipped when `searchable` is
+// true (the search input owns initial focus).
+const { modality } = useInputModality();
+
+watch(
+  () => isOpen.value,
+  async (open) => {
+    if (!open) return;
+    if (props.searchable) return;
+    if (modality.value !== "pad" && modality.value !== "key") return;
+    await nextTick();
+    // One more frame so the panel mount + floating-ui's positioning
+    // commit before we try to focus — without it the first item is
+    // measured at (0, 0) and a follow-up `scrollIntoView` would jump
+    // the page.
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => resolve()),
+    );
+    const items = focusableMenuItems();
+    items[0]?.focus();
+  },
 );
 </script>
 
@@ -343,6 +423,7 @@ const mergedContentClass = computed(() =>
         :style="{ ...floatingStyles, width: widthCss, maxHeight: maxHeightCss }"
         role="menu"
         @click="onPanelClick"
+        @keydown="onPanelKeydown"
         @mouseenter="openOnHover && cancelHoverClose()"
         @mouseleave="openOnHover && scheduleHoverClose()"
       >

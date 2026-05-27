@@ -10,12 +10,13 @@
 // from the main ribbon by a spacer. All three share MetricMenuBtn — the
 // rating/difficulty trigger an RRating popup, completion triggers an
 // RSlider popup. Writes are optimistic via useGameActions.setScore.
-import { toRef } from "vue";
+import { ref, toRef } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SimpleRom } from "@/stores/roms";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import MetricMenuBtn from "@/v2/components/GameActions/MetricMenuBtn.vue";
 import { useGameActions } from "@/v2/composables/useGameActions";
+import { useGridNav } from "@/v2/composables/useGridNav";
 
 defineOptions({ inheritAttrs: false });
 
@@ -26,10 +27,25 @@ const props = defineProps<{
 const { t } = useI18n();
 const romRef = toRef(props, "rom");
 const actions = useGameActions(() => romRef.value);
+
+// Single-row gamepad/keyboard nav across the action ribbon. The root is
+// itself the row; cells are every action button (`.r-v2-game-btn`) plus
+// the right-side metrics (`.r-v2-metric-btn`), skipping the layout
+// spacer. On pad-modality autofocus, `focusFirst` lands on the first
+// rendered button — Play if available (template renders it first when
+// `canPlay`), otherwise Download.
+const rootEl = ref<HTMLElement | null>(null);
+useGridNav(rootEl, {
+  getRows: () => (rootEl.value ? [rootEl.value] : []),
+  getCells: (row) =>
+    Array.from(
+      row.querySelectorAll<HTMLElement>(".r-v2-game-btn, .r-v2-metric-btn"),
+    ),
+});
 </script>
 
 <template>
-  <div class="game-actions">
+  <div ref="rootEl" class="game-actions">
     <GameActionBtn
       v-if="actions.canPlay.value"
       :rom="rom"

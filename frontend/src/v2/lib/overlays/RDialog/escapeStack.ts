@@ -1,16 +1,22 @@
 // Shared Esc-key stack.
 //
-// RDialog and any nested escapable overlay (e.g. the grid-view focus
-// panel inside MatchRomBodyGrid) push themselves here while open. A
-// single window capture-phase listener consults the top of the stack
-// so Esc always closes the most recent context first — outer dialogs
-// stay open until inner ones are dismissed.
+// Every escapable v2 overlay (RDialog, RMenu, RDrawer, plus ad-hoc
+// panels like the grid-view focus inside MatchRomBodyGrid) pushes
+// itself here while open. A single window capture-phase listener
+// consults the top of the stack so Esc always closes the most recent
+// context first — outer surfaces stay open until inner ones are
+// dismissed.
 //
 // Per-instance `@keydown` on the panel only fires when the event
 // happens to bubble to it — which fails whenever a child stops
 // propagation, or whenever focus lives outside the panel (a teleported
 // listbox, the body itself). A single capture-phase listener on
 // `window` sidesteps both.
+//
+// The stack also doubles as the "is any v2 overlay currently open?"
+// registry — `useGamepad`'s B/back action calls `hasOpenEscapable()`
+// to decide between "close the top overlay" and "router.back()", so
+// gamepad dismiss and Esc share the same source of truth.
 
 export interface EscapableEntry {
   close: () => void;
@@ -52,4 +58,20 @@ export function popEscapable(entry: EscapableEntry): void {
     stack.splice(idx, 1);
     detachListener();
   }
+}
+
+/** True when at least one non-persistent escapable overlay is open.
+ *  Persistent layers still count as "open" — they block back-style
+ *  dismiss the same way Esc is a no-op for them, so the user gets
+ *  consistent behaviour across both keys. */
+export function hasOpenEscapable(): boolean {
+  return stack.length > 0;
+}
+
+/** Close the topmost escapable overlay. No-op if the stack is empty or
+ *  if the top entry is persistent. Mirrors what Esc does. */
+export function closeTopEscapable(): void {
+  const top = stack[stack.length - 1];
+  if (!top || top.persistent) return;
+  top.close();
 }

@@ -17,8 +17,13 @@
 // Use cases beyond filters: side info panels (collection / platform /
 // firmware drawers when they get migrated), context-driven settings
 // flyouts, etc.
-import { computed, nextTick, ref, useSlots, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import RIcon from "@/v2/lib/primitives/RIcon/RIcon.vue";
+import {
+  type EscapableEntry,
+  popEscapable,
+  pushEscapable,
+} from "../RDialog/escapeStack.js";
 
 defineOptions({ inheritAttrs: false });
 
@@ -72,13 +77,6 @@ function onScrimClick() {
   closeDrawer();
 }
 
-function onKeyDown(evt: KeyboardEvent) {
-  if (evt.key === "Escape" && !props.persistent) {
-    evt.stopPropagation();
-    closeDrawer();
-  }
-}
-
 // ── Body scroll lock — same reference-count pattern RDialog uses so
 // stacking (a Dialog open over a Drawer) unlocks in the right order. ──
 function lockBodyScroll() {
@@ -99,12 +97,25 @@ function unlockBodyScroll() {
   }
 }
 
+// Shared escape-stack entry — register on open so a single global
+// listener handles Esc across menus, dialogs, drawers, and so
+// `useGamepad`'s B-back closes the topmost overlay first. `persistent`
+// is read via the getter so toggles while the drawer is open are
+// respected.
+const escEntry: EscapableEntry = {
+  close: () => closeDrawer(),
+  get persistent() {
+    return props.persistent;
+  },
+};
+
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
       previouslyFocused = document.activeElement as HTMLElement | null;
       lockBodyScroll();
+      pushEscapable(escEntry);
       nextTick(() => {
         const focusTarget = panelRef.value?.querySelector<HTMLElement>(
           "[autofocus], button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
@@ -113,12 +124,17 @@ watch(
       });
     } else {
       unlockBodyScroll();
+      popEscapable(escEntry);
       previouslyFocused?.focus?.();
       previouslyFocused = null;
     }
   },
   { immediate: false },
 );
+
+// Safety net — drop the stack entry if we tear down while open (route
+// change with the drawer still visible).
+onBeforeUnmount(() => popEscapable(escEntry));
 
 // ── Width resolution ────────────────────────────────────────────
 function asLength(v: number | string): string {
@@ -147,7 +163,6 @@ const transitionName = computed(() =>
         class="r-drawer"
         :class="[`r-drawer--${side}`]"
         role="presentation"
-        @keydown="onKeyDown"
       >
         <!-- Scrim — fades in/out behind the panel. Click closes; the
              keyboard path is the Escape handler on the root, so the

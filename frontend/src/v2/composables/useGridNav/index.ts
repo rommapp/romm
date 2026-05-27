@@ -45,11 +45,17 @@ const FOCUSABLE_SELECTOR = [
 
 export interface UseGridNavOptions {
   /** Selector that resolves to one DOM element per logical row.
-   *  Defaults to `.card-row__track` (CardRow's scroll track). */
+   *  Defaults to `.card-row__track` (CardRow's scroll track). Ignored
+   *  when `getRows` is provided. */
   rowSelector?: string;
+  /** Returns the row elements. Overrides `rowSelector`. Useful when
+   *  the root element itself IS the only row (single-row toolbars
+   *  like GameDetails' action ribbon) — pass `() => [rootEl.value!]`. */
+  getRows?: () => HTMLElement[];
   /** Returns the cells of a given row. Defaults to the row's direct
    *  children. Pass `(row) => [row]` for list-mode rows where the row
-   *  element itself is the single focusable cell. */
+   *  element itself is the single focusable cell, or a custom selector
+   *  to skip non-focusable spacers / dividers. */
   getCells?: (row: HTMLElement) => HTMLElement[];
 }
 
@@ -82,6 +88,7 @@ export function useGridNav(
   }
 
   function rows(): HTMLElement[] {
+    if (options.getRows) return options.getRows();
     if (!rootRef.value) return [];
     return Array.from(rootRef.value.querySelectorAll<HTMLElement>(rowSelector));
   }
