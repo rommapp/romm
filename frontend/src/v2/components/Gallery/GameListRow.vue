@@ -34,6 +34,7 @@ import storePlatforms from "@/stores/platforms";
 import { formatBytes, toBrowserLocale } from "@/utils";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
+import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 import storeGalleryRoms, { type SimpleRom } from "@/v2/stores/galleryRoms";
@@ -128,6 +129,17 @@ const platformMeta = computed(() => {
 const providers = computed(() => {
   const item = rom.value;
   return item ? activeProviders(item) : [];
+});
+
+// Status badge surfaces only when the rom actually has a play status
+// set — otherwise GameActionBtn would render the dashed-circle
+// "no status set" placeholder on every row, which reads as visual
+// noise across a tall list. Mirrors the flags `useGameActions`
+// inspects in `currentStatusKey`.
+const hasStatus = computed(() => {
+  const ru = rom.value?.rom_user;
+  if (!ru) return false;
+  return Boolean(ru.now_playing || ru.backlogged || ru.hidden || ru.status);
 });
 
 function formatDate(value: string | null | undefined): string {
@@ -288,8 +300,20 @@ onBeforeUnmount(() => {
           :show-platform-icon="false"
         />
         <div class="game-list-row__meta">
-          <div class="game-list-row__name">
-            {{ rom.name ?? rom.fs_name_no_ext }}
+          <div class="game-list-row__name-row">
+            <div class="game-list-row__name">
+              {{ rom.name ?? rom.fs_name_no_ext }}
+            </div>
+            <div class="game-list-row__badges" @click.stop>
+              <GameActionBtn
+                v-if="hasStatus"
+                :rom="rom"
+                action="status"
+                size="x-small"
+                orientation="horizontal"
+              />
+              <SiblingBadge :rom="rom" orientation="horizontal" />
+            </div>
           </div>
           <div class="game-list-row__filename">{{ rom.fs_name }}</div>
           <div
@@ -540,6 +564,13 @@ onBeforeUnmount(() => {
   flex: 1;
 }
 
+.game-list-row__name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .game-list-row__name {
   font-size: var(--r-font-size-md);
   font-weight: var(--r-font-weight-medium);
@@ -547,6 +578,19 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+/* Inline badges next to the title — status, sibling count, etc.
+   `flex-shrink: 0` keeps them visible when the name truncates. The
+   SiblingBadge in GameCard absolute-positions itself over the cover;
+   inline here it falls back to its natural pill layout. */
+.game-list-row__badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .game-list-row__filename {

@@ -20,9 +20,18 @@ import type { SimpleRom } from "@/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{
-  rom: SimpleRom;
-}>();
+const props = withDefaults(
+  defineProps<{
+    rom: SimpleRom;
+    /** Layout direction. Mirrors GameActionBtn's `orientation` prop:
+     *  `vertical` stacks icon over count (the GameCard cover-overlay
+     *  default — fits the right-side column of badges), `horizontal`
+     *  places them side-by-side (used inline in list rows where the
+     *  badge sits next to the title). */
+    orientation?: "horizontal" | "vertical";
+  }>(),
+  { orientation: "vertical" },
+);
 
 const { t } = useI18n();
 const { groupRoms } = useUISettings();
@@ -87,7 +96,10 @@ function stopCard(e: Event) {
         v-bind="activatorProps"
         type="button"
         class="sibling-badge"
-        :class="{ 'sibling-badge--pinned': menuOpen }"
+        :class="[
+          `sibling-badge--${orientation}`,
+          { 'sibling-badge--pinned': menuOpen },
+        ]"
         :title="tooltipText"
         :aria-label="tooltipText"
         @click="stopCard"
@@ -127,7 +139,6 @@ function stopCard(e: Event) {
 .sibling-badge {
   appearance: none;
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
@@ -148,6 +159,14 @@ function stopCard(e: Event) {
     background var(--r-motion-fast) var(--r-motion-ease-out),
     border-color var(--r-motion-fast) var(--r-motion-ease-out),
     color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.sibling-badge--vertical {
+  flex-direction: column;
+}
+.sibling-badge--horizontal {
+  flex-direction: row;
+  gap: 4px;
+  padding: 4px 8px;
 }
 .sibling-badge:hover,
 .sibling-badge--pinned {

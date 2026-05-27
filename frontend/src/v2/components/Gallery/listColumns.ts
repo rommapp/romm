@@ -114,7 +114,7 @@ export function getListColumns(showPlatform: boolean): readonly ListColumn[] {
  * is inserted between `name` and `fs_size_bytes` when present so column
  * order matches the array. */
 export function getListGridTemplate(showPlatform: boolean): string {
-  const platformTrack = showPlatform ? " 170px" : "";
+  const platformTrack = showPlatform ? " 200px" : "";
   return `36px minmax(0, 1.6fr)${platformTrack} 88px 96px 84px 56px 110px 110px 88px`;
 }
 
