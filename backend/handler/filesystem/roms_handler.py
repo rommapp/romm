@@ -24,7 +24,7 @@ from exceptions.fs_exceptions import (
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
-from utils.archive_7zip import read_7z_archive_files
+from utils.archive_7zip import read_7z_archive_files, read_rar_archive_files
 from utils.archives import (
     detect_mime_type,
     extract_chd_hash,
@@ -112,6 +112,29 @@ def category_matches(category: str, path_parts: list[str]):
 DEFAULT_CRC_C = 0
 DEFAULT_MD5_H_DIGEST = hashlib.md5(usedforsecurity=False).digest()
 DEFAULT_SHA1_H_DIGEST = hashlib.sha1(usedforsecurity=False).digest()
+
+# Multi-file archive readers, keyed by lowercased file extension.
+ARCHIVE_READERS = {
+    ".zip": read_zip_archive_files,
+    ".tar": read_tar_archive_files,
+    ".7z": read_7z_archive_files,
+    ".rar": read_rar_archive_files,
+}
+
+
+def _make_file_hash(
+    crc_c: int, md5_h: Any, sha1_h: Any, chd_sha1_hash: str = ""
+) -> FileHash:
+    """Build a FileHash, blanking each field whose hasher state is still the default."""
+    return FileHash(
+        crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
+        md5_hash=md5_h.hexdigest() if md5_h.digest() != DEFAULT_MD5_H_DIGEST else "",
+        sha1_hash=(
+            sha1_h.hexdigest() if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST else ""
+        ),
+        chd_sha1_hash=chd_sha1_hash,
+    )
+
 
 VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)[\s_-]?(.*)", re.I)
 REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
@@ -410,32 +433,15 @@ class FSRomsHandler(FSHandler):
                         file_hash=file_hash,
                     )
                 )
-        elif hashable_platform and rom_ext in {".zip", ".tar", ".7z"}:
+        elif hashable_platform and rom_ext in ARCHIVE_READERS:
             # Multi-file archive: compute per-file individual hashes + composite,
             # mirroring the folder-based multi-part ROM behaviour above.
-            archive_entries: list[tuple[str, int, list[bytes]]] = []
-
-            if rom_ext == ".zip":
-                archive_entries = await asyncio.to_thread(
-                    read_zip_archive_files,
-                    rom_dir,
-                    DEFAULT_EXCLUDED_FILES,
-                    DEFAULT_EXCLUDED_EXTENSIONS,
-                )
-            elif rom_ext == ".tar":
-                archive_entries = await asyncio.to_thread(
-                    read_tar_archive_files,
-                    rom_dir,
-                    DEFAULT_EXCLUDED_FILES,
-                    DEFAULT_EXCLUDED_EXTENSIONS,
-                )
-            elif rom_ext == ".7z":
-                archive_entries = await asyncio.to_thread(
-                    read_7z_archive_files,
-                    rom_dir,
-                    DEFAULT_EXCLUDED_FILES,
-                    DEFAULT_EXCLUDED_EXTENSIONS,
-                )
+            archive_entries = await asyncio.to_thread(
+                ARCHIVE_READERS[rom_ext],
+                rom_dir,
+                DEFAULT_EXCLUDED_FILES,
+                DEFAULT_EXCLUDED_EXTENSIONS,
+            )
 
             if archive_entries:
                 archive_mtime = (await AnyioPath(rom_dir).stat()).st_mtime
@@ -451,26 +457,12 @@ class FSRomsHandler(FSHandler):
                         rom_crc_c = binascii.crc32(chunk, rom_crc_c)
                         rom_md5_h.update(chunk)
                         rom_sha1_h.update(chunk)
-                    file_hash = FileHash(
-                        crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
-                        md5_hash=(
-                            md5_h.hexdigest()
-                            if md5_h.digest() != DEFAULT_MD5_H_DIGEST
-                            else ""
-                        ),
-                        sha1_hash=(
-                            sha1_h.hexdigest()
-                            if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
-                            else ""
-                        ),
-                        chd_sha1_hash="",
-                    )
                     rom_files.append(
                         self._build_rom_file(
                             rom=rom,
                             rom_path=Path(rel_roms_path),
                             file_name=internal_name,
-                            file_hash=file_hash,
+                            file_hash=_make_file_hash(crc_c, md5_h, sha1_h),
                             file_size_bytes=entry_size,
                             last_modified=archive_mtime,
                         )

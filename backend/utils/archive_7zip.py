@@ -189,3 +189,15 @@ def read_7z_archive_files(
         output.append((name, size, chunks))
 
     return output
+
+
+def read_rar_archive_files(
+    file_path: Path,
+    excluded_names: list[str],
+    excluded_exts: list[str],
+) -> list[tuple[str, int, list[bytes]]]:
+    """Read all eligible files from a RAR archive, sorted by internal path (ASCII).
+
+    Delegates to the 7zz binary, which natively supports RAR (v3-v5, read-only).
+    """
+    return read_7z_archive_files(file_path, excluded_names, excluded_exts)
