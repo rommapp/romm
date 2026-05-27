@@ -9,10 +9,10 @@ from config.config_manager import LIBRARY_BASE_PATH, Config
 from handler.filesystem.roms_handler import (
     FileHash,
     FSRomsHandler,
-    extract_chd_hash,
 )
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
+from utils.archives import extract_chd_hash
 
 
 class TestFSRomsHandler:
