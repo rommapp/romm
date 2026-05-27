@@ -1,15 +1,11 @@
 """Tests for the IGDB metadata handler."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from adapters.services.igdb_types import GameType
-from handler.metadata.igdb_handler import (
-    IGDBHandler,
-    build_igdb_rom,
-    get_igdb_preferred_release_regions,
-)
+from handler.metadata.igdb_handler import IGDBHandler
 
 GENESIS_IGDB_ID = 29
 
@@ -46,7 +42,6 @@ def _make_game(game_id: int, name: str) -> dict:
         "age_ratings": [],
         "multiplayer_modes": [],
         "game_localizations": [],
-        "release_dates": [],
     }
 
 
@@ -160,37 +155,3 @@ class TestSearchRomGameTypeFilter:
             f"Expected Ecco: The Tides of Time (id=5379), got {result.get('name')} (id={result.get('id')}). "
             "The expanded search must consider ALL results, not just the first."
         )
-
-
-class TestIgdbReleaseDates:
-    def test_build_igdb_rom_prefers_region_specific_release_date(self):
-        handler = IGDBHandler()
-        game = _make_game(5379, "Ecco: The Tides of Time")
-        game["first_release_date"] = 672537600  # 1991-04-16
-        game["release_dates"] = [
-            {"date": 632448000, "region": 2, "platform": {"id": GENESIS_IGDB_ID}},  # US
-            {"date": 593568000, "region": 5, "platform": {"id": GENESIS_IGDB_ID}},  # JP
-        ]
-
-        rom = build_igdb_rom(
-            handler=handler,
-            rom=game,
-            preferred_locale="ja-JP",
-            preferred_release_regions=[5, 2, 1],
-            platform_igdb_id=GENESIS_IGDB_ID,
-        )
-
-        assert rom["igdb_metadata"]["first_release_date"] == 593568000
-
-    def test_get_igdb_preferred_release_regions_prefers_rom_tags(self):
-        rom = MagicMock()
-        rom.regions = ["Japan", "USA"]
-
-        with patch(
-            "handler.metadata.igdb_handler.cm.get_config",
-            return_value=MagicMock(SCAN_REGION_PRIORITY=["us", "eu"]),
-        ):
-            regions = get_igdb_preferred_release_regions(rom=rom)
-
-        assert regions[0] == 2  # North America (US)
-        assert regions[1] == 5  # Japan
