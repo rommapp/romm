@@ -195,15 +195,13 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
     # Try to resolve hostname as IP address
     try:
         ip = ipaddress.ip_address(hostname)
-
         if _is_forbidden_ip(ip):
             msg = f"Invalid {field_name}: private, internal, reserved, or multicast IP addresses are not allowed"
             log.error(f"SSRF prevention: {msg} - IP '{ip}'")
             raise ValidationError(msg, field_name)
 
-        # Literal IP — DNS resolution is not needed, allow it.
+        # DNS resolution is not needed, allow it
         return
-
     except ValueError as e:
         # ipaddress.ip_address() only handles standard notation. HTTP clients
         # also accept hex integers (0x7f000001), decimal integers (2130706433),
@@ -218,11 +216,11 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
                 log.error(f"SSRF prevention: {msg} - IP '{ip}'")
                 raise ValidationError(msg, field_name)
 
-            # Non-standard IPv4 literal — already validated above, allow it.
+            # Non-standard IPv4 literal
             return
 
         except OSError:
-            pass  # Not an IP address at all - fall through to domain name checks
+            pass  # Fall through to domain name checks
 
         # Additional checks for suspicious domain patterns
         hostname_lower = hostname.lower()
@@ -251,6 +249,7 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
             resolved_ip = ipaddress.ip_address(sockaddr[0])
         except ValueError:
             continue
+
         if _is_forbidden_ip(resolved_ip):
             msg = (
                 f"Invalid {field_name}: hostname resolves to a private, "
