@@ -125,14 +125,26 @@ class SSRFProtectedAsyncBackend(AsyncNetworkBackend):
     def __init__(self, inner: AsyncNetworkBackend | None = None) -> None:
         self._inner = inner if inner is not None else AutoBackend()
 
+    # `timeout` parameter is required by AsyncNetworkBackend.connect_tcp;
+    # ruff/ASYNC109 advises against timeout parameters on async APIs *we*
+    # author, but we are implementing an external interface here. The
+    # timeout is consumed via `asyncio.timeout()` below, which is the
+    # asyncio-native pattern ASYNC109 endorses.
     async def connect_tcp(
         self,
         host: str,
         port: int,
-        timeout: float | None = None,
+        timeout: float | None = None,  # noqa: ASYNC109
         local_address: str | None = None,
         socket_options: typing.Iterable[SOCKET_OPTION] | None = None,
     ) -> AsyncNetworkStream:
+        """Validate the resolved IP, then connect via the inner backend.
+
+        The DNS lookup is wrapped in `asyncio.timeout()` so a slow
+        resolver is bounded by the caller's timeout. The previous code
+        only timed out the TCP connect inside the inner backend, leaving
+        `loop.getaddrinfo` unbounded.
+        """
         if _check_literal(host):
             return await self._inner.connect_tcp(
                 host, port, timeout, local_address, socket_options
@@ -140,10 +152,15 @@ class SSRFProtectedAsyncBackend(AsyncNetworkBackend):
 
         loop = asyncio.get_running_loop()
         try:
-            addr_infos = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+            async with asyncio.timeout(timeout):
+                addr_infos = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
         except socket.gaierror as exc:
             raise httpcore.ConnectError(
                 f"DNS resolution failed for {host!r}: {exc}"
+            ) from exc
+        except TimeoutError as exc:
+            raise httpcore.ConnectTimeout(
+                f"DNS resolution timed out for {host!r}"
             ) from exc
 
         pinned_ip = _pick_safe_address(addr_infos, host)
@@ -151,10 +168,11 @@ class SSRFProtectedAsyncBackend(AsyncNetworkBackend):
             pinned_ip, port, timeout, local_address, socket_options
         )
 
+    # See note on connect_tcp re: ASYNC109 / interface implementation.
     async def connect_unix_socket(
         self,
         path: str,
-        timeout: float | None = None,
+        timeout: float | None = None,  # noqa: ASYNC109
         socket_options: typing.Iterable[SOCKET_OPTION] | None = None,
     ) -> AsyncNetworkStream:
         return await self._inner.connect_unix_socket(path, timeout, socket_options)

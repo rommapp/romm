@@ -2,6 +2,7 @@
 
 import asyncio
 import socket
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import httpcore
@@ -16,25 +17,33 @@ from utils.ssrf import (
 )
 from utils.validation import ValidationError
 
+ConnectCall = tuple[tuple[Any, ...], dict[str, Any]]
 
-def _addr_info(ip: str, port: int):
+
+def _addr_info(ip: str, port: int) -> list[tuple[Any, ...]]:
     family = socket.AF_INET6 if ":" in ip else socket.AF_INET
     return [(family, socket.SOCK_STREAM, 0, "", (ip, port))]
 
 
-def _stub_async_inner(connect_calls: list):
+def _stub_async_inner(connect_calls: list[ConnectCall]) -> MagicMock:
     inner = MagicMock()
-    inner.connect_tcp = AsyncMock(
-        side_effect=lambda *a, **kw: connect_calls.append((a, kw)) or MagicMock()
-    )
+
+    def _record(*args: Any, **kwargs: Any) -> MagicMock:
+        connect_calls.append((args, kwargs))
+        return MagicMock()
+
+    inner.connect_tcp = AsyncMock(side_effect=_record)
     return inner
 
 
-def _stub_sync_inner(connect_calls: list):
+def _stub_sync_inner(connect_calls: list[ConnectCall]) -> MagicMock:
     inner = MagicMock()
-    inner.connect_tcp = MagicMock(
-        side_effect=lambda *a, **kw: connect_calls.append((a, kw)) or MagicMock()
-    )
+
+    def _record(*args: Any, **kwargs: Any) -> MagicMock:
+        connect_calls.append((args, kwargs))
+        return MagicMock()
+
+    inner.connect_tcp = MagicMock(side_effect=_record)
     return inner
 
 
@@ -87,7 +96,7 @@ class TestParseIpLiteral:
 class TestSSRFProtectedAsyncBackend:
     async def test_safe_hostname_connects_to_pinned_ip(self, monkeypatch):
         """Backend resolves once, validates, and passes the pinned IP to inner."""
-        calls = []
+        calls: list[ConnectCall] = []
         inner = _stub_async_inner(calls)
         backend = SSRFProtectedAsyncBackend(inner=inner)
 
@@ -140,7 +149,7 @@ class TestSSRFProtectedAsyncBackend:
         inner.connect_tcp.assert_not_called()
 
     async def test_literal_public_ip_passes_through(self):
-        calls = []
+        calls: list[ConnectCall] = []
         inner = _stub_async_inner(calls)
         backend = SSRFProtectedAsyncBackend(inner=inner)
         await backend.connect_tcp("8.8.8.8", 443)
@@ -153,6 +162,26 @@ class TestSSRFProtectedAsyncBackend:
         backend = SSRFProtectedAsyncBackend(inner=inner)
         with pytest.raises(httpcore.ConnectError, match="forbidden IP"):
             await backend.connect_tcp("2130706433", 80)  # 127.0.0.1
+        inner.connect_tcp.assert_not_called()
+
+    async def test_dns_timeout_raises_connect_timeout(self, monkeypatch):
+        """A resolver that hangs past the caller's timeout must not block forever.
+
+        Regression: an earlier version applied the caller's timeout only to
+        the TCP connect inside the inner backend, leaving `loop.getaddrinfo`
+        unbounded. We now wrap the lookup in `asyncio.timeout()` so a slow
+        resolver is bounded by the same budget the caller specified.
+        """
+        inner = _stub_async_inner([])
+        backend = SSRFProtectedAsyncBackend(inner=inner)
+
+        async def hang_forever(*args, **kwargs):
+            await asyncio.sleep(3600)
+
+        monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", hang_forever)
+
+        with pytest.raises(httpcore.ConnectTimeout, match="DNS resolution timed out"):
+            await backend.connect_tcp("slow.example.com", 80, timeout=0.05)
         inner.connect_tcp.assert_not_called()
 
     async def test_dns_failure_propagates_as_connect_error(self, monkeypatch):
@@ -171,7 +200,7 @@ class TestSSRFProtectedAsyncBackend:
 
 class TestSSRFProtectedSyncBackend:
     def test_safe_hostname_connects_to_pinned_ip(self, monkeypatch):
-        calls = []
+        calls: list[ConnectCall] = []
         inner = _stub_sync_inner(calls)
         backend = SSRFProtectedSyncBackend(inner=inner)
 
