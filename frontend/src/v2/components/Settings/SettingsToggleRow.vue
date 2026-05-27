@@ -8,7 +8,7 @@
 // nested button. The row's outer `<button role="switch">` owns the
 // interaction (click, keyboard, aria-checked).
 import { RSwitch } from "@v2/lib";
-import { computed } from "vue";
+import { computed, useSlots } from "vue";
 
 defineOptions({ inheritAttrs: false });
 
@@ -28,6 +28,7 @@ const emit = defineEmits<{
   (e: "update:modelValue", value: boolean): void;
 }>();
 
+const slots = useSlots();
 const ariaPressed = computed(() => props.modelValue);
 
 function toggle() {
@@ -56,6 +57,23 @@ function toggle() {
         {{ description }}
       </span>
     </span>
+    <!-- Optional inline control slot — for per-row secondary widgets
+         (e.g. a "Compact / Extended" segmented control for the
+         Library Snapshot widget toggle). Click events stop here so
+         nested interactive controls don't bubble up and flip the row
+         toggle; mousedown is stopped too so `<RSliderBtnGroup>`'s
+         pointer-based active-pill animation doesn't trigger a row
+         click on release. */
+    -->
+    <span
+      v-if="slots.append"
+      class="r-v2-toggle-row__append"
+      @click.stop
+      @mousedown.stop
+      @keydown.stop
+    >
+      <slot name="append" />
+    </span>
     <RSwitch
       :model-value="modelValue"
       :disabled="disabled"
@@ -68,7 +86,12 @@ function toggle() {
 <style scoped>
 .r-v2-toggle-row {
   display: flex;
-  align-items: flex-start;
+  /* Centre the switch (and any `#append` control) against the row's
+     full height instead of the label's baseline — when the row has
+     both a label and a description, the trailing control should sit
+     at the visual midpoint of the two-line block, not next to the
+     label. */
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 14px 16px;
@@ -115,11 +138,13 @@ function toggle() {
   line-height: 1.4;
 }
 
-/* Nudge the static switch down by 2px so its track aligns with the
-   label baseline — `align-items: flex-start` on the row otherwise
-   parks the switch flush at the top, above the label. */
 .r-v2-toggle-row__switch {
-  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.r-v2-toggle-row__append {
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
 }
 </style>

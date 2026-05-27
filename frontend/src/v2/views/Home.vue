@@ -11,6 +11,7 @@ import { RChip, RDivider, RIcon, RSkeletonBlock } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useUISettings } from "@/composables/useUISettings";
 import { ROUTES } from "@/plugins/router";
 import setupApi, { type SetupLibraryInfo } from "@/services/api/setup";
 import storeCollections from "@/stores/collections";
@@ -19,6 +20,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import CollectionTile from "@/v2/components/Collections/CollectionTile.vue";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
 import CardRow from "@/v2/components/Home/CardRow.vue";
+import WidgetBar from "@/v2/components/Home/Widgets/WidgetBar.vue";
 import PlatformTile from "@/v2/components/Platforms/PlatformTile.vue";
 import { useGridNav } from "@/v2/composables/useGridNav";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
@@ -30,6 +32,13 @@ const romsStore = storeRoms();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
 const { supportsWebp, toWebp } = useWebpSupport();
+const {
+  showHomeWidgets,
+  showRecentRoms,
+  showContinuePlaying,
+  showPlatforms,
+  showCollections,
+} = useUISettings();
 
 const { recentRoms, continuePlayingRoms } = storeToRefs(romsStore);
 const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
@@ -236,9 +245,17 @@ function collectionCovers(c: {
     </section>
 
     <template v-else>
+      <!-- Widget bar — random pick, library snapshot, future RA widgets.
+           Hidden when the master toggle is off; the bar itself also
+           drops out when every individual widget is disabled. -->
+      <WidgetBar v-if="showHomeWidgets" />
+
       <!-- Continue playing -->
       <CardRow
-        v-if="continuePlayingRoms.length || fetchingContinue"
+        v-if="
+          showContinuePlaying &&
+          (continuePlayingRoms.length || fetchingContinue)
+        "
         :title="t('home.continue-playing')"
         :count="continuePlayingRoms.length"
       >
@@ -260,7 +277,11 @@ function collectionCovers(c: {
       </CardRow>
 
       <!-- Recently added -->
-      <CardRow :title="t('home.recently-added')" :count="recentRoms.length">
+      <CardRow
+        v-if="showRecentRoms"
+        :title="t('home.recently-added')"
+        :count="recentRoms.length"
+      >
         <template #icon>
           <RIcon icon="mdi-shimmer" size="20" />
         </template>
@@ -299,6 +320,7 @@ function collectionCovers(c: {
 
       <!-- Platforms -->
       <CardRow
+        v-if="showPlatforms"
         :title="t('common.platforms')"
         :count="filledPlatforms.length"
         gap="16px"
@@ -330,7 +352,7 @@ function collectionCovers(c: {
 
       <!-- Collections -->
       <CardRow
-        v-if="allCollections.length || fetchingCollections"
+        v-if="showCollections && (allCollections.length || fetchingCollections)"
         :title="t('common.collections')"
         :count="allCollections.length"
         gap="16px"

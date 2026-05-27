@@ -31,12 +31,19 @@ const props = withDefaults(
     /** Disable the whole cluster — dims the container and blocks clicks on
      *  every item, regardless of per-item `disabled`. */
     disabled?: boolean;
+    /** Button size. `small` (default) keeps the existing 28×28
+     *  segmented vocabulary so every existing call site stays
+     *  identical. `x-small` shrinks to 22×22 so the cluster reads as
+     *  a peer to RSwitch default (20px) when placed inline inside a
+     *  toggle row — mirrors RBtn's x-small / small ladder. */
+    size?: "x-small" | "small";
   }>(),
   {
     variant: "segmented",
     orientation: "horizontal",
     ariaLabel: undefined,
     disabled: false,
+    size: "small",
   },
 );
 
@@ -174,6 +181,7 @@ onBeforeUnmount(() => {
     :class="[
       `r-slider-btn-group--${variant}`,
       `r-slider-btn-group--${orientation}`,
+      `r-slider-btn-group--size-${size}`,
       { 'r-slider-btn-group--disabled': disabled },
     ]"
     :aria-label="ariaLabel"
@@ -399,6 +407,23 @@ onBeforeUnmount(() => {
 .r-slider-btn-group--segmented .r-slider-btn-group__btn--active,
 .r-slider-btn-group--segmented .r-slider-btn-group__btn--active:hover {
   color: var(--r-color-bg) !important;
+}
+
+/* x-small segmented — 22×22 button cluster, matches RBtn's x-small
+   token so the segmented control reads as a peer to a 20px RSwitch
+   when sitting inline inside a SettingsToggleRow. Default `small`
+   (28×28) keeps every existing call site identical. */
+.r-slider-btn-group--segmented.r-slider-btn-group--size-x-small
+  .r-slider-btn-group__btn {
+  min-width: 22px !important;
+  min-height: 22px !important;
+  width: 22px !important;
+  height: 22px !important;
+}
+.r-slider-btn-group--segmented.r-slider-btn-group--size-x-small
+  .r-slider-btn-group__btn
+  :deep(.mdi) {
+  font-size: 12px !important;
 }
 
 /* Tab sizing + colors. Min-height is set explicitly (and !important)

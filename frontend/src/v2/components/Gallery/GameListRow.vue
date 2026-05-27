@@ -35,6 +35,7 @@ import { formatBytes, toBrowserLocale } from "@/utils";
 import GameActionBtn from "@/v2/components/GameActions/GameActionBtn.vue";
 import GameCard from "@/v2/components/GameCard/GameCard.vue";
 import SiblingBadge from "@/v2/components/GameCard/SiblingBadge.vue";
+import { useBackgroundArt } from "@/v2/composables/useBackgroundArt";
 import { useGallerySelectionInput } from "@/v2/composables/useGallerySelectionInput";
 import { useViewTransition } from "@/v2/composables/useViewTransition";
 import storeGalleryRoms, { type SimpleRom } from "@/v2/stores/galleryRoms";
@@ -86,7 +87,10 @@ const selection = storeGallerySelection();
 const selectionInput = useGallerySelectionInput();
 const platformsStore = storePlatforms();
 const { morphTransition } = useViewTransition();
+const setBgArt = useBackgroundArt();
 const { locale } = useI18n();
+
+const EXTENSION_REGEX = /\.(png|jpg|jpeg)$/i;
 
 const columns = computed(() => getListColumns(props.showPlatformColumn));
 const listSkeletonColumns = columns;
@@ -214,6 +218,23 @@ function onRowClick(e: MouseEvent) {
   navigateTo(item, e.currentTarget as HTMLElement | null);
 }
 
+// Mirror of GameCard's onHighlight: swap the AppLayout backdrop to the
+// hovered/focused row's cover. Skipped in static mode (non-gallery
+// surfaces like Settings → Missing games don't drive a backdrop).
+function onRowHighlight() {
+  if (isStatic.value) return;
+  const item = rom.value;
+  if (!item) return;
+  const path = item.path_cover_large ?? item.path_cover_small ?? null;
+  const coverUrl = path
+    ? props.webp
+      ? path.replace(EXTENSION_REGEX, ".webp")
+      : path
+    : null;
+  if (coverUrl) setBgArt(coverUrl);
+  else if (item.url_cover) setBgArt(item.url_cover);
+}
+
 function onRowPointerDown(e: PointerEvent) {
   const item = rom.value;
   if (!item || isStatic.value || props.position === undefined) return;
@@ -262,6 +283,8 @@ onBeforeUnmount(() => {
     :data-rom-id="rom?.id"
     :data-focus-key="rom ? `rom-${rom.id}` : undefined"
     @click="onRowClick"
+    @mouseenter="onRowHighlight"
+    @focus="onRowHighlight"
     @pointerdown="onRowPointerDown"
     @pointermove="onRowPointerMove"
     @pointerup="onRowPointerEnd"

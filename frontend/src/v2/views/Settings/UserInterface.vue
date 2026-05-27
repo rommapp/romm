@@ -12,13 +12,15 @@
 // The v1 "Platforms drawer" section was removed (no equivalent in v2).
 // `useUISettings` still exposes `platformsGroupBy` for v1 — we just
 // don't surface it here.
-import { RIcon, RSelect, RTag } from "@v2/lib";
+import { RIcon, RSelect, RSliderBtnGroup, RTag } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
 import { useUiVersion } from "@/composables/useUiVersion";
 import storeCollections from "@/stores/collections";
+import WidgetReorderList from "@/v2/components/Home/Widgets/WidgetReorderList.vue";
 import SettingsSection from "@/v2/components/Settings/SettingsSection.vue";
+import SettingsSubsection from "@/v2/components/Settings/SettingsSubsection.vue";
 import SettingsToggleRow from "@/v2/components/Settings/SettingsToggleRow.vue";
 import LanguageSelector from "@/v2/components/shared/LanguageSelector.vue";
 
@@ -29,11 +31,16 @@ const collectionsStore = storeCollections();
 const {
   theme: selectedTheme,
   // Home
-  showStats,
   showRecentRoms,
   showContinuePlaying,
   showPlatforms,
   showCollections,
+  // Home widgets (v2 only)
+  showHomeWidgets,
+  widgetRandomPick,
+  widgetLibraryStats,
+  libraryStatsMode,
+  widgetOrder,
   // Gallery
   groupRoms,
   showRegions,
@@ -99,6 +106,21 @@ const boxartStyleItems = computed(() => [
   { title: t("settings.boxart-miximage"), value: "miximage_path" },
 ]);
 
+const libraryStatsModeItems = computed(() => [
+  {
+    id: "compact",
+    icon: "mdi-view-agenda-outline",
+    ariaLabel: t("settings.widget-library-stats-compact"),
+    title: t("settings.widget-library-stats-compact"),
+  },
+  {
+    id: "extended",
+    icon: "mdi-view-list-outline",
+    ariaLabel: t("settings.widget-library-stats-extended"),
+    title: t("settings.widget-library-stats-extended"),
+  },
+]);
+
 const virtualCollectionTypeItems = computed(() => [
   { title: t("settings.vc-collection"), value: "collection" },
   { title: t("settings.vc-franchise"), value: "franchise" },
@@ -142,35 +164,83 @@ function onVirtualCollectionTypeChange(value: unknown) {
       </div>
     </SettingsSection>
 
-    <!-- Home: 5 toggles in a 2-col grid -->
+    <!-- Home: sections + widgets, split into two subsections inside
+         a single card so the visual hierarchy reads as one cohesive
+         Home settings region. -->
     <SettingsSection :title="t('settings.home')" icon="mdi-home-outline">
-      <div class="r-v2-ui__toggle-grid">
-        <SettingsToggleRow
-          v-model="showStats"
-          :title="t('settings.show-stats')"
-          :description="t('settings.show-stats-desc')"
-        />
-        <SettingsToggleRow
-          v-model="showRecentRoms"
-          :title="t('settings.show-recently-added')"
-          :description="t('settings.show-recently-added-desc')"
-        />
-        <SettingsToggleRow
-          v-model="showContinuePlaying"
-          :title="t('settings.show-continue-playing')"
-          :description="t('settings.show-continue-playing-desc')"
-        />
-        <SettingsToggleRow
-          v-model="showPlatforms"
-          :title="t('settings.show-platforms')"
-          :description="t('settings.show-platforms-desc')"
-        />
-        <SettingsToggleRow
-          v-model="showCollections"
-          :title="t('settings.show-collections')"
-          :description="t('settings.show-collections-desc')"
-        />
-      </div>
+      <SettingsSubsection
+        :title="t('settings.home-sections')"
+        icon="mdi-view-list-outline"
+      >
+        <div class="r-v2-ui__toggle-grid">
+          <SettingsToggleRow
+            v-model="showRecentRoms"
+            :title="t('settings.show-recently-added')"
+            :description="t('settings.show-recently-added-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showContinuePlaying"
+            :title="t('settings.show-continue-playing')"
+            :description="t('settings.show-continue-playing-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showPlatforms"
+            :title="t('settings.show-platforms')"
+            :description="t('settings.show-platforms-desc')"
+          />
+          <SettingsToggleRow
+            v-model="showCollections"
+            :title="t('settings.show-collections')"
+            :description="t('settings.show-collections-desc')"
+          />
+        </div>
+      </SettingsSubsection>
+
+      <SettingsSubsection
+        :title="t('settings.home-widgets')"
+        icon="mdi-view-dashboard-outline"
+      >
+        <div class="r-v2-ui__toggle-grid">
+          <SettingsToggleRow
+            v-model="showHomeWidgets"
+            :title="t('settings.show-home-widgets')"
+            :description="t('settings.show-home-widgets-desc')"
+          />
+          <SettingsToggleRow
+            v-model="widgetRandomPick"
+            :title="t('settings.widget-random-pick')"
+            :description="t('settings.widget-random-pick-desc')"
+            :disabled="!showHomeWidgets"
+          />
+          <SettingsToggleRow
+            v-model="widgetLibraryStats"
+            :title="t('settings.widget-library-stats')"
+            :description="t('settings.widget-library-stats-desc')"
+            :disabled="!showHomeWidgets"
+          >
+            <template #append>
+              <!-- Compact / Extended segmented control. Lives inside
+                   the row so its scope reads at a glance — clicks
+                   are stopped by the slot wrapper in SettingsToggleRow
+                   so toggling the segmented control doesn't also flip
+                   the row's main switch. -->
+              <RSliderBtnGroup
+                v-model="libraryStatsMode"
+                :items="libraryStatsModeItems"
+                variant="segmented"
+                size="x-small"
+                :disabled="!showHomeWidgets || !widgetLibraryStats"
+                :aria-label="t('settings.widget-library-stats-mode')"
+              />
+            </template>
+          </SettingsToggleRow>
+        </div>
+        <!-- Reorder list — drag handles let users decide the
+             left-to-right order the widgets paint on Home. Disabled
+             ones still show up so users can prep order before
+             toggling them on. -->
+        <WidgetReorderList v-model="widgetOrder" :disabled="!showHomeWidgets" />
+      </SettingsSubsection>
     </SettingsSection>
 
     <!-- Gallery: 7 toggles + boxart-style select -->
@@ -327,6 +397,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
   gap: 1px;
   background: var(--r-color-border);
 }
+
 .r-v2-ui__toggle-grid--single {
   grid-template-columns: 1fr;
 }
