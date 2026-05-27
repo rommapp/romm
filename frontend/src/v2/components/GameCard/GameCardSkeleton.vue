@@ -41,10 +41,7 @@ const artHeight = computed(() =>
 <template>
   <div
     class="r-gcs"
-    :class="[
-      size !== 'md' && `r-gcs--size-${size}`,
-      { 'r-gcs--hero': hero },
-    ]"
+    :class="[size !== 'md' && `r-gcs--size-${size}`, { 'r-gcs--hero': hero }]"
   >
     <RSkeletonBlock
       :width="artWidth"

@@ -8,7 +8,7 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
@@ -33,9 +33,12 @@ const validForm = ref(false);
 const showConfirmDeleteManual = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 
+// `files` only ships on DetailedRom; `rom` is reassigned to the detailed
+// payload returned by the update/refresh API calls. Mirror the cast used
+// by `getNintendoDSFiles` in utils.
 const soundtrackTracks = computed(
   () =>
-    rom.value?.files
+    (rom.value as DetailedRom | null)?.files
       ?.filter((f) => f.category === "soundtrack")
       .slice()
       .sort((a, b) => a.file_name.localeCompare(b.file_name)) ?? [],

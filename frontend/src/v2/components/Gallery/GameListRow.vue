@@ -348,7 +348,6 @@ onBeforeUnmount(() => {
               v-for="provider in providers"
               :key="provider.key"
               class="game-list-row__provider"
-              :title="provider.title"
               :style="provider.bg ? { background: provider.bg } : undefined"
             >
               <img
@@ -356,6 +355,11 @@ onBeforeUnmount(() => {
                 :alt="provider.title"
                 width="14"
                 height="14"
+              />
+              <RTooltip
+                activator="parent"
+                :text="provider.title"
+                location="top"
               />
             </span>
           </div>

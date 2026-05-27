@@ -90,7 +90,10 @@ export type Events = {
   filterRoms: null;
   firmwareDrawerShow: null;
   sortBarShow: null;
-  showQRCodeDialog: DetailedRom;
+  // The QR dialog only reads SimpleRom fields (name, fs_name, extension)
+  // and the NDS/download helpers all accept SimpleRom, so gallery surfaces
+  // (which only ever hold SimpleRom) can trigger it too.
+  showQRCodeDialog: SimpleRom;
   selectSaveDialog: DetailedRom;
   selectStateDialog: DetailedRom;
   saveSelected: SaveSchema;
