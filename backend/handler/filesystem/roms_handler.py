@@ -425,8 +425,10 @@ class FSRomsHandler(FSHandler):
                     )
                 )
         elif hashable_platform and rom_ext in ARCHIVE_READERS:
-            # Multi-file archive: compute per-file individual hashes + composite,
-            # mirroring the folder-based multi-part ROM behaviour above.
+            # Multi-file archive: compute a composite hash across all
+            # internal entries (in ASCII path order) for hash-database
+            # matching, while still emitting a single RomFile for the
+            # archive file itself.
             archive_entries = await asyncio.to_thread(
                 ARCHIVE_READERS[rom_ext],
                 rom_dir,
@@ -435,29 +437,24 @@ class FSRomsHandler(FSHandler):
             )
 
             if archive_entries:
-                archive_mtime = (await AnyioPath(rom_dir).stat()).st_mtime
                 assert rom_md5_h is not None and rom_sha1_h is not None
-                for internal_name, entry_size, chunks in archive_entries:
-                    crc_c = 0
-                    md5_h = hashlib.md5(usedforsecurity=False)
-                    sha1_h = hashlib.sha1(usedforsecurity=False)
+                # Stream each entry into the composite hash. Internal members
+                # are not surfaced as RomFile rows — only the archive file
+                # itself exists on disk, so emitting per-member RomFiles would
+                # produce full_paths that point nowhere and break downloads.
+                for _internal_name, _entry_size, chunks in archive_entries:
                     for chunk in chunks:
-                        crc_c = binascii.crc32(chunk, crc_c)
-                        md5_h.update(chunk)
-                        sha1_h.update(chunk)
                         rom_crc_c = binascii.crc32(chunk, rom_crc_c)
                         rom_md5_h.update(chunk)
                         rom_sha1_h.update(chunk)
-                    rom_files.append(
-                        self._build_rom_file(
-                            rom=rom,
-                            rom_path=Path(rel_roms_path),
-                            file_name=internal_name,
-                            file_hash=_make_file_hash(crc_c, md5_h, sha1_h),
-                            file_size_bytes=entry_size,
-                            last_modified=archive_mtime,
-                        )
+                rom_files.append(
+                    self._build_rom_file(
+                        rom=rom,
+                        rom_path=Path(rel_roms_path),
+                        file_name=rom.fs_name,
+                        file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
                     )
+                )
             else:
                 # Empty, malformed, or all-excluded archive: hash the archive file itself
                 try:
