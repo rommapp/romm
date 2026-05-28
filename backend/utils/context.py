@@ -8,6 +8,11 @@ import httpx
 from fastapi import Request, Response
 
 from config import has_proxy_env
+from utils.ssrf import (
+    install_async_ssrf_protection,
+    install_sync_ssrf_protection,
+    validate_url_for_http_request,
+)
 
 _T = TypeVar("_T")
 
@@ -15,16 +20,34 @@ ctx_aiohttp_session: ContextVar[aiohttp.ClientSession] = ContextVar("aiohttp_ses
 ctx_httpx_client: ContextVar[httpx.AsyncClient] = ContextVar("httpx_client")
 
 
+def _validate_request_url_sync(request: httpx.Request) -> None:
+    validate_url_for_http_request(str(request.url))
+
+
+async def _validate_request_url_async(request: httpx.Request) -> None:
+    validate_url_for_http_request(str(request.url))
+
+
 def create_aiohttp_session() -> aiohttp.ClientSession:
     return aiohttp.ClientSession(trust_env=has_proxy_env())
 
 
 def create_httpx_async_client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(trust_env=has_proxy_env())
+    client = httpx.AsyncClient(
+        trust_env=has_proxy_env(),
+        event_hooks={"request": [_validate_request_url_async]},
+    )
+    install_async_ssrf_protection(client)
+    return client
 
 
 def create_httpx_client() -> httpx.Client:
-    return httpx.Client(trust_env=has_proxy_env())
+    client = httpx.Client(
+        trust_env=has_proxy_env(),
+        event_hooks={"request": [_validate_request_url_sync]},
+    )
+    install_sync_ssrf_protection(client)
+    return client
 
 
 @asynccontextmanager
