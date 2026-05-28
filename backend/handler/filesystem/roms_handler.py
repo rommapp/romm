@@ -29,7 +29,6 @@ from utils.archives import (
     detect_mime_type,
     extract_chd_hash,
     is_chd_file,
-    is_compressed_file,
     process_7z_file,
     read_basic_file,
     read_bz2_file,
