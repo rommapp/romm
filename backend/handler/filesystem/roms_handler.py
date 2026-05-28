@@ -112,10 +112,15 @@ DEFAULT_CRC_C = 0
 DEFAULT_MD5_H_DIGEST = hashlib.md5(usedforsecurity=False).digest()
 DEFAULT_SHA1_H_DIGEST = hashlib.sha1(usedforsecurity=False).digest()
 
-# Multi-file archive readers, keyed by lowercased file extension.
 ARCHIVE_READERS = {
     ".zip": read_zip_archive_files,
     ".tar": read_tar_archive_files,
+    ".tar.gz": read_tar_archive_files,
+    ".tgz": read_tar_archive_files,
+    ".tar.bz2": read_tar_archive_files,
+    ".tbz2": read_tar_archive_files,
+    ".tar.xz": read_tar_archive_files,
+    ".txz": read_tar_archive_files,
     ".7z": read_7z_archive_files,
     ".rar": read_rar_archive_files,
 }
@@ -321,7 +326,8 @@ class FSRomsHandler(FSHandler):
         rom_ra_h = ""
 
         rom_dir = Path(abs_fs_path, rom.fs_name)
-        rom_ext = rom_dir.suffix.lower()
+        rom_ext = f".{rom.fs_extension.lower()}" if rom.fs_extension else ""
+
         # Check if rom is a multi-part rom
         if await AnyioPath(f"{abs_fs_path}/{rom.fs_name}").is_dir():
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
@@ -428,25 +434,33 @@ class FSRomsHandler(FSHandler):
             # Multi-file archive: compute a composite hash across all
             # internal entries (in ASCII path order) for hash-database
             # matching, while still emitting a single RomFile for the
-            # archive file itself.
-            archive_entries = await asyncio.to_thread(
-                ARCHIVE_READERS[rom_ext],
-                rom_dir,
-                DEFAULT_EXCLUDED_FILES,
-                DEFAULT_EXCLUDED_EXTENSIONS,
+            # archive file itself. Internal members are not surfaced as
+            # RomFile rows — only the archive file itself exists on disk,
+            # so emitting per-member RomFiles would produce full_paths that
+            # point nowhere and break downloads.
+            assert rom_md5_h is not None and rom_sha1_h is not None
+
+            def _hash_archive_entries(
+                crc: int, md5_h: Any, sha1_h: Any
+            ) -> tuple[bool, int]:
+                found = False
+                for _name, _size, chunks in ARCHIVE_READERS[rom_ext](
+                    rom_dir,
+                    DEFAULT_EXCLUDED_FILES,
+                    DEFAULT_EXCLUDED_EXTENSIONS,
+                ):
+                    found = True
+                    for chunk in chunks:
+                        crc = binascii.crc32(chunk, crc)
+                        md5_h.update(chunk)
+                        sha1_h.update(chunk)
+                return found, crc
+
+            found, rom_crc_c = await asyncio.to_thread(
+                _hash_archive_entries, rom_crc_c, rom_md5_h, rom_sha1_h
             )
 
-            if archive_entries:
-                assert rom_md5_h is not None and rom_sha1_h is not None
-                # Stream each entry into the composite hash. Internal members
-                # are not surfaced as RomFile rows — only the archive file
-                # itself exists on disk, so emitting per-member RomFiles would
-                # produce full_paths that point nowhere and break downloads.
-                for _internal_name, _entry_size, chunks in archive_entries:
-                    for chunk in chunks:
-                        rom_crc_c = binascii.crc32(chunk, rom_crc_c)
-                        rom_md5_h.update(chunk)
-                        rom_sha1_h.update(chunk)
+            if found:
                 rom_files.append(
                     self._build_rom_file(
                         rom=rom,
@@ -456,28 +470,25 @@ class FSRomsHandler(FSHandler):
                     )
                 )
             else:
-                # Empty, malformed, or all-excluded archive: hash the archive file itself
-                try:
-                    crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                        await asyncio.to_thread(
-                            self._calculate_rom_hashes,
-                            rom_dir,
-                            rom_crc_c,
-                            rom_md5_h,
-                            rom_sha1_h,
-                        )
-                    )
-                except zlib.error:
-                    crc_c = 0
-                    md5_h = hashlib.md5(usedforsecurity=False)
-                    sha1_h = hashlib.sha1(usedforsecurity=False)
-                file_hash = _make_file_hash(crc_c, md5_h, sha1_h)
+                # Empty, malformed, or all-excluded archive: hash the archive
+                # file's raw bytes. We avoid `_calculate_rom_hashes` here because
+                # it would decompress based on extension and end up hashing the
+                # largest internal member, not the archive itself — and would
+                # crash on an empty zip.
+                def _hash_raw_archive(crc: int) -> int:
+                    for chunk in read_basic_file(rom_dir):
+                        crc = binascii.crc32(chunk, crc)
+                        rom_md5_h.update(chunk)
+                        rom_sha1_h.update(chunk)
+                    return crc
+
+                rom_crc_c = await asyncio.to_thread(_hash_raw_archive, rom_crc_c)
                 rom_files.append(
                     self._build_rom_file(
                         rom=rom,
                         rom_path=Path(rel_roms_path),
                         file_name=rom.fs_name,
-                        file_hash=file_hash,
+                        file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
                     )
                 )
         elif hashable_platform:

@@ -3,7 +3,7 @@
 import fnmatch
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 from config import SEVEN_ZIP_TIMEOUT
@@ -98,15 +98,28 @@ def process_file_7z(
         return False
 
 
+def _stream_7z_chunks(
+    process: subprocess.Popen[bytes], deadline: float
+) -> Iterator[bytes]:
+    assert process.stdout is not None
+    while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
+        if time.monotonic() > deadline:
+            process.terminate()
+            log.error("7z extraction timed out during multi-file archive read")
+            return
+        yield chunk
+
+
 def read_7z_archive_files(
     file_path: Path,
     excluded_names: list[str],
     excluded_exts: list[str],
-) -> list[tuple[str, int, list[bytes]]]:
-    """Read all eligible files from a 7z archive, sorted by internal path (ASCII).
+) -> Iterator[tuple[str, int, Iterator[bytes]]]:
+    """Yield eligible files from a 7z archive in ASCII path order.
 
-    Returns a list of (internal_name, file_size_bytes, chunks) tuples, or an
-    empty list on failure or if no eligible files are found.
+    Each yielded `(internal_name, file_size_bytes, chunks)` streams its
+    member's bytes lazily; chunks must be fully consumed before advancing
+    to the next entry, since the underlying subprocess is reaped at that point.
     """
     try:
         result = subprocess.run(
@@ -123,7 +136,7 @@ def read_7z_archive_files(
         FileNotFoundError,
     ) as e:
         log.error(f"Error listing 7z archive {file_path}: {e}")
-        return []
+        return
 
     entries: list[tuple[str, int]] = []
     current_file: str | None = None
@@ -154,14 +167,9 @@ def read_7z_archive_files(
 
     entries.sort(key=lambda e: e[0])
 
-    if not entries:
-        return []
-
-    output: list[tuple[str, int, list[bytes]]] = []
-    start_time = time.monotonic()
+    deadline = time.monotonic() + SEVEN_ZIP_TIMEOUT
 
     for name, size in entries:
-        chunks: list[bytes] = []
         try:
             with subprocess.Popen(
                 [SEVEN_ZIP_PATH, "e", str(file_path), name, "-so", "-y"],
@@ -169,34 +177,25 @@ def read_7z_archive_files(
                 stderr=subprocess.DEVNULL,
                 shell=False,  # trunk-ignore(bandit/B603)
             ) as process:
-                if process.stdout:
-                    while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
-                        if time.monotonic() - start_time > SEVEN_ZIP_TIMEOUT:
-                            process.terminate()
-                            log.error(
-                                "7z extraction timed out during multi-file archive read"
-                            )
-                            return output
-                        chunks.append(chunk)
+                if process.stdout is None:
+                    continue
+                yield name, size, _stream_7z_chunks(process, deadline)
             if process.returncode != 0:
                 log.error(
                     f"7z extraction of {name} failed with code {process.returncode}"
                 )
-                continue
+                return []
         except (OSError, ValueError) as e:
             log.error(f"Error extracting {name} from {file_path}: {e}")
             continue
-        output.append((name, size, chunks))
-
-    return output
 
 
 def read_rar_archive_files(
     file_path: Path,
     excluded_names: list[str],
     excluded_exts: list[str],
-) -> list[tuple[str, int, list[bytes]]]:
-    """Read all eligible files from a RAR archive, sorted by internal path (ASCII).
+) -> Iterator[tuple[str, int, Iterator[bytes]]]:
+    """Yield eligible files from a RAR archive, sorted by internal path (ASCII).
 
     Delegates to the 7zz binary, which natively supports RAR (v3-v5, read-only).
     """

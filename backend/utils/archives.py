@@ -73,7 +73,7 @@ def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
             with z.open(largest_file, "r") as f:
                 while chunk := f.read(FILE_READ_CHUNK_SIZE):
                     yield chunk
-    except zipfile.BadZipFile:
+    except (zipfile.BadZipFile, RuntimeError, OSError):
         if isinstance(file, Path):
             for chunk in read_basic_file(file):
                 yield chunk
@@ -89,8 +89,9 @@ def read_tar_file(
             # Find the largest file among regular files only
             largest_file = max(regular_files, key=lambda x: x.size)
             with f.extractfile(largest_file) as ef:  # type: ignore
-                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                    yield chunk
+                with ef:
+                    while chunk := ef.read(FILE_READ_CHUNK_SIZE):
+                        yield chunk
     except tarfile.ReadError:
         for chunk in read_basic_file(file_path):
             yield chunk
@@ -123,16 +124,22 @@ def read_bz2_file(file_path: Path) -> Iterator[bytes]:
             yield chunk
 
 
+def _iter_chunks(reader: IO[bytes]) -> Iterator[bytes]:
+    while chunk := reader.read(FILE_READ_CHUNK_SIZE):
+        yield chunk
+
+
 def read_zip_archive_files(
     file_path: Path,
     excluded_names: list[str],
     excluded_exts: list[str],
-) -> list[tuple[str, int, list[bytes]]]:
-    """Read all eligible zip entries in ASCII path order.
+) -> Iterator[tuple[str, int, Iterator[bytes]]]:
+    """Yield eligible zip entries in ASCII path order.
 
-    Returns [(internal_name, file_size_bytes, chunks)] or [] on error.
+    Each yielded `(internal_name, file_size_bytes, chunks)` streams its
+    member's bytes lazily; chunks must be fully consumed before advancing
+    to the next entry, since the underlying file is closed at that point.
     """
-    results: list[tuple[str, int, list[bytes]]] = []
     try:
         with zipfile.ZipFile(file_path, "r") as z:
             entries = sorted(z.infolist(), key=lambda e: e.filename)
@@ -149,26 +156,23 @@ def read_zip_archive_files(
                     for exc in excluded_names
                 ):
                     continue
-                chunks: list[bytes] = []
                 with z.open(entry, "r") as f:
-                    while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                        chunks.append(chunk)
-                results.append((name, entry.file_size, chunks))
-    except zipfile.BadZipFile:
-        pass
-    return results
+                    yield name, entry.file_size, _iter_chunks(f)
+    except (zipfile.BadZipFile, RuntimeError, OSError):
+        return
 
 
 def read_tar_archive_files(
     file_path: Path,
     excluded_names: list[str],
     excluded_exts: list[str],
-) -> list[tuple[str, int, list[bytes]]]:
-    """Read all eligible tar entries (handles .tar/.tar.gz/.tar.bz2/.tar.xz) in ASCII path order.
+) -> Iterator[tuple[str, int, Iterator[bytes]]]:
+    """Yield eligible tar entries (.tar/.tar.gz/.tar.bz2/.tar.xz) in ASCII path order.
 
-    Returns [(internal_name, file_size_bytes, chunks)] or [] on error.
+    Each yielded `(internal_name, file_size_bytes, chunks)` streams its
+    member's bytes lazily; chunks must be fully consumed before advancing
+    to the next entry, since the underlying file is closed at that point.
     """
-    results: list[tuple[str, int, list[bytes]]] = []
     try:
         with tarfile.open(file_path, "r") as tf:
             members = sorted(
@@ -179,23 +183,24 @@ def read_tar_archive_files(
                 name = member.name
                 base_name = Path(name).name
                 lower = base_name.lower()
+
                 if any(lower.endswith("." + ext) for ext in excluded_exts):
                     continue
+
                 if any(
                     base_name == exc or fnmatch.fnmatch(base_name, exc)
                     for exc in excluded_names
                 ):
                     continue
+
                 ef = tf.extractfile(member)
                 if ef is None:
                     continue
-                chunks: list[bytes] = []
-                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                    chunks.append(chunk)
-                results.append((name, member.size, chunks))
+
+                with ef:
+                    yield member.name, member.size, _iter_chunks(ef)
     except tarfile.ReadError:
-        pass
-    return results
+        return
 
 
 def is_chd_file(file_path: Path) -> bool:
