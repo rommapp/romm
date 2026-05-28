@@ -875,9 +875,28 @@ class TestFSRomsHandler:
         )
 
         # Only one RomFile (the archive itself) is surfaced, not one per member.
+        # Per-member hashes are stored on `archive_members`.
         assert len(parsed.rom_files) == 1
-        assert parsed.rom_files[0].file_name == "game.zip"
-        assert parsed.rom_files[0].md5_hash == parsed.md5_hash
+        archive_rom_file = parsed.rom_files[0]
+        assert archive_rom_file.file_name == "game.zip"
+        assert archive_rom_file.md5_hash == parsed.md5_hash
+        # full_path resolves to a file that actually exists on disk
+        assert (Path(test_handler.base_path) / archive_rom_file.full_path).is_file()
+
+        assert archive_rom_file.archive_members is not None
+        # ASCII-sorted ordering, and each member has the right size + hashes
+        assert [m["name"] for m in archive_rom_file.archive_members] == sorted(contents)
+        for member in archive_rom_file.archive_members:
+            data = contents[member["name"]]
+            assert member["size"] == len(data)
+            assert (
+                member["md5_hash"]
+                == hashlib.md5(data, usedforsecurity=False).hexdigest()
+            )
+            assert (
+                member["sha1_hash"]
+                == hashlib.sha1(data, usedforsecurity=False).hexdigest()
+            )
 
     @pytest.mark.asyncio
     async def test_get_rom_files_zip_ordering_invariant(
@@ -963,6 +982,7 @@ class TestFSRomsHandler:
         assert parsed.sha1_hash == hashlib.sha1(junk, usedforsecurity=False).hexdigest()
         assert len(parsed.rom_files) == 1
         assert parsed.rom_files[0].file_name == "fake.zip"
+        assert parsed.rom_files[0].archive_members is None
 
     @pytest.mark.asyncio
     async def test_get_rom_files_zip_with_only_excluded_entries_falls_back(
@@ -994,6 +1014,7 @@ class TestFSRomsHandler:
         )
         assert len(parsed.rom_files) == 1
         assert parsed.rom_files[0].file_name == "only_excluded.zip"
+        assert parsed.rom_files[0].archive_members is None
 
     @pytest.mark.asyncio
     async def test_get_rom_files_empty_zip_falls_back_to_raw_bytes(
@@ -1024,6 +1045,7 @@ class TestFSRomsHandler:
         )
         assert len(parsed.rom_files) == 1
         assert parsed.rom_files[0].file_name == "empty.zip"
+        assert parsed.rom_files[0].archive_members is None
 
     @pytest.mark.asyncio
     async def test_get_rom_files_with_non_v5_chd_fallback_to_std_hashing(

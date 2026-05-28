@@ -265,6 +265,7 @@ class FSRomsHandler(FSHandler):
         file_hash: FileHash,
         file_size_bytes: int | None = None,
         last_modified: float | None = None,
+        archive_members: list[dict[str, Any]] | None = None,
     ) -> RomFile:
         abs_file_path = Path(self.base_path, rom_path, file_name)
 
@@ -298,6 +299,7 @@ class FSRomsHandler(FSHandler):
             md5_hash=file_hash["md5_hash"],
             sha1_hash=file_hash["sha1_hash"],
             chd_sha1_hash=file_hash["chd_sha1_hash"],
+            archive_members=archive_members,
         )
 
     async def get_rom_files(
@@ -435,39 +437,54 @@ class FSRomsHandler(FSHandler):
             # Multi-file archive: compute a composite hash across all
             # internal entries (in ASCII path order) for hash-database
             # matching, while still emitting a single RomFile for the
-            # archive file itself. Internal members are not surfaced as
-            # RomFile rows — only the archive file itself exists on disk,
-            # so emitting per-member RomFiles would produce full_paths that
-            # point nowhere and break downloads.
+            # archive file itself. Per-member hashes are stored on that
+            # RomFile in `archive_members` so consumers can identify each
+            # internal file without us inventing RomFile rows whose
+            # full_path would point inside the archive and break downloads.
             assert rom_md5_h is not None and rom_sha1_h is not None
 
             def _hash_archive_entries(
                 crc: int, md5_h: Any, sha1_h: Any
-            ) -> tuple[bool, int]:
-                found = False
-                for _name, _size, chunks in ARCHIVE_READERS[rom_ext](
+            ) -> tuple[list[dict[str, Any]], int]:
+                members: list[dict[str, Any]] = []
+                for name, size, chunks in ARCHIVE_READERS[rom_ext](
                     rom_dir,
                     DEFAULT_EXCLUDED_FILES,
                     DEFAULT_EXCLUDED_EXTENSIONS,
                 ):
-                    found = True
+                    member_crc = 0
+                    member_md5 = hashlib.md5(usedforsecurity=False)
+                    member_sha1 = hashlib.sha1(usedforsecurity=False)
                     for chunk in chunks:
                         crc = binascii.crc32(chunk, crc)
                         md5_h.update(chunk)
                         sha1_h.update(chunk)
-                return found, crc
+                        member_crc = binascii.crc32(chunk, member_crc)
+                        member_md5.update(chunk)
+                        member_sha1.update(chunk)
+                    members.append(
+                        {
+                            "name": name,
+                            "size": size,
+                            "crc_hash": crc32_to_hex(member_crc),
+                            "md5_hash": member_md5.hexdigest(),
+                            "sha1_hash": member_sha1.hexdigest(),
+                        }
+                    )
+                return members, crc
 
-            found, rom_crc_c = await asyncio.to_thread(
+            members, rom_crc_c = await asyncio.to_thread(
                 _hash_archive_entries, rom_crc_c, rom_md5_h, rom_sha1_h
             )
 
-            if found:
+            if members:
                 rom_files.append(
                     self._build_rom_file(
                         rom=rom,
                         rom_path=Path(rel_roms_path),
                         file_name=rom.fs_name,
                         file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
+                        archive_members=members,
                     )
                 )
             else:
@@ -475,7 +492,7 @@ class FSRomsHandler(FSHandler):
                 # file's raw bytes. We avoid `_calculate_rom_hashes` here because
                 # it would decompress based on extension and end up hashing the
                 # largest internal member, not the archive itself — and would
-                # crash on an empty zip.
+                # crash on an empty zip. `archive_members` stays None.
                 def _hash_raw_archive(crc: int) -> int:
                     for chunk in read_basic_file(rom_dir):
                         crc = binascii.crc32(chunk, crc)

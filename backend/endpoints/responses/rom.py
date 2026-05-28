@@ -147,6 +147,14 @@ class RomUserSchema(BaseModel):
         return rom_user_schema_factory()
 
 
+class ArchiveMemberSchema(TypedDict):
+    name: str
+    size: int
+    crc_hash: str
+    md5_hash: str
+    sha1_hash: str
+
+
 class RomFileSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -164,6 +172,7 @@ class RomFileSchema(BaseModel):
     sha1_hash: str | None
     ra_hash: str | None
     chd_sha1_hash: str | None
+    archive_members: list[ArchiveMemberSchema] | None
     category: RomFileCategory | None
 
 

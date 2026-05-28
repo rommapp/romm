@@ -55,7 +55,7 @@ def detect_mime_type(file_path: os.PathLike[str] | str) -> str:
     try:
         with _MIME_DETECTOR_LOCK:
             return _MIME_DETECTOR.from_file(file_path)
-    except magic.MagicException:
+    except (OSError, magic.MagicException):
         return ""
 
 
@@ -252,7 +252,7 @@ def read_tar_archive_files(
     to the next entry, since the underlying file is closed at that point.
     """
     try:
-        with tarfile.open(file_path, "r") as tf:
+        with tarfile.open(file_path, "r:*") as tf:
             members = sorted(
                 (m for m in tf.getmembers() if m.isfile()),
                 key=lambda m: m.name,
