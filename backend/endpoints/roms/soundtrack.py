@@ -23,7 +23,7 @@ from utils.audio_tags import (
     ALLOWED_AUDIO_EXTENSIONS,
     extract_audio_meta,
     is_allowed_audio_file,
-    persist_embedded_cover,
+    persist_cover_and_build_meta,
     remove_persisted_cover,
 )
 from utils.router import APIRouter
@@ -151,18 +151,17 @@ async def add_rom_soundtracks(
         )
 
     if saved and audio_meta and audio_meta.get("has_embedded_cover"):
-        cover_path = persist_embedded_cover(
+        persisted_meta = persist_cover_and_build_meta(
             audio_full_path=str(file_location),
             platform_id=rom.platform_id,
             rom_id=rom.id,
             file_id=saved.id,
+            audio_meta=audio_meta,
         )
-        if cover_path:
-            persisted_meta = dict(audio_meta)
-            persisted_meta["cover_path"] = cover_path
+        if persisted_meta:
             db_rom_handler.update_rom_file(saved.id, {"audio_meta": persisted_meta})
 
-    return Response()
+    return Response(status_code=status.HTTP_201_CREATED)
 
 
 @protected_route(

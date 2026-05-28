@@ -1,5 +1,3 @@
-import mimetypes
-import os
 from typing import Annotated
 
 from anyio import Path
@@ -18,26 +16,11 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
+from utils.audio_tags import guess_audio_media_type
 from utils.nginx import FileRedirectResponse
 from utils.router import APIRouter
 
 router = APIRouter()
-
-_AUDIO_MIME_OVERRIDES = {
-    ".flac": "audio/flac",
-    ".opus": "audio/ogg",
-    ".m4a": "audio/mp4",
-    ".oga": "audio/ogg",
-    ".ogg": "audio/ogg",
-}
-
-
-def _guess_media_type(file_name: str) -> str:
-    ext = os.path.splitext(file_name)[1].lower()
-    if ext in _AUDIO_MIME_OVERRIDES:
-        return _AUDIO_MIME_OVERRIDES[ext]
-    guessed, _ = mimetypes.guess_type(file_name)
-    return guessed or "application/octet-stream"
 
 
 @protected_route(
@@ -86,11 +69,19 @@ async def get_romfile_content(
             detail="File not found",
         )
 
-    log.info(f"User {hl(current_username, color=BLUE)} is downloading {hl(file_name)}")
+    log.info(
+        f"User {hl(current_username, color=BLUE)} is downloading {hl(file.file_name)}"
+    )
 
+    # Derive content type / disposition / download name from the trusted DB
+    # record, never from the client-supplied file_name path param — otherwise a
+    # caller could request the same bytes with an arbitrary extension to force a
+    # mismatched Content-Type while served inline (content-sniffing/XSS).
     is_audio = file.category == RomFileCategory.SOUNDTRACK
     media_type = (
-        _guess_media_type(file_name) if is_audio else "application/octet-stream"
+        guess_audio_media_type(file.file_name)
+        if is_audio
+        else "application/octet-stream"
     )
     disposition = "inline" if is_audio else "attachment"
 
@@ -101,7 +92,7 @@ async def get_romfile_content(
         # disposition lets <audio> seek via Range requests.
         return FileResponse(
             path=rom_path,
-            filename=file_name,
+            filename=file.file_name,
             media_type=media_type,
             content_disposition_type=disposition,
         )

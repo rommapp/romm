@@ -62,7 +62,7 @@ def test_upload_soundtrack_success(
         files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
     )
 
-    assert response.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_201_CREATED
     written = soundtrack_fs / "track1.mp3"
     assert written.exists()
     assert written.read_bytes() == MP3_BYTES
@@ -89,7 +89,7 @@ def test_upload_soundtrack_upserts_on_reupload(
             headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
             files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
         )
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(multi_file_rom.id)
     soundtracks = [
@@ -247,9 +247,14 @@ def test_upload_soundtrack_extracts_audio_meta(
     )
     monkeypatch.setattr(
         soundtrack_endpoint,
-        "persist_embedded_cover",
-        lambda **_kwargs: f"roms/{_kwargs['platform_id']}/{_kwargs['rom_id']}"
-        f"/soundtracks/{_kwargs['file_id']}.jpg",
+        "persist_cover_and_build_meta",
+        lambda **kw: {
+            **kw["audio_meta"],
+            "cover_path": (
+                f"roms/{kw['platform_id']}/{kw['rom_id']}"
+                f"/soundtracks/{kw['file_id']}.jpg"
+            ),
+        },
     )
 
     response = client.post(
@@ -257,7 +262,7 @@ def test_upload_soundtrack_extracts_audio_meta(
         headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
         files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
     )
-    assert response.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(multi_file_rom.id)
     soundtracks = [
@@ -294,7 +299,7 @@ def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
         cover_calls.append(kw)
 
     monkeypatch.setattr(
-        soundtrack_endpoint, "persist_embedded_cover", _record_cover_call
+        soundtrack_endpoint, "persist_cover_and_build_meta", _record_cover_call
     )
 
     response = client.post(
@@ -302,7 +307,7 @@ def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
         headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
         files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
     )
-    assert response.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_201_CREATED
     assert cover_calls == []  # never called when has_embedded_cover is False
 
     rom_after = db_rom_handler.get_rom(multi_file_rom.id)
@@ -512,7 +517,7 @@ def test_upload_soundtrack_with_malformed_audio_still_succeeds(
         headers={**_auth(access_token), "x-upload-filename": "bad.mp3"},
         files={"bad.mp3": ("bad.mp3", b"\x00\x01\x02 not audio", "audio/mpeg")},
     )
-    assert response.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(multi_file_rom.id)
     soundtracks = [

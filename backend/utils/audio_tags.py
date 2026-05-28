@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import mimetypes
 import os
 from typing import TypedDict
 
@@ -7,6 +8,7 @@ import mutagen
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3
 from mutagen.mp4 import MP4
+from mutagen.oggopus import OggOpus
 from mutagen.oggvorbis import OggVorbis
 
 from logger.logger import log
@@ -40,6 +42,25 @@ def is_allowed_audio_file(file_name: str) -> bool:
     return ext.lower() in ALLOWED_AUDIO_EXTENSIONS
 
 
+# MIME types for audio formats that the stdlib mimetypes module guesses
+# inconsistently (or not at all) across platforms.
+AUDIO_MIME_OVERRIDES = {
+    ".flac": "audio/flac",
+    ".opus": "audio/ogg",
+    ".m4a": "audio/mp4",
+    ".oga": "audio/ogg",
+    ".ogg": "audio/ogg",
+}
+
+
+def guess_audio_media_type(file_name: str) -> str:
+    ext = os.path.splitext(file_name)[1].lower()
+    if ext in AUDIO_MIME_OVERRIDES:
+        return AUDIO_MIME_OVERRIDES[ext]
+    guessed, _ = mimetypes.guess_type(file_name)
+    return guessed or "application/octet-stream"
+
+
 def _first(value: object) -> str | None:
     if value is None:
         return None
@@ -68,6 +89,9 @@ def _mp4_track_tuple(value: object) -> str | None:
     return str(first)
 
 
+# NOTE: the per-format tag and embedded-cover handling below (ID3 / MP4 /
+# Vorbis comments / FLAC pictures) was largely AI-generated against mutagen's
+# API — verify against real files when adding or changing a format.
 def _extract_common_tags(audio: mutagen.FileType) -> dict[str, str | None]:
     """Extract common tags across formats from a single non-easy mutagen handle."""
     tags = getattr(audio, "tags", None)
@@ -115,7 +139,7 @@ def _has_embedded_cover(audio: mutagen.FileType) -> bool:
     tags = getattr(audio, "tags", None)
     if tags is None:
         return False
-    if isinstance(audio, OggVorbis):
+    if isinstance(audio, (OggVorbis, OggOpus)):
         return bool(tags.get("metadata_block_picture"))
     if isinstance(audio, MP4):
         return bool(tags.get("covr"))
@@ -197,7 +221,7 @@ def _extract_picture_from_flac(audio: FLAC) -> tuple[bytes, str] | None:
     return None
 
 
-def _extract_picture_from_ogg(audio: OggVorbis) -> tuple[bytes, str] | None:
+def _extract_picture_from_ogg(audio: OggVorbis | OggOpus) -> tuple[bytes, str] | None:
     import base64
 
     pics = audio.get("metadata_block_picture") or []
@@ -272,6 +296,30 @@ def persist_embedded_cover(
     return rel_path
 
 
+def persist_cover_and_build_meta(
+    audio_full_path: str,
+    platform_id: int,
+    rom_id: int,
+    file_id: int,
+    audio_meta: AudioMeta | dict,
+) -> dict | None:
+    """Persist the embedded cover for a saved soundtrack file and return a copy
+    of `audio_meta` with `cover_path` populated. Returns None when no cover was
+    written so callers can skip the DB update."""
+    cover_path = persist_embedded_cover(
+        audio_full_path=audio_full_path,
+        platform_id=platform_id,
+        rom_id=rom_id,
+        file_id=file_id,
+    )
+    if not cover_path:
+        return None
+
+    persisted_meta = dict(audio_meta)
+    persisted_meta["cover_path"] = cover_path
+    return persisted_meta
+
+
 def remove_persisted_cover(cover_path: str | None) -> None:
     """Delete a persisted soundtrack cover (relative path under
     RESOURCES_BASE_PATH). Silently ignores missing files."""
@@ -296,7 +344,7 @@ def extract_embedded_cover(full_path: str) -> tuple[bytes, str] | None:
 
     if isinstance(audio, FLAC):
         return _extract_picture_from_flac(audio)
-    if isinstance(audio, OggVorbis):
+    if isinstance(audio, (OggVorbis, OggOpus)):
         return _extract_picture_from_ogg(audio)
     if isinstance(audio, MP4):
         return _extract_picture_from_mp4(audio)
