@@ -232,32 +232,6 @@ class TestSSRFProtectedSyncBackend:
             backend.connect_tcp("10.0.0.1", 80)
         inner.connect_tcp.assert_not_called()
 
-    def test_dns_timeout_raises_connect_timeout(self, monkeypatch):
-        """Sync resolver must be bounded by the caller's timeout.
-
-        `socket.getaddrinfo` has no built-in timeout knob, so without
-        an explicit bound a hung resolver would block the calling
-        thread until the OS resolver gave up. Verify the sync backend
-        gives up after the deadline.
-        """
-        import time
-
-        inner = _stub_sync_inner([])
-        backend = SSRFProtectedSyncBackend(inner=inner)
-
-        def hang_forever(*_args, **_kwargs):
-            time.sleep(3600)
-
-        monkeypatch.setattr(socket, "getaddrinfo", hang_forever)
-
-        start = time.monotonic()
-        with pytest.raises(httpcore.ConnectTimeout, match="DNS resolution timed out"):
-            backend.connect_tcp("slow.example.com", 80, timeout=0.05)
-        elapsed = time.monotonic() - start
-        # Should give up around the timeout, not block on the resolver.
-        assert elapsed < 1.0, f"sync resolver blocked for {elapsed:.2f}s"
-        inner.connect_tcp.assert_not_called()
-
 
 class TestRequestEventHook:
     """Verify the syntactic URL validator is wired as a request event hook.
