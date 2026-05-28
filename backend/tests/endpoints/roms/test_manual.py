@@ -82,7 +82,7 @@ def test_upload_manual_to_resources_success(
         files={"manual.pdf": ("manual.pdf", PDF_BYTES, "application/pdf")},
     )
 
-    assert response.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_201_CREATED
     written = manual_fs_resources / f"{rom.id}.pdf"
     assert written.exists()
     assert written.read_bytes() == PDF_BYTES
@@ -119,7 +119,7 @@ def test_upload_manual_to_folder_success(
         files={"english.pdf": ("english.pdf", PDF_BYTES, "application/pdf")},
     )
 
-    assert response.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_201_CREATED
     written = manual_fs_folder / "english.pdf"
     assert written.exists()
     assert written.read_bytes() == PDF_BYTES
@@ -144,7 +144,7 @@ def test_upload_manual_to_folder_upserts_on_reupload(
             headers={**_auth(access_token), "x-upload-filename": "english.pdf"},
             files={"english.pdf": ("english.pdf", PDF_BYTES, "application/pdf")},
         )
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(multi_file_rom.id)
     manual_files = [f for f in rom_after.files if f.category == RomFileCategory.MANUAL]

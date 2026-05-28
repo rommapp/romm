@@ -101,7 +101,7 @@ async def add_rom_manuals(
         },
     )
 
-    return Response()
+    return Response(status_code=status.HTTP_201_CREATED)
 
 
 @protected_route(
@@ -262,7 +262,7 @@ async def add_rom_manual_file(
             )
         )
 
-    return Response()
+    return Response(status_code=status.HTTP_201_CREATED)
 
 
 @protected_route(

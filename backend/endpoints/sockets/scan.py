@@ -50,7 +50,7 @@ from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from tasks.tasks import update_job_meta
 from utils import emoji
-from utils.audio_tags import persist_embedded_cover
+from utils.audio_tags import persist_cover_and_build_meta
 from utils.context import initialize_context
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
@@ -396,15 +396,14 @@ async def _identify_rom(
                 and saved.audio_meta.get("has_embedded_cover")
             ):
                 abs_audio_path = fs_rom_handler.validate_path(saved.full_path)
-                cover_path = persist_embedded_cover(
+                persisted_meta = persist_cover_and_build_meta(
                     audio_full_path=str(abs_audio_path),
                     platform_id=_added_rom.platform_id,
                     rom_id=_added_rom.id,
                     file_id=saved.id,
+                    audio_meta=saved.audio_meta,
                 )
-                if cover_path:
-                    persisted_meta = dict(saved.audio_meta)
-                    persisted_meta["cover_path"] = cover_path
+                if persisted_meta:
                     db_rom_handler.update_rom_file(
                         saved.id, {"audio_meta": persisted_meta}
                     )
