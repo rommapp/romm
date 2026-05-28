@@ -37,6 +37,7 @@ from handler.redis_handler import get_job_func_name, high_prio_queue, redis_clie
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
     scan_rom,
@@ -47,10 +48,9 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomFileCategory
+from models.rom import Rom, RomFile
 from tasks.tasks import update_job_meta
 from utils import emoji
-from utils.audio_tags import persist_cover_and_build_meta
 from utils.context import initialize_context
 from utils.gamelist_exporter import GamelistExporter
 from utils.pegasus_exporter import PegasusExporter
@@ -390,23 +390,7 @@ async def _identify_rom(
         ]
         for new_rom_file in new_rom_files:
             saved = db_rom_handler.add_rom_file(new_rom_file)
-            if (
-                saved.category == RomFileCategory.SOUNDTRACK
-                and saved.audio_meta
-                and saved.audio_meta.get("has_embedded_cover")
-            ):
-                abs_audio_path = fs_rom_handler.validate_path(saved.full_path)
-                persisted_meta = persist_cover_and_build_meta(
-                    audio_full_path=str(abs_audio_path),
-                    platform_id=_added_rom.platform_id,
-                    rom_id=_added_rom.id,
-                    file_id=saved.id,
-                    audio_meta=saved.audio_meta,
-                )
-                if persisted_meta:
-                    db_rom_handler.update_rom_file(
-                        saved.id, {"audio_meta": persisted_meta}
-                    )
+            persist_soundtrack_cover(saved, _added_rom)
 
     # Short circuit if the scan type is hashes
     if scan_type == ScanType.HASHES:
