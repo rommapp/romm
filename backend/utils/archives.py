@@ -1,8 +1,12 @@
+# trunk-ignore-all(bandit/B404)
+
 import bz2
 import fnmatch
 import os
+import subprocess
 import tarfile
 import threading
+import time
 import zipfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -11,8 +15,11 @@ from typing import IO, Final, Literal
 import magic
 import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
 
-from utils.archive_7zip import process_file_7z
+from config import SEVEN_ZIP_TIMEOUT
+from logger.logger import log
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
+
+SEVEN_ZIP_PATH = "/usr/bin/7zz"
 
 # Known compressed file MIME types
 COMPRESSED_MIME_TYPES: Final = frozenset(
@@ -101,15 +108,86 @@ def read_gz_file(file_path: Path) -> Iterator[bytes]:
     return read_tar_file(file_path, "r:gz")
 
 
+def _process_largest_7z_member(
+    file_path: Path,
+    fn_hash_update: Callable[[bytes | bytearray], None],
+) -> bool:
+    """Stream the largest member of a 7z archive through `fn_hash_update`.
+
+    Returns True on success, False if listing/extraction fails or times out.
+    """
+    try:
+        result = subprocess.run(
+            [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=SEVEN_ZIP_TIMEOUT,
+            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+        )
+
+        largest_file = None
+        largest_size = 0
+        current_file = None
+        current_size = 0
+
+        for line in result.stdout.split("\n"):
+            line = line.lstrip()
+            if line.startswith("Path = "):
+                current_file = line.split(" = ", 1)[1]
+            elif line.startswith("Size = "):
+                try:
+                    current_size = int(line.split(" = ")[1].strip())
+                except ValueError:
+                    current_size = 0
+            elif line.startswith("Attributes = "):
+                attrs = line.split(" = ")[1].strip()
+                if current_file and not attrs.startswith("D"):
+                    if current_size > largest_size:
+                        largest_size = current_size
+                        largest_file = current_file
+
+        if not largest_file:
+            return False
+
+        log.debug(f"Extracting {largest_file} from {file_path}...")
+
+        start_decompression_time = time.monotonic()
+
+        with subprocess.Popen(
+            [SEVEN_ZIP_PATH, "e", str(file_path), largest_file, "-so", "-y"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+        ) as process:
+            if process.stdout:
+                while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
+                    if time.monotonic() - start_decompression_time > SEVEN_ZIP_TIMEOUT:
+                        process.terminate()
+                        log.error("7z extraction timed out")
+                        return False
+                    fn_hash_update(chunk)
+
+        if process.returncode != 0:
+            log.error(f"7z extraction failed with return code {process.returncode}")
+            return False
+
+        return True
+
+    except (
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+    ) as e:
+        log.error(f"Error processing 7z file: {e}")
+        return False
+
+
 def process_7z_file(
     file_path: Path,
     fn_hash_update: Callable[[bytes | bytearray], None],
 ) -> None:
-    processed = process_file_7z(
-        file_path=file_path,
-        fn_hash_update=fn_hash_update,
-    )
-    if not processed:
+    if not _process_largest_7z_member(file_path, fn_hash_update):
         for chunk in read_basic_file(file_path):
             fn_hash_update(chunk)
 
@@ -201,6 +279,110 @@ def read_tar_archive_files(
                     yield member.name, member.size, _iter_chunks(ef)
     except tarfile.ReadError:
         return
+
+
+def _stream_7z_chunks(
+    process: subprocess.Popen[bytes], deadline: float
+) -> Iterator[bytes]:
+    assert process.stdout is not None
+    while chunk := process.stdout.read(FILE_READ_CHUNK_SIZE):
+        if time.monotonic() > deadline:
+            process.terminate()
+            log.error("7z extraction timed out during multi-file archive read")
+            return
+        yield chunk
+
+
+def read_7z_archive_files(
+    file_path: Path,
+    excluded_names: list[str],
+    excluded_exts: list[str],
+) -> Iterator[tuple[str, int, Iterator[bytes]]]:
+    """Yield eligible files from a 7z archive in ASCII path order.
+
+    Each yielded `(internal_name, file_size_bytes, chunks)` streams its
+    member's bytes lazily; chunks must be fully consumed before advancing
+    to the next entry, since the underlying subprocess is reaped at that point.
+    """
+    try:
+        result = subprocess.run(
+            [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=SEVEN_ZIP_TIMEOUT,
+            shell=False,  # trunk-ignore(bandit/B603)
+        )
+    except (
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+    ) as e:
+        log.error(f"Error listing 7z archive {file_path}: {e}")
+        return
+
+    entries: list[tuple[str, int]] = []
+    current_file: str | None = None
+    current_size = 0
+
+    for line in result.stdout.split("\n"):
+        line = line.lstrip()
+        if line.startswith("Path = "):
+            current_file = line.split(" = ", 1)[1]
+        elif line.startswith("Size = "):
+            try:
+                current_size = int(line.split(" = ")[1].strip())
+            except ValueError:
+                current_size = 0
+        elif line.startswith("Attributes = "):
+            attrs = line.split(" = ")[1].strip()
+            if current_file and not attrs.startswith("D"):
+                base_name = Path(current_file).name
+                lower = base_name.lower()
+                if not any(lower.endswith("." + ext) for ext in excluded_exts):
+                    if not any(
+                        base_name == exc or fnmatch.fnmatch(base_name, exc)
+                        for exc in excluded_names
+                    ):
+                        entries.append((current_file, current_size))
+            current_file = None
+            current_size = 0
+
+    entries.sort(key=lambda e: e[0])
+
+    deadline = time.monotonic() + SEVEN_ZIP_TIMEOUT
+
+    for name, size in entries:
+        try:
+            with subprocess.Popen(
+                [SEVEN_ZIP_PATH, "e", str(file_path), name, "-so", "-y"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                shell=False,  # trunk-ignore(bandit/B603)
+            ) as process:
+                if process.stdout is None:
+                    continue
+                yield name, size, _stream_7z_chunks(process, deadline)
+            if process.returncode != 0:
+                log.error(
+                    f"7z extraction of {name} failed with code {process.returncode}"
+                )
+                return
+        except (OSError, ValueError) as e:
+            log.error(f"Error extracting {name} from {file_path}: {e}")
+            continue
+
+
+def read_rar_archive_files(
+    file_path: Path,
+    excluded_names: list[str],
+    excluded_exts: list[str],
+) -> Iterator[tuple[str, int, Iterator[bytes]]]:
+    """Yield eligible files from a RAR archive, sorted by internal path (ASCII).
+
+    Delegates to the 7zz binary, which natively supports RAR (v3-v5, read-only).
+    """
+    return read_7z_archive_files(file_path, excluded_names, excluded_exts)
 
 
 def is_chd_file(file_path: Path) -> bool:

@@ -24,15 +24,16 @@ from exceptions.fs_exceptions import (
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
-from utils.archive_7zip import read_7z_archive_files, read_rar_archive_files
 from utils.archives import (
     detect_mime_type,
     extract_chd_hash,
     is_chd_file,
     process_7z_file,
+    read_7z_archive_files,
     read_basic_file,
     read_bz2_file,
     read_gz_file,
+    read_rar_archive_files,
     read_tar_archive_files,
     read_tar_file,
     read_zip_archive_files,
