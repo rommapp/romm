@@ -36,6 +36,7 @@ import InfoGrid from "@/v2/components/GameDetails/InfoGrid.vue";
 import PlayerCountBadge from "@/v2/components/GameDetails/PlayerCountBadge.vue";
 import RelatedGamesGrid from "@/v2/components/GameDetails/RelatedGamesGrid.vue";
 import ScreenshotsTab from "@/v2/components/GameDetails/ScreenshotsTab.vue";
+import { PROVIDERS, providerId } from "@/v2/components/GameDetails/providers";
 import { useWebpSupport } from "@/v2/composables/useWebpSupport";
 import { collectionCoverList } from "@/v2/utils/collectionCovers";
 
@@ -104,6 +105,46 @@ const hasRelated = computed(
       props.similarGames.length >
     0,
 );
+
+// Attribution — credit the metadata providers that supplied data for this
+// ROM (mirrors v1's GameInfo footer). Reuses the PROVIDERS registry so the
+// list stays in sync with the Metadata tab; providers without a public URL
+// render as plain text.
+const dataProviders = computed(() =>
+  PROVIDERS.map((p) => {
+    const id = providerId(props.rom, p);
+    if (id === null) return null;
+    return { name: p.name, href: p.url ? p.url(id) : null };
+  }).filter((e): e is { name: string; href: string | null } => e !== null),
+);
+
+// Cover art is credited from the cover URL's host (covers can come from
+// sources that aren't in PROVIDERS, e.g. SteamGridDB / Libretro).
+const COVER_HOSTS: Record<string, string> = {
+  "images.igdb.com": "IGDB",
+  "screenscraper.fr": "ScreenScraper",
+  "neoclone.screenscraper.fr": "ScreenScraper",
+  "cdn.mobygames.com": "MobyGames",
+  "cdn2.mobygames.com": "MobyGames",
+  "retroachievements.org": "RetroAchievements",
+  "media.retroachievements.org": "RetroAchievements",
+  "images.launchbox-app.com": "LaunchBox",
+  "cdn.steamgriddb.com": "SteamGridDB",
+  "cdn2.steamgriddb.com": "SteamGridDB",
+  "hasheous.org": "Hasheous",
+  "infinity.unstable.life": "Flashpoint",
+  "howlongtobeat.com": "HowLongToBeat",
+  "thumbnails.libretro.com": "Libretro",
+};
+
+const coverSource = computed(() => {
+  if (!props.rom.url_cover) return null;
+  try {
+    return COVER_HOSTS[new URL(props.rom.url_cover).hostname] ?? null;
+  } catch {
+    return null;
+  }
+});
 </script>
 
 <template>
@@ -211,6 +252,49 @@ const hasRelated = computed(
         <RelatedGamesGrid title="" :items="similarGames" />
       </div>
     </template>
+
+    <!-- 6. Attribution — credit the metadata + cover-art sources -->
+    <div
+      v-if="dataProviders.length || coverSource"
+      class="overview-tab__attribution"
+    >
+      <i18n-t
+        v-if="dataProviders.length"
+        keypath="rom.data-provided-by"
+        tag="div"
+      >
+        <template #sources>
+          <template v-for="(source, index) in dataProviders" :key="source.name"
+            ><span v-if="index > 0">{{
+              index === dataProviders.length - 1 ? ` ${t("common.and")} ` : ", "
+            }}</span
+            ><a
+              v-if="source.href"
+              class="overview-tab__attribution-link"
+              :href="source.href"
+              target="_blank"
+              rel="noopener"
+              >{{ source.name }}</a
+            ><span v-else>{{ source.name }}</span></template
+          >
+        </template>
+      </i18n-t>
+      <i18n-t
+        v-if="coverSource && rom.url_cover"
+        keypath="rom.cover-art-provided-by"
+        tag="div"
+      >
+        <template #source>
+          <a
+            class="overview-tab__attribution-link"
+            :href="rom.url_cover"
+            target="_blank"
+            rel="noopener"
+            >{{ coverSource }}</a
+          >
+        </template>
+      </i18n-t>
+    </div>
   </section>
 </template>
 
@@ -319,5 +403,27 @@ const hasRelated = computed(
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--r-color-fg-faint);
+}
+
+/* Attribution — a quiet, italic credits footer for the metadata and
+   cover-art sources. */
+.overview-tab__attribution {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11.5px;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--r-color-fg-faint);
+}
+.overview-tab__attribution-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--r-color-border-strong);
+  text-underline-offset: 2px;
+  transition: color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.overview-tab__attribution-link:hover {
+  color: var(--r-color-fg-secondary);
 }
 </style>

@@ -17,6 +17,8 @@
   "completionist": "Completista",
   "confirm-delete-note": "Sei sicuro di voler eliminare la nota \"{title}\"?",
   "copy-link": "Copia link per il download",
+  "cover-art-provided-by": "Copertina fornita da {source}.",
+  "data-provided-by": "Dati forniti da {sources}.",
   "default": "Predefinita",
   "delete": "Elimina",
   "delete-filesystem-warning": "Stai per rimuovere {n} ROM dal tuo filesystem. Questa azione non può essere annullata! | Stai per rimuovere {n} ROM dal tuo filesystem. Questa azione non può essere annullata!",

@@ -17,6 +17,8 @@
   "completionist": "Completionist",
   "confirm-delete-note": "Are you sure you want to delete the note \"{title}\"?",
   "copy-link": "Copy download link",
+  "cover-art-provided-by": "Cover art provided by {source}.",
+  "data-provided-by": "Data provided by {sources}.",
   "default": "Set default",
   "default-version": "Default version",
   "delete": "Delete",

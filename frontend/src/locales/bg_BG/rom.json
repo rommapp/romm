@@ -17,6 +17,8 @@
   "completionist": "Перфекционист",
   "confirm-delete-note": "Сигурен ли си, че искаш да изтриеш бележката \"{title}\"?",
   "copy-link": "Копирай линк за сваляне",
+  "cover-art-provided-by": "Cover art provided by {source}.",
+  "data-provided-by": "Data provided by {sources}.",
   "default": "Задай по подразбиране",
   "delete": "Изтрий",
   "delete-filesystem-warning": "Ще премахнеш {n} ROM от файловата си система. Това действие е необратимо! | Ще премахнеш {n} ROM-а от файловата си система. Това действие е необратимо!",

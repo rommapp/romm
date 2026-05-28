@@ -17,6 +17,8 @@
   "completionist": "Vollendung",
   "confirm-delete-note": "Sind Sie sicher, dass Sie die Notiz \"{title}\" löschen möchten?",
   "copy-link": "Download-Link kopieren",
+  "cover-art-provided-by": "Cover bereitgestellt von {source}.",
+  "data-provided-by": "Daten bereitgestellt von {sources}.",
   "default": "Standard",
   "delete": "Löschen",
   "delete-filesystem-warning": "Sie werden {n} ROM aus Ihrem Dateisystem entfernen. Diese Aktion kann nicht rückgängig gemacht werden! | Sie werden {n} ROMs aus Ihrem Dateisystem entfernen. Diese Aktion kann nicht rückgängig gemacht werden!",

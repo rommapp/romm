@@ -17,6 +17,8 @@
   "completionist": "Completista",
   "confirm-delete-note": "¿Estás seguro de que quieres eliminar la nota \"{title}\"?",
   "copy-link": "Copiar link de descarga",
+  "cover-art-provided-by": "Carátula proporcionada por {source}.",
+  "data-provided-by": "Datos proporcionados por {sources}.",
   "default": "Por defecto",
   "delete": "Eliminar",
   "delete-filesystem-warning": "Vas a eliminar {n} ROM de tu sistema de archivos. ¡Esta acción no se puede deshacer! | Vas a eliminar {n} ROMs de tu sistema de archivos. ¡Esta acción no se puede deshacer!",

@@ -17,6 +17,8 @@
   "completionist": "Kompletista",
   "confirm-delete-note": "Czy na pewno chcesz usunąć notatkę \"{title}\"?",
   "copy-link": "Kopiuj link do pobrania",
+  "cover-art-provided-by": "Okładka dostarczona przez {source}.",
+  "data-provided-by": "Dane dostarczone przez {sources}.",
   "default": "Ustaw jako domyślne",
   "delete": "Usuń",
   "delete-filesystem-warning": "Zamierzasz usunąć {n} ROM z systemu plików. Tej operacji nie można cofnąć! | Zamierzasz usunąć {n} ROM-ów z systemu plików. Tej operacji nie można cofnąć!",

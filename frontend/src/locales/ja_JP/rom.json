@@ -17,6 +17,8 @@
   "completionist": "コンプリート",
   "confirm-delete-note": "ノート\"{title}\"を削除してもよろしいですか？",
   "copy-link": "ダウンロードリンクをコピー",
+  "cover-art-provided-by": "Cover art provided by {source}.",
+  "data-provided-by": "Data provided by {sources}.",
   "default": "デフォルト",
   "delete": "削除",
   "delete-filesystem-warning": "削除しようとしています {n} 件のROMをファイルシステムから。この操作は取り消せません！",

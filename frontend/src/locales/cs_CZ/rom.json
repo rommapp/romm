@@ -17,6 +17,8 @@
   "completionist": "Kompletista",
   "confirm-delete-note": "Opravdu chcete smazat poznámku \"{title}\"?",
   "copy-link": "Kopírovat odkaz ke stažení",
+  "cover-art-provided-by": "Cover art provided by {source}.",
+  "data-provided-by": "Data provided by {sources}.",
   "default": "Nastavit jako výchozí",
   "default-version": "Výchozí verze",
   "delete": "Smazat",

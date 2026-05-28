@@ -17,6 +17,8 @@
   "completionist": "Completionist",
   "confirm-delete-note": "Are you sure you want to delete the note \"{title}\"?",
   "copy-link": "Copy download link",
+  "cover-art-provided-by": "Cover art provided by {source}.",
+  "data-provided-by": "Data provided by {sources}.",
   "default": "Set default",
   "delete": "Delete",
   "delete-filesystem-warning": "You are going to remove {n} ROM from your filesystem. This action can't be reverted! | You are going to remove {n} ROMs from your filesystem. This action can't be reverted!",

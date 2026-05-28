@@ -17,6 +17,8 @@
   "completionist": "完美主義者",
   "confirm-delete-note": "確定要刪除筆記\"{title}\"嗎？",
   "copy-link": "複製下載鏈接",
+  "cover-art-provided-by": "封面由 {source} 提供。",
+  "data-provided-by": "資料由 {sources} 提供。",
   "default": "預設",
   "delete": "刪除",
   "delete-filesystem-warning": "您將要刪除 {n} 個 ROM 從您的檔案系統。此操作無法撤銷！",

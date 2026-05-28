@@ -17,6 +17,8 @@
   "completionist": "完美主义者",
   "confirm-delete-note": "确定要删除笔记\"{title}\"吗？",
   "copy-link": "复制下载链接",
+  "cover-art-provided-by": "封面由 {source} 提供。",
+  "data-provided-by": "数据由 {sources} 提供。",
   "default": "默认",
   "delete": "删除",
   "delete-filesystem-warning": "您将要删除 {n} 个 ROM 从您的文件系统。此操作无法撤销！",

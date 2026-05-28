@@ -17,6 +17,8 @@
   "completionist": "Completist",
   "confirm-delete-note": "Sunteți sigur că vreți să ștergeți notația \"{title}\"?",
   "copy-link": "Copiază linkul de descărcare",
+  "cover-art-provided-by": "Cover art provided by {source}.",
+  "data-provided-by": "Data provided by {sources}.",
   "default": "Implicit",
   "default-version": "Versiune implicită",
   "delete": "Șterge",

@@ -17,6 +17,8 @@
   "completionist": "Complétionniste",
   "confirm-delete-note": "Êtes-vous sûr de vouloir supprimer la note \"{title}\" ?",
   "copy-link": "Copier le lien de téléchargement",
+  "cover-art-provided-by": "Jaquette fournie par {source}.",
+  "data-provided-by": "Données fournies par {sources}.",
   "default": "Par défaut",
   "delete": "Supprimer",
   "delete-filesystem-warning": "Vous allez supprimer {n} ROM de votre système de fichiers. Cette action ne peut pas être annulée ! | Vous allez supprimer {n} ROMs de votre système de fichiers. Cette action ne peut pas être annulée !",

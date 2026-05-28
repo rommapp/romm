@@ -17,6 +17,8 @@
   "completionist": "Completionista",
   "confirm-delete-note": "Biztos hogy törölni akarod ezt a jegyzetet \"{title}\"?",
   "copy-link": "Letöltési link másolása",
+  "cover-art-provided-by": "Cover art provided by {source}.",
+  "data-provided-by": "Data provided by {sources}.",
   "default": "Alapértelmezettnek beállítva",
   "delete": "Törlés",
   "delete-filesystem-warning": "Elfogsz távolítani {n} ROM-ot a fájlrendszeredből. Ez a művelet visszafordíthatatlan! | Elfogsz távolítani {n} ROM-okat a fájlrendszeredből. Ez a művelet visszafordíthatatlan!",
