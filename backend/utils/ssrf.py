@@ -123,7 +123,7 @@ class SSRFProtectedAsyncBackend(AsyncNetworkBackend):
     """Async backend that validates resolved IPs before establishing TCP."""
 
     def __init__(self, inner: AsyncNetworkBackend | None = None) -> None:
-        self._inner = inner if inner is not None else AutoBackend()
+        self._inner = inner or AutoBackend()
 
     # `timeout` parameter is required by AsyncNetworkBackend.connect_tcp;
     # ruff/ASYNC109 advises against timeout parameters on async APIs *we*
@@ -221,47 +221,22 @@ class SSRFProtectedSyncBackend(NetworkBackend):
         return self._inner.connect_unix_socket(path, timeout, socket_options)
 
 
-def _iter_client_transports(client: typing.Any) -> typing.Iterator[typing.Any]:
-    """Yield every transport an httpx client may route a request through.
-
-    Covers both the default transport (`_transport`) and any URL-pattern
-    overrides (`_mounts`), so env-driven proxy transports created when
-    `trust_env=True` are also wrapped.
-    """
-    default = getattr(client, "_transport", None)
-    if default is not None:
-        yield default
-    for transport in getattr(client, "_mounts", {}).values():
-        if transport is not None and transport is not default:
-            yield transport
-
-
 def install_async_ssrf_protection(client: typing.Any) -> None:
-    """Wrap every transport's pool with the SSRF-protected async backend.
+    """Wrap the client's default transport so SSRF validation runs at connect time.
 
     httpx does not expose `network_backend` through its public transport
     API, so we mutate `_pool._network_backend` after construction.
     """
-    for transport in _iter_client_transports(client):
-        pool = getattr(transport, "_pool", None)
-        if pool is None:
-            continue
-        existing = getattr(pool, "_network_backend", None)
-        if isinstance(existing, SSRFProtectedAsyncBackend):
-            continue
-        pool._network_backend = SSRFProtectedAsyncBackend(inner=existing)
+    pool = client._transport._pool
+    if not isinstance(pool._network_backend, SSRFProtectedAsyncBackend):
+        pool._network_backend = SSRFProtectedAsyncBackend(inner=pool._network_backend)
 
 
 def install_sync_ssrf_protection(client: typing.Any) -> None:
-    """Sync counterpart of install_async_ssrf_protection."""
-    for transport in _iter_client_transports(client):
-        pool = getattr(transport, "_pool", None)
-        if pool is None:
-            continue
-        existing = getattr(pool, "_network_backend", None)
-        if isinstance(existing, SSRFProtectedSyncBackend):
-            continue
-        pool._network_backend = SSRFProtectedSyncBackend(inner=existing)
+    """Sync counterpart of `install_async_ssrf_protection`."""
+    pool = client._transport._pool
+    if not isinstance(pool._network_backend, SSRFProtectedSyncBackend):
+        pool._network_backend = SSRFProtectedSyncBackend(inner=pool._network_backend)
 
 
 RESERVED_HOSTNAMES = [
@@ -327,6 +302,7 @@ def validate_url_for_http_request(url: str, field_name: str = "URL") -> None:
         log.error(msg)
         raise ValidationError(msg, field_name)
 
+    # Block reserved hostnames that are commonly used to refer to internal services.
     if hostname.lower() in RESERVED_HOSTNAMES:
         msg = f"Invalid {field_name}: localhost and reserved hostnames are not allowed"
         log.error(f"SSRF prevention: {msg} - hostname '{hostname}'")

@@ -232,6 +232,32 @@ class TestSSRFProtectedSyncBackend:
             backend.connect_tcp("10.0.0.1", 80)
         inner.connect_tcp.assert_not_called()
 
+    def test_dns_timeout_raises_connect_timeout(self, monkeypatch):
+        """Sync resolver must be bounded by the caller's timeout.
+
+        `socket.getaddrinfo` has no built-in timeout knob, so without
+        an explicit bound a hung resolver would block the calling
+        thread until the OS resolver gave up. Verify the sync backend
+        gives up after the deadline.
+        """
+        import time
+
+        inner = _stub_sync_inner([])
+        backend = SSRFProtectedSyncBackend(inner=inner)
+
+        def hang_forever(*_args, **_kwargs):
+            time.sleep(3600)
+
+        monkeypatch.setattr(socket, "getaddrinfo", hang_forever)
+
+        start = time.monotonic()
+        with pytest.raises(httpcore.ConnectTimeout, match="DNS resolution timed out"):
+            backend.connect_tcp("slow.example.com", 80, timeout=0.05)
+        elapsed = time.monotonic() - start
+        # Should give up around the timeout, not block on the resolver.
+        assert elapsed < 1.0, f"sync resolver blocked for {elapsed:.2f}s"
+        inner.connect_tcp.assert_not_called()
+
 
 class TestRequestEventHook:
     """Verify the syntactic URL validator is wired as a request event hook.
@@ -278,31 +304,48 @@ class TestInstallation:
     def test_create_httpx_async_client_installs_backend(self):
         from utils.context import create_httpx_async_client
         from utils.ssrf import SSRFProtectedAsyncBackend as Async
-        from utils.ssrf import (
-            _iter_client_transports,
-        )
 
         client = create_httpx_async_client()
         try:
-            transports = list(_iter_client_transports(client))
-            assert transports, "expected at least one transport on the client"
-            for transport in transports:
-                assert isinstance(transport._pool._network_backend, Async)
+            assert isinstance(client._transport._pool._network_backend, Async)
         finally:
             asyncio.run(client.aclose())
 
     def test_create_httpx_client_installs_backend(self):
         from utils.context import create_httpx_client
         from utils.ssrf import SSRFProtectedSyncBackend as Sync
-        from utils.ssrf import (
-            _iter_client_transports,
-        )
 
         with create_httpx_client() as client:
-            transports = list(_iter_client_transports(client))
-            assert transports, "expected at least one transport on the client"
-            for transport in transports:
-                assert isinstance(transport._pool._network_backend, Sync)
+            assert isinstance(client._transport._pool._network_backend, Sync)
+
+    def test_proxy_transports_are_not_wrapped(self):
+        """Proxy mounts must keep their stock backend.
+
+        A common deployment pattern is `HTTPS_PROXY=http://sidecar:9050`,
+        where `sidecar` resolves to a docker-bridge private IP. If we
+        wrapped the proxy transport, our SSRF backend would refuse to
+        connect to the operator's chosen proxy. SSRF protection at the
+        proxy hop is the operator's responsibility; the destination URL
+        is still validated by the request event hook on the client.
+        """
+        import httpx
+
+        from utils.ssrf import SSRFProtectedAsyncBackend as Async
+        from utils.ssrf import (
+            install_async_ssrf_protection,
+        )
+
+        client = httpx.AsyncClient(proxy="http://proxy.invalid:3128")
+        try:
+            install_async_ssrf_protection(client)
+            assert isinstance(client._transport._pool._network_backend, Async)
+            for mount in client._mounts.values():
+                if mount is None:
+                    continue
+                # Proxy mount must NOT have been wrapped.
+                assert not isinstance(mount._pool._network_backend, Async)
+        finally:
+            asyncio.run(client.aclose())
 
 
 class TestValidateUrlForHttpRequest:
