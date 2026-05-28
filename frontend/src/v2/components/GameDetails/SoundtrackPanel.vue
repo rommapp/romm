@@ -21,10 +21,11 @@ import {
   watch,
 } from "vue";
 import { useI18n } from "vue-i18n";
-import romApi, {
-  type SoundtrackAudioMeta,
-  type SoundtrackTrackMeta,
-} from "@/services/api/rom";
+import type {
+  RomFileAudioMetaSchema,
+  SoundtrackTrackMetaSchema,
+} from "@/__generated__";
+import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import useSoundtrackPlayer, {
   type PlayerMeta,
@@ -101,16 +102,16 @@ const folderCoverUrl = computed(() => {
 });
 
 // ---------- Metadata fetch ----------
-const tracksMeta = ref<Map<number, SoundtrackAudioMeta>>(new Map());
+const tracksMeta = ref<Map<number, RomFileAudioMetaSchema>>(new Map());
 const isLoadingMeta = ref(false);
 let metaAbort: AbortController | null = null;
 
-function coverUrlForMeta(m: SoundtrackAudioMeta | undefined): string | null {
+function coverUrlForMeta(m: RomFileAudioMetaSchema | undefined): string | null {
   if (m?.cover_path) return `${FRONTEND_RESOURCES_PATH}/${m.cover_path}`;
   return null;
 }
 
-function toPlayerMeta(m: SoundtrackAudioMeta | undefined): PlayerMeta {
+function toPlayerMeta(m: RomFileAudioMetaSchema | undefined): PlayerMeta {
   return {
     title: m?.title ?? undefined,
     artist: m?.artist ?? undefined,
@@ -149,8 +150,8 @@ async function loadAllMetadata() {
       romId: props.rom.id,
       signal: metaAbort.signal,
     });
-    const next = new Map<number, SoundtrackAudioMeta>();
-    for (const row of data as SoundtrackTrackMeta[]) {
+    const next = new Map<number, RomFileAudioMetaSchema>();
+    for (const row of data as SoundtrackTrackMetaSchema[]) {
       if (row.audio_meta) next.set(row.file_id, row.audio_meta);
     }
     tracksMeta.value = next;
@@ -192,7 +193,7 @@ const activeTrack = computed(() =>
   tracks.value.find((t) => t.id === activeTrackId.value),
 );
 
-const activeMeta = computed<SoundtrackAudioMeta | undefined>(() =>
+const activeMeta = computed<RomFileAudioMetaSchema | undefined>(() =>
   activeTrackId.value != null
     ? tracksMeta.value.get(activeTrackId.value)
     : undefined,
@@ -236,7 +237,7 @@ function trackDurationFor(fileId: number): number | undefined {
 // Chips shown in the now-playing header.
 type ChipItem = { icon: string; label: string; color?: string };
 
-function headerChips(meta: SoundtrackAudioMeta | undefined): ChipItem[] {
+function headerChips(meta: RomFileAudioMetaSchema | undefined): ChipItem[] {
   if (!meta) return [];
   const items: ChipItem[] = [];
   if (meta.album) items.push({ icon: "mdi-album", label: meta.album });

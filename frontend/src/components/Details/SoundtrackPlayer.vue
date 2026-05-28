@@ -4,11 +4,12 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import type {
+  RomFileAudioMetaSchema,
+  SoundtrackTrackMetaSchema,
+} from "@/__generated__";
 import VolumeControl from "@/components/common/VolumeControl.vue";
-import romApi, {
-  type SoundtrackAudioMeta,
-  type SoundtrackTrackMeta,
-} from "@/services/api/rom";
+import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import useSoundtrackPlayer, {
   type PlayerMeta,
@@ -74,7 +75,7 @@ const folderCoverUrl = computed(() => {
   return cover ? fileUrl(cover.id, cover.file_name) : null;
 });
 
-const tracksMeta = ref<Map<number, SoundtrackAudioMeta>>(new Map());
+const tracksMeta = ref<Map<number, RomFileAudioMetaSchema>>(new Map());
 const isLoadingMeta = ref(false);
 let metaAbort: AbortController | null = null;
 
@@ -88,13 +89,13 @@ const activeTrack = computed(() =>
   tracks.value.find((t) => t.id === activeTrackId.value),
 );
 
-const activeMeta = computed<SoundtrackAudioMeta | undefined>(() =>
+const activeMeta = computed<RomFileAudioMetaSchema | undefined>(() =>
   activeTrackId.value != null
     ? tracksMeta.value.get(activeTrackId.value)
     : undefined,
 );
 
-function coverUrlForMeta(m: SoundtrackAudioMeta | undefined): string | null {
+function coverUrlForMeta(m: RomFileAudioMetaSchema | undefined): string | null {
   if (m?.cover_path) return `${FRONTEND_RESOURCES_PATH}/${m.cover_path}`;
   return null;
 }
@@ -151,8 +152,8 @@ async function loadAllMetadata() {
       romId: props.rom.id,
       signal: metaAbort.signal,
     });
-    const next = new Map<number, SoundtrackAudioMeta>();
-    for (const row of data as SoundtrackTrackMeta[]) {
+    const next = new Map<number, RomFileAudioMetaSchema>();
+    for (const row of data as SoundtrackTrackMetaSchema[]) {
       if (row.audio_meta) next.set(row.file_id, row.audio_meta);
     }
     tracksMeta.value = next;
@@ -171,7 +172,7 @@ async function loadAllMetadata() {
   }
 }
 
-function toPlayerMeta(m: SoundtrackAudioMeta | undefined): PlayerMeta {
+function toPlayerMeta(m: RomFileAudioMetaSchema | undefined): PlayerMeta {
   return {
     title: m?.title ?? undefined,
     artist: m?.artist ?? undefined,
@@ -243,7 +244,7 @@ function onDelete(fileId: number) {
   emit("delete-track", fileId);
 }
 
-function chips(meta: SoundtrackAudioMeta | undefined) {
+function chips(meta: RomFileAudioMetaSchema | undefined) {
   if (!meta) return [];
   const items: { icon: string; label: string }[] = [];
   if (meta.album) items.push({ icon: "mdi-album", label: meta.album });
