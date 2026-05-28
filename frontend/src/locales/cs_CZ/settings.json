@@ -322,5 +322,17 @@
   "vc-mode": "Herní režim",
   "vc-company": "Vývojář",
   "vc-all": "Vše (pomalé)",
-  "controller-debug-all-axes": "Všechny osy"
+  "controller-debug-all-axes": "Všechny osy",
+  "home-sections": "Sekce",
+  "home-widgets": "Widgety",
+  "show-home-widgets": "Zobrazit lištu widgetů",
+  "show-home-widgets-desc": "Zobrazí lištu widgetů nad řádky domovského přehledu. Skryjte ji pro odebrání celé sekce.",
+  "widget-random-pick": "Náhodný výběr",
+  "widget-random-pick-desc": "Navrhne náhodnou ROM z vaší knihovny s tlačítkem pro nový výběr.",
+  "widget-library-stats": "Statistiky knihovny",
+  "widget-library-stats-desc": "Číselný přehled vaší knihovny: hry, platformy, oblíbené a další.",
+  "widget-library-stats-mode": "Podrobnosti statistik knihovny",
+  "widget-library-stats-compact": "Kompaktní (hry, platformy, oblíbené)",
+  "widget-library-stats-extended": "Rozšířené (uložené pozice, stavy, snímky obrazovky, disk)",
+  "widget-reorder-drag": "Přetažením změníte pořadí"
 }

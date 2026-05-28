@@ -229,6 +229,7 @@ async function submit() {
         <div class="r-v2-csc__grid">
           <!-- Left column: editable fields -->
           <div class="r-v2-csc__fields">
+            <!-- eslint-disable vuejs-accessibility/no-autofocus -- autofocusing the first field on dialog open is intentional modal UX -->
             <RTextField
               v-model="name"
               :placeholder="t('collection.name')"
@@ -241,6 +242,7 @@ async function submit() {
                 {{ t("collection.name") }}
               </template>
             </RTextField>
+            <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
             <RTextField
               v-model="description"

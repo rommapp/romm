@@ -141,5 +141,11 @@
   "uploaded-with-failed": "{ok}개 업로드됨 · {fail}개 건너뜀/실패 · 스캔 시작",
   "for": "대상",
   "details": "자세히",
-  "discard": "취소"
+  "discard": "취소",
+  "changelog-loading": "릴리스를 불러오는 중…",
+  "changelog-error-title": "릴리스를 불러올 수 없습니다",
+  "changelog-error-hint": "GitHub에 연결하지 못했습니다. 연결을 확인하거나 다시 시도하세요.",
+  "changelog-empty-title": "아직 릴리스가 없습니다",
+  "changelog-empty-hint": "저장소에 게시된 릴리스가 아직 없습니다.",
+  "changelog-view-all": "GitHub에서 모든 릴리스 보기"
 }

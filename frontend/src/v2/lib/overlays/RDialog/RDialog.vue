@@ -191,6 +191,7 @@ const panelStyle = computed(() => {
         :style="dialogStyle"
       >
         <!-- Scrim — fades in/out behind the panel. -->
+        <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/no-static-element-interactions -- scrim is a pointer-only convenience; keyboard closes via Escape through the dialog scope -->
         <div class="r-dialog__scrim" @click="onScrimClick" />
 
         <!-- Panel — receives focus on open. -->

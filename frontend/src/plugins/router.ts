@@ -576,9 +576,9 @@ router.beforeEach(async (to, _from, next) => {
 
   try {
     // Handle setup wizard
-    // if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
-    //   return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();
-    // }
+    if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
+      return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();
+    }
 
     // Handle authentication — unauth'd users visiting a non-exempt route
     // land on /login. Without this branch, they fall through to the

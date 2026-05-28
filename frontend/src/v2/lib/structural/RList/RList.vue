@@ -80,7 +80,6 @@ const resolvedRounded = computed<string>(() => {
 <template>
   <ul
     v-bind="$attrs"
-    role="list"
     class="r-list"
     :class="[`r-list--density-${density}`]"
     :style="{

@@ -115,6 +115,7 @@ function onSubmit(ev: Event) {
 </script>
 
 <template>
+  <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- form-level keydown implements Enter-to-submit (§VI.F); the form is the correct owner -->
   <form
     ref="formRef"
     v-bind="attrs"

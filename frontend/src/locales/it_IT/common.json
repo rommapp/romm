@@ -141,5 +141,11 @@
   "uploaded-with-failed": "{ok} caricati · {fail} saltati/falliti · scansione in avvio",
   "for": "per",
   "details": "Dettagli",
-  "discard": "Scarta"
+  "discard": "Scarta",
+  "changelog-loading": "Caricamento delle release…",
+  "changelog-error-title": "Impossibile caricare le release",
+  "changelog-error-hint": "Connessione a GitHub non riuscita. Controlla la connessione o riprova.",
+  "changelog-empty-title": "Nessuna release ancora",
+  "changelog-empty-hint": "Il repository non ha ancora pubblicato release.",
+  "changelog-view-all": "Vedi tutte le release su GitHub"
 }

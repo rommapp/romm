@@ -1092,6 +1092,7 @@ const hasPrependInner = computed(
          contexts. Mounted only when open. -->
     <Teleport to="body">
       <Transition name="r-select-pop">
+        <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -- the listbox routes keydown for its options; focus lives on the search input / option rows, not this container -->
         <div
           v-if="isOpen"
           ref="panelRef"
@@ -1112,6 +1113,7 @@ const hasPrependInner = computed(
             @mousedown.stop
             @click.stop
           >
+            <!-- eslint-disable vuejs-accessibility/no-autofocus -- autofocusing the search field on open is intentional modal UX -->
             <RTextField
               :model-value="internalSearch"
               :placeholder="searchPlaceholder"
@@ -1126,6 +1128,7 @@ const hasPrependInner = computed(
                 <RIcon icon="mdi-magnify" size="16" />
               </template>
             </RTextField>
+            <!-- eslint-enable vuejs-accessibility/no-autofocus -->
           </div>
 
           <ul class="r-select__list">
@@ -1134,6 +1137,7 @@ const hasPrependInner = computed(
                  items and is separated by a divider so it reads as a
                  meta action rather than a list item. -->
             <template v-if="showAllRow">
+              <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/mouse-events-have-key-events -- option rows are pointer targets; keyboard navigation is handled by the listbox-level keydown (Up/Down/Enter/Esc) -->
               <li
                 class="r-select__item r-select__item--all"
                 :class="{ 'r-select__item--selected': isAllSelected }"
@@ -1190,6 +1194,7 @@ const hasPrependInner = computed(
                 onMouseenter: () => (activeIndex = i),
               }"
             >
+              <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/interactive-supports-focus, vuejs-accessibility/mouse-events-have-key-events -- option rows are pointer targets; the listbox-level keydown (Up/Down/Enter/Esc) drives keyboard selection and roving activeIndex -->
               <li
                 role="option"
                 class="r-select__item"

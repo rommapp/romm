@@ -26,9 +26,9 @@
 // Sort emits the new (key, dir) — toggling direction on the active
 // column or starting at "asc" on a new column. The store/composable
 // owns the actual sort state; RTable is pure UI.
+import { computed } from "vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RSkeletonBlock from "../../primitives/RSkeletonBlock/RSkeletonBlock.vue";
-import { computed } from "vue";
 import type {
   RTableColumn,
   RTableProps,
@@ -71,6 +71,13 @@ function rowKey(row: T, idx: number): string | number {
 function rowClassFor(row: T): string | undefined {
   const c = props.rowClass;
   return typeof c === "function" ? c(row) : c;
+}
+
+// Default cell renderer. Kept in the script (rather than inline in the
+// template) so the generic cast doesn't put `<...>` angle brackets inside
+// a mustache, which the HTML/Prettier parser misreads as tags.
+function cellValue(row: T, key: string): unknown {
+  return (row as Record<string, unknown>)[key] ?? "";
 }
 
 function handleSort(col: RTableColumn) {
@@ -192,9 +199,7 @@ const rowStyle = computed(() =>
           role="row"
           :tabindex="clickableRows ? 0 : -1"
           @click="clickableRows && emit('row:click', row)"
-          @keydown.enter.space.prevent="
-            clickableRows && emit('row:click', row)
-          "
+          @keydown.enter.space.prevent="clickableRows && emit('row:click', row)"
         >
           <div
             v-for="col in columns"
@@ -212,7 +217,7 @@ const rowStyle = computed(() =>
               :column="col"
               :index="idx"
             >
-              {{ (row as Record<string, unknown>)[col.key] ?? "" }}
+              {{ cellValue(row, col.key) }}
             </slot>
           </div>
         </div>

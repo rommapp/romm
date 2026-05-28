@@ -322,5 +322,17 @@
   "vc-mode": "Play Mode",
   "vc-company": "Developer",
   "vc-all": "All (slow)",
-  "controller-debug-all-axes": "All axes"
+  "controller-debug-all-axes": "All axes",
+  "home-sections": "Sections",
+  "home-widgets": "Widgets",
+  "show-home-widgets": "Show widgets bar",
+  "show-home-widgets-desc": "Display the widget rail above the home dashboard rows. Hide to drop the entire section.",
+  "widget-random-pick": "Random pick",
+  "widget-random-pick-desc": "Suggest a random ROM from your library, with a reroll button to shuffle again.",
+  "widget-library-stats": "Library stats",
+  "widget-library-stats-desc": "Counts overview of your library: games, platforms, favourites, and more.",
+  "widget-library-stats-mode": "Library stats detail",
+  "widget-library-stats-compact": "Compact (games, platforms, favourites)",
+  "widget-library-stats-extended": "Extended (saves, states, screenshots, disk)",
+  "widget-reorder-drag": "Drag to reorder"
 }

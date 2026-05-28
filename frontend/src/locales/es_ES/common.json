@@ -141,5 +141,11 @@
   "upload-progress": "Progreso de subida",
   "loading": "Cargando",
   "back-btn": "Atrás",
-  "clear-file": "Limpiar"
+  "clear-file": "Limpiar",
+  "changelog-loading": "Cargando versiones…",
+  "changelog-error-title": "No se pudieron cargar las versiones",
+  "changelog-error-hint": "No se pudo conectar con GitHub. Comprueba tu conexión o inténtalo de nuevo.",
+  "changelog-empty-title": "Aún no hay versiones",
+  "changelog-empty-hint": "El repositorio aún no ha publicado ninguna versión.",
+  "changelog-view-all": "Ver todas las versiones en GitHub"
 }

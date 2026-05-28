@@ -322,5 +322,17 @@
   "vc-mode": "Játékmód",
   "vc-company": "Fejlesztő",
   "vc-all": "Összes (lassú)",
-  "controller-debug-all-axes": "Összes tengely"
+  "controller-debug-all-axes": "Összes tengely",
+  "home-sections": "Szakaszok",
+  "home-widgets": "Widgetek",
+  "show-home-widgets": "Widgetsáv megjelenítése",
+  "show-home-widgets-desc": "Megjeleníti a widgetsávot a kezdőoldal sorai felett. Rejtsd el a teljes szakasz eltávolításához.",
+  "widget-random-pick": "Véletlen választás",
+  "widget-random-pick-desc": "Véletlenszerű ROM-ot ajánl a könyvtáradból, újradobás gombbal.",
+  "widget-library-stats": "Könyvtárstatisztika",
+  "widget-library-stats-desc": "Számszerű áttekintés a könyvtáradról: játékok, platformok, kedvencek és más.",
+  "widget-library-stats-mode": "Könyvtárstatisztika részletei",
+  "widget-library-stats-compact": "Kompakt (játékok, platformok, kedvencek)",
+  "widget-library-stats-extended": "Bővített (mentések, állapotok, képernyőképek, lemez)",
+  "widget-reorder-drag": "Húzd az átrendezéshez"
 }

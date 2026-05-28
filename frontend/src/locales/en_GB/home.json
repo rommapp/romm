@@ -11,5 +11,12 @@
   "empty-scan-cta": "Run scan",
   "empty-detected-platforms": "{count} platform detected | {count} platforms detected",
   "empty-detected-games": "{count} game detected | {count} games detected",
-  "no-games-yet": "No games added yet."
+  "no-games-yet": "No games added yet.",
+  "widget-random-pick": "Random pick",
+  "widget-random-pick-open": "Open",
+  "widget-random-pick-reroll": "Reroll",
+  "widget-random-pick-empty": "No games loaded yet",
+  "widget-library-stats": "Library stats",
+  "widget-library-favorites": "Favourites",
+  "widget-library-screenshots": "Screenshots"
 }

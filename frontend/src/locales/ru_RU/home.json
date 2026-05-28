@@ -11,5 +11,12 @@
   "empty-scan-cta": "Запустить сканирование",
   "empty-detected-platforms": "обнаружена {count} платформа | обнаружено {count} платформ",
   "empty-detected-games": "обнаружена {count} игра | обнаружено {count} игр",
-  "no-games-yet": "Игры пока не добавлены."
+  "no-games-yet": "Игры пока не добавлены.",
+  "widget-random-pick": "Случайный выбор",
+  "widget-random-pick-open": "Открыть",
+  "widget-random-pick-reroll": "Выбрать заново",
+  "widget-random-pick-empty": "Игры ещё не загружены",
+  "widget-library-stats": "Статистика библиотеки",
+  "widget-library-favorites": "Избранное",
+  "widget-library-screenshots": "Скриншоты"
 }

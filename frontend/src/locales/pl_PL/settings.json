@@ -322,5 +322,17 @@
   "vc-mode": "Tryb gry",
   "vc-company": "Deweloper",
   "vc-all": "Wszystkie (powoli)",
-  "controller-debug-all-axes": "Wszystkie osie"
+  "controller-debug-all-axes": "Wszystkie osie",
+  "home-sections": "Sekcje",
+  "home-widgets": "Widżety",
+  "show-home-widgets": "Pokaż pasek widżetów",
+  "show-home-widgets-desc": "Wyświetla pasek widżetów nad wierszami pulpitu głównego. Ukryj, aby usunąć całą sekcję.",
+  "widget-random-pick": "Losowy wybór",
+  "widget-random-pick-desc": "Proponuje losową ROM z Twojej biblioteki, z przyciskiem ponownego losowania.",
+  "widget-library-stats": "Statystyki biblioteki",
+  "widget-library-stats-desc": "Liczbowy przegląd Twojej biblioteki: gry, platformy, ulubione i więcej.",
+  "widget-library-stats-mode": "Szczegóły statystyk biblioteki",
+  "widget-library-stats-compact": "Kompaktowy (gry, platformy, ulubione)",
+  "widget-library-stats-extended": "Rozszerzony (zapisy, stany, zrzuty ekranu, dysk)",
+  "widget-reorder-drag": "Przeciągnij, aby zmienić kolejność"
 }

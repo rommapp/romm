@@ -141,5 +141,11 @@
   "uploaded-with-failed": "{ok} feltöltve · {fail} kihagyva/sikertelen · szkennelés indul",
   "for": "ehhez:",
   "details": "Részletek",
-  "discard": "Elvetés"
+  "discard": "Elvetés",
+  "changelog-loading": "Kiadások betöltése…",
+  "changelog-error-title": "Nem sikerült betölteni a kiadásokat",
+  "changelog-error-hint": "A GitHub elérése nem sikerült. Ellenőrizd a kapcsolatot, vagy próbáld újra.",
+  "changelog-empty-title": "Még nincsenek kiadások",
+  "changelog-empty-hint": "A tároló még nem tett közzé kiadást.",
+  "changelog-view-all": "Összes kiadás megtekintése a GitHubon"
 }

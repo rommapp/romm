@@ -415,6 +415,7 @@ watch(
            keyboard users navigate the panel via arrow keys + Escape, which
            are already wired up. focusin/focusout don't apply at the panel
            level since menu items own focus, not the panel container. -->
+      <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -- panel routes keydown for its items; focus lives on the menu items, not this container -->
       <div
         v-if="isOpen"
         ref="panelRef"
@@ -435,6 +436,7 @@ watch(
           data-r-menu-no-close
           @mousedown.stop
         >
+          <!-- eslint-disable vuejs-accessibility/no-autofocus -- autofocusing the search field on menu open is intentional modal UX -->
           <RTextField
             :model-value="search"
             :placeholder="searchPlaceholder"
@@ -449,6 +451,7 @@ watch(
               <RIcon icon="mdi-magnify" size="16" />
             </template>
           </RTextField>
+          <!-- eslint-enable vuejs-accessibility/no-autofocus -->
         </div>
 
         <div class="r-menu__body">

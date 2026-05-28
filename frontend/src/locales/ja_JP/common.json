@@ -141,5 +141,11 @@
   "uploaded-with-failed": "{ok}件アップロード · {fail}件スキップ/失敗 · スキャンを開始しています",
   "for": "対象:",
   "details": "詳細",
-  "discard": "破棄"
+  "discard": "破棄",
+  "changelog-loading": "リリースを読み込み中…",
+  "changelog-error-title": "リリースを読み込めませんでした",
+  "changelog-error-hint": "GitHub への接続に失敗しました。接続を確認するか、もう一度お試しください。",
+  "changelog-empty-title": "まだリリースがありません",
+  "changelog-empty-hint": "リポジトリにはまだリリースが公開されていません。",
+  "changelog-view-all": "GitHub ですべてのリリースを表示"
 }

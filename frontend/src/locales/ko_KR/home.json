@@ -11,5 +11,12 @@
   "empty-scan-cta": "스캔 실행",
   "empty-detected-platforms": "{count}개 플랫폼 감지됨 | {count}개 플랫폼 감지됨",
   "empty-detected-games": "{count}개 게임 감지됨 | {count}개 게임 감지됨",
-  "no-games-yet": "아직 추가된 게임이 없습니다."
+  "no-games-yet": "아직 추가된 게임이 없습니다.",
+  "widget-random-pick": "랜덤 선택",
+  "widget-random-pick-open": "열기",
+  "widget-random-pick-reroll": "다시 뽑기",
+  "widget-random-pick-empty": "아직 불러온 게임이 없습니다",
+  "widget-library-stats": "라이브러리 통계",
+  "widget-library-favorites": "즐겨찾기",
+  "widget-library-screenshots": "스크린샷"
 }

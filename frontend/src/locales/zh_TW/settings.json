@@ -322,5 +322,17 @@
   "vc-mode": "遊玩模式",
   "vc-company": "開發商",
   "vc-all": "全部（緩慢）",
-  "controller-debug-all-axes": "所有軸"
+  "controller-debug-all-axes": "所有軸",
+  "home-sections": "區塊",
+  "home-widgets": "小工具",
+  "show-home-widgets": "顯示小工具列",
+  "show-home-widgets-desc": "在首頁儀表板各列上方顯示小工具列。隱藏後將移除整個區塊。",
+  "widget-random-pick": "隨機推薦",
+  "widget-random-pick-desc": "從你的庫中隨機推薦一個 ROM，並提供重新抽取按鈕。",
+  "widget-library-stats": "庫統計",
+  "widget-library-stats-desc": "你的庫的數量概覽：遊戲、平台、收藏等。",
+  "widget-library-stats-mode": "庫統計詳情",
+  "widget-library-stats-compact": "精簡（遊戲、平台、收藏）",
+  "widget-library-stats-extended": "擴充（存檔、即時存檔、螢幕截圖、磁碟）",
+  "widget-reorder-drag": "拖曳以重新排序"
 }

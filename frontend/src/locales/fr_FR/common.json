@@ -141,5 +141,11 @@
   "uploaded-with-failed": "{ok} téléversés · {fail} ignorés/en échec · démarrage de l'analyse",
   "for": "pour",
   "details": "Détails",
-  "discard": "Abandonner"
+  "discard": "Abandonner",
+  "changelog-loading": "Chargement des versions…",
+  "changelog-error-title": "Impossible de charger les versions",
+  "changelog-error-hint": "La connexion à GitHub a échoué. Vérifiez votre connexion ou réessayez.",
+  "changelog-empty-title": "Aucune version pour l'instant",
+  "changelog-empty-hint": "Le dépôt n'a publié aucune version.",
+  "changelog-view-all": "Voir toutes les versions sur GitHub"
 }

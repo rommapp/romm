@@ -11,5 +11,12 @@
   "empty-scan-cta": "執行掃描",
   "empty-detected-platforms": "已偵測到 {count} 個平台 | 已偵測到 {count} 個平台",
   "empty-detected-games": "已偵測到 {count} 個遊戲 | 已偵測到 {count} 個遊戲",
-  "no-games-yet": "尚未加入任何遊戲。"
+  "no-games-yet": "尚未加入任何遊戲。",
+  "widget-random-pick": "隨機推薦",
+  "widget-random-pick-open": "開啟",
+  "widget-random-pick-reroll": "重新抽取",
+  "widget-random-pick-empty": "尚未載入遊戲",
+  "widget-library-stats": "庫統計",
+  "widget-library-favorites": "收藏",
+  "widget-library-screenshots": "螢幕截圖"
 }

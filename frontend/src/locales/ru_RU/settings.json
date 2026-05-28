@@ -322,5 +322,17 @@
   "vc-mode": "Режим игры",
   "vc-company": "Разработчик",
   "vc-all": "Все (медленно)",
-  "controller-debug-all-axes": "Все оси"
+  "controller-debug-all-axes": "Все оси",
+  "home-sections": "Разделы",
+  "home-widgets": "Виджеты",
+  "show-home-widgets": "Показывать панель виджетов",
+  "show-home-widgets-desc": "Показывает панель виджетов над строками главной панели. Скройте, чтобы убрать весь раздел.",
+  "widget-random-pick": "Случайный выбор",
+  "widget-random-pick-desc": "Предлагает случайную ROM из вашей библиотеки с кнопкой повторного выбора.",
+  "widget-library-stats": "Статистика библиотеки",
+  "widget-library-stats-desc": "Числовой обзор вашей библиотеки: игры, платформы, избранное и другое.",
+  "widget-library-stats-mode": "Подробности статистики библиотеки",
+  "widget-library-stats-compact": "Компактно (игры, платформы, избранное)",
+  "widget-library-stats-extended": "Расширенно (сохранения, состояния, скриншоты, диск)",
+  "widget-reorder-drag": "Перетащите для изменения порядка"
 }

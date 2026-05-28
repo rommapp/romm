@@ -322,5 +322,17 @@
   "role-admin": "Administrador",
   "role-editor": "Editor",
   "role-viewer": "Espectador",
-  "controller-debug-all-axes": "Todos los ejes"
+  "controller-debug-all-axes": "Todos los ejes",
+  "home-sections": "Secciones",
+  "home-widgets": "Widgets",
+  "show-home-widgets": "Mostrar barra de widgets",
+  "show-home-widgets-desc": "Muestra la barra de widgets sobre las filas del panel de inicio. Ocúltala para quitar toda la sección.",
+  "widget-random-pick": "Selección aleatoria",
+  "widget-random-pick-desc": "Sugiere una ROM aleatoria de tu biblioteca, con un botón para volver a sortear.",
+  "widget-library-stats": "Estadísticas de la biblioteca",
+  "widget-library-stats-desc": "Resumen de recuentos de tu biblioteca: juegos, plataformas, favoritos y más.",
+  "widget-library-stats-mode": "Detalle de estadísticas de la biblioteca",
+  "widget-library-stats-compact": "Compacto (juegos, plataformas, favoritos)",
+  "widget-library-stats-extended": "Ampliado (partidas guardadas, estados, capturas, disco)",
+  "widget-reorder-drag": "Arrastra para reordenar"
 }

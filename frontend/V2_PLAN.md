@@ -4,7 +4,7 @@
 
 RomM ships a Vue 3 + Vuetify SPA with ~216 components, 36 routes, 18 Pinia stores, 17 API services, and a completely separate **console mode** (`/console/*`) for TV/gamepad use. An artist is producing a new visual direction and we want to rebuild the UI on top of a custom component library (R-components wrapping Vuetify) with Storybook as the design-system workbench.
 
-**Goals**
+### Goals
 
 1. Build a new UI **inside the existing `frontend/` directory**, living beside the current code in its own `src/v2/` subtree. Single bundle, single deploy.
 2. **One user setting toggles between the old and new UI on the fly** — no reload needed, no backend route changes, no Docker/Nginx/proxy changes.
@@ -12,7 +12,7 @@ RomM ships a Vue 3 + Vuetify SPA with ~216 components, 36 routes, 18 Pinia store
 4. Wrap Vuetify with a RomM design system (`src/v2/lib/`); artist reviews every component in Storybook before it lands in a view.
 5. Ship in view-by-view waves so work is incremental and always demoable.
 
-**Non-goals**
+### Non-goals
 
 - **No backend changes.** No new endpoints, no FastAPI catch-all, no model migration (`user.ui_settings` is already free-form JSON).
 - **No Docker, Nginx, proxy, or deploy config changes.** One bundle, one entry point, same serving path.
@@ -33,7 +33,7 @@ RomM ships a Vue 3 + Vuetify SPA with ~216 components, 36 routes, 18 Pinia store
 
 ## Directory Layout (inside existing `frontend/`)
 
-```
+```text
 frontend/
 ├── .storybook/                  ← NEW — Storybook config (picks up only v2 stories)
 │   ├── main.ts
@@ -188,7 +188,7 @@ The existing `src/console/input/` (bus, actions, keyboard, gamepad) + `src/conso
 
 **Per-component convention:**
 
-```
+```text
 RComponentName/
 ├── index.ts              ← export
 ├── RComponentName.vue    ← wraps Vuetify, defineOptions({ inheritAttrs: false })

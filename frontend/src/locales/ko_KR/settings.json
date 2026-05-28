@@ -322,5 +322,17 @@
   "vc-mode": "플레이 모드",
   "vc-company": "개발사",
   "vc-all": "전체 (느림)",
-  "controller-debug-all-axes": "모든 축"
+  "controller-debug-all-axes": "모든 축",
+  "home-sections": "섹션",
+  "home-widgets": "위젯",
+  "show-home-widgets": "위젯 바 표시",
+  "show-home-widgets-desc": "홈 대시보드 행 위에 위젯 바를 표시합니다. 숨기면 전체 섹션이 제거됩니다.",
+  "widget-random-pick": "랜덤 선택",
+  "widget-random-pick-desc": "라이브러리에서 무작위 ROM을 추천하며, 다시 뽑기 버튼으로 다시 섞을 수 있습니다.",
+  "widget-library-stats": "라이브러리 통계",
+  "widget-library-stats-desc": "라이브러리의 수치 개요: 게임, 플랫폼, 즐겨찾기 등.",
+  "widget-library-stats-mode": "라이브러리 통계 세부 정보",
+  "widget-library-stats-compact": "간략 (게임, 플랫폼, 즐겨찾기)",
+  "widget-library-stats-extended": "확장 (세이브, 상태, 스크린샷, 디스크)",
+  "widget-reorder-drag": "드래그하여 순서 변경"
 }

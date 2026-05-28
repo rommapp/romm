@@ -11,5 +11,12 @@
   "empty-scan-cta": "Lancer l'analyse",
   "empty-detected-platforms": "{count} plateforme détectée | {count} plateformes détectées",
   "empty-detected-games": "{count} jeu détecté | {count} jeux détectés",
-  "no-games-yet": "Aucun jeu ajouté pour le moment."
+  "no-games-yet": "Aucun jeu ajouté pour le moment.",
+  "widget-random-pick": "Choix aléatoire",
+  "widget-random-pick-open": "Ouvrir",
+  "widget-random-pick-reroll": "Relancer",
+  "widget-random-pick-empty": "Aucun jeu chargé pour l'instant",
+  "widget-library-stats": "Statistiques de la bibliothèque",
+  "widget-library-favorites": "Favoris",
+  "widget-library-screenshots": "Captures d'écran"
 }

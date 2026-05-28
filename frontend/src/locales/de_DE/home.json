@@ -11,5 +11,12 @@
   "empty-scan-cta": "Scan starten",
   "empty-detected-platforms": "{count} Plattform erkannt | {count} Plattformen erkannt",
   "empty-detected-games": "{count} Spiel erkannt | {count} Spiele erkannt",
-  "no-games-yet": "Noch keine Spiele hinzugefügt."
+  "no-games-yet": "Noch keine Spiele hinzugefügt.",
+  "widget-random-pick": "Zufallsauswahl",
+  "widget-random-pick-open": "Öffnen",
+  "widget-random-pick-reroll": "Neu würfeln",
+  "widget-random-pick-empty": "Noch keine Spiele geladen",
+  "widget-library-stats": "Bibliotheksstatistik",
+  "widget-library-favorites": "Favoriten",
+  "widget-library-screenshots": "Screenshots"
 }

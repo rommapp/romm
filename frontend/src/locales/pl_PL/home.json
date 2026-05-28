@@ -11,5 +11,12 @@
   "empty-scan-cta": "Uruchom skanowanie",
   "empty-detected-platforms": "{count} platforma wykryta | {count} platformy wykryte | {count} platform wykrytych",
   "empty-detected-games": "{count} gra wykryta | {count} gry wykryte | {count} gier wykrytych",
-  "no-games-yet": "Brak dodanych gier."
+  "no-games-yet": "Brak dodanych gier.",
+  "widget-random-pick": "Losowy wybór",
+  "widget-random-pick-open": "Otwórz",
+  "widget-random-pick-reroll": "Losuj ponownie",
+  "widget-random-pick-empty": "Nie wczytano jeszcze żadnych gier",
+  "widget-library-stats": "Statystyki biblioteki",
+  "widget-library-favorites": "Ulubione",
+  "widget-library-screenshots": "Zrzuty ekranu"
 }

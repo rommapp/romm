@@ -16,7 +16,6 @@
 //      create under which pattern, so the directory creation effect
 //      is never a surprise.
 import {
-  RBtn,
   RCheckbox,
   RChip,
   RCollapsible,

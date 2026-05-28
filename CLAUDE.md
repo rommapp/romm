@@ -291,7 +291,7 @@ Common rules:
 
 ### i18n
 
-12. New strings in `src/locales/en_US/` only. Run `python3 frontend/src/locales/check_i18n_locales.py` — failures are intentional signals for translators (also runs in CI via `i18n.yml`).
+12. `en_US` is the source of truth, but **every key added to `en_US` must be added to all other locale directories in the same change** — never leave a key English-only. Translate where you can; otherwise copy the English value as a placeholder so the key exists. Run `python3 frontend/src/locales/check_i18n_locales.py` — it must pass with zero missing/extra keys (also enforced in CI via `i18n.yml`).
 13. Never hard-code strings in user-visible components.
 
 ### Performance (when applicable)

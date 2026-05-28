@@ -170,6 +170,7 @@ const gap = computed(() => GAP_MAP[props.density]);
 </script>
 
 <template>
+  <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus, vuejs-accessibility/mouse-events-have-key-events -- radiogroup container is not focusable by design (focus lives on the radio buttons); mouseleave only clears the hover preview -->
   <div
     v-bind="$attrs"
     class="r-rating"
@@ -188,6 +189,7 @@ const gap = computed(() => GAP_MAP[props.density]);
     :aria-readonly="readonly || undefined"
     @mouseleave="onMouseLeave"
   >
+    <!-- eslint-disable-next-line vuejs-accessibility/mouse-events-have-key-events -- mouseenter drives the hover preview only; the button is keyboard-activatable and has no focus-preview equivalent -->
     <button
       v-for="item in items"
       :key="item.index"
@@ -210,12 +212,14 @@ const gap = computed(() => GAP_MAP[props.density]);
       <!-- Half-increment hot zones — invisible left/right hover targets
            that report the half / full value. Only when halfIncrements
            is on. -->
+      <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/mouse-events-have-key-events, vuejs-accessibility/no-static-element-interactions -- pointer-only half-increment hot zone; keyboard users set whole values via the focusable star buttons -->
       <span
         v-if="halfIncrements"
         class="r-rating__half r-rating__half--left"
         @click.stop="onClick(item.index, true)"
         @mouseenter="onMouseEnter(item.index, true)"
       />
+      <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/mouse-events-have-key-events, vuejs-accessibility/no-static-element-interactions -- pointer-only half-increment hot zone; keyboard users set whole values via the focusable star buttons -->
       <span
         v-if="halfIncrements"
         class="r-rating__half r-rating__half--right"

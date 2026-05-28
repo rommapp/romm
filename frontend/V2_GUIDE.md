@@ -59,7 +59,7 @@ Practical checklist when building something new:
 
 ## 2. Directory map
 
-```
+```text
 frontend/
 ├── V2_PLAN.md                    # original plan (intent)
 ├── V2_GUIDE.md                   # THIS file (state + rules)
@@ -129,7 +129,7 @@ frontend/
 
 Every R-component follows this skeleton. Copy it when starting a new one.
 
-```
+```text
 src/v2/lib/RFoo/
 ├── index.ts          // export { default as RFoo } from "./RFoo.vue";
 ├── RFoo.vue
@@ -449,7 +449,7 @@ Any new v2 view that needs a dialog should emit the existing event (`emitter.emi
 
 Full list in `src/v2/styles/tokens.css`. Quick hits:
 
-**Color — brand**
+### Color — brand
 
 - `--r-color-brand-primary: #8b74e8`
 - `--r-color-brand-primary-hover: #a18fff`
@@ -460,11 +460,11 @@ Full list in `src/v2/styles/tokens.css`. Quick hits:
 - `--r-color-fav: #ff4f6b` (independent of primary)
 - `--r-color-romm-{red,green,blue,gold}` (legacy brand swatches)
 
-**Color — status**
+### Color — status
 
 - `--r-color-success: #4ade80`, `--r-color-warning: #fbbf24`, `--r-color-danger: #ff5050`, `--r-color-info: #93c5fd`
 
-**Color — surfaces (dark default)**
+### Color — surfaces (dark default)
 
 - `--r-color-bg: #07070f`
 - `--r-color-bg-elevated: rgba(255,255,255,0.045)`
@@ -472,7 +472,7 @@ Full list in `src/v2/styles/tokens.css`. Quick hits:
 - `--r-color-fg / fg-secondary / fg-muted / fg-faint` at `#fff` / 0.75 / 0.45 / 0.25 alpha
 - `--r-color-border / border-strong` at 0.07 / 0.15 alpha
 
-**Typography**
+### Typography
 
 - Font: `Segoe UI, -apple-system, BlinkMacSystemFont, system-ui, 'Inter', Roboto, sans-serif`
 - `--r-font-size-{xs..4xl}`: 10.5 / 11.5 / 13 / 14.5 / 17 / 22 / 32 / 38 px
@@ -481,7 +481,7 @@ Full list in `src/v2/styles/tokens.css`. Quick hits:
 
 **Spacing** — 4 px base: `--r-space-{0..14}`. Plus `--r-row-pad: 36px` for page edges.
 
-**Radius**
+### Radius
 
 - `--r-radius-xs 3px`, `sm 4px`, `chip 6px`, `md 8px`, `art 8px`, `lg 10px`, `card 14px`, `xl 20px`, `pill 100px`, `full 9999px`
 

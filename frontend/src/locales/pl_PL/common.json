@@ -141,5 +141,11 @@
   "uploaded-with-failed": "{ok} przesłano · {fail} pominięto/niepowodzeń · rozpoczynanie skanowania",
   "for": "dla",
   "details": "Szczegóły",
-  "discard": "Odrzuć"
+  "discard": "Odrzuć",
+  "changelog-loading": "Wczytywanie wydań…",
+  "changelog-error-title": "Nie udało się wczytać wydań",
+  "changelog-error-hint": "Połączenie z GitHub nie powiodło się. Sprawdź połączenie lub spróbuj ponownie.",
+  "changelog-empty-title": "Brak wydań",
+  "changelog-empty-hint": "Repozytorium nie opublikowało jeszcze żadnych wydań.",
+  "changelog-view-all": "Zobacz wszystkie wydania na GitHub"
 }

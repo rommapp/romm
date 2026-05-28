@@ -11,5 +11,12 @@
   "empty-scan-cta": "Szkennelés indítása",
   "empty-detected-platforms": "{count} platform észlelve | {count} platform észlelve",
   "empty-detected-games": "{count} játék észlelve | {count} játék észlelve",
-  "no-games-yet": "Még nincsenek hozzáadott játékok."
+  "no-games-yet": "Még nincsenek hozzáadott játékok.",
+  "widget-random-pick": "Véletlen választás",
+  "widget-random-pick-open": "Megnyitás",
+  "widget-random-pick-reroll": "Újradobás",
+  "widget-random-pick-empty": "Még nincsenek betöltve játékok",
+  "widget-library-stats": "Könyvtárstatisztika",
+  "widget-library-favorites": "Kedvencek",
+  "widget-library-screenshots": "Képernyőképek"
 }

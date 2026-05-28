@@ -322,5 +322,17 @@
   "vc-mode": "Режим на игра",
   "vc-company": "Разработчик",
   "vc-all": "Всички (бавно)",
-  "controller-debug-all-axes": "Всички оси"
+  "controller-debug-all-axes": "Всички оси",
+  "home-sections": "Раздели",
+  "home-widgets": "Уиджети",
+  "show-home-widgets": "Показване на лентата с уиджети",
+  "show-home-widgets-desc": "Показва лентата с уиджети над редовете на началния панел. Скрийте я, за да премахнете целия раздел.",
+  "widget-random-pick": "Случаен избор",
+  "widget-random-pick-desc": "Предлага случайна ROM от библиотеката ви, с бутон за нов избор.",
+  "widget-library-stats": "Статистика на библиотеката",
+  "widget-library-stats-desc": "Числов преглед на библиотеката ви: игри, платформи, любими и още.",
+  "widget-library-stats-mode": "Подробности за статистиката на библиотеката",
+  "widget-library-stats-compact": "Компактно (игри, платформи, любими)",
+  "widget-library-stats-extended": "Разширено (записи, състояния, екранни снимки, диск)",
+  "widget-reorder-drag": "Плъзнете за пренареждане"
 }

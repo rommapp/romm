@@ -322,5 +322,17 @@
   "vc-mode": "Modalità di gioco",
   "vc-company": "Sviluppatore",
   "vc-all": "Tutto (lento)",
-  "controller-debug-all-axes": "Tutti gli assi"
+  "controller-debug-all-axes": "Tutti gli assi",
+  "home-sections": "Sezioni",
+  "home-widgets": "Widget",
+  "show-home-widgets": "Mostra barra dei widget",
+  "show-home-widgets-desc": "Mostra la barra dei widget sopra le righe della dashboard iniziale. Nascondila per rimuovere l'intera sezione.",
+  "widget-random-pick": "Scelta casuale",
+  "widget-random-pick-desc": "Suggerisce una ROM casuale dalla tua libreria, con un pulsante per rilanciare.",
+  "widget-library-stats": "Statistiche della libreria",
+  "widget-library-stats-desc": "Panoramica numerica della tua libreria: giochi, piattaforme, preferiti e altro.",
+  "widget-library-stats-mode": "Dettaglio statistiche della libreria",
+  "widget-library-stats-compact": "Compatto (giochi, piattaforme, preferiti)",
+  "widget-library-stats-extended": "Esteso (salvataggi, stati, screenshot, disco)",
+  "widget-reorder-drag": "Trascina per riordinare"
 }

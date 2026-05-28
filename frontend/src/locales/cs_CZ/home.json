@@ -11,5 +11,12 @@
   "empty-scan-cta": "Spustit skenování",
   "empty-detected-platforms": "{count} platforem detekováno | {count} platforma detekována | {count} platformy detekovány | {count} platforem detekováno",
   "empty-detected-games": "{count} her detekováno | {count} hra detekována | {count} hry detekovány | {count} her detekováno",
-  "no-games-yet": "Zatím nebyly přidány žádné hry."
+  "no-games-yet": "Zatím nebyly přidány žádné hry.",
+  "widget-random-pick": "Náhodný výběr",
+  "widget-random-pick-open": "Otevřít",
+  "widget-random-pick-reroll": "Vybrat znovu",
+  "widget-random-pick-empty": "Zatím nebyly načteny žádné hry",
+  "widget-library-stats": "Statistiky knihovny",
+  "widget-library-favorites": "Oblíbené",
+  "widget-library-screenshots": "Snímky obrazovky"
 }

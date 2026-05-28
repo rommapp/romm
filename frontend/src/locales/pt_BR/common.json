@@ -141,5 +141,11 @@
   "uploaded-with-failed": "{ok} enviados · {fail} ignorados/com falha · iniciando varredura",
   "for": "para",
   "details": "Detalhes",
-  "discard": "Descartar"
+  "discard": "Descartar",
+  "changelog-loading": "Carregando versões…",
+  "changelog-error-title": "Não foi possível carregar as versões",
+  "changelog-error-hint": "Falha ao acessar o GitHub. Verifique sua conexão ou tente novamente.",
+  "changelog-empty-title": "Nenhuma versão ainda",
+  "changelog-empty-hint": "O repositório ainda não publicou nenhuma versão.",
+  "changelog-view-all": "Ver todas as versões no GitHub"
 }

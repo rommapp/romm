@@ -11,5 +11,12 @@
   "empty-scan-cta": "Rulează scanarea",
   "empty-detected-platforms": "{count} platformă detectată | {count} platforme detectate",
   "empty-detected-games": "{count} joc detectat | {count} jocuri detectate",
-  "no-games-yet": "Niciun joc adăugat încă."
+  "no-games-yet": "Niciun joc adăugat încă.",
+  "widget-random-pick": "Alegere aleatorie",
+  "widget-random-pick-open": "Deschide",
+  "widget-random-pick-reroll": "Reîncearcă",
+  "widget-random-pick-empty": "Niciun joc încărcat încă",
+  "widget-library-stats": "Statistici bibliotecă",
+  "widget-library-favorites": "Favorite",
+  "widget-library-screenshots": "Capturi de ecran"
 }

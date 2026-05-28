@@ -141,5 +141,11 @@
   "uploaded-with-failed": "{ok} 個已上傳 · {fail} 個跳過/失敗 · 正在開始掃描",
   "for": "用於",
   "details": "詳細資訊",
-  "discard": "捨棄"
+  "discard": "捨棄",
+  "changelog-loading": "正在載入發行版…",
+  "changelog-error-title": "無法載入發行版",
+  "changelog-error-hint": "連線至 GitHub 失敗。請檢查網路連線或重試。",
+  "changelog-empty-title": "尚無發行版",
+  "changelog-empty-hint": "此儲存庫尚未發布任何發行版。",
+  "changelog-view-all": "在 GitHub 上檢視所有發行版"
 }

@@ -322,5 +322,17 @@
   "vc-mode": "プレイモード",
   "vc-company": "デベロッパー",
   "vc-all": "すべて(低速)",
-  "controller-debug-all-axes": "すべての軸"
+  "controller-debug-all-axes": "すべての軸",
+  "home-sections": "セクション",
+  "home-widgets": "ウィジェット",
+  "show-home-widgets": "ウィジェットバーを表示",
+  "show-home-widgets-desc": "ホームダッシュボードの行の上にウィジェットバーを表示します。非表示にするとセクション全体が消えます。",
+  "widget-random-pick": "ランダムピック",
+  "widget-random-pick-desc": "ライブラリからランダムな ROM を提案します。引き直しボタンで再抽選できます。",
+  "widget-library-stats": "ライブラリ統計",
+  "widget-library-stats-desc": "ライブラリの数値概要：ゲーム、プラットフォーム、お気に入りなど。",
+  "widget-library-stats-mode": "ライブラリ統計の詳細",
+  "widget-library-stats-compact": "コンパクト（ゲーム、プラットフォーム、お気に入り）",
+  "widget-library-stats-extended": "拡張（セーブ、ステート、スクリーンショット、ディスク）",
+  "widget-reorder-drag": "ドラッグして並べ替え"
 }

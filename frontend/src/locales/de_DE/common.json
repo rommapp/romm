@@ -141,5 +141,11 @@
   "uploaded-with-failed": "{ok} hochgeladen · {fail} übersprungen/fehlgeschlagen · Scan startet",
   "for": "für",
   "details": "Details",
-  "discard": "Verwerfen"
+  "discard": "Verwerfen",
+  "changelog-loading": "Veröffentlichungen werden geladen…",
+  "changelog-error-title": "Veröffentlichungen konnten nicht geladen werden",
+  "changelog-error-hint": "Verbindung zu GitHub fehlgeschlagen. Überprüfe deine Verbindung oder versuche es erneut.",
+  "changelog-empty-title": "Noch keine Veröffentlichungen",
+  "changelog-empty-hint": "Das Repository hat noch keine Veröffentlichungen.",
+  "changelog-view-all": "Alle Veröffentlichungen auf GitHub ansehen"
 }

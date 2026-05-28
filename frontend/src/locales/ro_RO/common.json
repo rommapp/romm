@@ -141,5 +141,11 @@
   "uploaded-with-failed": "{ok} încărcate · {fail} ignorate/eșuate · începe scanarea",
   "for": "pentru",
   "details": "Detalii",
-  "discard": "Renunță"
+  "discard": "Renunță",
+  "changelog-loading": "Se încarcă versiunile…",
+  "changelog-error-title": "Versiunile nu au putut fi încărcate",
+  "changelog-error-hint": "Conectarea la GitHub a eșuat. Verifică conexiunea sau încearcă din nou.",
+  "changelog-empty-title": "Încă nu există versiuni",
+  "changelog-empty-hint": "Depozitul nu a publicat încă nicio versiune.",
+  "changelog-view-all": "Vezi toate versiunile pe GitHub"
 }

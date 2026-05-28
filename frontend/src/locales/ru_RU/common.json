@@ -141,5 +141,11 @@
   "uploaded-with-failed": "{ok} загружено · {fail} пропущено/с ошибкой · запуск сканирования",
   "for": "для",
   "details": "Подробности",
-  "discard": "Отменить"
+  "discard": "Отменить",
+  "changelog-loading": "Загрузка релизов…",
+  "changelog-error-title": "Не удалось загрузить релизы",
+  "changelog-error-hint": "Не удалось связаться с GitHub. Проверьте подключение или повторите попытку.",
+  "changelog-empty-title": "Релизов пока нет",
+  "changelog-empty-hint": "В репозитории ещё нет опубликованных релизов.",
+  "changelog-view-all": "Посмотреть все релизы на GitHub"
 }

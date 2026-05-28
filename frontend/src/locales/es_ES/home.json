@@ -11,5 +11,12 @@
   "empty-scan-cta": "Lanzar escaneo",
   "empty-detected-platforms": "{count} plataforma detectada | {count} plataformas detectadas",
   "empty-detected-games": "{count} juego detectado | {count} juegos detectados",
-  "no-games-yet": "Aún no hay juegos."
+  "no-games-yet": "Aún no hay juegos.",
+  "widget-random-pick": "Selección aleatoria",
+  "widget-random-pick-open": "Abrir",
+  "widget-random-pick-reroll": "Volver a sortear",
+  "widget-random-pick-empty": "Aún no se han cargado juegos",
+  "widget-library-stats": "Estadísticas de la biblioteca",
+  "widget-library-favorites": "Favoritos",
+  "widget-library-screenshots": "Capturas"
 }

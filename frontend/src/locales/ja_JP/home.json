@@ -11,5 +11,12 @@
   "empty-scan-cta": "スキャンを実行",
   "empty-detected-platforms": "{count}件のプラットフォームを検出 | {count}件のプラットフォームを検出",
   "empty-detected-games": "{count}件のゲームを検出 | {count}件のゲームを検出",
-  "no-games-yet": "ゲームはまだ追加されていません。"
+  "no-games-yet": "ゲームはまだ追加されていません。",
+  "widget-random-pick": "ランダムピック",
+  "widget-random-pick-open": "開く",
+  "widget-random-pick-reroll": "引き直す",
+  "widget-random-pick-empty": "まだゲームが読み込まれていません",
+  "widget-library-stats": "ライブラリ統計",
+  "widget-library-favorites": "お気に入り",
+  "widget-library-screenshots": "スクリーンショット"
 }

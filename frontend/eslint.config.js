@@ -9,6 +9,12 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   ...vue.configs["flat/recommended"],
   ...vuea11y.configs["flat/recommended"],
+  // Global ignore (object with only `ignores` = applies everywhere).
+  // Storybook config files live outside `src/` and aren't part of the
+  // app tsconfig, so type-aware linting can't resolve them.
+  {
+    ignores: [".storybook/**"],
+  },
   {
     ignores: [
       "logs",

@@ -88,6 +88,7 @@ function onDragEnd() {
     class="r-v2-widget-reorder"
     :class="{ 'r-v2-widget-reorder--disabled': disabled }"
   >
+    <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- HTML5 drag-and-drop is inherently pointer-driven; this is the drag affordance for reordering -->
     <li
       v-for="(id, i) in order"
       :key="id"

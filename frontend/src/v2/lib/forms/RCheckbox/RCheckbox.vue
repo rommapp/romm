@@ -146,6 +146,7 @@ const hasLabel = computed(
     ]"
     :style="{ '--r-cb-color': resolvedColor }"
   >
+    <!-- eslint-disable-next-line vuejs-accessibility/label-has-for -- the native checkbox input is nested inside this label, a valid control association -->
     <label class="r-checkbox">
       <!-- Native input — visually hidden but kept in the layout for
            form submission, keyboard, and screen reader support. -->

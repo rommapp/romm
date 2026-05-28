@@ -11,5 +11,12 @@
   "empty-scan-cta": "Esegui scansione",
   "empty-detected-platforms": "{count} piattaforma rilevata | {count} piattaforme rilevate",
   "empty-detected-games": "{count} gioco rilevato | {count} giochi rilevati",
-  "no-games-yet": "Nessun gioco ancora aggiunto."
+  "no-games-yet": "Nessun gioco ancora aggiunto.",
+  "widget-random-pick": "Scelta casuale",
+  "widget-random-pick-open": "Apri",
+  "widget-random-pick-reroll": "Rilancia",
+  "widget-random-pick-empty": "Nessun gioco ancora caricato",
+  "widget-library-stats": "Statistiche della libreria",
+  "widget-library-favorites": "Preferiti",
+  "widget-library-screenshots": "Screenshot"
 }

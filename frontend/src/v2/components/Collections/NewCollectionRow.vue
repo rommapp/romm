@@ -73,6 +73,7 @@ function onInput(e: Event) {
 </script>
 
 <template>
+  <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events, vuejs-accessibility/no-static-element-interactions -- row-level click is a pointer convenience; keyboard activation is via the inner CTA button and form controls -->
   <div
     class="new-row"
     :class="{ 'new-row--editing': expanded }"

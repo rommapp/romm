@@ -322,5 +322,17 @@
   "vc-mode": "Spielmodus",
   "vc-company": "Entwickler",
   "vc-all": "Alle (langsam)",
-  "controller-debug-all-axes": "Alle Achsen"
+  "controller-debug-all-axes": "Alle Achsen",
+  "home-sections": "Bereiche",
+  "home-widgets": "Widgets",
+  "show-home-widgets": "Widget-Leiste anzeigen",
+  "show-home-widgets-desc": "Zeigt die Widget-Leiste über den Zeilen des Start-Dashboards an. Ausblenden, um den gesamten Bereich zu entfernen.",
+  "widget-random-pick": "Zufallsauswahl",
+  "widget-random-pick-desc": "Schlägt eine zufällige ROM aus deiner Bibliothek vor, mit einer Schaltfläche zum neuen Würfeln.",
+  "widget-library-stats": "Bibliotheksstatistik",
+  "widget-library-stats-desc": "Zahlenüberblick deiner Bibliothek: Spiele, Plattformen, Favoriten und mehr.",
+  "widget-library-stats-mode": "Bibliotheksstatistik-Details",
+  "widget-library-stats-compact": "Kompakt (Spiele, Plattformen, Favoriten)",
+  "widget-library-stats-extended": "Erweitert (Speicherstände, Savestates, Screenshots, Speicher)",
+  "widget-reorder-drag": "Zum Umsortieren ziehen"
 }

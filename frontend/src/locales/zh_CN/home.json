@@ -11,5 +11,12 @@
   "empty-scan-cta": "运行扫描",
   "empty-detected-platforms": "已检测到 {count} 个平台 | 已检测到 {count} 个平台",
   "empty-detected-games": "已检测到 {count} 个游戏 | 已检测到 {count} 个游戏",
-  "no-games-yet": "尚未添加任何游戏。"
+  "no-games-yet": "尚未添加任何游戏。",
+  "widget-random-pick": "随机推荐",
+  "widget-random-pick-open": "打开",
+  "widget-random-pick-reroll": "重新抽取",
+  "widget-random-pick-empty": "尚未加载游戏",
+  "widget-library-stats": "库统计",
+  "widget-library-favorites": "收藏",
+  "widget-library-screenshots": "截图"
 }
