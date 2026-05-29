@@ -1,5 +1,6 @@
 import asyncio
 import re
+from pathlib import Path
 
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.metadata.ra_handler import RAGamesPlatform
@@ -118,6 +119,37 @@ class RAHasherService:
                     f"disc-based platforms don't support buffer hashing"
                 )
                 return ""
+
+        # For folder-based multi-file ROMs the path ends with /*. RAHasher
+        # cannot process compressed files via a glob — it fails with "Could not
+        # open file". When the folder contains archives, switch to hashing the
+        # largest archive directly (cartridge platforms support buffer hashing),
+        # or skip entirely for disc platforms that don't.
+        if file_path.endswith("/*"):
+            folder = Path(file_path[:-2])
+
+            def _find_archives() -> list[Path]:
+                if not folder.is_dir():
+                    return []
+                return [
+                    f
+                    for f in folder.iterdir()
+                    if f.is_file() and f.suffix.lower() in COMPRESSED_FILE_EXTENSIONS
+                ]
+
+            archive_files = await asyncio.to_thread(_find_archives)
+            if archive_files:
+                if platform["ra_id"] in RA_BUFFER_HASH_UNSUPPORTED_IDS:
+                    log.debug(
+                        f"Skipping {hl('RAHasher', color=LIGHTMAGENTA)} for folder "
+                        f"{hl(file_path)}: contains compressed files on disc-based platform"
+                    )
+                    return ""
+                # Cartridge platform: buffer-hash the largest archive directly
+                largest = await asyncio.to_thread(
+                    max, archive_files, key=lambda f: f.stat().st_size
+                )
+                file_path = str(largest)
 
         log.debug(
             f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(platform['slug'], color=LIGHTMAGENTA)} - file: {hl(file_path)}"

@@ -302,6 +302,81 @@ class TestRAHasherArchiveSkip:
         mock_subprocess.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_skips_wildcard_folder_with_archives_on_disc_platform(
+        self, service: RAHasherService, tmp_path
+    ):
+        """Folder-based ROM whose directory contains compressed files must be
+        skipped for disc-based platforms — same as a single archive file."""
+        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSX]
+        (tmp_path / "disc1.zip").write_bytes(b"fake")
+        (tmp_path / "disc2.zip").write_bytes(b"fake")
+
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+            result = await service.calculate_hash(
+                {"ra_id": platform_id, "slug": "psx"},
+                f"{tmp_path}/*",
+            )
+
+        assert result == ""
+        mock_subprocess.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_does_not_skip_wildcard_folder_without_archives_on_disc_platform(
+        self, service: RAHasherService, tmp_path
+    ):
+        """Folder-based ROM with only raw disc images must still go through RAHasher."""
+        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.PSX]
+        (tmp_path / "disc1.bin").write_bytes(b"fake")
+        (tmp_path / "disc1.cue").write_bytes(b"fake")
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with patch(
+            "asyncio.create_subprocess_exec", return_value=mock_proc
+        ) as mock_subprocess:
+            result = await service.calculate_hash(
+                {"ra_id": platform_id, "slug": "psx"},
+                f"{tmp_path}/*",
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_subprocess.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_cartridge_platform_folder_with_archives_hashes_largest(
+        self, service: RAHasherService, tmp_path
+    ):
+        """Cartridge platforms: folder with archives should hash the largest archive directly."""
+        assert UPS.GBA not in RA_BUFFER_HASH_UNSUPPORTED
+        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[UPS.GBA]
+        small = tmp_path / "small.zip"
+        large = tmp_path / "large.zip"
+        small.write_bytes(b"s" * 100)
+        large.write_bytes(b"l" * 500)
+
+        mock_proc = AsyncMock()
+        mock_proc.wait.return_value = 0
+        mock_proc.stdout.read.return_value = b"a1b2c3d4e5f6789012345678901234ab\n"
+        mock_proc.stderr = None
+
+        with patch(
+            "asyncio.create_subprocess_exec", return_value=mock_proc
+        ) as mock_subprocess:
+            result = await service.calculate_hash(
+                {"ra_id": platform_id, "slug": "gba"},
+                f"{tmp_path}/*",
+            )
+
+        assert result == "a1b2c3d4e5f6789012345678901234ab"
+        mock_subprocess.assert_called_once()
+        # RAHasher must be called with the largest archive path, not the glob
+        call_args = mock_subprocess.call_args[0]
+        assert str(large) in call_args
+
+    @pytest.mark.asyncio
     async def test_does_not_skip_raw_iso_for_disc_platform(
         self, service: RAHasherService
     ):
