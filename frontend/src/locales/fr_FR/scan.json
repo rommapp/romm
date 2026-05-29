@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Source désactivée",
   "abort": "Annuler",
   "api-key-invalid": "Clé API invalide !",
   "api-key-missing": "Clé API invalide ou non configurée",
@@ -42,5 +43,26 @@
   "unmatched-games": "Jeux non correspondants",
   "unmatched-games-desc": "Scanner les jeux avec des correspondances de métadonnées manquantes",
   "update-metadata": "Mettre à jour les métadonnées",
-  "update-metadata-desc": "Mettre à jour les métadonnées pour les jeux correspondants"
+  "update-metadata-desc": "Mettre à jour les métadonnées pour les jeux correspondants",
+  "playmatch-requires-igdb": "Sélectionnez IGDB pour activer Playmatch",
+  "section-platforms": "Plateformes",
+  "section-metadata": "Métadonnées",
+  "section-providers": "Fournisseurs",
+  "section-providers-general": "Général",
+  "section-providers-specific": "Spécifique",
+  "section-proxies": "Proxys",
+  "section-scan-type": "Type d'analyse",
+  "scanning": "Analyse en cours",
+  "scanning-library": "Analyse de la bibliothèque. Cliquez pour voir",
+  "title": "Analyse de la bibliothèque",
+  "info-dialog-title": "Référence d'analyse",
+  "scan-complete": "Analyse terminée",
+  "live-progress": "Progression en direct",
+  "empty-hint": "Choisissez une configuration d'analyse à gauche et appuyez sur Analyser pour voir la progression en direct ici.",
+  "empty-hint-scanning": "Les plateformes apparaîtront ici au fur et à mesure que l'analyseur les découvre.",
+  "hash-matchers": "Comparateurs par hachage",
+  "abort-scan": "Interrompre l'analyse",
+  "identifying": "Identification en cours",
+  "info-full-docs": "Documentation complète",
+  "scan-types": "Types d'analyse"
 }

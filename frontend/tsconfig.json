@@ -10,7 +10,8 @@
     "baseUrl": ".",
     "noImplicitAny": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@v2/*": ["./src/v2/*"]
     },
     "types": [
       "./src/plugins/pinia.d.ts",

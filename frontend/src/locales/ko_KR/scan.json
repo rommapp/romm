@@ -1,4 +1,5 @@
 {
+  "source-disabled": "소스가 비활성화됨",
   "abort": "중지",
   "api-key-invalid": "API 키가 유효하지 않습니다!",
   "api-key-missing": "API 키가 없거나 올바르지 않습니다",
@@ -42,5 +43,26 @@
   "unmatched-games": "일치하지 않는 게임",
   "unmatched-games-desc": "메타데이터 일치가 부족한 게임 스캔",
   "update-metadata": "메타데이터 업데이트",
-  "update-metadata-desc": "일치하는 게임의 메타데이터 업데이트"
+  "update-metadata-desc": "일치하는 게임의 메타데이터 업데이트",
+  "playmatch-requires-igdb": "Playmatch를 활성화하려면 IGDB를 선택하세요",
+  "section-platforms": "플랫폼",
+  "section-metadata": "메타데이터",
+  "section-providers": "제공자",
+  "section-providers-general": "일반",
+  "section-providers-specific": "전용",
+  "section-proxies": "프록시",
+  "section-scan-type": "스캔 유형",
+  "scanning": "스캔 중",
+  "scanning-library": "라이브러리 스캔 중. 클릭하여 보기",
+  "title": "라이브러리 스캔",
+  "info-dialog-title": "스캔 참조",
+  "scan-complete": "스캔 완료",
+  "live-progress": "실시간 진행 상황",
+  "empty-hint": "왼쪽에서 스캔 구성을 선택하고 스캔을 눌러 실시간 진행 상황을 확인하세요.",
+  "empty-hint-scanning": "스캐너가 감지하는 대로 플랫폼이 여기에 표시됩니다.",
+  "hash-matchers": "해시 매처",
+  "abort-scan": "스캔 중단",
+  "identifying": "식별 중",
+  "info-full-docs": "전체 문서",
+  "scan-types": "스캔 유형"
 }

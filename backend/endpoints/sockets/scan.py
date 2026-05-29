@@ -37,6 +37,7 @@ from handler.redis_handler import get_job_func_name, high_prio_queue, redis_clie
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    persist_soundtrack_cover,
     scan_firmware,
     scan_platform,
     scan_rom,
@@ -236,6 +237,7 @@ async def _identify_rom(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
+    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
 ) -> None:
@@ -339,6 +341,7 @@ async def _identify_rom(
         metadata_sources=metadata_sources,
         newly_added=newly_added,
         launchbox_remote_enabled=launchbox_remote_enabled,
+        playmatch_enabled=playmatch_enabled,
         socket_manager=socket_manager,
     )
 
@@ -378,6 +381,7 @@ async def _identify_rom(
                 file_size_bytes=file.file_size_bytes,
                 last_modified=file.last_modified,
                 category=file.category,
+                audio_meta=file.audio_meta,
                 crc_hash=file.crc_hash,
                 md5_hash=file.md5_hash,
                 sha1_hash=file.sha1_hash,
@@ -387,7 +391,8 @@ async def _identify_rom(
             for file in fs_rom["files"]
         ]
         for new_rom_file in new_rom_files:
-            db_rom_handler.add_rom_file(new_rom_file)
+            saved = db_rom_handler.add_rom_file(new_rom_file)
+            persist_soundtrack_cover(saved, _added_rom)
 
     # Short circuit if the scan type is hashes
     if scan_type == ScanType.HASHES:
@@ -492,6 +497,7 @@ async def _identify_platform(
     roms_ids: list[int],
     metadata_sources: list[str],
     launchbox_remote_enabled: bool,
+    playmatch_enabled: bool,
     socket_manager: socketio.AsyncRedisManager,
     scan_stats: ScanStats,
 ) -> ScanStats:
@@ -589,6 +595,7 @@ async def _identify_platform(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
+                playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
             )
@@ -661,6 +668,7 @@ async def scan_platforms(
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[int] | None = None,
     launchbox_remote_enabled: bool = True,
+    playmatch_enabled: bool = True,
 ) -> ScanStats:
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -736,6 +744,7 @@ async def scan_platforms(
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
                 launchbox_remote_enabled=launchbox_remote_enabled,
+                playmatch_enabled=playmatch_enabled,
                 socket_manager=socket_manager,
                 scan_stats=scan_stats,
             )
@@ -820,6 +829,10 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
     launchbox_remote_enabled = bool(options.get("launchbox_remote_enabled", True))
+    # Playmatch defaults to enabled so legacy callers (v1, refresh dialogs that
+    # don't expose the toggle) keep the long-standing "Playmatch fires with
+    # IGDB" behavior. The v2 Scan view sets this explicitly from a switch.
+    playmatch_enabled = bool(options.get("playmatch_enabled", True))
 
     if DEV_MODE:
         return await scan_platforms(
@@ -828,6 +841,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
             scan_type=scan_type,
             roms_ids=roms_ids,
             launchbox_remote_enabled=launchbox_remote_enabled,
+            playmatch_enabled=playmatch_enabled,
         )
 
     return high_prio_queue.enqueue(
@@ -837,6 +851,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
         scan_type=scan_type,
         roms_ids=roms_ids,
         launchbox_remote_enabled=launchbox_remote_enabled,
+        playmatch_enabled=playmatch_enabled,
         job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
         result_ttl=TASK_RESULT_TTL,
         meta={

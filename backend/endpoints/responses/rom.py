@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
-from typing import NotRequired, TypedDict, get_type_hints
+from typing import Any, NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
 from pydantic import ConfigDict, computed_field, field_validator
@@ -147,6 +147,21 @@ class RomUserSchema(BaseModel):
         return rom_user_schema_factory()
 
 
+class RomFileAudioMetaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None
+    year: str | None = None
+    genre: str | None = None
+    track: str | None = None
+    disc: str | None = None
+    duration_seconds: float | None = None
+    has_embedded_cover: bool = False
+    cover_path: str | None = None
+
+
 class RomFileSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -165,6 +180,16 @@ class RomFileSchema(BaseModel):
     ra_hash: str | None
     chd_sha1_hash: str | None
     category: RomFileCategory | None
+    audio_meta: RomFileAudioMetaSchema | None = None
+
+
+class SoundtrackTrackMetaSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    file_id: int
+    file_name: str
+    file_size_bytes: int
+    audio_meta: RomFileAudioMetaSchema | None = None
 
 
 class RomMetadataSchema(BaseModel):
@@ -267,6 +292,8 @@ class RomSchema(BaseModel):
     url_cover: str | None
 
     has_manual: bool
+    has_manual_files: bool
+    has_soundtrack: bool
     path_manual: str | None
     url_manual: str | None
 
@@ -321,6 +348,7 @@ class SiblingRomSchema(BaseModel):
     name: str | None
     fs_name_no_tags: str
     fs_name_no_ext: str
+    is_main_sibling: bool
 
     @computed_field  # type: ignore
     @property
@@ -337,19 +365,62 @@ class SiblingRomSchema(BaseModel):
 
 class SimpleRomSchema(RomSchema):
     sibling_ids: list[int]
+    siblings: list[SiblingRomSchema]
 
     @classmethod
     def from_orm_with_request(
-        cls, db_rom: Rom, request: Request, sibling_ids: list[int] | None = None
+        cls,
+        db_rom: Rom,
+        request: Request,
+        sibling_data: list[dict[str, Any]] | None = None,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request)
-        db_rom.sibling_ids = sibling_ids or []  # type: ignore
+
+        # List endpoint passes `sibling_data` from get_sibling_data_for_roms
+        # (no sibling Rom hydration). Single-rom endpoints (loaded via the
+        # `with_details` decorator) fall back to the eager-loaded relationship.
+        if sibling_data is not None:
+            siblings_sorted = sorted(
+                (
+                    SiblingRomSchema(
+                        id=s["id"],
+                        name=s["name"],
+                        fs_name_no_tags=s["fs_name_no_tags"],
+                        fs_name_no_ext=s["fs_name_no_ext"],
+                        is_main_sibling=s["is_main_sibling"],
+                    )
+                    for s in sibling_data
+                ),
+                key=lambda x: x.sort_comparator,
+            )
+        else:
+            user_id = request.user.id
+            siblings_sorted = sorted(
+                (
+                    SiblingRomSchema(
+                        id=s.id,
+                        name=s.name,
+                        fs_name_no_tags=s.fs_name_no_tags,
+                        fs_name_no_ext=s.fs_name_no_ext,
+                        is_main_sibling=any(
+                            ru.user_id == user_id and ru.is_main_sibling
+                            for ru in s.rom_users
+                        ),
+                    )
+                    for s in db_rom.sibling_roms
+                ),
+                key=lambda x: x.sort_comparator,
+            )
+
+        db_rom.siblings = siblings_sorted  # type: ignore
+        db_rom.sibling_ids = [s.id for s in siblings_sorted]  # type: ignore
         return cls.model_validate(db_rom)
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
         db_rom.sibling_ids = []  # type: ignore
+        db_rom.siblings = []  # type: ignore
         db_rom.has_notes = False  # type: ignore
         return cls.model_validate(db_rom)
 
@@ -382,10 +453,6 @@ class DetailedRomSchema(RomSchema):
     user_collections: list[UserCollectionSchema]
     all_user_notes: list[UserNoteSchema]
 
-    @field_validator("siblings")
-    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
-        return sorted(v, key=lambda x: x.sort_comparator)
-
     @field_validator("files")
     def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
         return sorted(v, key=lambda x: x.file_name)
@@ -395,20 +462,23 @@ class DetailedRomSchema(RomSchema):
         user_id = request.user.id
         db_rom = cls.populate_properties(db_rom, request)
 
-        sorted_siblings = sorted(
+        db_rom.siblings = sorted(  # type: ignore
             (
                 SiblingRomSchema(
                     id=s.id,
                     name=s.name,
                     fs_name_no_tags=s.fs_name_no_tags,
                     fs_name_no_ext=s.fs_name_no_ext,
+                    is_main_sibling=any(
+                        ru.user_id == user_id and ru.is_main_sibling
+                        for ru in s.rom_users
+                    ),
                 )
                 for s in db_rom.sibling_roms
             ),
             key=lambda x: x.sort_comparator,
         )
-        db_rom.siblings = sorted_siblings  # type: ignore
-        db_rom.sibling_ids = [s.id for s in sorted_siblings]  # type: ignore
+        db_rom.sibling_ids = [s.id for s in db_rom.siblings]  # type: ignore
 
         db_rom.user_saves = [  # type: ignore
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id

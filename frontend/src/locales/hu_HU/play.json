@@ -20,5 +20,12 @@
   "save-and-quit": "Mentés és Kilépés",
   "select-background-color": "Háttérszín kiválasztása",
   "select-save": "Mentés kiválasztása",
-  "select-state": "Állás kiválasztása"
+  "select-state": "Állás kiválasztása",
+  "all-saves": "Összes mentés",
+  "all-states": "Összes állás",
+  "no-screenshot-available": "Nincs elérhető képernyőkép",
+  "powered-by": "Üzemeltető:",
+  "resume-from-save": "Folytatás mentésből",
+  "resume-from-state": "Folytatás állásból",
+  "start-fresh-hint": "Válassz egyet az alábbiak közül a folytatáshoz, vagy nyomd meg az Indítást egy új játékhoz."
 }

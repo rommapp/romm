@@ -4,16 +4,16 @@ import qrcode from "qrcode";
 import { inject, nextTick, ref } from "vue";
 import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
-import type { DetailedRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getNintendoDSFiles, getDownloadLink, isNintendoDSFile } from "@/utils";
 
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-const rom = ref<DetailedRom>({} as DetailedRom);
+const rom = ref<SimpleRom>({} as SimpleRom);
 
-emitter?.on("showQRCodeDialog", async (romToView: DetailedRom) => {
+emitter?.on("showQRCodeDialog", async (romToView: SimpleRom) => {
   show.value = true;
   rom.value = romToView;
 

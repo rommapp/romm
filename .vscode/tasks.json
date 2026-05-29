@@ -3,9 +3,8 @@
   "tasks": [
     {
       "label": "Launch frontend",
-      "type": "npm",
-      "path": "frontend",
-      "script": "dev",
+      "type": "shell",
+      "command": "cd frontend && npm run dev",
       "problemMatcher": []
     },
     {
@@ -37,6 +36,13 @@
       "dependsOn": ["Launch frontend", "Launch backend"],
       "problemMatcher": [],
       "dependsOrder": "parallel"
+    },
+    {
+      "label": "Launch Storybook",
+      "type": "npm",
+      "path": "frontend",
+      "script": "storybook",
+      "problemMatcher": []
     }
   ]
 }

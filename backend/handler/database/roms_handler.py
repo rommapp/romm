@@ -38,7 +38,15 @@ from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomMetadata, RomNote, RomUser, SiblingRom
+from models.rom import (
+    Rom,
+    RomFile,
+    RomFileCategory,
+    RomMetadata,
+    RomNote,
+    RomUser,
+    SiblingRom,
+)
 from utils.database import (
     json_array_contains_all,
     json_array_contains_any,
@@ -144,19 +152,26 @@ def with_details(func):
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             selectinload(Rom.files),
             selectinload(Rom.sibling_roms).options(
+                noload(Rom.platform),
+                noload(Rom.metadatum),
+                # Per-sibling is_main_sibling resolution for the
+                # SiblingRomSchema needs each sibling's RomUser for the
+                # request user — the relationship is `lazy="raise"`, so
+                # it has to be eager-loaded here.
+                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
                 load_only(
                     Rom.id,
                     Rom.name,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
                 ),
-                noload(Rom.platform),
-                noload(Rom.metadatum),
             ),
             selectinload(Rom.collections),
             selectinload(Rom.notes),
             undefer(Rom.multi_file),
             undefer(Rom.top_level_file_count),
+            undefer(Rom.has_manual_files),
+            undefer(Rom.has_soundtrack),
         )
         return func(*args, **kwargs)
 
@@ -202,30 +217,64 @@ class DBRomsHandler(DBBaseHandler):
             return []
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
 
-    def get_sibling_ids_for_roms(
+    def get_sibling_data_for_roms(
         self,
         rom_ids: list[int],
+        user_id: int,
         *,
         session: Session,
-    ) -> dict[int, list[int]]:
-        """Return {rom_id: [sibling_rom_id, ...]} for the given rom IDs.
+    ) -> dict[int, list[dict[str, Any]]]:
+        """Return {rom_id: [{id, name, fs_name_no_tags, fs_name_no_ext, is_main_sibling}, ...]}.
 
-        Single query against the sibling_roms view, projecting only the two `id` columns.
+        Single query joining sibling_roms → roms (scalar columns only) → rom_user
+        (filtered to the request user). No Rom JSON metadata is hydrated, so this
+        stays cheap even on large pages — the cost is one extra JOIN with a few
+        scalar columns vs. the bare-IDs variant.
         """
         if not rom_ids:
             return {}
 
         rows = session.execute(
-            select(SiblingRom.rom_id, SiblingRom.sibling_rom_id).where(
-                SiblingRom.rom_id.in_(rom_ids)
+            select(
+                SiblingRom.rom_id,
+                SiblingRom.sibling_rom_id,
+                Rom.name,
+                Rom.fs_name_no_tags,
+                Rom.fs_name_no_ext,
+                func.coalesce(RomUser.is_main_sibling, false()).label(
+                    "is_main_sibling"
+                ),
             )
+            .join(Rom, Rom.id == SiblingRom.sibling_rom_id)
+            .outerjoin(
+                RomUser,
+                and_(
+                    RomUser.rom_id == SiblingRom.sibling_rom_id,
+                    RomUser.user_id == user_id,
+                ),
+            )
+            .where(SiblingRom.rom_id.in_(rom_ids))
         ).all()
 
-        buckets: dict[int, set[int]] = {rom_id: set() for rom_id in rom_ids}
-        for rom_id, sibling_rom_id in rows:
-            buckets[rom_id].add(sibling_rom_id)
+        # Dedupe by (parent rom, sibling id) so a duplicate row in the join
+        # doesn't surface twice on the wire.
+        seen: dict[int, set[int]] = {rom_id: set() for rom_id in rom_ids}
+        buckets: dict[int, list[dict[str, Any]]] = {rom_id: [] for rom_id in rom_ids}
+        for rom_id, sib_id, name, fs_name_no_tags, fs_name_no_ext, is_main in rows:
+            if sib_id in seen[rom_id]:
+                continue
+            seen[rom_id].add(sib_id)
+            buckets[rom_id].append(
+                {
+                    "id": sib_id,
+                    "name": name,
+                    "fs_name_no_tags": fs_name_no_tags,
+                    "fs_name_no_ext": fs_name_no_ext,
+                    "is_main_sibling": bool(is_main),
+                }
+            )
 
-        return {rom_id: sorted(ids) for rom_id, ids in buckets.items()}
+        return buckets
 
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
@@ -595,10 +644,9 @@ class DBRomsHandler(DBBaseHandler):
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             # Required for multi-file ROM actions and 3DS QR code
             selectinload(Rom.files),
-            # Show sibling rom badges on cards
-            selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform), noload(Rom.metadatum)
-            ),
+            # Sibling badge data is populated separately via
+            # get_sibling_data_for_roms — avoids hydrating full Rom rows
+            # (including JSON metadata) per sibling on every page.
             # Notes indicator on cards
             selectinload(Rom.notes),
         )
@@ -609,6 +657,8 @@ class DBRomsHandler(DBBaseHandler):
             query = query.options(
                 undefer(Rom.multi_file),
                 undefer(Rom.top_level_file_count),
+                undefer(Rom.has_manual_files),
+                undefer(Rom.has_soundtrack),
             )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
@@ -919,6 +969,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         query: Query,
         order_by_attr: Any,
+        order_dir: str = "asc",
         session: Session = None,  # type: ignore
     ) -> list[Row[tuple[str, int]]]:
         if isinstance(order_by_attr.type, (String, Text)):
@@ -936,6 +987,15 @@ class DBRomsHandler(DBBaseHandler):
             r"(\d+)", r"00000000000\1"
         ).regexp_replace(r"0*(\d{12})", r"\1")
 
+        # Apply the same direction the main query uses so the position
+        # numbers we emit (and the per-letter min position downstream)
+        # match the actual order the client paginates over. Without this
+        # the frontend AlphaStrip would highlight the wrong letter when
+        # order_dir=desc.
+        order_window = (
+            order_by_attr.desc() if order_dir.lower() == "desc" else order_by_attr.asc()
+        )
+
         # Get the row number and first letter for each item
         subquery = (
             query.with_only_columns(Rom.id, Rom.name)  # type: ignore
@@ -945,7 +1005,7 @@ class DBRomsHandler(DBBaseHandler):
                     1,
                     1,
                 ).label("letter"),
-                func.row_number().over(order_by=order_by_attr).label("position"),
+                func.row_number().over(order_by=order_window).label("position"),
             )
             .subquery()
         )
@@ -1170,7 +1230,9 @@ class DBRomsHandler(DBBaseHandler):
         rom_file: RomFile,
         session: Session = None,  # type: ignore
     ) -> RomFile:
-        return session.merge(rom_file)
+        merged = session.merge(rom_file)
+        session.flush()
+        return merged
 
     @begin_session
     def get_rom_file_by_id(
@@ -1181,12 +1243,44 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(select(RomFile).filter_by(id=id).limit(1))
 
     @begin_session
+    def get_rom_file_by_path(
+        self,
+        rom_id: int,
+        file_path: str,
+        file_name: str,
+        session: Session = None,  # type: ignore
+    ) -> RomFile | None:
+        return session.scalar(
+            select(RomFile)
+            .filter_by(rom_id=rom_id, file_path=file_path, file_name=file_name)
+            .limit(1)
+        )
+
+    @begin_session
+    def get_rom_files_by_category(
+        self,
+        rom_id: int,
+        category: RomFileCategory,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[RomFile]:
+        """Return the ROM's files for a single category, ordered by file_name."""
+        return (
+            session.scalars(
+                select(RomFile)
+                .filter_by(rom_id=rom_id, category=category)
+                .order_by(RomFile.file_name.asc())
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
     def update_rom_file(
         self,
         id: int,
         data: dict,
         session: Session = None,  # type: ignore
-    ) -> RomFile:
+    ) -> RomFile | None:
         session.execute(
             update(RomFile)
             .where(RomFile.id == id)
@@ -1194,7 +1288,7 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        return session.query(RomFile).filter_by(id=id).one()
+        return session.query(RomFile).filter_by(id=id).one_or_none()
 
     @begin_session
     def purge_rom_files(
@@ -1211,6 +1305,18 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
         return purged_rom_files
+
+    @begin_session
+    def delete_rom_file(
+        self,
+        id: int,
+        session: Session = None,  # type: ignore
+    ) -> None:
+        session.execute(
+            delete(RomFile)
+            .where(RomFile.id == id)
+            .execution_options(synchronize_session="evaluate")
+        )
 
     # Note management methods
     @begin_session

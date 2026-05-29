@@ -20,5 +20,12 @@
   "save-and-quit": "Сохранить и выйти",
   "select-background-color": "Выбрать цвет фона",
   "select-save": "Выбрать сохранение",
-  "select-state": "Выбрать состояние"
+  "select-state": "Выбрать состояние",
+  "all-saves": "Все сохранения",
+  "all-states": "Все состояния",
+  "no-screenshot-available": "Скриншот недоступен",
+  "powered-by": "На базе",
+  "resume-from-save": "Продолжить с сохранения",
+  "resume-from-state": "Продолжить с состояния",
+  "start-fresh-hint": "Выберите одно из ниже, чтобы продолжить, или нажмите «Играть», чтобы начать заново."
 }

@@ -28,27 +28,51 @@ export type DetailedRom = DetailedRomSchema;
 const orderByStorage = useLocalStorage("roms.orderBy", "name");
 const orderDirStorage = useLocalStorage("roms.orderDir", "asc");
 
+// NOTE on deprecation: the gallery-list responsibility (currentPlatform /
+// Collection / Virtual / Smart, _allRoms, fetchOffset, fetchTotalRoms,
+// characterIndex, romIdIndex, fetchRoms / resetPagination / reset, plus
+// the order-by setters) has moved to the v2 store at
+// `src/v2/stores/galleryRoms.ts` (windowed sparse loading). v1 keeps the
+// originals for the frozen v1 UI; v2 imports the new store. Per-field
+// @deprecated tags annotate the migrated surface so v1 cleanup is
+// trivial when the time comes.
 const defaultRomsState = {
+  /** @deprecated v2: use `useGalleryRoms().currentPlatform` from
+   * `@/v2/stores/galleryRoms`. */
   currentPlatform: null as Platform | null,
+  /** @deprecated v2: use `useGalleryRoms().currentCollection`. */
   currentCollection: null as Collection | null,
+  /** @deprecated v2: use `useGalleryRoms().currentVirtualCollection`. */
   currentVirtualCollection: null as VirtualCollection | null,
+  /** @deprecated v2: use `useGalleryRoms().currentSmartCollection`. */
   currentSmartCollection: null as SmartCollection | null,
   currentRom: null as DetailedRom | null,
+  /** @deprecated v2: rooms live in a sparse `byPosition` map on
+   * `useGalleryRoms()`; iterate via `getRomAt(position)`. */
   _allRoms: [] as SimpleRom[],
   selectedIDs: new Set<number>(),
   recentRoms: [] as SimpleRom[],
   continuePlayingRoms: [] as SimpleRom[],
   lastSelectedIndex: -1,
   selectingRoms: false,
+  /** @deprecated v2: per-window flags live on `useGalleryRoms()`
+   * (`pendingWindows`, `initialFetching`). */
   fetchingRoms: false,
   initialSearch: false,
+  /** @deprecated v2: window position is implicit in the sparse map;
+   * read `useGalleryRoms().total` for the total count. */
   fetchOffset: 0,
+  /** @deprecated v2: use `useGalleryRoms().total`. */
   fetchTotalRoms: 0,
   fetchLimit: 72,
+  /** @deprecated v2: use `useGalleryRoms().charIndex`. */
   characterIndex: {} as Record<string, number>,
   selectedCharacter: null as string | null,
+  /** @deprecated v2: use `useGalleryRoms().romIdIndex`. */
   romIdIndex: [] as number[],
+  /** @deprecated v2: use `useGalleryRoms().orderBy` (gallery-scoped). */
   orderBy: orderByStorage.value as keyof SimpleRom,
+  /** @deprecated v2: use `useGalleryRoms().orderDir`. */
   orderDir: orderDirStorage.value as "asc" | "desc",
 };
 
@@ -74,6 +98,7 @@ export default defineStore("roms", {
         ? true
         : localStorage.getItem("settings.groupRoms") === "true";
     },
+    /** @deprecated v2: use `useGalleryRoms().setCurrentPlatform`. */
     setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
     },
@@ -86,12 +111,15 @@ export default defineStore("roms", {
     setContinuePlayingRoms(roms: SimpleRom[]) {
       this.continuePlayingRoms = roms;
     },
+    /** @deprecated v2: use `useGalleryRoms().setCurrentCollection`. */
     setCurrentCollection(collection: Collection | null) {
       this.currentCollection = collection;
     },
+    /** @deprecated v2: use `useGalleryRoms().setCurrentVirtualCollection`. */
     setCurrentVirtualCollection(collection: VirtualCollection | null) {
       this.currentVirtualCollection = collection;
     },
+    /** @deprecated v2: use `useGalleryRoms().setCurrentSmartCollection`. */
     setCurrentSmartCollection(collection: SmartCollection | null) {
       this.currentSmartCollection = collection;
     },
@@ -193,6 +221,8 @@ export default defineStore("roms", {
         galleryFilter.setFilterPlayerCounts(filter_values.player_counts);
       }
     },
+    /** @deprecated v2: use `useGalleryRoms().fetchWindowAt(position)` for
+     * windowed loading. The page-by-page model here is kept for v1 only. */
     async fetchRoms(concat = true): Promise<SimpleRom[]> {
       if (this.fetchingRoms) return Promise.resolve([]);
       this.fetchingRoms = true;
@@ -287,6 +317,16 @@ export default defineStore("roms", {
       this.continuePlayingRoms = this.continuePlayingRoms.map((value) =>
         value.id === rom.id ? rom : value,
       );
+      // Keep `currentRom` in sync too — otherwise an optimistic mutation
+      // on a SimpleRom from the gallery (status toggle from a GameCard
+      // badge, favourite, …) leaves the detail view rendering stale
+      // `rom_user` data, since the rom-route `beforeEnter` skips its
+      // refetch when `currentRom.id` already matches. Spread merges the
+      // SimpleRom shape over the cached DetailedRom so detailed-only
+      // fields (metadatum, screenshots, related games, …) survive.
+      if (this.currentRom?.id === rom.id) {
+        this.currentRom = { ...this.currentRom, ...rom };
+      }
     },
     remove(roms: SimpleRom[]) {
       this._allRoms = this._allRoms.filter((value) => {
@@ -295,6 +335,7 @@ export default defineStore("roms", {
         });
       });
     },
+    /** @deprecated v2: use `useGalleryRoms().resetGallery()`. */
     reset() {
       this.currentPlatform = null;
       this.currentCollection = null;
@@ -312,6 +353,7 @@ export default defineStore("roms", {
       this.romIdIndex = [];
       this.resetPagination();
     },
+    /** @deprecated v2: use `useGalleryRoms().invalidateWindows()`. */
     resetPagination() {
       this.fetchOffset = 0;
       this.fetchTotalRoms = 0;
@@ -335,10 +377,12 @@ export default defineStore("roms", {
       this.selectedIDs = new Set<number>();
       this.lastSelectedIndex = -1;
     },
+    /** @deprecated v2: use `useGalleryRoms().setOrderBy`. */
     setOrderBy(orderBy: keyof SimpleRom) {
       this.orderBy = orderBy;
       orderByStorage.value = orderBy;
     },
+    /** @deprecated v2: use `useGalleryRoms().setOrderDir`. */
     setOrderDir(orderDir: "asc" | "desc") {
       this.orderDir = orderDir;
       orderDirStorage.value = orderDir;

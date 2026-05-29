@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Sorgente disabilitata",
   "abort": "Annulla",
   "api-key-invalid": "Chiave API non valida!",
   "api-key-missing": "Chiave API mancante o non valida",
@@ -42,5 +43,26 @@
   "unmatched-games": "Giochi senza corrispondenza",
   "unmatched-games-desc": "Scansiona giochi con corrispondenze di metadati mancanti",
   "update-metadata": "Aggiorna metadati",
-  "update-metadata-desc": "Aggiorna metadati per giochi corrispondenti"
+  "update-metadata-desc": "Aggiorna metadati per giochi corrispondenti",
+  "playmatch-requires-igdb": "Seleziona IGDB per abilitare Playmatch",
+  "section-platforms": "Piattaforme",
+  "section-metadata": "Metadati",
+  "section-providers": "Provider",
+  "section-providers-general": "Generali",
+  "section-providers-specific": "Specifici",
+  "section-proxies": "Proxy",
+  "section-scan-type": "Tipo di scansione",
+  "scanning": "Scansione in corso",
+  "scanning-library": "Scansione della libreria in corso. Clicca per visualizzare",
+  "title": "Scansione libreria",
+  "info-dialog-title": "Riferimento scansione",
+  "scan-complete": "Scansione completata",
+  "live-progress": "Progresso in tempo reale",
+  "empty-hint": "Scegli una configurazione di scansione a sinistra e premi Scansiona per vedere qui il progresso in tempo reale.",
+  "empty-hint-scanning": "Le piattaforme appariranno qui non appena lo scanner le rileva.",
+  "hash-matchers": "Matcher per hash",
+  "abort-scan": "Interrompi scansione",
+  "identifying": "Identificazione in corso",
+  "info-full-docs": "Documentazione completa",
+  "scan-types": "Tipi di scansione"
 }
