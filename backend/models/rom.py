@@ -80,10 +80,6 @@ class RomFile(BaseModel):
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
-    # For multi-file archives (zip/tar/7z/rar): per-internal-member metadata
-    # ({"name", "size", "crc_hash", "md5_hash", "sha1_hash"}) so hash-database
-    # matching and the UI can reason about individual members without needing
-    # RomFile rows whose full_path would point inside the archive.
     archive_members: Mapped[list[dict[str, Any]] | None] = mapped_column(
         CustomJSON(), default=None, nullable=True
     )

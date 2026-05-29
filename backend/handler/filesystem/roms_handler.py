@@ -496,8 +496,10 @@ class FSRomsHandler(FSHandler):
                 def _hash_raw_archive(crc: int) -> int:
                     for chunk in read_basic_file(rom_dir):
                         crc = binascii.crc32(chunk, crc)
-                        rom_md5_h.update(chunk)
-                        rom_sha1_h.update(chunk)
+                        if rom_md5_h:
+                            rom_md5_h.update(chunk)
+                        if rom_sha1_h:
+                            rom_sha1_h.update(chunk)
                     return crc
 
                 rom_crc_c = await asyncio.to_thread(_hash_raw_archive, rom_crc_c)

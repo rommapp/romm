@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from tests._zipfile_shim import reload_zipfile
 
 from config.config_manager import LIBRARY_BASE_PATH, Config
 from handler.filesystem.roms_handler import (
@@ -799,30 +800,6 @@ class TestFSRomsHandler:
         # Header SHA1 stored separately in chd_sha1_hash
         assert parsed_rom_files.rom_files[0].chd_sha1_hash == internal_sha1
 
-    @pytest.fixture
-    def unpatched_zipfile_writer(self):
-        """Restore stdlib `zipfile._get_compressor` for the duration of a test.
-
-        `archives.py` imports `zipfile_inflate64`, which monkey-patches
-        `zipfile._get_compressor` with a signature incompatible with Python 3.13
-        and breaks in-process zip writes. Reading is unaffected, so we only need
-        the original on the write path used by these fixtures.
-        """
-        import zipfile
-
-        from zipfile_inflate64._patcher import patch as _zfi_patch
-
-        original = _zfi_patch.originals.get("_get_compressor")
-        if original is None:
-            yield
-            return
-        patched = zipfile._get_compressor
-        zipfile._get_compressor = original
-        try:
-            yield
-        finally:
-            zipfile._get_compressor = patched
-
     @staticmethod
     def _setup_archive_rom(
         tmp_path: Path, platform: Platform, fs_name: str, fs_extension: str, data: bytes
@@ -843,7 +820,7 @@ class TestFSRomsHandler:
 
     @pytest.mark.asyncio
     async def test_get_rom_files_zip_composite_hash_sorted_order(
-        self, platform: Platform, tmp_path: Path, unpatched_zipfile_writer
+        self, platform: Platform, tmp_path: Path
     ):
         """Zip member bytes are hashed in ASCII path order regardless of insertion order."""
         import hashlib
@@ -856,6 +833,7 @@ class TestFSRomsHandler:
             "c.bin": b"CCC content for third file",
         }
 
+        reload_zipfile()
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
             # Insert in reverse to ensure sorting is what governs order
@@ -900,13 +878,15 @@ class TestFSRomsHandler:
 
     @pytest.mark.asyncio
     async def test_get_rom_files_zip_ordering_invariant(
-        self, platform: Platform, tmp_path: Path, unpatched_zipfile_writer
+        self, platform: Platform, tmp_path: Path
     ):
         """Two zips with the same members in different insertion order hash identically."""
         import io
         import zipfile
 
         members = [("a.bin", b"AAA"), ("b.bin", b"BBB"), ("c.bin", b"CCC")]
+
+        reload_zipfile()
 
         def build_zip(order: list[tuple[str, bytes]]) -> bytes:
             buf = io.BytesIO()
@@ -986,13 +966,14 @@ class TestFSRomsHandler:
 
     @pytest.mark.asyncio
     async def test_get_rom_files_zip_with_only_excluded_entries_falls_back(
-        self, platform: Platform, tmp_path: Path, unpatched_zipfile_writer
+        self, platform: Platform, tmp_path: Path
     ):
         """A zip whose entries are all default-excluded hashes the archive's raw bytes."""
         import hashlib
         import io
         import zipfile
 
+        reload_zipfile()
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
             zf.writestr("foo.tmp", b"X" * 256)  # excluded by extension
@@ -1018,13 +999,14 @@ class TestFSRomsHandler:
 
     @pytest.mark.asyncio
     async def test_get_rom_files_empty_zip_falls_back_to_raw_bytes(
-        self, platform: Platform, tmp_path: Path, unpatched_zipfile_writer
+        self, platform: Platform, tmp_path: Path
     ):
         """A zip with zero entries hashes the archive's raw bytes."""
         import hashlib
         import io
         import zipfile
 
+        reload_zipfile()
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w"):
             pass
