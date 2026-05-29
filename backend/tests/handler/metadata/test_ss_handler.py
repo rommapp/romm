@@ -717,6 +717,93 @@ class TestLookupRom:
         assert is_not_game is True
 
     @pytest.mark.asyncio
+    async def test_romnom_uses_archive_member_name_for_single_file_archive(self):
+        handler = SSHandler()
+        mock_file = self._make_mock_file()
+        mock_file.file_name = "Mario.zip"
+        mock_file.archive_members = [
+            {
+                "name": "mario.n64",
+                "size": 1024,
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+            }
+        ]
+        captured = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return None
+
+        with patch.object(handler.ss_service, "get_game_info", side_effect=capture):
+            await handler.lookup_rom(MagicMock(platform_slug="n64"), 14, [mock_file])
+        assert captured.get("rom_name") == "mario.n64"
+
+    @pytest.mark.asyncio
+    async def test_romnom_uses_archive_filename_for_multi_file_archive(self):
+        handler = SSHandler()
+        mock_file = self._make_mock_file()
+        mock_file.file_name = "Mario.zip"
+        mock_file.archive_members = [
+            {
+                "name": "mario.bin",
+                "size": 1024,
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+            },
+            {
+                "name": "mario.cue",
+                "size": 64,
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+            },
+        ]
+        captured = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return None
+
+        with patch.object(handler.ss_service, "get_game_info", side_effect=capture):
+            await handler.lookup_rom(MagicMock(platform_slug="psx"), 57, [mock_file])
+        assert captured.get("rom_name") == "Mario.zip"
+
+    @pytest.mark.asyncio
+    async def test_romnom_uses_archive_filename_when_no_archive_members(self):
+        handler = SSHandler()
+        mock_file = self._make_mock_file()
+        mock_file.file_name = "mario.n64"
+        mock_file.archive_members = None
+        captured = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return None
+
+        with patch.object(handler.ss_service, "get_game_info", side_effect=capture):
+            await handler.lookup_rom(MagicMock(platform_slug="n64"), 14, [mock_file])
+        assert captured.get("rom_name") == "mario.n64"
+
+    @pytest.mark.asyncio
+    async def test_romnom_uses_archive_filename_when_archive_members_empty(self):
+        handler = SSHandler()
+        mock_file = self._make_mock_file()
+        mock_file.file_name = "Mario.zip"
+        mock_file.archive_members = []
+        captured = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return None
+
+        with patch.object(handler.ss_service, "get_game_info", side_effect=capture):
+            await handler.lookup_rom(MagicMock(platform_slug="n64"), 14, [mock_file])
+        assert captured.get("rom_name") == "Mario.zip"
+
+    @pytest.mark.asyncio
     async def test_returns_notgame_flag_on_zzz_prefix(self):
         notgame_response = {
             "id": "0",

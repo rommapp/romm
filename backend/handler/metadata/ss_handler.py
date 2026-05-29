@@ -713,7 +713,11 @@ class SSHandler(MetadataHandler):
             sha1=sha1_hash,
             crc=crc_hash,
             rom_size_bytes=fs_size_bytes,
-            rom_name=first_file.file_name,
+            rom_name=(
+                first_file.archive_members[0]["name"]
+                if first_file.archive_members and len(first_file.archive_members) == 1
+                else first_file.file_name
+            ),
             rom_type=_get_rom_type(first_file),
         )
         if not res:
