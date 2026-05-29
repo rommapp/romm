@@ -132,7 +132,7 @@ class FSAssetsHandler(FSHandler):
         return hash_obj.hexdigest()
 
     async def _compute_zip_hash(self, zip_path: str) -> str:
-        with zipfile.ZipFile(f"{self.base_path}/{zip_path}", "r") as zf:
+        with zipfile.ZipFile(self.base_path / zip_path, "r") as zf:
             file_hashes = []
             for name in sorted(zf.namelist()):
                 if not name.endswith("/"):
@@ -144,7 +144,7 @@ class FSAssetsHandler(FSHandler):
 
     async def compute_content_hash(self, file_path: str) -> str | None:
         try:
-            full_path = f"{self.base_path}/{file_path}"
+            full_path = self.base_path / file_path
             if zipfile.is_zipfile(full_path):
                 return await self._compute_zip_hash(file_path)
             return await self._compute_file_hash(file_path)
