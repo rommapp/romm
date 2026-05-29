@@ -115,9 +115,15 @@ def negotiate_sync(
 
     operations: list[SyncOperationSchema] = []
 
-    # Build a set of server saves for this user, keyed by (rom_id, file_name)
-    # We'll also track which server saves were mentioned by the client
-    server_saves = db_save_handler.get_saves(user_id=request.user.id)
+    # Build a set of server saves for this user, keyed by (rom_id, file_name).
+    # Only slot-bound saves participate in sync; null-slot saves are web-UI or
+    # archival uploads and act as backups (clients can opt-in to import them
+    # outside the sync flow).
+    server_saves = [
+        s
+        for s in db_save_handler.get_saves(user_id=request.user.id)
+        if s.slot is not None
+    ]
     server_save_map: dict[tuple[int, str], Save] = {}
     for save in server_saves:
         server_save_map[(save.rom_id, save.file_name)] = save

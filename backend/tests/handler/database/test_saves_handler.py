@@ -319,6 +319,131 @@ class TestDBSavesHandlerSlotFiltering:
         assert ordered_saves_asc[1].id == created2.id
 
 
+class TestDBSavesHandlerGetSaveByContentHash:
+    """Pin the slot filter behavior of get_save_by_content_hash (commit
+    3d71ef3f6). Legacy callers still pass slot=None and expect cross-slot
+    lookup, while sync negotiation passes a concrete slot value and expects
+    a strict match.
+    """
+
+    def test_returns_row_matching_slot_when_multiple_slots_share_hash(
+        self, admin_user: User, rom: Rom
+    ):
+        """Two rows share (rom_id, user_id, content_hash) but differ in slot.
+        A call with a specific slot must return the row with that slot, not
+        the other."""
+        shared_hash = "abc123abc123abc123abc123abc12345"
+
+        slot_a = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="hash_match_a.sav",
+                file_name_no_tags="hash_match_a",
+                file_name_no_ext="hash_match_a",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="Slot A",
+                content_hash=shared_hash,
+            )
+        )
+        slot_b = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="hash_match_b.sav",
+                file_name_no_tags="hash_match_b",
+                file_name_no_ext="hash_match_b",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="Slot B",
+                content_hash=shared_hash,
+            )
+        )
+
+        result_a = db_save_handler.get_save_by_content_hash(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            content_hash=shared_hash,
+            slot="Slot A",
+        )
+        assert result_a is not None
+        assert result_a.id == slot_a.id
+
+        result_b = db_save_handler.get_save_by_content_hash(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            content_hash=shared_hash,
+            slot="Slot B",
+        )
+        assert result_b is not None
+        assert result_b.id == slot_b.id
+
+    def test_returns_none_when_slot_does_not_match(self, admin_user: User, rom: Rom):
+        """A single row exists. Querying with a different slot value returns
+        None, even though the (rom_id, user_id, content_hash) tuple matches."""
+        target_hash = "ffffffffffffffffffffffffffffffff"
+
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="only_slot.sav",
+                file_name_no_tags="only_slot",
+                file_name_no_ext="only_slot",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="autosave",
+                content_hash=target_hash,
+            )
+        )
+
+        result = db_save_handler.get_save_by_content_hash(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            content_hash=target_hash,
+            slot="manual",
+        )
+        assert result is None
+
+    def test_slot_none_finds_row_with_concrete_slot(self, admin_user: User, rom: Rom):
+        """Legacy / cross-slot lookup: passing slot=None must not filter by
+        slot at all and must still return the row, regardless of the row's
+        own slot value."""
+        target_hash = "1234567890abcdef1234567890abcdef"
+
+        created = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="cross_slot.sav",
+                file_name_no_tags="cross_slot",
+                file_name_no_ext="cross_slot",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="autosave",
+                content_hash=target_hash,
+            )
+        )
+
+        result = db_save_handler.get_save_by_content_hash(
+            user_id=admin_user.id,
+            rom_id=rom.id,
+            content_hash=target_hash,
+            slot=None,
+        )
+        assert result is not None
+        assert result.id == created.id
+
+
 class TestDBSavesHandlerSummary:
     def test_get_saves_summary_basic(self, admin_user: User, rom: Rom):
         from datetime import datetime, timedelta, timezone

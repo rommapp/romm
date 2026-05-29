@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Literal
 
-from sqlalchemy import and_, asc, delete, desc, select, update
+from sqlalchemy import and_, asc, delete, desc, func, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 
 from decorators.database import begin_session
@@ -35,13 +35,15 @@ class DBSavesHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         file_name: str,
+        slot: str | None = None,
         session: Session = None,  # type: ignore
     ) -> Save | None:
-        return session.scalars(
-            select(Save)
-            .filter_by(rom_id=rom_id, user_id=user_id, file_name=file_name)
-            .limit(1)
-        ).first()
+        query = select(Save).filter_by(
+            rom_id=rom_id, user_id=user_id, file_name=file_name
+        )
+        if slot is not None:
+            query = query.filter(Save.slot == slot)
+        return session.scalars(query.limit(1)).first()
 
     @begin_session
     def get_save_by_content_hash(
@@ -49,13 +51,15 @@ class DBSavesHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         content_hash: str,
+        slot: str | None = None,
         session: Session = None,  # type: ignore
     ) -> Save | None:
-        return session.scalar(
-            select(Save)
-            .filter_by(rom_id=rom_id, user_id=user_id, content_hash=content_hash)
-            .limit(1)
+        query = select(Save).filter_by(
+            rom_id=rom_id, user_id=user_id, content_hash=content_hash
         )
+        if slot is not None:
+            query = query.filter(Save.slot == slot)
+        return session.scalar(query.limit(1))
 
     @begin_session
     def get_saves(
@@ -176,3 +180,26 @@ class DBSavesHandler(DBBaseHandler):
             "total_count": len(saves),
             "slots": list(slots_data.values()),
         }
+
+    @begin_session
+    def count_saves_missing_content_hash(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> int:
+        """Number of Save rows whose content_hash is NULL. Used at startup to
+        decide whether the one-shot recompute task needs to be enqueued."""
+        return (
+            session.scalar(
+                select(func.count(Save.id)).where(Save.content_hash.is_(None))
+            )
+            or 0
+        )
+
+    @begin_session
+    def get_all_saves(
+        self,
+        session: Session = None,  # type: ignore
+    ) -> Sequence[Save]:
+        """Every Save row across all users, ordered by id. Used by the
+        recompute_save_content_hashes maintenance task."""
+        return session.scalars(select(Save).order_by(asc(Save.id))).all()
