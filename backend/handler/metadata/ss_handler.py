@@ -334,10 +334,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                     ss_media["miximage_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
                     )
-            elif (
-                media.get("type") == "mixrbv2"
-                and not ss_media["miximage_v2_url"]
-            ):
+            elif media.get("type") == "mixrbv2" and not ss_media["miximage_v2_url"]:
                 ss_media["miximage_v2_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
                 )

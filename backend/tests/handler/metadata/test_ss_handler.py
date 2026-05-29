@@ -37,7 +37,9 @@ def _make_config(
         FIRMWARE_FOLDER_NAME="bios",
         SCAN_REGION_PRIORITY=region_priority or [],
         SCAN_LANGUAGE_PRIORITY=["en"],
-        SCAN_MEDIA=scan_media if scan_media is not None else ["box2d", "box3d", "screenshot"],
+        SCAN_MEDIA=(
+            scan_media if scan_media is not None else ["box2d", "box3d", "screenshot"]
+        ),
         GAMELIST_MEDIA_THUMBNAIL=MetadataMediaType.BOX2D,
         GAMELIST_MEDIA_IMAGE=MetadataMediaType.SCREENSHOT,
     )
