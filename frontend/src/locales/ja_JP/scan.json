@@ -1,4 +1,5 @@
 {
+  "source-disabled": "ソースが無効です",
   "abort": "中止",
   "api-key-invalid": "APIキーが無効です!",
   "api-key-missing": "API keyが見つからないか誤っています",

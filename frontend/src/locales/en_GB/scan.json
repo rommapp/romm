@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Source disabled",
   "abort": "Abort",
   "api-key-invalid": "API key invalid!",
   "api-key-missing": "API key missing or invalid",

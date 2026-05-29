@@ -1,4 +1,5 @@
 {
+  "source-disabled": "소스가 비활성화됨",
   "abort": "중지",
   "api-key-invalid": "API 키가 유효하지 않습니다!",
   "api-key-missing": "API 키가 없거나 올바르지 않습니다",

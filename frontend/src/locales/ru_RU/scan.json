@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Источник отключён",
   "abort": "Прервать",
   "api-key-invalid": "Неверный API-ключ!",
   "api-key-missing": "API ключ отсутствует или недействителен",

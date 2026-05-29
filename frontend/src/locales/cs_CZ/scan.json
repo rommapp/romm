@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Zdroj zakázán",
   "abort": "Přerušit",
   "api-key-invalid": "API klíč je neplatný!",
   "api-key-missing": "API klíč chybí nebo je neplatný",

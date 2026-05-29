@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Source désactivée",
   "abort": "Annuler",
   "api-key-invalid": "Clé API invalide !",
   "api-key-missing": "Clé API invalide ou non configurée",

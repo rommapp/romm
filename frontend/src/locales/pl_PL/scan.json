@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Źródło wyłączone",
   "abort": "Przerwij",
   "api-key-invalid": "Nieprawidłowy klucz API!",
   "api-key-missing": "Brak lub nieprawidłowy klucz API",

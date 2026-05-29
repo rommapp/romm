@@ -4,11 +4,14 @@
 // proxies) matching the split used in the Setup wizard. Each tile
 // shows:
 //   • A circular logo
-//   • Provider name + tone-coloured `RTag` status chip
-//     (missing key / invalid key / connected / checking)
-//   • Two `RBtn` action buttons (get API key — opens docs; visit
-//     website) — both neutral, since the status chip carries the
-//     state on its own.
+//   • Provider name + tone-coloured `RTag` status chip. Wording adapts
+//     to how the provider is configured: key-based providers (IGDB,
+//     ScreenScraper, MobyGames, RetroAchievements, SteamGridDB) talk
+//     about the API key (missing / invalid / valid); flag-only
+//     providers (LaunchBox, Flashpoint, HowLongToBeat, Hasheous,
+//     PlayMatch) talk about the connection / enabled state.
+//   • A "visit website" `RBtn`, plus a "get API key" `RBtn` shown only
+//     for key-based providers (flag-only providers have no key to get).
 import { RBtn, RTag } from "@v2/lib";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -47,6 +50,10 @@ interface Source {
   logo: string;
   website: string;
   docsUrl: string;
+  /** True when the provider is enabled by configuring an API key /
+   *  credentials (so a "get API key" link is meaningful). False for
+   *  free/public providers toggled by a plain `*_API_ENABLED` flag. */
+  requiresKey: boolean;
   disabled: boolean;
   heartbeat?: boolean;
 }
@@ -58,6 +65,7 @@ const catalogs = computed<Source[]>(() => [
     logo: "/assets/scrappers/igdb.png",
     website: "https://www.igdb.com",
     docsUrl: "https://api-docs.igdb.com/#account-creation",
+    requiresKey: true,
     disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
     heartbeat: heartbeatStatus.value.igdb,
   },
@@ -67,6 +75,7 @@ const catalogs = computed<Source[]>(() => [
     logo: "/assets/scrappers/ss.png",
     website: "https://www.screenscraper.fr",
     docsUrl: "https://www.screenscraper.fr/membreinscription.php",
+    requiresKey: true,
     disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
     heartbeat: heartbeatStatus.value.ss,
   },
@@ -76,6 +85,7 @@ const catalogs = computed<Source[]>(() => [
     logo: "/assets/scrappers/moby.png",
     website: "https://www.mobygames.com",
     docsUrl: "https://www.mobygames.com/info/api/",
+    requiresKey: true,
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
     heartbeat: heartbeatStatus.value.moby,
   },
@@ -85,6 +95,7 @@ const catalogs = computed<Source[]>(() => [
     logo: "/assets/scrappers/launchbox.png",
     website: "https://www.launchbox-app.com",
     docsUrl: "https://gamesdb.launchbox-app.com",
+    requiresKey: false,
     disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
     heartbeat: heartbeatStatus.value.launchbox,
   },
@@ -94,6 +105,7 @@ const catalogs = computed<Source[]>(() => [
     logo: "/assets/scrappers/flashpoint.png",
     website: "https://flashpointarchive.org",
     docsUrl: "https://flashpointarchive.org/datahub/Flashpoint_API",
+    requiresKey: false,
     disabled: !heartbeat.value.METADATA_SOURCES?.FLASHPOINT_API_ENABLED,
     heartbeat: heartbeatStatus.value.flashpoint,
   },
@@ -107,6 +119,7 @@ const specialised = computed<Source[]>(() => [
     logo: "/assets/scrappers/ra.png",
     website: "https://retroachievements.org",
     docsUrl: "https://retroachievements.org/APIDemo.php",
+    requiresKey: true,
     disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
     heartbeat: heartbeatStatus.value.ra,
   },
@@ -117,6 +130,7 @@ const specialised = computed<Source[]>(() => [
     logo: "/assets/scrappers/sgdb.png",
     website: "https://www.steamgriddb.com",
     docsUrl: "https://www.steamgriddb.com/profile/preferences/api",
+    requiresKey: true,
     disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
     heartbeat: heartbeatStatus.value.sgdb,
   },
@@ -127,6 +141,7 @@ const specialised = computed<Source[]>(() => [
     logo: "/assets/scrappers/hltb.png",
     website: "https://howlongtobeat.com",
     docsUrl: "https://howlongtobeat.com",
+    requiresKey: false,
     disabled: !heartbeat.value.METADATA_SOURCES?.HLTB_API_ENABLED,
     heartbeat: heartbeatStatus.value.hltb,
   },
@@ -139,6 +154,7 @@ const proxies = computed<Source[]>(() => [
     logo: "/assets/scrappers/hasheous.png",
     website: "https://hasheous.org",
     docsUrl: "https://hasheous.org/index.html?page=apidocs",
+    requiresKey: false,
     disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED,
     heartbeat: heartbeatStatus.value.hasheous,
   },
@@ -148,6 +164,7 @@ const proxies = computed<Source[]>(() => [
     logo: "/assets/scrappers/playmatch.png",
     website: "https://github.com/RetroRealm/playmatch",
     docsUrl: "https://github.com/RetroRealm/playmatch",
+    requiresKey: false,
     disabled: !heartbeat.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED,
     heartbeat: heartbeatStatus.value.playmatch,
   },
@@ -161,25 +178,52 @@ function statusOf(source: Source): SourceStatus {
 }
 
 type RTagTone = "neutral" | "brand" | "success" | "danger" | "warning" | "info";
-function statusTone(status: SourceStatus): RTagTone {
-  if (status === "ok") return "success";
-  if (status === "invalid") return "danger";
-  if (status === "pending") return "warning";
-  return "neutral";
+interface StatusInfo {
+  tone: RTagTone;
+  icon: string;
+  label: string;
 }
 
-function statusIcon(status: SourceStatus): string {
-  if (status === "ok") return "mdi-check-circle-outline";
-  if (status === "invalid") return "mdi-alert-circle-outline";
-  if (status === "pending") return "mdi-progress-helper";
-  return "mdi-key-alert-outline";
-}
-
-function statusLabel(status: SourceStatus): string {
-  if (status === "ok") return t("scan.api-key-valid");
-  if (status === "invalid") return t("scan.api-key-invalid");
-  if (status === "pending") return t("scan.connection-in-progress");
-  return t("scan.api-key-missing-short");
+// Status chip wording depends on how the provider is configured.
+// Key-based providers speak about the API key; flag-only providers
+// speak about the enabled/connection state — "API key invalid" makes
+// no sense for a provider that has no key.
+function statusInfo(source: Source): StatusInfo {
+  const status = statusOf(source);
+  if (status === "ok") {
+    return {
+      tone: "success",
+      icon: "mdi-check-circle-outline",
+      label: source.requiresKey
+        ? t("scan.api-key-valid")
+        : t("scan.connection-successful"),
+    };
+  }
+  if (status === "invalid") {
+    return {
+      tone: "danger",
+      icon: "mdi-alert-circle-outline",
+      label: source.requiresKey
+        ? t("scan.api-key-invalid")
+        : t("scan.connection-failed"),
+    };
+  }
+  if (status === "pending") {
+    return {
+      tone: "warning",
+      icon: "mdi-progress-helper",
+      label: t("scan.connection-in-progress"),
+    };
+  }
+  return {
+    tone: "neutral",
+    icon: source.requiresKey
+      ? "mdi-key-alert-outline"
+      : "mdi-power-plug-off-outline",
+    label: source.requiresKey
+      ? t("scan.api-key-missing-short")
+      : t("scan.source-disabled"),
+  };
 }
 
 async function fetchAllHeartbeats() {
@@ -225,9 +269,9 @@ onMounted(() => {
                 {{ source.subtitle }}
               </span>
               <RTag
-                :tone="statusTone(statusOf(source))"
-                :icon="statusIcon(statusOf(source))"
-                :text="statusLabel(statusOf(source))"
+                :tone="statusInfo(source).tone"
+                :prepend-icon="statusInfo(source).icon"
+                :text="statusInfo(source).label"
                 size="x-small"
               />
             </div>
@@ -235,6 +279,7 @@ onMounted(() => {
 
           <div class="r-v2-meta__actions">
             <RBtn
+              v-if="source.requiresKey"
               variant="translucent"
               size="small"
               prepend-icon="mdi-key-variant"
@@ -282,9 +327,9 @@ onMounted(() => {
                 {{ source.subtitle }}
               </span>
               <RTag
-                :tone="statusTone(statusOf(source))"
-                :icon="statusIcon(statusOf(source))"
-                :text="statusLabel(statusOf(source))"
+                :tone="statusInfo(source).tone"
+                :prepend-icon="statusInfo(source).icon"
+                :text="statusInfo(source).label"
                 size="x-small"
               />
             </div>
@@ -292,6 +337,7 @@ onMounted(() => {
 
           <div class="r-v2-meta__actions">
             <RBtn
+              v-if="source.requiresKey"
               variant="translucent"
               size="small"
               prepend-icon="mdi-key-variant"
@@ -339,9 +385,9 @@ onMounted(() => {
                 {{ source.subtitle }}
               </span>
               <RTag
-                :tone="statusTone(statusOf(source))"
-                :icon="statusIcon(statusOf(source))"
-                :text="statusLabel(statusOf(source))"
+                :tone="statusInfo(source).tone"
+                :prepend-icon="statusInfo(source).icon"
+                :text="statusInfo(source).label"
                 size="x-small"
               />
             </div>
@@ -349,6 +395,7 @@ onMounted(() => {
 
           <div class="r-v2-meta__actions">
             <RBtn
+              v-if="source.requiresKey"
               variant="translucent"
               size="small"
               prepend-icon="mdi-key-variant"

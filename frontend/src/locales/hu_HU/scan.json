@@ -1,4 +1,5 @@
 {
+  "source-disabled": "Forrás letiltva",
   "abort": "Megszakítás",
   "api-key-invalid": "API kulcs érvénytelen!",
   "api-key-missing": "API kulcs hiányzik vagy érvénytelen",

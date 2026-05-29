@@ -1,4 +1,5 @@
 {
+  "source-disabled": "来源已禁用",
   "abort": "中止",
   "api-key-invalid": "API密钥无效！",
   "api-key-missing": "接口密钥丢失或无效",
