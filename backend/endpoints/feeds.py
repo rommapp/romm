@@ -40,7 +40,6 @@ from endpoints.responses.feeds import (
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
-from handler.filesystem.roms_handler import is_compressed_file
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_handler import (
     SONY_SERIAL_REGEX,
@@ -49,6 +48,7 @@ from handler.metadata.base_handler import (
 )
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.rom import Rom, RomFile, RomFileCategory
+from utils.archives import is_compressed_file
 from utils.router import APIRouter
 
 

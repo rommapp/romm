@@ -1,24 +1,21 @@
 import asyncio
 import binascii
-import bz2
 import fnmatch
 import hashlib
 import os
 import re
-import tarfile
-import threading
-import zipfile
 import zlib
-from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Any, Final, Literal, TypedDict
+from typing import Any, TypedDict
 
-import magic
-import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
 from anyio import Path as AnyioPath
 
 from config import LIBRARY_BASE_PATH
+from config.config_manager import (
+    DEFAULT_EXCLUDED_EXTENSIONS,
+    DEFAULT_EXCLUDED_FILES,
+)
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
@@ -27,8 +24,22 @@ from exceptions.fs_exceptions import (
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
-from utils.archive_7zip import process_file_7z
-from utils.filesystem import COMPRESSED_FILE_EXTENSIONS, iter_files
+from utils.archives import (
+    detect_mime_type,
+    extract_chd_hash,
+    is_chd_file,
+    process_7z_file,
+    read_7z_archive_files,
+    read_basic_file,
+    read_bz2_file,
+    read_gz_file,
+    read_rar_archive_files,
+    read_tar_archive_files,
+    read_tar_file,
+    read_zip_archive_files,
+    read_zip_file,
+)
+from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
 
 from .base_handler import (
@@ -40,33 +51,9 @@ from .base_handler import (
     FSHandler,
 )
 
-# Known compressed file MIME types
-COMPRESSED_MIME_TYPES: Final = frozenset(
-    (
-        "application/x-7z-compressed",
-        "application/x-bzip2",
-        "application/x-gzip",
-        "application/x-tar",
-        "application/zip",
-    )
-)
-
 # PICO-8 cartridges are often stored as PNG files
 PICO8_CARTRIDGE_EXTENSION = ".p8.png"
 
-
-# CHD (Compressed Hunks of Data) v5 format constants
-# See: https://github.com/mamedev/mame/blob/master/src/lib/util/chd.h
-CHD_SIGNATURE: Final = b"MComprHD"
-CHD_SIGNATURE_LENGTH: Final = 8
-CHD_MIN_HEADER_LENGTH: Final = 16  # Minimum to read signature and version
-CHD_V5_HEADER_LENGTH: Final = 124  # Total v5 header size
-CHD_VERSION_OFFSET: Final = 12  # Bytes offset for version field
-CHD_VERSION_LENGTH: Final = 4  # Version is a uint32
-CHD_V5_SHA1_OFFSET: Final = 84  # Combined raw+meta SHA1 offset in v5
-CHD_V5_SHA1_LENGTH: Final = 20  # SHA1 is 20 bytes
-CHD_V5_VERSION: Final = 5  # CHD v5 identifier
-CHD_MIME_TYPE: Final = "application/x-mame-chd"
 
 NON_HASHABLE_PLATFORMS = frozenset(
     (
@@ -99,10 +86,6 @@ NON_HASHABLE_PLATFORMS = frozenset(
     )
 )
 
-FILE_READ_CHUNK_SIZE = 1024 * 8
-_MIME_DETECTOR = magic.Magic(mime=True)
-_MIME_DETECTOR_LOCK = threading.Lock()
-
 
 class FSRom(TypedDict):
     fs_name: str
@@ -122,154 +105,6 @@ class FileHash(TypedDict):
     chd_sha1_hash: str
 
 
-def is_compressed_file(file_path: str) -> bool:
-    try:
-        with _MIME_DETECTOR_LOCK:
-            file_type = _MIME_DETECTOR.from_file(file_path)
-    except magic.MagicException:
-        file_type = ""
-
-    return file_type in COMPRESSED_MIME_TYPES or file_path.lower().endswith(
-        tuple(COMPRESSED_FILE_EXTENSIONS)
-    )
-
-
-def read_basic_file(file_path: os.PathLike[str]) -> Iterator[bytes]:
-    with open(file_path, "rb") as f:
-        while chunk := f.read(FILE_READ_CHUNK_SIZE):
-            yield chunk
-
-
-def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
-    try:
-        with zipfile.ZipFile(file, "r") as z:
-            # Find the biggest file in the archive
-            largest_file = max(z.infolist(), key=lambda x: x.file_size)
-            with z.open(largest_file, "r") as f:
-                while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                    yield chunk
-    except zipfile.BadZipFile:
-        if isinstance(file, Path):
-            for chunk in read_basic_file(file):
-                yield chunk
-
-
-def read_tar_file(
-    file_path: Path, mode: Literal["r", "r:*", "r:", "r:gz", "r:bz2", "r:xz"] = "r"
-) -> Iterator[bytes]:
-    try:
-        with tarfile.open(file_path, mode) as f:
-            regular_files = [member for member in f.getmembers() if member.isfile()]
-
-            # Find the largest file among regular files only
-            largest_file = max(regular_files, key=lambda x: x.size)
-            with f.extractfile(largest_file) as ef:  # type: ignore
-                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                    yield chunk
-    except tarfile.ReadError:
-        for chunk in read_basic_file(file_path):
-            yield chunk
-
-
-def read_gz_file(file_path: Path) -> Iterator[bytes]:
-    return read_tar_file(file_path, "r:gz")
-
-
-def process_7z_file(
-    file_path: Path,
-    fn_hash_update: Callable[[bytes | bytearray], None],
-) -> None:
-    processed = process_file_7z(
-        file_path=file_path,
-        fn_hash_update=fn_hash_update,
-    )
-    if not processed:
-        for chunk in read_basic_file(file_path):
-            fn_hash_update(chunk)
-
-
-def read_bz2_file(file_path: Path) -> Iterator[bytes]:
-    try:
-        with bz2.BZ2File(file_path, "rb") as f:
-            while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                yield chunk
-    except EOFError:
-        for chunk in read_basic_file(file_path):
-            yield chunk
-
-
-def is_chd_file(file_path: Path) -> bool:
-    """Return True if the file is a CHD by extension or libmagic-detected MIME type."""
-    if file_path.suffix.lower() == ".chd":
-        return True
-
-    try:
-        with _MIME_DETECTOR_LOCK:
-            return _MIME_DETECTOR.from_file(file_path) == CHD_MIME_TYPE
-    except (OSError, magic.MagicException):
-        return False
-
-
-def extract_chd_hash(file_path: Path) -> str:
-    """
-    Extract the embedded SHA1 hash from a CHD (Compressed Hunks of Data) v5 file header.
-
-    Only CHD v5 files are supported, matching MAMERedump's database.
-
-    CHD v5 files store the combined raw+meta SHA1 hash in the header.
-    This hash is what ROM databases use for CHD identification, since it includes
-    metadata like CD track layouts which are essential for proper disc image
-    identification.
-
-    For reference, check out "chd.h" in the MAME source tree.
-
-    ---------------------------------- Why? ----------------------------------
-    CHDMAN does not produce nor guarantee stable, byte-for-byte identical
-    outputs for a given disc image. (Including HD images.)
-
-    For this reason, the CHD format embeds the original source data hash in
-    its header, allowing different CHD files to be verified as equivalent
-    even when their compressed representations differ.
-    --------------------------------------------------------------------------
-
-    Args:
-        file_path: Path to the CHD file
-
-    Returns:
-        The embedded SHA1 hash as a hex string for a valid CHD v5 file, or an
-        empty string if the file is invalid, uses an unsupported CHD version,
-        is truncated, or cannot be read due to an I/O error.
-    """
-    try:
-        with open(file_path, "rb") as f:
-            # Read the v5 header and extract the embedded SHA1
-            header = f.read(CHD_V5_HEADER_LENGTH)
-
-            # Check for "MComprHD" signature
-            if (
-                len(header) < CHD_MIN_HEADER_LENGTH
-                or header[:CHD_SIGNATURE_LENGTH] != CHD_SIGNATURE
-            ):
-                return ""
-
-            # Extract and verify version (big-endian uint32)
-            version_end = CHD_VERSION_OFFSET + CHD_VERSION_LENGTH
-            version = int.from_bytes(header[CHD_VERSION_OFFSET:version_end], "big")
-
-            # Only support v5 CHD files
-            if version != CHD_V5_VERSION:
-                return ""
-
-            # Extract combined raw+meta SHA1 from v5 header
-            sha1_end = CHD_V5_SHA1_OFFSET + CHD_V5_SHA1_LENGTH
-            if len(header) < sha1_end:
-                return ""
-            sha1_bytes = header[CHD_V5_SHA1_OFFSET:sha1_end]
-            return sha1_bytes.hex()
-    except OSError:
-        return ""
-
-
 def category_matches(category: str, path_parts: list[str]):
     return category in path_parts or f"{category}s" in path_parts
 
@@ -277,6 +112,34 @@ def category_matches(category: str, path_parts: list[str]):
 DEFAULT_CRC_C = 0
 DEFAULT_MD5_H_DIGEST = hashlib.md5(usedforsecurity=False).digest()
 DEFAULT_SHA1_H_DIGEST = hashlib.sha1(usedforsecurity=False).digest()
+
+ARCHIVE_READERS = {
+    ".zip": read_zip_archive_files,
+    ".tar": read_tar_archive_files,
+    ".tar.gz": read_tar_archive_files,
+    ".tgz": read_tar_archive_files,
+    ".tar.bz2": read_tar_archive_files,
+    ".tbz2": read_tar_archive_files,
+    ".tar.xz": read_tar_archive_files,
+    ".txz": read_tar_archive_files,
+    ".7z": read_7z_archive_files,
+    ".rar": read_rar_archive_files,
+}
+
+
+def _make_file_hash(
+    crc_c: int, md5_h: Any, sha1_h: Any, chd_sha1_hash: str = ""
+) -> FileHash:
+    """Build a FileHash, blanking each field whose hasher state is still the default."""
+    return FileHash(
+        crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
+        md5_hash=md5_h.hexdigest() if md5_h.digest() != DEFAULT_MD5_H_DIGEST else "",
+        sha1_hash=(
+            sha1_h.hexdigest() if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST else ""
+        ),
+        chd_sha1_hash=chd_sha1_hash,
+    )
+
 
 VERSION_TAG_REGEX = re.compile(r"^(?:version|ver|v)[\s_-]?(.*)", re.I)
 REGION_TAG_REGEX = re.compile(r"^reg[\s|-](.*)$", re.I)
@@ -395,9 +258,15 @@ class FSRomsHandler(FSHandler):
         return kept_roms
 
     def _build_rom_file(
-        self, rom: Rom, rom_path: Path, file_name: str, file_hash: FileHash
+        self,
+        rom: Rom,
+        rom_path: Path,
+        file_name: str,
+        file_hash: FileHash,
+        file_size_bytes: int | None = None,
+        last_modified: float | None = None,
+        archive_members: list[dict[str, Any]] | None = None,
     ) -> RomFile:
-        # Absolute path to roms
         abs_file_path = Path(self.base_path, rom_path, file_name)
 
         path_parts_lower = list(map(str.lower, rom_path.parts))
@@ -415,13 +284,22 @@ class FSRomsHandler(FSHandler):
             rom_id=rom.id,
             file_name=file_name,
             file_path=str(rom_path),
-            file_size_bytes=os.stat(abs_file_path).st_size,
-            last_modified=os.path.getmtime(abs_file_path),
+            file_size_bytes=(
+                file_size_bytes
+                if file_size_bytes is not None
+                else os.stat(abs_file_path).st_size
+            ),
+            last_modified=(
+                last_modified
+                if last_modified is not None
+                else os.path.getmtime(abs_file_path)
+            ),
             category=matching_category,
             crc_hash=file_hash["crc_hash"],
             md5_hash=file_hash["md5_hash"],
             sha1_hash=file_hash["sha1_hash"],
             chd_sha1_hash=file_hash["chd_sha1_hash"],
+            archive_members=archive_members,
         )
 
     async def get_rom_files(
@@ -451,6 +329,8 @@ class FSRomsHandler(FSHandler):
         rom_ra_h = ""
 
         rom_dir = Path(abs_fs_path, rom.fs_name)
+        rom_ext = f".{rom.fs_extension.lower()}" if rom.fs_extension else ""
+
         # Check if rom is a multi-part rom
         if await AnyioPath(f"{abs_fs_path}/{rom.fs_name}").is_dir():
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
@@ -527,18 +407,10 @@ class FSRomsHandler(FSHandler):
                         md5_h = hashlib.md5(usedforsecurity=False)
                         sha1_h = hashlib.sha1(usedforsecurity=False)
 
-                    file_hash = FileHash(
-                        crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
-                        md5_hash=(
-                            md5_h.hexdigest()
-                            if md5_h.digest() != DEFAULT_MD5_H_DIGEST
-                            else ""
-                        ),
-                        sha1_hash=(
-                            sha1_h.hexdigest()
-                            if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
-                            else ""
-                        ),
+                    file_hash = _make_file_hash(
+                        crc_c,
+                        md5_h,
+                        sha1_h,
                         chd_sha1_hash=(
                             extract_chd_hash(f_rom_dir)
                             if is_chd_file(f_rom_dir)
@@ -559,6 +431,84 @@ class FSRomsHandler(FSHandler):
                         rom_path=f_path.relative_to(self.base_path),
                         file_name=file_name,
                         file_hash=file_hash,
+                    )
+                )
+        elif hashable_platform and rom_ext in ARCHIVE_READERS:
+            # Multi-file archive: compute a composite hash across all
+            # internal entries (in ASCII path order) for hash-database
+            # matching, while still emitting a single RomFile for the
+            # archive file itself. Per-member hashes are stored on that
+            # RomFile in `archive_members` so consumers can identify each
+            # internal file without us inventing RomFile rows whose
+            # full_path would point inside the archive and break downloads.
+            assert rom_md5_h is not None and rom_sha1_h is not None
+
+            def _hash_archive_entries(
+                crc: int, md5_h: Any, sha1_h: Any
+            ) -> tuple[list[dict[str, Any]], int]:
+                members: list[dict[str, Any]] = []
+                for name, size, chunks in ARCHIVE_READERS[rom_ext](
+                    rom_dir,
+                    DEFAULT_EXCLUDED_FILES,
+                    DEFAULT_EXCLUDED_EXTENSIONS,
+                ):
+                    member_crc = 0
+                    member_md5 = hashlib.md5(usedforsecurity=False)
+                    member_sha1 = hashlib.sha1(usedforsecurity=False)
+                    for chunk in chunks:
+                        crc = binascii.crc32(chunk, crc)
+                        md5_h.update(chunk)
+                        sha1_h.update(chunk)
+                        member_crc = binascii.crc32(chunk, member_crc)
+                        member_md5.update(chunk)
+                        member_sha1.update(chunk)
+                    members.append(
+                        {
+                            "name": name,
+                            "size": size,
+                            "crc_hash": crc32_to_hex(member_crc),
+                            "md5_hash": member_md5.hexdigest(),
+                            "sha1_hash": member_sha1.hexdigest(),
+                        }
+                    )
+                return members, crc
+
+            members, rom_crc_c = await asyncio.to_thread(
+                _hash_archive_entries, rom_crc_c, rom_md5_h, rom_sha1_h
+            )
+
+            if members:
+                rom_files.append(
+                    self._build_rom_file(
+                        rom=rom,
+                        rom_path=Path(rel_roms_path),
+                        file_name=rom.fs_name,
+                        file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
+                        archive_members=members,
+                    )
+                )
+            else:
+                # Empty, malformed, or all-excluded archive: hash the archive
+                # file's raw bytes. We avoid `_calculate_rom_hashes` here because
+                # it would decompress based on extension and end up hashing the
+                # largest internal member, not the archive itself — and would
+                # crash on an empty zip. `archive_members` stays None.
+                def _hash_raw_archive(crc: int) -> int:
+                    for chunk in read_basic_file(rom_dir):
+                        crc = binascii.crc32(chunk, crc)
+                        if rom_md5_h:
+                            rom_md5_h.update(chunk)
+                        if rom_sha1_h:
+                            rom_sha1_h.update(chunk)
+                    return crc
+
+                rom_crc_c = await asyncio.to_thread(_hash_raw_archive, rom_crc_c)
+                rom_files.append(
+                    self._build_rom_file(
+                        rom=rom,
+                        rom_path=Path(rel_roms_path),
+                        file_name=rom.fs_name,
+                        file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
                     )
                 )
         elif hashable_platform:
@@ -586,16 +536,10 @@ class FSRomsHandler(FSHandler):
                         f"{abs_fs_path}/{rom.fs_name}",
                     )
 
-            file_hash = FileHash(
-                crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
-                md5_hash=(
-                    md5_h.hexdigest() if md5_h.digest() != DEFAULT_MD5_H_DIGEST else ""
-                ),
-                sha1_hash=(
-                    sha1_h.hexdigest()
-                    if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
-                    else ""
-                ),
+            file_hash = _make_file_hash(
+                crc_c,
+                md5_h,
+                sha1_h,
                 chd_sha1_hash=(
                     extract_chd_hash(rom_dir) if is_chd_file(rom_dir) else ""
                 ),
@@ -649,11 +593,7 @@ class FSRomsHandler(FSHandler):
     ) -> tuple[int, int, Any, Any, Any, Any]:
         extension = Path(file_path).suffix.lower()
         try:
-            try:
-                with _MIME_DETECTOR_LOCK:
-                    file_type = _MIME_DETECTOR.from_file(file_path)
-            except magic.MagicException:
-                file_type = ""
+            file_type = detect_mime_type(file_path)
 
             crc_c = 0
             md5_h = hashlib.md5(usedforsecurity=False)

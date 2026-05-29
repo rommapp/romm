@@ -80,6 +80,9 @@ class RomFile(BaseModel):
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
     ra_hash: Mapped[str | None] = mapped_column(String(100))
     chd_sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    archive_members: Mapped[list[dict[str, Any]] | None] = mapped_column(
+        CustomJSON(), default=None, nullable=True
+    )
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
     )
