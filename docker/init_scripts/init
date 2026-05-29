@@ -62,11 +62,26 @@ error_log() {
 	exit 1
 }
 
+# Populate a caller-provided array with the opentelemetry-instrument wrapper
+# argv tokens for service "$2", or leave it empty if OTEL is disabled or the
+# wrapper binary is missing. Use "${arr[@]}" to exec directly, or
+# "${arr[*]@Q}" to embed as a shell-quoted prefix string.
+otel_prefix() {
+	local -n out_arr="$1"
+	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then return 0; fi
+	if ! command -v opentelemetry-instrument >/dev/null 2>&1; then
+		warn_log "opentelemetry-instrument not found, starting $2 without OpenTelemetry instrumentation"
+		return 0
+	fi
+	# shellcheck disable=SC2034  # nameref binds out_arr to caller variable
+	out_arr=(opentelemetry-instrument --service_name "${OTEL_SERVICE_NAME_PREFIX-}$2")
+}
+
 # Commands to run initial startup tasks
 run_startup() {
-	if ! PYTHONPATH="/backend:${PYTHONPATH-}" opentelemetry-instrument \
-		--service_name "${OTEL_SERVICE_NAME_PREFIX-}startup" \
-		python3 /backend/startup.py; then
+	local -a wrap=()
+	otel_prefix wrap startup
+	if ! PYTHONPATH="/backend:${PYTHONPATH-}" "${wrap[@]}" python3 /backend/startup.py; then
 		error_log "Startup script failed, exiting"
 	fi
 }
@@ -107,9 +122,9 @@ start_bin_gunicorn() {
 	export PYTHONUNBUFFERED=1
 	export PYTHONDONTWRITEBYTECODE=1
 
-	opentelemetry-instrument \
-		--service_name "${OTEL_SERVICE_NAME_PREFIX-}api" \
-		gunicorn \
+	local -a wrap=()
+	otel_prefix wrap api
+	"${wrap[@]}" gunicorn \
 		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
 		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
@@ -229,19 +244,12 @@ start_bin_rq_worker() {
 
 start_bin_watcher() {
 	info_log "Starting watcher"
-	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
-		# Skip opentelemetry-instrument when OTEL is disabled to ensure
-		# WATCHFILES_CHANGES env var is properly passed to watcher.py
-		watchfiles \
-			--target-type command \
-			"python3 watcher.py" \
-			/romm/library &
-	else
-		watchfiles \
-			--target-type command \
-			"opentelemetry-instrument --service_name '${OTEL_SERVICE_NAME_PREFIX-}watcher' python3 watcher.py" \
-			/romm/library &
-	fi
+	local -a wrap=()
+	otel_prefix wrap watcher
+	watchfiles \
+		--target-type command \
+		"${wrap[*]@Q} python3 watcher.py" \
+		/romm/library &
 	WATCHER_PID=$!
 	echo "${WATCHER_PID}" >/tmp/watcher.pid
 }
@@ -250,17 +258,12 @@ start_bin_sync_watcher() {
 	info_log "Starting sync folder watcher"
 	sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
 	mkdir -p "${sync_base_path}"
-	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then
-		watchfiles \
-			--target-type command \
-			"python3 sync_watcher.py" \
-			"${sync_base_path}" &
-	else
-		watchfiles \
-			--target-type command \
-			"opentelemetry-instrument --service_name '${OTEL_SERVICE_NAME_PREFIX-}sync_watcher' python3 sync_watcher.py" \
-			"${sync_base_path}" &
-	fi
+	local -a wrap=()
+	otel_prefix wrap sync_watcher
+	watchfiles \
+		--target-type command \
+		"${wrap[*]@Q} python3 sync_watcher.py" \
+		"${sync_base_path}" &
 	SYNC_WATCHER_PID=$!
 	echo "${SYNC_WATCHER_PID}" >/tmp/sync_watcher.pid
 }

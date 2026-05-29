@@ -69,6 +69,12 @@ const metadataOptions = computed(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED,
   },
   {
+    name: "PlayMatch",
+    value: "playmatch",
+    logo_path: "/assets/scrappers/playmatch.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED,
+  },
+  {
     name: "Launchbox",
     value: "launchbox",
     logo_path: "/assets/scrappers/launchbox.png",

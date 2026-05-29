@@ -90,6 +90,12 @@ def rom(admin_user: User, platform: Platform):
 
 @pytest.fixture
 def save(rom: Rom, platform: Platform, admin_user: User):
+    """Slot-bound save (the canonical device-uploaded shape).
+
+    Sync negotiation only considers saves with a non-null slot — null-slot
+    saves are treated as web-UI / archival backups. Tests that need to
+    represent an archival save should use the `archival_save` fixture.
+    """
     save = Save(
         rom_id=rom.id,
         user_id=admin_user.id,
@@ -98,6 +104,28 @@ def save(rom: Rom, platform: Platform, admin_user: User):
         file_name_no_ext="test_save",
         file_extension="sav",
         emulator="test_emulator",
+        slot="autosave",
+        file_path=f"{platform.slug}/saves/test_emulator",
+        file_size_bytes=1.0,
+    )
+    return db_save_handler.add_save(save)
+
+
+@pytest.fixture
+def archival_save(rom: Rom, platform: Platform, admin_user: User):
+    """Null-slot save representing a web-UI / archival upload.
+
+    These should never appear in negotiate plans.
+    """
+    save = Save(
+        rom_id=rom.id,
+        user_id=admin_user.id,
+        file_name="archival.sav",
+        file_name_no_tags="archival",
+        file_name_no_ext="archival",
+        file_extension="sav",
+        emulator="test_emulator",
+        slot=None,
         file_path=f"{platform.slug}/saves/test_emulator",
         file_size_bytes=1.0,
     )

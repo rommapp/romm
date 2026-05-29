@@ -466,6 +466,36 @@ class TestNegotiateAdvanced:
         assert len(download_ops) >= 1
         assert any(op["save_id"] == save.id for op in download_ops)
 
+    def test_negotiate_excludes_archival_null_slot_saves(
+        self, client, access_token: str, admin_user: User, archival_save: Save
+    ):
+        """Null-slot saves (web-UI / archival uploads) must not appear in
+        negotiate plans.
+
+        Archival saves are pure backups; clients can opt in to import them
+        outside the sync flow. Surfacing them in negotiate as 'download'
+        produces phantom operations on every device that's never synced them.
+        """
+        device = db_device_handler.add_device(
+            Device(id="neg-archival-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+
+        response = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": device.id, "saves": []},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        ops_for_archival = [
+            op for op in data["operations"] if op.get("save_id") == archival_save.id
+        ]
+        assert ops_for_archival == [], (
+            f"Archival null-slot save unexpectedly surfaced in negotiate: "
+            f"{ops_for_archival}"
+        )
+
     def test_negotiate_deleted_by_client_skipped(
         self, client, access_token: str, admin_user: User, save: Save
     ):

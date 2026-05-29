@@ -78,6 +78,7 @@ class MetadataSource(enum.StrEnum):
     HLTB = "hltb"  # HowLongToBeat
     GAMELIST = "gamelist"  # ES-DE gamelist.xml
     LIBRETRO = "libretro"  # Libretro thumbnails
+    PLAYMATCH = "playmatch"  # Playmatch
 
 
 def get_main_platform_igdb_id(platform: Platform):
@@ -375,9 +376,8 @@ async def scan_rom(
     async def fetch_playmatch_hash_match() -> PlaymatchRomMatch:
         if (
             meta_playmatch_handler.is_enabled()
-            and any(
-                source in metadata_sources for source in PLAYMATCH_SUPPORTED_SOURCES
-            )
+            and MetadataSource.PLAYMATCH in metadata_sources
+            and any(PLAYMATCH_SUPPORTED_SOURCES.intersection(metadata_sources))
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
@@ -644,10 +644,10 @@ async def scan_rom(
                 return await meta_ss_handler.get_rom_by_id(rom, playmatch_rom["ss_id"])
 
             # Use the file hashes for lookup
-            game_by_hash = await meta_ss_handler.lookup_rom(
+            game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
                 rom, platform.ss_id, fs_rom["files"] or rom.files
             )
-            if game_by_hash.get("ss_id"):
+            if game_by_hash.get("ss_id") or is_not_game:
                 return game_by_hash
 
             # Fallback to the filename
@@ -888,6 +888,19 @@ async def scan_rom(
                 if fields["metadata_field"]:
                     rom_attrs[fields["metadata_field"]] = {}
 
+        # Reset artwork fields so stale values are cleared when no source supplies them
+        rom_attrs.update(
+            {
+                "url_cover": "",
+                "url_screenshots": [],
+                "url_manual": "",
+                "path_cover_s": "",
+                "path_cover_l": "",
+                "path_screenshots": [],
+                "path_manual": "",
+            }
+        )
+
     # Determine which metadata sources are available
     available_sources = [
         name
@@ -1032,7 +1045,7 @@ async def scan_rom(
         extra=LOGGER_MODULE_NAME,
     )
 
-    if rom.has_nested_single_file or rom.has_multiple_files:
+    if fs_rom["nested"]:
         for file in fs_rom["files"]:
             log.info(
                 f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",

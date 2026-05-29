@@ -75,6 +75,7 @@ class MetadataMediaType(enum.StrEnum):
     BOX2D_BACK = "box2d_back"
     BOX3D = "box3d"
     MIXIMAGE = "miximage"
+    MIXIMAGE_V2 = "miximage_v2"
     PHYSICAL = "physical"
     SCREENSHOT = "screenshot"
     TITLE_SCREEN = "title_screen"
@@ -665,6 +666,7 @@ class ConfigManager:
             MetadataMediaType.BOX2D,
             MetadataMediaType.BOX3D,
             MetadataMediaType.MIXIMAGE,
+            MetadataMediaType.MIXIMAGE_V2,
             MetadataMediaType.PHYSICAL,
         }
         if not isinstance(self.config.GAMELIST_MEDIA_THUMBNAIL, str):
@@ -683,6 +685,7 @@ class ConfigManager:
         valid_image_options = {
             MetadataMediaType.TITLE_SCREEN,
             MetadataMediaType.MIXIMAGE,
+            MetadataMediaType.MIXIMAGE_V2,
             MetadataMediaType.BOX2D,
             MetadataMediaType.SCREENSHOT,
         }

@@ -25,10 +25,10 @@ from sqlalchemy.orm import (
     Query,
     QueryableAttribute,
     Session,
-    joinedload,
     load_only,
     noload,
     selectinload,
+    undefer,
 )
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select
@@ -38,7 +38,7 @@ from decorators.database import begin_session
 from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
-from models.rom import Rom, RomFile, RomMetadata, RomNote, RomUser
+from models.rom import Rom, RomFile, RomMetadata, RomNote, RomUser, SiblingRom
 from utils.database import (
     json_array_contains_all,
     json_array_contains_any,
@@ -142,14 +142,21 @@ def with_details(func):
             ),
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-            ),
+            selectinload(Rom.files),
             selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform), noload(Rom.metadatum)
+                load_only(
+                    Rom.id,
+                    Rom.name,
+                    Rom.fs_name_no_tags,
+                    Rom.fs_name_no_ext,
+                ),
+                noload(Rom.platform),
+                noload(Rom.metadatum),
             ),
             selectinload(Rom.collections),
             selectinload(Rom.notes),
+            undefer(Rom.multi_file),
+            undefer(Rom.top_level_file_count),
         )
         return func(*args, **kwargs)
 
@@ -194,6 +201,31 @@ class DBRomsHandler(DBBaseHandler):
         if not ids:
             return []
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
+
+    def get_sibling_ids_for_roms(
+        self,
+        rom_ids: list[int],
+        *,
+        session: Session,
+    ) -> dict[int, list[int]]:
+        """Return {rom_id: [sibling_rom_id, ...]} for the given rom IDs.
+
+        Single query against the sibling_roms view, projecting only the two `id` columns.
+        """
+        if not rom_ids:
+            return {}
+
+        rows = session.execute(
+            select(SiblingRom.rom_id, SiblingRom.sibling_rom_id).where(
+                SiblingRom.rom_id.in_(rom_ids)
+            )
+        ).all()
+
+        buckets: dict[int, set[int]] = {rom_id: set() for rom_id in rom_ids}
+        for rom_id, sibling_rom_id in rows:
+            buckets[rom_id].add(sibling_rom_id)
+
+        return {rom_id: sorted(ids) for rom_id, ids in buckets.items()}
 
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
@@ -549,6 +581,7 @@ class DBRomsHandler(DBBaseHandler):
         player_counts_logic: str = "any",
         user_id: int | None = None,
         updated_after: datetime | None = None,
+        include_file_stats: bool = False,
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
@@ -561,16 +594,22 @@ class DBRomsHandler(DBBaseHandler):
             # Sort table by metadata (first_release_date)
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             # Required for multi-file ROM actions and 3DS QR code
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-            ),
+            selectinload(Rom.files),
             # Show sibling rom badges on cards
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform), noload(Rom.metadatum)
             ),
-            # Show notes indicator on cards
+            # Notes indicator on cards
             selectinload(Rom.notes),
         )
+
+        # Correlated subqueries and only undefer when the caller serializes the
+        # gallery-card flags. Feeds and filter-value lookups don't need them.
+        if include_file_stats:
+            query = query.options(
+                undefer(Rom.multi_file),
+                undefer(Rom.top_level_file_count),
+            )
 
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
         if platform_ids:
@@ -916,6 +955,7 @@ class DBRomsHandler(DBBaseHandler):
             session.query(
                 subquery.c.letter, func.min(subquery.c.position - 1).label("position")
             )
+            .filter(subquery.c.letter.isnot(None))
             .group_by(subquery.c.letter)
             .order_by(subquery.c.letter)
             .all()
@@ -940,9 +980,7 @@ class DBRomsHandler(DBBaseHandler):
                 select(Rom)
                 .options(
                     selectinload(Rom.platform),
-                    selectinload(Rom.files).options(
-                        joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
-                    ),
+                    selectinload(Rom.files),
                 )
                 .where(
                     and_(

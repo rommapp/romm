@@ -15,7 +15,6 @@ from models.collection import Collection
 from models.rom import Rom
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
-from utils.validation import validate_url_for_http_request
 
 from .base_handler import CoverSize, FSHandler
 
@@ -29,11 +28,13 @@ def _resolve_local_file_uri(uri: str) -> Path | None:
     under the LaunchBox data root, since LaunchBox metadata produces paths
     relative to `/romm/launchbox`, which is not the same as the library root.
     """
-    from handler.filesystem import fs_launchbox_handler, fs_rom_handler
+    from handler.filesystem import fs_rom_handler, get_fs_launchbox_handler
 
     if uri.startswith("launchbox-file://"):
         try:
-            return fs_launchbox_handler.validate_path(uri[len("launchbox-file://") :])
+            return get_fs_launchbox_handler().validate_path(
+                uri[len("launchbox-file://") :]
+            )
         except ValueError:
             return None
 
@@ -143,8 +144,6 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URLs
-            validate_url_for_http_request(url_cover, "url_cover")
-
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream(
@@ -312,8 +311,6 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URLs
-            validate_url_for_http_request(url_screenhot, "url_screenshot")
-
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream(
@@ -428,8 +425,6 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URL
-            validate_url_for_http_request(url_manual, "url_manual")
-
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream(
@@ -499,8 +494,6 @@ class FSResourcesHandler(FSHandler):
 
     # Retroachievements
     async def store_ra_badge(self, url: str, path: str) -> None:
-        validate_url_for_http_request(url, "url_badge")
-
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
 
@@ -567,8 +560,6 @@ class FSResourcesHandler(FSHandler):
                 return None
         else:
             # Handle HTTP URLs
-            validate_url_for_http_request(url_media, "url_media")
-
             httpx_client = ctx_httpx_client.get()
             try:
                 async with httpx_client.stream(

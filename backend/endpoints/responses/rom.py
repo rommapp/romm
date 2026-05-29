@@ -298,14 +298,12 @@ class RomSchema(BaseModel):
     has_simple_single_file: bool
     has_nested_single_file: bool
     has_multiple_files: bool
-    files: list[RomFileSchema]
     full_path: str
     created_at: UTCDatetime
     updated_at: UTCDatetime
     missing_from_fs: bool
     has_notes: bool
 
-    siblings: list[SiblingRomSchema]
     rom_user: RomUserSchema
     merged_screenshots: list[str]
     merged_ra_metadata: RomRAMetadata | None
@@ -313,15 +311,6 @@ class RomSchema(BaseModel):
     @classmethod
     def populate_properties(cls, db_rom: Rom, request: Request) -> Rom:
         db_rom.rom_user = RomUserSchema.for_user(request.user.id, db_rom)  # type: ignore
-        db_rom.siblings = [  # type: ignore
-            SiblingRomSchema(
-                id=s.id,
-                name=s.name,
-                fs_name_no_tags=s.fs_name_no_tags,
-                fs_name_no_ext=s.fs_name_no_ext,
-            )
-            for s in db_rom.sibling_roms
-        ]
         db_rom.has_notes = any(  # type: ignore
             note.is_public or note.user_id == request.user.id for note in db_rom.notes
         )
@@ -334,14 +323,6 @@ class RomSchema(BaseModel):
     @field_validator("alternative_names")
     def sort_alternative_names(cls, v: list[str]) -> list[str]:
         return sorted(v)
-
-    @field_validator("files")
-    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
-        return sorted(v, key=lambda x: x.file_name)
-
-    @field_validator("siblings")
-    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
-        return sorted(v, key=lambda x: x.sort_comparator)
 
 
 class SiblingRomSchema(BaseModel):
@@ -364,15 +345,20 @@ class SiblingRomSchema(BaseModel):
 
 
 class SimpleRomSchema(RomSchema):
+    sibling_ids: list[int]
+
     @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
+    def from_orm_with_request(
+        cls, db_rom: Rom, request: Request, sibling_ids: list[int] | None = None
+    ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request)
+        db_rom.sibling_ids = sibling_ids or []  # type: ignore
         return cls.model_validate(db_rom)
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
-        db_rom.siblings = []  # type: ignore
+        db_rom.sibling_ids = []  # type: ignore
         db_rom.has_notes = False  # type: ignore
         return cls.model_validate(db_rom)
 
@@ -396,16 +382,42 @@ class UserCollectionSchema(BaseModel):
 
 
 class DetailedRomSchema(RomSchema):
+    siblings: list[SiblingRomSchema]
+    sibling_ids: list[int]
+    files: list[RomFileSchema]
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
     user_screenshots: list[ScreenshotSchema]
     user_collections: list[UserCollectionSchema]
     all_user_notes: list[UserNoteSchema]
 
+    @field_validator("siblings")
+    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
+        return sorted(v, key=lambda x: x.sort_comparator)
+
+    @field_validator("files")
+    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
+        return sorted(v, key=lambda x: x.file_name)
+
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
         user_id = request.user.id
         db_rom = cls.populate_properties(db_rom, request)
+
+        sorted_siblings = sorted(
+            (
+                SiblingRomSchema(
+                    id=s.id,
+                    name=s.name,
+                    fs_name_no_tags=s.fs_name_no_tags,
+                    fs_name_no_ext=s.fs_name_no_ext,
+                )
+                for s in db_rom.sibling_roms
+            ),
+            key=lambda x: x.sort_comparator,
+        )
+        db_rom.siblings = sorted_siblings  # type: ignore
+        db_rom.sibling_ids = [s.id for s in sorted_siblings]  # type: ignore
 
         db_rom.user_saves = [  # type: ignore
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id

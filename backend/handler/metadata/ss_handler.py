@@ -2,7 +2,7 @@ import html
 import re
 from datetime import datetime
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import pydash
 from unidecode import unidecode as uc
@@ -27,10 +27,51 @@ from .base_handler import (
 )
 from .base_handler import UniversalPlatformSlug as UPS
 from .base_handler import (
+    restore_sensitive_query_params,
     strip_sensitive_query_params,
 )
 
 SENSITIVE_KEYS = {"ssid", "sspassword"}
+
+
+def _is_screenscraper_host(url: str) -> bool:
+    """True only if the URL's hostname is screenscraper.fr or a subdomain.
+
+    Substring matching would let an attacker-controlled host like
+    screenscraper.fr.evil.example receive the user's credentials.
+    """
+    try:
+        host = urlparse(url).hostname
+    except ValueError:
+        return False
+
+    if not host:
+        return False
+
+    return host.lower() == "screenscraper.fr" or host.lower().endswith(
+        ".screenscraper.fr"
+    )
+
+
+def add_ss_auth_to_url(url: str | None) -> str:
+    """Re-add SS user credentials to a media URL at download time (never stored).
+
+    Only injects credentials for screenscraper.fr URLs; returns other URLs
+    unchanged to avoid leaking credentials to third-party sources.
+    """
+    if not url or not _is_screenscraper_host(url):
+        return url or ""
+
+    if not SCREENSCRAPER_USER or not SCREENSCRAPER_PASSWORD:
+        return url
+
+    return restore_sensitive_query_params(
+        url,
+        {
+            "ssid": SCREENSCRAPER_USER,
+            "sspassword": SCREENSCRAPER_PASSWORD,
+        },
+    )
 
 
 def get_preferred_regions(rom: Rom | None = None) -> list[str]:
@@ -99,6 +140,15 @@ ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {
 }
 
 
+def _is_notgame(game: SSGame) -> bool:
+    if game.get("notgame") == "true":
+        return True
+    return any(
+        name.get("text", "").upper().startswith(NOTGAME_NAME_PREFIX)
+        for name in game.get("noms", [])
+    )
+
+
 class SSPlatform(TypedDict):
     slug: str
     ss_id: int | None
@@ -121,7 +171,8 @@ class SSMetadataMedia(TypedDict):
     logo_url: str | None  # wheel-hd or wheel
     manual_url: str | None  # manual
     marquee_url: str | None  # screenmarquee
-    miximage_url: str | None  # mixrbv1 | mixrbv2
+    miximage_url: str | None  # miximage1 | miximage2 | mixrbv1
+    miximage_v2_url: str | None  # mixrbv2
     physical_url: str | None  # support-2D
     screenshot_url: str | None  # ss
     steamgrid_url: str | None  # steamgrid
@@ -135,6 +186,7 @@ class SSMetadataMedia(TypedDict):
     box3d_path: str | None
     fanart_path: str | None
     miximage_path: str | None
+    miximage_v2_path: str | None
     physical_path: str | None
     marquee_path: str | None
     logo_path: str | None
@@ -160,15 +212,6 @@ class SSRom(BaseRom):
     ss_metadata: NotRequired[SSMetadata]
 
 
-def _is_notgame(game: SSGame) -> bool:
-    if game.get("notgame") == "true":
-        return True
-    return any(
-        name.get("text", "").upper().startswith(NOTGAME_NAME_PREFIX)
-        for name in game.get("noms", [])
-    )
-
-
 def _get_rom_type(file: RomFile) -> str:
     if not file.is_top_level:
         return "dossier"
@@ -192,6 +235,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         manual_url=None,
         marquee_url=None,
         miximage_url=None,
+        miximage_v2_url=None,
         physical_url=None,
         screenshot_url=None,
         steamgrid_url=None,
@@ -203,6 +247,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         box3d_path=None,
         fanart_path=None,
         miximage_path=None,
+        miximage_v2_path=None,
         physical_path=None,
         marquee_path=None,
         logo_path=None,
@@ -281,7 +326,6 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 media.get("type") == "miximage1"
                 or media.get("type") == "miximage2"
                 or media.get("type") == "mixrbv1"
-                or media.get("type") == "mixrbv2"
             ) and not ss_media["miximage_url"]:
                 ss_media["miximage_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
@@ -289,6 +333,14 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 if MetadataMediaType.MIXIMAGE in preferred_media_types:
                     ss_media["miximage_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
+                    )
+            elif media.get("type") == "mixrbv2" and not ss_media["miximage_v2_url"]:
+                ss_media["miximage_v2_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
+                if MetadataMediaType.MIXIMAGE_V2 in preferred_media_types:
+                    ss_media["miximage_v2_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE_V2)}/miximage_v2.png"
                     )
             elif media.get("type") == "support-2D" and not ss_media["physical_url"]:
                 ss_media["physical_url"] = strip_sensitive_query_params(
@@ -359,18 +411,35 @@ def extract_metadata_from_ss_rom(rom: Rom, game: SSGame) -> SSMetadata:
         except (ValueError, TypeError):
             return ""
 
-    def _get_lowest_date(dates: list[SSGameDate]) -> int | None:
-        lowest_date = min(dates, default=None, key=lambda v: v.get("text", ""))
-        if not lowest_date:
-            return None
-
+    def _parse_date(date_text: str) -> int | None:
         try:
-            return int(datetime.strptime(lowest_date["text"], "%Y-%m-%d").timestamp())
+            return int(datetime.strptime(date_text, "%Y-%m-%d").timestamp())
         except ValueError:
             try:
-                return int(datetime.strptime(lowest_date["text"], "%Y").timestamp())
+                return int(datetime.strptime(date_text, "%Y").timestamp())
             except ValueError:
                 return None
+
+    def _get_lowest_date(dates: list[SSGameDate]) -> int | None:
+        if not dates:
+            return None
+
+        for region in get_preferred_regions(rom):
+            region_dates = sorted(
+                (d for d in dates if d.get("region", "unk") == region),
+                key=lambda v: v.get("text", ""),
+            )
+            for region_date in region_dates:
+                parsed_date = _parse_date(region_date.get("text", ""))
+                if parsed_date is not None:
+                    return parsed_date
+
+        for date in sorted(dates, key=lambda v: v.get("text", "")):
+            parsed_date = _parse_date(date.get("text", ""))
+            if parsed_date is not None:
+                return parsed_date
+
+        return None
 
     def _get_genres(game: SSGame) -> list[str]:
         return [
@@ -599,12 +668,12 @@ class SSHandler(MetadataHandler):
 
     async def lookup_rom(
         self, rom: Rom, platform_ss_id: int, files: list[RomFile]
-    ) -> SSRom:
+    ) -> tuple[SSRom, bool]:
         if not self.is_enabled():
-            return SSRom(ss_id=None)
+            return SSRom(ss_id=None), False
 
         if not platform_ss_id:
-            return SSRom(ss_id=None)
+            return SSRom(ss_id=None), False
 
         filtered_files = [
             file
@@ -624,7 +693,7 @@ class SSHandler(MetadataHandler):
         # expected to have the correct and complete hash values for external services.
         first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
         if first_file is None:
-            return SSRom(ss_id=None)
+            return SSRom(ss_id=None), False
 
         md5_hash = first_file.md5_hash
         sha1_hash = first_file.sha1_hash
@@ -636,7 +705,7 @@ class SSHandler(MetadataHandler):
                 "No hashes provided for ScreenScraper lookup. "
                 "At least one of md5_hash, sha1_hash, or crc_hash is required."
             )
-            return SSRom(ss_id=None)
+            return SSRom(ss_id=None), False
 
         res = await self.ss_service.get_game_info(
             system_id=platform_ss_id,
@@ -648,15 +717,15 @@ class SSHandler(MetadataHandler):
             rom_type=_get_rom_type(first_file),
         )
         if not res:
-            return SSRom(ss_id=None)
+            return SSRom(ss_id=None), False
 
         if _is_notgame(res):
             log.warning(
                 "ScreenScraper: Received notgame entry from hash lookup, ignoring"
             )
-            return SSRom(ss_id=None)
+            return SSRom(ss_id=None), True
 
-        return build_ss_game(rom, res)
+        return build_ss_game(rom, res), False
 
     async def get_rom(self, rom: Rom, file_name: str, platform_ss_id: int) -> SSRom:
         from handler.filesystem import fs_rom_handler
