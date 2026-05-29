@@ -117,7 +117,8 @@
 #     # Used as alternative cover art
 #     - box2d  # Normal cover art (always enabled)
 #     - box3d  # 3D box art
-#     - miximage  # Mixed image of multiple media
+#     - miximage  # Mixed image of multiple media (v1 / mixrbv1)
+#     - miximage_v2  # Mixed image of multiple media (v2 / mixrbv2)
 #     - physical  # Disc, cartridge, etc.
 #     # Added to the screenshots carousel
 #     - screenshot  # Screenshot (enabled by default)

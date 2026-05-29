@@ -19,7 +19,10 @@ from handler.metadata.ss_handler import (
 )
 
 
-def _make_config(region_priority: list[str] | None = None) -> Config:
+def _make_config(
+    region_priority: list[str] | None = None,
+    scan_media: list[str] | None = None,
+) -> Config:
     """Build a minimal Config object for testing."""
     return Config(
         EXCLUDED_PLATFORMS=[],
@@ -34,7 +37,9 @@ def _make_config(region_priority: list[str] | None = None) -> Config:
         FIRMWARE_FOLDER_NAME="bios",
         SCAN_REGION_PRIORITY=region_priority or [],
         SCAN_LANGUAGE_PRIORITY=["en"],
-        SCAN_MEDIA=["box2d", "box3d", "screenshot"],
+        SCAN_MEDIA=(
+            scan_media if scan_media is not None else ["box2d", "box3d", "screenshot"]
+        ),
         GAMELIST_MEDIA_THUMBNAIL=MetadataMediaType.BOX2D,
         GAMELIST_MEDIA_IMAGE=MetadataMediaType.SCREENSHOT,
     )
@@ -202,6 +207,138 @@ class TestExtractMediaFromSsGame:
 
         assert result["box2d_url"] is not None
         assert "box-2D(us)" in result["box2d_url"]
+
+    def _make_game_with_both_miximage_versions(self) -> SSGame:
+        """A game that has both mixrbv1 and mixrbv2 (v1 listed first, matching SS API order)."""
+        return cast(
+            SSGame,
+            {
+                "medias": [
+                    {
+                        "type": "mixrbv1",
+                        "parent": "jeu",
+                        "region": "us",
+                        "url": "https://screenscraper.example.com/mixrbv1",
+                        "crc": "aabbccdd",
+                        "md5": "deadbeef",
+                        "sha1": "cafebabe",
+                        "size": "12345",
+                        "format": "png",
+                    },
+                    {
+                        "type": "mixrbv2",
+                        "parent": "jeu",
+                        "region": "us",
+                        "url": "https://screenscraper.example.com/mixrbv2",
+                        "crc": "11223344",
+                        "md5": "feedface",
+                        "sha1": "baadf00d",
+                        "size": "67890",
+                        "format": "png",
+                    },
+                ]
+            },
+        )
+
+    def test_miximage_maps_to_mixrbv1(self):
+        """When 'miximage' is in SCAN_MEDIA, only mixrbv1 is downloaded."""
+        config = _make_config(scan_media=["miximage"])
+        rom = self._make_rom()
+        game = self._make_game_with_both_miximage_versions()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                return_value="roms/1/100/miximage",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["miximage_url"] is not None
+        assert "mixrbv1" in result["miximage_url"]
+        assert result["miximage_path"] is not None
+        assert result["miximage_v2_url"] is not None
+        assert "mixrbv2" in result["miximage_v2_url"]
+        assert result["miximage_v2_path"] is None
+
+    def test_miximage_v2_maps_to_mixrbv2(self):
+        """When 'miximage_v2' is in SCAN_MEDIA, only mixrbv2 is downloaded."""
+        config = _make_config(scan_media=["miximage_v2"])
+        rom = self._make_rom()
+        game = self._make_game_with_both_miximage_versions()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                return_value="roms/1/100/miximage_v2",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["miximage_v2_url"] is not None
+        assert "mixrbv2" in result["miximage_v2_url"]
+        assert result["miximage_v2_path"] is not None
+        assert result["miximage_url"] is not None
+        assert "mixrbv1" in result["miximage_url"]
+        assert result["miximage_path"] is None
+
+    def test_miximage_v2_not_downloaded_when_only_miximage_in_config(self):
+        """When only 'miximage' is in SCAN_MEDIA, miximage_v2_path is not set."""
+        config = _make_config(scan_media=["miximage"])
+        rom = self._make_rom()
+        game = self._make_game_with_both_miximage_versions()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                return_value="roms/1/100/miximage",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["miximage_v2_path"] is None
+
+    def test_miximage_v1_not_downloaded_when_only_miximage_v2_in_config(self):
+        """When only 'miximage_v2' is in SCAN_MEDIA, miximage_path is not set."""
+        config = _make_config(scan_media=["miximage_v2"])
+        rom = self._make_rom()
+        game = self._make_game_with_both_miximage_versions()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                return_value="roms/1/100/miximage_v2",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["miximage_path"] is None
+
+    def test_both_miximage_versions_downloaded_when_both_in_config(self):
+        """When both 'miximage' and 'miximage_v2' are in SCAN_MEDIA, both are downloaded."""
+        config = _make_config(scan_media=["miximage", "miximage_v2"])
+        rom = self._make_rom()
+        game = self._make_game_with_both_miximage_versions()
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch(
+                "handler.metadata.ss_handler.fs_resource_handler.get_media_resources_path",
+                side_effect=lambda pid, rid, mt: f"roms/{pid}/{rid}/{mt.value}",
+            ),
+        ):
+            result = extract_media_from_ss_game(rom, game)
+
+        assert result["miximage_url"] is not None
+        assert "mixrbv1" in result["miximage_url"]
+        assert result["miximage_path"] is not None
+        assert result["miximage_v2_url"] is not None
+        assert "mixrbv2" in result["miximage_v2_url"]
+        assert result["miximage_v2_path"] is not None
 
 
 class TestExtractMetadataFromSsRom:

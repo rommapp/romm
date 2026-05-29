@@ -171,7 +171,8 @@ class SSMetadataMedia(TypedDict):
     logo_url: str | None  # wheel-hd or wheel
     manual_url: str | None  # manual
     marquee_url: str | None  # screenmarquee
-    miximage_url: str | None  # mixrbv1 | mixrbv2
+    miximage_url: str | None  # miximage1 | miximage2 | mixrbv1
+    miximage_v2_url: str | None  # mixrbv2
     physical_url: str | None  # support-2D
     screenshot_url: str | None  # ss
     steamgrid_url: str | None  # steamgrid
@@ -185,6 +186,7 @@ class SSMetadataMedia(TypedDict):
     box3d_path: str | None
     fanart_path: str | None
     miximage_path: str | None
+    miximage_v2_path: str | None
     physical_path: str | None
     marquee_path: str | None
     logo_path: str | None
@@ -233,6 +235,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         manual_url=None,
         marquee_url=None,
         miximage_url=None,
+        miximage_v2_url=None,
         physical_url=None,
         screenshot_url=None,
         steamgrid_url=None,
@@ -244,6 +247,7 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
         box3d_path=None,
         fanart_path=None,
         miximage_path=None,
+        miximage_v2_path=None,
         physical_path=None,
         marquee_path=None,
         logo_path=None,
@@ -322,7 +326,6 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 media.get("type") == "miximage1"
                 or media.get("type") == "miximage2"
                 or media.get("type") == "mixrbv1"
-                or media.get("type") == "mixrbv2"
             ) and not ss_media["miximage_url"]:
                 ss_media["miximage_url"] = strip_sensitive_query_params(
                     media["url"], SENSITIVE_KEYS
@@ -330,6 +333,14 @@ def extract_media_from_ss_game(rom: Rom, game: SSGame) -> SSMetadataMedia:
                 if MetadataMediaType.MIXIMAGE in preferred_media_types:
                     ss_media["miximage_path"] = (
                         f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE)}/miximage.png"
+                    )
+            elif media.get("type") == "mixrbv2" and not ss_media["miximage_v2_url"]:
+                ss_media["miximage_v2_url"] = strip_sensitive_query_params(
+                    media["url"], SENSITIVE_KEYS
+                )
+                if MetadataMediaType.MIXIMAGE_V2 in preferred_media_types:
+                    ss_media["miximage_v2_path"] = (
+                        f"{fs_resource_handler.get_media_resources_path(rom.platform_id, rom.id, MetadataMediaType.MIXIMAGE_V2)}/miximage_v2.png"
                     )
             elif media.get("type") == "support-2D" and not ss_media["physical_url"]:
                 ss_media["physical_url"] = strip_sensitive_query_params(
