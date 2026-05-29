@@ -955,6 +955,7 @@ class DBRomsHandler(DBBaseHandler):
             session.query(
                 subquery.c.letter, func.min(subquery.c.position - 1).label("position")
             )
+            .filter(subquery.c.letter.isnot(None))
             .group_by(subquery.c.letter)
             .order_by(subquery.c.letter)
             .all()
