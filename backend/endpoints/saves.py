@@ -162,7 +162,7 @@ async def add_save(
         actual_filename = _apply_datetime_tag(sanitized_save_filename)
 
     db_save = db_save_handler.get_save_by_filename(
-        user_id=request.user.id, rom_id=rom.id, file_name=actual_filename
+        user_id=request.user.id, rom_id=rom.id, file_name=actual_filename, slot=slot
     )
 
     if device and slot and not overwrite:
@@ -222,6 +222,7 @@ async def add_save(
             user_id=request.user.id,
             rom_id=rom.id,
             content_hash=scanned_save.content_hash,
+            slot=slot,
         )
         if existing_by_hash:
             try:

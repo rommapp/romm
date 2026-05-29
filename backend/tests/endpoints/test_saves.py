@@ -1962,9 +1962,12 @@ class TestContentHashDeduplication:
         )
         mock_scan_save.return_value = mock_save
 
+        # The save fixture has slot="autosave"; post to the same slot so the
+        # slot-scoped dedupe lookup actually fires. (Different slots are
+        # legitimately distinct records per the slot-scoped dedupe contract.)
         response = client.post(
             "/api/saves",
-            params={"rom_id": rom.id, "slot": "Slot1"},
+            params={"rom_id": rom.id, "slot": "autosave"},
             files={
                 "saveFile": (
                     "new.sav",
@@ -2130,3 +2133,262 @@ class TestContentHashComputation:
         hash2 = await fs_asset_handler._compute_file_hash(str(file2))
 
         assert hash1 != hash2
+
+
+def _build_fixture_a_zip() -> bytes:
+    """Single-entry zip; pinned digest b3636b49ca5c3d807adee33e75d410ca."""
+    import zipfile
+
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        zf.writestr("save.bin", b"\x42" * 256)
+    return buf.getvalue()
+
+
+def _build_fixture_b_zip() -> bytes:
+    """Three-entry zip with a subdir; pinned digest 8cf6bb36a82a5ee4d7d15fc98599908d."""
+    import zipfile
+
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        zf.writestr("inner/a.txt", b"alpha")
+        zf.writestr("inner/b.txt", b"beta")
+        zf.writestr("top.bin", b"\x00\x01\x02")
+    return buf.getvalue()
+
+
+def _build_fixture_c_zip() -> bytes:
+    """Switch-shaped nested zip; pinned digest c0c992d1f1f883f56065bb13b68dfdee."""
+    import zipfile
+
+    from tests._zipfile_shim import reload_zipfile
+
+    reload_zipfile()
+    buf = BytesIO()
+    title = "0100F2C0115B6000"
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        zf.writestr(f"{title}/NX6400000-SYSTEM/SYDAT.BIN", b"system data v1")
+        zf.writestr(f"{title}/album/000_Photo.jpg", b"\xff\xd8\xff\xe0jpegdata" * 8)
+        zf.writestr(f"{title}/album/000_Thumb.jpg", b"\xff\xd8thumbdata")
+        zf.writestr(f"{title}/slot_01/caption.sav", b"slot1 caption")
+        zf.writestr(f"{title}/slot_01/progress.sav", b"\x01" * 64)
+        zf.writestr(f"{title}/slot_02/caption.sav", b"slot2 caption")
+        zf.writestr(f"{title}/slot_02/progress.sav", b"\x02" * 64)
+        zf.writestr(f"{title}/storage/CacheStorageKey.dat", b"key=abcd1234")
+        zf.writestr(f"{title}/storage/empty.dat", b"")
+        zf.writestr(f"{title}/Pokémon.dat", b"unicode-name")
+    return buf.getvalue()
+
+
+FIXTURE_A_HASH = "b3636b49ca5c3d807adee33e75d410ca"
+FIXTURE_B_HASH = "8cf6bb36a82a5ee4d7d15fc98599908d"
+FIXTURE_C_HASH = "c0c992d1f1f883f56065bb13b68dfdee"
+
+
+@pytest.fixture
+def _isolated_assets_dir(tmp_path, monkeypatch):
+    """Redirect the shared fs_asset_handler to a tmp dir for the test's duration.
+
+    Upload, scan, compute_content_hash, and remove_file all dispatch through
+    self.base_path; rebinding base_path to a tmp dir keeps the test from
+    leaking files into the real ROMM_BASE_PATH and lets every IO path resolve
+    consistently.
+    """
+    from pathlib import Path
+
+    from handler.filesystem import fs_asset_handler
+
+    new_base = Path(tmp_path).resolve()
+    monkeypatch.setattr(fs_asset_handler, "base_path", new_base)
+    return new_base
+
+
+class TestUploadHashContract:
+    """Round-trip a real zip through the upload endpoint and pin the
+    content_hash the server stores.
+
+    The compute_content_hash path-resolution bug (commit 7996c1293) lived
+    precisely here: scan_save -> compute_content_hash -> is_zipfile. Mocking
+    scan_save or compute_content_hash defeats the purpose. These tests
+    intentionally exercise the unmocked pipeline so any regression in zip
+    detection, per-entry hash assembly, or path handling fails loudly.
+    """
+
+    def _upload(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        payload: bytes,
+        filename: str,
+        slot: str = "autosave",
+    ):
+        return client.post(
+            f"/api/saves?rom_id={rom.id}&slot={slot}&emulator=test_emulator",
+            files={
+                "saveFile": (filename, BytesIO(payload), "application/octet-stream")
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    def test_fixture_a_round_trip_pins_hash(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        payload = _build_fixture_a_zip()
+        response = self._upload(client, access_token, rom, payload, "fixture_a.zip")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["content_hash"] == FIXTURE_A_HASH
+
+    def test_fixture_b_round_trip_pins_hash(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        payload = _build_fixture_b_zip()
+        response = self._upload(client, access_token, rom, payload, "fixture_b.zip")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["content_hash"] == FIXTURE_B_HASH
+
+    def test_fixture_c_round_trip_pins_hash(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        payload = _build_fixture_c_zip()
+        response = self._upload(client, access_token, rom, payload, "fixture_c.zip")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["content_hash"] == FIXTURE_C_HASH
+
+    def test_identical_repost_to_same_slot_dedupes_to_first_id(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        """Second upload of identical bytes to the same slot should return the
+        first record's id (server-side dedupe via content_hash)."""
+        payload = _build_fixture_a_zip()
+
+        first = self._upload(client, access_token, rom, payload, "fixture_a.zip")
+        assert first.status_code == status.HTTP_200_OK
+        first_id = first.json()["id"]
+
+        second = self._upload(client, access_token, rom, payload, "fixture_a.zip")
+        assert second.status_code == status.HTTP_200_OK
+        assert second.json()["id"] == first_id
+        assert second.json()["content_hash"] == FIXTURE_A_HASH
+
+
+class TestSlotScopedDedupeMatrix:
+    """Verify the slot-scoped content_hash dedupe rules.
+
+    Pre-fix, get_save_by_content_hash ignored slot, so identical bytes uploaded
+    to different slots collapsed into one record (breaking clone-save-to-new-
+    slot). Each scenario below pins one cell of the truth table.
+    """
+
+    def _upload(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        payload: bytes,
+        slot: str,
+        filename: str = "matrix.zip",
+    ):
+        return client.post(
+            f"/api/saves?rom_id={rom.id}&slot={slot}&emulator=test_emulator",
+            files={
+                "saveFile": (filename, BytesIO(payload), "application/octet-stream")
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    def test_same_bytes_same_slot_dedupes(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        payload = _build_fixture_a_zip()
+
+        first = self._upload(client, access_token, rom, payload, slot="slot1")
+        second = self._upload(client, access_token, rom, payload, slot="slot1")
+
+        assert first.status_code == status.HTTP_200_OK
+        assert second.status_code == status.HTTP_200_OK
+        assert second.json()["id"] == first.json()["id"]
+
+    def test_same_bytes_different_slots_creates_distinct_records(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        """Clone-save-to-new-slot must yield a separate DB row.
+
+        Pre-fix this case incorrectly returned the first slot's id because the
+        DAO dropped the slot filter from the content_hash lookup.
+        """
+        payload = _build_fixture_a_zip()
+
+        first = self._upload(client, access_token, rom, payload, slot="slot1")
+        second = self._upload(client, access_token, rom, payload, slot="slot2")
+
+        assert first.status_code == status.HTTP_200_OK
+        assert second.status_code == status.HTTP_200_OK
+        assert second.json()["id"] != first.json()["id"]
+        assert second.json()["slot"] == "slot2"
+        assert second.json()["content_hash"] == first.json()["content_hash"]
+
+    def test_different_bytes_same_slot_creates_distinct_records(
+        self,
+        client,
+        access_token: str,
+        rom: Rom,
+        _isolated_assets_dir,
+    ):
+        """No false-positive dedupe across distinct content within one slot."""
+        import zipfile
+
+        from tests._zipfile_shim import reload_zipfile
+
+        payload_a = _build_fixture_a_zip()
+
+        reload_zipfile()
+        buf = BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+            zf.writestr("save.bin", b"\x43" * 256)
+        payload_b = buf.getvalue()
+
+        first = self._upload(
+            client, access_token, rom, payload_a, slot="slot1", filename="a.zip"
+        )
+        second = self._upload(
+            client, access_token, rom, payload_b, slot="slot1", filename="b.zip"
+        )
+
+        assert first.status_code == status.HTTP_200_OK
+        assert second.status_code == status.HTTP_200_OK
+        assert second.json()["id"] != first.json()["id"]
+        assert second.json()["content_hash"] != first.json()["content_hash"]

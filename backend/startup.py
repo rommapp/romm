@@ -4,6 +4,7 @@ import asyncio
 
 import sentry_sdk
 from opentelemetry import trace
+from rq.exceptions import DuplicateJobError
 
 from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -13,7 +14,9 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     ENABLE_SYNC_PUSH_PULL,
     SENTRY_DSN,
+    TASK_TIMEOUT,
 )
+from handler.database import db_save_handler
 from handler.metadata.base_handler import (
     MAME_XML_KEY,
     METADATA_FIXTURES_DIR,
@@ -23,9 +26,12 @@ from handler.metadata.base_handler import (
     PSP_SERIAL_INDEX_KEY,
     SCUMMVM_INDEX_KEY,
 )
-from handler.redis_handler import async_cache
+from handler.redis_handler import async_cache, low_prio_queue
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
+from tasks.manual.recompute_save_content_hashes import (
+    recompute_save_content_hashes_task,
+)
 from tasks.scheduled.cleanup_netplay import cleanup_netplay_task
 from tasks.scheduled.cleanup_upload_tmp import cleanup_upload_tmp_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
@@ -41,6 +47,54 @@ from utils.cache import conditionally_set_cache
 from utils.context import initialize_context
 
 tracer = trace.get_tracer(__name__)
+
+RECOMPUTE_SAVE_HASHES_JOB_ID = "recompute_save_content_hashes:bootstrap"
+
+
+def _enqueue_recompute_save_hashes_if_needed() -> None:
+    """Backfill content_hash for saves uploaded before the path-resolution
+    fix. Non-blocking: a single COUNT query, then -- only if any Save rows
+    still have NULL content_hash -- enqueue the manual recompute task on
+    the low-priority RQ queue. The worker process picks it up; this
+    process moves on. Once the run completes, future restarts see 0 NULL
+    hashes and skip. Admins can still trigger the manual task explicitly."""
+    try:
+        missing = db_save_handler.count_saves_missing_content_hash()
+    except Exception:
+        log.exception(
+            "Failed to count saves with NULL content_hash; "
+            "skipping auto-enqueue of recompute_save_content_hashes (admins can run it manually)"
+        )
+        return
+
+    if missing == 0:
+        log.debug("All saves have content_hash; skipping recompute auto-enqueue")
+        return
+
+    try:
+        low_prio_queue.enqueue(
+            recompute_save_content_hashes_task.run,
+            job_id=RECOMPUTE_SAVE_HASHES_JOB_ID,
+            unique=True,
+            job_timeout=TASK_TIMEOUT,
+            meta={
+                "task_name": recompute_save_content_hashes_task.title,
+                "task_type": recompute_save_content_hashes_task.task_type.value,
+            },
+        )
+        log.info(
+            f"Enqueued recompute_save_content_hashes ({missing} saves with NULL content_hash); "
+            "running on low-priority worker"
+        )
+    except DuplicateJobError:
+        log.info(
+            "recompute_save_content_hashes already queued or running from a "
+            "previous restart; skipping enqueue"
+        )
+    except Exception:
+        log.exception(
+            "Failed to enqueue recompute_save_content_hashes; admins can run it manually"
+        )
 
 
 @tracer.start_as_current_span("main")
@@ -72,6 +126,8 @@ async def main() -> None:
         if ENABLE_SYNC_PUSH_PULL:
             log.info("Starting scheduled push-pull sync")
             sync_push_pull_task.init()
+
+        _enqueue_recompute_save_hashes_if_needed()
 
         log.info("Initializing cache with fixtures data")
         await conditionally_set_cache(

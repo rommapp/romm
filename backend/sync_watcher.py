@@ -222,10 +222,14 @@ def _process_incoming_file(
     file_size = os.path.getsize(full_path)
     file_mtime = datetime.fromtimestamp(os.path.getmtime(full_path), tz=timezone.utc)
 
-    # Try to find matching saves on this platform for this user
+    # Try to find matching saves on this platform for this user. Only
+    # slot-bound saves participate in sync; null-slot saves are web-UI /
+    # archival uploads and must never be paired with a device push. Filter
+    # in SQL so archival rows never load.
     saves_on_platform = db_save_handler.get_saves(
         user_id=device.user_id,
         platform_id=platform.id,
+        slot_not_null=True,
     )
 
     matched_save = None
