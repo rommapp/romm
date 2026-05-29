@@ -237,14 +237,10 @@ async def _process_remote_save(
 
     # Find matching server save. Only slot-bound saves participate in sync;
     # null-slot saves are web-UI / archival uploads and must never be paired
-    # with a device push.
-    saves = [
-        s
-        for s in db_save_handler.get_saves(
-            user_id=device.user_id, platform_id=platform.id
-        )
-        if s.slot is not None
-    ]
+    # with a device push. Filter in SQL so archival rows never load.
+    saves = db_save_handler.get_saves(
+        user_id=device.user_id, platform_id=platform.id, slot_not_null=True
+    )
     matched_save = None
     for save in saves:
         if save.file_name == remote_save.file_name:
@@ -372,13 +368,10 @@ async def _push_missing_saves(
 
         # Only slot-bound saves participate in sync; null-slot saves are
         # web-UI / archival uploads and must never be pushed to a device.
-        server_saves = [
-            s
-            for s in db_save_handler.get_saves(
-                user_id=device.user_id, platform_id=platform.id
-            )
-            if s.slot is not None
-        ]
+        # Filter in SQL so archival rows never load.
+        server_saves = db_save_handler.get_saves(
+            user_id=device.user_id, platform_id=platform.id, slot_not_null=True
+        )
 
         remote_set = remote_files.get(platform_slug, set())
         remote_dir = platform_paths.get(platform_slug, "")

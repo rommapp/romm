@@ -444,6 +444,127 @@ class TestDBSavesHandlerGetSaveByContentHash:
         assert result.id == created.id
 
 
+class TestDBSavesHandlerSlotNotNullFilter:
+    """Pin the slot_not_null kwarg: when true, archival/null-slot saves are
+    excluded; when false (default), they are returned alongside slot-bound
+    rows. Sync callsites use slot_not_null=True so the database does the
+    filter instead of pulling the whole table into Python."""
+
+    def test_slot_not_null_false_returns_both(self, admin_user: User, rom: Rom):
+        slot_save = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="slotted.sav",
+            file_name_no_tags="slotted",
+            file_name_no_ext="slotted",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="autosave",
+        )
+        archival_save = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="archival.sav",
+            file_name_no_tags="archival",
+            file_name_no_ext="archival",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot=None,
+        )
+        db_save_handler.add_save(slot_save)
+        db_save_handler.add_save(archival_save)
+
+        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_id=rom.id)
+
+        names = {s.file_name for s in saves}
+        assert "slotted.sav" in names
+        assert "archival.sav" in names
+
+    def test_slot_not_null_true_excludes_null_slot(self, admin_user: User, rom: Rom):
+        slot_save = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="slotted_only.sav",
+            file_name_no_tags="slotted_only",
+            file_name_no_ext="slotted_only",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot="autosave",
+        )
+        archival_save = Save(
+            rom_id=rom.id,
+            user_id=admin_user.id,
+            file_name="archival_only.sav",
+            file_name_no_tags="archival_only",
+            file_name_no_ext="archival_only",
+            file_extension="sav",
+            emulator="test_emu",
+            file_path=f"{rom.platform_slug}/saves",
+            file_size_bytes=100,
+            slot=None,
+        )
+        db_save_handler.add_save(slot_save)
+        db_save_handler.add_save(archival_save)
+
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_id=rom.id, slot_not_null=True
+        )
+
+        names = {s.file_name for s in saves}
+        assert "slotted_only.sav" in names
+        assert "archival_only.sav" not in names
+        assert all(s.slot is not None for s in saves)
+
+    def test_slot_not_null_true_composes_with_slot_value(
+        self, admin_user: User, rom: Rom
+    ):
+        """slot_not_null and slot can both be set; the explicit slot filter
+        wins (and is implicitly not-null), so slot_not_null=True is a no-op
+        in that case. Pin that behavior so callers don't have to reason
+        about the interaction."""
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="compose_a.sav",
+                file_name_no_tags="compose_a",
+                file_name_no_ext="compose_a",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="A",
+            )
+        )
+        db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="compose_b.sav",
+                file_name_no_tags="compose_b",
+                file_name_no_ext="compose_b",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="B",
+            )
+        )
+
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_id=rom.id, slot="A", slot_not_null=True
+        )
+
+        assert len(saves) == 1
+        assert saves[0].slot == "A"
+
+
 class TestDBSavesHandlerGetSavesAfterId:
     """Cover keyset pagination used by the recompute_save_content_hashes
     maintenance task. Per-page bounded reads avoid materializing the full

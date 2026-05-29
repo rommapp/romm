@@ -68,6 +68,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int | None = None,
         platform_id: int | None = None,
         slot: str | None = None,
+        slot_not_null: bool = False,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
         only_fields: Sequence[QueryableAttribute] | None = None,
@@ -85,6 +86,9 @@ class DBSavesHandler(DBBaseHandler):
 
         if slot is not None:
             query = query.filter(Save.slot == slot)
+
+        if slot_not_null:
+            query = query.filter(Save.slot.is_not(None))
 
         if order_by:
             order_col = getattr(Save, order_by)

@@ -224,15 +224,13 @@ def _process_incoming_file(
 
     # Try to find matching saves on this platform for this user. Only
     # slot-bound saves participate in sync; null-slot saves are web-UI /
-    # archival uploads and must never be paired with a device push.
-    saves_on_platform = [
-        s
-        for s in db_save_handler.get_saves(
-            user_id=device.user_id,
-            platform_id=platform.id,
-        )
-        if s.slot is not None
-    ]
+    # archival uploads and must never be paired with a device push. Filter
+    # in SQL so archival rows never load.
+    saves_on_platform = db_save_handler.get_saves(
+        user_id=device.user_id,
+        platform_id=platform.id,
+        slot_not_null=True,
+    )
 
     matched_save = None
     for save in saves_on_platform:
