@@ -444,6 +444,66 @@ class TestDBSavesHandlerGetSaveByContentHash:
         assert result.id == created.id
 
 
+class TestDBSavesHandlerGetSavesAfterId:
+    """Cover keyset pagination used by the recompute_save_content_hashes
+    maintenance task. Per-page bounded reads avoid materializing the full
+    saves table on instances with very large libraries."""
+
+    def test_paginates_in_order_and_terminates(self, admin_user: User, rom: Rom):
+        created_ids = []
+        for i in range(5):
+            created = db_save_handler.add_save(
+                Save(
+                    rom_id=rom.id,
+                    user_id=admin_user.id,
+                    file_name=f"page_{i}.sav",
+                    file_name_no_tags=f"page_{i}",
+                    file_name_no_ext=f"page_{i}",
+                    file_extension="sav",
+                    emulator="test_emu",
+                    file_path=f"{rom.platform_slug}/saves",
+                    file_size_bytes=100,
+                    slot=f"slot_{i}",
+                )
+            )
+            created_ids.append(created.id)
+
+        seen: list[int] = []
+        last_id = 0
+        while True:
+            batch = db_save_handler.get_saves_after_id(after_id=last_id, limit=2)
+            if not batch:
+                break
+            for s in batch:
+                seen.append(s.id)
+                last_id = s.id
+
+        for cid in created_ids:
+            assert cid in seen
+        # IDs returned monotonically by primary key
+        assert seen == sorted(seen)
+
+    def test_after_id_excludes_anchor_row(self, admin_user: User, rom: Rom):
+        created = db_save_handler.add_save(
+            Save(
+                rom_id=rom.id,
+                user_id=admin_user.id,
+                file_name="anchor.sav",
+                file_name_no_tags="anchor",
+                file_name_no_ext="anchor",
+                file_extension="sav",
+                emulator="test_emu",
+                file_path=f"{rom.platform_slug}/saves",
+                file_size_bytes=100,
+                slot="anchor_slot",
+            )
+        )
+
+        batch = db_save_handler.get_saves_after_id(after_id=created.id, limit=10)
+
+        assert all(s.id > created.id for s in batch)
+
+
 class TestDBSavesHandlerSummary:
     def test_get_saves_summary_basic(self, admin_user: User, rom: Rom):
         from datetime import datetime, timedelta, timezone

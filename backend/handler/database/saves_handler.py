@@ -196,10 +196,18 @@ class DBSavesHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_all_saves(
+    def get_saves_after_id(
         self,
+        after_id: int,
+        limit: int,
         session: Session = None,  # type: ignore
     ) -> Sequence[Save]:
-        """Every Save row across all users, ordered by id. Used by the
-        recompute_save_content_hashes maintenance task."""
-        return session.scalars(select(Save).order_by(asc(Save.id))).all()
+        """Page Save rows by primary key. Returns up to ``limit`` rows with
+        ``id > after_id``, ordered by id. Used by the
+        recompute_save_content_hashes maintenance task to walk every row in
+        bounded-memory batches: streaming via ``yield_per`` is incompatible
+        with the per-call session lifetime that ``@begin_session`` enforces,
+        so the caller drives pagination with this method instead."""
+        return session.scalars(
+            select(Save).where(Save.id > after_id).order_by(asc(Save.id)).limit(limit)
+        ).all()

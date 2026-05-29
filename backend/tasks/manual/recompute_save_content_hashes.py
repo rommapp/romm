@@ -23,6 +23,7 @@ from tasks.tasks import Task, TaskType, update_job_meta
 from utils.context import initialize_context
 
 META_FLUSH_EVERY = 100
+PAGE_SIZE = 1000
 
 
 @dataclass
@@ -69,44 +70,58 @@ class RecomputeSaveContentHashesTask(Task):
         log.info(f"Starting {self.title} task...")
         stats = RecomputeSaveHashesStats()
 
-        saves = db_save_handler.get_all_saves()
-        for save in saves:
-            stats.saves_scanned += 1
+        # Keyset-paginate by primary key instead of loading every Save row
+        # at once. On instances with very large save libraries the full
+        # table can be hundreds of thousands of rows; .all() would pull
+        # them all into the worker's RAM and pin them for the whole run.
+        last_id = 0
+        while True:
+            batch = db_save_handler.get_saves_after_id(
+                after_id=last_id, limit=PAGE_SIZE
+            )
+            if not batch:
+                break
 
-            relative_path = f"{save.file_path}/{save.file_name}"
-            try:
-                new_hash = await fs_asset_handler.compute_content_hash(relative_path)
-            except Exception as e:
-                log.warning(
-                    f"Failed to compute content_hash for save {save.id} "
-                    f"({relative_path}): {e}"
-                )
-                stats.errors += 1
+            for save in batch:
+                stats.saves_scanned += 1
+                last_id = save.id
+
+                relative_path = f"{save.file_path}/{save.file_name}"
+                try:
+                    new_hash = await fs_asset_handler.compute_content_hash(
+                        relative_path
+                    )
+                except Exception as e:
+                    log.warning(
+                        f"Failed to compute content_hash for save {save.id} "
+                        f"({relative_path}): {e}"
+                    )
+                    stats.errors += 1
+                    self._maybe_flush(stats)
+                    continue
+
+                if new_hash is None:
+                    stats.saves_missing_fs += 1
+                    self._maybe_flush(stats)
+                    continue
+
+                if new_hash == save.content_hash:
+                    stats.saves_unchanged += 1
+                    self._maybe_flush(stats)
+                    continue
+
+                try:
+                    db_save_handler.update_save(save.id, {"content_hash": new_hash})
+                    stats.saves_updated += 1
+                    log.debug(
+                        f"Rewrote content_hash for save {save.id} "
+                        f"({relative_path}): {save.content_hash} -> {new_hash}"
+                    )
+                except Exception as e:
+                    log.warning(f"Failed to update save {save.id}: {e}")
+                    stats.errors += 1
+
                 self._maybe_flush(stats)
-                continue
-
-            if new_hash is None:
-                stats.saves_missing_fs += 1
-                self._maybe_flush(stats)
-                continue
-
-            if new_hash == save.content_hash:
-                stats.saves_unchanged += 1
-                self._maybe_flush(stats)
-                continue
-
-            try:
-                db_save_handler.update_save(save.id, {"content_hash": new_hash})
-                stats.saves_updated += 1
-                log.debug(
-                    f"Rewrote content_hash for save {save.id} "
-                    f"({relative_path}): {save.content_hash} -> {new_hash}"
-                )
-            except Exception as e:
-                log.warning(f"Failed to update save {save.id}: {e}")
-                stats.errors += 1
-
-            self._maybe_flush(stats)
 
         stats.flush()
         log.info(
