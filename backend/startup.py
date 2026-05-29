@@ -4,6 +4,7 @@ import asyncio
 
 import sentry_sdk
 from opentelemetry import trace
+from rq.exceptions import DuplicateJobError
 
 from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -47,6 +48,8 @@ from utils.context import initialize_context
 
 tracer = trace.get_tracer(__name__)
 
+RECOMPUTE_SAVE_HASHES_JOB_ID = "recompute_save_content_hashes:bootstrap"
+
 
 def _enqueue_recompute_save_hashes_if_needed() -> None:
     """Backfill content_hash for saves uploaded before the path-resolution
@@ -71,6 +74,8 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
     try:
         low_prio_queue.enqueue(
             recompute_save_content_hashes_task.run,
+            job_id=RECOMPUTE_SAVE_HASHES_JOB_ID,
+            unique=True,
             job_timeout=TASK_TIMEOUT,
             meta={
                 "task_name": recompute_save_content_hashes_task.title,
@@ -80,6 +85,11 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
         log.info(
             f"Enqueued recompute_save_content_hashes ({missing} saves with NULL content_hash); "
             "running on low-priority worker"
+        )
+    except DuplicateJobError:
+        log.info(
+            "recompute_save_content_hashes already queued or running from a "
+            "previous restart; skipping enqueue"
         )
     except Exception:
         log.exception(
