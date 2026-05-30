@@ -446,6 +446,8 @@ export function languageToEmoji(language: string) {
  */
 const _EJS_CORES_MAP: Record<string, string[]> = {
   "3do": ["opera"],
+  "3ds": ["azahar"],
+  "new-nintendo-3ds": ["azahar"],
   acpc: ["cap32", "crocods"],
   amiga: ["puae"],
   "amiga-cd32": ["puae"],
@@ -471,6 +473,7 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   colecovision: ["gearcoleco"],
   doom: ["prboom"],
   dos: ["dosbox_pure"],
+  intellivision: ["freeintv"],
   jaguar: ["virtualjaguar"],
   lynx: ["handy"],
   "atari-lynx-mkii": ["handy"],
@@ -498,28 +501,35 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   psx: ["pcsx_rearmed", "mednafen_psx_hw"],
   "philips-cd-i": ["same_cdi"],
   psp: ["ppsspp"],
-  segacd: ["genesis_plus_gx", "picodrive"],
+  segacd: ["genesis_plus_gx", "genesis_plus_gx_wide", "picodrive"],
   sega32: ["picodrive"],
-  gamegear: ["genesis_plus_gx"],
-  sms: ["genesis_plus_gx"],
-  "sega-mark-iii": ["genesis_plus_gx"],
-  "sega-game-box-9": ["genesis_plus_gx"],
-  "sega-master-system-ii": ["genesis_plus_gx", "smsplus"],
-  "master-system-super-compact": ["genesis_plus_gx"],
-  "master-system-girl": ["genesis_plus_gx"],
-  genesis: ["genesis_plus_gx"],
-  "sega-mega-drive-2-slash-genesis": ["genesis_plus_gx"],
-  "sega-mega-jet": ["genesis_plus_gx"],
-  "mega-pc": ["genesis_plus_gx"],
-  "tera-drive": ["genesis_plus_gx"],
-  "sega-nomad": ["genesis_plus_gx"],
+  gamegear: ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  sms: ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-mark-iii": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-game-box-9": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-master-system-ii": [
+    "genesis_plus_gx",
+    "genesis_plus_gx_wide",
+    "smsplus",
+  ],
+  "master-system-super-compact": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "master-system-girl": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  genesis: ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-mega-drive-2-slash-genesis": [
+    "genesis_plus_gx",
+    "genesis_plus_gx_wide",
+  ],
+  "sega-mega-jet": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "mega-pc": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "tera-drive": ["genesis_plus_gx", "genesis_plus_gx_wide"],
+  "sega-nomad": ["genesis_plus_gx", "genesis_plus_gx_wide"],
   saturn: ["yabause"],
-  snes: ["snes9x"],
-  sfam: ["snes9x"],
-  "super-nintendo-original-european-version": ["snes9x"],
-  "super-famicom-shvc-001": ["snes9x"],
-  "super-famicom-jr-model-shvc-101": ["snes9x"],
-  "new-style-super-nes-model-sns-101": ["snes9x"],
+  snes: ["snes9x", "bsnes"],
+  sfam: ["snes9x", "bsnes"],
+  "super-nintendo-original-european-version": ["snes9x", "bsnes"],
+  "super-famicom-shvc-001": ["snes9x", "bsnes"],
+  "super-famicom-jr-model-shvc-101": ["snes9x", "bsnes"],
+  "new-style-super-nes-model-sns-101": ["snes9x", "bsnes"],
   tg16: ["mednafen_pce"],
   "vic-20": ["vice_xvic"],
   virtualboy: ["beetle_vb"],
@@ -548,7 +558,7 @@ export function getSupportedEJSCores(platformSlug: string): string[] {
  * @returns True if threads are required, false otherwise.
  */
 export function areThreadsRequiredForEJSCore(core: string): boolean {
-  return ["dosbox_pure", "ppsspp"].includes(core);
+  return ["dosbox_pure", "ppsspp", "azahar"].includes(core);
 }
 
 const canvas = document.createElement("canvas");
