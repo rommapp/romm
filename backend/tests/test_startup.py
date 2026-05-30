@@ -1,6 +1,7 @@
 """Tests for startup-time auto-enqueue of the recompute task."""
 
 import startup
+from rq.job import JOB_ID_PATTERN
 
 
 def test_enqueue_recompute_skips_when_no_missing_hashes(mocker):
@@ -42,10 +43,11 @@ def test_enqueue_recompute_fires_when_missing_hashes_present(mocker):
     assert kwargs["job_id"] == startup.RECOMPUTE_SAVE_HASHES_JOB_ID
 
 
-def test_recompute_job_id_has_no_colon():
-    """RQ's Job.set_id rejects ':' in a job_id; a colon raised ValueError that
-    the broad except swallowed, so the backfill never enqueued."""
-    assert ":" not in startup.RECOMPUTE_SAVE_HASHES_JOB_ID
+def test_recompute_job_id_is_valid_rq_id():
+    """RQ rejects any job_id not matching [A-Za-z0-9_-]+ (ValueError in set_id),
+    which the broad except here would swallow -> backfill silently never enqueues.
+    A colon was the original culprit; assert the full contract, not just that."""
+    assert JOB_ID_PATTERN.fullmatch(startup.RECOMPUTE_SAVE_HASHES_JOB_ID)
 
 
 def test_enqueue_recompute_skips_when_already_queued(mocker):

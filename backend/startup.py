@@ -71,14 +71,14 @@ def _enqueue_recompute_save_hashes_if_needed() -> None:
         log.debug("All saves have content_hash; skipping recompute auto-enqueue")
         return
 
-    if Job.exists(RECOMPUTE_SAVE_HASHES_JOB_ID, low_prio_queue.connection):
-        log.info(
-            "recompute_save_content_hashes already queued or running from a "
-            "previous restart; skipping enqueue"
-        )
-        return
-
     try:
+        if Job.exists(RECOMPUTE_SAVE_HASHES_JOB_ID, low_prio_queue.connection):
+            log.info(
+                "recompute_save_content_hashes already queued or running from a "
+                "previous restart; skipping enqueue"
+            )
+            return
+
         low_prio_queue.enqueue(
             recompute_save_content_hashes_task.run,
             job_id=RECOMPUTE_SAVE_HASHES_JOB_ID,
