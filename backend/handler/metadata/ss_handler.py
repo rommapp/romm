@@ -714,7 +714,7 @@ class SSHandler(MetadataHandler):
             crc=crc_hash,
             rom_size_bytes=fs_size_bytes,
             rom_name=(
-                first_file.archive_members[0]["name"]
+                first_file.archive_members[0]["name"].split("/")[-1]
                 if first_file.archive_members is not None
                 and len(first_file.archive_members) == 1
                 else first_file.file_name
