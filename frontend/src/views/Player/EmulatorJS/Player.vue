@@ -124,7 +124,10 @@ declare global {
   }
 }
 
-const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
+const supportedCores = getSupportedEJSCores(
+  romRef.value.platform_slug,
+  configStore.config.EJS_NETPLAY_ENABLED,
+);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
 window.EJS_controlScheme = getControlSchemeForPlatform(

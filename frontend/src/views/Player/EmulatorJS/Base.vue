@@ -183,7 +183,12 @@ onMounted(async () => {
   });
   firmwareOptions.value = firmwareResponse.data;
 
-  supportedCores.value = [...getSupportedEJSCores(rom.value.platform_slug)];
+  supportedCores.value = [
+    ...getSupportedEJSCores(
+      rom.value.platform_slug,
+      configStore.config.EJS_NETPLAY_ENABLED,
+    ),
+  ];
 
   // Listen for save/state selection from dialogs
   emitter?.on("saveSelected", selectSave);

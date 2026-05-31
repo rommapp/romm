@@ -400,7 +400,10 @@ async function boot() {
     rom.ss_metadata?.bezel_path || getBezelImagePath(rom.platform_slug).value;
 
   // Configure EmulatorJS globals
-  const supported = getSupportedEJSCores(rom.platform_slug);
+  const supported = getSupportedEJSCores(
+    rom.platform_slug,
+    configStore.config.EJS_NETPLAY_ENABLED,
+  );
   const core =
     playerStorage.core.value && supported.includes(playerStorage.core.value)
       ? playerStorage.core.value
