@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from tests._zipfile_shim import reload_zipfile
@@ -1084,6 +1084,67 @@ class TestFSRomsHandler:
         assert parsed_rom_files.rom_files[0].crc_hash == parsed_rom_files.crc_hash
         assert parsed_rom_files.rom_files[0].md5_hash == parsed_rom_files.md5_hash
         assert parsed_rom_files.rom_files[0].sha1_hash == parsed_rom_files.sha1_hash
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_archive_computes_ra_hash_for_cartridge_platform(
+        self, tmp_path: Path
+    ):
+        """RA hash is computed for cartridge-platform archives (buffer hashing supported)."""
+        import io
+        import zipfile
+
+        from tests._zipfile_shim import reload_zipfile
+
+        cartridge_platform = Platform(
+            name="Game Boy Advance", slug="gba", fs_slug="gba"
+        )
+
+        reload_zipfile()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("game.gba", b"fake GBA ROM content")
+
+        test_handler, rom = self._setup_archive_rom(
+            tmp_path, cartridge_platform, "game.zip", "zip", buf.getvalue()
+        )
+
+        with patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            return_value="abcdef1234567890abcdef1234567890",
+        ):
+            parsed = await test_handler.get_rom_files(rom)
+
+        assert parsed.ra_hash == "abcdef1234567890abcdef1234567890"
+
+    @pytest.mark.asyncio
+    async def test_get_rom_files_archive_skips_ra_hash_for_disc_platform(
+        self, tmp_path: Path
+    ):
+        """RA hash is not computed for disc-platform archives (buffer hashing unsupported)."""
+        import io
+        import zipfile
+
+        from tests._zipfile_shim import reload_zipfile
+
+        disc_platform = Platform(name="PlayStation", slug="psx", fs_slug="psx")
+
+        reload_zipfile()
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("game.bin", b"fake PSX disc content")
+
+        test_handler, rom = self._setup_archive_rom(
+            tmp_path, disc_platform, "game.zip", "zip", buf.getvalue()
+        )
+
+        with patch(
+            "adapters.services.rahasher.RAHasherService.calculate_hash",
+            return_value="",
+        ) as mock_calculate:
+            parsed = await test_handler.get_rom_files(rom)
+
+        mock_calculate.assert_called_once()
+        assert parsed.ra_hash == ""
 
 
 class TestExtractCHDHash:

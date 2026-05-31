@@ -478,6 +478,14 @@ class FSRomsHandler(FSHandler):
             )
 
             if members:
+                if calculate_hashes:
+                    ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
+                    if ra_platform and ra_platform["ra_id"]:
+                        rom_ra_h = await RAHasherService().calculate_hash(
+                            ra_platform,
+                            f"{abs_fs_path}/{rom.fs_name}",
+                        )
+
                 rom_files.append(
                     self._build_rom_file(
                         rom=rom,
