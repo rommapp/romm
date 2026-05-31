@@ -20,6 +20,7 @@ import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import stateApi from "@/services/api/state";
+import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 import storeRoms from "@/stores/roms";
@@ -42,6 +43,7 @@ type PlayerState = "loading" | "unsupported" | "error" | "ready";
 
 const romsStore = storeRoms();
 const heartbeatStore = storeHeartbeat();
+const configStore = storeConfig();
 const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
@@ -467,7 +469,10 @@ onMounted(async () => {
     const { data: romData } = await romApi.getRom({
       romId: parseInt(route.params.rom as string),
     });
-    const cores = getSupportedEJSCores(romData.platform_slug);
+    const cores = getSupportedEJSCores(
+      romData.platform_slug,
+      configStore.config.EJS_NETPLAY_ENABLED,
+    );
     if (!cores.length) {
       playerState.value = "unsupported";
       throw new Error(`Platform ${romData.platform_slug} not supported yet.`);

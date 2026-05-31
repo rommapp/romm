@@ -446,8 +446,6 @@ export function languageToEmoji(language: string) {
  */
 const _EJS_CORES_MAP: Record<string, string[]> = {
   "3do": ["opera"],
-  "3ds": ["azahar"],
-  "new-nintendo-3ds": ["azahar"],
   acpc: ["cap32", "crocods"],
   amiga: ["puae"],
   "amiga-cd32": ["puae"],
@@ -473,7 +471,6 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   colecovision: ["gearcoleco"],
   doom: ["prboom"],
   dos: ["dosbox_pure"],
-  intellivision: ["freeintv"],
   jaguar: ["virtualjaguar"],
   lynx: ["handy"],
   "atari-lynx-mkii": ["handy"],
@@ -501,8 +498,42 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   psx: ["pcsx_rearmed", "mednafen_psx_hw"],
   "philips-cd-i": ["same_cdi"],
   psp: ["ppsspp"],
-  segacd: ["genesis_plus_gx", "genesis_plus_gx_wide", "picodrive"],
+  segacd: ["genesis_plus_gx", "picodrive"],
   sega32: ["picodrive"],
+  gamegear: ["genesis_plus_gx"],
+  sms: ["genesis_plus_gx"],
+  "sega-mark-iii": ["genesis_plus_gx"],
+  "sega-game-box-9": ["genesis_plus_gx"],
+  "sega-master-system-ii": ["genesis_plus_gx", "smsplus"],
+  "master-system-super-compact": ["genesis_plus_gx"],
+  "master-system-girl": ["genesis_plus_gx"],
+  genesis: ["genesis_plus_gx"],
+  "sega-mega-drive-2-slash-genesis": ["genesis_plus_gx"],
+  "sega-mega-jet": ["genesis_plus_gx"],
+  "mega-pc": ["genesis_plus_gx"],
+  "tera-drive": ["genesis_plus_gx"],
+  "sega-nomad": ["genesis_plus_gx"],
+  saturn: ["yabause"],
+  snes: ["snes9x"],
+  sfam: ["snes9x"],
+  "super-nintendo-original-european-version": ["snes9x"],
+  "super-famicom-shvc-001": ["snes9x"],
+  "super-famicom-jr-model-shvc-101": ["snes9x"],
+  "new-style-super-nes-model-sns-101": ["snes9x"],
+  tg16: ["mednafen_pce"],
+  "vic-20": ["vice_xvic"],
+  virtualboy: ["beetle_vb"],
+  wonderswan: ["mednafen_wswan"],
+  swancrystal: ["mednafen_wswan"],
+  "wonderswan-color": ["mednafen_wswan"],
+  zsx: ["fuse"],
+} as const;
+
+const _EJS_NIGHTLY_CORES_MAP: Record<string, string[]> = {
+  "3ds": ["azahar"],
+  "new-nintendo-3ds": ["azahar"],
+  intellivision: ["freeintv"],
+  segacd: ["genesis_plus_gx", "genesis_plus_gx_wide", "picodrive"],
   gamegear: ["genesis_plus_gx", "genesis_plus_gx_wide"],
   sms: ["genesis_plus_gx", "genesis_plus_gx_wide"],
   "sega-mark-iii": ["genesis_plus_gx", "genesis_plus_gx_wide"],
@@ -523,21 +554,13 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   "mega-pc": ["genesis_plus_gx", "genesis_plus_gx_wide"],
   "tera-drive": ["genesis_plus_gx", "genesis_plus_gx_wide"],
   "sega-nomad": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  saturn: ["yabause"],
   snes: ["snes9x", "bsnes"],
   sfam: ["snes9x", "bsnes"],
   "super-nintendo-original-european-version": ["snes9x", "bsnes"],
   "super-famicom-shvc-001": ["snes9x", "bsnes"],
   "super-famicom-jr-model-shvc-101": ["snes9x", "bsnes"],
   "new-style-super-nes-model-sns-101": ["snes9x", "bsnes"],
-  tg16: ["mednafen_pce"],
-  "vic-20": ["vice_xvic"],
-  virtualboy: ["beetle_vb"],
-  wonderswan: ["mednafen_wswan"],
-  swancrystal: ["mednafen_wswan"],
-  "wonderswan-color": ["mednafen_wswan"],
-  zsx: ["fuse"],
-} as const;
+};
 
 export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
 
@@ -547,8 +570,14 @@ export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
  * @param platformSlug The platform slug.
  * @returns An array of supported cores.
  */
-export function getSupportedEJSCores(platformSlug: string): string[] {
-  return _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+export function getSupportedEJSCores(
+  platformSlug: string,
+  netplayEnabled: boolean = false,
+): string[] {
+  const coresMap = netplayEnabled
+    ? { ..._EJS_CORES_MAP, ..._EJS_NIGHTLY_CORES_MAP }
+    : _EJS_CORES_MAP;
+  return coresMap[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
 }
 
 /**
@@ -582,7 +611,8 @@ export function isEJSEmulationSupported(
 
   const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
   return (
-    getSupportedEJSCores(slug).length > 0 && gl instanceof WebGLRenderingContext
+    getSupportedEJSCores(slug, config?.EJS_NETPLAY_ENABLED).length > 0 &&
+    gl instanceof WebGLRenderingContext
   );
 }
 
