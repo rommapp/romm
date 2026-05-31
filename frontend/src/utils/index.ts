@@ -521,6 +521,8 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   "super-famicom-jr-model-shvc-101": ["snes9x"],
   "new-style-super-nes-model-sns-101": ["snes9x"],
   tg16: ["mednafen_pce"],
+  "turbografx-cd": ["mednafen_pce"],
+  supergrafx: ["mednafen_pce"],
   "vic-20": ["vice_xvic"],
   virtualboy: ["beetle_vb"],
   wonderswan: ["mednafen_wswan"],
@@ -852,7 +854,7 @@ export const CD_BASED_SYSTEMS = new Set([
   "saturn", // Sega Saturn
   "super-nes-cd-rom-system", // Super NES CD-ROM System
   "tandy-vis", // Tandy Video Information System
-  "tg16", // TurboGrafx-16
+  "turbografx-cd", // TurboGrafx-CD
   "vflash", // V.Flash
   "wii", // Wii
   "wiiu", // Wii U
