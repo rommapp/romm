@@ -134,7 +134,8 @@ class RAHasherService:
                 return [
                     f
                     for f in folder.iterdir()
-                    if f.is_file() and f.suffix.lower() in COMPRESSED_FILE_EXTENSIONS
+                    if f.is_file()
+                    and f.name.lower().endswith(tuple(COMPRESSED_FILE_EXTENSIONS))
                 ]
 
             archive_files = await asyncio.to_thread(_find_archives)
