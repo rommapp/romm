@@ -115,17 +115,16 @@ def negotiate_sync(
 
     operations: list[SyncOperationSchema] = []
 
-    # Build a set of server saves for this user, keyed by (rom_id, file_name).
-    # Only slot-bound saves participate in sync; null-slot saves are web-UI or
-    # archival uploads and act as backups (clients can opt-in to import them
-    # outside the sync flow). Filtering in SQL avoids materializing archival
-    # rows we'd immediately discard.
+    # Pair on (rom_id, slot), keeping the newest row per slot: slot uploads are datetime-tagged (spec) so tagged filenames never equal the client's untagged name, and a slot accrues many rows over time. Null-slot rows stay archival-only.
     server_saves = db_save_handler.get_saves(
         user_id=request.user.id, slot_not_null=True
     )
-    server_save_map: dict[tuple[int, str], Save] = {}
+    server_save_map: dict[tuple[int, str | None], Save] = {}
     for save in server_saves:
-        server_save_map[(save.rom_id, save.file_name)] = save
+        key = (save.rom_id, save.slot)
+        current = server_save_map.get(key)
+        if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
+            server_save_map[key] = save
 
     # Get all sync records for this device
     all_save_ids = [s.id for s in server_saves]
@@ -139,7 +138,7 @@ def negotiate_sync(
 
     # Process each client save
     for client_save in payload.saves:
-        key = (client_save.rom_id, client_save.file_name)
+        key = (client_save.rom_id, client_save.slot)
         server_save = server_save_map.get(key)
 
         if server_save is None:
@@ -197,8 +196,8 @@ def negotiate_sync(
             )
         )
 
-    # Check for server saves the client didn't mention
-    for save in server_saves:
+    # Check for current saves the client didn't mention (superseded older rows per slot are history, not downloads)
+    for save in server_save_map.values():
         if save.id in matched_server_save_ids:
             continue
 
