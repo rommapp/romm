@@ -529,6 +529,7 @@ const _EJS_CORES_MAP: Record<string, string[]> = {
   zsx: ["fuse"],
 } as const;
 
+// TODO: Merge with _EJS_CORES_MAP next emukatorjs release (post 4.2.3)
 const _EJS_NIGHTLY_CORES_MAP: Record<string, string[]> = {
   "3ds": ["azahar"],
   "new-nintendo-3ds": ["azahar"],
@@ -568,6 +569,7 @@ export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
  * Get the supported EJS cores for a given platform.
  *
  * @param platformSlug The platform slug.
+ * @param netplayEnabled Pull nightly cores if netplay is enabled.
  * @returns An array of supported cores.
  */
 export function getSupportedEJSCores(
