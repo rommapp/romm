@@ -74,6 +74,7 @@ def test_update_rom(
         data={
             "igdb_id": str(MOCK_IGDB_ID),
             "name": "Metroid Prime Remastered",
+            "sort_name": "Metroid Prime",
             "slug": "metroid-prime-remastered",
             "fs_name": "Metroid Prime Remastered.zip",
             "summary": "summary test",
@@ -99,6 +100,7 @@ def test_update_rom(
 
     body = response.json()
     assert body["fs_name"] == "Metroid Prime Remastered.zip"
+    assert body["sort_name"] == "Metroid Prime"
 
     assert rename_fs_rom_mock.called
     assert get_rom_by_id_mock.called
@@ -420,7 +422,10 @@ class TestUpdateMetadataIDs:
         response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"igdb_id": str(MOCK_IGDB_ID)},
+            data={
+                "igdb_id": str(MOCK_IGDB_ID),
+                "sort_name": "Imported sort title",
+            },
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -1101,7 +1106,10 @@ class TestUnmatchMetadata:
         initial_response = client.put(
             f"/api/roms/{rom.id}",
             headers={"Authorization": f"Bearer {access_token}"},
-            data={"igdb_id": str(MOCK_IGDB_ID)},
+            data={
+                "igdb_id": str(MOCK_IGDB_ID),
+                "sort_name": "Imported sort title",
+            },
         )
         assert initial_response.status_code == status.HTTP_200_OK
         assert get_rom_by_id_mock.called
@@ -1109,6 +1117,7 @@ class TestUnmatchMetadata:
         initial_body = initial_response.json()
         assert initial_body["igdb_id"] == MOCK_IGDB_ID
         assert initial_body["igdb_metadata"] is not None
+        assert initial_body["sort_name"] == "Imported sort title"
 
         # Now unmatch all metadata
         response = client.put(
@@ -1131,6 +1140,7 @@ class TestUnmatchMetadata:
         assert body["hltb_id"] is None
 
         assert body["name"] == rom.fs_name
+        assert body["sort_name"] is None
         assert body["summary"] == ""
         assert body["url_cover"] == ""
         assert body["slug"] == ""

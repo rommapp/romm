@@ -454,6 +454,7 @@ async function updateRom({
 
   const fields: FormInputField<UpdateRomInput>[] = [
     ["name", rom.name],
+    ["sort_name", rom.sort_name],
     ["fs_name", rom.fs_name],
     ["summary", rom.summary],
     ["igdb_id", toFormIdValue(rom.igdb_id)],

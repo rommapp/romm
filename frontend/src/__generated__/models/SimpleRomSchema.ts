@@ -40,6 +40,7 @@ export type SimpleRomSchema = {
     fs_path: string;
     fs_size_bytes: number;
     name: (string | null);
+    sort_name: (string | null);
     slug: (string | null);
     summary: (string | null);
     alternative_names: Array<string>;
@@ -85,4 +86,3 @@ export type SimpleRomSchema = {
     merged_ra_metadata: (RomRAMetadata | null);
     sibling_ids: Array<number>;
 };
-

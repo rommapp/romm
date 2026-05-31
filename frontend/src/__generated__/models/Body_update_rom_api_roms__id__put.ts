@@ -27,9 +27,9 @@ export type Body_update_rom_api_roms__id__put = {
     raw_hltb_metadata?: (string | null);
     raw_manual_metadata?: (string | null);
     name?: (string | null);
+    sort_name?: (string | null);
     summary?: (string | null);
     fs_name?: (string | null);
     url_cover?: (string | null);
     url_manual?: (string | null);
 };
-

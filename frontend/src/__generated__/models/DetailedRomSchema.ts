@@ -47,6 +47,7 @@ export type DetailedRomSchema = {
     fs_path: string;
     fs_size_bytes: number;
     name: (string | null);
+    sort_name: (string | null);
     slug: (string | null);
     summary: (string | null);
     alternative_names: Array<string>;
@@ -99,4 +100,3 @@ export type DetailedRomSchema = {
     user_collections: Array<UserCollectionSchema>;
     all_user_notes: Array<UserNoteSchema>;
 };
-
