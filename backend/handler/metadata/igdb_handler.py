@@ -432,6 +432,50 @@ def build_igdb_rom(
     )
 
 
+def _index_games_by_searchable_name(games: list[Game]) -> dict[str, Game]:
+    """Map every searchable title of each game to the game it belongs to.
+
+    A game is searchable not only by its primary English ``name`` but also by
+    any ``alternative_names`` and ``game_localizations`` titles IGDB knows.
+    No-Intro / ReDump filenames frequently use a localized title (e.g.
+    ``007 - Die Welt Ist Nicht Genug`` for ``James Bond 007: The World Is Not
+    Enough``); IGDB surfaces such a game through its ``alternative_name``
+    wildcard search, so the candidate index must include those titles or
+    ``find_best_match`` would score the localized filename only against the
+    English name and drop the match (issue #3435).
+
+    Primary names take precedence and use a lowest-igdb-id tiebreak (matching
+    prior behavior); alternative/localization titles fill in only names not
+    already claimed by a primary name.
+    """
+    index: dict[str, Game] = {}
+
+    # First pass: primary names. On collision the lowest IGDB id wins.
+    for game in games:
+        name = game.get("name", "")
+        if name and (name not in index or game["id"] < index[name]["id"]):
+            index[name] = game
+
+    # Second pass: alternative and localization titles, without displacing a
+    # primary name already claimed above.
+    for game in games:
+        alternative_names = game.get("alternative_names", [])
+        assert mark_list_expanded(alternative_names)
+        for alt in alternative_names:
+            alt_name = alt.get("name", "")
+            if alt_name and alt_name not in index:
+                index[alt_name] = game
+
+        game_localizations = game.get("game_localizations", [])
+        assert mark_list_expanded(game_localizations)
+        for loc in game_localizations:
+            loc_name = loc.get("name", "")
+            if loc_name and loc_name not in index:
+                index[loc_name] = game
+
+    return index
+
+
 class IGDBHandler(MetadataHandler):
     def __init__(self) -> None:
         self.igdb_service = IGDBService(twitch_auth=TwitchAuth())
@@ -484,14 +528,7 @@ class IGDBHandler(MetadataHandler):
             limit=self.pagination_limit,
         )
 
-        games_by_name: dict[str, Game] = {}
-        for game in roms:
-            game_name = game.get("name", "")
-            if (
-                game_name not in games_by_name
-                or game["id"] < games_by_name[game_name]["id"]
-            ):
-                games_by_name[game_name] = game
+        games_by_name = _index_games_by_searchable_name(roms)
 
         best_match, best_score = self.find_best_match(
             search_term,
@@ -533,11 +570,7 @@ class IGDBHandler(MetadataHandler):
                 limit=self.pagination_limit,
             )
 
-            extra_games_by_name: dict[str, Game] = {}
-            for game in extra_roms:
-                game_name = game.get("name", "")
-                if game_name not in extra_games_by_name:
-                    extra_games_by_name[game_name] = game
+            extra_games_by_name = _index_games_by_searchable_name(extra_roms)
 
             best_match, best_score = self.find_best_match(
                 search_term,
