@@ -36,6 +36,23 @@ PSP_IGDB_ID: Final = 38
 SWITCH_IGDB_ID: Final = 130
 ARCADE_IGDB_IDS: Final = [52, 79, 80]
 
+# IGDB catalogues a console and its regional twin (e.g. the Super Nintendo and
+# the Japanese Super Famicom) as two separate platforms. A game released in only
+# one region is filed under just one of the pair, so a search locked to a single
+# platform silently misses region-exclusive titles. Map each platform to its
+# twin so searches can include both. See https://github.com/rommapp/romm/issues/3462.
+SNES_IGDB_ID: Final = 19
+SUPER_FAMICOM_IGDB_ID: Final = 58
+NES_IGDB_ID: Final = 18
+FAMICOM_IGDB_ID: Final = 99
+
+IGDB_REGIONAL_TWIN_PLATFORMS: Final[dict[int, int]] = {
+    SNES_IGDB_ID: SUPER_FAMICOM_IGDB_ID,
+    SUPER_FAMICOM_IGDB_ID: SNES_IGDB_ID,
+    NES_IGDB_ID: FAMICOM_IGDB_ID,
+    FAMICOM_IGDB_ID: NES_IGDB_ID,
+}
+
 # Regex to detect IGDB ID tags in filenames like (igdb-12345)
 IGDB_TAG_REGEX = re.compile(r"\(igdb-(\d+)\)", re.IGNORECASE)
 
@@ -432,6 +449,31 @@ def build_igdb_rom(
     )
 
 
+def _platform_igdb_ids_with_twin(platform_igdb_id: int) -> list[int]:
+    """Return the IGDB platform id plus its regional twin, if any.
+
+    IGDB splits region-twin consoles (SNES/Super Famicom, NES/Famicom) into
+    separate platforms, so region-exclusive titles are catalogued under only one
+    of the pair. Including both lets a Japan-only Super Famicom game match from
+    an ``snes`` library and vice-versa. See issue #3462.
+    """
+    twin = IGDB_REGIONAL_TWIN_PLATFORMS.get(platform_igdb_id)
+    return [platform_igdb_id, twin] if twin is not None else [platform_igdb_id]
+
+
+def _build_platforms_where(platform_igdb_id: int, field: str = "platforms") -> str:
+    """Build an IGDB ``where`` fragment matching the platform or its regional twin.
+
+    A platform without a twin keeps the original single-clause shape
+    (``platforms=[19]``); a twin produces a parenthesized OR group
+    (``(platforms=[19] | platforms=[58])``) so it composes correctly with any
+    trailing ``&`` filters.
+    """
+    ids = _platform_igdb_ids_with_twin(platform_igdb_id)
+    clause = " | ".join(f"{field}=[{pid}]" for pid in ids)
+    return f"({clause})" if len(ids) > 1 else clause
+
+
 def _index_games_by_searchable_name(games: list[Game]) -> dict[str, Game]:
     """Map every searchable title of each game to the game it belongs to.
 
@@ -513,7 +555,7 @@ class IGDBHandler(MetadataHandler):
             game_type_filter = ""
 
         log.debug("Searching in games endpoint with game_type %s", game_type_filter)
-        where_filter = f"platforms=[{platform_igdb_id}] {game_type_filter}"
+        where_filter = f"{_build_platforms_where(platform_igdb_id)} {game_type_filter}"
 
         # Special case for ScummVM games
         # https://github.com/rommapp/romm/issues/2424
@@ -543,7 +585,7 @@ class IGDBHandler(MetadataHandler):
         log.debug("Searching expanded in search endpoint")
         roms_expanded = await self.igdb_service.search(
             fields=SEARCH_FIELDS,
-            where=f'game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*)',
+            where=f'{_build_platforms_where(platform_igdb_id, field="game.platforms")} & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*)',
             limit=self.pagination_limit,
         )
 
@@ -776,13 +818,13 @@ class IGDBHandler(MetadataHandler):
         matched_roms = await self.igdb_service.list_games(
             search_term=search_term,
             fields=GAMES_FIELDS,
-            where=f"platforms=[{platform_igdb_id}]",
+            where=_build_platforms_where(platform_igdb_id),
             limit=self.pagination_limit,
         )
 
         alternative_matched_roms = await self.igdb_service.search(
             fields=SEARCH_FIELDS,
-            where=f'game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*)',
+            where=f'{_build_platforms_where(platform_igdb_id, field="game.platforms")} & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*)',
             limit=self.pagination_limit,
         )
 

@@ -5,7 +5,15 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from adapters.services.igdb_types import GameType
-from handler.metadata.igdb_handler import IGDBHandler
+from handler.metadata.igdb_handler import (
+    FAMICOM_IGDB_ID,
+    NES_IGDB_ID,
+    SNES_IGDB_ID,
+    SUPER_FAMICOM_IGDB_ID,
+    IGDBHandler,
+    _build_platforms_where,
+    _platform_igdb_ids_with_twin,
+)
 
 GENESIS_IGDB_ID = 29
 
@@ -406,3 +414,246 @@ class TestSearchRomLocalizedNames:
             "Expected the game whose primary name is 'Contra' (id=100), not the "
             f"game that merely lists it as an alternative name; got id={result.get('id')}"
         )
+
+
+class TestRegionalTwinPlatformHelpers:
+    """Unit tests for the regional-twin platform helpers (issue #3462).
+
+    IGDB files a console and its regional twin (SNES/Super Famicom,
+    NES/Famicom) under separate platform ids, so a search must include both to
+    match region-exclusive titles.
+    """
+
+    def test_twin_pairs_are_bidirectional(self):
+        """Each console resolves to its regional twin in both directions."""
+        assert _platform_igdb_ids_with_twin(SNES_IGDB_ID) == [
+            SNES_IGDB_ID,
+            SUPER_FAMICOM_IGDB_ID,
+        ]
+        assert _platform_igdb_ids_with_twin(SUPER_FAMICOM_IGDB_ID) == [
+            SUPER_FAMICOM_IGDB_ID,
+            SNES_IGDB_ID,
+        ]
+        assert _platform_igdb_ids_with_twin(NES_IGDB_ID) == [
+            NES_IGDB_ID,
+            FAMICOM_IGDB_ID,
+        ]
+        assert _platform_igdb_ids_with_twin(FAMICOM_IGDB_ID) == [
+            FAMICOM_IGDB_ID,
+            NES_IGDB_ID,
+        ]
+
+    def test_non_twin_platform_has_no_twin(self):
+        """A platform without a regional twin resolves to itself only."""
+        assert _platform_igdb_ids_with_twin(GENESIS_IGDB_ID) == [GENESIS_IGDB_ID]
+
+    def test_build_where_single_platform_is_unparenthesized(self):
+        """A non-twin platform keeps the original single-clause shape."""
+        assert (
+            _build_platforms_where(GENESIS_IGDB_ID) == f"platforms=[{GENESIS_IGDB_ID}]"
+        )
+        assert (
+            _build_platforms_where(GENESIS_IGDB_ID, field="game.platforms")
+            == f"game.platforms=[{GENESIS_IGDB_ID}]"
+        )
+
+    def test_build_where_twin_platform_is_an_or_group(self):
+        """A twin platform produces a parenthesized OR of both platform ids."""
+        assert (
+            _build_platforms_where(SNES_IGDB_ID)
+            == f"(platforms=[{SNES_IGDB_ID}] | platforms=[{SUPER_FAMICOM_IGDB_ID}])"
+        )
+        assert (
+            _build_platforms_where(NES_IGDB_ID, field="game.platforms")
+            == f"(game.platforms=[{NES_IGDB_ID}] | game.platforms=[{FAMICOM_IGDB_ID}])"
+        )
+
+
+class TestSearchRomRegionalTwinPlatforms:
+    """Tests that IGDB search includes a platform's regional twin (issue #3462).
+
+    A Japan-only Super Famicom title (e.g. *Rudra no Hihou*) lives only under
+    IGDB's Super Famicom platform, so an ``snes`` scan that filtered to the SNES
+    platform alone would silently drop it. The search must query both twins.
+    """
+
+    @pytest.mark.asyncio
+    async def test_snes_search_matches_super_famicom_only_game(self):
+        """A Super-Famicom-only game must match when scanned from ``snes``."""
+        handler = IGDBHandler()
+
+        # Rudra no Hihou is catalogued under Super Famicom (58) only.
+        rudra = _make_game(829, "Rudra no Hihou")
+        captured_wheres: list[str] = []
+
+        async def mock_list_games(
+            search_term=None, fields=None, where=None, limit=None
+        ):
+            captured_wheres.append(where or "")
+            # IGDB only surfaces the game when the Super Famicom platform is
+            # part of the filter.
+            if where and f"platforms=[{SUPER_FAMICOM_IGDB_ID}]" in where:
+                return [rudra]
+            return []
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "list_games",
+                side_effect=mock_list_games,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "search",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+        ):
+            result = await handler._search_rom(
+                "rudra no hihou", SNES_IGDB_ID, with_game_type=True
+            )
+
+        assert result is not None
+        assert result["id"] == 829, (
+            "Expected Rudra no Hihou (id=829) to match from an snes scan via the "
+            f"Super Famicom platform; got {result.get('name')} (id={result.get('id')})"
+        )
+        # The primary platform filter must mention both twins.
+        assert any(
+            f"platforms=[{SNES_IGDB_ID}]" in w
+            and f"platforms=[{SUPER_FAMICOM_IGDB_ID}]" in w
+            for w in captured_wheres
+        ), f"Expected SNES + Super Famicom in the platform filter, got: {captured_wheres}"
+
+    @pytest.mark.asyncio
+    async def test_nes_search_matches_famicom_only_game(self):
+        """A Famicom-only game must match when scanned from ``nes``."""
+        handler = IGDBHandler()
+
+        famicom_only = _make_game(1234, "Famicom Mukashi Banashi")
+        captured_wheres: list[str] = []
+
+        async def mock_list_games(
+            search_term=None, fields=None, where=None, limit=None
+        ):
+            captured_wheres.append(where or "")
+            if where and f"platforms=[{FAMICOM_IGDB_ID}]" in where:
+                return [famicom_only]
+            return []
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "list_games",
+                side_effect=mock_list_games,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "search",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+        ):
+            result = await handler._search_rom(
+                "famicom mukashi banashi", NES_IGDB_ID, with_game_type=True
+            )
+
+        assert result is not None
+        assert result["id"] == 1234
+        assert any(
+            f"platforms=[{NES_IGDB_ID}]" in w and f"platforms=[{FAMICOM_IGDB_ID}]" in w
+            for w in captured_wheres
+        ), f"Expected NES + Famicom in the platform filter, got: {captured_wheres}"
+
+    @pytest.mark.asyncio
+    async def test_super_famicom_search_matches_snes_only_game(self):
+        """A Western-only SNES game must match when scanned from ``sfam``."""
+        handler = IGDBHandler()
+
+        snes_only = _make_game(4321, "EarthBound")
+        captured_wheres: list[str] = []
+
+        async def mock_list_games(
+            search_term=None, fields=None, where=None, limit=None
+        ):
+            captured_wheres.append(where or "")
+            if where and f"platforms=[{SNES_IGDB_ID}]" in where:
+                return [snes_only]
+            return []
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "list_games",
+                side_effect=mock_list_games,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "search",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+        ):
+            result = await handler._search_rom(
+                "earthbound", SUPER_FAMICOM_IGDB_ID, with_game_type=True
+            )
+
+        assert result is not None
+        assert result["id"] == 4321
+
+    @pytest.mark.asyncio
+    async def test_non_twin_platform_filter_is_single_platform(self):
+        """A platform without a twin must keep querying only its own id."""
+        handler = IGDBHandler()
+
+        game = _make_game(1799, "Ecco the Dolphin")
+        captured_wheres: list[str] = []
+
+        async def mock_list_games(
+            search_term=None, fields=None, where=None, limit=None
+        ):
+            captured_wheres.append(where or "")
+            return [game]
+
+        with (
+            patch(
+                "handler.metadata.igdb_handler.IGDBHandler.is_enabled",
+                return_value=True,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "list_games",
+                side_effect=mock_list_games,
+            ),
+            patch.object(
+                handler.igdb_service,
+                "search",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+        ):
+            result = await handler._search_rom(
+                "ecco the dolphin", GENESIS_IGDB_ID, with_game_type=True
+            )
+
+        assert result is not None
+        assert result["id"] == 1799
+        # No twin → no OR group, just the single platform clause.
+        assert all(
+            " | " not in w for w in captured_wheres
+        ), f"Non-twin platform should not OR a twin platform, got: {captured_wheres}"
+        assert any(
+            f"platforms=[{GENESIS_IGDB_ID}]" in w for w in captured_wheres
+        ), captured_wheres
