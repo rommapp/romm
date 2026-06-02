@@ -14,7 +14,7 @@ from handler.database import (
 )
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from models.user import Role, User
 
 
@@ -71,6 +71,40 @@ def test_roms(rom: Rom, platform: Platform):
 
     roms = db_rom_handler.get_roms_scalar(platform_ids=[platform.id])
     assert len(roms) == 1
+
+
+def test_multi_file_rom_backref_survives_session_close(rom: Rom, platform: Platform):
+    """Multi-file ROM downloads read `file.rom.full_path` after the handler
+    session closes. The detail loaders eager-load `Rom.files` but not the
+    reverse `RomFile.rom` relationship, so without the backref being populated
+    this raises `DetachedInstanceError` (a 500 on the download endpoint).
+    """
+    folder_path = f"{rom.fs_path}/{rom.fs_name}"
+    for file_name in ("disc1.bin", "disc2.bin"):
+        db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name=file_name,
+                file_path=folder_path,
+                file_size_bytes=1,
+            )
+        )
+
+    fetched = db_rom_handler.get_rom(rom.id)
+    assert fetched is not None
+    assert len(fetched.files) == 2
+
+    # These all dereference `file.rom` on a now-detached instance.
+    for file in fetched.files:
+        assert file.rom.full_path == folder_path
+        assert file.is_top_level
+        assert file.file_name_for_download() == file.file_name
+
+    # `get_roms_by_ids` (used by the bulk zip download) must behave the same.
+    by_ids = db_rom_handler.get_roms_by_ids([rom.id])
+    assert len(by_ids) == 1
+    for file in by_ids[0].files:
+        assert file.rom.full_path == folder_path
 
 
 def test_filter_last_played(rom: Rom, platform: Platform, admin_user: User):
