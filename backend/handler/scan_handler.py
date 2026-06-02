@@ -373,20 +373,6 @@ async def scan_rom(
             }
         )
 
-    # Files fed to metadata matchers: the freshly-scanned filesystem files, or
-    # the persisted files as a fallback. `rom` is detached and no longer carries
-    # eager-loaded files (get_roms_by_fs_name only loads `platform`), so fetch
-    # persisted files on demand — and only when the filesystem yielded none.
-    _persisted_files: list[RomFile] | None = None
-
-    def rom_files_for_matching() -> list[RomFile]:
-        nonlocal _persisted_files
-        if fs_rom["files"]:
-            return fs_rom["files"]
-        if _persisted_files is None:
-            _persisted_files = db_rom_handler.get_rom_files_by_rom_id(rom.id)
-        return _persisted_files
-
     async def fetch_playmatch_hash_match() -> PlaymatchRomMatch:
         if (
             meta_playmatch_handler.is_enabled()
@@ -399,7 +385,7 @@ async def scan_rom(
                 or scan_type == ScanType.UNMATCHED
             )
         ):
-            return await meta_playmatch_handler.lookup_rom(rom_files_for_matching())
+            return await meta_playmatch_handler.lookup_rom(fs_rom["files"])
 
         return PlaymatchRomMatch(
             igdb_id=None,
@@ -432,7 +418,7 @@ async def scan_rom(
             )
         ):
             return await meta_hasheous_handler.lookup_rom(
-                platform.slug, rom_files_for_matching()
+                platform.slug, fs_rom["files"]
             )
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
@@ -659,7 +645,7 @@ async def scan_rom(
 
             # Use the file hashes for lookup
             game_by_hash, is_not_game = await meta_ss_handler.lookup_rom(
-                rom, platform.ss_id, rom_files_for_matching()
+                rom, platform.ss_id, fs_rom["files"]
             )
             if game_by_hash.get("ss_id") or is_not_game:
                 return game_by_hash

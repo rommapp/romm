@@ -1187,29 +1187,6 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(select(RomFile).filter_by(id=id).limit(1))
 
     @begin_session
-    def get_rom_files_by_rom_id(
-        self,
-        rom_id: int,
-        session: Session = None,  # type: ignore
-    ) -> list[RomFile]:
-        """Return a ROM's files with the parent `rom` backref eager-loaded.
-
-        Used by the scan fallback when the filesystem yielded no files: the
-        backref keeps `is_top_level` / `file_name_for_download` usable on the
-        detached results without `get_roms_by_fs_name` eager-loading files for
-        every ROM in a scan batch.
-        """
-        return list(
-            session.scalars(
-                select(RomFile)
-                .options(joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name))
-                .filter_by(rom_id=rom_id)
-            )
-            .unique()
-            .all()
-        )
-
-    @begin_session
     def update_rom_file(
         self,
         id: int,
