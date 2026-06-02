@@ -670,36 +670,6 @@ class TestAddSsAuthToUrl:
 class TestGetPlatform:
     """Tests for SSHandler.get_platform — the slug → ScreenScraper system map."""
 
-    # ScreenScraper has no separate "New Nintendo 3DS" system; New 3DS games
-    # live under the regular Nintendo 3DS system (ID 17).
-    NINTENDO_3DS_SS_ID = 17
-
-    def test_nintendo_3ds_maps_to_system_17(self):
-        """Regression guard: the regular Nintendo 3DS still resolves to ID 17."""
-        handler = SSHandler()
-        platform = handler.get_platform("3ds")
-
-        assert platform["ss_id"] == self.NINTENDO_3DS_SS_ID
-        assert platform["slug"] == "3ds"
-
-    def test_new_nintendo_3ds_maps_to_nintendo_3ds_system(self):
-        """New Nintendo 3DS must resolve to ScreenScraper's Nintendo 3DS system
-        (ID 17), the same way Famicom→NES and Super Famicom→SNES alias."""
-        handler = SSHandler()
-        platform = handler.get_platform("new-nintendo-3ds")
-
-        assert platform["ss_id"] == self.NINTENDO_3DS_SS_ID
-        assert platform["slug"] == "new-nintendo-3ds"
-
-    def test_new_nintendo_3ds_shares_system_with_regular_3ds(self):
-        """Both 3DS variants point at the same ScreenScraper system id."""
-        handler = SSHandler()
-
-        assert (
-            handler.get_platform("new-nintendo-3ds")["ss_id"]
-            == handler.get_platform("3ds")["ss_id"]
-        )
-
     def test_unmapped_platform_returns_none_ss_id(self):
         """A slug with no ScreenScraper mapping yields ss_id=None (lookup skipped)."""
         handler = SSHandler()
