@@ -47,7 +47,7 @@ from logger.logger import log
 from models.assets import Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import Rom, RomFile
+from models.rom import Rom
 from models.user import User
 from utils import emoji
 
