@@ -25,12 +25,12 @@ from sqlalchemy.orm import (
     Query,
     QueryableAttribute,
     Session,
+    joinedload,
     load_only,
     noload,
     selectinload,
     undefer,
 )
-from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select
 
@@ -124,26 +124,6 @@ def _create_metadata_id_case(
     )
 
 
-def _link_rom_files_to_parent(result: "Rom | Iterable[Rom] | None") -> None:
-    """Populate the `RomFile.rom` backref from the already-loaded parent ROM.
-
-    The detail/download loaders eager-load `Rom.files` but not the reverse
-    `RomFile.rom` relationship. `RomFile.full_path` / `is_top_level` /
-    `file_name_for_download` read `self.rom`, which would otherwise trigger a
-    lazy load that fails once the session closes (`DetachedInstanceError`,
-    surfacing as a 500 on multi-file ROM downloads). We already hold the parent
-    in memory, so wire the backref up directly instead of re-adding a per-file
-    `joinedload` (which would undo the gallery query gains from #3425).
-    """
-    if result is None:
-        return
-
-    roms = [result] if isinstance(result, Rom) else result
-    for rom in roms:
-        for file in rom.files:
-            set_committed_value(file, "rom", rom)
-
-
 def with_details(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -163,7 +143,13 @@ def with_details(func):
             ),
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            selectinload(Rom.files),
+            # `is_top_level` / `file_name_for_download` (multi-file downloads,
+            # 3DS QR codes, metadata matching) read `RomFile.rom.full_path`, so
+            # eager-load the parent's path columns to avoid a lazy load on a
+            # detached instance once the session closes.
+            selectinload(Rom.files).options(
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+            ),
             selectinload(Rom.sibling_roms).options(
                 load_only(
                     Rom.id,
@@ -179,9 +165,7 @@ def with_details(func):
             undefer(Rom.multi_file),
             undefer(Rom.top_level_file_count),
         )
-        result = func(*args, **kwargs)
-        _link_rom_files_to_parent(result)
-        return result
+        return func(*args, **kwargs)
 
     return wrapper
 
@@ -1003,7 +987,9 @@ class DBRomsHandler(DBBaseHandler):
                 select(Rom)
                 .options(
                     selectinload(Rom.platform),
-                    selectinload(Rom.files),
+                    selectinload(Rom.files).options(
+                        joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+                    ),
                 )
                 .where(
                     and_(
@@ -1016,7 +1002,6 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
 
-        _link_rom_files_to_parent(roms)
         return {rom.fs_name: rom for rom in roms}
 
     @begin_session
