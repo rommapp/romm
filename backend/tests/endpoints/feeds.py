@@ -293,6 +293,17 @@ def test_pkgj_psp_games_feed(
         },
     )
 
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Test PSP Game.pkg",
+            file_path=f"{platform.slug}/roms",
+            file_size_bytes=456,
+            sha1_hash="beadfeed",
+            category=RomFileCategory.GAME,
+        )
+    )
+
     response = client.get(
         "/api/feeds/pkgj/psp/games",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -323,6 +334,17 @@ def test_pkgj_psp_dlc_feed(
             "sha1_hash": "deadbeef",
             "regions": ["US"],
         },
+    )
+
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Test PSP DLC.pkg",
+            file_path=f"{platform.slug}/roms",
+            file_size_bytes=456,
+            sha1_hash="beadfeed",
+            category=RomFileCategory.DLC,
+        )
     )
 
     response = client.get(
@@ -357,6 +379,17 @@ def test_pkgj_psvita_games_feed(
         },
     )
 
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Test PSV Game.pkg",
+            file_path=f"{platform.slug}/roms",
+            file_size_bytes=456,
+            sha1_hash="beadfeed",
+            category=RomFileCategory.GAME,
+        )
+    )
+
     response = client.get(
         "/api/feeds/pkgj/psvita/games",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -389,6 +422,17 @@ def test_pkgj_psvita_dlc_feed(
         },
     )
 
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Test PSV DLC.pkg",
+            file_path=f"{platform.slug}/roms",
+            file_size_bytes=456,
+            sha1_hash="beadfeed",
+            category=RomFileCategory.DLC,
+        )
+    )
+
     response = client.get(
         "/api/feeds/pkgj/psvita/dlc",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -418,6 +462,17 @@ def test_pkgj_psx_games_feed(
             "sha1_hash": "deadbeef",
             "regions": ["US"],
         },
+    )
+
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Test PSX Game.pkg",
+            file_path=f"{platform.slug}/roms",
+            file_size_bytes=456,
+            sha1_hash="beadfeed",
+            category=RomFileCategory.GAME,
+        )
     )
 
     response = client.get(
