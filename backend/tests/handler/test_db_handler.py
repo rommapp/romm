@@ -96,6 +96,22 @@ def test_multi_file_rom_backref_survives_session_close(multi_file_rom: Rom):
         assert file.rom.full_path == folder_path
 
 
+def test_get_rom_files_by_rom_id_eager_loads_parent(multi_file_rom: Rom):
+    """The scan fallback fetches a ROM's files on demand (since
+    `get_roms_by_fs_name` no longer eager-loads them). The returned files must
+    carry the `rom` backref so `is_top_level` works on the detached results.
+    """
+    folder_path = f"{multi_file_rom.fs_path}/{multi_file_rom.fs_name}"
+
+    files = db_rom_handler.get_rom_files_by_rom_id(multi_file_rom.id)
+
+    assert {f.file_name for f in files} == {"disc1.bin", "disc2.bin"}
+    for file in files:
+        # Detached access — would raise DetachedInstanceError without the backref.
+        assert file.rom.full_path == folder_path
+        assert file.is_top_level
+
+
 def test_filter_last_played(rom: Rom, platform: Platform, admin_user: User):
     second_rom = db_rom_handler.add_rom(
         Rom(
