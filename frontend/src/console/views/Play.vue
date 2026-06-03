@@ -36,6 +36,7 @@ import {
   getDownloadPath,
 } from "@/utils";
 import { buildFormInput } from "@/utils/formData";
+import { invalidateEmulatorJSRomCacheIfRenamed } from "@/views/Player/EmulatorJS/utils";
 
 const { t } = useI18n();
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
@@ -414,6 +415,7 @@ async function boot() {
   window.EJS_controlScheme = getControlSchemeForPlatform(rom.platform_slug);
   window.EJS_threads = areThreadsRequiredForEJSCore(core);
   window.EJS_gameID = rom.id;
+  invalidateEmulatorJSRomCacheIfRenamed(rom);
 
   if (initialSaveId) {
     // Persist chosen save ID for later logic

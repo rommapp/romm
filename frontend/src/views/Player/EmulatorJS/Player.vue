@@ -30,6 +30,7 @@ import {
   saveState,
   loadEmulatorJSSave,
   loadEmulatorJSState,
+  invalidateEmulatorJSRomCacheIfRenamed,
   createQuickLoadButton,
   createSaveQuitButton,
   createExitEmulationButton,
@@ -135,6 +136,7 @@ window.EJS_controlScheme = getControlSchemeForPlatform(
 );
 window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
 window.EJS_gameID = romRef.value.id;
+invalidateEmulatorJSRomCacheIfRenamed(romRef.value);
 window.EJS_gameUrl = getDownloadPath({
   rom: romRef.value,
   fileIDs: props.disc ? [props.disc] : [],
