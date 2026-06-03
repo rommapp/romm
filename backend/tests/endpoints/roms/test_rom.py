@@ -59,6 +59,62 @@ def test_get_all_roms(
     assert items[0]["id"] == rom.id
 
 
+def test_get_rom_content_requires_auth(client: TestClient, rom: Rom, rom_file):
+    response = client.get(f"/api/roms/{rom.id}/content/test_rom.zip")
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_rom_content_single_file(
+    client: TestClient, access_token: str, rom: Rom, rom_file
+):
+    response = client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_200_OK
+    # Single-file roms are proxied through nginx via X-Accel-Redirect.
+    assert "X-Accel-Redirect" in response.headers
+
+
+def test_get_rom_content_valid_file_id(
+    client: TestClient, access_token: str, rom: Rom, rom_file
+):
+    response = client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"file_ids": str(rom_file.id)},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert "X-Accel-Redirect" in response.headers
+
+
+def test_get_rom_content_stale_file_id_returns_404(
+    client: TestClient, access_token: str, rom: Rom, rom_file
+):
+    # Regression test for #3470: a remembered file id that no longer exists
+    # (e.g. after a rename gave the file a new id) must return a clean 404
+    # instead of an empty-.m3u ZIP that nginx aborts as a 0-byte response.
+    stale_file_id = rom_file.id + 999
+    response = client.get(
+        f"/api/roms/{rom.id}/content/test_rom.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"file_ids": str(stale_file_id)},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_get_rom_content_missing_rom_returns_404(client: TestClient, access_token: str):
+    response = client.get(
+        "/api/roms/999999/content/missing.zip",
+        headers={"Authorization": f"Bearer {access_token}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 @patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom(

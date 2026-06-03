@@ -23,7 +23,7 @@ from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 from models.platform import Platform
 from models.play_session import PlaySession
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from models.sync_session import SyncSession
 from models.user import Role, User
 
@@ -86,6 +86,18 @@ def rom(admin_user: User, platform: Platform):
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
 
     return rom
+
+
+@pytest.fixture
+def rom_file(rom: Rom):
+    """A single content file attached to the `rom` fixture."""
+    rom_file = RomFile(
+        rom_id=rom.id,
+        file_name="test_rom.zip",
+        file_path=rom.fs_path,
+        file_size_bytes=1000,
+    )
+    return db_rom_handler.add_rom_file(rom_file)
 
 
 @pytest.fixture
