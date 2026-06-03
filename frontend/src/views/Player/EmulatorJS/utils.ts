@@ -146,6 +146,20 @@ export function loadEmulatorJSState(state: Uint8Array) {
   window.EJS_emulator.gameManager.loadState(state);
 }
 
+export function invalidateEmulatorJSRomCacheIfRenamed(rom: {
+  id: number;
+  fs_name: string;
+}) {
+  const fsNameStorageKey = `player:${rom.id}:fs_name`;
+  const previousFsName = localStorage.getItem(fsNameStorageKey);
+
+  if (previousFsName && previousFsName !== rom.fs_name) {
+    window.indexedDB.deleteDatabase("EmulatorJS-roms");
+  }
+
+  localStorage.setItem(fsNameStorageKey, rom.fs_name);
+}
+
 const IOS_FULLSCREEN_NAV_SELECTOR =
   ".v-app-bar, .v-bottom-navigation, .v-navigation-drawer";
 const IOS_FULLSCREEN_STYLE = `
