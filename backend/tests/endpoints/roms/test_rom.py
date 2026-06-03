@@ -128,6 +128,30 @@ def test_update_rom_reparses_tags_on_fs_name_change(
     assert body["tags"] == []
 
 
+@patch.object(FSRomsHandler, "rename_fs_rom")
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+def test_update_rom_adds_region_tag_on_rename(
+    rename_fs_rom_mock: AsyncMock,
+    get_rom_by_id_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    """Renaming an untagged ROM to add ``(Europe)`` surfaces the region (issue #3471)."""
+    assert rom.regions == []
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"fs_name": "test_rom (Europe).zip"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    body = response.json()
+    assert body["fs_name"] == "test_rom (Europe).zip"
+    assert body["regions"] == ["Europe"]
+
+
 # Minimal valid PNG (1x1 transparent pixel)
 _PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n"
