@@ -38,6 +38,29 @@ def test_get_rom(client: TestClient, access_token: str, rom: Rom):
     assert body["id"] == rom.id
 
 
+def test_download_multi_file_rom_content(
+    client: TestClient, access_token: str, multi_file_rom: Rom
+):
+    """Downloading a multi-file (game folder) ROM must not 500.
+
+    The download endpoint builds each manifest entry's name from
+    `file.rom.full_path` after the handler session has closed; a missing
+    `RomFile.rom` back-reference previously raised `DetachedInstanceError`.
+    """
+    response = client.get(
+        f"/api/roms/{multi_file_rom.id}/content/{multi_file_rom.fs_name}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    # mod_zip manifest: one line per file, plus a generated .m3u playlist.
+    assert response.headers["X-Archive-Files"] == "zip"
+    body = response.text
+    assert "disc1.bin" in body
+    assert "disc2.bin" in body
+    assert f"{multi_file_rom.fs_name}.m3u" in body
+
+
 def test_get_all_roms(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):

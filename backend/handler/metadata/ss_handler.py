@@ -2,7 +2,7 @@ import html
 import re
 from datetime import datetime
 from typing import Final, NotRequired, TypedDict
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 
 import pydash
 from unidecode import unidecode as uc
@@ -624,7 +624,7 @@ class SSHandler(MetadataHandler):
             return None
 
         roms = await self.ss_service.search_games(
-            term=quote(uc(search_term), safe="/ "),
+            term=uc(search_term),
             system_id=platform_ss_id,
         )
 
@@ -873,7 +873,7 @@ class SSHandler(MetadataHandler):
             return []
 
         matched_games = await self.ss_service.search_games(
-            term=quote(uc(search_term), safe="/ "),
+            term=uc(search_term),
             system_id=platform_ss_id,
         )
 
@@ -997,6 +997,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Neo-Geo Pocket Color",
     },
     UPS.N3DS: {"id": 17, "name": "Nintendo 3DS"},
+    UPS.NEW_NINTENDON3DS: {"id": 17, "name": "Nintendo 3DS"},
     UPS.N64: {"id": 14, "name": "Nintendo 64"},
     UPS.N64DD: {"id": 122, "name": "Nintendo 64DD"},
     UPS.NDS: {"id": 15, "name": "Nintendo DS"},
