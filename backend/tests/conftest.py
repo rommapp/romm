@@ -90,6 +90,18 @@ def rom(admin_user: User, platform: Platform):
 
 
 @pytest.fixture
+def rom_file(rom: Rom):
+    """A single content file attached to the `rom` fixture."""
+    rom_file = RomFile(
+        rom_id=rom.id,
+        file_name="test_rom.zip",
+        file_path=rom.fs_path,
+        file_size_bytes=1000,
+    )
+    return db_rom_handler.add_rom_file(rom_file)
+
+
+@pytest.fixture
 def multi_file_rom(admin_user: User, platform: Platform):
     """A ROM stored as a game folder with multiple files (e.g. multi-disc).
 
