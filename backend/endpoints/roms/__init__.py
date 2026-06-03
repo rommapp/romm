@@ -951,7 +951,7 @@ async def get_rom_content(
     if not files:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No files found for rom {id}",
+            detail=f"No files found for ROM {id}",
         )
 
     log.info(
