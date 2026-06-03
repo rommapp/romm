@@ -831,3 +831,97 @@ class TestLookupRom:
             )
         assert result["ss_id"] is None
         assert is_not_game is True
+
+
+class TestSearchTermEncoding:
+    """Regression tests for issue #3467: the SS name-search term must be
+    URL-encoded exactly once.
+
+    The handler must pass the *raw* (un-percent-encoded) term to the service
+    layer, which percent-encodes it a single time when building the request URL
+    via ``with_query(...)``. Pre-encoding the term in the handler caused a
+    second round of encoding (``%2B`` -> ``%252B``), so ScreenScraper searched
+    for literal gibberish and returned no match for any title containing a
+    character that has to be URL-encoded (``+``, ``&``, an apostrophe, ...).
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("search_term", "literal", "double_encoded"),
+        [
+            ("super mario 3d world + bowsers fury", "+", "%2B"),
+            ("sonic & knuckles", "&", "%26"),
+            ("marvel's spider-man", "'", "%27"),
+        ],
+    )
+    async def test_search_rom_passes_unencoded_term_to_service(
+        self, search_term, literal, double_encoded
+    ):
+        """``_search_rom`` hands the service a term that is not pre-encoded."""
+        handler = SSHandler()
+        captured: dict = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return []
+
+        with patch.object(handler.ss_service, "search_games", side_effect=capture):
+            await handler._search_rom(search_term, 225)
+
+        term = captured["term"]
+        assert literal in term
+        assert double_encoded not in term
+
+    @pytest.mark.asyncio
+    async def test_search_rom_still_transliterates_unicode(self):
+        """Unidecode is still applied so accented titles match ScreenScraper."""
+        handler = SSHandler()
+        captured: dict = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return []
+
+        with patch.object(handler.ss_service, "search_games", side_effect=capture):
+            await handler._search_rom("Pokémon Snap", 14)
+
+        assert captured["term"] == "Pokemon Snap"
+
+    @pytest.mark.asyncio
+    async def test_get_matched_roms_by_name_passes_unencoded_term(self):
+        """``get_matched_roms_by_name`` also avoids pre-encoding the term."""
+        handler = SSHandler()
+        captured: dict = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return []
+
+        with (
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_USER", "user1"),
+            patch("handler.metadata.ss_handler.SCREENSCRAPER_PASSWORD", "pw1"),
+            patch.object(handler.ss_service, "search_games", side_effect=capture),
+        ):
+            await handler.get_matched_roms_by_name(MagicMock(), "sonic & knuckles", 1)
+
+        term = captured["term"]
+        assert "&" in term
+        assert "%26" not in term
+
+    @pytest.mark.asyncio
+    async def test_search_rom_url_single_encodes_plus(self):
+        """End-to-end through the real service: a ``+`` is encoded exactly once
+        in the request URL (``%2B``), never doubly (``%252B``)."""
+        handler = SSHandler()
+        captured: dict = {}
+
+        async def capture_request(url, *args, **kwargs):
+            captured["url"] = url
+            return {"response": {"jeux": []}}
+
+        with patch.object(handler.ss_service, "_request", side_effect=capture_request):
+            await handler._search_rom("super mario 3d world + bowsers fury", 225)
+
+        url = captured["url"]
+        assert "%2B" in url
+        assert "%252B" not in url
