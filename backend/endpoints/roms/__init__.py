@@ -944,6 +944,11 @@ async def get_rom_content(
         file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
         files = [f for f in files if f.id in file_id_values]
     files.sort(key=lambda x: x.file_name)
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No ROM files found for this request",
+        )
 
     log.info(
         f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"

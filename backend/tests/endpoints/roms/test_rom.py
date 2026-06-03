@@ -61,6 +61,16 @@ def test_download_multi_file_rom_content(
     assert f"{multi_file_rom.fs_name}.m3u" in body
 
 
+def test_get_rom_content_returns_404_for_rom_without_files(
+    client: TestClient, access_token: str, rom: Rom
+):
+    response = client.get(
+        f"/api/roms/{rom.id}/content/{rom.fs_name}",
+        headers={"Authorization": f"{'Bearer'} {access_token}"},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_get_all_roms(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
