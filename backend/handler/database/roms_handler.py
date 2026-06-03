@@ -25,6 +25,7 @@ from sqlalchemy.orm import (
     Query,
     QueryableAttribute,
     Session,
+    joinedload,
     load_only,
     noload,
     selectinload,
@@ -142,7 +143,10 @@ def with_details(func):
             ),
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            selectinload(Rom.files),
+            # Multi-file downloads, 3DS QR codes, and metadata matching
+            selectinload(Rom.files).options(
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+            ),
             selectinload(Rom.sibling_roms).options(
                 load_only(
                     Rom.id,
@@ -582,6 +586,7 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int | None = None,
         updated_after: datetime | None = None,
         include_file_stats: bool = False,
+        include_files: bool = False,
         session: Session = None,  # type: ignore
     ) -> Query[Rom]:
         from handler.scan_handler import MetadataSource
@@ -593,8 +598,6 @@ class DBRomsHandler(DBBaseHandler):
             selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             # Sort table by metadata (first_release_date)
             selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            # Required for multi-file ROM actions and 3DS QR code
-            selectinload(Rom.files),
             # Show sibling rom badges on cards
             selectinload(Rom.sibling_roms).options(
                 noload(Rom.platform), noload(Rom.metadatum)
@@ -602,6 +605,17 @@ class DBRomsHandler(DBBaseHandler):
             # Notes indicator on cards
             selectinload(Rom.notes),
         )
+
+        # Only load files (and the RomFile.rom backref needed by `is_top_level` /
+        # `file_name_for_download`) when the caller iterates them — e.g. the
+        # feed endpoints. The gallery/list and filter-value paths serialize
+        # SimpleRomSchema without files, so they skip this entirely.
+        if include_files:
+            query = query.options(
+                selectinload(Rom.files).options(
+                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+                )
+            )
 
         # Correlated subqueries and only undefer when the caller serializes the
         # gallery-card flags. Feeds and filter-value lookups don't need them.
@@ -911,6 +925,7 @@ class DBRomsHandler(DBBaseHandler):
             player_counts_logic=kwargs.get("player_counts_logic", "any"),
             user_id=kwargs.get("user_id", None),
             group_by_meta_id=kwargs.get("group_by_meta_id", False),
+            include_files=kwargs.get("include_files", False),
         )
         return session.scalars(roms).all()
 
@@ -980,7 +995,6 @@ class DBRomsHandler(DBBaseHandler):
                 select(Rom)
                 .options(
                     selectinload(Rom.platform),
-                    selectinload(Rom.files),
                 )
                 .where(
                     and_(
@@ -1180,6 +1194,23 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,  # type: ignore
     ) -> RomFile | None:
         return session.scalar(select(RomFile).filter_by(id=id).limit(1))
+
+    @begin_session
+    def rom_files_for_rom_id(
+        self,
+        rom_id: int,
+        session: Session = None,  # type: ignore
+    ) -> list[RomFile]:
+        """Fetch a ROM's files on demand, with the `RomFile.rom` backref loaded."""
+        return list(
+            session.scalars(
+                select(RomFile)
+                .filter_by(rom_id=rom_id)
+                .options(joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name))
+            )
+            .unique()
+            .all()
+        )
 
     @begin_session
     def update_rom_file(
