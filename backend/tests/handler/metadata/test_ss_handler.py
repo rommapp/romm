@@ -699,6 +699,103 @@ class TestLookupRom:
         f.file_name = "bios.bin"
         return f
 
+    def _make_unhashed_file(
+        self, file_name: str = "Adventure Island II (USA).nes"
+    ) -> MagicMock:
+        """A top-level file with no hashes, as produced for NON_HASHABLE_PLATFORMS
+        or when SKIP_HASH_CALCULATION is enabled."""
+        f = MagicMock()
+        f.file_size_bytes = 131072
+        f.is_top_level = True
+        f.file_extension = "nes"
+        f.md5_hash = ""
+        f.sha1_hash = ""
+        f.crc_hash = ""
+        f.file_name = file_name
+        f.archive_members = None
+        return f
+
+    @pytest.mark.asyncio
+    async def test_no_hash_still_attempts_jeuinfos_by_filename(self):
+        """A file with no hashes must still reach jeuInfos using the filename
+        (romnom) + platform (systemeid), instead of bailing out and degrading to
+        the weaker jeuRecherche name search."""
+        handler = SSHandler()
+        mock_file = self._make_unhashed_file("Adventure Island II (USA).nes")
+        captured = {}
+
+        async def capture(**kwargs):
+            captured.update(kwargs)
+            return None
+
+        with patch.object(handler.ss_service, "get_game_info", side_effect=capture):
+            result, is_not_game = await handler.lookup_rom(
+                MagicMock(platform_slug="nes"), 3, [mock_file]
+            )
+
+        assert captured, "get_game_info should be called even without hashes"
+        assert captured.get("rom_name") == "Adventure Island II (USA).nes"
+        assert captured.get("system_id") == 3
+        assert not captured.get("md5")
+        assert not captured.get("sha1")
+        assert not captured.get("crc")
+        assert result["ss_id"] is None
+        assert is_not_game is False
+
+    @pytest.mark.asyncio
+    async def test_no_hash_match_builds_game(self):
+        """When jeuInfos matches an un-hashed file by filename, the game is built
+        and returned (the romnom matcher bridges number-style differences such as
+        'Adventure Island II' -> 'Adventure Island 2')."""
+        config = _make_config(region_priority=["us"])
+        game = {
+            "id": "1234",
+            "noms": [{"region": "us", "text": "Adventure Island 2"}],
+            "medias": [],
+            "synopsis": [],
+            "dates": [],
+            "genres": [],
+            "familles": [],
+            "modes": [],
+            "joueurs": {},
+            "note": {},
+        }
+        handler = SSHandler()
+        mock_file = self._make_unhashed_file("Adventure Island II (USA).nes")
+        rom = MagicMock(platform_slug="nes", platform_id=1, id=100, regions=["USA"])
+
+        with (
+            patch("handler.metadata.ss_handler.cm.get_config", return_value=config),
+            patch.object(handler.ss_service, "get_game_info", return_value=game),
+        ):
+            result, is_not_game = await handler.lookup_rom(rom, 3, [mock_file])
+
+        assert result["ss_id"] == 1234
+        assert result["name"] == "Adventure Island 2"
+        assert is_not_game is False
+
+    @pytest.mark.asyncio
+    async def test_no_hash_no_filename_skips_lookup(self):
+        """With neither a hash nor a filename there is nothing to match on, so the
+        lookup is skipped without spending an API call."""
+        handler = SSHandler()
+        mock_file = self._make_unhashed_file(file_name="")
+        called = False
+
+        async def capture(**kwargs):
+            nonlocal called
+            called = True
+            return None
+
+        with patch.object(handler.ss_service, "get_game_info", side_effect=capture):
+            result, is_not_game = await handler.lookup_rom(
+                MagicMock(platform_slug="nes"), 3, [mock_file]
+            )
+
+        assert called is False
+        assert result["ss_id"] is None
+        assert is_not_game is False
+
     @pytest.mark.asyncio
     async def test_returns_notgame_flag_on_notgame_field(self):
         notgame_response = {
