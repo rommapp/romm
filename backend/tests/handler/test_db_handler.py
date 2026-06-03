@@ -96,6 +96,21 @@ def test_multi_file_rom_backref_survives_session_close(multi_file_rom: Rom):
         assert file.rom.full_path == folder_path
 
 
+def test_rom_files_for_rom_id_loads_backref(multi_file_rom: Rom):
+    """The scan/metadata-matching fallback fetches a ROM's files on demand and
+    reads `RomFile.is_top_level` -> `RomFile.rom.full_path`. The backref must be
+    eager-loaded so it survives the handler session closing.
+    """
+    folder_path = f"{multi_file_rom.fs_path}/{multi_file_rom.fs_name}"
+
+    files = db_rom_handler.rom_files_for_rom_id(multi_file_rom.id)
+    assert len(files) == 2
+    for file in files:
+        # Both dereference `file.rom` on a now-detached instance.
+        assert file.rom.full_path == folder_path
+        assert file.is_top_level
+
+
 def test_filter_last_played(rom: Rom, platform: Platform, admin_user: User):
     second_rom = db_rom_handler.add_rom(
         Rom(

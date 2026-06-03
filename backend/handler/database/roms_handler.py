@@ -1196,6 +1196,23 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(select(RomFile).filter_by(id=id).limit(1))
 
     @begin_session
+    def rom_files_for_rom_id(
+        self,
+        rom_id: int,
+        session: Session = None,  # type: ignore
+    ) -> list[RomFile]:
+        """Fetch a ROM's files on demand, with the `RomFile.rom` backref loaded."""
+        return list(
+            session.scalars(
+                select(RomFile)
+                .filter_by(rom_id=rom_id)
+                .options(joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name))
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
     def update_rom_file(
         self,
         id: int,
