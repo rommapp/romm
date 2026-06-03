@@ -667,6 +667,18 @@ class TestAddSsAuthToUrl:
         assert download_query.get("systemeid") == ["1"]
 
 
+class TestGetPlatform:
+    """Tests for SSHandler.get_platform — the slug → ScreenScraper system map."""
+
+    def test_unmapped_platform_returns_none_ss_id(self):
+        """A slug with no ScreenScraper mapping yields ss_id=None (lookup skipped)."""
+        handler = SSHandler()
+        platform = handler.get_platform("not-a-real-platform")
+
+        assert platform["ss_id"] is None
+        assert platform["slug"] == "not-a-real-platform"
+
+
 class TestGetRomType:
     def _file(self, ext: str, top_level: bool = True) -> MagicMock:
         f = MagicMock()

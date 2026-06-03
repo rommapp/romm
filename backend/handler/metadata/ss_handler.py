@@ -997,6 +997,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
         "name": "Neo-Geo Pocket Color",
     },
     UPS.N3DS: {"id": 17, "name": "Nintendo 3DS"},
+    UPS.NEW_NINTENDON3DS: {"id": 17, "name": "Nintendo 3DS"},
     UPS.N64: {"id": 14, "name": "Nintendo 64"},
     UPS.N64DD: {"id": 122, "name": "Nintendo 64DD"},
     UPS.NDS: {"id": 15, "name": "Nintendo DS"},
