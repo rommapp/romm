@@ -868,6 +868,12 @@ async def head_rom_content(
         files = [f for f in files if f.id in file_id_values]
     files.sort(key=lambda x: x.file_name)
 
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No files found for ROM {id}",
+        )
+
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         if len(files) == 1:
