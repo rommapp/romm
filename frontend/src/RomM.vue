@@ -32,7 +32,7 @@ languageStore.setLanguage(selectedLanguage.value);
 const uiVersion = useUiVersion();
 const themeSetting = useLocalStorage<"auto" | "dark" | "light">(
   "settings.theme",
-  "auto",
+  "dark",
 );
 
 const { idle: mouseIdle } = useIdle(100, {

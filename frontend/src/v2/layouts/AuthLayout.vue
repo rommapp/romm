@@ -27,6 +27,23 @@ import VersionTag from "@/v2/components/shared/VersionTag.vue";
   place-items: center;
   padding: var(--r-space-6);
   overflow: hidden;
+
+  /* The auth background and the AuthCard/Setup glass are always dark
+     (--r-color-canvas-bg-deep) regardless of theme, so the light-mode
+     foreground/border tokens (near-black) would be unreadable here. Force
+     the dark-mode palette for everything inside the auth layout — the page
+     text, the LanguageSelector, the VersionTag, and surface/border-driven
+     bits like the RSteps connector lines and dots. CSS custom properties
+     inherit into descendants, and the override is scoped to .r-v2-auth so
+     those shared components stay theme-driven elsewhere. */
+  --r-color-fg: #ffffff;
+  --r-color-fg-secondary: rgba(255, 255, 255, 0.75);
+  --r-color-fg-muted: rgba(255, 255, 255, 0.45);
+  --r-color-fg-faint: rgba(255, 255, 255, 0.25);
+  --r-color-surface: rgba(255, 255, 255, 0.07);
+  --r-color-surface-hover: rgba(255, 255, 255, 0.12);
+  --r-color-border: rgba(255, 255, 255, 0.07);
+  --r-color-border-strong: rgba(255, 255, 255, 0.15);
 }
 
 .r-v2-auth__bg {
@@ -58,5 +75,8 @@ import VersionTag from "@/v2/components/shared/VersionTag.vue";
   right: var(--r-space-4);
   bottom: var(--r-space-3);
   z-index: 1;
+  /* Sits directly on the background art with no card behind it, so a soft
+     black shadow keeps it legible over the lighter patches. */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
 </style>
