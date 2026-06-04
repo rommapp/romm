@@ -258,19 +258,20 @@ watch(platformsWithRomsKey, () => {
 });
 
 // Auto-scroll the live log as new platforms arrive, unless the user
-// scrolled up to read an earlier panel.
-let userScrolledUp = false;
+// scrolled down to read an earlier panel. Newest platforms are prepended,
+// so we keep the view pinned to the top.
+let userScrolledDown = false;
 watch(
   () => scanningPlatforms.value.length,
   async () => {
-    if (userScrolledUp) return;
+    if (userScrolledDown) return;
     await nextTick();
-    scanLog.value?.scrollTo({ top: scanLog.value.scrollHeight });
+    scanLog.value?.scrollTo({ top: 0 });
   },
 );
 function onScroll(e: Event) {
   const el = e.target as HTMLDivElement;
-  userScrolledUp = el.scrollTop + el.clientHeight + 1 < el.scrollHeight;
+  userScrolledDown = el.scrollTop > 1;
 }
 
 type ScanType =
@@ -389,7 +390,7 @@ function scan() {
   scanningStore.reset();
   scanningStore.setScanning(true);
   scanningPlatforms.value = [];
-  userScrolledUp = false;
+  userScrolledDown = false;
 
   if (!socket.connected) socket.connect();
 
