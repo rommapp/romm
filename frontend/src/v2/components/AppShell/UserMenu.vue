@@ -59,6 +59,9 @@ const isAdmin = useCan("app.admin");
 const canSeeProfile = computed(
   () => !!user.value?.id && scopes.value.includes("me.write"),
 );
+const canScan = computed(() => scopes.value.includes("platforms.write"));
+const canUpload = computed(() => scopes.value.includes("roms.write"));
+// Patcher is always reachable (matches v1) — pure client-side worker.
 const canSeeLibraryMgmt = computed(() =>
   scopes.value.includes("platforms.write"),
 );
@@ -66,13 +69,9 @@ const canSeeMetadata = computed(() => scopes.value.includes("me.write"));
 const canSeeApiTokens = computed(() => scopes.value.includes("me.write"));
 const canSeeAdmin = computed(() => scopes.value.includes("users.write"));
 
-// Library + System groups can be empty for restricted scopes — gate the
-// whole region so a lone group label doesn't dangle. Account always has
-// User interface (always visible) so no gate is needed there.
-const showLibraryGroup = computed(
-  () =>
-    canSeeLibraryMgmt.value || canSeeMetadata.value || canSeeApiTokens.value,
-);
+// The System group can be empty for restricted scopes — gate the whole
+// region so a lone group label doesn't dangle. The Library group always
+// contains at least the Patcher, so it never needs gating.
 const showSystemGroup = computed(() => canSeeAdmin.value || isAdmin.value);
 
 function showAbout() {
@@ -178,10 +177,30 @@ async function onLogout() {
     </div>
 
     <!-- Library -->
-    <div v-if="showLibraryGroup" class="r-v2-user-menu__group">
+    <div class="r-v2-user-menu__group">
       <div class="r-v2-user-menu__group-label">
         {{ t("settings.group-library") }}
       </div>
+      <RMenuItem
+        :to="{ name: ROUTES.SCAN }"
+        icon="mdi-radar"
+        :label="t('scan.scan')"
+        :disabled="!canScan"
+        @click="open = false"
+      />
+      <RMenuItem
+        :to="{ name: ROUTES.UPLOAD }"
+        icon="mdi-cloud-upload-outline"
+        :label="t('common.upload-roms')"
+        :disabled="!canUpload"
+        @click="open = false"
+      />
+      <RMenuItem
+        :to="{ name: ROUTES.PATCHER }"
+        icon="mdi-file-cog-outline"
+        :label="t('common.patcher')"
+        @click="open = false"
+      />
       <RMenuItem
         v-if="canSeeLibraryMgmt"
         :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
@@ -238,7 +257,9 @@ async function onLogout() {
         @click="open = false"
       >
         <template #append>
-          <RChip size="x-small" color="primary">{{ t("common.beta") }}</RChip>
+          <RChip size="x-small" color="primary">
+            {{ t("common.beta") }}
+          </RChip>
         </template>
       </RMenuItem>
     </div>

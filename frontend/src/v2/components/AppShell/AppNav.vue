@@ -1,22 +1,19 @@
 <script setup lang="ts">
 // AppNav — the top navigation. Logo on the left, centred tab pill of
 // content destinations (Home / Platforms / Collections / Search), and
-// a right cluster of utility chrome (scanning indicator, library tools
-// dropdown, classic-UI escape hatch, user menu). Highlighting is
-// derived from `route.path` rather than route names so gallery
-// subroutes (e.g. /rom/:id) still light up the Home tab.
+// a right cluster of utility chrome (scanning indicator, classic-UI
+// escape hatch, user menu). Highlighting is derived from `route.path`
+// rather than route names so gallery subroutes (e.g. /rom/:id) still
+// light up the Home tab.
 //
-// Library tools used to live in this pill as a 5th tab with a vertical
-// dropdown sub-pill. That conflated *administrative actions* with
-// *content navigation*. The tools are now in the right cluster as a
-// dedicated dropdown (LibraryToolsMenu), keeping the primary nav
-// focused on browsing destinations.
+// Library tools (Scan / Upload / Patcher) are administrative actions,
+// not content destinations — they live in the user menu's Library
+// group, keeping the primary nav focused on browsing destinations.
 import { RBtn, RSliderBtnGroup, RTooltip, RImg } from "@v2/lib";
 import { onBeforeUnmount, onMounted, ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useUiVersion } from "@/composables/useUiVersion";
-import LibraryToolsMenu from "@/v2/components/AppShell/LibraryToolsMenu.vue";
 import ScanningIndicator from "@/v2/components/AppShell/ScanningIndicator.vue";
 import UserMenu from "@/v2/components/AppShell/UserMenu.vue";
 
@@ -145,7 +142,6 @@ const activeTab = computed<TabId | null>(() => {
           </template>
         </RTooltip>
         <ScanningIndicator />
-        <LibraryToolsMenu />
         <UserMenu />
       </div>
     </nav>

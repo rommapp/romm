@@ -54,7 +54,7 @@ const groups = computed<Group[]>(() => {
       label: t("settings.group-account"),
       entries: [
         {
-          icon: "mdi-account-circle",
+          icon: "mdi-account-outline",
           label: t("common.profile"),
           to: {
             name: ROUTES.USER_PROFILE,
@@ -63,7 +63,7 @@ const groups = computed<Group[]>(() => {
           visible: scopes.value.includes("me.write"),
         },
         {
-          icon: "mdi-palette",
+          icon: "mdi-palette-outline",
           label: t("common.user-interface"),
           to: { name: ROUTES.USER_INTERFACE },
           visible: true,
@@ -75,13 +75,31 @@ const groups = computed<Group[]>(() => {
       label: t("settings.group-library"),
       entries: [
         {
-          icon: "mdi-folder-cog",
+          icon: "mdi-radar",
+          label: t("scan.scan"),
+          to: { name: ROUTES.SCAN },
+          visible: scopes.value.includes("platforms.write"),
+        },
+        {
+          icon: "mdi-cloud-upload-outline",
+          label: t("common.upload-roms"),
+          to: { name: ROUTES.UPLOAD },
+          visible: scopes.value.includes("roms.write"),
+        },
+        {
+          icon: "mdi-file-cog-outline",
+          label: t("common.patcher"),
+          to: { name: ROUTES.PATCHER },
+          visible: true,
+        },
+        {
+          icon: "mdi-table-cog",
           label: t("common.library-management"),
           to: { name: ROUTES.LIBRARY_MANAGEMENT },
           visible: scopes.value.includes("platforms.write"),
         },
         {
-          icon: "mdi-database-search",
+          icon: "mdi-database-cog-outline",
           label: t("scan.metadata-sources"),
           to: { name: ROUTES.METADATA_SOURCES },
           visible: scopes.value.includes("me.write"),
@@ -99,13 +117,13 @@ const groups = computed<Group[]>(() => {
       label: t("settings.group-system"),
       entries: [
         {
-          icon: "mdi-security",
+          icon: "mdi-shield-account-outline",
           label: t("common.administration"),
           to: { name: ROUTES.ADMINISTRATION },
           visible: scopes.value.includes("users.write"),
         },
         {
-          icon: "mdi-chart-bar",
+          icon: "mdi-server",
           label: t("common.server-stats"),
           to: { name: ROUTES.SERVER_STATS },
           visible: isAdmin.value,
