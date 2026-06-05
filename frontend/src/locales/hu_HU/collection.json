@@ -24,7 +24,7 @@
   "settings": "Beállítások",
   "updated": "Gyűjtemény frissítve",
   "name-exists": "Már létezik gyűjtemény ezzel a névvel.",
-  "save-as-smart": "Mentés intelligensként",
+  "save-as-smart": "Mentés intelligens gyűjteményként",
   "smart-create-failed": "Az intelligens gyűjtemény létrehozása sikertelen",
   "smart-created": "Intelligens gyűjtemény létrehozva.",
   "smart-no-filters": "Alkalmazz néhány szűrőt az intelligens gyűjtemény létrehozása előtt.",

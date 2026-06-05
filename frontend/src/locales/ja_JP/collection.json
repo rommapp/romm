@@ -24,7 +24,7 @@
   "settings": "設定",
   "updated": "コレクションを更新しました",
   "name-exists": "その名前のコレクションは既に存在します。",
-  "save-as-smart": "スマートとして保存",
+  "save-as-smart": "スマートコレクションとして保存",
   "smart-create-failed": "スマートコレクションの作成に失敗しました",
   "smart-created": "スマートコレクションを作成しました。",
   "smart-no-filters": "スマートコレクションを作成する前にフィルタを適用してください。",

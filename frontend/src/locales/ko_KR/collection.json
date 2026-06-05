@@ -24,7 +24,7 @@
   "settings": "설정",
   "updated": "모음집이 업데이트되었습니다",
   "name-exists": "같은 이름의 모음집이 이미 존재합니다.",
-  "save-as-smart": "스마트로 저장",
+  "save-as-smart": "스마트 모음집으로 저장",
   "smart-create-failed": "스마트 모음집을 생성하지 못했습니다",
   "smart-created": "스마트 모음집이 생성되었습니다.",
   "smart-no-filters": "스마트 모음집을 생성하기 전에 필터를 적용해 주세요.",

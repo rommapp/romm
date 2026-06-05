@@ -26,7 +26,7 @@
   "settings": "Ajustes",
   "updated": "Colección actualizada",
   "name-exists": "Ya existe una colección con ese nombre.",
-  "save-as-smart": "Guardar como inteligente",
+  "save-as-smart": "Guardar como colección inteligente",
   "smart-create-failed": "Error al crear la colección inteligente",
   "smart-no-filters": "Aplica algunos filtros antes de crear una colección inteligente.",
   "games-count": "{n} juego | {n} juegos",

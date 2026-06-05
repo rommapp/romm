@@ -24,7 +24,7 @@
   "settings": "Paramètres",
   "updated": "Collection mise à jour",
   "name-exists": "Une collection portant ce nom existe déjà.",
-  "save-as-smart": "Enregistrer comme intelligente",
+  "save-as-smart": "Enregistrer comme collection intelligente",
   "smart-create-failed": "Échec de la création de la collection intelligente",
   "smart-created": "Collection intelligente créée.",
   "smart-no-filters": "Appliquez des filtres avant de créer une collection intelligente.",
