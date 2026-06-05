@@ -48,6 +48,14 @@ const viewportHeight = computed(() => {
 function getItemHeight() {
   return ROW_HEIGHT;
 }
+
+// Key rows by ROM id (not array index) so that prepending a freshly-scanned
+// ROM — the lifecycle unshifts newest-first — only mounts the new row and
+// lets the rest keep their DOM. Index keys would re-patch every row on each
+// insert, killing the per-row entrance animation and flashing the list.
+function getItemKey(item: unknown) {
+  return (item as SimpleRom).id;
+}
 </script>
 
 <template>
@@ -99,6 +107,7 @@ function getItemHeight() {
       v-else
       :items="platform.roms"
       :get-item-height="getItemHeight"
+      :get-item-key="getItemKey"
       :height="viewportHeight"
       :overscan="10"
       class="r-v2-scan-platform__virtual"
