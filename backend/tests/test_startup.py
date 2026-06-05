@@ -4,7 +4,7 @@ import startup
 from rq.job import JOB_ID_PATTERN
 
 
-def test_enqueue_recompute_skips_when_no_missing_hashes(mocker):
+def test_enqueue_recompute_skips_when_no_missing_hashes(mocker) -> None:
     """Saves all have content_hash -> no enqueue."""
     mocker.patch.object(
         startup.db_save_handler, "count_saves_missing_content_hash", return_value=0
@@ -16,7 +16,7 @@ def test_enqueue_recompute_skips_when_no_missing_hashes(mocker):
     enqueue.assert_not_called()
 
 
-def test_enqueue_recompute_fires_when_missing_hashes_present(mocker):
+def test_enqueue_recompute_fires_when_missing_hashes_present(mocker) -> None:
     """At least one Save row has NULL content_hash -> enqueue exactly once."""
     mocker.patch.object(
         startup.db_save_handler, "count_saves_missing_content_hash", return_value=42
@@ -43,14 +43,14 @@ def test_enqueue_recompute_fires_when_missing_hashes_present(mocker):
     assert kwargs["job_id"] == startup.RECOMPUTE_SAVE_HASHES_JOB_ID
 
 
-def test_recompute_job_id_is_valid_rq_id():
+def test_recompute_job_id_is_valid_rq_id() -> None:
     """RQ rejects any job_id not matching [A-Za-z0-9_-]+ (ValueError in set_id),
     which the broad except here would swallow -> backfill silently never enqueues.
     A colon was the original culprit; assert the full contract, not just that."""
     assert JOB_ID_PATTERN.fullmatch(startup.RECOMPUTE_SAVE_HASHES_JOB_ID)
 
 
-def test_enqueue_recompute_skips_when_already_queued(mocker):
+def test_enqueue_recompute_skips_when_already_queued(mocker) -> None:
     """An in-flight job from a previous restart -> skip enqueue, don't double up."""
     mocker.patch.object(
         startup.db_save_handler, "count_saves_missing_content_hash", return_value=10
@@ -63,7 +63,7 @@ def test_enqueue_recompute_skips_when_already_queued(mocker):
     enqueue.assert_not_called()
 
 
-def test_enqueue_recompute_swallows_count_error(mocker):
+def test_enqueue_recompute_swallows_count_error(mocker) -> None:
     """A failed COUNT query must not crash startup."""
     mocker.patch.object(
         startup.db_save_handler,
@@ -77,7 +77,7 @@ def test_enqueue_recompute_swallows_count_error(mocker):
     enqueue.assert_not_called()
 
 
-def test_enqueue_recompute_swallows_enqueue_error(mocker):
+def test_enqueue_recompute_swallows_enqueue_error(mocker) -> None:
     """A failed enqueue must not crash startup."""
     mocker.patch.object(
         startup.db_save_handler, "count_saves_missing_content_hash", return_value=5

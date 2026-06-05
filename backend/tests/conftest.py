@@ -154,7 +154,7 @@ def save(rom: Rom, platform: Platform, admin_user: User):
         emulator="test_emulator",
         slot="autosave",
         file_path=f"{platform.slug}/saves/test_emulator",
-        file_size_bytes=1.0,
+        file_size_bytes=1,
     )
     return db_save_handler.add_save(save)
 
@@ -175,7 +175,7 @@ def archival_save(rom: Rom, platform: Platform, admin_user: User):
         emulator="test_emulator",
         slot=None,
         file_path=f"{platform.slug}/saves/test_emulator",
-        file_size_bytes=1.0,
+        file_size_bytes=1,
     )
     return db_save_handler.add_save(save)
 
@@ -191,7 +191,7 @@ def state(rom: Rom, platform: Platform, admin_user: User):
         file_extension="state",
         emulator="test_emulator",
         file_path=f"{platform.slug}/states/test_emulator",
-        file_size_bytes=2.0,
+        file_size_bytes=2,
     )
     return db_state_handler.add_state(state)
 
@@ -206,7 +206,7 @@ def screenshot(rom: Rom, platform: Platform, admin_user: User):
         file_name_no_ext="test_screenshot",
         file_extension="png",
         file_path=f"{platform.slug}/screenshots",
-        file_size_bytes=3.0,
+        file_size_bytes=3,
     )
     return db_screenshot_handler.add_screenshot(screenshot)
 
