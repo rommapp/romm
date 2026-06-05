@@ -168,6 +168,21 @@ When a dialog opens, push a scope. When it closes, pop. This prevents Escape fro
 
 `RDialog` and `RMenu` handle their scope automatically. Custom overlays are an anti-pattern (premise 8) — go through the primitives.
 
+### Responsive layout
+
+Premise 6 (universal input) has a sibling: **universal viewport.** Every v2 surface must read cleanly from a 320px phone to a 4K display. The mechanism is fixed; do not invent a parallel one.
+
+- **Single breakpoint source: `useBreakpoint`** (`src/v2/composables/useBreakpoint/`). Material thresholds — `xs <600`, `sm 600–959`, `md 960–1279`, `lg 1280–1919`, `xl ≥1920`. `installBreakpointAttribute()` (mounted once in `AppLayout`) mirrors the active set onto `<html data-bp="…">`.
+- **Layout switches live in CSS** via the attribute selector: `html[data-bp~="xs"] .foo { … }`, `html[data-bp~="sm-and-down"] .foo { … }`. **No raw `@media` for layout** — the only allowed `@media` are `prefers-reduced-motion` and print. The attribute is on `<html>` so it reaches teleported overlays too.
+- **Conditional rendering** (mount/unmount a different component per tier, not just restyle) uses the `useBreakpoint()` refs in `<script>` — e.g. `v-if="xs"`. Prefer mount-gating over `display:none` for focusable chrome so hidden controls never sit in the tab/spatial-nav order.
+- **`--r-row-pad` is the global horizontal gutter** and is already re-scoped responsive in `global.css` (36 → 20 → 14px). Consume `var(--r-row-pad)`; don't hard-code a smaller `xs` padding per component.
+- **Touch targets** ≥ `--r-touch-target` (44px) on `xs` / touch. Gate the bump to touch/pad where desktop sizing would bloat.
+- **Overlays go full-bleed on `xs`.** `RDialog` renders as a full-screen / bottom sheet on phones (`fullscreenOnMobile`, default on); `RMenu` bottom-sheets large menus. Never float a 600px dialog on a 360px screen.
+- **Label→icon collapse** (the AppNav precedent) is the canonical way to compress chrome; the four primary destinations relocate to `BottomNav` (bottom tab bar) on `sm-and-down`.
+- **Grids** size via `useResponsiveColumns` (ResizeObserver), never a fixed column count.
+
+Verification adds the breakpoint sweep — see §VII.6.
+
 ---
 
 ## VI. Architecture patterns

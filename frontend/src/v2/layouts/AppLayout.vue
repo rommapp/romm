@@ -15,6 +15,8 @@ import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import AppNav from "@/v2/components/AppShell/AppNav.vue";
 import BackgroundArt from "@/v2/components/AppShell/BackgroundArt.vue";
+import BottomNav from "@/v2/components/AppShell/BottomNav.vue";
+import BreakpointBadge from "@/v2/components/AppShell/BreakpointBadge.vue";
 import GlobalDialogs from "@/v2/components/Dialogs/GlobalDialogs.vue";
 import SoundtrackMiniPlayer from "@/v2/components/Soundtrack/MiniPlayer.vue";
 import { BACKGROUND_ART_KEY } from "@/v2/composables/useBackgroundArt";
@@ -135,10 +137,12 @@ onBeforeUnmount(() => {
       <main id="r-v2-main" class="r-v2-shell__main" tabindex="-1">
         <router-view name="v2" />
       </main>
+      <BottomNav />
     </div>
 
     <GlobalDialogs />
     <SoundtrackMiniPlayer />
+    <BreakpointBadge />
   </div>
 </template>
 
@@ -168,5 +172,15 @@ onBeforeUnmount(() => {
   position: relative;
   padding-top: var(--r-nav-h);
   outline: none;
+}
+
+/* On sm-and-down the fixed bottom tab bar (BottomNav) overlays the
+   bottom edge — reserve its height (+ safe-area inset) so natural-flow
+   views (Home, Settings, Library Tools, …) can scroll their last content
+   clear of the bar. Fixed-height views with their own internal scroll
+   (galleries) subtract the same amount from their height calc so the
+   totals still sum to one viewport with no document overflow. */
+html[data-bp~="sm-and-down"] .r-v2-shell__main {
+  padding-bottom: calc(var(--r-bottom-nav-h) + env(safe-area-inset-bottom));
 }
 </style>

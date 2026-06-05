@@ -47,6 +47,9 @@ const NAME_OVERRIDES = {
   space: { rowPad: "--r-row-pad" },
   layout: {
     navHeight: "--r-nav-h",
+    bottomNavHeight: "--r-bottom-nav-h",
+    bottomNavMaxWidth: "--r-bottom-nav-max-w",
+    touchTarget: "--r-touch-target",
     rowPad: null, // duplicate of --r-row-pad (space.rowPad), skip
     pageMaxWidth: "--r-page-max-w",
     cardArtWidth: "--r-card-art-w",

@@ -90,7 +90,7 @@ const playableLabel = computed(() => playableTooltip(emulator.value));
         :slug="slug"
         :fs-slug="fsSlug"
         :alt="displayName"
-        :size="72"
+        size="100%"
         :show-tooltip="false"
       />
     </div>

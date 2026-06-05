@@ -19,6 +19,20 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Responsive page padding — `--r-row-pad` is consumed everywhere as the
+   horizontal gutter for page rows / toolbars / nav / widgets. Shrinking
+   it here tightens every consumer at once on narrower viewports, so
+   individual components don't each re-declare a smaller `xs` padding.
+   The selector is COMPOUND (`html[...].r-v2`, no descendant combinator):
+   the `.r-v2` scope class lives on `<html>` itself, so a descendant
+   selector would never match it and the override would silently no-op. */
+html[data-bp~="sm-and-down"].r-v2 {
+  --r-row-pad: 20px;
+}
+html[data-bp~="xs"].r-v2 {
+  --r-row-pad: 14px;
+}
+
 /* Focus rings are modality-gated — invisible for mouse/touch so we don't
    dog-pile the hover states, visible and prominent for keyboard/pad so
    the user always knows where they are.

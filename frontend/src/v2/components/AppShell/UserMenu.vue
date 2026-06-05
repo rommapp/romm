@@ -317,10 +317,6 @@ async function onLogout() {
   font-weight: var(--r-font-weight-medium);
 }
 
-html[data-bp~="xs"] .r-v2-user__name {
-  display: none;
-}
-
 /* Group section inside the dropdown — small uppercase label above each
    cluster so the IA mirrors SettingsSidebar exactly. The label is omitted
    for the trailing Actions/About/Logout regions where dividers already

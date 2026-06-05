@@ -12,7 +12,7 @@
 // The v1 "Platforms drawer" section was removed (no equivalent in v2).
 // `useUISettings` still exposes `platformsGroupBy` for v1 — we just
 // don't surface it here.
-import { RIcon, RSelect, RSliderBtnGroup, RTag, RChip } from "@v2/lib";
+import { RIcon, RSelect, RSliderBtnGroup, RChip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
