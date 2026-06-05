@@ -92,7 +92,7 @@ onUnmounted(() => {
                   :src="
                     imagePreviewUrl ||
                     (userToEdit.avatar_path
-                      ? `/assets/romm/assets/${userToEdit.avatar_path}?ts=${userToEdit.updated_at}`
+                      ? `/api/raw/assets/${userToEdit.avatar_path}?ts=${userToEdit.updated_at}`
                       : defaultAvatarPath)
                   "
                 >

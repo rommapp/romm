@@ -5,21 +5,19 @@ set -e
 echo "Starting entrypoint script..."
 
 # Create symlinks for frontend
-for subfolder in assets resources; do
-	if [[ -L /app/frontend/assets/romm/${subfolder} ]]; then
-		target=$(readlink "/app/frontend/assets/romm/${subfolder}")
+if [[ -L /app/frontend/assets/romm/resources ]]; then
+	target=$(readlink "/app/frontend/assets/romm/resources")
 
-		# If the target is not the same as ${ROMM_BASE_PATH}/${subfolder}, recreate the symbolic link.
-		if [[ ${target} != "${ROMM_BASE_PATH}/${subfolder}" ]]; then
-			rm "/app/frontend/assets/romm/${subfolder}"
-			ln -s "${ROMM_BASE_PATH}/${subfolder}" "/app/frontend/assets/romm/${subfolder}"
-		fi
-	elif [[ ! -e /app/frontend/assets/romm/${subfolder} ]]; then
-		# Ensure parent directory exists before creating symbolic link
-		mkdir -p "/app/frontend/assets/romm"
-		ln -s "${ROMM_BASE_PATH}/${subfolder}" "/app/frontend/assets/romm/${subfolder}"
+	# If the target is not the same as ${ROMM_BASE_PATH}/resources, recreate the symbolic link.
+	if [[ ${target} != "${ROMM_BASE_PATH}/resources" ]]; then
+		rm "/app/frontend/assets/romm/resources"
+		ln -s "${ROMM_BASE_PATH}/resources" "/app/frontend/assets/romm/resources"
 	fi
-done
+elif [[ ! -e /app/frontend/assets/romm/resources ]]; then
+	# Ensure parent directory exists before creating symbolic link
+	mkdir -p "/app/frontend/assets/romm"
+	ln -s "${ROMM_BASE_PATH}/resources" "/app/frontend/assets/romm/resources"
+fi
 
 # Define a signal handler to propagate termination signals
 function handle_termination() {
