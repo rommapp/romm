@@ -65,6 +65,11 @@ class Save(RomAsset):
     emulator: Mapped[str | None] = mapped_column(String(length=50))
     slot: Mapped[str | None] = mapped_column(String(length=255))
     content_hash: Mapped[str | None] = mapped_column(String(length=32))
+    origin_device_id: Mapped[str | None] = mapped_column(
+        String(length=255),
+        ForeignKey("devices.id", ondelete="SET NULL"),
+        default=None,
+    )
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="saves")
     user: Mapped[User] = relationship(lazy="joined", back_populates="saves")
