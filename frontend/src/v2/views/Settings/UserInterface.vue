@@ -350,9 +350,12 @@ function onVirtualCollectionTypeChange(value: unknown) {
             <span class="r-v2-ui__version-body">
               <span class="r-v2-ui__version-titles">
                 <span class="r-v2-ui__version-title">{{ card.title }}</span>
-                <RChip size="x-small" color="primary">{{
-                  t("common.beta")
-                }}</RChip>
+                <RChip
+                  v-if="card.value === 'v2'"
+                  size="x-small"
+                  color="primary"
+                  >{{ t("common.beta") }}</RChip
+                >
               </span>
               <span class="r-v2-ui__version-blurb">{{ card.blurb }}</span>
             </span>

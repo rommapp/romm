@@ -42,6 +42,9 @@ function setVersion(value: unknown) {
           </v-btn>
           <v-btn value="v2" prepend-icon="mdi-star-four-points">
             {{ t("settings.ui-version-new", "New UI (beta)") }}
+            <v-chip size="x-small" color="primary" class="ml-2">
+              {{ t("common.beta") }}
+            </v-chip>
           </v-btn>
         </v-btn-toggle>
       </div>
