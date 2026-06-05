@@ -1143,7 +1143,7 @@ function stopScan() {
    Same flat surface vocabulary as the config card (Profile-style).
    Header doubles as the live status panel (pulse + label + counters
    + abort + progress bar). The card fills from `nav-h + top gap`
-   down to the LibraryToolsLayout's bottom padding. */
+   down to the SettingsLayout's bottom padding. */
 .r-v2-scan-live {
   position: sticky;
   top: calc(var(--r-nav-h) + 14px);
@@ -1154,11 +1154,11 @@ function stopScan() {
   border: 1px solid var(--r-color-border);
   border-radius: var(--r-radius-lg);
   overflow: hidden;
-  /* LibraryToolsLayout adds 60px top + 60px bottom padding around the
-     grid; AppLayout main reserves --r-nav-h for the fixed navbar.
-     Subtracting (nav + 120) keeps the column flush with the available
-     viewport so the page itself never scrolls. */
-  height: calc(100vh - var(--r-nav-h) - 120px);
+  /* SettingsLayout's content column adds 32px top + 60px bottom padding
+     around the grid; AppLayout main reserves --r-nav-h for the fixed
+     navbar. Subtracting (nav + 92) keeps the column flush with the
+     available viewport so the page itself never scrolls. */
+  height: calc(100vh - var(--r-nav-h) - 92px);
   min-height: 540px;
 }
 

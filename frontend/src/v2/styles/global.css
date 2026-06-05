@@ -179,8 +179,8 @@ html[data-input="pad"] .r-v2 * {
 /* Section stack — vertical flow with breathing room between sibling
    cards. Applied to view roots that host multiple stacked sections
    (Settings views, Library Tools views). The fixed 14px gap matches
-   the bare-mode rhythm SettingsLayout / LibraryToolsLayout use for
-   their own direct children, so panel-mode and bare-mode views read
+   the bare-mode rhythm SettingsLayout uses for its own direct
+   children, so panel-mode and bare-mode views read
    with the same spacing language. Centralised here so the value
    lives in exactly one place; views opt in by adding this class to
    their root. */
