@@ -59,7 +59,7 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
             select(DeviceSaveSync, Device.name)
             .join(Device, DeviceSaveSync.device_id == Device.id)
             .filter(DeviceSaveSync.save_id.in_(save_ids))
-            .order_by(DeviceSaveSync.last_synced_at.desc())
+            .order_by(DeviceSaveSync.last_synced_at.desc(), DeviceSaveSync.device_id)
         ).all()
         grouped: dict[int, list[tuple[DeviceSaveSync, str | None]]] = {}
         for sync, device_name in rows:
