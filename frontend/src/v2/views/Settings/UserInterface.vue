@@ -12,7 +12,7 @@
 // The v1 "Platforms drawer" section was removed (no equivalent in v2).
 // `useUISettings` still exposes `platformsGroupBy` for v1 — we just
 // don't surface it here.
-import { RIcon, RSelect, RSliderBtnGroup, RTag } from "@v2/lib";
+import { RIcon, RSelect, RSliderBtnGroup, RTag, RChip } from "@v2/lib";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
@@ -350,12 +350,9 @@ function onVirtualCollectionTypeChange(value: unknown) {
             <span class="r-v2-ui__version-body">
               <span class="r-v2-ui__version-titles">
                 <span class="r-v2-ui__version-title">{{ card.title }}</span>
-                <RTag
-                  v-if="card.beta"
-                  :label="t('common.beta')"
-                  tone="warning"
-                  size="x-small"
-                />
+                <RChip size="x-small" color="primary">{{
+                  t("common.beta")
+                }}</RChip>
               </span>
               <span class="r-v2-ui__version-blurb">{{ card.blurb }}</span>
             </span>

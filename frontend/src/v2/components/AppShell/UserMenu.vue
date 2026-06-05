@@ -13,7 +13,15 @@
 //
 // Items inherit the same scope/role gates as their target views so
 // unauthorised users don't see options they can't open.
-import { RAvatar, RBtn, RDivider, RIcon, RMenu, RMenuItem } from "@v2/lib";
+import {
+  RAvatar,
+  RBtn,
+  RChip,
+  RDivider,
+  RIcon,
+  RMenu,
+  RMenuItem,
+} from "@v2/lib";
 import type { Emitter } from "mitt";
 import { getActivePinia, storeToRefs, type StateTree } from "pinia";
 import { computed, inject, ref } from "vue";
@@ -228,7 +236,11 @@ async function onLogout() {
         icon="mdi-controller"
         :label="t('settings.controller-debug')"
         @click="open = false"
-      />
+      >
+        <template #append>
+          <RChip size="x-small" color="primary">{{ t("common.beta") }}</RChip>
+        </template>
+      </RMenuItem>
     </div>
 
     <RDivider />

@@ -17,7 +17,7 @@
 // Responsive: at <1024px the sidebar collapses to a horizontal scrollable
 // strip. Group labels are hidden in that mode — items still appear in
 // group order so sequence is preserved.
-import { RIcon } from "@v2/lib";
+import { RChip, RIcon } from "@v2/lib";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -37,6 +37,8 @@ interface Entry {
   label: string;
   to: { name: string; params?: Record<string, string | number> };
   visible: boolean;
+  /** Optional trailing badge text (e.g. "Beta") shown after the label. */
+  badge?: string;
 }
 
 interface Group {
@@ -119,6 +121,7 @@ const groups = computed<Group[]>(() => {
           label: t("settings.controller-debug"),
           to: { name: ROUTES.CONTROLLER_DEBUG },
           visible: true,
+          badge: t("common.beta"),
         },
       ],
     },
@@ -156,6 +159,14 @@ const groups = computed<Group[]>(() => {
               class="r-v2-settings-sidebar__icon"
             />
             <span class="r-v2-settings-sidebar__label">{{ entry.label }}</span>
+            <RChip
+              v-if="entry.badge"
+              size="x-small"
+              color="primary"
+              class="r-v2-settings-sidebar__badge"
+            >
+              {{ entry.badge }}
+            </RChip>
           </router-link>
         </li>
       </ul>
