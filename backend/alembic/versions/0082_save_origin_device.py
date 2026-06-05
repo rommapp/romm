@@ -1,7 +1,7 @@
 """Track the device that created a save
 
-Revision ID: 0081_save_origin_device
-Revises: 0080_add_chd_sha1_hash
+Revision ID: 0082_save_origin_device
+Revises: 0081_add_archive_members
 Create Date: 2026-06-05 00:00:00.000000
 
 """
@@ -9,8 +9,8 @@ Create Date: 2026-06-05 00:00:00.000000
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0081_save_origin_device"
-down_revision = "0080_add_chd_sha1_hash"
+revision = "0082_save_origin_device"
+down_revision = "0081_add_archive_members"
 branch_labels = None
 depends_on = None
 
