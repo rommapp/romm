@@ -97,6 +97,10 @@ function lockBodyScroll() {
   const cur = Number(document.body.dataset.rDialogOpenCount ?? "0") + 1;
   document.body.dataset.rDialogOpenCount = String(cur);
   if (cur === 1) {
+    // Remember whatever overflow was already in effect (e.g. a gallery
+    // view that locks the body for its whole lifetime) so we restore it
+    // on unlock instead of clobbering it to "".
+    document.body.dataset.rDialogPrevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
   }
 }
@@ -107,7 +111,9 @@ function unlockBodyScroll() {
   );
   document.body.dataset.rDialogOpenCount = String(cur);
   if (cur === 0) {
-    document.body.style.overflow = "";
+    document.body.style.overflow =
+      document.body.dataset.rDialogPrevOverflow ?? "";
+    delete document.body.dataset.rDialogPrevOverflow;
   }
 }
 

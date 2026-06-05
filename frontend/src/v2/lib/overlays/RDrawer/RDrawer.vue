@@ -83,6 +83,11 @@ function lockBodyScroll() {
   const cur = Number(document.body.dataset.rOverlayOpenCount ?? "0") + 1;
   document.body.dataset.rOverlayOpenCount = String(cur);
   if (cur === 1) {
+    // Remember whatever overflow was already in effect — a host view may
+    // lock the body for its whole lifetime (e.g. the gallery shell, whose
+    // only scrollbar is the virtualizer's). Restoring this on unlock
+    // instead of forcing "" keeps that lock intact after the drawer closes.
+    document.body.dataset.rOverlayPrevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
   }
 }
@@ -93,7 +98,9 @@ function unlockBodyScroll() {
   );
   document.body.dataset.rOverlayOpenCount = String(cur);
   if (cur === 0) {
-    document.body.style.overflow = "";
+    document.body.style.overflow =
+      document.body.dataset.rOverlayPrevOverflow ?? "";
+    delete document.body.dataset.rOverlayPrevOverflow;
   }
 }
 
