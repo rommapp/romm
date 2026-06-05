@@ -38,6 +38,7 @@ class SaveSchema(BaseAsset):
     slot: str | None = None
     content_hash: str | None = None
     screenshot: ScreenshotSchema | None
+    origin_device_id: str | None = None
     device_syncs: list[DeviceSyncSchema] = []
 
     @model_validator(mode="before")

@@ -5,6 +5,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from decorators.database import begin_session
+from models.device import Device
 from models.device_save_sync import DeviceSaveSync
 
 from .base_handler import DBBaseHandler
@@ -39,6 +40,31 @@ class DBDeviceSaveSyncHandler(DBBaseHandler):
                 DeviceSaveSync.save_id.in_(save_ids),
             )
         ).all()
+
+    @begin_session
+    def get_syncs_for_saves(
+        self,
+        save_ids: list[int],
+        session: Session = None,  # type: ignore
+    ) -> dict[int, list[tuple[DeviceSaveSync, str | None]]]:
+        """Fetch every device sync row for the given saves, grouped by save id.
+
+        Each row is paired with its device name so callers can attribute a save
+        to the device that created it without triggering the lazy-raise
+        ``DeviceSaveSync.device`` relationship.
+        """
+        if not save_ids:
+            return {}
+        rows = session.execute(
+            select(DeviceSaveSync, Device.name)
+            .join(Device, DeviceSaveSync.device_id == Device.id)
+            .filter(DeviceSaveSync.save_id.in_(save_ids))
+            .order_by(DeviceSaveSync.last_synced_at.desc())
+        ).all()
+        grouped: dict[int, list[tuple[DeviceSaveSync, str | None]]] = {}
+        for sync, device_name in rows:
+            grouped.setdefault(sync.save_id, []).append((sync, device_name))
+        return grouped
 
     @begin_session
     def upsert_sync(
