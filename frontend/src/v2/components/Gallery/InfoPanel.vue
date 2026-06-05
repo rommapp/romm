@@ -118,12 +118,37 @@ withDefaults(
 
 html[data-bp~="xs"] .info-panel {
   flex-direction: column;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  gap: 14px;
   padding: 16px 0;
+}
+/* Drive the vertical rhythm purely from one flex gap on xs — the
+   per-child margins (title / tags / providers) compound with the column
+   gap otherwise and the stack reads cramped + uneven. Centre the whole
+   hero (cover, title, chip clusters) so it reads as a balanced mobile
+   header rather than a left-hugging column. */
+html[data-bp~="xs"] .info-panel__details {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: center;
+}
+html[data-bp~="xs"] .info-panel__tags,
+html[data-bp~="xs"] .info-panel__stats,
+html[data-bp~="xs"] .info-panel__providers {
+  justify-content: center;
 }
 html[data-bp~="xs"] .info-panel__title {
   font-size: var(--r-font-size-2xl);
+  margin-bottom: 0;
+}
+html[data-bp~="xs"] .info-panel__tags {
+  margin-bottom: 0;
+}
+html[data-bp~="xs"] .info-panel__providers {
+  margin-top: 0;
 }
 html[data-bp~="xs"] .info-panel__stats {
   gap: 16px;

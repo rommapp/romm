@@ -40,6 +40,7 @@ import storeCollections from "@/stores/collections";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getDownloadPath } from "@/utils";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useCan } from "@/v2/composables/useCan";
 import { useSnackbar } from "@/v2/composables/useSnackbar";
 import storeGallerySelection from "@/v2/stores/gallerySelection";
@@ -47,6 +48,9 @@ import storeGallerySelection from "@/v2/stores/gallerySelection";
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+// On phones the bar drops the "N selected" phrase down to just the
+// number so the action row fits a 320px width without overflowing.
+const { xs } = useBreakpoint();
 const emitter = inject<Emitter<Events>>("emitter");
 const snackbar = useSnackbar();
 const selection = storeGallerySelection();
@@ -169,12 +173,15 @@ function clear() {
             class="selection-bar__count-icon"
           />
           <span>
-            {{ t("gallery.selection-n-selected", { n: selection.count }) }}
+            <template v-if="xs">{{ selection.count }}</template>
+            <template v-else>
+              {{ t("gallery.selection-n-selected", { n: selection.count }) }}
+            </template>
           </span>
         </div>
       </template>
 
-      <RDivider vertical />
+      <RDivider vertical class="selection-bar__divider" />
 
       <!-- Default slot: action buttons. Order mirrors the v1 FAB:
            download → favourite → collections → refresh → delete.
@@ -271,7 +278,10 @@ function clear() {
   left: 50%;
   bottom: max(24px, env(safe-area-inset-bottom, 0));
   transform: translate(-50%, calc(100% + 32px));
-  z-index: 8;
+  /* Above the bottom tab bar (z 100) so the multi-select bar floats over
+     it on mobile instead of being painted behind it; still below dialogs
+     (z 2400) so a confirm opened from a selection covers it. */
+  z-index: 101;
   pointer-events: none;
   transition: transform var(--r-motion-mid) var(--r-motion-ease-out);
   /* Respect the platform's reduced-motion preference: skip the
@@ -286,13 +296,28 @@ function clear() {
   pointer-events: auto;
 }
 
+/* On sm-and-down sit just above the bottom tab bar (8px gap) so the two
+   read as stacked, not overlapping. Anchoring `bottom` this high means
+   the base hide transform (translateY(100% + 32px)) can't clear the
+   viewport, so the hidden transform is enlarged to push the panel fully
+   past the bar + screen edge; the visible state (declared after, same
+   specificity) pins it back at the 8px gap. */
+html[data-bp~="sm-and-down"] .selection-bar {
+  bottom: calc(var(--r-bottom-nav-h) + 8px + env(safe-area-inset-bottom));
+  transform: translate(-50%, calc(100% + var(--r-bottom-nav-h) + 48px));
+}
+html[data-bp~="sm-and-down"] .selection-bar--visible {
+  transform: translate(-50%, 0);
+}
+
 /* RToolbar's default surface (`--r-color-bg-elevated`) is overridden
    to the panel glass tone so the bar reads as a sibling of menus /
    dialogs (premise III.1: one visual vocabulary for every surface).
    Border + shadow + backdrop-blur are stacked on top of the
-   primitive's flat pill. */
+   primitive's flat pill. `max-width` keeps it inside a 320px viewport. */
 .selection-bar__panel {
   --r-toolbar-color: var(--r-color-panel);
+  max-width: calc(100vw - 16px);
   border: 1px solid var(--r-color-panel-border);
   box-shadow:
     0 12px 32px color-mix(in srgb, black 32%, transparent),
@@ -319,5 +344,12 @@ function clear() {
 html[data-bp~="xs"] .selection-bar__count {
   padding: 0 2px;
   font-size: var(--r-font-size-sm);
+}
+
+/* Tighten the action row on phones so all buttons + the count + divider
+   fit a 320px width: squeeze the inter-button gaps and side padding. */
+html[data-bp~="xs"] .selection-bar__panel {
+  gap: 2px;
+  padding: 0 6px;
 }
 </style>

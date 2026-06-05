@@ -58,6 +58,7 @@ import GameListSkeletonRow from "@/v2/components/Gallery/GameListSkeletonRow.vue
 import SelectionBar from "@/v2/components/Gallery/SelectionBar.vue";
 import { type ListSortKey } from "@/v2/components/Gallery/listColumns";
 import { GameCard, GameCardSkeleton } from "@/v2/components/GameCard";
+import { useBreakpoint } from "@/v2/composables/useBreakpoint";
 import { useGalleryFilterUrl } from "@/v2/composables/useGalleryFilterUrl";
 import { useGalleryMode } from "@/v2/composables/useGalleryMode";
 import { useGalleryViewModeUrl } from "@/v2/composables/useGalleryViewModeUrl";
@@ -231,12 +232,19 @@ const { total, charIndex, initialFetching, orderBy, orderDir } =
 const { groupBy, layout, toolbarPosition } = useGalleryMode();
 
 // Responsive columns — measure the section to chunk roms into rows.
-// Inset = scroller padding (--r-row-pad × 2) + AlphaStrip column.
+// Card width and inset track the breakpoint so phones pack more, smaller
+// cards instead of one stretched card per row:
+//   inset  = scroller padding (--r-row-pad × 2) + AlphaStrip column (36)
+//            → xs 14·2+36=64, sm 20·2+36=76, default 36·2+36=108
+//   card   = matches the `--r-card-art-w` the shell sets per breakpoint
+//            (108 on xs, 158 otherwise) so the JS row-chunking and the
+//            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
+const { xs, smAndDown } = useBreakpoint();
 const sectionEl = ref<HTMLElement | null>(null);
 const { columns } = useResponsiveColumns(sectionEl, {
-  cardWidth: 158,
+  cardWidth: () => (xs.value ? 108 : 158),
   gap: 12,
-  inset: 108,
+  inset: () => (xs.value ? 64 : smAndDown.value ? 76 : 108),
 });
 
 // 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
@@ -923,6 +931,11 @@ defineExpose({
   position: relative;
 }
 
+/* On sm-and-down the shell still fills `100vh - nav-h` so cards scroll
+   UNDER the translucent bottom tab bar (the glass-blur effect). The
+   scroller instead gets extra bottom padding (see below) so the last row
+   comes to rest above the bar rather than trapped behind it. */
+
 /* Scroller: padding-top moved into the prepend's first child via
    `padding-top` on the header so the inflow toolbar's `offsetTop`
    measurement isn't perturbed by the scroller's own padding. The
@@ -1065,13 +1078,30 @@ defineExpose({
   );
 }
 
+/* Smaller default cards on phones so the grid packs 2–3 per row instead
+   of one stretched card. The grid `minmax(--r-card-art-w, 1fr)` and the
+   GameCards (default size, reading the token) both shrink in lock-step;
+   the JS column-chunking above uses a matching 108px card width. */
+html[data-bp~="xs"] .r-v2-shell {
+  --r-card-art-w: 108px;
+  --r-card-art-h: 146px;
+}
+
 html[data-bp~="xs"] .r-v2-shell__scroller {
-  padding: 0 14px 80px;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+/* Last row rests clear of the bottom tab bar (the rest of the scroll
+   still passes under its glass). */
+html[data-bp~="sm-and-down"] .r-v2-shell__scroller {
+  padding-bottom: calc(
+    var(--r-bottom-nav-h) + env(safe-area-inset-bottom) + 24px
+  );
 }
 html[data-bp~="xs"] .r-v2-shell__header {
   padding-top: 16px;
 }
 html[data-bp~="xs"] .r-v2-shell__row {
-  gap: 12px 10px;
+  gap: 12px;
 }
 </style>

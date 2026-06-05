@@ -278,6 +278,16 @@ const transitionName = computed(() =>
   border-inline-end: 0;
 }
 
+/* On phones the drawer goes full-screen — there's a close button in the
+   header, so the slim tap-to-dismiss scrim strip isn't needed and the
+   extra width is more useful. `!important` beats the inline `panelStyle`
+   width the consumer set for desktop. Selector hangs off `<html>` —
+   RDrawer teleports outside the app root but `data-bp` lives there. */
+html[data-bp~="xs"] .r-drawer__panel {
+  width: 100vw !important;
+  max-width: 100vw !important;
+}
+
 /* ── Header ────────────────────────────────────────────────────── */
 .r-drawer__header {
   flex-shrink: 0;

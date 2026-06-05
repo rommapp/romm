@@ -473,6 +473,11 @@ watch(
      fixed shell (e.g. UserMenu's 260px). */
   min-width: 180px;
   width: max-content;
+  /* Never exceed the viewport — on a narrow phone a wide menu would
+     otherwise overflow the screen edge (floating-ui's `shift` keeps it
+     in view but can't shrink it). Caps both auto-width and fixed-`width`
+     panels; the body already scrolls vertically and clips horizontally. */
+  max-width: calc(100vw - 16px);
   overflow: hidden;
   background: var(--r-color-panel);
   border: 1px solid var(--r-color-panel-border);

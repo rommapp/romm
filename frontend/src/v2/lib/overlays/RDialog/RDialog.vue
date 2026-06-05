@@ -34,6 +34,10 @@ const props = withDefaults(
     height?: number | string;
     /** Block close-on-scrim-click / close-on-Escape. */
     persistent?: boolean;
+    /** On `sm-and-down`, dock the panel as a full-width bottom sheet
+     *  instead of a centred card. Default on — opt out for surfaces that
+     *  must stay a compact floating card on phones. */
+    fullscreenOnMobile?: boolean;
   }>(),
   {
     scrollContent: false,
@@ -41,6 +45,7 @@ const props = withDefaults(
     width: "auto",
     height: "auto",
     persistent: false,
+    fullscreenOnMobile: true,
   },
 );
 
@@ -193,6 +198,7 @@ const panelStyle = computed(() => {
         v-if="modelValue"
         v-bind="$attrs"
         class="r-dialog"
+        :class="{ 'r-dialog--fs-mobile': fullscreenOnMobile }"
         role="presentation"
         :style="dialogStyle"
       >
@@ -298,6 +304,28 @@ const panelStyle = computed(() => {
   color: var(--r-color-fg);
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 32px);
+}
+
+/* ── Mobile bottom sheet (sm-and-down) ──────────────────────────────
+   On phones + small tablets a centred card wastes the screen and a wide
+   form gets cramped. Dock the panel to the bottom edge as a full-width
+   sheet with a rounded top: small dialogs (confirms) sit content-height
+   at the bottom, large ones grow up to `92dvh` and scroll internally.
+   `!important` overrides the inline `panelStyle` width/height the
+   consumer set for desktop. Selectors hang off `<html>` because RDialog
+   teleports outside the app root but `data-bp` lives on `<html>`. */
+html[data-bp~="sm-and-down"] .r-dialog--fs-mobile {
+  padding: 0;
+  align-items: flex-end;
+}
+html[data-bp~="sm-and-down"] .r-dialog--fs-mobile .r-dialog__panel {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  min-height: 0 !important;
+  max-height: 92dvh !important;
+  border-radius: var(--r-radius-xl) var(--r-radius-xl) 0 0 !important;
+  border-bottom: 0 !important;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ── Header ─────────────────────────────────────────────────────── */
