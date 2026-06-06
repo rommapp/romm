@@ -216,8 +216,17 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/backend
 
-# Declare the supported volumes
-VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/romm/sync", "/redis-data"]
+# Declare the supported volumes.
+#
+# We declare the parent `/romm` directory rather than each of its
+# subdirectories (resources, library, assets, config, sync) individually.
+# Listing the subdirectories causes Docker to create a separate mount point
+# (its own `st_dev`) for each one, even when the user bind-mounts a single
+# parent directory at `/romm`. That makes every cross-directory `os.link()`
+# fail with EXDEV ("Cross-device link"), forcing the asset import/export
+# hardlink optimization to fall back to a full copy. Declaring only `/romm`
+# keeps the subdirectories on a single filesystem so hardlinks can succeed.
+VOLUME ["/romm", "/redis-data"]
 
 # Expose non-privileged ports
 EXPOSE 8080 6379/tcp
