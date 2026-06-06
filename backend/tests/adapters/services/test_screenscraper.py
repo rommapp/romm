@@ -149,6 +149,29 @@ class TestScreenScraperServiceUnit:
         mock_response.json.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_request_acquires_rate_limiter(self, service, monkeypatch):
+        """Test that the request reserves a rate-limiter slot before sending."""
+        acquire_mock = AsyncMock()
+        monkeypatch.setattr(
+            "adapters.services.screenscraper._rate_limiter.acquire", acquire_mock
+        )
+
+        mock_session = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={"response": {}})
+        mock_response.text = AsyncMock(return_value="{}")
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        acquire_mock.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_request_login_error(self, service):
         """Test request with login error in response text."""
         mock_session = AsyncMock()

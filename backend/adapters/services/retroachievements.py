@@ -2,7 +2,7 @@ import asyncio
 import http
 import json
 from collections.abc import AsyncIterator
-from typing import cast
+from typing import Final, cast
 
 import aiohttp
 import yarl
@@ -20,6 +20,12 @@ from config import RETROACHIEVEMENTS_API_KEY
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
+from utils.rate_limiter import RateLimiter
+
+# RetroAchievements does not publish a fixed limit; stay conservative to keep
+# within the "fair burst" allowance the API documents.
+RA_MAX_REQUESTS_PER_SECOND: Final[float] = 4
+_rate_limiter = RateLimiter(RA_MAX_REQUESTS_PER_SECOND)
 
 
 async def auth_middleware(
@@ -53,6 +59,7 @@ class RetroAchievementsService:
             request_timeout,
         )
         try:
+            await _rate_limiter.acquire()
             res = await aiohttp_session.get(
                 url,
                 headers={"user-agent": f"RomM/{get_version()}"},
@@ -90,6 +97,7 @@ class RetroAchievementsService:
                 url,
                 request_timeout,
             )
+            await _rate_limiter.acquire()
             res = await aiohttp_session.get(
                 url,
                 headers={"user-agent": f"RomM/{get_version()}"},

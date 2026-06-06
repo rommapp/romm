@@ -77,6 +77,30 @@ class TestRetroAchievementsServiceUnit:
         assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         assert "Can't connect to RetroAchievements" in exc_info.value.detail
 
+    @pytest.mark.asyncio
+    async def test_request_acquires_rate_limiter(self, service, monkeypatch):
+        """Test that the request reserves a rate-limiter slot before sending."""
+        acquire_mock = AsyncMock()
+        monkeypatch.setattr(
+            "adapters.services.retroachievements._rate_limiter.acquire", acquire_mock
+        )
+
+        mock_session = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={})
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch(
+            "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
+        ):
+            await service._request("https://retroachievements.org/API")
+
+        acquire_mock.assert_awaited_once()
+
 
 class TestRetroAchievementsServiceIntegration:
     @pytest.fixture

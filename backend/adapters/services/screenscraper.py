@@ -14,10 +14,15 @@ from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
+from utils.rate_limiter import RateLimiter
 
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 LOGIN_ERROR_CHECK: Final = "Erreur de login"
+
+# ScreenScraper throttles the free tier to roughly one request per second.
+SS_MAX_REQUESTS_PER_SECOND: Final[float] = 1
+_rate_limiter = RateLimiter(SS_MAX_REQUESTS_PER_SECOND)
 
 
 async def auth_middleware(
@@ -57,6 +62,7 @@ class ScreenScraperService:
             request_timeout,
         )
         try:
+            await _rate_limiter.acquire()
             res = await aiohttp_session.get(
                 url,
                 headers={"user-agent": f"RomM/{get_version()}"},
@@ -125,6 +131,7 @@ class ScreenScraperService:
                 url,
                 request_timeout,
             )
+            await _rate_limiter.acquire()
             res = await aiohttp_session.get(
                 url,
                 headers={"user-agent": f"RomM/{get_version()}"},
