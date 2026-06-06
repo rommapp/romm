@@ -1,4 +1,16 @@
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
+
+
+# Per-account limits returned in `response.ssuser`. Contributors/donors get a
+# higher `maxthreads` allowance. All values arrive as strings.
+# Reference: https://api.screenscraper.fr/webapi2.php
+class SSUser(TypedDict):
+    id: NotRequired[str]
+    niveau: NotRequired[str]
+    maxthreads: NotRequired[str]
+    maxrequestspermin: NotRequired[str]
+    maxrequestsperday: NotRequired[str]
+    requeststoday: NotRequired[str]
 
 
 class SSText(TypedDict):

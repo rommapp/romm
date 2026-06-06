@@ -5,23 +5,33 @@ import aiohttp
 import pytest
 import pytest_asyncio
 
+from adapters.services.screenscraper import SS_DEFAULT_MAX_THREADS
+from utils.rate_limiter import ConcurrencyLimiter
+
 
 @pytest.fixture(autouse=True)
 def _disable_metadata_rate_limiters(monkeypatch):
     """Neutralize the pre-emptive rate limiters during tests.
 
-    Each metadata service spaces its requests via a module-level ``RateLimiter``
-    whose ``acquire`` sleeps to stay under the provider's req/s cap. Letting it
-    run would add real delays and inject extra ``asyncio.sleep`` calls that
-    interfere with retry assertions, so we replace ``acquire`` with a no-op.
+    Each req/s-limited service spaces its requests via a module-level
+    ``RateLimiter`` whose ``acquire`` sleeps to stay under the provider's cap.
+    Letting it run would add real delays and inject extra ``asyncio.sleep`` calls
+    that interfere with retry assertions, so we replace ``acquire`` with a no-op.
     """
     for module in (
         "adapters.services.igdb",
         "adapters.services.mobygames",
         "adapters.services.retroachievements",
-        "adapters.services.screenscraper",
     ):
         monkeypatch.setattr(f"{module}._rate_limiter.acquire", AsyncMock())
+
+    # ScreenScraper uses a concurrency limiter whose capacity mutates at runtime
+    # from `ssuser.maxthreads`. Swap in a fresh instance so each test starts from
+    # the default allowance with a clean (per-loop) waiter queue.
+    monkeypatch.setattr(
+        "adapters.services.screenscraper._concurrency_limiter",
+        ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS),
+    )
 
 
 @pytest_asyncio.fixture

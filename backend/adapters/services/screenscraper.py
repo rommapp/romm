@@ -14,15 +14,40 @@ from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
-from utils.rate_limiter import RateLimiter
+from utils.rate_limiter import ConcurrencyLimiter
 
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 LOGIN_ERROR_CHECK: Final = "Erreur de login"
 
-# ScreenScraper throttles the free tier to roughly one request per second.
-SS_MAX_REQUESTS_PER_SECOND: Final[float] = 1
-_rate_limiter = RateLimiter(SS_MAX_REQUESTS_PER_SECOND)
+# ScreenScraper enforces a per-account *thread* (concurrency) cap rather than a
+# request rate. Because a request can take several seconds, spacing out request
+# starts is not enough -- overlapping requests would exceed the cap and get
+# rejected. We instead bound simultaneous in-flight requests. The free/anonymous
+# tier allows a single thread; contributors and donors get more, which we learn
+# from `ssuser.maxthreads` in each response and apply via the limiter.
+SS_DEFAULT_MAX_THREADS: Final[int] = 1
+_concurrency_limiter = ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS)
+
+
+def _update_thread_allowance(response: dict) -> None:
+    """Raise (or lower) the concurrency cap to the account's advertised threads.
+
+    ScreenScraper reports the per-account thread allowance in
+    ``response.ssuser.maxthreads`` (higher for contributors/donors). Honouring it
+    lets supporters scrape with their full concurrency instead of the
+    conservative default.
+    """
+    try:
+        max_threads = int(response["response"]["ssuser"]["maxthreads"])
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return
+
+    if max_threads < 1 or max_threads == _concurrency_limiter.max_concurrency:
+        return
+
+    log.info("ScreenScraper: setting thread allowance to %d", max_threads)
+    _concurrency_limiter.set_max_concurrency(max_threads)
 
 
 async def auth_middleware(
@@ -62,22 +87,24 @@ class ScreenScraperService:
             request_timeout,
         )
         try:
-            await _rate_limiter.acquire()
-            res = await aiohttp_session.get(
-                url,
-                headers={"user-agent": f"RomM/{get_version()}"},
-                middlewares=(auth_middleware,),
-                timeout=ClientTimeout(total=request_timeout),
-            )
-            res.raise_for_status()
-            res_text = await res.text()
-            if LOGIN_ERROR_CHECK in res_text:
-                log.error("Invalid ScreenScraper credentials")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid ScreenScraper credentials",
+            async with _concurrency_limiter:
+                res = await aiohttp_session.get(
+                    url,
+                    headers={"user-agent": f"RomM/{get_version()}"},
+                    middlewares=(auth_middleware,),
+                    timeout=ClientTimeout(total=request_timeout),
                 )
-            return await res.json()
+                res.raise_for_status()
+                res_text = await res.text()
+                if LOGIN_ERROR_CHECK in res_text:
+                    log.error("Invalid ScreenScraper credentials")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid ScreenScraper credentials",
+                    )
+                data = await res.json()
+            _update_thread_allowance(data)
+            return data
         except aiohttp.ServerTimeoutError:
             # Retry the request once if it times out
             pass
@@ -131,22 +158,24 @@ class ScreenScraperService:
                 url,
                 request_timeout,
             )
-            await _rate_limiter.acquire()
-            res = await aiohttp_session.get(
-                url,
-                headers={"user-agent": f"RomM/{get_version()}"},
-                middlewares=(auth_middleware,),
-                timeout=ClientTimeout(total=request_timeout),
-            )
-            res.raise_for_status()
-            res_text = await res.text()
-            if LOGIN_ERROR_CHECK in res_text:
-                log.error("Invalid ScreenScraper credentials")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid ScreenScraper credentials",
+            async with _concurrency_limiter:
+                res = await aiohttp_session.get(
+                    url,
+                    headers={"user-agent": f"RomM/{get_version()}"},
+                    middlewares=(auth_middleware,),
+                    timeout=ClientTimeout(total=request_timeout),
                 )
-            return await res.json()
+                res.raise_for_status()
+                res_text = await res.text()
+                if LOGIN_ERROR_CHECK in res_text:
+                    log.error("Invalid ScreenScraper credentials")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid ScreenScraper credentials",
+                    )
+                data = await res.json()
+            _update_thread_allowance(data)
+            return data
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as err:
             if isinstance(err, aiohttp.ClientResponseError):
                 if err.status == http.HTTPStatus.UNAUTHORIZED:

@@ -149,12 +149,14 @@ class TestScreenScraperServiceUnit:
         mock_response.json.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_request_acquires_rate_limiter(self, service, monkeypatch):
-        """Test that the request reserves a rate-limiter slot before sending."""
+    async def test_request_holds_concurrency_slot(self, service, monkeypatch):
+        """Test that the request acquires and releases a concurrency slot."""
+        import adapters.services.screenscraper as ss_module
+
         acquire_mock = AsyncMock()
-        monkeypatch.setattr(
-            "adapters.services.screenscraper._rate_limiter.acquire", acquire_mock
-        )
+        release_mock = MagicMock()
+        monkeypatch.setattr(ss_module._concurrency_limiter, "acquire", acquire_mock)
+        monkeypatch.setattr(ss_module._concurrency_limiter, "release", release_mock)
 
         mock_session = AsyncMock()
         mock_response = MagicMock()
@@ -170,6 +172,55 @@ class TestScreenScraperServiceUnit:
             await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
 
         acquire_mock.assert_awaited_once()
+        release_mock.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_request_updates_thread_allowance_from_ssuser(
+        self, service, monkeypatch
+    ):
+        """Test that `ssuser.maxthreads` raises the concurrency cap (donor perk)."""
+        import adapters.services.screenscraper as ss_module
+
+        assert ss_module._concurrency_limiter.max_concurrency == 1
+
+        mock_session = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(
+            return_value={"response": {"ssuser": {"maxthreads": "5"}}}
+        )
+        mock_response.text = AsyncMock(return_value="{}")
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert ss_module._concurrency_limiter.max_concurrency == 5
+
+    @pytest.mark.asyncio
+    async def test_request_ignores_invalid_maxthreads(self, service, monkeypatch):
+        """Test that a missing or unparsable `maxthreads` leaves the cap untouched."""
+        import adapters.services.screenscraper as ss_module
+
+        mock_session = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(
+            return_value={"response": {"ssuser": {"maxthreads": "not-a-number"}}}
+        )
+        mock_response.text = AsyncMock(return_value="{}")
+        mock_response.raise_for_status.return_value = None
+        mock_session.get.return_value = mock_response
+
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch("adapters.services.screenscraper.ctx_aiohttp_session", mock_context):
+            await service._request("https://api.screenscraper.fr/api2/jeuInfos.php")
+
+        assert ss_module._concurrency_limiter.max_concurrency == 1
 
     @pytest.mark.asyncio
     async def test_request_login_error(self, service):
