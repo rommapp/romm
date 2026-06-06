@@ -216,7 +216,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/backend
 
-# Declare the supported volumes
+# Declare only the parent `/romm`, not its subdirs, so Docker keeps them 
+# on one mount (`st_dev`) and cross-directory `os.link()` hardlinks don't fail.
 VOLUME ["/romm", "/redis-data"]
 
 # Expose non-privileged ports
