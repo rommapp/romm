@@ -17,6 +17,7 @@ from utils.rate_limiter import RateLimiter
 
 # Playmatch caps clients at 4 req/s per IP
 PLAYMATCH_MAX_REQUESTS_PER_SECOND: Final[float] = 4
+PLAYMATCH_MAX_REQUEST_ATTEMPTS: Final[int] = 2
 _rate_limiter = RateLimiter(PLAYMATCH_MAX_REQUESTS_PER_SECOND)
 
 
@@ -150,7 +151,7 @@ class PlaymatchHandler(MetadataHandler):
 
         headers = {"user-agent": f"RomM/{get_version()}"}
 
-        for attempt in range(2):
+        for attempt in range(PLAYMATCH_MAX_REQUEST_ATTEMPTS):
             await _rate_limiter.acquire()
             try:
                 res = await httpx_client.get(
