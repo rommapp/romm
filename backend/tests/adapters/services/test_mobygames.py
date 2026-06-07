@@ -1,6 +1,7 @@
 import asyncio
 import http
 import json
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -8,6 +9,7 @@ import pytest
 import yarl
 from fastapi import HTTPException, status
 
+from adapters.services import mobygames
 from adapters.services.mobygames import (
     MobyGamesService,
     auth_middleware,
@@ -107,17 +109,35 @@ class TestMobyGamesServiceUnit:
     @pytest.mark.asyncio
     async def test_request_acquires_rate_limiter(self, service, monkeypatch):
         """Test that the request reserves a rate-limiter slot before sending."""
-        mock_session = AsyncMock()
         mock_response = MagicMock()
         mock_response.json = AsyncMock(return_value={"games": []})
         mock_response.raise_for_status.return_value = None
-        mock_session.get.return_value = mock_response
+
+        # Record the order in which the rate limiter is acquired and the request is sent
+        call_order: list[str] = []
+        acquire_mock = cast(AsyncMock, mobygames._rate_limiter.acquire)
+        acquire_mock.side_effect = lambda *a, **k: call_order.append("acquire")
+
+        async def record_get(*args, **kwargs):
+            call_order.append("get")
+            return mock_response
+
+        mock_session = AsyncMock()
+        mock_session.get.side_effect = record_get
 
         mock_context = MagicMock()
         mock_context.get.return_value = mock_session
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
             await service._request("https://api.mobygames.com/v1/games")
+
+        # The rate-limiter slot must be reserved, and before the request is sent.
+        acquire_mock.assert_awaited_once()
+        mock_session.get.assert_awaited_once()
+        assert call_order == [
+            "acquire",
+            "get",
+        ], "rate limiter must be acquired before the GET is sent"
 
     @pytest.mark.asyncio
     async def test_request_connection_error(self, service):
