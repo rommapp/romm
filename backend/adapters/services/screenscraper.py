@@ -36,7 +36,6 @@ def _update_thread_allowance(response: dict) -> None:
     """
     try:
         max_threads = int(response["response"]["ssuser"]["maxthreads"])
-        print("MAX THREADS: ", max_threads)
     except (AttributeError, KeyError, TypeError, ValueError):
         return
 
