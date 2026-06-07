@@ -39,7 +39,13 @@ fi
 # Start all services in the background
 echo "Starting backend..."
 cd /app/backend
-uv run python main.py &
+if [[ ${DEV_MODE:-false} == "true" ]]; then
+	echo "Starting backend under debugpy on :5678..."
+	# Add --wait-for-client after --listen to pause until VSCode attaches.
+	uv run python -m debugpy --listen 0.0.0.0:5678 main.py &
+else
+	uv run python main.py &
+fi
 
 echo "Starting RQ scheduler..."
 RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \

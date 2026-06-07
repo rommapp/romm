@@ -3,7 +3,7 @@ import http
 import json
 from collections.abc import Sequence
 from functools import partial
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Final, TypedDict
 
 import aiohttp
 import yarl
@@ -17,9 +17,14 @@ from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_aiohttp_session
+from utils.rate_limiter import RateLimiter
 
 if TYPE_CHECKING:
     from handler.metadata.igdb_handler import TwitchAuth
+
+# IGDB caps clients at 4 requests per second (max 8 open requests).
+IGDB_MAX_REQUESTS_PER_SECOND: Final[float] = 4
+_rate_limiter = RateLimiter(IGDB_MAX_REQUESTS_PER_SECOND)
 
 
 class IGDBInvalidCredentialsException(Exception):
@@ -94,6 +99,7 @@ class IGDBService:
         )
 
         try:
+            await _rate_limiter.acquire()
             res = await aiohttp_session.post(
                 url,
                 data=content,
@@ -142,6 +148,7 @@ class IGDBService:
                 content,
                 request_timeout,
             )
+            await _rate_limiter.acquire()
             res = await aiohttp_session.post(
                 url,
                 data=content,
