@@ -231,6 +231,52 @@ class DBRomsHandler(DBBaseHandler):
 
         return {rom_id: sorted(ids) for rom_id, ids in buckets.items()}
 
+    def get_files_for_roms(
+        self,
+        rom_ids: list[int],
+        *,
+        session: Session,
+    ) -> dict[int, list[RomFile]]:
+        """Return {rom_id: [RomFile, ...]} for the given rom IDs in a single query.
+
+        Used by the list endpoint to serialize files without relying on the
+        query's relationship eager-load surviving pagination.
+        """
+        if not rom_ids:
+            return {}
+
+        files = session.scalars(
+            select(RomFile).where(RomFile.rom_id.in_(rom_ids))
+        ).all()
+
+        buckets: dict[int, list[RomFile]] = {rom_id: [] for rom_id in rom_ids}
+        for file in files:
+            buckets[file.rom_id].append(file)
+
+        return buckets
+
+    def get_siblings_for_roms(
+        self,
+        rom_ids: list[int],
+        *,
+        session: Session,
+    ) -> dict[int, list[Rom]]:
+        """Return {rom_id: [sibling Rom, ...]} for the given rom IDs in a single query."""
+        if not rom_ids:
+            return {}
+
+        rows = session.execute(
+            select(SiblingRom.rom_id, Rom)
+            .join(Rom, Rom.id == SiblingRom.sibling_rom_id)
+            .where(SiblingRom.rom_id.in_(rom_ids))
+        ).all()
+
+        buckets: dict[int, list[Rom]] = {rom_id: [] for rom_id in rom_ids}
+        for rom_id, sibling in rows:
+            buckets[rom_id].append(sibling)
+
+        return buckets
+
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
 

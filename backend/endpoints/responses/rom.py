@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
-from pydantic import ConfigDict, computed_field, field_validator
+from pydantic import ConfigDict, Field, computed_field, field_validator
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from handler.metadata.flashpoint_handler import FlashpointMetadata
@@ -18,7 +19,7 @@ from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from models.collection import Collection
-from models.rom import Rom, RomArchiveMember, RomFileCategory, RomUserStatus
+from models.rom import Rom, RomArchiveMember, RomFile, RomFileCategory, RomUserStatus
 
 from .base import BaseModel, UTCDatetime
 
@@ -335,16 +336,50 @@ class SiblingRomSchema(BaseModel):
             .lower()
         )
 
+    @classmethod
+    def from_rom(cls, rom: Rom) -> SiblingRomSchema:
+        return cls(
+            id=rom.id,
+            name=rom.name,
+            fs_name_no_tags=rom.fs_name_no_tags,
+            fs_name_no_ext=rom.fs_name_no_ext,
+        )
+
 
 class SimpleRomSchema(RomSchema):
     sibling_ids: list[int]
+    # `files` binds to a dedicated attribute via validation alias rather than the
+    # `Rom.files` relationship: that keeps the full file list out of the default
+    # gallery payload, and avoids tripping the relationship's lazy="raise" in
+    # factory contexts where files aren't loaded. Populated only when requested.
+    files: list[RomFileSchema] = Field(
+        default_factory=list, validation_alias="included_files"
+    )
+    siblings: list[SiblingRomSchema] = Field(default_factory=list)
+
+    @field_validator("files")
+    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
+        return sorted(v, key=lambda x: x.file_name)
+
+    @field_validator("siblings")
+    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
+        return sorted(v, key=lambda x: x.sort_comparator)
 
     @classmethod
     def from_orm_with_request(
-        cls, db_rom: Rom, request: Request, sibling_ids: list[int] | None = None
+        cls,
+        db_rom: Rom,
+        request: Request,
+        sibling_ids: list[int] | None = None,
+        files: Sequence[RomFile] | None = None,
+        siblings: Sequence[Rom] | None = None,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request)
         db_rom.sibling_ids = sibling_ids or []  # type: ignore
+        db_rom.included_files = files or []  # type: ignore
+        db_rom.siblings = (  # type: ignore
+            [SiblingRomSchema.from_rom(s) for s in siblings] if siblings else []
+        )
         return cls.model_validate(db_rom)
 
     @classmethod
@@ -397,15 +432,7 @@ class DetailedRomSchema(RomSchema):
         db_rom = cls.populate_properties(db_rom, request)
 
         sorted_siblings = sorted(
-            (
-                SiblingRomSchema(
-                    id=s.id,
-                    name=s.name,
-                    fs_name_no_tags=s.fs_name_no_tags,
-                    fs_name_no_ext=s.fs_name_no_ext,
-                )
-                for s in db_rom.sibling_roms
-            ),
+            (SiblingRomSchema.from_rom(s) for s in db_rom.sibling_roms),
             key=lambda x: x.sort_comparator,
         )
         db_rom.siblings = sorted_siblings  # type: ignore
