@@ -107,7 +107,7 @@ class TestMobyGamesServiceUnit:
         mock_response.json.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_request_acquires_rate_limiter(self, service, monkeypatch):
+    async def test_request_acquires_rate_limiter(self, service):
         """Test that the request reserves a rate-limiter slot before sending."""
         mock_response = MagicMock()
         mock_response.json = AsyncMock(return_value={"games": []})

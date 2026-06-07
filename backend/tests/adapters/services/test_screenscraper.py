@@ -175,9 +175,7 @@ class TestScreenScraperServiceUnit:
         release_mock.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_request_updates_thread_allowance_from_ssuser(
-        self, service, monkeypatch
-    ):
+    async def test_request_updates_thread_allowance_from_ssuser(self, service):
         """Test that `ssuser.maxthreads` raises the concurrency cap (donor perk)."""
         import adapters.services.screenscraper as ss_module
 
@@ -201,7 +199,7 @@ class TestScreenScraperServiceUnit:
         assert ss_module._concurrency_limiter.max_concurrency == 5
 
     @pytest.mark.asyncio
-    async def test_request_ignores_invalid_maxthreads(self, service, monkeypatch):
+    async def test_request_ignores_invalid_maxthreads(self, service):
         """Test that a missing or unparsable `maxthreads` leaves the cap untouched."""
         import adapters.services.screenscraper as ss_module
 
