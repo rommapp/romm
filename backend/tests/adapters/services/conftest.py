@@ -16,7 +16,6 @@ def disable_metadata_rate_limiters(monkeypatch):
         "adapters.services.igdb",
         "adapters.services.mobygames",
         "adapters.services.retroachievements",
-        "adapters.services.screenscraper",
     ):
         mod = __import__(module, fromlist=["_rate_limiter"])
         monkeypatch.setattr(mod._rate_limiter, "acquire", AsyncMock())
