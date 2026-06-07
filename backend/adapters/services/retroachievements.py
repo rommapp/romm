@@ -22,8 +22,8 @@ from utils import get_version
 from utils.context import ctx_aiohttp_session
 from utils.rate_limiter import RateLimiter
 
-# RetroAchievements does not publish a fixed limit; stay conservative to keep
-# within the "fair burst" allowance the API documents.
+# RetroAchievements does not publish a fixed limit, try to stay
+# within the "fair burst" allowance the API documents
 RA_MAX_REQUESTS_PER_SECOND: Final[float] = 4
 _rate_limiter = RateLimiter(RA_MAX_REQUESTS_PER_SECOND)
 

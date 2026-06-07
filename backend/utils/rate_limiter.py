@@ -32,23 +32,15 @@ class RateLimiter:
 class ConcurrencyLimiter:
     """Caps the number of in-flight operations, with a runtime-adjustable capacity.
 
-    Unlike :class:`RateLimiter`, which spaces out *when* requests start, this
-    bounds how many run *simultaneously*. It suits APIs that enforce a per-account
-    thread/connection cap (e.g. ScreenScraper) rather than a call rate: because a
-    slot is held for the whole request, slow responses can never cause overlapping
-    requests to exceed the cap.
+    It suits APIs that enforce a per-account thread/connection cap (e.g. ScreenScraper)
+    rather than a call rate. Because a slot is held for the whole request, slow
+    responses can never cause overlapping requests to exceed the cap.
 
-    The capacity can be raised or lowered at runtime via
-    :meth:`set_max_concurrency` -- for instance once an API response reveals the
-    account's allowance. Use it as an async context manager so the slot is always
-    released, even if the wrapped request raises::
+    Use it as an async context manager so the slot is always released, even if the
+    wrapped request raises:
 
         async with limiter:
             await do_request()
-
-    The implementation is loop-agnostic: waiter futures are created against the
-    running loop on acquisition, so a single shared instance works across the
-    distinct event loops used by, e.g., the test suite.
     """
 
     def __init__(self, max_concurrency: int) -> None:
@@ -76,7 +68,7 @@ class ConcurrencyLimiter:
             self._wake_next()
 
     async def acquire(self) -> None:
-        # Re-check on every wake-up: another coroutine may have taken the slot,
+        # Re-check on every wake-up, as another coroutine may have taken the slot,
         # or the capacity may have been lowered while we waited.
         while self._in_flight >= self._max_concurrency:
             loop = asyncio.get_running_loop()
@@ -88,7 +80,7 @@ class ConcurrencyLimiter:
                 finally:
                     self._waiters.remove(waiter)
             except asyncio.CancelledError:
-                # We were granted a slot but cancelled before using it; pass the
+                # We were granted a slot but cancelled before using it, so pass the
                 # grant on so a waiting peer is not stranded.
                 if not waiter.cancelled():
                     self._wake_next()

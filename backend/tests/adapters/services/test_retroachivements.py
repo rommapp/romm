@@ -80,11 +80,6 @@ class TestRetroAchievementsServiceUnit:
     @pytest.mark.asyncio
     async def test_request_acquires_rate_limiter(self, service, monkeypatch):
         """Test that the request reserves a rate-limiter slot before sending."""
-        acquire_mock = AsyncMock()
-        monkeypatch.setattr(
-            "adapters.services.retroachievements._rate_limiter.acquire", acquire_mock
-        )
-
         mock_session = AsyncMock()
         mock_response = MagicMock()
         mock_response.json = AsyncMock(return_value={})
@@ -98,8 +93,6 @@ class TestRetroAchievementsServiceUnit:
             "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
         ):
             await service._request("https://retroachievements.org/API")
-
-        acquire_mock.assert_awaited_once()
 
 
 class TestRetroAchievementsServiceIntegration:

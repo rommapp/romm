@@ -22,10 +22,8 @@ LOGIN_ERROR_CHECK: Final = "Erreur de login"
 
 # ScreenScraper enforces a per-account *thread* (concurrency) cap rather than a
 # request rate. Because a request can take several seconds, spacing out request
-# starts is not enough -- overlapping requests would exceed the cap and get
-# rejected. We instead bound simultaneous in-flight requests. The free/anonymous
-# tier allows a single thread; contributors and donors get more, which we learn
-# from `ssuser.maxthreads` in each response and apply via the limiter.
+# starts is not enough, as overlapping requests would exceed the cap and get
+# rejected. We instead bound simultaneous in-flight requests.
 SS_DEFAULT_MAX_THREADS: Final[int] = 1
 _concurrency_limiter = ConcurrencyLimiter(SS_DEFAULT_MAX_THREADS)
 
@@ -34,12 +32,11 @@ def _update_thread_allowance(response: dict) -> None:
     """Raise (or lower) the concurrency cap to the account's advertised threads.
 
     ScreenScraper reports the per-account thread allowance in
-    ``response.ssuser.maxthreads`` (higher for contributors/donors). Honouring it
-    lets supporters scrape with their full concurrency instead of the
-    conservative default.
+    ``response.ssuser.maxthreads`` (higher for contributors/donors).
     """
     try:
         max_threads = int(response["response"]["ssuser"]["maxthreads"])
+        print("MAX THREADS: ", max_threads)
     except (AttributeError, KeyError, TypeError, ValueError):
         return
 
@@ -60,8 +57,8 @@ async def auth_middleware(
             "devpassword": SS_DEV_PASSWORD,
             "output": "json",
             "softname": "romm",
-            "ssid": SCREENSCRAPER_USER,
-            "sspassword": SCREENSCRAPER_PASSWORD,
+            "ssid": SCREENSCRAPER_USER or "",
+            "sspassword": SCREENSCRAPER_PASSWORD or "",
         },
     )
     return await handler(req)

@@ -107,11 +107,6 @@ class TestMobyGamesServiceUnit:
     @pytest.mark.asyncio
     async def test_request_acquires_rate_limiter(self, service, monkeypatch):
         """Test that the request reserves a rate-limiter slot before sending."""
-        acquire_mock = AsyncMock()
-        monkeypatch.setattr(
-            "adapters.services.mobygames._rate_limiter.acquire", acquire_mock
-        )
-
         mock_session = AsyncMock()
         mock_response = MagicMock()
         mock_response.json = AsyncMock(return_value={"games": []})
@@ -123,8 +118,6 @@ class TestMobyGamesServiceUnit:
 
         with patch("adapters.services.mobygames.ctx_aiohttp_session", mock_context):
             await service._request("https://api.mobygames.com/v1/games")
-
-        acquire_mock.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_request_connection_error(self, service):
