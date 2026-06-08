@@ -348,10 +348,6 @@ class SiblingRomSchema(BaseModel):
 
 class SimpleRomSchema(RomSchema):
     sibling_ids: list[int]
-    # `files` binds to a dedicated attribute via validation alias rather than the
-    # `Rom.files` relationship: that keeps the full file list out of the default
-    # gallery payload, and avoids tripping the relationship's lazy="raise" in
-    # factory contexts where files aren't loaded. Populated only when requested.
     files: list[RomFileSchema] = Field(
         default_factory=list, validation_alias="included_files"
     )
