@@ -9,7 +9,7 @@ export type UserForm = {
     role?: (string | null);
     enabled?: (boolean | null);
     ra_username?: (string | null);
-    avatar?: (Blob | null);
+    avatar?: (string | null);
     ui_settings?: (string | null);
 };
 

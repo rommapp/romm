@@ -443,6 +443,7 @@ async def scan_rom(
                         "rom_user",
                         "last_modified",
                         "files",
+                        "siblings",
                     }
                 ),
             },

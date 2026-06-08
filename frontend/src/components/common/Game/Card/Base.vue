@@ -374,10 +374,10 @@ onBeforeUnmount(() => {
                     <v-icon>mdi-check-decagram-outline</v-icon>
                   </v-chip>
                   <v-chip
-                    v-if="rom.sibling_ids.length > 0 && showSiblings"
+                    v-if="rom.sibling_roms.length > 0 && showSiblings"
                     class="translucent mr-1 mb-1 px-1"
                     density="compact"
-                    :title="`${rom.sibling_ids.length} sibling(s)`"
+                    :title="`${rom.sibling_roms.length} sibling(s)`"
                   >
                     <v-icon>mdi-card-multiple-outline</v-icon>
                   </v-chip>

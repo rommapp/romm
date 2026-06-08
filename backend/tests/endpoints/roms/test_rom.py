@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from handler.database import db_rom_handler
 from handler.filesystem.resources_handler import FSResourcesHandler
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.flashpoint_handler import FlashpointHandler, FlashpointRom
@@ -14,7 +15,7 @@ from handler.metadata.moby_handler import MobyGamesHandler, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile
 
 MOCK_IGDB_ID = 11111
 MOCK_MOBY_ID = 22222
@@ -80,6 +81,36 @@ def test_get_all_roms(
     items = body["items"]
     assert len(items) == 1
     assert items[0]["id"] == rom.id
+    assert items[0]["files"] == []
+    assert items[0]["sibling_roms"] == []
+
+
+def test_get_all_roms_with_files(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+):
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="test_rom.zip",
+            file_path=f"{platform.slug}/roms",
+            file_size_bytes=1024,
+            last_modified=1700000000.0,
+        )
+    )
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "with_files": True},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    item = response.json()["items"][0]
+    assert item["id"] == rom.id
+    assert len(item["files"]) == 1
+    assert item["files"][0]["file_name"] == "test_rom.zip"
+    # with_files alone must not pull in sibling_roms
+    assert item["sibling_roms"] == []
 
 
 def test_get_rom_content_requires_auth(client: TestClient, rom: Rom, rom_file):

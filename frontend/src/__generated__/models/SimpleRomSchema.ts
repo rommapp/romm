@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ManualMetadata } from './ManualMetadata';
+import type { RomFileSchema } from './RomFileSchema';
 import type { RomFlashpointMetadata } from './RomFlashpointMetadata';
 import type { RomGamelistMetadata } from './RomGamelistMetadata';
 import type { RomHasheousMetadata } from './RomHasheousMetadata';
@@ -14,6 +15,7 @@ import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomRAMetadata } from './RomRAMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
+import type { SiblingRomSchema } from './SiblingRomSchema';
 export type SimpleRomSchema = {
     id: number;
     igdb_id: (number | null);
@@ -83,6 +85,7 @@ export type SimpleRomSchema = {
     rom_user: RomUserSchema;
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
-    sibling_ids: Array<number>;
+    files: Array<RomFileSchema>;
+    sibling_roms: Array<SiblingRomSchema>;
 };
 

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
 from fastapi import Request
-from pydantic import ConfigDict, computed_field, field_validator
+from pydantic import ConfigDict, Field, computed_field, field_validator
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from handler.metadata.flashpoint_handler import FlashpointMetadata
@@ -18,7 +19,7 @@ from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from models.collection import Collection
-from models.rom import Rom, RomArchiveMember, RomFileCategory, RomUserStatus
+from models.rom import Rom, RomArchiveMember, RomFile, RomFileCategory, RomUserStatus
 
 from .base import BaseModel, UTCDatetime
 
@@ -300,10 +301,23 @@ class RomSchema(BaseModel):
     merged_screenshots: list[str]
     merged_ra_metadata: RomRAMetadata | None
 
+    files: list[RomFileSchema] = Field(validation_alias="included_files")
+    sibling_roms: list[SiblingRomSchema] = Field(
+        validation_alias="included_sibling_roms"
+    )
+
+    @field_validator("files")
+    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
+        return sorted(v, key=lambda x: x.file_name)
+
+    @field_validator("sibling_roms")
+    def sort_sibling_roms(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
+        return sorted(v, key=lambda x: x.sort_comparator)
+
     @classmethod
     def populate_properties(cls, db_rom: Rom, request: Request) -> Rom:
-        db_rom.rom_user = RomUserSchema.for_user(request.user.id, db_rom)  # type: ignore
-        db_rom.has_notes = any(  # type: ignore
+        db_rom.rom_user = RomUserSchema.for_user(request.user.id, db_rom)  # type: ignore[assignment]
+        db_rom.has_notes = any(  # type: ignore[assignment]
             note.is_public or note.user_id == request.user.id for note in db_rom.notes
         )
         return db_rom
@@ -335,23 +349,38 @@ class SiblingRomSchema(BaseModel):
             .lower()
         )
 
+    @classmethod
+    def from_rom(cls, rom: Rom) -> SiblingRomSchema:
+        return cls(
+            id=rom.id,
+            name=rom.name,
+            fs_name_no_tags=rom.fs_name_no_tags,
+            fs_name_no_ext=rom.fs_name_no_ext,
+        )
+
 
 class SimpleRomSchema(RomSchema):
-    sibling_ids: list[int]
-
     @classmethod
     def from_orm_with_request(
-        cls, db_rom: Rom, request: Request, sibling_ids: list[int] | None = None
+        cls,
+        db_rom: Rom,
+        request: Request,
+        files: Sequence[RomFile] | None = None,
+        siblings: Sequence[Rom] | None = None,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request)
-        db_rom.sibling_ids = sibling_ids or []  # type: ignore
+        db_rom.included_files = files or []  # type: ignore[assignment]
+        db_rom.included_sibling_roms = (  # type: ignore[assignment]
+            [SiblingRomSchema.from_rom(s) for s in siblings] if siblings else []
+        )
         return cls.model_validate(db_rom)
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
-        db_rom.rom_user = rom_user_schema_factory()  # type: ignore
-        db_rom.sibling_ids = []  # type: ignore
-        db_rom.has_notes = False  # type: ignore
+        db_rom.rom_user = rom_user_schema_factory()  # type: ignore[assignment]
+        db_rom.included_files = []  # type: ignore[assignment]
+        db_rom.included_sibling_roms = []  # type: ignore[assignment]
+        db_rom.has_notes = False  # type: ignore[assignment]
         return cls.model_validate(db_rom)
 
 
@@ -374,22 +403,11 @@ class UserCollectionSchema(BaseModel):
 
 
 class DetailedRomSchema(RomSchema):
-    siblings: list[SiblingRomSchema]
-    sibling_ids: list[int]
-    files: list[RomFileSchema]
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
     user_screenshots: list[ScreenshotSchema]
     user_collections: list[UserCollectionSchema]
     all_user_notes: list[UserNoteSchema]
-
-    @field_validator("siblings")
-    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
-        return sorted(v, key=lambda x: x.sort_comparator)
-
-    @field_validator("files")
-    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
-        return sorted(v, key=lambda x: x.file_name)
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
@@ -397,32 +415,24 @@ class DetailedRomSchema(RomSchema):
         db_rom = cls.populate_properties(db_rom, request)
 
         sorted_siblings = sorted(
-            (
-                SiblingRomSchema(
-                    id=s.id,
-                    name=s.name,
-                    fs_name_no_tags=s.fs_name_no_tags,
-                    fs_name_no_ext=s.fs_name_no_ext,
-                )
-                for s in db_rom.sibling_roms
-            ),
+            (SiblingRomSchema.from_rom(s) for s in db_rom.sibling_roms),
             key=lambda x: x.sort_comparator,
         )
-        db_rom.siblings = sorted_siblings  # type: ignore
-        db_rom.sibling_ids = [s.id for s in sorted_siblings]  # type: ignore
+        db_rom.included_sibling_roms = sorted_siblings  # type: ignore[assignment]
+        db_rom.included_files = sorted(db_rom.files, key=lambda x: x.file_name)  # type: ignore[assignment]
 
-        db_rom.user_saves = [  # type: ignore
+        db_rom.user_saves = [  # type: ignore[assignment]
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]
-        db_rom.user_states = [  # type: ignore
+        db_rom.user_states = [  # type: ignore[assignment]
             StateSchema.model_validate(s) for s in db_rom.states if s.user_id == user_id
         ]
-        db_rom.user_screenshots = [  # type: ignore
+        db_rom.user_screenshots = [  # type: ignore[assignment]
             ScreenshotSchema.model_validate(s)
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        db_rom.user_collections = UserCollectionSchema.for_user(  # type: ignore
+        db_rom.user_collections = UserCollectionSchema.for_user(  # type: ignore[assignment]
             user_id, db_rom.collections
         )
 
@@ -449,7 +459,7 @@ class DetailedRomSchema(RomSchema):
 
         # Sort notes by updated_at (most recent first)
         all_notes.sort(key=lambda x: x.updated_at, reverse=True)
-        db_rom.all_user_notes = all_notes  # type: ignore
+        db_rom.all_user_notes = all_notes  # type: ignore[assignment]
 
         return cls.model_validate(db_rom)
 

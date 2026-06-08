@@ -482,6 +482,10 @@ def get_roms(
             description="Filter roms updated after this datetime (ISO 8601 format with timezone information)."
         ),
     ] = None,
+    with_files: Annotated[
+        bool,
+        Query(description="Whether to include each rom's file entries."),
+    ] = False,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
     unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
@@ -571,15 +575,22 @@ def get_roms(
         rom_id_index = session.scalars(query.with_only_columns(Rom.id)).all()  # type: ignore
 
         def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
-            sibling_ids_by_rom = db_rom_handler.get_sibling_ids_for_roms(
-                [i.id for i in items], session=session
+            rom_ids = [i.id for i in items]
+            files_by_rom = (
+                db_rom_handler.get_files_for_roms(rom_ids, session=session)
+                if with_files
+                else {}
+            )
+            siblings_by_rom = db_rom_handler.get_siblings_for_roms(
+                rom_ids, session=session
             )
 
             return [
                 SimpleRomSchema.from_orm_with_request(
                     db_rom=item,
                     request=request,
-                    sibling_ids=sibling_ids_by_rom.get(item.id, []),
+                    files=files_by_rom.get(item.id, []),
+                    siblings=siblings_by_rom.get(item.id, []),
                 )
                 for item in items
             ]

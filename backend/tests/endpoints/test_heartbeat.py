@@ -53,7 +53,9 @@ def test_heartbeat(client):
 
 
 @pytest.mark.parametrize("authorization_header", ["Bearer ", "Foo", "a b c"])
-def test_heartbeat_with_malformed_authorization_header(client, authorization_header: str):
+def test_heartbeat_with_malformed_authorization_header(
+    client, authorization_header: str
+):
     response = client.get(
         "/api/heartbeat", headers={"Authorization": authorization_header}
     )
