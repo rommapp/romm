@@ -486,10 +486,6 @@ def get_roms(
         bool,
         Query(description="Whether to include each rom's file entries."),
     ] = False,
-    with_siblings: Annotated[
-        bool,
-        Query(description="Whether to include each rom's sibling roms."),
-    ] = False,
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Retrieve roms."""
     unfiltered_query, order_by_attr = db_rom_handler.get_roms_query(
@@ -585,27 +581,14 @@ def get_roms(
                 if with_files
                 else {}
             )
-
-            if with_siblings:
-                siblings_by_rom = db_rom_handler.get_siblings_for_roms(
-                    rom_ids, session=session
-                )
-                # Derive the id list from the full siblings instead of a second query.
-                sibling_ids_by_rom = {
-                    rid: sorted({s.id for s in sibs})
-                    for rid, sibs in siblings_by_rom.items()
-                }
-            else:
-                siblings_by_rom = {}
-                sibling_ids_by_rom = db_rom_handler.get_sibling_ids_for_roms(
-                    rom_ids, session=session
-                )
+            siblings_by_rom = db_rom_handler.get_siblings_for_roms(
+                rom_ids, session=session
+            )
 
             return [
                 SimpleRomSchema.from_orm_with_request(
                     db_rom=item,
                     request=request,
-                    sibling_ids=sibling_ids_by_rom.get(item.id, []),
                     files=files_by_rom.get(item.id, []),
                     siblings=siblings_by_rom.get(item.id, []),
                 )

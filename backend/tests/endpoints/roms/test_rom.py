@@ -114,44 +114,6 @@ def test_get_all_roms_with_files(
     assert item["siblings"] == []
 
 
-def test_get_all_roms_with_siblings(
-    client: TestClient, access_token: str, platform: Platform, admin_user: User
-):
-    siblings = [
-        db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                igdb_id=424242,
-                name=name,
-                slug=slug,
-                fs_name=f"{slug}.zip",
-                fs_name_no_tags=slug,
-                fs_name_no_ext=slug,
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-            )
-        )
-        for name, slug in (("Game A", "game_a"), ("Game B", "game_b"))
-    ]
-    for sibling in siblings:
-        db_rom_handler.add_rom_user(rom_id=sibling.id, user_id=admin_user.id)
-
-    response = client.get(
-        "/api/roms",
-        headers={"Authorization": f"Bearer {access_token}"},
-        params={"platform_id": platform.id, "with_siblings": True},
-    )
-    assert response.status_code == status.HTTP_200_OK
-
-    items = {item["id"]: item for item in response.json()["items"]}
-    rom_a, rom_b = siblings
-    assert [s["id"] for s in items[rom_a.id]["siblings"]] == [rom_b.id]
-    assert [s["id"] for s in items[rom_b.id]["siblings"]] == [rom_a.id]
-    assert items[rom_a.id]["sibling_ids"] == [rom_b.id]
-    # with_siblings alone must not pull in files.
-    assert items[rom_a.id]["files"] == []
-
-
 def test_get_rom_content_requires_auth(client: TestClient, rom: Rom, rom_file):
     response = client.get(f"/api/roms/{rom.id}/content/test_rom.zip")
     assert response.status_code == status.HTTP_403_FORBIDDEN
