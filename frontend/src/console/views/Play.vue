@@ -79,6 +79,10 @@ const loaderStatus = ref<
   "idle" | "loading-local" | "loading-cdn" | "loaded" | "failed"
 >("idle");
 
+function onBezelLoadError() {
+  bezelSrc.value = "";
+}
+
 const exitOptions = computed(() => [
   {
     id: "save",
@@ -779,6 +783,7 @@ onUnmounted(() => {
     >
       <img
         :src="bezelSrc"
+        @error="onBezelLoadError"
         alt=""
         class="select-none"
         draggable="false"
