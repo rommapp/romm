@@ -82,7 +82,7 @@ def test_get_all_roms(
     assert len(items) == 1
     assert items[0]["id"] == rom.id
     assert items[0]["files"] == []
-    assert items[0]["siblings"] == []
+    assert items[0]["sibling_roms"] == []
 
 
 def test_get_all_roms_with_files(
@@ -109,8 +109,8 @@ def test_get_all_roms_with_files(
     assert item["id"] == rom.id
     assert len(item["files"]) == 1
     assert item["files"][0]["file_name"] == "test_rom.zip"
-    # with_files alone must not pull in siblings.
-    assert item["siblings"] == []
+    # with_files alone must not pull in sibling_roms
+    assert item["sibling_roms"] == []
 
 
 def test_get_rom_content_requires_auth(client: TestClient, rom: Rom, rom_file):
