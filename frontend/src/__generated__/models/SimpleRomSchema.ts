@@ -86,6 +86,6 @@ export type SimpleRomSchema = {
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
     files: Array<RomFileSchema>;
-    siblings: Array<SiblingRomSchema>;
+    sibling_roms: Array<SiblingRomSchema>;
 };
 

@@ -91,7 +91,7 @@ export type DetailedRomSchema = {
     merged_screenshots: Array<string>;
     merged_ra_metadata: (RomRAMetadata | null);
     files: Array<RomFileSchema>;
-    siblings: Array<SiblingRomSchema>;
+    sibling_roms: Array<SiblingRomSchema>;
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;
     user_screenshots: Array<ScreenshotSchema>;

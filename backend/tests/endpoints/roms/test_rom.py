@@ -16,7 +16,6 @@ from handler.metadata.ra_handler import RAGameRom, RAHandler
 from handler.metadata.ss_handler import SSHandler, SSRom
 from models.platform import Platform
 from models.rom import Rom, RomFile
-from models.user import User
 
 MOCK_IGDB_ID = 11111
 MOCK_MOBY_ID = 22222

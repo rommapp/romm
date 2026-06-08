@@ -1,7 +1,7 @@
 export type FormInputField<
   T extends Record<string, unknown>,
   K extends keyof T = keyof T,
-> = readonly [key: K, value: T[K], filename?: string];
+> = readonly [key: K, value: T[K] | Blob, filename?: string];
 
 export function buildFormInput<T extends Record<string, unknown>>(
   fields: ReadonlyArray<FormInputField<T>>,
