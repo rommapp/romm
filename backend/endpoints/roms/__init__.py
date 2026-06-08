@@ -580,19 +580,26 @@ def get_roms(
 
         def _transform(items: Sequence[Rom]) -> list[SimpleRomSchema]:
             rom_ids = [i.id for i in items]
-            sibling_ids_by_rom = db_rom_handler.get_sibling_ids_for_roms(
-                rom_ids, session=session
-            )
             files_by_rom = (
                 db_rom_handler.get_files_for_roms(rom_ids, session=session)
                 if with_files
                 else {}
             )
-            siblings_by_rom = (
-                db_rom_handler.get_siblings_for_roms(rom_ids, session=session)
-                if with_siblings
-                else {}
-            )
+
+            if with_siblings:
+                siblings_by_rom = db_rom_handler.get_siblings_for_roms(
+                    rom_ids, session=session
+                )
+                # Derive the id list from the full siblings instead of a second query.
+                sibling_ids_by_rom = {
+                    rid: sorted({s.id for s in sibs})
+                    for rid, sibs in siblings_by_rom.items()
+                }
+            else:
+                siblings_by_rom = {}
+                sibling_ids_by_rom = db_rom_handler.get_sibling_ids_for_roms(
+                    rom_ids, session=session
+                )
 
             return [
                 SimpleRomSchema.from_orm_with_request(

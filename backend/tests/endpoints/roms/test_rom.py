@@ -147,6 +147,7 @@ def test_get_all_roms_with_siblings(
     rom_a, rom_b = siblings
     assert [s["id"] for s in items[rom_a.id]["siblings"]] == [rom_b.id]
     assert [s["id"] for s in items[rom_b.id]["siblings"]] == [rom_a.id]
+    assert items[rom_a.id]["sibling_ids"] == [rom_b.id]
     # with_siblings alone must not pull in files.
     assert items[rom_a.id]["files"] == []
 
