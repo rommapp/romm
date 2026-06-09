@@ -309,3 +309,70 @@ async def test_scan_rom_unmatched_skips_ra_when_id_and_metadata_exist(
     mock_get_rom.assert_not_called()
     # Existing ra_id should be preserved
     assert result.ra_id == 2774
+
+
+def _top_level_rom_file(**kwargs) -> RomFile:
+    """Build a RomFile whose `is_top_level` cached_property is pre-seeded to
+    True, so it passes lookup_rom's filtering without a persisted rom."""
+    file = RomFile(file_path="n64/Game", **kwargs)
+    file.__dict__["is_top_level"] = True
+    return file
+
+
+@patch.object(meta_hasheous_handler, "_request", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "is_enabled", return_value=True)
+async def test_lookup_rom_sends_all_top_level_file_hashes(
+    mock_is_enabled, mock_request
+):
+    """lookup_rom must send the hashes of every top-level file as a list,
+    using chd_sha1_hash (and only it) for files that have one, and skipping
+    files with no hashes or zero size."""
+    mock_request.return_value = {}
+
+    files = [
+        _top_level_rom_file(
+            file_name="disc1.bin",
+            file_size_bytes=100,
+            md5_hash="md5one",
+            sha1_hash="sha1one",
+            crc_hash="crcone",
+        ),
+        # CHD file: only chd_sha1_hash should be sent, raw md5/crc ignored.
+        _top_level_rom_file(
+            file_name="disc2.chd",
+            file_size_bytes=200,
+            md5_hash="ignoredmd5",
+            crc_hash="ignoredcrc",
+            chd_sha1_hash="chdsha1",
+        ),
+        # Zero-size file: must be filtered out entirely.
+        _top_level_rom_file(
+            file_name="empty.bin",
+            file_size_bytes=0,
+            md5_hash="zeromd5",
+        ),
+        # No hashes at all: must be skipped.
+        _top_level_rom_file(file_name="nohash.bin", file_size_bytes=50),
+    ]
+
+    result = await meta_hasheous_handler.lookup_rom("n64", files)
+
+    assert result["hasheous_id"] is None
+    mock_request.assert_called_once()
+    sent_data = mock_request.call_args.kwargs["data"]
+    assert sent_data == [
+        {"md5": "md5one", "sha1": "sha1one", "crc": "crcone"},
+        {"sha1": "chdsha1"},
+    ]
+
+
+@patch.object(meta_hasheous_handler, "_request", new_callable=AsyncMock)
+@patch.object(meta_hasheous_handler, "is_enabled", return_value=True)
+async def test_lookup_rom_skips_request_when_no_hashes(mock_is_enabled, mock_request):
+    """lookup_rom must not hit the API when no file has any usable hash."""
+    files = [_top_level_rom_file(file_name="nohash.bin", file_size_bytes=50)]
+
+    result = await meta_hasheous_handler.lookup_rom("n64", files)
+
+    assert result["hasheous_id"] is None
+    mock_request.assert_not_called()
