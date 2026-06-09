@@ -260,11 +260,11 @@ class HasheousHandler(MetadataHandler):
             if file.chd_sha1_hash:
                 # CHD files are indexed by disc-data SHA1 only
                 # Raw file MD5/CRC are hashes of the container and won't match
-                file_hashes = {"sha1": file.chd_sha1_hash}
+                file_hashes = {"shA1": file.chd_sha1_hash}
             else:
                 file_hashes = {
-                    "md5": file.md5_hash,
-                    "sha1": file.sha1_hash,
+                    "mD5": file.md5_hash,
+                    "shA1": file.sha1_hash,
                     "crc": file.crc_hash,
                 }
 

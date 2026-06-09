@@ -361,8 +361,8 @@ async def test_lookup_rom_sends_all_top_level_file_hashes(
     mock_request.assert_called_once()
     sent_data = mock_request.call_args.kwargs["data"]
     assert sent_data == [
-        {"md5": "md5one", "sha1": "sha1one", "crc": "crcone"},
-        {"sha1": "chdsha1"},
+        {"mD5": "md5one", "shA1": "sha1one", "crc": "crcone"},
+        {"shA1": "chdsha1"},
     ]
 
 
