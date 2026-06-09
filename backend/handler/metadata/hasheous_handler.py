@@ -172,7 +172,7 @@ class HasheousHandler(MetadataHandler):
             )
 
             # Prepare request kwargs
-            request_kwargs = {
+            request_kwargs: dict[str, Any] = {
                 "url": url,
                 "params": params,
                 "headers": {
@@ -256,6 +256,7 @@ class HasheousHandler(MetadataHandler):
         # against any of them.
         data: list[dict] = []
         for file in filtered_files:
+            file_hashes: dict[str, str | None]
             if file.chd_sha1_hash:
                 # CHD files are indexed by disc-data SHA1 only
                 # Raw file MD5/CRC are hashes of the container and won't match
