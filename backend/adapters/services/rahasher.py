@@ -11,6 +11,35 @@ from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 
 RAHASHER_VALID_HASH_REGEX = re.compile(r"[0-9a-f]{32}")
 
+# Disc descriptor / playlist files that point RAHasher at the real data
+# tracks. Handing RAHasher one of these reproduces the hash a shell-expanded
+# glob would, in priority order: a per-disc descriptor (.cue/.gdi) wins over
+# an .m3u playlist so single-disc folders resolve to their own disc.
+RA_DISC_DESCRIPTOR_EXTENSIONS: tuple[str, ...] = (".cue", ".gdi", ".m3u")
+
+
+def _pick_ra_file(folder: Path) -> Path | None:
+    """Pick a single real file to hand RAHasher for a folder-based ROM.
+
+    RAHasher is launched without a shell, so it never expands a ``/*`` glob —
+    it must be given a concrete file. Prefer a disc descriptor
+    (``.cue``/``.gdi``/``.m3u``), which RAHasher follows to the referenced
+    tracks; otherwise fall back to the largest file in the folder (a raw
+    ``.iso``/``.bin`` image, or the main file of a multi-file cartridge set).
+    Returns ``None`` when the folder is missing or holds no files.
+    """
+    if not folder.is_dir():
+        return None
+    files = [f for f in folder.iterdir() if f.is_file()]
+    if not files:
+        return None
+    for ext in RA_DISC_DESCRIPTOR_EXTENSIONS:
+        matches = [f for f in files if f.name.lower().endswith(ext)]
+        if matches:
+            return max(matches, key=lambda f: f.stat().st_size)
+    return max(files, key=lambda f: f.stat().st_size)
+
+
 # Platforms whose hash algorithm requires an on-disk disc image
 # (ISO9660/bin+cue/CHD). When the source file is an archive, RAHasher falls
 # back to "buffer hash" mode which these consoles don't support, failing
@@ -120,11 +149,13 @@ class RAHasherService:
                 )
                 return ""
 
-        # For folder-based multi-file ROMs the path ends with /*. RAHasher
-        # cannot process compressed files via a glob — it fails with "Could not
-        # open file". When the folder contains archives, switch to hashing the
-        # largest archive directly (cartridge platforms support buffer hashing),
-        # or skip entirely for disc platforms that don't.
+        # For folder-based multi-file ROMs the path ends with /*. RAHasher is
+        # launched without a shell (create_subprocess_exec), so it never expands
+        # the glob — it receives the literal "*" and fails ("Could not open
+        # track/file"). Resolve "/*" to a single real file: hash the largest
+        # archive directly when the folder holds archives (or skip for disc
+        # platforms that can't buffer-hash them), otherwise pick a disc
+        # descriptor / track via _pick_ra_file.
         if file_path.endswith("/*"):
             folder = Path(file_path[:-2])
 
@@ -151,6 +182,15 @@ class RAHasherService:
                     max, archive_files, key=lambda f: f.stat().st_size
                 )
                 file_path = str(largest)
+            else:
+                # Folder of uncompressed disc tracks (the standard Redump
+                # .cue + .bin layout, .gdi sets, multi-bin) or a multi-file
+                # cartridge set. RAHasher never expands the "/*" glob itself,
+                # so resolve it to a single real file — the disc descriptor
+                # when present, otherwise the largest track.
+                resolved = await asyncio.to_thread(_pick_ra_file, folder)
+                if resolved is not None:
+                    file_path = str(resolved)
 
         log.debug(
             f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(platform['slug'], color=LIGHTMAGENTA)} - file: {hl(file_path)}"
