@@ -30,14 +30,27 @@ def _pick_ra_file(folder: Path) -> Path | None:
     """
     if not folder.is_dir():
         return None
-    files = [f for f in folder.iterdir() if f.is_file()]
+    try:
+        files = [f for f in folder.iterdir() if f.is_file()]
+    except (OSError, PermissionError):
+        return None
     if not files:
         return None
+
+    def _size(p: Path) -> int:
+        try:
+            return p.stat().st_size
+        except (OSError, PermissionError):
+            return -1
+
     for ext in RA_DISC_DESCRIPTOR_EXTENSIONS:
         matches = [f for f in files if f.name.lower().endswith(ext)]
         if matches:
-            return max(matches, key=lambda f: f.stat().st_size)
-    return max(files, key=lambda f: f.stat().st_size)
+            picked = max(matches, key=_size)
+            return picked if _size(picked) >= 0 else None
+
+    picked = max(files, key=_size)
+    return picked if _size(picked) >= 0 else None
 
 
 # Platforms whose hash algorithm requires an on-disk disc image
