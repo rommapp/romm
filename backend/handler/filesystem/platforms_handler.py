@@ -33,21 +33,26 @@ class FSPlatformsHandler(FSHandler):
     def detect_library_structure(self) -> LibraryStructure | None:
         """Detects the library structure type.
 
+        Structure A (roms/{platform}) takes priority over Structure B
+        ({platform}/roms) so that existing libraries are not broken when a
+        stray {platform}/roms directory happens to exist alongside them.
+
         Returns:
-            "LibraryStructure.B" for Structure B ({platform}/roms) when any
-                platform has a roms subfolder.
             "LibraryStructure.A" for Structure A (roms/{platform}) when the
                 top-level roms folder exists.
+            "LibraryStructure.B" for Structure B ({platform}/roms) when no
+                top-level roms folder exists but at least one platform has a
+                roms subfolder.
             None if no structure detected.
         """
         cnfg = cm.get_config()
 
-        if cnfg.has_structure_path_b:
-            return LibraryStructure.B
-
         roms_path = os.path.join(LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME)
         if os.path.exists(roms_path):
             return LibraryStructure.A
+
+        if cnfg.has_structure_path_b:
+            return LibraryStructure.B
 
         return None
 

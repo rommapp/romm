@@ -337,13 +337,15 @@ class TestFSPlatformsHandler:
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            result = handler.detect_library_structure()
-            assert result == LibraryStructure.B
+            with patch("os.path.exists", return_value=False):
+                result = handler.detect_library_structure()
+                assert result == LibraryStructure.B
 
-    def test_detect_library_structure_b_takes_priority_over_a(
+    def test_detect_library_structure_a_takes_priority_over_b(
         self, handler: FSPlatformsHandler, config
     ):
-        """Structure B is reported even when the top-level roms folder exists."""
+        """Structure A is reported when the top-level roms folder exists, even
+        when Structure B directories are also present."""
         config.has_structure_path_b = True
 
         with patch(
@@ -351,7 +353,7 @@ class TestFSPlatformsHandler:
         ):
             with patch("os.path.exists", return_value=True):
                 result = handler.detect_library_structure()
-                assert result == LibraryStructure.B
+                assert result == LibraryStructure.A
 
     def test_detect_library_structure_none(self, handler: FSPlatformsHandler, config):
         """Test detect_library_structure returns None when no structure detected"""

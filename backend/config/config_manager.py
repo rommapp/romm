@@ -140,6 +140,13 @@ class Config:
 
     @functools.cached_property
     def has_structure_path_b(self) -> bool:
+        # Structure A (roms/{platform}) takes priority: if the top-level roms
+        # folder exists, never claim Structure B even if some platform dirs
+        # happen to contain a roms sub-folder.
+        roms_path = os.path.join(LIBRARY_BASE_PATH, self.ROMS_FOLDER_NAME)
+        if os.path.isdir(roms_path):
+            return False
+
         pattern = os.path.join(
             LIBRARY_BASE_PATH, "*", glob.escape(self.ROMS_FOLDER_NAME)
         )
