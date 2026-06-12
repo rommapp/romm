@@ -54,6 +54,29 @@ class TestUpdateLaunchboxMetadataTask:
         assert task.description == "Updates the LaunchBox metadata store"
         assert task.url == "https://gamesdb.launchbox-app.com/Metadata.zip"
 
+    def test_task_enabled_when_launchbox_api_enabled_even_if_schedule_disabled(
+        self, mocker
+    ):
+        """Test the task remains manually runnable when scheduling is disabled."""
+        mocker.patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=True)
+        mocker.patch(
+            "tasks.scheduled.update_launchbox_metadata.ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA",
+            False,
+        )
+
+        task = UpdateLaunchboxMetadataTask()
+
+        assert task.enabled is True
+        assert task.manual_run is True
+
+    def test_task_disabled_when_launchbox_api_disabled(self, mocker):
+        """Test the task is disabled when the LaunchBox API is unavailable."""
+        mocker.patch.object(LaunchboxHandler, "is_cloud_enabled", return_value=False)
+
+        task = UpdateLaunchboxMetadataTask()
+
+        assert task.enabled is False
+
     @patch.object(RemoteFilePullTask, "run")
     async def test_run_when_launchbox_api_enabled(
         self, mock_super_run, task, sample_zip_content

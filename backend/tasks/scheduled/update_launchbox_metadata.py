@@ -33,7 +33,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
             title="Scheduled LaunchBox metadata update",
             description="Updates the LaunchBox metadata store",
             task_type=TaskType.UPDATE,
-            enabled=ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
+            enabled=meta_launchbox_handler.is_cloud_enabled(),
             cron_string=SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
             manual_run=True,
             func="tasks.scheduled.update_launchbox_metadata.update_launchbox_metadata_task.run",
