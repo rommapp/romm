@@ -160,18 +160,21 @@ start_bin_nginx() {
 # Commands to start valkey-server (handling PID creation internally)
 start_bin_valkey-server() {
 	info_log "Starting internal valkey"
+	# Internal Valkey is used as volatile cache/queue storage. Disable snapshots and
+	# stop-writes-on-bgsave-error to prevent crash loops when persistence cannot write.
+	local -a valkey_args=(--save "" --stop-writes-on-bgsave-error no)
 
 	if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
 		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
-			valkey-server /usr/local/etc/valkey/valkey.conf &
+			valkey-server /usr/local/etc/valkey/valkey.conf "${valkey_args[@]}" &
 		else
-			valkey-server /usr/local/etc/valkey/valkey.conf >/dev/null 2>&1 &
+			valkey-server /usr/local/etc/valkey/valkey.conf "${valkey_args[@]}" >/dev/null 2>&1 &
 		fi
 	else
 		if [[ ${LOGLEVEL} == "DEBUG" ]]; then
-			valkey-server --dir /redis-data &
+			valkey-server --dir /redis-data "${valkey_args[@]}" &
 		else
-			valkey-server --dir /redis-data >/dev/null 2>&1 &
+			valkey-server --dir /redis-data "${valkey_args[@]}" >/dev/null 2>&1 &
 		fi
 	fi
 
