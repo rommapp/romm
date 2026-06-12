@@ -33,9 +33,9 @@ class FSPlatformsHandler(FSHandler):
     def detect_library_structure(self) -> LibraryStructure | None:
         """Detects the library structure type.
 
-        Structure A (roms/{platform}) takes priority over Structure B
-        ({platform}/roms) so that existing libraries are not broken when a
-        stray {platform}/roms directory happens to exist alongside them.
+        Structure A ({roms_folder}/{platform}) takes priority over Structure B
+        ({platform}/{roms_folder}) so that existing libraries are not broken when a
+        stray {platform}/{roms_folder} directory happens to exist alongside them.
 
         Returns:
             "LibraryStructure.A" for Structure A (roms/{platform}) when the
@@ -47,8 +47,7 @@ class FSPlatformsHandler(FSHandler):
         """
         cnfg = cm.get_config()
 
-        roms_path = os.path.join(LIBRARY_BASE_PATH, cnfg.ROMS_FOLDER_NAME)
-        if os.path.exists(roms_path):
+        if cnfg.has_structure_path_a:
             return LibraryStructure.A
 
         if cnfg.has_structure_path_b:
@@ -59,7 +58,10 @@ class FSPlatformsHandler(FSHandler):
     def get_platforms_directory(self) -> str:
         cnfg = cm.get_config()
 
-        # Fallback to config hint when detection is inconclusive
+        # Fallback to config hint when detection is inconclusive: default to
+        # Structure A (roms/{platform}) so a malformed library fails loudly
+        # (FolderStructureNotMatchException) rather than treating the bare
+        # library root as a flat list of platforms.
         return "" if cnfg.has_structure_path_b else cnfg.ROMS_FOLDER_NAME
 
     def get_platform_fs_structure(self, fs_slug: str) -> str:
