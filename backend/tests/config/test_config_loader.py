@@ -160,3 +160,19 @@ def test_malformed_yaml_falls_back_to_defaults():
     assert loader.config.ROMS_FOLDER_NAME == "roms"
     assert loader.config.FIRMWARE_FOLDER_NAME == "bios"
     assert loader.config.SCAN_MEDIA == ["box2d", "screenshot", "manual"]
+
+
+def test_config_updates_serialize_gamelist_media_as_plain_strings(tmp_path):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text("")
+
+    loader = ConfigManager(str(config_file))
+    loader.add_platform_binding("atarist", "atari-st")
+
+    config_text = config_file.read_text()
+    assert "!!python/object" not in config_text
+    assert "thumbnail: box2d" in config_text
+    assert "image: screenshot" in config_text
+
+    reloaded = ConfigManager(str(config_file))
+    assert reloaded.config.PLATFORMS_BINDING == {"atarist": "atari-st"}
