@@ -132,8 +132,8 @@ class Config:
     SCAN_REGION_PRIORITY: list[str]
     SCAN_LANGUAGE_PRIORITY: list[str]
     SCAN_MEDIA: list[str]
-    GAMELIST_MEDIA_THUMBNAIL: str
-    GAMELIST_MEDIA_IMAGE: str
+    GAMELIST_MEDIA_THUMBNAIL: MetadataMediaType
+    GAMELIST_MEDIA_IMAGE: MetadataMediaType
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -436,12 +436,12 @@ class ConfigManager:
             GAMELIST_MEDIA_THUMBNAIL=pydash.get(
                 self._raw_config,
                 "scan.gamelist.media.thumbnail",
-                MetadataMediaType.BOX2D.value,
+                MetadataMediaType.BOX2D,
             ),
             GAMELIST_MEDIA_IMAGE=pydash.get(
                 self._raw_config,
                 "scan.gamelist.media.image",
-                MetadataMediaType.SCREENSHOT.value,
+                MetadataMediaType.SCREENSHOT,
             ),
             PEGASUS_AUTO_EXPORT_ON_SCAN=pydash.get(
                 self._raw_config, "scan.pegasus.export", False
@@ -692,7 +692,7 @@ class ConfigManager:
                 f"{self.config.GAMELIST_MEDIA_THUMBNAIL!r}; falling back to "
                 f"{MetadataMediaType.BOX2D.value!r}. Valid options: {sorted(o.value for o in valid_thumbnail_options)}."
             )
-            self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType.BOX2D.value
+            self.config.GAMELIST_MEDIA_THUMBNAIL = MetadataMediaType.BOX2D
 
         valid_image_options = {
             MetadataMediaType.TITLE_SCREEN,
@@ -714,7 +714,7 @@ class ConfigManager:
                 f"{self.config.GAMELIST_MEDIA_IMAGE!r}; falling back to "
                 f"{MetadataMediaType.SCREENSHOT.value!r}. Valid options: {sorted(o.value for o in valid_image_options)}."
             )
-            self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType.SCREENSHOT.value
+            self.config.GAMELIST_MEDIA_IMAGE = MetadataMediaType.SCREENSHOT
 
     def get_config(self) -> Config:
         try:
@@ -782,8 +782,8 @@ class ConfigManager:
                 "gamelist": {
                     "export": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
                     "media": {
-                        "thumbnail": self.config.GAMELIST_MEDIA_THUMBNAIL,
-                        "image": self.config.GAMELIST_MEDIA_IMAGE,
+                        "thumbnail": self.config.GAMELIST_MEDIA_THUMBNAIL.value,
+                        "image": self.config.GAMELIST_MEDIA_IMAGE.value,
                     },
                 },
                 "pegasus": {
