@@ -164,8 +164,13 @@ def test_malformed_yaml_falls_back_to_defaults():
 
 def test_config_updates_serialize_gamelist_media_as_plain_strings(tmp_path):
     config_file = tmp_path / "config.yml"
-    config_file.write_text("")
-
+    config_file.write_text(
+        "scan:\n"
+        "  gamelist:\n"
+        "    media:\n"
+        "      thumbnail: box2d\n"
+        "      image: screenshot\n"
+    )
     loader = ConfigManager(str(config_file))
     loader.add_platform_binding("atarist", "atari-st")
 
