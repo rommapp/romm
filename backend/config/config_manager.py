@@ -782,8 +782,8 @@ class ConfigManager:
                 "gamelist": {
                     "export": self.config.GAMELIST_AUTO_EXPORT_ON_SCAN,
                     "media": {
-                        "thumbnail": self.config.GAMELIST_MEDIA_THUMBNAIL.value,
-                        "image": self.config.GAMELIST_MEDIA_IMAGE.value,
+                        "thumbnail": str(self.config.GAMELIST_MEDIA_THUMBNAIL),
+                        "image": str(self.config.GAMELIST_MEDIA_IMAGE),
                     },
                 },
                 "pegasus": {
