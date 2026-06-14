@@ -79,6 +79,7 @@ def build_create_schema(token: ClientToken, raw_token: str) -> ClientTokenCreate
         last_used_at=token.last_used_at,
         created_at=token.created_at,
         user_id=token.user_id,
+        device_id=token.device_id,
         raw_token=raw_token,
     )
 
@@ -92,6 +93,7 @@ def build_schema(token: ClientToken) -> ClientTokenSchema:
         last_used_at=token.last_used_at,
         created_at=token.created_at,
         user_id=token.user_id,
+        device_id=token.device_id,
     )
 
 
@@ -104,6 +106,7 @@ def build_admin_schema(token: ClientToken) -> ClientTokenAdminSchema:
         last_used_at=token.last_used_at,
         created_at=token.created_at,
         user_id=token.user_id,
+        device_id=token.device_id,
         username=token.user.username,
     )
 
