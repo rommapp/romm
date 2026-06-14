@@ -168,6 +168,13 @@ def with_details(func):
 
 
 class DBRomsHandler(DBBaseHandler):
+    @staticmethod
+    def _get_name_order_attr(order_attr: Any) -> Any:
+        if order_attr is Rom.name:
+            return func.coalesce(func.nullif(Rom.sort_name, ""), Rom.name)
+
+        return order_attr
+
     @begin_session
     @with_details
     def add_rom(
@@ -884,6 +891,7 @@ class DBRomsHandler(DBBaseHandler):
         else:
             order_attr = Rom.name
 
+        order_attr = self._get_name_order_attr(order_attr)
         order_attr_column = order_attr
 
         # Ignore case when the order attribute is a number
@@ -968,6 +976,8 @@ class DBRomsHandler(DBBaseHandler):
         order_by_attr: Any,
         session: Session = None,  # type: ignore
     ) -> list[Row[tuple[str, int]]]:
+        order_by_attr = self._get_name_order_attr(order_by_attr)
+
         if isinstance(order_by_attr.type, (String, Text)):
             # Remove any leading articles
             order_by_attr = func.trim(

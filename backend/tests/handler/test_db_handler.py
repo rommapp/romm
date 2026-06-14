@@ -378,6 +378,32 @@ def test_article_stripping_sort(platform: Platform):
     assert [r.name for r in roms] == ["The Legend", "A Quest", "Zelda"]
 
 
+def test_sort_name_overrides_name_sort_order(platform: Platform):
+    for name, sort_name in [
+        ("Display Z", "Alpha"),
+        ("Display M", None),
+        ("Display A", "Zulu"),
+    ]:
+        db_rom_handler.add_rom(
+            Rom(
+                platform_id=platform.id,
+                name=name,
+                sort_name=sort_name,
+                slug=name.lower().replace(" ", "-"),
+                fs_name=f"{name}.zip",
+                fs_name_no_tags=name,
+                fs_name_no_ext=name,
+                fs_extension="zip",
+                fs_path=f"{platform.slug}/roms",
+            )
+        )
+
+    roms = db_rom_handler.get_roms_scalar(
+        platform_ids=[platform.id], order_by="name", order_dir="asc"
+    )
+    assert [r.name for r in roms] == ["Display Z", "Display M", "Display A"]
+
+
 def test_bulk_mark_present(platform: Platform):
     """bulk_mark_present sets missing_from_fs=False for the given ROM IDs."""
     roms = []

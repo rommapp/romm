@@ -57,6 +57,7 @@ class GamelistMetadataMedia(TypedDict):
 class GamelistMetadata(GamelistMetadataMedia):
     rating: float | None
     first_release_date: str | None
+    sort_name: str | None
     companies: list[str] | None
     franchises: list[str] | None
     genres: list[str] | None
@@ -182,6 +183,7 @@ def extract_metadata_from_gamelist_rom(
 ) -> GamelistMetadata:
     rating_elem = game.find("rating")
     releasedate_elem = game.find("releasedate")
+    sortname_elem = game.find("sortname")
     developer_elem = game.find("developer")
     publisher_elem = game.find("publisher")
     family_elem = game.find("family")
@@ -198,6 +200,9 @@ def extract_metadata_from_gamelist_rom(
         releasedate_elem.text
         if releasedate_elem is not None and releasedate_elem.text
         else None
+    )
+    sort_name = (
+        sortname_elem.text if sortname_elem is not None and sortname_elem.text else None
     )
     developer = (
         developer_elem.text
@@ -219,6 +224,7 @@ def extract_metadata_from_gamelist_rom(
     return GamelistMetadata(
         rating=rating,
         first_release_date=first_release_date,
+        sort_name=sort_name,
         companies=list(
             dict.fromkeys(
                 pydash.compact(
@@ -385,9 +391,15 @@ class GamelistHandler(MetadataHandler):
                 desc_elem = game.find("desc")
                 lang_elem = game.find("lang")
                 region_elem = game.find("region")
+                sortname_elem = game.find("sortname")
 
                 name = (
                     name_elem.text if name_elem is not None and name_elem.text else ""
+                )
+                sort_name = (
+                    sortname_elem.text
+                    if sortname_elem is not None and sortname_elem.text
+                    else None
                 )
                 summary = (
                     desc_elem.text if desc_elem is not None and desc_elem.text else ""
@@ -408,6 +420,7 @@ class GamelistHandler(MetadataHandler):
                 rom_data = GamelistRom(
                     gamelist_id=str(uuid.uuid4()),
                     name=name,
+                    sort_name=sort_name,
                     summary=summary,
                     regions=regions,
                     languages=languages,

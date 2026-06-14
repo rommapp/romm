@@ -131,6 +131,7 @@ class RomUpdateForm(BaseModel):
         default=None, description="Raw manual metadata as JSON string."
     )
     name: str | None = None
+    sort_name: str | None = None
     summary: str | None = None
     fs_name: str | None = None
     url_cover: str | None = None
@@ -190,6 +191,7 @@ async def parse_rom_update_form(
     raw_hltb_metadata: str | None = Form(default=None),
     raw_manual_metadata: str | None = Form(default=None),
     name: str | None = Form(default=None),
+    sort_name: str | None = Form(default=None),
     summary: str | None = Form(default=None),
     fs_name: str | None = Form(default=None),
     url_cover: str | None = Form(default=None),
@@ -218,6 +220,7 @@ async def parse_rom_update_form(
         "raw_hltb_metadata": raw_hltb_metadata,
         "raw_manual_metadata": raw_manual_metadata,
         "name": name,
+        "sort_name": sort_name,
         "summary": summary,
         "fs_name": fs_name,
         "url_cover": url_cover,
@@ -1131,6 +1134,7 @@ async def update_rom(
                 "hltb_id": None,
                 "libretro_id": None,
                 "name": rom.fs_name,
+                "sort_name": None,
                 "summary": "",
                 "url_screenshots": [],
                 "path_screenshots": [],
@@ -1317,6 +1321,11 @@ async def update_rom(
     cleaned_data.update(
         {
             "name": form_data.name if "name" in provided_fields else rom.name,
+            "sort_name": (
+                form_data.sort_name or None
+                if "sort_name" in provided_fields
+                else rom.sort_name
+            ),
             "summary": (
                 form_data.summary if "summary" in provided_fields else rom.summary
             ),

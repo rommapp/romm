@@ -203,6 +203,7 @@ class Rom(BaseModel):
     fs_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
     name: Mapped[str | None] = mapped_column(String(length=350))
+    sort_name: Mapped[str | None] = mapped_column(String(length=350))
     slug: Mapped[str | None] = mapped_column(String(length=400))
     summary: Mapped[str | None] = mapped_column(Text)
     igdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(

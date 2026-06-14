@@ -321,6 +321,7 @@ async def scan_rom(
         "sha1_hash": rom.sha1_hash,
         "ra_hash": rom.ra_hash,
         "fs_size_bytes": rom.fs_size_bytes,
+        "sort_name": None,
     }
 
     # Check if files have been parsed and hashed
@@ -341,6 +342,7 @@ async def scan_rom(
         rom_attrs.update(
             {
                 "name": rom.name,
+                "sort_name": rom.sort_name,
                 "slug": rom.slug,
                 "summary": rom.summary,
                 "url_cover": rom.url_cover,

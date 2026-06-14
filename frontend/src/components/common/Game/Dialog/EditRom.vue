@@ -314,6 +314,14 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             />
             <v-text-field
               hide-details
+              v-model="rom.sort_name"
+              clearable
+              :label="t('rom.sort-name')"
+              variant="outlined"
+              class="my-4"
+            />
+            <v-text-field
+              hide-details
               v-model="rom.fs_name"
               :rules="[(value: string) => !!value || t('common.required')]"
               :label="

@@ -247,6 +247,7 @@ class RomSchema(BaseModel):
     fs_size_bytes: int
 
     name: str | None
+    sort_name: str | None
     slug: str | None
     summary: str | None
 
