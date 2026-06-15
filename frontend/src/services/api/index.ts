@@ -74,9 +74,14 @@ api.interceptors.response.use(
       const params = new URLSearchParams(search);
       const fullPath = pathname + search;
 
-      // Don't redirect to login if already on an auth-exempt route
+      // Don't redirect to login if already on an auth-exempt route.
+      // Also resolve the route from the browser URL to handle the case where
+      // the router hasn't been started yet (e.g., during app initialization),
+      // which would otherwise cause router.currentRoute.value.name to be undefined.
       const currentRoute = router.currentRoute.value.name?.toString() ?? "";
-      if (isAuthExemptRoute(currentRoute)) {
+      const resolvedRoute = router.resolve(window.location.pathname);
+      const resolvedRouteName = resolvedRoute.name?.toString() ?? "";
+      if (isAuthExemptRoute(currentRoute) || isAuthExemptRoute(resolvedRouteName)) {
         return Promise.reject(error);
       }
 
